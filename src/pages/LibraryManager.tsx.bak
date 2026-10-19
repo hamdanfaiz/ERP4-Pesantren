@@ -1,0 +1,422 @@
+import React, { useState } from 'react';
+import { 
+  Library, BookOpen, Clock, Users, BookMarked, BarChart2, 
+  Search, Filter, Plus, BookUp, RefreshCcw, AlertTriangle, Download, 
+  QrCode, CheckCircle2, ChevronRight, FileText, Smartphone, MoreVertical
+} from 'lucide-react';
+import { cn } from '../lib/utils';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+
+type Tab = 'dashboard' | 'catalog' | 'circulation' | 'digital';
+
+const borrowingTrends = [
+  { month: 'Jan', physical: 420, digital: 150 },
+  { month: 'Feb', physical: 450, digital: 180 },
+  { month: 'Mar', physical: 510, digital: 220 },
+  { month: 'Apr', physical: 480, digital: 250 },
+  { month: 'May', physical: 550, digital: 290 },
+  { month: 'Jun', physical: 600, digital: 340 },
+];
+
+const popularCategories = [
+  { name: 'Islamic Studies', value: 45 },
+  { name: 'Fiction', value: 25 },
+  { name: 'Science', value: 15 },
+  { name: 'History', value: 10 },
+  { name: 'Others', value: 5 },
+];
+
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b'];
+
+const mockCatalog = [
+  { id: 'B001', title: 'Riyadhus Shalihin', author: 'Imam an-Nawawi', category: 'Islamic Studies', isbn: '978-602-123-456-7', status: 'Available', copies: 12, shelf: 'A-01' },
+  { id: 'B002', title: 'Calculus Early Transcendentals', author: 'James Stewart', category: 'Science', isbn: '978-130-527-237-8', status: 'Borrowed', copies: 0, shelf: 'C-12' },
+  { id: 'B003', title: 'Sejarah Peradaban Islam', author: 'Dr. Badri Yatim', category: 'History', isbn: '978-979-421-337-1', status: 'Available', copies: 5, shelf: 'B-05' },
+  { id: 'B004', title: 'Clean Code', author: 'Robert C. Martin', category: 'Computer Science', isbn: '978-013-235-088-4', status: 'Available', copies: 2, shelf: 'D-02' },
+];
+
+const mockCirculation = [
+  { id: 'CIR-1001', student: 'Ahmad Rafiq', bookTitle: 'Clean Code', borrowDate: '2024-06-01', dueDate: '2024-06-15', status: 'Active', fine: 0 },
+  { id: 'CIR-1002', student: 'Budi Santoso', bookTitle: 'Calculus Early Transcendentals', borrowDate: '2024-05-20', dueDate: '2024-06-03', status: 'Overdue', fine: 25000 },
+  { id: 'CIR-1003', student: 'Fatimah Az-Zahra', bookTitle: 'Sejarah Peradaban Islam', borrowDate: '2024-06-10', dueDate: '2024-06-24', status: 'Active', fine: 0 },
+];
+
+const mockDigitalRefs = [
+  { id: 'D001', title: 'Journal of Islamic Economics', format: 'PDF', size: '2.4 MB', downloads: 1240, type: 'Academic Journal' },
+  { id: 'D002', title: 'Tafsir Ibnu Katsir Vol 1', format: 'EPUB', size: '15.1 MB', downloads: 3500, type: 'E-Book' },
+  { id: 'D003', title: 'Interactive Periodic Table', format: 'HTML5', size: 'N/A', downloads: 850, type: 'Interactive Media' },
+];
+
+export function LibraryManager() {
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+
+  const renderDashboard = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { title: 'Total Collections', value: '15,240', icon: BookMarked, color: 'text-indigo-500', bg: 'bg-indigo-100 dark:bg-indigo-500/20', trend: 'Physical & Digital' },
+          { title: 'Active Borrowers', value: '842', icon: Users, color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-500/20', trend: '+15% this month' },
+          { title: 'Currently Borrowed', value: '1,120', icon: BookUp, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-500/20', trend: 'Items out' },
+          { title: 'Overdue Items', value: '45', icon: AlertTriangle, color: 'text-rose-500', bg: 'bg-rose-100 dark:bg-rose-500/20', trend: 'Needs attention' }
+        ].map((stat, i) => (
+          <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-4 ${stat.bg}`}>
+              <stat.icon className={`w-6 h-6 ${stat.color}`} />
+            </div>
+            <p className="text-slate-500 text-sm font-medium">{stat.title}</p>
+            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1">{stat.value}</h3>
+            <p className="text-xs text-slate-400 mt-2">{stat.trend}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+           <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <BarChart2 className="w-5 h-5 text-indigo-500" /> Borrowing & Access Trends
+              </h3>
+              <div className="flex gap-4 text-xs font-medium text-slate-500">
+                 <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-indigo-500"></span> Physical Books</div>
+                 <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500"></span> Digital Access</div>
+              </div>
+           </div>
+           <div className="h-72">
+             <ResponsiveContainer width="100%" height="100%">
+               <AreaChart data={borrowingTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                 <defs>
+                    <linearGradient id="colorPhysical" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorDigital" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                 </defs>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />
+                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                 <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} />
+                 <Area type="monotone" dataKey="physical" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorPhysical)" />
+                 <Area type="monotone" dataKey="digital" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorDigital)" />
+               </AreaChart>
+             </ResponsiveContainer>
+           </div>
+         </div>
+         
+         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+           <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-2">
+             <Library className="w-5 h-5 text-emerald-500" /> Popular Categories
+           </h3>
+           <p className="text-xs text-slate-500 mb-4">Distribution of borrowed items by genre</p>
+           <div className="flex-1 min-h-[200px]">
+             <ResponsiveContainer width="100%" height="100%">
+               <PieChart>
+                 <Pie
+                   data={popularCategories}
+                   innerRadius={60}
+                   outerRadius={80}
+                   paddingAngle={5}
+                   dataKey="value"
+                 >
+                   {popularCategories.map((entry, index) => (
+                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                   ))}
+                 </Pie>
+                 <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} />
+               </PieChart>
+             </ResponsiveContainer>
+           </div>
+           <div className="grid grid-cols-2 gap-2 mt-4">
+              {popularCategories.map((cat, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                   <span className="text-slate-600 dark:text-slate-400">{cat.name}</span>
+                </div>
+              ))}
+           </div>
+         </div>
+      </div>
+    </div>
+  );
+
+  const renderCatalog = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+         <div className="flex-1 relative">
+            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Search books by title, author, or ISBN..." 
+              className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
+            />
+         </div>
+         <div className="flex gap-2">
+            <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium">
+               <Filter className="w-4 h-4" /> Filter
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors">
+               <Plus className="w-4 h-4" /> Add Book
+            </button>
+         </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+         <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                <tr>
+                  <th className="px-6 py-4 font-semibold">Title & Author</th>
+                  <th className="px-6 py-4 font-semibold">Category</th>
+                  <th className="px-6 py-4 font-semibold">ISBN</th>
+                  <th className="px-6 py-4 font-semibold">Location</th>
+                  <th className="px-6 py-4 font-semibold text-center">Status</th>
+                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {mockCatalog.map((book) => (
+                  <tr key={book.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                     <td className="px-6 py-4">
+                        <div className="flex items-start gap-3">
+                           <div className="w-10 h-14 bg-indigo-100 dark:bg-indigo-900/30 rounded flex items-center justify-center shrink-0 border border-indigo-200 dark:border-indigo-800/50">
+                             <BookOpen className="w-5 h-5 text-indigo-500" />
+                           </div>
+                           <div>
+                             <p className="font-bold text-slate-800 dark:text-slate-200">{book.title}</p>
+                             <p className="text-slate-500 text-xs mt-0.5">{book.author}</p>
+                           </div>
+                        </div>
+                     </td>
+                     <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
+                        <span className="bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md text-xs font-medium">
+                          {book.category}
+                        </span>
+                     </td>
+                     <td className="px-6 py-4 text-slate-500 font-mono text-xs">{book.isbn}</td>
+                     <td className="px-6 py-4 text-slate-600 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                       Shelf {book.shelf}
+                     </td>
+                     <td className="px-6 py-4 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                            book.status === 'Available' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                          )}>
+                            {book.status}
+                          </span>
+                          <span className="text-xs text-slate-400 font-medium">{book.copies} copies</span>
+                        </div>
+                     </td>
+                     <td className="px-6 py-4 text-right">
+                        <button className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-medium text-xs px-3 py-1.5 rounded bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 transition-colors">
+                          View Details
+                        </button>
+                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+         </div>
+      </div>
+    </div>
+  );
+
+  const renderCirculation = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         <div className="lg:col-span-1 space-y-6 print:hidden">
+            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-xl p-6 text-white shadow-md relative overflow-hidden">
+               <QrCode className="absolute -right-4 -bottom-4 w-32 h-32 text-indigo-500/20" />
+               <h3 className="font-bold text-xl mb-2 relative z-10">Smart Check-out</h3>
+               <p className="text-indigo-200 text-sm mb-6 relative z-10">Scan student ID card and book RFID tag to automatically process borrowing.</p>
+               <button className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold py-3 rounded-lg flex justify-center items-center gap-2 backdrop-blur-md transition-colors relative z-10">
+                 <QrCode className="w-5 h-5" /> Start Scanning
+               </button>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl shadow-sm">
+               <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 mb-4">
+                 <AlertTriangle className="w-5 h-5 text-rose-500" /> Overdue Fines Summary
+               </h4>
+               <div className="flex items-end gap-2 mb-2">
+                 <h2 className="text-3xl font-black text-slate-800 dark:text-slate-200">Rp 125.000</h2>
+               </div>
+               <p className="text-slate-500 text-sm mb-6">Total outstanding fines from overdue items across all library patrons.</p>
+               <button className="w-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium py-2 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
+                 Manage Fines
+               </button>
+            </div>
+         </div>
+         
+         <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col print:shadow-none print:border-none print:col-span-3">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center print:bg-transparent print:border-b-2 print:border-slate-800">
+               <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                 <RefreshCcw className="w-5 h-5 text-emerald-500 print:text-black" /> Active Circulation
+               </h3>
+               <div className="flex items-center gap-2">
+                 <button onClick={() => window.print()} className="print:hidden flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                   <Download className="w-4 h-4" /> Print Report
+                 </button>
+                 <div className="relative w-64 print:hidden">
+                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                   <input 
+                     type="text" 
+                     placeholder="Search ID, Student, or Book" 
+                     className="w-full pl-9 pr-3 py-1.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                   />
+                 </div>
+               </div>
+            </div>
+            <div className="overflow-x-auto flex-1">
+               <table className="w-full text-sm text-left">
+                 <thead className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                   <tr>
+                     <th className="px-4 py-3 font-semibold">Borrower</th>
+                     <th className="px-4 py-3 font-semibold">Item Details</th>
+                     <th className="px-4 py-3 font-semibold text-center">Due Date</th>
+                     <th className="px-4 py-3 font-semibold text-right">Status</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                   {mockCirculation.map((cir, i) => (
+                     <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="px-4 py-3">
+                           <div className="font-bold text-slate-800 dark:text-slate-200">{cir.student}</div>
+                           <div className="text-xs text-slate-500 font-mono mt-0.5">{cir.id}</div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400 font-medium">
+                           {cir.bookTitle}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                           <div className={cn(
+                             "font-bold text-xs",
+                             cir.status === 'Overdue' ? "text-rose-600 dark:text-rose-400" : "text-slate-600 dark:text-slate-400"
+                           )}>{cir.dueDate}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                           <div className="flex flex-col items-end gap-1">
+                              <span className={cn(
+                                "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                cir.status === 'Active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30'
+                              )}>
+                                {cir.status}
+                              </span>
+                              {cir.fine > 0 && <span className="text-[10px] font-bold text-rose-500">Fine: Rp {cir.fine.toLocaleString()}</span>}
+                           </div>
+                        </td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+            </div>
+         </div>
+      </div>
+    </div>
+  );
+
+  const renderDigitalRefs = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+         <div className="absolute top-0 right-0 p-32 bg-white/5 rounded-full blur-3xl mix-blend-screen pointer-events-none"></div>
+         <div className="z-10 max-w-2xl text-center md:text-left">
+           <Smartphone className="w-12 h-12 text-blue-200 mb-4 mx-auto md:mx-0" />
+           <h2 className="text-3xl font-black mb-2 flex items-center justify-center md:justify-start gap-3">
+             <span className="bg-white/20 text-blue-50 px-3 py-1 rounded-full text-sm font-bold uppercase tracking-widest backdrop-blur-sm border border-white/20">Digital Lib</span>
+             E-Library Portal
+           </h2>
+           <p className="text-blue-100 text-sm leading-relaxed mb-6">
+             Manage and distribute thousands of digital journals, e-books, and scholarly references directly to student devices. Integrated with secure document viewers to prevent unauthorized downloads.
+           </p>
+           <button className="bg-white text-indigo-700 font-bold px-6 py-2.5 rounded-lg shadow-lg hover:bg-blue-50 transition-colors flex items-center gap-2 mx-auto md:mx-0">
+             <Plus className="w-5 h-5" /> Upload Digital Asset
+           </button>
+         </div>
+         <div className="z-10 grid grid-cols-2 gap-4 w-full md:w-auto">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/10 p-4 rounded-xl text-center">
+               <div className="text-2xl font-black mb-1">14.5k</div>
+               <div className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Digital Items</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm border border-white/10 p-4 rounded-xl text-center">
+               <div className="text-2xl font-black mb-1">2.4M</div>
+               <div className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Total Downloads</div>
+            </div>
+         </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+         {mockDigitalRefs.map((doc, i) => (
+           <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm group hover:border-indigo-500/50 transition-colors">
+              <div className="flex justify-between items-start mb-4">
+                 <div className={cn(
+                   "w-12 h-12 rounded-lg flex items-center justify-center shrink-0 shadow-inner",
+                   doc.format === 'PDF' ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-500' :
+                   doc.format === 'EPUB' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-500' :
+                   'bg-amber-100 dark:bg-amber-900/30 text-amber-500'
+                 )}>
+                   {doc.format === 'PDF' ? <FileText className="w-6 h-6" /> : 
+                    doc.format === 'EPUB' ? <BookOpen className="w-6 h-6" /> : <Smartphone className="w-6 h-6" />}
+                 </div>
+                 <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                   {doc.downloads.toLocaleString()} accesses
+                 </span>
+              </div>
+              <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                {doc.title}
+              </h4>
+              <p className="text-xs text-slate-500 mb-4">{doc.type} • {doc.size}</p>
+              <div className="flex gap-2">
+                 <button className="flex-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium py-2 rounded-lg text-sm transition-colors border border-slate-200 dark:border-slate-700 flex justify-center items-center gap-2">
+                   View
+                 </button>
+                 <button className="w-10 flex items-center justify-center bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
+                   <MoreVertical className="w-4 h-4" />
+                 </button>
+              </div>
+           </div>
+         ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+            <Library className="w-8 h-8 text-emerald-600" />
+            Library & E-References
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-2">
+            Manage library catalogs, book circulation, and diverse digital references globally.
+          </p>
+        </div>
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg overflow-x-auto w-full md:w-auto hide-scrollbar print:hidden">
+          {(['dashboard', 'catalog', 'circulation', 'digital'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "px-4 py-2 rounded-md text-sm font-medium transition-all capitalize whitespace-nowrap",
+                activeTab === tab 
+                  ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm" 
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
+              )}
+            >
+              {tab === 'digital' ? 'Digital Lib' : tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6">
+         {activeTab === 'dashboard' && renderDashboard()}
+         {activeTab === 'catalog' && renderCatalog()}
+         {activeTab === 'circulation' && renderCirculation()}
+         {activeTab === 'digital' && renderDigitalRefs()}
+      </div>
+    </div>
+  );
+}
+

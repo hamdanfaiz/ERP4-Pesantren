@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Informasi Manajemen PPDB",
+  "description": "Sistem informasi penerimaan peserta didik baru (PPDB) dengan integrasi database.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

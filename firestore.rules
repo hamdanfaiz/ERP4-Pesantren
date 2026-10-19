@@ -1,0 +1,836 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function profileExists() {
+      return signedIn() && exists(profilePath());
+    }
+
+    function currentProfile() {
+      return get(profilePath()).data;
+    }
+
+    function activeTenantUser() {
+      return profileExists()
+        && currentProfile().status in ['Active', 'active']
+        && currentProfile().tenantId is string;
+    }
+
+    function roleBaselineIncludes(role, modId) {
+      return (role == 'SuperAdmin' && modId in ['dashboard', 'master-data', 'users', 'ppdb', 'tahfidz', 'boarding', 'finance', 'communication', 'academic', 'healthcare', 'cooperative', 'hris', 'document', 'library', 'donation', 'laundry', 'settings', 'enterprise', 'erp', 'ga', 'alumni', 'crm', 'lms', 'intelligence', 'marketplace', 'ecosystem', 'cbt'])
+        || (role == 'Admin' && modId in ['dashboard', 'master-data', 'users', 'ppdb', 'tahfidz', 'boarding', 'finance', 'communication', 'academic', 'healthcare', 'cooperative', 'hris', 'document', 'library', 'donation', 'laundry', 'enterprise', 'erp', 'ga', 'alumni', 'crm', 'lms', 'intelligence', 'marketplace', 'ecosystem', 'cbt'])
+        || (role == 'Ustadz' && modId in ['dashboard', 'academic', 'tahfidz', 'boarding', 'lms', 'cbt', 'communication', 'library'])
+        || (role == 'Santri' && modId in ['dashboard', 'academic', 'tahfidz', 'boarding', 'finance', 'lms', 'cbt', 'library'])
+        || (role == 'Walisantri' && modId in ['dashboard', 'academic', 'tahfidz', 'boarding', 'finance', 'communication', 'donation']);
+    }
+
+    function hasModuleAccess(modId) {
+      return activeTenantUser() && (
+        currentProfile().role == 'SuperAdmin' || (
+          modId != 'settings' && (
+            (currentProfile().modulePermissions is map && modId in currentProfile().modulePermissions)
+              ? currentProfile().modulePermissions[modId] == true
+              : roleBaselineIncludes(currentProfile().role, modId)
+          )
+        )
+      );
+    }
+
+    function tenantMatches(data) {
+      return data.tenantId is string
+        && data.tenantId == currentProfile().tenantId;
+    }
+
+    function tenantAdmin(data) {
+      return activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && tenantMatches(data);
+    }
+
+    function tenantSuperAdmin(data) {
+      return activeTenantUser()
+        && currentProfile().role == 'SuperAdmin'
+        && tenantMatches(data);
+    }
+
+    function canReadModuleRecord(data, modId) {
+      return activeTenantUser() && tenantMatches(data) && hasModuleAccess(modId);
+    }
+
+    function canReadStaffOperational(data, modId) {
+      return activeTenantUser() && tenantMatches(data) && hasModuleAccess(modId)
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz'];
+    }
+
+    function canCreateStaffOperational(data, modId) {
+      return activeTenantUser() && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess(modId) && tenantMatches(data);
+    }
+
+    function canUpdateStaffOperational(existingData, nextData, modId) {
+      return activeTenantUser() && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess(modId) && tenantMatches(existingData) && tenantMatches(nextData)
+        && nextData.tenantId == existingData.tenantId;
+    }
+
+    function canDeleteStaffOperational(existingData, modId) {
+      return tenantAdmin(existingData) && hasModuleAccess(modId);
+    }
+
+    function canCreateModuleRecord(modId) {
+      return activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && hasModuleAccess(modId)
+        && tenantMatches(request.resource.data);
+    }
+
+    function canUpdateModuleRecord(existingData, nextData, modId) {
+      return tenantAdmin(existingData)
+        && hasModuleAccess(modId)
+        && tenantMatches(nextData)
+        && nextData.tenantId == existingData.tenantId;
+    }
+
+    function canDeleteModuleRecord(existingData, modId) {
+      return tenantAdmin(existingData) && hasModuleAccess(modId);
+    }
+
+    function canReadMasterData(data) {
+      return activeTenantUser() && tenantMatches(data) && (
+        hasModuleAccess('master-data') || hasModuleAccess('ppdb') || hasModuleAccess('academic')
+        || hasModuleAccess('boarding') || hasModuleAccess('tahfidz') || hasModuleAccess('finance')
+        || hasModuleAccess('ga') || hasModuleAccess('library') || hasModuleAccess('cbt')
+        || hasModuleAccess('lms')
+      );
+    }
+
+    function canReadEntityRecord(data, recordId) {
+      return activeTenantUser() && tenantMatches(data) && (
+        hasModuleAccess('master-data')
+        || (data.type == 'Alumni' && currentProfile().role in ['Admin', 'SuperAdmin'] && hasModuleAccess('alumni'))
+        || (data.type in ['Guru', 'Asatidz'] && currentProfile().role in ['Admin', 'SuperAdmin'] && (hasModuleAccess('master-data') || hasModuleAccess('hris') || hasModuleAccess('academic') || hasModuleAccess('tahfidz')))
+        || (data.type in ['Guru', 'Asatidz'] && currentProfile().role == 'Ustadz' && (hasModuleAccess('academic') || hasModuleAccess('tahfidz')))
+        || (data.type == 'Santri' && currentProfile().role in ['Admin', 'SuperAdmin'] && (
+          hasModuleAccess('academic') || hasModuleAccess('boarding') || hasModuleAccess('tahfidz')
+          || hasModuleAccess('finance') || hasModuleAccess('library') || hasModuleAccess('alumni')
+          || hasModuleAccess('lms') || hasModuleAccess('cbt') || hasModuleAccess('ppdb')
+        ))
+        || (data.type == 'Santri' && currentProfile().role == 'Ustadz' && (
+          hasModuleAccess('academic') || hasModuleAccess('boarding') || hasModuleAccess('tahfidz')
+          || hasModuleAccess('library') || hasModuleAccess('lms') || hasModuleAccess('cbt')
+        ))
+        || (data.type == 'Santri' && currentProfile().role in ['Santri', 'Walisantri']
+          && currentProfile().linkedSantriId is string
+          && recordId == currentProfile().linkedSantriId
+          && (hasModuleAccess('academic') || hasModuleAccess('boarding') || hasModuleAccess('tahfidz') || hasModuleAccess('finance')))
+      );
+    }
+
+    function ownerUid(data) {
+      return (('createdByUid' in data.keys()) && data.createdByUid == request.auth.uid)
+        || (('ownerUid' in data.keys()) && data.ownerUid == request.auth.uid)
+        || (('userUid' in data.keys()) && data.userUid == request.auth.uid)
+        || (('uid' in data.keys()) && data.uid == request.auth.uid)
+        || (('userId' in data.keys()) && data.userId == request.auth.uid)
+        || (('recipientUid' in data.keys()) && data.recipientUid == request.auth.uid);
+    }
+
+    function financeAdmin() {
+      return activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && hasModuleAccess('finance');
+    }
+
+    function financeBookOpen() {
+      let tenantId = currentProfile().tenantId;
+      let controlPath = /databases/$(database)/documents/tenants/$(tenantId)/settings/financeControl;
+      return !exists(controlPath)
+        || (get(controlPath).data.tenantId == tenantId && get(controlPath).data.financeLocked != true);
+    }
+
+    function financeProofOwner(data) {
+      return activeTenantUser()
+        && currentProfile().role == 'Walisantri'
+        && hasModuleAccess('finance')
+        && currentProfile().linkedSantriId is string
+        && data.santriId == currentProfile().linkedSantriId;
+    }
+
+    function settingsHasNoClientSecrets(data) {
+      return !('integrations' in data)
+        || (data.integrations is map
+          && !data.integrations.keys().hasAny(['waGatewayKey', 'paymentGatewayKey', 'smtpPassword', 'smtpPass']));
+    }
+
+    // Profiles are provisioned only by the trusted server. Users can read only their own tenant-bound profile.
+    match /users/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid
+        && resource.data.tenantId is string;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /tenants/{tenantId} {
+      allow get: if activeTenantUser()
+        && tenantId == currentProfile().tenantId
+        && resource.data.tenantId == tenantId;
+      allow list, create, update, delete: if false;
+
+      match /settings/{settingId} {
+        allow get: if activeTenantUser()
+          && tenantId == currentProfile().tenantId
+          && resource.data.tenantId == tenantId
+          && settingsHasNoClientSecrets(resource.data)
+          && (settingId == 'global' || (settingId == 'financeControl' && financeAdmin()));
+        allow list: if false;
+        allow create: if activeTenantUser()
+          && tenantId == currentProfile().tenantId
+          && request.resource.data.tenantId == tenantId
+          && settingsHasNoClientSecrets(request.resource.data)
+          && ((settingId == 'global' && currentProfile().role == 'SuperAdmin' && hasModuleAccess('settings'))
+            || (settingId == 'financeControl' && financeAdmin()));
+        allow update: if activeTenantUser()
+          && tenantId == currentProfile().tenantId
+          && resource.data.tenantId == tenantId
+          && request.resource.data.tenantId == tenantId
+          && settingsHasNoClientSecrets(request.resource.data)
+          && ((settingId == 'global' && currentProfile().role == 'SuperAdmin' && hasModuleAccess('settings'))
+            || (settingId == 'financeControl' && financeAdmin()));
+        allow delete: if settingId == 'financeControl' && tenantSuperAdmin(resource.data);
+      }
+    }
+
+    match /master_data/{itemId} {
+      allow get, list: if canReadMasterData(resource.data);
+      allow create: if canCreateModuleRecord('master-data');
+      allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'master-data');
+      allow delete: if canDeleteModuleRecord(resource.data, 'master-data');
+    }
+
+    match /entityRecords/{recordId} {
+      allow get, list: if canReadEntityRecord(resource.data, recordId);
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && (hasModuleAccess('master-data') || hasModuleAccess('ppdb'))
+        && tenantMatches(request.resource.data);
+      allow update: if tenantAdmin(resource.data)
+        && (hasModuleAccess('master-data') || hasModuleAccess('ppdb') || (resource.data.type == 'Santri' && hasModuleAccess('alumni')))
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if tenantAdmin(resource.data) && (hasModuleAccess('master-data') || hasModuleAccess('alumni'));
+    }
+
+    match /units/{unitId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'master-data');
+      allow create: if canCreateModuleRecord('master-data');
+      allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'master-data');
+      allow delete: if canDeleteModuleRecord(resource.data, 'master-data');
+    }
+
+    match /candidates/{candidateId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'ppdb')
+        && currentProfile().role in ['SuperAdmin', 'Admin'];
+      allow create: if canCreateModuleRecord('ppdb');
+      allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'ppdb');
+      allow delete: if canDeleteModuleRecord(resource.data, 'ppdb');
+    }
+
+    match /nisReservations/{reservationId} {
+      allow get: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && (hasModuleAccess('ppdb') || hasModuleAccess('master-data'))
+        && (!exists(/databases/$(database)/documents/nisReservations/$(reservationId))
+          || tenantMatches(resource.data));
+      allow list: if false;
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && (hasModuleAccess('ppdb') || hasModuleAccess('master-data'))
+        && tenantMatches(request.resource.data)
+        && request.resource.data.nis is string
+        && request.resource.data.candidateId is string
+        && request.resource.data.santriId is string;
+      allow update, delete: if false;
+    }
+
+    match /identityReservations/{reservationId} {
+      allow get: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && (hasModuleAccess('master-data') || hasModuleAccess('ppdb'))
+        && (!exists(/databases/$(database)/documents/identityReservations/$(reservationId))
+          || tenantMatches(resource.data));
+      allow list: if false;
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && (hasModuleAccess('master-data') || hasModuleAccess('ppdb'))
+        && tenantMatches(request.resource.data)
+        && request.resource.data.kind in ['nik', 'nisn', 'nuptk']
+        && request.resource.data.value is string
+        && request.resource.data.ownerId is string
+        && request.resource.data.recordId is string
+        && request.resource.data.source in ['master_data', 'ppdb'];
+      allow update, delete: if false;
+    }
+
+    match /ppdbRegistrationReservations/{reservationId} {
+      allow get: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && hasModuleAccess('ppdb')
+        && (!exists(/databases/$(database)/documents/ppdbRegistrationReservations/$(reservationId))
+          || tenantMatches(resource.data));
+      allow list: if false;
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && hasModuleAccess('ppdb')
+        && tenantMatches(request.resource.data)
+        && request.resource.data.registrationId is string
+        && request.resource.data.candidateId is string;
+      allow update, delete: if false;
+    }
+
+    match /ppdbCounters/{counterId} {
+      allow read, write: if false;
+    }
+
+    match /financeBillings/{billingId} {
+      allow get, list: if activeTenantUser()
+        && tenantMatches(resource.data)
+        && (financeAdmin() || financeProofOwner(resource.data));
+      allow create: if financeAdmin()
+        && financeBookOpen()
+        && tenantMatches(request.resource.data)
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
+      allow update: if financeAdmin()
+        && financeBookOpen()
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if tenantSuperAdmin(resource.data) && financeAdmin();
+    }
+
+    match /financeExpenses/{expenseId} {
+      allow get, list: if activeTenantUser()
+        && tenantMatches(resource.data)
+        && (financeAdmin() || (currentProfile().role == 'Ustadz'
+          && hasModuleAccess('finance')
+          && resource.data.requesterUid == request.auth.uid));
+      allow create: if activeTenantUser()
+        && financeBookOpen()
+        && hasModuleAccess('finance')
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && tenantMatches(request.resource.data)
+        && request.resource.data.requesterUid == request.auth.uid
+        && request.resource.data.status == 'Pending'
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
+      allow update: if financeAdmin()
+        && financeBookOpen()
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId
+        && resource.data.status == 'Pending'
+        && resource.data.requesterUid != request.auth.uid
+        && request.resource.data.requesterUid == resource.data.requesterUid
+        && request.resource.data.status in ['Approved', 'Rejected']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedByUid', 'approvedAt', 'reviewedByUid', 'reviewedAt', 'rejectionReason', 'updatedAt'])
+        && ((request.resource.data.status == 'Approved' && request.resource.data.approvedByUid == request.auth.uid)
+          || (request.resource.data.status == 'Rejected' && request.resource.data.reviewedByUid == request.auth.uid));
+      allow delete: if tenantSuperAdmin(resource.data) && financeAdmin();
+    }
+
+    match /financeTransactions/{transactionId} {
+      allow get, list: if financeAdmin() && tenantMatches(resource.data);
+      allow create: if financeAdmin()
+        && financeBookOpen()
+        && tenantMatches(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.type in ['income', 'expense']
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && ((request.resource.data.type == 'income'
+          && request.resource.data.sourceType == 'billing'
+          && existsAfter(/databases/$(database)/documents/financeBillings/$(request.resource.data.sourceId))
+          && getAfter(/databases/$(database)/documents/financeBillings/$(request.resource.data.sourceId)).data.tenantId == request.resource.data.tenantId
+          && getAfter(/databases/$(database)/documents/financeBillings/$(request.resource.data.sourceId)).data.status == 'Paid')
+        || (request.resource.data.type == 'expense'
+          && request.resource.data.sourceType == 'expense'
+          && existsAfter(/databases/$(database)/documents/financeExpenses/$(request.resource.data.sourceId))
+          && getAfter(/databases/$(database)/documents/financeExpenses/$(request.resource.data.sourceId)).data.tenantId == request.resource.data.tenantId
+          && getAfter(/databases/$(database)/documents/financeExpenses/$(request.resource.data.sourceId)).data.status == 'Approved'));
+      allow update, delete: if false;
+    }
+
+    match /finance_transactions/{transactionId} {
+      allow read, write: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow get, list: if activeTenantUser()
+        && tenantMatches(resource.data)
+        && hasModuleAccess('dashboard')
+        && ((('userId' in resource.data.keys()) && resource.data.userId == request.auth.uid)
+          || (('recipientUid' in resource.data.keys()) && resource.data.recipientUid == request.auth.uid)
+          || (currentProfile().role in ['SuperAdmin', 'Admin'] && hasModuleAccess('communication')));
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && (hasModuleAccess('cbt') || hasModuleAccess('communication'))
+        && tenantMatches(request.resource.data);
+      allow update: if activeTenantUser()
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId
+        && (currentProfile().role in ['SuperAdmin', 'Admin'] || ownerUid(resource.data))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']);
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('communication');
+    }
+
+    match /cbt_questions/{questionId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'cbt');
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('cbt')
+        && tenantMatches(request.resource.data);
+      allow update: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('cbt')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('cbt');
+    }
+
+    match /cbt_config/{configId} {
+      allow get: if canReadModuleRecord(resource.data, 'cbt');
+      allow list: if false;
+      allow create: if canCreateModuleRecord('cbt');
+      allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'cbt');
+      allow delete: if canDeleteModuleRecord(resource.data, 'cbt');
+    }
+
+    match /ga_facilities/{facilityId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'ga');
+      allow create: if canCreateModuleRecord('ga');
+      allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'ga');
+      allow delete: if canDeleteModuleRecord(resource.data, 'ga');
+    }
+
+    match /ga_inventory/{itemId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'ga');
+      allow create: if canCreateModuleRecord('ga');
+      allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'ga');
+      allow delete: if canDeleteModuleRecord(resource.data, 'ga');
+    }
+
+    match /library_books/{bookId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'library');
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('library')
+        && tenantMatches(request.resource.data);
+      allow update: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('library')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('library');
+    }
+
+    match /library_circulations/{circulationId} {
+      allow get, list: if activeTenantUser()
+        && tenantMatches(resource.data)
+        && hasModuleAccess('library')
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz'];
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('library')
+        && tenantMatches(request.resource.data);
+      allow update: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('library')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('library');
+    }
+
+    match /library_digital_assets/{assetId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'library');
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('library')
+        && tenantMatches(request.resource.data);
+      allow update: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('library')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('library');
+    }
+
+    match /lms_courses/{courseId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'lms');
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('lms')
+        && tenantMatches(request.resource.data);
+      allow update: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('lms')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('lms');
+    }
+
+    match /lms_categories/{categoryId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'lms');
+      allow create: if canCreateModuleRecord('lms');
+      allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'lms');
+      allow delete: if canDeleteModuleRecord(resource.data, 'lms');
+    }
+
+    match /lms_assessments/{assessmentId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'lms');
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('lms')
+        && tenantMatches(request.resource.data);
+      allow update: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+        && hasModuleAccess('lms')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('lms');
+    }
+
+    match /lms_peer_projects/{projectId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'lms')
+        && (currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz'] || ownerUid(resource.data));
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz', 'Santri']
+        && hasModuleAccess('lms')
+        && tenantMatches(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if activeTenantUser()
+        && hasModuleAccess('lms')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId
+        && (tenantAdmin(resource.data) || (ownerUid(resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'description', 'rubric', 'updatedAt'])));
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('lms');
+    }
+
+    match /lms_peer_submissions/{submissionId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'lms')
+        && (currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz'] || ownerUid(resource.data));
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz', 'Santri']
+        && hasModuleAccess('lms')
+        && tenantMatches(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if activeTenantUser()
+        && hasModuleAccess('lms')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId
+        && (tenantAdmin(resource.data) || (ownerUid(resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['url', 'comments', 'updatedAt'])));
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('lms');
+    }
+
+    match /lms_peer_reviews/{reviewId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'lms')
+        && (currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz'] || ownerUid(resource.data));
+      allow create: if activeTenantUser()
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz', 'Santri']
+        && hasModuleAccess('lms')
+        && tenantMatches(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if activeTenantUser()
+        && hasModuleAccess('lms')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId
+        && (tenantAdmin(resource.data) || (ownerUid(resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'comments', 'updatedAt'])));
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('lms');
+    }
+
+    match /lms_progress/{userRecordId} {
+      allow get: if activeTenantUser()
+        && tenantMatches(resource.data)
+        && hasModuleAccess('lms')
+        && userRecordId == currentProfile().tenantId + '__' + request.auth.uid;
+      allow list: if false;
+      allow create: if activeTenantUser()
+        && hasModuleAccess('lms')
+        && tenantMatches(request.resource.data)
+        && userRecordId == currentProfile().tenantId + '__' + request.auth.uid;
+      allow update: if activeTenantUser()
+        && hasModuleAccess('lms')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId
+        && userRecordId == currentProfile().tenantId + '__' + request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /lms_student_notes/{userRecordId} {
+      allow get: if activeTenantUser()
+        && tenantMatches(resource.data)
+        && hasModuleAccess('lms')
+        && userRecordId == currentProfile().tenantId + '__' + request.auth.uid;
+      allow list: if false;
+      allow create: if activeTenantUser()
+        && hasModuleAccess('lms')
+        && tenantMatches(request.resource.data)
+        && userRecordId == currentProfile().tenantId + '__' + request.auth.uid;
+      allow update: if activeTenantUser()
+        && hasModuleAccess('lms')
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId
+        && userRecordId == currentProfile().tenantId + '__' + request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /lms_video_comments/{commentId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'lms');
+      allow create: if activeTenantUser()
+        && hasModuleAccess('lms')
+        && tenantMatches(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.materialId is string
+        && request.resource.data.text is string;
+      allow update, delete: if tenantAdmin(resource.data) && hasModuleAccess('lms');
+    }
+
+    match /marketplace_products/{productId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'marketplace');
+      allow create: if canCreateModuleRecord('marketplace');
+      allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'marketplace');
+      allow delete: if canDeleteModuleRecord(resource.data, 'marketplace');
+    }
+
+    match /marketplace_orders/{orderId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'marketplace')
+        && (tenantAdmin(resource.data) || (ownerUid(resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid));
+      allow create: if activeTenantUser()
+        && hasModuleAccess('marketplace')
+        && tenantMatches(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if tenantAdmin(resource.data)
+        && hasModuleAccess('marketplace')
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if tenantAdmin(resource.data) && hasModuleAccess('marketplace');
+    }
+
+    match /facility_bookings/{bookingId} {
+      allow get, list: if activeTenantUser()
+        && tenantMatches(resource.data)
+        && (hasModuleAccess('ga') || hasModuleAccess('boarding'))
+        && (currentProfile().role in ['SuperAdmin', 'Admin'] || ownerUid(resource.data));
+      allow create: if activeTenantUser()
+        && (hasModuleAccess('ga') || hasModuleAccess('boarding'))
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz', 'Santri']
+        && tenantMatches(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if activeTenantUser()
+        && (hasModuleAccess('ga') || hasModuleAccess('boarding'))
+        && tenantMatches(resource.data)
+        && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId
+        && (tenantAdmin(resource.data) || (ownerUid(resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['room', 'date', 'startTime', 'endTime', 'purpose', 'booker'])));
+      allow delete: if (tenantAdmin(resource.data) && (hasModuleAccess('ga') || hasModuleAccess('boarding')))
+        || (activeTenantUser() && tenantMatches(resource.data)
+          && (hasModuleAccess('ga') || hasModuleAccess('boarding')) && ownerUid(resource.data));
+    }
+
+    match /academic_schedules/{recordId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'academic');
+      allow create: if canCreateStaffOperational(request.resource.data, 'academic');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'academic');
+      allow delete: if canDeleteStaffOperational(resource.data, 'academic');
+    }
+
+    // Grades and journals remain staff-only until every record has a canonical santriId for guardian reads.
+    match /academic_journals/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'academic');
+      allow create: if canCreateStaffOperational(request.resource.data, 'academic');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'academic');
+      allow delete: if canDeleteStaffOperational(resource.data, 'academic');
+    }
+
+    match /academic_assessments/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'academic');
+      allow create: if canCreateStaffOperational(request.resource.data, 'academic');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'academic');
+      allow delete: if canDeleteStaffOperational(resource.data, 'academic');
+    }
+
+    match /academic_settings/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'academic');
+      allow create: if canCreateStaffOperational(request.resource.data, 'academic');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'academic');
+      allow delete: if canDeleteStaffOperational(resource.data, 'academic');
+    }
+
+    match /boarding_rooms/{recordId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'boarding');
+      allow create: if canCreateModuleRecord('boarding');
+      allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'boarding');
+      allow delete: if canDeleteModuleRecord(resource.data, 'boarding');
+    }
+
+    match /boarding_musyrifs/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'boarding');
+      allow create: if canCreateStaffOperational(request.resource.data, 'boarding');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'boarding');
+      allow delete: if canDeleteStaffOperational(resource.data, 'boarding');
+    }
+
+    match /boarding_attendance/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'boarding');
+      allow create: if canCreateStaffOperational(request.resource.data, 'boarding');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'boarding');
+      allow delete: if canDeleteStaffOperational(resource.data, 'boarding');
+    }
+
+    match /boarding_audits/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'boarding');
+      allow create: if canCreateStaffOperational(request.resource.data, 'boarding');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'boarding');
+      allow delete: if canDeleteStaffOperational(resource.data, 'boarding');
+    }
+
+    match /boarding_tickets/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'boarding');
+      allow create: if canCreateStaffOperational(request.resource.data, 'boarding');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'boarding');
+      allow delete: if canDeleteStaffOperational(resource.data, 'boarding');
+    }
+
+    match /boarding_permits/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'boarding')
+        || (activeTenantUser() && hasModuleAccess('boarding') && tenantMatches(resource.data) && ownerUid(resource.data));
+      allow create: if canCreateStaffOperational(request.resource.data, 'boarding')
+        || (activeTenantUser() && currentProfile().role in ['Santri', 'Walisantri']
+          && hasModuleAccess('boarding') && tenantMatches(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid);
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'boarding')
+        || (activeTenantUser() && currentProfile().role in ['Santri', 'Walisantri']
+          && hasModuleAccess('boarding') && tenantMatches(resource.data) && ownerUid(resource.data)
+          && tenantMatches(request.resource.data) && request.resource.data.tenantId == resource.data.tenantId
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && resource.data.status in ['Pending', 'Pending Musyrif']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reason', 'startDate', 'endDate', 'updatedAt']));
+      allow delete: if canDeleteStaffOperational(resource.data, 'boarding');
+    }
+
+    match /boarding_discipline/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'boarding');
+      allow create: if canCreateStaffOperational(request.resource.data, 'boarding');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'boarding');
+      allow delete: if canDeleteStaffOperational(resource.data, 'boarding');
+    }
+
+    match /communication_announcements/{recordId} {
+      allow get, list: if canReadModuleRecord(resource.data, 'communication');
+      allow create: if canCreateStaffOperational(request.resource.data, 'communication');
+      allow update: if activeTenantUser() && tenantMatches(resource.data) && tenantMatches(request.resource.data)
+        && request.resource.data.tenantId == resource.data.tenantId && hasModuleAccess('communication')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acknowledgedBy', 'readCount', 'updatedAt']);
+      allow delete: if canDeleteStaffOperational(resource.data, 'communication');
+    }
+
+    match /communication_messages/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'communication')
+        || (activeTenantUser() && hasModuleAccess('communication') && tenantMatches(resource.data) && ownerUid(resource.data));
+      allow create: if canCreateStaffOperational(request.resource.data, 'communication')
+        || (activeTenantUser() && hasModuleAccess('communication')
+          && currentProfile().role in ['Santri', 'Walisantri'] && tenantMatches(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid);
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'communication');
+      allow delete: if canDeleteStaffOperational(resource.data, 'communication');
+    }
+
+    match /communication_templates/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'communication');
+      allow create: if canCreateStaffOperational(request.resource.data, 'communication');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'communication');
+      allow delete: if canDeleteStaffOperational(resource.data, 'communication');
+    }
+
+    match /communication_permissions/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'communication')
+        || (activeTenantUser() && hasModuleAccess('communication') && tenantMatches(resource.data) && ownerUid(resource.data));
+      allow create: if canCreateStaffOperational(request.resource.data, 'communication')
+        || (activeTenantUser() && currentProfile().role in ['Santri', 'Walisantri'] && hasModuleAccess('communication')
+          && tenantMatches(request.resource.data) && request.resource.data.createdByUid == request.auth.uid);
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'communication');
+      allow delete: if canDeleteStaffOperational(resource.data, 'communication');
+    }
+
+    match /communication_tickets/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'communication')
+        || (activeTenantUser() && hasModuleAccess('communication') && tenantMatches(resource.data) && ownerUid(resource.data));
+      allow create: if canCreateStaffOperational(request.resource.data, 'communication')
+        || (activeTenantUser() && hasModuleAccess('communication')
+          && currentProfile().role in ['Santri', 'Walisantri'] && tenantMatches(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid);
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'communication');
+      allow delete: if canDeleteStaffOperational(resource.data, 'communication');
+    }
+
+    match /healthcare_visits/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'healthcare');
+      allow create: if canCreateStaffOperational(request.resource.data, 'healthcare');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'healthcare');
+      allow delete: if canDeleteStaffOperational(resource.data, 'healthcare');
+    }
+
+    match /healthcare_records/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'healthcare');
+      allow create: if canCreateStaffOperational(request.resource.data, 'healthcare');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'healthcare');
+      allow delete: if canDeleteStaffOperational(resource.data, 'healthcare');
+    }
+
+    match /healthcare_inventory/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'healthcare');
+      allow create: if canCreateStaffOperational(request.resource.data, 'healthcare');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'healthcare');
+      allow delete: if canDeleteStaffOperational(resource.data, 'healthcare');
+    }
+
+    match /healthcare_notifications/{recordId} {
+      allow get, list: if canReadStaffOperational(resource.data, 'healthcare');
+      allow create: if canCreateStaffOperational(request.resource.data, 'healthcare');
+      allow update: if canUpdateStaffOperational(resource.data, request.resource.data, 'healthcare');
+      allow delete: if canDeleteStaffOperational(resource.data, 'healthcare');
+    }
+
+    // Every collection without an explicit tenant/role contract stays closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

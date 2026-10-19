@@ -1,0 +1,826 @@
+{
+  "entities": {
+    "Candidate": {
+      "title": "Candidate",
+      "description": "A PPDB candidate registration",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "registrationId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "previousSchool": {
+          "type": "string"
+        },
+        "grade": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "nik": {
+          "type": "string"
+        },
+        "nisn": {
+          "type": "string"
+        },
+        "pob": {
+          "type": "string"
+        },
+        "dob": {
+          "type": "string"
+        },
+        "gender": {
+          "type": "string",
+          "enum": [
+            "L",
+            "P"
+          ]
+        },
+        "address": {
+          "type": "string"
+        },
+        "fatherName": {
+          "type": "string"
+        },
+        "motherName": {
+          "type": "string"
+        },
+        "fatherJob": {
+          "type": "string"
+        },
+        "motherJob": {
+          "type": "string"
+        },
+        "fatherEducation": {
+          "type": "string"
+        },
+        "motherEducation": {
+          "type": "string"
+        },
+        "familyIncome": {
+          "type": "string"
+        },
+        "whatsappPhone": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "score": {
+          "type": "number"
+        },
+        "dateApplied": {
+          "type": "string"
+        },
+        "examSlot": {
+          "type": "string"
+        },
+        "interviewer": {
+          "type": "string"
+        },
+        "interviewSlot": {
+          "type": "string"
+        },
+        "interviewNotified": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "registrationId",
+        "name",
+        "dateApplied",
+        "stage",
+        "previousSchool",
+        "grade",
+        "phone"
+      ]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Tahfidz student",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nis": {
+          "type": "string"
+        },
+        "grade": {
+          "type": "string"
+        },
+        "halaqah": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "nis"
+      ]
+    },
+    "Surah": {
+      "title": "Surah",
+      "description": "Surah list",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "numberOfAyahs": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "numberOfAyahs"
+      ]
+    },
+    "MemorizationLog": {
+      "title": "MemorizationLog",
+      "description": "A student's memorization log",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "studentId": {
+          "type": "string"
+        },
+        "verseRange": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "quality": {
+          "type": "string",
+          "enum": [
+            "talaqqi",
+            "ziyadah",
+            "muroja'ah"
+          ]
+        },
+        "teacherNotes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "verseRange",
+        "date",
+        "quality"
+      ]
+    },
+    "SearchLog": {
+      "title": "SearchLog",
+      "description": "Log of AI search queries and user feedback ratings",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "rating": {
+          "type": "string",
+          "enum": [
+            "up",
+            "down"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "query",
+        "rating",
+        "createdAt"
+      ]
+    },
+    "Unit": {
+      "title": "Unit",
+      "description": "Active unit or entity in the institution",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Active",
+            "Inactive"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "parentUnitId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "name",
+        "code",
+        "status"
+      ]
+    },
+    "EntityRecord": {
+      "title": "EntityRecord",
+      "description": "A person entity (Santri, Guru, Alumni, etc.)",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Santri",
+            "Wali Santri",
+            "Guru",
+            "Asatidz",
+            "Pegawai",
+            "Alumni"
+          ]
+        },
+        "identifier": {
+          "type": "string"
+        },
+        "contact": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "gradeOrDepartment": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "status"
+      ]
+    },
+    "CbtQuestion": {
+      "title": "CbtQuestion",
+      "description": "A question for Computer Based Test",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "grade": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "correctAnswer": {
+          "type": "number"
+        },
+        "explanation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "text",
+        "options",
+        "correctAnswer"
+      ]
+    },
+    "CbtConfig": {
+      "title": "CbtConfig",
+      "description": "Configuration for CBT",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "examDuration": {
+          "type": "number"
+        },
+        "allowLateSubmission": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A notification",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "isRead": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "title",
+        "message"
+      ]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Global Settings",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "FacilityBooking": {
+      "title": "FacilityBooking",
+      "description": "Booking for a facility",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "room": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "startTime": {
+          "type": "string"
+        },
+        "endTime": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "booker": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "room",
+        "date",
+        "startTime",
+        "endTime"
+      ]
+    },
+    "MasterDataRecord": {
+      "title": "MasterDataRecord",
+      "description": "General structural or document master data record",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "capacity": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "grade": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "category",
+        "name"
+      ]
+    },
+    "LibraryBook": {
+      "title": "LibraryBook",
+      "description": "A book in the library",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "totalCopies": {
+          "type": "number"
+        },
+        "shelf": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "author"
+      ]
+    },
+    "LibraryCirculation": {
+      "title": "LibraryCirculation",
+      "description": "A circulation record for a borrowed book",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "student": {
+          "type": "string"
+        },
+        "bookId": {
+          "type": "string"
+        },
+        "bookTitle": {
+          "type": "string"
+        },
+        "borrowDate": {
+          "type": "string"
+        },
+        "dueDate": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Active",
+            "Returned",
+            "Overdue"
+          ]
+        },
+        "fine": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "student",
+        "bookId",
+        "status"
+      ]
+    },
+    "LibraryDigitalAsset": {
+      "title": "LibraryDigitalAsset",
+      "description": "A digital library asset",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string"
+        },
+        "downloads": {
+          "type": "number"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "format"
+      ]
+    },
+    "MarketplaceProduct": {
+      "title": "MarketplaceProduct",
+      "description": "A product in the marketplace",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "price": {
+          "type": "number"
+        },
+        "stock": {
+          "type": "number"
+        },
+        "rating": {
+          "type": "number"
+        },
+        "seller": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "category",
+        "price",
+        "stock",
+        "seller"
+      ]
+    },
+    "MarketplaceOrder": {
+      "title": "MarketplaceOrder",
+      "description": "An order in the marketplace",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "customer": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "total": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string"
+        },
+        "items": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "customer",
+        "total",
+        "status"
+      ]
+    },
+    "GAFacility": {
+      "title": "GAFacility",
+      "description": "General Affair facility or asset record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "location": { "type": "string" },
+        "status": { "type": "string" },
+        "pic": { "type": "string" },
+        "condition": { "type": "string" },
+        "value": { "type": "number" },
+        "acquisitionDate": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "location"]
+    },
+    "GAInventory": {
+      "title": "GAInventory",
+      "description": "General Affair stock inventory item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "currentStock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "unit": { "type": "string" },
+        "costPerUnit": { "type": "number" },
+        "location": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "currentStock", "unit"]
+    }
+  },
+  "firestore": {
+    "master_data": {
+      "schema": {
+        "$ref": "#/entities/MasterDataRecord"
+      },
+      "description": "General master data items like Kampus, Gedung, etc."
+    },
+    "candidates": {
+      "schema": {
+        "$ref": "#/entities/Candidate"
+      },
+      "description": "Collection of all PPDB registered candidates"
+    },
+    "students": {
+      "schema": {
+        "$ref": "#/entities/Student"
+      },
+      "description": "Collection of all students"
+    },
+    "surahList": {
+      "schema": {
+        "$ref": "#/entities/Surah"
+      },
+      "description": "Collection of surahs"
+    },
+    "memorizationLogs": {
+      "schema": {
+        "$ref": "#/entities/MemorizationLog"
+      },
+      "description": "Collection of all memorization logs"
+    },
+    "SearchLogs": {
+      "schema": {
+        "$ref": "#/entities/SearchLog"
+      },
+      "description": "Collection of AI search logs and feedback"
+    },
+    "units": {
+      "schema": {
+        "$ref": "#/entities/Unit"
+      },
+      "description": "Collection of active units or entities"
+    },
+    "entityRecords": {
+      "schema": {
+        "$ref": "#/entities/EntityRecord"
+      },
+      "description": "Collection of people entities"
+    },
+    "cbt_questions": {
+      "schema": {
+        "$ref": "#/entities/CbtQuestion"
+      },
+      "description": "Collection of CBT questions"
+    },
+    "cbt_config": {
+      "schema": {
+        "$ref": "#/entities/CbtConfig"
+      },
+      "description": "Configuration for CBT"
+    },
+    "notifications": {
+      "schema": {
+        "$ref": "#/entities/Notification"
+      },
+      "description": "System notifications"
+    },
+    "settings": {
+      "schema": {
+        "$ref": "#/entities/Setting"
+      },
+      "description": "System settings"
+    },
+    "facility_bookings": {
+      "schema": {
+        "$ref": "#/entities/FacilityBooking"
+      },
+      "description": "Facility and room bookings",
+      "indexes": [
+        {
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "date",
+              "order": "DESCENDING"
+            },
+            {
+              "fieldPath": "startTime",
+              "order": "DESCENDING"
+            }
+          ]
+        }
+      ]
+    },
+    "library_books": {
+      "schema": {
+        "$ref": "#/entities/LibraryBook"
+      },
+      "description": "Collection of all library books"
+    },
+    "library_circulations": {
+      "schema": {
+        "$ref": "#/entities/LibraryCirculation"
+      },
+      "description": "Collection of library circulation records"
+    },
+    "library_digital_assets": {
+      "schema": {
+        "$ref": "#/entities/LibraryDigitalAsset"
+      },
+      "description": "Collection of digital library assets"
+    },
+    "marketplace_products": {
+      "schema": {
+        "$ref": "#/entities/MarketplaceProduct"
+      },
+      "description": "Collection of all products in the marketplace"
+    },
+    "marketplace_orders": {
+      "schema": {
+        "$ref": "#/entities/MarketplaceOrder"
+      },
+      "description": "Collection of all orders in the marketplace"
+    },
+    "ga_facilities": {
+      "schema": {
+        "$ref": "#/entities/GAFacility"
+      },
+      "description": "Collection of General Affair facilities and assets"
+    },
+    "ga_inventory": {
+      "schema": {
+        "$ref": "#/entities/GAInventory"
+      },
+      "description": "Collection of General Affair stock and inventory items"
+    }
+  }
+}
