@@ -751,7 +751,8 @@ async function startServer() {
         actor.tenantId,
         halaqahDocuments.map((document) => ({ id: document.id, record: document.data() || {} })),
         studentDocuments.map((document) => ({ id: document.id, record: document.data() || {} })),
-        apply
+        apply,
+        typeof req.body?.previewFingerprint === "string" ? req.body.previewFingerprint : ""
       );
       return res.json({
         ...result,
