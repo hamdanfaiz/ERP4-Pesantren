@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { SupabasePpdbAdminError } from "./supabasePpdbAdmin";
 
 type JsonObject = Record<string, any>;
@@ -392,4 +394,149 @@ export async function rejectSupabasePpdbFinancePayment(
     throw new SupabasePpdbAdminError(503, "Supabase belum mengonfirmasi penolakan pembayaran.");
   }
   return { id: result.id, status: String(result.status || "") };
+}
+
+
+function safeFinanceProofFileName(value: unknown) {
+  const source = typeof value === "string" ? value.split(/[\\/]/).pop() || "" : "";
+  const result = source.replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "").slice(0, 120);
+  return result || "bukti-transfer";
+}
+
+async function storageRequest(path: string, init: RequestInit = {}) {
+  const config = serviceConfig();
+  const headers = new Headers(init.headers || {});
+  headers.set("apikey", config.serviceKey);
+  headers.set("Authorization", "Bearer " + config.serviceKey);
+  const response = await fetch(config.baseUrl + path, { ...init, headers });
+  if (!response.ok) {
+    const raw = await response.text().catch(() => "");
+    if (response.status === 404) throw new SupabasePpdbAdminError(404, "Bukti pembayaran tidak ditemukan.");
+    if (response.status === 409) throw new SupabasePpdbAdminError(409, "Berkas bukti dengan path tersebut sudah ada.");
+    throw new SupabasePpdbAdminError(response.status >= 500 ? 503 : 400, raw || "Supabase Storage belum dapat memproses berkas.");
+  }
+  return response;
+}
+
+function objectPathUrl(path: string) {
+  return path.split("/").map((part) => encodeURIComponent(part)).join("/");
+}
+
+export async function uploadSupabaseFinanceProof(
+  tenantIdentifier: string,
+  billingIdValue: unknown,
+  studentRefValue: unknown,
+  fileNameValue: unknown,
+  mimeTypeValue: unknown,
+  base64Value: unknown,
+  paymentMethodValue: unknown,
+  actorUidValue: unknown
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const billingId = nonEmpty(billingIdValue, 180);
+  const studentRef = nonEmpty(studentRefValue, 180);
+  const fileName = safeFinanceProofFileName(fileNameValue);
+  const mimeType = typeof mimeTypeValue === "string" ? mimeTypeValue : "";
+  const base64 = typeof base64Value === "string" ? base64Value : "";
+  const paymentMethod = nonEmpty(paymentMethodValue, 120);
+  const actorUid = nonEmpty(actorUidValue, 160);
+  if (!billingId || billingId.includes("/") || !paymentMethod || !actorUid
+    || !["image/png", "image/jpeg", "application/pdf"].includes(mimeType)
+    || !base64 || base64.length > 4194304 || base64.length % 4 !== 0
+    || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+    throw new SupabasePpdbAdminError(400, "Berkas atau data bukti pembayaran tidak valid.");
+  }
+  const bytes = Buffer.from(base64, "base64");
+  if (!bytes.length || bytes.length > 3 * 1024 * 1024 || bytes.toString("base64") !== base64) {
+    throw new SupabasePpdbAdminError(400, "Berkas bukti pembayaran melebihi batas ukuran.");
+  }
+
+  const params = new URLSearchParams({
+    select: "id,student_ref,status",
+    tenant_id: "eq." + tenantId,
+    id: "eq." + billingId,
+    limit: "1",
+  });
+  const rows = await supabaseRequest("/rest/v1/finance_billings?" + params.toString());
+  if (!Array.isArray(rows) || rows.length !== 1) throw new SupabasePpdbAdminError(404, "Tagihan tidak ditemukan pada tenant ini.");
+  const billing = rows[0] as JsonObject;
+  if (studentRef && billing.student_ref !== studentRef) throw new SupabasePpdbAdminError(403, "Tagihan tidak terhubung ke santri ini.");
+  if (!["Unpaid", "Overdue", "Partial"].includes(String(billing.status || ""))) {
+    throw new SupabasePpdbAdminError(409, "Status tagihan tidak menerima bukti pembayaran baru.");
+  }
+
+  const ownerSegment = studentRef || (billing.candidate_id ? "candidate-" + String(billing.candidate_id) : "unassigned");
+  const objectPath = tenantId + "/" + ownerSegment + "/" + billingId + "/" + randomUUID() + "-" + fileName;
+  let uploaded = false;
+  try {
+    await storageRequest("/storage/v1/object/finance-proofs/" + objectPathUrl(objectPath), {
+      method: "POST",
+      headers: { "Content-Type": mimeType, "x-upsert": "false" },
+      body: bytes,
+    });
+    uploaded = true;
+    const result = await supabaseRequest("/rest/v1/rpc/attach_ppdb_finance_payment_proof", {
+      method: "POST",
+      body: JSON.stringify({
+        p_tenant_id: tenantId,
+        p_billing_id: billingId,
+        p_student_ref: studentRef || null,
+        p_storage_path: objectPath,
+        p_file_name: fileName,
+        p_payment_method: paymentMethod,
+        p_actor_uid: actorUid,
+      }),
+    });
+    if (!result || typeof result !== "object" || result.status !== "Verification") {
+      throw new SupabasePpdbAdminError(503, "Supabase belum mengonfirmasi unggahan bukti.");
+    }
+    return { billingId, proofFile: fileName, proofStoragePath: objectPath };
+  } catch (error) {
+    if (uploaded) {
+      try {
+        await storageRequest("/storage/v1/object/finance-proofs/" + objectPathUrl(objectPath), { method: "DELETE" });
+      } catch {
+        // Best-effort cleanup; an orphaned private object is not exposed by any billing record.
+      }
+    }
+    throw error;
+  }
+}
+
+export async function readSupabaseFinanceProof(
+  tenantIdentifier: string,
+  billingIdValue: unknown,
+  studentRefValue?: unknown
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const billingId = nonEmpty(billingIdValue, 180);
+  const studentRef = nonEmpty(studentRefValue, 180);
+  if (!billingId || billingId.includes("/")) throw new SupabasePpdbAdminError(400, "ID tagihan tidak valid.");
+  const params = new URLSearchParams({
+    select: "id,student_ref,proof_storage_path,proof_file",
+    tenant_id: "eq." + tenantId,
+    id: "eq." + billingId,
+    limit: "1",
+  });
+  const rows = await supabaseRequest("/rest/v1/finance_billings?" + params.toString());
+  if (!Array.isArray(rows) || rows.length !== 1) throw new SupabasePpdbAdminError(404, "Bukti pembayaran tidak ditemukan.");
+  const billing = rows[0] as JsonObject;
+  if (studentRef && billing.student_ref !== studentRef) throw new SupabasePpdbAdminError(404, "Bukti pembayaran tidak ditemukan.");
+  const path = String(billing.proof_storage_path || "");
+  const expectedOwner = studentRef || (billing.candidate_id ? "candidate-" + String(billing.candidate_id) : "unassigned");
+  if (!path || path.includes("..") || path.split("/").length !== 4
+    || path.split("/")[0] !== tenantId || path.split("/")[2] !== billingId
+    || path.split("/")[1] !== expectedOwner) {
+    throw new SupabasePpdbAdminError(404, "Bukti pembayaran tidak ditemukan.");
+  }
+  const response = await storageRequest("/storage/v1/object/authenticated/finance-proofs/" + objectPathUrl(path));
+  const mimeType = response.headers.get("Content-Type") || "";
+  if (!["image/png", "image/jpeg", "application/pdf"].includes(mimeType)) {
+    throw new SupabasePpdbAdminError(415, "Format bukti pembayaran tidak didukung.");
+  }
+  return {
+    bytes: Buffer.from(await response.arrayBuffer()),
+    mimeType,
+    fileName: safeFinanceProofFileName(billing.proof_file),
+  };
 }
