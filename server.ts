@@ -12,6 +12,7 @@ import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
 import { deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures } from "./server/supabaseOnboarding";
+import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment } from "./server/supabaseFinance";
 
 dotenv.config();
 
@@ -856,6 +857,119 @@ async function startServer() {
           ? (err?.message || "Pendaftaran gagal diproses. Silakan coba kembali atau hubungi panitia.")
           : err.message,
       });
+    }
+  });
+
+  // Supabase finance endpoints are tenant-scoped. Firebase Auth/profile verification remains a temporary bridge.
+  app.get("/api/finance/supabase/billings", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Profil pengguna belum dapat diverifikasi." });
+    try {
+      const uid = (req as any).user?.uid;
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceProofActor(services.db, uid);
+      const billings = await listSupabaseFinanceBillings(
+        actor.tenantId,
+        actor.role === "Walisantri" ? actor.linkedSantriId : undefined
+      );
+      return res.json({ billings });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase finance billing list failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Tagihan Supabase belum dapat dimuat." : err.message });
+    }
+  });
+
+  app.post("/api/finance/supabase/ppdb-billings/generate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Profil pengguna belum dapat diverifikasi." });
+    try {
+      const uid = (req as any).user?.uid;
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceProofActor(services.db, uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Penerbitan tagihan hanya untuk Admin tenant." });
+      const candidateIds = req.body?.candidateIds;
+      const paymentType = req.body?.paymentType;
+      const feeAmount = Number(req.body?.amount);
+      if (!Array.isArray(candidateIds) || candidateIds.length > 500
+        || !["registration", "tuition"].includes(paymentType)
+        || !Number.isFinite(feeAmount) || feeAmount <= 0) {
+        return res.status(400).json({ error: "Daftar kandidat, jenis, atau nominal tagihan tidak valid." });
+      }
+      let createdCount = 0;
+      let skippedCount = 0;
+      const errors: Array<{ candidateId: string; error: string }> = [];
+      for (const candidateId of candidateIds) {
+        try {
+          const result = await createSupabasePpdbFinanceBilling(actor.tenantId, candidateId, paymentType, feeAmount, uid);
+          if (result.created) createdCount += 1;
+          else skippedCount += 1;
+        } catch (err: any) {
+          errors.push({ candidateId: String(candidateId || ""), error: err?.message || "Tagihan gagal diterbitkan." });
+        }
+      }
+      return res.status(errors.length ? 207 : 200).json({ createdCount, skippedCount, failedCount: errors.length, errors });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase PPDB billing generation failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Tagihan PPDB belum dapat diterbitkan." : err.message });
+    }
+  });
+
+  app.post("/api/finance/supabase/ppdb-candidates/:candidateId/payments", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Profil pengguna belum dapat diverifikasi." });
+    try {
+      const uid = (req as any).user?.uid;
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceProofActor(services.db, uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Pencatatan pembayaran hanya untuk Admin tenant." });
+      const result = await recordSupabasePpdbFinancePayment(
+        actor.tenantId,
+        req.params.candidateId,
+        req.body?.paymentType,
+        req.body?.paidAmount,
+        req.body?.status,
+        req.body?.method,
+        req.body?.receiptNo,
+        uid
+      );
+      return res.json(result);
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase PPDB payment record failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Pembayaran PPDB belum dapat dicatat." : err.message });
+    }
+  });
+
+  app.post("/api/finance/supabase/billings/migrate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Profil pengguna belum dapat diverifikasi." });
+    try {
+      const uid = (req as any).user?.uid;
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceProofActor(services.db, uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Impor tagihan hanya dapat dijalankan Admin tenant." });
+      const apply = req.body?.apply === true;
+      if (apply && req.body?.confirmation !== "IMPORT_FINANCE_BILLINGS") {
+        return res.status(400).json({ error: "Konfirmasi impor tagihan tidak cocok." });
+      }
+      const snapshot = await services.db.collection("financeBillings")
+        .where("tenantId", "==", actor.tenantId)
+        .limit(5001)
+        .get();
+      if (snapshot.size > 5000) return res.status(413).json({ error: "Tenant memiliki lebih dari 5.000 tagihan. Impor perlu dijalankan dalam batch bertahap." });
+      const records = snapshot.docs.map((document) => ({ id: document.id, record: document.data() }));
+      const result = await migrateSupabaseFinanceBillings(actor.tenantId, records, apply);
+      return res.json(result);
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase finance billing migration failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Tagihan belum dapat dimigrasikan ke Supabase." : err.message });
     }
   });
 
