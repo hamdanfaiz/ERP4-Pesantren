@@ -4,7 +4,7 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
-Deno.test("normalizes email and trims display name without returning extra fields", () => {
+Deno.test("normalizes email and trims display name without accepting unexpected fields", () => {
   const result = validateProvisionUserInput({
     email: "  ADMIN@EXAMPLE.COM ",
     displayName: "  Pengelola Pesantren  ",
@@ -15,9 +15,9 @@ Deno.test("normalizes email and trims display name without returning extra field
   assert(result.ok, "expected valid input");
   assert(result.value.email === "admin@example.com", "email should be normalized");
   assert(result.value.displayName === "Pengelola Pesantren", "name should be trimmed");
-  assert(result.value.modulePermissions && Object.keys(result.value.modulePermissions).length === 0,
+  assert(Object.keys(result.value.modulePermissions).length === 0,
     "permissions should default to an empty object");
-  assert(!("password" in result.value), "temporary password must use the explicit field only");
+  assert(result.value.temporaryPassword === "Temporary#Pass123", "explicit temporary password should be preserved");
 });
 
 Deno.test("rejects attempts to assign a super-admin role or client-supplied tenant", () => {
@@ -46,6 +46,12 @@ Deno.test("rejects weak passwords, control characters, and malformed modules", (
     role: "santri",
     temporaryPassword: "short",
   });
+  const controlCharacter = validateProvisionUserInput({
+    email: "user@example.com",
+    displayName: "User\nName",
+    role: "santri",
+    temporaryPassword: "Temporary#Pass123",
+  });
   const malformedPermission = validateProvisionUserInput({
     email: "user@example.com",
     displayName: "User",
@@ -62,6 +68,7 @@ Deno.test("rejects weak passwords, control characters, and malformed modules", (
   });
 
   assert(!weakPassword.ok, "weak password must be rejected");
+  assert(!controlCharacter.ok, "control characters must be rejected");
   assert(!malformedPermission.ok, "non-boolean module permission must be rejected");
   assert(!unknownModule.ok, "unknown module must be rejected");
 });
