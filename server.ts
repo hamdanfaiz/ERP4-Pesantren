@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
-import { listSupabaseBoardingSnapshot, assignSupabaseStudentRoom, deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
+import { listSupabaseBoardingSnapshot, assignSupabaseStudentRoom, deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, listSupabaseMasterDataStudents, upsertSupabaseMasterDataStudent, archiveSupabaseMasterDataStudent, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
 import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment, readSupabaseFinanceProof, uploadSupabaseFinanceProof } from "./server/supabaseFinance";
 
 dotenv.config();
@@ -741,6 +741,50 @@ async function startServer() {
   });
 
 
+
+  // Santri Master Data reads/writes are tenant-scoped in Supabase; Firebase remains the token source during cutover.
+  app.get("/api/master-data/students", requireAuth, requireMasterDataAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const records = await listSupabaseMasterDataStudents(actor.tenantId);
+      return res.json({ records });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Master Data students failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Data santri Supabase belum dapat dimuat." : err.message });
+    }
+  });
+
+  app.put("/api/master-data/students/:studentId", requireAuth, requireMasterDataAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const record = await upsertSupabaseMasterDataStudent(
+        actor.tenantId,
+        String(req.params.studentId || ""),
+        req.body?.record
+      );
+      return res.json({ record });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Master Data student save failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Data santri belum dapat disimpan ke Supabase." : err.message });
+    }
+  });
+
+  app.delete("/api/master-data/students/:studentId", requireAuth, requireMasterDataAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const result = await archiveSupabaseMasterDataStudent(actor.tenantId, String(req.params.studentId || ""));
+      return res.json(result);
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Master Data student archive failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Data santri belum dapat diarsipkan." : err.message });
+    }
+  });
 
   app.get("/api/boarding/snapshot", requireAuth, requireBoardingAccess, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
