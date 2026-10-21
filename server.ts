@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
-import { deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
+import { assignSupabaseStudentRoom, deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
 import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment, readSupabaseFinanceProof, uploadSupabaseFinanceProof } from "./server/supabaseFinance";
 
 dotenv.config();
@@ -338,6 +338,37 @@ async function requireMasterDataAccess(req: express.Request, res: express.Respon
       return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
     }
     return res.status(500).json({ code: "INTERNAL_ERROR", error: "Gagal memverifikasi hak akses Master Data." });
+  }
+}
+
+
+async function requireBoardingAccess(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const uid = (req as any).user?.uid;
+  if (!uid) return res.status(401).json({ code: "UNAUTHORIZED", error: "Autentikasi diperlukan." });
+  const services = getAdminServices();
+  if (services.ok === false) {
+    return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
+  }
+  try {
+    const profileSnapshot = await services.db.collection("users").doc(uid).get();
+    if (!profileSnapshot.exists) return res.status(403).json({ code: "PROFILE_NOT_FOUND", error: "Profil pengguna tidak ditemukan." });
+    const profile = profileSnapshot.data() || {};
+    const tenantId = typeof profile.tenantId === "string" ? profile.tenantId.trim() : "";
+    const role = typeof profile.role === "string" ? profile.role : "";
+    if (String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      return res.status(403).json({ code: "ACCOUNT_INACTIVE", error: "Akun aktif dan tenant valid diperlukan." });
+    }
+    const permissions = resolveUserModulePermissions(role, profile.modulePermissions);
+    if (permissions.boarding !== true && permissions["master-data"] !== true) {
+      return res.status(403).json({ code: "MODULE_FORBIDDEN", error: "Akses modul asrama atau Master Data tidak diberikan." });
+    }
+    (req as any).actor = { uid, role, tenantId, modulePermissions: permissions };
+    return next();
+  } catch (err: any) {
+    if (isCredentialError(err) || isFirestoreStoreError(err)) {
+      return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
+    }
+    return res.status(500).json({ code: "INTERNAL_ERROR", error: "Gagal memverifikasi hak akses asrama." });
   }
 }
 
@@ -706,6 +737,37 @@ async function startServer() {
       const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
       if (status >= 500) console.error("Supabase Master Data structures failed:", err?.message || "unknown error");
       return res.status(status).json({ error: status >= 500 ? "Struktur Master Data belum dapat dimuat." : err.message });
+    }
+  });
+
+
+  app.put("/api/boarding/students/:studentId/room", requireAuth, requireBoardingAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!req.body || !Object.prototype.hasOwnProperty.call(req.body, "roomId")) {
+      return res.status(400).json({ error: "roomId wajib dikirim; gunakan null untuk melepas penempatan." });
+    }
+    const roomValue = req.body.roomId;
+    if (roomValue !== null && typeof roomValue !== "string") {
+      return res.status(400).json({ error: "ID kamar tidak valid." });
+    }
+    const buildingValue = req.body.buildingId;
+    if (buildingValue !== undefined && buildingValue !== null && typeof buildingValue !== "string") {
+      return res.status(400).json({ error: "ID gedung tidak valid." });
+    }
+
+    try {
+      const actor = (req as any).actor;
+      const result = await assignSupabaseStudentRoom(
+        actor.tenantId,
+        req.params.studentId,
+        roomValue,
+        buildingValue
+      );
+      return res.json(result);
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase room placement failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Perubahan penempatan kamar belum dapat diselesaikan." : err.message });
     }
   });
 
