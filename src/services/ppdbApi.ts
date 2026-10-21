@@ -28,10 +28,42 @@ export async function createPpdbCandidate(candidate: Partial<Candidate>) {
   return result.candidate;
 }
 
+function inferPpdbMimeType(file: File) {
+  if (["application/pdf", "image/jpeg", "image/png"].includes(file.type)) return file.type;
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".png")) return "image/png";
+  return "";
+}
+
+async function fileToBase64(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
 export async function updatePpdbCandidate(id: string, patch: Record<string, unknown>) {
   await requestPpdb<{ ok: true }>("/api/ppdb/candidates/" + encodeURIComponent(id), {
     method: "PATCH",
     body: JSON.stringify({ patch }),
+  });
+}
+
+export async function uploadPpdbCandidateDocument(id: string, docKey: string, file: File) {
+  const mimeType = inferPpdbMimeType(file);
+  if (!mimeType || file.size <= 0 || file.size > 2 * 1024 * 1024) {
+    throw new Error("Dokumen harus berupa PDF, JPG, atau PNG dengan ukuran maksimal 2 MB.");
+  }
+  await requestPpdb<{ ok: true }>("/api/ppdb/candidates/" + encodeURIComponent(id) + "/documents", {
+    method: "POST",
+    body: JSON.stringify({
+      docKey,
+      file: { base64: await fileToBase64(file), mimeType, fileName: file.name },
+    }),
   });
 }
 
