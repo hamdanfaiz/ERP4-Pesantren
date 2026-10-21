@@ -18,6 +18,30 @@ DECLARE
   v_room public.master_data_records%ROWTYPE;
   v_old_room public.master_data_records%ROWTYPE;
   v_building public.master_data_records%ROWTYPE;
+ 
+ 
+v
+_
+t
+a
+r
+g
+e
+t
+_
+r
+o
+o
+m
+_
+i
+d
+ 
+T
+E
+X
+T
+;
   v_building_id TEXT;
   v_room_gender public.gender_type;
   v_room_count INTEGER;
@@ -43,6 +67,7 @@ BEGIN
   END IF;
 
   SELECT * INTO v_student
+  v_target_room_id := CASE WHEN p_room_id IS NULL THEN NULL ELSE btrim(p_room_id) END;
   FROM public.students
   WHERE tenant_id = p_tenant_id AND id = p_student_id
   FOR UPDATE;
@@ -55,7 +80,7 @@ BEGIN
   FROM public.master_data_records
   WHERE tenant_id = p_tenant_id
     AND category = 'Kamar'
-    AND id = ANY(ARRAY[v_student.room_id, p_room_id]::TEXT[])
+    AND id = ANY(ARRAY[v_student.room_id, v_target_room_id]::TEXT[])
   ORDER BY id
   FOR UPDATE;
 
@@ -97,7 +122,7 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.master_data_records
-  WHERE tenant_id = p_tenant_id AND category = 'Kamar' AND id = btrim(p_room_id);
+  WHERE tenant_id = p_tenant_id AND category = 'Kamar' AND id = v_target_room_id;
   IF NOT FOUND OR lower(v_room.status) IN ('inactive', 'nonaktif', 'disabled') THEN
     RAISE EXCEPTION 'Kamar tidak aktif atau tidak ditemukan pada tenant ini' USING ERRCODE = 'P0002';
   END IF;
