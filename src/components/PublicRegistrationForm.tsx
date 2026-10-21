@@ -107,12 +107,22 @@ export function PublicRegistrationForm({
   ) => {
     if (!file) return;
     const mimeType = ppdbFileMimeType(file);
-    if (!mimeType) {
-      setSubmitError("Dokumen harus berupa PDF, JPG, atau PNG.");
-      return;
-    }
-    if (file.size <= 0 || file.size > 2 * 1024 * 1024) {
-      setSubmitError("Ukuran setiap dokumen maksimal 2 MB.");
+    if (!mimeType || file.size <= 0 || file.size > 2 * 1024 * 1024) {
+      setSelectedDocumentFiles((prev) => {
+        const next = { ...prev };
+        delete next[String(key)];
+        return next;
+      });
+      setUploadedFiles((prev) => {
+        const next = { ...prev };
+        delete next[String(key)];
+        return next;
+      });
+      setFormData((prev) => ({
+        ...prev,
+        documents: { ...prev.documents, [key]: false },
+      }));
+      setSubmitError(!mimeType ? "Dokumen harus berupa PDF, JPG, atau PNG." : "Ukuran setiap dokumen maksimal 2 MB.");
       return;
     }
     setSubmitError(null);
