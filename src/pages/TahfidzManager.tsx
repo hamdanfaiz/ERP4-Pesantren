@@ -2838,7 +2838,7 @@ export function TahfidzManager() {
           <div className="mt-1">
             {isTahfidzDataLoading
               ? "Memuat roster, halaqah, dan setoran dari backend..."
-              : "Roster, halaqah, dan setoran memakai data tenant dari backend. Laporan target, jadwal, gamifikasi, dan grafik lain masih menunggu migrasi tahap berikutnya."}
+              : "Roster, halaqah, target baca-saja, KPI, dan grafik tren setoran memakai data tenant dari backend. Pengubahan target, jadwal, milestone, gamifikasi, munaqasyah, dan laporan lanjutan masih menunggu migrasi tahap berikutnya."}
           </div>
           {tahfidzDataError && (
             <div role="alert" className="mt-2 font-medium text-rose-700 dark:text-rose-300">{tahfidzDataError}</div>
