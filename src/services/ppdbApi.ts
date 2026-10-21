@@ -108,21 +108,23 @@ export async function generatePpdbFinanceBillings(
   paymentType: "registration" | "tuition",
   amount: number
 ) {
-  const result = await requestPpdb<{
-    createdCount: number;
-    skippedCount: number;
-    failedCount: number;
-    errors: Array<{ candidateId: string; error: string }>;
-  }>("/api/finance/supabase/ppdb-billings/generate", {
-    method: "POST",
-    body: JSON.stringify({ candidateIds, paymentType, amount }),
-  });
-  return {
-    createdCount: Number(result.createdCount || 0),
-    skippedCount: Number(result.skippedCount || 0),
-    failedCount: Number(result.failedCount || 0),
-    errors: Array.isArray(result.errors) ? result.errors : [],
-  };
+  const aggregate = { createdCount: 0, skippedCount: 0, failedCount: 0, errors: [] as Array<{ candidateId: string; error: string }> };
+  for (let offset = 0; offset < candidateIds.length; offset += 500) {
+    const result = await requestPpdb<{
+      createdCount: number;
+      skippedCount: number;
+      failedCount: number;
+      errors: Array<{ candidateId: string; error: string }>;
+    }>("/api/finance/supabase/ppdb-billings/generate", {
+      method: "POST",
+      body: JSON.stringify({ candidateIds: candidateIds.slice(offset, offset + 500), paymentType, amount }),
+    });
+    aggregate.createdCount += Number(result.createdCount || 0);
+    aggregate.skippedCount += Number(result.skippedCount || 0);
+    aggregate.failedCount += Number(result.failedCount || 0);
+    if (Array.isArray(result.errors)) aggregate.errors.push(...result.errors);
+  }
+  return aggregate;
 }
 
 export async function recordPpdbFinancePayment(
@@ -144,4 +146,15 @@ export async function recordPpdbFinancePayment(
     method: "POST",
     body: JSON.stringify(details),
   });
+}
+
+export async function rejectPpdbFinancePayment(
+  candidateId: string,
+  paymentType: "registration" | "tuition",
+  reason: string
+) {
+  return requestPpdb<{ id: string; status: string }>(
+    "/api/finance/supabase/ppdb-candidates/" + encodeURIComponent(candidateId) + "/payment-rejection",
+    { method: "POST", body: JSON.stringify({ paymentType, reason }) }
+  );
 }
