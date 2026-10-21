@@ -869,6 +869,9 @@ async function startServer() {
       const uid = (req as any).user?.uid;
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadFinanceProofActor(services.db, uid);
+      if (!["Admin", "SuperAdmin", "Walisantri"].includes(actor.role)) {
+        return res.status(403).json({ error: "Akses daftar tagihan tidak diizinkan." });
+      }
       if (actor.role === "Walisantri" && !actor.linkedSantriId) {
         return res.status(403).json({ error: "Akun wali belum terhubung ke data santri." });
       }
@@ -1013,6 +1016,9 @@ async function startServer() {
     }
     try {
       const actor = await loadFinanceProofActor(services.db, uid);
+      if (!["Admin", "SuperAdmin", "Walisantri"].includes(actor.role)) {
+        return res.status(403).json({ error: "Akses unggah bukti pembayaran tidak diizinkan." });
+      }
       if (actor.role === "Walisantri" && !actor.linkedSantriId) {
         return res.status(403).json({ error: "Akun wali belum terhubung ke data santri." });
       }
@@ -1064,6 +1070,9 @@ async function startServer() {
       const uid = (req as any).user?.uid;
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadFinanceProofActor(services.db, uid);
+      if (!["Admin", "SuperAdmin", "Walisantri"].includes(actor.role)) {
+        return res.status(403).json({ error: "Akses bukti pembayaran tidak diizinkan." });
+      }
       if (actor.role === "Walisantri" && !actor.linkedSantriId) {
         return res.status(404).json({ error: "Bukti pembayaran tidak ditemukan." });
       }
