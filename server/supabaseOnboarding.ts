@@ -641,7 +641,7 @@ export async function migrateSupabaseLegacyMasterDataStudents(
   const warnings: LegacyMigrationIssue[] = [];
   const prepared: Array<{ id: string; student: JsonObject; guardian: JsonObject | null; warnings: string[] }> = [];
   const seenNis = new Map<string, string>();
-  const seenIdentity = new Map<string, string>();
+  const seenIdentity = new Map<string, { sourceId: string; entityType: "student" | "guardian" }>();
 
   for (const item of source) {
     const sourceId = typeof item?.id === "string" ? item.id.trim() : "";
@@ -663,6 +663,16 @@ export async function migrateSupabaseLegacyMasterDataStudents(
       : [];
     const nis = normalizeLegacyNis(record.nis);
     const gender = normalizeLegacyGender(record.gender);
+    for (const [field, label] of [["dob", "Tanggal lahir"], ["enrolled", "Tanggal masuk"]] as const) {
+      const value = record[field];
+      const supplied = value instanceof Date
+        || (typeof value === "string" && Boolean(value.trim()))
+        || typeof value === "number"
+        || (value !== null && typeof value === "object");
+      if (supplied && !legacyDateText(value)) {
+        localWarnings.push(label + " lama tidak dapat dipetakan; perlu rekonsiliasi manual.");
+      }
+    }
     if (!gender) localWarnings.push("Jenis kelamin belum dapat dipetakan; data perlu dilengkapi.");
     if (nis.legacyValue) localWarnings.push("Format NIS lama tidak standar; NIS disimpan untuk rekonsiliasi manual.");
 
@@ -693,8 +703,8 @@ export async function migrateSupabaseLegacyMasterDataStudents(
       if (!fingerprint) continue;
       const key = kind + ":" + fingerprint;
       const previous = seenIdentity.get(key);
-      if (previous) duplicateIdentity = kind.toUpperCase() + " duplikat dalam data sumber (record " + previous + ").";
-      else seenIdentity.set(key, sourceId);
+      if (previous) duplicateIdentity = kind.toUpperCase() + " duplikat dalam data sumber (record " + previous.sourceId + ").";
+      else seenIdentity.set(key, { sourceId, entityType: "student" });
     }
     if (duplicateIdentity) {
       errors.push({ id: sourceId, category: "Santri", message: duplicateIdentity });
@@ -709,7 +719,7 @@ export async function migrateSupabaseLegacyMasterDataStudents(
     if (nis.legacyValue) details.legacyNis = nis.legacyValue;
     const legacyClassId = legacyText(record.classId, 160);
     const legacyRoomId = legacyText(record.roomId, 160);
-    const legacyBuildingId = legacyText(record.dormitoryId, 160);
+    const legacyBuildingId = legacyText(record.buildingId ?? record.dormitoryId, 160);
     if (legacyClassId) details.legacyClassId = legacyClassId;
     if (legacyRoomId) details.legacyRoomId = legacyRoomId;
     if (legacyBuildingId) details.legacyBuildingId = legacyBuildingId;
@@ -765,11 +775,12 @@ export async function migrateSupabaseLegacyMasterDataStudents(
           const guardianFingerprint = fingerprintLegacyIdentity("nik", guardianNik.value);
           guardianPayload.nikCiphertextHex = encryptLegacyIdentity(guardianNik.value);
           guardianPayload.nikFingerprintHex = guardianFingerprint;
-          const priorGuardian = seenIdentity.get("guardian_nik:" + guardianFingerprint);
-          if (priorGuardian && priorGuardian !== guardianSourceId) {
+          const identityKey = "nik:" + guardianFingerprint;
+          const priorGuardian = seenIdentity.get(identityKey);
+          if (priorGuardian && (priorGuardian.entityType !== "guardian" || priorGuardian.sourceId !== guardianSourceId)) {
             errors.push({ id: guardianSourceId, category: "Wali Santri", message: "NIK wali duplikat pada record sumber yang berbeda." });
           } else {
-            seenIdentity.set("guardian_nik:" + guardianFingerprint, guardianSourceId);
+            seenIdentity.set(identityKey, { sourceId: guardianSourceId, entityType: "guardian" });
           }
         }
       } else {
