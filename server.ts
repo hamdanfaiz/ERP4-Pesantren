@@ -10,7 +10,7 @@ import { getStorage } from "firebase-admin/storage";
 import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
-import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch } from "./server/supabasePpdbAdmin";
+import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
 
 dotenv.config();
 
@@ -568,6 +568,24 @@ async function startServer() {
       const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
       if (status >= 500) console.error("Supabase PPDB candidate creation failed:", err?.message || "unknown error");
       return res.status(status).json({ error: status >= 500 ? "Calon santri belum dapat disimpan." : err.message });
+    }
+  });
+
+  app.post("/api/ppdb/candidates/:candidateId/documents", requireAuth, requirePpdbAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      await uploadSupabasePpdbCandidateDocument(
+        actor.tenantId,
+        String(req.params.candidateId || ""),
+        String(req.body?.docKey || ""),
+        req.body?.file
+      );
+      return res.json({ ok: true });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase PPDB document upload failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Dokumen belum dapat disimpan." : err.message });
     }
   });
 
