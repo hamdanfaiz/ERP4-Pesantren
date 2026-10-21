@@ -13,7 +13,7 @@ import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPp
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
 import { listSupabaseBoardingSnapshot, assignSupabaseStudentRoom, deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, listSupabaseMasterDataStudents, upsertSupabaseMasterDataStudent, archiveSupabaseMasterDataStudent, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
 import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment, readSupabaseFinanceProof, uploadSupabaseFinanceProof } from "./server/supabaseFinance";
-import { listSupabaseTahfidzSnapshot, migrateSupabaseTahfidzConfiguration, recordSupabaseTahfidzSetoran, recordSupabaseTahfidzTarget, SupabaseTahfidzError } from "./server/supabaseTahfidz";
+import { assignSupabaseTahfidzMembership, listSupabaseTahfidzSnapshot, migrateSupabaseTahfidzConfiguration, recordSupabaseTahfidzSetoran, recordSupabaseTahfidzTarget, saveSupabaseTahfidzHalaqah, SupabaseTahfidzError } from "./server/supabaseTahfidz";
 
 dotenv.config();
 
@@ -432,6 +432,14 @@ function requireTahfidzRecorder(req: express.Request, res: express.Response, nex
   return next();
 }
 
+function requireTahfidzAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const actor = (req as any).actor;
+  if (!actor || !["SuperAdmin", "Admin"].includes(String(actor.role || ""))) {
+    return res.status(403).json({ code: "TAHFIDZ_ADMIN_REQUIRED", error: "Hanya Admin tenant yang dapat mengelola halaqah dan penempatan santri." });
+  }
+  return next();
+}
+
 type FinanceProofError = Error & { status: number };
 function financeProofError(status: number, message: string): FinanceProofError {
   return Object.assign(new Error(message), { status });
@@ -714,6 +722,38 @@ async function startServer() {
       const status = err instanceof SupabaseTahfidzError ? err.status : 503;
       if (status >= 500) console.error("Supabase Tahfidz target failed:", err?.message || "unknown error");
       return res.status(status).json({ error: status >= 500 ? "Target harian Tahfidz belum dapat disimpan ke backend." : err.message });
+    }
+  });
+
+  app.post("/api/tahfidz/halaqahs", requireAuth, requireTahfidzAccess, requireTahfidzAdmin, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").toLowerCase() !== "true") {
+      return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan oleh operator instalasi." });
+    }
+    try {
+      const actor = (req as any).actor;
+      const result = await saveSupabaseTahfidzHalaqah(actor.tenantId, actor.uid, actor.role, req.body?.halaqah);
+      return res.status(result.alreadyApplied || req.body?.halaqah?.id ? 200 : 201).json(result);
+    } catch (err: any) {
+      const status = err instanceof SupabaseTahfidzError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Tahfidz halaqah failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Halaqah Tahfidz belum dapat disimpan ke backend." : err.message });
+    }
+  });
+
+  app.post("/api/tahfidz/memberships", requireAuth, requireTahfidzAccess, requireTahfidzAdmin, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").toLowerCase() !== "true") {
+      return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan oleh operator instalasi." });
+    }
+    try {
+      const actor = (req as any).actor;
+      const result = await assignSupabaseTahfidzMembership(actor.tenantId, actor.uid, actor.role, req.body?.membership);
+      return res.status(result.alreadyApplied || result.alreadyAssigned ? 200 : 201).json(result);
+    } catch (err: any) {
+      const status = err instanceof SupabaseTahfidzError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Tahfidz membership failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Penempatan santri ke halaqah belum dapat disimpan ke backend." : err.message });
     }
   });
 
