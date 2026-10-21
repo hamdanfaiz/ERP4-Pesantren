@@ -277,30 +277,6 @@ async function requireTenantAdmin(req: express.Request, res: express.Response, n
   }
 }
 
-const publicPpdbRateBuckets = new Map<string, { startedAt: number; count: number }>();
-function consumePublicPpdbRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const windowMs = 15 * 60 * 1000;
-  const limit = 5;
-  const bucket = publicPpdbRateBuckets.get(ip);
-  if (!bucket || now - bucket.startedAt >= windowMs) {
-    if (!bucket && publicPpdbRateBuckets.size >= 5000) {
-      for (const [key, existingBucket] of publicPpdbRateBuckets) {
-        if (now - existingBucket.startedAt >= windowMs) publicPpdbRateBuckets.delete(key);
-      }
-      if (publicPpdbRateBuckets.size >= 5000) {
-        const oldestKey = publicPpdbRateBuckets.keys().next().value;
-        if (oldestKey) publicPpdbRateBuckets.delete(oldestKey);
-      }
-    }
-    publicPpdbRateBuckets.set(ip, { startedAt: now, count: 1 });
-    return true;
-  }
-  if (bucket.count >= limit) return false;
-  bucket.count += 1;
-  return true;
-}
-
 type FinanceProofError = Error & { status: number };
 function financeProofError(status: number, message: string): FinanceProofError {
   return Object.assign(new Error(message), { status });
@@ -558,10 +534,11 @@ async function startServer() {
       return res.status(429).json({ error: "Batas pendaftaran sementara tercapai. Silakan coba lagi 15 menit kemudian." });
     }
     try {
-      const candidate = await registerSupabasePublicPpdb(req.body);
+      const candidate = await registerSupabasePublicPpdb(req.body, String(req.ip || req.socket.remoteAddress || "unknown"));
       return res.status(201).json({ candidate });
     } catch (err: any) {
       const status = err instanceof PublicPpdbError ? err.status : 503;
+      if (status === 429) res.setHeader("Retry-After", "900");
       if (status >= 500) console.error("Supabase public PPDB registration failed:", err?.message || "unknown error");
       return res.status(status).json({
         error: status >= 500
