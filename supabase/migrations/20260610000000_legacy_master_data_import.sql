@@ -1,4 +1,4 @@
--- Enable traceable, idempotent import of existing operational records.
+-- Prepare the schema for traceable import of existing operational records.
 -- This migration only changes schema; it does not read Firebase or import live data.
 BEGIN;
 
