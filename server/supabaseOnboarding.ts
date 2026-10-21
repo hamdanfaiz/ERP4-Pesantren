@@ -526,11 +526,18 @@ function piiKey(name: string) {
 }
 
 function legacyIdentity(value: unknown, expectedLength: number, label: string) {
-  const original = value == null ? "" : String(value).trim();
+  if (value == null || value === "") return { original: "", value: "", error: "" };
+  if (typeof value !== "string") {
+    return { original: "", value: "", error: label + " harus disimpan sebagai teks untuk menjaga digit secara utuh." };
+  }
+  const original = value.trim();
   if (!original) return { original: "", value: "", error: "" };
+  if (!/^[0-9 .-]+$/.test(original)) {
+    return { original: "", value: "", error: label + " lama perlu diperbaiki sebelum data ini dapat dimigrasikan." };
+  }
   const digits = original.replace(/\D/g, "");
   if (digits.length !== expectedLength) {
-    return { original, value: "", error: label + " lama perlu diperbaiki sebelum data ini dapat dimigrasikan." };
+    return { original: "", value: "", error: label + " lama perlu diperbaiki sebelum data ini dapat dimigrasikan." };
   }
   return { original, value: digits, error: "" };
 }
@@ -573,8 +580,7 @@ function normalizeLegacyGender(value: unknown) {
 function normalizeLegacyNis(value: unknown) {
   const original = legacyText(value, 80);
   if (!original) return { nis: null as string | null, legacyValue: "" };
-  const digits = original.replace(/\D/g, "");
-  if (/^[0-9]{1,10}$/.test(digits)) return { nis: digits, legacyValue: "" };
+  if (/^[0-9]{1,10}$/.test(original)) return { nis: original, legacyValue: "" };
   return { nis: null as string | null, legacyValue: original };
 }
 
@@ -709,8 +715,15 @@ export async function migrateSupabaseLegacyMasterDataStudents(
           details: guardianDetails,
         };
         if (guardianNik.value) {
+          const guardianFingerprint = fingerprintLegacyIdentity("nik", guardianNik.value);
           guardianPayload.nikCiphertextHex = encryptLegacyIdentity(guardianNik.value);
-          guardianPayload.nikFingerprintHex = fingerprintLegacyIdentity("nik", guardianNik.value);
+          guardianPayload.nikFingerprintHex = guardianFingerprint;
+          const priorGuardian = seenIdentity.get("guardian_nik:" + guardianFingerprint);
+          if (priorGuardian && priorGuardian !== guardianSourceId) {
+            errors.push({ id: guardianSourceId, category: "Wali Santri", message: "NIK wali duplikat pada record sumber yang berbeda." });
+          } else {
+            seenIdentity.set("guardian_nik:" + guardianFingerprint, guardianSourceId);
+          }
         }
       } else if (guardianName) {
         localWarnings.push("ID sumber wali terlalu panjang; relasi wali belum dimigrasikan.");
