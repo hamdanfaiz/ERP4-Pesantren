@@ -23,7 +23,7 @@ Migrasi ke Supabase belum masuk runtime utama. Saat migrasi itu selesai, konfigu
 Build image sekali dengan versi rilis yang jelas. Untuk host lain, kirim image yang sama melalui registry pelanggan atau arsip image; jangan membangun ulang dari source berbeda pada setiap environment.
 
 \`\`\`sh
-docker build --pull --tag erp4-pesantren:<versi-rilis> .
+docker build --pull --tag erp4-pesantren:1.0.0 .
 \`\`\`
 
 Simpan digest image yang diuji bersama metadata rilis. Untuk lingkungan tanpa koneksi registry, ekspor/impor image memakai \`docker save\` dan \`docker load\`.
@@ -36,7 +36,7 @@ Simpan digest image yang diuji bersama metadata rilis. Untuk lingkungan tanpa ko
 4. Bangun image dengan tag yang sama seperti \`ERP_IMAGE\` di \`.env\`.
 5. Jalankan \`docker compose up -d\`, lalu periksa \`docker compose ps\` dan \`docker compose logs erp\`.
 6. Publikasikan hanya melalui reverse proxy/TLS pelanggan atau jaringan privat. Set \`TRUST_PROXY_HOPS\` sesuai jumlah proxy yang benar-benar dipercaya; jangan mengekspos container secara langsung ke internet tanpa TLS dan firewall.
-7. Verifikasi \`/health/live\` dan \`/health/ready\`. Readiness hanya memeriksa konfigurasi serta keberadaan berkas Admin; ia tidak membuktikan koneksi atau izin Firebase berhasil.
+7. Verifikasi \`/health/live\` dan \`/health/ready\`. Readiness memeriksa kelengkapan konfigurasi runtime dan format berkas Admin yang dipasang; ia tidak membuktikan koneksi atau izin Firebase berhasil.
 
 ## Simulasi yang harus dilakukan sebelum menyatakan portable
 
