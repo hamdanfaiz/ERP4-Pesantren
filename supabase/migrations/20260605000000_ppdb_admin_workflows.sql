@@ -59,15 +59,15 @@ BEGIN
   END IF;
 
   IF EXISTS (
-    SELECT 1 FROM jsonb_object_keys(COALESCE(p_core_patch, '{}'::jsonb)) AS key
-    WHERE key NOT IN ('stage', 'score', 'examSlot', 'interviewer', 'interviewSlot', 'interviewNotified', 'notes')
+    SELECT 1 FROM jsonb_object_keys(COALESCE(p_core_patch, '{}'::jsonb)) AS fields(field)
+    WHERE field NOT IN ('stage', 'score', 'examSlot', 'interviewer', 'interviewSlot', 'interviewNotified', 'notes', 'syncToMasterData', 'onboardingStatus')
   ) THEN
     RAISE EXCEPTION 'Unsupported PPDB core field' USING ERRCODE = '22023';
   END IF;
 
   IF EXISTS (
-    SELECT 1 FROM jsonb_object_keys(COALESCE(p_documents_patch, '{}'::jsonb)) AS key
-    WHERE key NOT IN ('kk', 'birthCertificate', 'reportCards', 'ijazah', 'skhun', 'pasPhoto')
+    SELECT 1 FROM jsonb_object_keys(COALESCE(p_documents_patch, '{}'::jsonb)) AS fields(field)
+    WHERE field NOT IN ('kk', 'birthCertificate', 'reportCards', 'ijazah', 'skhun', 'pasPhoto')
   ) THEN
     RAISE EXCEPTION 'Unsupported PPDB document field' USING ERRCODE = '22023';
   END IF;
@@ -80,6 +80,8 @@ BEGIN
       interview_slot = CASE WHEN p_core_patch ? 'interviewSlot' THEN NULLIF(p_core_patch->>'interviewSlot', '') ELSE interview_slot END,
       interview_notified = CASE WHEN p_core_patch ? 'interviewNotified' THEN (p_core_patch->>'interviewNotified')::BOOLEAN ELSE interview_notified END,
       notes = CASE WHEN p_core_patch ? 'notes' THEN NULLIF(p_core_patch->>'notes', '') ELSE notes END,
+      sync_to_master_data = CASE WHEN p_core_patch ? 'syncToMasterData' THEN (p_core_patch->>'syncToMasterData')::BOOLEAN ELSE sync_to_master_data END,
+      onboarding_status = CASE WHEN p_core_patch ? 'onboardingStatus' THEN COALESCE(NULLIF(p_core_patch->>'onboardingStatus', ''), 'Pending') ELSE onboarding_status END,
       workflow_data = public.jsonb_deep_merge(workflow_data, COALESCE(p_workflow_patch, '{}'::jsonb))
   WHERE id = p_candidate_id AND tenant_id = p_tenant_id
   RETURNING id INTO v_updated;
