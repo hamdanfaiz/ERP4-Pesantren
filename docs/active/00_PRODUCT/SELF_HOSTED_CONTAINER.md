@@ -1,57 +1,86 @@
-# Paket Container Self-Hosted — Tahap Runtime Aplikasi
+# Paket Deployment Portable ERP4 Pesantren
 
-Status: implementasi pertama untuk memindahkan image aplikasi antar-host. Ini belum merupakan rilis self-hosted penuh atau bukti siap produksi.
+Status: rancangan paket container aplikasi tahap awal. Branch ini belum menjadi rilis self-hosted penuh dan belum membuktikan produk siap produksi.
+
+## Keputusan distribusi
+
+ERP4 Pesantren dipasarkan sebagai instalasi per pelanggan, bukan layanan SaaS bersama. Setiap pesantren memiliki konfigurasi, database, file, kredensial, backup, dan proses pemulihannya sendiri. Image aplikasi yang sama harus dapat dipasang di berbagai host tanpa membangun fork khusus pelanggan.
+
+Target rilis pertama yang dapat diuji:
+
+| Environment | Target | Catatan |
+| --- | --- | --- |
+| VPS | Linux x86_64 dengan Docker Engine dan Compose | Reverse proxy/TLS disediakan pelanggan atau paket instalasi. |
+| On-premise | Server fisik atau VM Linux milik pesantren | Dapat memakai jaringan privat; akses internet dibutuhkan untuk pembaruan kecuali image dibawa secara offline. |
+| Cloud milik pelanggan | VM Linux pada penyedia pilihan pelanggan | Bukan SaaS bersama; database dan berkas tetap berada pada infrastruktur yang dipilih pelanggan. |
+| Windows Server | VM Linux di atas hypervisor | Windows Server native belum didukung sampai ada simulasi terpisah. |
+| Kubernetes/Podman | Kandidat tahap berikutnya | Tidak dinyatakan didukung sebelum konfigurasi dan operasi diuji khusus. |
+
+Backend final harus dapat berjalan dengan Supabase terkelola yang dikendalikan pelanggan, atau Supabase self-hosted untuk instalasi privat/on-premise. Aplikasi tidak boleh bergantung pada project Firebase developer. Image yang sama, skema migrasi SQL, dan prosedur upgrade digunakan lintas environment; perbedaan host diberikan lewat konfigurasi runtime. Supabase CLI local development bukan paket produksi.
+
+Supabase self-hosted memberi kontrol atas data, tetapi pelanggan menjadi penanggung jawab pemeliharaan server, patch keamanan, konfigurasi layanan, PostgreSQL, backup, monitoring, dan restore. Dokumentasi resmi Supabase menyebut Docker Compose sebagai jalur self-hosting resmi dan merekomendasikan minimal 4 GB RAM serta SSD 40 GB untuk seluruh komponen; kapasitas itu hanya dasar, bukan jaminan cukup untuk beban produksi ERP. Ukuran akhir harus ditentukan melalui simulasi data dan beban yang realistis.
 
 ## Yang tersedia pada branch ini
 
-- Dockerfile multi-stage dengan dependency terkunci dari \`bun.lock\`.
+- Dockerfile multi-stage dengan dependency terkunci dari bun.lock.
 - Compose service untuk menjalankan aplikasi pada host Linux Docker.
-- Image tidak membawa konfigurasi Firebase web milik developer; konfigurasi diambil saat runtime dari environment.
-- Endpoint konfigurasi runtime tidak di-cache, endpoint liveness/readiness, port dan jumlah trusted proxy yang dapat dikonfigurasi.
-- Firebase Admin credential dipasang sebagai file read-only dari host, tidak disalin ke image.
-- Secret, file kredensial, file environment lokal, dan konfigurasi Firebase AI Studio dikecualikan dari image context.
-- Service berjalan sebagai user non-root, read-only root filesystem, tanpa Linux capabilities tambahan, dan memiliki healthcheck.
+- Konfigurasi Firebase web diambil saat runtime, tidak dibangun ke image.
+- Endpoint konfigurasi runtime tidak di-cache, endpoint liveness/readiness, serta port dan jumlah trusted proxy yang dapat dikonfigurasi.
+- Firebase Admin credential dipasang sebagai file read-only dari host.
+- Secret dan file konfigurasi lokal dikecualikan dari image context.
+- Service berjalan sebagai user non-root, root filesystem read-only, tanpa Linux capabilities tambahan, dan memiliki healthcheck.
 
-## Batas saat ini
+## Batas implementasi saat ini
 
-Runtime masih memakai Firebase Authentication, Firestore, dan Firebase Storage. Compose hanya menjalankan aplikasi; database dan file pelanggan belum dipindahkan ke backend yang ikut dimiliki pesantren. Karena itu, paket ini membantu memindahkan aplikasi server, tetapi belum memenuhi tujuan on-premise penuh atau independensi dari Firebase.
+Runtime pada branch ini masih memakai Firebase Authentication, Firestore, dan Firebase Storage. Compose hanya menjalankan aplikasi; backend dan berkas belum ikut dimiliki oleh instalasi pelanggan. Ini paket container aplikasi tahap transisi saja, bukan instalasi mandiri dan bukan bukti bahwa Firebase sudah dilepas.
 
-Migrasi ke Supabase belum masuk runtime utama. Saat migrasi itu selesai, konfigurasi Firebase dan service-account mount akan diganti dengan URL/key Supabase per instalasi, backend/storage pelanggan, serta prosedur migrasi/restore. Jangan menggunakan project Firebase pembuat aplikasi untuk instalasi pelanggan.
+Setelah migrasi backend selesai, konfigurasi Firebase dan service-account mount harus dihapus. Runtime final memakai Supabase Auth, PostgreSQL/RLS, dan Storage per instalasi, dengan secret hanya di backend. Jangan menggunakan project Firebase pembuat aplikasi untuk instalasi pelanggan.
 
-## Build dan pemindahan image
+## Prinsip packaging dan pemindahan
 
-Build image sekali dengan versi rilis yang jelas. Untuk host lain, kirim image yang sama melalui registry pelanggan atau arsip image; jangan membangun ulang dari source berbeda pada setiap environment.
+1. Bangun image sekali dari commit rilis yang sudah ditinjau; beri tag versi dan simpan digest image.
+2. Jangan masukkan URL, tenant ID, kunci, data, ataupun credential pelanggan ke build image.
+3. Berikan konfigurasi non-secret melalui file environment runtime; simpan secret dan sertifikat di luar repository dengan hak akses terbatas.
+4. Terapkan skema database memakai migration SQL yang terversi dan bisa dijalankan pada instalasi kosong.
+5. Simpan data PostgreSQL dan objek Storage pada volume persisten atau backend S3-compatible yang dikonfigurasi pelanggan.
+6. Pemindahan host menyalin image dengan digest yang sama, konfigurasi yang sudah diganti secret-nya, backup database, berkas Storage, dan kunci enkripsi yang diperlukan. Jangan memindahkan data hanya dengan menyalin container.
+7. Sediakan prosedur upgrade dan rollback yang mempertimbangkan kompatibilitas migrasi database dan versi image.
+8. Untuk lokasi tanpa registry, ekspor image bertanda versi lalu verifikasi digest setelah impor. Rahasia dikirim terpisah melalui kanal aman.
 
-\`\`\`sh
-docker build --pull --tag erp4-pesantren:1.0.0 .
-\`\`\`
+## Prasyarat operasi tiap instalasi
 
-Simpan digest image yang diuji bersama metadata rilis. Untuk lingkungan tanpa koneksi registry, ekspor/impor image memakai \`docker save\` dan \`docker load\`.
+- Linux x86_64 dengan Docker Engine/Compose untuk target rilis pertama.
+- Reverse proxy dan HTTPS untuk akses dari internet; firewall membatasi port dan akses administratif.
+- Persistensi disk untuk database dan Storage, kebijakan kapasitas disk, serta retensi backup.
+- SMTP pelanggan untuk undangan dan pemulihan akun.
+- Kunci enkripsi unik per instalasi, mekanisme rotasi, dan salinan pemulihan yang disimpan aman.
+- Pencatatan versi image, migrasi yang sudah diterapkan, konfigurasi non-secret, dan runbook untuk operator.
+- Jika jaringan privat/offline digunakan, paket image, prosedur pembaruan offline, dan sumber waktu/DNS lokal harus disiapkan.
 
-## Setup instalasi
+## Simulasi wajib sebelum menyatakan environment didukung
 
-1. Salin \`deploy/self-hosted.env.example\` menjadi \`.env\`; isi nilai Firebase milik pelanggan dan tag image yang akan dijalankan.
-2. Buat service-account Firebase Admin khusus instalasi dengan hak minimum yang dibutuhkan backend. Letakkan file kredensial di luar repository, misalnya \`secrets/firebase-admin.json\`, lalu pastikan pengguna Docker pada host dapat membacanya.
-3. Pastikan \`FIREBASE_ADMIN_CREDENTIALS_FILE\` pada \`.env\` menunjuk ke file tersebut. File dipasang read-only di container.
-4. Bangun image dengan tag yang sama seperti \`ERP_IMAGE\` di \`.env\`.
-5. Jalankan \`docker compose up -d\`, lalu periksa \`docker compose ps\` dan \`docker compose logs erp\`.
-6. Publikasikan hanya melalui reverse proxy/TLS pelanggan atau jaringan privat. Set \`TRUST_PROXY_HOPS\` sesuai jumlah proxy yang benar-benar dipercaya; jangan mengekspos container secara langsung ke internet tanpa TLS dan firewall.
-7. Verifikasi \`/health/live\` dan \`/health/ready\`. Readiness memeriksa kelengkapan konfigurasi runtime dan format berkas Admin yang dipasang; ia tidak membuktikan koneksi atau izin Firebase berhasil.
+Simulasi dilakukan menggunakan data sintetis. Login, akses backend, dan suite akhir tetap menunggu tahap akhir pemrograman sesuai arahan pemilik produk.
 
-## Simulasi yang harus dilakukan sebelum menyatakan portable
+- **Instalasi bersih:** buat deployment pada Linux kosong dari image rilis, contoh konfigurasi, serta migration SQL; pastikan Admin awal dibuat lewat alur bootstrap yang aman.
+- **VPS:** pasang melalui domain dan HTTPS di belakang reverse proxy, periksa URL runtime, email, health, backup, dan restore.
+- **On-premise:** ulangi pada server/VM Linux di jaringan pesantren dengan DNS, SMTP, dan kebijakan firewall yang mewakili kondisi nyata.
+- **Offline/terbatas:** impor image berdasarkan digest tanpa akses registry; pastikan aplikasi tetap berjalan dan prosedur pembaruan dapat dilakukan.
+- **Perpindahan host:** pindahkan instalasi contoh dari host A ke host B dengan backup database dan Storage, konfigurasi target, serta rotasi secret; cocokkan jumlah data dan relasi setelah pemulihan.
+- **Upgrade dan rollback:** uji upgrade image dan migration dari versi sebelumnya; dokumentasikan tindakan bila deployment gagal.
+- **Isolasi instalasi:** pastikan setiap instalasi menunjuk hanya ke backend, bucket, dan konfigurasi milik pesantren yang benar.
+- **Responsif dan fungsi utama:** jalankan matriks akhir pada browser dan ukuran layar yang disepakati setelah seluruh modul selesai.
 
-- **Clean install:** host Linux bersih, data sintetis, file credential terpisah, tidak ada file AI Studio di image.
-- **Konfigurasi lintas instalasi:** gunakan image digest yang sama dengan project Firebase sandbox kedua; pastikan aplikasi tidak menghubungi project developer.
-- **Restart dan upgrade:** restart container, jalankan versi baru dengan prosedur rollback/forward-fix yang terdokumentasi.
-- **VPS dan on-premise:** ulangi di dua host Linux dengan konfigurasi domain/proxy masing-masing.
-- **Pemindahan host:** kirim image dan konfigurasi baru, lalu verifikasi login dan modul utama.
-- **Pemulihan data:** belum dapat diuji sebagai instalasi mandiri karena Firestore dan Storage masih berada di Firebase. Selesaikan setelah backend pelanggan ikut dipaketkan/migrasikan.
-- **Windows:** target deployment rilis awal adalah Docker Linux. Windows Server hanya melalui VM Linux setelah uji terpisah; belum didukung langsung.
+Setiap simulasi harus mencatat commit aplikasi, image digest, versi backend, versi migrasi, konfigurasi environment yang telah disensor, hasil, dan kendala. Jangan menandai VPS/on-premise/jenis environment lain sebagai didukung sebelum bukti simulasi untuk target tersebut tersedia.
 
-Pengujian dan simulasi di atas belum dijalankan pada branch ini. Jangan menandai environment sebagai didukung sebelum setiap langkah yang relevan berhasil dicatat.
+## Kriteria keluar
 
-## Kriteria keluar dari tahap ini
+Paket deployment dinyatakan siap setelah:
 
-Tahap runtime aplikasi selesai setelah build di CI berhasil dari source commit yang sama, image berjalan pada dua host Linux bersih, konfigurasi pelanggan terbukti terisolasi dari image, dan upgrade/restart dapat diulang.
+- build image berhasil dari commit yang sama dengan sumber rilis;
+- aplikasi, database, Auth, dan Storage berjalan tanpa ketergantungan runtime Firebase;
+- satu image digest lulus instalasi bersih dan pemindahan VPS ke on-premise atau sebaliknya;
+- migration, bootstrap admin, backup/restore, dan upgrade/rollback terdokumentasi serta terbukti pada data sintetis;
+- uji keamanan, matriks role/tenant, pemulihan, dan tampilan akhir lulus;
+- paket dan panduan menjelaskan kebutuhan host, proses update, backup, restore, rotasi secret, serta batas dukungan dengan bahasa yang dapat diikuti operator pelanggan.
 
-Produk belum siap dijual sebagai paket on-premise penuh sampai Firebase selesai dipindahkan dari runtime, data dan Storage ikut dimiliki pelanggan, migrasi serta restore berhasil, dan matriks keamanan/fungsi akhir lulus.
+Pengujian dan simulasi pada daftar ini belum dijalankan. Migrasi produksi maupun pengaktifan akses publik tetap menunggu gerbang akhir tersebut.
