@@ -269,6 +269,13 @@ export async function registerSupabasePublicPpdb(body: any, clientAddress: strin
   const candidateId = randomUUID();
   const uploadedPaths: string[] = [];
   const documentPaths: Record<string, string> = {};
+  const dbCandidate = {
+    ...candidate,
+    nikCiphertext: encryptedIdentity(candidate.nik),
+    nikFingerprint: identityFingerprint("nik", candidate.nik),
+    nisnCiphertext: candidate.nisn ? encryptedIdentity(candidate.nisn) : "",
+    nisnFingerprint: candidate.nisn ? identityFingerprint("nisn", candidate.nisn) : "",
+  };
   try {
     for (const key of DOCUMENT_KEYS) {
       const file = documents[key];
@@ -279,13 +286,6 @@ export async function registerSupabasePublicPpdb(body: any, clientAddress: strin
       documentPaths[key] = path;
     }
 
-    const dbCandidate = {
-      ...candidate,
-      nikCiphertext: encryptedIdentity(candidate.nik),
-      nikFingerprint: identityFingerprint("nik", candidate.nik),
-      nisnCiphertext: candidate.nisn ? encryptedIdentity(candidate.nisn) : "",
-      nisnFingerprint: candidate.nisn ? identityFingerprint("nisn", candidate.nisn) : "",
-    };
     const year = tenant.academicYear.match(/^(\d{4})/)?.[1];
     const result = await requestSupabase("/rest/v1/rpc/submit_public_ppdb", {
       method: "POST",
