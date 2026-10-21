@@ -97,6 +97,7 @@ function mapSupabaseTahfidzSnapshot(snapshot: any) {
     halaqah: String(student.halaqah || ""),
     juz: null,
     status: "Belum ada analitik hafalan",
+    studentStatus: String(student.studentStatus || ""),
     progress: 0,
     lastSetoran: "-",
     score: null,
@@ -965,6 +966,11 @@ export function TahfidzManager() {
   const getLatestSetoranForStudent = (studentId: string) => latestSetoranByStudent.get(studentId);
   const getRecentSetoranCountForStudent = (studentId: string) => recentSetoranCounts.get(studentId) || 0;
 
+  const assignableSupabaseTahfidzStudents = santriList.filter((student) => {
+    const status = String(student.studentStatus || "").trim().toLowerCase();
+    return ["active", "aktif"].includes(status) && student.halaqahId !== membershipForm.halaqahId;
+  });
+
   const renderHalaqahManagement = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
@@ -1077,7 +1083,15 @@ export function TahfidzManager() {
                     <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                       Daftar Santri
                     </h4>
-                    <button className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedHalaqahFilter(halaqah.name);
+                        setSearchQuery("");
+                        setActiveTab("dashboard");
+                      }}
+                      className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+                    >
                       Lihat Semua
                     </button>
                   </div>
@@ -3437,7 +3451,7 @@ export function TahfidzManager() {
               Santri
               <select required value={membershipForm.studentId} onChange={(event) => setMembershipForm({ ...membershipForm, studentId: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950">
                 <option value="">Pilih santri</option>
-                {santriList.filter((student) => student.halaqahId !== membershipForm.halaqahId).map((student) => <option key={student.id} value={student.id}>{student.name} — {student.nis}{student.halaqah ? ` (saat ini: ${student.halaqah})` : ""}</option>)}
+                {assignableSupabaseTahfidzStudents.map((student) => <option key={student.id} value={student.id}>{student.name} — {student.nis}{student.halaqah ? ` (saat ini: ${student.halaqah})` : ""}</option>)}
               </select>
             </label>
             <label className="block text-sm font-medium">
@@ -3447,7 +3461,7 @@ export function TahfidzManager() {
                 {halaqahList.map((halaqah) => <option key={halaqah.id} value={halaqah.id}>{halaqah.name}</option>)}
               </select>
             </label>
-            {santriList.filter((student) => student.halaqahId !== membershipForm.halaqahId).length === 0 && <p className="text-xs text-slate-500">Tidak ada santri lain yang perlu ditempatkan atau dipindahkan ke halaqah ini.</p>}
+            {assignableSupabaseTahfidzStudents.length === 0 && <p className="text-xs text-slate-500">Tidak ada santri aktif lain yang perlu ditempatkan atau dipindahkan ke halaqah ini.</p>}
             <label className="block text-sm font-medium">
               Berlaku mulai
               <input required type="date" max={new Date().toISOString().slice(0, 10)} value={membershipForm.startsOn} onChange={(event) => setMembershipForm({ ...membershipForm, startsOn: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
@@ -3455,7 +3469,7 @@ export function TahfidzManager() {
             {tahfidzDataError && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">{tahfidzDataError}</p>}
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-white/10">
               <button type="button" onClick={() => setIsMembershipModalOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button>
-              <button type="submit" disabled={isSavingMembership || isTahfidzDataLoading || !hasSupabaseTahfidzSnapshot || santriList.filter((student) => student.halaqahId !== membershipForm.halaqahId).length === 0} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{isSavingMembership ? "Menyimpan…" : "Simpan Penempatan"}</button>
+              <button type="submit" disabled={isSavingMembership || isTahfidzDataLoading || !hasSupabaseTahfidzSnapshot || assignableSupabaseTahfidzStudents.length === 0} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{isSavingMembership ? "Menyimpan…" : "Simpan Penempatan"}</button>
             </div>
           </form>
         </div>
