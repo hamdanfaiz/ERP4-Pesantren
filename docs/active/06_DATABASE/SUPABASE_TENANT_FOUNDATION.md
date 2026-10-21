@@ -2,6 +2,8 @@
 
 Status: prepared on `backend/supabase-tenant-foundation`; not applied to the Supabase database.
 
+The Supabase GitHub integration is connected to `hamdanfaiz/ERP4-Pesantren` with working directory `.`. Production auto-deploy is disabled. The current Free plan does not provide preview database branches, so connecting the repository does not apply this feature branch's migration.
+
 ## Scope
 
 This is the first migration slice for the Supabase project `vqemuyzveuirlkvdggjd`. The ERP frontend and its operational data are still Firebase-first. This migration creates a tenant-aware relational foundation for identity and PPDB; it does not migrate Firestore records, replace the frontend data layer, configure Storage, or make Supabase the production source of truth.
@@ -61,6 +63,7 @@ The database UUID `tenants.id` will not equal an existing Firestore tenant strin
 ## Apply procedure
 
 1. Review this branch and verify the Supabase project is still empty and has no manually created production data.
-2. Apply migrations through the linked repository/CLI only after the database repository connection is configured. Do not paste a service key into the repository or browser.
+2. Merge only after the migration SQL has been reviewed. Apply migrations through the linked repository/CLI; do not paste a service key into the repository or browser.
 3. Confirm RLS policies and table privileges in a non-production/test project before exposing data.
-4. Keep Firebase as the active source until the import and backend endpoints are complete; no frontend cutover is implied by this migration.
+4. Keep production auto-deploy disabled until the branch, policies, and migration pipeline have been approved and exercised.
+5. Keep Firebase as the active source until the import and backend endpoints are complete; no frontend cutover is implied by this migration.
