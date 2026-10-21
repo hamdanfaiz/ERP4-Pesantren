@@ -6,7 +6,7 @@ Status: rancangan kontrak distribusi berdasarkan baseline GitHub main pada 2026-
 
 ERP4 Pesantren adalah software yang dijalankan pada infrastruktur pelanggan, bukan layanan SaaS multi-pelanggan yang dikelola vendor. Rilis awal menargetkan satu pesantren per installation mandiri. Setiap installation memiliki domain, Supabase/backend, database, storage, secret, dan backup sendiri.
 
-Tenant ID tetap menjadi bagian model data untuk isolasi internal dan kompatibilitas, tetapi tidak boleh dipakai sebagai asumsi bahwa semua pelanggan berada dalam satu database yang dimiliki vendor. Penjualan lisensi, instalasi, migrasi, pelatihan, support, dan update terjadi terpisah dari modul Keuangan pesantren.
+Tenant ID tetap menjadi bagian model data untuk isolasi internal dan kompatibilitas, tetapi tidak berarti vendor mengoperasikan banyak pelanggan dalam satu database. Penjualan lisensi, instalasi, migrasi, pelatihan, support, dan update terjadi terpisah dari modul Keuangan pesantren.
 
 ## Baseline dan gap yang terbukti
 
@@ -36,9 +36,11 @@ Supabase membedakan local CLI development stack dari deployment produksi self-ho
 - https://supabase.com/docs/guides/self-hosting
 - https://supabase.com/docs/guides/self-hosting/docker
 
+Panduan Docker self-hosted Supabase saat ini mencantumkan kebutuhan minimum untuk seluruh komponen sebesar 4 GB RAM, 2 core CPU, dan 40 GB SSD; rekomendasi 8 GB+, 4 core+, dan 80 GB+ SSD. Angka tersebut adalah baseline stack backend, bukan hasil sizing ERP4 Pesantren. Tetapkan kebutuhan resmi aplikasi melalui simulasi beban dan pertumbuhan file.
+
 ## Kontrak konfigurasi
 
-Aplikasi tidak boleh memuat nilai lingkungan pelanggan dari source code atau default cloud pembuat produk. Konfigurasi runtime yang dituju:
+Aplikasi tidak boleh memuat nilai environment pelanggan dari source code, build arg, atau default cloud pembuat produk. Image yang sama harus bisa dipindahkan antar-environment dengan memasukkan konfigurasi saat container dijalankan.
 
 ### Frontend yang aman untuk browser
 
@@ -46,7 +48,7 @@ Aplikasi tidak boleh memuat nilai lingkungan pelanggan dari source code atau def
 - SUPABASE_PUBLISHABLE_KEY: key yang memang dirancang untuk dikirim ke browser, dengan RLS aktif pada semua tabel yang dapat dicapai klien.
 - APP_PUBLIC_URL: origin aplikasi untuk redirect dan tautan email.
 
-Nilai frontend bersifat konfigurasi per installation. Service-role/secret key, password database, private key, dan kunci field encryption tidak boleh dibundel ke JavaScript.
+Karena konfigurasi berbeda per instalasi, nilai ini harus disajikan saat runtime, misalnya lewat endpoint konfigurasi statis runtime-config.js yang dibuat server ketika container berjalan. Jangan menanam URL/key per pelanggan ke build artifact; itu akan memaksa rebuild berbeda per environment. Konfigurasi browser harus dibatasi ke nilai publik yang aman, dikirim dengan cache policy yang sesuai, dan tidak pernah memuat secret server.
 
 ### Backend/installer only
 
@@ -57,7 +59,7 @@ Nilai frontend bersifat konfigurasi per installation. Service-role/secret key, p
 - APP_PUBLIC_URL, TRUSTED_PROXY_HOPS, PORT, log level, dan storage configuration.
 - Backup destination, retention, encryption key reference, dan restore target disimpan di luar volume utama.
 
-Nama final harus distandardisasi di implementasi. .env.example berisi placeholder non-rahasia; preflight harus menolak nilai placeholder/default.
+Nama final harus distandardisasi di implementasi. .env.example hanya berisi placeholder non-rahasia; preflight harus menolak nilai placeholder/default. Secret tidak boleh disimpan di image, bundle frontend, repository, atau log.
 
 ## Target paket instalasi
 
@@ -71,13 +73,13 @@ Setelah runtime backend selesai dimigrasikan, rilis perlu menyediakan:
 7. Cara mengekspor database dan objek storage ke format terdokumentasi yang dapat dipindahkan ke instance lain.
 8. Tidak ada telemetri vendor atau ketergantungan license-check eksternal yang dapat membuat pelanggan kehilangan akses ke datanya ketika internet/vendor tidak tersedia.
 
-Image rilis harus dibangun sekali per commit/tag, dipromosikan sama persis ke staging dan produksi pelanggan. Konfigurasi tiap pelanggan masuk melalui secret/config injection, bukan rebuild image.
+Image rilis harus dibangun sekali per commit/tag, lalu dipromosikan sama persis ke staging dan instalasi pelanggan. Konfigurasi tiap pelanggan masuk melalui secret/config injection ketika runtime, bukan rebuild image.
 
 ## Alur simulasi yang harus dibuat
 
 1. Buat VM Linux bersih dengan resource setara target minimum pelanggan.
 2. Jalankan installer tanpa akses ke komputer developer atau Supabase managed project vendor.
-3. Isi environment baru dan buat semua secrets unik; pastikan file secret tidak masuk Git atau image.
+3. Isi environment baru dan buat semua secrets unik; pastikan secret tidak masuk Git atau image.
 4. Deploy stack, jalankan migrasi secara tercatat, tunggu healthcheck, buat tenant/Admin awal melalui backend bootstrap terkontrol.
 5. Isi data sintetis untuk PPDB, santri, akademik, tahfidz, asrama, keuangan, dan berkas.
 6. Jalankan alur modul utama, role isolation, upload/download, serta restore.
@@ -86,13 +88,13 @@ Image rilis harus dibangun sekali per commit/tag, dipromosikan sama persis ke st
 9. Ulangi dengan konfigurasi jaringan on-premise yang membatasi egress; tandai dengan jelas fitur yang memang memerlukan SMTP/API luar.
 10. Catat log, versi image, versi skema, durasi operasi, kegagalan, dan tindakan operator pada runbook.
 
-Kriteria lulus: app sehat, migrasi sesuai, akses antar tenant/role tertutup, saldo dan relasi data konsisten, file dapat diakses melalui policy, dan backup pada host kedua dapat dipulihkan.
+Kriteria lulus: image identik dapat berjalan pada host kedua hanya dengan konfigurasi baru; migrasi sesuai; akses antar tenant/role tertutup; saldo, relasi, serta berkas konsisten; dan backup dapat dipulihkan.
 
 ## Kesiapan komersial untuk produk self-hosted
 
 - Tentukan model lisensi, masa pemeliharaan/update, biaya instalasi/migrasi, pelatihan, support, serta cakupan perubahan khusus.
 - Definisikan siapa mengelola OS, Docker, database, backup, SMTP, DNS/TLS dan incident response untuk instalasi self-managed dan untuk instalasi yang dikelola tim.
-- Jangan menawarkan SLA availability untuk VPS/on-prem yang dikelola pelanggan kecuali tim juga mengelola monitor, backup, patch, dan on-call sesuai kontrak.
+- Jangan menawarkan SLA availability untuk VPS/on-prem yang dikelola pelanggan kecuali tim juga mengelola monitoring, backup, patch, dan on-call sesuai kontrak.
 - Siapkan panduan instalasi untuk admin pesantren, checklist preflight, runbook operator, release notes, troubleshooting, ekspor data, dan proses terminasi.
 - Pilot harus menguji instalasi VPS dan on-premise, bukan hanya login demo atau preview AI Studio.
 
@@ -102,6 +104,6 @@ Kriteria lulus: app sehat, migrasi sesuai, akses antar tenant/role tertutup, sal
 - Dukungan native Windows, Kubernetes, arsitektur offline/air-gapped, arsitektur CPU selain amd64, dan provider S3-compatible.
 - Kebijakan lisensi dan aktivasi yang tidak mengunci data pelanggan.
 - SMTP default/provider, sistem pembayaran lisensi, update channel, telemetry/diagnostics consent.
-- Kapasitas minimal resmi berdasarkan load test aplikasi, bukan hanya kebutuhan minimum Supabase.
+- Kapasitas minimum resmi ERP berdasarkan simulasi beban, bukan hanya kebutuhan minimum Supabase.
 
 Keputusan ini tidak boleh disamarkan sebagai kemampuan yang sudah ada. Uji dan dokumentasikan sebelum menjanjikannya di materi penawaran.
