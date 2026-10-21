@@ -13,7 +13,7 @@ import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPp
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
 import { listSupabaseBoardingSnapshot, assignSupabaseStudentRoom, deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, listSupabaseMasterDataStudents, upsertSupabaseMasterDataStudent, archiveSupabaseMasterDataStudent, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
 import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment, readSupabaseFinanceProof, uploadSupabaseFinanceProof } from "./server/supabaseFinance";
-import { listSupabaseTahfidzSnapshot, recordSupabaseTahfidzSetoran, SupabaseTahfidzError } from "./server/supabaseTahfidz";
+import { listSupabaseTahfidzSnapshot, migrateSupabaseTahfidzConfiguration, recordSupabaseTahfidzSetoran, SupabaseTahfidzError } from "./server/supabaseTahfidz";
 
 dotenv.config();
 
@@ -695,6 +695,77 @@ async function startServer() {
       const status = err instanceof SupabaseTahfidzError ? err.status : 503;
       if (status >= 500) console.error("Supabase Tahfidz record failed:", err?.message || "unknown error");
       return res.status(status).json({ error: status >= 500 ? "Setoran Tahfidz belum dapat disimpan ke backend." : err.message });
+    }
+  });
+
+  app.post("/api/tahfidz/migrate", requireAuth, requireTahfidzAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const actor = (req as any).actor;
+    if (!["Admin", "SuperAdmin"].includes(String(actor.role || ""))) {
+      return res.status(403).json({ error: "Hanya Admin pesantren yang dapat mengimpor konfigurasi Tahfidz." });
+    }
+    const apply = req.body?.apply === true;
+    if (apply && String(process.env.SUPABASE_TAHFIDZ_IMPORT_ENABLED || "").toLowerCase() !== "true") {
+      return res.status(503).json({ error: "Impor Tahfidz belum diaktifkan operator setelah backup dan rekonsiliasi prasyarat." });
+    }
+    if (apply && req.body?.confirm !== "IMPORT_TAHFIDZ_HALAQAHS_AND_MEMBERSHIPS") {
+      return res.status(400).json({ error: "Konfirmasi impor belum valid. Jalankan preview terlebih dahulu." });
+    }
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Sumber Firebase lama belum dapat diakses untuk migrasi." });
+
+    try {
+      const readTenantDocuments = async (baseQuery: any, maximum: number) => {
+        const documents: any[] = [];
+        let cursor: any = null;
+        while (true) {
+          const remaining = maximum - documents.length;
+          const pageSize = Math.min(500, remaining + 1);
+          let query = baseQuery.orderBy(FieldPath.documentId()).limit(pageSize);
+          if (cursor) query = query.startAfter(cursor);
+          const snapshot = await query.get();
+          if (documents.length + snapshot.size > maximum) {
+            throw new SupabaseTahfidzError(400, "Snapshot Tahfidz melebihi batas migrasi yang didukung.");
+          }
+          documents.push(...snapshot.docs);
+          if (snapshot.size < pageSize) break;
+          cursor = snapshot.docs[snapshot.docs.length - 1];
+        }
+        return documents;
+      };
+      const [halaqahDocuments, studentDocuments] = await Promise.all([
+        readTenantDocuments(
+          services.db.collection("master_data")
+            .where("tenantId", "==", actor.tenantId)
+            .where("category", "==", "Halaqah"),
+          2000
+        ),
+        readTenantDocuments(
+          services.db.collection("entityRecords")
+            .where("tenantId", "==", actor.tenantId)
+            .where("type", "==", "Santri"),
+          5000
+        ),
+      ]);
+      const result = await migrateSupabaseTahfidzConfiguration(
+        actor.tenantId,
+        halaqahDocuments.map((document) => ({ id: document.id, record: document.data() || {} })),
+        studentDocuments.map((document) => ({ id: document.id, record: document.data() || {} })),
+        apply
+      );
+      return res.json({
+        ...result,
+        legacyHalaqahCount: halaqahDocuments.length,
+        legacyStudentCount: studentDocuments.length,
+        mode: apply ? "apply" : "preview",
+      });
+    } catch (error: any) {
+      if (isCredentialError(error) || isFirestoreStoreError(error)) {
+        return res.status(503).json({ error: "Sumber Firebase lama belum dapat diakses untuk migrasi." });
+      }
+      const status = error instanceof SupabaseTahfidzError ? error.status : 503;
+      if (status >= 500) console.error("Tahfidz legacy import failed:", error?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Impor Tahfidz belum dapat diselesaikan." : error.message });
     }
   });
 
