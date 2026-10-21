@@ -1,3 +1,4 @@
+import { createCipheriv, createHmac, randomBytes } from "node:crypto";
 import { SupabasePpdbAdminError } from "./supabasePpdbAdmin";
 
 type JsonObject = Record<string, any>;
@@ -504,5 +505,277 @@ export async function onboardSupabaseAcceptedCandidate(
     santriId: String(body.santriId || ""),
     waliId: String(body.waliId || ""),
     alreadyOnboarded: Boolean(body.alreadyOnboarded),
+  };
+}
+
+
+export type LegacySupabaseStudentSource = {
+  id: string;
+  record: unknown;
+  guardian?: { id: string; record: unknown } | null;
+};
+
+type LegacyMigrationIssue = { id: string; category: string; message: string };
+
+function piiKey(name: string) {
+  const value = String(process.env[name] || "").trim();
+  if (!/^[0-9a-fA-F]{64}$/.test(value)) {
+    throw new SupabasePpdbAdminError(503, "Konfigurasi perlindungan data pribadi backend belum lengkap.");
+  }
+  return Buffer.from(value, "hex");
+}
+
+function legacyIdentity(value: unknown, expectedLength: number, label: string) {
+  const original = value == null ? "" : String(value).trim();
+  if (!original) return { original: "", value: "", error: "" };
+  const digits = original.replace(/\D/g, "");
+  if (digits.length !== expectedLength) {
+    return { original, value: "", error: label + " lama perlu diperbaiki sebelum data ini dapat dimigrasikan." };
+  }
+  return { original, value: digits, error: "" };
+}
+
+function encryptLegacyIdentity(value: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", piiKey("PII_ENCRYPTION_KEY"), iv);
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("hex");
+}
+
+function fingerprintLegacyIdentity(kind: "nik" | "nisn", value: string) {
+  return createHmac("sha256", piiKey("PII_FINGERPRINT_KEY"))
+    .update(kind + ":" + value, "utf8")
+    .digest("hex");
+}
+
+function legacyText(value: unknown, maxLength = 500) {
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return "";
+  return String(value).trim().slice(0, maxLength);
+}
+
+function safeLegacyDetails(record: JsonObject, fields: string[]) {
+  const result: JsonObject = {};
+  for (const field of fields) {
+    const value = record[field];
+    const normalized = legacyText(value);
+    if (normalized) result[field] = normalized;
+  }
+  return result;
+}
+
+function normalizeLegacyGender(value: unknown) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["l", "m", "male", "putra", "laki-laki", "laki laki", "ikhwan"].includes(normalized)) return "L";
+  if (["p", "f", "female", "putri", "perempuan", "akhwat"].includes(normalized)) return "P";
+  return null;
+}
+
+function normalizeLegacyNis(value: unknown) {
+  const original = legacyText(value, 80);
+  if (!original) return { nis: null as string | null, legacyValue: "" };
+  const digits = original.replace(/\D/g, "");
+  if (/^[0-9]{1,10}$/.test(digits)) return { nis: digits, legacyValue: "" };
+  return { nis: null as string | null, legacyValue: original };
+}
+
+/**
+ * Preview or import a bounded Firebase tenant dataset into Supabase.
+ * NIK/NISN are encrypted and fingerprinted in this server process; only ciphertext
+ * and keyed fingerprints are sent to the service-role RPC.
+ */
+export async function migrateSupabaseLegacyMasterDataStudents(
+  tenantIdentifier: string,
+  source: LegacySupabaseStudentSource[],
+  apply: boolean
+) {
+  if (!Array.isArray(source) || source.length > 5000) {
+    throw new SupabasePpdbAdminError(400, "Jumlah data migrasi harus berada pada rentang 0 sampai 5.000 record.");
+  }
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const errors: LegacyMigrationIssue[] = [];
+  const warnings: LegacyMigrationIssue[] = [];
+  const prepared: Array<{ id: string; student: JsonObject; guardian: JsonObject | null; warnings: string[] }> = [];
+  const seenNis = new Map<string, string>();
+  const seenIdentity = new Map<string, string>();
+
+  for (const item of source) {
+    const sourceId = typeof item?.id === "string" ? item.id.trim() : "";
+    const record = item?.record && typeof item.record === "object" && !Array.isArray(item.record)
+      ? item.record as JsonObject
+      : null;
+    if (!sourceId || sourceId.length > 1500 || !record) {
+      errors.push({ id: sourceId, category: "Santri", message: "ID sumber atau isi record santri tidak valid." });
+      continue;
+    }
+    const name = legacyText(record.name, 180);
+    if (!name) {
+      errors.push({ id: sourceId, category: "Santri", message: "Nama santri wajib diisi sebelum migrasi." });
+      continue;
+    }
+
+    const localWarnings: string[] = [];
+    const nis = normalizeLegacyNis(record.nis);
+    const gender = normalizeLegacyGender(record.gender);
+    if (!gender) localWarnings.push("Jenis kelamin belum dapat dipetakan; data perlu dilengkapi.");
+    if (nis.legacyValue) localWarnings.push("Format NIS lama tidak standar; NIS disimpan untuk rekonsiliasi manual.");
+
+    const nik = legacyIdentity(record.nik, 16, "NIK");
+    const nisn = legacyIdentity(record.nisn, 10, "NISN");
+    if (nik.error) {
+      errors.push({ id: sourceId, category: "Santri", message: nik.error });
+      continue;
+    }
+    if (nisn.error) {
+      errors.push({ id: sourceId, category: "Santri", message: nisn.error });
+      continue;
+    }
+
+    if (nis.nis) {
+      const previous = seenNis.get(nis.nis);
+      if (previous) {
+        errors.push({ id: sourceId, category: "Santri", message: "NIS duplikat dalam data sumber (record " + previous + ")." });
+        continue;
+      }
+      seenNis.set(nis.nis, sourceId);
+    }
+
+    const nikFingerprint = nik.value ? fingerprintLegacyIdentity("nik", nik.value) : "";
+    const nisnFingerprint = nisn.value ? fingerprintLegacyIdentity("nisn", nisn.value) : "";
+    let duplicateIdentity = "";
+    for (const [kind, fingerprint] of [["nik", nikFingerprint], ["nisn", nisnFingerprint]] as const) {
+      if (!fingerprint) continue;
+      const key = kind + ":" + fingerprint;
+      const previous = seenIdentity.get(key);
+      if (previous) duplicateIdentity = kind.toUpperCase() + " duplikat dalam data sumber (record " + previous + ").";
+      else seenIdentity.set(key, sourceId);
+    }
+    if (duplicateIdentity) {
+      errors.push({ id: sourceId, category: "Santri", message: duplicateIdentity });
+      continue;
+    }
+
+    const details = safeLegacyDetails(record, [
+      "enrolled", "previousSchool", "pob", "dob", "phone", "email", "address",
+      "halaqah", "halaqahId", "medical", "bloodType", "parentName", "parentPhone",
+      "fatherName", "motherName", "fatherJob", "motherJob",
+    ]);
+    if (nis.legacyValue) details.legacyNis = nis.legacyValue;
+    const student: JsonObject = {
+      sourceRecordId: sourceId,
+      name,
+      nis: nis.nis,
+      gender,
+      grade: legacyText(record.grade, 80),
+      classId: legacyText(record.classId, 160),
+      roomId: legacyText(record.roomId, 160),
+      buildingId: legacyText(record.dormitoryId, 160),
+      status: legacyText(record.status, 40) || "Active",
+      details,
+    };
+    if (nik.value) {
+      student.nikCiphertextHex = encryptLegacyIdentity(nik.value);
+      student.nikFingerprintHex = nikFingerprint;
+    }
+    if (nisn.value) {
+      student.nisnCiphertextHex = encryptLegacyIdentity(nisn.value);
+      student.nisnFingerprintHex = nisnFingerprint;
+    }
+
+    const guardianSource = item.guardian?.record && typeof item.guardian.record === "object" && !Array.isArray(item.guardian.record)
+      ? item.guardian.record as JsonObject
+      : null;
+    const guardian = guardianSource || record.parentName || record.parentPhone ? (guardianSource || record) : null;
+    let guardianPayload: JsonObject | null = null;
+    if (guardian) {
+      const guardianName = legacyText(guardian.name || record.parentName, 180);
+      const guardianPhone = legacyText(guardian.phone || record.parentPhone, 40);
+      const guardianSourceId = item.guardian?.id
+        ? String(item.guardian.id).trim()
+        : "inline:" + sourceId;
+      if (guardianName && guardianSourceId.length <= 1500) {
+        const guardianDetails = safeLegacyDetails(guardian, [
+          "email", "address", "occupation", "income", "education", "studentName", "studentGrade",
+        ]);
+        const guardianNik = legacyIdentity(guardian.nik, 16, "NIK wali");
+        if (guardianNik.error) {
+          errors.push({ id: guardianSourceId, category: "Wali Santri", message: guardianNik.error });
+          localWarnings.push("Wali belum dimigrasikan karena NIK perlu diperbaiki.");
+        }
+        guardianPayload = {
+          sourceRecordId: guardianSourceId,
+          name: guardianName,
+          phone: guardianPhone,
+          relationship: legacyText(guardian.relationship, 80) || "Wali",
+          details: guardianDetails,
+        };
+        if (guardianNik.value) {
+          guardianPayload.nikCiphertextHex = encryptLegacyIdentity(guardianNik.value);
+          guardianPayload.nikFingerprintHex = fingerprintLegacyIdentity("nik", guardianNik.value);
+        }
+      } else if (guardianName) {
+        localWarnings.push("ID sumber wali terlalu panjang; relasi wali belum dimigrasikan.");
+      }
+    }
+    prepared.push({ id: sourceId, student, guardian: guardianPayload, warnings: localWarnings });
+  }
+
+  let imported = 0;
+  let skipped = 0;
+  let planned = 0;
+  for (let offset = 0; offset < prepared.length; offset += 12) {
+    const batch = prepared.slice(offset, offset + 12);
+    const outcomes = await Promise.all(batch.map(async (item) => {
+      try {
+        const result = await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student", {
+          method: "POST",
+          body: JSON.stringify({
+            p_tenant_id: tenantId,
+            p_student: item.student,
+            p_guardian: item.guardian,
+            p_apply: apply,
+          }),
+        });
+        if (!result || typeof result !== "object" || typeof result.status !== "string") {
+          throw new SupabasePpdbAdminError(503, "Backend tidak mengembalikan status migrasi yang valid.");
+        }
+        return { item, result };
+      } catch (error: any) {
+        return {
+          item,
+          result: {
+            status: "error",
+            message: error instanceof SupabasePpdbAdminError
+              ? error.message
+              : "Record belum dapat diproses oleh backend migrasi.",
+          },
+        };
+      }
+    }));
+
+    for (const outcome of outcomes) {
+      const { item, result } = outcome;
+      const status = String(result.status);
+      if (status === "imported") imported += 1;
+      else if (status === "already_imported") skipped += 1;
+      else if (status === "planned") planned += 1;
+      else errors.push({
+        id: item.id,
+        category: "Santri",
+        message: String(result.message || "Record bertenturan dengan data tenant yang sudah ada."),
+      });
+      for (const message of item.warnings) warnings.push({ id: item.id, category: "Santri", message });
+      const rpcWarnings = Array.isArray(result.warnings) ? result.warnings : [];
+      for (const message of rpcWarnings) warnings.push({ id: item.id, category: "Santri", message: String(message) });
+    }
+  }
+
+  return {
+    dryRun: !apply,
+    sourceCount: source.length,
+    planned: apply ? imported + skipped : planned + skipped,
+    imported,
+    skipped,
+    errors,
+    warnings,
   };
 }
