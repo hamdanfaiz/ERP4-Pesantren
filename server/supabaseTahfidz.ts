@@ -56,6 +56,15 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
+function legacySupabaseRole(value: string): string {
+  const roles: Record<string, string> = {
+    Admin: "admin",
+    SuperAdmin: "super_admin",
+    Ustadz: "ustadz",
+  };
+  return roles[String(value || "").trim()] || "";
+}
+
 async function resolveTenantId(identifier: string) {
   const normalized = String(identifier || "").trim();
   if (!normalized) throw new SupabaseTahfidzError(403, "Tenant aktif tidak ditemukan.");
@@ -233,6 +242,7 @@ function parseAyahRange(value: unknown): { start: number; end: number } {
 export async function recordSupabaseTahfidzSetoran(
   tenantIdentifier: string,
   legacyFirebaseUid: string,
+  legacyRole: string,
   recordedByName: string,
   payloadValue: unknown
 ) {
@@ -240,6 +250,8 @@ export async function recordSupabaseTahfidzSetoran(
   if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
     throw new SupabaseTahfidzError(401, "Sesi pengguna tidak valid.");
   }
+  const expectedRole = legacySupabaseRole(legacyRole);
+  if (!expectedRole) throw new SupabaseTahfidzError(403, "Role ini tidak dapat mencatat setoran Tahfidz.");
   if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
     throw new SupabaseTahfidzError(400, "Data setoran tidak valid.");
   }
@@ -293,6 +305,7 @@ export async function recordSupabaseTahfidzSetoran(
       p_performed_at: performedAt,
       p_recorded_by_user_id: supabaseUserId,
       p_recorded_by_name: boundedText(recordedByName, 180, "Nama pencatat"),
+      p_expected_role: expectedRole,
       p_client_request_id: requestId,
     }),
   });
@@ -643,8 +656,8 @@ export async function recordSupabaseTahfidzTarget(
   if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
     throw new SupabaseTahfidzError(401, "Sesi pengguna tidak valid.");
   }
-  const expectedRole = String(legacyRole || "").trim();
-  if (!["Admin", "SuperAdmin", "Ustadz"].includes(expectedRole)) {
+  const expectedRole = legacySupabaseRole(legacyRole);
+  if (!expectedRole) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat mengatur target Tahfidz.");
   }
   if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
