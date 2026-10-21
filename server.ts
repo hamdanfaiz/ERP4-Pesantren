@@ -1013,6 +1013,9 @@ async function startServer() {
     }
     try {
       const actor = await loadFinanceProofActor(services.db, uid);
+      if (actor.role === "Walisantri" && !actor.linkedSantriId) {
+        return res.status(403).json({ error: "Akun wali belum terhubung ke data santri." });
+      }
       const billingId = typeof req.body?.billingId === "string" ? req.body.billingId.trim() : "";
       if (!billingId || billingId.length > 180 || billingId.includes("/")) {
         return res.status(400).json({ error: "ID tagihan tidak valid." });
@@ -1061,6 +1064,9 @@ async function startServer() {
       const uid = (req as any).user?.uid;
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadFinanceProofActor(services.db, uid);
+      if (actor.role === "Walisantri" && !actor.linkedSantriId) {
+        return res.status(404).json({ error: "Bukti pembayaran tidak ditemukan." });
+      }
       const proof = await readSupabaseFinanceProof(
         actor.tenantId,
         req.params.billingId,
