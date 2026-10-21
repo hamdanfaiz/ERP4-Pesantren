@@ -111,7 +111,7 @@ function mapSupabaseTahfidzSnapshot(snapshot: any) {
     target: `Ziyadah ${Number(halaqah.dailyTargetPages || 0)} halaman/hari`,
     dailyTargetPages: Number(halaqah.dailyTargetPages || 0),
   }));
-  const halaqahNameById = new Map(mappedHalaqahs.map((halaqah: any) => [halaqah.id, halaqah.name]));
+  const halaqahNameById = new Map<string, string>(mappedHalaqahs.map((halaqah: any) => [halaqah.id, halaqah.name] as [string, string]));
   const mappedRecords = records.map((record: any) => {
     const performedAt = new Date(record.performedAt);
     const isValidDate = Number.isFinite(performedAt.getTime());
