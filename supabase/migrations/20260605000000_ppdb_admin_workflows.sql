@@ -67,9 +67,18 @@ BEGIN
 
   IF EXISTS (
     SELECT 1 FROM jsonb_object_keys(COALESCE(p_documents_patch, '{}'::jsonb)) AS fields(field)
-    WHERE field NOT IN ('kk', 'birthCertificate', 'reportCards', 'ijazah', 'skhun', 'pasPhoto')
+    WHERE field NOT IN ('kk', 'birthCertificate', 'reportCards', 'ijazah', 'skhun', 'pasPhoto', 'kkPath', 'birthCertificatePath', 'reportCardsPath', 'ijazahPath', 'skhunPath', 'pasPhotoPath')
   ) THEN
     RAISE EXCEPTION 'Unsupported PPDB document field' USING ERRCODE = '22023';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_each_text(COALESCE(p_documents_patch, '{}'::jsonb)) AS fields(field, value)
+    WHERE fields.field LIKE '%Path'
+      AND fields.value NOT LIKE p_tenant_id::TEXT || '/' || p_candidate_id::TEXT || '/%'
+  ) THEN
+    RAISE EXCEPTION 'Invalid PPDB document path' USING ERRCODE = '22023';
   END IF;
 
   UPDATE public.candidates
@@ -99,8 +108,8 @@ BEGIN
       COALESCE((p_documents_patch->>'birthCertificate')::BOOLEAN, false),
       COALESCE((p_documents_patch->>'reportCards')::BOOLEAN, false),
       COALESCE((p_documents_patch->>'ijazah')::BOOLEAN, false),
-      COALESCE((p_documents_patch->>'skhun')::BOOLEAN, false),
-      COALESCE((p_documents_patch->>'pasPhoto')::BOOLEAN, false)
+      COALESCE((p_documents_patch->>'skhun')::BOOLEAN, p_documents_patch ? 'skhunPath', false),
+      COALESCE((p_documents_patch->>'pasPhoto')::BOOLEAN, p_documents_patch ? 'pasPhotoPath', false)
     )
     ON CONFLICT (tenant_id, candidate_id) DO UPDATE SET
       kk = CASE WHEN p_documents_patch ? 'kk' THEN (p_documents_patch->>'kk')::BOOLEAN ELSE public.candidate_documents.kk END,
@@ -108,7 +117,13 @@ BEGIN
       report_cards = CASE WHEN p_documents_patch ? 'reportCards' THEN (p_documents_patch->>'reportCards')::BOOLEAN ELSE public.candidate_documents.report_cards END,
       ijazah = CASE WHEN p_documents_patch ? 'ijazah' THEN (p_documents_patch->>'ijazah')::BOOLEAN ELSE public.candidate_documents.ijazah END,
       skhun = CASE WHEN p_documents_patch ? 'skhun' THEN (p_documents_patch->>'skhun')::BOOLEAN ELSE public.candidate_documents.skhun END,
-      pas_photo = CASE WHEN p_documents_patch ? 'pasPhoto' THEN (p_documents_patch->>'pasPhoto')::BOOLEAN ELSE public.candidate_documents.pas_photo END,
+      pas_photo = CASE WHEN p_documents_patch ? 'pasPhoto' OR p_documents_patch ? 'pasPhotoPath' THEN COALESCE((p_documents_patch->>'pasPhoto')::BOOLEAN, true) ELSE public.candidate_documents.pas_photo END,
+      kk_path = CASE WHEN p_documents_patch ? 'kkPath' THEN p_documents_patch->>'kkPath' ELSE public.candidate_documents.kk_path END,
+      birth_certificate_path = CASE WHEN p_documents_patch ? 'birthCertificatePath' THEN p_documents_patch->>'birthCertificatePath' ELSE public.candidate_documents.birth_certificate_path END,
+      report_cards_path = CASE WHEN p_documents_patch ? 'reportCardsPath' THEN p_documents_patch->>'reportCardsPath' ELSE public.candidate_documents.report_cards_path END,
+      ijazah_path = CASE WHEN p_documents_patch ? 'ijazahPath' THEN p_documents_patch->>'ijazahPath' ELSE public.candidate_documents.ijazah_path END,
+      skhun_path = CASE WHEN p_documents_patch ? 'skhunPath' THEN p_documents_patch->>'skhunPath' ELSE public.candidate_documents.skhun_path END,
+      pas_photo_path = CASE WHEN p_documents_patch ? 'pasPhotoPath' THEN p_documents_patch->>'pasPhotoPath' ELSE public.candidate_documents.pas_photo_path END,
       updated_at = now();
   END IF;
 
