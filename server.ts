@@ -692,7 +692,7 @@ async function startServer() {
     }
     try {
       const actor = (req as any).actor;
-      const result = await recordSupabaseTahfidzSetoran(actor.tenantId, actor.uid, actor.name, req.body?.record);
+      const result = await recordSupabaseTahfidzSetoran(actor.tenantId, actor.uid, actor.role, actor.name, req.body?.record);
       return res.status(201).json(result);
     } catch (err: any) {
       const status = err instanceof SupabaseTahfidzError ? err.status : 503;
