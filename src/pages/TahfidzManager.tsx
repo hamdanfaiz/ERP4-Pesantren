@@ -684,6 +684,36 @@ export function TahfidzManager() {
     return matchQuery && matchHalaqah;
   });
 
+  const localDateKey = (date: Date) => {
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  };
+  const todayKey = localDateKey(new Date());
+  const recordsToday = records.filter((record) => record.date === todayKey);
+  const studentsSubmittingToday = new Set(
+    recordsToday.map((record) => record.studentId || record.santriName).filter(Boolean),
+  ).size;
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+  const recordsLast30Days = records.filter(
+    (record) => record.date >= localDateKey(thirtyDaysAgo) && record.date <= todayKey,
+  );
+  const weeklySetoranData = Array.from({ length: 7 }, (_, index) => {
+    const dayDate = new Date();
+    dayDate.setHours(0, 0, 0, 0);
+    dayDate.setDate(dayDate.getDate() - (6 - index));
+    const dayRecords = records.filter((record) => record.date === localDateKey(dayDate));
+    return {
+      day: dayDate.toLocaleDateString("id-ID", { weekday: "short" }),
+      Ziyadah: dayRecords.filter((record) => record.type === "Ziyadah").length,
+      "Muroja'ah": dayRecords.filter((record) => record.type === "Muroja'ah").length,
+      Lainnya: dayRecords.filter((record) => !["Ziyadah", "Muroja'ah"].includes(record.type)).length,
+      santriSetor: new Set(dayRecords.map((record) => record.studentId || record.santriName).filter(Boolean)).size,
+      jumlahSetoran: dayRecords.length,
+    };
+  });
+
   const renderHalaqahManagement = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
@@ -854,34 +884,31 @@ export function TahfidzManager() {
             Total Santri Tahfidz
           </p>
           <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-            1,240
+            {SUPABASE_TAHFIDZ_CUTOVER ? santriList.length.toLocaleString("id-ID") : "1,240"}
           </h3>
         </div>
         <div className="bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5 p-4 rounded-xl">
           <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">
-            Rata-rata Setoran/Bulan
+            {SUPABASE_TAHFIDZ_CUTOVER ? "Setoran 30 Hari Terakhir" : "Rata-rata Setoran/Bulan"}
           </p>
           <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-            12 Halaman
+            {SUPABASE_TAHFIDZ_CUTOVER ? `${recordsLast30Days.length.toLocaleString("id-ID")} setoran` : "12 Halaman"}
           </h3>
         </div>
         <div className="bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5 p-4 rounded-xl">
           <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">
-            Rata-rata Mutu (Skor)
+            {SUPABASE_TAHFIDZ_CUTOVER ? "Santri Setor Hari Ini" : "Rata-rata Mutu (Skor)"}
           </p>
           <h3 className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            88.5%{" "}
-            <span className="text-xs font-normal text-slate-500 flex-inline items-center gap-1">
-              <BookOpen className="w-3 h-3 inline" /> Jayyid Jiddan
-            </span>
+            {SUPABASE_TAHFIDZ_CUTOVER ? `${studentsSubmittingToday.toLocaleString("id-ID")} santri` : <>88.5%{" "}<span className="text-xs font-normal text-slate-500 flex-inline items-center gap-1"><BookOpen className="w-3 h-3 inline" /> Jayyid Jiddan</span></>}
           </h3>
         </div>
         <div className="bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 p-4 rounded-xl">
           <p className="text-xs text-amber-600 dark:text-amber-500/70 uppercase tracking-wider font-semibold mb-1">
-            Perlu Perhatian Khusus
+            {SUPABASE_TAHFIDZ_CUTOVER ? "Halaqah Aktif" : "Perlu Perhatian Khusus"}
           </p>
           <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-            42 Santri
+            {SUPABASE_TAHFIDZ_CUTOVER ? `${halaqahList.length.toLocaleString("id-ID")} halaqah` : "42 Santri"}
           </h3>
         </div>
       </div>
@@ -1246,8 +1273,8 @@ export function TahfidzManager() {
               <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                 <Plus className="w-4 h-4" />
               </div>
-            </button>
-            <button
+            </button>}
+            {!SUPABASE_TAHFIDZ_CUTOVER && <button
               onClick={() => {
                 setIsTargetModalOpen(true);
                 setIsQuickActionsOpen(false);
@@ -1483,11 +1510,12 @@ export function TahfidzManager() {
               Target Harian Santri
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Atur dan pantau target setoran ziyadah & muroja'ah harian untuk
-              semua santri.
+              {SUPABASE_TAHFIDZ_CUTOVER
+                ? "Target aktif dibaca dari backend; perubahan target belum tersedia pada tahap ini."
+                : "Atur dan pantau target setoran ziyadah & muroja'ah harian untuk semua santri."}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          {!SUPABASE_TAHFIDZ_CUTOVER && <div className="flex items-center gap-3">
             <button
               onClick={() => setIsPrintPlanOpen(true)}
               className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-200 dark:hover:bg-white/10 transition-colors border border-slate-200 dark:border-white/10 shadow-sm"
@@ -1509,7 +1537,7 @@ export function TahfidzManager() {
               <Plus className="w-4 h-4" />
               Set Target Massal
             </button>
-          </div>
+          </div>}
         </div>
 
         <div className="overflow-x-auto">
@@ -1517,14 +1545,14 @@ export function TahfidzManager() {
             <thead className="bg-slate-50 dark:bg-black/40 text-[10px] text-slate-500 uppercase font-bold tracking-wider border-b border-slate-200 dark:border-white/5">
               <tr>
                 <th className="px-4 py-3">Santri</th>
-                <th className="px-4 py-3">Pencapaian Hari Ini</th>
+                <th className="px-4 py-3">{SUPABASE_TAHFIDZ_CUTOVER ? "Setoran Hari Ini" : "Pencapaian Hari Ini"}</th>
                 <th className="px-4 py-3">Target Ziyadah</th>
                 <th className="px-4 py-3">Target Muroja'ah</th>
-                <th className="px-4 py-3 text-right">Aksi</th>
+                {!SUPABASE_TAHFIDZ_CUTOVER && <th className="px-4 py-3 text-right">Aksi</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {santriList.slice(0, 3).map((santri) => (
+              {(SUPABASE_TAHFIDZ_CUTOVER ? santriList : santriList.slice(0, 3)).map((santri) => (
                 <tr
                   key={santri.id}
                   className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors"
@@ -1545,32 +1573,37 @@ export function TahfidzManager() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-16 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-500 rounded-full"
-                          style={{ width: "60%" }}
-                        ></div>
-                      </div>
+                    {SUPABASE_TAHFIDZ_CUTOVER ? (
                       <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                        60%
+                        {recordsToday.filter((record) => record.studentId === santri.id).length} setoran
                       </span>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-16 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: "60%" }}></div>
+                        </div>
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">60%</span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-emerald-700 dark:text-emerald-400 font-medium">
-                    1 Halaman
+                    {SUPABASE_TAHFIDZ_CUTOVER
+                      ? santri.target ? `${santri.target.ziyadahPagesPerDay} halaman/hari` : "Belum diatur"
+                      : "1 Halaman"}
                   </td>
                   <td className="px-4 py-3 text-blue-700 dark:text-blue-400 font-medium">
-                    ¼ Juz
+                    {SUPABASE_TAHFIDZ_CUTOVER
+                      ? santri.target ? `${santri.target.murojaahPagesPerDay} halaman/hari` : "Belum diatur"
+                      : "¼ Juz"}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  {!SUPABASE_TAHFIDZ_CUTOVER && <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => setIsTargetModalOpen(true)}
                       className="text-xs text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-1 rounded"
                     >
                       Sesuaikan
                     </button>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
@@ -1582,7 +1615,7 @@ export function TahfidzManager() {
         <div className="bg-white dark:bg-black/40 border border-slate-200 dark:border-white/5 rounded-2xl p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-base font-medium text-slate-800 dark:text-slate-200">
-              Konsistensi Hafalan Mingguan
+              {SUPABASE_TAHFIDZ_CUTOVER ? "Setoran Harian Menurut Jenis (7 Hari)" : "Konsistensi Hafalan Mingguan"}
             </h3>
             <select className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-md px-2 py-1 text-xs text-slate-600 dark:text-slate-300 outline-none">
               <option>Minggu Ini</option>
@@ -1592,7 +1625,7 @@ export function TahfidzManager() {
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={WEEKLY_DATA}
+                data={SUPABASE_TAHFIDZ_CUTOVER ? weeklySetoranData : WEEKLY_DATA}
                 margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
               >
                 <XAxis
@@ -1631,6 +1664,15 @@ export function TahfidzManager() {
                   stackId="a"
                   maxBarSize={40}
                 />
+                {SUPABASE_TAHFIDZ_CUTOVER && (
+                  <Bar
+                    dataKey="Lainnya"
+                    fill="#f59e0b"
+                    radius={[4, 4, 0, 0]}
+                    stackId="a"
+                    maxBarSize={40}
+                  />
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1638,13 +1680,13 @@ export function TahfidzManager() {
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-emerald-500"></div>
               <span className="text-xs text-slate-600 dark:text-slate-400">
-                Ziyadah (Halaman)
+                {SUPABASE_TAHFIDZ_CUTOVER ? "Ziyadah (Setoran)" : "Ziyadah (Halaman)"}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-blue-500"></div>
               <span className="text-xs text-slate-600 dark:text-slate-400">
-                Muroja'ah (Halaman)
+                {SUPABASE_TAHFIDZ_CUTOVER ? "Muroja'ah (Setoran)" : "Muroja'ah (Halaman)"}
               </span>
             </div>
           </div>
@@ -1653,7 +1695,7 @@ export function TahfidzManager() {
         <div className="bg-white dark:bg-black/40 border border-slate-200 dark:border-white/5 rounded-2xl p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-base font-medium text-slate-800 dark:text-slate-200">
-              Tingkat Penyelesaian (Target vs Aktual)
+              {SUPABASE_TAHFIDZ_CUTOVER ? "Santri Setor dan Jumlah Setoran per Hari" : "Tingkat Penyelesaian (Target vs Aktual)"}
             </h3>
             <select className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-md px-2 py-1 text-xs text-slate-600 dark:text-slate-300 outline-none">
               <option>Semester Ganjil</option>
@@ -1663,7 +1705,7 @@ export function TahfidzManager() {
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
-                data={COMPLETION_DATA}
+                data={SUPABASE_TAHFIDZ_CUTOVER ? weeklySetoranData : COMPLETION_DATA}
                 margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
               >
                 <defs>
@@ -1677,7 +1719,7 @@ export function TahfidzManager() {
                   </linearGradient>
                 </defs>
                 <XAxis
-                  dataKey="month"
+                  dataKey={SUPABASE_TAHFIDZ_CUTOVER ? "day" : "month"}
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: "#64748b" }}
@@ -1699,7 +1741,7 @@ export function TahfidzManager() {
                 />
                 <Area
                   type="monotone"
-                  dataKey="Target"
+                  dataKey={SUPABASE_TAHFIDZ_CUTOVER ? "santriSetor" : "Target"}
                   stroke="#94a3b8"
                   strokeDasharray="5 5"
                   fillOpacity={1}
@@ -1707,7 +1749,7 @@ export function TahfidzManager() {
                 />
                 <Area
                   type="monotone"
-                  dataKey="Aktual"
+                  dataKey={SUPABASE_TAHFIDZ_CUTOVER ? "jumlahSetoran" : "Aktual"}
                   stroke="#10b981"
                   strokeWidth={3}
                   fillOpacity={1}
@@ -1720,13 +1762,13 @@ export function TahfidzManager() {
             <div className="flex items-center gap-2">
               <div className="w-4 border-t-2 border-dashed border-slate-400"></div>
               <span className="text-xs text-slate-600 dark:text-slate-400">
-                Target Semester
+                {SUPABASE_TAHFIDZ_CUTOVER ? "Santri Unik" : "Target Semester"}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 border-t-4 border-emerald-500"></div>
               <span className="text-xs text-slate-600 dark:text-slate-400">
-                Aktual Area
+                {SUPABASE_TAHFIDZ_CUTOVER ? "Jumlah Setoran" : "Aktual Area"}
               </span>
             </div>
           </div>
@@ -2470,7 +2512,7 @@ export function TahfidzManager() {
             <div className="h-[200px] w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={WEEKLY_DATA}
+                  data={SUPABASE_TAHFIDZ_CUTOVER ? weeklySetoranData : WEEKLY_DATA}
                   margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
                 >
                   <defs>
