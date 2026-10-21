@@ -243,8 +243,8 @@ BEGIN
   END CASE;
 
   v_attributes := p_record - ARRAY[
-    'id', 'category', 'name', 'status', 'parentId', 'parentCode', 'grade',
-    'location', 'capacity', 'occupied', 'gender', 'genderRestriction'
+    'id', 'category', 'name', 'status', 'tenantId', '_firestoreId', 'createdByUid',
+    'parentId', 'parentCode', 'grade', 'location', 'capacity', 'occupied', 'gender', 'genderRestriction'
   ];
 
   INSERT INTO public.master_data_records (
