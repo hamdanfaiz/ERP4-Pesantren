@@ -493,6 +493,7 @@ export function TahfidzManager() {
     SUPABASE_TAHFIDZ_CUTOVER ? [] : INITIAL_RECORDS,
   );
   const [isTahfidzDataLoading, setIsTahfidzDataLoading] = useState(SUPABASE_TAHFIDZ_CUTOVER);
+  const [hasSupabaseTahfidzSnapshot, setHasSupabaseTahfidzSnapshot] = useState(!SUPABASE_TAHFIDZ_CUTOVER);
   const [isSavingTahfidzRecord, setIsSavingTahfidzRecord] = useState(false);
   const [tahfidzDataError, setTahfidzDataError] = useState("");
   const pendingRecordRequestsRef = React.useRef(new Map<string, { id: string; payload: any }>());
@@ -508,6 +509,7 @@ export function TahfidzManager() {
     setHalaqahList(mapped.halaqahs);
     setSantriList(mapped.roster);
     setRecords(mapped.records);
+    setHasSupabaseTahfidzSnapshot(true);
     return mapped;
   };
 
@@ -515,12 +517,14 @@ export function TahfidzManager() {
     if (SUPABASE_TAHFIDZ_CUTOVER) {
       let cancelled = false;
       setIsTahfidzDataLoading(true);
+      setHasSupabaseTahfidzSnapshot(false);
       setTahfidzDataError("");
       setHalaqahList([]);
       setSantriList([]);
       setRecords([]);
       if (!user?.tenantId || !user?.uid || user?.modulePermissions?.tahfidz === false) {
         setTahfidzDataError("Akses Tahfidz atau identitas tenant belum tersedia.");
+        setHasSupabaseTahfidzSnapshot(false);
         setIsTahfidzDataLoading(false);
         return () => { cancelled = true; };
       }
@@ -531,9 +535,13 @@ export function TahfidzManager() {
           setHalaqahList(mapped.halaqahs);
           setSantriList(mapped.roster);
           setRecords(mapped.records);
+          setHasSupabaseTahfidzSnapshot(true);
         })
         .catch((error: any) => {
-          if (!cancelled) setTahfidzDataError(error?.message || "Data Tahfidz Supabase belum dapat dimuat.");
+          if (!cancelled) {
+            setHasSupabaseTahfidzSnapshot(false);
+            setTahfidzDataError(error?.message || "Data Tahfidz Supabase belum dapat dimuat.");
+          }
         })
         .finally(() => {
           if (!cancelled) setIsTahfidzDataLoading(false);
@@ -884,7 +892,9 @@ export function TahfidzManager() {
             Total Santri Tahfidz
           </p>
           <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-            {SUPABASE_TAHFIDZ_CUTOVER ? santriList.length.toLocaleString("id-ID") : "1,240"}
+            {SUPABASE_TAHFIDZ_CUTOVER
+              ? hasSupabaseTahfidzSnapshot ? santriList.length.toLocaleString("id-ID") : "—"
+              : "1,240"}
           </h3>
         </div>
         <div className="bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5 p-4 rounded-xl">
@@ -892,7 +902,9 @@ export function TahfidzManager() {
             {SUPABASE_TAHFIDZ_CUTOVER ? "Setoran 30 Hari Terakhir" : "Rata-rata Setoran/Bulan"}
           </p>
           <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-            {SUPABASE_TAHFIDZ_CUTOVER ? `${recordsLast30Days.length.toLocaleString("id-ID")} setoran` : "12 Halaman"}
+            {SUPABASE_TAHFIDZ_CUTOVER
+              ? hasSupabaseTahfidzSnapshot ? `${recordsLast30Days.length.toLocaleString("id-ID")} setoran` : "—"
+              : "12 Halaman"}
           </h3>
         </div>
         <div className="bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5 p-4 rounded-xl">
@@ -900,7 +912,9 @@ export function TahfidzManager() {
             {SUPABASE_TAHFIDZ_CUTOVER ? "Santri Setor Hari Ini" : "Rata-rata Mutu (Skor)"}
           </p>
           <h3 className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {SUPABASE_TAHFIDZ_CUTOVER ? `${studentsSubmittingToday.toLocaleString("id-ID")} santri` : <>88.5%{" "}<span className="text-xs font-normal text-slate-500 flex-inline items-center gap-1"><BookOpen className="w-3 h-3 inline" /> Jayyid Jiddan</span></>}
+            {SUPABASE_TAHFIDZ_CUTOVER
+              ? hasSupabaseTahfidzSnapshot ? `${studentsSubmittingToday.toLocaleString("id-ID")} santri` : "—"
+              : <>88.5%{" "}<span className="text-xs font-normal text-slate-500 flex-inline items-center gap-1"><BookOpen className="w-3 h-3 inline" /> Jayyid Jiddan</span></>}
           </h3>
         </div>
         <div className="bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 p-4 rounded-xl">
@@ -908,7 +922,9 @@ export function TahfidzManager() {
             {SUPABASE_TAHFIDZ_CUTOVER ? "Halaqah Aktif" : "Perlu Perhatian Khusus"}
           </p>
           <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-            {SUPABASE_TAHFIDZ_CUTOVER ? `${halaqahList.length.toLocaleString("id-ID")} halaqah` : "42 Santri"}
+            {SUPABASE_TAHFIDZ_CUTOVER
+              ? hasSupabaseTahfidzSnapshot ? `${halaqahList.length.toLocaleString("id-ID")} halaqah` : "—"
+              : "42 Santri"}
           </h3>
         </div>
       </div>
@@ -1552,7 +1568,17 @@ export function TahfidzManager() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {(SUPABASE_TAHFIDZ_CUTOVER ? santriList : santriList.slice(0, 3)).map((santri) => (
+              {SUPABASE_TAHFIDZ_CUTOVER && santriList.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-500">
+                    {isTahfidzDataLoading
+                      ? "Memuat target santri..."
+                      : tahfidzDataError
+                        ? "Roster belum dapat dimuat. Periksa pesan status di atas."
+                        : "Belum ada roster santri atau data target."}
+                  </td>
+                </tr>
+              ) : (SUPABASE_TAHFIDZ_CUTOVER ? santriList : santriList.slice(0, 3)).map((santri) => (
                 <tr
                   key={santri.id}
                   className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors"
