@@ -1,7 +1,7 @@
 # Status Cutover Supabase ERP4 Pesantren
 
 **Snapshot:** 21 Oktober 2026  
-**Source inspected:** branch `backend/supabase-finance-ui`, head `f59ead9`  
+**Source inspected:** branch `backend/supabase-masterdata-structures-ui`, draft PR #11  
 **Purpose:** keep implementation and backend handoff aligned while the application moves from Firebase-first to Supabase-only.
 
 ## Decision
@@ -35,14 +35,14 @@ The module inventory is a source scan, not a claim that every screen or workflow
 4. **Move identity:** replace Firebase Auth with Supabase Auth after dependent module paths can accept Supabase sessions. Import accounts where supported; use a controlled first-login migration or forced password reset where password hashes cannot be moved safely. Never copy plaintext passwords.
 5. **Move remaining files:** migrate Firebase Storage objects into private Supabase buckets, preserve owner/tenant metadata, and verify that URLs and access policies do not expose files publicly.
 6. **Remove Firebase:** delete browser/server Firebase SDK usage, Firebase Admin configuration, Firestore rules, Firebase Storage config, and Firebase-specific setup only after code search and module acceptance checks show no runtime dependency.
-7. **Package for customer environments:** provide container images, a documented Compose installer, environment templates, versioned migrations, health checks, upgrade/rollback instructions, SMTP setup, backup/restore procedures, and a customer-specific database configuration.
+7. **Package for customer environments:** build and verify the profiles in [Deployment Portability](DEPLOYMENT_PORTABILITY.md): customer-owned managed Supabase with app on customer VPS, and fully self-hosted Supabase on Linux VPS/on-premise. Container image, Compose installer, environment templates, versioned migrations, health checks, SMTP setup, and backup/restore are release requirements, not verified capabilities yet.
 8. **Run final verification:** role/tenant matrix, RLS policies, migration reconciliation, PPDB registration, concurrent unique IDs, finance ledger integrity, private uploads, backup restoration, login, and responsive UI. Run the same release candidate that will be deployed.
 
 ## Master Data cutover prerequisite
 
 The existing Supabase onboarding schema makes PPDB-created students require a 10-digit NIS, NIK, class, and room. The repository's example records also contain shorter NIS values and optional placement fields. A legacy import therefore must preserve valid existing identifiers and records that still need class/room assignment, without inventing a PPDB candidate or discarding the source record.
 
-Migration `20260610000000_legacy_master_data_import.sql` prepares provenance keys for legacy student/guardian rows and allows legacy records to retain missing NIS, identity, or placement values. It does **not** import data. The importer still needs to encrypt NIK/NISN before writing, detect duplicate identities/NIS, preserve guardian links, and report rows requiring reconciliation.
+Migration `20260610000000_legacy_master_data_import.sql` prepares provenance keys for legacy student/guardian rows and allows legacy records to retain missing NIS, identity, or placement values. The branch now also contains an Admin-only preview/apply endpoint and Master Data screen for a tenant-scoped legacy snapshot import. It encrypts NIK/NISN before writes, detects conflicts, preserves resolvable guardian links, and reports rows requiring reconciliation. Import is opt-in through `LEGACY_MASTER_DATA_IMPORT_ENABLED=true`, requires a prior backup and a planned maintenance window, and has **not** been run against live data. The SQL migration has also **not** been applied to the project. This is a one-time import path, not ongoing synchronization or a module cutover.
 
 Do not switch the live Master Data, boarding, or academic UI to Supabase until this data import and the corresponding placement operations use Supabase as one coherent source. In particular, room allocation cannot read rooms from Supabase while writing room occupancy or student placement back to Firestore.
 
@@ -52,4 +52,4 @@ The current `src/pages/TahfidzManager.tsx` still subscribes to Firestore for hal
 
 ## Current release gate
 
-The application is **not Supabase-only and is not ready for customer production deployment**. The stacked PRs are draft, and their migrations have not been applied to the live Supabase project. Login, Firebase/Supabase integration, database RLS, storage, and final release-candidate tests remain pending by design.
+The application is **not Supabase-only and is not ready for customer production deployment**. The stacked PRs are draft, and their migrations have not been applied to the live Supabase project. Login, Firebase/Supabase integration, database RLS, storage, and final release-candidate tests remain pending by design. The repository does not yet contain a validated customer deployment bundle (Dockerfile/Compose installer, upgrade/restore scripts), and no VPS or on-premise profile has passed the simulations in `DEPLOYMENT_PORTABILITY.md`. Until then, all environment profiles are planned targets, not supported production environments.
