@@ -668,6 +668,9 @@ async function startServer() {
 
   app.get("/api/tahfidz/snapshot", requireAuth, requireTahfidzAccess, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
+    if (String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").toLowerCase() !== "true") {
+      return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan oleh operator instalasi." });
+    }
     try {
       const actor = (req as any).actor;
       const snapshot = await listSupabaseTahfidzSnapshot(actor.tenantId);
@@ -681,6 +684,9 @@ async function startServer() {
 
   app.post("/api/tahfidz/records", requireAuth, requireTahfidzAccess, requireTahfidzRecorder, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
+    if (String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").toLowerCase() !== "true") {
+      return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan oleh operator instalasi." });
+    }
     try {
       const actor = (req as any).actor;
       const result = await recordSupabaseTahfidzSetoran(actor.tenantId, actor.uid, actor.name, req.body?.record);
