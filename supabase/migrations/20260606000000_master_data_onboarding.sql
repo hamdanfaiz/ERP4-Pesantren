@@ -599,9 +599,60 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.set_imported_room_occupancy(
+  p_tenant_id UUID,
+  p_room_id TEXT,
+  p_occupied INTEGER
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $
+DECLARE
+  v_capacity INTEGER;
+  v_count INTEGER;
+BEGIN
+  IF p_tenant_id IS NULL OR p_room_id IS NULL OR length(btrim(p_room_id)) = 0
+    OR p_occupied IS NULL OR p_occupied < 0 THEN
+    RAISE EXCEPTION 'Jumlah penghuni hasil migrasi tidak valid' USING ERRCODE = '22023';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.tenants WHERE id = p_tenant_id AND status = 'active') THEN
+    RAISE EXCEPTION 'Tenant tidak aktif' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT capacity INTO v_capacity
+  FROM public.master_data_records
+  WHERE tenant_id = p_tenant_id AND category = 'Kamar' AND id = p_room_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Kamar tidak ditemukan pada tenant ini' USING ERRCODE = 'P0002';
+  END IF;
+  IF v_capacity IS NULL OR p_occupied > v_capacity THEN
+    RAISE EXCEPTION 'Jumlah penghuni lama melebihi kapasitas kamar; selesaikan konflik sebelum migrasi' USING ERRCODE = '23514';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.students
+    WHERE tenant_id = p_tenant_id AND room_id = p_room_id
+  ) THEN
+    RAISE EXCEPTION 'Migrasi okupansi ditolak karena kamar sudah memiliki record Supabase' USING ERRCODE = '55000';
+  END IF;
+
+  UPDATE public.master_data_records
+  SET occupied = p_occupied, updated_at = now()
+  WHERE tenant_id = p_tenant_id AND category = 'Kamar' AND id = p_room_id
+  RETURNING occupied INTO v_count;
+  RETURN v_count;
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.set_imported_room_occupancy(UUID, TEXT, INTEGER) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.upsert_master_data_structure(UUID, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.next_available_santri_nis(UUID, TEXT, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.onboard_accepted_ppdb_candidate(UUID, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_imported_room_occupancy(UUID, TEXT, INTEGER) TO service_role;
 GRANT EXECUTE ON FUNCTION public.upsert_master_data_structure(UUID, TEXT, TEXT, JSONB) TO service_role;
 GRANT EXECUTE ON FUNCTION public.next_available_santri_nis(UUID, TEXT, UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION public.onboard_accepted_ppdb_candidate(UUID, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO service_role;
