@@ -101,22 +101,26 @@ BEGIN
 
   IF p_documents_patch <> '{}'::jsonb THEN
     INSERT INTO public.candidate_documents (
-      tenant_id, candidate_id, kk, birth_certificate, report_cards, ijazah, skhun, pas_photo
+      tenant_id, candidate_id, kk, birth_certificate, report_cards, ijazah, skhun, pas_photo,
+      kk_path, birth_certificate_path, report_cards_path, ijazah_path, skhun_path, pas_photo_path
     ) VALUES (
       p_tenant_id, p_candidate_id,
-      COALESCE((p_documents_patch->>'kk')::BOOLEAN, false),
-      COALESCE((p_documents_patch->>'birthCertificate')::BOOLEAN, false),
-      COALESCE((p_documents_patch->>'reportCards')::BOOLEAN, false),
-      COALESCE((p_documents_patch->>'ijazah')::BOOLEAN, false),
+      COALESCE((p_documents_patch->>'kk')::BOOLEAN, p_documents_patch ? 'kkPath', false),
+      COALESCE((p_documents_patch->>'birthCertificate')::BOOLEAN, p_documents_patch ? 'birthCertificatePath', false),
+      COALESCE((p_documents_patch->>'reportCards')::BOOLEAN, p_documents_patch ? 'reportCardsPath', false),
+      COALESCE((p_documents_patch->>'ijazah')::BOOLEAN, p_documents_patch ? 'ijazahPath', false),
       COALESCE((p_documents_patch->>'skhun')::BOOLEAN, p_documents_patch ? 'skhunPath', false),
-      COALESCE((p_documents_patch->>'pasPhoto')::BOOLEAN, p_documents_patch ? 'pasPhotoPath', false)
+      COALESCE((p_documents_patch->>'pasPhoto')::BOOLEAN, p_documents_patch ? 'pasPhotoPath', false),
+      p_documents_patch->>'kkPath', p_documents_patch->>'birthCertificatePath',
+      p_documents_patch->>'reportCardsPath', p_documents_patch->>'ijazahPath',
+      p_documents_patch->>'skhunPath', p_documents_patch->>'pasPhotoPath'
     )
     ON CONFLICT (tenant_id, candidate_id) DO UPDATE SET
-      kk = CASE WHEN p_documents_patch ? 'kk' THEN (p_documents_patch->>'kk')::BOOLEAN ELSE public.candidate_documents.kk END,
-      birth_certificate = CASE WHEN p_documents_patch ? 'birthCertificate' THEN (p_documents_patch->>'birthCertificate')::BOOLEAN ELSE public.candidate_documents.birth_certificate END,
-      report_cards = CASE WHEN p_documents_patch ? 'reportCards' THEN (p_documents_patch->>'reportCards')::BOOLEAN ELSE public.candidate_documents.report_cards END,
-      ijazah = CASE WHEN p_documents_patch ? 'ijazah' THEN (p_documents_patch->>'ijazah')::BOOLEAN ELSE public.candidate_documents.ijazah END,
-      skhun = CASE WHEN p_documents_patch ? 'skhun' THEN (p_documents_patch->>'skhun')::BOOLEAN ELSE public.candidate_documents.skhun END,
+      kk = CASE WHEN p_documents_patch ? 'kk' OR p_documents_patch ? 'kkPath' THEN COALESCE((p_documents_patch->>'kk')::BOOLEAN, true) ELSE public.candidate_documents.kk END,
+      birth_certificate = CASE WHEN p_documents_patch ? 'birthCertificate' OR p_documents_patch ? 'birthCertificatePath' THEN COALESCE((p_documents_patch->>'birthCertificate')::BOOLEAN, true) ELSE public.candidate_documents.birth_certificate END,
+      report_cards = CASE WHEN p_documents_patch ? 'reportCards' OR p_documents_patch ? 'reportCardsPath' THEN COALESCE((p_documents_patch->>'reportCards')::BOOLEAN, true) ELSE public.candidate_documents.report_cards END,
+      ijazah = CASE WHEN p_documents_patch ? 'ijazah' OR p_documents_patch ? 'ijazahPath' THEN COALESCE((p_documents_patch->>'ijazah')::BOOLEAN, true) ELSE public.candidate_documents.ijazah END,
+      skhun = CASE WHEN p_documents_patch ? 'skhun' OR p_documents_patch ? 'skhunPath' THEN COALESCE((p_documents_patch->>'skhun')::BOOLEAN, true) ELSE public.candidate_documents.skhun END,
       pas_photo = CASE WHEN p_documents_patch ? 'pasPhoto' OR p_documents_patch ? 'pasPhotoPath' THEN COALESCE((p_documents_patch->>'pasPhoto')::BOOLEAN, true) ELSE public.candidate_documents.pas_photo END,
       kk_path = CASE WHEN p_documents_patch ? 'kkPath' THEN p_documents_patch->>'kkPath' ELSE public.candidate_documents.kk_path END,
       birth_certificate_path = CASE WHEN p_documents_patch ? 'birthCertificatePath' THEN p_documents_patch->>'birthCertificatePath' ELSE public.candidate_documents.birth_certificate_path END,
