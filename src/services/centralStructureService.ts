@@ -371,7 +371,7 @@ class CentralStructureService {
           linkedBuildingId || null
         );
         this.supabaseSnapshotRevision += 1;
-        const previousRoomId = santri.roomId || "";
+        const previousRoomId = result.previousRoomId || santri.roomId || "";
         const assignedRoomId = result.roomId || targetRoom.id;
         const assignedBuildingId = result.buildingId || linkedBuildingId || "";
         const assignedBuilding = this.buildings.find((item) => item.id === assignedBuildingId);
