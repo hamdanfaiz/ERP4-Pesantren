@@ -24,3 +24,6 @@ enabled = false
 
 [functions.provision-tenant-user]
 verify_jwt = true
+
+[functions.change-temporary-password]
+verify_jwt = true
