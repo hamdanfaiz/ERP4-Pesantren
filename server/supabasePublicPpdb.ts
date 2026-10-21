@@ -208,6 +208,22 @@ function storageObjectPath(tenantId: string, candidateId: string, key: DocumentK
   return tenantId + "/" + candidateId + "/" + key + "." + extension;
 }
 
+async function consumeDistributedRateLimit(tenantId: string, clientAddress: string) {
+  const fingerprint = createHmac("sha256", secretKey("PPDB_RATE_LIMIT_KEY"))
+    .update(clientAddress || "unknown", "utf8")
+    .digest("hex");
+  const allowed = await requestSupabase("/rest/v1/rpc/consume_public_ppdb_rate_limit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_client_fingerprint_hex: fingerprint,
+      p_limit: 5,
+    }),
+  });
+  if (allowed !== true) throw new PublicPpdbError(429, "Batas pendaftaran sementara tercapai. Silakan coba lagi 15 menit kemudian.");
+}
+
 async function uploadDocument(path: string, file: { bytes: Buffer; mimeType: string }) {
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
   await requestSupabase("/storage/v1/object/ppdb-documents/" + encodedPath, {
@@ -226,8 +242,9 @@ async function removeDocument(path: string) {
   }
 }
 
-export async function registerSupabasePublicPpdb(body: any) {
+export async function registerSupabasePublicPpdb(body: any, clientAddress: string) {
   const tenant = await loadTenant();
+  await consumeDistributedRateLimit(tenant.tenantId, clientAddress);
   const candidate = validateCandidate(body?.candidate);
   const rawDocuments = objectOrEmpty(body?.documents);
   const providedKeys = Object.keys(rawDocuments);
