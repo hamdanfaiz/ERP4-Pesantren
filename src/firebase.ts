@@ -32,10 +32,11 @@ if (missingFields.length > 0) {
   );
 }
 
-const app = initializeApp(firebaseConfig as FirebaseOptions);
+const { firestoreDatabaseId, ...firebaseOptions } = firebaseConfig!;
+const app = initializeApp(firebaseOptions as FirebaseOptions);
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-}, firebaseConfig!.firestoreDatabaseId);
+}, firestoreDatabaseId);
 export const auth = getAuth(app);
 let storageInstance: ReturnType<typeof getStorage> | null = null;
 try {
