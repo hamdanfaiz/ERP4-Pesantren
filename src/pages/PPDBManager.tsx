@@ -248,11 +248,17 @@ export function PPDBManager() {
     }));
   };
   const persistPpdbCandidatesBatch = async (updates: Array<{ id: string; patch: Record<string, unknown> }>) => {
-    for (let offset = 0; offset < updates.length; offset += 500) {
-      await updatePpdbCandidates(updates.slice(offset, offset + 500));
+    try {
+      for (let offset = 0; offset < updates.length; offset += 500) {
+        await updatePpdbCandidates(updates.slice(offset, offset + 500));
+      }
+    } catch (error) {
+      await refreshPpdbCandidates().catch(() => undefined);
+      throw error;
     }
+    const updatesById = new Map(updates.map((update) => [update.id, update]));
     setCandidates((current) => current.map((candidate) => {
-      const update = updates.find((item) => item.id === candidate.id);
+      const update = updatesById.get(candidate.id);
       if (!update) return candidate;
       const next: any = { ...candidate };
       for (const [key, value] of Object.entries(update.patch)) {
@@ -362,7 +368,6 @@ export function PPDBManager() {
     }
   };
 
-  // Smart Allocate Handlers
   // Smart Allocate Handlers
   const handleExecuteSmartPromote = async () => {
     const eligible = candidates.filter(
