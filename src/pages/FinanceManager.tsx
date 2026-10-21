@@ -13,6 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { collection, onSnapshot, query, where, getDocs, updateDoc, doc, setDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { ppdbIntegrationService } from '../services/ppdbIntegrationService';
+import { downloadSupabaseFinanceProof, listPpdbCandidates, listPpdbFinanceBillings, recordPpdbFinancePayment, rejectPpdbFinancePayment, uploadSupabaseFinanceProof } from '../services/ppdbApi';
 
 type Tab = 'billing' | 'expenses' | 'reports' | 'pocket_money';
 
@@ -36,7 +37,7 @@ interface BillingItem {
   period: string;
   amount: number;
   paidAmount?: number;
-  status: 'Paid' | 'Unpaid' | 'Partial' | 'Verification' | 'Overdue';
+  status: 'Paid' | 'Unpaid' | 'Partial' | 'Verification' | 'Overdue' | 'Rejected';
   date: string;
   paymentMethod: string | null;
   proofFile: string | null;
@@ -51,6 +52,7 @@ interface BillingItem {
   receiptNo?: string;
   paidAt?: string;
   createdByUid?: string;
+  dataSource?: 'firebase' | 'supabase';
 }
 
 interface ExpenseItem {
@@ -140,6 +142,21 @@ export function FinanceManager() {
     if (!user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Akses konfirmasi hanya untuk admin tenant aktif.', 'error'); return; }
     if (financeLocked) { showFinanceToast('Buku keuangan sedang ditutup.', 'error'); return; }
     try {
+      if (bill.dataSource === 'supabase') {
+        if (!bill.candidateId || !bill.paymentType) throw new Error('Tagihan Supabase ini belum mendukung alur konfirmasi PPDB.');
+        if (bill.status === 'Verification' && !bill.proofStoragePath) throw new Error('Bukti pembayaran belum tersedia di Supabase Storage.');
+        const receiptNo = 'KWT/FIN/' + new Date().getFullYear() + '/' + Date.now();
+        await recordPpdbFinancePayment(bill.candidateId, {
+          paymentType: bill.paymentType,
+          paidAmount: Number(bill.amount),
+          status: 'Paid',
+          method,
+          receiptNo,
+        });
+        await refreshSupabaseBillings();
+        showFinanceToast('Pembayaran ' + bill.id + ' tercatat atomik di Supabase; kuitansi ' + receiptNo + ' dibuat.', 'success');
+        return;
+      }
       const billRef = doc(db, 'financeBillings', bill.id);
       const ledgerRef = doc(collection(db, 'financeTransactions'));
       const receiptNo = 'KWT/FIN/' + new Date().getFullYear() + '/' + Date.now();
@@ -185,11 +202,10 @@ export function FinanceManager() {
     if (!user?.tenantId || !isFinanceAdmin) { showFinanceToast('Akses impor tagihan PPDB hanya tersedia untuk admin tenant aktif.', 'error'); return; }
     setIsPullingPPDB(true);
     try {
-      const candidatesQuery = query(collection(db, 'candidates'), where('tenantId', '==', user.tenantId));
-      const snapshot = await getDocs(candidatesQuery);
-      const candidates = snapshot.docs.map(item => ({ id: item.id, ...item.data() } as any));
+      const candidates = await listPpdbCandidates();
       const count = await ppdbIntegrationService.batchGenerateRegistrationBills(candidates, 250000, user.tenantId);
-      showFinanceToast('Berhasil menerbitkan ' + count + ' tagihan PPDB baru di tenant ini.', 'success');
+      await refreshSupabaseBillings();
+      showFinanceToast('Berhasil menerbitkan ' + count + ' tagihan PPDB baru di Supabase.', 'success');
       setBillingCategoryFilter('ppdb');
     } catch (error: any) {
       console.error('Impor tagihan PPDB gagal:', error);
@@ -204,22 +220,74 @@ export function FinanceManager() {
   const [financeLocked, setFinanceLocked] = useState(false);
   const [masterSantri, setMasterSantri] = useState<any[]>([]);
 
+  const mergeSupabaseBillingRows = (current: BillingItem[], incoming: BillingItem[]) => {
+    const byId = new Map<string, BillingItem>();
+    current.filter(item => item.dataSource === 'firebase').forEach(item => byId.set(item.id, item));
+    incoming.forEach(item => {
+      const legacy = current.find(existing => existing.id === item.id && existing.dataSource === 'firebase');
+      if (legacy?.status === 'Verification' && legacy.proofStoragePath && !item.proofStoragePath) {
+        byId.set(item.id, legacy);
+      } else {
+        byId.set(item.id, { ...item, dataSource: 'supabase' });
+      }
+    });
+    return Array.from(byId.values());
+  };
+
+  const refreshSupabaseBillings = async () => {
+    const rows = await listPpdbFinanceBillings();
+    setBillings(current => mergeSupabaseBillingRows(current, rows as BillingItem[]));
+  };
+
   useEffect(() => {
     setBillings([]);
     if (!user?.tenantId || !user?.uid) return;
+    if (role === 'Walisantri' && !(user as any).linkedSantriId) return;
+    if (role !== 'Walisantri' && !isFinanceAdmin) return;
+    let active = true;
+    let legacyRows: BillingItem[] = [];
+    let supabaseRows: BillingItem[] = [];
+    const publish = () => {
+      if (!active) return;
+      const byId = new Map<string, BillingItem>();
+      legacyRows.forEach(item => byId.set(item.id, item));
+      supabaseRows.forEach(item => {
+        const legacy = byId.get(item.id);
+        if (legacy?.status === 'Verification' && legacy.proofStoragePath && !item.proofStoragePath) return;
+        byId.set(item.id, { ...item, dataSource: 'supabase' });
+      });
+      setBillings(Array.from(byId.values()));
+    };
+    const refresh = async () => {
+      try {
+        const rows = await listPpdbFinanceBillings();
+        if (!active) return;
+        supabaseRows = rows as BillingItem[];
+        publish();
+      } catch (error: any) {
+        if (!active) return;
+        console.error('Gagal memuat tagihan PPDB Supabase:', error);
+        showFinanceToast(error?.message || 'Tagihan PPDB Supabase belum dapat dimuat.', 'error');
+      }
+    };
+    void refresh();
     const filters: any[] = [];
-    if (role === 'Walisantri') {
-      const linkedSantriId = (user as any).linkedSantriId;
-      if (!linkedSantriId) return;
-      filters.push(where('santriId', '==', linkedSantriId));
-    } else if (!isFinanceAdmin) return;
-    return onSnapshot(tenantScopedQuery(collection(db, 'financeBillings'), user?.tenantId, ...filters), snapshot => {
-      setBillings(snapshot.docs.map(item => ({ ...(item.data() as Record<string, any>), id: item.id } as BillingItem)));
+    if (role === 'Walisantri') filters.push(where('santriId', '==', (user as any).linkedSantriId));
+    const unsubscribe = onSnapshot(tenantScopedQuery(collection(db, 'financeBillings'), user.tenantId, ...filters), snapshot => {
+      legacyRows = snapshot.docs.map(item => ({ ...(item.data() as Record<string, any>), id: item.id, dataSource: 'firebase' as const } as BillingItem));
+      publish();
     }, error => {
-      setBillings([]);
-      console.error('Gagal memuat tagihan tenant:', error);
-      showFinanceToast('Data tagihan tidak dapat dimuat. Periksa akses tenant dan migrasi data.', 'error');
+      legacyRows = [];
+      publish();
+      console.error('Gagal memuat tagihan legacy tenant:', error);
+      showFinanceToast('Tagihan lama belum dapat dimuat.', 'error');
     });
+    const refreshTimer = window.setInterval(() => { void refresh(); }, 30000);
+    return () => {
+      active = false;
+      unsubscribe();
+      window.clearInterval(refreshTimer);
+    };
   }, [user?.tenantId, user?.uid, role]);
 
   useEffect(() => {
@@ -444,18 +512,24 @@ export function FinanceManager() {
     if (!proofWindow) { showFinanceToast('Izinkan pop-up agar bukti transfer dapat dibuka.', 'error'); return; }
     proofWindow.opener = null;
     try {
-      const currentAuthUser = auth.currentUser;
-      if (!currentAuthUser || currentAuthUser.uid !== user?.uid) throw new Error('Sesi login tidak cocok. Masuk ulang sebelum membuka bukti.');
-      const token = await currentAuthUser.getIdToken();
-      const response = await fetch('/api/finance/payment-proofs/' + encodeURIComponent(bill.id), {
-        headers: { Authorization: 'Bearer ' + token },
-        cache: 'no-store',
-      });
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
-        throw new Error(result.error || 'Bukti transfer tidak dapat diakses oleh tenant ini.');
+      let proofBlob: Blob;
+      if (bill.dataSource === 'supabase') {
+        proofBlob = await downloadSupabaseFinanceProof(bill.id);
+      } else {
+        const currentAuthUser = auth.currentUser;
+        if (!currentAuthUser || currentAuthUser.uid !== user?.uid) throw new Error('Sesi login tidak cocok. Masuk ulang sebelum membuka bukti.');
+        const token = await currentAuthUser.getIdToken();
+        const response = await fetch('/api/finance/payment-proofs/' + encodeURIComponent(bill.id), {
+          headers: { Authorization: 'Bearer ' + token },
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({}));
+          throw new Error(result.error || 'Bukti transfer tidak dapat diakses oleh tenant ini.');
+        }
+        proofBlob = await response.blob();
       }
-      const objectUrl = URL.createObjectURL(await response.blob());
+      const objectUrl = URL.createObjectURL(proofBlob);
       proofWindow.location.replace(objectUrl);
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
     } catch (error: any) {
@@ -474,6 +548,13 @@ export function FinanceManager() {
       showFinanceToast('Tagihan tidak terhubung ke akun wali ini.', 'error'); return;
     }
     try {
+      if (selectedPayBill.dataSource === 'supabase') {
+        await uploadSupabaseFinanceProof(selectedPayBill.id, paymentProofFile, payChannel);
+        setIsPayModalOpen(false); setSelectedPayBill(null); setPaymentProofFileName(''); setPaymentProofFile(null);
+        await refreshSupabaseBillings();
+        showFinanceToast('Bukti transfer tersimpan di Supabase Storage dan menunggu verifikasi bendahara.', 'success');
+        return;
+      }
       const currentAuthUser = auth.currentUser;
       if (!currentAuthUser || currentAuthUser.uid !== user.uid) throw new Error('Sesi login tidak cocok. Masuk ulang sebelum mengunggah bukti.');
       const token = await currentAuthUser.getIdToken();
@@ -551,6 +632,13 @@ export function FinanceManager() {
     if (financeLocked) { showFinanceToast('Buku keuangan sedang ditutup.', 'error'); return; }
     try {
       if (rejectingItemType === 'billing') {
+        const selectedBilling = billings.find(item => item.id === rejectingId);
+        if (selectedBilling?.dataSource === 'supabase') {
+          if (!selectedBilling.candidateId || !selectedBilling.paymentType) throw new Error('Tagihan Supabase ini belum mendukung alur penolakan PPDB.');
+          await rejectPpdbFinancePayment(selectedBilling.candidateId, selectedBilling.paymentType, rejectionInput.trim());
+          await refreshSupabaseBillings();
+          showFinanceToast('Bukti pembayaran ditolak di Supabase dengan alasan tercatat.', 'info');
+        } else {
         await runTransaction(db, async transaction => {
           const ref = doc(db, 'financeBillings', rejectingId);
           const snapshot = await transaction.get(ref);
@@ -559,6 +647,7 @@ export function FinanceManager() {
           transaction.update(ref, { status: 'Unpaid', rejectionReason: rejectionInput.trim(), reviewedByUid: user.uid, reviewedAt: serverTimestamp(), updatedAt: serverTimestamp() });
         });
         showFinanceToast('Bukti pembayaran ditolak dengan alasan tercatat.', 'info');
+        }
       } else if (rejectingItemType === 'expense') {
         await runTransaction(db, async transaction => {
           const ref = doc(db, 'financeExpenses', rejectingId);
