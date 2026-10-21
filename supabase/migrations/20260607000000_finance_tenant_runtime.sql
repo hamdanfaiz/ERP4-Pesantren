@@ -376,7 +376,17 @@ BEGIN
       WHERE tenant_id = p_tenant_id AND registration_id = v_candidate_ref
       LIMIT 1;
   END IF;
-  IF v_candidate_id IS NULL AND v_candidate_id_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+  IF v_candidate_id IS NULL AND v_candidate_id_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+    SELECT id INTO v_candidate_id FROM public.candidates
+      WHERE tenant_id = p_tenant_id AND id = v_candidate_id_ref::UUID;
+  END IF;
+  IF (v_candidate_ref IS NOT NULL OR v_candidate_id_ref IS NOT NULL) AND v_candidate_id IS NULL THEN
+    RAISE EXCEPTION 'Kandidat tagihan lama belum ditemukan di tenant Supabase' USING ERRCODE = 'P0002';
+  END IF;
+  IF v_candidate_ref IS NOT NULL AND v_candidate_id_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    AND v_candidate_id <> v_candidate_id_ref::UUID THEN
+    RAISE EXCEPTION 'ID kandidat dan nomor registrasi tagihan tidak cocok' USING ERRCODE = '23503';
+  END IF;
   IF v_amount IS NULL OR v_amount <= 0 OR v_paid < 0 OR v_paid > v_amount
     OR v_status NOT IN ('Unpaid', 'Overdue', 'Partial', 'Verification', 'Paid', 'Rejected')
     OR (v_status = 'Paid' AND v_paid <> v_amount)
@@ -446,172 +456,6 @@ BEGIN
     WHERE tenant_id = p_tenant_id AND id = v_candidate_id;
   END IF;
 
-  RETURN jsonb_build_object('id', p_billing_id, 'created', v_created);
-END;
-$;
-
-REVOKE ALL ON FUNCTION public.create_ppdb_finance_billing(UUID, UUID, TEXT, NUMERIC, TEXT) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.record_ppdb_finance_payment(UUID, UUID, TEXT, NUMERIC, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.import_legacy_finance_billing(UUID, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.create_ppdb_finance_billing(UUID, UUID, TEXT, NUMERIC, TEXT) TO service_role;
-GRANT EXECUTE ON FUNCTION public.record_ppdb_finance_payment(UUID, UUID, TEXT, NUMERIC, TEXT, TEXT, TEXT, TEXT) TO service_role;
-GRANT EXECUTE ON FUNCTION public.import_legacy_finance_billing(UUID, TEXT, JSONB) TO service_role;
-
-CREATE OR REPLACE FUNCTION public.link_ppdb_billing_to_onboarded_student()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY INVOKER
-SET search_path = pg_catalog, public
-AS $$
-BEGIN
-  IF NEW.master_student_id IS DISTINCT FROM OLD.master_student_id AND NEW.master_student_id IS NOT NULL THEN
-    UPDATE public.finance_billings
-    SET student_ref = NEW.master_student_id::TEXT, updated_at = now()
-    WHERE tenant_id = NEW.tenant_id AND candidate_id = NEW.id
-      AND (student_ref IS NULL OR student_ref = NEW.master_student_id::TEXT);
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER candidates_link_ppdb_finance_billing
-  AFTER UPDATE OF master_student_id ON public.candidates
-  FOR EACH ROW EXECUTE FUNCTION public.link_ppdb_billing_to_onboarded_student();
-
-COMMIT;
- THEN
-    SELECT id INTO v_candidate_id FROM public.candidates
-      WHERE tenant_id = p_tenant_id AND id = v_candidate_id_ref::UUID;
-  END IF;
-  IF (v_candidate_ref IS NOT NULL OR v_candidate_id_ref IS NOT NULL) AND v_candidate_id IS NULL THEN
-    RAISE EXCEPTION 'Kandidat tagihan lama belum ditemukan di tenant Supabase' USING ERRCODE = 'P0002';
-  END IF;
-  IF v_candidate_ref IS NOT NULL AND v_candidate_id_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
-  IF v_amount IS NULL OR v_amount <= 0 OR v_paid < 0 OR v_paid > v_amount
-    OR v_status NOT IN ('Unpaid', 'Overdue', 'Partial', 'Verification', 'Paid', 'Rejected')
-    OR (v_status = 'Paid' AND v_paid <> v_amount)
-    OR (v_type IS NOT NULL AND v_type NOT IN ('registration', 'tuition')) THEN
-    RAISE EXCEPTION 'Nilai tagihan lama tidak valid' USING ERRCODE = '22023';
-  END IF;
-
-  v_details := p_record - ARRAY[
-    'id','tenantId','candidateId','candidateRegistrationId','santriId','santriName',
-    'grade','paymentType','type','period','amount','paidAmount','status','date',
-    'paymentMethod','receiptNo','proofFile','proofStoragePath','proofUrl',
-    'createdByUid','updatedByUid','createdAt','updatedAt'
-  ];
-
-  INSERT INTO public.finance_billings (
-    tenant_id, id, candidate_id, candidate_registration_id, student_ref, santri_name,
-    grade, payment_type, billing_type, period, amount, paid_amount, status,
-    payment_method, receipt_no, legacy_proof_reference, details, created_by_uid,
-    updated_by_uid, billing_date, paid_at
-  ) VALUES (
-    p_tenant_id, p_billing_id, v_candidate_id, v_candidate_ref,
-    NULLIF(p_record->>'santriId', ''), COALESCE(p_record->>'santriName', ''),
-    COALESCE(p_record->>'grade', ''), v_type, COALESCE(p_record->>'type', ''),
-    COALESCE(p_record->>'period', ''), v_amount, v_paid, v_status,
-    NULLIF(p_record->>'paymentMethod', ''), NULLIF(p_record->>'receiptNo', ''),
-    COALESCE(NULLIF(p_record->>'proofStoragePath', ''), NULLIF(p_record->>'proofUrl', '')),
-    COALESCE(v_details, '{}'::jsonb), NULLIF(p_record->>'createdByUid', ''),
-    NULLIF(p_record->>'updatedByUid', ''),
-    COALESCE(NULLIF(p_record->>'date', '')::DATE, CURRENT_DATE),
-    COALESCE(NULLIF(p_record->>'paidAt', '')::DATE, NULL)
-  )
-  ON CONFLICT (tenant_id, id) DO NOTHING
-  RETURNING * INTO v_existing;
-  v_created := FOUND;
-
-  IF NOT v_created THEN
-    SELECT * INTO v_existing FROM public.finance_billings
-      WHERE tenant_id = p_tenant_id AND id = p_billing_id;
-    IF v_existing.amount IS DISTINCT FROM v_amount
-      OR v_existing.candidate_registration_id IS DISTINCT FROM v_candidate_ref
-      OR v_existing.status IS DISTINCT FROM v_status THEN
-      RAISE EXCEPTION 'Tagihan lama berbenturan dengan data Supabase yang sudah ada' USING ERRCODE = '23505';
-    END IF;
-  END IF;
-  RETURN jsonb_build_object('id', p_billing_id, 'created', v_created);
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.create_ppdb_finance_billing(UUID, UUID, TEXT, NUMERIC, TEXT) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.record_ppdb_finance_payment(UUID, UUID, TEXT, NUMERIC, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.import_legacy_finance_billing(UUID, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.create_ppdb_finance_billing(UUID, UUID, TEXT, NUMERIC, TEXT) TO service_role;
-GRANT EXECUTE ON FUNCTION public.record_ppdb_finance_payment(UUID, UUID, TEXT, NUMERIC, TEXT, TEXT, TEXT, TEXT) TO service_role;
-GRANT EXECUTE ON FUNCTION public.import_legacy_finance_billing(UUID, TEXT, JSONB) TO service_role;
-
-CREATE OR REPLACE FUNCTION public.link_ppdb_billing_to_onboarded_student()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY INVOKER
-SET search_path = pg_catalog, public
-AS $$
-BEGIN
-  IF NEW.master_student_id IS DISTINCT FROM OLD.master_student_id AND NEW.master_student_id IS NOT NULL THEN
-    UPDATE public.finance_billings
-    SET student_ref = NEW.master_student_id::TEXT, updated_at = now()
-    WHERE tenant_id = NEW.tenant_id AND candidate_id = NEW.id
-      AND (student_ref IS NULL OR student_ref = NEW.master_student_id::TEXT);
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER candidates_link_ppdb_finance_billing
-  AFTER UPDATE OF master_student_id ON public.candidates
-  FOR EACH ROW EXECUTE FUNCTION public.link_ppdb_billing_to_onboarded_student();
-
-COMMIT;
-
-    AND v_candidate_id <> v_candidate_id_ref::UUID THEN
-    RAISE EXCEPTION 'ID kandidat dan nomor registrasi tagihan tidak cocok' USING ERRCODE = '23503';
-  END IF;
-  IF v_amount IS NULL OR v_amount <= 0 OR v_paid < 0 OR v_paid > v_amount
-    OR v_status NOT IN ('Unpaid', 'Overdue', 'Partial', 'Verification', 'Paid', 'Rejected')
-    OR (v_status = 'Paid' AND v_paid <> v_amount)
-    OR (v_type IS NOT NULL AND v_type NOT IN ('registration', 'tuition')) THEN
-    RAISE EXCEPTION 'Nilai tagihan lama tidak valid' USING ERRCODE = '22023';
-  END IF;
-
-  v_details := p_record - ARRAY[
-    'id','tenantId','candidateId','candidateRegistrationId','santriId','santriName',
-    'grade','paymentType','type','period','amount','paidAmount','status','date',
-    'paymentMethod','receiptNo','proofFile','proofStoragePath','proofUrl',
-    'createdByUid','updatedByUid','createdAt','updatedAt'
-  ];
-
-  INSERT INTO public.finance_billings (
-    tenant_id, id, candidate_id, candidate_registration_id, student_ref, santri_name,
-    grade, payment_type, billing_type, period, amount, paid_amount, status,
-    payment_method, receipt_no, legacy_proof_reference, details, created_by_uid,
-    updated_by_uid, billing_date, paid_at
-  ) VALUES (
-    p_tenant_id, p_billing_id, v_candidate_id, v_candidate_ref,
-    NULLIF(p_record->>'santriId', ''), COALESCE(p_record->>'santriName', ''),
-    COALESCE(p_record->>'grade', ''), v_type, COALESCE(p_record->>'type', ''),
-    COALESCE(p_record->>'period', ''), v_amount, v_paid, v_status,
-    NULLIF(p_record->>'paymentMethod', ''), NULLIF(p_record->>'receiptNo', ''),
-    COALESCE(NULLIF(p_record->>'proofStoragePath', ''), NULLIF(p_record->>'proofUrl', '')),
-    COALESCE(v_details, '{}'::jsonb), NULLIF(p_record->>'createdByUid', ''),
-    NULLIF(p_record->>'updatedByUid', ''),
-    COALESCE(NULLIF(p_record->>'date', '')::DATE, CURRENT_DATE),
-    COALESCE(NULLIF(p_record->>'paidAt', '')::DATE, NULL)
-  )
-  ON CONFLICT (tenant_id, id) DO NOTHING
-  RETURNING * INTO v_existing;
-  v_created := FOUND;
-
-  IF NOT v_created THEN
-    SELECT * INTO v_existing FROM public.finance_billings
-      WHERE tenant_id = p_tenant_id AND id = p_billing_id;
-    IF v_existing.amount IS DISTINCT FROM v_amount
-      OR v_existing.candidate_registration_id IS DISTINCT FROM v_candidate_ref
-      OR v_existing.status IS DISTINCT FROM v_status THEN
-      RAISE EXCEPTION 'Tagihan lama berbenturan dengan data Supabase yang sudah ada' USING ERRCODE = '23505';
-    END IF;
-  END IF;
   RETURN jsonb_build_object('id', p_billing_id, 'created', v_created);
 END;
 $$;
