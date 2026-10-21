@@ -9,6 +9,7 @@ import { FieldValue, Firestore, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 
 dotenv.config();
 
@@ -306,31 +307,6 @@ function consumePublicPpdbRateLimit(ip: string): boolean {
   return true;
 }
 
-async function loadPublicPpdbTenant(db: Firestore) {
-  if (String(process.env.PUBLIC_PPDB_ENABLED || "").trim().toLowerCase() !== "true") {
-    throw publicPpdbError(503, "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren.");
-  }
-  const tenantId = String(process.env.PUBLIC_PPDB_TENANT_ID || "").trim();
-  if (!tenantId) throw publicPpdbError(503, "Konfigurasi tenant PPDB belum tersedia.");
-  const [tenantSnapshot, settingsSnapshot] = await Promise.all([
-    db.collection("tenants").doc(tenantId).get(),
-    db.collection("tenants").doc(tenantId).collection("settings").doc("global").get(),
-  ]);
-  if (!tenantSnapshot.exists) throw publicPpdbError(503, "Tenant PPDB belum dikonfigurasi.");
-  const tenant = tenantSnapshot.data() || {};
-  const tenantStatus = String(tenant.status || "").trim().toLowerCase();
-  if (tenantStatus !== "active") throw publicPpdbError(503, "Pendaftaran PPDB untuk pesantren ini sedang tidak tersedia.");
-  const settings = settingsSnapshot.data() || {};
-  const org = settings.orgInfo || {};
-  const general = settings.generalSettings || {};
-  return {
-    tenantId, academicYear: String(general.academicYear || "").trim(),
-    orgInfo: { schoolName: String(org.schoolName || tenant.name || tenant.tenantName || "Pesantren"),
-      address: String(org.address || ""), phone: String(org.phone || ""), email: String(org.email || ""),
-      website: String(org.website || ""), logoUrl: String(org.logoUrl || "") },
-  };
-}
-
 type FinanceProofError = Error & { status: number };
 function financeProofError(status: number, message: string): FinanceProofError {
   return Object.assign(new Error(message), { status });
@@ -421,7 +397,7 @@ async function startServer() {
 
   // Cloud Run terminates TLS at one trusted proxy hop.
   app.set("trust proxy", 1);
-  app.use(express.json({ limit: "5mb" }));
+  app.use(express.json({ limit: "18mb" }));
 
   // AI/OCR routes remain closed until auth, tenant scope, and rate limits are enforced.
   const unavailableUntilAuth = (_req: any, res: any) => {
@@ -568,16 +544,15 @@ async function startServer() {
     }
   });
 
-  // Public PPDB is served only by this trusted server. Tenant identity is fixed in server configuration.
+  // Public PPDB submissions are handled by Supabase through this trusted server.
+  // The Supabase service-role secret and PII encryption keys are server-only environment variables.
   app.get("/api/public/ppdb/config", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    const services = getAdminServices();
-    if (services.ok === false) return res.status(503).json({ error: "Layanan PPDB belum tersedia." });
     try {
-      const config = await loadPublicPpdbTenant(services.db);
-      return res.json({ academicYear: config.academicYear, orgInfo: config.orgInfo });
+      return res.json(await loadSupabasePublicPpdbConfig());
     } catch (err: any) {
-      return res.status(err.status || 503).json({ error: err.status ? err.message : "Konfigurasi PPDB belum dapat dimuat." });
+      const status = err instanceof PublicPpdbError ? err.status : 503;
+      return res.status(status).json({ error: status >= 500 ? (err?.message || "Konfigurasi PPDB belum dapat dimuat.") : err.message });
     }
   });
 
@@ -588,109 +563,17 @@ async function startServer() {
       res.setHeader("Retry-After", "900");
       return res.status(429).json({ error: "Batas pendaftaran sementara tercapai. Silakan coba lagi 15 menit kemudian." });
     }
-    const services = getAdminServices();
-    if (services.ok === false) return res.status(503).json({ error: "Layanan PPDB belum tersedia." });
     try {
-      const config = await loadPublicPpdbTenant(services.db);
-      const raw = req.body?.candidate;
-      if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw publicPpdbError(400, "Data pendaftaran tidak valid.");
-      const text = (key: string, max: number, required = false) => {
-        const value = typeof raw[key] === "string" ? raw[key].trim() : "";
-        if (required && !value) throw publicPpdbError(400, "Kolom " + key + " wajib diisi.");
-        if (value.length > max) throw publicPpdbError(400, "Kolom " + key + " melebihi batas karakter.");
-        return value;
-      };
-      const name = text("name", 120, true);
-      const gender = text("gender", 1, true);
-      const grade = text("grade", 40, true);
-      const previousSchool = text("previousSchool", 160, true);
-      const nik = text("nik", 16, true).replace(/\D/g, "");
-      const nisn = text("nisn", 10).replace(/\D/g, "");
-      const phone = text("phone", 24, true);
-      const whatsappPhone = text("whatsappPhone", 24, true);
-      const email = text("email", 254).toLowerCase();
-      const pob = text("pob", 100, true);
-      const dob = text("dob", 10, true);
-      const address = text("address", 500, true);
-      const province = text("province", 80);
-      const regency = text("regency", 80);
-      const district = text("district", 80);
-      const village = text("village", 80);
-      const fatherName = text("fatherName", 120, true);
-      const motherName = text("motherName", 120, true);
-      const fatherJob = text("fatherJob", 100);
-      const motherJob = text("motherJob", 100);
-      const fatherEducation = text("fatherEducation", 80);
-      const motherEducation = text("motherEducation", 80);
-      const familyIncome = text("familyIncome", 80);
-      const documents = raw.documents && typeof raw.documents === "object" ? raw.documents : {};
-      if (gender !== "L" && gender !== "P") throw publicPpdbError(400, "Jenis kelamin tidak valid.");
-      if (!/^\d{16}$/.test(nik)) throw publicPpdbError(400, "NIK harus terdiri dari 16 digit.");
-      if (nisn && !/^\d{10}$/.test(nisn)) throw publicPpdbError(400, "NISN harus terdiri dari 10 digit.");
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || Number.isNaN(Date.parse(dob))) throw publicPpdbError(400, "Tanggal lahir tidak valid.");
-      const validPhone = /^\+?[0-9 ().-]{8,24}$/;
-      if (!validPhone.test(phone) || !validPhone.test(whatsappPhone)) throw publicPpdbError(400, "Nomor telepon tidak valid.");
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw publicPpdbError(400, "Alamat email tidak valid.");
-      if (documents.kk !== true || documents.birthCertificate !== true || documents.pasPhoto !== true) {
-        throw publicPpdbError(400, "Dokumen wajib belum ditandai lengkap.");
-      }
-
-      const yearMatch = config.academicYear.match(/^(\d{4})/);
-      const registrationYear = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
-      const candidateRef = services.db.collection("candidates").doc();
-      const candidateCollection = services.db.collection("candidates");
-      const entityCollection = services.db.collection("entityRecords");
-      const identityEntries = [{ kind: "nik", value: nik }, ...(nisn ? [{ kind: "nisn", value: nisn }] : [])];
-      const identityRefs = identityEntries.map(({ kind, value }) => services.db.collection("identityReservations")
-        .doc(encodeURIComponent(config.tenantId) + "_" + kind + "_" + encodeURIComponent(value)));
-      const identityChecks = identityEntries.flatMap(({ kind, value }) => [
-        candidateCollection.where("tenantId", "==", config.tenantId).where(kind, "==", value),
-        entityCollection.where("tenantId", "==", config.tenantId).where(kind, "==", value),
-      ]);
-      const counterRef = services.db.collection("ppdbCounters").doc(encodeURIComponent(config.tenantId) + "_" + registrationYear);
-      const createdAt = new Date().toISOString();
-      const createdCandidate = await services.db.runTransaction(async (transaction) => {
-        const counterSnapshot = await transaction.get(counterRef);
-        const counterData = counterSnapshot.exists ? counterSnapshot.data() || {} : {};
-        let sequence = Math.max(0, Number(counterData.lastSequence) || 0) + 1;
-        let registrationId = "";
-        let registrationRef: any = null;
-        let collision = true;
-        for (let attempt = 0; attempt < 20; attempt += 1) {
-          registrationId = "PPDB-" + registrationYear + "-" + String(sequence).padStart(6, "0");
-          registrationRef = services.db.collection("ppdbRegistrationReservations")
-            .doc(encodeURIComponent(config.tenantId) + "_" + encodeURIComponent(registrationId));
-          const reservationSnapshot = await transaction.get(registrationRef);
-          const candidateSnapshot = await transaction.get(candidateCollection.where("tenantId", "==", config.tenantId).where("registrationId", "==", registrationId));
-          if (!(reservationSnapshot as any).exists && candidateSnapshot.empty) { collision = false; break; }
-          sequence += 1;
-        }
-        if (collision || !registrationRef) throw publicPpdbError(409, "Nomor pendaftaran belum dapat dialokasikan. Silakan hubungi panitia.");
-        const identitySnapshots = await Promise.all(identityRefs.map((reference) => transaction.get(reference)));
-        const existingIdentitySnapshots = await Promise.all(identityChecks.map((identityQuery) => transaction.get(identityQuery)));
-        if (identitySnapshots.some((snapshot) => snapshot.exists) || existingIdentitySnapshots.some((snapshot) => !snapshot.empty)) {
-          throw publicPpdbError(409, "NIK atau NISN sudah terdaftar. Periksa kembali data atau hubungi panitia.");
-        }
-
-        const candidate = { tenantId: config.tenantId, registrationId, name, gender, grade, previousSchool, phone, whatsappPhone, email,
-          nik, nisn, pob, dob, address, province, regency, district, village, fatherName, motherName, fatherJob, motherJob,
-          fatherEducation, motherEducation, familyIncome, stage: "Registered", dateApplied: createdAt.slice(0, 10),
-          score: 0, syncToMasterData: false, onboardingStatus: "Pending", createdAt, updatedAt: createdAt,
-          documents: { kk: true, birthCertificate: true, reportCards: documents.reportCards === true,
-            ijazah: documents.ijazah === true, skhun: documents.skhun === true, pasPhoto: true },
-        };
-        transaction.set(counterRef, { tenantId: config.tenantId, year: registrationYear, lastSequence: sequence, updatedAt: createdAt });
-        transaction.set(candidateRef, candidate);
-        transaction.set(registrationRef, { tenantId: config.tenantId, registrationId, candidateId: candidateRef.id, createdAt });
-        identityEntries.forEach((item, index) => transaction.set(identityRefs[index], { tenantId: config.tenantId, kind: item.kind,
-          value: item.value, ownerId: candidateRef.id, recordId: candidateRef.id, source: "public_ppdb", createdAt }));
-        return { id: candidateRef.id, ...candidate };
-      });
-      return res.status(201).json({ candidate: createdCandidate });
+      const candidate = await registerSupabasePublicPpdb(req.body);
+      return res.status(201).json({ candidate });
     } catch (err: any) {
-      const status = Number(err?.status) || 500;
-      if (status >= 500) console.error("Public PPDB registration failed:", err);
-      return res.status(status).json({ error: status === 500 ? "Pendaftaran gagal diproses. Silakan coba kembali atau hubungi panitia." : err.message });
+      const status = err instanceof PublicPpdbError ? err.status : 503;
+      if (status >= 500) console.error("Supabase public PPDB registration failed:", err?.message || "unknown error");
+      return res.status(status).json({
+        error: status >= 500
+          ? (err?.message || "Pendaftaran gagal diproses. Silakan coba kembali atau hubungi panitia.")
+          : err.message,
+      });
     }
   });
 
