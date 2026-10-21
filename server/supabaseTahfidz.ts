@@ -1,5 +1,3 @@
-import { SupabasePpdbAdminError } from "./supabasePpdbAdmin";
-
 type JsonObject = Record<string, any>;
 
 export class SupabaseTahfidzError extends Error {
