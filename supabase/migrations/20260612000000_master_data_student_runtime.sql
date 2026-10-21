@@ -220,6 +220,14 @@ BEGIN
     v_nisn_fingerprint := CASE WHEN v_existing_found THEN v_existing.nisn_fingerprint ELSE NULL END;
   END IF;
 
+  IF v_existing_found AND v_existing.source_system = 'ppdb' AND (
+    v_nis IS DISTINCT FROM v_existing.nis
+    OR v_nik_fingerprint IS DISTINCT FROM v_existing.nik_fingerprint
+    OR v_nisn_fingerprint IS DISTINCT FROM v_existing.nisn_fingerprint
+  ) THEN
+    RAISE EXCEPTION 'NIS, NIK, atau NISN santri PPDB harus dikoreksi melalui alur identitas khusus' USING ERRCODE = '22023';
+  END IF;
+
   IF v_nis IS NOT NULL THEN
     PERFORM pg_catalog.pg_advisory_xact_lock(
       pg_catalog.hashtextextended('master-data-student-nis:' || p_tenant_id::text || ':' || v_nis, 0)
