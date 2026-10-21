@@ -874,7 +874,8 @@ async function startServer() {
       }
       const billings = await listSupabaseFinanceBillings(
         actor.tenantId,
-        actor.role === "Walisantri" ? actor.linkedSantriId : undefined
+        actor.role === "Walisantri" ? actor.linkedSantriId : undefined,
+        req.query.scope === "ppdb"
       );
       return res.json({ billings });
     } catch (err: any) {
