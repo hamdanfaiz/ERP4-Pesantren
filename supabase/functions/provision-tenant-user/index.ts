@@ -6,6 +6,7 @@ const MODULE_KEYS = new Set([
   "library", "donation", "laundry", "enterprise", "erp", "ga", "alumni", "crm",
   "lms", "intelligence", "marketplace", "ecosystem", "cbt",
 ]);
+const INPUT_KEYS = new Set(["email", "displayName", "role", "modulePermissions"]);
 
 type AssignableRole = "admin" | "ustadz" | "santri" | "wali_santri";
 
@@ -26,6 +27,10 @@ export function validateProvisionUserInput(raw: unknown): ValidationResult {
   }
 
   const body = raw as Record<string, unknown>;
+  if (Object.keys(body).some((key) => !INPUT_KEYS.has(key))) {
+    return { ok: false, error: "Body berisi field yang tidak didukung." };
+  }
+
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
   const role = body.role;
@@ -34,8 +39,8 @@ export function validateProvisionUserInput(raw: unknown): ValidationResult {
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "Alamat email tidak valid." };
   }
-  if (!displayName || displayName.length > 120) {
-    return { ok: false, error: "Nama harus diisi dan maksimal 120 karakter." };
+  if (!displayName || displayName.length > 120 || /[\u0000-\u001f\u007f]/.test(displayName)) {
+    return { ok: false, error: "Nama harus diisi, tidak boleh berisi karakter kontrol, dan maksimal 120 karakter." };
   }
   if (role !== "admin" && role !== "ustadz" && role !== "santri" && role !== "wali_santri") {
     return { ok: false, error: "Role yang diminta tidak dapat diberikan." };
@@ -61,6 +66,42 @@ export function validateProvisionUserInput(raw: unknown): ValidationResult {
   };
 }
 
+type BodyReadResult =
+  | { ok: true; value: unknown }
+  | { ok: false; status: 400 | 413 };
+
+async function readBoundedJson(req: Request, maxBytes: number): Promise<BodyReadResult> {
+  const reader = req.body?.getReader();
+  if (!reader) return { ok: false, status: 400 };
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return { ok: false, status: 413 };
+      }
+      chunks.push(value);
+    }
+
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return { ok: true, value: JSON.parse(new TextDecoder().decode(bytes)) as unknown };
+  } catch {
+    return { ok: false, status: 400 };
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 function json(status: number, payload: Record<string, unknown>): Response {
   return Response.json(payload, {
     status,
@@ -75,18 +116,18 @@ export default {
     }
 
     const contentLength = Number(req.headers.get("content-length") || "0");
-    if (contentLength > 8_192) {
+    if (Number.isFinite(contentLength) && contentLength > 8_192) {
       return json(413, { error: "Body permintaan terlalu besar." });
     }
 
-    let raw: unknown;
-    try {
-      raw = await req.json();
-    } catch {
-      return json(400, { error: "Body JSON tidak valid." });
+    const body = await readBoundedJson(req, 8_192);
+    if (!body.ok) {
+      return json(body.status, {
+        error: body.status === 413 ? "Body permintaan terlalu besar." : "Body JSON tidak valid.",
+      });
     }
 
-    const parsed = validateProvisionUserInput(raw);
+    const parsed = validateProvisionUserInput(body.value);
     if (!parsed.ok) return json(400, { error: parsed.error });
 
     const actorId = ctx.userClaims?.id;
@@ -141,14 +182,13 @@ export default {
       }
     }
 
-    const options: Record<string, unknown> = {
-      data: { display_name: parsed.value.displayName },
-    };
     const redirectTo = Deno.env.get("AUTH_INVITE_REDIRECT_URL")?.trim();
-    if (redirectTo) options.redirectTo = redirectTo;
+    const inviteOptions = redirectTo
+      ? { data: { display_name: parsed.value.displayName }, redirectTo }
+      : { data: { display_name: parsed.value.displayName } };
 
     const { data: inviteData, error: inviteError } = await ctx.supabaseAdmin.auth.admin
-      .inviteUserByEmail(parsed.value.email, options);
+      .inviteUserByEmail(parsed.value.email, inviteOptions);
 
     if (inviteError || !inviteData.user) {
       console.error("tenant_user_invite_failed", {
