@@ -18,30 +18,7 @@ DECLARE
   v_room public.master_data_records%ROWTYPE;
   v_old_room public.master_data_records%ROWTYPE;
   v_building public.master_data_records%ROWTYPE;
- 
- 
-v
-_
-t
-a
-r
-g
-e
-t
-_
-r
-o
-o
-m
-_
-i
-d
- 
-T
-E
-X
-T
-;
+  v_target_room_id TEXT;
   v_building_id TEXT;
   v_room_gender public.gender_type;
   v_room_count INTEGER;
@@ -67,13 +44,13 @@ BEGIN
   END IF;
 
   SELECT * INTO v_student
-  v_target_room_id := CASE WHEN p_room_id IS NULL THEN NULL ELSE btrim(p_room_id) END;
   FROM public.students
   WHERE tenant_id = p_tenant_id AND id = p_student_id
   FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Santri tidak ditemukan pada tenant ini' USING ERRCODE = 'P0002';
   END IF;
+  v_target_room_id := CASE WHEN p_room_id IS NULL THEN NULL ELSE btrim(p_room_id) END;
 
   -- Lock old and target rooms in stable order so concurrent moves cannot overbook or deadlock.
   PERFORM id
@@ -84,7 +61,7 @@ BEGIN
   ORDER BY id
   FOR UPDATE;
 
-  IF p_room_id IS NULL THEN
+  IF v_target_room_id IS NULL THEN
     IF v_student.room_id IS NULL THEN
       RETURN jsonb_build_object('success', true, 'alreadyUnassigned', true, 'studentId', v_student.id);
     END IF;
