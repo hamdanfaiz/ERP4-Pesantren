@@ -63,7 +63,7 @@ BEGIN
   v_notes := NULLIF(btrim(COALESCE(p_notes, '')), '');
   IF p_tenant_id IS NULL OR p_student_id IS NULL OR p_created_by_user_id IS NULL OR p_client_request_id IS NULL
     OR p_period_start IS NULL OR (p_period_end IS NOT NULL AND p_period_end < p_period_start)
-    OR lower(COALESCE(p_expected_role, '')) NOT IN ('admin', 'superadmin', 'ustadz')
+    OR lower(COALESCE(p_expected_role, '')) NOT IN ('admin', 'super_admin', 'ustadz')
     OR p_ziyadah_pages_per_day IS NULL OR p_ziyadah_pages_per_day < 0 OR p_ziyadah_pages_per_day > 100
     OR p_murojaah_pages_per_day IS NULL OR p_murojaah_pages_per_day < 0 OR p_murojaah_pages_per_day > 100
     OR (p_ziyadah_pages_per_day = 0 AND p_murojaah_pages_per_day = 0)
@@ -82,7 +82,7 @@ BEGIN
   WHERE tenant_id = p_tenant_id
     AND user_id = p_created_by_user_id
     AND status = 'active';
-  IF v_role IS NULL OR v_role NOT IN ('admin', 'superadmin', 'ustadz')
+  IF v_role IS NULL OR v_role NOT IN ('admin', 'super_admin', 'ustadz')
     OR v_role <> lower(p_expected_role) THEN
     RAISE EXCEPTION 'Role akun tidak sesuai dengan profil Supabase aktif' USING ERRCODE = '42501';
   END IF;
