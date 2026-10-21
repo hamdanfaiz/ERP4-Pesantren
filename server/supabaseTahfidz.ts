@@ -607,3 +607,91 @@ export async function migrateSupabaseTahfidzConfiguration(
     unchanged: { halaqahs: Number(result.halaqahsUnchanged || 0), memberships: Number(result.membershipsUnchanged || 0) },
   };
 }
+
+
+function targetDate(value: unknown, label: string, optional = false): string | null {
+  if (optional && (value == null || value === "")) return null;
+  const date = typeof value === "string" ? value.trim() : "";
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) {
+    throw new SupabaseTahfidzError(400, label + " tidak valid.");
+  }
+  const parsed = new Date(date + "T00:00:00.000Z");
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    throw new SupabaseTahfidzError(400, label + " tidak valid.");
+  }
+  return date;
+}
+
+function targetPages(value: unknown, label: string): number {
+  if ((typeof value !== "number" && typeof value !== "string") || value === "") {
+    throw new SupabaseTahfidzError(400, label + " tidak valid.");
+  }
+  const pages = Number(value);
+  if (!Number.isFinite(pages) || pages < 0 || pages > 100) {
+    throw new SupabaseTahfidzError(400, label + " harus berada di antara 0 dan 100 halaman.");
+  }
+  return pages;
+}
+
+export async function recordSupabaseTahfidzTarget(
+  tenantIdentifier: string,
+  legacyFirebaseUid: string,
+  payloadValue: unknown
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
+    throw new SupabaseTahfidzError(401, "Sesi pengguna tidak valid.");
+  }
+  if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
+    throw new SupabaseTahfidzError(400, "Data target Tahfidz tidak valid.");
+  }
+  const payload = payloadValue as JsonObject;
+  const studentId = String(payload.studentId || "").trim();
+  if (!isUuid(studentId)) throw new SupabaseTahfidzError(400, "Santri wajib dipilih.");
+  const periodStart = targetDate(payload.periodStart, "Tanggal mulai target")!;
+  const periodEnd = targetDate(payload.periodEnd, "Tanggal akhir target", true);
+  if (periodEnd && periodEnd < periodStart) throw new SupabaseTahfidzError(400, "Tanggal akhir tidak boleh sebelum tanggal mulai.");
+  const ziyadahPagesPerDay = targetPages(payload.ziyadahPagesPerDay, "Target ziyadah");
+  const murojaahPagesPerDay = targetPages(payload.murojaahPagesPerDay, "Target muroja'ah");
+  if (ziyadahPagesPerDay === 0 && murojaahPagesPerDay === 0) {
+    throw new SupabaseTahfidzError(400, "Minimal satu target harian harus lebih dari nol.");
+  }
+  const policy = String(payload.policy || "").trim();
+  if (!["standard", "strict"].includes(policy)) throw new SupabaseTahfidzError(400, "Kebijakan target tidak valid.");
+  const notes = boundedText(payload.notes, 1000, "Catatan target");
+  const requestId = String(payload.clientRequestId || "").trim();
+  if (!isUuid(requestId)) throw new SupabaseTahfidzError(400, "Kunci permintaan target tidak valid.");
+
+  const actor = await supabaseRequest("/rest/v1/rpc/resolve_legacy_auth_profile", {
+    method: "POST",
+    body: JSON.stringify({
+      p_legacy_provider: "firebase",
+      p_legacy_subject: legacyFirebaseUid,
+      p_tenant_id: tenantId,
+    }),
+  });
+  const supabaseUserId = String(actor || "");
+  if (!isUuid(supabaseUserId)) {
+    throw new SupabaseTahfidzError(403, "Akun belum dipetakan ke profil Supabase Auth aktif.");
+  }
+
+  const result = await supabaseRequest("/rest/v1/rpc/record_tahfidz_daily_target", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_student_id: studentId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+      p_ziyadah_pages_per_day: ziyadahPagesPerDay,
+      p_murojaah_pages_per_day: murojaahPagesPerDay,
+      p_target_policy: policy,
+      p_notes: notes || null,
+      p_created_by_user_id: supabaseUserId,
+      p_client_request_id: requestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true || !isUuid(String(result.targetId || ""))) {
+    throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi penyimpanan target.");
+  }
+  return result as JsonObject;
+}
