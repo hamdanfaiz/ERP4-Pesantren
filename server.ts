@@ -12,7 +12,7 @@ import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
 import { deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures } from "./server/supabaseOnboarding";
-import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment } from "./server/supabaseFinance";
+import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment } from "./server/supabaseFinance";
 
 dotenv.config();
 
@@ -946,6 +946,30 @@ async function startServer() {
       const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
       if (status >= 500) console.error("Supabase PPDB payment record failed:", err?.message || "unknown error");
       return res.status(status).json({ error: status >= 500 ? "Pembayaran PPDB belum dapat dicatat." : err.message });
+    }
+  });
+
+  app.post("/api/finance/supabase/ppdb-candidates/:candidateId/payment-rejection", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Profil pengguna belum dapat diverifikasi." });
+    try {
+      const uid = (req as any).user?.uid;
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceProofActor(services.db, uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Penolakan pembayaran hanya untuk Admin tenant." });
+      const result = await rejectSupabasePpdbFinancePayment(
+        actor.tenantId,
+        req.params.candidateId,
+        req.body?.paymentType,
+        req.body?.reason,
+        uid
+      );
+      return res.json(result);
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase PPDB payment rejection failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Penolakan pembayaran PPDB belum dapat disimpan." : err.message });
     }
   });
 
