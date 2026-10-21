@@ -103,12 +103,15 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, lega
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca data operasional Tahfidz.");
   }
   const tenantId = await resolveTenantId(tenantIdentifier);
-  const [halaqahs, memberships, students, records, targets] = await Promise.all([
+  const [halaqahs, memberships, students, records, targets, ustadzProfiles] = await Promise.all([
     listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", { status: "eq.active" }),
     listRows("tahfidz_memberships", tenantId, "id,halaqah_id,student_id,starts_on,status", "starts_on.asc,id.asc", { status: "eq.active" }),
     listRows("students", tenantId, "id,nis,name,gender,grade,class_id,status", "name.asc,id.asc", { status: "neq.Archived" }),
     listRows("tahfidz_records", tenantId, "id,student_id,halaqah_id,activity_type,surah_name,ayah_start,ayah_end,fluency_grade,tajweed_grade,notes,performed_at,recorded_by_name", "performed_at.desc,id.desc"),
     listRows("tahfidz_targets", tenantId, "id,student_id,period_start,period_end,ziyadah_pages_per_day,murojaah_pages_per_day,target_policy,status", "period_start.desc,id.desc", { status: "eq.active" }),
+    ["Admin", "SuperAdmin"].includes(role)
+      ? listRows("profiles", tenantId, "user_id,display_name", "display_name.asc,user_id.asc", { role: "eq.ustadz", status: "eq.active" })
+      : Promise.resolve([]),
   ]);
 
   const studentById = new Map<string, JsonObject>();
@@ -186,6 +189,9 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, lega
     })),
     roster,
     records: recentRecords,
+    ustadzOptions: ["Admin", "SuperAdmin"].includes(role)
+      ? ustadzProfiles.map((profile) => ({ userId: String(profile.user_id), name: String(profile.display_name || "") }))
+      : [],
   };
 
   if (role === "Ustadz") {
@@ -711,6 +717,124 @@ export async function recordSupabaseTahfidzTarget(
   });
   if (!result || typeof result !== "object" || result.success !== true || !isUuid(String(result.targetId || ""))) {
     throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi penyimpanan target.");
+  }
+  return result as JsonObject;
+}
+
+
+async function resolveMappedTahfidzActor(tenantId: string, legacyFirebaseUid: string) {
+  if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
+    throw new SupabaseTahfidzError(401, "Sesi pengguna tidak valid.");
+  }
+  const actor = await supabaseRequest("/rest/v1/rpc/resolve_legacy_auth_profile", {
+    method: "POST",
+    body: JSON.stringify({
+      p_legacy_provider: "firebase",
+      p_legacy_subject: legacyFirebaseUid,
+      p_tenant_id: tenantId,
+    }),
+  });
+  const userId = String(actor || "");
+  if (!isUuid(userId)) throw new SupabaseTahfidzError(403, "Profil Supabase pengguna belum dipetakan atau tidak aktif.");
+  return userId;
+}
+
+export async function saveSupabaseTahfidzHalaqah(
+  tenantIdentifier: string,
+  legacyFirebaseUid: string,
+  legacyRole: string,
+  payloadValue: unknown
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(legacyRole);
+  if (!["admin", "super_admin"].includes(expectedRole)) {
+    throw new SupabaseTahfidzError(403, "Hanya Admin tenant yang dapat mengelola halaqah.");
+  }
+  if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
+    throw new SupabaseTahfidzError(400, "Data halaqah tidak valid.");
+  }
+  const payload = payloadValue as JsonObject;
+  const halaqahId = String(payload.id || "").trim();
+  if (halaqahId && !isUuid(halaqahId)) throw new SupabaseTahfidzError(400, "ID halaqah tidak valid.");
+  const name = boundedText(payload.name, 120, "Nama halaqah", true);
+  const ustadzUserId = String(payload.ustadzUserId || "").trim();
+  if (ustadzUserId && !isUuid(ustadzUserId)) throw new SupabaseTahfidzError(400, "Ustadz pengampu tidak valid.");
+  const scheduleText = boundedText(payload.schedule, 500, "Jadwal halaqah");
+  const roomText = boundedText(payload.room, 180, "Lokasi halaqah");
+  const dailyTargetPages = targetPages(payload.dailyTargetPages, "Target halaqah");
+  if (Math.round(dailyTargetPages * 100) !== dailyTargetPages * 100) {
+    throw new SupabaseTahfidzError(400, "Target halaqah maksimal memiliki dua angka desimal.");
+  }
+  const status = String(payload.status || "active").trim().toLowerCase();
+  if (!["active", "inactive", "archived"].includes(status)) {
+    throw new SupabaseTahfidzError(400, "Status halaqah tidak valid.");
+  }
+  if (status === "active" && !ustadzUserId) {
+    throw new SupabaseTahfidzError(400, "Halaqah aktif harus memiliki Ustadz pengampu.");
+  }
+  const requestId = String(payload.clientRequestId || "").trim();
+  if (!isUuid(requestId)) throw new SupabaseTahfidzError(400, "Kunci permintaan halaqah tidak valid.");
+  const actorId = await resolveMappedTahfidzActor(tenantId, legacyFirebaseUid);
+  const result = await supabaseRequest("/rest/v1/rpc/save_tahfidz_halaqah", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_halaqah_id: halaqahId || null,
+      p_name: name,
+      p_ustadz_user_id: ustadzUserId || null,
+      p_schedule_text: scheduleText || null,
+      p_room_text: roomText || null,
+      p_daily_target_pages: dailyTargetPages,
+      p_status: status,
+      p_created_by_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_client_request_id: requestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true || !isUuid(String(result.halaqahId || ""))) {
+    throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi penyimpanan halaqah.");
+  }
+  return result as JsonObject;
+}
+
+export async function assignSupabaseTahfidzMembership(
+  tenantIdentifier: string,
+  legacyFirebaseUid: string,
+  legacyRole: string,
+  payloadValue: unknown
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(legacyRole);
+  if (!["admin", "super_admin"].includes(expectedRole)) {
+    throw new SupabaseTahfidzError(403, "Hanya Admin tenant yang dapat mengatur penempatan halaqah.");
+  }
+  if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
+    throw new SupabaseTahfidzError(400, "Data penempatan santri tidak valid.");
+  }
+  const payload = payloadValue as JsonObject;
+  const studentId = String(payload.studentId || "").trim();
+  const halaqahId = String(payload.halaqahId || "").trim();
+  if (!isUuid(studentId) || !isUuid(halaqahId)) {
+    throw new SupabaseTahfidzError(400, "Santri dan halaqah wajib dipilih.");
+  }
+  const startsOn = targetDate(payload.startsOn, "Tanggal mulai penempatan")!;
+  const requestId = String(payload.clientRequestId || "").trim();
+  if (!isUuid(requestId)) throw new SupabaseTahfidzError(400, "Kunci permintaan penempatan tidak valid.");
+  const actorId = await resolveMappedTahfidzActor(tenantId, legacyFirebaseUid);
+  const result = await supabaseRequest("/rest/v1/rpc/assign_tahfidz_membership", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_student_id: studentId,
+      p_halaqah_id: halaqahId,
+      p_starts_on: startsOn,
+      p_created_by_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_client_request_id: requestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true || !isUuid(String(result.membershipId || ""))) {
+    throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi penempatan halaqah.");
   }
   return result as JsonObject;
 }
