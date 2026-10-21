@@ -238,10 +238,12 @@ BEGIN
     ) OR EXISTS (
       SELECT 1 FROM public.nis_reservations r
       WHERE r.tenant_id = p_tenant_id AND r.nis = v_nis
-        AND NOT (r.student_id = v_student_id OR (
-          v_existing_found AND v_existing.source_candidate_id IS NOT NULL
-          AND r.candidate_id = v_existing.source_candidate_id
-        ))
+        AND r.student_id IS DISTINCT FROM v_student_id
+        AND (
+          NOT v_existing_found
+          OR v_existing.source_candidate_id IS NULL
+          OR r.candidate_id IS DISTINCT FROM v_existing.source_candidate_id
+        )
     ) OR EXISTS (
       SELECT 1 FROM public.candidates c
       WHERE c.tenant_id = p_tenant_id
