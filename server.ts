@@ -342,6 +342,18 @@ async function requireMasterDataAccess(req: express.Request, res: express.Respon
 }
 
 
+function requireMasterDataStudentAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const actor = (req as any).actor;
+  if (!actor || !["Admin", "SuperAdmin"].includes(String(actor.role || ""))) {
+    return res.status(403).json({
+      code: "STUDENT_PII_FORBIDDEN",
+      error: "Data identitas santri hanya dapat dikelola Admin atau SuperAdmin.",
+    });
+  }
+  return next();
+}
+
+
 async function requireBoardingAccess(req: express.Request, res: express.Response, next: express.NextFunction) {
   const uid = (req as any).user?.uid;
   if (!uid) return res.status(401).json({ code: "UNAUTHORIZED", error: "Autentikasi diperlukan." });
@@ -743,7 +755,7 @@ async function startServer() {
 
 
   // Santri Master Data reads/writes are tenant-scoped in Supabase; Firebase remains the token source during cutover.
-  app.get("/api/master-data/students", requireAuth, requireMasterDataAccess, async (req, res) => {
+  app.get("/api/master-data/students", requireAuth, requireMasterDataAccess, requireMasterDataStudentAdmin, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     try {
       const actor = (req as any).actor;
@@ -756,7 +768,7 @@ async function startServer() {
     }
   });
 
-  app.put("/api/master-data/students/:studentId", requireAuth, requireMasterDataAccess, async (req, res) => {
+  app.put("/api/master-data/students/:studentId", requireAuth, requireMasterDataAccess, requireMasterDataStudentAdmin, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     try {
       const actor = (req as any).actor;
@@ -773,7 +785,7 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/master-data/students/:studentId", requireAuth, requireMasterDataAccess, async (req, res) => {
+  app.delete("/api/master-data/students/:studentId", requireAuth, requireMasterDataAccess, requireMasterDataStudentAdmin, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     try {
       const actor = (req as any).actor;
