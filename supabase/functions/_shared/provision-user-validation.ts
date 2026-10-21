@@ -4,7 +4,7 @@ const MODULE_KEYS = new Set([
   "library", "donation", "laundry", "enterprise", "erp", "ga", "alumni", "crm",
   "lms", "intelligence", "marketplace", "ecosystem", "cbt",
 ]);
-const INPUT_KEYS = new Set(["email", "displayName", "role", "modulePermissions"]);
+const INPUT_KEYS = new Set(["email", "displayName", "role", "modulePermissions", "temporaryPassword"]);
 
 export type AssignableRole = "admin" | "ustadz" | "santri" | "wali_santri";
 
@@ -13,6 +13,7 @@ export interface ProvisionUserInput {
   displayName: string;
   role: AssignableRole;
   modulePermissions: Record<string, boolean>;
+  temporaryPassword: string;
 }
 
 export type ValidationResult =
@@ -33,6 +34,7 @@ export function validateProvisionUserInput(raw: unknown): ValidationResult {
   const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
   const role = body.role;
   const modulePermissions = body.modulePermissions === undefined ? {} : body.modulePermissions;
+  const temporaryPassword = typeof body.temporaryPassword === "string" ? body.temporaryPassword : "";
 
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "Alamat email tidak valid." };
@@ -42,6 +44,10 @@ export function validateProvisionUserInput(raw: unknown): ValidationResult {
   }
   if (role !== "admin" && role !== "ustadz" && role !== "santri" && role !== "wali_santri") {
     return { ok: false, error: "Role yang diminta tidak dapat diberikan." };
+  }
+  if (temporaryPassword.length < 12 || temporaryPassword.length > 128
+    || /[\u0000-\u001f\u007f]/.test(temporaryPassword)) {
+    return { ok: false, error: "Kata sandi sementara harus 12–128 karakter dan tidak boleh berisi karakter kontrol." };
   }
   if (!modulePermissions || typeof modulePermissions !== "object" || Array.isArray(modulePermissions)) {
     return { ok: false, error: "Permission modul tidak valid." };
@@ -60,6 +66,6 @@ export function validateProvisionUserInput(raw: unknown): ValidationResult {
 
   return {
     ok: true,
-    value: { email, displayName, role, modulePermissions: permissions },
+    value: { email, displayName, role, modulePermissions: permissions, temporaryPassword },
   };
 }
