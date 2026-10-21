@@ -509,6 +509,48 @@ export async function onboardSupabaseAcceptedCandidate(
 }
 
 
+
+export async function assignSupabaseStudentRoom(
+  tenantIdentifier: string,
+  studentIdValue: unknown,
+  roomIdValue: unknown,
+  buildingIdValue?: unknown
+): Promise<JsonObject> {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const studentId = validateUuid(studentIdValue, "ID santri");
+  let roomId: string | null = null;
+  if (roomIdValue !== null) {
+    if (typeof roomIdValue !== "string") throw new SupabasePpdbAdminError(400, "ID kamar tidak valid.");
+    roomId = roomIdValue.trim();
+    if (!roomId || roomId.length > 160 || roomId.includes("/")) {
+      throw new SupabasePpdbAdminError(400, "ID kamar tidak valid.");
+    }
+  }
+
+  let buildingId: string | null = null;
+  if (buildingIdValue !== undefined && buildingIdValue !== null) {
+    if (typeof buildingIdValue !== "string") throw new SupabasePpdbAdminError(400, "ID gedung tidak valid.");
+    buildingId = buildingIdValue.trim();
+    if (!buildingId || buildingId.length > 160 || buildingId.includes("/")) {
+      throw new SupabasePpdbAdminError(400, "ID gedung tidak valid.");
+    }
+  }
+
+  const result = await supabaseRequest("/rest/v1/rpc/assign_student_to_room", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_student_id: studentId,
+      p_room_id: roomId,
+      p_building_id: buildingId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabasePpdbAdminError(503, "Backend belum mengonfirmasi perubahan penempatan kamar.");
+  }
+  return result as JsonObject;
+}
+
 export type LegacySupabaseStudentSource = {
   id: string;
   record: unknown;
