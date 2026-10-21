@@ -17,6 +17,11 @@ CREATE TABLE public.tahfidz_target_write_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, client_request_id),
   CHECK (period_end IS NULL OR period_end >= period_start),
+  CHECK (ziyadah_pages_per_day BETWEEN 0 AND 100),
+  CHECK (murojaah_pages_per_day BETWEEN 0 AND 100),
+  CHECK (ziyadah_pages_per_day > 0 OR murojaah_pages_per_day > 0),
+  CHECK (target_policy IN ('standard', 'strict')),
+  CHECK (notes IS NULL OR length(notes) <= 1000),
   FOREIGN KEY (tenant_id, created_by_user_id)
     REFERENCES public.profiles (tenant_id, user_id) ON DELETE RESTRICT,
   FOREIGN KEY (tenant_id, student_id)
