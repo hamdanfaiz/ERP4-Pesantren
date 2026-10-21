@@ -1,90 +1,100 @@
 # Kesiapan Komersial dan Go-Live ERP4 Pesantren
 
-Status: kriteria kerja untuk perencanaan; belum menjadi klaim bahwa produk siap dijual.
+Status: kriteria kerja untuk produk yang dipasang dan dioperasikan oleh pelanggan; bukan klaim bahwa produk sudah siap dijual.
 
-## Asumsi produk
+## Model produk yang berlaku
 
-Model kerja untuk tahap ini adalah SaaS multi-tenant: satu tenant mewakili satu pesantren. Langganan penggunaan ERP oleh pesantren adalah layanan produk dan harus dipisahkan dari modul Keuangan yang mengelola SPP, tagihan santri, dan transaksi internal pesantren.
+ERP4 Pesantren tidak akan dijual sebagai SaaS yang dioperasikan terpusat oleh vendor. Model rilis awal adalah instalasi mandiri milik pelanggan pada VPS atau infrastruktur on-premise. Setiap instalasi memiliki backend, database, storage, secret, backup, dan domain sendiri.
 
-Harga, isi paket, batas pengguna/penyimpanan, masa uji coba, kanal pembayaran langganan, serta kebijakan pembatalan harus divalidasi bersama pemilik produk dan calon pelanggan sebelum fitur penagihan SaaS ditetapkan.
+Asumsi kerja rilis awal: satu instalasi melayani satu pesantren. Kolom tenantId/tenant_id tetap dipertahankan sebagai batas data dan kompatibilitas, tetapi tidak berarti vendor mengoperasikan banyak pelanggan dalam satu database. Dukungan beberapa pesantren dalam satu instalasi perlu menjadi keputusan produk tersendiri.
 
-## Baseline yang sudah diverifikasi
+Pendapatan komersial dapat berasal dari lisensi, jasa instalasi/migrasi, pelatihan, pemeliharaan, dan dukungan. Harga, masa lisensi, pembaruan, serta cakupan support belum ditetapkan. Sistem tidak akan memiliki penagihan SaaS atau paket berlangganan per tenant sebelum keputusan produk lain dibuat.
 
-- Branch `main` masih memakai Firebase pada runtime autentikasi dan data; `package.json` memuat `firebase` dan `firebase-admin`, dan belum memuat SDK Supabase.
-- PR #1 `feat(supabase): add tenant-safe PPDB foundation` masih draft. Skema tenant/RLS belum diterapkan ke database. Firebase tetap sumber operasional.
-- `supabase/config.toml` di `main` masih berisi `your-project-id`; project reference yang benar sudah dicatat pada branch PR #1.
-- Edge Function yang ditemukan pada `main` hanya `hello-world`; alur provisi tenant/user dan PPDB Supabase belum tersedia.
-- Form PPDB publik mengirim JSON kandidat ke endpoint server Firebase. Pemilihan berkas saat ini hanya menyetel nama dan status checklist di UI; file tidak dikirim sebagai konten berkas. Server menyimpan NIK/NISN plaintext di Firestore.
-- Dashboard Supabase menunjukkan GitHub integration tersambung dengan deploy produksi nonaktif. Paket proyek saat ini tidak menyediakan preview database branch per PR.
+## Baseline teknis yang diverifikasi
 
-Baseline ini adalah bukti bahwa perpindahan dan kesiapan komersial masih dalam proses, bukan penilaian bahwa produk sudah layak ditawarkan.
+- Branch main masih memakai Firebase untuk autentikasi dan data operasional; package.json memuat firebase dan firebase-admin, belum memuat SDK Supabase.
+- Supabase GitHub integration terhubung ke project vqemuyzveuirlkvdggjd untuk alur pengembangan. Integrasi itu tidak menjadikan produk ERP sebagai SaaS dan tidak menerapkan migrasi; deploy otomatis produksi nonaktif.
+- PR #1 adalah fondasi tenant/RLS Supabase dan masih draft; migrasi belum diterapkan. PR #3 menambahkan provisioning user Supabase, juga masih draft.
+- Aplikasi belum memiliki Dockerfile atau Docker Compose. server.ts memakai Application Default Credentials Firebase, mengambil konfigurasi Firebase dari file/variabel, dan menggunakan port tetap 3000.
+- Frontend Firebase config diambil dari firebase-applet-config.json. Ini belum menjadi kontrak konfigurasi backend-portable.
+- Form PPDB saat ini menggunakan Firebase. File yang dipilih di UI belum benar-benar dikirim sebagai konten file, dan server Firebase menyimpan NIK/NISN plaintext.
+- Tidak ada bukti clean install, migrasi, backup/restore, atau pemindahan instance ke server kedua yang telah berhasil.
 
-## Gerbang kesiapan produk
+Baseline tersebut menunjukkan aplikasi belum dapat dipasang secara reproducible pada server pelanggan dan masih perlu migrasi runtime sebelum paket distribusi dibangun.
 
-### 1. Produk dan paket
+## Environment yang dituju
 
-Sebelum penawaran berbayar:
+### Target rilis awal
 
-- Tetapkan segmen awal (jenis/ukuran pesantren), persona pembeli, dan alur utama yang akan dijual.
-- Tetapkan paket, hak fitur, batas pemakaian, trial, kebijakan perpanjangan/pembatalan, dan proses suspend/aktifkan kembali tenant.
-- Pisahkan entitlements paket dari permission pengguna: paket mengatur hak tenant, sedangkan role/permission mengatur tindakan tiap akun.
-- Pisahkan invoice langganan SaaS dari seluruh invoice/tagihan operasional pesantren.
-- Buat onboarding tenant, checklist setup awal, template impor data, dan panduan administrator.
+1. Development lokal dengan Supabase CLI dan data sintetis. Stack CLI hanya untuk development/test, bukan server produksi.
+2. VPS Linux milik pelanggan dengan Docker Compose, TLS/reverse proxy, database dan storage persisten.
+3. On-premise pada server Linux atau VM Linux milik pesantren. Instalasi melalui Docker Compose dengan prosedur backup dan pemulihan lokal/off-site.
 
-Selesai jika calon pelanggan dapat memahami apa yang dibeli, admin pesantren dapat memulai tenant tanpa intervensi database manual, dan sistem menolak penggunaan di luar entitlement paket.
+Windows Server belum menjadi target produksi langsung. Pelanggan Windows dapat menggunakan VM Linux setelah prosedur itu benar-benar diuji. Kubernetes, bare-metal tanpa container, dan provider lain ditambahkan setelah ada matriks kompatibilitas dan kebutuhan pelanggan.
 
-### 2. Keamanan, privasi, dan tata kelola
+### Dependensi platform
 
-- Semua tabel dan berkas tenant memiliki batas tenant yang diuji; perubahan role tidak berasal dari metadata client.
-- Seluruh jalur tulis kritis melalui backend tepercaya. Service-role secret tidak pernah dikirim ke browser, repository, atau log.
-- RLS dan Storage policies diuji lintas tenant serta lintas role, termasuk pengguna nonaktif dan tenant tersuspend.
-- Data identitas sensitif dienkripsi pada sisi server, kunci dikelola terpisah dan dapat dirotasi, dan pencarian duplikat memakai fingerprint berkunci.
-- Catat perubahan admin dan transaksi sensitif pada audit log.
-- Tentukan tujuan penggunaan, masa retensi, ekspor/penghapusan data, respons insiden, kontak privasi, dan dokumen kontrak/privasi dengan tinjauan profesional yang sesuai.
+Untuk target on-premise, gunakan Supabase self-hosted Docker Compose atau deployment backend lain yang secara eksplisit diuji dengan aplikasi ini. Jangan menganggap Supabase CLI stack lokal sebagai konfigurasi produksi. Supabase self-hosted menempatkan tanggung jawab pemeliharaan server, hardening, upgrade, backup/DR, pemantauan, dan ketersediaan pada operator instalasi. Beberapa kemampuan managed Supabase seperti branching, managed backups/PITR, dan Management API tidak tersedia pada self-hosted.
 
-Selesai jika data satu pesantren tidak dapat dibaca atau diubah oleh tenant lain pada pengujian adversarial, dan operator dapat menjawab siapa mengakses/mengubah data penting.
+Referensi resmi:
+- https://supabase.com/docs/guides/self-hosting
+- https://supabase.com/docs/guides/self-hosting/docker
 
-### 3. Keandalan operasional
+## Gerbang kesiapan komersial
 
-- Ada backup yang mencakup database dan berkas, serta restore drill dengan hasil terukur.
-- Monitoring menangkap error backend, kegagalan job, latensi, kuota, dan penggunaan per tenant; alert memiliki pemilik dan prosedur tindak lanjut.
-- Definisikan target pemulihan (RPO/RTO), jam dukungan, tingkat keparahan insiden, eskalasi, dan komunikasi pelanggan.
-- Setiap rilis memiliki environment staging, migrasi database terlacak, pemeriksaan sebelum rilis, rollback/forward-fix plan, dan catatan rilis.
-- Sediakan status layanan, prosedur pemeliharaan, dan proses ekspor data saat tenant keluar.
+### 1. Paket distribusi dan instalasi
 
-Selesai jika tim pernah memulihkan backup, dapat menemukan penyebab error, dan dapat memberi tahu tenant terdampak melalui proses yang sudah ditetapkan.
+- Sediakan image aplikasi dengan versi tetap, Dockerfile multi-stage, compose file produksi, healthcheck, volume persisten, dan contoh konfigurasi tanpa secret.
+- Konfigurasi URL Supabase, key publik, URL aplikasi, SMTP, domain, dan port melalui environment; tidak ada URL/customer project ID yang tertanam pada bundle.
+- Secret server, password Postgres, signing key, serta kunci enkripsi dibuat per instalasi; tidak ada secret bersama antar pelanggan atau di GitHub.
+- Sediakan installer dan preflight yang memeriksa versi OS/Docker, resource disk/memori, DNS/TLS, port, secret, koneksi backend, dan status migrasi.
+- Semua schema change harus berupa migrasi berurutan dan kompatibel dengan versi rilis; sediakan prosedur upgrade dan rollback/forward-fix.
+- Tentukan lisensi, proses aktivasi/pembaruan, hak penggunaan, jalur upgrade, dan support di luar model SaaS. Jangan mengunci data pelanggan saat lisensi atau jaringan vendor tidak tersedia.
 
-### 4. Migrasi dan cutover
+Selesai jika operator yang mengikuti dokumentasi dapat memasang versi rilis pada server kosong tanpa akses ke akun developer, AI Studio, GitHub Actions, atau Supabase project milik vendor.
 
-- Inventarisasi koleksi Firebase, jumlah dokumen, field PII, file, relasi, dan tenant yang valid.
-- Buat mapping tenant dan ID sumber ke UUID Supabase; jangan mengasumsikan ID Firebase sama dengan UUID baru.
-- Import dapat dijalankan ulang dengan aman, memiliki dry-run, validasi, rekonsiliasi jumlah dan saldo, serta laporan item gagal.
-- Migrasikan satu irisan modul, uji read/write dan isolasi, lalu lanjutkan irisan berikutnya. Hindari dual-write yang tidak memiliki rekonsiliasi.
-- Tentukan jendela cutover, pembekuan tulis, verifikasi, dan rollback sebelum mengganti sumber baca/tulis.
-- Firebase baru dapat dihentikan setelah seluruh modul aktif, bukti rekonsiliasi disetujui, dan masa observasi cutover selesai.
+### 2. Pemindahan antar-environment
 
-Selesai jika hasil sumber dan tujuan direkonsiliasi dan ada prosedur rollback yang sudah diuji.
+- Bedakan konfigurasi dari data; jangan salin .env production ke staging atau pelanggan lain.
+- Sediakan ekspor dan impor database serta storage yang dapat dijalankan ulang dengan dry-run, validasi, checksum/jumlah record, dan laporan kegagalan.
+- Uji pemindahan snapshot ke server kedua dengan konfigurasi dan secret tujuan yang baru, lalu verifikasi login, tenant isolation, file, transaksi, dan alur utama.
+- Backup meliputi database dan berkas, memiliki enkripsi, retensi, prosedur kunci, serta uji restore berkala.
+- Tidak ada ketergantungan pada Firebase, project cloud pribadi pembuat, filesystem container yang tidak persisten, IP internal, atau URL lokal pada runtime rilis.
+- Dukungan mode tanpa internet harus dinilai terpisah. Integrasi eksternal seperti email, Qur'an, atau data wilayah harus memiliki konfigurasi dan perilaku ketika jaringan keluar dibatasi.
 
-### 5. Validasi pasar dan kesiapan penawaran
+Selesai jika instalasi dapat direstore atau dipindahkan ke host lain tanpa kehilangan relasi, berkas, atau integritas transaksi.
 
-- Jalankan pilot dengan pesantren yang mewakili variasi ukuran dan proses.
-- Ukur penyelesaian alur utama, waktu kerja admin, kesalahan data, kebutuhan bantuan, dan keberhasilan onboarding.
-- Validasi kesediaan membayar dan kesesuaian paket; hitung biaya layanan, penyimpanan, dukungan, dan biaya pembayaran terhadap pendapatan tiap tenant.
-- Perbaiki masalah yang menghalangi onboarding atau penggunaan berulang sebelum membuka penawaran umum.
-- Siapkan demo dengan data sintetis, materi penawaran yang tidak menjanjikan fitur yang belum tersedia, dokumentasi pengguna, dan kanal support.
+### 3. Keamanan dan operasi pelanggan
 
-Selesai jika pilot menunjukkan pesantren dapat menyelesaikan alur utama secara mandiri, masalah kritis sudah ditutup, dan harga/paket didukung bukti percakapan atau pembelian nyata.
+- Isolasi tenant dan role tetap diuji; pada rilis satu pesantren per installation, perbatasan utama juga harus dijaga oleh server, database, jaringan, dan secret masing-masing instalasi.
+- Semua jalur tulis kritis memakai backend tepercaya. Key service-role tidak pernah masuk browser, image frontend, log, atau repository.
+- Sediakan SMTP pelanggan/terkonfigurasi untuk verifikasi, reset password, dan notifikasi.
+- Dokumentasikan patch OS/container/database, rotasi secret, firewall, TLS, log, monitoring, kapasitas, eskalasi, incident response, dan pemulihan bencana.
+- Tetapkan RPO/RTO, jadwal backup, jangka retensi, serta siapa yang bertanggung jawab pada instalasi yang dikelola pelanggan versus instalasi yang dikelola tim ERP.
+- Siapkan proses ekspor, penghapusan, dan serah-terima data saat kontrak berakhir.
 
-## Urutan rilis
+Selesai jika instalasi pelanggan dapat dipelihara, dipantau, dipulihkan, dan diupgrade oleh pihak yang jelas dengan tanggung jawab operasional tertulis.
 
-1. Review dan validasi PR #1; verifikasi database kosong atau data yang ada sudah dipetakan.
-2. Uji migrasi tenant/RLS di environment non-produksi atau Supabase lokal; terapkan ke produksi hanya setelah persetujuan dan backup yang sesuai.
-3. Implementasikan bootstrap tenant/Admin, manajemen user tepercaya, dan endpoint PPDB dengan validasi, rate limit, idempotensi, enkripsi PII, dan unggah Storage privat.
-4. Tambahkan adapter Supabase dan migrasi data per modul dengan rekonsiliasi; Firebase tetap aktif sampai cutover.
-5. Selesaikan paket/entitlements serta lifecycle langganan setelah aturan bisnis dan harga disetujui.
-6. Jalankan matriks keamanan, transaksi, pemulihan, dan UAT dengan tenant pilot.
-7. Go-live terbatas, pantau indikator layanan dan support, lalu buka penawaran lebih luas setelah gerbang pilot terpenuhi.
+### 4. Validasi penawaran
 
-## Batas keputusan
+- Pilih pesantren pilot yang mewakili variasi ukuran dan kesiapan IT.
+- Ukur keberhasilan instalasi, waktu onboarding, penyelesaian alur utama, error, waktu dukungan, serta biaya cloud/perjalanan/pelatihan.
+- Validasi kesediaan membayar untuk lisensi dan jasa berdasarkan biaya instalasi, migrasi, support, pemeliharaan, serta upgrade.
+- Siapkan demo dengan data sintetis dan materi penawaran yang hanya menyebut kemampuan yang sudah tersedia.
+- Tetapkan definisi support, masa pemeliharaan, biaya perubahan khusus, dan versi yang masih mendapat update.
 
-Migrasi produksi, perubahan sumber data aktif, pembukaan akses publik, aktivasi penagihan, dan pengumuman ketersediaan umum memerlukan persetujuan pemilik produk pada saat tindakan tersebut siap dilakukan. Dokumen ini tidak mengaktifkan deploy atau menerapkan migrasi.
+Selesai jika pilot bisa dipasang dan dipakai pada infrastruktur pelanggan, kebutuhan support dapat dipenuhi dengan biaya yang diketahui, dan harga ditopang bukti pasar.
+
+## Urutan kerja
+
+1. Pertahankan satu sumber kode resmi di GitHub dan review perubahan AI Studio sebelum sinkronisasi.
+2. Selesaikan kontrak tenant, RLS, manajemen akun, PPDB, dan backend tepercaya sebelum mengubah runtime Firebase.
+3. Buat adapter Supabase dan migrasi data per modul; Firebase tetap sumber aktif sampai cutover terbukti.
+4. Setelah backend rilis terbentuk, buat Dockerfile/Compose untuk ERP dan Supabase self-hosted, contoh environment, serta installer/preflight.
+5. Simulasikan clean install, upgrade, data sintetis, kegagalan komponen, backup/restore, pemindahan ke host kedua, dan UAT lintas role.
+6. Jalankan pilot pada VPS dan on-premise Linux; catat beban support, biaya layanan, serta hasil operasional.
+7. Tawarkan lisensi dan layanan komersial setelah prosedur instalasi, pemulihan, upgrade, dukungan, serta batas tanggung jawab lulus pilot.
+
+## Batas tindakan
+
+PR atau dokumen tidak membuktikan runtime siap dipasang. Penerapan migrasi pada database pelanggan, perubahan sumber data aktif, pembukaan akses publik, serta distribusi rilis membutuhkan prosedur backup, uji lingkungan, dan persetujuan pemilik sistem. Firebase belum boleh dihentikan sebelum migrasi dan rekonsiliasi data selesai.
