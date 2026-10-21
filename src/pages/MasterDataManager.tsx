@@ -51,7 +51,7 @@ import { ExportModal } from "../components/ExportModal";
 import { BulkOperationsModal } from "../components/BulkOperationsModal";
 import { CentralSyncBadge } from "../components/CentralSyncBadge";
 import { centralStructureService } from "../services/centralStructureService";
-import { migrateLegacySupabaseStudents, type LegacyStudentMigrationResult } from "../services/masterDataApi";
+import { deleteSupabaseMasterDataStructure, listSupabaseMasterDataStructures, migrateLegacySupabaseStudents, upsertSupabaseMasterDataStructure, type LegacyStudentMigrationResult } from "../services/masterDataApi";
 import {
   COUNTRIES,
   PROVINCES,
@@ -64,6 +64,8 @@ import { generateMockData } from "../data/mockDataFactory";
 import { db } from "../firebase";
 import { collection, writeBatch, doc, setDoc, runTransaction, query, where, getDocs } from "firebase/firestore";
 import { StructureHierarchyD3 } from "../components/StructureHierarchyD3";
+
+const SUPABASE_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "Kelas"]);
 
 const normalizeReservationValue = (value: unknown) => {
   const normalized = typeof value === "string" ? value.trim().toUpperCase() : "";
@@ -451,6 +453,10 @@ export function MasterDataManager() {
   };
 
   const handleInjectDatabase = async () => {
+    if (USE_SUPABASE_BOARDING_CUTOVER) {
+      showToast("Inject mock Firestore dinonaktifkan saat cutover struktur Supabase aktif.", "error");
+      return;
+    }
     setIsInjecting(true);
     setNotification(null);
     try {
@@ -492,32 +498,73 @@ export function MasterDataManager() {
   };
 
   useEffect(() => {
-    import("firebase/firestore").then(({ onSnapshot, query, where, collection }) => {
-      let q;
-      if (activeTab === "entities") {
-        q = tenantScopedQuery(collection(db, "entityRecords"), user?.tenantId, where("type", "==", activeSubTab));
-      } else {
-        q = tenantScopedQuery(collection(db, "master_data"), user?.tenantId, where("category", "==", activeSubTab));
-      }
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    let supabasePoll: ReturnType<typeof setInterval> | undefined;
+
+    if (
+      USE_SUPABASE_BOARDING_CUTOVER
+      && activeTab !== "entities"
+      && SUPABASE_STRUCTURE_CATEGORIES.has(activeSubTab)
+    ) {
+      const loadSupabaseStructures = async () => {
+        try {
+          const records = await listSupabaseMasterDataStructures();
+          if (cancelled) return;
+          setDataSources((prev) => ({
+            ...prev,
+            [activeSubTab]: records.filter((record) => record.category === activeSubTab),
+          }));
+        } catch (error) {
+          if (cancelled) return;
+          console.error("Supabase Master Data read failed:", error);
+          setDataSources((prev) => ({ ...prev, [activeSubTab]: [] }));
+          setNotification({
+            message: error instanceof Error ? error.message : "Data struktur Supabase belum dapat dimuat.",
+            type: "error",
+          });
+        }
+      };
+
+      void loadSupabaseStructures();
+      supabasePoll = setInterval(() => void loadSupabaseStructures(), 30_000);
+      return () => {
+        cancelled = true;
+        if (supabasePoll) clearInterval(supabasePoll);
+      };
+    }
+
+    void import("firebase/firestore").then(({ onSnapshot, query, where, collection }) => {
+      if (cancelled) return;
+      const q = activeTab === "entities"
+        ? tenantScopedQuery(collection(db, "entityRecords"), user?.tenantId, where("type", "==", activeSubTab))
+        : tenantScopedQuery(collection(db, "master_data"), user?.tenantId, where("category", "==", activeSubTab));
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        if (cancelled) return;
         if (!snapshot.empty) {
-          const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
-          setDataSources(prev => ({ ...prev, [activeSubTab]: items }));
+          const items = snapshot.docs.map((document) => ({ id: document.id, ...document.data() }) as any);
+          setDataSources((prev) => ({ ...prev, [activeSubTab]: items }));
         } else {
-          // fallback to mock data if empty
-          setDataSources(prev => {
+          setDataSources((prev) => {
             if (prev[activeSubTab]) return prev;
             return { ...prev, [activeSubTab]: getMockData(activeSubTab) };
           });
         }
       }, (error) => {
+        if (cancelled) return;
         console.error(`Error fetching ${activeSubTab}:`, error);
       });
-      return () => unsubscribe();
+    }).catch((error) => {
+      if (cancelled) return;
+      console.error(`Could not attach data listener for ${activeSubTab}:`, error);
     });
-  }, [activeTab, activeSubTab]);
 
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [activeTab, activeSubTab, user?.tenantId]);
   useEffect(() => {
     // We intentionally removed the auto-pop-up on mount for drafts,
     // as it interrupts the user on every visit to Master Data.
@@ -721,6 +768,23 @@ export function MasterDataManager() {
     const docId = collectionName === "master_data" ? `${activeSubTab}_${record.id}` : record.id;
     
     try {
+      if (
+        USE_SUPABASE_BOARDING_CUTOVER
+        && activeTab !== "entities"
+        && SUPABASE_STRUCTURE_CATEGORIES.has(activeSubTab)
+      ) {
+        await deleteSupabaseMasterDataStructure(activeSubTab as "Gedung" | "Kamar" | "Kelas", record.id);
+        setDataSources((prev) => ({
+          ...prev,
+          [activeSubTab]: (prev[activeSubTab] || []).filter((item) => item.id !== record.id),
+        }));
+        addAuditLog("DELETE", record.id, record.name);
+        if (selectedRecord?.id === record.id) setSelectedRecord(null);
+        centralStructureService.notifyExternalUpdate();
+        showToast(`Data "${record.name}" berhasil dihapus.`, "success");
+        return;
+      }
+
       const { doc, deleteDoc } = await import("firebase/firestore");
       await deleteDoc(doc(db, collectionName, docId));
       setDataSources((prev) => ({
@@ -932,6 +996,34 @@ export function MasterDataManager() {
     localStorage.removeItem("mdm-form-autosave");
 
     const validatedData = result.data;
+    if (
+      USE_SUPABASE_BOARDING_CUTOVER
+      && activeTab !== "entities"
+      && SUPABASE_STRUCTURE_CATEGORIES.has(activeSubTab)
+    ) {
+      try {
+        const savedRecord = await upsertSupabaseMasterDataStructure(
+          activeSubTab as "Gedung" | "Kamar" | "Kelas",
+          validatedData as Record<string, unknown>
+        );
+        setDataSources((prev) => ({
+          ...prev,
+          [activeSubTab]: modalMode === "add"
+            ? [savedRecord, ...(prev[activeSubTab] || [])]
+            : (prev[activeSubTab] || []).map((record) => record.id === editingId ? { ...record, ...savedRecord } : record),
+        }));
+        if (modalMode === "add") addAuditLog("CREATE", savedRecord.id, String(savedRecord.name || ""));
+        else addAuditLog("UPDATE", savedRecord.id, String(savedRecord.name || ""));
+        if (selectedRecord?.id === editingId) setSelectedRecord({ ...selectedRecord, ...savedRecord });
+        centralStructureService.notifyExternalUpdate();
+        setIsModalOpen(false);
+        showToast(`Data "${savedRecord.name}" berhasil ${modalMode === "add" ? "disimpan" : "diperbarui"}.`, "success");
+      } catch (error: any) {
+        console.error("Supabase structure save failed:", error);
+        showToast(error?.message || "Gagal menyimpan struktur ke Supabase.", "error");
+      }
+      return;
+    }
     const collectionName = activeTab === "entities" ? "entityRecords" : "master_data";
     const getDocId = (id: string) => collectionName === "master_data" ? `${activeSubTab}_${id}` : id;
     const recordId = modalMode === "edit" ? String(editingId || "") : String(validatedData.id);
