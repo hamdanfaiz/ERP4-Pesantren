@@ -3845,7 +3845,7 @@ export function MasterDataManager() {
               <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-4 text-sm text-amber-100">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
-                  <p>Impor ini membuat snapshot satu kali, bukan sinkronisasi. Terapkan hanya pada jendela migrasi setelah penulisan operasional ke Firebase dihentikan dan backup diverifikasi. Data sumber tidak dihapus.</p>
+                  <p>Impor ini membuat snapshot satu kali, bukan sinkronisasi. Tiap record diproses dalam transaksi tersendiri, jadi kegagalan dapat membuat sebagian record sudah masuk. Terapkan hanya pada jendela migrasi setelah penulisan ke Firebase dihentikan dan backup diverifikasi. Setelah memperbaiki konflik, preview dan apply dapat dijalankan ulang untuk record yang tersisa; data sumber tidak dihapus.</p>
                 </div>
               </div>
 
@@ -3898,7 +3898,7 @@ export function MasterDataManager() {
                   </div>
                   {!legacyMigrationResult.dryRun && (
                     <p className="rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300">
-                      Snapshot Supabase telah diproses. Master Data dan modul asrama masih memakai jalur operasional lama sampai cutover terkoordinasi.
+                      Snapshot Supabase diproses per record. Periksa jumlah konflik; perbaiki lalu jalankan ulang preview sebelum cutover. Master Data dan modul asrama tetap memakai jalur operasional lama sampai cutover terkoordinasi.
                     </p>
                   )}
                 </>
