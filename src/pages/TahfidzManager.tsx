@@ -111,6 +111,7 @@ function mapSupabaseTahfidzSnapshot(snapshot: any) {
     target: `Ziyadah ${Number(halaqah.dailyTargetPages || 0)} halaman/hari`,
     dailyTargetPages: Number(halaqah.dailyTargetPages || 0),
   }));
+  const halaqahNameById = new Map(mappedHalaqahs.map((halaqah: any) => [halaqah.id, halaqah.name]));
   const mappedRecords = records.map((record: any) => {
     const performedAt = new Date(record.performedAt);
     const isValidDate = Number.isFinite(performedAt.getTime());
@@ -119,6 +120,7 @@ function mapSupabaseTahfidzSnapshot(snapshot: any) {
       id: String(record.id),
       studentId: String(record.studentId || ""),
       halaqahId: String(record.halaqahId || ""),
+      halaqah: String(halaqahNameById.get(String(record.halaqahId || "")) || ""),
       date: isValidDate ? `${performedAt.getFullYear()}-${pad(performedAt.getMonth() + 1)}-${pad(performedAt.getDate())}` : "",
       time: isValidDate ? `${pad(performedAt.getHours())}:${pad(performedAt.getMinutes())}` : "",
       santriName: String(record.studentName || "Santri tidak tersedia"),
@@ -741,7 +743,15 @@ export function TahfidzManager() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {(SUPABASE_TAHFIDZ_CUTOVER ? halaqahList : MOCK_HALAQAH).map((halaqah) => {
+        {SUPABASE_TAHFIDZ_CUTOVER && halaqahList.length === 0 ? (
+          <div className="lg:col-span-3 rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/10">
+            {isTahfidzDataLoading
+              ? "Memuat halaqah..."
+              : tahfidzDataError
+                ? "Halaqah belum dapat dimuat. Periksa pesan status di atas."
+                : "Belum ada halaqah aktif pada tenant ini."}
+          </div>
+        ) : (SUPABASE_TAHFIDZ_CUTOVER ? halaqahList : MOCK_HALAQAH).map((halaqah) => {
           const halaqahSantri = santriList.filter((student) =>
             SUPABASE_TAHFIDZ_CUTOVER
               ? student.halaqahId === halaqah.id
@@ -1458,7 +1468,9 @@ export function TahfidzManager() {
                     <span className="text-slate-800 dark:text-slate-200 font-bold">
                       {r.santriName}
                     </span>
-                    <div className="text-xs text-slate-500 mt-0.5">{r.ust}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {[r.halaqah, r.ust].filter(Boolean).join(" • ") || "—"}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
