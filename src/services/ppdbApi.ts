@@ -74,3 +74,74 @@ export async function updatePpdbCandidates(updates: Array<{ id: string; patch: R
   });
   return result.updatedCount;
 }
+
+
+export interface PpdbFinanceBilling {
+  id: string;
+  tenantId: string;
+  candidateId?: string;
+  candidateRegistrationId?: string;
+  santriId?: string;
+  santriName: string;
+  grade: string;
+  paymentType: "registration" | "tuition";
+  type: string;
+  period: string;
+  amount: number;
+  paidAmount: number;
+  status: "Paid" | "Unpaid" | "Partial" | "Verification" | "Overdue" | "Rejected";
+  date: string;
+  paymentMethod: string | null;
+  proofFile: string | null;
+  proofStoragePath?: string;
+  receiptNo?: string | null;
+  paidAt?: string;
+}
+
+export async function listPpdbFinanceBillings() {
+  const result = await requestPpdb<{ billings: PpdbFinanceBilling[] }>("/api/finance/supabase/billings?scope=ppdb");
+  return Array.isArray(result.billings) ? result.billings : [];
+}
+
+export async function generatePpdbFinanceBillings(
+  candidateIds: string[],
+  paymentType: "registration" | "tuition",
+  amount: number
+) {
+  const result = await requestPpdb<{
+    createdCount: number;
+    skippedCount: number;
+    failedCount: number;
+    errors: Array<{ candidateId: string; error: string }>;
+  }>("/api/finance/supabase/ppdb-billings/generate", {
+    method: "POST",
+    body: JSON.stringify({ candidateIds, paymentType, amount }),
+  });
+  return {
+    createdCount: Number(result.createdCount || 0),
+    skippedCount: Number(result.skippedCount || 0),
+    failedCount: Number(result.failedCount || 0),
+    errors: Array.isArray(result.errors) ? result.errors : [],
+  };
+}
+
+export async function recordPpdbFinancePayment(
+  candidateId: string,
+  details: {
+    paymentType: "registration" | "tuition";
+    paidAmount: number;
+    status: "Unpaid" | "Overdue" | "Partial" | "Verification" | "Paid";
+    method: string;
+    receiptNo: string;
+  }
+) {
+  return requestPpdb<{
+    id: string;
+    status: string;
+    receiptNo: string | null;
+    alreadyRecorded: boolean;
+  }>("/api/finance/supabase/ppdb-candidates/" + encodeURIComponent(candidateId) + "/payments", {
+    method: "POST",
+    body: JSON.stringify(details),
+  });
+}
