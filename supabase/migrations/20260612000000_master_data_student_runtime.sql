@@ -237,7 +237,7 @@ BEGIN
     ) OR EXISTS (
       SELECT 1 FROM public.candidates c
       WHERE c.tenant_id = p_tenant_id
-        AND c.workflow_data->>'nis' = v_nis
+        AND (c.nis = v_nis OR c.workflow_data->>'nis' = v_nis)
         AND (NOT v_existing_found OR c.id IS DISTINCT FROM v_existing.source_candidate_id)
     ) THEN
       RAISE EXCEPTION 'NIS sudah digunakan pada tenant ini' USING ERRCODE = '23505';
@@ -362,7 +362,8 @@ BEGIN
     END IF;
   END IF;
 
-  IF v_room_id IS DISTINCT FROM CASE WHEN v_existing_found THEN v_existing.room_id ELSE NULL END
+  IF v_room_id IS NOT NULL
+    OR v_room_id IS DISTINCT FROM CASE WHEN v_existing_found THEN v_existing.room_id ELSE NULL END
     OR v_building_id IS DISTINCT FROM CASE WHEN v_existing_found THEN v_existing.building_id ELSE NULL END THEN
     v_room_result := public.assign_student_to_room(p_tenant_id, v_student_id, v_room_id, v_building_id);
   END IF;
