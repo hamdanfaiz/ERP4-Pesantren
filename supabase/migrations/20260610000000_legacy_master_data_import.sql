@@ -154,6 +154,11 @@ BEGIN
     RAISE EXCEPTION 'Fingerprint NISN tanpa ciphertext' USING ERRCODE = '22023';
   END IF;
 
+  -- Serialize retries of the same source row before checking idempotency.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('legacy-student:' || p_tenant_id::text || ':' || v_source_id, 0)
+  );
+
   SELECT id INTO v_existing_id
   FROM public.students
   WHERE tenant_id = p_tenant_id
@@ -226,6 +231,10 @@ BEGIN
     END;
 
     IF v_guardian_source_id IS NOT NULL THEN
+      -- Siblings may import the same guardian concurrently; serialize by tenant and legacy guardian ID.
+      PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended('legacy-guardian:' || p_tenant_id::text || ':' || v_guardian_source_id, 0)
+      );
       SELECT id, nik_fingerprint INTO v_guardian_id, v_existing_guardian_nik_fingerprint
       FROM public.guardians
       WHERE tenant_id = p_tenant_id
