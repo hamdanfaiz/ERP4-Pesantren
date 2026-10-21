@@ -237,18 +237,18 @@ function normalizeLegacyBilling(idValue: unknown, value: unknown) {
   const id = nonEmpty(idValue, 180);
   if (!id || id.includes("/")) throw new SupabasePpdbAdminError(400, "ID tagihan lama tidak valid.");
   const legacyAmount = amount(source.amount);
-  const paidAmount = Number(source.paidAmount || 0);
-  if (!Number.isFinite(paidAmount) || paidAmount < 0 || paidAmount > legacyAmount) {
-    throw new SupabasePpdbAdminError(400, "Nominal pembayaran pada tagihan lama tidak valid.");
-  }
   const status = ["Unpaid", "Overdue", "Partial", "Verification", "Paid", "Rejected"].includes(String(source.status || ""))
     ? String(source.status) : "Unpaid";
+  const paidAmount = source.paidAmount == null && status === "Paid" ? legacyAmount : Number(source.paidAmount || 0);
+  if (!Number.isFinite(paidAmount) || paidAmount < 0 || paidAmount > legacyAmount
+    || (status === "Paid" && paidAmount !== legacyAmount)) {
+    throw new SupabasePpdbAdminError(400, "Nominal pembayaran pada tagihan lama tidak valid.");
+  }
   const paymentType = source.paymentType === "registration" || source.paymentType === "tuition" ? source.paymentType : null;
   const registrationId = nonEmpty(source.candidateRegistrationId, 180);
   const candidateId = nonEmpty(source.candidateId, 180);
-  const candidateRef = registrationId || candidateId;
   const safe = {
-    candidateRegistrationId: candidateRef,
+    candidateRegistrationId: registrationId || null,
     candidateId: candidateId || null,
     santriId: nonEmpty(source.santriId, 180) || null,
     santriName: nonEmpty(source.santriName, 180),
