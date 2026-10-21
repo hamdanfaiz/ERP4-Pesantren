@@ -410,16 +410,19 @@ async function storageRequest(path: string, init: RequestInit = {}) {
   headers.set("Authorization", "Bearer " + config.serviceKey);
   const response = await fetch(config.baseUrl + path, { ...init, headers });
   if (!response.ok) {
-    const raw = await response.text().catch(() => "");
     if (response.status === 404) throw new SupabasePpdbAdminError(404, "Bukti pembayaran tidak ditemukan.");
     if (response.status === 409) throw new SupabasePpdbAdminError(409, "Berkas bukti dengan path tersebut sudah ada.");
-    throw new SupabasePpdbAdminError(response.status >= 500 ? 503 : 400, raw || "Supabase Storage belum dapat memproses berkas.");
+    throw new SupabasePpdbAdminError(response.status >= 500 ? 503 : 400, "Supabase Storage belum dapat memproses berkas.");
   }
   return response;
 }
 
 function objectPathUrl(path: string) {
   return path.split("/").map((part) => encodeURIComponent(part)).join("/");
+}
+
+function safeObjectSegment(value: string) {
+  return value.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 180) || "unassigned";
 }
 
 export async function uploadSupabaseFinanceProof(
@@ -452,7 +455,7 @@ export async function uploadSupabaseFinanceProof(
   }
 
   const params = new URLSearchParams({
-    select: "id,student_ref,status",
+    select: "id,student_ref,candidate_id,status",
     tenant_id: "eq." + tenantId,
     id: "eq." + billingId,
     limit: "1",
@@ -465,8 +468,11 @@ export async function uploadSupabaseFinanceProof(
     throw new SupabasePpdbAdminError(409, "Status tagihan tidak menerima bukti pembayaran baru.");
   }
 
-  const ownerSegment = studentRef || (billing.candidate_id ? "candidate-" + String(billing.candidate_id) : "unassigned");
-  const objectPath = tenantId + "/" + ownerSegment + "/" + billingId + "/" + randomUUID() + "-" + fileName;
+  const ownerReference = studentRef || String(billing.student_ref || "")
+    || (billing.candidate_id ? "candidate-" + String(billing.candidate_id) : "unassigned");
+  const ownerSegment = safeObjectSegment(ownerReference);
+  const billingSegment = safeObjectSegment(billingId);
+  const objectPath = tenantId + "/" + ownerSegment + "/" + billingSegment + "/" + randomUUID() + "-" + fileName;
   let uploaded = false;
   try {
     await storageRequest("/storage/v1/object/finance-proofs/" + objectPathUrl(objectPath), {
@@ -513,7 +519,7 @@ export async function readSupabaseFinanceProof(
   const studentRef = nonEmpty(studentRefValue, 180);
   if (!billingId || billingId.includes("/")) throw new SupabasePpdbAdminError(400, "ID tagihan tidak valid.");
   const params = new URLSearchParams({
-    select: "id,student_ref,proof_storage_path,proof_file",
+    select: "id,student_ref,candidate_id,proof_storage_path,proof_file",
     tenant_id: "eq." + tenantId,
     id: "eq." + billingId,
     limit: "1",
@@ -523,9 +529,11 @@ export async function readSupabaseFinanceProof(
   const billing = rows[0] as JsonObject;
   if (studentRef && billing.student_ref !== studentRef) throw new SupabasePpdbAdminError(404, "Bukti pembayaran tidak ditemukan.");
   const path = String(billing.proof_storage_path || "");
-  const expectedOwner = studentRef || (billing.candidate_id ? "candidate-" + String(billing.candidate_id) : "unassigned");
+  const ownerReference = studentRef || String(billing.student_ref || "")
+    || (billing.candidate_id ? "candidate-" + String(billing.candidate_id) : "unassigned");
+  const expectedOwner = safeObjectSegment(ownerReference);
   if (!path || path.includes("..") || path.split("/").length !== 4
-    || path.split("/")[0] !== tenantId || path.split("/")[2] !== billingId
+    || path.split("/")[0] !== tenantId || path.split("/")[2] !== safeObjectSegment(billingId)
     || path.split("/")[1] !== expectedOwner) {
     throw new SupabasePpdbAdminError(404, "Bukti pembayaran tidak ditemukan.");
   }
