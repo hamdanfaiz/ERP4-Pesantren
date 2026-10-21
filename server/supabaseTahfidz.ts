@@ -103,6 +103,8 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, lega
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca data operasional Tahfidz.");
   }
   const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(role);
+  const actorId = await resolveMappedTahfidzActor(tenantId, legacyFirebaseUid, expectedRole);
   const [halaqahs, memberships, students, records, targets, ustadzProfiles] = await Promise.all([
     listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", { status: "eq.active" }),
     listRows("tahfidz_memberships", tenantId, "id,halaqah_id,student_id,starts_on,status", "starts_on.asc,id.asc", { status: "eq.active" }),
@@ -195,22 +197,7 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, lega
   };
 
   if (role === "Ustadz") {
-    if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
-      throw new SupabaseTahfidzError(401, "Sesi Ustadz tidak valid.");
-    }
-    const mappedProfile = await supabaseRequest("/rest/v1/rpc/resolve_legacy_auth_profile", {
-      method: "POST",
-      body: JSON.stringify({
-        p_legacy_provider: "firebase",
-        p_legacy_subject: legacyFirebaseUid,
-        p_tenant_id: tenantId,
-      }),
-    });
-    const profileId = String(mappedProfile || "");
-    if (!isUuid(profileId)) {
-      throw new SupabaseTahfidzError(403, "Profil Supabase Ustadz belum dipetakan atau tidak aktif.");
-    }
-    const assignedHalaqahs = snapshot.halaqahs.filter((halaqah) => halaqah.ustadzUserId === profileId);
+    const assignedHalaqahs = snapshot.halaqahs.filter((halaqah) => halaqah.ustadzUserId === actorId);
     const allowedHalaqahIds = new Set(assignedHalaqahs.map((halaqah) => halaqah.id));
     snapshot.halaqahs = assignedHalaqahs;
     snapshot.roster = snapshot.roster.filter((student) => allowedHalaqahIds.has(String(student.halaqahId || "")));
@@ -253,9 +240,6 @@ export async function recordSupabaseTahfidzSetoran(
   payloadValue: unknown
 ) {
   const tenantId = await resolveTenantId(tenantIdentifier);
-  if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
-    throw new SupabaseTahfidzError(401, "Sesi pengguna tidak valid.");
-  }
   const expectedRole = legacySupabaseRole(legacyRole);
   if (!expectedRole) throw new SupabaseTahfidzError(403, "Role ini tidak dapat mencatat setoran Tahfidz.");
   if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
@@ -282,18 +266,7 @@ export async function recordSupabaseTahfidzSetoran(
     : "";
   if (!performedAt) throw new SupabaseTahfidzError(400, "Waktu setoran tidak valid.");
 
-  const actor = await supabaseRequest("/rest/v1/rpc/resolve_legacy_auth_profile", {
-    method: "POST",
-    body: JSON.stringify({
-      p_legacy_provider: "firebase",
-      p_legacy_subject: legacyFirebaseUid,
-      p_tenant_id: tenantId,
-    }),
-  });
-  const supabaseUserId = String(actor || "");
-  if (!isUuid(supabaseUserId)) {
-    throw new SupabaseTahfidzError(403, "Akun belum dipetakan ke profil Supabase Auth aktif.");
-  }
+  const supabaseUserId = await resolveMappedTahfidzActor(tenantId, legacyFirebaseUid, expectedRole);
 
   const result = await supabaseRequest("/rest/v1/rpc/record_tahfidz_setoran", {
     method: "POST",
@@ -659,9 +632,6 @@ export async function recordSupabaseTahfidzTarget(
   payloadValue: unknown
 ) {
   const tenantId = await resolveTenantId(tenantIdentifier);
-  if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
-    throw new SupabaseTahfidzError(401, "Sesi pengguna tidak valid.");
-  }
   const expectedRole = legacySupabaseRole(legacyRole);
   if (!expectedRole) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat mengatur target Tahfidz.");
@@ -686,18 +656,7 @@ export async function recordSupabaseTahfidzTarget(
   const requestId = String(payload.clientRequestId || "").trim();
   if (!isUuid(requestId)) throw new SupabaseTahfidzError(400, "Kunci permintaan target tidak valid.");
 
-  const actor = await supabaseRequest("/rest/v1/rpc/resolve_legacy_auth_profile", {
-    method: "POST",
-    body: JSON.stringify({
-      p_legacy_provider: "firebase",
-      p_legacy_subject: legacyFirebaseUid,
-      p_tenant_id: tenantId,
-    }),
-  });
-  const supabaseUserId = String(actor || "");
-  if (!isUuid(supabaseUserId)) {
-    throw new SupabaseTahfidzError(403, "Akun belum dipetakan ke profil Supabase Auth aktif.");
-  }
+  const supabaseUserId = await resolveMappedTahfidzActor(tenantId, legacyFirebaseUid, expectedRole);
 
   const result = await supabaseRequest("/rest/v1/rpc/record_tahfidz_daily_target", {
     method: "POST",
@@ -722,9 +681,12 @@ export async function recordSupabaseTahfidzTarget(
 }
 
 
-async function resolveMappedTahfidzActor(tenantId: string, legacyFirebaseUid: string) {
+async function resolveMappedTahfidzActor(tenantId: string, legacyFirebaseUid: string, expectedRole: string) {
   if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
     throw new SupabaseTahfidzError(401, "Sesi pengguna tidak valid.");
+  }
+  if (!["admin", "super_admin", "ustadz"].includes(expectedRole)) {
+    throw new SupabaseTahfidzError(403, "Role ini tidak dapat mengakses data operasional Tahfidz.");
   }
   const actor = await supabaseRequest("/rest/v1/rpc/resolve_legacy_auth_profile", {
     method: "POST",
@@ -736,6 +698,19 @@ async function resolveMappedTahfidzActor(tenantId: string, legacyFirebaseUid: st
   });
   const userId = String(actor || "");
   if (!isUuid(userId)) throw new SupabaseTahfidzError(403, "Profil Supabase pengguna belum dipetakan atau tidak aktif.");
+  const params = new URLSearchParams({
+    select: "user_id,role,status",
+    tenant_id: "eq." + tenantId,
+    user_id: "eq." + userId,
+    status: "eq.active",
+    limit: "2",
+  });
+  const profiles = await supabaseRequest("/rest/v1/profiles?" + params.toString());
+  if (!Array.isArray(profiles) || profiles.length !== 1
+    || String(profiles[0]?.status || "").toLowerCase() !== "active"
+    || String(profiles[0]?.role || "").trim().toLowerCase() !== expectedRole) {
+    throw new SupabaseTahfidzError(403, "Role Firebase tidak cocok dengan profil Supabase tenant yang aktif.");
+  }
   return userId;
 }
 
@@ -774,7 +749,7 @@ export async function saveSupabaseTahfidzHalaqah(
   }
   const requestId = String(payload.clientRequestId || "").trim();
   if (!isUuid(requestId)) throw new SupabaseTahfidzError(400, "Kunci permintaan halaqah tidak valid.");
-  const actorId = await resolveMappedTahfidzActor(tenantId, legacyFirebaseUid);
+  const actorId = await resolveMappedTahfidzActor(tenantId, legacyFirebaseUid, expectedRole);
   const result = await supabaseRequest("/rest/v1/rpc/save_tahfidz_halaqah", {
     method: "POST",
     body: JSON.stringify({
@@ -820,7 +795,7 @@ export async function assignSupabaseTahfidzMembership(
   const startsOn = targetDate(payload.startsOn, "Tanggal mulai penempatan")!;
   const requestId = String(payload.clientRequestId || "").trim();
   if (!isUuid(requestId)) throw new SupabaseTahfidzError(400, "Kunci permintaan penempatan tidak valid.");
-  const actorId = await resolveMappedTahfidzActor(tenantId, legacyFirebaseUid);
+  const actorId = await resolveMappedTahfidzActor(tenantId, legacyFirebaseUid, expectedRole);
   const result = await supabaseRequest("/rest/v1/rpc/assign_tahfidz_membership", {
     method: "POST",
     body: JSON.stringify({
