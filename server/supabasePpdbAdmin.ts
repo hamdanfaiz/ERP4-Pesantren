@@ -278,6 +278,102 @@ export async function updateSupabasePpdbCandidatesBatch(
   return sanitized.length;
 }
 
+const DOCUMENT_PATH_FIELDS: Record<string, string> = {
+  kk: "kk_path",
+  birthCertificate: "birth_certificate_path",
+  reportCards: "report_cards_path",
+  ijazah: "ijazah_path",
+  skhun: "skhun_path",
+  pasPhoto: "pas_photo_path",
+};
+const DOCUMENT_RPC_PATH_FIELDS: Record<string, string> = {
+  kk: "kkPath",
+  birthCertificate: "birthCertificatePath",
+  reportCards: "reportCardsPath",
+  ijazah: "ijazahPath",
+  skhun: "skhunPath",
+  pasPhoto: "pasPhotoPath",
+};
+
+async function removeStorageObject(path: string) {
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  try {
+    await supabaseRequest("/storage/v1/object/ppdb-documents/" + encodedPath, { method: "DELETE" });
+  } catch {
+    // A scheduled Storage reconciliation can remove an orphan if compensation fails.
+  }
+}
+
+export async function uploadSupabasePpdbCandidateDocument(
+  tenantIdentifier: string,
+  candidateId: string,
+  docKey: string,
+  rawFile: unknown
+) {
+  if (!/^[0-9a-f-]{36}$/i.test(candidateId) || !Object.prototype.hasOwnProperty.call(DOCUMENT_PATH_FIELDS, docKey)) {
+    throw new SupabasePpdbAdminError(400, "ID calon atau jenis dokumen tidak valid.");
+  }
+  const file = asObject(rawFile);
+  const mimeType = String(file.mimeType || "");
+  const base64 = typeof file.base64 === "string" ? file.base64 : "";
+  if (!["application/pdf", "image/jpeg", "image/png"].includes(mimeType)) {
+    throw new SupabasePpdbAdminError(400, "Dokumen harus berupa PDF, JPG, atau PNG.");
+  }
+  const maxBytes = 2 * 1024 * 1024;
+  const maxLength = Math.ceil(maxBytes / 3) * 4;
+  if (!base64 || base64.length > maxLength || base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+    throw new SupabasePpdbAdminError(400, "Encoding atau ukuran dokumen tidak valid. Maksimal 2 MB.");
+  }
+  const bytes = Buffer.from(base64, "base64");
+  if (!bytes.length || bytes.length > maxBytes || bytes.toString("base64") !== base64) {
+    throw new SupabasePpdbAdminError(400, "Ukuran dokumen tidak valid. Maksimal 2 MB.");
+  }
+  const isPdf = mimeType === "application/pdf" && bytes.subarray(0, 5).toString("ascii") === "%PDF-";
+  const isPng = mimeType === "image/png" && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  const isJpeg = mimeType === "image/jpeg" && bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (!isPdf && !isPng && !isJpeg) throw new SupabasePpdbAdminError(400, "Isi dokumen tidak cocok dengan format berkasnya.");
+
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const currentRows = await supabaseRequest(
+    "/rest/v1/candidate_documents?" + new URLSearchParams({
+      select: DOCUMENT_PATH_FIELDS[docKey],
+      tenant_id: "eq." + tenantId,
+      candidate_id: "eq." + candidateId,
+      limit: "1",
+    }).toString()
+  );
+  const previousPath = Array.isArray(currentRows) ? String(currentRows[0]?.[DOCUMENT_PATH_FIELDS[docKey]] || "") : "";
+  const extension = isPdf ? "pdf" : (isPng ? "png" : "jpg");
+  const objectPath = tenantId + "/" + candidateId + "/" + docKey + "-" + randomUUID() + "." + extension;
+  const encodedPath = objectPath.split("/").map(encodeURIComponent).join("/");
+  try {
+    await supabaseRequest("/storage/v1/object/ppdb-documents/" + encodedPath, {
+      method: "POST",
+      headers: { "Content-Type": mimeType, "x-upsert": "false" },
+      body: bytes,
+    });
+    const documentsPatch = { [DOCUMENT_RPC_PATH_FIELDS[docKey]]: objectPath };
+    const updated = await supabaseRequest("/rest/v1/rpc/update_ppdb_candidate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        p_tenant_id: tenantId,
+        p_candidate_id: candidateId,
+        p_core_patch: {},
+        p_workflow_patch: {},
+        p_documents_patch: documentsPatch,
+      }),
+    });
+    if (updated !== true) throw new SupabasePpdbAdminError(404, "Calon santri tidak ditemukan pada tenant ini.");
+    if (previousPath && previousPath !== objectPath) await removeStorageObject(previousPath);
+    return true;
+  } catch (error: any) {
+    await removeStorageObject(objectPath);
+    if (error instanceof SupabasePpdbAdminError) throw error;
+    throw new SupabasePpdbAdminError(503, "Dokumen belum dapat disimpan.");
+  }
+}
+
 function field(raw: JsonObject, key: string, max: number, required = false) {
   const value = typeof raw[key] === "string" ? raw[key].trim() : "";
   if (required && !value) throw new SupabasePpdbAdminError(400, "Kolom " + key + " wajib diisi.");
