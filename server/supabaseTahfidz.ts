@@ -271,3 +271,288 @@ export async function recordSupabaseTahfidzSetoran(
   }
   return result as JsonObject;
 }
+
+
+type LegacyTahfidzSourceRow = { id: string; record: JsonObject };
+type LegacyTahfidzIssue = { id: string; category: string; message: string };
+
+function legacyTahfidzText(value: unknown, maxLength: number) {
+  if (typeof value !== "string" && typeof value !== "number") return "";
+  return String(value).trim().slice(0, maxLength + 1);
+}
+
+function normalizeTahfidzLabel(value: unknown) {
+  return String(value || "").trim().replace(/\\s+/g, " ").toLocaleLowerCase("id-ID");
+}
+
+function legacyTahfidzStatus(value: unknown): "active" | "inactive" | "archived" {
+  const status = normalizeTahfidzLabel(value);
+  if (["archived", "archive", "arsip", "diarsipkan"].includes(status)) return "archived";
+  if (["inactive", "nonaktif", "tidak aktif"].includes(status)) return "inactive";
+  return "active";
+}
+
+function legacyTahfidzDate(value: unknown): string | null {
+  let candidate: any = value;
+  if (candidate && typeof candidate.toDate === "function") candidate = candidate.toDate();
+  const date = candidate instanceof Date ? candidate : new Date(candidate);
+  if (!Number.isFinite(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function legacyTahfidzValue(record: JsonObject, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return undefined;
+}
+
+/**
+ * Preview or atomically import a bounded tenant's legacy Tahfidz halaqah and
+ * current student assignment snapshot. Source IDs remain attached for retries.
+ */
+export async function migrateSupabaseTahfidzConfiguration(
+  tenantIdentifier: string,
+  halaqahSource: LegacyTahfidzSourceRow[],
+  studentSource: LegacyTahfidzSourceRow[],
+  apply: boolean
+) {
+  if (!Array.isArray(halaqahSource) || halaqahSource.length > 2000
+    || !Array.isArray(studentSource) || studentSource.length > 5000) {
+    throw new SupabaseTahfidzError(400, "Snapshot Tahfidz harus maksimal 2.000 halaqah dan 5.000 santri.");
+  }
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const [existingHalaqahs, students, existingMemberships] = await Promise.all([
+    listRows("tahfidz_halaqahs", tenantId, "id,source_system,source_record_id,name,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc"),
+    listRows("students", tenantId, "id,source_system,source_record_id,nis,name,status", "name.asc,id.asc"),
+    listRows("tahfidz_memberships", tenantId, "id,source_system,source_record_id,halaqah_id,student_id,starts_on,ends_on,status", "starts_on.asc,id.asc"),
+  ]);
+
+  const errors: LegacyTahfidzIssue[] = [];
+  const warnings: LegacyTahfidzIssue[] = [];
+  const pushIssue = (list: LegacyTahfidzIssue[], id: string, category: string, message: string) => {
+    if (list.length < 200) list.push({ id, category, message });
+  };
+  const plannedHalaqahs: JsonObject[] = [];
+  const halaqahBySourceId = new Map<string, JsonObject>();
+  const halaqahsByName = new Map<string, JsonObject[]>();
+  const existingHalaqahBySource = new Map<string, JsonObject>();
+  const existingActiveHalaqahByName = new Map<string, JsonObject>();
+  for (const row of existingHalaqahs) {
+    if (row.source_system === "legacy_import" && typeof row.source_record_id === "string") {
+      existingHalaqahBySource.set(row.source_record_id, row);
+    }
+    if (row.status === "active") existingActiveHalaqahByName.set(normalizeTahfidzLabel(row.name), row);
+  }
+
+  for (const item of halaqahSource) {
+    const sourceId = typeof item?.id === "string" ? item.id.trim() : "";
+    const record = item?.record && typeof item.record === "object" && !Array.isArray(item.record) ? item.record : null;
+    if (!sourceId || sourceId.length > 1500 || !record) {
+      pushIssue(errors, sourceId, "Halaqah", "ID sumber atau isi record halaqah tidak valid.");
+      continue;
+    }
+    const name = legacyTahfidzText(legacyTahfidzValue(record, ["name", "nama"]), 120);
+    if (!name || name.length > 120) {
+      pushIssue(errors, sourceId, "Halaqah", "Nama halaqah wajib diisi dan maksimal 120 karakter.");
+      continue;
+    }
+    const rawTeacher = legacyTahfidzValue(record, ["ustadzName", "ustadz", "teacherName", "pengampu"]);
+    let ustadzName = legacyTahfidzText(rawTeacher, 180);
+    if (!ustadzName) {
+      ustadzName = "Belum ditentukan";
+      pushIssue(warnings, sourceId, "Halaqah", "Nama ustadz kosong; diimpor sebagai 'Belum ditentukan' untuk rekonsiliasi.");
+    }
+    if (ustadzName.length > 180) {
+      pushIssue(errors, sourceId, "Halaqah", "Nama ustadz melebihi 180 karakter.");
+      continue;
+    }
+    const scheduleText = legacyTahfidzText(legacyTahfidzValue(record, ["scheduleText", "schedule", "jadwal"]), 500);
+    const roomText = legacyTahfidzText(legacyTahfidzValue(record, ["roomText", "room", "ruangan"]), 180);
+    if (scheduleText.length > 500 || roomText.length > 180) {
+      pushIssue(errors, sourceId, "Halaqah", "Jadwal atau lokasi melebihi batas panjang yang didukung.");
+      continue;
+    }
+    let dailyTargetPages = Number(legacyTahfidzValue(record, ["dailyTargetPages", "targetPages"]));
+    if (!Number.isFinite(dailyTargetPages)) {
+      const targetText = legacyTahfidzText(legacyTahfidzValue(record, ["target", "targetHarian"]), 500);
+      const match = targetText.match(/([0-9]+(?:[.,][0-9]{1,2})?)\\s*(?:halaman|page)/i);
+      dailyTargetPages = match ? Number(match[1].replace(",", ".")) : 1;
+      if (!match) pushIssue(warnings, sourceId, "Halaqah", "Target harian tidak terstruktur; nilai 1 halaman dipakai sementara.");
+    }
+    if (dailyTargetPages < 0 || dailyTargetPages > 100 || Math.round(dailyTargetPages * 100) !== dailyTargetPages * 100) {
+      pushIssue(errors, sourceId, "Halaqah", "Target harian harus berada pada rentang 0 sampai 100 halaman.");
+      continue;
+    }
+    const status = legacyTahfidzStatus(record.status);
+    const normalizedName = normalizeTahfidzLabel(name);
+    const normalized = {
+      sourceRecordId: sourceId,
+      name,
+      ustadzName,
+      scheduleText: scheduleText || null,
+      roomText: roomText || null,
+      dailyTargetPages,
+      status,
+    };
+    plannedHalaqahs.push(normalized);
+    halaqahBySourceId.set(sourceId, normalized);
+    halaqahsByName.set(normalizedName, [...(halaqahsByName.get(normalizedName) || []), normalized]);
+
+    const existingBySource = existingHalaqahBySource.get(sourceId);
+    if (existingBySource) {
+      const same = String(existingBySource.name || "") === name
+        && String(existingBySource.ustadz_name || "") === ustadzName
+        && (existingBySource.schedule_text || null) === normalized.scheduleText
+        && (existingBySource.room_text || null) === normalized.roomText
+        && Number(existingBySource.daily_target_pages) === dailyTargetPages
+        && String(existingBySource.status || "") === status;
+      if (!same) pushIssue(errors, sourceId, "Halaqah", "Data sumber berbeda dari hasil impor sebelumnya; perlu rekonsiliasi manual.");
+    } else if (status === "active") {
+      const conflicting = existingActiveHalaqahByName.get(normalizedName);
+      if (conflicting) pushIssue(errors, sourceId, "Halaqah", "Nama halaqah aktif sudah dipakai record Supabase lain.");
+    }
+  }
+  for (const [name, matches] of halaqahsByName) {
+    if (matches.length > 1 && matches.some((row) => row.status === "active")) {
+      for (const match of matches) pushIssue(errors, String(match.sourceRecordId), "Halaqah", "Nama halaqah aktif duplikat pada data sumber.");
+    }
+  }
+
+  const studentsBySource = new Map<string, JsonObject[]>();
+  const studentsByNis = new Map<string, JsonObject[]>();
+  for (const student of students) {
+    const sourceId = typeof student.source_record_id === "string" ? student.source_record_id.trim() : "";
+    if (sourceId) studentsBySource.set(sourceId, [...(studentsBySource.get(sourceId) || []), student]);
+    const nis = normalizeTahfidzLabel(student.nis);
+    if (nis) studentsByNis.set(nis, [...(studentsByNis.get(nis) || []), student]);
+  }
+  const membershipBySource = new Map<string, JsonObject>();
+  const activeMembershipByStudent = new Map<string, JsonObject>();
+  for (const membership of existingMemberships) {
+    if (membership.source_system === "legacy_import" && typeof membership.source_record_id === "string") {
+      membershipBySource.set(membership.source_record_id, membership);
+    }
+    if (membership.status === "active") activeMembershipByStudent.set(String(membership.student_id), membership);
+  }
+
+  const plannedMemberships: JsonObject[] = [];
+  const assignedCanonicalStudents = new Set<string>();
+  let unassignedStudents = 0;
+  for (const item of studentSource) {
+    const sourceId = typeof item?.id === "string" ? item.id.trim() : "";
+    const record = item?.record && typeof item.record === "object" && !Array.isArray(item.record) ? item.record : null;
+    if (!sourceId || sourceId.length > 1500 || !record) {
+      pushIssue(errors, sourceId, "Keanggotaan", "ID sumber atau isi record santri tidak valid.");
+      continue;
+    }
+    const assigned = legacyTahfidzValue(record, ["halaqahId", "halaqah", "halaqahName"]);
+    const assignedName = typeof assigned === "object" && assigned
+      ? legacyTahfidzText((assigned as JsonObject).name, 120)
+      : legacyTahfidzText(assigned, 120);
+    if (!assignedName || ["-", "n/a", "tidak ada", "belum ada"].includes(normalizeTahfidzLabel(assignedName))) {
+      unassignedStudents += 1;
+      continue;
+    }
+    const halaqahKey = normalizeTahfidzLabel(assignedName);
+    const halaqahCandidates = halaqahBySourceId.has(assignedName)
+      ? [halaqahBySourceId.get(assignedName)!]
+      : (halaqahsByName.get(halaqahKey) || []);
+    if (halaqahCandidates.length !== 1) {
+      pushIssue(errors, sourceId, "Keanggotaan", halaqahCandidates.length
+        ? "Nama halaqah pada santri ambigu pada snapshot sumber."
+        : "Halaqah yang disebut santri tidak ditemukan pada snapshot tenant.");
+      continue;
+    }
+    const halaqah = halaqahCandidates[0];
+    if (halaqah.status !== "active") {
+      pushIssue(warnings, sourceId, "Keanggotaan", "Santri terkait halaqah nonaktif/arsip; keanggotaan tidak diimpor.");
+      continue;
+    }
+    const rawNis = legacyTahfidzValue(record, ["nis", "id"]);
+    const nis = normalizeTahfidzLabel(rawNis);
+    const exactSourceMatches = studentsBySource.get(sourceId) || [];
+    const nisMatches = nis ? (studentsByNis.get(nis) || []) : [];
+    const matches = exactSourceMatches.length ? exactSourceMatches : nisMatches;
+    if (matches.length !== 1) {
+      pushIssue(errors, sourceId, "Keanggotaan", matches.length
+        ? "NIS memiliki lebih dari satu record Supabase; perlu dipetakan manual."
+        : "Santri legacy belum ditemukan di Master Data Supabase. Impor dan rekonsiliasi santri lebih dahulu.");
+      continue;
+    }
+    const student = matches[0];
+    if (["archived", "inactive", "nonaktif", "tidak aktif"].includes(normalizeTahfidzLabel(student.status))) {
+      pushIssue(warnings, sourceId, "Keanggotaan", "Santri Supabase tidak aktif/arsip; keanggotaan tidak diimpor.");
+      continue;
+    }
+    const studentId = String(student.id || "");
+    if (!isUuid(studentId)) {
+      pushIssue(errors, sourceId, "Keanggotaan", "ID santri Supabase tidak valid.");
+      continue;
+    }
+    if (assignedCanonicalStudents.has(studentId)) {
+      pushIssue(errors, sourceId, "Keanggotaan", "Lebih dari satu record legacy dipetakan ke santri Supabase yang sama.");
+      continue;
+    }
+    assignedCanonicalStudents.add(studentId);
+    const startsOn = legacyTahfidzDate(legacyTahfidzValue(record, ["halaqahStartDate", "halaqahStartedAt", "joinedHalaqahAt", "tahfidzStartDate"]))
+      || new Date().toISOString().slice(0, 10);
+    if (!legacyTahfidzDate(legacyTahfidzValue(record, ["halaqahStartDate", "halaqahStartedAt", "joinedHalaqahAt", "tahfidzStartDate"]))) {
+      pushIssue(warnings, sourceId, "Keanggotaan", "Tanggal mulai tidak tersedia; tanggal impor dipakai sebagai tanggal mulai.");
+    }
+    const planned = {
+      sourceRecordId: sourceId,
+      halaqahSourceRecordId: String(halaqah.sourceRecordId),
+      studentId,
+      startsOn,
+    };
+    plannedMemberships.push(planned);
+    const existingBySource = membershipBySource.get(sourceId);
+    if (existingBySource) {
+      if (String(existingBySource.student_id) !== studentId
+        || String(existingBySource.halaqah_id) !== String((halaqah as JsonObject).id || "")
+        || String(existingBySource.starts_on) !== startsOn
+        || existingBySource.status !== "active"
+        || existingBySource.ends_on) {
+        pushIssue(errors, sourceId, "Keanggotaan", "Relasi sumber berbeda dari hasil impor sebelumnya; perlu rekonsiliasi manual.");
+      }
+    } else {
+      const existingForStudent = activeMembershipByStudent.get(studentId);
+      if (existingForStudent) {
+        pushIssue(errors, sourceId, "Keanggotaan", "Santri sudah memiliki keanggotaan aktif di Supabase; perlu rekonsiliasi manual.");
+      }
+    }
+  }
+
+  const report = {
+    dryRun: !apply,
+    canApply: errors.length === 0,
+    sourceCount: { halaqahs: halaqahSource.length, students: studentSource.length },
+    planned: { halaqahs: plannedHalaqahs.length, memberships: plannedMemberships.length },
+    unassignedStudents,
+    imported: { halaqahs: 0, memberships: 0 },
+    unchanged: { halaqahs: 0, memberships: 0 },
+    errors,
+    warnings,
+  };
+  if (!apply || errors.length) return report;
+
+  const result = await supabaseRequest("/rest/v1/rpc/import_legacy_tahfidz_configuration", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_halaqahs: plannedHalaqahs,
+      p_memberships: plannedMemberships,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi impor snapshot Tahfidz.");
+  }
+  return {
+    ...report,
+    dryRun: false,
+    imported: { halaqahs: Number(result.halaqahsImported || 0), memberships: Number(result.membershipsImported || 0) },
+    unchanged: { halaqahs: Number(result.halaqahsUnchanged || 0), memberships: Number(result.membershipsUnchanged || 0) },
+  };
+}
