@@ -50,7 +50,7 @@ BEGIN
     RAISE EXCEPTION 'Tenant tidak aktif' USING ERRCODE = '42501';
   END IF;
 
-  SELECT lower(btrim(role))
+  SELECT lower(btrim(role::text))
   INTO v_actor_role
   FROM public.profiles
   WHERE tenant_id = p_tenant_id
