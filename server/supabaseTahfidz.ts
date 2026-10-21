@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 type JsonObject = Record<string, any>;
 
 export class SupabaseTahfidzError extends Error {
@@ -316,7 +318,8 @@ export async function migrateSupabaseTahfidzConfiguration(
   tenantIdentifier: string,
   halaqahSource: LegacyTahfidzSourceRow[],
   studentSource: LegacyTahfidzSourceRow[],
-  apply: boolean
+  apply: boolean,
+  expectedPreviewFingerprint?: string
 ) {
   if (!Array.isArray(halaqahSource) || halaqahSource.length > 2000
     || !Array.isArray(studentSource) || studentSource.length > 5000) {
@@ -526,8 +529,27 @@ export async function migrateSupabaseTahfidzConfiguration(
     }
   }
 
+  const previewFingerprint = createHash("sha256")
+    .update(JSON.stringify({
+      tenantId,
+      sourceCount: { halaqahs: halaqahSource.length, students: studentSource.length },
+      plannedHalaqahs,
+      plannedMemberships,
+      unassignedStudents,
+      errors,
+      warnings,
+    }))
+    .digest("hex");
+  if (apply && (!expectedPreviewFingerprint || !/^[a-f0-9]{64}$/i.test(expectedPreviewFingerprint))) {
+    throw new SupabaseTahfidzError(400, "Token pratinjau wajib dikirim saat apply impor.");
+  }
+  if (apply && expectedPreviewFingerprint !== previewFingerprint) {
+    throw new SupabaseTahfidzError(409, "Sumber atau konflik berubah sejak pratinjau. Jalankan pratinjau ulang sebelum apply.");
+  }
+
   const report = {
     dryRun: !apply,
+    previewFingerprint,
     canApply: errors.length === 0,
     sourceCount: { halaqahs: halaqahSource.length, students: studentSource.length },
     planned: { halaqahs: plannedHalaqahs.length, memberships: plannedMemberships.length },
