@@ -98,3 +98,7 @@ Selesai jika pilot bisa dipasang dan dipakai pada infrastruktur pelanggan, kebut
 ## Batas tindakan
 
 PR atau dokumen tidak membuktikan runtime siap dipasang. Penerapan migrasi pada database pelanggan, perubahan sumber data aktif, pembukaan akses publik, serta distribusi rilis membutuhkan prosedur backup, uji lingkungan, dan persetujuan pemilik sistem. Firebase belum boleh dihentikan sebelum migrasi dan rekonsiliasi data selesai.
+
+## Status implementasi distribusi — 2026-10-21
+
+Draft PR [#4](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/4) mengusulkan container untuk proses aplikasi saja, konfigurasi Firebase saat runtime, dan Compose. Itu belum digabung, belum dibangun/divalidasi, dan belum membawa database atau Storage ke server pelanggan. Seluruh kriteria self-hosted penuh dan simulasi lintas-host di dokumen ini tetap terbuka.
