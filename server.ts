@@ -12,7 +12,8 @@ import { Buffer } from "node:buffer";
 
 dotenv.config();
 
-// Load project configuration from firebase-applet-config.json
+// AI Studio retains the checked-in config for its preview. A portable production
+// image must instead receive each installation's Firebase values at container runtime.
 let firebaseConfig: any = {};
 try {
   const configPath = path.join(process.cwd(), "firebase-applet-config.json");
@@ -20,7 +21,43 @@ try {
     firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
   }
 } catch {
-  // Config fallback
+  // Preview fallback only.
+}
+
+const REQUIRE_RUNTIME_FIREBASE_CONFIG =
+  String(process.env.REQUIRE_RUNTIME_FIREBASE_CONFIG || "").trim().toLowerCase() === "true";
+const FIREBASE_RUNTIME_ENV_MAP: Record<string, string> = {
+  apiKey: "FIREBASE_WEB_API_KEY",
+  authDomain: "FIREBASE_AUTH_DOMAIN",
+  projectId: "FIREBASE_PROJECT_ID",
+  appId: "FIREBASE_APP_ID",
+  storageBucket: "FIREBASE_STORAGE_BUCKET",
+  messagingSenderId: "FIREBASE_MESSAGING_SENDER_ID",
+  firestoreDatabaseId: "FIRESTORE_DATABASE_ID",
+};
+const REQUIRED_FIREBASE_RUNTIME_FIELDS = Object.keys(FIREBASE_RUNTIME_ENV_MAP);
+
+function getPublicFirebaseRuntimeConfig(): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const [field, envName] of Object.entries(FIREBASE_RUNTIME_ENV_MAP)) {
+    const envValue = String(process.env[envName] || "").trim();
+    const previewFallback = !REQUIRE_RUNTIME_FIREBASE_CONFIG
+      ? String(firebaseConfig[field] || "").trim()
+      : "";
+    const value = envValue || previewFallback;
+    if (value) config[field] = value;
+  }
+  return config;
+}
+
+function hasCompleteFirebaseRuntimeConfig(config = getPublicFirebaseRuntimeConfig()): boolean {
+  return REQUIRED_FIREBASE_RUNTIME_FIELDS.every((field) => Boolean(config[field]));
+}
+
+function getServerFirebaseStorageBucket(): string {
+  const envBucket = String(process.env.FIREBASE_STORAGE_BUCKET || "").trim();
+  if (envBucket) return envBucket;
+  return REQUIRE_RUNTIME_FIREBASE_CONFIG ? "" : String(firebaseConfig.storageBucket || "").trim();
 }
 
 export type AdminServicesResult =
@@ -88,21 +125,27 @@ function getAdminServices(): AdminServicesResult {
   }
   if (!adminApp) {
     try {
-      const projectId =
-        process.env.FIREBASE_PROJECT_ID ||
-        process.env.GOOGLE_CLOUD_PROJECT ||
-        firebaseConfig.projectId;
+      const projectId = process.env.FIREBASE_PROJECT_ID ||
+        (REQUIRE_RUNTIME_FIREBASE_CONFIG
+          ? ""
+          : process.env.GOOGLE_CLOUD_PROJECT || firebaseConfig.projectId || "");
+      const firestoreDatabaseId = String(process.env.FIRESTORE_DATABASE_ID ||
+        (REQUIRE_RUNTIME_FIREBASE_CONFIG ? "" : firebaseConfig.firestoreDatabaseId || "")).trim();
+      if (REQUIRE_RUNTIME_FIREBASE_CONFIG && (!projectId || !firestoreDatabaseId)) {
+        adminInitError = "Runtime Firebase project/database configuration is incomplete.";
+        return { ok: false, error: adminInitError };
+      }
 
       // Use Application Default Credentials only (no private keys or secrets in source)
       adminApp = initializeApp({
         credential: applicationDefault(),
         projectId: projectId || undefined,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || undefined,
+        storageBucket: getServerFirebaseStorageBucket() || undefined,
       });
       adminAuth = getAuth(adminApp);
 
-      if (firebaseConfig.firestoreDatabaseId) {
-        adminDb = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+      if (firestoreDatabaseId) {
+        adminDb = getFirestore(adminApp, firestoreDatabaseId);
       } else {
         adminDb = getFirestore(adminApp);
       }
@@ -417,11 +460,37 @@ function operationalRecordDocumentId(tenantId: string, recordId: string) {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const port = Number(process.env.PORT || 3000);
+  const trustedProxyHops = Number(process.env.TRUST_PROXY_HOPS || 1);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("PORT must be an integer between 1 and 65535.");
+  }
+  if (!Number.isInteger(trustedProxyHops) || trustedProxyHops < 0 || trustedProxyHops > 10) {
+    throw new Error("TRUST_PROXY_HOPS must be an integer between 0 and 10.");
+  }
 
-  // Cloud Run terminates TLS at one trusted proxy hop.
-  app.set("trust proxy", 1);
+  // Configure the exact reverse-proxy topology; do not trust an arbitrary proxy chain.
+  app.set("trust proxy", trustedProxyHops);
   app.use(express.json({ limit: "5mb" }));
+
+  app.get("/health/live", (_req, res) => res.status(200).json({ status: "alive" }));
+  app.get("/health/ready", (_req, res) => {
+    if (REQUIRE_RUNTIME_FIREBASE_CONFIG && !hasCompleteFirebaseRuntimeConfig()) {
+      return res.status(503).json({ status: "not_ready" });
+    }
+    return res.status(200).json({ status: "ready" });
+  });
+  app.get("/runtime-config.js", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    res.type("application/javascript");
+    const config = getPublicFirebaseRuntimeConfig();
+    const serialized = JSON.stringify(config).replace(/</g, "\\u003c");
+    res.send(
+      "window.__ERP_RUNTIME_CONFIG_REQUIRED__ = " +
+      JSON.stringify(REQUIRE_RUNTIME_FIREBASE_CONFIG) +
+      ";\nwindow.__ERP_RUNTIME_CONFIG__ = " + serialized + ";\n"
+    );
+  });
 
   // AI/OCR routes remain closed until auth, tenant scope, and rate limits are enforced.
   const unavailableUntilAuth = (_req: any, res: any) => {
@@ -744,7 +813,7 @@ async function startServer() {
         return res.status(409).json({ error: "Status tagihan tidak menerima bukti pembayaran baru." });
       }
 
-      const bucketName = String(process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || "").trim();
+      const bucketName = getServerFirebaseStorageBucket();
       if (!bucketName || !adminApp) return res.status(503).json({ error: "Bucket Storage server belum dikonfigurasi." });
       const safeName = safePaymentProofName(req.body?.fileName);
       const safeSantriId = santriId || "unlinked";
@@ -808,7 +877,7 @@ async function startServer() {
       if (actor.role === "Walisantri" && (!actor.linkedSantriId || actor.linkedSantriId !== santriId)) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
       const expectedPrefix = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(santriId) + "/" + encodeURIComponent(billingId) + "/";
       if (!billing.proofStoragePath.startsWith(expectedPrefix) || billing.proofStoragePath.includes("..")) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
-      const bucketName = String(process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || "").trim();
+      const bucketName = getServerFirebaseStorageBucket();
       if (!bucketName || !adminApp) return res.status(503).json({ error: "Bucket Storage server belum dikonfigurasi." });
       const file = getStorage(adminApp).bucket(bucketName).file(billing.proofStoragePath);
       const [exists] = await file.exists();
@@ -1360,8 +1429,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(port, "0.0.0.0", () => {
+    console.log("Server running on port " + port);
   });
 }
 
