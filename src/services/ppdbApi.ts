@@ -158,3 +158,43 @@ export async function rejectPpdbFinancePayment(
     { method: "POST", body: JSON.stringify({ paymentType, reason }) }
   );
 }
+
+
+export async function uploadSupabaseFinanceProof(
+  billingId: string,
+  file: File,
+  payChannel: string
+) {
+  const mimeType = inferPpdbMimeType(file);
+  if (!mimeType || file.size <= 0 || file.size > 3 * 1024 * 1024) {
+    throw new Error("Pilih PNG/JPG/PDF berukuran maksimal 3 MB.");
+  }
+  return requestPpdb<{ ok: true; proofFile: string; proofStoragePath: string }>(
+    "/api/finance/supabase/payment-proofs",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        billingId,
+        fileName: file.name,
+        mimeType,
+        base64: await fileToBase64(file),
+        payChannel,
+      }),
+    }
+  );
+}
+
+export async function downloadSupabaseFinanceProof(billingId: string): Promise<Blob> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("Sesi login tidak ditemukan. Silakan masuk kembali.");
+  const token = await currentUser.getIdToken();
+  const response = await fetch(
+    "/api/finance/supabase/payment-proofs/" + encodeURIComponent(billingId),
+    { headers: { Authorization: "Bearer " + token }, cache: "no-store" }
+  );
+  if (!response.ok) {
+    const payload: any = await response.json().catch(() => ({}));
+    throw new Error(payload.error || "Bukti pembayaran Supabase tidak dapat dibuka.");
+  }
+  return response.blob();
+}
