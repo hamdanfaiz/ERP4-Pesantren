@@ -1,7 +1,6 @@
-# Entity Relationship Diagram (ERD) & Database Structure
+# Entity Relationship Diagram (ERD) & Database Structure — Model Legacy Firestore
 
-Sistem SaaS PesantrenOS menggunakan pendekatan **NoSQL Document-Based Database (Firebase Firestore)**.
-Alur ini mendefinisikan koleksi-koleksi (_collections_), struktur dokumen, dan relasi logis antar entitas yang tergabung. Desain ini menggunakan **Multi-Tenancy** (dengan `tenantId` pada _root collections_) untuk mengisolasi setiap lembaga pesantren.
+**Status:** dokumen ini mendeskripsikan model Firebase/Firestore lama, bukan skema target Supabase. ERP4 Pesantren diarahkan sebagai software self-hosted milik pelanggan, bukan SaaS yang dioperasikan vendor. Asumsi rilis awal adalah satu installation per pesantren. Field `tenantId` tetap dipakai sebagai batas data dalam installation dan untuk kompatibilitas migrasi; field ini bukan bukti bahwa data pelanggan akan digabung dalam database vendor.
 
 ## 1. Domain: Access & Master Data
 
