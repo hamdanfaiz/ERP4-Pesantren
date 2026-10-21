@@ -38,6 +38,7 @@ CREATE OR REPLACE FUNCTION public.record_tahfidz_daily_target(
   p_target_policy TEXT,
   p_notes TEXT,
   p_created_by_user_id UUID,
+  p_expected_role TEXT,
   p_client_request_id UUID
 )
 RETURNS JSONB
@@ -53,12 +54,11 @@ DECLARE
   v_existing public.tahfidz_target_write_requests%ROWTYPE;
   v_target_id UUID;
   v_notes TEXT;
-  v_already_applied BOOLEAN := false;
 BEGIN
   v_notes := NULLIF(btrim(COALESCE(p_notes, '')), '');
   IF p_tenant_id IS NULL OR p_student_id IS NULL OR p_created_by_user_id IS NULL OR p_client_request_id IS NULL
     OR p_period_start IS NULL OR (p_period_end IS NOT NULL AND p_period_end < p_period_start)
-    OR p_period_start > CURRENT_DATE OR (p_period_end IS NOT NULL AND p_period_end < CURRENT_DATE)
+    OR lower(COALESCE(p_expected_role, '')) NOT IN ('admin', 'superadmin', 'ustadz')
     OR p_ziyadah_pages_per_day IS NULL OR p_ziyadah_pages_per_day < 0 OR p_ziyadah_pages_per_day > 100
     OR p_murojaah_pages_per_day IS NULL OR p_murojaah_pages_per_day < 0 OR p_murojaah_pages_per_day > 100
     OR (p_ziyadah_pages_per_day = 0 AND p_murojaah_pages_per_day = 0)
@@ -77,8 +77,9 @@ BEGIN
   WHERE tenant_id = p_tenant_id
     AND user_id = p_created_by_user_id
     AND status = 'active';
-  IF v_role IS NULL OR v_role NOT IN ('admin', 'superadmin', 'ustadz') THEN
-    RAISE EXCEPTION 'Aktor tidak memiliki izin mengubah target Tahfidz' USING ERRCODE = '42501';
+  IF v_role IS NULL OR v_role NOT IN ('admin', 'superadmin', 'ustadz')
+    OR v_role <> lower(p_expected_role) THEN
+    RAISE EXCEPTION 'Role akun tidak sesuai dengan profil Supabase aktif' USING ERRCODE = '42501';
   END IF;
 
   PERFORM pg_advisory_xact_lock(hashtextextended(p_tenant_id::text || ':' || p_client_request_id::text, 0));
@@ -98,6 +99,10 @@ BEGIN
       RAISE EXCEPTION 'Kunci permintaan target telah digunakan untuk data berbeda' USING ERRCODE = '23505';
     END IF;
     RETURN jsonb_build_object('success', true, 'alreadyApplied', true, 'targetId', v_existing.target_id);
+  END IF;
+
+  IF p_period_start > CURRENT_DATE OR (p_period_end IS NOT NULL AND p_period_end < CURRENT_DATE) THEN
+    RAISE EXCEPTION 'Target aktif harus berlaku pada hari ini atau sebelumnya dan tidak berakhir di masa lalu' USING ERRCODE = '22023';
   END IF;
 
   SELECT status
@@ -202,15 +207,15 @@ BEGIN
     p_ziyadah_pages_per_day, p_murojaah_pages_per_day, p_target_policy, v_notes, v_target_id
   );
 
-  RETURN jsonb_build_object('success', true, 'alreadyApplied', v_already_applied, 'targetId', v_target_id);
+  RETURN jsonb_build_object('success', true, 'alreadyApplied', false, 'targetId', v_target_id);
 END;
 $$;
 
 REVOKE ALL ON FUNCTION public.record_tahfidz_daily_target(
-  UUID, UUID, DATE, DATE, NUMERIC, NUMERIC, TEXT, TEXT, UUID, UUID
+  UUID, UUID, DATE, DATE, NUMERIC, NUMERIC, TEXT, TEXT, UUID, TEXT, UUID
 ) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_tahfidz_daily_target(
-  UUID, UUID, DATE, DATE, NUMERIC, NUMERIC, TEXT, TEXT, UUID, UUID
+  UUID, UUID, DATE, DATE, NUMERIC, NUMERIC, TEXT, TEXT, UUID, TEXT, UUID
 ) TO service_role;
 
 COMMENT ON TABLE public.tahfidz_target_write_requests IS
