@@ -20,6 +20,17 @@ Backend final harus dapat berjalan dengan Supabase terkelola yang dikendalikan p
 
 Supabase self-hosted memberi kontrol atas data, tetapi pelanggan menjadi penanggung jawab pemeliharaan server, patch keamanan, konfigurasi layanan, PostgreSQL, backup, monitoring, dan restore. Dokumentasi resmi Supabase menyebut Docker Compose sebagai jalur self-hosting resmi dan merekomendasikan minimal 4 GB RAM serta SSD 40 GB untuk seluruh komponen; kapasitas itu hanya dasar, bukan jaminan cukup untuk beban produksi ERP. Ukuran akhir harus ditentukan melalui simulasi data dan beban yang realistis.
 
+## Profil deployment produk akhir
+
+Setiap instalasi memakai image ERP yang sama dan satu konfigurasi backend Supabase per pelanggan. Perbedaan VPS, cloud milik pelanggan, dan on-premise disediakan lewat URL layanan dan rahasia runtime; tidak dibuat fork source code per host.
+
+1. **Supabase terkelola milik pelanggan.** ERP berjalan pada VPS, VM cloud, atau server lokal pelanggan dan terhubung ke project Supabase yang dimiliki serta dibayar pelanggan. Ini dapat menjadi jalur operasi yang lebih ringan, tetapi memerlukan konektivitas internet dan project Supabase pelanggan.
+2. **Supabase self-hosted milik pelanggan.** ERP berjalan pada jaringan privat yang sama dengan stack Supabase Docker Compose resmi, di host yang sama atau host terpisah. Profil ini ditujukan untuk pelanggan yang harus menyimpan database dan berkas di infrastruktur sendiri. Installer produksi harus memakai konfigurasi self-hosting resmi; Supabase CLI untuk development lokal bukan pengganti deployment ini.
+
+Pada kedua profil, frontend hanya memakai kredensial publik yang memang dirancang untuk client; secret/service-role key tetap di backend. Domain, SMTP, backup, kunci enkripsi, tenant, dan data dimiliki atau dikendalikan operator instalasi. Project Firebase developer tidak boleh menjadi dependensi produksi.
+
+**Cakupan dukungan rilis pertama:** Linux x86_64 dengan Docker Engine dan Docker Compose. Windows Server dijalankan melalui VM Linux. Kubernetes, Podman, ARM64, dan host tanpa Docker tetap kandidat sampai setiap profil memiliki installer, upgrade, backup/restore, dan bukti simulasi tersendiri. Tidak ada janji dukungan untuk environment yang belum diuji.
+
 ## Yang tersedia pada branch ini
 
 - Dockerfile multi-stage dengan dependency terkunci dari bun.lock.
