@@ -89,7 +89,10 @@ async function listRows(table: string, tenantId: string, select: string, order: 
   throw new SupabaseTahfidzError(503, "Snapshot Tahfidz melebihi batas yang didukung. Gunakan paginasi sebelum melanjutkan.");
 }
 
-export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, legacyFirebaseUid?: string, role?: string) {
+export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, legacyFirebaseUid: string, role: string) {
+  if (!["Admin", "SuperAdmin", "Ustadz"].includes(role)) {
+    throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca data operasional Tahfidz.");
+  }
   const tenantId = await resolveTenantId(tenantIdentifier);
   const [halaqahs, memberships, students, records, targets] = await Promise.all([
     listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", { status: "eq.active" }),
