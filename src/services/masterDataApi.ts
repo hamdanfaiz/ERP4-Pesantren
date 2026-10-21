@@ -110,3 +110,26 @@ export async function migrateLegacySupabaseStudents(apply: boolean) {
       : { apply: false }),
   });
 }
+
+export type SupabaseRoomAssignmentResult = {
+  success: true;
+  alreadyAssigned?: boolean;
+  alreadyUnassigned?: boolean;
+  studentId: string;
+  previousRoomId?: string | null;
+  roomId: string | null;
+  buildingId?: string | null;
+  occupied?: number;
+  capacity?: number;
+};
+
+export async function assignSupabaseStudentRoom(
+  studentId: string,
+  roomId: string | null,
+  buildingId?: string | null
+): Promise<SupabaseRoomAssignmentResult> {
+  return requestMasterData<SupabaseRoomAssignmentResult>(
+    "/api/boarding/students/" + encodeURIComponent(studentId) + "/room",
+    { method: "PUT", body: JSON.stringify({ roomId, buildingId: buildingId ?? null }) }
+  );
+}
