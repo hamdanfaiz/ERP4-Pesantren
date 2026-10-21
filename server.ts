@@ -60,6 +60,20 @@ function getServerFirebaseStorageBucket(): string {
   return REQUIRE_RUNTIME_FIREBASE_CONFIG ? "" : String(firebaseConfig.storageBucket || "").trim();
 }
 
+function hasValidFirebaseAdminCredentialFile(): boolean {
+  const credentialsPath = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || "").trim();
+  if (!credentialsPath || !path.isAbsolute(credentialsPath)) return false;
+  try {
+    const credential = JSON.parse(fs.readFileSync(credentialsPath, "utf8"));
+    return credential?.type === "service_account" &&
+      credential?.project_id === String(process.env.FIREBASE_PROJECT_ID || "").trim() &&
+      typeof credential?.client_email === "string" &&
+      typeof credential?.private_key === "string";
+  } catch {
+    return false;
+  }
+}
+
 export type AdminServicesResult =
   | { ok: true; auth: Auth; db: Firestore }
   | { ok: false; error: string };
@@ -475,13 +489,9 @@ async function startServer() {
 
   app.get("/health/live", (_req, res) => res.status(200).json({ status: "alive" }));
   app.get("/health/ready", (_req, res) => {
-    if (REQUIRE_RUNTIME_FIREBASE_CONFIG) {
-      const credentialsPath = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || "").trim();
-      if (!hasCompleteFirebaseRuntimeConfig() ||
-          !path.isAbsolute(credentialsPath) ||
-          !fs.existsSync(credentialsPath)) {
-        return res.status(503).json({ status: "not_ready" });
-      }
+    if (REQUIRE_RUNTIME_FIREBASE_CONFIG &&
+        (!hasCompleteFirebaseRuntimeConfig() || !hasValidFirebaseAdminCredentialFile())) {
+      return res.status(503).json({ status: "not_ready" });
     }
     return res.status(200).json({ status: "ready" });
   });
