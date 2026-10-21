@@ -1337,7 +1337,7 @@ export function MasterDataManager() {
           console.warn("Supabase bulk import had rejected records:", failures.slice(0, 5));
           showToast(
             `Impor parsial: ${persistedRecords.length} berhasil, ${failureCount} gagal/perlu ID. Periksa data lalu ulangi untuk record yang gagal.`,
-            persistedRecords.length > 0 ? "error" : "error"
+            "error"
           );
         } else {
           showToast(
