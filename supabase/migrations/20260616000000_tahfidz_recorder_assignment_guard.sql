@@ -2,6 +2,10 @@
 -- Admin roles remain tenant-scoped; inactive or unprovisioned profiles cannot write.
 BEGIN;
 
+DROP FUNCTION IF EXISTS public.record_tahfidz_setoran(
+  UUID, UUID, UUID, TEXT, TEXT, INTEGER, INTEGER, TEXT, TEXT, TEXT, TIMESTAMPTZ, UUID, TEXT, UUID
+);
+
 CREATE OR REPLACE FUNCTION public.record_tahfidz_setoran(
   p_tenant_id UUID,
   p_student_id UUID,
@@ -16,6 +20,7 @@ CREATE OR REPLACE FUNCTION public.record_tahfidz_setoran(
   p_performed_at TIMESTAMPTZ,
   p_recorded_by_user_id UUID,
   p_recorded_by_name TEXT,
+  p_expected_role TEXT,
   p_client_request_id UUID
 )
 RETURNS JSONB
@@ -38,6 +43,7 @@ BEGIN
     OR p_activity_type NOT IN ('Ziyadah', 'Muroja''ah', 'Tasmi''', 'Tasmik')
     OR v_surah IS NULL OR length(v_surah) > 100
     OR v_recorder_id IS NULL
+    OR lower(COALESCE(p_expected_role, '')) NOT IN ('admin', 'super_admin', 'ustadz')
     OR length(COALESCE(p_notes, '')) > 2000
     OR length(COALESCE(p_recorded_by_name, '')) > 180 THEN
     RAISE EXCEPTION 'Data setoran Tahfidz tidak valid' USING ERRCODE = '22023';
@@ -57,7 +63,8 @@ BEGIN
     AND user_id = v_recorder_id
     AND status = 'active';
 
-  IF v_actor_role IS NULL OR v_actor_role NOT IN ('admin', 'superadmin', 'ustadz') THEN
+  IF v_actor_role IS NULL OR v_actor_role NOT IN ('admin', 'super_admin', 'ustadz')
+    OR v_actor_role <> lower(p_expected_role) THEN
     RAISE EXCEPTION 'Aktor tidak memiliki izin mencatat setoran Tahfidz' USING ERRCODE = '42501';
   END IF;
   IF v_actor_role = 'ustadz' AND NOT EXISTS (
@@ -132,5 +139,12 @@ BEGIN
   RETURN jsonb_build_object('success', true, 'alreadyRecorded', true, 'recordId', v_existing.id);
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.record_tahfidz_setoran(
+  UUID, UUID, UUID, TEXT, TEXT, INTEGER, INTEGER, TEXT, TEXT, TEXT, TIMESTAMPTZ, UUID, TEXT, TEXT, UUID
+) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_tahfidz_setoran(
+  UUID, UUID, UUID, TEXT, TEXT, INTEGER, INTEGER, TEXT, TEXT, TEXT, TIMESTAMPTZ, UUID, TEXT, TEXT, UUID
+) TO service_role;
 
 COMMIT;
