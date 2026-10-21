@@ -40,6 +40,16 @@ CREATE TABLE IF NOT EXISTS public.identity_claims (
 CREATE INDEX IF NOT EXISTS identity_claims_owner_idx
   ON public.identity_claims (tenant_id, entity_type, entity_id);
 
+INSERT INTO public.identity_claims (tenant_id, identity_type, fingerprint, entity_type, entity_id)
+SELECT tenant_id, 'nik', nik_fingerprint, 'candidate', id
+FROM public.candidates
+WHERE nik_fingerprint IS NOT NULL;
+
+INSERT INTO public.identity_claims (tenant_id, identity_type, fingerprint, entity_type, entity_id)
+SELECT tenant_id, 'nisn', nisn_fingerprint, 'candidate', id
+FROM public.candidates
+WHERE nisn_fingerprint IS NOT NULL;
+
 ALTER TABLE public.identity_claims ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.identity_claims FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.identity_claims FROM PUBLIC, anon, authenticated;
