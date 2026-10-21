@@ -6,7 +6,7 @@ CREATE TABLE public.tahfidz_halaqahs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE RESTRICT,
   name TEXT NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 120),
-  ustadz_user_id TEXT,
+  ustadz_user_id UUID,
   ustadz_name TEXT NOT NULL CHECK (length(btrim(ustadz_name)) BETWEEN 1 AND 180),
   schedule_text TEXT CHECK (schedule_text IS NULL OR length(schedule_text) <= 500),
   room_text TEXT CHECK (room_text IS NULL OR length(room_text) <= 180),
@@ -14,7 +14,9 @@ CREATE TABLE public.tahfidz_halaqahs (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (tenant_id, id)
+  UNIQUE (tenant_id, id),
+  FOREIGN KEY (tenant_id, ustadz_user_id)
+    REFERENCES public.profiles (tenant_id, user_id) ON DELETE SET NULL
 );
 
 CREATE UNIQUE INDEX tahfidz_halaqahs_active_name_tenant_uq
@@ -62,7 +64,7 @@ CREATE TABLE public.tahfidz_records (
   tajweed_grade TEXT CHECK (tajweed_grade IS NULL OR tajweed_grade IN ('A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'N/A')),
   notes TEXT CHECK (notes IS NULL OR length(notes) <= 2000),
   performed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  recorded_by_user_id TEXT NOT NULL CHECK (length(btrim(recorded_by_user_id)) BETWEEN 1 AND 160),
+  recorded_by_user_id UUID NOT NULL,
   recorded_by_name TEXT CHECK (recorded_by_name IS NULL OR length(recorded_by_name) <= 180),
   client_request_id UUID NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -70,7 +72,9 @@ CREATE TABLE public.tahfidz_records (
   FOREIGN KEY (tenant_id, student_id)
     REFERENCES public.students (tenant_id, id) ON DELETE RESTRICT,
   FOREIGN KEY (tenant_id, halaqah_id)
-    REFERENCES public.tahfidz_halaqahs (tenant_id, id) ON DELETE RESTRICT
+    REFERENCES public.tahfidz_halaqahs (tenant_id, id) ON DELETE RESTRICT,
+  FOREIGN KEY (tenant_id, recorded_by_user_id)
+    REFERENCES public.profiles (tenant_id, user_id) ON DELETE RESTRICT
 );
 
 CREATE INDEX tahfidz_records_tenant_performed_idx
@@ -91,13 +95,15 @@ CREATE TABLE public.tahfidz_targets (
   target_policy TEXT NOT NULL DEFAULT 'standard' CHECK (target_policy IN ('standard', 'strict')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'ended')),
   notes TEXT CHECK (notes IS NULL OR length(notes) <= 1000),
-  created_by_user_id TEXT NOT NULL CHECK (length(btrim(created_by_user_id)) BETWEEN 1 AND 160),
+  created_by_user_id UUID NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (period_end IS NULL OR period_end >= period_start),
   CHECK (ziyadah_pages_per_day > 0 OR murojaah_pages_per_day > 0),
   FOREIGN KEY (tenant_id, student_id)
-    REFERENCES public.students (tenant_id, id) ON DELETE RESTRICT
+    REFERENCES public.students (tenant_id, id) ON DELETE RESTRICT,
+  FOREIGN KEY (tenant_id, created_by_user_id)
+    REFERENCES public.profiles (tenant_id, user_id) ON DELETE RESTRICT
 );
 
 CREATE UNIQUE INDEX tahfidz_targets_one_active_per_student_uq
@@ -150,7 +156,7 @@ CREATE OR REPLACE FUNCTION public.record_tahfidz_setoran(
   p_tajweed_grade TEXT,
   p_notes TEXT,
   p_performed_at TIMESTAMPTZ,
-  p_recorded_by_user_id TEXT,
+  p_recorded_by_user_id UUID,
   p_recorded_by_name TEXT,
   p_client_request_id UUID
 )
@@ -163,16 +169,16 @@ DECLARE
   v_record_id UUID;
   v_existing public.tahfidz_records%ROWTYPE;
   v_surah TEXT;
-  v_recorder_id TEXT;
+  v_recorder_id UUID;
 BEGIN
   v_surah := NULLIF(btrim(COALESCE(p_surah_name, '')), '');
-  v_recorder_id := NULLIF(btrim(COALESCE(p_recorded_by_user_id, '')), '');
+  v_recorder_id := p_recorded_by_user_id;
   IF p_tenant_id IS NULL OR p_student_id IS NULL OR p_halaqah_id IS NULL
     OR p_client_request_id IS NULL OR p_performed_at IS NULL OR p_ayah_start IS NULL OR p_ayah_end IS NULL
     OR p_ayah_start < 1 OR p_ayah_end < p_ayah_start
     OR p_activity_type NOT IN ('Ziyadah', 'Muroja''ah', 'Tasmi''', 'Tasmik')
     OR v_surah IS NULL OR length(v_surah) > 100
-    OR v_recorder_id IS NULL OR length(v_recorder_id) > 160
+    OR v_recorder_id IS NULL
     OR length(COALESCE(p_notes, '')) > 2000
     OR length(COALESCE(p_recorded_by_name, '')) > 180 THEN
     RAISE EXCEPTION 'Data setoran Tahfidz tidak valid' USING ERRCODE = '22023';
@@ -248,14 +254,14 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.record_tahfidz_setoran(
-  UUID, UUID, UUID, TEXT, TEXT, INTEGER, INTEGER, TEXT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, UUID
+  UUID, UUID, UUID, TEXT, TEXT, INTEGER, INTEGER, TEXT, TEXT, TEXT, TIMESTAMPTZ, UUID, TEXT, UUID
 ) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_tahfidz_setoran(
   UUID, UUID, UUID, TEXT, TEXT, INTEGER, INTEGER, TEXT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, UUID
 ) TO service_role;
 
 COMMENT ON TABLE public.tahfidz_halaqahs IS
-  'Tenant-scoped halaqah master; user IDs remain text during the Firebase-to-Supabase identity transition.';
+  'Tenant-scoped halaqah master; ustadz identity references the tenant-scoped Supabase Auth profile.';
 COMMENT ON TABLE public.tahfidz_memberships IS
   'Tenant-scoped student-to-halaqah history; at most one active halaqah membership per student.';
 COMMENT ON TABLE public.tahfidz_records IS
