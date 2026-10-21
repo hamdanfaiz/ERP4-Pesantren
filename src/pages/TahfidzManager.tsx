@@ -3227,11 +3227,11 @@ export function TahfidzManager() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-sm font-medium">
                 Berlaku mulai
-                <input required type="date" value={targetForm.periodStart} onChange={(event) => setTargetForm({ ...targetForm, periodStart: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+                <input required type="date" max={new Date().toISOString().slice(0, 10)} value={targetForm.periodStart} onChange={(event) => setTargetForm({ ...targetForm, periodStart: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
               </label>
               <label className="block text-sm font-medium">
                 Berlaku sampai (opsional)
-                <input type="date" min={targetForm.periodStart} value={targetForm.periodEnd} onChange={(event) => setTargetForm({ ...targetForm, periodEnd: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+                <input type="date" min={new Date().toISOString().slice(0, 10)} value={targetForm.periodEnd} onChange={(event) => setTargetForm({ ...targetForm, periodEnd: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
               </label>
             </div>
             <label className="block text-sm font-medium">
