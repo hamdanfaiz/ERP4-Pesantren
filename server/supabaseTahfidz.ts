@@ -636,11 +636,16 @@ function targetPages(value: unknown, label: string): number {
 export async function recordSupabaseTahfidzTarget(
   tenantIdentifier: string,
   legacyFirebaseUid: string,
+  legacyRole: string,
   payloadValue: unknown
 ) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
     throw new SupabaseTahfidzError(401, "Sesi pengguna tidak valid.");
+  }
+  const expectedRole = String(legacyRole || "").trim();
+  if (!["Admin", "SuperAdmin", "Ustadz"].includes(expectedRole)) {
+    throw new SupabaseTahfidzError(403, "Role ini tidak dapat mengatur target Tahfidz.");
   }
   if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
     throw new SupabaseTahfidzError(400, "Data target Tahfidz tidak valid.");
@@ -687,6 +692,7 @@ export async function recordSupabaseTahfidzTarget(
       p_target_policy: policy,
       p_notes: notes || null,
       p_created_by_user_id: supabaseUserId,
+      p_expected_role: expectedRole,
       p_client_request_id: requestId,
     }),
   });
