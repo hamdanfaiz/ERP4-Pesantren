@@ -361,3 +361,35 @@ export async function migrateSupabaseFinanceBillings(
   }
   return { mode: "apply", sourceCount: recordsValue.length, importedCount, errors };
 }
+
+
+export async function rejectSupabasePpdbFinancePayment(
+  tenantIdentifier: string,
+  candidateIdValue: unknown,
+  paymentTypeValue: unknown,
+  reasonValue: unknown,
+  actorUidValue: unknown
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const candidateId = typeof candidateIdValue === "string" ? candidateIdValue.trim() : "";
+  const paymentType = paymentTypeValue === "registration" || paymentTypeValue === "tuition" ? paymentTypeValue : "";
+  const reason = typeof reasonValue === "string" ? reasonValue.trim() : "";
+  const actorUid = nonEmpty(actorUidValue, 160);
+  if (!isUuid(candidateId) || !paymentType || !reason || reason.length > 1000 || !actorUid) {
+    throw new SupabasePpdbAdminError(400, "Data penolakan pembayaran PPDB tidak valid.");
+  }
+  const result = await supabaseRequest("/rest/v1/rpc/reject_ppdb_finance_payment", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_candidate_id: candidateId,
+      p_payment_type: paymentType,
+      p_reason: reason,
+      p_actor_uid: actorUid,
+    }),
+  });
+  if (!result || typeof result !== "object" || typeof result.id !== "string") {
+    throw new SupabasePpdbAdminError(503, "Supabase belum mengonfirmasi penolakan pembayaran.");
+  }
+  return { id: result.id, status: String(result.status || "") };
+}
