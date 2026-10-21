@@ -324,12 +324,12 @@ export async function migrateSupabaseFinanceBillings(
           conflicts.push({ id: record.id, reason: "Kandidat sudah memiliki tagihan PPDB sejenis dengan ID berbeda." });
           continue;
         }
-        const sourceNaturalKey = candidateKeys[0] ? candidateKeys[0] + "|" + record.safe.paymentType : "";
-        if (sourceNaturalKey && seenCandidateTypes.has(sourceNaturalKey)) {
+        const sourceNaturalKeys = candidateKeys.map((key) => key + "|" + record.safe.paymentType);
+        if (sourceNaturalKeys.some((key) => seenCandidateTypes.has(key))) {
           conflicts.push({ id: record.id, reason: "Kandidat dan jenis tagihan muncul lebih dari sekali pada sumber Firestore." });
           continue;
         }
-        if (sourceNaturalKey) seenCandidateTypes.add(sourceNaturalKey);
+        sourceNaturalKeys.forEach((key) => seenCandidateTypes.add(key));
       }
       normalized.push(record);
     } catch (error: any) {
