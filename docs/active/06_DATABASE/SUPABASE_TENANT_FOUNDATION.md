@@ -24,7 +24,7 @@ erDiagram
 
 - `tenants`: institution boundary; canonical UUID plus unique lowercase slug.
 - `profiles`: one active tenant and application role per Supabase Auth user. Role and module permissions are stored here, not in user-editable Auth metadata.
-- `candidates`: PPDB records; registration number, NIK, and NISN uniqueness are tenant-scoped.
+- `candidates`: PPDB records; registration number and keyed NIK/NISN fingerprints are unique within a tenant. NIK/NISN plaintext is not stored: the backend writes ciphertext plus a keyed fingerprint.
 - `candidate_documents`: checklist row tied to the candidate and the same tenant through a composite foreign key.
 - `registration_counters`: per-tenant/per-admission-year sequence state. Only trusted backend code may allocate or update it.
 
@@ -34,7 +34,7 @@ erDiagram
 - Tenant context comes from the active row in `profiles` for `auth.uid()`; a client-supplied `tenant_id` or Auth user metadata never establishes tenant access.
 - A suspended profile or tenant has no active tenant context.
 - Authenticated users can read their own profile. A tenant Admin/SuperAdmin with the `users` module permission can read profiles in that same tenant. Browser profile writes are denied, so role, status, tenant, and permissions must be changed by a trusted backend provisioning function.
-- Only tenant Admin/SuperAdmin users with the `ppdb` module permission can read candidate and candidate-document rows.
+- Only tenant Admin/SuperAdmin users with the `ppdb` module permission can read candidate and candidate-document rows. NIK/NISN columns contain ciphertext and keyed fingerprints; authorized decryption stays in trusted backend code.
 - Authenticated clients receive read-only table grants for candidates and documents. Mutations, account provisioning, and sequence allocation are reserved for the trusted `service_role` backend.
 - `anon` has no table grants or RLS policy. Public PPDB submission must use a rate-limited, validated, idempotent Edge Function; there is intentionally no public table insert or select.
 - This first slice does not create public Storage buckets or Storage policies.
@@ -56,7 +56,7 @@ The database UUID `tenants.id` will not equal an existing Firestore tenant strin
 1. Implement the Supabase Auth/profile bootstrap and trusted user-management Edge Functions. The initial Admin must be provisioned by a controlled one-time trusted operation.
 2. Implement a server-side PPDB endpoint that validates input, rate-limits submissions, allocates registration IDs atomically, applies per-tenant NIK/NISN uniqueness, and never exposes a service-role key to the browser.
 3. Add the frontend repository adapter and explicit field mapping from current Firebase values to SQL enums and UUIDs.
-4. Decide and implement field-level encryption/keyed lookup for NIK and other sensitive identifiers before production import. PostgreSQL RLS and provider-managed at-rest encryption are not field-level encryption.
+4. Implement and test backend envelope encryption and tenant-scoped keyed fingerprints for NIK/NISN. Keep encryption and HMAC keys out of the browser and repository. PostgreSQL RLS and provider-managed at-rest encryption are not field-level encryption.
 5. Design private Storage buckets and tenant-aware Storage policies before migrating payment evidence or applicant documents.
 6. Build a reviewed, repeatable import with dry-run counts, validation, reconciliation, rollback/restore, and an explicit cutover window.
 
