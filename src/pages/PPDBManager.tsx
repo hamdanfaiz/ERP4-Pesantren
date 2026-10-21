@@ -1,4 +1,3 @@
-import { tenantScopedQuery, tenantRecord } from '../firebaseUtils';
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Search,
@@ -58,9 +57,6 @@ import {
   PieChart as RechartsPieChart,
   Pie as RechartsPie,
 } from "recharts";
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, writeBatch, query, where, runTransaction, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
-import { handleFirestoreError, OperationType } from "../firebaseUtils";
 import { PublicRegistrationForm } from "../components/PublicRegistrationForm";
 import { RegionSelector } from "../components/RegionSelector";
 import { generateMockData } from "../data/mockDataFactory";
@@ -76,6 +72,7 @@ import { ppdbIntegrationService } from "../services/ppdbIntegrationService";
 
 import { syncCandidatesToMasterData } from "../utils/syncData";
 import { Candidate, RegistrationStage } from "../types";
+import { listPpdbCandidates, createPpdbCandidate, updatePpdbCandidate, updatePpdbCandidates, uploadPpdbCandidateDocument } from "../services/ppdbApi";
 import { useAuth } from "../contexts/AuthContext";
 
 const normalizePpdbIdentity = (value: unknown) => {
@@ -83,11 +80,6 @@ const normalizePpdbIdentity = (value: unknown) => {
   return normalized && !["-", "N/A", "NA"].includes(normalized) ? normalized : "";
 };
 
-const ppdbIdentityReservationRef = (tenantId: string, kind: string, value: string) =>
-  doc(db, "identityReservations", `${encodeURIComponent(tenantId)}_${kind}_${encodeURIComponent(value)}`);
-
-const ppdbRegistrationReservationRef = (tenantId: string, registrationId: string) =>
-  doc(db, "ppdbRegistrationReservations", `${encodeURIComponent(tenantId)}_${encodeURIComponent(registrationId.toUpperCase())}`);
 
 const STAGES: RegistrationStage[] = [
   "Registered",
@@ -204,7 +196,7 @@ export function PPDBManager() {
         systemSettings?.orgInfo?.schoolName || "Pesantren Modern Al-Hikmah"
       );
       window.open(waUrl, "_blank", "noopener,noreferrer");
-      await updateDoc(doc(db, "candidates", candidate.id), {
+      await persistPpdbCandidatePatch(candidate.id, {
         interviewNotified: true,
         interviewNotifiedAt: new Date().toISOString(),
       });
@@ -235,26 +227,58 @@ export function PPDBManager() {
   const [isExecutingSmart, setIsExecutingSmart] = useState(false);
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  
+  const refreshPpdbCandidates = async () => {
+    const result = await listPpdbCandidates();
+    setCandidates(result);
+  };
+  const persistPpdbCandidatePatch = async (id: string, patch: Record<string, unknown>) => {
+    await updatePpdbCandidate(id, patch);
+    setCandidates((current) => current.map((candidate) => {
+      if (candidate.id !== id) return candidate;
+      const next: any = { ...candidate };
+      for (const [key, value] of Object.entries(patch)) {
+        const parts = key.split(".");
+        if (parts.length === 1) {
+          next[key] = value;
+        } else if (parts.length === 2) {
+          next[parts[0]] = { ...(next[parts[0]] || {}), [parts[1]]: value };
+        }
+      }
+      return next as Candidate;
+    }));
+  };
+  const persistPpdbCandidatesBatch = async (updates: Array<{ id: string; patch: Record<string, unknown> }>) => {
+    for (let offset = 0; offset < updates.length; offset += 500) {
+      await updatePpdbCandidates(updates.slice(offset, offset + 500));
+    }
+    setCandidates((current) => current.map((candidate) => {
+      const update = updates.find((item) => item.id === candidate.id);
+      if (!update) return candidate;
+      const next: any = { ...candidate };
+      for (const [key, value] of Object.entries(update.patch)) {
+        const parts = key.split(".");
+        if (parts.length === 1) next[key] = value;
+        else if (parts.length === 2) next[parts[0]] = { ...(next[parts[0]] || {}), [parts[1]]: value };
+      }
+      return next as Candidate;
+    }));
+  };
+
   useEffect(() => {
+    let active = true;
     if (!user?.tenantId) {
       setCandidates([]);
-      return;
+      return () => { active = false; };
     }
-    const candidatesQuery = query(
-      collection(db, "candidates"),
-      where("tenantId", "==", user.tenantId)
-    );
-    const unsub = onSnapshot(candidatesQuery, (snap) => {
-      const result: Candidate[] = [];
-      snap.forEach((docSnap) => {
-        result.push({ id: docSnap.id, ...docSnap.data() } as Candidate);
-      });
-      setCandidates(result);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.GET, "candidates");
+    listPpdbCandidates().then((result) => {
+      if (active) setCandidates(result);
+    }).catch((err) => {
+      if (!active) return;
+      console.error(err);
+      setCandidates([]);
+      setError(err instanceof Error ? err.message : "Data PPDB belum dapat dimuat.");
     });
-    return () => unsub();
+    return () => { active = false; };
   }, [user?.tenantId]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPublicPortalOpen, setIsPublicPortalOpen] = useState(false);
@@ -316,30 +340,29 @@ export function PPDBManager() {
   const handleInjectDemoData = async () => {
     setIsInjecting(true);
     try {
-      const mockData = generateMockData();
-      const mockCandidates = mockData.candidates;
-      let batch = writeBatch(db);
-      let count = 0;
-      for (const record of mockCandidates) {
-        batch.set(doc(db, "candidates", record.id), tenantRecord(user?.tenantId, record));
-        count++;
-        if (count % 450 === 0) {
-           await batch.commit();
-           batch = writeBatch(db);
-        }
+      const mockCandidates = generateMockData().candidates.map((record) => {
+        const { id: _mockId, examSlot: _examSlot, interviewSlot: _interviewSlot, ...candidate } = record;
+        return {
+          ...candidate,
+          dateApplied: String(candidate.dateApplied || new Date().toISOString()).slice(0, 10),
+          score: candidate.score ?? 0,
+        };
+      });
+      for (let offset = 0; offset < mockCandidates.length; offset += 10) {
+        await Promise.all(mockCandidates.slice(offset, offset + 10).map((candidate) => createPpdbCandidate(candidate)));
       }
-      if (count % 450 !== 0) {
-        await batch.commit();
-      }
-      showToast("Berhasil memuat 20 calon santri simulasi demo!", "success", "Simulasi Data PPDB");
+      await refreshPpdbCandidates();
+      showToast("Berhasil memuat " + mockCandidates.length + " calon santri simulasi demo!", "success", "Simulasi Data PPDB");
     } catch (e) {
       console.error(e);
-      showToast("Gagal memuat data simulasi calon santri.", "error", "Gagal");
+      showToast(e instanceof Error ? e.message : "Gagal memuat data simulasi calon santri.", "error", "Gagal");
+      await refreshPpdbCandidates().catch(() => undefined);
     } finally {
       setIsInjecting(false);
     }
   };
 
+  // Smart Allocate Handlers
   // Smart Allocate Handlers
   const handleExecuteSmartPromote = async () => {
     const eligible = candidates.filter(
@@ -356,22 +379,13 @@ export function PPDBManager() {
 
     setIsExecutingSmart(true);
     try {
-      let batch = writeBatch(db);
-      let count = 0;
-      for (const c of eligible) {
-        batch.update(doc(db, "candidates", c.id), {
+      await persistPpdbCandidatesBatch(eligible.map((candidate) => ({
+        id: candidate.id,
+        patch: {
           stage: smartPromoteTarget,
-          notes: (c.notes ? c.notes + " | " : "") + `Auto-Promoted: Nilai ${c.score || 0} ≥ KKM ${smartMinScore}`,
-        });
-        count++;
-        if (count % 450 === 0) {
-          await batch.commit();
-          batch = writeBatch(db);
-        }
-      }
-      if (count % 450 !== 0) {
-        await batch.commit();
-      }
+          notes: (candidate.notes ? candidate.notes + " | " : "") + `Auto-Promoted: Nilai ${candidate.score || 0} ≥ KKM ${smartMinScore}`,
+        },
+      })));
       showToast(
         `Berhasil mempromosikan ${eligible.length} calon santri ke tahap ${smartPromoteTarget}!`,
         "success",
@@ -380,7 +394,7 @@ export function PPDBManager() {
       setIsSmartAllocateOpen(false);
     } catch (err) {
       console.error(err);
-      showToast("Gagal menjalankan promosi otomatis.", "error");
+      showToast(err instanceof Error ? err.message : "Gagal menjalankan promosi otomatis.", "error");
     } finally {
       setIsExecutingSmart(false);
     }
@@ -406,22 +420,13 @@ export function PPDBManager() {
     setIsExecutingSmart(true);
     try {
       const slotDesc = `${smartScheduleDate} • ${smartScheduleSession} • ${smartScheduleRoom}`;
-      let batch = writeBatch(db);
-      let count = 0;
-      for (const c of toSchedule) {
-        batch.update(doc(db, "candidates", c.id), {
+      await persistPpdbCandidatesBatch(toSchedule.map((candidate) => ({
+        id: candidate.id,
+        patch: {
           examSlot: slotDesc,
-          stage: c.stage === "Registered" ? "Document Review" : c.stage,
-        });
-        count++;
-        if (count % 450 === 0) {
-          await batch.commit();
-          batch = writeBatch(db);
-        }
-      }
-      if (count % 450 !== 0) {
-        await batch.commit();
-      }
+          stage: candidate.stage === "Registered" ? "Document Review" : candidate.stage,
+        },
+      })));
       showToast(
         `Berhasil mengalokasikan jadwal ujian untuk ${toSchedule.length} calon santri!`,
         "success",
@@ -430,7 +435,7 @@ export function PPDBManager() {
       setIsSmartAllocateOpen(false);
     } catch (err) {
       console.error(err);
-      showToast("Gagal mengalokasikan jadwal ujian.", "error");
+      showToast(err instanceof Error ? err.message : "Gagal mengalokasikan jadwal ujian.", "error");
     } finally {
       setIsExecutingSmart(false);
     }
@@ -554,8 +559,8 @@ export function PPDBManager() {
       }
     }
 
-    Promise.all(selectedIds.map(id => updateDoc(doc(db, "candidates", id), { stage: bulkActionStage })))
-    .catch(err => handleFirestoreError(err, OperationType.UPDATE, "candidates"));
+    void persistPpdbCandidatesBatch(selectedIds.map((id) => ({ id, patch: { stage: bulkActionStage } })))
+      .catch((err) => showToast(err instanceof Error ? err.message : "Gagal memperbarui tahap kandidat.", "error"));
     setSelectedIds([]);
     setBulkActionStage("");
   };
@@ -660,77 +665,45 @@ export function PPDBManager() {
       }
     }
 
-    updateDoc(doc(db, "candidates", id), { stage: targetStage }).catch(err => handleFirestoreError(err, OperationType.UPDATE, "candidates"));
+    persistPpdbCandidatePatch(id, { stage: targetStage }).catch((err) => showToast(err instanceof Error ? err.message : "Gagal memperbarui calon santri.", "error"));
   };
 
-  const handleCandidateDocumentUpload = (
+  const handleCandidateDocumentUpload = async (
     candidateId: string,
     docKey: string,
     file: File | null,
   ) => {
     if (!file) return;
+    const candidate = candidates.find((item) => item.id === candidateId);
+    if (!candidate) {
+      showToast("Calon santri tidak ditemukan.", "error");
+      return;
+    }
 
-    // Simulate upload process and mark as complete
-    setTimeout(() => {
-        candidates.map((c) => {
-          if (c.id === candidateId) {
-            updateDoc(doc(db, "candidates", candidateId), { 
-              documents: {
-                ...(c.documents || {
-                  kk: false,
-                  birthCertificate: false,
-                  reportCards: false,
-                  ijazah: false,
-                  skhun: false,
-                  pasPhoto: false,
-                }),
-                [docKey]: true,
-              }
-            }).catch(err => handleFirestoreError(err, OperationType.UPDATE, "candidates"));
-            const updatedDocs = {
-              ...(c.documents || {
-                kk: false,
-                birthCertificate: false,
-                reportCards: false,
-                ijazah: false,
-                skhun: false,
-                pasPhoto: false,
-              }),
-              [docKey]: true,
-            };
-
-            // Validate all required fields
-            const requiredBase =
-              c.name &&
-              c.nik &&
-              c.phone &&
-              c.grade &&
-              c.address &&
-              c.pob &&
-              c.dob;
-            const requiredDocs =
-              updatedDocs.kk &&
-              updatedDocs.birthCertificate &&
-              updatedDocs.reportCards &&
-              updatedDocs.pasPhoto;
-
-            let newNotes = c.notes || "";
-            if (
-              requiredBase &&
-              requiredDocs &&
-              !newNotes.includes("✓ Document checklist verified complete")
-            ) {
-              newNotes =
-                newNotes +
-                "\n\n✓ Document checklist verified complete upon successful upload.";
-            }
-
-            // we only updated docs in the first step as simplified, to avoid complex merge we will just update everything:
-            updateDoc(doc(db, "candidates", candidateId), { documents: updatedDocs, notes: newNotes })
-            .catch(err => handleFirestoreError(err, OperationType.UPDATE, "candidates"));
-          }
-        });
-    }, 400);
+    try {
+      await uploadPpdbCandidateDocument(candidateId, docKey, file);
+      const updatedDocs: Record<string, boolean> = {
+        ...(candidate.documents || {}),
+        [docKey]: true,
+      };
+      const requiredBase = Boolean(
+        candidate.name && candidate.nik && candidate.phone && candidate.grade &&
+        candidate.address && candidate.pob && candidate.dob
+      );
+      const requiredDocs = Boolean(
+        updatedDocs.kk && updatedDocs.birthCertificate &&
+        updatedDocs.reportCards && updatedDocs.pasPhoto
+      );
+      let newNotes = candidate.notes || "";
+      if (requiredBase && requiredDocs && !newNotes.includes("✓ Document checklist verified complete")) {
+        newNotes += "\n\n✓ Document checklist verified complete upon successful upload.";
+      }
+      await persistPpdbCandidatePatch(candidateId, { documents: updatedDocs, notes: newNotes });
+      showToast("Dokumen " + file.name + " berhasil diunggah.", "success");
+    } catch (err) {
+      console.error(err);
+      showToast(err instanceof Error ? err.message : "Dokumen belum dapat diunggah.", "error");
+    }
   };
 
   const handleAddCandidate = async (e: React.FormEvent) => {
@@ -756,7 +729,7 @@ export function PPDBManager() {
     const registrationId = normalizePpdbIdentity(formData.registrationId);
     const nik = normalizePpdbIdentity(formData.nik).replace(/\D/g, "");
     const nisn = normalizePpdbIdentity(formData.nisn).replace(/\D/g, "");
-    if (registrationId.length > 60) errors.registrationId = "Registration ID maksimal 60 karakter";
+    if (registrationId.length > 50) errors.registrationId = "Registration ID maksimal 50 karakter";
     if (!/^\d{16}$/.test(nik)) errors.nik = "NIK harus terdiri dari 16 digit";
     if (nisn && !/^\d{10}$/.test(nisn)) errors.nisn = "NISN harus terdiri dari 10 digit";
 
@@ -771,59 +744,53 @@ export function PPDBManager() {
     setFormErrors({});
 
     const newCandidate = {
-      tenantId: user.tenantId, registrationId, name: formData.name!.trim(),
-      previousSchool: formData.previousSchool!.trim(), grade: formData.grade!.trim(),
-      phone: formData.phone!.trim(), nik, nisn, pob: formData.pob!.trim(), dob: formData.dob!.trim(),
-      email: formData.email?.trim() || "", address: formData.address!.trim(),
-      province: formData.province || "", regency: formData.regency || "",
-      district: formData.district || "", village: formData.village || "",
+      registrationId,
+      name: formData.name!.trim(),
+      previousSchool: formData.previousSchool!.trim(),
+      grade: formData.grade!.trim(),
+      phone: formData.phone!.trim(),
+      nik,
+      nisn,
+      pob: formData.pob!.trim(),
+      dob: formData.dob!.trim(),
+      email: formData.email?.trim() || "",
+      address: formData.address!.trim(),
+      province: formData.province || "",
+      regency: formData.regency || "",
+      district: formData.district || "",
+      village: formData.village || "",
       gender: (formData.gender as "L" | "P") || "L",
-      fatherName: formData.fatherName!.trim(), motherName: formData.motherName!.trim(),
-      fatherJob: formData.fatherJob || "", motherJob: formData.motherJob || "",
-      fatherEducation: formData.fatherEducation || "", motherEducation: formData.motherEducation || "",
-      familyIncome: formData.familyIncome || "", whatsappPhone: formData.whatsappPhone!.trim(),
-      stage: formData.stage || "Registered", dateApplied: new Date().toISOString().split("T")[0],
-      score: 0, syncToMasterData: false,
-      documents: { kk: !!formData.documents?.kk, birthCertificate: !!formData.documents?.birthCertificate,
-        reportCards: !!formData.documents?.reportCards, ijazah: !!formData.documents?.ijazah,
-        skhun: !!formData.documents?.skhun, pasPhoto: !!formData.documents?.pasPhoto },
+      fatherName: formData.fatherName!.trim(),
+      motherName: formData.motherName!.trim(),
+      fatherJob: formData.fatherJob || "",
+      motherJob: formData.motherJob || "",
+      fatherEducation: formData.fatherEducation || "",
+      motherEducation: formData.motherEducation || "",
+      familyIncome: formData.familyIncome || "",
+      whatsappPhone: formData.whatsappPhone!.trim(),
+      stage: formData.stage || "Registered",
+      dateApplied: new Date().toISOString().split("T")[0],
+      score: 0,
+      syncToMasterData: false,
+      documents: {
+        kk: !!formData.documents?.kk,
+        birthCertificate: !!formData.documents?.birthCertificate,
+        reportCards: !!formData.documents?.reportCards,
+        ijazah: !!formData.documents?.ijazah,
+        skhun: !!formData.documents?.skhun,
+        pasPhoto: !!formData.documents?.pasPhoto,
+      },
     };
-    const candidateRef = doc(collection(db, "candidates"));
-    const registrationRef = ppdbRegistrationReservationRef(user.tenantId, registrationId);
-    const identityValues = [{ kind: "nik", value: nik }, ...(nisn ? [{ kind: "nisn", value: nisn }] : [])];
-    const legacyQueries = [
-      query(collection(db, "candidates"), where("tenantId", "==", user.tenantId), where("registrationId", "==", registrationId)),
-      ...identityValues.map(({ kind, value }) => query(collection(db, "candidates"), where("tenantId", "==", user.tenantId), where(kind, "==", value))),
-    ];
 
     try {
-      const legacySnapshots = await Promise.all(legacyQueries.map((candidateQuery) => getDocs(candidateQuery)));
-      await runTransaction(db, async (transaction) => {
-        const [registrationSnapshot, identitySnapshots] = await Promise.all([
-          transaction.get(registrationRef),
-          Promise.all(identityValues.map(({ kind, value }) => transaction.get(ppdbIdentityReservationRef(user.tenantId, kind, value)))),
-        ]);
-        if (registrationSnapshot.exists() || legacySnapshots[0].docs.length > 0) {
-          throw new Error("Registration ID " + registrationId + " sudah digunakan pada tenant ini.");
-        }
-        identityValues.forEach((item, index) => {
-          if (identitySnapshots[index].exists() || legacySnapshots[index + 1].docs.length > 0) {
-            throw new Error(item.kind.toUpperCase() + " " + item.value + " sudah terdaftar pada tenant ini.");
-          }
-        });
-        transaction.set(candidateRef, tenantRecord(user.tenantId, newCandidate));
-        transaction.set(registrationRef, { tenantId: user.tenantId, registrationId, candidateId: candidateRef.id, createdAt: new Date().toISOString() });
-        identityValues.forEach(({ kind, value }) => transaction.set(ppdbIdentityReservationRef(user.tenantId, kind, value), {
-          tenantId: user.tenantId, kind, value, ownerId: candidateRef.id, recordId: candidateRef.id,
-          source: "ppdb", createdAt: new Date().toISOString(),
-        }));
-      });
+      await createPpdbCandidate(newCandidate);
+      await refreshPpdbCandidates();
       setIsModalOpen(false);
       setFormData({});
       showToast("Pendaftaran " + newCandidate.name + " (" + registrationId + ") berhasil disimpan.", "success");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      showToast(err?.message || "Gagal menyimpan kandidat secara aman. Muat ulang lalu coba lagi.", "error");
+      showToast(err instanceof Error ? err.message : "Gagal menyimpan kandidat secara aman. Muat ulang lalu coba lagi.", "error");
     }
   };
 
@@ -872,7 +839,7 @@ export function PPDBManager() {
     e.preventDefault();
     const id = e.dataTransfer.getData("text/plain");
     if (!id) return;
-    updateDoc(doc(db, "candidates", id), { examSlot: slot || null }).catch(err => handleFirestoreError(err, OperationType.UPDATE, "candidates"));
+    persistPpdbCandidatePatch(id, { examSlot: slot || null }).catch((err) => showToast(err instanceof Error ? err.message : "Gagal memperbarui calon santri.", "error"));
   };
 
   const ExamScheduler = () => {
@@ -925,7 +892,7 @@ export function PPDBManager() {
                       available--;
                     }
                   });
-                  updated.forEach(c => { if(c.examSlot) updateDoc(doc(db, "candidates", c.id), { examSlot: c.examSlot }).catch(console.error); });
+                  updated.forEach(c => { if(c.examSlot) persistPpdbCandidatePatch(c.id, { examSlot: c.examSlot }).catch(console.error); });
                 }}
                 disabled={unassigned.length === 0}
                 className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-amber-500/20"
@@ -1091,7 +1058,7 @@ export function PPDBManager() {
     e.preventDefault();
     const id = e.dataTransfer.getData("text/plain");
     if (!id) return;
-    updateDoc(doc(db, "candidates", id), { interviewSlot: slot || null }).catch(err => handleFirestoreError(err, OperationType.UPDATE, "candidates"));
+    persistPpdbCandidatePatch(id, { interviewSlot: slot || null }).catch((err) => showToast(err instanceof Error ? err.message : "Gagal memperbarui calon santri.", "error"));
   };
 
   const InterviewScheduler = () => {
@@ -1162,7 +1129,7 @@ export function PPDBManager() {
                       available--;
                     }
                   });
-                  updated.forEach(c => { if(c.interviewSlot) updateDoc(doc(db, "candidates", c.id), { interviewSlot: c.interviewSlot }).catch(console.error); });
+                  updated.forEach(c => { if(c.interviewSlot) persistPpdbCandidatePatch(c.id, { interviewSlot: c.interviewSlot }).catch(console.error); });
                 }}
                 disabled={unassigned.length === 0}
                 className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:hover:bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-purple-500/20"
@@ -1222,7 +1189,7 @@ export function PPDBManager() {
               onClick={() => {
                 candidates.forEach(c => {
                   if (c.stage === "Interview" && c.interviewSlot && !c.interviewNotified) {
-                    updateDoc(doc(db, "candidates", c.id), { interviewNotified: true }).catch(console.error);
+                    persistPpdbCandidatePatch(c.id, { interviewNotified: true }).catch(console.error);
                   }
                 });
               }}
@@ -2051,9 +2018,9 @@ export function PPDBManager() {
                                   onChange={(e) => {
                                     e.stopPropagation();
                                     const val = parseInt(e.target.value) || 0;
-                                    updateDoc(doc(db, "candidates", candidate.id), {
+                                    persistPpdbCandidatePatch(candidate.id, {
                                       [`examScores.${subject}`]: val
-                                    }).catch(err => handleFirestoreError(err, OperationType.UPDATE, "candidates"));
+                                    }).catch((err) => showToast(err instanceof Error ? err.message : "Gagal memperbarui calon santri.", "error"));
                                   }}
                                   onClick={(e) => e.stopPropagation()}
                                   className="bg-black/40  rounded-md px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
@@ -2098,9 +2065,9 @@ export function PPDBManager() {
                                   onChange={(e) => {
                                     e.stopPropagation();
                                     const val = parseInt(e.target.value) || 0;
-                                    updateDoc(doc(db, "candidates", candidate.id), {
+                                    persistPpdbCandidatePatch(candidate.id, {
                                       [`interviewScores.${metric.key}`]: val
-                                    }).catch(err => handleFirestoreError(err, OperationType.UPDATE, "candidates"));
+                                    }).catch((err) => showToast(err instanceof Error ? err.message : "Gagal memperbarui calon santri.", "error"));
                                   }}
                                   onClick={(e) => e.stopPropagation()}
                                   className="bg-black/40  rounded-md px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
@@ -2305,7 +2272,7 @@ export function PPDBManager() {
                                     const quran = candidate.examScores?.quran || Math.floor(80 + Math.random() * 18);
                                     const avg = Math.round((math + science + english + tpa + quran) / 5);
 
-                                    await updateDoc(doc(db, "candidates", candidate.id), {
+                                    await persistPpdbCandidatePatch(candidate.id, {
                                       score: avg,
                                       examScores: { math, science, english, tpa, quran },
                                       cbtSync: {
@@ -2496,9 +2463,9 @@ export function PPDBManager() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    updateDoc(doc(db, "candidates", candidate.id), {
+                                    persistPpdbCandidatePatch(candidate.id, {
                                       notes: tempNotes[candidate.id] || ""
-                                    }).catch(err => handleFirestoreError(err, OperationType.UPDATE, "candidates"));
+                                    }).catch((err) => showToast(err instanceof Error ? err.message : "Gagal memperbarui calon santri.", "error"));
                                     setTempNotes((prev) => {
                                       const next = { ...prev };
                                       delete next[candidate.id];
