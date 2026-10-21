@@ -1,5 +1,4 @@
 import { db } from "../firebase";
-import { listSupabaseMasterDataStructures } from "./masterDataApi";
 import { collection, query, where, onSnapshot, doc, runTransaction } from "firebase/firestore";
 
 export interface CentralStructureItem {
@@ -113,37 +112,6 @@ class CentralStructureService {
 
   private initRealtimeListeners(tenantId: string) {
     try {
-      let structuresActive = true;
-      const refreshSupabaseStructures = async () => {
-        try {
-          const items = await listSupabaseMasterDataStructures();
-          if (!structuresActive || this.tenantId !== tenantId) return;
-          this.buildings = items.filter((item) => item.category === "Gedung");
-          this.rooms = items.filter((item) => item.category === "Kamar").map((room) => {
-            const parent = this.buildings.find((building) => building.id === room.parentId);
-            const capacity = Number(room.capacity);
-            return {
-              ...room,
-              building: room.building || parent?.name || "",
-              capacity: Number.isFinite(capacity) && capacity >= 0 ? capacity : 0,
-            };
-          });
-          this.classes = items.filter((item) => item.category === "Kelas");
-          this.recalculateOccupancies();
-          this.lastSynced = new Date();
-          this.notify();
-        } catch (error) {
-          if (structuresActive) console.warn("Supabase master data structure read failed:", error);
-        }
-      };
-      void refreshSupabaseStructures();
-      const structureRefreshTimer = window.setInterval(() => void refreshSupabaseStructures(), 30000);
-      this.unsubscribeListeners.push(() => {
-        structuresActive = false;
-        window.clearInterval(structureRefreshTimer);
-      });
-
-      // Halaqah and academic catalogs still use legacy records until their Supabase schema is cut over.
       const structureQuery = query(
         collection(db, 'master_data'),
         where('tenantId', '==', tenantId)
@@ -151,12 +119,26 @@ class CentralStructureService {
       this.unsubscribeListeners.push(onSnapshot(structureQuery, (snapshot) => {
         if (this.tenantId !== tenantId) return;
         const items = snapshot.docs.map((document) => ({ id: document.id, ...document.data() } as any));
+        const buildings = items.filter((item) => item.category === 'Gedung') as CentralStructureItem[];
+        const rooms = items.filter((item) => item.category === 'Kamar') as CentralStructureItem[];
+        this.buildings = buildings;
+        this.rooms = rooms.map((room) => {
+          const parent = this.buildings.find((building) => building.id === room.parentCode);
+          const capacity = Number(room.capacity);
+          return {
+            ...room,
+            building: room.building || parent?.name || '',
+            capacity: Number.isFinite(capacity) && capacity >= 0 ? capacity : 0,
+          };
+        });
+        this.classes = items.filter((item) => item.category === 'Kelas') as CentralStructureItem[];
         this.halaqahs = items.filter((item) => item.category === 'Halaqah') as CentralStructureItem[];
         this.subjects = items.filter((item) => item.category === 'Mata Pelajaran') as CentralStructureItem[];
         this.curricula = items.filter((item) => item.category === 'Kurikulum') as CentralStructureItem[];
+        this.recalculateOccupancies();
         this.lastSynced = new Date();
         this.notify();
-      }, (error) => console.warn('Tenant legacy academic structure listener failed:', error)));
+      }, (error) => console.warn('Tenant master data listener failed:', error)));
 
       const santriQuery = query(
         collection(db, 'entityRecords'),
