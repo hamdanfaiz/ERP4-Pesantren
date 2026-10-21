@@ -708,7 +708,7 @@ async function startServer() {
     }
     try {
       const actor = (req as any).actor;
-      const result = await recordSupabaseTahfidzTarget(actor.tenantId, actor.uid, req.body?.target);
+      const result = await recordSupabaseTahfidzTarget(actor.tenantId, actor.uid, actor.role, req.body?.target);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (err: any) {
       const status = err instanceof SupabaseTahfidzError ? err.status : 503;
