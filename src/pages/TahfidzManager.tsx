@@ -58,7 +58,7 @@ import {
   Tooltip,
 } from "recharts";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 
 // Mock Data
 const SANTRI_DATA = [
@@ -321,6 +321,41 @@ const JUZ_MAPPING = [
 
 export function TahfidzManager() {
   const { user, role } = useAuth();
+  const [isTahfidzMigrationOpen, setIsTahfidzMigrationOpen] = useState(false);
+  const [tahfidzMigrationReport, setTahfidzMigrationReport] = useState<any>(null);
+  const [tahfidzMigrationError, setTahfidzMigrationError] = useState("");
+  const [isTahfidzMigrationBusy, setIsTahfidzMigrationBusy] = useState(false);
+  const [confirmTahfidzMigration, setConfirmTahfidzMigration] = useState(false);
+  const canManageTahfidzMigration = ["Admin", "SuperAdmin"].includes(String(role));
+  const runTahfidzMigration = async (apply: boolean) => {
+    if (!auth.currentUser) {
+      setTahfidzMigrationError("Sesi login tidak tersedia. Silakan masuk kembali.");
+      return;
+    }
+    setIsTahfidzMigrationBusy(true);
+    setTahfidzMigrationError("");
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch("/api/tahfidz/migrate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token,
+        },
+        body: JSON.stringify(apply
+          ? { apply: true, confirm: "IMPORT_TAHFIDZ_HALAQAHS_AND_MEMBERSHIPS" }
+          : { apply: false }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Migrasi Tahfidz belum dapat diproses.");
+      setTahfidzMigrationReport(payload);
+      setConfirmTahfidzMigration(false);
+    } catch (error: any) {
+      setTahfidzMigrationError(error?.message || "Migrasi Tahfidz belum dapat diproses.");
+    } finally {
+      setIsTahfidzMigrationBusy(false);
+    }
+  };
   const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, records, targets, quran
   const [searchQuery, setSearchQuery] = useState("");
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
@@ -2584,6 +2619,20 @@ export function TahfidzManager() {
             <Mic className="w-4 h-4" />
             AI Audio Assessment
           </button>
+          {canManageTahfidzMigration && (
+            <button
+              onClick={() => {
+                setTahfidzMigrationReport(null);
+                setTahfidzMigrationError("");
+                setConfirmTahfidzMigration(false);
+                setIsTahfidzMigrationOpen(true);
+              }}
+              className="flex items-center gap-2 bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors shadow-sm"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Migrasi Data
+            </button>
+          )}
           <button
             onClick={() => setIsInputOpen(true)}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"
@@ -5029,6 +5078,158 @@ export function TahfidzManager() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+      {isTahfidzMigrationOpen && canManageTahfidzMigration && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" role="presentation">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tahfidz-migration-title"
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="tahfidz-migration-title" className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                  Migrasi konfigurasi Tahfidz
+                </h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Pratinjau membaca halaqah dan penugasan santri dari tenant ini. Data contoh pada layar tidak ikut dimigrasikan.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTahfidzMigrationOpen(false)}
+                disabled={isTahfidzMigrationBusy}
+                aria-label="Tutup migrasi Tahfidz"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/10"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-500/30 dark:bg-blue-950/30 dark:text-blue-200">
+              Pencocokan santri memakai source ID hasil impor Master Data, lalu NIS yang unik. Konflik harus direkonsiliasi sebelum apply. Perubahan database memerlukan feature flag server terpisah dan konfirmasi backup.
+            </div>
+
+            {tahfidzMigrationError && (
+              <div role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">
+                {tahfidzMigrationError}
+              </div>
+            )}
+
+            {tahfidzMigrationReport && (
+              <div className="mt-5 space-y-4">
+                <div className={cn(
+                  "rounded-xl border p-4 text-sm",
+                  tahfidzMigrationReport.dryRun
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-950/30 dark:text-emerald-200"
+                    : "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-500/30 dark:bg-blue-950/30 dark:text-blue-200",
+                )}>
+                  {tahfidzMigrationReport.dryRun
+                    ? "Pratinjau selesai. Belum ada data yang ditulis."
+                    : "Apply selesai. Periksa jumlah impor dan rekonsiliasi setelah migrasi."}
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                    <div className="text-xs text-slate-500">Halaqah direncanakan</div>
+                    <div className="mt-1 text-lg font-bold">{tahfidzMigrationReport.planned?.halaqahs ?? 0}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                    <div className="text-xs text-slate-500">Keanggotaan</div>
+                    <div className="mt-1 text-lg font-bold">{tahfidzMigrationReport.planned?.memberships ?? 0}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                    <div className="text-xs text-slate-500">Tidak punya halaqah</div>
+                    <div className="mt-1 text-lg font-bold">{tahfidzMigrationReport.unassignedStudents ?? 0}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                    <div className="text-xs text-slate-500">Masalah</div>
+                    <div className="mt-1 text-lg font-bold">{tahfidzMigrationReport.errors?.length ?? 0}</div>
+                  </div>
+                </div>
+                {!!tahfidzMigrationReport.errors?.length && (
+                  <div className="rounded-xl border border-rose-200 p-4 dark:border-rose-500/30">
+                    <h3 className="font-semibold text-rose-800 dark:text-rose-300">Perlu diperbaiki</h3>
+                    <ul className="mt-2 max-h-40 space-y-2 overflow-y-auto text-sm">
+                      {tahfidzMigrationReport.errors.slice(0, 20).map((issue: any, index: number) => (
+                        <li key={issue.id + issue.category + index}>
+                          <span className="font-medium">{issue.category} · {issue.id || "tanpa ID"}:</span> {issue.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {!!tahfidzMigrationReport.warnings?.length && (
+                  <div className="rounded-xl border border-amber-200 p-4 dark:border-amber-500/30">
+                    <h3 className="font-semibold text-amber-800 dark:text-amber-300">Peringatan</h3>
+                    <ul className="mt-2 max-h-40 space-y-2 overflow-y-auto text-sm">
+                      {tahfidzMigrationReport.warnings.slice(0, 20).map((issue: any, index: number) => (
+                        <li key={issue.id + issue.category + index}>
+                          <span className="font-medium">{issue.category} · {issue.id || "tanpa ID"}:</span> {issue.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {!tahfidzMigrationReport.dryRun && (
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Diimpor: {tahfidzMigrationReport.imported?.halaqahs ?? 0} halaqah dan {tahfidzMigrationReport.imported?.memberships ?? 0} keanggotaan. Tidak berubah: {tahfidzMigrationReport.unchanged?.halaqahs ?? 0} halaqah dan {tahfidzMigrationReport.unchanged?.memberships ?? 0} keanggotaan.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {confirmTahfidzMigration && tahfidzMigrationReport?.dryRun && (
+              <label className="mt-5 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
+                <input
+                  type="checkbox"
+                  checked={confirmTahfidzMigration}
+                  onChange={(event) => setConfirmTahfidzMigration(event.target.checked)}
+                  className="mt-0.5"
+                />
+                Saya sudah meninjau pratinjau dan memastikan backup tenant tersedia.
+              </label>
+            )}
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsTahfidzMigrationOpen(false)}
+                disabled={isTahfidzMigrationBusy}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => runTahfidzMigration(false)}
+                disabled={isTahfidzMigrationBusy}
+                className="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+              >
+                {isTahfidzMigrationBusy ? "Memproses..." : "Jalankan Pratinjau"}
+              </button>
+              {tahfidzMigrationReport?.dryRun && tahfidzMigrationReport?.canApply && tahfidzMigrationReport.errors?.length === 0 && !confirmTahfidzMigration && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmTahfidzMigration(true)}
+                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+                >
+                  Siapkan Apply
+                </button>
+              )}
+              {tahfidzMigrationReport?.dryRun && tahfidzMigrationReport?.canApply && tahfidzMigrationReport.errors?.length === 0 && confirmTahfidzMigration && (
+                <button
+                  type="button"
+                  onClick={() => runTahfidzMigration(true)}
+                  disabled={isTahfidzMigrationBusy}
+                  className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
+                >
+                  {isTahfidzMigrationBusy ? "Mengimpor..." : "Apply impor"}
+                </button>
+              )}
+            </div>
+          </section>
         </div>
       )}
     </div>
