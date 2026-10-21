@@ -50,7 +50,11 @@ Keep the live cutover flag disabled until the new SQL migrations are applied to 
 
 ## Tahfidz follow-up
 
-The current `src/pages/TahfidzManager.tsx` still subscribes to Firestore for halaqah and santri. Setoran records are initialized from hard-coded sample data and stored only in React state; dashboard charts, halaqah cards, and achievement examples also include fixed sample values. The cutover must define persistent tenant-scoped halaqah, setoran, and target records, connect them to canonical students, and remove sample operational values. Account-to-student/ustadz relationships must be enforced by the backend.
+The current `src/pages/TahfidzManager.tsx` still reads halaqah and santri from Firestore, initializes setoran from hard-coded sample records, and displays sample halaqah, targets, charts, achievements, and exam rows. The Supabase student schema already provides the canonical tenant-scoped student relation needed by this module.
+
+Migration `20260613000000_tahfidz_tenant_runtime.sql` now defines tenant-scoped halaqah, student membership history, append-only setoran records, and daily target tables. Its setoran RPC validates an active tenant, active student, active halaqah membership, and an idempotency key. Tables have forced RLS and client roles receive no direct access; the trusted API will own all writes. User identifiers are stored as text during the identity transition so the schema can accept current Firebase identities before Supabase Auth becomes the final identity provider.
+
+This is a schema foundation only: the migration has **not** been applied, no Tahfidz API or UI is wired to it, no legacy halaqah/membership data has been reconciled, and the existing sample data and Firestore reads remain active. Next, add a tenant-scoped migration preview/apply for halaqah and student memberships, expose roster/record/target endpoints, connect the screens, and replace static dashboard values with derived backend data. Keep the feature disabled until those parts and the canonical student import are verified together.
 
 ## Current release gate
 
