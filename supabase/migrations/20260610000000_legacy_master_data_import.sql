@@ -133,7 +133,8 @@ BEGIN
   END CASE;
 
   IF NULLIF(p_student->>'nikCiphertextHex', '') IS NOT NULL THEN
-    IF p_student->>'nikCiphertextHex' !~ '^[0-9a-fA-F]+$'
+    IF length(p_student->>'nikCiphertextHex') <> 88
+      OR p_student->>'nikCiphertextHex' !~ '^[0-9a-fA-F]{88}$'
       OR p_student->>'nikFingerprintHex' !~ '^[0-9a-fA-F]{64}$' THEN
       RAISE EXCEPTION 'NIK terenkripsi tidak valid' USING ERRCODE = '22023';
     END IF;
@@ -144,7 +145,8 @@ BEGIN
   END IF;
 
   IF NULLIF(p_student->>'nisnCiphertextHex', '') IS NOT NULL THEN
-    IF p_student->>'nisnCiphertextHex' !~ '^[0-9a-fA-F]+$'
+    IF length(p_student->>'nisnCiphertextHex') <> 76
+      OR p_student->>'nisnCiphertextHex' !~ '^[0-9a-fA-F]{76}$'
       OR p_student->>'nisnFingerprintHex' !~ '^[0-9a-fA-F]{64}$' THEN
       RAISE EXCEPTION 'NISN terenkripsi tidak valid' USING ERRCODE = '22023';
     END IF;
@@ -247,7 +249,32 @@ BEGIN
     END IF;
 
     IF NULLIF(p_guardian->>'nikCiphertextHex', '') IS NOT NULL THEN
-      IF p_guardian->>'nikCiphertextHex' !~ '^[0-9a-fA-F]+
+      IF length(p_guardian->>'nikCiphertextHex') <> 88
+        OR p_guardian->>'nikCiphertextHex' !~ '^[0-9a-fA-F]{88}$'
+        OR p_guardian->>'nikFingerprintHex' !~ '^[0-9a-fA-F]{64}$' THEN
+        RAISE EXCEPTION 'NIK wali terenkripsi tidak valid' USING ERRCODE = '22023';
+      END IF;
+      v_guardian_nik_cipher := decode(p_guardian->>'nikCiphertextHex', 'hex');
+      v_guardian_nik_fingerprint := decode(p_guardian->>'nikFingerprintHex', 'hex');
+
+      IF v_guardian_id IS NULL OR v_existing_guardian_nik_fingerprint IS NULL THEN
+        IF EXISTS (
+          SELECT 1 FROM public.identity_claims
+          WHERE tenant_id = p_tenant_id
+            AND identity_type = 'nik'
+            AND fingerprint = v_guardian_nik_fingerprint
+        ) OR (
+          v_nik_fingerprint IS NOT NULL
+          AND v_guardian_nik_fingerprint = v_nik_fingerprint
+        ) THEN
+          RETURN jsonb_build_object('status', 'conflict', 'message', 'NIK wali sudah terikat pada record lain di tenant ini.');
+        END IF;
+      ELSIF v_existing_guardian_nik_fingerprint <> v_guardian_nik_fingerprint THEN
+        RETURN jsonb_build_object('status', 'conflict', 'message', 'NIK wali sumber berbeda dari nilai yang sudah diimpor.');
+      END IF;
+    ELSIF NULLIF(p_guardian->>'nikFingerprintHex', '') IS NOT NULL THEN
+      RAISE EXCEPTION 'Fingerprint NIK wali tanpa ciphertext' USING ERRCODE = '22023';
+    END IF;
 
     IF v_guardian_id IS NULL AND v_guardian_source_id IS NULL
       AND (v_guardian_name IS NOT NULL OR v_guardian_phone IS NOT NULL) THEN
@@ -304,188 +331,6 @@ BEGIN
       'guardianId', v_guardian_id,
       'warnings', v_warnings
     );
-  END IF;
-
-  INSERT INTO public.students (
-    tenant_id, source_candidate_id, source_system, source_record_id, nis, name, gender, grade,
-    nik_ciphertext, nik_fingerprint, nisn_ciphertext, nisn_fingerprint,
-    class_id, room_id, building_id, details, status
-  ) VALUES (
-    p_tenant_id, NULL, 'legacy_import', v_source_id, v_nis, v_name, v_gender,
-    NULLIF(btrim(p_student->>'grade'), ''),
-    v_nik_cipher, v_nik_fingerprint, v_nisn_cipher, v_nisn_fingerprint,
-    v_class_id, v_room_id, v_building_id, v_details,
-    COALESCE(NULLIF(btrim(p_student->>'status'), ''), 'Active')
-  )
-  RETURNING id INTO v_student_id;
-
-  IF v_nik_fingerprint IS NOT NULL THEN
-    INSERT INTO public.identity_claims (tenant_id, identity_type, fingerprint, entity_type, entity_id)
-    VALUES (p_tenant_id, 'nik', v_nik_fingerprint, 'santri', v_student_id);
-  END IF;
-  IF v_nisn_fingerprint IS NOT NULL THEN
-    INSERT INTO public.identity_claims (tenant_id, identity_type, fingerprint, entity_type, entity_id)
-    VALUES (p_tenant_id, 'nisn', v_nisn_fingerprint, 'santri', v_student_id);
-  END IF;
-  IF v_nis IS NOT NULL THEN
-    INSERT INTO public.nis_reservations (tenant_id, nis, candidate_id, student_id, source)
-    VALUES (p_tenant_id, v_nis, NULL, v_student_id, 'master_data_import');
-  END IF;
-  IF v_guardian_id IS NOT NULL THEN
-    INSERT INTO public.guardian_students (tenant_id, guardian_id, student_id, relationship)
-    VALUES (
-      p_tenant_id, v_guardian_id, v_student_id,
-      COALESCE(NULLIF(btrim(p_guardian->>'relationship'), ''), 'Wali')
-    )
-    ON CONFLICT (tenant_id, guardian_id, student_id) DO NOTHING;
-  END IF;
-
-  RETURN jsonb_build_object(
-    'status', 'imported',
-    'studentId', v_student_id,
-    'guardianId', v_guardian_id,
-    'warnings', v_warnings
-  );
-EXCEPTION
-  WHEN unique_violation THEN
-    RETURN jsonb_build_object('status', 'conflict', 'message', 'NIS, NIK, NISN, atau sumber data duplikat pada tenant ini.');
-  WHEN foreign_key_violation THEN
-    RETURN jsonb_build_object('status', 'conflict', 'message', 'Relasi data tidak valid untuk tenant ini.');
-  WHEN check_violation THEN
-    RETURN jsonb_build_object('status', 'conflict', 'message', 'Data tidak memenuhi aturan validasi pada tenant ini.');
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.import_legacy_master_data_student(UUID, JSONB, JSONB, BOOLEAN)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.import_legacy_master_data_student(UUID, JSONB, JSONB, BOOLEAN)
-  TO service_role;
-
-COMMIT;
-
-        OR p_guardian->>'nikFingerprintHex' !~ '^[0-9a-fA-F]{64}
-
-    IF v_guardian_id IS NULL AND v_guardian_source_id IS NULL
-      AND (v_guardian_name IS NOT NULL OR v_guardian_phone IS NOT NULL) THEN
-      RAISE EXCEPTION 'ID sumber wali tidak valid' USING ERRCODE = '22023';
-    END IF;
-  END IF;
-
-  IF NOT p_apply THEN
-    RETURN jsonb_build_object('status', 'planned', 'warnings', v_warnings);
-  END IF;
-
-  IF v_guardian_id IS NULL AND v_guardian_source_id IS NOT NULL AND v_guardian_name IS NOT NULL THEN
-    INSERT INTO public.guardians (
-      tenant_id, source_candidate_id, source_system, source_record_id, name, phone, details
-    ) VALUES (
-      p_tenant_id, NULL, 'legacy_import', v_guardian_source_id, v_guardian_name,
-      v_guardian_phone, COALESCE(v_guardian_details, '{}'::jsonb)
-    )
-    RETURNING id INTO v_guardian_id;
-
-    IF v_guardian_nik_cipher IS NOT NULL AND v_guardian_nik_fingerprint IS NOT NULL THEN
-      INSERT INTO public.identity_claims (tenant_id, identity_type, fingerprint, entity_type, entity_id)
-      VALUES (p_tenant_id, 'nik', v_guardian_nik_fingerprint, 'guardian', v_guardian_id);
-    END IF;
-  END IF;
-
-  INSERT INTO public.students (
-    tenant_id, source_candidate_id, source_system, source_record_id, nis, name, gender, grade,
-    nik_ciphertext, nik_fingerprint, nisn_ciphertext, nisn_fingerprint,
-    class_id, room_id, building_id, details, status
-  ) VALUES (
-    p_tenant_id, NULL, 'legacy_import', v_source_id, v_nis, v_name, v_gender,
-    NULLIF(btrim(p_student->>'grade'), ''),
-    v_nik_cipher, v_nik_fingerprint, v_nisn_cipher, v_nisn_fingerprint,
-    v_class_id, v_room_id, v_building_id, v_details,
-    COALESCE(NULLIF(btrim(p_student->>'status'), ''), 'Active')
-  )
-  RETURNING id INTO v_student_id;
-
-  IF v_nik_fingerprint IS NOT NULL THEN
-    INSERT INTO public.identity_claims (tenant_id, identity_type, fingerprint, entity_type, entity_id)
-    VALUES (p_tenant_id, 'nik', v_nik_fingerprint, 'santri', v_student_id);
-  END IF;
-  IF v_nisn_fingerprint IS NOT NULL THEN
-    INSERT INTO public.identity_claims (tenant_id, identity_type, fingerprint, entity_type, entity_id)
-    VALUES (p_tenant_id, 'nisn', v_nisn_fingerprint, 'santri', v_student_id);
-  END IF;
-  IF v_nis IS NOT NULL THEN
-    INSERT INTO public.nis_reservations (tenant_id, nis, candidate_id, student_id, source)
-    VALUES (p_tenant_id, v_nis, NULL, v_student_id, 'master_data_import');
-  END IF;
-  IF v_guardian_id IS NOT NULL THEN
-    INSERT INTO public.guardian_students (tenant_id, guardian_id, student_id, relationship)
-    VALUES (
-      p_tenant_id, v_guardian_id, v_student_id,
-      COALESCE(NULLIF(btrim(p_guardian->>'relationship'), ''), 'Wali')
-    )
-    ON CONFLICT (tenant_id, guardian_id, student_id) DO NOTHING;
-  END IF;
-
-  RETURN jsonb_build_object(
-    'status', 'imported',
-    'studentId', v_student_id,
-    'guardianId', v_guardian_id,
-    'warnings', v_warnings
-  );
-EXCEPTION
-  WHEN unique_violation THEN
-    RETURN jsonb_build_object('status', 'conflict', 'message', 'NIS, NIK, NISN, atau sumber data duplikat pada tenant ini.');
-  WHEN foreign_key_violation THEN
-    RETURN jsonb_build_object('status', 'conflict', 'message', 'Relasi data tidak valid untuk tenant ini.');
-  WHEN check_violation THEN
-    RETURN jsonb_build_object('status', 'conflict', 'message', 'Data tidak memenuhi aturan validasi pada tenant ini.');
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.import_legacy_master_data_student(UUID, JSONB, JSONB, BOOLEAN)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.import_legacy_master_data_student(UUID, JSONB, JSONB, BOOLEAN)
-  TO service_role;
-
-COMMIT;
- THEN
-        RAISE EXCEPTION 'NIK wali terenkripsi tidak valid' USING ERRCODE = '22023';
-      END IF;
-      v_guardian_nik_cipher := decode(p_guardian->>'nikCiphertextHex', 'hex');
-      v_guardian_nik_fingerprint := decode(p_guardian->>'nikFingerprintHex', 'hex');
-      IF v_guardian_id IS NULL OR v_existing_guardian_nik_fingerprint IS NULL THEN
-        IF EXISTS (
-          SELECT 1 FROM public.identity_claims
-          WHERE tenant_id = p_tenant_id AND identity_type = 'nik' AND fingerprint = v_guardian_nik_fingerprint
-        ) OR v_guardian_nik_fingerprint = v_nik_fingerprint THEN
-          RETURN jsonb_build_object('status', 'conflict', 'message', 'NIK wali sudah terikat pada record lain di tenant ini.');
-        END IF;
-      ELSIF v_existing_guardian_nik_fingerprint <> v_guardian_nik_fingerprint THEN
-        RETURN jsonb_build_object('status', 'conflict', 'message', 'NIK wali sumber berbeda dari nilai yang sudah diimpor.');
-      END IF;
-    END IF;
-
-    IF v_guardian_id IS NULL AND v_guardian_source_id IS NULL
-      AND (v_guardian_name IS NOT NULL OR v_guardian_phone IS NOT NULL) THEN
-      RAISE EXCEPTION 'ID sumber wali tidak valid' USING ERRCODE = '22023';
-    END IF;
-  END IF;
-
-  IF NOT p_apply THEN
-    RETURN jsonb_build_object('status', 'planned', 'warnings', v_warnings);
-  END IF;
-
-  IF v_guardian_id IS NULL AND v_guardian_source_id IS NOT NULL AND v_guardian_name IS NOT NULL THEN
-    INSERT INTO public.guardians (
-      tenant_id, source_candidate_id, source_system, source_record_id, name, phone, details
-    ) VALUES (
-      p_tenant_id, NULL, 'legacy_import', v_guardian_source_id, v_guardian_name,
-      v_guardian_phone, COALESCE(v_guardian_details, '{}'::jsonb)
-    )
-    RETURNING id INTO v_guardian_id;
-
-    IF v_guardian_nik_cipher IS NOT NULL AND v_guardian_nik_fingerprint IS NOT NULL THEN
-      INSERT INTO public.identity_claims (tenant_id, identity_type, fingerprint, entity_type, entity_id)
-      VALUES (p_tenant_id, 'nik', v_guardian_nik_fingerprint, 'guardian', v_guardian_id);
-    END IF;
   END IF;
 
   INSERT INTO public.students (
