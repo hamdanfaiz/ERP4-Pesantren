@@ -16,7 +16,7 @@ CREATE TABLE public.tahfidz_halaqahs (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, id),
   FOREIGN KEY (tenant_id, ustadz_user_id)
-    REFERENCES public.profiles (tenant_id, user_id) ON DELETE SET NULL
+    REFERENCES public.profiles (tenant_id, user_id) ON DELETE RESTRICT
 );
 
 CREATE UNIQUE INDEX tahfidz_halaqahs_active_name_tenant_uq
