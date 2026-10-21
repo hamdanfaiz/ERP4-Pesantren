@@ -357,8 +357,6 @@ class CentralStructureService {
     const targetRoom = this.rooms.find((room) => room.id === roomId || room.name === roomId);
     if (!tenantId) return { success: false, message: 'Tenant belum aktif.' };
     if (!targetRoom) return { success: false, message: 'Kamar tidak ditemukan.' };
-    const santriRef = doc(db, 'entityRecords', santriId);
-    const roomRef = doc(db, 'master_data', targetRoom.id);
     const linkedBuildingId = buildingId || targetRoom.parentId || targetRoom.parentCode || "";
 
     if (USE_SUPABASE_BOARDING_CUTOVER) {
