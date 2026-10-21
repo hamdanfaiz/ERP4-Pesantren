@@ -904,14 +904,22 @@ export async function upsertSupabaseMasterDataStudent(
   const rawName = typeof record.name === "string" ? record.name.trim() : "";
   if (!rawName || rawName.length > 180) throw new SupabasePpdbAdminError(400, "Nama santri wajib diisi dan maksimal 180 karakter.");
   const name = rawName;
-  const nis = record.nis == null ? "" : String(record.nis).trim();
+  if (record.nis != null && typeof record.nis !== "string") {
+    throw new SupabasePpdbAdminError(400, "NIS harus dikirim sebagai teks agar angka nol di depan tetap terjaga.");
+  }
+  const nis = typeof record.nis === "string" ? record.nis.trim() : "";
   if (nis && !/^[0-9]{1,10}$/.test(nis)) throw new SupabasePpdbAdminError(400, "NIS harus berisi 1 sampai 10 digit.");
   const rawGender = String(record.gender || "").trim();
   const gender = rawGender ? normalizeLegacyGender(rawGender) : null;
   if (rawGender && !gender) throw new SupabasePpdbAdminError(400, "Jenis kelamin santri tidak valid.");
-  const grade = legacyText(record.grade, 80);
-  const status = legacyText(record.status || "Active", 40) || "Active";
-  if (status.toLowerCase() === "archived") throw new SupabasePpdbAdminError(400, "Gunakan operasi arsip untuk mengarsipkan santri.");
+  const rawGrade = record.grade == null ? "" : String(record.grade).trim();
+  if (rawGrade.length > 80) throw new SupabasePpdbAdminError(400, "Jenjang santri maksimal 80 karakter.");
+  const grade = rawGrade;
+  const rawStatus = record.status == null || record.status === "" ? "Active" : String(record.status).trim();
+  if (rawStatus.length > 40 || rawStatus.toLowerCase() === "archived") {
+    throw new SupabasePpdbAdminError(400, "Status santri tidak valid; gunakan operasi arsip untuk mengarsipkan data.");
+  }
+  const status = rawStatus || "Active";
 
   const nik = legacyIdentity(record.nik, 16, "NIK");
   const nisn = legacyIdentity(record.nisn, 10, "NISN");
@@ -921,9 +929,15 @@ export async function upsertSupabaseMasterDataStudent(
   const nikFingerprintHex = nik.value ? fingerprintLegacyIdentity("nik", nik.value) : null;
   const nisnCiphertextHex = nisn.value ? encryptLegacyIdentity(nisn.value) : null;
   const nisnFingerprintHex = nisn.value ? fingerprintLegacyIdentity("nisn", nisn.value) : null;
-  const classId = legacyText(record.classId, 160) || null;
-  const roomId = legacyText(record.roomId, 160) || null;
-  const buildingId = legacyText(record.dormitoryId || record.buildingId, 160) || null;
+  const rawClassId = record.classId == null ? "" : String(record.classId).trim();
+  const rawRoomId = record.roomId == null ? "" : String(record.roomId).trim();
+  const rawBuildingId = record.dormitoryId != null ? String(record.dormitoryId).trim() : (record.buildingId == null ? "" : String(record.buildingId).trim());
+  if (rawClassId.length > 160 || rawRoomId.length > 160 || rawBuildingId.length > 160) {
+    throw new SupabasePpdbAdminError(400, "ID kelas, kamar, atau gedung tidak valid.");
+  }
+  const classId = rawClassId || null;
+  const roomId = rawRoomId || null;
+  const buildingId = rawBuildingId || null;
   const details = safeStudentDetails(record);
 
   const result = await supabaseRequest("/rest/v1/rpc/upsert_master_data_student", {
