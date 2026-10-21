@@ -404,6 +404,7 @@ export function TahfidzManager() {
   const [isTahfidzMigrationBusy, setIsTahfidzMigrationBusy] = useState(false);
   const [confirmTahfidzMigration, setConfirmTahfidzMigration] = useState(false);
   const canManageTahfidzMigration = ["Admin", "SuperAdmin"].includes(String(role)) && user?.modulePermissions?.tahfidz !== false;
+  const canManageSupabaseTargets = ["Admin", "SuperAdmin", "Ustadz"].includes(String(role)) && user?.modulePermissions?.tahfidz !== false;
   const runTahfidzMigration = async (apply: boolean) => {
     if (!auth.currentUser) {
       setTahfidzMigrationError("Sesi login tidak tersedia. Silakan masuk kembali.");
@@ -480,6 +481,17 @@ export function TahfidzManager() {
       .catch(console.error);
   }, [user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz]);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [isSavingTahfidzTarget, setIsSavingTahfidzTarget] = useState(false);
+  const [targetForm, setTargetForm] = useState({
+    studentId: "",
+    periodStart: new Date().toISOString().slice(0, 10),
+    periodEnd: "",
+    ziyadahPagesPerDay: "1",
+    murojaahPagesPerDay: "1",
+    policy: "standard",
+    notes: "",
+  });
+  const pendingTargetRequestsRef = React.useRef(new Map<string, { id: string; payload: any }>());
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [isReminderEnabled, setIsReminderEnabled] = useState(false);
   const [selectedSantri, setSelectedSantri] = useState<any>(null);
@@ -513,6 +525,76 @@ export function TahfidzManager() {
     setRecords(mapped.records);
     setHasSupabaseTahfidzSnapshot(true);
     return mapped;
+  };
+
+  const openSupabaseTargetEditor = (student?: any) => {
+    const target = student?.target;
+    setTargetForm({
+      studentId: String(student?.id || ""),
+      periodStart: String(target?.periodStart || new Date().toISOString().slice(0, 10)),
+      periodEnd: String(target?.periodEnd || ""),
+      ziyadahPagesPerDay: String(target?.ziyadahPagesPerDay ?? 1),
+      murojaahPagesPerDay: String(target?.murojaahPagesPerDay ?? 1),
+      policy: target?.policy === "strict" ? "strict" : "standard",
+      notes: "",
+    });
+    setTahfidzDataError("");
+    setIsTargetModalOpen(true);
+  };
+
+  const handleSaveSupabaseTarget = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const studentId = String(targetForm.studentId || "").trim();
+    const ziyadahPagesPerDay = Number(targetForm.ziyadahPagesPerDay);
+    const murojaahPagesPerDay = Number(targetForm.murojaahPagesPerDay);
+    if (!studentId) {
+      setTahfidzDataError("Pilih santri yang akan diberi target.");
+      return;
+    }
+    if (!Number.isFinite(ziyadahPagesPerDay) || !Number.isFinite(murojaahPagesPerDay)
+      || ziyadahPagesPerDay < 0 || ziyadahPagesPerDay > 100
+      || murojaahPagesPerDay < 0 || murojaahPagesPerDay > 100
+      || (ziyadahPagesPerDay === 0 && murojaahPagesPerDay === 0)) {
+      setTahfidzDataError("Isi target 0–100 halaman/hari dan pastikan salah satunya lebih dari nol.");
+      return;
+    }
+    const payload = {
+      studentId,
+      periodStart: targetForm.periodStart,
+      periodEnd: targetForm.periodEnd || null,
+      ziyadahPagesPerDay,
+      murojaahPagesPerDay,
+      policy: targetForm.policy,
+      notes: targetForm.notes.trim(),
+    };
+    const fingerprint = JSON.stringify(payload);
+    let pending = pendingTargetRequestsRef.current.get(fingerprint);
+    if (!pending) {
+      pending = { id: createTahfidzRequestId(), payload };
+      pendingTargetRequestsRef.current.set(fingerprint, pending);
+    }
+    setIsSavingTahfidzTarget(true);
+    setTahfidzDataError("");
+    try {
+      const result = await requestSupabaseTahfidzApi("/api/tahfidz/targets", {
+        method: "POST",
+        body: JSON.stringify({
+          target: { ...pending.payload, clientRequestId: pending.id },
+        }),
+      });
+      if (result?.success !== true) throw new Error("Backend belum mengonfirmasi penyimpanan target.");
+      pendingTargetRequestsRef.current.delete(fingerprint);
+      setIsTargetModalOpen(false);
+      try {
+        await loadSupabaseTahfidzSnapshot();
+      } catch {
+        setTahfidzDataError("Target tersimpan, tetapi daftar belum dapat diperbarui. Muat ulang untuk melihatnya.");
+      }
+    } catch (error: any) {
+      setTahfidzDataError(error?.message || "Target belum dapat disimpan ke Supabase.");
+    } finally {
+      setIsSavingTahfidzTarget(false);
+    }
   };
 
   useEffect(() => {
@@ -1557,7 +1639,7 @@ export function TahfidzManager() {
             </h3>
             <p className="text-xs text-slate-500 mt-1">
               {SUPABASE_TAHFIDZ_CUTOVER
-                ? "Target aktif dibaca dari backend; perubahan target belum tersedia pada tahap ini."
+                ? "Target harian dibaca dan diperbarui melalui backend tenant."
                 : "Atur dan pantau target setoran ziyadah & muroja'ah harian untuk semua santri."}
             </p>
           </div>
@@ -1584,6 +1666,17 @@ export function TahfidzManager() {
               Set Target Massal
             </button>
           </div>}
+          {SUPABASE_TAHFIDZ_CUTOVER && canManageSupabaseTargets && (
+            <button
+              type="button"
+              onClick={() => openSupabaseTargetEditor()}
+              disabled={!hasSupabaseTahfidzSnapshot || isTahfidzDataLoading || santriList.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              Atur Target Santri
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -1594,13 +1687,13 @@ export function TahfidzManager() {
                 <th className="px-4 py-3">{SUPABASE_TAHFIDZ_CUTOVER ? "Setoran Hari Ini" : "Pencapaian Hari Ini"}</th>
                 <th className="px-4 py-3">Target Ziyadah</th>
                 <th className="px-4 py-3">Target Muroja'ah</th>
-                {!SUPABASE_TAHFIDZ_CUTOVER && <th className="px-4 py-3 text-right">Aksi</th>}
+                {(!SUPABASE_TAHFIDZ_CUTOVER || canManageSupabaseTargets) && <th className="px-4 py-3 text-right">Aksi</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
               {SUPABASE_TAHFIDZ_CUTOVER && santriList.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-500">
+                  <td colSpan={SUPABASE_TAHFIDZ_CUTOVER && canManageSupabaseTargets ? 5 : 4} className="px-4 py-8 text-center text-sm text-slate-500">
                     {isTahfidzDataLoading
                       ? "Memuat target santri..."
                       : tahfidzDataError
@@ -1652,14 +1745,17 @@ export function TahfidzManager() {
                       ? santri.target ? `${santri.target.murojaahPagesPerDay} halaman/hari` : "Belum diatur"
                       : "¼ Juz"}
                   </td>
-                  {!SUPABASE_TAHFIDZ_CUTOVER && <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setIsTargetModalOpen(true)}
-                      className="text-xs text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-1 rounded"
-                    >
-                      Sesuaikan
-                    </button>
-                  </td>}
+                  {(!SUPABASE_TAHFIDZ_CUTOVER || canManageSupabaseTargets) && (
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => SUPABASE_TAHFIDZ_CUTOVER ? openSupabaseTargetEditor(santri) : setIsTargetModalOpen(true)}
+                        disabled={SUPABASE_TAHFIDZ_CUTOVER && (!hasSupabaseTahfidzSnapshot || isTahfidzDataLoading)}
+                        className="text-xs text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-1 rounded disabled:opacity-50"
+                      >
+                        Sesuaikan
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -3101,7 +3197,62 @@ export function TahfidzManager() {
       )}
 
       {/* Target Harian Modal */}
-      {isTargetModalOpen && (
+      {isTargetModalOpen && (SUPABASE_TAHFIDZ_CUTOVER ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+          <form onSubmit={handleSaveSupabaseTarget} className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-semibold text-slate-900 dark:text-white">Atur Target Harian Santri</h2>
+                <p className="mt-1 text-xs text-slate-500">Perubahan disimpan ke tenant Supabase dan target lama tetap tercatat sebagai riwayat.</p>
+              </div>
+              <button type="button" onClick={() => setIsTargetModalOpen(false)} aria-label="Tutup" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+            </div>
+            <label className="block text-sm font-medium">
+              Santri
+              <select required value={targetForm.studentId} onChange={(event) => setTargetForm({ ...targetForm, studentId: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950">
+                <option value="">Pilih santri</option>
+                {santriList.map((student) => <option key={student.id} value={student.id}>{student.name} — {student.nis}</option>)}
+              </select>
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                Ziyadah (halaman per hari)
+                <input required type="number" min="0" max="100" step="0.25" value={targetForm.ziyadahPagesPerDay} onChange={(event) => setTargetForm({ ...targetForm, ziyadahPagesPerDay: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-950 dark:text-white" />
+              </label>
+              <label className="block text-sm font-medium text-blue-700 dark:text-blue-400">
+                Muroja'ah (halaman per hari)
+                <input required type="number" min="0" max="100" step="0.25" value={targetForm.murojaahPagesPerDay} onChange={(event) => setTargetForm({ ...targetForm, murojaahPagesPerDay: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-950 dark:text-white" />
+              </label>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-medium">
+                Berlaku mulai
+                <input required type="date" value={targetForm.periodStart} onChange={(event) => setTargetForm({ ...targetForm, periodStart: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+              </label>
+              <label className="block text-sm font-medium">
+                Berlaku sampai (opsional)
+                <input type="date" min={targetForm.periodStart} value={targetForm.periodEnd} onChange={(event) => setTargetForm({ ...targetForm, periodEnd: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+              </label>
+            </div>
+            <label className="block text-sm font-medium">
+              Kebijakan target
+              <select value={targetForm.policy} onChange={(event) => setTargetForm({ ...targetForm, policy: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950">
+                <option value="standard">Standard</option>
+                <option value="strict">Strict</option>
+              </select>
+            </label>
+            <label className="block text-sm font-medium">
+              Catatan (opsional)
+              <textarea maxLength={1000} rows={3} value={targetForm.notes} onChange={(event) => setTargetForm({ ...targetForm, notes: event.target.value })} className="mt-1 w-full resize-y rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+            </label>
+            {tahfidzDataError && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">{tahfidzDataError}</p>}
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-white/10">
+              <button type="button" onClick={() => setIsTargetModalOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button>
+              <button type="submit" disabled={isSavingTahfidzTarget || isTahfidzDataLoading || !hasSupabaseTahfidzSnapshot} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{isSavingTahfidzTarget ? "Menyimpan…" : "Simpan Target"}</button>
+            </div>
+          </form>
+        </div>
+      ) : (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -3193,9 +3344,9 @@ export function TahfidzManager() {
             </div>
           </div>
         </div>
-      )}
+      ))}
 
-      {/* Reminder Notification Modal */}
+            {/* Reminder Notification Modal */}
       {isReminderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
