@@ -66,6 +66,7 @@ import { collection, writeBatch, doc, setDoc, runTransaction, query, where, getD
 import { StructureHierarchyD3 } from "../components/StructureHierarchyD3";
 
 const SUPABASE_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "Kelas"]);
+const USE_SUPABASE_BOARDING_CUTOVER = (import.meta as any).env?.VITE_SUPABASE_BOARDING_CUTOVER === "true";
 
 const normalizeReservationValue = (value: unknown) => {
   const normalized = typeof value === "string" ? value.trim().toUpperCase() : "";
@@ -1279,6 +1280,76 @@ export function MasterDataManager() {
     }
 
     try {
+      if (
+        USE_SUPABASE_BOARDING_CUTOVER
+        && activeTab !== "entities"
+        && SUPABASE_STRUCTURE_CATEGORIES.has(activeSubTab)
+      ) {
+        const invalidCount = importedRecords.filter((record) => !String(record?.id ?? "").trim()).length;
+        const importMap = new Map<string, any>();
+        importedRecords.forEach((record) => {
+          const id = String(record?.id ?? "").trim();
+          if (id) importMap.set(id.toLowerCase(), { ...record, id });
+        });
+        const recordsToPersist = Array.from(importMap.values()).filter((record) =>
+          strategy === "overwrite" || !existingIds.has(String(record.id).toLowerCase())
+        );
+        const persistedRecords: any[] = [];
+        const failures: string[] = [];
+
+        for (let index = 0; index < recordsToPersist.length; index += 10) {
+          const chunk = recordsToPersist.slice(index, index + 10);
+          const results = await Promise.all(chunk.map(async (record) => {
+            try {
+              return {
+                record: await upsertSupabaseMasterDataStructure(
+                  activeSubTab as "Gedung" | "Kamar" | "Kelas",
+                  record as Record<string, unknown>
+                ),
+              };
+            } catch (error) {
+              return {
+                error: error instanceof Error ? error.message : "Gagal menyimpan record.",
+              };
+            }
+          }));
+          results.forEach((result) => {
+            if ("record" in result) persistedRecords.push(result.record);
+            else failures.push(result.error);
+          });
+        }
+
+        if (persistedRecords.length > 0) {
+          const persistedIds = new Set(persistedRecords.map((record) => String(record.id).toLowerCase()));
+          setDataSources((prev) => ({
+            ...prev,
+            [activeSubTab]: [
+              ...persistedRecords,
+              ...(prev[activeSubTab] || []).filter((record) => !persistedIds.has(String(record.id).toLowerCase())),
+            ],
+          }));
+          addAuditLog("IMPORT", "", `${persistedRecords.length} records imported (${strategy})`, persistedRecords.length);
+          centralStructureService.notifyExternalUpdate();
+        }
+
+        const failureCount = failures.length + invalidCount;
+        if (failureCount > 0) {
+          console.warn("Supabase bulk import had rejected records:", failures.slice(0, 5));
+          showToast(
+            `Impor parsial: ${persistedRecords.length} berhasil, ${failureCount} gagal/perlu ID. Periksa data lalu ulangi untuk record yang gagal.`,
+            persistedRecords.length > 0 ? "error" : "error"
+          );
+        } else {
+          showToast(
+            persistedRecords.length > 0
+              ? `Berhasil mengimpor ${persistedRecords.length} data ke Supabase.`
+              : "Tidak ada data baru untuk diimpor.",
+            "success"
+          );
+        }
+        return;
+      }
+
       const collectionName = activeTab === "entities" ? "entityRecords" : "master_data";
 
       const batch = writeBatch(db);
