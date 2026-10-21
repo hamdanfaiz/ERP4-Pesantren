@@ -495,7 +495,7 @@ export function TahfidzManager() {
   const [isTahfidzDataLoading, setIsTahfidzDataLoading] = useState(SUPABASE_TAHFIDZ_CUTOVER);
   const [isSavingTahfidzRecord, setIsSavingTahfidzRecord] = useState(false);
   const [tahfidzDataError, setTahfidzDataError] = useState("");
-  const pendingRecordRequestRef = React.useRef<{ fingerprint: string; id: string; payload: any } | null>(null);
+  const pendingRecordRequestsRef = React.useRef(new Map<string, { id: string; payload: any }>());
   const [formData, setFormData] = useState<any>({
     type: "Ziyadah",
     fluency: "A",
@@ -606,12 +606,12 @@ export function TahfidzManager() {
         notes: formData.notes || "",
         time: formData.time || "",
       });
-      if (pendingRecordRequestRef.current?.fingerprint !== inputFingerprint) {
+      let pendingRecord = pendingRecordRequestsRef.current.get(inputFingerprint);
+      if (!pendingRecord) {
         const timeParts = String(formData.time || "").match(/^(\d{2}):(\d{2})$/);
         const performedAt = new Date();
         if (timeParts) performedAt.setHours(Number(timeParts[1]), Number(timeParts[2]), 0, 0);
-        pendingRecordRequestRef.current = {
-          fingerprint: inputFingerprint,
+        pendingRecord = {
           id: createTahfidzRequestId(),
           payload: {
             studentId: selectedStudent.id,
@@ -625,8 +625,9 @@ export function TahfidzManager() {
             performedAt: performedAt.toISOString(),
           },
         };
+        pendingRecordRequestsRef.current.set(inputFingerprint, pendingRecord);
       }
-      const recordPayload = pendingRecordRequestRef.current.payload;
+      const recordPayload = pendingRecord.payload;
       setIsSavingTahfidzRecord(true);
       setTahfidzDataError("");
       try {
@@ -635,11 +636,11 @@ export function TahfidzManager() {
           body: JSON.stringify({
             record: {
               ...recordPayload,
-              clientRequestId: pendingRecordRequestRef.current.id,
+              clientRequestId: pendingRecord.id,
             },
           }),
         });
-        pendingRecordRequestRef.current = null;
+        pendingRecordRequestsRef.current.delete(inputFingerprint);
         setFormData({ type: "Ziyadah", fluency: "A", tajweed: "A" });
         setIsInputOpen(false);
         try {
