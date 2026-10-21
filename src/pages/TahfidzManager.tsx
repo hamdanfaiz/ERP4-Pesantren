@@ -495,7 +495,7 @@ export function TahfidzManager() {
   const [isTahfidzDataLoading, setIsTahfidzDataLoading] = useState(SUPABASE_TAHFIDZ_CUTOVER);
   const [isSavingTahfidzRecord, setIsSavingTahfidzRecord] = useState(false);
   const [tahfidzDataError, setTahfidzDataError] = useState("");
-  const pendingRecordRequestRef = React.useRef<{ fingerprint: string; id: string } | null>(null);
+  const pendingRecordRequestRef = React.useRef<{ fingerprint: string; id: string; payload: any } | null>(null);
   const [formData, setFormData] = useState<any>({
     type: "Ziyadah",
     fluency: "A",
@@ -595,10 +595,7 @@ export function TahfidzManager() {
         setTahfidzDataError("Santri harus terdaftar pada halaqah aktif sebelum setoran dicatat.");
         return;
       }
-      const timeParts = String(formData.time || "").match(/^(\d{2}):(\d{2})$/);
-      const performedAt = new Date();
-      if (timeParts) performedAt.setHours(Number(timeParts[1]), Number(timeParts[2]), 0, 0);
-      const recordPayload = {
+      const inputFingerprint = JSON.stringify({
         studentId: selectedStudent.id,
         halaqahId: selectedStudent.halaqahId,
         activityType: formData.type,
@@ -607,12 +604,29 @@ export function TahfidzManager() {
         fluencyGrade: formData.fluency || "A",
         tajweedGrade: formData.tajweed || "A",
         notes: formData.notes || "",
-        performedAt: performedAt.toISOString(),
-      };
-      const fingerprint = JSON.stringify(recordPayload);
-      if (pendingRecordRequestRef.current?.fingerprint !== fingerprint) {
-        pendingRecordRequestRef.current = { fingerprint, id: createTahfidzRequestId() };
+        time: formData.time || "",
+      });
+      if (pendingRecordRequestRef.current?.fingerprint !== inputFingerprint) {
+        const timeParts = String(formData.time || "").match(/^(\d{2}):(\d{2})$/);
+        const performedAt = new Date();
+        if (timeParts) performedAt.setHours(Number(timeParts[1]), Number(timeParts[2]), 0, 0);
+        pendingRecordRequestRef.current = {
+          fingerprint: inputFingerprint,
+          id: createTahfidzRequestId(),
+          payload: {
+            studentId: selectedStudent.id,
+            halaqahId: selectedStudent.halaqahId,
+            activityType: formData.type,
+            surahName: formData.surah,
+            ayahRange: formData.ayat,
+            fluencyGrade: formData.fluency || "A",
+            tajweedGrade: formData.tajweed || "A",
+            notes: formData.notes || "",
+            performedAt: performedAt.toISOString(),
+          },
+        };
       }
+      const recordPayload = pendingRecordRequestRef.current.payload;
       setIsSavingTahfidzRecord(true);
       setTahfidzDataError("");
       try {
@@ -1373,7 +1387,17 @@ export function TahfidzManager() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {records.map((r) => (
+              {records.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-500">
+                    {isTahfidzDataLoading
+                      ? "Memuat catatan setoran..."
+                      : tahfidzDataError
+                        ? "Catatan belum dapat dimuat. Periksa pesan status di atas."
+                        : "Belum ada catatan setoran pada periode ini."}
+                  </td>
+                </tr>
+              ) : records.map((r) => (
                 <tr
                   key={r.id}
                   className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors"
