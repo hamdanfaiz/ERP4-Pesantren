@@ -277,12 +277,6 @@ async function requireTenantAdmin(req: express.Request, res: express.Response, n
   }
 }
 
-type PublicPpdbError = Error & { status: number };
-
-function publicPpdbError(status: number, message: string): PublicPpdbError {
-  return Object.assign(new Error(message), { status });
-}
-
 const publicPpdbRateBuckets = new Map<string, { startedAt: number; count: number }>();
 function consumePublicPpdbRateLimit(ip: string): boolean {
   const now = Date.now();
