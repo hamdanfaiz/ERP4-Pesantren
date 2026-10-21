@@ -891,16 +891,20 @@ export async function upsertSupabaseMasterDataStudent(
     throw new SupabasePpdbAdminError(400, "Data santri tidak valid.");
   }
   const record = recordValue as JsonObject;
-  const sourceRecordId = String(record.sourceRecordId || record.id || "").trim();
   const studentId = isCanonicalUuid(studentIdentifier)
     ? validateUuid(studentIdentifier, "ID santri")
     : (isCanonicalUuid(record.supabaseId) ? validateUuid(record.supabaseId, "ID santri") : null);
+  const providedSourceRecordId = typeof record.sourceRecordId === "string" ? record.sourceRecordId.trim() : "";
+  const recordId = typeof record.id === "string" ? record.id.trim() : "";
+  const sourceRecordId = providedSourceRecordId
+    || (studentId ? (recordId && !isCanonicalUuid(recordId) ? recordId : "") : (recordId || studentIdentifier).trim());
   if (!studentId && (!sourceRecordId || sourceRecordId.length > 1500)) {
     throw new SupabasePpdbAdminError(400, "ID santri tidak valid.");
   }
-  const name = legacyText(record.name, 180);
-  if (!name || name.length > 180) throw new SupabasePpdbAdminError(400, "Nama santri wajib diisi dan maksimal 180 karakter.");
-  const nis = legacyText(record.nis, 10);
+  const rawName = typeof record.name === "string" ? record.name.trim() : "";
+  if (!rawName || rawName.length > 180) throw new SupabasePpdbAdminError(400, "Nama santri wajib diisi dan maksimal 180 karakter.");
+  const name = rawName;
+  const nis = record.nis == null ? "" : String(record.nis).trim();
   if (nis && !/^[0-9]{1,10}$/.test(nis)) throw new SupabasePpdbAdminError(400, "NIS harus berisi 1 sampai 10 digit.");
   const rawGender = String(record.gender || "").trim();
   const gender = rawGender ? normalizeLegacyGender(rawGender) : null;
@@ -922,7 +926,7 @@ export async function upsertSupabaseMasterDataStudent(
   const buildingId = legacyText(record.dormitoryId || record.buildingId, 160) || null;
   const details = safeStudentDetails(record);
 
-  await supabaseRequest("/rest/v1/rpc/upsert_master_data_student", {
+  const result = await supabaseRequest("/rest/v1/rpc/upsert_master_data_student", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId,
@@ -935,15 +939,9 @@ export async function upsertSupabaseMasterDataStudent(
       p_nisn_fingerprint_hex: nisnFingerprintHex,
     }),
   });
-  const row = await getSupabaseStudentRow(tenantId, studentId || String((await supabaseRequest(
-    "/rest/v1/students?" + new URLSearchParams({
-      select: "id",
-      tenant_id: "eq." + tenantId,
-      source_system: "in.(legacy_import,master_data)",
-      source_record_id: "eq." + sourceRecordId,
-      limit: "1",
-    }).toString()
-  ) as JsonObject[])?.[0]?.id || ""));
+  const savedStudentId = isCanonicalUuid(String(result?.studentId || "")) ? String(result.studentId) : "";
+  if (!savedStudentId) throw new SupabasePpdbAdminError(503, "Backend tidak mengembalikan ID santri yang valid.");
+  const row = await getSupabaseStudentRow(tenantId, savedStudentId);
   if (!row) throw new SupabasePpdbAdminError(503, "Data santri tersimpan tetapi tidak dapat dibaca ulang.");
   const structures = await listSupabaseMasterDataStructures(tenantId);
   return mapSupabaseStudentRow(row, tenantId, structures);
