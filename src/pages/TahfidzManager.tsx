@@ -343,11 +343,21 @@ export function TahfidzManager() {
           "Authorization": "Bearer " + token,
         },
         body: JSON.stringify(apply
-          ? { apply: true, confirm: "IMPORT_TAHFIDZ_HALAQAHS_AND_MEMBERSHIPS" }
+          ? {
+              apply: true,
+              confirm: "IMPORT_TAHFIDZ_HALAQAHS_AND_MEMBERSHIPS",
+              previewFingerprint: tahfidzMigrationReport?.previewFingerprint,
+            }
           : { apply: false }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Migrasi Tahfidz belum dapat diproses.");
+      if (!response.ok) {
+        if (apply && response.status === 409) {
+          setTahfidzMigrationReport(null);
+          setConfirmTahfidzMigration(false);
+        }
+        throw new Error(payload.error || "Migrasi Tahfidz belum dapat diproses.");
+      }
       setTahfidzMigrationReport(payload);
       setConfirmTahfidzMigration(false);
     } catch (error: any) {
