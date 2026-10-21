@@ -134,9 +134,9 @@ FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.tahfidz_halaqahs,
   public.tahfidz_memberships,
-  public.tahfidz_records,
   public.tahfidz_targets
 TO service_role;
+GRANT SELECT, INSERT ON TABLE public.tahfidz_records TO service_role;
 
 CREATE OR REPLACE FUNCTION public.record_tahfidz_setoran(
   p_tenant_id UUID,
@@ -168,7 +168,7 @@ BEGIN
   v_surah := NULLIF(btrim(COALESCE(p_surah_name, '')), '');
   v_recorder_id := NULLIF(btrim(COALESCE(p_recorded_by_user_id, '')), '');
   IF p_tenant_id IS NULL OR p_student_id IS NULL OR p_halaqah_id IS NULL
-    OR p_client_request_id IS NULL OR p_ayah_start IS NULL OR p_ayah_end IS NULL
+    OR p_client_request_id IS NULL OR p_performed_at IS NULL OR p_ayah_start IS NULL OR p_ayah_end IS NULL
     OR p_ayah_start < 1 OR p_ayah_end < p_ayah_start
     OR p_activity_type NOT IN ('Ziyadah', 'Muroja''ah', 'Tasmi''', 'Tasmik')
     OR v_surah IS NULL OR length(v_surah) > 100
@@ -213,7 +213,7 @@ BEGIN
   ) VALUES (
     p_tenant_id, p_student_id, p_halaqah_id, p_activity_type, v_surah, p_ayah_start, p_ayah_end,
     p_fluency_grade, p_tajweed_grade, NULLIF(btrim(COALESCE(p_notes, '')), ''),
-    COALESCE(p_performed_at, now()), v_recorder_id,
+    p_performed_at, v_recorder_id,
     NULLIF(btrim(COALESCE(p_recorded_by_name, '')), ''), p_client_request_id
   )
   ON CONFLICT (tenant_id, client_request_id) DO NOTHING
@@ -234,7 +234,13 @@ BEGIN
     OR v_existing.activity_type IS DISTINCT FROM p_activity_type
     OR v_existing.surah_name IS DISTINCT FROM v_surah
     OR v_existing.ayah_start IS DISTINCT FROM p_ayah_start
-    OR v_existing.ayah_end IS DISTINCT FROM p_ayah_end THEN
+    OR v_existing.ayah_end IS DISTINCT FROM p_ayah_end
+    OR v_existing.fluency_grade IS DISTINCT FROM p_fluency_grade
+    OR v_existing.tajweed_grade IS DISTINCT FROM p_tajweed_grade
+    OR v_existing.notes IS DISTINCT FROM NULLIF(btrim(COALESCE(p_notes, '')), '')
+    OR v_existing.performed_at IS DISTINCT FROM p_performed_at
+    OR v_existing.recorded_by_user_id IS DISTINCT FROM v_recorder_id
+    OR v_existing.recorded_by_name IS DISTINCT FROM NULLIF(btrim(COALESCE(p_recorded_by_name, '')), '') THEN
     RAISE EXCEPTION 'Kunci permintaan setoran telah digunakan untuk data berbeda' USING ERRCODE = '23505';
   END IF;
   RETURN jsonb_build_object('success', true, 'alreadyRecorded', true, 'recordId', v_existing.id);
