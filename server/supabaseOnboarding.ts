@@ -513,6 +513,7 @@ export type LegacySupabaseStudentSource = {
   id: string;
   record: unknown;
   guardian?: { id: string; record: unknown } | null;
+  sourceWarnings?: string[];
 };
 
 type LegacyMigrationIssue = { id: string; category: string; message: string };
@@ -619,7 +620,9 @@ export async function migrateSupabaseLegacyMasterDataStudents(
       continue;
     }
 
-    const localWarnings: string[] = [];
+    const localWarnings: string[] = Array.isArray(item.sourceWarnings)
+      ? item.sourceWarnings.filter((message): message is string => typeof message === "string").slice(0, 10)
+      : [];
     const nis = normalizeLegacyNis(record.nis);
     const gender = normalizeLegacyGender(record.gender);
     if (!gender) localWarnings.push("Jenis kelamin belum dapat dipetakan; data perlu dilengkapi.");
