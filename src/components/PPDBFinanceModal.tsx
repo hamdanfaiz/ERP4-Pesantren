@@ -130,9 +130,9 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
       const count = await ppdbIntegrationService.syncPaymentsFromFinance(candidates);
       if (count > 0) {
         showToast(
-          `${count} tagihan PPDB Supabase ditemukan untuk kandidat tenant aktif; status pembayaran disimpan bersama transaksi.`,
+          `Memuat ulang ${count} tagihan PPDB Supabase pada tenant aktif.`,
           "success",
-          "Sinkronisasi Keuangan"
+          "Status Pembayaran PPDB"
         );
       } else {
         showToast("Belum ada tagihan PPDB Supabase untuk kandidat pada tenant aktif.", "info");
@@ -230,7 +230,7 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
             )}
           >
             <TrendingUp className="w-4 h-4" />
-            Ringkasan Kas & Sinkronisasi
+            Ringkasan Kas & Status Pembayaran
           </button>
           <button
             onClick={() => setActiveTab("record")}
@@ -308,10 +308,10 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
                     <ShieldCheck className="w-5 h-5 text-emerald-400" />
                     <div>
                       <h4 className="text-sm font-semibold text-slate-200">
-                        Sinkronisasi Dua Arah dengan Modul FinanceManager
+                        Status Pembayaran PPDB di Supabase
                       </h4>
                       <p className="text-xs text-slate-400">
-                        Setiap transaksi otomatis membuat jurnal invoice/billing kas masuk di Modul Keuangan
+                        Tagihan dan status pembayaran PPDB dikelola pada backend Supabase tenant aktif.
                       </p>
                     </div>
                   </div>
@@ -321,7 +321,7 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
                   >
                     <RefreshCw className={cn("w-3.5 h-3.5", isProcessing && "animate-spin")} />
-                    Tarik Mutasi dari Keuangan
+                    Muat Ulang Pembayaran
                   </button>
                 </div>
 
