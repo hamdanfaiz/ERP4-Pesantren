@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
+import { deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure } from "./server/supabaseOnboarding";
 
 dotenv.config();
 
@@ -305,6 +306,37 @@ async function requirePpdbAccess(req: express.Request, res: express.Response, ne
       return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
     }
     return res.status(500).json({ code: "INTERNAL_ERROR", error: "Gagal memverifikasi hak akses PPDB." });
+  }
+}
+
+
+async function requireMasterDataAccess(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const uid = (req as any).user?.uid;
+  if (!uid) return res.status(401).json({ code: "UNAUTHORIZED", error: "Autentikasi diperlukan." });
+  const services = getAdminServices();
+  if (services.ok === false) {
+    return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
+  }
+  try {
+    const profileSnapshot = await services.db.collection("users").doc(uid).get();
+    if (!profileSnapshot.exists) return res.status(403).json({ code: "PROFILE_NOT_FOUND", error: "Profil pengguna tidak ditemukan." });
+    const profile = profileSnapshot.data() || {};
+    const tenantId = typeof profile.tenantId === "string" ? profile.tenantId.trim() : "";
+    const role = typeof profile.role === "string" ? profile.role : "";
+    if (String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      return res.status(403).json({ code: "ACCOUNT_INACTIVE", error: "Akun aktif dan tenant valid diperlukan." });
+    }
+    const permissions = resolveUserModulePermissions(role, profile.modulePermissions);
+    if (permissions["master-data"] !== true) {
+      return res.status(403).json({ code: "MODULE_FORBIDDEN", error: "Akses modul Master Data tidak diberikan kepada akun ini." });
+    }
+    (req as any).actor = { uid, role, tenantId, modulePermissions: permissions };
+    return next();
+  } catch (err: any) {
+    if (isCredentialError(err) || isFirestoreStoreError(err)) {
+      return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
+    }
+    return res.status(500).json({ code: "INTERNAL_ERROR", error: "Gagal memverifikasi hak akses Master Data." });
   }
 }
 
@@ -612,6 +644,101 @@ async function startServer() {
       const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
       if (status >= 500) console.error("Supabase PPDB candidate update failed:", err?.message || "unknown error");
       return res.status(status).json({ error: status >= 500 ? "Perubahan kandidat belum dapat disimpan." : err.message });
+    }
+  });
+
+
+  // Tenant structures and accepted-candidate onboarding use Supabase.
+  // Authentication is still Firebase-backed in this migration phase; the tenant comes from the verified server profile.
+  app.get("/api/ppdb/onboarding/structures", requireAuth, requirePpdbAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const records = await listSupabaseMasterDataStructures(actor.tenantId);
+      return res.json({ records });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase PPDB onboarding structures failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Struktur pesantren belum dapat dimuat dari backend." : err.message });
+    }
+  });
+
+  app.get("/api/ppdb/onboarding/next-nis", requireAuth, requirePpdbAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const grade = typeof req.query.grade === "string" ? req.query.grade.trim() : "";
+      const candidateId = typeof req.query.candidateId === "string" ? req.query.candidateId.trim() : undefined;
+      if (!grade || grade.length > 50) return res.status(400).json({ error: "Jenjang calon santri tidak valid." });
+      const nis = await getSupabaseNextSantriNis(actor.tenantId, grade, candidateId);
+      return res.json({ nis });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase NIS preview failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "NIS belum dapat dibuat dari backend." : err.message });
+    }
+  });
+
+  app.post("/api/ppdb/candidates/:candidateId/onboard", requireAuth, requirePpdbAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const result = await onboardSupabaseAcceptedCandidate(actor.tenantId, req.params.candidateId, req.body?.assignment);
+      return res.json(result);
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase candidate onboarding failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Onboarding calon santri belum dapat diselesaikan." : err.message });
+    }
+  });
+
+  app.get("/api/master-data/structures", requireAuth, requireMasterDataAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const records = await listSupabaseMasterDataStructures(actor.tenantId);
+      return res.json({ records });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Master Data structures failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Struktur Master Data belum dapat dimuat." : err.message });
+    }
+  });
+
+  app.put("/api/master-data/structures/:category/:recordId", requireAuth, requireMasterDataAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const actor = (req as any).actor;
+    if (!["Admin", "SuperAdmin"].includes(String(actor.role || ""))) {
+      return res.status(403).json({ error: "Hanya Admin pesantren yang dapat mengelola struktur Master Data." });
+    }
+    try {
+      const record = await upsertSupabaseMasterDataStructure(
+        actor.tenantId,
+        req.params.category,
+        req.params.recordId,
+        req.body?.record
+      );
+      return res.json({ record });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Master Data structure write failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Perubahan struktur Master Data belum dapat disimpan." : err.message });
+    }
+  });
+
+  app.delete("/api/master-data/structures/:category/:recordId", requireAuth, requireMasterDataAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const actor = (req as any).actor;
+    if (!["Admin", "SuperAdmin"].includes(String(actor.role || ""))) {
+      return res.status(403).json({ error: "Hanya Admin pesantren yang dapat mengelola struktur Master Data." });
+    }
+    try {
+      await deleteSupabaseMasterDataStructure(actor.tenantId, req.params.category, req.params.recordId);
+      return res.json({ deleted: true });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Master Data structure delete failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Struktur Master Data belum dapat dihapus." : err.message });
     }
   });
 
