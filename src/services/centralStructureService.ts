@@ -1,5 +1,8 @@
 import { db } from "../firebase";
 import { collection, query, where, onSnapshot, doc, runTransaction } from "firebase/firestore";
+import { assignSupabaseStudentRoom, listSupabaseBoardingSnapshot } from "./masterDataApi";
+
+const USE_SUPABASE_BOARDING_CUTOVER = (import.meta as any).env?.VITE_SUPABASE_BOARDING_CUTOVER === "true";
 
 export interface CentralStructureItem {
   id: string;
@@ -27,6 +30,7 @@ export interface CentralStructureItem {
 
 export interface CentralEntityItem {
   id: string;
+  supabaseId?: string;
   name: string;
   type?: string;
   status?: string;
@@ -73,6 +77,7 @@ class CentralStructureService {
   private isSyncing = false;
   private tenantId: string | null = null;
   private unsubscribeListeners: Array<() => void> = [];
+  private supabaseSnapshotTimer: ReturnType<typeof setInterval> | null = null;
   private lastSynced: Date | null = null;
 
   // Cached data
@@ -110,61 +115,127 @@ class CentralStructureService {
     }));
   }
 
+  private async refreshSupabaseSnapshot(tenantId: string) {
+    try {
+      const snapshot = await listSupabaseBoardingSnapshot();
+      if (this.tenantId !== tenantId) return;
+
+      this.buildings = snapshot.structures.filter((item) => item.category === "Gedung");
+      const buildingsById = new Map(this.buildings.map((item) => [item.id, item]));
+      this.rooms = snapshot.structures
+        .filter((item) => item.category === "Kamar")
+        .map((room) => ({
+          ...room,
+          building: room.building || buildingsById.get(room.parentId || room.parentCode || "")?.name || "",
+          capacity: Number.isFinite(Number(room.capacity)) && Number(room.capacity) >= 0
+            ? Number(room.capacity)
+            : 0,
+          occupied: Number(room.occupied || 0),
+        }));
+      this.classes = snapshot.structures.filter((item) => item.category === "Kelas");
+      this.santriList = snapshot.students.map((student) => ({
+        id: student.id,
+        supabaseId: student.supabaseId,
+        name: student.name,
+        type: "Santri",
+        status: student.status,
+        gender: student.gender || undefined,
+        grade: student.grade || undefined,
+        nis: student.nis || undefined,
+        classId: student.classId || undefined,
+        roomId: student.roomId || undefined,
+        room: student.room || undefined,
+        dormitoryId: student.dormitoryId || undefined,
+        dormitory: student.dormitory || undefined,
+      }));
+      this.lastSynced = new Date();
+      this.notify();
+    } catch (error) {
+      console.warn("Supabase boarding snapshot failed:", error);
+    }
+  }
+
   private initRealtimeListeners(tenantId: string) {
     try {
+      if (USE_SUPABASE_BOARDING_CUTOVER) {
+        void this.refreshSupabaseSnapshot(tenantId);
+        this.supabaseSnapshotTimer = setInterval(
+          () => void this.refreshSupabaseSnapshot(tenantId),
+          30_000
+        );
+      }
+
+      const structureFilters: any[] = [
+        where("tenantId", "==", tenantId),
+      ];
+      if (USE_SUPABASE_BOARDING_CUTOVER) {
+        structureFilters.push(where("category", "in", ["Halaqah", "Mata Pelajaran", "Kurikulum"]));
+      }
       const structureQuery = query(
-        collection(db, 'master_data'),
-        where('tenantId', '==', tenantId)
+        collection(db, "master_data"),
+        ...structureFilters
       );
       this.unsubscribeListeners.push(onSnapshot(structureQuery, (snapshot) => {
         if (this.tenantId !== tenantId) return;
         const items = snapshot.docs.map((document) => ({ id: document.id, ...document.data() } as any));
-        const buildings = items.filter((item) => item.category === 'Gedung') as CentralStructureItem[];
-        const rooms = items.filter((item) => item.category === 'Kamar') as CentralStructureItem[];
+
+        if (USE_SUPABASE_BOARDING_CUTOVER) {
+          this.halaqahs = items.filter((item) => item.category === "Halaqah") as CentralStructureItem[];
+          this.subjects = items.filter((item) => item.category === "Mata Pelajaran") as CentralStructureItem[];
+          this.curricula = items.filter((item) => item.category === "Kurikulum") as CentralStructureItem[];
+          this.lastSynced = new Date();
+          this.notify();
+          return;
+        }
+
+        const buildings = items.filter((item) => item.category === "Gedung") as CentralStructureItem[];
+        const rooms = items.filter((item) => item.category === "Kamar") as CentralStructureItem[];
         this.buildings = buildings;
         this.rooms = rooms.map((room) => {
           const parent = this.buildings.find((building) => building.id === room.parentCode);
           const capacity = Number(room.capacity);
           return {
             ...room,
-            building: room.building || parent?.name || '',
+            building: room.building || parent?.name || "",
             capacity: Number.isFinite(capacity) && capacity >= 0 ? capacity : 0,
           };
         });
-        this.classes = items.filter((item) => item.category === 'Kelas') as CentralStructureItem[];
-        this.halaqahs = items.filter((item) => item.category === 'Halaqah') as CentralStructureItem[];
-        this.subjects = items.filter((item) => item.category === 'Mata Pelajaran') as CentralStructureItem[];
-        this.curricula = items.filter((item) => item.category === 'Kurikulum') as CentralStructureItem[];
+        this.classes = items.filter((item) => item.category === "Kelas") as CentralStructureItem[];
+        this.halaqahs = items.filter((item) => item.category === "Halaqah") as CentralStructureItem[];
+        this.subjects = items.filter((item) => item.category === "Mata Pelajaran") as CentralStructureItem[];
+        this.curricula = items.filter((item) => item.category === "Kurikulum") as CentralStructureItem[];
         this.recalculateOccupancies();
         this.lastSynced = new Date();
         this.notify();
-      }, (error) => console.warn('Tenant master data listener failed:', error)));
+      }, (error) => console.warn("Tenant master data listener failed:", error)));
 
-      const santriQuery = query(
-        collection(db, 'entityRecords'),
-        where('tenantId', '==', tenantId),
-        where('type', '==', 'Santri')
-      );
-      this.unsubscribeListeners.push(onSnapshot(santriQuery, (snapshot) => {
-        if (this.tenantId !== tenantId) return;
-        this.santriList = snapshot.docs.map((document) => ({ id: document.id, ...document.data() } as any));
-        this.recalculateOccupancies();
-        this.lastSynced = new Date();
-        this.notify();
-      }, (error) => console.warn('Tenant santri listener failed:', error)));
+      if (!USE_SUPABASE_BOARDING_CUTOVER) {
+        const santriQuery = query(
+          collection(db, "entityRecords"),
+          where("tenantId", "==", tenantId),
+          where("type", "==", "Santri")
+        );
+        this.unsubscribeListeners.push(onSnapshot(santriQuery, (snapshot) => {
+          if (this.tenantId !== tenantId) return;
+          this.santriList = snapshot.docs.map((document) => ({ id: document.id, ...document.data() } as any));
+          this.recalculateOccupancies();
+          this.lastSynced = new Date();
+          this.notify();
+        }, (error) => console.warn("Tenant santri listener failed:", error)));
+      }
 
       const teacherQuery = query(
-        collection(db, 'entityRecords'),
-        where('tenantId', '==', tenantId),
-        where('type', 'in', ['Guru', 'Asatidz'])
+        collection(db, "entityRecords"),
+        where("tenantId", "==", tenantId),
+        where("type", "in", ["Guru", "Asatidz"])
       );
       this.unsubscribeListeners.push(onSnapshot(teacherQuery, (snapshot) => {
         if (this.tenantId !== tenantId) return;
         this.teachers = snapshot.docs.map((document) => ({ id: document.id, ...document.data() } as any));
         this.notify();
-      }, (error) => console.warn('Tenant teacher listener failed:', error)));
+      }, (error) => console.warn("Tenant teacher listener failed:", error)));
     } catch (error) {
-      console.warn('Could not attach tenant-scoped listeners:', error);
+      console.warn("Could not attach tenant-scoped listeners:", error);
     }
   }
 
@@ -174,6 +245,8 @@ class CentralStructureService {
 
     this.unsubscribeListeners.forEach((unsubscribe) => unsubscribe());
     this.unsubscribeListeners = [];
+    if (this.supabaseSnapshotTimer) clearInterval(this.supabaseSnapshotTimer);
+    this.supabaseSnapshotTimer = null;
     this.tenantId = normalizedTenantId;
     this.buildings = [];
     this.rooms = [];
@@ -204,6 +277,10 @@ class CentralStructureService {
   }
 
   public notifyExternalUpdate() {
+    if (USE_SUPABASE_BOARDING_CUTOVER && this.tenantId) {
+      void this.refreshSupabaseSnapshot(this.tenantId);
+      return;
+    }
     this.recalculateOccupancies();
     this.notify();
   }
@@ -279,7 +356,46 @@ class CentralStructureService {
     if (!targetRoom) return { success: false, message: 'Kamar tidak ditemukan.' };
     const santriRef = doc(db, 'entityRecords', santriId);
     const roomRef = doc(db, 'master_data', targetRoom.id);
-    const linkedBuildingId = buildingId || targetRoom.parentId || targetRoom.parentCode || '';
+    const linkedBuildingId = buildingId || targetRoom.parentId || targetRoom.parentCode || "";
+
+    if (USE_SUPABASE_BOARDING_CUTOVER) {
+      const santri = this.santriList.find((item) => item.id === santriId || item.supabaseId === santriId);
+      if (!santri?.supabaseId) return { success: false, message: "Santri belum tersedia pada sumber Supabase tenant ini." };
+      try {
+        const result = await assignSupabaseStudentRoom(
+          santri.supabaseId,
+          targetRoom.id,
+          linkedBuildingId || null
+        );
+        const previousRoomId = santri.roomId || "";
+        const assignedRoomId = result.roomId || targetRoom.id;
+        const assignedBuildingId = result.buildingId || linkedBuildingId || "";
+        const assignedBuilding = this.buildings.find((item) => item.id === assignedBuildingId);
+        this.santriList = this.santriList.map((item) => item.id === santri.id ? {
+          ...item,
+          roomId: assignedRoomId,
+          room: targetRoom.name,
+          dormitoryId: assignedBuildingId || undefined,
+          dormitory: assignedBuilding?.name || targetRoom.building || "",
+        } : item);
+        this.rooms = this.rooms.map((room) => {
+          if (room.id === assignedRoomId) {
+            return { ...room, occupied: Number(result.occupied ?? room.occupied ?? 0) };
+          }
+          if (previousRoomId && previousRoomId !== assignedRoomId && room.id === previousRoomId) {
+            return { ...room, occupied: Math.max(0, Number(room.occupied || 0) - 1) };
+          }
+          return room;
+        });
+        this.lastSynced = new Date();
+        this.notify();
+        return { success: true, message: "Santri berhasil dialokasikan ke " + targetRoom.name + "." };
+      } catch (error: any) {
+        return { success: false, message: error?.message || "Alokasi kamar Supabase gagal dan tidak disimpan." };
+      }
+    }
+
+    const santriRef = doc(db, 'entityRecords', santriId);
     const buildingRef = linkedBuildingId ? doc(db, 'master_data', linkedBuildingId) : null;
 
     try {
@@ -359,6 +475,28 @@ class CentralStructureService {
     if (!tenantId) return false;
     const localSantri = this.santriList.find((santri) => santri.id === santriId);
     if (!localSantri) return false;
+    if (USE_SUPABASE_BOARDING_CUTOVER) {
+      if (!localSantri.supabaseId) return false;
+      try {
+        const result = await assignSupabaseStudentRoom(localSantri.supabaseId, null, null);
+        this.santriList = this.santriList.map((santri) => {
+          if (santri.id !== localSantri.id) return santri;
+          const { roomId, room, dormitoryId, dormitory, ...rest } = santri;
+          return rest as CentralEntityItem;
+        });
+        const previousRoomId = result.previousRoomId || localSantri.roomId || "";
+        this.rooms = this.rooms.map((item) => item.id === previousRoomId
+          ? { ...item, occupied: Number(result.occupied ?? Math.max(0, Number(item.occupied || 0) - 1)) }
+          : item);
+        this.lastSynced = new Date();
+        this.notify();
+        return true;
+      } catch (error) {
+        console.warn("Could not remove room assignment in Supabase:", error);
+        return false;
+      }
+    }
+
     const santriRef = doc(db, 'entityRecords', santriId);
     const room = this.rooms.find((item) => item.id === localSantri.roomId || (!localSantri.roomId && item.name === localSantri.room));
     const assignedRoomId = localSantri.roomId || room?.id || '';
