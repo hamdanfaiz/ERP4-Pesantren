@@ -124,7 +124,7 @@ function mapBilling(row: JsonObject, tenantIdentifier: string): SupabaseFinanceB
   };
 }
 
-async function loadBillingRows(tenantId: string, studentRef?: string) {
+async function loadBillingRows(tenantId: string, studentRef?: string, ppdbOnly = false) {
   const all: JsonObject[] = [];
   const pageSize = 1000;
   for (let offset = 0; offset < 10000; offset += pageSize) {
@@ -136,6 +136,10 @@ async function loadBillingRows(tenantId: string, studentRef?: string) {
       offset: String(offset),
     });
     if (studentRef) params.set("student_ref", "eq." + studentRef);
+    if (ppdbOnly) {
+      params.set("candidate_id", "not.is.null");
+      params.set("payment_type", "not.is.null");
+    }
     const rows = await supabaseRequest("/rest/v1/finance_billings?" + params.toString());
     if (!Array.isArray(rows)) throw new SupabasePpdbAdminError(503, "Data keuangan Supabase belum dapat dibaca.");
     all.push(...rows);
@@ -144,9 +148,9 @@ async function loadBillingRows(tenantId: string, studentRef?: string) {
   throw new SupabasePpdbAdminError(503, "Data keuangan melebihi batas halaman migrasi yang didukung.");
 }
 
-export async function listSupabaseFinanceBillings(tenantIdentifier: string, studentRef?: string) {
+export async function listSupabaseFinanceBillings(tenantIdentifier: string, studentRef?: string, ppdbOnly = false) {
   const tenantId = await resolveTenantId(tenantIdentifier);
-  const rows = await loadBillingRows(tenantId, studentRef);
+  const rows = await loadBillingRows(tenantId, studentRef, ppdbOnly);
   return rows.map((row) => mapBilling(row, tenantIdentifier));
 }
 
