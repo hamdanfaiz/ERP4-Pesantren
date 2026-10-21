@@ -1,0 +1,275 @@
+import { SupabasePpdbAdminError } from "./supabasePpdbAdmin";
+
+type JsonObject = Record<string, any>;
+
+export class SupabaseTahfidzError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "SupabaseTahfidzError";
+    this.status = status;
+  }
+}
+
+function serviceConfig() {
+  const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!baseUrl || !serviceKey) {
+    throw new SupabaseTahfidzError(503, "Konfigurasi backend Supabase belum lengkap.");
+  }
+  return { baseUrl, serviceKey };
+}
+
+async function supabaseRequest(path: string, init: RequestInit = {}) {
+  const config = serviceConfig();
+  const headers = new Headers(init.headers || {});
+  headers.set("apikey", config.serviceKey);
+  headers.set("Authorization", "Bearer " + config.serviceKey);
+  headers.set("Accept", "application/json");
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const response = await fetch(config.baseUrl + path, { ...init, headers, cache: "no-store" });
+  const raw = await response.text();
+  let body: any = null;
+  if (raw) {
+    try { body = JSON.parse(raw); } catch { body = null; }
+  }
+  if (!response.ok) {
+    const code = String(body?.code || "");
+    if (["23505", "23503", "23514"].includes(code) || response.status === 409) {
+      throw new SupabaseTahfidzError(409, body?.message || "Data Tahfidz bertentangan dengan data tenant.");
+    }
+    if (code === "22023" || response.status === 400) {
+      throw new SupabaseTahfidzError(400, body?.message || "Data Tahfidz tidak valid.");
+    }
+    if (code === "P0002" || response.status === 404) {
+      throw new SupabaseTahfidzError(404, body?.message || "Data Tahfidz tidak ditemukan pada tenant ini.");
+    }
+    if (code === "42501" || response.status === 403) {
+      throw new SupabaseTahfidzError(403, "Operasi Tahfidz ditolak oleh kebijakan tenant.");
+    }
+    throw new SupabaseTahfidzError(503, "Layanan Supabase Tahfidz belum dapat diproses.");
+  }
+  return body;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+async function resolveTenantId(identifier: string) {
+  const normalized = String(identifier || "").trim();
+  if (!normalized) throw new SupabaseTahfidzError(403, "Tenant aktif tidak ditemukan.");
+  const params = new URLSearchParams({ select: "id,slug,status", limit: "2" });
+  if (isUuid(normalized)) params.set("id", "eq." + normalized);
+  else params.set("slug", "eq." + normalized.toLowerCase());
+  const rows = await supabaseRequest("/rest/v1/tenants?" + params.toString());
+  if (!Array.isArray(rows) || rows.length !== 1 || String(rows[0]?.status || "").toLowerCase() !== "active") {
+    throw new SupabaseTahfidzError(403, "Tenant aktif tidak ditemukan di Supabase.");
+  }
+  return String(rows[0].id);
+}
+
+async function listRows(table: string, tenantId: string, select: string, order: string, extra: Record<string, string> = {}) {
+  const rows: JsonObject[] = [];
+  const pageSize = 500;
+  for (let offset = 0; offset < 5000; offset += pageSize) {
+    const params = new URLSearchParams({
+      select,
+      tenant_id: "eq." + tenantId,
+      order,
+      limit: String(pageSize),
+      offset: String(offset),
+      ...extra,
+    });
+    const page = await supabaseRequest("/rest/v1/" + table + "?" + params.toString());
+    if (!Array.isArray(page)) throw new SupabaseTahfidzError(503, "Snapshot Tahfidz belum dapat dimuat.");
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+  throw new SupabaseTahfidzError(503, "Snapshot Tahfidz melebihi batas yang didukung. Gunakan paginasi sebelum melanjutkan.");
+}
+
+export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const [halaqahs, memberships, students, records, targets] = await Promise.all([
+    listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", { status: "eq.active" }),
+    listRows("tahfidz_memberships", tenantId, "id,halaqah_id,student_id,starts_on,status", "starts_on.asc,id.asc", { status: "eq.active" }),
+    listRows("students", tenantId, "id,nis,name,gender,grade,class_id,status", "name.asc,id.asc", { status: "neq.Archived" }),
+    listRows("tahfidz_records", tenantId, "id,student_id,halaqah_id,activity_type,surah_name,ayah_start,ayah_end,fluency_grade,tajweed_grade,notes,performed_at,recorded_by_name", "performed_at.desc,id.desc"),
+    listRows("tahfidz_targets", tenantId, "id,student_id,period_start,period_end,ziyadah_pages_per_day,murojaah_pages_per_day,target_policy,status", "period_start.desc,id.desc", { status: "eq.active" }),
+  ]);
+
+  const studentById = new Map<string, JsonObject>();
+  for (const student of students) studentById.set(String(student.id), student);
+  const membershipsByStudent = new Map<string, JsonObject>();
+  const studentsByHalaqah = new Map<string, JsonObject[]>();
+  for (const membership of memberships) {
+    const studentId = String(membership.student_id || "");
+    const halaqahId = String(membership.halaqah_id || "");
+    const student = studentById.get(studentId);
+    if (!student) continue;
+    membershipsByStudent.set(studentId, membership);
+    const members = studentsByHalaqah.get(halaqahId) || [];
+    members.push(student);
+    studentsByHalaqah.set(halaqahId, members);
+  }
+
+  const targetByStudent = new Map<string, JsonObject>();
+  for (const target of targets) targetByStudent.set(String(target.student_id), target);
+  const roster = students.map((student) => {
+    const membership = membershipsByStudent.get(String(student.id));
+    const halaqah = halaqahs.find((item) => String(item.id) === String(membership?.halaqah_id || ""));
+    const target = targetByStudent.get(String(student.id));
+    return {
+      id: String(student.id),
+      nis: String(student.nis || ""),
+      name: String(student.name || ""),
+      gender: student.gender || null,
+      grade: student.grade || "",
+      classId: student.class_id || null,
+      halaqahId: halaqah ? String(halaqah.id) : null,
+      halaqah: halaqah ? String(halaqah.name) : "",
+      target: target ? {
+        periodStart: target.period_start,
+        periodEnd: target.period_end || null,
+        ziyadahPagesPerDay: Number(target.ziyadah_pages_per_day || 0),
+        murojaahPagesPerDay: Number(target.murojaah_pages_per_day || 0),
+        policy: String(target.target_policy || "standard"),
+      } : null,
+    };
+  });
+
+  const recentRecords = records.map((record) => {
+    const student = studentById.get(String(record.student_id || ""));
+    return {
+      id: String(record.id),
+      studentId: String(record.student_id),
+      studentName: String(student?.name || "Santri tidak tersedia"),
+      nis: String(student?.nis || ""),
+      halaqahId: String(record.halaqah_id),
+      activityType: String(record.activity_type),
+      surah: String(record.surah_name),
+      ayahStart: Number(record.ayah_start),
+      ayahEnd: Number(record.ayah_end),
+      fluency: record.fluency_grade || null,
+      tajweed: record.tajweed_grade || null,
+      notes: record.notes || "",
+      performedAt: String(record.performed_at),
+      recordedByName: record.recorded_by_name || "",
+    };
+  });
+
+  return {
+    halaqahs: halaqahs.map((halaqah) => ({
+      id: String(halaqah.id),
+      name: String(halaqah.name),
+      ustadzUserId: halaqah.ustadz_user_id || null,
+      ustadz: String(halaqah.ustadz_name || ""),
+      schedule: halaqah.schedule_text || "",
+      room: halaqah.room_text || "",
+      dailyTargetPages: Number(halaqah.daily_target_pages || 0),
+      students: (studentsByHalaqah.get(String(halaqah.id)) || []).map((student) => ({
+        id: String(student.id), name: String(student.name || ""), nis: String(student.nis || ""),
+      })),
+    })),
+    roster,
+    records: recentRecords,
+  };
+}
+
+function boundedText(value: unknown, max: number, label: string, required = false) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if ((required && !text) || text.length > max) throw new SupabaseTahfidzError(400, label + " tidak valid.");
+  return text;
+}
+
+function validGrade(value: unknown, label: string) {
+  if (value == null || value === "") return null;
+  const grade = String(value).trim();
+  if (!["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D", "N/A"].includes(grade)) {
+    throw new SupabaseTahfidzError(400, label + " tidak valid.");
+  }
+  return grade;
+}
+
+function parseAyahRange(value: unknown): { start: number; end: number } {
+  const text = typeof value === "string" ? value.trim() : "";
+  const match = text.match(/^([1-9]\d{0,2})(?:\s*-\s*([1-9]\d{0,2}))?$/);
+  if (!match) throw new SupabaseTahfidzError(400, "Rentang ayat tidak valid.");
+  const start = Number(match[1]);
+  const end = Number(match[2] || match[1]);
+  if (end < start || end > 286) throw new SupabaseTahfidzError(400, "Rentang ayat tidak valid.");
+  return { start, end };
+}
+
+export async function recordSupabaseTahfidzSetoran(
+  tenantIdentifier: string,
+  legacyFirebaseUid: string,
+  recordedByName: string,
+  payloadValue: unknown
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
+    throw new SupabaseTahfidzError(401, "Sesi pengguna tidak valid.");
+  }
+  if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
+    throw new SupabaseTahfidzError(400, "Data setoran tidak valid.");
+  }
+  const payload = payloadValue as JsonObject;
+  const studentId = String(payload.studentId || "").trim();
+  const halaqahId = String(payload.halaqahId || "").trim();
+  if (!isUuid(studentId) || !isUuid(halaqahId)) throw new SupabaseTahfidzError(400, "Santri dan halaqah wajib dipilih.");
+  const activityType = String(payload.activityType || "").trim();
+  if (!["Ziyadah", "Muroja'ah", "Tasmi'", "Tasmik"].includes(activityType)) {
+    throw new SupabaseTahfidzError(400, "Jenis setoran tidak valid.");
+  }
+  const surahName = boundedText(payload.surahName, 100, "Nama surah", true);
+  const { start, end } = parseAyahRange(payload.ayahRange);
+  const fluencyGrade = validGrade(payload.fluencyGrade, "Nilai kelancaran");
+  const tajweedGrade = validGrade(payload.tajweedGrade, "Nilai tajwid");
+  const notes = boundedText(payload.notes, 2000, "Catatan");
+  const requestId = String(payload.clientRequestId || "").trim();
+  if (!isUuid(requestId)) throw new SupabaseTahfidzError(400, "Kunci permintaan setoran tidak valid.");
+  const performedAtRaw = typeof payload.performedAt === "string" ? payload.performedAt : "";
+  const performedAt = performedAtRaw && Number.isFinite(Date.parse(performedAtRaw))
+    ? new Date(performedAtRaw).toISOString()
+    : "";
+  if (!performedAt) throw new SupabaseTahfidzError(400, "Waktu setoran tidak valid.");
+
+  const actor = await supabaseRequest("/rest/v1/rpc/resolve_legacy_auth_profile", {
+    method: "POST",
+    body: JSON.stringify({
+      p_legacy_provider: "firebase",
+      p_legacy_subject: legacyFirebaseUid,
+      p_tenant_id: tenantId,
+    }),
+  });
+  const supabaseUserId = String(actor || "");
+  if (!isUuid(supabaseUserId)) {
+    throw new SupabaseTahfidzError(403, "Akun belum dipetakan ke profil Supabase Auth aktif.");
+  }
+
+  const result = await supabaseRequest("/rest/v1/rpc/record_tahfidz_setoran", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_student_id: studentId,
+      p_halaqah_id: halaqahId,
+      p_activity_type: activityType,
+      p_surah_name: surahName,
+      p_ayah_start: start,
+      p_ayah_end: end,
+      p_fluency_grade: fluencyGrade,
+      p_tajweed_grade: tajweedGrade,
+      p_notes: notes || null,
+      p_performed_at: performedAt,
+      p_recorded_by_user_id: supabaseUserId,
+      p_recorded_by_name: boundedText(recordedByName, 180, "Nama pencatat"),
+      p_client_request_id: requestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi pencatatan setoran.");
+  }
+  return result as JsonObject;
+}
