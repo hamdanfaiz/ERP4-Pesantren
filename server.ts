@@ -12,7 +12,7 @@ import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
 import { deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures } from "./server/supabaseOnboarding";
-import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment } from "./server/supabaseFinance";
+import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment, readSupabaseFinanceProof, uploadSupabaseFinanceProof } from "./server/supabaseFinance";
 
 dotenv.config();
 
@@ -998,6 +998,82 @@ async function startServer() {
       const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
       if (status >= 500) console.error("Supabase finance billing migration failed:", err?.message || "unknown error");
       return res.status(status).json({ error: status >= 500 ? "Tagihan belum dapat dimigrasikan ke Supabase." : err.message });
+    }
+  });
+
+  // New proofs for Supabase-backed billing are stored in the private Supabase Storage bucket.
+  app.post("/api/finance/supabase/payment-proofs", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Profil pengguna belum dapat diverifikasi." });
+    const uid = (req as any).user?.uid;
+    if (!uid || !consumePaymentProofUploadLimit(uid)) {
+      res.setHeader("Retry-After", "900");
+      return res.status(429).json({ error: "Batas unggahan bukti pembayaran sementara tercapai." });
+    }
+    try {
+      const actor = await loadFinanceProofActor(services.db, uid);
+      const billingId = typeof req.body?.billingId === "string" ? req.body.billingId.trim() : "";
+      if (!billingId || billingId.length > 180 || billingId.includes("/")) {
+        return res.status(400).json({ error: "ID tagihan tidak valid." });
+      }
+      const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType : "";
+      if (!["image/png", "image/jpeg", "application/pdf"].includes(mimeType)) {
+        return res.status(400).json({ error: "Format bukti harus PNG, JPG, atau PDF." });
+      }
+      const base64 = typeof req.body?.base64 === "string" ? req.body.base64 : "";
+      const maxBytes = 3 * 1024 * 1024;
+      const maxEncodedLength = Math.ceil(maxBytes / 3) * 4;
+      if (!base64 || base64.length > maxEncodedLength || base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+        return res.status(400).json({ error: "Ukuran atau encoding berkas tidak valid. Maksimal 3 MB." });
+      }
+      const bytes = Buffer.from(base64, "base64");
+      if (!bytes.length || bytes.length > maxBytes || bytes.toString("base64") !== base64 || detectPaymentProofMime(bytes) !== mimeType) {
+        return res.status(400).json({ error: "Isi berkas tidak cocok dengan tipe PNG, JPG, atau PDF." });
+      }
+      const payChannel = typeof req.body?.payChannel === "string" ? req.body.payChannel.trim() : "";
+      if (!["BSI", "Muamalat", "MandiriSyariah"].includes(payChannel)) {
+        return res.status(400).json({ error: "Metode transfer tidak valid." });
+      }
+      const result = await uploadSupabaseFinanceProof(
+        actor.tenantId,
+        billingId,
+        actor.role === "Walisantri" ? actor.linkedSantriId : "",
+        safePaymentProofName(req.body?.fileName),
+        mimeType,
+        base64,
+        "Transfer Manual (" + payChannel + ")",
+        uid
+      );
+      return res.status(201).json({ ok: true, ...result });
+    } catch (error: any) {
+      const status = error instanceof SupabasePpdbAdminError ? error.status : 503;
+      if (status >= 500) console.error("Supabase payment proof upload failed:", error?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Bukti pembayaran belum dapat disimpan." : error.message });
+    }
+  });
+
+  app.get("/api/finance/supabase/payment-proofs/:billingId", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Profil pengguna belum dapat diverifikasi." });
+    try {
+      const uid = (req as any).user?.uid;
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceProofActor(services.db, uid);
+      const proof = await readSupabaseFinanceProof(
+        actor.tenantId,
+        req.params.billingId,
+        actor.role === "Walisantri" ? actor.linkedSantriId : undefined
+      );
+      res.setHeader("Content-Type", proof.mimeType);
+      res.setHeader("Content-Disposition", 'inline; filename="' + safePaymentProofName(proof.fileName) + '"');
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(proof.bytes);
+    } catch (error: any) {
+      const status = error instanceof SupabasePpdbAdminError ? error.status : 503;
+      if (status >= 500) console.error("Supabase payment proof read failed:", error?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Bukti pembayaran belum dapat dibuka." : error.message });
     }
   });
 
