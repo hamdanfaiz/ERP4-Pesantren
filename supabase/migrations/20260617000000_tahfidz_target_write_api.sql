@@ -62,7 +62,7 @@ BEGIN
     OR p_ziyadah_pages_per_day IS NULL OR p_ziyadah_pages_per_day < 0 OR p_ziyadah_pages_per_day > 100
     OR p_murojaah_pages_per_day IS NULL OR p_murojaah_pages_per_day < 0 OR p_murojaah_pages_per_day > 100
     OR (p_ziyadah_pages_per_day = 0 AND p_murojaah_pages_per_day = 0)
-    OR p_target_policy NOT IN ('standard', 'strict')
+    OR p_target_policy IS NULL OR p_target_policy NOT IN ('standard', 'strict')
     OR length(COALESCE(p_notes, '')) > 1000 THEN
     RAISE EXCEPTION 'Data target harian Tahfidz tidak valid' USING ERRCODE = '22023';
   END IF;
