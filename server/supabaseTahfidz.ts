@@ -510,8 +510,9 @@ export async function migrateSupabaseTahfidzConfiguration(
     plannedMemberships.push(planned);
     const existingBySource = membershipBySource.get(sourceId);
     if (existingBySource) {
+      const existingHalaqahId = String(existingHalaqahBySource.get(String(halaqah.sourceRecordId))?.id || "");
       if (String(existingBySource.student_id) !== studentId
-        || String(existingBySource.halaqah_id) !== String((halaqah as JsonObject).id || "")
+        || !existingHalaqahId || String(existingBySource.halaqah_id) !== existingHalaqahId
         || String(existingBySource.starts_on) !== startsOn
         || existingBySource.status !== "active"
         || existingBySource.ends_on) {
