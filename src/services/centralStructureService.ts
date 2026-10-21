@@ -398,6 +398,7 @@ class CentralStructureService {
     }
 
     const santriRef = doc(db, 'entityRecords', santriId);
+    const roomRef = doc(db, 'master_data', targetRoom.id);
     const buildingRef = linkedBuildingId ? doc(db, 'master_data', linkedBuildingId) : null;
 
     try {
