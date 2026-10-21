@@ -23,6 +23,24 @@ import { systemSettingsService, SystemSettings } from "../services/systemSetting
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { CandidatePDFDocument } from "./CandidatePDFCard";
 
+async function fileToBase64(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function ppdbFileMimeType(file: File) {
+  if (file.type === "application/pdf" || file.type === "image/jpeg" || file.type === "image/png") return file.type;
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".png")) return "image/png";
+  return "";
+}
+
 interface PublicRegistrationFormProps {
   onClose: () => void;
   onSubmit?: (data: Candidate) => void;
@@ -50,6 +68,7 @@ export function PublicRegistrationForm({
   });
 
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, string>>({});
+  const [selectedDocumentFiles, setSelectedDocumentFiles] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPublicRegistrationAvailable, setIsPublicRegistrationAvailable] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -87,7 +106,18 @@ export function PublicRegistrationForm({
     file: File | null
   ) => {
     if (!file) return;
+    const mimeType = ppdbFileMimeType(file);
+    if (!mimeType) {
+      setSubmitError("Dokumen harus berupa PDF, JPG, atau PNG.");
+      return;
+    }
+    if (file.size <= 0 || file.size > 2 * 1024 * 1024) {
+      setSubmitError("Ukuran setiap dokumen maksimal 2 MB.");
+      return;
+    }
+    setSubmitError(null);
     setUploadedFiles((prev) => ({ ...prev, [key]: file.name }));
+    setSelectedDocumentFiles((prev) => ({ ...prev, [String(key)]: file }));
     setFormData((prev) => ({
       ...prev,
       documents: {
@@ -101,6 +131,11 @@ export function PublicRegistrationForm({
     e.preventDefault();
     if (!isPublicRegistrationAvailable) {
       setSubmitError("Pendaftaran online belum dibuka atau layanan server belum dikonfigurasi. Silakan hubungi panitia pesantren.");
+      return;
+    }
+    const requiredDocuments = ["kk", "birthCertificate", "pasPhoto"];
+    if (requiredDocuments.some((key) => !selectedDocumentFiles[key])) {
+      setSubmitError("Unggah Kartu Keluarga, Akta Kelahiran, dan Pas Foto sebelum mengirim pendaftaran.");
       return;
     }
     setIsSubmitting(true);
@@ -120,9 +155,17 @@ export function PublicRegistrationForm({
     };
 
     try {
+      const documents: Record<string, { base64: string; mimeType: string; fileName: string }> = {};
+      for (const [key, file] of Object.entries(selectedDocumentFiles)) {
+        documents[key] = {
+          base64: await fileToBase64(file),
+          mimeType: ppdbFileMimeType(file),
+          fileName: file.name,
+        };
+      }
       const response = await fetch("/api/public/ppdb/registrations", {
         method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ candidate }),
+        body: JSON.stringify({ candidate, documents }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Gagal menyimpan data pendaftaran. Silakan coba kembali.");
@@ -560,7 +603,7 @@ export function PublicRegistrationForm({
                           <div className="relative">
                             <input
                               type="file"
-                              accept=".pdf,image/*"
+                              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                               onChange={(e) =>
                                 handleFileUpload(key, e.target.files?.[0] || null)
                               }
