@@ -700,6 +700,10 @@ export function TahfidzManager() {
   };
   const todayKey = localDateKey(new Date());
   const recordsToday = records.filter((record) => record.date === todayKey);
+  const todaySetoranCounts = new Map<string, number>();
+  for (const record of recordsToday) {
+    if (record.studentId) todaySetoranCounts.set(record.studentId, (todaySetoranCounts.get(record.studentId) || 0) + 1);
+  }
   const studentsSubmittingToday = new Set(
     recordsToday.map((record) => record.studentId || record.santriName).filter(Boolean),
   ).size;
@@ -709,6 +713,16 @@ export function TahfidzManager() {
   const recordsLast30Days = records.filter(
     (record) => record.date >= localDateKey(thirtyDaysAgo) && record.date <= todayKey,
   );
+  const recentSetoranCounts = new Map<string, number>();
+  for (const record of recordsLast30Days) {
+    if (record.studentId) recentSetoranCounts.set(record.studentId, (recentSetoranCounts.get(record.studentId) || 0) + 1);
+  }
+  const latestSetoranByStudent = new Map<string, any>();
+  for (const record of records) {
+    if (record.studentId && !latestSetoranByStudent.has(record.studentId)) {
+      latestSetoranByStudent.set(record.studentId, record);
+    }
+  }
   const weeklySetoranData = Array.from({ length: 7 }, (_, index) => {
     const dayDate = new Date();
     dayDate.setHours(0, 0, 0, 0);
@@ -724,10 +738,8 @@ export function TahfidzManager() {
     };
   });
 
-  const getLatestSetoranForStudent = (studentId: string) =>
-    records.find((record) => record.studentId === studentId);
-  const getRecentSetoranCountForStudent = (studentId: string) =>
-    recordsLast30Days.filter((record) => record.studentId === studentId).length;
+  const getLatestSetoranForStudent = (studentId: string) => latestSetoranByStudent.get(studentId);
+  const getRecentSetoranCountForStudent = (studentId: string) => recentSetoranCounts.get(studentId) || 0;
 
   const renderHalaqahManagement = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1619,7 +1631,7 @@ export function TahfidzManager() {
                   <td className="px-4 py-3">
                     {SUPABASE_TAHFIDZ_CUTOVER ? (
                       <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                        {recordsToday.filter((record) => record.studentId === santri.id).length} setoran
+                        {todaySetoranCounts.get(santri.id) || 0} setoran
                       </span>
                     ) : (
                       <div className="flex items-center gap-2">
