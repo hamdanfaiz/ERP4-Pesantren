@@ -550,7 +550,18 @@ export async function listSupabaseBoardingSnapshot(tenantIdentifier: string): Pr
     all.push(...rows);
     if (rows.length < pageSize) break;
     if (offset + pageSize >= 10000) {
-      throw new SupabasePpdbAdminError(503, "Jumlah data santri melebihi batas snapshot 10.000 record.");
+      const overflowParams = new URLSearchParams({
+        select: "id",
+        tenant_id: "eq." + tenantId,
+        limit: "1",
+        offset: "10000",
+      });
+      const overflow = await supabaseRequest("/rest/v1/students?" + overflowParams.toString());
+      if (!Array.isArray(overflow)) throw new SupabasePpdbAdminError(503, "Jumlah data santri belum dapat diverifikasi.");
+      if (overflow.length > 0) {
+        throw new SupabasePpdbAdminError(503, "Jumlah data santri melebihi batas snapshot 10.000 record.");
+      }
+      break;
     }
   }
 
