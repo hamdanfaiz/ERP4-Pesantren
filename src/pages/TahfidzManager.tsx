@@ -60,6 +60,81 @@ import {
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebase";
 
+const SUPABASE_TAHFIDZ_CUTOVER = import.meta.env.VITE_SUPABASE_TAHFIDZ_CUTOVER === "true";
+
+function createTahfidzRequestId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function requestSupabaseTahfidzApi(path: string, init: RequestInit = {}) {
+  if (!auth.currentUser) throw new Error("Sesi login tidak tersedia. Silakan masuk kembali.");
+  const token = await auth.currentUser.getIdToken();
+  const headers = new Headers(init.headers || {});
+  headers.set("Authorization", "Bearer " + token);
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const response = await fetch(path, { ...init, headers, cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Data Tahfidz belum dapat diproses.");
+  return payload;
+}
+
+function mapSupabaseTahfidzSnapshot(snapshot: any) {
+  const roster = Array.isArray(snapshot?.roster) ? snapshot.roster : [];
+  const halaqahs = Array.isArray(snapshot?.halaqahs) ? snapshot.halaqahs : [];
+  const records = Array.isArray(snapshot?.records) ? snapshot.records : [];
+  const mappedSantri = roster.map((student: any) => ({
+    id: String(student.id),
+    nis: String(student.nis || ""),
+    name: String(student.name || ""),
+    grade: String(student.grade || ""),
+    halaqahId: student.halaqahId ? String(student.halaqahId) : "",
+    halaqah: String(student.halaqah || ""),
+    juz: null,
+    status: "Belum ada analitik hafalan",
+    progress: 0,
+    lastSetoran: "-",
+    score: null,
+    target: student.target || null,
+  }));
+  const mappedHalaqahs = halaqahs.map((halaqah: any) => ({
+    id: String(halaqah.id),
+    name: String(halaqah.name || ""),
+    ustadz: String(halaqah.ustadz || ""),
+    schedule: String(halaqah.schedule || ""),
+    room: String(halaqah.room || ""),
+    target: `Ziyadah ${Number(halaqah.dailyTargetPages || 0)} halaman/hari`,
+    dailyTargetPages: Number(halaqah.dailyTargetPages || 0),
+  }));
+  const mappedRecords = records.map((record: any) => {
+    const performedAt = new Date(record.performedAt);
+    const isValidDate = Number.isFinite(performedAt.getTime());
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return {
+      id: String(record.id),
+      studentId: String(record.studentId || ""),
+      halaqahId: String(record.halaqahId || ""),
+      date: isValidDate ? `${performedAt.getFullYear()}-${pad(performedAt.getMonth() + 1)}-${pad(performedAt.getDate())}` : "",
+      time: isValidDate ? `${pad(performedAt.getHours())}:${pad(performedAt.getMinutes())}` : "",
+      santriName: String(record.studentName || "Santri tidak tersedia"),
+      nis: String(record.nis || ""),
+      type: String(record.activityType || ""),
+      surah: String(record.surah || ""),
+      ayat: record.ayahStart === record.ayahEnd ? String(record.ayahStart) : `${record.ayahStart}-${record.ayahEnd}`,
+      fluency: record.fluency || "-",
+      tajweed: record.tajweed || "-",
+      notes: String(record.notes || ""),
+      ust: String(record.recordedByName || ""),
+    };
+  });
+  return { roster: mappedSantri, halaqahs: mappedHalaqahs, records: mappedRecords };
+}
+
 // Mock Data
 const SANTRI_DATA = [
   {
@@ -411,10 +486,62 @@ export function TahfidzManager() {
   const [halaqahList, setHalaqahList] = useState<any[]>([]);
   const [selectedHalaqahFilter, setSelectedHalaqahFilter] =
     useState("Semua Halaqah");
-  const [santriList, setSantriList] = useState<any[]>(SANTRI_DATA);
+  const [santriList, setSantriList] = useState<any[]>(
+    SUPABASE_TAHFIDZ_CUTOVER ? [] : santriList,
+  );
+  const [records, setRecords] = useState<any[]>(
+    SUPABASE_TAHFIDZ_CUTOVER ? [] : INITIAL_RECORDS,
+  );
+  const [isTahfidzDataLoading, setIsTahfidzDataLoading] = useState(SUPABASE_TAHFIDZ_CUTOVER);
+  const [isSavingTahfidzRecord, setIsSavingTahfidzRecord] = useState(false);
+  const [tahfidzDataError, setTahfidzDataError] = useState("");
+  const pendingRecordRequestRef = React.useRef<{ fingerprint: string; id: string } | null>(null);
+  const [formData, setFormData] = useState<any>({
+    type: "Ziyadah",
+    fluency: "A",
+    tajweed: "A",
+  });
+
+  const loadSupabaseTahfidzSnapshot = async () => {
+    const snapshot = await requestSupabaseTahfidzApi("/api/tahfidz/snapshot");
+    const mapped = mapSupabaseTahfidzSnapshot(snapshot);
+    setHalaqahList(mapped.halaqahs);
+    setSantriList(mapped.roster);
+    setRecords(mapped.records);
+    return mapped;
+  };
 
   useEffect(() => {
-    // Fetch Halaqah
+    if (SUPABASE_TAHFIDZ_CUTOVER) {
+      let cancelled = false;
+      setIsTahfidzDataLoading(true);
+      setTahfidzDataError("");
+      setHalaqahList([]);
+      setSantriList([]);
+      setRecords([]);
+      if (!user?.tenantId || !user?.uid || user?.modulePermissions?.tahfidz === false) {
+        setTahfidzDataError("Akses Tahfidz atau identitas tenant belum tersedia.");
+        setIsTahfidzDataLoading(false);
+        return () => { cancelled = true; };
+      }
+      requestSupabaseTahfidzApi("/api/tahfidz/snapshot")
+        .then((snapshot) => {
+          if (cancelled) return;
+          const mapped = mapSupabaseTahfidzSnapshot(snapshot);
+          setHalaqahList(mapped.halaqahs);
+          setSantriList(mapped.roster);
+          setRecords(mapped.records);
+        })
+        .catch((error: any) => {
+          if (!cancelled) setTahfidzDataError(error?.message || "Data Tahfidz Supabase belum dapat dimuat.");
+        })
+        .finally(() => {
+          if (!cancelled) setIsTahfidzDataLoading(false);
+        });
+      return () => { cancelled = true; };
+    }
+
+    // Transitional legacy source, tenant scoped until the Supabase runtime is enabled.
     const qHalaqah = tenantScopedQuery(collection(db, "master_data"), user?.tenantId, where("category", "==", "Halaqah"));
     const unsubHalaqah = onSnapshot(qHalaqah, (snapshot) => {
       const h: any[] = [];
@@ -424,33 +551,32 @@ export function TahfidzManager() {
       setHalaqahList(h);
     });
 
-    // Fetch Santri
-    const canReadSantriList = ['Admin', 'SuperAdmin', 'Ustadz'].includes(role) && user?.modulePermissions?.tahfidz !== false;
+    const canReadSantriList = ["Admin", "SuperAdmin", "Ustadz"].includes(role) && user?.modulePermissions?.tahfidz !== false;
     let unsubSantri: () => void = () => {};
     if (canReadSantriList) {
       const qSantri = tenantScopedQuery(collection(db, "entityRecords"), user?.tenantId, where("type", "==", "Santri"));
       unsubSantri = onSnapshot(qSantri, (snapshot) => {
-      const s: any[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data() as Record<string, any>;
-        s.push({
-          id: doc.id,
-          nis: data.id || "N/A",
-          name: data.name,
-          grade: data.gradeOrDepartment || "N/A",
-          halaqah: data.halaqah || "Abu Bakar", // Fallback to mock halaqah if none assigned
-          juz: 0,
-          status: "on-track",
-          progress: 0,
-          lastSetoran: "-",
-          score: 0,
+        const s: any[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data() as Record<string, any>;
+          s.push({
+            id: doc.id,
+            nis: data.id || "N/A",
+            name: data.name,
+            grade: data.gradeOrDepartment || "N/A",
+            halaqah: data.halaqah || "Abu Bakar",
+            juz: 0,
+            status: "on-track",
+            progress: 0,
+            lastSetoran: "-",
+            score: 0,
+          });
         });
+        if (s.length > 0) setSantriList(s);
+        else setSantriList([]);
+      }, (error) => {
+        setTahfidzDataError(error?.message || "Data santri Tahfidz belum dapat dimuat.");
       });
-      if (s.length > 0) {
-        setSantriList(s);
-      }
-    });
-
     } else {
       setSantriList([]);
     }
@@ -461,17 +587,62 @@ export function TahfidzManager() {
     };
   }, [user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz]);
 
-  const [records, setRecords] = useState(INITIAL_RECORDS);
-  const [formData, setFormData] = useState<any>({
-    type: "Ziyadah",
-    fluency: "A",
-    tajweed: "A",
-  });
-
-  const handleInputSubmit = (e: React.FormEvent) => {
+  const handleInputSubmit = async (e: React.FormEvent | React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    if (SUPABASE_TAHFIDZ_CUTOVER) {
+      const selectedStudent = santriList.find((student) => student.id === formData.studentId);
+      if (!selectedStudent?.halaqahId) {
+        setTahfidzDataError("Santri harus terdaftar pada halaqah aktif sebelum setoran dicatat.");
+        return;
+      }
+      const timeParts = String(formData.time || "").match(/^(\\d{2}):(\\d{2})$/);
+      const performedAt = new Date();
+      if (timeParts) performedAt.setHours(Number(timeParts[1]), Number(timeParts[2]), 0, 0);
+      const recordPayload = {
+        studentId: selectedStudent.id,
+        halaqahId: selectedStudent.halaqahId,
+        activityType: formData.type,
+        surahName: formData.surah,
+        ayahRange: formData.ayat,
+        fluencyGrade: formData.fluency || "A",
+        tajweedGrade: formData.tajweed || "A",
+        notes: formData.notes || "",
+        performedAt: performedAt.toISOString(),
+      };
+      const fingerprint = JSON.stringify(recordPayload);
+      if (pendingRecordRequestRef.current?.fingerprint !== fingerprint) {
+        pendingRecordRequestRef.current = { fingerprint, id: createTahfidzRequestId() };
+      }
+      setIsSavingTahfidzRecord(true);
+      setTahfidzDataError("");
+      try {
+        await requestSupabaseTahfidzApi("/api/tahfidz/records", {
+          method: "POST",
+          body: JSON.stringify({
+            record: {
+              ...recordPayload,
+              clientRequestId: pendingRecordRequestRef.current.id,
+            },
+          }),
+        });
+        pendingRecordRequestRef.current = null;
+        setFormData({ type: "Ziyadah", fluency: "A", tajweed: "A" });
+        setIsInputOpen(false);
+        try {
+          await loadSupabaseTahfidzSnapshot();
+        } catch {
+          setTahfidzDataError("Setoran tersimpan, tetapi daftar belum dapat diperbarui. Muat ulang untuk melihatnya.");
+        }
+      } catch (error: any) {
+        setTahfidzDataError(error?.message || "Setoran belum dapat disimpan ke Supabase.");
+      } finally {
+        setIsSavingTahfidzRecord(false);
+      }
+      return;
+    }
+
     const newRecord = {
-      id: generateUniqueId('Record Tahfidz', []),
+      id: generateUniqueId("Record Tahfidz", []),
       date: formData.date || new Date().toISOString().split("T")[0],
       time: formData.time || new Date().toTimeString().substring(0, 5),
       santriName: formData.santriName || "Unknown Santri",
@@ -481,20 +652,20 @@ export function TahfidzManager() {
       fluency: formData.fluency,
       tajweed: formData.tajweed,
       notes: formData.notes || "-",
-      ust: "Ust. Current User",
+      ust: user?.name || "Ustadz",
     };
     setRecords([newRecord, ...records]);
     setFormData({ type: "Ziyadah", fluency: "A", tajweed: "A" });
     setIsInputOpen(false);
   };
 
-  const filteredSantri = santriList.filter((s) => {
+  const filteredSantri = santriList.filter((student) => {
     const matchQuery =
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.nis.includes(searchQuery);
+      String(student.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(student.nis || "").includes(searchQuery);
     const matchHalaqah =
       selectedHalaqahFilter === "Semua Halaqah" ||
-      s.halaqah === selectedHalaqahFilter;
+      student.halaqah === selectedHalaqahFilter;
     return matchQuery && matchHalaqah;
   });
 
@@ -509,15 +680,19 @@ export function TahfidzManager() {
             Atur pembagian halaqah, ustadz pengampu, dan daftar santri
           </p>
         </div>
-        <button className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Tambah Halaqah
-        </button>
+        {!SUPABASE_TAHFIDZ_CUTOVER && (
+          <button className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Tambah Halaqah
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {MOCK_HALAQAH.map((halaqah) => {
-          const halaqahSantri = SANTRI_DATA.filter(
-            (s) => s.halaqah === halaqah.name,
+        {(SUPABASE_TAHFIDZ_CUTOVER ? halaqahList : MOCK_HALAQAH).map((halaqah) => {
+          const halaqahSantri = santriList.filter((student) =>
+            SUPABASE_TAHFIDZ_CUTOVER
+              ? student.halaqahId === halaqah.id
+              : student.halaqah === halaqah.name,
           );
           return (
             <div
@@ -994,7 +1169,7 @@ export function TahfidzManager() {
             </div>
 
             <div className="space-y-4">
-              {[...SANTRI_DATA]
+              {[...santriList]
                 .sort((a, b) => b.id.localeCompare(a.id))
                 .slice(0, 5)
                 .map((s, i) => (
@@ -1115,15 +1290,23 @@ export function TahfidzManager() {
             Santri
           </label>
           <select
-            value={formData.santriName || ""}
-            onChange={(e) =>
-              setFormData({ ...formData, santriName: e.target.value })
-            }
+            value={SUPABASE_TAHFIDZ_CUTOVER ? formData.studentId || "" : formData.santriName || ""}
+            onChange={(e) => {
+              const student = santriList.find((item) =>
+                SUPABASE_TAHFIDZ_CUTOVER ? item.id === e.target.value : item.name === e.target.value,
+              );
+              setFormData({
+                ...formData,
+                studentId: SUPABASE_TAHFIDZ_CUTOVER ? student?.id || "" : undefined,
+                halaqahId: SUPABASE_TAHFIDZ_CUTOVER ? student?.halaqahId || "" : undefined,
+                santriName: student?.name || "",
+              });
+            }}
             className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
           >
             <option value="">-- Pilih Santri --</option>
-            {SANTRI_DATA.map((s) => (
-              <option key={s.id} value={s.name}>
+            {santriList.map((s) => (
+              <option key={s.id} value={SUPABASE_TAHFIDZ_CUTOVER ? s.id : s.name}>
                 {s.name} - {s.nis}
               </option>
             ))}
@@ -1170,10 +1353,10 @@ export function TahfidzManager() {
         </div>
         <button
           onClick={handleInputSubmit}
-          disabled={!formData.santriName || !formData.surah || !formData.ayat}
+          disabled={isSavingTahfidzRecord || isTahfidzDataLoading || !formData.santriName || !formData.surah || !formData.ayat}
           className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20 whitespace-nowrap flex items-center justify-center gap-2"
         >
-          <Plus className="w-4 h-4" /> Entri Cepat
+          <Plus className="w-4 h-4" /> {isSavingTahfidzRecord ? "Menyimpan..." : "Entri Cepat"}
         </button>
       </div>
 
@@ -1316,7 +1499,7 @@ export function TahfidzManager() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {SANTRI_DATA.slice(0, 3).map((santri) => (
+              {santriList.slice(0, 3).map((santri) => (
                 <tr
                   key={santri.id}
                   className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors"
@@ -1537,7 +1720,7 @@ export function TahfidzManager() {
           </div>
           <select className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 outline-none">
             <option>Ahmad Muzakki (Contoh)</option>
-            {SANTRI_DATA.map((s) => (
+            {santriList.map((s) => (
               <option key={s.id}>
                 {s.name} - {s.grade}
               </option>
@@ -2169,7 +2352,7 @@ export function TahfidzManager() {
           </h3>
         </div>
         <div className="divide-y divide-slate-200 dark:divide-white/5">
-          {SANTRI_DATA.map((s) => {
+          {santriList.map((s) => {
             const ach = STUDENT_ACHIEVEMENTS.find((a) => a.id === s.id);
             const unlockedIds = ach ? ach.unlocked : [];
             return (
@@ -2487,7 +2670,7 @@ export function TahfidzManager() {
                     </div>
                     <div className="border-l border-slate-200 dark:border-white/10 pl-3">
                       <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                        {SANTRI_DATA[i]?.name}
+                        {santriList[i]?.name}
                       </p>
                       <p className="text-xs text-slate-500 line-clamp-1">
                         Fokus: Makharijul Huruf & Ghunnah
@@ -2541,15 +2724,15 @@ export function TahfidzManager() {
                         <div className="mt-auto flex flex-col gap-1">
                           <div className="text-[9px] bg-white dark:bg-black/40 px-1 py-1 rounded leading-tight shadow-sm text-left truncate border border-transparent dark:border-white/5 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-500/30">
                             <div className="font-bold">13.00</div>
-                            {SANTRI_DATA[0]?.name.split(" ")[0]}
+                            {santriList[0]?.name.split(" ")[0]}
                           </div>
                           <div className="text-[9px] bg-white dark:bg-black/40 px-1 py-1 rounded leading-tight shadow-sm text-left truncate border border-transparent dark:border-white/5 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-500/30">
                             <div className="font-bold">14.00</div>
-                            {SANTRI_DATA[1]?.name.split(" ")[0]}
+                            {santriList[1]?.name.split(" ")[0]}
                           </div>
                           <div className="text-[9px] bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-1 py-1 rounded leading-tight shadow-sm text-left truncate border border-blue-100 dark:border-blue-500/20 cursor-pointer hover:border-blue-300">
                             <div className="font-bold">15.00</div>
-                            {SANTRI_DATA[2]?.name.split(" ")[0]}
+                            {santriList[2]?.name.split(" ")[0]}
                           </div>
                         </div>
                       )}
@@ -2557,7 +2740,7 @@ export function TahfidzManager() {
                         <div className="mt-auto flex flex-col gap-1">
                           <div className="text-[9px] bg-white text-slate-700 dark:bg-black/40 dark:text-slate-300 px-1 py-1 rounded leading-tight shadow-sm text-left truncate border border-slate-200 dark:border-white/5 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-500/30">
                             <div className="font-bold">16.00</div>
-                            {SANTRI_DATA[3]?.name.split(" ")[0]}
+                            {santriList[3]?.name.split(" ")[0]}
                           </div>
                         </div>
                       )}
@@ -2582,6 +2765,19 @@ export function TahfidzManager() {
 
   return (
     <div className="space-y-6 max-w-7xl w-full mx-auto pb-12">
+      {SUPABASE_TAHFIDZ_CUTOVER && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/30 dark:bg-sky-950/30 dark:text-sky-100">
+          <div className="font-semibold">Sumber data: API Supabase (tahap bertahap)</div>
+          <div className="mt-1">
+            {isTahfidzDataLoading
+              ? "Memuat roster, halaqah, dan setoran dari backend..."
+              : "Roster, halaqah, dan setoran memakai data tenant dari backend. Laporan target, jadwal, gamifikasi, dan grafik lain masih menunggu migrasi tahap berikutnya."}
+          </div>
+          {tahfidzDataError && (
+            <div role="alert" className="mt-2 font-medium text-rose-700 dark:text-rose-300">{tahfidzDataError}</div>
+          )}
+        </div>
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-emerald-800 dark:text-emerald-400 hidden-border">
@@ -2621,7 +2817,7 @@ export function TahfidzManager() {
           </button>
           <button
             onClick={() => {
-              setSelectedSantri(SANTRI_DATA[0]);
+              setSelectedSantri(santriList[0]);
               setIsAssessmentOpen(true);
             }}
             className="flex items-center gap-2 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors border border-emerald-200 dark:border-emerald-500/20 shadow-sm"
@@ -2814,7 +3010,7 @@ export function TahfidzManager() {
                 </label>
                 <select className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
                   <option>Semua Santri (Massal)</option>
-                  {SANTRI_DATA.map((s) => (
+                  {santriList.map((s) => (
                     <option key={s.id}>
                       {s.name} - {s.nis}
                     </option>
@@ -3156,7 +3352,7 @@ export function TahfidzManager() {
                 </label>
                 <select className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
                   <option value="">Pilih Santri...</option>
-                  {SANTRI_DATA.map((s) => (
+                  {santriList.map((s) => (
                     <option key={`talaqqi-s-${s.id}`}>
                       {s.name} - {s.nis}
                     </option>
@@ -3835,14 +4031,23 @@ export function TahfidzManager() {
                   </label>
                   <select
                     required
-                    onChange={(e) =>
-                      setFormData({ ...formData, santriName: e.target.value })
-                    }
+                    value={SUPABASE_TAHFIDZ_CUTOVER ? formData.studentId || "" : formData.santriName || ""}
+                    onChange={(e) => {
+                      const student = filteredSantri.find((item) =>
+                        SUPABASE_TAHFIDZ_CUTOVER ? item.id === e.target.value : item.name === e.target.value,
+                      );
+                      setFormData({
+                        ...formData,
+                        studentId: SUPABASE_TAHFIDZ_CUTOVER ? student?.id || "" : undefined,
+                        halaqahId: SUPABASE_TAHFIDZ_CUTOVER ? student?.halaqahId || "" : undefined,
+                        santriName: student?.name || "",
+                      });
+                    }}
                     className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
                   >
                     <option value="">-- Pilih Santri --</option>
                     {filteredSantri.map((s) => (
-                      <option key={s.id} value={s.name}>
+                      <option key={s.id} value={SUPABASE_TAHFIDZ_CUTOVER ? s.id : s.name}>
                         {s.name} - {s.nis}
                       </option>
                     ))}
@@ -4158,9 +4363,10 @@ export function TahfidzManager() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20"
+                  disabled={isSavingTahfidzRecord || isTahfidzDataLoading || (SUPABASE_TAHFIDZ_CUTOVER && !formData.studentId)}
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20"
                 >
-                  Simpan Setoran
+                  {isSavingTahfidzRecord ? "Menyimpan..." : "Simpan Setoran"}
                 </button>
               </div>
             </form>
