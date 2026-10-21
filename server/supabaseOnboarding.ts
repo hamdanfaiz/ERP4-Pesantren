@@ -891,9 +891,9 @@ export async function upsertSupabaseMasterDataStudent(
     throw new SupabasePpdbAdminError(400, "Data santri tidak valid.");
   }
   const record = recordValue as JsonObject;
-  const studentId = isCanonicalUuid(studentIdentifier)
-    ? validateUuid(studentIdentifier, "ID santri")
-    : (isCanonicalUuid(record.supabaseId) ? validateUuid(record.supabaseId, "ID santri") : null);
+  const studentId = isCanonicalUuid(record.supabaseId)
+    ? validateUuid(record.supabaseId, "ID santri")
+    : null;
   const providedSourceRecordId = typeof record.sourceRecordId === "string" ? record.sourceRecordId.trim() : "";
   const recordId = typeof record.id === "string" ? record.id.trim() : "";
   const sourceRecordId = providedSourceRecordId
