@@ -91,9 +91,9 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
         "Integrasi Keuangan"
       );
       onRefresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      showToast("Gagal membuat tagihan pendaftaran massal.", "error");
+      showToast(err?.message || "Gagal membuat tagihan pendaftaran massal.", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -116,9 +116,9 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
         "Integrasi Keuangan"
       );
       onRefresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      showToast("Gagal menerbitkan tagihan daftar ulang.", "error");
+      showToast(err?.message || "Gagal menerbitkan tagihan daftar ulang.", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -130,7 +130,7 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
       const count = await ppdbIntegrationService.syncPaymentsFromFinance(candidates);
       if (count > 0) {
         showToast(
-          `Tersinkronisasi ${count} perubahan status pembayaran dari Modul Keuangan!`,
+          `${count} tagihan PPDB Supabase ditemukan untuk kandidat tenant aktif; status pembayaran disimpan bersama transaksi.`,
           "success",
           "Sinkronisasi Keuangan"
         );
@@ -176,9 +176,9 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
       onRefresh();
       // Ask or automatically offer receipt
       onOpenReceipt(candidate, payFeeType);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      showToast("Gagal mencatat pembayaran.", "error");
+      showToast(err?.message || "Gagal mencatat pembayaran.", "error");
     } finally {
       setIsProcessing(false);
     }
