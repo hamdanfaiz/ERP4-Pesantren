@@ -561,11 +561,46 @@ function legacyText(value: unknown, maxLength = 500) {
   return String(value).trim().slice(0, maxLength);
 }
 
+function legacyDateText(value: unknown) {
+  let date: Date | null = null;
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) return "";
+    if (/^\\d{4}-\\d{2}-\\d{2}$/.test(normalized)) {
+      const parsed = new Date(normalized + "T00:00:00.000Z");
+      return Number.isNaN(parsed.getTime()) ? "" : normalized;
+    }
+    const parsed = new Date(normalized);
+    if (!Number.isNaN(parsed.getTime())) date = parsed;
+  } else if (typeof value === "number" && Number.isFinite(value)) {
+    date = new Date(value);
+  } else if (value && typeof value === "object") {
+    const timestamp = value as { toDate?: () => Date; seconds?: number; nanoseconds?: number; _seconds?: number; _nanoseconds?: number };
+    try {
+      if (typeof timestamp.toDate === "function") date = timestamp.toDate();
+      else {
+        const seconds = Number(timestamp.seconds ?? timestamp._seconds);
+        const nanoseconds = Number(timestamp.nanoseconds ?? timestamp._nanoseconds ?? 0);
+        if (Number.isFinite(seconds) && Number.isFinite(nanoseconds)) {
+          date = new Date(seconds * 1000 + nanoseconds / 1_000_000);
+        }
+      }
+    } catch {
+      return "";
+    }
+  }
+  return date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : "";
+}
+
 function safeLegacyDetails(record: JsonObject, fields: string[]) {
   const result: JsonObject = {};
   for (const field of fields) {
     const value = record[field];
-    const normalized = legacyText(value);
+    const normalized = field === "dob" || field === "enrolled"
+      ? legacyDateText(value)
+      : legacyText(value);
     if (normalized) result[field] = normalized;
   }
   return result;
@@ -669,15 +704,21 @@ export async function migrateSupabaseLegacyMasterDataStudents(
       "fatherName", "motherName", "fatherJob", "motherJob",
     ]);
     if (nis.legacyValue) details.legacyNis = nis.legacyValue;
+    const legacyClassId = legacyText(record.classId, 160);
+    const legacyRoomId = legacyText(record.roomId, 160);
+    const legacyBuildingId = legacyText(record.dormitoryId, 160);
+    if (legacyClassId) details.legacyClassId = legacyClassId;
+    if (legacyRoomId) details.legacyRoomId = legacyRoomId;
+    if (legacyBuildingId) details.legacyBuildingId = legacyBuildingId;
     const student: JsonObject = {
       sourceRecordId: sourceId,
       name,
       nis: nis.nis,
       gender,
       grade: legacyText(record.grade, 80),
-      classId: legacyText(record.classId, 160),
-      roomId: legacyText(record.roomId, 160),
-      buildingId: legacyText(record.dormitoryId, 160),
+      classId: legacyClassId,
+      roomId: legacyRoomId,
+      buildingId: legacyBuildingId,
       status: legacyText(record.status, 40) || "Active",
       details,
     };
@@ -731,6 +772,8 @@ export async function migrateSupabaseLegacyMasterDataStudents(
       } else if (guardianName) {
         localWarnings.push("ID sumber wali terlalu panjang; relasi wali belum dimigrasikan.");
       }
+    } else {
+      localWarnings.push("Data wali tidak ditemukan atau relasinya belum dapat dipetakan; perlu rekonsiliasi manual.");
     }
     prepared.push({ id: sourceId, student, guardian: guardianPayload, warnings: localWarnings });
   }
