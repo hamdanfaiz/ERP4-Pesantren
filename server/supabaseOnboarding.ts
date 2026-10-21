@@ -304,8 +304,6 @@ function buildStructureMigrationPlan(source: LegacyMasterDataStructure[]): Struc
         continue;
       }
       normalized.capacity = capacity;
-      const ownGender = normalizedGender(record.genderRestriction || record.gender);
-      if (!ownGender) result.warnings.push({ id, category, message: "Gender kamar belum eksplisit; onboarding akan ditolak sampai gender kamar atau gedung dikonfigurasi." });
       const parentId = typeof record.parentId === "string" && record.parentId.trim()
         ? record.parentId.trim()
         : typeof record.parentCode === "string" && record.parentCode.trim()
@@ -319,10 +317,18 @@ function buildStructureMigrationPlan(source: LegacyMasterDataStructure[]): Struc
     result.records.push({ id, category, record: normalized, occupied });
   }
 
-  const buildingIds = new Set(result.records.filter((item) => item.category === "Gedung").map((item) => item.id));
+  const buildings = new Map(result.records.filter((item) => item.category === "Gedung").map((item) => [item.id, item.record]));
   for (const item of result.records) {
-    if (item.category === "Kamar" && typeof item.record.parentId === "string" && item.record.parentId && !buildingIds.has(item.record.parentId)) {
+    if (item.category !== "Kamar") continue;
+    const parentId = typeof item.record.parentId === "string" ? item.record.parentId : "";
+    if (parentId && !buildings.has(parentId)) {
       result.errors.push({ id: item.id, category: item.category, message: "Gedung induk kamar tidak ditemukan pada dataset tenant ini." });
+    }
+    const roomGender = normalizedGender(item.record.genderRestriction || item.record.gender);
+    const building = parentId ? buildings.get(parentId) : null;
+    const buildingGender = normalizedGender(building?.genderRestriction || building?.gender);
+    if (!roomGender && !buildingGender) {
+      result.warnings.push({ id: item.id, category: item.category, message: "Gender belum eksplisit pada kamar atau gedung; onboarding akan ditolak sampai konfigurasi dilengkapi." });
     }
   }
 
@@ -338,12 +344,14 @@ function sameCoreStructure(existing: SupabaseStructureRecord, incoming: JsonObje
   const incomingGender = normalizedGender(incoming.genderRestriction || incoming.gender);
   const parentId = typeof incoming.parentId === "string" ? incoming.parentId : "";
   const existingParentId = existing.parentId || existing.parentCode || "";
-  const incomingCapacity = category === "Kamar" ? Number(String(incoming.capacity ?? "").replace(/[^0-9]/g, "")) : undefined;
+  const incomingCapacityText = String(incoming.capacity ?? "").trim();
+  const incomingCapacityMatch = incomingCapacityText.match(/^(\d+)(?:\s*(?:siswa|santri|orang))?$/i);
+  const incomingCapacity = incomingCapacityMatch ? Number(incomingCapacityMatch[1]) : undefined;
   return existing.name.trim() === String(incoming.name || "").trim()
     && existing.status.toLowerCase() === String(incoming.status || "Active").toLowerCase()
     && existingParentId === parentId
     && String(existing.grade || "") === String(incoming.grade || "")
-    && (category !== "Kamar" || Number(existing.capacity) === incomingCapacity)
+    && (category === "Gedung" || (incomingCapacity === undefined && existing.capacity == null) || Number(existing.capacity) === incomingCapacity)
     && (!incomingGender || !existingGender || existingGender === incomingGender)
     && String(existing.location || "") === String(incoming.location || "");
 }
