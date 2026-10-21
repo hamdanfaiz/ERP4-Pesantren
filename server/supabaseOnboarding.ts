@@ -568,9 +568,12 @@ function legacyDateText(value: unknown) {
   } else if (typeof value === "string") {
     const normalized = value.trim();
     if (!normalized) return "";
-    if (/^\\d{4}-\\d{2}-\\d{2}$/.test(normalized)) {
-      const parsed = new Date(normalized + "T00:00:00.000Z");
-      return Number.isNaN(parsed.getTime()) ? "" : normalized;
+    if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(normalized)) {
+      const [year, month, day] = normalized.split("-").map(Number);
+      const parsed = new Date(Date.UTC(year, month - 1, day));
+      return parsed.getUTCFullYear() === year && parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === day
+        ? normalized
+        : "";
     }
     const parsed = new Date(normalized);
     if (!Number.isNaN(parsed.getTime())) date = parsed;
@@ -769,8 +772,10 @@ export async function migrateSupabaseLegacyMasterDataStudents(
             seenIdentity.set("guardian_nik:" + guardianFingerprint, guardianSourceId);
           }
         }
-      } else if (guardianName) {
-        localWarnings.push("ID sumber wali terlalu panjang; relasi wali belum dimigrasikan.");
+      } else {
+        localWarnings.push(guardianName
+          ? "ID sumber wali terlalu panjang; relasi wali belum dimigrasikan."
+          : "Nama wali tidak tersedia; record wali perlu direkonsiliasi manual.");
       }
     } else {
       localWarnings.push("Data wali tidak ditemukan atau relasinya belum dapat dipetakan; perlu rekonsiliasi manual.");
