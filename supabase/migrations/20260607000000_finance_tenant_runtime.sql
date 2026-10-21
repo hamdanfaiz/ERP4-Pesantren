@@ -258,6 +258,7 @@ BEGIN
   IF p_paid_amount > v_bill.amount
     OR (p_status = 'Paid' AND p_paid_amount <> v_bill.amount)
     OR (p_status = 'Partial' AND (p_paid_amount <= 0 OR p_paid_amount >= v_bill.amount))
+    OR (p_status IN ('Unpaid', 'Overdue', 'Verification') AND p_paid_amount <> v_old_paid)
     OR (p_status IN ('Unpaid', 'Overdue') AND p_paid_amount <> 0)
     OR p_paid_amount < v_old_paid THEN
     RAISE EXCEPTION 'Nominal/status pembayaran tidak konsisten' USING ERRCODE = '22023';
@@ -349,6 +350,10 @@ DECLARE
   v_status TEXT;
   v_type TEXT;
   v_details JSONB;
+  v_fee_key TEXT;
+  v_fee JSONB;
+  v_payment JSONB;
+  v_total_paid NUMERIC;
   v_created BOOLEAN := false;
 BEGIN
   IF p_tenant_id IS NULL OR p_billing_id IS NULL
@@ -416,9 +421,34 @@ BEGIN
       RAISE EXCEPTION 'Tagihan lama berbenturan dengan data Supabase yang sudah ada' USING ERRCODE = '23505';
     END IF;
   END IF;
+  IF v_candidate_id IS NOT NULL AND v_type IS NOT NULL THEN
+    v_fee_key := CASE WHEN v_type = 'registration' THEN 'registrationFee' ELSE 'tuitionFee' END;
+    SELECT COALESCE(workflow_data->'payment', '{}'::jsonb) INTO v_payment
+      FROM public.candidates WHERE tenant_id = p_tenant_id AND id = v_candidate_id FOR UPDATE;
+    v_fee := jsonb_build_object(
+      'amount', v_existing.amount,
+      'paidAmount', v_existing.paid_amount,
+      'status', v_existing.status,
+      'method', v_existing.payment_method,
+      'receiptNo', v_existing.receipt_no,
+      'invoiceId', v_existing.id
+    );
+    v_payment := public.jsonb_deep_merge(v_payment, jsonb_build_object(v_fee_key, v_fee));
+    v_total_paid := COALESCE((v_payment #>> '{registrationFee,paidAmount}')::NUMERIC, 0)
+      + COALESCE((v_payment #>> '{tuitionFee,paidAmount}')::NUMERIC, 0);
+    v_payment := jsonb_set(v_payment, '{totalPaid}', to_jsonb(v_total_paid), true);
+    UPDATE public.candidates
+    SET workflow_data = public.jsonb_deep_merge(
+          COALESCE(workflow_data, '{}'::jsonb),
+          jsonb_build_object('payment', v_payment)
+        ),
+        updated_at = now()
+    WHERE tenant_id = p_tenant_id AND id = v_candidate_id;
+  END IF;
+
   RETURN jsonb_build_object('id', p_billing_id, 'created', v_created);
 END;
-$$;
+$;
 
 REVOKE ALL ON FUNCTION public.create_ppdb_finance_billing(UUID, UUID, TEXT, NUMERIC, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.record_ppdb_finance_payment(UUID, UUID, TEXT, NUMERIC, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
