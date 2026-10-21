@@ -10,6 +10,7 @@ import { getStorage } from "firebase-admin/storage";
 import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
+import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch } from "./server/supabasePpdbAdmin";
 
 dotenv.config();
 
@@ -277,6 +278,36 @@ async function requireTenantAdmin(req: express.Request, res: express.Response, n
   }
 }
 
+async function requirePpdbAccess(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const uid = (req as any).user?.uid;
+  if (!uid) return res.status(401).json({ code: "UNAUTHORIZED", error: "Autentikasi diperlukan." });
+  const services = getAdminServices();
+  if (services.ok === false) {
+    return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
+  }
+  try {
+    const profileSnapshot = await services.db.collection("users").doc(uid).get();
+    if (!profileSnapshot.exists) return res.status(403).json({ code: "PROFILE_NOT_FOUND", error: "Profil pengguna tidak ditemukan." });
+    const profile = profileSnapshot.data() || {};
+    const tenantId = typeof profile.tenantId === "string" ? profile.tenantId.trim() : "";
+    const role = typeof profile.role === "string" ? profile.role : "";
+    if (String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      return res.status(403).json({ code: "ACCOUNT_INACTIVE", error: "Akun aktif dan tenant valid diperlukan." });
+    }
+    const permissions = resolveUserModulePermissions(role, profile.modulePermissions);
+    if (permissions.ppdb !== true) {
+      return res.status(403).json({ code: "MODULE_FORBIDDEN", error: "Akses modul PPDB tidak diberikan kepada akun ini." });
+    }
+    (req as any).actor = { uid, role, tenantId, modulePermissions: permissions };
+    next();
+  } catch (err: any) {
+    if (isCredentialError(err) || isFirestoreStoreError(err)) {
+      return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
+    }
+    return res.status(500).json({ code: "INTERNAL_ERROR", error: "Gagal memverifikasi hak akses PPDB." });
+  }
+}
+
 type FinanceProofError = Error & { status: number };
 function financeProofError(status: number, message: string): FinanceProofError {
   return Object.assign(new Error(message), { status });
@@ -511,6 +542,58 @@ async function startServer() {
       console.error('Local tenant data migration failed:', error?.code || 'invalid-dataset');
       return res.status(error?.message?.includes('ID record') || error?.message?.includes('item harus') || error?.message?.includes('tenant lain') ? 400 : 500)
         .json({ error: error?.message || 'Migrasi data lokal gagal.' });
+    }
+  });
+
+  app.get("/api/ppdb/candidates", requireAuth, requirePpdbAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const candidates = await listSupabasePpdbCandidates(actor.tenantId);
+      return res.json({ candidates });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase PPDB candidate listing failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Data PPDB belum dapat dimuat." : err.message });
+    }
+  });
+
+  app.post("/api/ppdb/candidates", requireAuth, requirePpdbAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const candidate = await createSupabasePpdbCandidate(actor.tenantId, req.body?.candidate);
+      return res.status(201).json({ candidate });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase PPDB candidate creation failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Calon santri belum dapat disimpan." : err.message });
+    }
+  });
+
+  app.patch("/api/ppdb/candidates/batch", requireAuth, requirePpdbAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const updatedCount = await updateSupabasePpdbCandidatesBatch(actor.tenantId, req.body?.updates);
+      return res.json({ updatedCount });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase PPDB batch update failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Perubahan kandidat belum dapat disimpan." : err.message });
+    }
+  });
+
+  app.patch("/api/ppdb/candidates/:candidateId", requireAuth, requirePpdbAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      await updateSupabasePpdbCandidate(actor.tenantId, String(req.params.candidateId || ""), req.body?.patch);
+      return res.json({ ok: true });
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase PPDB candidate update failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Perubahan kandidat belum dapat disimpan." : err.message });
     }
   });
 
