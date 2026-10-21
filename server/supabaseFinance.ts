@@ -290,7 +290,14 @@ export async function migrateSupabaseFinanceBillings(
   }
   const existingRows = await loadBillingRows(tenantId);
   const existingById = new Map(existingRows.map((row) => [String(row.id), row]));
+  const existingByCandidateType = new Map<string, string>();
+  for (const row of existingRows) {
+    if (!row.payment_type) continue;
+    if (row.candidate_id) existingByCandidateType.set(String(row.candidate_id) + "|" + row.payment_type, String(row.id));
+    if (row.candidate_registration_id) existingByCandidateType.set(String(row.candidate_registration_id) + "|" + row.payment_type, String(row.id));
+  }
   const seenIds = new Set<string>();
+  const seenCandidateTypes = new Set<string>();
   const normalized: Array<{ id: string; safe: JsonObject }> = [];
   const conflicts: Array<{ id: string; reason: string }> = [];
   for (const raw of recordsValue) {
@@ -306,6 +313,23 @@ export async function migrateSupabaseFinanceBillings(
       if (existing) {
         if (!compareImported(existing, record.safe)) conflicts.push({ id: record.id, reason: "ID sama tetapi isi inti berbeda; data tidak ditimpa." });
         continue;
+      }
+      if (record.safe.paymentType) {
+        const candidateKeys = [
+          nonEmpty(record.safe.candidateRegistrationId, 180),
+          isUuid(String(record.safe.candidateId || "")) ? String(record.safe.candidateId).toLowerCase() : "",
+        ].filter(Boolean);
+        const naturalKey = candidateKeys.map((key) => key + "|" + record.safe.paymentType).find((key) => existingByCandidateType.has(key));
+        if (naturalKey) {
+          conflicts.push({ id: record.id, reason: "Kandidat sudah memiliki tagihan PPDB sejenis dengan ID berbeda." });
+          continue;
+        }
+        const sourceNaturalKey = candidateKeys[0] ? candidateKeys[0] + "|" + record.safe.paymentType : "";
+        if (sourceNaturalKey && seenCandidateTypes.has(sourceNaturalKey)) {
+          conflicts.push({ id: record.id, reason: "Kandidat dan jenis tagihan muncul lebih dari sekali pada sumber Firestore." });
+          continue;
+        }
+        if (sourceNaturalKey) seenCandidateTypes.add(sourceNaturalKey);
       }
       normalized.push(record);
     } catch (error: any) {
