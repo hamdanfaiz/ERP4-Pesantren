@@ -184,10 +184,16 @@ export async function upsertSupabaseMasterDataStructure(
   if (!id || id.length > 160 || id.includes("/")) {
     throw new SupabasePpdbAdminError(400, "ID struktur tidak valid.");
   }
-  const record = recordValue && typeof recordValue === "object" && !Array.isArray(recordValue)
+  const rawRecord = recordValue && typeof recordValue === "object" && !Array.isArray(recordValue)
     ? recordValue as JsonObject
     : null;
-  if (!record) throw new SupabasePpdbAdminError(400, "Data struktur tidak valid.");
+  if (!rawRecord) throw new SupabasePpdbAdminError(400, "Data struktur tidak valid.");
+  const record = { ...rawRecord };
+  if (category === "Kamar") {
+    const capacity = parseCapacity(record.capacity);
+    if (!Number.isInteger(capacity) || capacity < 1) throw new SupabasePpdbAdminError(400, "Kapasitas kamar harus minimal satu.");
+    record.capacity = capacity;
+  }
 
   return supabaseRequest("/rest/v1/rpc/upsert_master_data_structure", {
     method: "POST",
@@ -242,6 +248,13 @@ type StructureMigrationPlan = {
   warnings: Array<{ id: string; category: string; message: string }>;
 };
 
+function parseCapacity(value: unknown) {
+  if (typeof value === "number") return Number.isInteger(value) && value >= 0 ? value : NaN;
+  const text = typeof value === "string" ? value.trim() : "";
+  const match = text.match(/^(\d+)(?:\s*(?:siswa|santri|orang))?$/i);
+  return match ? Number(match[1]) : NaN;
+}
+
 function normalizedGender(value: unknown) {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (["l", "m", "male", "putra", "laki-laki", "laki laki"].includes(normalized)) return "L";
@@ -292,8 +305,7 @@ function buildStructureMigrationPlan(source: LegacyMasterDataStructure[]): Struc
     };
     let occupied = 0;
     if (category === "Kamar") {
-      const digits = String(record.capacity ?? "").replace(/[^0-9]/g, "");
-      const capacity = digits ? Number(digits) : NaN;
+      const capacity = parseCapacity(record.capacity);
       occupied = Number.isInteger(item.occupied) && item.occupied! >= 0 ? item.occupied! : 0;
       if (!Number.isInteger(capacity) || capacity < 1) {
         result.errors.push({ id, category, message: "Kapasitas kamar harus diatur dengan angka minimal satu." });
