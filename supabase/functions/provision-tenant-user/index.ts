@@ -117,24 +117,23 @@ export default {
       }
     }
 
-    const redirectTo = Deno.env.get("AUTH_INVITE_REDIRECT_URL")?.trim();
-    const inviteOptions = redirectTo
-      ? { data: { display_name: parsed.value.displayName }, redirectTo }
-      : { data: { display_name: parsed.value.displayName } };
+    const { data: createData, error: createError } = await ctx.supabaseAdmin.auth.admin.createUser({
+      email: parsed.value.email,
+      password: parsed.value.temporaryPassword,
+      email_confirm: true,
+      user_metadata: { display_name: parsed.value.displayName },
+    });
 
-    const { data: inviteData, error: inviteError } = await ctx.supabaseAdmin.auth.admin
-      .inviteUserByEmail(parsed.value.email, inviteOptions);
-
-    if (inviteError || !inviteData.user) {
-      console.error("tenant_user_invite_failed", {
+    if (createError || !createData.user) {
+      console.error("tenant_user_create_failed", {
         actorId,
         tenantId: actor.tenant_id,
-        status: inviteError?.status ?? null,
+        status: createError?.status ?? null,
       });
-      return json(409, { error: "Undangan tidak dapat dibuat. Periksa apakah email sudah terdaftar." });
+      return json(409, { error: "Akun tidak dapat dibuat. Periksa apakah email sudah terdaftar." });
     }
 
-    const user = inviteData.user;
+    const user = createData.user;
     const { error: profileError } = await ctx.supabaseAdmin.from("profiles").insert({
       user_id: user.id,
       tenant_id: actor.tenant_id,
@@ -143,6 +142,7 @@ export default {
       role: parsed.value.role,
       status: "active",
       module_permissions: parsed.value.modulePermissions,
+      must_change_password: true,
     });
 
     if (profileError) {
@@ -150,7 +150,7 @@ export default {
       console.error("tenant_user_profile_insert_failed", {
         actorId,
         tenantId: actor.tenant_id,
-        invitedUserId: user.id,
+        createdUserId: user.id,
         profileErrorCode: profileError.code ?? null,
         authCleanupFailed: Boolean(cleanupError),
       });
@@ -168,7 +168,7 @@ export default {
         tenantId: actor.tenant_id,
         status: "active",
       },
-      credentialDelivery: "email_invitation",
+      mustChangePassword: true,
     });
   }),
 };
