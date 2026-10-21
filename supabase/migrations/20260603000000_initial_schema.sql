@@ -49,8 +49,10 @@ CREATE TABLE public.candidates (
   previous_school VARCHAR(150),
   grade VARCHAR(50),
   phone VARCHAR(20),
-  nik VARCHAR(20),
-  nisn VARCHAR(20),
+  nik_ciphertext BYTEA,
+  nik_fingerprint BYTEA,
+  nisn_ciphertext BYTEA,
+  nisn_fingerprint BYTEA,
   pob VARCHAR(100),
   dob DATE,
   email VARCHAR(150),
@@ -72,16 +74,16 @@ CREATE TABLE public.candidates (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, id),
-  CHECK (nik IS NULL OR nik ~ '^[0-9]{16}$'),
-  CHECK (nisn IS NULL OR nisn ~ '^[0-9]{10}$')
+  CHECK ((nik_ciphertext IS NULL) = (nik_fingerprint IS NULL)),
+  CHECK ((nisn_ciphertext IS NULL) = (nisn_fingerprint IS NULL))
 );
 
 CREATE UNIQUE INDEX candidates_registration_tenant_uq
   ON public.candidates (tenant_id, upper(btrim(registration_id)));
-CREATE UNIQUE INDEX candidates_nik_tenant_uq
-  ON public.candidates (tenant_id, nik) WHERE nik IS NOT NULL;
-CREATE UNIQUE INDEX candidates_nisn_tenant_uq
-  ON public.candidates (tenant_id, nisn) WHERE nisn IS NOT NULL;
+CREATE UNIQUE INDEX candidates_nik_fingerprint_tenant_uq
+  ON public.candidates (tenant_id, nik_fingerprint) WHERE nik_fingerprint IS NOT NULL;
+CREATE UNIQUE INDEX candidates_nisn_fingerprint_tenant_uq
+  ON public.candidates (tenant_id, nisn_fingerprint) WHERE nisn_fingerprint IS NOT NULL;
 CREATE INDEX candidates_tenant_stage_created_idx
   ON public.candidates (tenant_id, stage, created_at DESC);
 
@@ -296,7 +298,7 @@ COMMENT ON TABLE public.tenants IS
 COMMENT ON TABLE public.profiles IS
   'Auth profile and tenant role source of truth. Browser writes are denied; trusted backend provisions roles and permissions.';
 COMMENT ON TABLE public.candidates IS
-  'Tenant-scoped PPDB records. Anonymous reads/writes are denied; public submission must use a rate-limited trusted Edge Function.';
+  'Tenant-scoped PPDB records. NIK/NISN are stored as backend-encrypted ciphertext with keyed lookup fingerprints. Anonymous reads/writes are denied; public submission must use a rate-limited trusted Edge Function.';
 COMMENT ON TABLE public.registration_counters IS
   'Per-tenant/year counter. Only trusted backend code may allocate values transactionally.';
 
