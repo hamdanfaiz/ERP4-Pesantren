@@ -326,7 +326,7 @@ export function TahfidzManager() {
   const [tahfidzMigrationError, setTahfidzMigrationError] = useState("");
   const [isTahfidzMigrationBusy, setIsTahfidzMigrationBusy] = useState(false);
   const [confirmTahfidzMigration, setConfirmTahfidzMigration] = useState(false);
-  const canManageTahfidzMigration = ["Admin", "SuperAdmin"].includes(String(role));
+  const canManageTahfidzMigration = ["Admin", "SuperAdmin"].includes(String(role)) && user?.modulePermissions?.tahfidz !== false;
   const runTahfidzMigration = async (apply: boolean) => {
     if (!auth.currentUser) {
       setTahfidzMigrationError("Sesi login tidak tersedia. Silakan masuk kembali.");
