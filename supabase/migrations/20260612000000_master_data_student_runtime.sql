@@ -128,12 +128,15 @@ BEGIN
   END IF;
 
   IF p_student ? 'gender' THEN
-    CASE upper(NULLIF(btrim(p_student->>'gender'), ''))
-      WHEN 'L' THEN v_gender := 'L';
-      WHEN 'P' THEN v_gender := 'P';
-      WHEN NULL THEN v_gender := NULL;
-      ELSE RAISE EXCEPTION 'Jenis kelamin santri tidak valid' USING ERRCODE = '22023';
-    END CASE;
+    IF NULLIF(btrim(p_student->>'gender'), '') IS NULL THEN
+      v_gender := NULL;
+    ELSE
+      CASE upper(btrim(p_student->>'gender'))
+        WHEN 'L' THEN v_gender := 'L';
+        WHEN 'P' THEN v_gender := 'P';
+        ELSE RAISE EXCEPTION 'Jenis kelamin santri tidak valid' USING ERRCODE = '22023';
+      END CASE;
+    END IF;
   ELSE
     v_gender := CASE WHEN v_existing_found THEN v_existing.gender ELSE NULL END;
   END IF;
@@ -169,8 +172,8 @@ BEGIN
   ELSE
     v_building_id := CASE WHEN v_existing_found THEN v_existing.building_id ELSE NULL END;
   END IF;
-  IF v_room_id IS NULL AND v_building_id IS NOT NULL THEN
-    RAISE EXCEPTION 'Gedung tidak dapat dipilih tanpa kamar' USING ERRCODE = '22023';
+  IF v_room_id IS NULL THEN
+    v_building_id := NULL;
   END IF;
 
   IF p_student ? 'status' THEN
@@ -362,6 +365,11 @@ BEGIN
   IF v_room_id IS DISTINCT FROM CASE WHEN v_existing_found THEN v_existing.room_id ELSE NULL END
     OR v_building_id IS DISTINCT FROM CASE WHEN v_existing_found THEN v_existing.building_id ELSE NULL END THEN
     v_room_result := public.assign_student_to_room(p_tenant_id, v_student_id, v_room_id, v_building_id);
+  END IF;
+  IF v_room_id IS NULL THEN
+    UPDATE public.students
+    SET building_id = NULL, updated_at = now()
+    WHERE tenant_id = p_tenant_id AND id = v_student_id AND room_id IS NULL AND building_id IS NOT NULL;
   END IF;
 
   RETURN jsonb_build_object(
