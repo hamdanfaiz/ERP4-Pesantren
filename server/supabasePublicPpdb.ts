@@ -286,7 +286,6 @@ export async function registerSupabasePublicPpdb(body: any, clientAddress: strin
       documentPaths[key] = path;
     }
 
-    const year = tenant.academicYear.match(/^(\d{4})/)?.[1];
     const result = await requestSupabase("/rest/v1/rpc/submit_public_ppdb", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
