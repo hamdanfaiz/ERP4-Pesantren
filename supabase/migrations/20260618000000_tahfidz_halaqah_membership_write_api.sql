@@ -312,8 +312,6 @@ BEGIN
     WHERE tenant_id = p_tenant_id
       AND student_id = p_student_id
       AND (ends_on IS NULL OR ends_on >= p_starts_on)
-      AND (p_starts_on IS NULL OR starts_on <= p_starts_on)
-      AND status = 'active'
       AND (v_membership_id IS NULL OR id <> v_membership_id)
   ) THEN
     RAISE EXCEPTION 'Santri memiliki penempatan aktif lain pada tanggal tersebut' USING ERRCODE = '23514';
