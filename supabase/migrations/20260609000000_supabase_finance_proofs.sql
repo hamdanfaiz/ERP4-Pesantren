@@ -87,7 +87,7 @@ GRANT EXECUTE ON FUNCTION public.attach_ppdb_finance_payment_proof(UUID, TEXT, T
 
 COMMIT;
 
-    OR split_part(p_storage_path, '/', 3) <> p_billing_id
+    OR split_part(p_storage_path, '/', 3) <> left(regexp_replace(p_billing_id, '[^A-Za-z0-9_-]', '_', 'g'), 180)
     OR split_part(p_storage_path, '/', 4) !~ '^[A-Za-z0-9_.-]+
     RAISE EXCEPTION 'Data bukti pembayaran tidak valid' USING ERRCODE = '22023';
   END IF;
