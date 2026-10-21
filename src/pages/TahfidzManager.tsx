@@ -971,6 +971,24 @@ export function TahfidzManager() {
     return ["active", "aktif"].includes(status) && student.halaqahId !== membershipForm.halaqahId;
   });
 
+  const renderSupabaseTahfidzStageNotice = (title: string, description: string) => (
+    <section role="status" className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950 shadow-sm dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-100">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <div>
+          <h2 className="text-lg font-semibold">{title} belum terhubung</h2>
+          <p className="mt-2 text-sm leading-6 text-amber-900/80 dark:text-amber-100/80">{description}</p>
+          <p className="mt-2 text-xs leading-5 text-amber-900/70 dark:text-amber-100/70">
+            Data operasional fitur ini belum tersedia dari API tenant. Fitur akan diaktifkan setelah skema, otorisasi, dan alur penyimpanannya selesai.
+          </p>
+          <button type="button" onClick={() => setActiveTab("dashboard")} className="mt-4 rounded-lg bg-amber-700 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400">
+            Kembali ke overview
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+
   const renderHalaqahManagement = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
@@ -1477,8 +1495,12 @@ export function TahfidzManager() {
             </div>
 
             <div className="p-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-500 bg-slate-50 dark:bg-black/40 uppercase tracking-widest font-semibold">
-              <div>Menampilkan 1 hingga 5 dari 1,240 santri</div>
-              <div className="flex items-center gap-2 font-mono text-sm">
+              {SUPABASE_TAHFIDZ_CUTOVER ? (
+                <div>{filteredSantri.length.toLocaleString("id-ID")} santri sesuai filter</div>
+              ) : (
+                <>
+                  <div>Menampilkan 1 hingga 5 dari 1,240 santri</div>
+                  <div className="flex items-center gap-2 font-mono text-sm">
                 <button className="px-3 py-1 rounded bg-white dark:bg-white/5 border border-slate-200 dark:border-transparent hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-50 transition-colors shadow-sm">
                   Prev
                 </button>
@@ -1494,7 +1516,9 @@ export function TahfidzManager() {
                 <button className="px-3 py-1 rounded bg-white dark:bg-white/5 border border-slate-200 dark:border-transparent hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shadow-sm">
                   Next
                 </button>
-              </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -3369,11 +3393,21 @@ export function TahfidzManager() {
       {activeTab === "halaqah" && renderHalaqahManagement()}
       {activeTab === "records" && renderRecords()}
       {activeTab === "targets" && renderTargets()}
-      {activeTab === "talaqqi" && renderTalaqqiCalendar()}
-      {activeTab === "exams" && renderExams()}
-      {activeTab === "parent" && renderParentDashboard()}
-      {activeTab === "peer-review" && renderPeerReview()}
-      {activeTab === "badges" && renderBadges()}
+      {activeTab === "talaqqi" && (SUPABASE_TAHFIDZ_CUTOVER
+        ? renderSupabaseTahfidzStageNotice("Kalender talaqqi", "Jadwal talaqqi, kehadiran, dan catatan evaluasi belum memakai penyimpanan Supabase.")
+        : renderTalaqqiCalendar())}
+      {activeTab === "exams" && (SUPABASE_TAHFIDZ_CUTOVER
+        ? renderSupabaseTahfidzStageNotice("Munaqasyah", "Penjadwalan ujian, hasil, dan sertifikat belum memakai penyimpanan Supabase.")
+        : renderExams())}
+      {activeTab === "parent" && (SUPABASE_TAHFIDZ_CUTOVER
+        ? renderSupabaseTahfidzStageNotice("Laporan wali santri", "Data khusus santri dan relasi akun wali belum tersedia melalui API Tahfidz tenant.")
+        : renderParentDashboard())}
+      {activeTab === "peer-review" && (SUPABASE_TAHFIDZ_CUTOVER
+        ? renderSupabaseTahfidzStageNotice("Peer review", "Umpan balik antar santri belum memiliki skema, kebijakan akses, dan penyimpanan Supabase.")
+        : renderPeerReview())}
+      {activeTab === "badges" && (SUPABASE_TAHFIDZ_CUTOVER
+        ? renderSupabaseTahfidzStageNotice("Pencapaian dan badges", "Perhitungan pencapaian belum terhubung ke riwayat setoran tenant dan belum memiliki penyimpanan Supabase.")
+        : renderBadges())}
       {activeTab === "quran" && (
         <div className="flex-1 min-h-0">
           <QuranViewer />
