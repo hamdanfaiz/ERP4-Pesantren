@@ -13,6 +13,7 @@ import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPp
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
 import { listSupabaseBoardingSnapshot, assignSupabaseStudentRoom, deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, listSupabaseMasterDataStudents, upsertSupabaseMasterDataStudent, archiveSupabaseMasterDataStudent, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
 import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment, readSupabaseFinanceProof, uploadSupabaseFinanceProof } from "./server/supabaseFinance";
+import { listSupabaseTahfidzSnapshot, recordSupabaseTahfidzSetoran, SupabaseTahfidzError } from "./server/supabaseTahfidz";
 
 dotenv.config();
 
@@ -384,6 +385,50 @@ async function requireBoardingAccess(req: express.Request, res: express.Response
   }
 }
 
+async function requireTahfidzAccess(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const uid = (req as any).user?.uid;
+  if (!uid) return res.status(401).json({ code: "UNAUTHORIZED", error: "Autentikasi diperlukan." });
+  const services = getAdminServices();
+  if (services.ok === false) {
+    return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
+  }
+  try {
+    const profileSnapshot = await services.db.collection("users").doc(uid).get();
+    if (!profileSnapshot.exists) return res.status(403).json({ code: "PROFILE_NOT_FOUND", error: "Profil pengguna tidak ditemukan." });
+    const profile = profileSnapshot.data() || {};
+    const tenantId = typeof profile.tenantId === "string" ? profile.tenantId.trim() : "";
+    const role = typeof profile.role === "string" ? profile.role : "";
+    if (String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      return res.status(403).json({ code: "ACCOUNT_INACTIVE", error: "Akun aktif dan tenant valid diperlukan." });
+    }
+    const modulePermissions = resolveUserModulePermissions(role, profile.modulePermissions);
+    if (modulePermissions.tahfidz !== true) {
+      return res.status(403).json({ code: "MODULE_FORBIDDEN", error: "Akses modul Tahfidz tidak diberikan kepada akun ini." });
+    }
+    (req as any).actor = {
+      uid,
+      name: String(profile.name || profile.displayName || ""),
+      role,
+      tenantId,
+      modulePermissions,
+    };
+    return next();
+  } catch (err: any) {
+    if (isCredentialError(err) || isFirestoreStoreError(err)) {
+      return res.status(503).json({ code: "PROFILE_STORE_UNAVAILABLE", error: "Profil pengguna belum dapat diverifikasi." });
+    }
+    return res.status(500).json({ code: "INTERNAL_ERROR", error: "Gagal memverifikasi hak akses Tahfidz." });
+  }
+}
+
+function requireTahfidzRecorder(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const actor = (req as any).actor;
+  if (!actor || !["SuperAdmin", "Admin", "Ustadz"].includes(String(actor.role || ""))) {
+    return res.status(403).json({ code: "TAHFIDZ_WRITE_FORBIDDEN", error: "Hanya Admin atau Ustadz yang dapat mencatat setoran." });
+  }
+  return next();
+}
+
 type FinanceProofError = Error & { status: number };
 function financeProofError(status: number, message: string): FinanceProofError {
   return Object.assign(new Error(message), { status });
@@ -618,6 +663,32 @@ async function startServer() {
       console.error('Local tenant data migration failed:', error?.code || 'invalid-dataset');
       return res.status(error?.message?.includes('ID record') || error?.message?.includes('item harus') || error?.message?.includes('tenant lain') ? 400 : 500)
         .json({ error: error?.message || 'Migrasi data lokal gagal.' });
+    }
+  });
+
+  app.get("/api/tahfidz/snapshot", requireAuth, requireTahfidzAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const snapshot = await listSupabaseTahfidzSnapshot(actor.tenantId);
+      return res.json(snapshot);
+    } catch (err: any) {
+      const status = err instanceof SupabaseTahfidzError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Tahfidz snapshot failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Data Tahfidz belum dapat dimuat dari backend." : err.message });
+    }
+  });
+
+  app.post("/api/tahfidz/records", requireAuth, requireTahfidzAccess, requireTahfidzRecorder, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const result = await recordSupabaseTahfidzSetoran(actor.tenantId, actor.uid, actor.name, req.body?.record);
+      return res.status(201).json(result);
+    } catch (err: any) {
+      const status = err instanceof SupabaseTahfidzError ? err.status : 503;
+      if (status >= 500) console.error("Supabase Tahfidz record failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Setoran Tahfidz belum dapat disimpan ke backend." : err.message });
     }
   });
 
