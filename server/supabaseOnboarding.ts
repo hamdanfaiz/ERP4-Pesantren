@@ -735,6 +735,48 @@ export async function migrateSupabaseLegacyMasterDataStudents(
     prepared.push({ id: sourceId, student, guardian: guardianPayload, warnings: localWarnings });
   }
 
+  if (apply && errors.length > 0) {
+    return { dryRun: false, sourceCount: source.length, planned: 0, imported: 0, skipped: 0, errors, warnings };
+  }
+
+  if (apply) {
+    for (let offset = 0; offset < prepared.length; offset += 12) {
+      const batch = prepared.slice(offset, offset + 12);
+      const checks = await Promise.all(batch.map(async (item) => {
+        try {
+          return await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student", {
+            method: "POST",
+            body: JSON.stringify({
+              p_tenant_id: tenantId,
+              p_student: item.student,
+              p_guardian: item.guardian,
+              p_apply: false,
+            }),
+          });
+        } catch (error: any) {
+          return {
+            status: "error",
+            message: error instanceof SupabasePpdbAdminError
+              ? error.message
+              : "Record belum dapat divalidasi oleh backend migrasi.",
+          };
+        }
+      }));
+      checks.forEach((result: any, index: number) => {
+        if (!result || !["planned", "already_imported"].includes(String(result.status))) {
+          errors.push({
+            id: batch[index].id,
+            category: "Santri",
+            message: String(result?.message || "Konflik ditemukan pada preview Supabase; belum ada data yang ditulis."),
+          });
+        }
+      });
+    }
+    if (errors.length > 0) {
+      return { dryRun: false, sourceCount: source.length, planned: 0, imported: 0, skipped: 0, errors, warnings };
+    }
+  }
+
   let imported = 0;
   let skipped = 0;
   let planned = 0;
