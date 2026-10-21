@@ -51,6 +51,7 @@ import { ExportModal } from "../components/ExportModal";
 import { BulkOperationsModal } from "../components/BulkOperationsModal";
 import { CentralSyncBadge } from "../components/CentralSyncBadge";
 import { centralStructureService } from "../services/centralStructureService";
+import { migrateLegacySupabaseStudents, type LegacyStudentMigrationResult } from "../services/masterDataApi";
 import {
   COUNTRIES,
   PROVINCES,
@@ -196,6 +197,10 @@ export function MasterDataManager() {
   // Rekomendasi 4: Advanced Import, Multi-Format Export, & Bulk Operations State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isLegacyMigrationOpen, setIsLegacyMigrationOpen] = useState(false);
+  const [isLegacyMigrationBusy, setIsLegacyMigrationBusy] = useState(false);
+  const [legacyMigrationResult, setLegacyMigrationResult] = useState<LegacyStudentMigrationResult | null>(null);
+  const [legacyMigrationError, setLegacyMigrationError] = useState("");
   const [bulkModal, setBulkModal] = useState<{
     isOpen: boolean;
     mode: 'delete' | 'reassign';
@@ -1212,6 +1217,28 @@ export function MasterDataManager() {
     showToast(`Berhasil mengimpor ${importedRecords.length} data ke ${activeSubTab}!`, "success");
   };
 
+  const handleLegacyStudentMigration = async (apply = false) => {
+    setIsLegacyMigrationBusy(true);
+    setLegacyMigrationError("");
+    try {
+      const result = await migrateLegacySupabaseStudents(apply);
+      setLegacyMigrationResult(result);
+      if (result.errors.length > 0) {
+        showToast(`Migrasi menemukan ${result.errors.length} konflik atau data yang perlu diperbaiki.`, "error");
+      } else if (apply) {
+        showToast(`Snapshot selesai: ${result.imported} santri diimpor, ${result.skipped} sudah ada.`, "success");
+      } else {
+        showToast(`Preview selesai: ${result.planned} record siap, ${result.skipped} sudah ada.`, "success");
+      }
+    } catch (error: any) {
+      const message = error?.message || "Preview/impor legacy belum dapat diproses.";
+      setLegacyMigrationError(message);
+      showToast(message, "error");
+    } finally {
+      setIsLegacyMigrationBusy(false);
+    }
+  };
+
   const handleExportSuccess = (format: string, count: number) => {
     showToast(`Berhasil mengekspor ${count} data ${activeSubTab} ke format ${format.toUpperCase()}.`, "success");
   };
@@ -1790,6 +1817,20 @@ export function MasterDataManager() {
             <FileText className="w-4 h-4 text-emerald-400" />
             Template CSV
           </button>
+          {activeTab === "entities" && activeSubTab === "Santri" && ["Admin", "SuperAdmin"].includes(String(user?.role || "")) && (
+            <button
+              onClick={() => {
+                setLegacyMigrationResult(null);
+                setLegacyMigrationError("");
+                setIsLegacyMigrationOpen(true);
+              }}
+              className="flex items-center gap-2 bg-indigo-950/40 text-indigo-300 border border-indigo-500/30 px-3.5 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-indigo-900/40"
+              title="Preview dan impor snapshot data Santri lama ke Supabase"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Migrasi ke Supabase
+            </button>
+          )}
           <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center gap-2 bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-emerald-900/40"
@@ -3776,6 +3817,123 @@ export function MasterDataManager() {
                 <CheckCircle2 className="w-4 h-4" />
                 Pulihkan Draf
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLegacyMigrationOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-5">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Migrasi snapshot Santri ke Supabase</h2>
+                <p className="mt-1 text-sm text-slate-400">Tenant aktif saja. NIK/NISN dienkripsi di server dan tidak dikirim kembali ke browser.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLegacyMigrationOpen(false)}
+                disabled={isLegacyMigrationBusy}
+                className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-50"
+                aria-label="Tutup migrasi"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[65vh] space-y-4 overflow-y-auto p-5">
+              <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-4 text-sm text-amber-100">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+                  <p>Impor ini membuat snapshot satu kali, bukan sinkronisasi. Terapkan hanya pada jendela migrasi setelah penulisan operasional ke Firebase dihentikan dan backup diverifikasi. Data sumber tidak dihapus.</p>
+                </div>
+              </div>
+
+              {legacyMigrationError && (
+                <div className="rounded-lg border border-rose-500/30 bg-rose-950/30 p-3 text-sm text-rose-200">
+                  {legacyMigrationError}
+                </div>
+              )}
+
+              {legacyMigrationResult && (
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[
+                      ["Sumber", legacyMigrationResult.sourceCount],
+                      ["Direncanakan", legacyMigrationResult.planned],
+                      ["Diimpor", legacyMigrationResult.imported],
+                      ["Sudah ada", legacyMigrationResult.skipped],
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                        <div className="text-xs text-slate-400">{label}</div>
+                        <div className="mt-1 text-xl font-semibold text-white">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-rose-500/20 bg-rose-950/20 p-3">
+                      <h3 className="mb-2 text-sm font-semibold text-rose-200">Konflik / perlu perbaikan ({legacyMigrationResult.errors.length})</h3>
+                      {legacyMigrationResult.errors.length === 0 ? (
+                        <p className="text-sm text-slate-400">Tidak ada konflik yang terdeteksi.</p>
+                      ) : (
+                        <ul className="max-h-40 space-y-2 overflow-y-auto text-xs text-rose-100">
+                          {legacyMigrationResult.errors.slice(0, 20).map((issue, index) => (
+                            <li key={issue.id + issue.category + index}><strong>{issue.category} · {issue.id || "record"}</strong>: {issue.message}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-950/20 p-3">
+                      <h3 className="mb-2 text-sm font-semibold text-amber-200">Peringatan ({legacyMigrationResult.warnings.length})</h3>
+                      {legacyMigrationResult.warnings.length === 0 ? (
+                        <p className="text-sm text-slate-400">Tidak ada peringatan.</p>
+                      ) : (
+                        <ul className="max-h-40 space-y-2 overflow-y-auto text-xs text-amber-100">
+                          {legacyMigrationResult.warnings.slice(0, 20).map((issue, index) => (
+                            <li key={issue.id + issue.category + index}><strong>{issue.category} · {issue.id || "record"}</strong>: {issue.message}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                  {!legacyMigrationResult.dryRun && (
+                    <p className="rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300">
+                      Snapshot Supabase telah diproses. Master Data dan modul asrama masih memakai jalur operasional lama sampai cutover terkoordinasi.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-3 border-t border-slate-800 p-5">
+              <button
+                type="button"
+                onClick={() => setIsLegacyMigrationOpen(false)}
+                disabled={isLegacyMigrationBusy}
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 disabled:opacity-50"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLegacyStudentMigration(false)}
+                disabled={isLegacyMigrationBusy}
+                className="flex items-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-950/50 px-4 py-2 text-sm font-medium text-indigo-200 hover:bg-indigo-900/50 disabled:opacity-50"
+              >
+                {isLegacyMigrationBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                Preview snapshot
+              </button>
+              {legacyMigrationResult?.dryRun && legacyMigrationResult.errors.length === 0 && legacyMigrationResult.planned > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleLegacyStudentMigration(true)}
+                  disabled={isLegacyMigrationBusy}
+                  className="flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+                >
+                  {isLegacyMigrationBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Terapkan snapshot ke Supabase
+                </button>
+              )}
             </div>
           </div>
         </div>
