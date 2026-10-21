@@ -51,7 +51,7 @@ import { ExportModal } from "../components/ExportModal";
 import { BulkOperationsModal } from "../components/BulkOperationsModal";
 import { CentralSyncBadge } from "../components/CentralSyncBadge";
 import { centralStructureService } from "../services/centralStructureService";
-import { deleteSupabaseMasterDataStructure, listSupabaseMasterDataStructures, migrateLegacySupabaseStudents, upsertSupabaseMasterDataStructure, type LegacyStudentMigrationResult } from "../services/masterDataApi";
+import { archiveSupabaseMasterDataStudent, deleteSupabaseMasterDataStructure, listSupabaseMasterDataStudents, listSupabaseMasterDataStructures, migrateLegacySupabaseStudents, upsertSupabaseMasterDataStudent, upsertSupabaseMasterDataStructure, type LegacyStudentMigrationResult } from "../services/masterDataApi";
 import {
   COUNTRIES,
   PROVINCES,
@@ -503,13 +503,17 @@ export function MasterDataManager() {
     let unsubscribe: (() => void) | undefined;
     let supabasePoll: ReturnType<typeof setInterval> | undefined;
 
-    if (
-      USE_SUPABASE_BOARDING_CUTOVER
-      && activeTab !== "entities"
-      && SUPABASE_STRUCTURE_CATEGORIES.has(activeSubTab)
-    ) {
+    const useSupabaseSantri = activeTab === "entities" && activeSubTab === "Santri";
+    const useSupabaseStructure = activeTab !== "entities" && SUPABASE_STRUCTURE_CATEGORIES.has(activeSubTab);
+    if (USE_SUPABASE_BOARDING_CUTOVER && (useSupabaseSantri || useSupabaseStructure)) {
       const loadSupabaseStructures = async () => {
         try {
+          if (useSupabaseSantri) {
+            const records = await listSupabaseMasterDataStudents();
+            if (cancelled) return;
+            setDataSources((prev) => ({ ...prev, [activeSubTab]: records }));
+            return;
+          }
           const records = await listSupabaseMasterDataStructures();
           if (cancelled) return;
           setDataSources((prev) => ({
@@ -769,6 +773,19 @@ export function MasterDataManager() {
     const docId = collectionName === "master_data" ? `${activeSubTab}_${record.id}` : record.id;
     
     try {
+      if (USE_SUPABASE_BOARDING_CUTOVER && activeTab === "entities" && activeSubTab === "Santri") {
+        await archiveSupabaseMasterDataStudent(record);
+        setDataSources((prev) => ({
+          ...prev,
+          [activeSubTab]: (prev[activeSubTab] || []).filter((item) => item.id !== record.id),
+        }));
+        addAuditLog("DELETE", record.id, record.name);
+        if (selectedRecord?.id === record.id) setSelectedRecord(null);
+        centralStructureService.notifyExternalUpdate();
+        showToast(`Data "${record.name}" berhasil diarsipkan.`, "success");
+        return;
+      }
+
       if (
         USE_SUPABASE_BOARDING_CUTOVER
         && activeTab !== "entities"
@@ -997,6 +1014,35 @@ export function MasterDataManager() {
     localStorage.removeItem("mdm-form-autosave");
 
     const validatedData = result.data;
+    if (USE_SUPABASE_BOARDING_CUTOVER && activeTab === "entities" && activeSubTab === "Santri") {
+      try {
+        const currentRecord = currentList.find((record) => String(record.id) === String(editingId));
+        const recordForSupabase = {
+          ...validatedData,
+          id: modalMode === "edit" ? String(editingId || validatedData.id) : String(validatedData.id),
+          supabaseId: currentRecord?.supabaseId,
+          sourceRecordId: currentRecord?.sourceRecordId,
+        };
+        const savedRecord = await upsertSupabaseMasterDataStudent(recordForSupabase as Record<string, unknown>);
+        setDataSources((prev) => ({
+          ...prev,
+          [activeSubTab]: modalMode === "add"
+            ? [savedRecord, ...(prev[activeSubTab] || [])]
+            : (prev[activeSubTab] || []).map((record) => record.id === editingId ? { ...record, ...savedRecord } : record),
+        }));
+        if (modalMode === "add") addAuditLog("CREATE", savedRecord.id, String(savedRecord.name || ""));
+        else addAuditLog("UPDATE", savedRecord.id, String(savedRecord.name || ""));
+        if (selectedRecord?.id === editingId) setSelectedRecord({ ...selectedRecord, ...savedRecord });
+        centralStructureService.notifyExternalUpdate();
+        setIsModalOpen(false);
+        showToast(`Data "${savedRecord.name}" berhasil ${modalMode === "add" ? "disimpan" : "diperbarui"}.`, "success");
+      } catch (error: any) {
+        console.error("Supabase student save failed:", error);
+        showToast(error?.message || "Gagal menyimpan data santri ke Supabase.", "error");
+      }
+      return;
+    }
+
     if (
       USE_SUPABASE_BOARDING_CUTOVER
       && activeTab !== "entities"
@@ -1280,11 +1326,9 @@ export function MasterDataManager() {
     }
 
     try {
-      if (
-        USE_SUPABASE_BOARDING_CUTOVER
-        && activeTab !== "entities"
-        && SUPABASE_STRUCTURE_CATEGORIES.has(activeSubTab)
-      ) {
+      const useSupabaseSantri = activeTab === "entities" && activeSubTab === "Santri";
+      const useSupabaseStructure = activeTab !== "entities" && SUPABASE_STRUCTURE_CATEGORIES.has(activeSubTab);
+      if (USE_SUPABASE_BOARDING_CUTOVER && (useSupabaseSantri || useSupabaseStructure)) {
         const invalidCount = importedRecords.filter((record) => !String(record?.id ?? "").trim()).length;
         const importMap = new Map<string, any>();
         importedRecords.forEach((record) => {
@@ -1302,10 +1346,12 @@ export function MasterDataManager() {
           const results = await Promise.all(chunk.map(async (record) => {
             try {
               return {
-                record: await upsertSupabaseMasterDataStructure(
-                  activeSubTab as "Gedung" | "Kamar" | "Kelas",
-                  record as Record<string, unknown>
-                ),
+                record: useSupabaseSantri
+                  ? await upsertSupabaseMasterDataStudent(record as Record<string, unknown>)
+                  : await upsertSupabaseMasterDataStructure(
+                      activeSubTab as "Gedung" | "Kamar" | "Kelas",
+                      record as Record<string, unknown>
+                    ),
               };
             } catch (error) {
               return {
