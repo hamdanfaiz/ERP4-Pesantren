@@ -1,4 +1,4 @@
-import { createCipheriv, createHmac, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
 import { SupabasePpdbAdminError } from "./supabasePpdbAdmin";
 
 type JsonObject = Record<string, any>;
@@ -742,6 +742,231 @@ function normalizeLegacyGender(value: unknown) {
   if (["l", "m", "male", "putra", "laki-laki", "laki laki", "ikhwan"].includes(normalized)) return "L";
   if (["p", "f", "female", "putri", "perempuan", "akhwat"].includes(normalized)) return "P";
   return null;
+}
+
+function decryptLegacyIdentity(ciphertext: unknown) {
+  if (ciphertext == null || ciphertext === "") return "";
+  const hex = typeof ciphertext === "string" ? ciphertext.replace(/^\\\\x/i, "").trim() : "";
+  if (!hex || !/^(?:[0-9a-fA-F]{2})+$/.test(hex)) {
+    throw new SupabasePpdbAdminError(503, "Data identitas terenkripsi tidak dapat dibaca.");
+  }
+  const packed = Buffer.from(hex, "hex");
+  if (packed.length < 29) throw new SupabasePpdbAdminError(503, "Data identitas terenkripsi tidak valid.");
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", piiKey("PII_ENCRYPTION_KEY"), packed.subarray(0, 12));
+    decipher.setAuthTag(packed.subarray(12, 28));
+    return Buffer.concat([decipher.update(packed.subarray(28)), decipher.final()]).toString("utf8");
+  } catch {
+    throw new SupabasePpdbAdminError(503, "Kunci perlindungan data pribadi tidak cocok dengan data terenkripsi.");
+  }
+}
+
+function safeStudentJsonValue(value: unknown, depth = 0): unknown {
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "string") return value.slice(0, 2000);
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (depth >= 4) return undefined;
+  if (Array.isArray(value)) {
+    return value.slice(0, 100).map((item) => safeStudentJsonValue(item, depth + 1)).filter((item) => item !== undefined);
+  }
+  if (typeof value === "object") {
+    const result: JsonObject = {};
+    Object.entries(value as JsonObject).slice(0, 100).forEach(([key, item]) => {
+      if (/nik|nisn|password|secret|token|api.?key/i.test(key) || key.startsWith("_")) return;
+      const safeValue = safeStudentJsonValue(item, depth + 1);
+      if (safeValue !== undefined) result[key.slice(0, 80)] = safeValue;
+    });
+    return result;
+  }
+  return undefined;
+}
+
+function safeStudentDetails(record: JsonObject): JsonObject {
+  const excluded = new Set([
+    "id", "supabaseId", "sourceRecordId", "tenantId", "type", "category",
+    "name", "nis", "gender", "grade", "classId", "roomId", "buildingId",
+    "dormitoryId", "status", "nik", "nisn", "createdAt", "updatedAt",
+  ]);
+  const details: JsonObject = {};
+  Object.entries(record).forEach(([key, value]) => {
+    if (excluded.has(key) || key.startsWith("_") || /nik|nisn|password|secret|token|api.?key/i.test(key)) return;
+    const safeValue = safeStudentJsonValue(value);
+    if (safeValue !== undefined) details[key] = safeValue;
+  });
+  if (Buffer.byteLength(JSON.stringify(details), "utf8") > 32000) {
+    throw new SupabasePpdbAdminError(400, "Detail data santri melebihi batas ukuran.");
+  }
+  return details;
+}
+
+function mapSupabaseStudentRow(row: JsonObject, tenantId: string, structures: SupabaseStructureRecord[]) {
+  const supabaseId = String(row.id || "");
+  const sourceRecordId = typeof row.source_record_id === "string" ? row.source_record_id : null;
+  const details = row.details && typeof row.details === "object" && !Array.isArray(row.details) ? row.details : {};
+  const classId = typeof row.class_id === "string" ? row.class_id : null;
+  const roomId = typeof row.room_id === "string" ? row.room_id : null;
+  const buildingId = typeof row.building_id === "string" ? row.building_id : null;
+  const schoolClass = classId ? structures.find((item) => item.category === "Kelas" && item.id === classId) : undefined;
+  const room = roomId ? structures.find((item) => item.category === "Kamar" && item.id === roomId) : undefined;
+  const building = buildingId ? structures.find((item) => item.category === "Gedung" && item.id === buildingId) : undefined;
+  return {
+    ...details,
+    id: sourceRecordId || supabaseId,
+    supabaseId,
+    sourceRecordId,
+    tenantId,
+    type: "Santri",
+    name: String(row.name || ""),
+    nis: typeof row.nis === "string" ? row.nis : "",
+    nik: decryptLegacyIdentity(row.nik_ciphertext),
+    nisn: decryptLegacyIdentity(row.nisn_ciphertext),
+    gender: row.gender === "L" || row.gender === "P" ? row.gender : "",
+    grade: typeof row.grade === "string" ? row.grade : "",
+    classId,
+    className: schoolClass?.name || details.className || "",
+    roomId,
+    room: room?.name || details.room || "",
+    dormitoryId: buildingId,
+    dormitory: building?.name || details.dormitory || "",
+    status: String(row.status || "Active"),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function getSupabaseStudentRow(tenantId: string, studentId: string) {
+  const params = new URLSearchParams({
+    select: "id,tenant_id,source_system,source_record_id,nis,name,gender,grade,nik_ciphertext,nisn_ciphertext,class_id,room_id,building_id,details,status,created_at,updated_at",
+    tenant_id: "eq." + tenantId,
+    id: "eq." + studentId,
+    limit: "1",
+  });
+  const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
+  if (!Array.isArray(rows)) throw new SupabasePpdbAdminError(503, "Data santri belum dapat dimuat.");
+  return rows[0] as JsonObject | undefined;
+}
+
+export async function listSupabaseMasterDataStudents(tenantIdentifier: string): Promise<JsonObject[]> {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const structures = await listSupabaseMasterDataStructures(tenantId);
+  const all: JsonObject[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; offset < 10000; offset += pageSize) {
+    const params = new URLSearchParams({
+      select: "id,tenant_id,source_system,source_record_id,nis,name,gender,grade,nik_ciphertext,nisn_ciphertext,class_id,room_id,building_id,details,status,created_at,updated_at",
+      tenant_id: "eq." + tenantId,
+      status: "neq.Archived",
+      order: "name.asc,id.asc",
+      limit: String(pageSize),
+      offset: String(offset),
+    });
+    const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
+    if (!Array.isArray(rows)) throw new SupabasePpdbAdminError(503, "Data santri belum dapat dimuat.");
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    if (offset + pageSize >= 10000) {
+      const overflowParams = new URLSearchParams({
+        select: "id",
+        tenant_id: "eq." + tenantId,
+        status: "neq.Archived",
+        limit: "1",
+        offset: "10000",
+      });
+      const overflow = await supabaseRequest("/rest/v1/students?" + overflowParams.toString());
+      if (!Array.isArray(overflow)) throw new SupabasePpdbAdminError(503, "Jumlah data santri belum dapat diverifikasi.");
+      if (overflow.length > 0) throw new SupabasePpdbAdminError(503, "Jumlah data santri melebihi batas tampilan 10.000 record.");
+      break;
+    }
+  }
+  return all.map((row) => mapSupabaseStudentRow(row, tenantId, structures));
+}
+
+export async function upsertSupabaseMasterDataStudent(
+  tenantIdentifier: string,
+  studentIdentifier: string,
+  recordValue: unknown
+): Promise<JsonObject> {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  if (!recordValue || typeof recordValue !== "object" || Array.isArray(recordValue)) {
+    throw new SupabasePpdbAdminError(400, "Data santri tidak valid.");
+  }
+  const record = recordValue as JsonObject;
+  const sourceRecordId = String(record.sourceRecordId || record.id || "").trim();
+  const studentId = isCanonicalUuid(studentIdentifier)
+    ? validateUuid(studentIdentifier, "ID santri")
+    : (isCanonicalUuid(record.supabaseId) ? validateUuid(record.supabaseId, "ID santri") : null);
+  if (!studentId && (!sourceRecordId || sourceRecordId.length > 1500)) {
+    throw new SupabasePpdbAdminError(400, "ID santri tidak valid.");
+  }
+  const name = legacyText(record.name, 180);
+  if (!name || name.length > 180) throw new SupabasePpdbAdminError(400, "Nama santri wajib diisi dan maksimal 180 karakter.");
+  const nis = legacyText(record.nis, 10);
+  if (nis && !/^[0-9]{1,10}$/.test(nis)) throw new SupabasePpdbAdminError(400, "NIS harus berisi 1 sampai 10 digit.");
+  const rawGender = String(record.gender || "").trim();
+  const gender = rawGender ? normalizeLegacyGender(rawGender) : null;
+  if (rawGender && !gender) throw new SupabasePpdbAdminError(400, "Jenis kelamin santri tidak valid.");
+  const grade = legacyText(record.grade, 80);
+  const status = legacyText(record.status || "Active", 40) || "Active";
+  if (status.toLowerCase() === "archived") throw new SupabasePpdbAdminError(400, "Gunakan operasi arsip untuk mengarsipkan santri.");
+
+  const nik = legacyIdentity(record.nik, 16, "NIK");
+  const nisn = legacyIdentity(record.nisn, 10, "NISN");
+  if (nik.error) throw new SupabasePpdbAdminError(400, nik.error);
+  if (nisn.error) throw new SupabasePpdbAdminError(400, nisn.error);
+  const nikCiphertextHex = nik.value ? encryptLegacyIdentity(nik.value) : null;
+  const nikFingerprintHex = nik.value ? fingerprintLegacyIdentity("nik", nik.value) : null;
+  const nisnCiphertextHex = nisn.value ? encryptLegacyIdentity(nisn.value) : null;
+  const nisnFingerprintHex = nisn.value ? fingerprintLegacyIdentity("nisn", nisn.value) : null;
+  const classId = legacyText(record.classId, 160) || null;
+  const roomId = legacyText(record.roomId, 160) || null;
+  const buildingId = legacyText(record.dormitoryId || record.buildingId, 160) || null;
+  const details = safeStudentDetails(record);
+
+  await supabaseRequest("/rest/v1/rpc/upsert_master_data_student", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_student_id: studentId,
+      p_source_record_id: sourceRecordId || null,
+      p_student: { name, nis: nis || null, gender, grade: grade || null, classId, roomId, buildingId, status, details },
+      p_nik_ciphertext_hex: nikCiphertextHex,
+      p_nik_fingerprint_hex: nikFingerprintHex,
+      p_nisn_ciphertext_hex: nisnCiphertextHex,
+      p_nisn_fingerprint_hex: nisnFingerprintHex,
+    }),
+  });
+  const row = await getSupabaseStudentRow(tenantId, studentId || String((await supabaseRequest(
+    "/rest/v1/students?" + new URLSearchParams({
+      select: "id",
+      tenant_id: "eq." + tenantId,
+      source_system: "in.(legacy_import,master_data)",
+      source_record_id: "eq." + sourceRecordId,
+      limit: "1",
+    }).toString()
+  ) as JsonObject[])?.[0]?.id || ""));
+  if (!row) throw new SupabasePpdbAdminError(503, "Data santri tersimpan tetapi tidak dapat dibaca ulang.");
+  const structures = await listSupabaseMasterDataStructures(tenantId);
+  return mapSupabaseStudentRow(row, tenantId, structures);
+}
+
+export async function archiveSupabaseMasterDataStudent(
+  tenantIdentifier: string,
+  studentIdentifier: string
+): Promise<JsonObject> {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const studentId = isCanonicalUuid(studentIdentifier) ? validateUuid(studentIdentifier, "ID santri") : null;
+  const result = await supabaseRequest("/rest/v1/rpc/archive_master_data_student", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_student_id: studentId,
+      p_source_record_id: studentId ? null : studentIdentifier,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabasePpdbAdminError(503, "Backend belum mengonfirmasi pengarsipan santri.");
+  }
+  return result as JsonObject;
 }
 
 function normalizeLegacyNis(value: unknown) {
