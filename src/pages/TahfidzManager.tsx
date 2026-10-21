@@ -724,6 +724,11 @@ export function TahfidzManager() {
     };
   });
 
+  const getLatestSetoranForStudent = (studentId: string) =>
+    records.find((record) => record.studentId === studentId);
+  const getRecentSetoranCountForStudent = (studentId: string) =>
+    recordsLast30Days.filter((record) => record.studentId === studentId).length;
+
   const renderHalaqahManagement = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
@@ -939,8 +944,8 @@ export function TahfidzManager() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3">
+      <div className={cn("grid grid-cols-1 gap-6", SUPABASE_TAHFIDZ_CUTOVER ? "lg:grid-cols-1" : "lg:grid-cols-4")}>
+        <div className={SUPABASE_TAHFIDZ_CUTOVER ? "lg:col-span-1" : "lg:col-span-3"}>
           <div className="bg-white dark:bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-700">
             <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 dark:bg-black/20 border-b border-slate-200 dark:border-white/5">
               <div className="flex items-center gap-3">
@@ -987,6 +992,8 @@ export function TahfidzManager() {
                         {h.name}
                       </option>
                     ))
+                  ) : SUPABASE_TAHFIDZ_CUTOVER ? (
+                    <option value="" disabled>Belum ada halaqah aktif</option>
                   ) : (
                     <>
                       <option
@@ -1019,10 +1026,10 @@ export function TahfidzManager() {
                   <tr>
                     <th className="px-6 py-4">Santri</th>
                     <th className="px-6 py-4">Halaqah</th>
-                    <th className="px-6 py-4">Pencapaian Target</th>
+                    <th className="px-6 py-4">{SUPABASE_TAHFIDZ_CUTOVER ? "Target Harian" : "Pencapaian Target"}</th>
                     <th className="px-6 py-4">Setoran Terakhir</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Aksi</th>
+                    <th className="px-6 py-4">{SUPABASE_TAHFIDZ_CUTOVER ? "Aktivitas 30 Hari" : "Status"}</th>
+                    {!SUPABASE_TAHFIDZ_CUTOVER && <th className="px-6 py-4 text-right">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-white dark:bg-slate-900">
@@ -1053,66 +1060,59 @@ export function TahfidzManager() {
                         </td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300">
-                            Ust. {santri.halaqah}
+                            {SUPABASE_TAHFIDZ_CUTOVER ? santri.halaqah || "Belum ditugaskan" : `Ust. ${santri.halaqah}`}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1.5 w-48">
-                            <div className="flex justify-between text-xs font-medium">
-                              <span className="text-slate-700 dark:text-slate-300">
-                                Juz {santri.juz}
-                              </span>
-                              <span
-                                className={cn(
-                                  santri.progress < 50
-                                    ? "text-amber-600 dark:text-amber-400"
-                                    : "text-slate-500 dark:text-slate-400",
-                                )}
-                              >
-                                {santri.progress}%
-                              </span>
+                          {SUPABASE_TAHFIDZ_CUTOVER ? (
+                            <div className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
+                              <span>Ziyadah: {santri.target ? `${santri.target.ziyadahPagesPerDay} halaman/hari` : "belum diatur"}</span>
+                              <span>Muroja'ah: {santri.target ? `${santri.target.murojaahPagesPerDay} halaman/hari` : "belum diatur"}</span>
                             </div>
-                            <div className="w-full bg-slate-100 dark:bg-white/5 rounded-full h-1.5 overflow-hidden">
-                              <div
-                                className={cn(
-                                  "h-full rounded-full transition-all",
-                                  santri.status === "at-risk"
-                                    ? "bg-amber-400"
-                                    : "bg-emerald-500",
-                                )}
-                                style={{ width: `${santri.progress}%` }}
-                              ></div>
+                          ) : (
+                            <div className="flex flex-col gap-1.5 w-48">
+                              <div className="flex justify-between text-xs font-medium">
+                                <span className="text-slate-700 dark:text-slate-300">Juz {santri.juz}</span>
+                                <span className={cn(santri.progress < 50 ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-slate-400")}>{santri.progress}%</span>
+                              </div>
+                              <div className="w-full bg-slate-100 dark:bg-white/5 rounded-full h-1.5 overflow-hidden">
+                                <div className={cn("h-full rounded-full transition-all", santri.status === "at-risk" ? "bg-amber-400" : "bg-emerald-500")} style={{ width: `${santri.progress}%` }}></div>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                              {santri.lastSetoran}
-                            </span>
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">
-                              Nilai: {santri.score} (Jayyid)
-                            </span>
-                          </div>
+                          {SUPABASE_TAHFIDZ_CUTOVER ? (
+                            (() => {
+                              const latest = getLatestSetoranForStudent(santri.id);
+                              return latest ? (
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">QS. {latest.surah}: {latest.ayat}</span>
+                                  <span className="text-[10px] text-slate-500">{latest.date} • Hifzh {latest.fluency || "—"} • Tajwid {latest.tajweed || "—"}</span>
+                                </div>
+                              ) : <span className="text-sm text-slate-500">Belum ada setoran</span>;
+                            })()
+                          ) : (
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{santri.lastSetoran}</span>
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Nilai: {santri.score} (Jayyid)</span>
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
-                          {santri.status === "on-track" && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 tracking-wider">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> On Track
-                            </span>
-                          )}
-                          {santri.status === "at-risk" && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 tracking-wider">
-                              <AlertTriangle className="w-3.5 h-3.5" /> At Risk
-                            </span>
-                          )}
-                          {santri.status === "ahead" && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 tracking-wider">
-                              <Sparkles className="w-3.5 h-3.5" /> Ahead Target
-                            </span>
+                          {SUPABASE_TAHFIDZ_CUTOVER ? (
+                            getRecentSetoranCountForStudent(santri.id) > 0
+                              ? <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">{getRecentSetoranCountForStudent(santri.id)} setoran</span>
+                              : <span className="text-xs text-slate-500">Belum setor 30 hari</span>
+                          ) : (
+                            <>
+                              {santri.status === "on-track" && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 tracking-wider"><CheckCircle2 className="w-3.5 h-3.5" /> On Track</span>}
+                              {santri.status === "at-risk" && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 tracking-wider"><AlertTriangle className="w-3.5 h-3.5" /> At Risk</span>}
+                              {santri.status === "ahead" && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 tracking-wider"><Sparkles className="w-3.5 h-3.5" /> Ahead Target</span>}
+                            </>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        {!SUPABASE_TAHFIDZ_CUTOVER && (<td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => {
@@ -1181,7 +1181,7 @@ export function TahfidzManager() {
                               <MoreVertical className="w-4 h-4" />
                             </button>
                           </div>
-                        </td>
+                        </td>)}
                       </tr>
                     ))
                   ) : (
@@ -1228,17 +1228,19 @@ export function TahfidzManager() {
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-500" />
                 <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                  Leaderboard
+                  {SUPABASE_TAHFIDZ_CUTOVER ? "Aktivitas Setoran 30 Hari" : "Leaderboard"}
                 </h3>
               </div>
               <span className="text-[10px] px-2 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 font-medium rounded uppercase tracking-wider">
-                Bulan Ini
+                {SUPABASE_TAHFIDZ_CUTOVER ? "30 Hari" : "Bulan Ini"}
               </span>
             </div>
 
             <div className="space-y-4">
               {[...santriList]
-                .sort((a, b) => b.id.localeCompare(a.id))
+                .sort((a, b) => SUPABASE_TAHFIDZ_CUTOVER
+                  ? getRecentSetoranCountForStudent(b.id) - getRecentSetoranCountForStudent(a.id) || a.name.localeCompare(b.name)
+                  : b.id.localeCompare(a.id))
                 .slice(0, 5)
                 .map((s, i) => (
                   <div
@@ -1268,7 +1270,9 @@ export function TahfidzManager() {
                           {s.grade}
                         </span>
                         <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 rounded">
-                          {15 - i * 2} Hal
+                          {SUPABASE_TAHFIDZ_CUTOVER
+                            ? `${getRecentSetoranCountForStudent(s.id)} setoran`
+                            : `${15 - i * 2} Hal`}
                         </span>
                       </div>
                     </div>
@@ -1276,9 +1280,11 @@ export function TahfidzManager() {
                 ))}
             </div>
 
-            <button className="w-full mt-6 py-2 text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors border border-slate-200 dark:border-transparent">
-              Lihat Peringkat Lengkap
-            </button>
+            {!SUPABASE_TAHFIDZ_CUTOVER && (
+              <button className="w-full mt-6 py-2 text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors border border-slate-200 dark:border-transparent">
+                Lihat Peringkat Lengkap
+              </button>
+            )}
           </div>
         </div>
       </div>
