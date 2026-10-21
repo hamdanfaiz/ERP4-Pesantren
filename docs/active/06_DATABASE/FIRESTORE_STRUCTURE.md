@@ -1,10 +1,10 @@
-# Firestore Database Schema (ERD mapping)
+# Firestore Database Schema (Model Legacy)
 
-Desain struktur Cloud Firestore (NoSQL) menggunakan pendekatan hierarki Collection / Document, dipadukan strategi normalisasi maupun de-normalisasi sesuai efisiensi _read_ untuk UI PesantrenOS.
+Dokumen ini mencatat model data Firebase/Firestore yang masih dipakai runtime pada branch `main`; dokumen ini bukan rancangan schema Supabase target. ERP4 Pesantren diarahkan sebagai software self-hosted yang dipasang di infrastruktur pelanggan, bukan SaaS vendor. Asumsi rilis awal adalah satu installation per pesantren.
 
-## Aturan Utama SaaS Multi-Tenant:
+## Kontrak tenant pada data legacy dan migrasi
 
-Hampir seluruh root collection HARUS memiliki field `tenantId` untuk isolasi per-institusi. `uid` (Firebase Auth) user juga disuntik custom claims `tenantId`.
+Hampir seluruh root collection legacy harus memiliki field `tenantId` untuk menjaga batas data per institusi dan memudahkan pemetaan saat migrasi. `uid` dan Firebase custom claims hanya bagian dari implementasi lama. Target Supabase menggunakan `profiles.user_id` dan validasi tenant melalui RLS; jangan menyalin custom claims Firebase ke desain target.
 
 ## Root Collections
 
