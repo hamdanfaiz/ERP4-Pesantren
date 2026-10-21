@@ -93,7 +93,8 @@ BEGIN
 
     RETURN jsonb_build_object(
       'success', true, 'alreadyUnassigned', false, 'studentId', v_student.id,
-      'previousRoomId', v_student.room_id, 'roomId', NULL
+      'previousRoomId', v_student.room_id, 'roomId', NULL,
+      'occupied', v_old_room_count - 1, 'capacity', v_old_room.capacity
     );
   END IF;
 
