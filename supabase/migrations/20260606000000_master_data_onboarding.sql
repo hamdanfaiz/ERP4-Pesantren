@@ -9,6 +9,7 @@ CREATE TABLE public.master_data_records (
   name TEXT NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 180),
   status TEXT NOT NULL DEFAULT 'Active',
   parent_id TEXT,
+  parent_category TEXT GENERATED ALWAYS AS (CASE WHEN category = 'Kamar' THEN 'Gedung' END) STORED,
   grade TEXT,
   capacity INTEGER CHECK (capacity IS NULL OR capacity >= 0),
   occupied INTEGER NOT NULL DEFAULT 0 CHECK (occupied >= 0),
@@ -19,14 +20,9 @@ CREATE TABLE public.master_data_records (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, category, id),
   UNIQUE (tenant_id, id, category),
-  FOREIGN KEY (tenant_id, 'Gedung', parent_id)
-    REFERENCES public.master_data_records (tenant_id, category, id)
-    DEFERRABLE INITIALLY DEFERRED
+  FOREIGN KEY (tenant_id, parent_category, parent_id)
+    REFERENCES public.master_data_records (tenant_id, category, id) ON DELETE RESTRICT
 );
-
--- The composite self-reference above is useful only for room->building relations, so enforce
--- the category explicitly via a trigger (Postgres foreign keys cannot contain literal values).
-ALTER TABLE public.master_data_records DROP CONSTRAINT master_data_records_tenant_id_category_parent_id_fkey;
 
 CREATE OR REPLACE FUNCTION public.validate_master_data_record()
 RETURNS TRIGGER
@@ -37,12 +33,6 @@ BEGIN
   IF NEW.category = 'Kamar' THEN
     IF NEW.capacity IS NULL OR NEW.capacity < 1 THEN
       RAISE EXCEPTION 'Kapasitas kamar harus minimal satu' USING ERRCODE = '22023';
-    END IF;
-    IF NEW.parent_id IS NOT NULL AND NOT EXISTS (
-      SELECT 1 FROM public.master_data_records b
-      WHERE b.tenant_id = NEW.tenant_id AND b.category = 'Gedung' AND b.id = NEW.parent_id
-    ) THEN
-      RAISE EXCEPTION 'Gedung kamar tidak ditemukan pada tenant ini' USING ERRCODE = '23503';
     END IF;
   ELSIF NEW.category <> 'Kamar' AND NEW.parent_id IS NOT NULL THEN
     -- Kelas/Gedung may carry a parent code in source data; leave it as descriptive metadata only.
