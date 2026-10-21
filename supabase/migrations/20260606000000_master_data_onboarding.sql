@@ -370,7 +370,7 @@ DECLARE
   v_gender public.gender_type;
 BEGIN
   IF p_tenant_id IS NULL OR p_candidate_id IS NULL
-    OR p_nis IS NULL OR p_nis !~ '^[0-9]{10}
+    OR p_nis IS NULL OR p_nis !~ '^[0-9]{10}$'
     OR p_class_id IS NULL OR length(btrim(p_class_id)) = 0
     OR p_room_id IS NULL OR length(btrim(p_room_id)) = 0
     OR p_guardian_name IS NULL OR length(btrim(p_guardian_name)) NOT BETWEEN 2 AND 180
@@ -608,7 +608,7 @@ RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = pg_catalog, public
-AS $
+AS $$
 DECLARE
   v_capacity INTEGER;
   v_count INTEGER;
@@ -646,7 +646,7 @@ BEGIN
   RETURNING occupied INTO v_count;
   RETURN v_count;
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.set_imported_room_occupancy(UUID, TEXT, INTEGER) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.upsert_master_data_structure(UUID, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
