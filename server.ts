@@ -475,8 +475,13 @@ async function startServer() {
 
   app.get("/health/live", (_req, res) => res.status(200).json({ status: "alive" }));
   app.get("/health/ready", (_req, res) => {
-    if (REQUIRE_RUNTIME_FIREBASE_CONFIG && !hasCompleteFirebaseRuntimeConfig()) {
-      return res.status(503).json({ status: "not_ready" });
+    if (REQUIRE_RUNTIME_FIREBASE_CONFIG) {
+      const credentialsPath = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || "").trim();
+      if (!hasCompleteFirebaseRuntimeConfig() ||
+          !path.isAbsolute(credentialsPath) ||
+          !fs.existsSync(credentialsPath)) {
+        return res.status(503).json({ status: "not_ready" });
+      }
     }
     return res.status(200).json({ status: "ready" });
   });
