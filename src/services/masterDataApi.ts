@@ -88,3 +88,25 @@ export async function migrateLegacySupabaseMasterDataStructures(apply: boolean) 
       : { apply: false }),
   });
 }
+
+
+export type LegacyStudentMigrationResult = {
+  dryRun: boolean;
+  sourceCount: number;
+  planned: number;
+  imported: number;
+  skipped: number;
+  errors: Array<{ id: string; category: string; message: string }>;
+  warnings: Array<{ id: string; category: string; message: string }>;
+};
+
+export async function migrateLegacySupabaseStudents(apply: false): Promise<LegacyStudentMigrationResult>;
+export async function migrateLegacySupabaseStudents(apply: true): Promise<LegacyStudentMigrationResult>;
+export async function migrateLegacySupabaseStudents(apply: boolean) {
+  return requestMasterData<LegacyStudentMigrationResult>("/api/master-data/students/migrate", {
+    method: "POST",
+    body: JSON.stringify(apply
+      ? { apply: true, confirm: "IMPORT_LEGACY_MASTER_DATA_STUDENTS" }
+      : { apply: false }),
+  });
+}
