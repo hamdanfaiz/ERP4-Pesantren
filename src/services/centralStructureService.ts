@@ -78,6 +78,7 @@ class CentralStructureService {
   private tenantId: string | null = null;
   private unsubscribeListeners: Array<() => void> = [];
   private supabaseSnapshotTimer: ReturnType<typeof setInterval> | null = null;
+  private supabaseSnapshotRevision = 0;
   private lastSynced: Date | null = null;
 
   // Cached data
@@ -117,8 +118,9 @@ class CentralStructureService {
 
   private async refreshSupabaseSnapshot(tenantId: string) {
     try {
+      const requestRevision = ++this.supabaseSnapshotRevision;
       const snapshot = await listSupabaseBoardingSnapshot();
-      if (this.tenantId !== tenantId) return;
+      if (this.tenantId !== tenantId || requestRevision !== this.supabaseSnapshotRevision) return;
 
       this.buildings = snapshot.structures.filter((item) => item.category === "Gedung");
       const buildingsById = new Map(this.buildings.map((item) => [item.id, item]));
@@ -247,6 +249,7 @@ class CentralStructureService {
     this.unsubscribeListeners = [];
     if (this.supabaseSnapshotTimer) clearInterval(this.supabaseSnapshotTimer);
     this.supabaseSnapshotTimer = null;
+    this.supabaseSnapshotRevision += 1;
     this.tenantId = normalizedTenantId;
     this.buildings = [];
     this.rooms = [];
@@ -367,6 +370,7 @@ class CentralStructureService {
           targetRoom.id,
           linkedBuildingId || null
         );
+        this.supabaseSnapshotRevision += 1;
         const previousRoomId = santri.roomId || "";
         const assignedRoomId = result.roomId || targetRoom.id;
         const assignedBuildingId = result.buildingId || linkedBuildingId || "";
@@ -479,6 +483,7 @@ class CentralStructureService {
       if (!localSantri.supabaseId) return false;
       try {
         const result = await assignSupabaseStudentRoom(localSantri.supabaseId, null, null);
+        this.supabaseSnapshotRevision += 1;
         this.santriList = this.santriList.map((santri) => {
           if (santri.id !== localSantri.id) return santri;
           const { roomId, room, dormitoryId, dormitory, ...rest } = santri;
@@ -542,7 +547,10 @@ class CentralStructureService {
         const building = this.buildings.find((item) => item.id === room.parentId || item.id === room.parentCode || item.name === room.building);
         const roomGender = getConfiguredRoomGender(room, building);
         const capacity = Number(room.capacity);
-        const occupied = this.getStudentsByRoom(room.id).length;
+        const observedOccupancy = this.getStudentsByRoom(room.id).length;
+        const occupied = USE_SUPABASE_BOARDING_CUTOVER
+          ? Math.max(Number(room.occupied || 0), observedOccupancy)
+          : observedOccupancy;
         return roomGender === santri.gender && Number.isInteger(capacity) && capacity > occupied
           && !['inactive', 'nonaktif', 'disabled'].includes(String(room.status || '').toLowerCase());
       });
