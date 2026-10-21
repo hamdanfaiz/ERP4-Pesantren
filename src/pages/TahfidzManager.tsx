@@ -105,6 +105,7 @@ function mapSupabaseTahfidzSnapshot(snapshot: any) {
   const mappedHalaqahs = halaqahs.map((halaqah: any) => ({
     id: String(halaqah.id),
     name: String(halaqah.name || ""),
+    ustadzUserId: halaqah.ustadzUserId ? String(halaqah.ustadzUserId) : "",
     ustadz: String(halaqah.ustadz || ""),
     schedule: String(halaqah.schedule || ""),
     room: String(halaqah.room || ""),
@@ -134,7 +135,10 @@ function mapSupabaseTahfidzSnapshot(snapshot: any) {
       ust: String(record.recordedByName || ""),
     };
   });
-  return { roster: mappedSantri, halaqahs: mappedHalaqahs, records: mappedRecords };
+  const mappedUstadzOptions = Array.isArray(snapshot?.ustadzOptions)
+    ? snapshot.ustadzOptions.map((item: any) => ({ userId: String(item.userId || ""), name: String(item.name || "") }))
+    : [];
+  return { roster: mappedSantri, halaqahs: mappedHalaqahs, records: mappedRecords, ustadzOptions: mappedUstadzOptions };
 }
 
 // Mock Data
@@ -404,6 +408,7 @@ export function TahfidzManager() {
   const [isTahfidzMigrationBusy, setIsTahfidzMigrationBusy] = useState(false);
   const [confirmTahfidzMigration, setConfirmTahfidzMigration] = useState(false);
   const canManageTahfidzMigration = ["Admin", "SuperAdmin"].includes(String(role)) && user?.modulePermissions?.tahfidz !== false;
+  const canManageTahfidzHalaqahs = ["Admin", "SuperAdmin"].includes(String(role)) && user?.modulePermissions?.tahfidz !== false;
   const canManageSupabaseTargets = ["Admin", "SuperAdmin", "Ustadz"].includes(String(role)) && user?.modulePermissions?.tahfidz !== false;
   const runTahfidzMigration = async (apply: boolean) => {
     if (!auth.currentUser) {
@@ -480,6 +485,27 @@ export function TahfidzManager() {
       })
       .catch(console.error);
   }, [user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz]);
+  const [isHalaqahModalOpen, setIsHalaqahModalOpen] = useState(false);
+  const [isSavingHalaqah, setIsSavingHalaqah] = useState(false);
+  const [halaqahForm, setHalaqahForm] = useState({
+    id: "",
+    name: "",
+    ustadzUserId: "",
+    schedule: "",
+    room: "",
+    dailyTargetPages: "1",
+    status: "active",
+  });
+  const pendingHalaqahRequestsRef = React.useRef(new Map<string, { id: string; payload: any }>());
+  const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
+  const [isSavingMembership, setIsSavingMembership] = useState(false);
+  const [membershipForm, setMembershipForm] = useState({
+    studentId: "",
+    halaqahId: "",
+    startsOn: new Date().toISOString().slice(0, 10),
+  });
+  const pendingMembershipRequestsRef = React.useRef(new Map<string, { id: string; payload: any }>());
+  const [tahfidzUstadzOptions, setTahfidzUstadzOptions] = useState<any[]>([]);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [isSavingTahfidzTarget, setIsSavingTahfidzTarget] = useState(false);
   const [targetForm, setTargetForm] = useState({
@@ -523,8 +549,122 @@ export function TahfidzManager() {
     setHalaqahList(mapped.halaqahs);
     setSantriList(mapped.roster);
     setRecords(mapped.records);
+          setTahfidzUstadzOptions(mapped.ustadzOptions);
     setHasSupabaseTahfidzSnapshot(true);
     return mapped;
+  };
+
+  const openSupabaseHalaqahEditor = (halaqah?: any) => {
+    setHalaqahForm({
+      id: String(halaqah?.id || ""),
+      name: String(halaqah?.name || ""),
+      ustadzUserId: String(halaqah?.ustadzUserId || ""),
+      schedule: String(halaqah?.schedule || ""),
+      room: String(halaqah?.room || ""),
+      dailyTargetPages: String(halaqah?.dailyTargetPages ?? 1),
+      status: "active",
+    });
+    setTahfidzDataError("");
+    setIsHalaqahModalOpen(true);
+  };
+
+  const handleSaveSupabaseHalaqah = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const dailyTargetPages = Number(halaqahForm.dailyTargetPages);
+    if (!halaqahForm.name.trim() || !halaqahForm.ustadzUserId) {
+      setTahfidzDataError("Nama halaqah dan Ustadz pengampu wajib dipilih.");
+      return;
+    }
+    if (!Number.isFinite(dailyTargetPages) || dailyTargetPages < 0 || dailyTargetPages > 100
+      || Math.round(dailyTargetPages * 100) !== dailyTargetPages * 100) {
+      setTahfidzDataError("Target halaqah harus 0–100 halaman dengan maksimal dua desimal.");
+      return;
+    }
+    const payload = {
+      id: halaqahForm.id || null,
+      name: halaqahForm.name.trim(),
+      ustadzUserId: halaqahForm.ustadzUserId,
+      schedule: halaqahForm.schedule.trim(),
+      room: halaqahForm.room.trim(),
+      dailyTargetPages,
+      status: halaqahForm.status,
+    };
+    const fingerprint = JSON.stringify(payload);
+    let pending = pendingHalaqahRequestsRef.current.get(fingerprint);
+    if (!pending) {
+      pending = { id: createTahfidzRequestId(), payload };
+      pendingHalaqahRequestsRef.current.set(fingerprint, pending);
+    }
+    setIsSavingHalaqah(true);
+    setTahfidzDataError("");
+    try {
+      const result = await requestSupabaseTahfidzApi("/api/tahfidz/halaqahs", {
+        method: "POST",
+        body: JSON.stringify({ halaqah: { ...pending.payload, clientRequestId: pending.id } }),
+      });
+      if (result?.success !== true) throw new Error("Backend belum mengonfirmasi penyimpanan halaqah.");
+      pendingHalaqahRequestsRef.current.delete(fingerprint);
+      setIsHalaqahModalOpen(false);
+      try {
+        await loadSupabaseTahfidzSnapshot();
+      } catch {
+        setTahfidzDataError("Halaqah tersimpan, tetapi daftar belum dapat diperbarui. Muat ulang untuk melihat perubahan.");
+      }
+    } catch (error: any) {
+      setTahfidzDataError(error?.message || "Halaqah belum dapat disimpan ke Supabase.");
+    } finally {
+      setIsSavingHalaqah(false);
+    }
+  };
+
+  const openSupabaseMembershipEditor = (halaqah?: any) => {
+    setMembershipForm({
+      studentId: "",
+      halaqahId: String(halaqah?.id || ""),
+      startsOn: new Date().toISOString().slice(0, 10),
+    });
+    setTahfidzDataError("");
+    setIsMembershipModalOpen(true);
+  };
+
+  const handleSaveSupabaseMembership = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!membershipForm.studentId || !membershipForm.halaqahId) {
+      setTahfidzDataError("Pilih santri dan halaqah aktif.");
+      return;
+    }
+    const payload = {
+      studentId: membershipForm.studentId,
+      halaqahId: membershipForm.halaqahId,
+      startsOn: membershipForm.startsOn,
+    };
+    const fingerprint = JSON.stringify(payload);
+    let pending = pendingMembershipRequestsRef.current.get(fingerprint);
+    if (!pending) {
+      pending = { id: createTahfidzRequestId(), payload };
+      pendingMembershipRequestsRef.current.set(fingerprint, pending);
+    }
+    setIsSavingMembership(true);
+    setTahfidzDataError("");
+    try {
+      const result = await requestSupabaseTahfidzApi("/api/tahfidz/memberships", {
+        method: "POST",
+        body: JSON.stringify({ membership: { ...pending.payload, clientRequestId: pending.id } }),
+      });
+      if (result?.success !== true) throw new Error("Backend belum mengonfirmasi penempatan santri.");
+      pendingMembershipRequestsRef.current.delete(fingerprint);
+      setIsMembershipModalOpen(false);
+      try {
+        await loadSupabaseTahfidzSnapshot();
+        if (result.alreadyAssigned) setTahfidzDataError("Santri sudah berada di halaqah tersebut; tidak ada perubahan.");
+      } catch {
+        setTahfidzDataError("Penempatan tersimpan, tetapi daftar belum dapat diperbarui. Muat ulang untuk melihatnya.");
+      }
+    } catch (error: any) {
+      setTahfidzDataError(error?.message || "Penempatan santri belum dapat disimpan ke Supabase.");
+    } finally {
+      setIsSavingMembership(false);
+    }
   };
 
   const openSupabaseTargetEditor = (student?: any) => {
@@ -606,6 +746,7 @@ export function TahfidzManager() {
       setHalaqahList([]);
       setSantriList([]);
       setRecords([]);
+      setTahfidzUstadzOptions([]);
       if (!user?.tenantId || !user?.uid || user?.modulePermissions?.tahfidz === false) {
         setTahfidzDataError("Akses Tahfidz atau identitas tenant belum tersedia.");
         setHasSupabaseTahfidzSnapshot(false);
@@ -619,6 +760,7 @@ export function TahfidzManager() {
           setHalaqahList(mapped.halaqahs);
           setSantriList(mapped.roster);
           setRecords(mapped.records);
+          setTahfidzUstadzOptions(mapped.ustadzOptions);
           setHasSupabaseTahfidzSnapshot(true);
         })
         .catch((error: any) => {
@@ -839,6 +981,16 @@ export function TahfidzManager() {
             <Plus className="w-4 h-4" /> Tambah Halaqah
           </button>
         )}
+        {SUPABASE_TAHFIDZ_CUTOVER && canManageTahfidzHalaqahs && (
+          <button
+            type="button"
+            onClick={() => openSupabaseHalaqahEditor()}
+            disabled={!hasSupabaseTahfidzSnapshot || isTahfidzDataLoading || tahfidzUstadzOptions.length === 0}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" /> Tambah Halaqah
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -878,9 +1030,17 @@ export function TahfidzManager() {
                     </span>
                   </div>
                 </div>
-                <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1">
-                  <Settings2 className="w-4 h-4" />
-                </button>
+                {(!SUPABASE_TAHFIDZ_CUTOVER || canManageTahfidzHalaqahs) && (
+                  <button
+                    type="button"
+                    onClick={() => SUPABASE_TAHFIDZ_CUTOVER ? openSupabaseHalaqahEditor(halaqah) : undefined}
+                    disabled={SUPABASE_TAHFIDZ_CUTOVER && (!hasSupabaseTahfidzSnapshot || isTahfidzDataLoading || tahfidzUstadzOptions.length === 0)}
+                    aria-label={`Edit Halaqah ${halaqah.name}`}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 disabled:opacity-50"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               <div className="p-5 flex-1 flex flex-col gap-4">
@@ -946,7 +1106,7 @@ export function TahfidzManager() {
                             </div>
                           </div>
                           <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
-                            {santri.juz} Juz
+                            {SUPABASE_TAHFIDZ_CUTOVER ? "Data hafalan belum tersedia" : `${santri.juz} Juz`}
                           </div>
                         </div>
                       ))
@@ -966,6 +1126,16 @@ export function TahfidzManager() {
                 </div>
               </div>
               <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-black/20 flex gap-2">
+                {SUPABASE_TAHFIDZ_CUTOVER && canManageTahfidzHalaqahs && (
+                  <button
+                    type="button"
+                    onClick={() => openSupabaseMembershipEditor(halaqah)}
+                    disabled={!hasSupabaseTahfidzSnapshot || isTahfidzDataLoading || santriList.length === 0}
+                    className="flex-1 rounded-lg border border-emerald-200 bg-emerald-50 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-500/20 dark:bg-emerald-900/20 dark:text-emerald-400"
+                  >
+                    Kelola Santri
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setSelectedHalaqahFilter(halaqah.name);
@@ -3193,6 +3363,101 @@ export function TahfidzManager() {
       {activeTab === "quran" && (
         <div className="flex-1 min-h-0">
           <QuranViewer />
+        </div>
+      )}
+
+      {/* Supabase Halaqah Modal */}
+      {SUPABASE_TAHFIDZ_CUTOVER && isHalaqahModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+          <form onSubmit={handleSaveSupabaseHalaqah} className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-semibold text-slate-900 dark:text-white">{halaqahForm.id ? "Ubah Halaqah" : "Tambah Halaqah"}</h2>
+                <p className="mt-1 text-xs text-slate-500">Data disimpan dalam tenant pesantren. Arsip halaqah hanya bisa dilakukan setelah santrinya dipindahkan.</p>
+              </div>
+              <button type="button" onClick={() => setIsHalaqahModalOpen(false)} aria-label="Tutup" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+            </div>
+            <label className="block text-sm font-medium">
+              Nama halaqah
+              <input required maxLength={120} value={halaqahForm.name} onChange={(event) => setHalaqahForm({ ...halaqahForm, name: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+            </label>
+            <label className="block text-sm font-medium">
+              Ustadz pengampu
+              <select required value={halaqahForm.ustadzUserId} onChange={(event) => setHalaqahForm({ ...halaqahForm, ustadzUserId: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950">
+                <option value="">Pilih Ustadz aktif</option>
+                {tahfidzUstadzOptions.map((item) => <option key={item.userId} value={item.userId}>{item.name}</option>)}
+              </select>
+              {tahfidzUstadzOptions.length === 0 && <span className="mt-1 block text-xs text-amber-700 dark:text-amber-400">Belum ada profil Ustadz Supabase yang aktif dan terpetakan di tenant ini.</span>}
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-medium">
+                Jadwal
+                <input maxLength={500} value={halaqahForm.schedule} onChange={(event) => setHalaqahForm({ ...halaqahForm, schedule: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+              </label>
+              <label className="block text-sm font-medium">
+                Lokasi
+                <input maxLength={180} value={halaqahForm.room} onChange={(event) => setHalaqahForm({ ...halaqahForm, room: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+              </label>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-medium">
+                Target halaqah (halaman/hari)
+                <input required type="number" min="0" max="100" step="0.25" value={halaqahForm.dailyTargetPages} onChange={(event) => setHalaqahForm({ ...halaqahForm, dailyTargetPages: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+              </label>
+              <label className="block text-sm font-medium">
+                Status
+                <select value={halaqahForm.status} onChange={(event) => setHalaqahForm({ ...halaqahForm, status: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950">
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Nonaktif</option>
+                  <option value="archived">Arsip</option>
+                </select>
+              </label>
+            </div>
+            {tahfidzDataError && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">{tahfidzDataError}</p>}
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-white/10">
+              <button type="button" onClick={() => setIsHalaqahModalOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button>
+              <button type="submit" disabled={isSavingHalaqah || isTahfidzDataLoading || !hasSupabaseTahfidzSnapshot || tahfidzUstadzOptions.length === 0} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{isSavingHalaqah ? "Menyimpan…" : "Simpan Halaqah"}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Supabase Membership Modal */}
+      {SUPABASE_TAHFIDZ_CUTOVER && isMembershipModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+          <form onSubmit={handleSaveSupabaseMembership} className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-semibold text-slate-900 dark:text-white">Penempatan Santri Tahfidz</h2>
+                <p className="mt-1 text-xs text-slate-500">Perpindahan mengakhiri penempatan lama sehari sebelum penempatan baru dimulai.</p>
+              </div>
+              <button type="button" onClick={() => setIsMembershipModalOpen(false)} aria-label="Tutup" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+            </div>
+            <label className="block text-sm font-medium">
+              Santri
+              <select required value={membershipForm.studentId} onChange={(event) => setMembershipForm({ ...membershipForm, studentId: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950">
+                <option value="">Pilih santri</option>
+                {santriList.filter((student) => student.halaqahId !== membershipForm.halaqahId).map((student) => <option key={student.id} value={student.id}>{student.name} — {student.nis}{student.halaqah ? ` (saat ini: ${student.halaqah})` : ""}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm font-medium">
+              Halaqah aktif
+              <select required value={membershipForm.halaqahId} onChange={(event) => setMembershipForm({ ...membershipForm, halaqahId: event.target.value, studentId: "" })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950">
+                <option value="">Pilih halaqah</option>
+                {halaqahList.map((halaqah) => <option key={halaqah.id} value={halaqah.id}>{halaqah.name}</option>)}
+              </select>
+            </label>
+            {santriList.filter((student) => student.halaqahId !== membershipForm.halaqahId).length === 0 && <p className="text-xs text-slate-500">Tidak ada santri lain yang perlu ditempatkan atau dipindahkan ke halaqah ini.</p>}
+            <label className="block text-sm font-medium">
+              Berlaku mulai
+              <input required type="date" max={new Date().toISOString().slice(0, 10)} value={membershipForm.startsOn} onChange={(event) => setMembershipForm({ ...membershipForm, startsOn: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />
+            </label>
+            {tahfidzDataError && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">{tahfidzDataError}</p>}
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-white/10">
+              <button type="button" onClick={() => setIsMembershipModalOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button>
+              <button type="submit" disabled={isSavingMembership || isTahfidzDataLoading || !hasSupabaseTahfidzSnapshot || santriList.filter((student) => student.halaqahId !== membershipForm.halaqahId).length === 0} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{isSavingMembership ? "Menyimpan…" : "Simpan Penempatan"}</button>
+            </div>
+          </form>
         </div>
       )}
 
