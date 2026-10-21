@@ -510,6 +510,81 @@ export async function onboardSupabaseAcceptedCandidate(
 
 
 
+
+export type SupabaseBoardingStudent = {
+  id: string;
+  supabaseId: string;
+  sourceRecordId: string | null;
+  name: string;
+  gender: "L" | "P" | null;
+  grade: string | null;
+  nis: string | null;
+  classId: string | null;
+  className: string | null;
+  roomId: string | null;
+  room: string | null;
+  dormitoryId: string | null;
+  dormitory: string | null;
+  status: string;
+};
+
+export async function listSupabaseBoardingSnapshot(tenantIdentifier: string): Promise<{
+  structures: SupabaseStructureRecord[];
+  students: SupabaseBoardingStudent[];
+}> {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const structures = await listSupabaseMasterDataStructures(tenantId);
+  const all: JsonObject[] = [];
+  const pageSize = 1000;
+
+  for (let offset = 0; offset < 10000; offset += pageSize) {
+    const params = new URLSearchParams({
+      select: "id,source_record_id,name,gender,grade,nis,class_id,room_id,building_id,status",
+      tenant_id: "eq." + tenantId,
+      order: "name.asc,id.asc",
+      limit: String(pageSize),
+      offset: String(offset),
+    });
+    const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
+    if (!Array.isArray(rows)) throw new SupabasePpdbAdminError(503, "Data santri belum dapat dimuat.");
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    if (offset + pageSize >= 10000) {
+      throw new SupabasePpdbAdminError(503, "Jumlah data santri melebihi batas snapshot 10.000 record.");
+    }
+  }
+
+  const byId = new Map(structures.map((item) => [item.id, item]));
+  const students: SupabaseBoardingStudent[] = all.map((row) => {
+    const supabaseId = String(row.id || "");
+    const sourceRecordId = typeof row.source_record_id === "string" ? row.source_record_id : null;
+    const roomId = typeof row.room_id === "string" ? row.room_id : null;
+    const buildingId = typeof row.building_id === "string" ? row.building_id : null;
+    const classId = typeof row.class_id === "string" ? row.class_id : null;
+    const room = roomId ? byId.get(roomId) : undefined;
+    const building = buildingId ? byId.get(buildingId) : undefined;
+    const schoolClass = classId ? byId.get(classId) : undefined;
+    return {
+      id: sourceRecordId || supabaseId,
+      supabaseId,
+      sourceRecordId,
+      name: String(row.name || ""),
+      gender: row.gender === "L" || row.gender === "P" ? row.gender : null,
+      grade: typeof row.grade === "string" ? row.grade : null,
+      nis: typeof row.nis === "string" ? row.nis : null,
+      classId,
+      className: schoolClass?.name || null,
+      roomId,
+      room: room?.name || null,
+      dormitoryId: buildingId,
+      dormitory: building?.name || null,
+      status: String(row.status || "Active"),
+    };
+  });
+
+  return { structures, students };
+}
+
 export async function assignSupabaseStudentRoom(
   tenantIdentifier: string,
   studentIdValue: unknown,
