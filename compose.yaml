@@ -1,0 +1,46 @@
+
+services:
+  erp:
+    image: ${ERP_IMAGE:-erp4-pesantren:local}
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${ERP_HTTP_PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+      REQUIRE_RUNTIME_FIREBASE_CONFIG: "true"
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?Set FIREBASE_PROJECT_ID in .env}
+      FIREBASE_WEB_API_KEY: ${FIREBASE_WEB_API_KEY:?Set FIREBASE_WEB_API_KEY in .env}
+      FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN:?Set FIREBASE_AUTH_DOMAIN in .env}
+      FIREBASE_APP_ID: ${FIREBASE_APP_ID:?Set FIREBASE_APP_ID in .env}
+      FIREBASE_STORAGE_BUCKET: ${FIREBASE_STORAGE_BUCKET:?Set FIREBASE_STORAGE_BUCKET in .env}
+      FIREBASE_MESSAGING_SENDER_ID: ${FIREBASE_MESSAGING_SENDER_ID:?Set FIREBASE_MESSAGING_SENDER_ID in .env}
+      FIRESTORE_DATABASE_ID: ${FIRESTORE_DATABASE_ID:?Set FIRESTORE_DATABASE_ID in .env}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-admin.json
+    volumes:
+      - type: bind
+        source: ${FIREBASE_ADMIN_CREDENTIALS_FILE:?Set path to the customer Firebase Admin credential file}
+        target: /run/secrets/firebase-admin.json
+        read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+      - /home/bun/.bun:noexec,nosuid,size=64m
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - -e
+        - "fetch('http://127.0.0.1:3000/health/ready').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
