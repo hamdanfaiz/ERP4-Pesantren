@@ -93,7 +93,6 @@ async function loadTenant() {
   const academicYear = String(general.academicYear || "").trim();
   return {
     tenantId: String(tenant.id || ""),
-    tenantName: String(tenant.name || "Pesantren"),
     academicYear,
     orgInfo: {
       schoolName: String(org.schoolName || tenant.name || "Pesantren"),
@@ -210,7 +209,6 @@ function storageObjectPath(tenantId: string, candidateId: string, key: DocumentK
 }
 
 async function uploadDocument(path: string, file: { bytes: Buffer; mimeType: string }) {
-  const config = configuration();
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
   await requestSupabase("/storage/v1/object/ppdb-documents/" + encodedPath, {
     method: "POST",
@@ -229,7 +227,6 @@ async function removeDocument(path: string) {
 }
 
 export async function registerSupabasePublicPpdb(body: any) {
-  const config = configuration();
   const tenant = await loadTenant();
   const candidate = validateCandidate(body?.candidate);
   const rawDocuments = objectOrEmpty(body?.documents);
