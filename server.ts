@@ -683,6 +683,9 @@ async function startServer() {
     res.setHeader("Cache-Control", "no-store");
     try {
       const actor = (req as any).actor;
+      if (!["Admin", "SuperAdmin"].includes(String(actor.role || "")) || actor.modulePermissions?.["master-data"] !== true) {
+        return res.status(403).json({ error: "Onboarding hanya dapat dilakukan Admin dengan akses Master Data." });
+      }
       const result = await onboardSupabaseAcceptedCandidate(actor.tenantId, req.params.candidateId, req.body?.assignment);
       return res.json(result);
     } catch (err: any) {
