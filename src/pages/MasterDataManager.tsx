@@ -1016,7 +1016,7 @@ export function MasterDataManager() {
     const validatedData = result.data;
     if (USE_SUPABASE_BOARDING_CUTOVER && activeTab === "entities" && activeSubTab === "Santri") {
       try {
-        const currentRecord = currentList.find((record) => String(record.id) === String(editingId));
+        const currentRecord = modalMode === "edit" ? currentList.find((record) => String(record.id) === String(editingId)) : undefined;
         const recordForSupabase = {
           ...validatedData,
           id: modalMode === "edit" ? String(editingId || validatedData.id) : String(validatedData.id),
