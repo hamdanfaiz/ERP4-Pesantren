@@ -135,7 +135,7 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
           "Sinkronisasi Keuangan"
         );
       } else {
-        showToast("Semua data pembayaran sudah sinkron dengan Modul Keuangan.", "info");
+        showToast("Belum ada tagihan PPDB Supabase untuk kandidat pada tenant aktif.", "info");
       }
       onRefresh();
     } catch (err) {
