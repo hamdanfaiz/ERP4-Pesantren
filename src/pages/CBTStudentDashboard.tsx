@@ -63,7 +63,7 @@ export function CBTStudentDashboard() {
 
   useEffect(() => {
     const unsub = onSnapshot(tenantScopedQuery(collection(db, "cbt_questions"), user?.tenantId), (snap) => {
-      const q = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const q = snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
       if (q.length > 0) {
         setQuestions(q);
       }

@@ -195,12 +195,52 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
       throw new Error('Status onboarding sudah selesai, tetapi relasi master santri tidak lengkap. Periksa data sebelum mencoba lagi.');
     }
 
+    const normalizedNik = String(currentCandidateData.nik || candidate.nik || '').trim().replace(/\D/g, '');
+    const normalizedNisn = String(currentCandidateData.nisn || candidate.nisn || '').trim().replace(/\D/g, '');
+    if (!/^\d{16}$/.test(normalizedNik)) throw new Error('NIK calon santri harus terdiri dari 16 digit sebelum onboarding.');
+    if (normalizedNisn && !/^\d{10}$/.test(normalizedNisn)) throw new Error('NISN calon santri harus terdiri dari 10 digit.');
+    const identityValues = [
+      { kind: 'nik', value: normalizedNik },
+      ...(normalizedNisn ? [{ kind: 'nisn', value: normalizedNisn }] : []),
+    ];
+    const identityRefs = identityValues.map(({ kind, value }) =>
+      doc(db, 'identityReservations', encodeURIComponent(tenantId) + '_' + kind + '_' + encodeURIComponent(value))
+    );
+
+    const studentCollection = collection(db, 'entityRecords');
+    const existingNisQuery = query(studentCollection, where('tenantId', '==', tenantId), where('type', '==', 'Santri'), where('nis', '==', nis));
+    const existingRoomIdQuery = query(studentCollection, where('tenantId', '==', tenantId), where('type', '==', 'Santri'), where('roomId', '==', roomId));
+    const existingRoomNameQuery = query(studentCollection, where('tenantId', '==', tenantId), where('type', '==', 'Santri'), where('room', '==', assignment.roomName));
+
+    const [existingNisSnapshot, existingIdentitySnapshots, roomIdSnapshot, roomNameSnapshot] = await Promise.all([
+      getDocs(existingNisQuery),
+      Promise.all(identityValues.map(({ kind, value }) => getDocs(query(studentCollection, where('tenantId', '==', tenantId), where('type', '==', 'Santri'), where(kind, '==', value))))),
+      getDocs(existingRoomIdQuery),
+      getDocs(existingRoomNameQuery),
+    ]);
+
+    if (existingNisSnapshot.docs.some((item) => item.id !== currentCandidateData.masterStudentId)) {
+      throw new Error('NIS sudah digunakan oleh santri aktif pada tenant ini.');
+    }
+    identityValues.forEach((item, index) => {
+      if (existingIdentitySnapshots[index].docs.length > 0) {
+        throw new Error(item.kind.toUpperCase() + ' sudah digunakan oleh santri lain pada tenant ini.');
+      }
+    });
+
+    const occupiedRecordIds = new Set([
+      ...roomIdSnapshot.docs.map((item) => item.id),
+      ...roomNameSnapshot.docs.filter((item) => !item.data().roomId).map((item) => item.id),
+    ]);
+    const observedRoomOccupancy = occupiedRecordIds.size;
+
     return runTransaction(db, async (transaction) => {
-      const [candidateSnapshot, reservationSnapshot, roomSnapshot, classSnapshot] = await Promise.all([
+      const [candidateSnapshot, reservationSnapshot, roomSnapshot, classSnapshot, ...identitySnapshots] = await Promise.all([
         transaction.get(candidateRef),
         transaction.get(reservationRef),
         transaction.get(roomRef),
         transaction.get(classRef),
+        ...identityRefs.map((identityRef) => transaction.get(identityRef)),
       ]);
 
       if (!candidateSnapshot.exists()) throw new Error('Data calon santri tidak ditemukan.');
@@ -219,45 +259,12 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
       }
       if (reservationSnapshot.exists()) throw new Error('Nomor NIS sudah dikunci oleh proses onboarding lain.');
 
-      const studentCollection = collection(db, 'entityRecords');
-      const existingNisQuery = query(studentCollection, where('tenantId', '==', tenantId), where('type', '==', 'Santri'), where('nis', '==', nis));
-      const existingRoomIdQuery = query(studentCollection, where('tenantId', '==', tenantId), where('type', '==', 'Santri'), where('roomId', '==', roomId));
-      const existingRoomNameQuery = query(studentCollection, where('tenantId', '==', tenantId), where('type', '==', 'Santri'), where('room', '==', assignment.roomName));
-      const normalizedNik = String(source.nik || '').trim().replace(/\D/g, '');
-      const normalizedNisn = String(source.nisn || '').trim().replace(/\D/g, '');
-      if (!/^\d{16}$/.test(normalizedNik)) throw new Error('NIK calon santri harus terdiri dari 16 digit sebelum onboarding.');
-      if (normalizedNisn && !/^\d{10}$/.test(normalizedNisn)) throw new Error('NISN calon santri harus terdiri dari 10 digit.');
-      const identityValues = [
-        { kind: 'nik', value: normalizedNik },
-        ...(normalizedNisn ? [{ kind: 'nisn', value: normalizedNisn }] : []),
-      ];
-      const identityRefs = identityValues.map(({ kind, value }) =>
-        doc(db, 'identityReservations', encodeURIComponent(tenantId) + '_' + kind + '_' + encodeURIComponent(value))
-      );
-      const [existingNisSnapshot, existingIdentitySnapshots, identitySnapshots, roomIdSnapshot, roomNameSnapshot] = await Promise.all([
-        transaction.get(existingNisQuery),
-        Promise.all(identityValues.map(({ kind, value }) => transaction.get(query(studentCollection, where('tenantId', '==', tenantId), where('type', '==', 'Santri'), where(kind, '==', value))))),
-        Promise.all(identityRefs.map((identityRef) => transaction.get(identityRef))),
-        transaction.get(existingRoomIdQuery),
-        transaction.get(existingRoomNameQuery),
-      ]);
-      if (existingNisSnapshot.docs.some((item) => item.id !== source.masterStudentId)) {
-        throw new Error('NIS sudah digunakan oleh santri aktif pada tenant ini.');
-      }
       identityValues.forEach((item, index) => {
         const reservation = identitySnapshots[index];
         if (reservation.exists() && reservation.data().ownerId !== candidate.id) {
           throw new Error(item.kind.toUpperCase() + ' sudah terdaftar pada data lain di tenant ini.');
         }
-        if (existingIdentitySnapshots[index].docs.length > 0) {
-          throw new Error(item.kind.toUpperCase() + ' sudah digunakan oleh santri lain pada tenant ini.');
-        }
       });
-      const occupiedRecordIds = new Set([
-        ...roomIdSnapshot.docs.map((item) => item.id),
-        ...roomNameSnapshot.docs.filter((item) => !item.data().roomId).map((item) => item.id),
-      ]);
-      const observedRoomOccupancy = occupiedRecordIds.size;
 
       if (!classSnapshot.exists() || !roomSnapshot.exists()) {
         throw new Error('Kelas atau kamar yang dipilih tidak ditemukan. Muat ulang struktur pesantren.');

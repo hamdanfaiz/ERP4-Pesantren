@@ -374,7 +374,7 @@ export function TahfidzManager() {
     const unsubHalaqah = onSnapshot(qHalaqah, (snapshot) => {
       const h: any[] = [];
       snapshot.forEach((doc) => {
-        h.push({ id: doc.id, ...doc.data() });
+        h.push({ id: doc.id, ...(doc.data() as Record<string, any>) });
       });
       setHalaqahList(h);
     });
@@ -387,7 +387,7 @@ export function TahfidzManager() {
       unsubSantri = onSnapshot(qSantri, (snapshot) => {
       const s: any[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
+        const data = doc.data() as Record<string, any>;
         s.push({
           id: doc.id,
           nis: data.id || "N/A",

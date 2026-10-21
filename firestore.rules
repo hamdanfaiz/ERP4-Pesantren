@@ -19,44 +19,49 @@ service cloud.firestore {
 
     function activeTenantUser() {
       return profileExists()
-        && currentProfile().status in ['Active', 'active']
+        && ('status' in currentProfile().keys())
+        && currentProfile().status in ['Active', 'active', 'ACTIVE']
+        && ('tenantId' in currentProfile().keys())
         && currentProfile().tenantId is string;
     }
 
     function roleBaselineIncludes(role, modId) {
-      return (role == 'SuperAdmin' && modId in ['dashboard', 'master-data', 'users', 'ppdb', 'tahfidz', 'boarding', 'finance', 'communication', 'academic', 'healthcare', 'cooperative', 'hris', 'document', 'library', 'donation', 'laundry', 'settings', 'enterprise', 'erp', 'ga', 'alumni', 'crm', 'lms', 'intelligence', 'marketplace', 'ecosystem', 'cbt'])
-        || (role == 'Admin' && modId in ['dashboard', 'master-data', 'users', 'ppdb', 'tahfidz', 'boarding', 'finance', 'communication', 'academic', 'healthcare', 'cooperative', 'hris', 'document', 'library', 'donation', 'laundry', 'enterprise', 'erp', 'ga', 'alumni', 'crm', 'lms', 'intelligence', 'marketplace', 'ecosystem', 'cbt'])
-        || (role == 'Ustadz' && modId in ['dashboard', 'academic', 'tahfidz', 'boarding', 'lms', 'cbt', 'communication', 'library'])
-        || (role == 'Santri' && modId in ['dashboard', 'academic', 'tahfidz', 'boarding', 'finance', 'lms', 'cbt', 'library'])
-        || (role == 'Walisantri' && modId in ['dashboard', 'academic', 'tahfidz', 'boarding', 'finance', 'communication', 'donation']);
+      return (role in ['SuperAdmin', 'superadmin'] && modId in ['dashboard', 'master-data', 'users', 'ppdb', 'tahfidz', 'boarding', 'finance', 'communication', 'academic', 'healthcare', 'cooperative', 'hris', 'document', 'library', 'donation', 'laundry', 'settings', 'enterprise', 'erp', 'ga', 'alumni', 'crm', 'lms', 'intelligence', 'marketplace', 'ecosystem', 'cbt'])
+        || (role in ['Admin', 'admin'] && modId in ['dashboard', 'master-data', 'users', 'ppdb', 'tahfidz', 'boarding', 'finance', 'communication', 'academic', 'healthcare', 'cooperative', 'hris', 'document', 'library', 'donation', 'laundry', 'enterprise', 'erp', 'ga', 'alumni', 'crm', 'lms', 'intelligence', 'marketplace', 'ecosystem', 'cbt'])
+        || (role in ['Ustadz', 'ustadz'] && modId in ['dashboard', 'academic', 'tahfidz', 'boarding', 'lms', 'cbt', 'communication', 'library'])
+        || (role in ['Santri', 'santri'] && modId in ['dashboard', 'academic', 'tahfidz', 'boarding', 'finance', 'lms', 'cbt', 'library'])
+        || (role in ['Walisantri', 'walisantri'] && modId in ['dashboard', 'academic', 'tahfidz', 'boarding', 'finance', 'communication', 'donation']);
     }
 
     function hasModuleAccess(modId) {
+      let profile = currentProfile();
+      let role = profile.role;
       return activeTenantUser() && (
-        currentProfile().role == 'SuperAdmin' || (
+        role in ['SuperAdmin', 'superadmin'] || (
           modId != 'settings' && (
-            (currentProfile().modulePermissions is map && modId in currentProfile().modulePermissions)
-              ? currentProfile().modulePermissions[modId] == true
-              : roleBaselineIncludes(currentProfile().role, modId)
+            (('modulePermissions' in profile.keys()) && profile.modulePermissions is map && (modId in profile.modulePermissions.keys()))
+              ? profile.modulePermissions[modId] == true
+              : roleBaselineIncludes(role, modId)
           )
         )
       );
     }
 
     function tenantMatches(data) {
-      return data.tenantId is string
+      return ('tenantId' in data.keys())
+        && data.tenantId is string
         && data.tenantId == currentProfile().tenantId;
     }
 
     function tenantAdmin(data) {
       return activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && tenantMatches(data);
     }
 
     function tenantSuperAdmin(data) {
       return activeTenantUser()
-        && currentProfile().role == 'SuperAdmin'
+        && currentProfile().role in ['SuperAdmin', 'superadmin']
         && tenantMatches(data);
     }
 
@@ -66,16 +71,16 @@ service cloud.firestore {
 
     function canReadStaffOperational(data, modId) {
       return activeTenantUser() && tenantMatches(data) && hasModuleAccess(modId)
-        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz'];
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz', 'superadmin', 'admin', 'ustadz'];
     }
 
     function canCreateStaffOperational(data, modId) {
-      return activeTenantUser() && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+      return activeTenantUser() && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz', 'superadmin', 'admin', 'ustadz']
         && hasModuleAccess(modId) && tenantMatches(data);
     }
 
     function canUpdateStaffOperational(existingData, nextData, modId) {
-      return activeTenantUser() && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz']
+      return activeTenantUser() && currentProfile().role in ['SuperAdmin', 'Admin', 'Ustadz', 'superadmin', 'admin', 'ustadz']
         && hasModuleAccess(modId) && tenantMatches(existingData) && tenantMatches(nextData)
         && nextData.tenantId == existingData.tenantId;
     }
@@ -86,7 +91,7 @@ service cloud.firestore {
 
     function canCreateModuleRecord(modId) {
       return activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && hasModuleAccess(modId)
         && tenantMatches(request.resource.data);
     }
@@ -112,23 +117,26 @@ service cloud.firestore {
     }
 
     function canReadEntityRecord(data, recordId) {
+      let profile = currentProfile();
+      let role = profile.role;
       return activeTenantUser() && tenantMatches(data) && (
         hasModuleAccess('master-data')
-        || (data.type == 'Alumni' && currentProfile().role in ['Admin', 'SuperAdmin'] && hasModuleAccess('alumni'))
-        || (data.type in ['Guru', 'Asatidz'] && currentProfile().role in ['Admin', 'SuperAdmin'] && (hasModuleAccess('master-data') || hasModuleAccess('hris') || hasModuleAccess('academic') || hasModuleAccess('tahfidz')))
-        || (data.type in ['Guru', 'Asatidz'] && currentProfile().role == 'Ustadz' && (hasModuleAccess('academic') || hasModuleAccess('tahfidz')))
-        || (data.type == 'Santri' && currentProfile().role in ['Admin', 'SuperAdmin'] && (
+        || (data.type == 'Alumni' && role in ['Admin', 'SuperAdmin', 'admin', 'superadmin'] && hasModuleAccess('alumni'))
+        || (data.type in ['Guru', 'Asatidz'] && role in ['Admin', 'SuperAdmin', 'admin', 'superadmin'] && (hasModuleAccess('master-data') || hasModuleAccess('hris') || hasModuleAccess('academic') || hasModuleAccess('tahfidz')))
+        || (data.type in ['Guru', 'Asatidz'] && role in ['Ustadz', 'ustadz'] && (hasModuleAccess('academic') || hasModuleAccess('tahfidz')))
+        || (data.type == 'Santri' && role in ['Admin', 'SuperAdmin', 'admin', 'superadmin'] && (
           hasModuleAccess('academic') || hasModuleAccess('boarding') || hasModuleAccess('tahfidz')
           || hasModuleAccess('finance') || hasModuleAccess('library') || hasModuleAccess('alumni')
-          || hasModuleAccess('lms') || hasModuleAccess('cbt') || hasModuleAccess('ppdb')
+          || hasModuleAccess('lms') || hasModuleAccess('cbt') || hasModuleAccess('ppdb') || hasModuleAccess('master-data')
         ))
-        || (data.type == 'Santri' && currentProfile().role == 'Ustadz' && (
+        || (data.type == 'Santri' && role in ['Ustadz', 'ustadz'] && (
           hasModuleAccess('academic') || hasModuleAccess('boarding') || hasModuleAccess('tahfidz')
           || hasModuleAccess('library') || hasModuleAccess('lms') || hasModuleAccess('cbt')
         ))
-        || (data.type == 'Santri' && currentProfile().role in ['Santri', 'Walisantri']
-          && currentProfile().linkedSantriId is string
-          && recordId == currentProfile().linkedSantriId
+        || (data.type == 'Santri' && role in ['Santri', 'Walisantri', 'santri', 'walisantri']
+          && ('linkedSantriId' in profile.keys())
+          && profile.linkedSantriId is string
+          && recordId == profile.linkedSantriId
           && (hasModuleAccess('academic') || hasModuleAccess('boarding') || hasModuleAccess('tahfidz') || hasModuleAccess('finance')))
       );
     }
@@ -144,7 +152,7 @@ service cloud.firestore {
 
     function financeAdmin() {
       return activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && hasModuleAccess('finance');
     }
 
@@ -156,11 +164,14 @@ service cloud.firestore {
     }
 
     function financeProofOwner(data) {
+      let profile = currentProfile();
       return activeTenantUser()
-        && currentProfile().role == 'Walisantri'
+        && profile.role in ['Walisantri', 'walisantri']
         && hasModuleAccess('finance')
-        && currentProfile().linkedSantriId is string
-        && data.santriId == currentProfile().linkedSantriId;
+        && ('linkedSantriId' in profile.keys())
+        && profile.linkedSantriId is string
+        && ('santriId' in data.keys())
+        && data.santriId == profile.linkedSantriId;
     }
 
     function settingsHasNoClientSecrets(data) {
@@ -217,7 +228,7 @@ service cloud.firestore {
     match /entityRecords/{recordId} {
       allow get, list: if canReadEntityRecord(resource.data, recordId);
       allow create: if activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && (hasModuleAccess('master-data') || hasModuleAccess('ppdb'))
         && tenantMatches(request.resource.data);
       allow update: if tenantAdmin(resource.data)
@@ -236,7 +247,7 @@ service cloud.firestore {
 
     match /candidates/{candidateId} {
       allow get, list: if canReadModuleRecord(resource.data, 'ppdb')
-        && currentProfile().role in ['SuperAdmin', 'Admin'];
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin'];
       allow create: if canCreateModuleRecord('ppdb');
       allow update: if canUpdateModuleRecord(resource.data, request.resource.data, 'ppdb');
       allow delete: if canDeleteModuleRecord(resource.data, 'ppdb');
@@ -244,13 +255,13 @@ service cloud.firestore {
 
     match /nisReservations/{reservationId} {
       allow get: if activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && (hasModuleAccess('ppdb') || hasModuleAccess('master-data'))
         && (!exists(/databases/$(database)/documents/nisReservations/$(reservationId))
           || tenantMatches(resource.data));
       allow list: if false;
       allow create: if activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && (hasModuleAccess('ppdb') || hasModuleAccess('master-data'))
         && tenantMatches(request.resource.data)
         && request.resource.data.nis is string
@@ -261,13 +272,13 @@ service cloud.firestore {
 
     match /identityReservations/{reservationId} {
       allow get: if activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && (hasModuleAccess('master-data') || hasModuleAccess('ppdb'))
         && (!exists(/databases/$(database)/documents/identityReservations/$(reservationId))
           || tenantMatches(resource.data));
       allow list: if false;
       allow create: if activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && (hasModuleAccess('master-data') || hasModuleAccess('ppdb'))
         && tenantMatches(request.resource.data)
         && request.resource.data.kind in ['nik', 'nisn', 'nuptk']
@@ -280,13 +291,13 @@ service cloud.firestore {
 
     match /ppdbRegistrationReservations/{reservationId} {
       allow get: if activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && hasModuleAccess('ppdb')
         && (!exists(/databases/$(database)/documents/ppdbRegistrationReservations/$(reservationId))
           || tenantMatches(resource.data));
       allow list: if false;
       allow create: if activeTenantUser()
-        && currentProfile().role in ['SuperAdmin', 'Admin']
+        && currentProfile().role in ['SuperAdmin', 'Admin', 'superadmin', 'admin']
         && hasModuleAccess('ppdb')
         && tenantMatches(request.resource.data)
         && request.resource.data.registrationId is string

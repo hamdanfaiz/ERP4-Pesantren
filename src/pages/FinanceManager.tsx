@@ -214,7 +214,7 @@ export function FinanceManager() {
       filters.push(where('santriId', '==', linkedSantriId));
     } else if (!isFinanceAdmin) return;
     return onSnapshot(tenantScopedQuery(collection(db, 'financeBillings'), user?.tenantId, ...filters), snapshot => {
-      setBillings(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as BillingItem)));
+      setBillings(snapshot.docs.map(item => ({ ...(item.data() as Record<string, any>), id: item.id } as BillingItem)));
     }, error => {
       setBillings([]);
       console.error('Gagal memuat tagihan tenant:', error);
@@ -228,7 +228,7 @@ export function FinanceManager() {
     const filters: any[] = [];
     if (!isFinanceAdmin) filters.push(where('requesterUid', '==', user.uid));
     return onSnapshot(tenantScopedQuery(collection(db, 'financeExpenses'), user?.tenantId, ...filters), snapshot => {
-      setExpenses(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as ExpenseItem)));
+      setExpenses(snapshot.docs.map(item => ({ ...(item.data() as Record<string, any>), id: item.id } as ExpenseItem)));
     }, error => {
       setExpenses([]);
       console.error('Gagal memuat pengeluaran tenant:', error);

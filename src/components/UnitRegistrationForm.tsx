@@ -28,7 +28,7 @@ export const UnitRegistrationForm: React.FC<UnitRegistrationFormProps> = ({ onSu
   React.useEffect(() => {
     import('firebase/firestore').then(({ collection, getDocs }) => {
       getDocs(tenantScopedQuery(collection(db, 'units'), user?.tenantId)).then(snapshot => {
-        setExistingUnits(snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name })));
+        setExistingUnits(snapshot.docs.map(doc => ({ id: doc.id, name: (doc.data() as any).name || '' })));
       });
     });
   }, [user?.tenantId, user?.uid]);

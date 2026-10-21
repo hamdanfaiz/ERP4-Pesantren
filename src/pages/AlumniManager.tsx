@@ -68,7 +68,7 @@ export function AlumniManager() {
       const q = tenantScopedQuery(collection(db, "entityRecords"), user?.tenantId, where("type", "==", "Santri"));
       const snapshot = await getDocs(q);
       const activeSantri = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) }))
         .filter((s: any) => s.status !== 'Alumni');
       setSantriList(activeSantri);
     } catch (error) {
@@ -123,12 +123,12 @@ export function AlumniManager() {
     };
 
     const unsubType = onSnapshot(qType, (snapshot) => {
-      resultsType = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      resultsType = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
       updateData();
     });
 
     const unsubStatus = onSnapshot(qStatus, (snapshot) => {
-      resultsStatus = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      resultsStatus = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
       updateData();
     });
 

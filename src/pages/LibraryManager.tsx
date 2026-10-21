@@ -103,7 +103,7 @@ export function LibraryManager() {
     if (canReadSantriList) {
       const qSantri = tenantScopedQuery(collection(db, "entityRecords"), user?.tenantId, where("type", "==", "Santri"));
       unsubSantri = onSnapshot(qSantri, (snapshot) => {
-        setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) })));
       });
     } else {
       setStudents([]);
@@ -114,7 +114,7 @@ export function LibraryManager() {
 
     const unsubBooks = onSnapshot(tenantScopedQuery(collection(db, 'library_books'), user?.tenantId), async (snapshot) => {
       if (!snapshot.empty) {
-        setBooks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+        setBooks(snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) } as any)));
       } else if (!isBooksSeeded && canManageLibraryRecords) {
         isBooksSeeded = true;
         try {
@@ -129,7 +129,7 @@ export function LibraryManager() {
 
     const unsubCirc = canManageLibraryRecords ? onSnapshot(tenantScopedQuery(collection(db, 'library_circulations'), user?.tenantId), async (snapshot) => {
       if (!snapshot.empty) {
-        setCirculations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+        setCirculations(snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) } as any)));
       } else if (!isCircSeeded && canManageLibraryRecords) {
         isCircSeeded = true;
         try {
@@ -145,7 +145,7 @@ export function LibraryManager() {
     let isAssetsSeeded = false;
     const unsubAssets = onSnapshot(tenantScopedQuery(collection(db, 'library_digital_assets'), user?.tenantId), async (snapshot) => {
       if (!snapshot.empty) {
-        setDigitalAssets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+        setDigitalAssets(snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) } as any)));
       } else if (!isAssetsSeeded && canManageLibraryRecords) {
         isAssetsSeeded = true;
         try {

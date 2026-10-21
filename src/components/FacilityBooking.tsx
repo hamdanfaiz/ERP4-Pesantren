@@ -56,7 +56,7 @@ export function FacilityBooking() {
     const canManageAllBookings = ['Admin', 'SuperAdmin'].includes(role) && (user?.modulePermissions?.ga !== false || user?.modulePermissions?.boarding !== false);
     const q = tenantScopedQuery(collection(db, "facility_bookings"), user?.tenantId, ...(canManageAllBookings ? [] : [where('createdByUid', '==', user?.uid || '__tenant_scope_unavailable__')]));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const bks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).sort((left: any, right: any) => String(right.date || '').localeCompare(String(left.date || '')) || String(right.startTime || '').localeCompare(String(left.startTime || '')));
+      const bks = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, any>) })).sort((left: any, right: any) => String(right.date || '').localeCompare(String(left.date || '')) || String(right.startTime || '').localeCompare(String(left.startTime || '')));
       setBookings(bks);
     });
     return () => unsubscribe();

@@ -58,7 +58,7 @@ import {
   PieChart as RechartsPieChart,
   Pie as RechartsPie,
 } from "recharts";
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, writeBatch, query, where, runTransaction } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, writeBatch, query, where, runTransaction, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { handleFirestoreError, OperationType } from "../firebaseUtils";
 import { PublicRegistrationForm } from "../components/PublicRegistrationForm";
@@ -797,11 +797,11 @@ export function PPDBManager() {
     ];
 
     try {
+      const legacySnapshots = await Promise.all(legacyQueries.map((candidateQuery) => getDocs(candidateQuery)));
       await runTransaction(db, async (transaction) => {
-        const [registrationSnapshot, identitySnapshots, legacySnapshots] = await Promise.all([
+        const [registrationSnapshot, identitySnapshots] = await Promise.all([
           transaction.get(registrationRef),
           Promise.all(identityValues.map(({ kind, value }) => transaction.get(ppdbIdentityReservationRef(user.tenantId, kind, value)))),
-          Promise.all(legacyQueries.map((candidateQuery) => transaction.get(candidateQuery))),
         ]);
         if (registrationSnapshot.exists() || legacySnapshots[0].docs.length > 0) {
           throw new Error("Registration ID " + registrationId + " sudah digunakan pada tenant ini.");

@@ -49,7 +49,7 @@ export function GenericCRUD({
 
   useEffect(() => {
     const unsubscribe = onSnapshot(tenantScopedQuery(collection(db, collectionName), user?.tenantId), (snapshot) => {
-      const fetchedData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const fetchedData = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
       setData(fetchedData);
       if (onDataLoaded) {
         onDataLoaded(fetchedData);

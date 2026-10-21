@@ -45,6 +45,7 @@ const SALES_DATA = [
 
 export function MarketplaceManager() {
   const { user, role } = useAuth();
+  const canManageMarketplaceOrders = ['Admin', 'SuperAdmin'].includes(role);
   const [activeTab, setActiveTab] = useState<'storefront' | 'orders' | 'inventory' | 'analytics'>('storefront');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [search, setSearch] = useState('');
@@ -70,7 +71,7 @@ export function MarketplaceManager() {
           }
         }
       } else if (!snapshot.empty) {
-        setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) })));
       }
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'marketplace_products'));
     
@@ -87,7 +88,7 @@ export function MarketplaceManager() {
           }
         }
       } else if (!snapshot.empty) {
-        setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       }
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'marketplace_orders'));
 

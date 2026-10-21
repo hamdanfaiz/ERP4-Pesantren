@@ -61,7 +61,7 @@ import {
 import { MOCK_SANTRI, MOCK_WALISANTRI } from "../data/mockRecords";
 import { generateMockData } from "../data/mockDataFactory";
 import { db } from "../firebase";
-import { collection, writeBatch, doc, setDoc, runTransaction, query, where } from "firebase/firestore";
+import { collection, writeBatch, doc, setDoc, runTransaction, query, where, getDocs } from "firebase/firestore";
 import { StructureHierarchyD3 } from "../components/StructureHierarchyD3";
 
 const normalizeReservationValue = (value: unknown) => {
@@ -289,7 +289,7 @@ export function MasterDataManager() {
   useEffect(() => {
     import("firebase/firestore").then(({ collection, onSnapshot }) => {
       const unsubscribe = onSnapshot(tenantScopedQuery(collection(db, "units"), user?.tenantId), (snapshot) => {
-        const fetchedUnits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const fetchedUnits = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
         if (fetchedUnits.length > 0) {
            setUnits(fetchedUnits);
            if (!fetchedUnits.some(u => u.id === selectedUnit)) {
@@ -458,10 +458,10 @@ export function MasterDataManager() {
           let docRef;
           if (category === 'candidates') {
             docRef = doc(db, "candidates", record.id);
-            batch.set(docRef, tenantRecord(user?.tenantId, { ...record }));
+            batch.set(docRef, tenantRecord(user?.tenantId, { ...record }) as any);
           } else {
             docRef = doc(db, "master_data", `${category.replace(/\s+/g, "_")}_${record.id}`);
-            batch.set(docRef, tenantRecord(user?.tenantId, { ...record, category }));
+            batch.set(docRef, tenantRecord(user?.tenantId, { ...record, category }) as any);
           }
           count++;
 
@@ -948,6 +948,7 @@ export function MasterDataManager() {
     const existingLocalRecord = currentList.find((record) => record.id === editingId);
 
     try {
+      const legacySnapshots = await Promise.all(legacyQueries.map((identityQuery) => getDocs(identityQuery)));
       const savedRecord = await runTransaction(db, async (transaction) => {
         const existingSnapshot = await transaction.get(recordRef);
         if (modalMode === "add" && existingSnapshot.exists()) {
@@ -959,9 +960,8 @@ export function MasterDataManager() {
 
         const existingData = existingSnapshot.exists() ? existingSnapshot.data() : {};
         const identityOwnerId = String((validatedData as any).sourceCandidateId || existingData.sourceCandidateId || existingLocalRecord?.sourceCandidateId || docId);
-        const [identitySnapshots, legacySnapshots, nisSnapshot] = await Promise.all([
+        const [identitySnapshots, nisSnapshot] = await Promise.all([
           Promise.all(identityValues.map(({ kind, value }) => transaction.get(identityReservationRef(user.tenantId, kind, value)))),
-          Promise.all(legacyQueries.map((identityQuery) => transaction.get(identityQuery))),
           nisReservationRef ? transaction.get(nisReservationRef) : Promise.resolve(null),
         ]);
 

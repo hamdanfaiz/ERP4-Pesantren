@@ -660,18 +660,14 @@ async function startServer() {
           registrationId = "PPDB-" + registrationYear + "-" + String(sequence).padStart(6, "0");
           registrationRef = services.db.collection("ppdbRegistrationReservations")
             .doc(encodeURIComponent(config.tenantId) + "_" + encodeURIComponent(registrationId));
-          const [reservationSnapshot, candidateSnapshot] = await Promise.all([
-            transaction.get(registrationRef),
-            transaction.get(candidateCollection.where("tenantId", "==", config.tenantId).where("registrationId", "==", registrationId)),
-          ]);
-          if (!reservationSnapshot.exists && candidateSnapshot.empty) { collision = false; break; }
+          const reservationSnapshot = await transaction.get(registrationRef);
+          const candidateSnapshot = await transaction.get(candidateCollection.where("tenantId", "==", config.tenantId).where("registrationId", "==", registrationId));
+          if (!(reservationSnapshot as any).exists && candidateSnapshot.empty) { collision = false; break; }
           sequence += 1;
         }
         if (collision || !registrationRef) throw publicPpdbError(409, "Nomor pendaftaran belum dapat dialokasikan. Silakan hubungi panitia.");
-        const [identitySnapshots, existingIdentitySnapshots] = await Promise.all([
-          Promise.all(identityRefs.map((reference) => transaction.get(reference))),
-          Promise.all(identityChecks.map((identityQuery) => transaction.get(identityQuery))),
-        ]);
+        const identitySnapshots = await Promise.all(identityRefs.map((reference) => transaction.get(reference)));
+        const existingIdentitySnapshots = await Promise.all(identityChecks.map((identityQuery) => transaction.get(identityQuery)));
         if (identitySnapshots.some((snapshot) => snapshot.exists) || existingIdentitySnapshots.some((snapshot) => !snapshot.empty)) {
           throw publicPpdbError(409, "NIK atau NISN sudah terdaftar. Periksa kembali data atau hubungi panitia.");
         }

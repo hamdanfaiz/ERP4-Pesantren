@@ -286,7 +286,7 @@ export function CBTManager() {
   useEffect(() => {
     const qCandidates = tenantScopedQuery(collection(db, 'candidates'), user?.tenantId);
     const unsubCandidates = onSnapshot(qCandidates, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
       setCandidates(data);
       setLoading(false);
     }, (error) => {
@@ -296,7 +296,7 @@ export function CBTManager() {
 
     const qQuestions = tenantScopedQuery(collection(db, 'cbt_questions'), user?.tenantId);
     const unsubQuestions = onSnapshot(qQuestions, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
       setQuestions(data);
     }, (error) => {
       console.error("Error fetching questions:", error);

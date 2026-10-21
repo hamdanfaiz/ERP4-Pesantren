@@ -386,6 +386,7 @@ const FACILITY_CATEGORIES = ['All', 'Electronics', 'Furniture', 'Machinery', 'Sa
 const INVENTORY_CATEGORIES = ['All', 'ATK', 'Kebersihan', 'Elektrikal', 'Sanitary', 'Perkakas'];
 
 const AssetsModule = () => {
+  const { user } = useAuth();
   // State management for Firestore data
   const [facilities, setFacilities] = useState<any[]>(DEFAULT_GA_FACILITIES);
   const [inventory, setInventory] = useState<any[]>(DEFAULT_GA_INVENTORY);
@@ -454,7 +455,7 @@ const AssetsModule = () => {
           setFacilities(DEFAULT_GA_FACILITIES);
         }
       } else if (!snapshot.empty) {
-        const loaded = snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+        const loaded = snapshot.docs.map(d => ({ firestoreId: d.id, ...(d.data() as Record<string, any>) }));
         setFacilities(loaded);
       } else {
         setFacilities(DEFAULT_GA_FACILITIES);
@@ -483,7 +484,7 @@ const AssetsModule = () => {
           setInventory(DEFAULT_GA_INVENTORY);
         }
       } else if (!snapshot.empty) {
-        const loaded = snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+        const loaded = snapshot.docs.map(d => ({ firestoreId: d.id, ...(d.data() as Record<string, any>) }));
         setInventory(loaded);
       } else {
         setInventory(DEFAULT_GA_INVENTORY);
@@ -2786,6 +2787,7 @@ const DEFAULT_GA_MASTER_ITEMS = [
 ];
 
 const MasterDataGA = () => {
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [items, setItems] = useState<any[]>(DEFAULT_GA_MASTER_ITEMS);
   const [searchQuery, setSearchQuery] = useState('');
@@ -2805,7 +2807,7 @@ const MasterDataGA = () => {
       const q = tenantScopedQuery(collection(db, 'master_data'), user?.tenantId);
       const unsubscribe = onSnapshot(q, (snapshot) => {
         if (!snapshot.empty) {
-          const remoteData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          const remoteData = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
           remoteData.sort((a: any, b: any) => {
             const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
             const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;

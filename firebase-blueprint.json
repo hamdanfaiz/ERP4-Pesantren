@@ -821,6 +821,37 @@
         "$ref": "#/entities/GAInventory"
       },
       "description": "Collection of General Affair stock and inventory items"
+    },
+    "financeTransactions": {
+      "description": "Tenant immutable ledger entries (income and expense)",
+      "indexes": [
+        {
+          "queryScope": "COLLECTION",
+          "fields": [
+            { "fieldPath": "tenantId", "order": "ASCENDING" },
+            { "fieldPath": "createdAt", "order": "ASCENDING" }
+          ]
+        },
+        {
+          "queryScope": "COLLECTION",
+          "fields": [
+            { "fieldPath": "tenantId", "order": "ASCENDING" },
+            { "fieldPath": "createdAt", "order": "DESCENDING" }
+          ]
+        }
+      ]
+    },
+    "financeBillings": {
+      "description": "Tenant invoices and billings",
+      "indexes": [
+        {
+          "queryScope": "COLLECTION",
+          "fields": [
+            { "fieldPath": "tenantId", "order": "ASCENDING" },
+            { "fieldPath": "status", "order": "ASCENDING" }
+          ]
+        }
+      ]
     }
   }
 }

@@ -150,7 +150,7 @@ export function DonationManager() {
     const unsub = onSnapshot(collRef, (snap) => {
       const result: Candidate[] = [];
       snap.forEach((docSnap) => {
-        result.push({ id: docSnap.id, ...docSnap.data() } as Candidate);
+        result.push({ id: docSnap.id, ...(docSnap.data() as Record<string, any>) } as Candidate);
       });
       setCandidates(result);
     }, (err) => {
