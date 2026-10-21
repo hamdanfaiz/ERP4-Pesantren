@@ -5,13 +5,13 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { App, initializeApp, applicationDefault } from "firebase-admin/app";
 import { Auth, getAuth } from "firebase-admin/auth";
-import { FieldValue, Firestore, getFirestore } from "firebase-admin/firestore";
+import { FieldPath, FieldValue, Firestore, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
-import { deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures } from "./server/supabaseOnboarding";
+import { deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
 import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment, readSupabaseFinanceProof, uploadSupabaseFinanceProof } from "./server/supabaseFinance";
 
 dotenv.config();
@@ -791,6 +791,93 @@ async function startServer() {
       const status = error instanceof SupabasePpdbAdminError ? error.status : 503;
       if (status >= 500) console.error("Master Data structure migration failed:", error?.message || "unknown error");
       return res.status(status).json({ error: status >= 500 ? "Migrasi struktur Master Data belum dapat diselesaikan." : error.message });
+    }
+  });
+
+  app.post("/api/master-data/students/migrate", requireAuth, requireMasterDataAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const actor = (req as any).actor;
+    if (!["Admin", "SuperAdmin"].includes(String(actor.role || ""))) {
+      return res.status(403).json({ error: "Hanya Admin pesantren yang dapat menjalankan migrasi data santri." });
+    }
+    const apply = req.body?.apply === true;
+    if (apply && req.body?.confirm !== "IMPORT_LEGACY_MASTER_DATA_STUDENTS") {
+      return res.status(400).json({ error: "Konfirmasi impor belum valid. Jalankan preview terlebih dahulu." });
+    }
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Sumber Firebase lama belum dapat diakses untuk migrasi." });
+
+    try {
+      const readTenantEntities = async (type: string) => {
+        const documents: any[] = [];
+        let cursor: any = null;
+        while (true) {
+          const remaining = 5000 - documents.length;
+          const pageSize = Math.min(500, remaining + 1);
+          let query = services.db.collection("entityRecords")
+            .where("tenantId", "==", actor.tenantId)
+            .where("type", "==", type)
+            .orderBy(FieldPath.documentId())
+            .limit(pageSize);
+          if (cursor) query = query.startAfter(cursor);
+          const snapshot = await query.get();
+          if (documents.length + snapshot.size > 5000) {
+            throw new SupabasePpdbAdminError(400, "Data tenant melebihi batas satu batch migrasi (5.000 record).");
+          }
+          documents.push(...snapshot.docs);
+          if (snapshot.size < pageSize) break;
+          cursor = snapshot.docs[snapshot.docs.length - 1];
+        }
+        return documents;
+      };
+
+      const [studentDocs, guardianDocs] = await Promise.all([
+        readTenantEntities("Santri"),
+        readTenantEntities("Wali Santri"),
+      ]);
+      const guardiansById = new Map<string, { id: string; record: Record<string, any> }>();
+      const guardiansByStudent = new Map<string, Array<{ id: string; record: Record<string, any> }>>();
+      for (const document of guardianDocs) {
+        const record = document.data() || {};
+        const guardian = { id: document.id, record };
+        guardiansById.set(document.id, guardian);
+        if (typeof record.id === "string" && record.id.trim()) guardiansById.set(record.id.trim(), guardian);
+        const studentIds = Array.isArray(record.santriIds) ? record.santriIds : [];
+        for (const studentId of studentIds) {
+          if (typeof studentId !== "string" || !studentId.trim()) continue;
+          const key = studentId.trim();
+          guardiansByStudent.set(key, [...(guardiansByStudent.get(key) || []), guardian]);
+        }
+      }
+
+      const source = studentDocs.map((document) => {
+        const record = document.data() || {};
+        const recordId = typeof record.id === "string" && record.id.trim() ? record.id.trim() : document.id;
+        const linkedIds = [record.waliSantriId, record.guardianId, record.parentId]
+          .filter((value) => typeof value === "string" && value.trim())
+          .map((value) => String(value).trim());
+        const directMatches = Array.from(new Set(linkedIds.map((id) => guardiansById.get(id)).filter(Boolean))) as Array<{ id: string; record: Record<string, any> }>;
+        const studentMatches = Array.from(new Set([
+          ...(guardiansByStudent.get(document.id) || []),
+          ...(guardiansByStudent.get(recordId) || []),
+        ]));
+        let guardian: { id: string; record: Record<string, any> } | null = null;
+        const candidates = directMatches.length ? directMatches : studentMatches;
+        const sourceWarnings: string[] = [];
+        if (candidates.length === 1) guardian = candidates[0];
+        else if (candidates.length > 1) sourceWarnings.push("Relasi wali ambigu pada sumber; perlu dipetakan manual.");
+        return { id: document.id, record, guardian, sourceWarnings };
+      });
+
+      const result = await migrateSupabaseLegacyMasterDataStudents(actor.tenantId, source, apply);
+      return res.json(result);
+    } catch (error: any) {
+      if (isFirestoreStoreError(error)) {
+        return res.status(503).json({ error: "Data sumber Firebase belum dapat dibaca untuk migrasi." });
+      }
+      const status = error instanceof SupabasePpdbAdminError ? error.status : 503;
+      if (status >= 500) console.error("Legacy Master Data student import failed:", error?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Impor data santri belum dapat diselesaikan." : error.message });
     }
   });
 
