@@ -800,6 +800,9 @@ async function startServer() {
     if (!["Admin", "SuperAdmin"].includes(String(actor.role || ""))) {
       return res.status(403).json({ error: "Hanya Admin pesantren yang dapat menjalankan migrasi data santri." });
     }
+    if (String(process.env.LEGACY_MASTER_DATA_IMPORT_ENABLED || "").toLowerCase() !== "true") {
+      return res.status(503).json({ error: "Impor legacy belum diaktifkan oleh operator instalasi setelah backup dan persiapan jendela migrasi." });
+    }
     const apply = req.body?.apply === true;
     if (apply && req.body?.confirm !== "IMPORT_LEGACY_MASTER_DATA_STUDENTS") {
       return res.status(400).json({ error: "Konfirmasi impor belum valid. Jalankan preview terlebih dahulu." });
