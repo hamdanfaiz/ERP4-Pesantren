@@ -554,16 +554,16 @@ export async function listSupabaseBoardingSnapshot(tenantIdentifier: string): Pr
     }
   }
 
-  const byId = new Map(structures.map((item) => [item.id, item]));
+  const byCategoryAndId = new Map(structures.map((item) => [item.category + ":" + item.id, item]));
   const students: SupabaseBoardingStudent[] = all.map((row) => {
     const supabaseId = String(row.id || "");
     const sourceRecordId = typeof row.source_record_id === "string" ? row.source_record_id : null;
     const roomId = typeof row.room_id === "string" ? row.room_id : null;
     const buildingId = typeof row.building_id === "string" ? row.building_id : null;
     const classId = typeof row.class_id === "string" ? row.class_id : null;
-    const room = roomId ? byId.get(roomId) : undefined;
-    const building = buildingId ? byId.get(buildingId) : undefined;
-    const schoolClass = classId ? byId.get(classId) : undefined;
+    const room = roomId ? byCategoryAndId.get("Kamar:" + roomId) : undefined;
+    const building = buildingId ? byCategoryAndId.get("Gedung:" + buildingId) : undefined;
+    const schoolClass = classId ? byCategoryAndId.get("Kelas:" + classId) : undefined;
     return {
       id: sourceRecordId || supabaseId,
       supabaseId,
