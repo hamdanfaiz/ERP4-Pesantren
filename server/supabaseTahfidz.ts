@@ -89,7 +89,7 @@ async function listRows(table: string, tenantId: string, select: string, order: 
   throw new SupabaseTahfidzError(503, "Snapshot Tahfidz melebihi batas yang didukung. Gunakan paginasi sebelum melanjutkan.");
 }
 
-export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string) {
+export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, legacyFirebaseUid?: string, role?: string) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   const [halaqahs, memberships, students, records, targets] = await Promise.all([
     listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", { status: "eq.active" }),
@@ -159,7 +159,7 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string) {
     };
   });
 
-  return {
+  const snapshot = {
     halaqahs: halaqahs.map((halaqah) => ({
       id: String(halaqah.id),
       name: String(halaqah.name),
@@ -175,6 +175,31 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string) {
     roster,
     records: recentRecords,
   };
+
+  if (role === "Ustadz") {
+    if (!legacyFirebaseUid || legacyFirebaseUid.length > 160) {
+      throw new SupabaseTahfidzError(401, "Sesi Ustadz tidak valid.");
+    }
+    const mappedProfile = await supabaseRequest("/rest/v1/rpc/resolve_legacy_auth_profile", {
+      method: "POST",
+      body: JSON.stringify({
+        p_legacy_provider: "firebase",
+        p_legacy_subject: legacyFirebaseUid,
+        p_tenant_id: tenantId,
+      }),
+    });
+    const profileId = String(mappedProfile || "");
+    if (!isUuid(profileId)) {
+      throw new SupabaseTahfidzError(403, "Profil Supabase Ustadz belum dipetakan atau tidak aktif.");
+    }
+    const assignedHalaqahs = snapshot.halaqahs.filter((halaqah) => halaqah.ustadzUserId === profileId);
+    const allowedHalaqahIds = new Set(assignedHalaqahs.map((halaqah) => halaqah.id));
+    snapshot.halaqahs = assignedHalaqahs;
+    snapshot.roster = snapshot.roster.filter((student) => allowedHalaqahIds.has(String(student.halaqahId || "")));
+    snapshot.records = snapshot.records.filter((record) => allowedHalaqahIds.has(record.halaqahId));
+  }
+
+  return snapshot;
 }
 
 function boundedText(value: unknown, max: number, label: string, required = false) {
