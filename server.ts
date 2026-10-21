@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
-import { deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure } from "./server/supabaseOnboarding";
+import { deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures } from "./server/supabaseOnboarding";
 
 dotenv.config();
 
@@ -705,6 +705,91 @@ async function startServer() {
       const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
       if (status >= 500) console.error("Supabase Master Data structures failed:", err?.message || "unknown error");
       return res.status(status).json({ error: status >= 500 ? "Struktur Master Data belum dapat dimuat." : err.message });
+    }
+  });
+
+  app.post("/api/master-data/structures/migrate", requireAuth, requireMasterDataAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const actor = (req as any).actor;
+    if (!["Admin", "SuperAdmin"].includes(String(actor.role || ""))) {
+      return res.status(403).json({ error: "Hanya Admin pesantren yang dapat menjalankan migrasi struktur." });
+    }
+    const apply = req.body?.apply === true;
+    if (apply && req.body?.confirm !== "IMPORT_MASTER_DATA_STRUCTURES") {
+      return res.status(400).json({ error: "Konfirmasi migrasi belum valid. Jalankan preview lalu kirim token konfirmasi yang diwajibkan." });
+    }
+    const services = getAdminServices();
+    if (services.ok === false) return res.status(503).json({ error: "Sumber Firebase lama belum dapat diakses untuk migrasi." });
+
+    try {
+      const [structureSnapshot, studentSnapshot] = await Promise.all([
+        services.db.collection("master_data").where("tenantId", "==", actor.tenantId).get(),
+        services.db.collection("entityRecords")
+          .where("tenantId", "==", actor.tenantId)
+          .where("type", "==", "Santri")
+          .get(),
+      ]);
+      const allowedCategories = new Set(["Gedung", "Kamar", "Kelas"]);
+      const legacyStructures = structureSnapshot.docs.flatMap((document) => {
+        const raw = document.data() || {};
+        const category = typeof raw.category === "string" ? raw.category : "";
+        if (!allowedCategories.has(category)) return [];
+        const prefix = category + "_";
+        const id = typeof raw.id === "string" && raw.id.trim()
+          ? raw.id.trim()
+          : document.id.startsWith(prefix) ? document.id.slice(prefix.length) : document.id;
+        const safeRecord = JSON.parse(JSON.stringify(raw, (key, value) => {
+          if (key === "tenantId" || key === "_firestoreId" || key === "createdByUid") return undefined;
+          if (/password|secret|api.?key|smtp|token/i.test(key)) return undefined;
+          return value;
+        }));
+        return [{ id, category, record: { ...safeRecord, id, category } }];
+      });
+
+      const roomById = new Map<string, any>();
+      const roomIdsByName = new Map<string, string[]>();
+      for (const item of legacyStructures) {
+        if (item.category !== "Kamar") continue;
+        roomById.set(item.id, item);
+        const roomName = String(item.record?.name || "").trim().toLowerCase();
+        if (roomName) roomIdsByName.set(roomName, [...(roomIdsByName.get(roomName) || []), item.id]);
+      }
+      const roomOccupancy = new Map<string, number>();
+      let unassignedRoomRecords = 0;
+      for (const document of studentSnapshot.docs) {
+        const student = document.data() || {};
+        const roomId = typeof student.roomId === "string" ? student.roomId.trim() : "";
+        const roomName = typeof student.room === "string" ? student.room.trim().toLowerCase() : "";
+        let matchedId = roomId && roomById.has(roomId) ? roomId : "";
+        if (!matchedId && roomName) {
+          const matches = roomIdsByName.get(roomName) || [];
+          if (matches.length === 1) matchedId = matches[0];
+        }
+        if (!matchedId) {
+          unassignedRoomRecords += 1;
+          continue;
+        }
+        roomOccupancy.set(matchedId, (roomOccupancy.get(matchedId) || 0) + 1);
+      }
+      const records = legacyStructures.map((item) => ({
+        ...item,
+        occupied: item.category === "Kamar" ? roomOccupancy.get(item.id) || 0 : 0,
+      }));
+      const result = await migrateSupabaseMasterDataStructures(actor.tenantId, records, apply);
+      return res.json({
+        ...result,
+        legacyStructureCount: legacyStructures.length,
+        legacyStudentCount: studentSnapshot.size,
+        studentsWithoutUnambiguousRoom: unassignedRoomRecords,
+        mode: apply ? "apply" : "preview",
+      });
+    } catch (error: any) {
+      if (isCredentialError(error) || isFirestoreStoreError(error)) {
+        return res.status(503).json({ error: "Sumber Firebase lama belum dapat diakses untuk migrasi." });
+      }
+      const status = error instanceof SupabasePpdbAdminError ? error.status : 503;
+      if (status >= 500) console.error("Master Data structure migration failed:", error?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Migrasi struktur Master Data belum dapat diselesaikan." : error.message });
     }
   });
 
