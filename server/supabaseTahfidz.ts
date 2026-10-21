@@ -132,7 +132,14 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, lega
   }
 
   const targetByStudent = new Map<string, JsonObject>();
-  for (const target of targets) targetByStudent.set(String(target.student_id), target);
+  const today = new Date().toISOString().slice(0, 10);
+  for (const target of targets) {
+    const studentId = String(target.student_id);
+    const periodStart = String(target.period_start || "");
+    const periodEnd = String(target.period_end || "");
+    if (periodStart > today || (periodEnd && periodEnd < today) || targetByStudent.has(studentId)) continue;
+    targetByStudent.set(studentId, target);
+  }
   const roster = students.map((student) => {
     const membership = membershipsByStudent.get(String(student.id));
     const halaqah = halaqahs.find((item) => String(item.id) === String(membership?.halaqah_id || ""));
@@ -144,6 +151,7 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, lega
       gender: student.gender || null,
       grade: student.grade || "",
       classId: student.class_id || null,
+      studentStatus: String(student.status || ""),
       halaqahId: halaqah ? String(halaqah.id) : null,
       halaqah: halaqah ? String(halaqah.name) : "",
       target: target ? {
