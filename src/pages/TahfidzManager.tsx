@@ -1273,7 +1273,7 @@ export function TahfidzManager() {
               <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                 <Plus className="w-4 h-4" />
               </div>
-            </button>}
+            </button>
             {!SUPABASE_TAHFIDZ_CUTOVER && <button
               onClick={() => {
                 setIsTargetModalOpen(true);
@@ -1285,7 +1285,7 @@ export function TahfidzManager() {
               <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                 <Target className="w-4 h-4" />
               </div>
-            </button>
+            </button>}
             <button
               onClick={() => {
                 setActiveTab("exams");
