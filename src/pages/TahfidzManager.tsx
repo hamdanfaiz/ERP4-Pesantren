@@ -487,7 +487,7 @@ export function TahfidzManager() {
   const [selectedHalaqahFilter, setSelectedHalaqahFilter] =
     useState("Semua Halaqah");
   const [santriList, setSantriList] = useState<any[]>(
-    SUPABASE_TAHFIDZ_CUTOVER ? [] : santriList,
+    SUPABASE_TAHFIDZ_CUTOVER ? [] : SANTRI_DATA,
   );
   const [records, setRecords] = useState<any[]>(
     SUPABASE_TAHFIDZ_CUTOVER ? [] : INITIAL_RECORDS,
@@ -595,7 +595,7 @@ export function TahfidzManager() {
         setTahfidzDataError("Santri harus terdaftar pada halaqah aktif sebelum setoran dicatat.");
         return;
       }
-      const timeParts = String(formData.time || "").match(/^(\\d{2}):(\\d{2})$/);
+      const timeParts = String(formData.time || "").match(/^(\d{2}):(\d{2})$/);
       const performedAt = new Date();
       if (timeParts) performedAt.setHours(Number(timeParts[1]), Number(timeParts[2]), 0, 0);
       const recordPayload = {
