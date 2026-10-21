@@ -21,7 +21,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
 import { collection, addDoc } from "firebase/firestore";
-import { db, auth } from "../firebase";
+import { getAuthSession } from "../authSession";
+import { db } from "../firebase";
 
 interface HeaderProps {
   currentTenant: Tenant;
@@ -138,7 +139,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
         query: searchQuery,
         rating,
         createdAt: new Date().toISOString(),
-        userId: auth.currentUser?.uid || "anonymous",
+        userId: getAuthSession()?.uid || "anonymous",
       });
     } catch (error) {
       console.error("Failed to save search log:", error);

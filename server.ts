@@ -9,6 +9,18 @@ import { FieldValue, Firestore, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
+import {
+  IdentityConflictError,
+  IdentityUnavailableError,
+  clearPasswordChangeRequired,
+  createAuthUserWithProfile,
+  createRecoveryLink,
+  getUserProfile,
+  listTenantProfiles,
+  setAuthDisabled,
+  updateUserProfile,
+  verifyAccessToken,
+} from "./src/server/identityStore";
 
 dotenv.config();
 
@@ -166,7 +178,20 @@ function resolveUserModulePermissions(role: string, perms?: Record<string, boole
   return result;
 }
 
-// Middleware: Authenticate caller with Firebase ID token
+function identityFailure(res: express.Response, err: unknown) {
+  if (err instanceof IdentityUnavailableError) {
+    return res.status(503).json({
+      code: "ADMIN_SDK_UNAVAILABLE",
+      error: err.message,
+    });
+  }
+  if (err instanceof IdentityConflictError) {
+    return res.status(400).json({ code: "CREATION_FAILED", error: err.message });
+  }
+  return null;
+}
+
+// Middleware: Authenticate caller with the Supabase session token.
 async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -174,54 +199,33 @@ async function requireAuth(req: express.Request, res: express.Response, next: ex
   }
 
   const token = authHeader.split("Bearer ")[1].trim();
-  const services = getAdminServices();
-  if (services.ok === false) {
-    return res.status(503).json({
-      code: "ADMIN_SDK_UNAVAILABLE",
-      error: services.error
-    });
-  }
-
   try {
-    const decodedToken = await services.auth.verifyIdToken(token);
-    (req as any).user = decodedToken;
+    const verified = await verifyAccessToken(token);
+    (req as any).user = verified;
     next();
   } catch (err: any) {
-    if (isCredentialError(err)) {
-      return res.status(503).json({
-        code: "ADMIN_SDK_UNAVAILABLE",
-        error: "Firebase Admin SDK credentials are unavailable in this environment."
-      });
-    }
-    return res.status(401).json({ code: "UNAUTHORIZED", error: "Invalid or expired Firebase ID token" });
+    const unavailable = identityFailure(res, err);
+    if (unavailable) return unavailable;
+    return res.status(401).json({ code: "UNAUTHORIZED", error: "Sesi tidak valid atau sudah berakhir." });
   }
 }
 
-// Middleware: Enforce acting admin profile from Firestore
+// Middleware: Enforce acting admin profile from the Supabase RBAC profile.
 async function requireTenantAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
   const uid = (req as any).user?.uid;
   if (!uid) {
     return res.status(401).json({ code: "UNAUTHORIZED", error: "Autentikasi diperlukan." });
   }
 
-  const services = getAdminServices();
-  if (services.ok === false) {
-    return res.status(503).json({
-      code: "ADMIN_SDK_UNAVAILABLE",
-      error: "Kredensial Firebase Admin SDK (Application Default Credentials) belum terpasang di server."
-    });
-  }
-
   try {
-    const actorDoc = await services.db.collection("users").doc(uid).get();
-    if (!actorDoc.exists) {
+    const actor = await getUserProfile(uid);
+    if (!actor) {
       return res.status(403).json({
         code: "ADMIN_PROFILE_NOT_FOUND",
         error: "Profil akun pengguna tidak ditemukan dalam basis data tenant."
       });
     }
 
-    const actor = actorDoc.data() || {};
     const status = String(actor.status || "").toLowerCase();
     if (status !== "active") {
       return res.status(403).json({
@@ -255,19 +259,8 @@ async function requireTenantAdmin(req: express.Request, res: express.Response, n
     };
     next();
   } catch (err: any) {
-    if (isCredentialError(err)) {
-      return res.status(503).json({
-        code: "ADMIN_SDK_UNAVAILABLE",
-        error: "Kredensial Firebase Admin SDK (Application Default Credentials) belum terpasang di server."
-      });
-    }
-
-    if (isFirestoreStoreError(err)) {
-      return res.status(503).json({
-        code: "ADMIN_PROFILE_STORE_UNAVAILABLE",
-        error: "Layanan basis data profil admin (Firestore) tidak dapat diakses. Pastikan IAM role 'Cloud Datastore User' aktif untuk service account backend dan ID database sesuai."
-      });
-    }
+    const unavailable = identityFailure(res, err);
+    if (unavailable) return unavailable;
 
     return res.status(500).json({
       code: "INTERNAL_ERROR",
@@ -336,10 +329,15 @@ function financeProofError(status: number, message: string): FinanceProofError {
   return Object.assign(new Error(message), { status });
 }
 
-async function loadFinanceProofActor(db: Firestore, uid: string) {
-  const snapshot = await db.collection("users").doc(uid).get();
-  if (!snapshot.exists) throw financeProofError(403, "Profil pengguna tidak ditemukan.");
-  const profile = snapshot.data() || {};
+async function loadFinanceProofActor(uid: string) {
+  let profile;
+  try {
+    profile = await getUserProfile(uid);
+  } catch (err) {
+    if (err instanceof IdentityUnavailableError) throw financeProofError(503, err.message);
+    throw err;
+  }
+  if (!profile) throw financeProofError(403, "Profil pengguna tidak ditemukan.");
   const tenantId = typeof profile.tenantId === "string" ? profile.tenantId.trim() : "";
   const role = typeof profile.role === "string" ? profile.role : "";
   if (String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
@@ -443,10 +441,9 @@ async function startServer() {
     if (services.ok === false) return res.status(503).json({ error: "Backend pengamanan settings belum tersedia." });
     try {
       const uid = (req as any).user?.uid;
-      const profileSnapshot = await services.db.collection("users").doc(uid).get();
-      const profile = profileSnapshot.data() || {};
-      const tenantId = typeof profile.tenantId === "string" ? profile.tenantId.trim() : "";
-      if (!profileSnapshot.exists || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      const profile = await getUserProfile(uid);
+      const tenantId = typeof profile?.tenantId === "string" ? profile.tenantId.trim() : "";
+      if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
         return res.status(403).json({ error: "Profil aktif dengan tenant valid diperlukan." });
       }
       const settingsRef = services.db.collection("tenants").doc(tenantId).collection("settings").doc("global");
@@ -482,11 +479,10 @@ async function startServer() {
       const datasetKey = typeof req.body?.datasetKey === 'string' ? req.body.datasetKey : '';
       const dataset = LEGACY_LOCAL_STORAGE_DATASETS[datasetKey];
       if (!uid || !dataset) return res.status(400).json({ error: 'Dataset migrasi tidak dikenal.' });
-      const profileSnapshot = await services.db.collection('users').doc(uid).get();
-      const profile = profileSnapshot.data() || {};
-      const tenantId = typeof profile.tenantId === 'string' ? profile.tenantId.trim() : '';
-      const role = String(profile.role || '');
-      if (!profileSnapshot.exists || String(profile.status || '').toLowerCase() !== 'active' || !tenantId) {
+      const profile = await getUserProfile(uid);
+      const tenantId = typeof profile?.tenantId === 'string' ? profile.tenantId.trim() : '';
+      const role = String(profile?.role || '');
+      if (!profile || String(profile.status || '').toLowerCase() !== 'active' || !tenantId) {
         return res.status(403).json({ error: 'Profil aktif dengan tenant valid diperlukan.' });
       }
       if (!['Admin', 'SuperAdmin'].includes(role)) return res.status(403).json({ error: 'Migrasi lokal hanya dapat dijalankan Admin tenant.' });
@@ -707,7 +703,7 @@ async function startServer() {
 
     let storedFile: any = null;
     try {
-      const actor = await loadFinanceProofActor(services.db, uid);
+      const actor = await loadFinanceProofActor(uid);
       const billingId = typeof req.body?.billingId === "string" ? req.body.billingId.trim() : "";
       if (!billingId || billingId.length > 150 || billingId.includes("/")) {
         return res.status(400).json({ error: "ID tagihan tidak valid." });
@@ -797,7 +793,7 @@ async function startServer() {
     try {
       const uid = (req as any).user?.uid;
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadFinanceProofActor(services.db, uid);
+      const actor = await loadFinanceProofActor(uid);
       const billingId = typeof req.params.billingId === "string" ? req.params.billingId.trim() : "";
       if (!billingId || billingId.length > 150 || billingId.includes("/")) return res.status(400).json({ error: "ID tagihan tidak valid." });
       const billingSnapshot = await services.db.collection("financeBillings").doc(billingId).get();
@@ -841,42 +837,31 @@ async function startServer() {
   // 1. List / Search Users for acting admin's tenant
   app.get("/api/users", requireAuth, requireTenantAdmin, async (req, res) => {
     const actor = (req as any).actor;
-    const services = getAdminServices();
-    if (services.ok === false) {
-      return res.status(503).json({ code: "ADMIN_SDK_UNAVAILABLE", error: services.error });
-    }
 
     try {
       const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
       const roleFilter = typeof req.query.role === "string" ? req.query.role.trim() : "";
       const statusFilter = typeof req.query.status === "string" ? req.query.status.trim().toLowerCase() : "";
 
-      const snapshot = await services.db
-        .collection("users")
-        .where("tenantId", "==", actor.tenantId)
-        .get();
-
-      let users = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          uid: doc.id,
-          id: doc.id,
-          name: data.name || data.displayName || "",
-          email: data.email || "",
-          username: data.username || "",
-          role: data.role || "Santri",
-          status: data.status || "active",
-          tenantId: data.tenantId,
-          tenantName: data.tenantName,
-          mustChangePassword: Boolean(data.mustChangePassword),
-          modulePermissions: resolveUserModulePermissions(data.role, data.modulePermissions),
-          createdAt: data.createdAt || null,
-          updatedAt: data.updatedAt || null,
-          linkedSantriId: data.linkedSantriId || null,
-          linkedSantriName: data.linkedSantriName || null,
-          linkedSantriNis: data.linkedSantriNis || null,
-        };
-      });
+      const profiles = await listTenantProfiles(actor.tenantId);
+      let users = profiles.map((data) => ({
+        uid: data.uid,
+        id: data.uid,
+        name: data.name || "",
+        email: data.email || "",
+        username: data.username || "",
+        role: data.role || "Santri",
+        status: data.status || "active",
+        tenantId: data.tenantId,
+        tenantName: data.tenantName,
+        mustChangePassword: Boolean(data.mustChangePassword),
+        modulePermissions: resolveUserModulePermissions(data.role, data.modulePermissions),
+        createdAt: data.createdAt || null,
+        updatedAt: data.updatedAt || null,
+        linkedSantriId: data.linkedSantriId || null,
+        linkedSantriName: data.linkedSantriName || null,
+        linkedSantriNis: data.linkedSantriNis || null,
+      }));
 
       // Filter in memory for search query and role/status
       if (q) {
@@ -898,18 +883,8 @@ async function startServer() {
 
       return res.json({ users, total: users.length });
     } catch (err: any) {
-      if (isCredentialError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_SDK_UNAVAILABLE",
-          error: "Kredensial Firebase Admin SDK (Application Default Credentials) belum terpasang di server."
-        });
-      }
-      if (isFirestoreStoreError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_PROFILE_STORE_UNAVAILABLE",
-          error: "Layanan basis data Firestore tidak dapat diakses untuk memuat daftar pengguna. Pastikan IAM role 'Cloud Datastore User' aktif."
-        });
-      }
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
       return res.status(500).json({ code: "INTERNAL_ERROR", error: "Gagal memuat daftar pengguna tenant." });
     }
   });
@@ -917,10 +892,6 @@ async function startServer() {
   // 2. Create User (Staff / Student / Guardian)
   app.post("/api/users", requireAuth, requireTenantAdmin, async (req, res) => {
     const actor = (req as any).actor;
-    const services = getAdminServices();
-    if (services.ok === false) {
-      return res.status(503).json({ code: "ADMIN_SDK_UNAVAILABLE", error: services.error });
-    }
 
     const {
       email,
@@ -1000,76 +971,32 @@ async function startServer() {
       }
     }
 
-    let createdAuthUid: string | null = null;
     try {
-      // 1. Create Auth user via Firebase Admin SDK
-      const authUserRecord = await services.auth.createUser({
+      const userProfile = await createAuthUserWithProfile({
         email: normalizedEmail,
         password: tempPassword,
-        displayName: normalizedName,
-        disabled: false,
-      });
-      createdAuthUid = authUserRecord.uid;
-
-      // 2. Prepare user profile in Firestore (Tenant is immutable and taken from acting admin profile)
-      const userProfile: Record<string, any> = {
-        uid: createdAuthUid,
-        email: normalizedEmail,
         name: normalizedName,
         username: typeof username === "string" && username.trim() ? username.trim() : normalizedEmail.split("@")[0],
         role,
         tenantId: actor.tenantId,
         tenantName: actor.tenantName || actor.tenantId,
-        status: "active",
-        mustChangePassword: true,
         modulePermissions: finalPermissions,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
         createdByUid: actor.uid,
-      };
-
-      if (linkedSantriId) userProfile.linkedSantriId = linkedSantriId;
-      if (linkedSantriName) userProfile.linkedSantriName = linkedSantriName;
-      if (linkedSantriNis) userProfile.linkedSantriNis = linkedSantriNis;
-      if (linkedSantriClass) userProfile.linkedSantriClass = linkedSantriClass;
-      if (linkedSantriRoom) userProfile.linkedSantriRoom = linkedSantriRoom;
-
-      // 3. Write profile to Firestore
-      await services.db.collection("users").doc(createdAuthUid).set(userProfile);
+        linkedSantriId,
+        linkedSantriName,
+        linkedSantriNis,
+        linkedSantriClass,
+        linkedSantriRoom,
+      });
 
       return res.status(201).json({
         success: true,
         user: userProfile,
       });
     } catch (err: any) {
-      // Handle partial failure: rollback created Auth user if Firestore write fails
-      if (createdAuthUid) {
-        try {
-          await services.auth.deleteUser(createdAuthUid);
-        } catch {
-          // Cleanup log
-        }
-      }
-
-      if (isCredentialError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_SDK_UNAVAILABLE",
-          error: "Kredensial Firebase Admin SDK (Application Default Credentials) belum terpasang di server."
-        });
-      }
-
-      if (isFirestoreStoreError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_PROFILE_STORE_UNAVAILABLE",
-          error: "Layanan basis data Firestore tidak dapat diakses untuk menyimpan profil pengguna baru. Pastikan IAM role 'Cloud Datastore User' aktif."
-        });
-      }
-
-      const safeMessage = err.code === "auth/email-already-exists"
-        ? "Alamat email ini sudah terdaftar dalam sistem."
-        : "Gagal membuat akun pengguna.";
-
-      return res.status(400).json({ code: "CREATION_FAILED", error: safeMessage });
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
+      return res.status(400).json({ code: "CREATION_FAILED", error: "Gagal membuat akun pengguna." });
     }
   });
 
@@ -1077,18 +1004,12 @@ async function startServer() {
   app.patch("/api/users/:uid", requireAuth, requireTenantAdmin, async (req, res) => {
     const actor = (req as any).actor;
     const targetUid = req.params.uid;
-    const services = getAdminServices();
-    if (services.ok === false) {
-      return res.status(503).json({ code: "ADMIN_SDK_UNAVAILABLE", error: services.error });
-    }
 
     try {
-      const targetDoc = await services.db.collection("users").doc(targetUid).get();
-      if (!targetDoc.exists) {
+      const targetData = await getUserProfile(targetUid);
+      if (!targetData) {
         return res.status(404).json({ code: "NOT_FOUND", error: "Pengguna tidak ditemukan." });
       }
-
-      const targetData = targetDoc.data() || {};
 
       // Tenant match constraint
       if (targetData.tenantId !== actor.tenantId) {
@@ -1142,7 +1063,7 @@ async function startServer() {
         const normalizedStatus = String(status).toLowerCase();
         updates.status = normalizedStatus;
         try {
-          await services.auth.updateUser(targetUid, { disabled: normalizedStatus !== "active" });
+          await setAuthDisabled(targetUid, normalizedStatus !== "active");
         } catch {
           // Continue if auth update fails due to preview limits
         }
@@ -1173,45 +1094,36 @@ async function startServer() {
         updates.modulePermissions = merged;
       }
 
-      await services.db.collection("users").doc(targetUid).update(updates);
+      await updateUserProfile(targetUid, {
+        name: updates.name,
+        role: updates.role,
+        status: updates.status,
+        modulePermissions: updates.modulePermissions,
+        updatedByUid: actor.uid,
+      });
 
       return res.json({
         success: true,
         user: { ...targetData, ...updates, uid: targetUid },
       });
     } catch (err: any) {
-      if (isCredentialError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_SDK_UNAVAILABLE",
-          error: "Kredensial Firebase Admin SDK (Application Default Credentials) belum terpasang di server."
-        });
-      }
-      if (isFirestoreStoreError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_PROFILE_STORE_UNAVAILABLE",
-          error: "Layanan basis data Firestore tidak dapat diakses untuk memperbarui pengguna. Pastikan IAM role 'Cloud Datastore User' aktif."
-        });
-      }
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
       return res.status(500).json({ code: "UPDATE_FAILED", error: "Gagal memperbarui data pengguna." });
     }
   });
 
-  // 4. Send Firebase Password Reset Email
+  // 4. Prepare a password recovery link for an account in the acting tenant.
   app.post("/api/users/:uid/reset-password", requireAuth, requireTenantAdmin, async (req, res) => {
     const actor = (req as any).actor;
     const targetUid = req.params.uid;
-    const services = getAdminServices();
-    if (services.ok === false) {
-      return res.status(503).json({ code: "ADMIN_SDK_UNAVAILABLE", error: services.error });
-    }
 
     try {
-      const targetDoc = await services.db.collection("users").doc(targetUid).get();
-      if (!targetDoc.exists) {
+      const targetData = await getUserProfile(targetUid);
+      if (!targetData) {
         return res.status(404).json({ code: "NOT_FOUND", error: "Pengguna tidak ditemukan." });
       }
 
-      const targetData = targetDoc.data() || {};
       if (targetData.tenantId !== actor.tenantId) {
         return res.status(403).json({ code: "FORBIDDEN", error: "Pengguna berada di luar tenant Anda." });
       }
@@ -1220,8 +1132,7 @@ async function startServer() {
         return res.status(400).json({ code: "NO_EMAIL", error: "Pengguna tidak memiliki alamat email terdaftar." });
       }
 
-      // Generate password reset link via Firebase Admin SDK
-      const link = await services.auth.generatePasswordResetLink(targetData.email);
+      const link = await createRecoveryLink(targetData.email);
 
       return res.json({
         success: true,
@@ -1229,18 +1140,8 @@ async function startServer() {
         resetLink: link,
       });
     } catch (err: any) {
-      if (isCredentialError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_SDK_UNAVAILABLE",
-          error: "Kredensial Firebase Admin SDK (Application Default Credentials) belum terpasang di server."
-        });
-      }
-      if (isFirestoreStoreError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_PROFILE_STORE_UNAVAILABLE",
-          error: "Layanan basis data Firestore tidak dapat diakses untuk memverifikasi profil pengguna. Pastikan IAM role 'Cloud Datastore User' aktif."
-        });
-      }
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
       return res.status(500).json({ code: "RESET_FAILED", error: "Gagal membuat tautan reset password." });
     }
   });
@@ -1248,37 +1149,19 @@ async function startServer() {
   // 5. Clear mustChangePassword (Self-Authenticated endpoint)
   app.post("/api/users/clear-must-change-password", requireAuth, async (req, res) => {
     const uid = (req as any).user?.uid;
-    const services = getAdminServices();
-    if (services.ok === false) {
-      return res.status(503).json({ code: "ADMIN_SDK_UNAVAILABLE", error: services.error });
-    }
 
     try {
-      const userRef = services.db.collection("users").doc(uid);
-      const userDoc = await userRef.get();
-      if (!userDoc.exists) {
+      const profile = await getUserProfile(uid);
+      if (!profile) {
         return res.status(404).json({ code: "NOT_FOUND", error: "Profil pengguna tidak ditemukan." });
       }
 
-      await userRef.update({
-        mustChangePassword: false,
-        updatedAt: new Date().toISOString(),
-      });
+      await clearPasswordChangeRequired(uid);
 
       return res.json({ success: true, message: "Status mustChangePassword berhasil dihapus." });
     } catch (err: any) {
-      if (isCredentialError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_SDK_UNAVAILABLE",
-          error: "Kredensial Firebase Admin SDK (Application Default Credentials) belum terpasang di server."
-        });
-      }
-      if (isFirestoreStoreError(err)) {
-        return res.status(503).json({
-          code: "ADMIN_PROFILE_STORE_UNAVAILABLE",
-          error: "Layanan basis data Firestore tidak dapat diakses untuk memperbarui status kata sandi. Pastikan IAM role 'Cloud Datastore User' aktif."
-        });
-      }
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
       return res.status(500).json({ code: "CLEAR_FAILED", error: "Gagal memperbarui status kata sandi pengguna." });
     }
   });
