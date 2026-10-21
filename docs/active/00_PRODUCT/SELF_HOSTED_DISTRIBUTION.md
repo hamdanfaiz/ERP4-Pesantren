@@ -107,3 +107,7 @@ Kriteria lulus: image identik dapat berjalan pada host kedua hanya dengan konfig
 - Kapasitas minimum resmi ERP berdasarkan simulasi beban, bukan hanya kebutuhan minimum Supabase.
 
 Keputusan ini tidak boleh disamarkan sebagai kemampuan yang sudah ada. Uji dan dokumentasikan sebelum menjanjikannya di materi penawaran.
+
+## Status implementasi distribusi — 2026-10-21
+
+Draft PR [#4](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/4) mengusulkan container untuk proses aplikasi saja, konfigurasi Firebase saat runtime, dan Compose. Itu belum digabung, belum dibangun/divalidasi, dan belum membawa database atau Storage ke server pelanggan. Seluruh kriteria self-hosted penuh dan simulasi lintas-host di dokumen ini tetap terbuka.
