@@ -163,3 +163,52 @@ export async function listSupabaseBoardingSnapshot(): Promise<{
     students: Array.isArray(result.students) ? result.students : [],
   };
 }
+
+export interface SupabaseMasterDataStudentRecord {
+  id: string;
+  supabaseId: string;
+  sourceRecordId: string | null;
+  name: string;
+  nis: string;
+  nik: string;
+  nisn: string;
+  gender: string;
+  grade: string;
+  classId: string | null;
+  className: string;
+  roomId: string | null;
+  room: string;
+  dormitoryId: string | null;
+  dormitory: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+export async function listSupabaseMasterDataStudents(): Promise<SupabaseMasterDataStudentRecord[]> {
+  const result = await requestMasterData<{ records: SupabaseMasterDataStudentRecord[] }>("/api/master-data/students");
+  return Array.isArray(result.records) ? result.records : [];
+}
+
+export async function upsertSupabaseMasterDataStudent(
+  record: Record<string, unknown>
+): Promise<SupabaseMasterDataStudentRecord> {
+  const sourceId = typeof record.id === "string" ? record.id.trim() : "";
+  const supabaseId = typeof record.supabaseId === "string" ? record.supabaseId.trim() : "";
+  const identifier = supabaseId || sourceId;
+  if (!identifier) throw new Error("ID santri wajib diisi.");
+  const result = await requestMasterData<{ record: SupabaseMasterDataStudentRecord }>(
+    "/api/master-data/students/" + encodeURIComponent(identifier),
+    { method: "PUT", body: JSON.stringify({ record }) }
+  );
+  return result.record;
+}
+
+export async function archiveSupabaseMasterDataStudent(record: Pick<SupabaseMasterDataStudentRecord, "id" | "supabaseId">) {
+  const identifier = record.supabaseId || record.id;
+  if (!identifier) throw new Error("ID santri wajib diisi.");
+  return requestMasterData<{ success: boolean; alreadyArchived?: boolean; studentId: string }>(
+    "/api/master-data/students/" + encodeURIComponent(identifier),
+    { method: "DELETE" }
+  );
+}
+
