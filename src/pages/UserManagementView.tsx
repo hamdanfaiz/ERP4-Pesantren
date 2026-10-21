@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { auth } from '../firebase';
+import { getAccessToken } from '../authSession';
 import { 
   UserRole, 
   ROLE_MODULES, 
@@ -120,8 +120,7 @@ export function UserManagementView() {
     setIsSdkUnavailable(false);
 
     try {
-      if (!auth.currentUser) throw new Error('Pengguna belum terautentikasi.');
-      const token = await auth.currentUser.getIdToken();
+      const token = await getAccessToken();
 
       const params = new URLSearchParams();
       if (searchQuery.trim()) params.append('q', searchQuery.trim());
@@ -196,8 +195,7 @@ export function UserManagementView() {
 
     setIsCreating(true);
     try {
-      if (!auth.currentUser) throw new Error('Pengguna belum login.');
-      const token = await auth.currentUser.getIdToken();
+      const token = await getAccessToken();
 
       const finalPerms = createRole === 'SuperAdmin'
         ? ALL_MODULE_LIST.reduce((acc, m) => ({ ...acc, [m.id]: true }), {})
@@ -295,8 +293,7 @@ export function UserManagementView() {
 
     setIsUpdating(true);
     try {
-      if (!auth.currentUser) throw new Error('Pengguna belum login.');
-      const token = await auth.currentUser.getIdToken();
+      const token = await getAccessToken();
 
       const finalPerms = editRole === 'SuperAdmin'
         ? ALL_MODULE_LIST.reduce((acc, m) => ({ ...acc, [m.id]: true }), {})
@@ -348,8 +345,7 @@ export function UserManagementView() {
     }
 
     try {
-      if (!auth.currentUser) throw new Error('Pengguna belum login.');
-      const token = await auth.currentUser.getIdToken();
+      const token = await getAccessToken();
 
       const res = await fetch(`/api/users/${targetUser.uid}/reset-password`, {
         method: 'POST',
@@ -402,8 +398,7 @@ export function UserManagementView() {
     if (!confirm(confirmText)) return;
 
     try {
-      if (!auth.currentUser) throw new Error('Pengguna belum login.');
-      const token = await auth.currentUser.getIdToken();
+      const token = await getAccessToken();
 
       const res = await fetch(`/api/users/${targetUser.uid}`, {
         method: 'PATCH',

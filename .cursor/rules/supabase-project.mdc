@@ -1,0 +1,14 @@
+---
+description: Jalur akses database Supabase project ERP ini. Baca kredensial dari .env dan jangan memakai konektor yang tertaut ke project lain.
+alwaysApply: true
+---
+
+# Supabase project ini
+
+- Project ref: `ptsasgdvgrbdtgyqieie`
+- URL: `https://ptsasgdvgrbdtgyqieie.supabase.co`
+- Saat diminta menyambungkan, query, atau mengakses database, baca nilai dari `.env` di root repo: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_JWKS_URL`, dan parameter `SUPABASE_DB_*`.
+- Password database ada di `.env` sebagai `SUPABASE_DB_PASSWORD`. Connection string yang sudah di-encode ada di `SUPABASE_DB_URL`. Jangan menyalin password ke file yang di-commit.
+- `SUPABASE_SECRET_KEY` hanya untuk server atau agent. Jangan menyalinnya ke file yang di-commit, ke aturan, ke kode browser, atau ke variabel `VITE_`.
+- Sebelum memakai konektor Supabase, pastikan URL project-nya sama dengan URL di atas. Jika tertaut ke project lain, jangan query project itu untuk ERP ini; pakai kredensial di `.env`.
+- Jangan mengubah skema, data, tampilan, proses, atau aturan aplikasi kecuali diminta secara eksplisit.

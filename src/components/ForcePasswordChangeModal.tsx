@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { updatePassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import { getAuthSession } from '../authSession';
+import { supabase } from '../utils/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { KeyRound, ShieldCheck, AlertCircle, Eye, EyeOff, LogOut, CheckCircle2 } from 'lucide-react';
 
@@ -31,15 +31,20 @@ export function ForcePasswordChangeModal() {
       return;
     }
 
-    if (!auth.currentUser) {
+    if (!getAuthSession()) {
       setError('Sesi autentikasi tidak ditemukan. Silakan login kembali.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // 1. Update password in Firebase Auth client-side
-      await updatePassword(auth.currentUser, newPassword);
+      const { error: passwordError } = await supabase.auth.updateUser({ password: newPassword });
+      if (passwordError) {
+        const expired = /session|reauth|recent/i.test(passwordError.message);
+        throw new Error(expired
+          ? 'Sesi autentikasi telah kedaluwarsa. Silakan keluar dan login kembali.'
+          : passwordError.message);
+      }
 
       // 2. Clear mustChangePassword flag via self-authenticated backend endpoint
       await clearMustChangePassword();
@@ -49,9 +54,7 @@ export function ForcePasswordChangeModal() {
 
       setSuccess(true);
     } catch (err: any) {
-      const msg = err.code === 'auth/requires-recent-login'
-        ? 'Sesi autentikasi telah kedaluwarsa. Silakan keluar dan login kembali.'
-        : err.message || 'Gagal mengubah kata sandi. Silakan coba kembali.';
+      const msg = err.message || 'Gagal mengubah kata sandi. Silakan coba kembali.';
       setError(msg);
     } finally {
       setIsSubmitting(false);

@@ -1,5 +1,6 @@
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { getAccessToken, getAuthSession } from "../authSession";
+import { db } from "../firebase";
 import { ModuleId } from "../types";
 import { UserRole, ROLE_MODULES, isModuleAccessible, getAllowedModulesForUser } from "../rbac";
 
@@ -230,9 +231,9 @@ class SystemSettingsService {
 
   private async startRealtimeSyncAfterSanitizing(tenantId: string): Promise<void> {
     try {
-      const currentUser = auth.currentUser;
+      const currentUser = getAuthSession();
       if (!currentUser) return;
-      const token = await currentUser.getIdToken();
+      const token = await getAccessToken();
       const response = await fetch("/api/system/settings/prepare", {
         method: "POST",
         headers: { Authorization: "Bearer " + token },

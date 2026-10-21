@@ -1,14 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  browserSessionPersistence,
-  onAuthStateChanged,
-  setPersistence,
-  signInWithEmailAndPassword,
-  signOut,
-  type User as FirebaseUser,
-} from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import type { User as SupabaseAuthUser } from '@supabase/supabase-js';
+import { setAuthSession } from '../authSession';
+import { supabase, supabaseClientConfigured } from '../utils/supabase';
 import { UserRole } from '../rbac';
 
 export interface AuthUser {
@@ -99,14 +92,34 @@ function profileToAuthUser(uid: string, email: string | null, profile: Record<st
   };
 }
 
-async function loadUserProfile(firebaseUser: FirebaseUser): Promise<{ user: AuthUser; role: UserRole }> {
-  const profileSnapshot = await getDoc(doc(db, 'users', firebaseUser.uid));
-  if (!profileSnapshot.exists()) {
-    throw new Error('Profil akun belum diprovisikan. Hubungi administrator pesantren.');
-  }
-  const profile = profileSnapshot.data();
+async function loadUserProfile(authUser: SupabaseAuthUser): Promise<{ user: AuthUser; role: UserRole }> {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', authUser.id)
+    .maybeSingle();
+  if (error) throw new Error('Profil akun tidak dapat dibaca. Silakan coba kembali.');
+  if (!data) throw new Error('Profil akun belum diprovisikan. Hubungi administrator pesantren.');
+  const profile = {
+    role: data.role,
+    tenantId: data.tenant_id,
+    tenantName: data.tenant_name,
+    tenantType: data.tenant_type,
+    unitId: data.unit_id,
+    status: data.status,
+    name: data.name,
+    email: data.email,
+    username: data.username,
+    mustChangePassword: data.must_change_password,
+    modulePermissions: data.module_permissions,
+    linkedSantriId: data.linked_santri_id,
+    linkedSantriName: data.linked_santri_name,
+    linkedSantriNis: data.linked_santri_nis,
+    linkedSantriClass: data.linked_santri_class,
+    linkedSantriRoom: data.linked_santri_room,
+  };
   const role = profile.role as UserRole;
-  const user = profileToAuthUser(firebaseUser.uid, firebaseUser.email, profile);
+  const user = profileToAuthUser(authUser.id, authUser.email ?? null, profile);
   return { user, role };
 }
 
@@ -122,35 +135,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const initializeAuth = async () => {
       try {
-        await setPersistence(auth, browserSessionPersistence);
+        if (!supabaseClientConfigured()) throw new Error('Konfigurasi Supabase belum lengkap.');
         if (!mounted) return;
 
-        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const { data } = supabase.auth.onAuthStateChange((_event, authSession) => {
           const currentRevision = ++revision;
-          if (!firebaseUser) {
+          const authUser = authSession?.user ?? null;
+          if (!authUser || !authSession) {
+            setAuthSession(null);
             setUser(null);
             setRole('Public');
             setIsLoading(false);
             return;
           }
 
+          setAuthSession({
+            uid: authUser.id,
+            email: authUser.email ?? null,
+            accessToken: authSession.access_token,
+          });
           setIsLoading(true);
-          try {
-            const session = await loadUserProfile(firebaseUser);
-            if (!mounted || currentRevision !== revision) return;
-            setUser(session.user);
-            setRole(session.role);
-          } catch (error) {
-            if (!mounted || currentRevision !== revision) return;
-            setUser(null);
-            setRole('Public');
-            try { await signOut(auth); } catch { /* Keep the session fail-closed. */ }
-          } finally {
-            if (mounted && currentRevision === revision) setIsLoading(false);
-          }
+          window.setTimeout(async () => {
+            try {
+              const session = await loadUserProfile(authUser);
+              if (!mounted || currentRevision !== revision) return;
+              setUser(session.user);
+              setRole(session.role);
+            } catch {
+              if (!mounted || currentRevision !== revision) return;
+              setAuthSession(null);
+              setUser(null);
+              setRole('Public');
+              try { await supabase.auth.signOut(); } catch { /* Keep the session fail-closed. */ }
+            } finally {
+              if (mounted && currentRevision === revision) setIsLoading(false);
+            }
+          }, 0);
         });
+        unsubscribe = () => data.subscription.unsubscribe();
       } catch {
         if (mounted) {
+          setAuthSession(null);
           setUser(null);
           setRole('Public');
           setIsLoading(false);
@@ -170,27 +195,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail || !password) throw new Error('Email dan kata sandi wajib diisi.');
 
-    let authenticatedUser: FirebaseUser | null = null;
+    let authenticatedUser: SupabaseAuthUser | null = null;
     setIsLoading(true);
     try {
-      await setPersistence(auth, browserSessionPersistence);
-      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
-      authenticatedUser = credential.user;
-      const session = await loadUserProfile(credential.user);
+      if (!supabaseClientConfigured()) throw new Error('Konfigurasi Supabase belum lengkap.');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+      if (error || !data.user || !data.session) {
+        const invalid = !error || /invalid login credentials|invalid email or password|email not confirmed/i.test(error.message || '');
+        throw new Error(invalid ? 'Email atau kata sandi tidak cocok.' : error.message);
+      }
+      authenticatedUser = data.user;
+      setAuthSession({
+        uid: data.user.id,
+        email: data.user.email ?? null,
+        accessToken: data.session.access_token,
+      });
+      const session = await loadUserProfile(data.user);
       setUser(session.user);
       setRole(session.role);
     } catch (error: any) {
       if (authenticatedUser) {
-        try { await signOut(auth); } catch { /* Reject the session if profile validation fails. */ }
+        try { await supabase.auth.signOut(); } catch { /* Reject the session if profile validation fails. */ }
       }
+      setAuthSession(null);
       setUser(null);
       setRole('Public');
-      const code = error?.code;
-      const message = code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found'
-        ? 'Email atau kata sandi tidak cocok.'
-        : error instanceof Error
-          ? error.message
-          : 'Login gagal. Silakan coba kembali.';
+      const message = error instanceof Error ? error.message : 'Login gagal. Silakan coba kembali.';
       throw new Error(message);
     } finally {
       setIsLoading(false);
@@ -198,21 +231,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
+    setAuthSession(null);
     setUser(null);
     setRole('Public');
   };
 
   const refreshProfile = async () => {
-    if (!auth.currentUser) return;
-    const session = await loadUserProfile(auth.currentUser);
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.user) return;
+    const session = await loadUserProfile(data.session.user);
     setUser(session.user);
     setRole(session.role);
   };
 
   const clearMustChangePassword = async () => {
-    if (!auth.currentUser) throw new Error('Pengguna belum terautentikasi.');
-    const token = await auth.currentUser.getIdToken();
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) throw new Error('Pengguna belum terautentikasi.');
+    const token = data.session.access_token;
     const res = await fetch('/api/users/clear-must-change-password', {
       method: 'POST',
       headers: {

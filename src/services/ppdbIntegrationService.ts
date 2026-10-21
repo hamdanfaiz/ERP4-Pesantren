@@ -1,4 +1,5 @@
-import { auth, db } from "../firebase";
+import { getAuthSession } from "../authSession";
+import { db } from "../firebase";
 import { doc, updateDoc, collection, getDocs, query, where, runTransaction, serverTimestamp } from "firebase/firestore";
 import { Candidate } from "../types";
 
@@ -65,7 +66,7 @@ export const ppdbIntegrationService = {
     const candidateRef = doc(db, 'candidates', candidate.id);
     const billingRef = doc(db, 'financeBillings', invoiceId);
     const ledgerRef = doc(collection(db, 'financeTransactions'));
-    const actorUid = auth.currentUser?.uid;
+    const actorUid = getAuthSession()?.uid;
     if (details.status === 'Paid' && !actorUid) throw new Error('Sesi admin tidak aktif untuk pencatatan pembayaran.');
 
     await runTransaction(db, async transaction => {

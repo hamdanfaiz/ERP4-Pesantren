@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { auth, db } from './firebase';
+import { getAccessToken, getAuthSession, useAuthSessionUid } from './authSession';
+import { db } from './firebase';
 import { collection, doc, onSnapshot, query, setDoc, where, writeBatch } from 'firebase/firestore';
 
 export enum OperationType {
@@ -32,15 +33,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
+      userId: getAuthSession()?.uid,
+      email: getAuthSession()?.email,
+      emailVerified: null,
+      isAnonymous: false,
+      tenantId: null,
+      providerInfo: []
     },
     operationType,
     path
@@ -79,7 +77,8 @@ function withoutFirestoreMetadata(record: TenantOperationalRecord): TenantOperat
   return data;
 }
 async function persistTenantOperationalDiff(collectionName: string, tenantId: string, previous: TenantOperationalRecord[], next: TenantOperationalRecord[]) {
-  if (!tenantId || !auth.currentUser) throw new Error('Sesi tenant aktif diperlukan untuk menyimpan data.');
+  const session = getAuthSession();
+  if (!tenantId || !session) throw new Error('Sesi tenant aktif diperlukan untuk menyimpan data.');
   const previousById = new Map(previous.map(record => [String(record.id), record]));
   const nextById = new Map(next.map(record => [String(record.id), record]));
   const operations: Array<(batch: ReturnType<typeof writeBatch>) => void> = [];
@@ -99,7 +98,7 @@ async function persistTenantOperationalDiff(collectionName: string, tenantId: st
     const documentId = before?._firestoreId || tenantOperationalDocumentId(tenantId, id);
     const safeData: TenantOperationalRecord = { ...nextData, tenantId, id };
     if (before?.createdByUid) safeData.createdByUid = before.createdByUid;
-    else if (!before && auth.currentUser?.uid) safeData.createdByUid = auth.currentUser.uid;
+    else if (!before && session.uid) safeData.createdByUid = session.uid;
     operations.push(batch => batch.set(doc(db, collectionName, documentId), safeData));
   }
   for (let offset = 0; offset < operations.length; offset += 400) {
@@ -115,12 +114,13 @@ export function useTenantOperationalCollection<T extends TenantOperationalRecord
   const [error, setError] = useState<string | null>(null);
   const recordsRef = useRef<T[]>([]);
   const loadedRef = useRef(false);
+  const sessionUid = useAuthSessionUid();
   useEffect(() => { recordsRef.current = records; }, [records]);
   useEffect(() => {
     let active = true;
     loadedRef.current = false;
     setRecords([]); recordsRef.current = []; setError(null);
-    if (!tenantId || !auth.currentUser) { setLoading(false); return; }
+    if (!tenantId || !sessionUid) { setLoading(false); return; }
     setLoading(true);
     const filters: any[] = [where('tenantId', '==', tenantId)];
     if (ownerUid) filters.push(where('createdByUid', '==', ownerUid));
@@ -137,9 +137,10 @@ export function useTenantOperationalCollection<T extends TenantOperationalRecord
       loadedRef.current = false; setLoading(false); setError(cause instanceof Error ? cause.message : String(cause));
     });
     return () => { active = false; unsubscribe(); };
-  }, [collectionName, tenantId, ownerUid]);
+  }, [collectionName, tenantId, ownerUid, sessionUid]);
   const updateRecords = useCallback<React.Dispatch<React.SetStateAction<T[]>>>((action) => {
-    if (!loadedRef.current || !tenantId || !auth.currentUser) {
+    const session = getAuthSession();
+    if (!loadedRef.current || !tenantId || !session) {
       setError('Data belum siap atau tenant belum aktif; perubahan belum disimpan.');
       return;
     }
@@ -152,7 +153,7 @@ export function useTenantOperationalCollection<T extends TenantOperationalRecord
       return {
         ...record,
         tenantId,
-        createdByUid: before?.createdByUid || auth.currentUser!.uid,
+        createdByUid: before?.createdByUid || session.uid,
         ...(before?._firestoreId ? { _firestoreId: before._firestoreId } : {}),
       } as T;
     });
@@ -162,7 +163,7 @@ export function useTenantOperationalCollection<T extends TenantOperationalRecord
       setError(cause instanceof Error ? cause.message : String(cause));
       console.error('Tenant operational data save failed', { collectionName, tenantId, cause });
     });
-  }, [collectionName, tenantId]);
+  }, [collectionName, tenantId, sessionUid]);
   return { records, setRecords: updateRecords, loading, error };
 }
 export const LEGACY_OPERATIONAL_DATASETS = [
@@ -199,7 +200,7 @@ export function getLegacyOperationalDataSummary() {
 }
 export async function migrateLegacyOperationalDataset(key: string) {
   const dataset = LEGACY_OPERATIONAL_DATASETS.find(item => item.key === key);
-  const currentUser = auth.currentUser;
+  const currentUser = getAuthSession();
   if (!dataset || !currentUser) throw new Error('Admin yang sudah login diperlukan untuk migrasi.');
   if (dataset.kind === 'manual') throw new Error('Data ini perlu direkonsiliasi melalui Master Data dan tidak dapat diimpor otomatis.');
   const raw = window.localStorage.getItem(dataset.key);
@@ -211,7 +212,7 @@ export async function migrateLegacyOperationalDataset(key: string) {
   const chunks: unknown[][] = [];
   for (let offset = 0; offset < items.length; offset += 300) chunks.push(items.slice(offset, offset + 300));
   if (chunks.length === 0) return { imported: 0, skipped: 0, alreadyCompleted: false };
-  const token = await currentUser.getIdToken();
+  const token = await getAccessToken();
   let imported = 0;
   let skipped = 0;
   let allAlreadyCompleted = true;

@@ -11,7 +11,8 @@ import { cn, generateUniqueId } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line } from 'recharts';
 import { collection, onSnapshot, query, where, getDocs, updateDoc, doc, setDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { getAccessToken, getAuthSession } from '../authSession';
+import { db } from '../firebase';
 import { ppdbIntegrationService } from '../services/ppdbIntegrationService';
 
 type Tab = 'billing' | 'expenses' | 'reports' | 'pocket_money';
@@ -444,9 +445,9 @@ export function FinanceManager() {
     if (!proofWindow) { showFinanceToast('Izinkan pop-up agar bukti transfer dapat dibuka.', 'error'); return; }
     proofWindow.opener = null;
     try {
-      const currentAuthUser = auth.currentUser;
+      const currentAuthUser = getAuthSession();
       if (!currentAuthUser || currentAuthUser.uid !== user?.uid) throw new Error('Sesi login tidak cocok. Masuk ulang sebelum membuka bukti.');
-      const token = await currentAuthUser.getIdToken();
+      const token = await getAccessToken();
       const response = await fetch('/api/finance/payment-proofs/' + encodeURIComponent(bill.id), {
         headers: { Authorization: 'Bearer ' + token },
         cache: 'no-store',
@@ -474,9 +475,9 @@ export function FinanceManager() {
       showFinanceToast('Tagihan tidak terhubung ke akun wali ini.', 'error'); return;
     }
     try {
-      const currentAuthUser = auth.currentUser;
+      const currentAuthUser = getAuthSession();
       if (!currentAuthUser || currentAuthUser.uid !== user.uid) throw new Error('Sesi login tidak cocok. Masuk ulang sebelum mengunggah bukti.');
-      const token = await currentAuthUser.getIdToken();
+      const token = await getAccessToken();
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Berkas tidak dapat dibaca.'));
