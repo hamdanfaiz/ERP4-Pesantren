@@ -346,14 +346,25 @@ export function PPDBManager() {
   const handleInjectDemoData = async () => {
     setIsInjecting(true);
     try {
-      const mockCandidates = generateMockData().candidates.map((record) => {
-        const { id: _mockId, examSlot: _examSlot, interviewSlot: _interviewSlot, ...candidate } = record;
-        return {
-          ...candidate,
-          dateApplied: String(candidate.dateApplied || new Date().toISOString()).slice(0, 10),
-          score: candidate.score ?? 0,
-        };
-      });
+      const existingCandidates = await listPpdbCandidates();
+      setCandidates(existingCandidates);
+      const existingRegistrationIds = new Set(
+        existingCandidates.map((candidate) => String(candidate.registrationId || "").trim().toUpperCase())
+      );
+      const mockCandidates = generateMockData().candidates
+        .map((record) => {
+          const { id: _mockId, examSlot: _examSlot, interviewSlot: _interviewSlot, ...candidate } = record;
+          return {
+            ...candidate,
+            dateApplied: String(candidate.dateApplied || new Date().toISOString()).slice(0, 10),
+            score: candidate.score ?? 0,
+          };
+        })
+        .filter((candidate) => !existingRegistrationIds.has(String(candidate.registrationId || "").trim().toUpperCase()));
+      if (mockCandidates.length === 0) {
+        showToast("Data simulasi PPDB sudah tersedia pada tenant ini.", "info", "Simulasi Data PPDB");
+        return;
+      }
       for (let offset = 0; offset < mockCandidates.length; offset += 10) {
         await Promise.all(mockCandidates.slice(offset, offset + 10).map((candidate) => createPpdbCandidate(candidate)));
       }
