@@ -1,6 +1,6 @@
 # Status Cutover Supabase ERP4 Pesantren
 
-**Snapshot:** 21 Oktober 2026  
+**Snapshot:** 22 Oktober 2026  
 **Source inspected:** branch `backend/supabase-masterdata-structures-ui`, draft PR #11  
 **Purpose:** keep implementation and backend handoff aligned while the application moves from Firebase-first to Supabase-only.
 
@@ -50,13 +50,13 @@ Keep the live cutover flag disabled until the new SQL migrations are applied to 
 
 ## Tahfidz follow-up
 
-The current `src/pages/TahfidzManager.tsx` still reads halaqah and santri from Firestore, initializes setoran from hard-coded sample records, and displays sample halaqah, targets, charts, achievements, and exam rows. The Supabase student schema already provides the canonical tenant-scoped student relation needed by this module.
+The Tahfidz runtime schema is in migrations `20260613000000_tahfidz_tenant_runtime.sql` and `20260614000000_legacy_auth_identity_bridge.sql`. Migration `20260615000000_tahfidz_legacy_import.sql` adds source provenance and one atomic, idempotent import RPC for tenant halaqahs and current student assignments. The setoran function grant signature was corrected to match its UUID actor parameter. All three migrations are source artifacts only; **none has been applied to Supabase**.
 
-Migration `20260613000000_tahfidz_tenant_runtime.sql` defines tenant-scoped halaqah, student membership history, append-only setoran records, daily target tables, and an idempotent setoran RPC. Migration `20260614000000_legacy_auth_identity_bridge.sql` adds a server-only mapping from verified Firebase subjects to canonical Supabase profiles as a temporary cutover bridge. Both migrations are source artifacts only and have **not** been applied to Supabase.
+The backend now has tenant-scoped snapshot and setoran endpoints, plus an Admin/SuperAdmin preview/apply endpoint at `POST /api/tahfidz/migrate`. Preview reads only this tenant's `master_data` Halaqah and `entityRecords` Santri, maps santri to canonical Supabase students by legacy source record ID or unique NIS, and reports unresolved/duplicate mappings and existing assignment conflicts. Apply runs the whole imported configuration in one transaction, preserves Firebase source IDs, refuses to overwrite changed rows, and requires both an explicit confirmation string and `SUPABASE_TAHFIDZ_IMPORT_ENABLED=true`. The import flag and runtime flag are both `false` by default.
 
-The server now has `GET /api/tahfidz/snapshot` and `POST /api/tahfidz/records`. Both are guarded by the server-only `SUPABASE_TAHFIDZ_RUNTIME_ENABLED` flag, which is `false` by default. They still validate Firebase ID tokens and Firestore profile/module permissions during the staged transition; setoran additionally requires a prepared legacy identity mapping to a Supabase profile. The Tahfidz UI is not wired to these endpoints, no halaqah/membership import or mapping-provision workflow exists, and static samples and Firestore reads remain active.
+The Tahfidz screen now exposes the Admin migration preview and guarded apply flow. It does **not** yet use Supabase for everyday Tahfidz reads or writes: the existing screen still reads halaqah/santri from Firestore and uses hard-coded sample records for setoran, targets, charts, achievements, and exams. The operational runtime APIs remain disabled under `SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false`. The API still verifies Firebase tokens and Firestore profiles, and the legacy Firebase-to-Supabase profile map must be provisioned for setoran actors before the recording endpoint can work.
 
-Next continuation: prepare preview/apply import and reconciliation for halaqah/memberships; define the trusted Supabase identity and role path; connect the Tahfidz UI and derive dashboard values from persisted data; keep the runtime flag off until those pieces and the canonical student import are verified; then remove the temporary Firebase identity bridge during the final auth cutover.
+Next continuation: finish the end-to-end preview/reconciliation flow against a non-production Supabase database after the SQL migrations are applied; connect Supabase snapshot and setoran APIs to the screen under the default-off runtime flag; replace static/sample Tahfidz metrics with persisted records; then complete Supabase Auth role/tenant authorization and remove the temporary identity bridge in the final Firebase cutover. Do not apply migrations or enable either flag in production before backup, import preview, and reconciliation are approved.
  
 ## Current release gate
 
