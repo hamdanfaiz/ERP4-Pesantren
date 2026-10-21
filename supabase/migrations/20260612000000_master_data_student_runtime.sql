@@ -406,7 +406,12 @@ DECLARE
   v_student public.students%ROWTYPE;
   v_room_result JSONB;
 BEGIN
-  IF p_tenant_id IS NULL OR (p_student_id IS NULL AND NULLIF(btrim(COALESCE(p_source_record_id, '')), '') IS NULL) THEN
+  IF p_tenant_id IS NULL OR (
+    p_student_id IS NULL AND (
+      NULLIF(btrim(COALESCE(p_source_record_id, '')), '') IS NULL
+      OR length(btrim(p_source_record_id)) > 1500
+    )
+  ) THEN
     RAISE EXCEPTION 'ID santri tidak valid' USING ERRCODE = '22023';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.tenants WHERE id = p_tenant_id AND status = 'active') THEN
