@@ -133,3 +133,33 @@ export async function assignSupabaseStudentRoom(
     { method: "PUT", body: JSON.stringify({ roomId, buildingId: buildingId ?? null }) }
   );
 }
+
+export type SupabaseBoardingStudent = {
+  id: string;
+  supabaseId: string;
+  sourceRecordId: string | null;
+  name: string;
+  gender: "L" | "P" | null;
+  grade: string | null;
+  nis: string | null;
+  classId: string | null;
+  className: string | null;
+  roomId: string | null;
+  room: string | null;
+  dormitoryId: string | null;
+  dormitory: string | null;
+  status: string;
+};
+
+export async function listSupabaseBoardingSnapshot(): Promise<{
+  structures: SupabaseStructureRecord[];
+  students: SupabaseBoardingStudent[];
+}> {
+  const result = await requestMasterData<{ structures: SupabaseStructureRecord[]; students: SupabaseBoardingStudent[] }>(
+    "/api/boarding/snapshot"
+  );
+  return {
+    structures: Array.isArray(result.structures) ? result.structures : [],
+    students: Array.isArray(result.students) ? result.students : [],
+  };
+}
