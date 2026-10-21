@@ -38,6 +38,14 @@ The module inventory is a source scan, not a claim that every screen or workflow
 7. **Package for customer environments:** provide container images, a documented Compose installer, environment templates, versioned migrations, health checks, upgrade/rollback instructions, SMTP setup, backup/restore procedures, and a customer-specific database configuration.
 8. **Run final verification:** role/tenant matrix, RLS policies, migration reconciliation, PPDB registration, concurrent unique IDs, finance ledger integrity, private uploads, backup restoration, login, and responsive UI. Run the same release candidate that will be deployed.
 
+## Master Data cutover prerequisite
+
+The existing Supabase onboarding schema makes PPDB-created students require a 10-digit NIS, NIK, class, and room. The repository's example records also contain shorter NIS values and optional placement fields. A legacy import therefore must preserve valid existing identifiers and records that still need class/room assignment, without inventing a PPDB candidate or discarding the source record.
+
+Migration `20260610000000_legacy_master_data_import.sql` prepares provenance keys for legacy student/guardian rows and allows legacy records to retain missing NIS, identity, or placement values. It does **not** import data. The importer still needs to encrypt NIK/NISN before writing, detect duplicate identities/NIS, preserve guardian links, and report rows requiring reconciliation.
+
+Do not switch the live Master Data, boarding, or academic UI to Supabase until this data import and the corresponding placement operations use Supabase as one coherent source. In particular, room allocation cannot read rooms from Supabase while writing room occupancy or student placement back to Firestore.
+
 ## Tahfidz follow-up
 
 The current `src/pages/TahfidzManager.tsx` still subscribes to Firestore for halaqah and santri. Setoran records are initialized from hard-coded sample data and stored only in React state; dashboard charts, halaqah cards, and achievement examples also include fixed sample values. The cutover must define persistent tenant-scoped halaqah, setoran, and target records, connect them to canonical students, and remove sample operational values. Account-to-student/ustadz relationships must be enforced by the backend.
