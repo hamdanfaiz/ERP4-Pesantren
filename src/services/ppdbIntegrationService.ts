@@ -1,6 +1,5 @@
-import { auth, db } from "../firebase";
-import { doc, updateDoc, collection, getDocs, query, where, runTransaction, serverTimestamp } from "firebase/firestore";
 import { Candidate } from "../types";
+import { generatePpdbFinanceBillings, listPpdbFinanceBillings, recordPpdbFinancePayment, updatePpdbCandidate } from "./ppdbApi";
 
 export interface PPDBPaymentRecord {
   candidateId: string;
@@ -58,142 +57,72 @@ export const ppdbIntegrationService = {
     const tenantId = (candidate as any).tenantId;
     if (!tenantId || !candidate.id || !candidate.registrationId) throw new Error('Kandidat belum memiliki tenant dan identitas PPDB yang valid.');
     if (!Number.isFinite(details.amount) || details.amount <= 0) throw new Error('Nominal pembayaran harus lebih besar dari nol.');
-    const today = new Date().toISOString().slice(0, 10);
-    const invoiceId = 'INV-PPDB-' + candidate.registrationId + '-' + (paymentType === 'registration' ? 'REG' : 'SPP');
-    const receiptNo = 'KWT/PPDB/' + new Date().getFullYear() + '/' + candidate.registrationId.slice(-4) + '-' + Date.now();
-    const typeLabel = paymentType === 'registration' ? 'Biaya Pendaftaran PPDB' : 'Uang Pangkal & SPP Awal PPDB';
-    const candidateRef = doc(db, 'candidates', candidate.id);
-    const billingRef = doc(db, 'financeBillings', invoiceId);
-    const ledgerRef = doc(collection(db, 'financeTransactions'));
-    const actorUid = auth.currentUser?.uid;
-    if (details.status === 'Paid' && !actorUid) throw new Error('Sesi admin tidak aktif untuk pencatatan pembayaran.');
 
-    await runTransaction(db, async transaction => {
-      const candidateSnapshot = await transaction.get(candidateRef);
-      const billingSnapshot = await transaction.get(billingRef);
-      const previousBilling = billingSnapshot.exists() ? billingSnapshot.data() : {};
-      const nextPaidAmount = details.paidAmount ?? (details.status === 'Paid' ? details.amount : 0);
-      const previousPaidAmount = Number(previousBilling.paidAmount || 0);
-      if (!candidateSnapshot.exists() || candidateSnapshot.data().tenantId !== tenantId) throw new Error('Kandidat tidak ditemukan pada tenant aktif.');
-      const payment = { ...(candidateSnapshot.data().payment || {}) };
-      const feeKey = paymentType === 'registration' ? 'registrationFee' : 'tuitionFee';
-      payment[feeKey] = {
-        ...(payment[feeKey] || {}), amount: details.amount, paidAmount: nextPaidAmount,
-        status: details.status, paidAt: today, method: details.method, receiptNo, invoiceId, proofUrl: details.proofFile || null
-      };
-      const regPaid = payment.registrationFee?.status === 'Paid' ? Number(payment.registrationFee.paidAmount ?? payment.registrationFee.amount ?? 0) : 0;
-      const tuitionPaid = payment.tuitionFee?.status === 'Paid' ? Number(payment.tuitionFee.paidAmount ?? payment.tuitionFee.amount ?? 0) : 0;
-      payment.totalPaid = regPaid + tuitionPaid;
-      transaction.update(candidateRef, { payment, updatedAt: serverTimestamp() });
-      const billing = {
-        id: invoiceId, tenantId, candidateId: candidate.id, candidateRegistrationId: candidate.registrationId,
-        paymentType, santriName: candidate.name + ' (Calon Santri)', grade: candidate.grade + ' - PPDB',
-        type: typeLabel, period: paymentType === 'registration' ? 'PPDB 2026/2027' : 'Tahun Ajaran 2026/2027',
-        amount: details.amount, paidAmount: details.paidAmount ?? (details.status === 'Paid' ? details.amount : 0),
-        status: details.status, date: today, paymentMethod: details.method, proofFile: details.proofFile || null,
-        receiptNo, updatedAt: serverTimestamp()
-      };
-      if (billingSnapshot.exists()) transaction.update(billingRef, billing);
-      else transaction.set(billingRef, { ...billing, createdAt: serverTimestamp() });
-      if (details.status === 'Paid' && nextPaidAmount > previousPaidAmount) {
-        transaction.set(ledgerRef, { tenantId, type: 'income', sourceType: 'billing', sourceId: invoiceId, description: typeLabel + ' PPDB', amount: nextPaidAmount - previousPaidAmount, paymentMethod: details.method, receiptNo, createdByUid: actorUid, createdAt: serverTimestamp() });
+    const generated = await generatePpdbFinanceBillings([candidate.id], paymentType, details.amount);
+    if (generated.failedCount > 0) {
+      throw new Error(generated.errors[0]?.error || 'Tagihan PPDB gagal diterbitkan pada Supabase.');
+    }
+
+    const bills = await listPpdbFinanceBillings();
+    const existing = bills.find((bill) => bill.candidateId === candidate.id && bill.paymentType === paymentType);
+    if (!existing) throw new Error('Supabase belum mengembalikan tagihan PPDB yang baru diterbitkan.');
+    if (existing.status === 'Paid') {
+      if (details.status === 'Paid' && Number(existing.paidAmount) === Number(details.paidAmount ?? details.amount)) {
+        return { receiptNo: existing.receiptNo || '', invoiceId: existing.id };
       }
-    });
+      throw new Error('Tagihan sudah lunas dan tidak dapat dicatat ulang.');
+    }
 
-    return { receiptNo, invoiceId };
+    const nextPaidAmount = details.paidAmount ?? (details.status === 'Paid' ? details.amount : Number(existing.paidAmount || 0));
+    const receiptNo = 'KWT/PPDB/' + new Date().getFullYear() + '/' + candidate.registrationId.slice(-4) + '-' + Date.now();
+    const result = await recordPpdbFinancePayment(candidate.id, {
+      paymentType,
+      paidAmount: nextPaidAmount,
+      status: details.status,
+      method: details.method,
+      receiptNo,
+    });
+    return { receiptNo: result.receiptNo || receiptNo, invoiceId: result.id };
   },
 
   async batchGenerateRegistrationBills(candidates: Candidate[], feeAmount: number = 250000, requestedTenantId?: string): Promise<number> {
     const tenantId = requestedTenantId || (candidates[0] as any)?.tenantId;
     if (!tenantId) throw new Error('Tenant aktif wajib disertakan saat menerbitkan tagihan PPDB.');
     if (!Number.isFinite(feeAmount) || feeAmount <= 0) throw new Error('Nominal tagihan pendaftaran tidak valid.');
-    const today = new Date().toISOString().slice(0, 10);
-    let addedCount = 0;
-    for (const candidate of candidates) {
-      if ((candidate as any).tenantId !== tenantId || !candidate.id || !candidate.registrationId) continue;
-      const invoiceId = 'INV-PPDB-' + candidate.registrationId + '-REG';
-      const candidateRef = doc(db, 'candidates', candidate.id);
-      const billingRef = doc(db, 'financeBillings', invoiceId);
-      const created = await runTransaction(db, async transaction => {
-        const candidateSnapshot = await transaction.get(candidateRef);
-        const billingSnapshot = await transaction.get(billingRef);
-        if (!candidateSnapshot.exists() || candidateSnapshot.data().tenantId !== tenantId || billingSnapshot.exists()) return false;
-        const payment = candidateSnapshot.data().payment || {};
-        const fee = payment.registrationFee;
-        if (fee?.status && fee.status !== 'Unpaid') return false;
-        transaction.set(billingRef, {
-          id: invoiceId, tenantId, candidateId: candidate.id, candidateRegistrationId: candidate.registrationId,
-          paymentType: 'registration', santriName: candidate.name + ' (Calon Santri)', grade: candidate.grade + ' - PPDB',
-          type: 'Biaya Pendaftaran PPDB', period: 'PPDB 2026/2027', amount: feeAmount, paidAmount: 0,
-          status: 'Unpaid', date: today, paymentMethod: null, proofFile: null, createdAt: serverTimestamp()
-        });
-        transaction.update(candidateRef, { payment: { ...payment, registrationFee: { ...(fee || {}), amount: feeAmount, status: 'Unpaid', invoiceId } }, updatedAt: serverTimestamp() });
-        return true;
-      });
-      if (created) addedCount++;
+    const candidateIds = Array.from(new Set(candidates
+      .filter((candidate) => (candidate as any).tenantId === tenantId && candidate.id && candidate.registrationId)
+      .map((candidate) => candidate.id)));
+    const result = await generatePpdbFinanceBillings(candidateIds, 'registration', feeAmount);
+    if (result.failedCount > 0) {
+      throw new Error(result.errors[0]?.error || result.failedCount + ' tagihan PPDB gagal diterbitkan.');
     }
-    return addedCount;
+    return result.createdCount;
   },
 
   async batchGenerateAcceptedTuitionBills(acceptedCandidates: Candidate[], tuitionAmount: number = 5000000, requestedTenantId?: string): Promise<number> {
     const tenantId = requestedTenantId || (acceptedCandidates[0] as any)?.tenantId;
     if (!tenantId) throw new Error('Tenant aktif wajib disertakan saat menerbitkan tagihan daftar ulang.');
     if (!Number.isFinite(tuitionAmount) || tuitionAmount <= 0) throw new Error('Nominal daftar ulang tidak valid.');
-    const today = new Date().toISOString().slice(0, 10);
-    let addedCount = 0;
-    for (const candidate of acceptedCandidates) {
-      if ((candidate as any).tenantId !== tenantId || !candidate.id || !candidate.registrationId) continue;
-      const invoiceId = 'INV-PPDB-' + candidate.registrationId + '-SPP';
-      const candidateRef = doc(db, 'candidates', candidate.id);
-      const billingRef = doc(db, 'financeBillings', invoiceId);
-      const created = await runTransaction(db, async transaction => {
-        const candidateSnapshot = await transaction.get(candidateRef);
-        const billingSnapshot = await transaction.get(billingRef);
-        if (!candidateSnapshot.exists() || candidateSnapshot.data().tenantId !== tenantId || billingSnapshot.exists()) return false;
-        const payment = candidateSnapshot.data().payment || {};
-        const fee = payment.tuitionFee;
-        if (fee?.status && fee.status !== 'Unpaid') return false;
-        transaction.set(billingRef, {
-          id: invoiceId, tenantId, candidateId: candidate.id, candidateRegistrationId: candidate.registrationId,
-          paymentType: 'tuition', santriName: candidate.name + ' (Santri Baru)', grade: candidate.grade + ' - Daftar Ulang',
-          type: 'Uang Pangkal & SPP Awal PPDB', period: 'Tahun Ajaran 2026/2027', amount: tuitionAmount, paidAmount: 0,
-          status: 'Unpaid', date: today, paymentMethod: null, proofFile: null, createdAt: serverTimestamp()
-        });
-        transaction.update(candidateRef, { payment: { ...payment, tuitionFee: { ...(fee || {}), amount: tuitionAmount, status: 'Unpaid', invoiceId } }, updatedAt: serverTimestamp() });
-        return true;
-      });
-      if (created) addedCount++;
+    const candidateIds = Array.from(new Set(acceptedCandidates
+      .filter((candidate) => (candidate as any).tenantId === tenantId && candidate.id && candidate.registrationId && candidate.stage === 'Accepted')
+      .map((candidate) => candidate.id)));
+    const result = await generatePpdbFinanceBillings(candidateIds, 'tuition', tuitionAmount);
+    if (result.failedCount > 0) {
+      throw new Error(result.errors[0]?.error || result.failedCount + ' tagihan daftar ulang gagal diterbitkan.');
     }
-    return addedCount;
+    return result.createdCount;
   },
 
   async syncPaymentsFromFinance(candidates: Candidate[], requestedTenantId?: string): Promise<number> {
     const tenantId = requestedTenantId || (candidates[0] as any)?.tenantId;
     if (!tenantId) throw new Error('Tenant aktif wajib disertakan untuk sinkronisasi pembayaran.');
-    const snapshot = await getDocs(query(collection(db, 'financeBillings'), where('tenantId', '==', tenantId)));
-    const bills = snapshot.docs.map(item => ({ ...item.data(), id: item.id } as any));
-    let updatedCount = 0;
-    for (const candidate of candidates) {
-      if ((candidate as any).tenantId !== tenantId || !candidate.id) continue;
-      const registrationBill = bills.find(item => item.paymentType === 'registration' && (item.candidateId === candidate.id || item.candidateRegistrationId === candidate.registrationId));
-      const tuitionBill = bills.find(item => item.paymentType === 'tuition' && (item.candidateId === candidate.id || item.candidateRegistrationId === candidate.registrationId));
-      if (!registrationBill && !tuitionBill) continue;
-      const candidateRef = doc(db, 'candidates', candidate.id);
-      const changed = await runTransaction(db, async transaction => {
-        const current = await transaction.get(candidateRef);
-        if (!current.exists() || current.data().tenantId !== tenantId) return false;
-        const payment = { ...(current.data().payment || {}) };
-        if (registrationBill) payment.registrationFee = { ...(payment.registrationFee || {}), amount: registrationBill.amount, status: registrationBill.status, paidAmount: registrationBill.paidAmount || 0, paidAt: registrationBill.paidAt || registrationBill.date, method: registrationBill.paymentMethod || 'Transfer', invoiceId: registrationBill.id, proofUrl: registrationBill.proofStoragePath || registrationBill.proofFile || null, receiptNo: registrationBill.receiptNo };
-        if (tuitionBill) payment.tuitionFee = { ...(payment.tuitionFee || {}), amount: tuitionBill.amount, status: tuitionBill.status, paidAmount: tuitionBill.paidAmount || 0, paidAt: tuitionBill.paidAt || tuitionBill.date, method: tuitionBill.paymentMethod || 'Transfer', invoiceId: tuitionBill.id, proofUrl: tuitionBill.proofStoragePath || tuitionBill.proofFile || null, receiptNo: tuitionBill.receiptNo };
-        const regPaid = payment.registrationFee?.status === 'Paid' ? Number(payment.registrationFee.paidAmount ?? payment.registrationFee.amount ?? 0) : 0;
-        const tuitionPaid = payment.tuitionFee?.status === 'Paid' ? Number(payment.tuitionFee.paidAmount ?? payment.tuitionFee.amount ?? 0) : 0;
-        payment.totalPaid = regPaid + tuitionPaid;
-        transaction.update(candidateRef, { payment, updatedAt: serverTimestamp() });
-        return true;
-      });
-      if (changed) updatedCount++;
-    }
-    return updatedCount;
+    // Supabase RPCs update the candidate payment snapshot atomically with each billing mutation.
+    // This call verifies the source list; it does not mirror data back to Firestore.
+    const bills = await listPpdbFinanceBillings();
+    const candidateIds = new Set(candidates
+      .filter((candidate) => (candidate as any).tenantId === tenantId)
+      .map((candidate) => candidate.id));
+    return bills.filter((bill) => bill.candidateId && candidateIds.has(bill.candidateId)).length;
   },
 
   // --- CBT MODULE INTEGRATION ---
@@ -233,9 +162,7 @@ export const ppdbIntegrationService = {
       evaluatedAt: new Date().toISOString().split("T")[0],
     };
 
-    await updateDoc(doc(db, "candidates", candidateId), {
-      religiousScores,
-    });
+    await updatePpdbCandidate(candidateId, { religiousScores });
 
     return totalScore;
   },
