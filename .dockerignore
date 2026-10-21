@@ -1,0 +1,14 @@
+# Never place local state or customer credentials into an image build context.
+.git
+.gitignore
+node_modules
+dist
+coverage
+.env
+.env.*
+secrets/
+**/*service-account*.json
+**/*serviceaccount*.json
+**/*firebase-admin*.json
+firebase-applet-config.json
+*.log
