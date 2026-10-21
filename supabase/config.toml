@@ -21,3 +21,6 @@ port = 54324
 
 [analytics]
 enabled = false
+
+[functions.provision-tenant-user]
+verify_jwt = true
