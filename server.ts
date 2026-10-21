@@ -528,11 +528,6 @@ async function startServer() {
 
   app.post("/api/public/ppdb/registrations", async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    const clientKey = String(req.ip || req.socket.remoteAddress || "unknown");
-    if (!consumePublicPpdbRateLimit(clientKey)) {
-      res.setHeader("Retry-After", "900");
-      return res.status(429).json({ error: "Batas pendaftaran sementara tercapai. Silakan coba lagi 15 menit kemudian." });
-    }
     try {
       const candidate = await registerSupabasePublicPpdb(req.body, String(req.ip || req.socket.remoteAddress || "unknown"));
       return res.status(201).json({ candidate });
