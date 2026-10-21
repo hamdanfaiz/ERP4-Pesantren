@@ -401,6 +401,9 @@ async function requireTahfidzAccess(req: express.Request, res: express.Response,
     if (String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
       return res.status(403).json({ code: "ACCOUNT_INACTIVE", error: "Akun aktif dan tenant valid diperlukan." });
     }
+    if (!["Admin", "SuperAdmin", "Ustadz"].includes(role)) {
+      return res.status(403).json({ code: "TAHFIDZ_ROLE_FORBIDDEN", error: "Data operasional Tahfidz hanya tersedia untuk Admin dan Ustadz." });
+    }
     const modulePermissions = resolveUserModulePermissions(role, profile.modulePermissions);
     if (modulePermissions.tahfidz !== true) {
       return res.status(403).json({ code: "MODULE_FORBIDDEN", error: "Akses modul Tahfidz tidak diberikan kepada akun ini." });
@@ -673,7 +676,7 @@ async function startServer() {
     }
     try {
       const actor = (req as any).actor;
-      const snapshot = await listSupabaseTahfidzSnapshot(actor.tenantId);
+      const snapshot = await listSupabaseTahfidzSnapshot(actor.tenantId, actor.uid, actor.role);
       return res.json(snapshot);
     } catch (err: any) {
       const status = err instanceof SupabaseTahfidzError ? err.status : 503;
