@@ -65,23 +65,25 @@ DECLARE
 BEGIN
   IF p_tenant_id IS NULL
     OR jsonb_typeof(p_halaqahs) IS DISTINCT FROM 'array'
-    OR jsonb_typeof(p_memberships) IS DISTINCT FROM 'array'
-    OR jsonb_array_length(p_halaqahs) > 2000
+    OR jsonb_typeof(p_memberships) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Snapshot Tahfidz tidak valid' USING ERRCODE = '22023';
+  END IF;
+  IF jsonb_array_length(p_halaqahs) > 2000
     OR jsonb_array_length(p_memberships) > 10000 THEN
-    RAISE EXCEPTION 'Snapshot Tahfidz tidak valid atau melebihi batas impor' USING ERRCODE = '22023';
+    RAISE EXCEPTION 'Snapshot Tahfidz melebihi batas impor' USING ERRCODE = '22023';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.tenants WHERE id = p_tenant_id AND status = 'active') THEN
     RAISE EXCEPTION 'Tenant tidak aktif' USING ERRCODE = '42501';
   END IF;
   IF EXISTS (
     SELECT 1
-    FROM jsonb_array_elements(p_halaqahs) AS item
-    GROUP BY NULLIF(btrim(item->>'sourceRecordId'), '')
+    FROM jsonb_array_elements(p_halaqahs) AS entry(value)
+    GROUP BY NULLIF(btrim(value->>'sourceRecordId'), '')
     HAVING COUNT(*) > 1
   ) OR EXISTS (
     SELECT 1
-    FROM jsonb_array_elements(p_memberships) AS item
-    GROUP BY NULLIF(btrim(item->>'sourceRecordId'), '')
+    FROM jsonb_array_elements(p_memberships) AS entry(value)
+    GROUP BY NULLIF(btrim(value->>'sourceRecordId'), '')
     HAVING COUNT(*) > 1
   ) THEN
     RAISE EXCEPTION 'ID sumber duplikat dalam snapshot Tahfidz' USING ERRCODE = '23505';
