@@ -869,6 +869,9 @@ async function startServer() {
       const uid = (req as any).user?.uid;
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadFinanceProofActor(services.db, uid);
+      if (actor.role === "Walisantri" && !actor.linkedSantriId) {
+        return res.status(403).json({ error: "Akun wali belum terhubung ke data santri." });
+      }
       const billings = await listSupabaseFinanceBillings(
         actor.tenantId,
         actor.role === "Walisantri" ? actor.linkedSantriId : undefined
