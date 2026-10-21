@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { loadSupabasePublicPpdbConfig, PublicPpdbError, registerSupabasePublicPpdb } from "./server/supabasePublicPpdb";
 import { SupabasePpdbAdminError, createSupabasePpdbCandidate, listSupabasePpdbCandidates, updateSupabasePpdbCandidate, updateSupabasePpdbCandidatesBatch, uploadSupabasePpdbCandidateDocument } from "./server/supabasePpdbAdmin";
-import { assignSupabaseStudentRoom, deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
+import { listSupabaseBoardingSnapshot, assignSupabaseStudentRoom, deleteSupabaseMasterDataStructure, getSupabaseNextSantriNis, listSupabaseMasterDataStructures, onboardSupabaseAcceptedCandidate, upsertSupabaseMasterDataStructure, migrateSupabaseMasterDataStructures, migrateSupabaseLegacyMasterDataStudents } from "./server/supabaseOnboarding";
 import { createSupabasePpdbFinanceBilling, listSupabaseFinanceBillings, migrateSupabaseFinanceBillings, recordSupabasePpdbFinancePayment, rejectSupabasePpdbFinancePayment, readSupabaseFinanceProof, uploadSupabaseFinanceProof } from "./server/supabaseFinance";
 
 dotenv.config();
@@ -740,6 +740,20 @@ async function startServer() {
     }
   });
 
+
+
+  app.get("/api/boarding/snapshot", requireAuth, requireBoardingAccess, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const snapshot = await listSupabaseBoardingSnapshot(actor.tenantId);
+      return res.json(snapshot);
+    } catch (err: any) {
+      const status = err instanceof SupabasePpdbAdminError ? err.status : 503;
+      if (status >= 500) console.error("Supabase boarding snapshot failed:", err?.message || "unknown error");
+      return res.status(status).json({ error: status >= 500 ? "Data santri dan struktur belum dapat dimuat." : err.message });
+    }
+  });
 
   app.put("/api/boarding/students/:studentId/room", requireAuth, requireBoardingAccess, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
