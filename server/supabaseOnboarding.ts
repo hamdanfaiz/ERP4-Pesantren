@@ -29,7 +29,7 @@ async function supabaseRequest(path: string, init: RequestInit = {}) {
 
   if (!response.ok) {
     const code = String(body?.code || "");
-    if (code === "23505" || code === "23503" || code === "23514" || response.status === 409) {
+    if (code === "23505" || code === "23503" || code === "23514" || code === "55000" || response.status === 409) {
       throw new SupabasePpdbAdminError(409, body?.message || "Data berbenturan dengan data yang sudah tersimpan.");
     }
     if (code === "22023" || response.status === 400) {
@@ -226,6 +226,228 @@ export async function deleteSupabaseMasterDataStructure(
     throw new SupabasePpdbAdminError(404, "Data struktur tidak ditemukan pada tenant ini.");
   }
   return { deleted: true };
+}
+
+
+export type LegacyMasterDataStructure = {
+  id: string;
+  category: unknown;
+  record: unknown;
+  occupied?: number;
+};
+
+type StructureMigrationPlan = {
+  records: Array<{ id: string; category: StructureCategory; record: JsonObject; occupied: number }>;
+  errors: Array<{ id: string; category: string; message: string }>;
+  warnings: Array<{ id: string; category: string; message: string }>;
+};
+
+function normalizedGender(value: unknown) {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (["l", "m", "male", "putra", "laki-laki", "laki laki"].includes(normalized)) return "L";
+  if (["p", "f", "female", "putri", "perempuan"].includes(normalized)) return "P";
+  return "";
+}
+
+function buildStructureMigrationPlan(source: LegacyMasterDataStructure[]): StructureMigrationPlan {
+  const result: StructureMigrationPlan = { records: [], errors: [], warnings: [] };
+  if (!Array.isArray(source) || source.length > 2000) {
+    result.errors.push({ id: "", category: "", message: "Jumlah struktur migrasi harus berada pada rentang 0 sampai 2.000." });
+    return result;
+  }
+
+  const seen = new Set<string>();
+  for (const item of source) {
+    const id = typeof item?.id === "string" ? item.id.trim() : "";
+    const categoryValue = item?.category;
+    const category = categoryValue === "Gedung" || categoryValue === "Kamar" || categoryValue === "Kelas"
+      ? categoryValue
+      : "";
+    const record = item?.record && typeof item.record === "object" && !Array.isArray(item.record)
+      ? item.record as JsonObject
+      : null;
+    if (!category || !id || id.length > 160 || id.includes("/") || !record) {
+      result.errors.push({ id, category: String(categoryValue || ""), message: "ID, kategori, atau data struktur tidak valid." });
+      continue;
+    }
+    const key = category + "\u0000" + id;
+    if (seen.has(key)) {
+      result.errors.push({ id, category, message: "ID struktur duplikat pada dataset migrasi." });
+      continue;
+    }
+    seen.add(key);
+
+    const name = typeof record.name === "string" ? record.name.trim() : "";
+    if (!name || name.length > 180) {
+      result.errors.push({ id, category, message: "Nama struktur wajib diisi dan maksimal 180 karakter." });
+      continue;
+    }
+
+    const normalized: JsonObject = {
+      ...record,
+      id,
+      category,
+      name,
+      status: typeof record.status === "string" && record.status.trim() ? record.status.trim() : "Active",
+    };
+    let occupied = 0;
+    if (category === "Kamar") {
+      const digits = String(record.capacity ?? "").replace(/[^0-9]/g, "");
+      const capacity = digits ? Number(digits) : NaN;
+      occupied = Number.isInteger(item.occupied) && item.occupied! >= 0 ? item.occupied! : 0;
+      if (!Number.isInteger(capacity) || capacity < 1) {
+        result.errors.push({ id, category, message: "Kapasitas kamar harus diatur dengan angka minimal satu." });
+        continue;
+      }
+      if (occupied > capacity) {
+        result.errors.push({ id, category, message: "Jumlah penghuni lama melebihi kapasitas. Selesaikan konflik sebelum migrasi." });
+        continue;
+      }
+      normalized.capacity = capacity;
+      const ownGender = normalizedGender(record.genderRestriction || record.gender);
+      if (!ownGender) result.warnings.push({ id, category, message: "Gender kamar belum eksplisit; onboarding akan ditolak sampai gender kamar atau gedung dikonfigurasi." });
+      const parentId = typeof record.parentId === "string" && record.parentId.trim()
+        ? record.parentId.trim()
+        : typeof record.parentCode === "string" && record.parentCode.trim()
+          ? record.parentCode.trim()
+          : "";
+      if (parentId) {
+        normalized.parentId = parentId;
+        normalized.parentCode = parentId;
+      }
+    }
+    result.records.push({ id, category, record: normalized, occupied });
+  }
+
+  const buildingIds = new Set(result.records.filter((item) => item.category === "Gedung").map((item) => item.id));
+  for (const item of result.records) {
+    if (item.category === "Kamar" && typeof item.record.parentId === "string" && item.record.parentId && !buildingIds.has(item.record.parentId)) {
+      result.errors.push({ id: item.id, category: item.category, message: "Gedung induk kamar tidak ditemukan pada dataset tenant ini." });
+    }
+  }
+
+  result.records.sort((a, b) => {
+    const order: Record<StructureCategory, number> = { Gedung: 0, Kelas: 1, Kamar: 2 };
+    return order[a.category] - order[b.category] || a.id.localeCompare(b.id);
+  });
+  return result;
+}
+
+function sameCoreStructure(existing: SupabaseStructureRecord, incoming: JsonObject, category: StructureCategory) {
+  const existingGender = normalizedGender(existing.genderRestriction || existing.gender);
+  const incomingGender = normalizedGender(incoming.genderRestriction || incoming.gender);
+  const parentId = typeof incoming.parentId === "string" ? incoming.parentId : "";
+  const existingParentId = existing.parentId || existing.parentCode || "";
+  const incomingCapacity = category === "Kamar" ? Number(String(incoming.capacity ?? "").replace(/[^0-9]/g, "")) : undefined;
+  return existing.name.trim() === String(incoming.name || "").trim()
+    && existing.status.toLowerCase() === String(incoming.status || "Active").toLowerCase()
+    && existingParentId === parentId
+    && String(existing.grade || "") === String(incoming.grade || "")
+    && (category !== "Kamar" || Number(existing.capacity) === incomingCapacity)
+    && (!incomingGender || !existingGender || existingGender === incomingGender)
+    && String(existing.location || "") === String(incoming.location || "");
+}
+
+/**
+ * Preview or import legacy Firebase structure records into Supabase.
+ * Import is idempotent, does not delete rows, and refuses to overwrite conflicting Supabase records.
+ */
+export async function migrateSupabaseMasterDataStructures(
+  tenantIdentifier: string,
+  source: LegacyMasterDataStructure[],
+  apply: boolean
+) {
+  const plan = buildStructureMigrationPlan(source);
+  if (plan.errors.length) {
+    return {
+      dryRun: !apply,
+      sourceCount: Array.isArray(source) ? source.length : 0,
+      planned: plan.records.length,
+      imported: 0,
+      skipped: 0,
+      errors: plan.errors,
+      warnings: plan.warnings,
+    };
+  }
+
+  const existing = await listSupabaseMasterDataStructures(tenantIdentifier);
+  const existingByKey = new Map(existing.map((item) => [item.category + "\u0000" + item.id, item]));
+  const conflicts = plan.records
+    .filter((item) => {
+      const found = existingByKey.get(item.category + "\u0000" + item.id);
+      return Boolean(found && !sameCoreStructure(found, item.record, item.category));
+    })
+    .map((item) => ({ id: item.id, category: item.category, message: "ID sudah ada di Supabase dengan nilai inti berbeda; tidak ditimpa." }));
+
+  if (conflicts.length) {
+    return {
+      dryRun: !apply,
+      sourceCount: source.length,
+      planned: plan.records.length,
+      imported: 0,
+      skipped: 0,
+      errors: conflicts,
+      warnings: plan.warnings,
+    };
+  }
+
+  const alreadyPresent = plan.records.filter((item) => existingByKey.has(item.category + "\u0000" + item.id)).length;
+  if (!apply) {
+    return {
+      dryRun: true,
+      sourceCount: source.length,
+      planned: plan.records.length,
+      imported: plan.records.length - alreadyPresent,
+      skipped: alreadyPresent,
+      errors: [],
+      warnings: plan.warnings,
+    };
+  }
+
+  let imported = 0;
+  let skipped = 0;
+  const errors: Array<{ id: string; category: string; message: string }> = [];
+  for (const item of plan.records) {
+    const key = item.category + "\u0000" + item.id;
+    const wasPresent = existingByKey.has(key);
+    try {
+      if (!wasPresent) {
+        await upsertSupabaseMasterDataStructure(tenantIdentifier, item.category, item.id, item.record);
+        imported += 1;
+      } else {
+        skipped += 1;
+      }
+      if (item.category === "Kamar") {
+        await setImportedSupabaseRoomOccupancy(tenantIdentifier, item.id, item.occupied);
+      }
+    } catch (error: any) {
+      errors.push({
+        id: item.id,
+        category: item.category,
+        message: error instanceof SupabasePpdbAdminError
+          ? error.message
+          : "Struktur belum dapat dimigrasikan.",
+      });
+    }
+  }
+
+  return {
+    dryRun: false,
+    sourceCount: source.length,
+    planned: plan.records.length,
+    imported,
+    skipped,
+    errors,
+    warnings: plan.warnings,
+  };
+}
+
+async function setImportedSupabaseRoomOccupancy(tenantIdentifier: string, roomId: string, occupied: number) {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  return supabaseRequest("/rest/v1/rpc/set_imported_room_occupancy", {
+    method: "POST",
+    body: JSON.stringify({ p_tenant_id: tenantId, p_room_id: roomId, p_occupied: occupied }),
+  });
 }
 
 export async function onboardSupabaseAcceptedCandidate(
