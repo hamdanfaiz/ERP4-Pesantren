@@ -87,7 +87,7 @@ function fingerprint(kind: "nik" | "nisn", value: string) {
 
 function tenantQueryPath(tenantIdentifier: string) {
   const params = new URLSearchParams({ select: "id,slug,status", limit: "2" });
-  if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(tenantIdentifier)) params.set("id", "eq." + tenantIdentifier);
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantIdentifier)) params.set("id", "eq." + tenantIdentifier);
   else params.set("slug", "eq." + tenantIdentifier.trim().toLowerCase());
   return "/rest/v1/tenants?" + params.toString();
 }
