@@ -1,5 +1,5 @@
 # Supabase project configuration
-project_id = "vqemuyzveuirlkvdggjd"
+project_id = "your-project-id"
 
 [api]
 port = 54321
