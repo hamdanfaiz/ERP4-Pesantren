@@ -54,6 +54,38 @@ jobs:
       - name: Smoke-test production runtime without Firebase packages
         run: node scripts/test-production-runtime.mjs
 
+      - name: Build customer-managed Docker image
+        run: >-
+          docker build
+          --build-arg VITE_SUPABASE_URL=https://supabase.example.invalid
+          --build-arg VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder
+          --tag erp4-pesantren:ci .
+
+      - name: Validate customer-managed Compose configuration
+        env:
+          VITE_SUPABASE_URL: https://supabase.example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+          SUPABASE_URL: https://supabase.example.invalid
+          SUPABASE_SECRET_KEY: sb_secret_ci_placeholder
+        run: docker compose -f docker-compose.yml config --quiet
+
+      - name: Smoke-test customer-managed Docker image
+        run: |
+          docker run -d --name erp4-pesantren-image-smoke -p 127.0.0.1:38123:3000 \
+            -e SUPABASE_URL=http://127.0.0.1:1 \
+            -e SUPABASE_SECRET_KEY=sb_secret_ci_placeholder \
+            -e LEGACY_FIREBASE_ADMIN_ENABLED=true \
+            erp4-pesantren:ci
+          trap 'docker rm -f erp4-pesantren-image-smoke >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:38123/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:38123/ >/dev/null
+          status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:38123/api/users)
+          test "$status" = "401"
+          docker exec erp4-pesantren-image-smoke node -e "for (const name of ['firebase', 'firebase-admin/app', 'firebase-admin/firestore']) { try { require.resolve(name); process.exit(1); } catch (error) { if (error.code !== 'MODULE_NOT_FOUND') throw error; } }"
+
   database:
     name: Migrations, API auth, and pgTAP
     runs-on: ubuntu-latest
