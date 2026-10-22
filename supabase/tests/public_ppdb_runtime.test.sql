@@ -55,7 +55,7 @@ SELECT is(
   public.submit_public_ppdb(
     'c3000000-0000-4000-8000-000000000003',
     'c3000000-0000-4000-8000-000000000101',
-    2027,
+    2027::smallint,
     jsonb_build_object(
       'name', 'Santri Uji Satu', 'previousSchool', 'Sekolah Uji', 'grade', 'VII',
       'phone', '081234567890', 'whatsappPhone', '081234567890', 'email', 'uji1@example.invalid',
@@ -105,7 +105,7 @@ SELECT throws_ok(
   $$SELECT public.submit_public_ppdb(
     'c3000000-0000-4000-8000-000000000003',
     'c3000000-0000-4000-8000-000000000102',
-    2027,
+    2027::smallint,
     jsonb_build_object(
       'name', 'Santri Uji Duplikat', 'previousSchool', 'Sekolah Uji', 'grade', 'VII',
       'phone', '081234567891', 'whatsappPhone', '081234567891',
@@ -134,7 +134,7 @@ SELECT is(
   public.submit_public_ppdb(
     'c3000000-0000-4000-8000-000000000003',
     'c3000000-0000-4000-8000-000000000103',
-    2027,
+    2027::smallint,
     jsonb_build_object(
       'name', 'Santri Uji Dua', 'previousSchool', 'Sekolah Uji', 'grade', 'VII',
       'phone', '081234567892', 'whatsappPhone', '081234567892',
@@ -156,7 +156,7 @@ SELECT is(
   public.submit_public_ppdb(
     'd4000000-0000-4000-8000-000000000004',
     'd4000000-0000-4000-8000-000000000201',
-    2027,
+    2027::smallint,
     jsonb_build_object(
       'name', 'Santri Tenant B', 'previousSchool', 'Sekolah Uji', 'grade', 'VII',
       'phone', '081234567893', 'whatsappPhone', '081234567893',
@@ -185,7 +185,7 @@ SELECT throws_ok(
   $$SELECT public.submit_public_ppdb(
     'c3000000-0000-4000-8000-000000000003',
     'c3000000-0000-4000-8000-000000000104',
-    2027,
+    2027::smallint,
     jsonb_build_object(
       'name', 'Santri Path Tidak Valid', 'previousSchool', 'Sekolah Uji', 'grade', 'VII',
       'phone', '081234567894', 'whatsappPhone', '081234567894',
