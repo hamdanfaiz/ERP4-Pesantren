@@ -274,3 +274,16 @@ Uji pemulihan membuat arsip `pg_dump` custom-format dari satu tabel fixture sint
 ## Pencegahan koneksi Firebase Admin saat runtime produksi
 
 Perubahan lokal berikutnya membatasi inisialisasi Firebase Admin ke `NODE_ENV=development` dengan `LEGACY_FIREBASE_ADMIN_ENABLED=true`; production, test, dan environment tanpa `NODE_ENV` selalu ditolak. Tes `npm run test:legacy-firebase-gate` memeriksa kondisi tersebut. Ini memutus jalur koneksi Firestore dari server produksi tanpa menghapus alat preview/apply arsip untuk migrasi lokal yang disetujui. Route/importer dan dependency Firebase masih perlu dipindahkan ke alat migrasi terpisah lalu dihapus setelah rekonsiliasi data selesai.
+
+
+## Status terbaru — 23 Oktober 2026
+
+Bagian ini menggantikan pernyataan snapshot lama yang menyebut database live masih kosong atau belum dimigrasikan. Project Supabase `ptsasgdvgrbdtgyqieie` sudah menerima schema migration sesuai riwayat yang diverifikasi pada checkpoint sebelumnya. Pemeriksaan pasca-migrasi menemukan 118 tabel publik dengan RLS aktif dan `FORCE ROW LEVEL SECURITY`; pada saat pemeriksaan itu tidak ada data operasional Firebase yang diimpor.
+
+Tenant aktif **Pesantren Digital** dan satu profil Admin tenant sudah dibuat. Supabase Auth mengirim undangan untuk Admin pertama; pemeriksaan 23 Oktober menemukan akun belum mengonfirmasi email. Penerimaan undangan, penetapan password, dan login aplikasi belum diuji. Tidak ada password yang dibuat atau disimpan oleh proses provisioning. Feature flags aplikasi tetap fail-closed; schema yang tersedia tidak berarti modul operasional sudah siap dipakai.
+
+PR #11 masih open/draft, dengan head `backend/supabase-masterdata-structures-ui` (SHA `88f2686d`) dan base `backend/supabase-finance-ui` (SHA `127c67e`). GitHub menandai perubahan bersih secara teknis, tetapi satu-satunya check run yang terlihat berstatus `skipped` dan status commit masih `pending`. Body PR juga menyatakan jalur Tahfidz/API masih menggunakan Firebase Auth/Firestore sebagai jembatan dan belum diuji terhadap Supabase non-produksi. Karena itu PR #11 belum siap di-merge atau deploy; pertahankan sebagai draft sampai kontrak profil/tenant diselaraskan, bridge Firebase dipensiunkan setelah rekonsiliasi data, dan gate migrasi serta aplikasi lulus.
+
+Branch cutover resmi terakhir diverifikasi pada `fdbb2bee`; dua workflow run terakhir yang diperiksa lulus, termasuk produksi image Docker, konfigurasi Compose, uji runtime tanpa paket Firebase produksi, migrasi/pgTAP, isolasi tenant API, Finance Storage, dan backup/restore sintetis. Checkout lokal Codex masih tertinggal pada `d1c952c` dengan perubahan kerja yang sudah ada di remote; fetch gagal karena Git Credential Manager tidak dapat berjalan pada mesin ini. Sebelum edit atau commit lanjutan, sinkronkan checkout dengan branch resmi dan jangan membuat commit dari snapshot lokal tertinggal.
+
+Gate rilis yang tetap belum dibuktikan: penerimaan undangan dan login Supabase pada tahap akhir, migrasi serta rekonsiliasi data Firebase, matriks otorisasi lengkap, pemulihan backup penuh lintas-environment, pengujian browser responsif, rotasi secret Supabase/password database yang pernah dibagikan, dan simulasi deployment customer-managed pada VPS/on-premise.
