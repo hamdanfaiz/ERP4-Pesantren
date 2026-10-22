@@ -80,6 +80,12 @@ function cleanup(dbUrl) {
     FROM pg_stat_activity
     WHERE application_name = '${holderName}' AND pid <> pg_backend_pid();
     DELETE FROM public.nis_reservations WHERE tenant_id = '${tenantId}'::uuid;
+    DELETE FROM public.cooperative_wallets
+    WHERE tenant_id = '${tenantId}'::uuid
+      AND student_id IN (
+        SELECT id FROM public.students
+        WHERE tenant_id = '${tenantId}'::uuid AND source_record_id IN ('race-a', 'race-b')
+      );
     DELETE FROM public.students
     WHERE tenant_id = '${tenantId}'::uuid AND source_record_id IN ('race-a', 'race-b');
     DELETE FROM public.tenants WHERE id = '${tenantId}'::uuid;
