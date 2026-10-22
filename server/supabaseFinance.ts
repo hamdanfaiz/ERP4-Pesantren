@@ -6,7 +6,7 @@ type JsonObject = Record<string, any>;
 
 function serviceConfig() {
   const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const serviceKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!baseUrl || !serviceKey) {
     throw new SupabasePpdbAdminError(503, "Konfigurasi backend Supabase belum lengkap.");
   }
@@ -17,7 +17,11 @@ async function supabaseRequest(path: string, init: RequestInit = {}) {
   const config = serviceConfig();
   const headers = new Headers(init.headers || {});
   headers.set("apikey", config.serviceKey);
-  headers.set("Authorization", "Bearer " + config.serviceKey);
+  if (config.serviceKey.startsWith("sb_secret_")) {
+    headers.delete("Authorization");
+  } else {
+    headers.set("Authorization", "Bearer " + config.serviceKey);
+  }
   headers.set("Accept", "application/json");
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch(config.baseUrl + path, { ...init, headers });
@@ -407,7 +411,11 @@ async function storageRequest(path: string, init: RequestInit = {}) {
   const config = serviceConfig();
   const headers = new Headers(init.headers || {});
   headers.set("apikey", config.serviceKey);
-  headers.set("Authorization", "Bearer " + config.serviceKey);
+  if (config.serviceKey.startsWith("sb_secret_")) {
+    headers.delete("Authorization");
+  } else {
+    headers.set("Authorization", "Bearer " + config.serviceKey);
+  }
   const response = await fetch(config.baseUrl + path, { ...init, headers });
   if (!response.ok) {
     if (response.status === 404) throw new SupabasePpdbAdminError(404, "Bukti pembayaran tidak ditemukan.");
