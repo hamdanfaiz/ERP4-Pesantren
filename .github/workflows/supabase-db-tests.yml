@@ -36,6 +36,9 @@ jobs:
       - name: Typecheck
         run: bun run lint
 
+      - name: Verify Firebase packages are excluded from production dependencies
+        run: node scripts/test-production-dependencies.mjs
+
       - name: Verify Firebase Admin is disabled outside local development
         run: npm run test:legacy-firebase-gate
 
