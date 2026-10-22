@@ -1,11 +1,29 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, type Plugin} from 'vite';
+
+function firebaseClientBundleGuard(): Plugin {
+  return {
+    name: 'firebase-client-bundle-guard',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const firebaseModules = [...new Set(Object.values(bundle)
+        .filter((output) => output.type === 'chunk')
+        .flatMap((output) => Object.keys(output.modules))
+        .filter((id) => /(?:^|[/\\])node_modules[/\\](?:firebase|@firebase)(?:[/\\]|$)/i.test(id)))];
+
+      if (firebaseModules.length > 0) {
+        const sample = firebaseModules.slice(0, 10).join(', ');
+        this.error(`Firebase client SDK modules entered the browser bundle: ${sample}`);
+      }
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), firebaseClientBundleGuard()],
     resolve: {
       alias: {
         'firebase/firestore': path.resolve(__dirname, 'src/firebaseFirestoreDisabled.ts'),
