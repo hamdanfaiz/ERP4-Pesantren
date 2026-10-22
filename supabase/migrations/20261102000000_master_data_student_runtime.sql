@@ -373,9 +373,12 @@ BEGIN
     END IF;
   END IF;
 
-  IF v_room_id IS NOT NULL
-    OR v_room_id IS DISTINCT FROM CASE WHEN v_existing_found THEN v_existing.room_id ELSE NULL END
-    OR v_building_id IS DISTINCT FROM CASE WHEN v_existing_found THEN v_existing.building_id ELSE NULL END THEN
+  IF v_room_id IS NOT NULL OR (
+    v_existing_found AND (
+      v_room_id IS DISTINCT FROM v_existing.room_id
+      OR v_building_id IS DISTINCT FROM v_existing.building_id
+    )
+  ) THEN
     v_room_result := public.assign_student_to_room(p_tenant_id, v_student_id, v_room_id, v_building_id);
   END IF;
   IF v_room_id IS NULL THEN
