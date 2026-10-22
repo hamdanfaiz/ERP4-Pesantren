@@ -14,7 +14,7 @@ type JsonObject = Record<string, any>;
 
 function serviceConfig() {
   const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const serviceKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!baseUrl || !serviceKey) throw new SupabasePpdbAdminError(503, "Konfigurasi backend Supabase belum lengkap.");
   return { baseUrl, serviceKey };
 }
@@ -31,7 +31,11 @@ async function supabaseRequest(path: string, init: RequestInit = {}) {
   const config = serviceConfig();
   const headers = new Headers(init.headers || {});
   headers.set("apikey", config.serviceKey);
-  headers.set("Authorization", "Bearer " + config.serviceKey);
+  if (config.serviceKey.startsWith("sb_secret_")) {
+    headers.delete("Authorization");
+  } else {
+    headers.set("Authorization", "Bearer " + config.serviceKey);
+  }
   headers.set("Accept", "application/json");
   const response = await fetch(config.baseUrl + path, { ...init, headers });
   const raw = await response.text();
