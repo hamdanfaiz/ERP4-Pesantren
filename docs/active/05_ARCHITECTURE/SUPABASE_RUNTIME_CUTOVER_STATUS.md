@@ -155,7 +155,7 @@ PR #7–#10 masih draft dan membentuk rangkaian branch berantai:
 4. #10: `backend/supabase-finance-foundation` → `backend/supabase-finance-ui`
 5. #11: `backend/supabase-finance-ui` → `backend/supabase-masterdata-structures-ui`
 
-PR #11 sudah memuat jalur Supabase untuk sebagian Master Data, asrama, dan Tahfidz. Metadata GitHub masih menunjukkan PR terbuka, draft, dan mergeable; kode di branch itu belum menjadi runtime Supabase-only. Working tree lokal sekarang memilih Supabase untuk runtime frontend dan memblokir modul yang belum memiliki jalur Supabase lengkap. Perubahan lokal ini belum didorong ke branch PR #11. Migrasi lokal sampai `20261204000000` belum diterapkan atau diuji; tidak ada perubahan database live pada tahap ini.
+PR #11 tetap terbuka/draft pada branch `backend/supabase-masterdata-structures-ui`; branch itu berbeda dari `codex/supabase-runtime-cutover-20261022` dan tidak diubah oleh push ini. Cutover runtime Supabase-only ada pada branch tersebut dengan kode teruji di commit `21140c3`; frontend memblokir bundle Firebase dan Admin Firestore hanya dapat diaktifkan untuk development lokal saat migrasi arsip. CI run #39778292353 lulus pada Supabase terisolasi, termasuk migrasi, pgTAP, isolasi tenant API, NIS serentak, Finance Storage, dan backup/restore. Migrasi belum diterapkan pada project Supabase pelanggan, feature flag tetap mati, dan tidak ada perubahan database live. PR #11 belum siap merge karena masih draft dan menggunakan branch/kontrak yang berbeda.
 
 ## Risiko urutan migrasi
 
