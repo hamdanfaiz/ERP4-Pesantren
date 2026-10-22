@@ -30,11 +30,19 @@ jobs:
         with:
           version: 2.84.2
 
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
       - name: Start isolated local Supabase
         run: supabase start
 
       - name: Run database tests
         run: npm run test:db
+
+      - name: Verify concurrent NIS reservation
+        run: npm run test:db:nis-race
 
       - name: Stop local Supabase
         if: always()
