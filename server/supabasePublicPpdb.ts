@@ -21,7 +21,7 @@ export class PublicPpdbError extends Error {
 
 function configuration() {
   const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const serviceKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   const tenantSlug = String(process.env.PUBLIC_PPDB_TENANT_SLUG || "").trim().toLowerCase();
   const enabled = String(process.env.PUBLIC_PPDB_ENABLED || "").trim().toLowerCase() === "true";
   if (!enabled) throw new PublicPpdbError(503, "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren.");
@@ -43,7 +43,11 @@ async function requestSupabase(path: string, init: RequestInit = {}) {
   const config = configuration();
   const headers = new Headers(init.headers || {});
   headers.set("apikey", config.serviceKey);
-  headers.set("Authorization", "Bearer " + config.serviceKey);
+  if (config.serviceKey.startsWith("sb_secret_")) {
+    headers.delete("Authorization");
+  } else {
+    headers.set("Authorization", "Bearer " + config.serviceKey);
+  }
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
   const response = await fetch(config.baseUrl + path, { ...init, headers });
   const bodyText = await response.text();
