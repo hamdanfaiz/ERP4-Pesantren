@@ -11,7 +11,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:db": "supabase test db",
-    "test:db:nis-race": "node scripts/test-nis-concurrency.mjs"
+    "test:db:nis-race": "node scripts/test-nis-concurrency.mjs",
+    "test:api:auth-tenant": "node scripts/test-api-auth-tenant.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -61,3 +62,4 @@
     "typescript": "~5.8.2"
   }
 }
+

@@ -40,12 +40,20 @@ jobs:
         run: bun run build
 
   database:
-    name: Migrations and pgTAP
+    name: Migrations, API auth, and pgTAP
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Install pinned Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install application dependencies
+        run: bun install --frozen-lockfile
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v3
@@ -66,6 +74,10 @@ jobs:
       - name: Verify concurrent NIS reservation
         run: npm run test:db:nis-race
 
+      - name: Verify API auth and tenant isolation
+        run: npm run test:api:auth-tenant
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+
