@@ -212,3 +212,5 @@ Akses verifikasi lokal: file `.env` ada tetapi tidak dibaca karena memuat kreden
 ## Baseline pgTAP tenant isolation — 22 Oktober 2026
 
 `supabase/tests/tenant_isolation.test.sql` menambahkan 42 pemeriksaan dengan data sintetis untuk hak akses `anon`/`authenticated`, status RLS `enabled`/`forced`, pembatasan tenant A/B, akses Admin/Ustadz, dan profil yang ditangguhkan. Suite ini belum dijalankan karena Supabase CLI, Docker, dan `psql` tidak tersedia pada mesin ini. Hasilnya bukan bukti kelulusan matriks role lengkap, PPDB publik, konflik NIS serentak, transaksi keuangan, unggah Storage, backup/restore, maupun browser responsif; gate tersebut tetap menunggu environment Supabase non-produksi dan toolchain backend.
+
+Workflow `.github/workflows/supabase-db-tests.yml` kini menyiapkan Supabase lokal di runner GitHub dan menjalankan `npm run test:db` pada push branch `main`/`codex/**` serta pull request ke `main`. Workflow tidak memakai kredensial project live. Belum ada hasil run untuk workflow ini; statusnya baru dapat dinilai setelah commit dipush dan runner selesai.
