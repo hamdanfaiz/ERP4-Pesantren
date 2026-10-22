@@ -80,6 +80,9 @@ jobs:
       - name: Verify Finance payment proof Storage HTTP flow
         run: npm run test:api:finance-storage
 
+      - name: Verify local database backup and restore
+        run: npm run test:db:backup-restore
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup

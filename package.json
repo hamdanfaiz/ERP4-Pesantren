@@ -13,7 +13,8 @@
     "test:db": "supabase test db",
     "test:db:nis-race": "node scripts/test-nis-concurrency.mjs",
     "test:api:auth-tenant": "node scripts/test-api-auth-tenant.mjs",
-    "test:api:finance-storage": "node scripts/test-finance-storage-http.mjs"
+    "test:api:finance-storage": "node scripts/test-finance-storage-http.mjs",
+    "test:db:backup-restore": "node scripts/test-database-backup-restore.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
