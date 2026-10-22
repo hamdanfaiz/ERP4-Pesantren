@@ -7,7 +7,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(42);
+SELECT plan(44);
 
 -- Stable fixture IDs make failures easy to reproduce while keeping test data synthetic.
 INSERT INTO public.tenants (id, slug, name, status)
@@ -65,6 +65,8 @@ SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.registration_
 SELECT ok((SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.registration_counters'::regclass), 'registration_counters forces RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.finance_bills'::regclass), 'finance_bills has RLS enabled');
 SELECT ok((SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.finance_bills'::regclass), 'finance_bills forces RLS');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'storage.objects'::regclass), 'managed Storage objects table has RLS enabled');
+SELECT ok((SELECT public = false FROM storage.buckets WHERE id = 'erp4-private-finance-proofs'), 'finance proof bucket exists and remains private');
 
 -- Tenant A administrator: tenant-scoped visibility and explicit module grants.
 SET LOCAL ROLE authenticated;
