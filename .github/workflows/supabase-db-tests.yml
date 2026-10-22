@@ -77,6 +77,9 @@ jobs:
       - name: Verify API auth and tenant isolation
         run: npm run test:api:auth-tenant
 
+      - name: Verify Finance payment proof Storage HTTP flow
+        run: npm run test:api:finance-storage
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
