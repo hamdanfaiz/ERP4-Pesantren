@@ -38,7 +38,7 @@ async function availablePort() {
   return port;
 }
 
-async function createUserFixture(admin, tenantId, role, status, label) {
+async function createUserFixture(admin, tenantId, role, status, label, modulePermissions = { users: true }) {
   const id = randomUUID();
   const email = `api-${label}-${id.slice(0, 8)}@example.test`;
   const password = `Api-Test-${id}-Aa1!`;
@@ -58,7 +58,7 @@ async function createUserFixture(admin, tenantId, role, status, label) {
     username: `api-${label}-${id.slice(0, 8)}`,
     role,
     status,
-    module_permissions: { users: true },
+    module_permissions: modulePermissions,
   });
   if (profileError) {
     await admin.auth.admin.deleteUser(data.user.id);
@@ -102,9 +102,16 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a'));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
+    users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a'));
+    users.push(await createUserFixture(admin, tenantIds[0], 'super_admin', 'active', 'superadmin-a', { users: false }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-users', { users: false }));
 
     const adminToken = await signIn(anon, users[0]);
+    const santriToken = await signIn(anon, users[1]);
     const ustadzToken = await signIn(anon, users[3]);
+    const waliToken = await signIn(anon, users[6]);
+    const superAdminToken = await signIn(anon, users[7]);
+    const limitedAdminToken = await signIn(anon, users[8]);
     const inactiveAdminToken = await signIn(anon, users[4]);
     const suspendedTenantAdminToken = await signIn(anon, users[5]);
     const port = await availablePort();
@@ -147,11 +154,19 @@ async function main() {
     });
     assert.equal(invalidSession.status, 401, 'Invalid Supabase sessions must be rejected.');
 
-    const nonAdmin = await fetch(`${apiBase}/api/users`, {
-      headers: { Authorization: `Bearer ${ustadzToken}` },
+    for (const [role, token] of [['Ustadz', ustadzToken], ['Santri', santriToken], ['Walisantri', waliToken]]) {
+      const nonAdmin = await fetch(`${apiBase}/api/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      assert.equal(nonAdmin.status, 403, `${role} must not access user management.`);
+      assert.equal((await nonAdmin.json()).code, 'FORBIDDEN_ROLE');
+    }
+
+    const limitedAdmin = await fetch(`${apiBase}/api/users`, {
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
     });
-    assert.equal(nonAdmin.status, 403, 'Non-admin roles must not access user management.');
-    assert.equal((await nonAdmin.json()).code, 'FORBIDDEN_ROLE');
+    assert.equal(limitedAdmin.status, 403, 'An admin explicitly denied the users module must be rejected.');
+    assert.equal((await limitedAdmin.json()).code, 'MODULE_ACCESS_DENIED');
 
     const inactiveAdmin = await fetch(`${apiBase}/api/users`, {
       headers: { Authorization: `Bearer ${inactiveAdminToken}` },
@@ -170,11 +185,20 @@ async function main() {
     });
     assert.equal(tenantResponse.status, 200, 'An active tenant admin should read their own tenant users.');
     const tenantPayload = await tenantResponse.json();
-    assert.equal(tenantPayload.total, 4, 'The tenant admin should only see the four profiles in tenant A.');
+    assert.equal(tenantPayload.total, 7, 'The tenant admin should only see the seven profiles in tenant A.');
     assert.ok(tenantPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'The response must remain scoped to the actor tenant even when a foreign tenantId is requested.');
     assert.ok(!tenantPayload.users.some((profile) => profile.email === users[2].email), 'A profile from another tenant must never appear in the response.');
 
-    console.log('API auth and tenant isolation passed: missing/invalid sessions, non-admin, inactive account/tenant, and cross-tenant query spoofing rejected.');
+    const superAdminResponse = await fetch(`${apiBase}/api/users?tenantId=${tenantIds[1]}`, {
+      headers: { Authorization: `Bearer ${superAdminToken}` },
+    });
+    assert.equal(superAdminResponse.status, 200, 'An active SuperAdmin should pass the user-management role gate.');
+    const superAdminPayload = await superAdminResponse.json();
+    assert.equal(superAdminPayload.total, 7, 'SuperAdmin remains scoped to the profile tenant when a foreign tenantId is requested.');
+    assert.ok(superAdminPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'SuperAdmin results must remain tenant-scoped.');
+    assert.ok(!superAdminPayload.users.some((profile) => profile.email === users[2].email), 'SuperAdmin must not receive a foreign-tenant profile through query spoofing.');
+
+    console.log('API auth and tenant isolation passed: Admin/SuperAdmin allow-list, Ustadz/Santri/Walisantri denial, module denial, suspended accounts/tenants, and cross-tenant query spoofing.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
