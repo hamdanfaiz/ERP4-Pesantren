@@ -1,6 +1,7 @@
 -- Make Data API exposure opt-in for application objects created by postgres.
--- Default privileges affect only future objects; existing table grants remain
--- unchanged. Runtime migrations must grant exactly the API roles they need.
+-- This migration runs after the current schema migrations so every existing
+-- trigger helper it restricts is present. Default privileges affect only
+-- future objects; existing table grants remain unchanged.
 BEGIN;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
