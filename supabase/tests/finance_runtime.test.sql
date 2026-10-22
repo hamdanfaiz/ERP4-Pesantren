@@ -6,7 +6,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(34);
+SELECT plan(56);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -19,15 +19,47 @@ INSERT INTO auth.users (
 )
 VALUES
   ('e5000000-0000-4000-8000-000000000011', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'finance-a@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
-  ('e5000000-0000-4000-8000-000000000012', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'finance-b@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
+  ('e5000000-0000-4000-8000-000000000012', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'finance-b@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('e5000000-0000-4000-8000-000000000013', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'finance-guardian@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('e5000000-0000-4000-8000-000000000014', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'finance-other-guardian@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
 
 INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, status, module_permissions)
 VALUES
   ('e5000000-0000-4000-8000-000000000011', 'e5000000-0000-4000-8000-000000000005', 'finance-a@test.invalid', 'Finance Maker', 'admin', 'active', '{"finance":true}'),
-  ('e5000000-0000-4000-8000-000000000012', 'e5000000-0000-4000-8000-000000000005', 'finance-b@test.invalid', 'Finance Checker', 'admin', 'active', '{"finance":true}');
+  ('e5000000-0000-4000-8000-000000000012', 'e5000000-0000-4000-8000-000000000005', 'finance-b@test.invalid', 'Finance Checker', 'admin', 'active', '{"finance":true}'),
+  ('e5000000-0000-4000-8000-000000000013', 'e5000000-0000-4000-8000-000000000005', 'finance-guardian@test.invalid', 'Finance Guardian', 'wali_santri', 'active', '{"finance":true}'),
+  ('e5000000-0000-4000-8000-000000000014', 'e5000000-0000-4000-8000-000000000005', 'finance-other-guardian@test.invalid', 'Other Guardian', 'wali_santri', 'active', '{"finance":true}');
+
+UPDATE public.profiles
+SET linked_santri_id = 'e5000000-0000-4000-8000-000000000201'
+WHERE user_id = 'e5000000-0000-4000-8000-000000000013';
+UPDATE public.profiles
+SET linked_santri_id = 'e5000000-0000-4000-8000-000000000299'
+WHERE user_id = 'e5000000-0000-4000-8000-000000000014';
+
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+VALUES (
+  'e5000000-0000-4000-8000-000000000101', 'e5000000-0000-4000-8000-000000000005',
+  'FIN-TEST-001', 'Santri Finance Test', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')
+);
+INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity)
+VALUES
+  ('e5000000-0000-4000-8000-000000000005', 'Kelas', 'finance-class-test', 'Kelas Finance Test', NULL),
+  ('e5000000-0000-4000-8000-000000000005', 'Kamar', 'finance-room-test', 'Kamar Finance Test', 10);
+INSERT INTO public.students (
+  id, tenant_id, source_candidate_id, nis, name, gender, grade,
+  nik_ciphertext, nik_fingerprint, class_id, room_id
+)
+VALUES (
+  'e5000000-0000-4000-8000-000000000201', 'e5000000-0000-4000-8000-000000000005',
+  'e5000000-0000-4000-8000-000000000101', '1234567890', 'Santri Finance Test', 'L', 'VII',
+  decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'finance-class-test', 'finance-room-test'
+);
 
 SELECT ok(NOT has_table_privilege('anon', 'public.finance_expenses', 'SELECT'), 'anon cannot read Finance expenses directly');
 SELECT ok(NOT has_table_privilege('authenticated', 'public.finance_expenses', 'SELECT'), 'authenticated cannot read Finance expenses directly');
+SELECT ok(NOT has_table_privilege('anon', 'public.finance_bills', 'SELECT'), 'anon cannot read Finance bills directly');
+SELECT ok(NOT has_table_privilege('authenticated', 'public.finance_bills', 'SELECT'), 'authenticated cannot read Finance bills directly');
 SELECT ok(NOT has_function_privilege('anon', 'public.create_tenant_finance_expense(uuid,uuid,text,text,text,text,numeric,date,text,uuid)', 'EXECUTE'), 'anon cannot call Finance write RPC directly');
 SELECT ok(NOT has_function_privilege('authenticated', 'public.create_tenant_finance_expense(uuid,uuid,text,text,text,text,numeric,date,text,uuid)', 'EXECUTE'), 'authenticated cannot call Finance write RPC directly');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.finance_expenses'::regclass), 'finance_expenses has RLS enabled');
@@ -253,6 +285,188 @@ SELECT is(
   (SELECT count(*)::int FROM public.finance_expenses WHERE tenant_id = 'f6000000-0000-4000-8000-000000000006'),
   0,
   'cross-tenant Finance write leaves tenant B unchanged'
+);
+
+SELECT is(
+  (public.create_tenant_finance_bills(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    jsonb_build_array(jsonb_build_object(
+      'studentId', 'e5000000-0000-4000-8000-000000000201',
+      'feeType', 'SPP', 'period', '2026-10', 'amount', 500000
+    )),
+    'e5000000-0000-4000-8000-000000000401'
+  )->>'created'),
+  '1',
+  'Admin can create a tenant-scoped student bill'
+);
+SELECT ok(
+  (SELECT status = 'unpaid' AND amount = 500000 AND paid_amount = 0 AND receipt_no IS NULL
+   FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+     AND student_id = 'e5000000-0000-4000-8000-000000000201' AND fee_type = 'SPP' AND period = '2026-10'),
+  'new bill starts unpaid with zero paid and no receipt'
+);
+SELECT is(
+  (public.create_tenant_finance_bills(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    jsonb_build_array(jsonb_build_object(
+      'studentId', 'e5000000-0000-4000-8000-000000000201',
+      'feeType', 'SPP', 'period', '2026-10', 'amount', 500000
+    )),
+    'e5000000-0000-4000-8000-000000000401'
+  )->>'created'),
+  '1',
+  'retrying bill creation with the same key returns its original result'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+     AND student_id = 'e5000000-0000-4000-8000-000000000201' AND fee_type = 'SPP' AND period = '2026-10'),
+  1,
+  'idempotent bill creation does not duplicate a bill'
+);
+SELECT is(
+  (public.create_tenant_finance_bills(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    jsonb_build_array(jsonb_build_object(
+      'studentId', 'e5000000-0000-4000-8000-000000000201',
+      'feeType', 'SPP', 'period', '2026-10', 'amount', 500000
+    )),
+    'e5000000-0000-4000-8000-000000000402'
+  )->>'created'),
+  '0',
+  'new idempotency key skips an already-existing bill'
+);
+SELECT is(
+  (public.create_tenant_finance_bills(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    jsonb_build_array(jsonb_build_object(
+      'studentId', 'e5000000-0000-4000-8000-000000000201',
+      'feeType', 'SPP', 'period', '2026-10', 'amount', 500000
+    )),
+    'e5000000-0000-4000-8000-000000000402'
+  )->>'skipped'),
+  '1',
+  'duplicate bill result identifies the skipped item'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+     AND student_id = 'e5000000-0000-4000-8000-000000000201' AND fee_type = 'SPP' AND period = '2026-10'),
+  1,
+  'duplicate bill request leaves a single bill'
+);
+
+SELECT throws_ok(
+  $$SELECT public.register_tenant_finance_payment_proof(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000014', 'wali_santri',
+    (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+    'financeProofs/e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000201/' ||
+      (SELECT id::text FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10') || '/wrong-guardian.pdf',
+    'bukti.pdf', 'BSI', repeat('a', 64), 'e5000000-0000-4000-8000-000000000501'
+  )$$,
+  '42501',
+  'Tagihan tidak terhubung ke akun wali ini',
+  'guardian cannot submit proof for a student outside their profile link'
+);
+SELECT is(
+  (SELECT status FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+  'unpaid',
+  'rejected guardian proof leaves the bill unpaid'
+);
+
+SELECT is(
+  public.register_tenant_finance_payment_proof(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000013', 'wali_santri',
+    (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+    'financeProofs/e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000201/' ||
+      (SELECT id::text FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10') || '/guardian-proof.pdf',
+    'bukti.pdf', 'BSI', repeat('a', 64), 'e5000000-0000-4000-8000-000000000502'
+  )->>'status',
+  'verification',
+  'linked guardian can submit proof and the bill enters verification'
+);
+SELECT ok(
+  (SELECT status = 'verification' AND proof_storage_provider = 'supabase'
+      AND proof_storage_path LIKE 'financeProofs/%' AND proof_file = 'bukti.pdf'
+   FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+  'bill retains private Supabase proof metadata for review'
+);
+SELECT is(
+  public.register_tenant_finance_payment_proof(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000013', 'wali_santri',
+    (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+    'financeProofs/e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000201/' ||
+      (SELECT id::text FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10') || '/retry-upload.pdf',
+    'bukti.pdf', 'BSI', repeat('a', 64), 'e5000000-0000-4000-8000-000000000502'
+  )->>'alreadyApplied',
+  'true',
+  'retrying the same proof request is idempotent despite a new upload path'
+);
+
+SELECT is(
+  public.review_tenant_finance_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000012', 'admin',
+    (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+    'settle', 'BSI', 'e5000000-0000-4000-8000-000000000601'
+  )->>'status',
+  'paid',
+  'checker settles a bill that has an uploaded proof'
+);
+SELECT ok(
+  (SELECT status = 'paid' AND paid_amount = amount AND paid_at IS NOT NULL AND receipt_no IS NOT NULL
+   FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+  'settled bill records its full paid amount, date, and receipt'
+);
+SELECT ok(
+  (SELECT receipt_no ~ '^KWT/FIN/[0-9]{4}/[A-F0-9]{10}$'
+   FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+  'settlement receipt has the expected format'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.finance_ledger
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND source_type = 'bill'
+     AND source_id = (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10')),
+  1,
+  'settlement posts exactly one income ledger row'
+);
+SELECT is(
+  (SELECT amount FROM public.finance_ledger
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND source_type = 'bill'
+     AND source_id = (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10')),
+  500000::numeric,
+  'income ledger amount matches the bill settlement'
+);
+SELECT is(
+  public.review_tenant_finance_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000012', 'admin',
+    (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+    'settle', 'BSI', 'e5000000-0000-4000-8000-000000000601'
+  )->>'receiptNo',
+  (SELECT receipt_no FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+  'retrying settlement returns the same receipt number'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.finance_ledger
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND source_type = 'bill'
+     AND source_id = (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10')),
+  1,
+  'idempotent settlement does not post a second income row'
+);
+SELECT throws_ok(
+  $$SELECT public.review_tenant_finance_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000012', 'admin',
+    (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
+    'settle', 'BSI', 'e5000000-0000-4000-8000-000000000602'
+  )$$,
+  '23514',
+  'Status tagihan tidak dapat diselesaikan',
+  'a new request key cannot settle the same bill twice'
 );
 
 RESET ROLE;
