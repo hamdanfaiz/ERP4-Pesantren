@@ -1,8 +1,6 @@
-import { tenantScopedQuery, tenantRecord } from '../firebaseUtils';
 import { useAuth } from '../contexts/AuthContext';
 import React, { useState } from 'react';
-import { db } from '../firebase';
-import { collection, addDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { upsertSupabaseMasterDataStudent } from '../services/masterDataApi';
 import { Users, Save, X, CheckCircle2, AlertTriangle, Loader2, Link2, UserCheck, Building2, Home, BookOpen, UserPlus, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { MOCK_SANTRI, MOCK_WALISANTRI } from '../data/mockRecords';
 
@@ -223,30 +221,21 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     setMessage(null);
 
     try {
-      if (isEdit && initialData?.id) {
-        await setDoc(doc(db, 'entityRecords', initialData.id), tenantRecord(user?.tenantId, {
-          ...result.data,
-          updatedAt: new Date().toISOString(),
-        }), { merge: true });
-      } else {
-        const idToUse = result.data.id || undefined;
-        if (idToUse) {
-           await setDoc(doc(db, 'entityRecords', idToUse), tenantRecord(user?.tenantId, {
-             ...result.data,
-             createdAt: new Date().toISOString(),
-           }));
-        } else {
-           await addDoc(collection(db, 'entityRecords'), tenantRecord(user?.tenantId, {
-             ...result.data,
-             createdAt: new Date().toISOString(),
-           }));
-        }
+      if (formData.type !== 'Santri') {
+        throw new Error('Kategori ini belum tersedia pada runtime Supabase.');
       }
+      const savedData = await upsertSupabaseMasterDataStudent({
+        ...result.data,
+        id: result.data.id || initialData?.id || `SAN-${globalThis.crypto.randomUUID()}`,
+        supabaseId: initialData?.supabaseId,
+        type: 'Santri',
+        tenantId: user?.tenantId,
+      });
       setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" berhasil disimpan dengan validasi skema ketat.` });
-      if (onSuccess) onSuccess(result.data);
+      if (onSuccess) onSuccess(savedData);
     } catch (error) {
       console.error("Error adding document: ", error);
-      setMessage({ type: 'error', text: 'Gagal menyimpan entity. Silakan periksa koneksi atau izin Firestore.' });
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal menyimpan entity.' });
     } finally {
       setIsSubmitting(false);
     }

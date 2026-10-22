@@ -18,18 +18,20 @@ export function useSystemSettings() {
   const [settings, setSettings] = useState<SystemSettings>(() =>
     systemSettingsService.getSettings()
   );
+  const [settingsReady, setSettingsReady] = useState(() => systemSettingsService.isSettingsReady());
+  const [settingsLoadError, setSettingsLoadError] = useState<string | null>(() => systemSettingsService.getSettingsLoadError());
 
   useEffect(() => {
-    systemSettingsService.setTenantId(user?.tenantId ?? null);
-    setSettings({ ...systemSettingsService.getSettings() });
-  }, [user?.tenantId]);
-
-  useEffect(() => {
-    const unsub = systemSettingsService.subscribe(() => {
+    const syncState = () => {
       setSettings({ ...systemSettingsService.getSettings() });
-    });
+      setSettingsReady(systemSettingsService.isSettingsReady());
+      setSettingsLoadError(systemSettingsService.getSettingsLoadError());
+    };
+    const unsub = systemSettingsService.subscribe(syncState);
+    systemSettingsService.setTenantId(user?.tenantId ?? null);
+    syncState();
     return unsub;
-  }, []);
+  }, [user?.tenantId]);
 
   const general = settings.generalSettings;
   const orgInfo = settings.orgInfo;
@@ -71,6 +73,10 @@ export function useSystemSettings() {
     []
   );
 
+  const retrySettingsLoad = useCallback(() => {
+    systemSettingsService.retrySettingsLoad();
+  }, []);
+
   const exportBackup = useCallback(() => {
     return systemSettingsService.exportSystemBackup();
   }, []);
@@ -93,6 +99,9 @@ export function useSystemSettings() {
     getUserAllowedModules,
     canAccessModule,
     updateSettings,
+    settingsReady,
+    settingsLoadError,
+    retrySettingsLoad,
     exportBackup,
   };
 }

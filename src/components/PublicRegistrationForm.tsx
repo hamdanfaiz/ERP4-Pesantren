@@ -28,6 +28,20 @@ interface PublicRegistrationFormProps {
   onSubmit?: (data: Candidate) => void;
 }
 
+function fileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const separator = result.indexOf(",");
+      if (separator < 0) { reject(new Error("Berkas tidak dapat dibaca.")); return; }
+      resolve(result.slice(separator + 1));
+    };
+    reader.onerror = () => reject(new Error("Berkas tidak dapat dibaca."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function PublicRegistrationForm({
   onClose,
   onSubmit,
@@ -49,9 +63,10 @@ export function PublicRegistrationForm({
     },
   });
 
-  const [uploadedFiles, setUploadedFiles] = useState<Record<string, string>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPublicRegistrationAvailable, setIsPublicRegistrationAvailable] = useState(false);
+  const [isServerDocumentUploadEnabled, setIsServerDocumentUploadEnabled] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedCandidate, setSubmittedCandidate] = useState<Candidate | null>(null);
   const [copiedId, setCopiedId] = useState(false);
@@ -71,6 +86,7 @@ export function PublicRegistrationForm({
           generalSettings: { ...current.generalSettings, academicYear: config.academicYear || current.generalSettings.academicYear },
           orgInfo: { ...current.orgInfo, ...(config.orgInfo || {}) },
         }));
+        setIsServerDocumentUploadEnabled(config.documentUploadEnabled === true);
         setIsPublicRegistrationAvailable(true);
       })
       .catch((error) => {
@@ -87,7 +103,22 @@ export function PublicRegistrationForm({
     file: File | null
   ) => {
     if (!file) return;
-    setUploadedFiles((prev) => ({ ...prev, [key]: file.name }));
+    if (!["application/pdf", "image/jpeg", "image/png"].includes(file.type)) {
+      setSubmitError("Format berkas harus PDF, JPG, atau PNG.");
+      return;
+    }
+    const perFileLimit = isServerDocumentUploadEnabled ? 1024 * 1024 : 2 * 1024 * 1024;
+    if (file.size > perFileLimit) {
+      setSubmitError(`Ukuran setiap berkas maksimal ${isServerDocumentUploadEnabled ? "1" : "2"} MB.`);
+      return;
+    }
+    const nextFiles = { ...uploadedFiles, [key]: file };
+    if (isServerDocumentUploadEnabled && Object.values(nextFiles).reduce((sum, item) => sum + item.size, 0) > 3 * 1024 * 1024) {
+      setSubmitError("Total seluruh berkas maksimal 3 MB.");
+      return;
+    }
+    setSubmitError(null);
+    setUploadedFiles(nextFiles);
     setFormData((prev) => ({
       ...prev,
       documents: {
@@ -116,13 +147,24 @@ export function PublicRegistrationForm({
       fatherName: formData.fatherName?.trim() || "", motherName: formData.motherName?.trim() || "",
       fatherJob: formData.fatherJob?.trim() || "", motherJob: formData.motherJob?.trim() || "",
       fatherEducation: formData.fatherEducation?.trim() || "", motherEducation: formData.motherEducation?.trim() || "",
-      familyIncome: formData.familyIncome?.trim() || "", documents: formData.documents || {},
+      familyIncome: formData.familyIncome?.trim() || "",
+      documents: Object.fromEntries(["kk", "birthCertificate", "reportCards", "ijazah", "skhun", "pasPhoto"].map((key) => [key, Boolean(uploadedFiles[key])])),
     };
 
     try {
+      const requiredFiles = ["kk", "birthCertificate", "reportCards", "pasPhoto"];
+      if (isServerDocumentUploadEnabled && requiredFiles.some((key) => !uploadedFiles[key])) {
+        throw new Error("Unggah Kartu Keluarga, Akta Kelahiran, Rapor Terakhir, dan Pas Foto sebelum mengirim pendaftaran.");
+      }
+      const files: Record<string, { name: string; mimeType: string; base64: string }> = {};
+      if (isServerDocumentUploadEnabled) {
+        await Promise.all(Object.entries(uploadedFiles).map(async ([key, file]) => {
+          files[key] = { name: file.name, mimeType: file.type, base64: await fileAsBase64(file) };
+        }));
+      }
       const response = await fetch("/api/public/ppdb/registrations", {
         method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ candidate }),
+        body: JSON.stringify({ candidate, files }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Gagal menyimpan data pendaftaran. Silakan coba kembali.");
@@ -549,7 +591,7 @@ export function PublicRegistrationForm({
                                 {doc.label} {doc.req && <span className="text-red-500">*</span>}
                               </h4>
                               <p className="text-xs text-slate-500 mt-1">
-                                Format: PDF, JPG, PNG (Maks 2MB)
+                                Format: PDF, JPG, PNG (Maks {isServerDocumentUploadEnabled ? "1 MB/file, total 3 MB" : "2 MB/file"})
                               </p>
                             </div>
                             {isUploaded && (
@@ -560,7 +602,7 @@ export function PublicRegistrationForm({
                           <div className="relative">
                             <input
                               type="file"
-                              accept=".pdf,image/*"
+                              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                               onChange={(e) =>
                                 handleFileUpload(key, e.target.files?.[0] || null)
                               }
@@ -579,7 +621,7 @@ export function PublicRegistrationForm({
                             </div>
                             {isUploaded && (
                               <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2 truncate w-full">
-                                File terpilih: {uploadedFiles[key]}
+                                File terpilih: {uploadedFiles[key].name}
                               </p>
                             )}
                           </div>

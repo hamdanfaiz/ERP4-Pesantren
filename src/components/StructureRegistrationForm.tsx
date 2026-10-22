@@ -1,13 +1,10 @@
-import { tenantScopedQuery, tenantRecord } from '../firebaseUtils';
-import { useAuth } from '../contexts/AuthContext';
 import React, { useState } from 'react';
-import { db } from '../firebase';
-import { collection, addDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { upsertSupabaseMasterDataStructure } from '../services/masterDataApi';
 import { Building, Save, X, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { generateUniqueId } from '../lib/utils';
 
 interface StructureRegistrationFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (savedRecord?: any) => void;
   onCancel?: () => void;
   initialData?: any;
   isEdit?: boolean;
@@ -15,7 +12,6 @@ interface StructureRegistrationFormProps {
 }
 
 export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps> = ({ onSuccess, onCancel, initialData, isEdit, type }) => {
-  const { user } = useAuth();
   const [formData, setFormData] = useState({
     id: initialData?.id || '',
     name: initialData?.name || '',
@@ -51,24 +47,18 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
     };
 
     try {
-      if (isEdit && initialData?.id) {
-        await setDoc(doc(db, 'master_data', `${type}_${initialData.id}`), tenantRecord(user?.tenantId, {
-          ...submissionData,
-          updatedAt: new Date().toISOString(),
-        }), { merge: true });
-      } else {
-        const idToUse = formData.id || generateUniqueId('Structure', []);
-        submissionData.id = idToUse;
-        await setDoc(doc(db, 'master_data', `${type}_${idToUse}`), tenantRecord(user?.tenantId, {
-          ...submissionData,
-          createdAt: new Date().toISOString(),
-        }));
-      }
-      setMessage({ type: 'success', text: 'Record saved successfully.' });
-      if (onSuccess) onSuccess();
+      if (!['Gedung', 'Kamar', 'Kelas'].includes(type)) throw new Error('Runtime Supabase Master Data tahap ini hanya mendukung Gedung, Kamar, dan Kelas.');
+      const idToUse = isEdit && initialData?.id ? initialData.id : formData.id || generateUniqueId('Structure', []);
+      const saved = await upsertSupabaseMasterDataStructure(type as 'Gedung' | 'Kamar' | 'Kelas', {
+        ...submissionData,
+        id: idToUse,
+        category: type,
+      });
+      setMessage({ type: 'success', text: 'Record berhasil disimpan ke Supabase.' });
+      onSuccess?.(saved);
     } catch (error) {
       console.error("Error saving document: ", error);
-      setMessage({ type: 'error', text: 'Failed to save record.' });
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal menyimpan data struktur.' });
     } finally {
       setIsSubmitting(false);
     }

@@ -3,11 +3,9 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
-import { App, initializeApp, applicationDefault } from "firebase-admin/app";
-import { Auth, getAuth } from "firebase-admin/auth";
-import { FieldValue, Firestore, getFirestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
-import { randomUUID } from "node:crypto";
+import type { App } from "firebase-admin/app";
+import type { Firestore } from "firebase-admin/firestore";
+import { createHash, randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
   IdentityConflictError,
@@ -21,28 +19,214 @@ import {
   updateUserProfile,
   verifyAccessToken,
 } from "./src/server/identityStore";
+import {
+  acknowledgeCommunicationAnnouncement,
+  applyLegacyCommunicationAnnouncements,
+  CommunicationStoreError,
+  createCommunicationAnnouncement,
+  listCommunicationAnnouncements,
+  previewLegacyCommunicationAnnouncements,
+} from "./src/server/communicationAnnouncements";
+import {
+  getTenantSystemSettings,
+  importLegacyTenantSystemSettings,
+  sanitizeTenantSettings,
+  saveTenantSystemSettings,
+  SystemSettingsStoreError,
+} from "./src/server/systemSettingsStore";
+import { recordTenantSearchFeedback, SearchFeedbackStoreError } from "./src/server/searchFeedbackStore";
+import {
+  assignSupabaseTahfidzMembership,
+  getSupabaseTahfidzLegacyTenantKey,
+  listSupabaseTahfidzSessions,
+  listSupabaseTahfidzSnapshot,
+  migrateSupabaseTahfidzConfiguration,
+  mutateSupabaseTahfidzSession,
+  recordSupabaseTahfidzSetoran,
+  recordSupabaseTahfidzTarget,
+  saveSupabaseTahfidzHalaqah,
+  SupabaseTahfidzError,
+} from "./src/server/supabaseTahfidz";
+import {
+  deleteSupabaseFinanceProof,
+  downloadSupabaseFinanceProof,
+  FinanceProofStorageError,
+  uploadSupabaseFinanceProof,
+} from "./src/server/financeProofStorage";
+import {
+  archiveSupabaseMasterDataStudent,
+  assignSupabaseStudentRoom,
+  deleteSupabaseMasterDataStructure,
+  getSupabaseNextSantriNis,
+  listSupabaseBoardingSnapshot,
+  listSupabaseMasterDataStudents,
+  listSupabaseMasterDataStructures,
+  onboardSupabaseAcceptedCandidate,
+  SupabaseOnboardingError,
+  upsertSupabaseMasterDataStudent,
+  upsertSupabaseMasterDataStructure,
+} from "./src/server/supabaseOnboarding";
+import {
+  graduateSupabaseStudent,
+  listSupabaseAlumniSnapshot,
+  SupabaseAlumniError,
+} from "./src/server/supabaseAlumni";
+import {
+  checkoutSupabaseLibraryBook,
+  listSupabaseLibrarySnapshot,
+  returnSupabaseLibraryBook,
+  SupabaseLibraryError,
+  upsertSupabaseLibraryBook,
+} from "./src/server/supabaseLibrary";
+import {
+  createSupabaseLaundryOrder,
+  getSupabaseLaundrySnapshot,
+  saveSupabaseLaundrySettings,
+  SupabaseLaundryError,
+  transitionSupabaseLaundryOrder,
+} from "./src/server/supabaseLaundry";
+import {
+  listSupabaseBoardingPermits,
+  migrateSupabaseLegacyBoardingPermits,
+  requestSupabaseBoardingPermit,
+  transitionSupabaseBoardingPermit,
+} from "./src/server/supabaseBoardingPermits";
+import {
+  createSupabaseFinanceBills,
+  createSupabaseFinanceExpense,
+  getSupabaseFinanceBill,
+  listSupabaseFinanceSnapshot,
+  registerSupabaseFinanceProof,
+  reviewSupabaseFinanceBill,
+  reviewSupabaseFinanceExpense,
+  setSupabaseFinanceLock,
+  SupabaseFinanceError,
+} from "./src/server/supabaseFinance";
+import { getSupabaseDashboardSnapshot, SupabaseDashboardError } from "./src/server/supabaseDashboard";
+import { getSupabaseAcademicSnapshot, saveSupabaseAcademicRecord, SupabaseAcademicError } from "./src/server/supabaseAcademic";
+import {
+  adjustSupabaseCooperativeStock,
+  checkoutSupabaseCooperativeSale,
+  getSupabaseCooperativeSnapshot,
+  manageSupabaseCooperativeProduct,
+  manageSupabaseCooperativeSupplier,
+  setSupabaseCooperativeWalletPolicy,
+  SupabaseCooperativeError,
+  topUpSupabaseCooperativeWallet,
+} from "./src/server/supabaseCooperative";
+import {
+  listSupabaseHrisSnapshot,
+  recordSupabaseHrisAttendance,
+  requestSupabaseHrisLeave,
+  reviewSupabaseHrisLeave,
+  SupabaseHrisError,
+  upsertSupabaseHrisEmployee,
+} from "./src/server/supabaseHris";
+import { getSupabaseAcademicLegacyTenantKey, importSupabaseLegacyAcademic, previewSupabaseLegacyAcademic } from "./src/server/supabaseAcademicImport";
+import {
+  createSupabaseCbtExam,
+  getSupabaseCbtStudentSnapshot,
+  listSupabaseCbtAdminSnapshot,
+  saveSupabaseCbtAttemptAnswers,
+  startSupabaseCbtAttempt,
+  submitSupabaseCbtAttempt,
+  SupabaseCbtError,
+  upsertSupabaseCbtQuestion,
+} from "./src/server/supabaseCbt";
+import { applySupabaseLegacyCbtImport, getSupabaseCbtLegacyImportContext, previewSupabaseLegacyCbt } from "./src/server/supabaseCbtImport";
+import { listSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate } from "./src/server/supabasePpdb";
+import { addSupabaseLmsLearningRecord, getSupabaseLmsLegacyImportContext, getSupabaseLmsSnapshot, gradeSupabaseLmsSubmission, manageSupabaseLmsCatalog, saveSupabaseLmsProgress, submitSupabaseLmsAssignment, SupabaseLmsError } from "./src/server/supabaseLms";
+import { applySupabaseLegacyLmsImport, previewSupabaseLegacyLms } from "./src/server/supabaseLmsImport";
+import {
+  adjustSupabaseHealthcareStock,
+  createSupabaseHealthcareMedicine,
+  createSupabaseHealthcareVisit,
+  getSupabaseHealthcareLegacyImportContext,
+  getSupabaseHealthcareSnapshot,
+  saveSupabaseHealthcareRecord,
+  SupabaseHealthcareError,
+} from "./src/server/supabaseHealthcare";
+import { applySupabaseLegacyHealthcareImport, previewSupabaseLegacyHealthcare } from "./src/server/supabaseHealthcareImport";
+import {
+  adjustSupabaseGeneralAffairsStock,
+  getSupabaseGeneralAffairsImportContext,
+  getSupabaseGeneralAffairsSnapshot,
+  manageSupabaseGeneralAffairsFacility,
+  manageSupabaseGeneralAffairsInventory,
+  SupabaseGeneralAffairsError,
+} from "./src/server/supabaseGeneralAffairs";
+import { applySupabaseLegacyGeneralAffairsImport, previewSupabaseLegacyGeneralAffairs } from "./src/server/supabaseGeneralAffairsImport";
+import {
+  adjustSupabaseMarketplaceStock,
+  assertSupabaseMarketplaceReady,
+  createSupabaseMarketplaceOrder,
+  getSupabaseMarketplaceImportContext,
+  getSupabaseMarketplaceSnapshot,
+  manageSupabaseMarketplaceProduct,
+  SupabaseMarketplaceError,
+  transitionSupabaseMarketplaceOrder,
+} from "./src/server/supabaseMarketplace";
+import { applySupabaseLegacyMarketplace, previewSupabaseLegacyMarketplace } from "./src/server/supabaseMarketplaceImport";
+import { assertSupabaseFacilityBookingsReady, getSupabaseFacilityBookings, getSupabaseFacilityBookingImportContext, manageSupabaseFacilityBooking, SupabaseFacilityBookingError } from "./src/server/supabaseFacilityBookings";
+import { applySupabaseLegacyFacilityBookings as applyFacilityBookingImport, previewSupabaseLegacyFacilityBookings } from "./src/server/supabaseFacilityBookingsImport";
+import {
+  getSupabaseDonationSnapshot,
+  manageSupabaseDonationCampaign,
+  manageSupabaseDonationDonor,
+  manageSupabaseWaqfAsset,
+  recordSupabaseDonation,
+  SupabaseDonationError,
+  voidSupabaseDonation,
+} from "./src/server/supabaseDonation";
+import { getSupabasePublicPpdbConfig, submitSupabasePublicPpdbRegistration } from "./src/server/supabasePublicPpdb";
+import {
+  createSupabaseBoardingDiscipline,
+  listSupabaseBoardingDiscipline,
+  migrateSupabaseLegacyBoardingDiscipline,
+  resolveSupabaseBoardingDiscipline,
+} from "./src/server/supabaseBoardingDiscipline";
+import {
+  getSupabaseBoardingAttendance,
+  migrateSupabaseLegacyBoardingAttendance,
+  setSupabaseBoardingAttendance,
+} from "./src/server/supabaseBoardingAttendance";
+import {
+  listSupabaseBoardingStaffAssignments,
+  setSupabaseBoardingStaffAssignment,
+} from "./src/server/supabaseBoardingAssignments";
+import {
+  createSupabaseBoardingCleanlinessAudit,
+  createSupabaseBoardingFacilityTicket,
+  listSupabaseBoardingFacilityOps,
+  migrateSupabaseLegacyBoardingFacilityOps,
+  resolveSupabaseBoardingFacilityTicket,
+} from "./src/server/supabaseBoardingFacilityOps";
 
 dotenv.config();
 
-// Load project configuration from firebase-applet-config.json
-let firebaseConfig: any = {};
-try {
-  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-  if (fs.existsSync(configPath)) {
-    firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+let firebaseConfig: any | null = null;
+function getFirebaseConfig(): any {
+  if (firebaseConfig) return firebaseConfig;
+  try {
+    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+    firebaseConfig = fs.existsSync(configPath)
+      ? JSON.parse(fs.readFileSync(configPath, "utf8"))
+      : {};
+  } catch {
+    firebaseConfig = {};
   }
-} catch {
-  // Config fallback
+  return firebaseConfig;
 }
 
 export type AdminServicesResult =
-  | { ok: true; auth: Auth; db: Firestore }
+  | { ok: true; db: Firestore }
   | { ok: false; error: string };
 
 let adminApp: App | null = null;
-let adminAuth: Auth | null = null;
 let adminDb: Firestore | null = null;
 let adminInitError: string | null = null;
+let adminInitPromise: Promise<AdminServicesResult> | null = null;
+const legacyFirebaseAdminEnabled = String(process.env.LEGACY_FIREBASE_ADMIN_ENABLED || "").trim().toLowerCase() === "true";
 
 function isCredentialError(err: any): boolean {
   if (!err) return false;
@@ -94,36 +278,50 @@ function isFirestoreStoreError(err: any): boolean {
   );
 }
 
-function getAdminServices(): AdminServicesResult {
+async function getAdminServices(): Promise<AdminServicesResult> {
+  if (!legacyFirebaseAdminEnabled) {
+    return { ok: false, error: "Legacy Firebase Admin access is disabled. Enable it only for an approved archive migration window." };
+  }
   if (adminInitError) {
     return { ok: false, error: adminInitError };
   }
-  if (!adminApp) {
-    try {
-      const projectId =
-        process.env.FIREBASE_PROJECT_ID ||
-        process.env.GOOGLE_CLOUD_PROJECT ||
-        firebaseConfig.projectId;
+  if (adminApp && adminDb) return { ok: true, db: adminDb };
+  if (!adminInitPromise) {
+    adminInitPromise = (async (): Promise<AdminServicesResult> => {
+      try {
+        const [{ initializeApp, applicationDefault }, { getFirestore }] = await Promise.all([
+          import("firebase-admin/app"),
+          import("firebase-admin/firestore"),
+        ]);
+        const config = getFirebaseConfig();
+        const projectId =
+          process.env.FIREBASE_PROJECT_ID ||
+          process.env.GOOGLE_CLOUD_PROJECT ||
+          config.projectId;
 
-      // Use Application Default Credentials only (no private keys or secrets in source)
-      adminApp = initializeApp({
-        credential: applicationDefault(),
-        projectId: projectId || undefined,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || undefined,
-      });
-      adminAuth = getAuth(adminApp);
-
-      if (firebaseConfig.firestoreDatabaseId) {
-        adminDb = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
-      } else {
-        adminDb = getFirestore(adminApp);
+        // Use Application Default Credentials only (no private keys or secrets in source)
+        const app = initializeApp({
+          credential: applicationDefault(),
+          projectId: projectId || undefined,
+          storageBucket: process.env.FIREBASE_STORAGE_BUCKET || config.storageBucket || undefined,
+        });
+        adminApp = app;
+        adminDb = config.firestoreDatabaseId
+          ? getFirestore(app, config.firestoreDatabaseId)
+          : getFirestore(app);
+        return { ok: true, db: adminDb! };
+      } catch (err: any) {
+        adminInitError = err.message || "Failed to initialize Firebase Admin SDK with Application Default Credentials";
+        return { ok: false, error: adminInitError };
       }
-    } catch (err: any) {
-      adminInitError = err.message || "Failed to initialize Firebase Admin SDK with Application Default Credentials";
-      return { ok: false, error: adminInitError };
-    }
+    })();
   }
-  return { ok: true, auth: adminAuth!, db: adminDb! };
+  return adminInitPromise!;
+}
+
+async function loadFirestoreFieldValue() {
+  const { FieldValue } = await import("firebase-admin/firestore");
+  return FieldValue;
 }
 
 const PLATFORM_ONLY_MODULES = ["settings"];
@@ -181,7 +379,7 @@ function resolveUserModulePermissions(role: string, perms?: Record<string, boole
 function identityFailure(res: express.Response, err: unknown) {
   if (err instanceof IdentityUnavailableError) {
     return res.status(503).json({
-      code: "ADMIN_SDK_UNAVAILABLE",
+      code: "SUPABASE_IDENTITY_UNAVAILABLE",
       error: err.message,
     });
   }
@@ -242,6 +440,13 @@ async function requireTenantAdmin(req: express.Request, res: express.Response, n
       });
     }
 
+    if (!resolveUserModulePermissions(role, actor.modulePermissions).users) {
+      return res.status(403).json({
+        code: "MODULE_ACCESS_DENIED",
+        error: "Akses modul manajemen pengguna tidak diberikan kepada akun ini."
+      });
+    }
+
     const tenantId = typeof actor.tenantId === "string" ? actor.tenantId.trim() : "";
     if (!tenantId) {
       return res.status(403).json({
@@ -269,12 +474,6 @@ async function requireTenantAdmin(req: express.Request, res: express.Response, n
   }
 }
 
-type PublicPpdbError = Error & { status: number };
-
-function publicPpdbError(status: number, message: string): PublicPpdbError {
-  return Object.assign(new Error(message), { status });
-}
-
 const publicPpdbRateBuckets = new Map<string, { startedAt: number; count: number }>();
 function consumePublicPpdbRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -297,31 +496,6 @@ function consumePublicPpdbRateLimit(ip: string): boolean {
   if (bucket.count >= limit) return false;
   bucket.count += 1;
   return true;
-}
-
-async function loadPublicPpdbTenant(db: Firestore) {
-  if (String(process.env.PUBLIC_PPDB_ENABLED || "").trim().toLowerCase() !== "true") {
-    throw publicPpdbError(503, "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren.");
-  }
-  const tenantId = String(process.env.PUBLIC_PPDB_TENANT_ID || "").trim();
-  if (!tenantId) throw publicPpdbError(503, "Konfigurasi tenant PPDB belum tersedia.");
-  const [tenantSnapshot, settingsSnapshot] = await Promise.all([
-    db.collection("tenants").doc(tenantId).get(),
-    db.collection("tenants").doc(tenantId).collection("settings").doc("global").get(),
-  ]);
-  if (!tenantSnapshot.exists) throw publicPpdbError(503, "Tenant PPDB belum dikonfigurasi.");
-  const tenant = tenantSnapshot.data() || {};
-  const tenantStatus = String(tenant.status || "").trim().toLowerCase();
-  if (tenantStatus !== "active") throw publicPpdbError(503, "Pendaftaran PPDB untuk pesantren ini sedang tidak tersedia.");
-  const settings = settingsSnapshot.data() || {};
-  const org = settings.orgInfo || {};
-  const general = settings.generalSettings || {};
-  return {
-    tenantId, academicYear: String(general.academicYear || "").trim(),
-    orgInfo: { schoolName: String(org.schoolName || tenant.name || tenant.tenantName || "Pesantren"),
-      address: String(org.address || ""), phone: String(org.phone || ""), email: String(org.email || ""),
-      website: String(org.website || ""), logoUrl: String(org.logoUrl || "") },
-  };
 }
 
 type FinanceProofError = Error & { status: number };
@@ -391,28 +565,6 @@ function consumePaymentProofUploadLimit(uid: string): boolean {
 }
 
 
-const LEGACY_LOCAL_STORAGE_DATASETS: Record<string, { collection: string; module: string; kind: 'array' | 'value'; settingId?: string }> = {
-  academics_schedules: { collection: 'academic_schedules', module: 'academic', kind: 'array' },
-  academics_jurnals: { collection: 'academic_journals', module: 'academic', kind: 'array' },
-  academics_assessments: { collection: 'academic_assessments', module: 'academic', kind: 'array' },
-  academics_kktp_threshold: { collection: 'academic_settings', module: 'academic', kind: 'value', settingId: 'kktpThreshold' },
-  academics_formative_weight: { collection: 'academic_settings', module: 'academic', kind: 'value', settingId: 'formativeWeight' },
-  academics_walikelas_comments: { collection: 'academic_settings', module: 'academic', kind: 'value', settingId: 'waliKelasComments' },
-  academics_rapor_locked: { collection: 'academic_settings', module: 'academic', kind: 'value', settingId: 'raporLocked' },
-  asrama_musyrifs: { collection: 'boarding_musyrifs', module: 'boarding', kind: 'array' },
-  asrama_attendance: { collection: 'boarding_attendance', module: 'boarding', kind: 'array' },
-  asrama_audits: { collection: 'boarding_audits', module: 'boarding', kind: 'array' },
-  asrama_tickets: { collection: 'boarding_tickets', module: 'boarding', kind: 'array' },
-  asrama_rooms: { collection: 'boarding_rooms', module: 'boarding', kind: 'array' },
-  asrama_permits: { collection: 'boarding_permits', module: 'boarding', kind: 'array' },
-  asrama_discipline: { collection: 'boarding_discipline', module: 'boarding', kind: 'array' },
-  hub_announcements: { collection: 'communication_announcements', module: 'communication', kind: 'array' },
-  hub_messages: { collection: 'communication_messages', module: 'communication', kind: 'array' },
-};
-function operationalRecordDocumentId(tenantId: string, recordId: string) {
-  return 't_' + encodeURIComponent(tenantId).slice(0, 180) + '_' + encodeURIComponent(recordId).slice(0, 900);
-}
-
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -420,6 +572,1951 @@ async function startServer() {
   // Cloud Run terminates TLS at one trusted proxy hop.
   app.set("trust proxy", 1);
   app.use(express.json({ limit: "5mb" }));
+
+  const loadCommunicationActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    if (!profile) throw new CommunicationStoreError(403, "Profil akun tidak ditemukan.");
+    const tenantId = String(profile.tenantId || "").trim();
+    if (String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new CommunicationStoreError(403, "Akun aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).communication) {
+      throw new CommunicationStoreError(403, "Akses modul Komunikasi tidak diberikan kepada akun ini.");
+    }
+    return profile;
+  };
+  const communicationRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) {
+      return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    }
+    if (error instanceof CommunicationStoreError) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    console.error("Supabase communication endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Komunikasi Supabase belum dapat diproses." });
+  };
+  const communicationRuntimeEnabled = String(process.env.SUPABASE_COMMUNICATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const communicationImportEnabled = String(process.env.SUPABASE_COMMUNICATION_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const supabasePublicPpdbRuntimeEnabled = String(process.env.SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const publicPpdbEnabled = String(process.env.PUBLIC_PPDB_ENABLED || "").trim().toLowerCase() === "true";
+
+  const loadTahfidzActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseTahfidzError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(profile.role)) {
+      throw new SupabaseTahfidzError(403, "Role ini tidak dapat mengakses data operasional Tahfidz.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).tahfidz) {
+      throw new SupabaseTahfidzError(403, "Akses modul Tahfidz tidak diberikan kepada akun ini.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const tahfidzRuntimeEnabled = String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const tahfidzImportEnabled = String(process.env.SUPABASE_TAHFIDZ_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const tahfidzRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase Tahfidz endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Tahfidz Supabase belum dapat diproses." });
+  };
+
+  const loadMasterDataActor = async (uid: string, moduleId: "master-data" | "boarding") => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseOnboardingError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions)[moduleId]) {
+      throw new SupabaseOnboardingError(403, "Akses modul tidak diberikan kepada akun ini.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const requireMasterDataAdmin = (actor: { role: string }) => {
+    if (!(["Admin", "SuperAdmin"] as string[]).includes(actor.role)) {
+      throw new SupabaseOnboardingError(403, "Operasi ini hanya tersedia untuk Admin pesantren.");
+    }
+  };
+  const loadHrisActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseHrisError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).hris) {
+      throw new SupabaseHrisError(403, "Akses modul HRIS tidak diberikan kepada akun ini.");
+    }
+    if (profile.role !== "Admin" && profile.role !== "SuperAdmin") {
+      throw new SupabaseHrisError(403, "Pengelolaan HRIS saat ini hanya tersedia untuk Admin tenant.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const hrisRuntimeEnabled = String(process.env.SUPABASE_HRIS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const cooperativeRuntimeEnabled = String(process.env.SUPABASE_COOPERATIVE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const loadCooperativeActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseCooperativeError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).cooperative) {
+      throw new SupabaseCooperativeError(403, "Akses modul Koperasi tidak diberikan kepada akun ini.");
+    }
+    if (profile.role !== "Admin" && profile.role !== "SuperAdmin") {
+      throw new SupabaseCooperativeError(403, "Pengelolaan Koperasi saat ini hanya tersedia untuk Admin tenant.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const cooperativeRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseCooperativeError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase cooperative endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Koperasi Supabase belum dapat diproses." });
+  };
+  const hrisRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseHrisError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase HRIS endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan HRIS Supabase belum dapat diproses." });
+  };
+  const masterDataRuntimeEnabled = String(process.env.SUPABASE_MASTER_DATA_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const libraryRuntimeEnabled = String(process.env.SUPABASE_LIBRARY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingRuntimeEnabled = String(process.env.SUPABASE_BOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingPermitsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingPermitsImportEnabled = String(process.env.SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingDisciplineRuntimeEnabled = String(process.env.SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingDisciplineImportEnabled = String(process.env.SUPABASE_BOARDING_DISCIPLINE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingAttendanceRuntimeEnabled = String(process.env.SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingAttendanceImportEnabled = String(process.env.SUPABASE_BOARDING_ATTENDANCE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingAssignmentsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingFacilityOpsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingFacilityOpsImportEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const ppdbRuntimeEnabled = String(process.env.SUPABASE_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const ppdbOnboardingRuntimeEnabled = String(process.env.SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const academicRuntimeEnabled = String(process.env.SUPABASE_ACADEMIC_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const academicImportEnabled = String(process.env.SUPABASE_ACADEMIC_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const cbtRuntimeEnabled = String(process.env.SUPABASE_CBT_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const cbtImportEnabled = String(process.env.SUPABASE_CBT_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const lmsRuntimeEnabled = String(process.env.SUPABASE_LMS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const lmsImportEnabled = String(process.env.SUPABASE_LMS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const healthcareRuntimeEnabled = String(process.env.SUPABASE_HEALTHCARE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const healthcareImportEnabled = String(process.env.SUPABASE_HEALTHCARE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const generalAffairsRuntimeEnabled = String(process.env.SUPABASE_GA_ASSETS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const generalAffairsImportEnabled = String(process.env.SUPABASE_GA_ASSETS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const marketplaceRuntimeEnabled = String(process.env.SUPABASE_MARKETPLACE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const marketplaceImportEnabled = String(process.env.SUPABASE_MARKETPLACE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const donationRuntimeEnabled = String(process.env.SUPABASE_DONATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const facilityBookingsRuntimeEnabled = String(process.env.SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const facilityBookingsImportEnabled = String(process.env.SUPABASE_FACILITY_BOOKINGS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const masterDataRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase Master Data endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Master Data Supabase belum dapat diproses." });
+  };
+
+  const loadPpdbActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabasePpdbError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).ppdb) {
+      throw new SupabasePpdbError(403, "Akses modul PPDB tidak diberikan kepada akun ini.");
+    }
+    if (!["Admin", "SuperAdmin"].includes(profile.role)) {
+      throw new SupabasePpdbError(403, "Pengelolaan pendaftar PPDB hanya tersedia untuk Admin tenant.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const loadAcademicActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseAcademicError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).academic) {
+      throw new SupabaseAcademicError(403, "Akses modul Akademik tidak diberikan kepada akun ini.");
+    }
+    if (!["Admin", "SuperAdmin", "Ustadz"].includes(profile.role)) {
+      throw new SupabaseAcademicError(403, "Runtime Akademik Supabase saat ini hanya tersedia untuk Admin dan Ustadz.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const academicRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseAcademicError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase academic endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Akademik Supabase belum dapat diproses." });
+  };
+  const loadCbtAdminActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) throw new SupabaseCbtError(403, "Profil aktif dengan tenant valid diperlukan.");
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).cbt) throw new SupabaseCbtError(403, "Akses CBT tidak diberikan kepada akun ini.");
+    if (!["Admin", "SuperAdmin"].includes(profile.role)) throw new SupabaseCbtError(403, "Pengelolaan CBT hanya tersedia untuk Admin tenant.");
+    return { ...profile, uid, tenantId };
+  };
+  const loadCbtStudentActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) throw new SupabaseCbtError(403, "Profil aktif dengan tenant valid diperlukan.");
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).cbt) throw new SupabaseCbtError(403, "Akses CBT tidak diberikan kepada akun ini.");
+    if (profile.role !== "Santri" || !profile.linkedSantriId) throw new SupabaseCbtError(403, "Pengerjaan CBT hanya tersedia untuk akun Santri yang tertaut ke roster.");
+    return { ...profile, uid, tenantId };
+  };
+  const cbtRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseCbtError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase CBT endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan CBT Supabase belum dapat diproses." });
+  };
+  const loadLmsActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) throw new SupabaseLmsError(403, "Profil aktif dengan tenant valid diperlukan.");
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).lms) throw new SupabaseLmsError(403, "Akses LMS tidak diberikan kepada akun ini.");
+    if (!["Admin", "SuperAdmin", "Ustadz", "Santri"].includes(profile.role)) throw new SupabaseLmsError(403, "LMS Supabase belum tersedia untuk role akun ini.");
+    if (profile.role === "Santri" && !profile.linkedSantriId) throw new SupabaseLmsError(403, "Akun Santri belum tertaut ke roster tenant.");
+    return { ...profile, uid, tenantId };
+  };
+  const lmsRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseLmsError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase LMS endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan LMS Supabase belum dapat diproses." });
+  };
+  const loadHealthcareActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) throw new SupabaseHealthcareError(403, "Profil aktif dengan tenant valid diperlukan.");
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).healthcare) throw new SupabaseHealthcareError(403, "Akses modul kesehatan tidak diberikan kepada akun ini.");
+    if (!["Admin", "SuperAdmin"].includes(profile.role)) throw new SupabaseHealthcareError(403, "Rekam medis dan operasi UKS hanya tersedia untuk Admin pesantren.");
+    return { ...profile, uid, tenantId };
+  };
+  const healthcareRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseHealthcareError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase healthcare endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan UKS Supabase belum dapat diproses." });
+  };
+  const loadGeneralAffairsActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) throw new SupabaseGeneralAffairsError(403, "Profil aktif dengan tenant valid diperlukan.");
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).ga) throw new SupabaseGeneralAffairsError(403, "Akses modul General Affairs tidak diberikan kepada akun ini.");
+    if (!["Admin", "SuperAdmin"].includes(profile.role)) throw new SupabaseGeneralAffairsError(403, "Pengelolaan aset dan inventaris hanya tersedia untuk Admin tenant.");
+    return { ...profile, uid, tenantId };
+  };
+  const generalAffairsRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseGeneralAffairsError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase General Affairs endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan General Affairs Supabase belum dapat diproses." });
+  };
+  const loadMarketplaceActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) throw new SupabaseMarketplaceError(403, "Profil aktif dengan tenant valid diperlukan.");
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).marketplace) throw new SupabaseMarketplaceError(403, "Akses modul Marketplace tidak diberikan kepada akun ini.");
+    if (!["Admin", "SuperAdmin"].includes(profile.role)) throw new SupabaseMarketplaceError(403, "Runtime Marketplace saat ini hanya tersedia untuk Admin tenant.");
+    return { ...profile, uid, tenantId };
+  };
+  const marketplaceRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseMarketplaceError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase Marketplace endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Marketplace Supabase belum dapat diproses." });
+  };
+  const loadDonationActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) throw new SupabaseDonationError(403, "Profil aktif dengan tenant valid diperlukan.");
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).donation) throw new SupabaseDonationError(403, "Akses Donasi & Wakaf tidak diberikan kepada akun ini.");
+    if (!["Admin", "SuperAdmin"].includes(profile.role)) throw new SupabaseDonationError(403, "Pengelolaan Donasi & Wakaf hanya tersedia untuk Admin tenant.");
+    return { ...profile, uid, tenantId };
+  };
+  const donationRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseDonationError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase Donation endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Donasi & Wakaf Supabase belum dapat diproses." });
+  };
+  const loadFacilityBookingActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) throw new SupabaseFacilityBookingError(403, "Profil aktif dengan tenant valid diperlukan.");
+    const permissions = resolveUserModulePermissions(profile.role, profile.modulePermissions);
+    if (!permissions.ga && !permissions.boarding) throw new SupabaseFacilityBookingError(403, "Akses pemesanan fasilitas tidak diberikan kepada akun ini.");
+    if (!["Admin", "SuperAdmin"].includes(profile.role)) throw new SupabaseFacilityBookingError(403, "Pengelolaan pemesanan fasilitas hanya tersedia untuk Admin tenant.");
+    return { ...profile, uid, tenantId };
+  };
+  const facilityBookingRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseFacilityBookingError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase facility booking endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan pemesanan fasilitas Supabase belum dapat diproses." });
+  };
+  const ppdbRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabasePpdbError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase PPDB endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan PPDB Supabase belum dapat diproses." });
+  };
+
+  const loadAlumniActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseAlumniError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).alumni) {
+      throw new SupabaseAlumniError(403, "Akses modul Alumni tidak diberikan kepada akun ini.");
+    }
+    if (!["Admin", "SuperAdmin"].includes(profile.role)) {
+      throw new SupabaseAlumniError(403, "Modul Alumni Supabase saat ini hanya tersedia untuk Admin pesantren.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const alumniRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseAlumniError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase Alumni endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Alumni Supabase belum dapat diproses." });
+  };
+
+  app.get("/api/alumni", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!alumniRuntimeEnabled) return res.status(503).json({ error: "Runtime Alumni Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAlumniActor(uid);
+      return res.json(await listSupabaseAlumniSnapshot(actor.tenantId));
+    } catch (error) { return alumniRouteError(res, error); }
+  });
+
+  app.post("/api/alumni/graduations", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!alumniRuntimeEnabled) return res.status(503).json({ error: "Runtime Alumni Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAlumniActor(uid);
+      const result = await graduateSupabaseStudent(actor.tenantId, actor.uid, actor.role, req.body);
+      return res.status(result.alreadyGraduated ? 200 : 201).json(result);
+    } catch (error) { return alumniRouteError(res, error); }
+  });
+
+  app.get("/api/ppdb/candidates", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: "Runtime PPDB Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadPpdbActor(uid);
+      const limit = Math.max(1, Math.min(250, Number.parseInt(String(req.query.limit || "250"), 10) || 250));
+      const offset = Math.max(0, Math.min(50000, Number.parseInt(String(req.query.offset || "0"), 10) || 0));
+      return res.json(await listSupabasePpdbCandidates(actor.tenantId, limit, offset));
+    } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  app.patch("/api/ppdb/candidates/:candidateId", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: "Runtime PPDB Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadPpdbActor(uid);
+      return res.json(await updateSupabasePpdbCandidate(actor.tenantId, actor.uid, req.params.candidateId, req.body));
+    } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  const requirePpdbOnboardingRuntime = (res: express.Response) => {
+    if (!ppdbOnboardingRuntimeEnabled || !ppdbRuntimeEnabled || !masterDataRuntimeEnabled || !boardingRuntimeEnabled) {
+      res.status(503).json({ error: "Onboarding Supabase memerlukan runtime PPDB, Master Data, dan Asrama yang sudah disiapkan." });
+      return false;
+    }
+    return true;
+  };
+  const loadPpdbOnboardingActor = async (uid: string) => {
+    const actor = await loadPpdbActor(uid);
+    const permissions = resolveUserModulePermissions(actor.role, actor.modulePermissions);
+    if (!permissions["master-data"] || !permissions.boarding) {
+      throw new SupabasePpdbError(403, "Akses PPDB, Master Data, dan Asrama diperlukan untuk onboarding santri.");
+    }
+    return actor;
+  };
+
+  app.post("/api/ppdb/onboarding/next-nis", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!requirePpdbOnboardingRuntime(res)) return;
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadPpdbOnboardingActor(uid);
+      const nis = await getSupabaseNextSantriNis(actor.tenantId, String(req.body?.grade || ""), String(req.body?.candidateId || ""));
+      return res.json({ nis });
+    } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  app.post("/api/ppdb/candidates/:candidateId/onboard", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!requirePpdbOnboardingRuntime(res)) return;
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadPpdbOnboardingActor(uid);
+      const result = await onboardSupabaseAcceptedCandidate(
+        actor.tenantId,
+        actor.uid,
+        req.params.candidateId,
+        req.body?.clientRequestId,
+        req.body?.assignment
+      );
+      return res.status(result.alreadyOnboarded ? 200 : 201).json(result);
+    } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  app.get("/api/academic/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicActor(uid);
+      return res.json(await getSupabaseAcademicSnapshot(actor.tenantId, actor.uid, actor.role));
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.post("/api/academic/:kind", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicActor(uid);
+      const result = await saveSupabaseAcademicRecord(actor.tenantId, actor.uid, actor.role, req.params.kind, req.body?.record);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.post("/api/academic/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicImportEnabled) return res.status(503).json({ error: "Impor historis Akademik Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Impor historis hanya tersedia untuk Admin tenant." });
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor Akademik tidak valid." });
+      const { legacyTenantKey } = await getSupabaseAcademicLegacyTenantKey(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseAcademicError(503, "Sumber arsip Firebase belum dapat dibaca oleh backend migrasi.");
+      const collections = ["academic_schedules", "academic_journals", "academic_assessments"];
+      const snapshots = await Promise.all(collections.map((name) => services.db.collection(name)
+        .where("tenantId", "==", legacyTenantKey).limit(3001).get()));
+      const sourceRows = snapshots.flatMap((snapshot, index) => snapshot.docs.map((document) => ({
+        collection: collections[index], id: document.id, data: document.data() as Record<string, any>,
+      })));
+      if (action === "preview") return res.json(await previewSupabaseLegacyAcademic(actor.tenantId, sourceRows));
+      const expectedFingerprint = String(req.body?.expectedFingerprint || "");
+      const result = await importSupabaseLegacyAcademic(actor.tenantId, actor.uid, sourceRows, expectedFingerprint);
+      return res.status(201).json(result);
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.get("/api/cbt/admin", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      return res.json(await listSupabaseCbtAdminSnapshot(actor.tenantId));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.post("/api/cbt/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtImportEnabled) return res.status(503).json({ error: "Impor bank soal CBT lama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor CBT tidak valid." });
+      const { legacyTenantKey, existingRows } = await getSupabaseCbtLegacyImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseCbtError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
+      const snapshot = await services.db.collection("cbt_questions")
+        .where("tenantId", "==", legacyTenantKey).limit(3001).get();
+      const sourceRows = snapshot.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
+      if (action === "preview") {
+        const preview = await previewSupabaseLegacyCbt(sourceRows, existingRows);
+        const { items: _items, ...summary } = preview;
+        return res.json(summary);
+      }
+      const result = await applySupabaseLegacyCbtImport(actor.tenantId, actor.uid, sourceRows, existingRows, String(req.body?.expectedFingerprint || ""));
+      return res.status(201).json(result);
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.post("/api/cbt/questions", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      const result = await upsertSupabaseCbtQuestion(actor.tenantId, actor.uid, req.body?.questionId, req.body?.clientRequestId, req.body?.question);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.post("/api/cbt/exams", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      const result = await createSupabaseCbtExam(actor.tenantId, actor.uid, req.body?.exam);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.get("/api/cbt/student", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtStudentActor(uid);
+      return res.json(await getSupabaseCbtStudentSnapshot(actor.tenantId, actor.linkedSantriId));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.post("/api/cbt/exams/:examId/start", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtStudentActor(uid);
+      return res.json(await startSupabaseCbtAttempt(actor.tenantId, actor.uid, req.params.examId));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.put("/api/cbt/attempts/:attemptId/answers", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtStudentActor(uid);
+      return res.json(await saveSupabaseCbtAttemptAnswers(actor.tenantId, actor.uid, req.params.attemptId, req.body?.answers));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.post("/api/cbt/attempts/:attemptId/submit", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtStudentActor(uid);
+      return res.json(await submitSupabaseCbtAttempt(actor.tenantId, actor.uid, req.params.attemptId));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.get("/api/healthcare/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHealthcareActor(uid);
+      return res.json(await getSupabaseHealthcareSnapshot(actor.tenantId));
+    } catch (error) { return healthcareRouteError(res, error); }
+  });
+
+  app.post("/api/healthcare/records", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHealthcareActor(uid);
+      return res.status(201).json(await saveSupabaseHealthcareRecord(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return healthcareRouteError(res, error); }
+  });
+
+  app.post("/api/healthcare/visits", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHealthcareActor(uid);
+      return res.status(201).json(await createSupabaseHealthcareVisit(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return healthcareRouteError(res, error); }
+  });
+
+  app.post("/api/healthcare/medicines", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHealthcareActor(uid);
+      return res.status(201).json(await createSupabaseHealthcareMedicine(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return healthcareRouteError(res, error); }
+  });
+
+  app.post("/api/healthcare/stock-adjustments", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHealthcareActor(uid);
+      return res.status(201).json(await adjustSupabaseHealthcareStock(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return healthcareRouteError(res, error); }
+  });
+
+  app.post("/api/healthcare/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!healthcareImportEnabled) return res.status(503).json({ error: "Impor data UKS lama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHealthcareActor(uid);
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor UKS tidak valid." });
+      const context = await getSupabaseHealthcareLegacyImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseHealthcareError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
+      const readLegacyRows = async (collectionName: string) => {
+        const result = await services.db.collection(collectionName).where("tenantId", "==", context.legacyTenantKey).limit(3001).get();
+        return result.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
+      };
+      const [records, visits, medicines] = await Promise.all([
+        readLegacyRows("healthcare_records"), readLegacyRows("healthcare_visits"), readLegacyRows("healthcare_inventory"),
+      ]);
+      const sources = { records, visits, medicines };
+      if (action === "preview") {
+        const preview = previewSupabaseLegacyHealthcare(sources, context.existingRows, context.students);
+        const { items: _items, ...summary } = preview;
+        return res.json(summary);
+      }
+      const result = await applySupabaseLegacyHealthcareImport(actor.tenantId, actor.uid, sources, context.existingRows, context.students, String(req.body?.expectedFingerprint || ""));
+      return res.status(201).json(result);
+    } catch (error) { return healthcareRouteError(res, error); }
+  });
+
+  app.get("/api/ga/assets-snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: "Runtime aset dan inventaris GA Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadGeneralAffairsActor(uid);
+      return res.json(await getSupabaseGeneralAffairsSnapshot(actor.tenantId));
+    } catch (error) { return generalAffairsRouteError(res, error); }
+  });
+
+  app.post("/api/ga/assets", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: "Runtime aset dan inventaris GA Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadGeneralAffairsActor(uid);
+      return res.status(201).json(await manageSupabaseGeneralAffairsFacility(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return generalAffairsRouteError(res, error); }
+  });
+
+  app.post("/api/ga/inventory", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: "Runtime aset dan inventaris GA Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadGeneralAffairsActor(uid);
+      return res.status(201).json(await manageSupabaseGeneralAffairsInventory(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return generalAffairsRouteError(res, error); }
+  });
+
+  app.post("/api/ga/stock-adjustments", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: "Runtime aset dan inventaris GA Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadGeneralAffairsActor(uid);
+      return res.status(201).json(await adjustSupabaseGeneralAffairsStock(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return generalAffairsRouteError(res, error); }
+  });
+
+  app.post("/api/ga/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!generalAffairsImportEnabled) return res.status(503).json({ error: "Impor aset dan inventaris GA lama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadGeneralAffairsActor(uid);
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor GA tidak valid." });
+      const context = await getSupabaseGeneralAffairsImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseGeneralAffairsError(503, "Arsip Firestore lama belum dapat dibaca oleh backend migrasi.");
+      const readLegacyRows = async (collectionName: string) => {
+        const result = await services.db.collection(collectionName).where("tenantId", "==", context.legacyTenantKey).limit(6001).get();
+        return result.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
+      };
+      const [facilities, inventory] = await Promise.all([readLegacyRows("ga_facilities"), readLegacyRows("ga_inventory")]);
+      const sources = { facilities, inventory };
+      if (action === "preview") {
+        const preview = previewSupabaseLegacyGeneralAffairs(sources, context.existingRows, context.assetCodes, context.inventoryCodes);
+        const { items: _items, ...summary } = preview;
+        return res.json(summary);
+      }
+      const result = await applySupabaseLegacyGeneralAffairsImport(actor.tenantId, actor.uid, sources, context.existingRows, context.assetCodes, context.inventoryCodes, String(req.body?.expectedFingerprint || ""));
+      return res.status(201).json(result);
+    } catch (error) { return generalAffairsRouteError(res, error); }
+  });
+
+  app.get("/api/cooperative/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCooperativeActor(uid);
+      return res.json(await getSupabaseCooperativeSnapshot(actor.tenantId));
+    } catch (error) { return cooperativeRouteError(res, error); }
+  });
+  app.post("/api/cooperative/products", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCooperativeActor(uid);
+      return res.status(201).json(await manageSupabaseCooperativeProduct(actor.tenantId, actor.uid, req.body || {}));
+    } catch (error) { return cooperativeRouteError(res, error); }
+  });
+  app.post("/api/cooperative/stock-adjustments", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCooperativeActor(uid);
+      return res.status(201).json(await adjustSupabaseCooperativeStock(actor.tenantId, actor.uid, req.body || {}));
+    } catch (error) { return cooperativeRouteError(res, error); }
+  });
+  app.post("/api/cooperative/suppliers", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCooperativeActor(uid);
+      return res.status(201).json(await manageSupabaseCooperativeSupplier(actor.tenantId, actor.uid, req.body || {}));
+    } catch (error) { return cooperativeRouteError(res, error); }
+  });
+  app.patch("/api/cooperative/wallets/:walletId/policy", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCooperativeActor(uid);
+      return res.json(await setSupabaseCooperativeWalletPolicy(actor.tenantId, actor.uid, { ...(req.body || {}), walletId: req.params.walletId }));
+    } catch (error) { return cooperativeRouteError(res, error); }
+  });
+  app.post("/api/cooperative/wallets/:walletId/top-ups", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCooperativeActor(uid);
+      return res.status(201).json(await topUpSupabaseCooperativeWallet(actor.tenantId, actor.uid, { ...(req.body || {}), walletId: req.params.walletId }));
+    } catch (error) { return cooperativeRouteError(res, error); }
+  });
+  app.post("/api/cooperative/sales", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCooperativeActor(uid);
+      return res.status(201).json(await checkoutSupabaseCooperativeSale(actor.tenantId, actor.uid, req.body || {}));
+    } catch (error) { return cooperativeRouteError(res, error); }
+  });
+
+  app.get("/api/marketplace/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMarketplaceActor(uid);
+      return res.json(await getSupabaseMarketplaceSnapshot(actor.tenantId));
+    } catch (error) { return marketplaceRouteError(res, error); }
+  });
+  app.post("/api/marketplace/products", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMarketplaceActor(uid);
+      await assertSupabaseMarketplaceReady(actor.tenantId);
+      return res.status(201).json(await manageSupabaseMarketplaceProduct(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return marketplaceRouteError(res, error); }
+  });
+  app.post("/api/marketplace/stock-adjustments", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMarketplaceActor(uid);
+      await assertSupabaseMarketplaceReady(actor.tenantId);
+      return res.status(201).json(await adjustSupabaseMarketplaceStock(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return marketplaceRouteError(res, error); }
+  });
+  app.post("/api/marketplace/orders", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMarketplaceActor(uid);
+      await assertSupabaseMarketplaceReady(actor.tenantId);
+      return res.status(201).json(await createSupabaseMarketplaceOrder(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return marketplaceRouteError(res, error); }
+  });
+  app.patch("/api/marketplace/orders/:orderId/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMarketplaceActor(uid);
+      await assertSupabaseMarketplaceReady(actor.tenantId);
+      return res.json(await transitionSupabaseMarketplaceOrder(actor.tenantId, actor.uid, req.params.orderId, String(req.body?.status || ""), String(req.body?.clientRequestId || "")));
+    } catch (error) { return marketplaceRouteError(res, error); }
+  });
+  app.post("/api/marketplace/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!marketplaceImportEnabled) return res.status(503).json({ error: "Impor Marketplace lama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMarketplaceActor(uid);
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor Marketplace tidak valid." });
+      const context = await getSupabaseMarketplaceImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseMarketplaceError(503, "Arsip Firestore lama belum dapat dibaca oleh backend migrasi.");
+      const readLegacyRows = async (collectionName: string) => {
+        const result = await services.db.collection(collectionName).where("tenantId", "==", context.legacyTenantKey).limit(6001).get();
+        return result.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
+      };
+      const [products, orders] = await Promise.all([readLegacyRows("marketplace_products"), readLegacyRows("marketplace_orders")]);
+      const sources = { products, orders };
+      if (action === "preview") {
+        const preview = previewSupabaseLegacyMarketplace(sources, context.existingRows, context.skus);
+        const { items: _items, ...summary } = preview;
+        return res.json(summary);
+      }
+      return res.status(201).json(await applySupabaseLegacyMarketplace(actor.tenantId, actor.uid, sources, context.existingRows, context.skus, String(req.body?.expectedFingerprint || "")));
+    } catch (error) { return marketplaceRouteError(res, error); }
+  });
+
+  app.get("/api/facility-bookings", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ error: "Runtime pemesanan fasilitas Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFacilityBookingActor(uid);
+      return res.json(await getSupabaseFacilityBookings(actor.tenantId));
+    } catch (error) { return facilityBookingRouteError(res, error); }
+  });
+  app.post("/api/facility-bookings", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ error: "Runtime pemesanan fasilitas Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFacilityBookingActor(uid);
+      await assertSupabaseFacilityBookingsReady(actor.tenantId);
+      return res.status(201).json(await manageSupabaseFacilityBooking(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return facilityBookingRouteError(res, error); }
+  });
+  app.post("/api/facility-bookings/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!facilityBookingsImportEnabled) return res.status(503).json({ error: "Impor arsip pemesanan fasilitas belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFacilityBookingActor(uid);
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor pemesanan fasilitas tidak valid." });
+      const context = await getSupabaseFacilityBookingImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseFacilityBookingError(503, "Arsip Firestore lama belum dapat dibaca backend migrasi.");
+      const snapshot = await services.db.collection("facility_bookings").where("tenantId", "==", context.legacyTenantKey).limit(6001).get();
+      const sources = snapshot.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
+      if (action === "preview") {
+        const preview = previewSupabaseLegacyFacilityBookings(sources, context.existingRows);
+        const { items: _items, ...summary } = preview;
+        return res.json(summary);
+      }
+      return res.status(201).json(await applyFacilityBookingImport(actor.tenantId, actor.uid, sources, context.existingRows, String(req.body?.expectedFingerprint || "")));
+    } catch (error) { return facilityBookingRouteError(res, error); }
+  });
+
+  app.get("/api/donation/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDonationActor(uid);
+      return res.json(await getSupabaseDonationSnapshot(actor.tenantId));
+    } catch (error) { return donationRouteError(res, error); }
+  });
+  app.post("/api/donation/campaigns", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDonationActor(uid);
+      return res.status(201).json(await manageSupabaseDonationCampaign(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return donationRouteError(res, error); }
+  });
+  app.post("/api/donation/donors", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDonationActor(uid);
+      return res.status(201).json(await manageSupabaseDonationDonor(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return donationRouteError(res, error); }
+  });
+  app.post("/api/donation/waqf-assets", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDonationActor(uid);
+      return res.status(201).json(await manageSupabaseWaqfAsset(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return donationRouteError(res, error); }
+  });
+  app.post("/api/donation/transactions", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDonationActor(uid);
+      return res.status(201).json(await recordSupabaseDonation(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return donationRouteError(res, error); }
+  });
+  app.patch("/api/donation/transactions/:donationId/void", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDonationActor(uid);
+      return res.json(await voidSupabaseDonation(actor.tenantId, actor.uid, req.params.donationId, String(req.body?.reason || ""), String(req.body?.clientRequestId || "")));
+    } catch (error) { return donationRouteError(res, error); }
+  });
+
+  app.get("/api/lms/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLmsActor(uid);
+      return res.json(await getSupabaseLmsSnapshot(actor.tenantId, actor.uid, actor.role, actor.linkedSantriId));
+    } catch (error) { return lmsRouteError(res, error); }
+  });
+
+  app.post("/api/lms/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!lmsImportEnabled) return res.status(503).json({ error: "Impor katalog LMS lama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLmsActor(uid);
+      if (!['Admin', 'SuperAdmin'].includes(actor.role)) return res.status(403).json({ error: "Pratinjau dan impor katalog LMS hanya tersedia untuk Admin tenant." });
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor LMS tidak valid." });
+      const context = await getSupabaseLmsLegacyImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseLmsError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
+      const fetchTenantRows = async (collectionName: string) => {
+        const result = await services.db.collection(collectionName).where("tenantId", "==", context.legacyTenantKey).limit(3001).get();
+        return result.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
+      };
+      const [categories, courses, assessments] = await Promise.all([
+        fetchTenantRows("lms_categories"), fetchTenantRows("lms_courses"), fetchTenantRows("lms_assessments"),
+      ]);
+      const collections = { categories, courses, assessments };
+      if (action === "preview") {
+        const preview = previewSupabaseLegacyLms(collections, context.existingRows, context.teachers);
+        const { items: _items, ...summary } = preview;
+        return res.json(summary);
+      }
+      const result = await applySupabaseLegacyLmsImport(actor.tenantId, actor.uid, collections, context.existingRows, context.teachers, String(req.body?.expectedFingerprint || ""));
+      return res.status(201).json(result);
+    } catch (error) { return lmsRouteError(res, error); }
+  });
+
+  app.post("/api/lms/catalog/:action", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLmsActor(uid);
+      const result = await manageSupabaseLmsCatalog(actor.tenantId, actor.uid, req.params.action, req.body?.item);
+      return res.status(result?.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return lmsRouteError(res, error); }
+  });
+
+  app.post("/api/lms/progress", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLmsActor(uid);
+      return res.json(await saveSupabaseLmsProgress(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return lmsRouteError(res, error); }
+  });
+
+  app.post("/api/lms/learning-records", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLmsActor(uid);
+      return res.status(201).json(await addSupabaseLmsLearningRecord(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return lmsRouteError(res, error); }
+  });
+
+  app.post("/api/lms/assignments/:assignmentId/submissions", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLmsActor(uid);
+      return res.status(201).json(await submitSupabaseLmsAssignment(actor.tenantId, actor.uid, req.params.assignmentId, req.body));
+    } catch (error) { return lmsRouteError(res, error); }
+  });
+
+  app.patch("/api/lms/submissions/:submissionId/grade", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLmsActor(uid);
+      return res.json(await gradeSupabaseLmsSubmission(actor.tenantId, actor.uid, req.params.submissionId, req.body));
+    } catch (error) { return lmsRouteError(res, error); }
+  });
+
+  const loadLibraryActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseLibraryError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).library) {
+      throw new SupabaseLibraryError(403, "Akses modul Perpustakaan tidak diberikan kepada akun ini.");
+    }
+    if (!["Admin", "SuperAdmin", "Ustadz"].includes(profile.role)) {
+      throw new SupabaseLibraryError(403, "Modul Perpustakaan Supabase saat ini hanya tersedia untuk Admin dan Ustadz.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const libraryRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseLibraryError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase library endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Perpustakaan Supabase belum dapat diproses." });
+  };
+  const loadLaundryActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseLaundryError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).laundry) {
+      throw new SupabaseLaundryError(403, "Akses modul Laundry tidak diberikan kepada akun ini.");
+    }
+    if (profile.role !== "Admin" && profile.role !== "SuperAdmin") {
+      throw new SupabaseLaundryError(403, "Pengelolaan Laundry saat ini hanya tersedia untuk Admin tenant.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const laundryRuntimeEnabled = String(process.env.SUPABASE_LAUNDRY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const laundryRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseLaundryError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase laundry endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Laundry Supabase belum dapat diproses." });
+  };
+  const financeRuntimeEnabled = String(process.env.SUPABASE_FINANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const dashboardRuntimeEnabled = String(process.env.SUPABASE_DASHBOARD_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const dashboardRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseDashboardError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase dashboard endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Ringkasan dashboard Supabase belum dapat dimuat." });
+  };
+  const loadDashboardActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseDashboardError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!["Admin", "SuperAdmin"].includes(profile.role)) {
+      throw new SupabaseDashboardError(403, "Dashboard eksekutif hanya tersedia untuk Admin pesantren.");
+    }
+    const modulePermissions = resolveUserModulePermissions(profile.role, profile.modulePermissions);
+    if (!modulePermissions.dashboard) throw new SupabaseDashboardError(403, "Akses dashboard tidak diberikan kepada akun ini.");
+    return {
+      uid,
+      tenantId,
+      permissions: {
+        ppdb: modulePermissions.ppdb === true,
+        "master-data": modulePermissions["master-data"] === true,
+        finance: modulePermissions.finance === true,
+      },
+    };
+  };
+
+  app.get("/api/dashboard/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!dashboardRuntimeEnabled) return res.status(503).json({ error: "Runtime Dashboard Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDashboardActor(uid);
+      return res.json(await getSupabaseDashboardSnapshot(actor.tenantId, actor.uid, actor.permissions, req.query.period));
+    } catch (error) { return dashboardRouteError(res, error); }
+  });
+
+  const loadFinanceActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseFinanceError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).finance) {
+      throw new SupabaseFinanceError(403, "Akses modul keuangan tidak diberikan kepada akun ini.");
+    }
+    if (!["Admin", "SuperAdmin", "Ustadz", "Walisantri"].includes(profile.role)) {
+      throw new SupabaseFinanceError(403, "Role ini belum memiliki alur Finance Supabase.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const financeRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseFinanceError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase finance endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Finance Supabase belum dapat diproses." });
+  };
+
+  app.get("/api/library/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      return res.json(await listSupabaseLibrarySnapshot(actor.tenantId));
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.post("/api/library/books", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      const result = await upsertSupabaseLibraryBook(actor.tenantId, actor.uid, actor.role, req.body?.book);
+      return res.status(result?.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.post("/api/library/checkout", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      const result = await checkoutSupabaseLibraryBook(actor.tenantId, actor.uid, actor.role, req.body?.checkout);
+      return res.status(result?.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.post("/api/library/returns", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      const result = await returnSupabaseLibraryBook(actor.tenantId, actor.uid, actor.role, req.body?.return);
+      return res.status(result?.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.get("/api/laundry/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!laundryRuntimeEnabled) return res.status(503).json({ error: "Runtime Laundry Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLaundryActor(uid);
+      return res.json(await getSupabaseLaundrySnapshot(actor.tenantId));
+    } catch (error) { return laundryRouteError(res, error); }
+  });
+
+  app.post("/api/laundry/orders", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!laundryRuntimeEnabled) return res.status(503).json({ error: "Runtime Laundry Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLaundryActor(uid);
+      const result = await createSupabaseLaundryOrder(actor.tenantId, actor.uid, req.body || {});
+      return res.status(result?.replayed ? 200 : 201).json(result);
+    } catch (error) { return laundryRouteError(res, error); }
+  });
+
+  app.post("/api/laundry/orders/:orderId/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!laundryRuntimeEnabled) return res.status(503).json({ error: "Runtime Laundry Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLaundryActor(uid);
+      const result = await transitionSupabaseLaundryOrder(actor.tenantId, actor.uid, req.params.orderId, req.body || {});
+      return res.json(result);
+    } catch (error) { return laundryRouteError(res, error); }
+  });
+
+  app.post("/api/laundry/settings", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!laundryRuntimeEnabled) return res.status(503).json({ error: "Runtime Laundry Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLaundryActor(uid);
+      const result = await saveSupabaseLaundrySettings(actor.tenantId, actor.uid, req.body || {});
+      return res.status(200).json(result);
+    } catch (error) { return laundryRouteError(res, error); }
+  });
+
+  app.get("/api/finance/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceActor(uid);
+      return res.json(await listSupabaseFinanceSnapshot(actor.tenantId, actor.uid, actor.role));
+    } catch (error) { return financeRouteError(res, error); }
+  });
+
+  app.post("/api/finance/bills", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceActor(uid);
+      const result = await createSupabaseFinanceBills(actor.tenantId, actor.uid, actor.role, req.body?.batch);
+      return res.status(201).json(result);
+    } catch (error) { return financeRouteError(res, error); }
+  });
+
+  app.post("/api/finance/expenses", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceActor(uid);
+      const result = await createSupabaseFinanceExpense(actor.tenantId, actor.uid, actor.role, actor.name, req.body?.expense);
+      return res.status(201).json(result);
+    } catch (error) { return financeRouteError(res, error); }
+  });
+
+  app.post("/api/finance/expenses/review", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Persetujuan pengeluaran hanya untuk Admin tenant." });
+      const result = await reviewSupabaseFinanceExpense(actor.tenantId, actor.uid, actor.role, req.body?.review);
+      return res.json(result);
+    } catch (error) { return financeRouteError(res, error); }
+  });
+
+  app.post("/api/finance/bills/review", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Verifikasi tagihan hanya untuk Admin tenant." });
+      const review = req.body?.review || {};
+      const priorBill = review.action === "reject" ? await getSupabaseFinanceBill(actor.tenantId, String(review.billId || "")) : null;
+      const result = await reviewSupabaseFinanceBill(actor.tenantId, actor.uid, actor.role, review);
+      if (priorBill?.proof_storage_provider === "supabase" && typeof priorBill.proof_storage_path === "string") {
+        try { await deleteSupabaseFinanceProof(priorBill.proof_storage_path); } catch { /* Private orphan cleanup can be retried by maintenance. */ }
+      }
+      return res.json(result);
+    } catch (error) { return financeRouteError(res, error); }
+  });
+
+  app.post("/api/finance/lock", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Penutupan buku hanya untuk Admin tenant." });
+      const result = await setSupabaseFinanceLock(actor.tenantId, actor.uid, actor.role, req.body?.lock);
+      return res.json(result);
+    } catch (error) { return financeRouteError(res, error); }
+  });
+
+  app.get("/api/master-data/structures", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      return res.json({ records: await listSupabaseMasterDataStructures(actor.tenantId) });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.put("/api/master-data/structures/:category/:recordId", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      const record = await upsertSupabaseMasterDataStructure(actor.tenantId, req.params.category, req.params.recordId, req.body?.record);
+      return res.json({ record });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.delete("/api/master-data/structures/:category/:recordId", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      return res.json(await deleteSupabaseMasterDataStructure(actor.tenantId, req.params.category, req.params.recordId));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/master-data/students", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      return res.json({ records: await listSupabaseMasterDataStudents(actor.tenantId) });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.put("/api/master-data/students/:studentId", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      const record = await upsertSupabaseMasterDataStudent(actor.tenantId, req.params.studentId, req.body?.record);
+      return res.json({ record });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.delete("/api/master-data/students/:studentId", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      return res.json(await archiveSupabaseMasterDataStudent(actor.tenantId, req.params.studentId));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/boarding/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingRuntimeEnabled) return res.status(503).json({ error: "Runtime asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) throw new SupabaseOnboardingError(403, "Role ini tidak dapat membaca data asrama.");
+      const snapshot = await listSupabaseBoardingSnapshot(actor.tenantId);
+      return res.json(snapshot);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.put("/api/boarding/students/:studentId/room", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingRuntimeEnabled) return res.status(503).json({ error: "Runtime asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      requireMasterDataAdmin(actor);
+      const result = await assignSupabaseStudentRoom(actor.tenantId, req.params.studentId, req.body?.roomId ?? null, req.body?.buildingId ?? null);
+      return res.json(result);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/boarding/permits", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: "Runtime izin asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      return res.json(await listSupabaseBoardingPermits(actor));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/permits", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: "Runtime izin asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      const result = await requestSupabaseBoardingPermit(actor, req.body);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/permits/:permitId/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: "Runtime izin asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      const result = await transitionSupabaseBoardingPermit(actor, req.params.permitId, req.body);
+      return res.json(result);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/permits/migrate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingPermitsImportEnabled) return res.status(503).json({ error: "Impor izin asrama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      requireMasterDataAdmin(actor);
+      const services = await getAdminServices();
+      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore izin lama belum dapat diakses." });
+      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      const snapshot = await services.db.collection("boarding_permits")
+        .where("tenantId", "==", legacyTenantId)
+        .limit(1001)
+        .get();
+      if (snapshot.size > 1000) return res.status(413).json({ error: "Impor izin dibatasi maksimal 1.000 record per tenant." });
+      const sourceRows = snapshot.docs.map((doc) => ({ sourceId: doc.id, value: doc.data() as Record<string, any> }));
+      const apply = req.body?.apply === true;
+      if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_PERMITS") {
+        return res.status(400).json({ error: "Konfirmasi impor izin tidak cocok." });
+      }
+      const report = await migrateSupabaseLegacyBoardingPermits(
+        actor,
+        sourceRows,
+        apply,
+        String(req.body?.previewFingerprint || ""),
+      );
+      if (apply && !report.canApply) return res.status(409).json(report);
+      return res.json(report);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/boarding/discipline", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: "Runtime kedisiplinan asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      return res.json(await listSupabaseBoardingDiscipline(actor));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/discipline", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: "Runtime kedisiplinan asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      const result = await createSupabaseBoardingDiscipline(actor, req.body);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/discipline/:incidentId/resolve", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: "Runtime kedisiplinan asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      return res.json(await resolveSupabaseBoardingDiscipline(actor, req.params.incidentId, req.body));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/discipline/migrate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingDisciplineImportEnabled) return res.status(503).json({ error: "Impor kedisiplinan asrama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      requireMasterDataAdmin(actor);
+      const services = await getAdminServices();
+      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore kedisiplinan lama belum dapat diakses." });
+      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      const snapshot = await services.db.collection("boarding_discipline")
+        .where("tenantId", "==", legacyTenantId).limit(1001).get();
+      if (snapshot.size > 1000) return res.status(413).json({ error: "Impor kedisiplinan dibatasi maksimal 1.000 record per tenant." });
+      const sourceRows = snapshot.docs.map((doc) => ({ sourceId: doc.id, value: doc.data() as Record<string, any> }));
+      const apply = req.body?.apply === true;
+      if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_DISCIPLINE") {
+        return res.status(400).json({ error: "Konfirmasi impor kedisiplinan tidak cocok." });
+      }
+      const report = await migrateSupabaseLegacyBoardingDiscipline(actor, sourceRows, apply, String(req.body?.previewFingerprint || ""));
+      if (apply && !report.canApply) return res.status(409).json(report);
+      return res.json(report);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/boarding/attendance", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ error: "Runtime kehadiran asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      return res.json(await getSupabaseBoardingAttendance(actor, req.query.date));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/attendance", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ error: "Runtime kehadiran asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      return res.json(await setSupabaseBoardingAttendance(actor, req.body));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/attendance/migrate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingAttendanceImportEnabled) return res.status(503).json({ error: "Impor kehadiran asrama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      requireMasterDataAdmin(actor);
+      const services = await getAdminServices();
+      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore kehadiran lama belum dapat diakses." });
+      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      const snapshot = await services.db.collection("boarding_attendance")
+        .where("tenantId", "==", legacyTenantId).limit(1001).get();
+      if (snapshot.size > 1000) return res.status(413).json({ error: "Impor kehadiran dibatasi maksimal 1.000 record per tenant." });
+      const sourceRows = snapshot.docs.map((doc) => ({ sourceId: doc.id, value: doc.data() as Record<string, any> }));
+      const apply = req.body?.apply === true;
+      if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_ATTENDANCE") {
+        return res.status(400).json({ error: "Konfirmasi impor kehadiran tidak cocok." });
+      }
+      const report = await migrateSupabaseLegacyBoardingAttendance(actor, req.body?.attendanceDate, sourceRows, apply, String(req.body?.previewFingerprint || ""));
+      if (apply && !report.canApply) return res.status(409).json(report);
+      return res.json(report);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/boarding/staff-assignments", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: "Runtime penugasan asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      requireMasterDataAdmin(actor);
+      return res.json(await listSupabaseBoardingStaffAssignments(actor));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/staff-assignments", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: "Runtime penugasan asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      requireMasterDataAdmin(actor);
+      const result = await setSupabaseBoardingStaffAssignment(actor, req.body);
+      return res.json(result);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/boarding/facility-ops", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: "Runtime audit dan tiket fasilitas Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      return res.json(await listSupabaseBoardingFacilityOps(actor));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/facility-ops/audits", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: "Runtime audit fasilitas Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      const result = await createSupabaseBoardingCleanlinessAudit(actor, req.body);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/facility-ops/tickets", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: "Runtime tiket fasilitas Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      actor.name = String(actor.name || actor.email || "Pengguna");
+      const result = await createSupabaseBoardingFacilityTicket(actor, req.body);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/facility-ops/tickets/:ticketId/resolve", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: "Runtime tiket fasilitas Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      return res.json(await resolveSupabaseBoardingFacilityTicket(actor, req.params.ticketId, req.body?.clientRequestId));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/facility-ops/migrate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingFacilityOpsImportEnabled) return res.status(503).json({ error: "Impor audit dan tiket fasilitas belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      requireMasterDataAdmin(actor);
+      const services = await getAdminServices();
+      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore asrama lama belum dapat diakses." });
+      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      const [auditSnapshot, ticketSnapshot] = await Promise.all([
+        services.db.collection("boarding_audits").where("tenantId", "==", legacyTenantId).limit(1001).get(),
+        services.db.collection("boarding_tickets").where("tenantId", "==", legacyTenantId).limit(1001).get(),
+      ]);
+      if (auditSnapshot.size > 1000 || ticketSnapshot.size > 1000) {
+        return res.status(413).json({ error: "Impor dibatasi maksimal 1.000 audit dan 1.000 tiket per tenant." });
+      }
+      const audits = auditSnapshot.docs.map((document) => {
+        const value = document.data() as Record<string, any>;
+        return { ...value, sourceRecordId: String(value.id || document.id) };
+      });
+      const tickets = ticketSnapshot.docs.map((document) => {
+        const value = document.data() as Record<string, any>;
+        return { ...value, sourceRecordId: String(value.id || document.id) };
+      });
+      const apply = req.body?.apply === true;
+      if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_FACILITY_OPS") {
+        return res.status(400).json({ error: "Konfirmasi impor audit dan tiket tidak cocok." });
+      }
+      const report = await migrateSupabaseLegacyBoardingFacilityOps(
+        actor, audits, tickets, apply, String(req.body?.previewFingerprint || ""),
+      );
+      if (apply && !report.canApply) return res.status(409).json(report);
+      return res.json(report);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/tahfidz/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      return res.json(await listSupabaseTahfidzSnapshot(actor.tenantId, actor.uid, actor.role));
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.get("/api/tahfidz/sessions", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const kind = String(req.query.kind || "");
+      if (kind !== "talaqqi" && kind !== "exam") return res.status(400).json({ error: "Jenis sesi Tahfidz tidak valid." });
+      const actor = await loadTahfidzActor(uid);
+      return res.json(await listSupabaseTahfidzSessions(actor.tenantId, actor.uid, actor.role, kind));
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/sessions", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) return res.status(403).json({ error: "Role ini hanya dapat melihat sesi Tahfidz." });
+      const result = await mutateSupabaseTahfidzSession(actor.tenantId, actor.uid, actor.role, req.body?.session);
+      return res.status(req.body?.session?.sessionId || result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/records", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) return res.status(403).json({ error: "Role tidak dapat mencatat setoran." });
+      const result = await recordSupabaseTahfidzSetoran(actor.tenantId, actor.uid, actor.role, actor.name, req.body?.record);
+      return res.status(result.alreadyRecorded ? 200 : 201).json(result);
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/targets", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      const result = await recordSupabaseTahfidzTarget(actor.tenantId, actor.uid, actor.role, req.body?.target);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/halaqahs", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Hanya Admin pesantren yang dapat mengelola halaqah." });
+      const result = await saveSupabaseTahfidzHalaqah(actor.tenantId, actor.uid, actor.role, req.body?.halaqah);
+      return res.status(result.alreadyApplied || req.body?.halaqah?.id ? 200 : 201).json(result);
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/memberships", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Hanya Admin pesantren yang dapat mengatur penempatan halaqah." });
+      const result = await assignSupabaseTahfidzMembership(actor.tenantId, actor.uid, actor.role, req.body?.membership);
+      return res.status(result.alreadyApplied || result.alreadyAssigned ? 200 : 201).json(result);
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/migration", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzImportEnabled) return res.status(503).json({ error: "Impor Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) {
+        return res.status(403).json({ error: "Hanya Admin tenant yang dapat memindahkan konfigurasi Tahfidz." });
+      }
+      const services = await getAdminServices();
+      if (services.ok === false) return res.status(503).json({ error: "Sumber legacy Firestore untuk preview belum tersedia." });
+      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      const [halaqahSnapshot, studentSnapshot] = await Promise.all([
+        services.db.collection("master_data").where("tenantId", "==", legacyTenantId).where("category", "==", "Halaqah").limit(2001).get(),
+        services.db.collection("entityRecords").where("tenantId", "==", legacyTenantId).where("type", "==", "Santri").limit(5001).get(),
+      ]);
+      if (halaqahSnapshot.size > 2000 || studentSnapshot.size > 5000) {
+        return res.status(413).json({ error: "Snapshot dibatasi maksimal 2.000 halaqah dan 5.000 santri." });
+      }
+      const halaqahRows = halaqahSnapshot.docs.map((doc) => ({ id: doc.id, record: doc.data() as Record<string, any> }));
+      const studentRows = studentSnapshot.docs.map((doc) => ({ id: doc.id, record: doc.data() as Record<string, any> }));
+      const apply = req.body?.apply === true;
+      if (apply && String(req.body?.confirmation || "") !== "IMPORT_TAHFIDZ_CONFIGURATION") {
+        return res.status(400).json({ error: "Konfirmasi impor Tahfidz tidak cocok." });
+      }
+      const report = await migrateSupabaseTahfidzConfiguration(
+        actor.tenantId,
+        halaqahRows,
+        studentRows,
+        apply,
+        String(req.body?.previewFingerprint || "")
+      );
+      if (apply && !report.canApply) return res.status(409).json(report);
+      return res.json(report);
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.get("/api/communication/announcements", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime pengumuman Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const announcements = await listCommunicationAnnouncements(actor.tenantId, actor);
+      return res.json({ announcements });
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/announcements", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime pengumuman Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const announcement = await createCommunicationAnnouncement(actor.tenantId, actor, req.body || {});
+      return res.status(201).json({ announcement });
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/announcements/:announcementId/acknowledge", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime pengumuman Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await acknowledgeCommunicationAnnouncement(actor.tenantId, actor, String(req.params.announcementId || ""));
+      return res.json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/announcements/migrate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationImportEnabled) return res.status(503).json({ error: "Impor pengumuman Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      if (!['Admin', 'SuperAdmin'].includes(String(actor.role))) {
+        return res.status(403).json({ error: "Hanya Admin tenant yang dapat mengimpor pengumuman." });
+      }
+      const services = await getAdminServices();
+      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore untuk preview migrasi belum tersedia." });
+      const snapshot = await services.db.collection("communication_announcements")
+        .where("tenantId", "==", actor.tenantId)
+        .limit(501)
+        .get();
+      if (snapshot.size > 500) return res.status(413).json({ error: "Impor pengumuman dibatasi maksimal 500 record per preview." });
+      const sourceRows = snapshot.docs.map((doc) => ({ sourceId: doc.id, value: doc.data() as Record<string, any> }));
+      const preview = await previewLegacyCommunicationAnnouncements(actor.tenantId, actor, sourceRows);
+      const summary = {
+        previewFingerprint: preview.fingerprint,
+        scanned: sourceRows.length,
+        ready: preview.rows.length,
+        blockingIssues: preview.issues,
+        warnings: preview.warnings,
+        canApply: preview.issues.length === 0,
+      };
+
+      if (req.body?.apply !== true) return res.json(summary);
+      if (String(req.body?.confirmation || '') !== 'IMPORT_COMMUNICATION_ANNOUNCEMENTS') {
+        return res.status(400).json({ error: "Konfirmasi impor pengumuman tidak cocok." });
+      }
+      if (String(req.body?.previewFingerprint || '') !== preview.fingerprint) {
+        return res.status(409).json({ error: "Snapshot atau pemetaan akun berubah sejak preview. Jalankan preview baru." });
+      }
+      if (preview.issues.length) {
+        return res.status(409).json({ error: "Preview memiliki record yang perlu direkonsiliasi sebelum impor." });
+      }
+      const result = await applyLegacyCommunicationAnnouncements(preview, actor);
+      return res.json({ ok: true, scanned: sourceRows.length, ...result, warnings: preview.warnings });
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
 
   // AI/OCR routes remain closed until auth, tenant scope, and rate limits are enforced.
   const unavailableUntilAuth = (_req: any, res: any) => {
@@ -434,10 +2531,116 @@ async function startServer() {
   app.post("/api/header-ai-search", unavailableUntilAuth);
   app.post("/api/ocr", unavailableUntilAuth);
 
+  const systemSettingsRuntimeEnabled = String(process.env.SUPABASE_SYSTEM_SETTINGS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const systemSettingsImportEnabled = String(process.env.SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const loadSettingsActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    if (!profile) return null;
+    const tenantId = String(profile.tenantId || "").trim();
+    if (String(profile.status || "").toLowerCase() !== "active" || !tenantId) return null;
+    return { ...profile, tenantId };
+  };
+  const systemSettingsRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SystemSettingsStoreError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase system settings endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Pengaturan tenant belum dapat diproses." });
+  };
+
+  app.get("/api/system/settings", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ error: "Runtime pengaturan Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadSettingsActor(uid);
+      if (!actor) return res.status(403).json({ error: "Profil aktif dengan tenant valid diperlukan." });
+      const saved = await getTenantSystemSettings(actor.tenantId);
+      const settings = saved?.settings || null;
+      if (actor.role !== "SuperAdmin" && settings) {
+        delete settings.integrations;
+        delete settings.permissions;
+      }
+      return res.json({ settings, updatedAt: saved?.updatedAt || null });
+    } catch (error) {
+      return systemSettingsRouteError(res, error);
+    }
+  });
+
+  app.put("/api/system/settings", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ error: "Runtime pengaturan Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadSettingsActor(uid);
+      if (!actor) return res.status(403).json({ error: "Profil aktif dengan tenant valid diperlukan." });
+      if (actor.role !== "SuperAdmin" || !resolveUserModulePermissions(actor.role, actor.modulePermissions).settings) {
+        return res.status(403).json({ error: "Hanya SuperAdmin yang dapat mengubah pengaturan sistem." });
+      }
+      if (!Object.prototype.hasOwnProperty.call(req.body || {}, "expectedUpdatedAt")) {
+        return res.status(400).json({ error: "Versi pengaturan yang dibaca wajib dikirim sebelum menyimpan." });
+      }
+      const expectedValue = req.body?.expectedUpdatedAt;
+      const isTimestamp = typeof expectedValue === "string"
+        && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i.test(expectedValue)
+        && Number.isFinite(Date.parse(expectedValue));
+      if (expectedValue !== null && !isTimestamp) {
+        return res.status(400).json({ error: "Versi pengaturan tidak valid. Muat ulang sebelum menyimpan." });
+      }
+      // Preserve the exact Postgres timestamp text: converting through Date would truncate microseconds.
+      const expectedUpdatedAt = typeof expectedValue === "string" ? expectedValue : null;
+      const saved = await saveTenantSystemSettings(actor.tenantId, actor.uid, expectedUpdatedAt, req.body?.settings);
+      return res.json(saved);
+    } catch (error) {
+      return systemSettingsRouteError(res, error);
+    }
+  });
+
+  app.post("/api/system/settings/migrate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!systemSettingsImportEnabled) return res.status(503).json({ error: "Impor pengaturan Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadSettingsActor(uid);
+      if (!actor || actor.role !== "SuperAdmin") return res.status(403).json({ error: "Hanya SuperAdmin tenant yang dapat mengimpor pengaturan." });
+      const services = await getAdminServices();
+      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore pengaturan lama belum dapat diakses." });
+      const legacySnapshot = await services.db.collection("tenants").doc(actor.tenantId)
+        .collection("settings").doc("global").get();
+      const legacySource = legacySnapshot.exists ? legacySnapshot.data() || {} : {};
+      const sanitizedSettings = sanitizeTenantSettings(legacySource);
+      const sourceFingerprint = createHash("sha256")
+        .update(JSON.stringify({ tenantId: actor.tenantId, exists: legacySnapshot.exists, settings: sanitizedSettings }))
+        .digest("hex");
+      const preview = {
+        sourceExists: legacySnapshot.exists,
+        previewFingerprint: sourceFingerprint,
+        settings: sanitizedSettings,
+        canApply: true,
+      };
+      if (req.body?.apply !== true) return res.json(preview);
+      if (String(req.body?.confirmation || "") !== "IMPORT_TENANT_SYSTEM_SETTINGS") {
+        return res.status(400).json({ error: "Konfirmasi impor pengaturan tidak cocok." });
+      }
+      if (String(req.body?.previewFingerprint || "") !== sourceFingerprint) {
+        return res.status(409).json({ error: "Sumber atau pengaturan berubah sejak preview. Jalankan preview ulang." });
+      }
+      const result = await importLegacyTenantSystemSettings(actor.tenantId, actor.uid, sourceFingerprint, sanitizedSettings);
+      return res.json({ ...preview, ...result, importedAt: new Date().toISOString() });
+    } catch (error) {
+      return systemSettingsRouteError(res, error);
+    }
+  });
+
   // Remove legacy browser-visible secrets before a client may subscribe to tenant settings.
   app.post("/api/system/settings/prepare", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    const services = getAdminServices();
+    if (String(process.env.LEGACY_FIREBASE_SETTINGS_CLEANUP_ENABLED || "").trim().toLowerCase() !== "true") {
+      return res.status(410).json({ error: "Pembersihan settings Firebase legacy dinonaktifkan dari runtime. Gunakan prosedur migrasi terkontrol." });
+    }
+    const services = await getAdminServices();
     if (services.ok === false) return res.status(503).json({ error: "Backend pengamanan settings belum tersedia." });
     try {
       const uid = (req as any).user?.uid;
@@ -446,6 +2649,9 @@ async function startServer() {
       if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
         return res.status(403).json({ error: "Profil aktif dengan tenant valid diperlukan." });
       }
+      if (profile.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Pembersihan settings legacy hanya dapat dijalankan oleh SuperAdmin." });
+      }
       const settingsRef = services.db.collection("tenants").doc(tenantId).collection("settings").doc("global");
       const settingsSnapshot = await settingsRef.get();
       if (settingsSnapshot.exists) {
@@ -453,6 +2659,7 @@ async function startServer() {
         if (settings.tenantId !== tenantId) return res.status(409).json({ error: "Tenant pada settings tidak cocok." });
         const integrations = settings.integrations && typeof settings.integrations === "object" ? settings.integrations : {};
         const patch: Record<string, any> = {};
+        const FieldValue = await loadFirestoreFieldValue();
         ["waGatewayKey", "paymentGatewayKey", "smtpPassword", "smtpPass"].forEach((field) => {
           if (Object.prototype.hasOwnProperty.call(integrations, field)) patch["integrations." + field] = FieldValue.delete();
         });
@@ -468,364 +2675,143 @@ async function startServer() {
     }
   });
 
+  const searchFeedbackRuntimeEnabled = String(process.env.SUPABASE_SEARCH_FEEDBACK_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  app.post("/api/search/feedback", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!searchFeedbackRuntimeEnabled) return res.status(503).json({ error: "Penyimpanan feedback Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadSettingsActor(uid);
+      if (!actor) return res.status(403).json({ error: "Profil aktif dengan tenant valid diperlukan." });
+      const ratingValue = req.body?.rating;
+      if (ratingValue !== "up" && ratingValue !== "down") return res.status(400).json({ error: "Rating feedback tidak valid." });
+      const requestId = typeof req.body?.requestId === "string" ? req.body.requestId.trim() : "";
+      const result = await recordTenantSearchFeedback(actor.tenantId, actor.uid, requestId, ratingValue === "up" ? 1 : -1);
+      return res.json(result);
+    } catch (error) {
+      if (error instanceof SearchFeedbackStoreError) return res.status(error.status).json({ error: error.message });
+      console.error("Search feedback endpoint failed:", error instanceof Error ? error.message : "unknown error");
+      return res.status(503).json({ error: "Feedback belum dapat disimpan." });
+    }
+  });
+
 
   // Local data is migrated only after an authenticated tenant admin explicitly submits a reviewed dataset.
   app.post('/api/data-migrations/local-storage', requireAuth, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const services = getAdminServices();
-    if (services.ok === false) return res.status(503).json({ error: 'Layanan migrasi backend belum tersedia.' });
-    try {
-      const uid = (req as any).user?.uid;
-      const datasetKey = typeof req.body?.datasetKey === 'string' ? req.body.datasetKey : '';
-      const dataset = LEGACY_LOCAL_STORAGE_DATASETS[datasetKey];
-      if (!uid || !dataset) return res.status(400).json({ error: 'Dataset migrasi tidak dikenal.' });
-      const profile = await getUserProfile(uid);
-      const tenantId = typeof profile?.tenantId === 'string' ? profile.tenantId.trim() : '';
-      const role = String(profile?.role || '');
-      if (!profile || String(profile.status || '').toLowerCase() !== 'active' || !tenantId) {
-        return res.status(403).json({ error: 'Profil aktif dengan tenant valid diperlukan.' });
-      }
-      if (!['Admin', 'SuperAdmin'].includes(role)) return res.status(403).json({ error: 'Migrasi lokal hanya dapat dijalankan Admin tenant.' });
-      if (!resolveUserModulePermissions(role, profile.modulePermissions)[dataset.module]) {
-        return res.status(403).json({ error: 'Role Anda tidak memiliki izin pada modul dataset ini.' });
-      }
-      const incoming = req.body?.items;
-      const batchIndex = Number(req.body?.batchIndex ?? 0);
-      const batchCount = Number(req.body?.batchCount ?? 1);
-      if (!Number.isInteger(batchIndex) || !Number.isInteger(batchCount) || batchCount < 1 || batchCount > 50 || batchIndex < 0 || batchIndex >= batchCount) return res.status(400).json({ error: 'Nomor batch migrasi tidak valid.' });
-      if (!Array.isArray(incoming) || incoming.length > 350) return res.status(400).json({ error: 'Setiap batch harus berupa daftar maksimal 350 record.' });
-      if (dataset.kind === 'value' && (incoming.length !== 1 || incoming[0]?.id !== dataset.settingId)) {
-        return res.status(400).json({ error: 'Record pengaturan tidak sesuai dengan daftar migrasi yang diizinkan.' });
-      }
-      const seenIds = new Set<string>();
-      const records = incoming.map((item: any) => {
-        if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error('Setiap item harus berupa record.');
-        const id = typeof item.id === 'string' ? item.id.trim() : '';
-        if (typeof item.tenantId === 'string' && item.tenantId.trim() !== tenantId) throw new Error('Record lokal terikat ke tenant lain dan tidak dapat dipindahkan.');
-        if (!id || id.length > 300 || seenIds.has(id)) throw new Error('ID record kosong, terlalu panjang, atau duplikat.');
-        seenIds.add(id);
-        const sanitized = JSON.parse(JSON.stringify(item, (key, value) => {
-          if (key === 'tenantId' || key === '_firestoreId' || key === 'createdByUid') return undefined;
-          if (/password|secret|api.?key|smtp|token/i.test(key)) return undefined;
-          return value;
-        }));
-        return {
-          ...sanitized,
-          id,
-          tenantId,
-          createdByUid: uid,
-          migrationSourceKey: datasetKey,
-          migratedAt: new Date().toISOString(),
-          ...(datasetKey === 'hub_announcements' ? { sourceModule: 'healthcare', notificationType: 'urgent' } : {}),
-          ...(datasetKey === 'hub_messages' ? { sourceModule: 'healthcare', notificationType: 'message' } : {}),
-        };
-      });
-      const migrationId = 'm_' + encodeURIComponent(tenantId).slice(0, 180) + '_' + encodeURIComponent(uid).slice(0, 180) + '_' + datasetKey + '_b' + batchIndex;
-      const markerRef = services.db.collection('dataMigrationJobs').doc(migrationId);
-      const outcome = await services.db.runTransaction(async transaction => {
-        const markerSnapshot = await transaction.get(markerRef);
-        if (markerSnapshot.exists && markerSnapshot.get('status') === 'completed') {
-          return {
-            imported: Number(markerSnapshot.get('imported') || 0),
-            skipped: Number(markerSnapshot.get('skipped') || 0),
-            alreadyCompleted: true,
-          };
-        }
-        const refs = records.map((record: any) => services.db.collection(dataset.collection).doc(operationalRecordDocumentId(tenantId, record.id)));
-        const snapshots = await Promise.all(refs.map((ref: any) => transaction.get(ref)));
-        let imported = 0;
-        let skipped = 0;
-        snapshots.forEach((snapshot: any, index: number) => {
-          if (snapshot.exists) { skipped += 1; return; }
-          transaction.create(refs[index], records[index]);
-          imported += 1;
-        });
-        const status = skipped > 0 ? 'partial' : 'completed';
-        transaction.set(markerRef, {
-          tenantId,
-          createdByUid: uid,
-          datasetKey,
-          batchIndex,
-          batchCount,
-          module: dataset.module,
-          collection: dataset.collection,
-          status,
-          imported,
-          skipped,
-          completedAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
-        return { imported, skipped, alreadyCompleted: false };
-      });
-      return res.json(outcome);
-    } catch (error: any) {
-      console.error('Local tenant data migration failed:', error?.code || 'invalid-dataset');
-      return res.status(error?.message?.includes('ID record') || error?.message?.includes('item harus') || error?.message?.includes('tenant lain') ? 400 : 500)
-        .json({ error: error?.message || 'Migrasi data lokal gagal.' });
-    }
+    return res.status(410).json({ error: 'Impor browser lama ke Firestore telah dinonaktifkan. Gunakan alur impor tenant Supabase yang memiliki preview dan rekonsiliasi.' });
   });
 
   // Public PPDB is served only by this trusted server. Tenant identity is fixed in server configuration.
   app.get("/api/public/ppdb/config", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    const services = getAdminServices();
-    if (services.ok === false) return res.status(503).json({ error: "Layanan PPDB belum tersedia." });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran PPDB Supabase belum disiapkan; pendaftaran belum dapat dibuka." });
+    if (!publicPpdbEnabled) return res.status(503).json({ error: "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren." });
     try {
-      const config = await loadPublicPpdbTenant(services.db);
-      return res.json({ academicYear: config.academicYear, orgInfo: config.orgInfo });
+      const config = await getSupabasePublicPpdbConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
+      return res.json({ academicYear: config.academicYear, orgInfo: config.orgInfo, documentUploadEnabled: true });
     } catch (err: any) {
-      return res.status(err.status || 503).json({ error: err.status ? err.message : "Konfigurasi PPDB belum dapat dimuat." });
+      const status = Number(err?.status) || 503;
+      return res.status(status).json({ error: status === 503 ? "Konfigurasi PPDB Supabase belum tersedia." : err.message });
     }
   });
 
   app.post("/api/public/ppdb/registrations", async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const clientKey = String(req.ip || req.socket.remoteAddress || "unknown");
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran PPDB Supabase belum disiapkan; pendaftaran belum dapat dibuka." });
+    if (!publicPpdbEnabled) return res.status(503).json({ error: "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren." });
     if (!consumePublicPpdbRateLimit(clientKey)) {
       res.setHeader("Retry-After", "900");
       return res.status(429).json({ error: "Batas pendaftaran sementara tercapai. Silakan coba lagi 15 menit kemudian." });
     }
-    const services = getAdminServices();
-    if (services.ok === false) return res.status(503).json({ error: "Layanan PPDB belum tersedia." });
     try {
-      const config = await loadPublicPpdbTenant(services.db);
-      const raw = req.body?.candidate;
-      if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw publicPpdbError(400, "Data pendaftaran tidak valid.");
-      const text = (key: string, max: number, required = false) => {
-        const value = typeof raw[key] === "string" ? raw[key].trim() : "";
-        if (required && !value) throw publicPpdbError(400, "Kolom " + key + " wajib diisi.");
-        if (value.length > max) throw publicPpdbError(400, "Kolom " + key + " melebihi batas karakter.");
-        return value;
-      };
-      const name = text("name", 120, true);
-      const gender = text("gender", 1, true);
-      const grade = text("grade", 40, true);
-      const previousSchool = text("previousSchool", 160, true);
-      const nik = text("nik", 16, true).replace(/\D/g, "");
-      const nisn = text("nisn", 10).replace(/\D/g, "");
-      const phone = text("phone", 24, true);
-      const whatsappPhone = text("whatsappPhone", 24, true);
-      const email = text("email", 254).toLowerCase();
-      const pob = text("pob", 100, true);
-      const dob = text("dob", 10, true);
-      const address = text("address", 500, true);
-      const province = text("province", 80);
-      const regency = text("regency", 80);
-      const district = text("district", 80);
-      const village = text("village", 80);
-      const fatherName = text("fatherName", 120, true);
-      const motherName = text("motherName", 120, true);
-      const fatherJob = text("fatherJob", 100);
-      const motherJob = text("motherJob", 100);
-      const fatherEducation = text("fatherEducation", 80);
-      const motherEducation = text("motherEducation", 80);
-      const familyIncome = text("familyIncome", 80);
-      const documents = raw.documents && typeof raw.documents === "object" ? raw.documents : {};
-      if (gender !== "L" && gender !== "P") throw publicPpdbError(400, "Jenis kelamin tidak valid.");
-      if (!/^\d{16}$/.test(nik)) throw publicPpdbError(400, "NIK harus terdiri dari 16 digit.");
-      if (nisn && !/^\d{10}$/.test(nisn)) throw publicPpdbError(400, "NISN harus terdiri dari 10 digit.");
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || Number.isNaN(Date.parse(dob))) throw publicPpdbError(400, "Tanggal lahir tidak valid.");
-      const validPhone = /^\+?[0-9 ().-]{8,24}$/;
-      if (!validPhone.test(phone) || !validPhone.test(whatsappPhone)) throw publicPpdbError(400, "Nomor telepon tidak valid.");
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw publicPpdbError(400, "Alamat email tidak valid.");
-      if (documents.kk !== true || documents.birthCertificate !== true || documents.pasPhoto !== true) {
-        throw publicPpdbError(400, "Dokumen wajib belum ditandai lengkap.");
-      }
-
-      const yearMatch = config.academicYear.match(/^(\d{4})/);
-      const registrationYear = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
-      const candidateRef = services.db.collection("candidates").doc();
-      const candidateCollection = services.db.collection("candidates");
-      const entityCollection = services.db.collection("entityRecords");
-      const identityEntries = [{ kind: "nik", value: nik }, ...(nisn ? [{ kind: "nisn", value: nisn }] : [])];
-      const identityRefs = identityEntries.map(({ kind, value }) => services.db.collection("identityReservations")
-        .doc(encodeURIComponent(config.tenantId) + "_" + kind + "_" + encodeURIComponent(value)));
-      const identityChecks = identityEntries.flatMap(({ kind, value }) => [
-        candidateCollection.where("tenantId", "==", config.tenantId).where(kind, "==", value),
-        entityCollection.where("tenantId", "==", config.tenantId).where(kind, "==", value),
-      ]);
-      const counterRef = services.db.collection("ppdbCounters").doc(encodeURIComponent(config.tenantId) + "_" + registrationYear);
-      const createdAt = new Date().toISOString();
-      const createdCandidate = await services.db.runTransaction(async (transaction) => {
-        const counterSnapshot = await transaction.get(counterRef);
-        const counterData = counterSnapshot.exists ? counterSnapshot.data() || {} : {};
-        let sequence = Math.max(0, Number(counterData.lastSequence) || 0) + 1;
-        let registrationId = "";
-        let registrationRef: any = null;
-        let collision = true;
-        for (let attempt = 0; attempt < 20; attempt += 1) {
-          registrationId = "PPDB-" + registrationYear + "-" + String(sequence).padStart(6, "0");
-          registrationRef = services.db.collection("ppdbRegistrationReservations")
-            .doc(encodeURIComponent(config.tenantId) + "_" + encodeURIComponent(registrationId));
-          const reservationSnapshot = await transaction.get(registrationRef);
-          const candidateSnapshot = await transaction.get(candidateCollection.where("tenantId", "==", config.tenantId).where("registrationId", "==", registrationId));
-          if (!(reservationSnapshot as any).exists && candidateSnapshot.empty) { collision = false; break; }
-          sequence += 1;
-        }
-        if (collision || !registrationRef) throw publicPpdbError(409, "Nomor pendaftaran belum dapat dialokasikan. Silakan hubungi panitia.");
-        const identitySnapshots = await Promise.all(identityRefs.map((reference) => transaction.get(reference)));
-        const existingIdentitySnapshots = await Promise.all(identityChecks.map((identityQuery) => transaction.get(identityQuery)));
-        if (identitySnapshots.some((snapshot) => snapshot.exists) || existingIdentitySnapshots.some((snapshot) => !snapshot.empty)) {
-          throw publicPpdbError(409, "NIK atau NISN sudah terdaftar. Periksa kembali data atau hubungi panitia.");
-        }
-
-        const candidate = { tenantId: config.tenantId, registrationId, name, gender, grade, previousSchool, phone, whatsappPhone, email,
-          nik, nisn, pob, dob, address, province, regency, district, village, fatherName, motherName, fatherJob, motherJob,
-          fatherEducation, motherEducation, familyIncome, stage: "Registered", dateApplied: createdAt.slice(0, 10),
-          score: 0, syncToMasterData: false, onboardingStatus: "Pending", createdAt, updatedAt: createdAt,
-          documents: { kk: true, birthCertificate: true, reportCards: documents.reportCards === true,
-            ijazah: documents.ijazah === true, skhun: documents.skhun === true, pasPhoto: true },
-        };
-        transaction.set(counterRef, { tenantId: config.tenantId, year: registrationYear, lastSequence: sequence, updatedAt: createdAt });
-        transaction.set(candidateRef, candidate);
-        transaction.set(registrationRef, { tenantId: config.tenantId, registrationId, candidateId: candidateRef.id, createdAt });
-        identityEntries.forEach((item, index) => transaction.set(identityRefs[index], { tenantId: config.tenantId, kind: item.kind,
-          value: item.value, ownerId: candidateRef.id, recordId: candidateRef.id, source: "public_ppdb", createdAt }));
-        return { id: candidateRef.id, ...candidate };
-      });
-      return res.status(201).json({ candidate: createdCandidate });
+      return res.status(201).json(await submitSupabasePublicPpdbRegistration(
+        String(process.env.PUBLIC_PPDB_TENANT_ID || ""), clientKey, req.body,
+      ));
     } catch (err: any) {
       const status = Number(err?.status) || 500;
-      if (status >= 500) console.error("Public PPDB registration failed:", err);
-      return res.status(status).json({ error: status === 500 ? "Pendaftaran gagal diproses. Silakan coba kembali atau hubungi panitia." : err.message });
+      if (status === 429) res.setHeader("Retry-After", "900");
+      if (status >= 500) console.error("Supabase public PPDB registration failed:", err?.name || "error");
+      return res.status(status).json({ error: status === 500 ? "Pendaftaran gagal diproses. Silakan coba kembali atau hubungi panitia." : err.message || "Pendaftaran belum dapat diproses." });
     }
   });
 
   // Payment proof bytes and billing metadata are handled only by this authenticated backend.
   app.post("/api/finance/payment-proofs", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    const services = getAdminServices();
-    if (services.ok === false) return res.status(503).json({ error: "Layanan keuangan belum tersedia." });
-    const uid = (req as any).user?.uid;
-    if (!uid || !consumePaymentProofUploadLimit(uid)) {
-      res.setHeader("Retry-After", "900");
-      return res.status(429).json({ error: "Batas unggahan bukti pembayaran sementara tercapai." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Upload bukti pembayaran Supabase belum disiapkan; penyimpanan lama telah dinonaktifkan." });
+    const uid = String((req as any).user?.uid || "");
+    if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+    if (String(process.env.SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED || "").trim().toLowerCase() !== "true") {
+      return res.status(503).json({ error: "Storage bukti pembayaran Supabase belum diaktifkan operator." });
     }
-
-    let storedFile: any = null;
+    let uploadedPath = "";
     try {
-      const actor = await loadFinanceProofActor(uid);
-      const billingId = typeof req.body?.billingId === "string" ? req.body.billingId.trim() : "";
-      if (!billingId || billingId.length > 150 || billingId.includes("/")) {
-        return res.status(400).json({ error: "ID tagihan tidak valid." });
-      }
-      const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType : "";
-      if (!["image/png", "image/jpeg", "application/pdf"].includes(mimeType)) {
-        return res.status(400).json({ error: "Format bukti harus PNG, JPG, atau PDF." });
-      }
-      const base64 = typeof req.body?.base64 === "string" ? req.body.base64 : "";
-      const maxBytes = 3 * 1024 * 1024;
-      const maxEncodedLength = Math.ceil(maxBytes / 3) * 4;
-      if (!base64 || base64.length > maxEncodedLength || base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
-        return res.status(400).json({ error: "Ukuran atau encoding berkas tidak valid. Maksimal 3 MB." });
-      }
-      const bytes = Buffer.from(base64, "base64");
-      if (!bytes.length || bytes.length > maxBytes || bytes.toString("base64") !== base64 || detectPaymentProofMime(bytes) !== mimeType) {
-        return res.status(400).json({ error: "Isi berkas tidak cocok dengan tipe PNG, JPG, atau PDF." });
-      }
-      const payChannel = typeof req.body?.payChannel === "string" ? req.body.payChannel.trim() : "";
-      if (!["BSI", "Muamalat", "MandiriSyariah"].includes(payChannel)) {
-        return res.status(400).json({ error: "Metode transfer tidak valid." });
-      }
-
-      const billingRef = services.db.collection("financeBillings").doc(billingId);
-      const billingSnapshot = await billingRef.get();
-      if (!billingSnapshot.exists) return res.status(404).json({ error: "Tagihan tidak ditemukan." });
-      const billing = billingSnapshot.data() || {};
-      if (billing.tenantId !== actor.tenantId) return res.status(404).json({ error: "Tagihan tidak ditemukan pada tenant ini." });
-      const santriId = typeof billing.santriId === "string" ? billing.santriId : "";
-      if (actor.role === "Walisantri" && (!actor.linkedSantriId || actor.linkedSantriId !== santriId)) {
-        return res.status(403).json({ error: "Tagihan tidak terhubung ke akun wali ini." });
-      }
-      if (!["Unpaid", "Overdue", "Partial"].includes(String(billing.status || ""))) {
-        return res.status(409).json({ error: "Status tagihan tidak menerima bukti pembayaran baru." });
-      }
-
-      const bucketName = String(process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || "").trim();
-      if (!bucketName || !adminApp) return res.status(503).json({ error: "Bucket Storage server belum dikonfigurasi." });
-      const safeName = safePaymentProofName(req.body?.fileName);
-      const safeSantriId = santriId || "unlinked";
-      const storagePath = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(safeSantriId) + "/" + encodeURIComponent(billingId) + "/" + uid + "-" + Date.now() + "-" + randomUUID() + "-" + safeName;
-      const bucket = getStorage(adminApp).bucket(bucketName);
-      storedFile = bucket.file(storagePath);
-      await storedFile.save(bytes, {
-        resumable: false,
-        metadata: {
-          contentType: mimeType,
-          metadata: { tenantId: actor.tenantId, santriId: safeSantriId, billingId, uploadedByUid: uid },
-        },
-      });
-
-      const financeControlRef = services.db.collection("tenants").doc(actor.tenantId).collection("settings").doc("financeControl");
-      await services.db.runTransaction(async (transaction) => {
-        const controlSnapshot = await transaction.get(financeControlRef);
-        const latestSnapshot = await transaction.get(billingRef);
-        if (!latestSnapshot.exists) throw financeProofError(404, "Tagihan tidak ditemukan.");
-        const latest = latestSnapshot.data() || {};
-        if (latest.tenantId !== actor.tenantId || latest.santriId !== billing.santriId) throw financeProofError(404, "Tagihan tidak ditemukan pada tenant ini.");
-        if (actor.role === "Walisantri" && latest.santriId !== actor.linkedSantriId) throw financeProofError(403, "Tagihan tidak terhubung ke akun wali ini.");
-        if (controlSnapshot.exists && controlSnapshot.data()?.financeLocked === true) throw financeProofError(423, "Buku keuangan sedang ditutup.");
-        if (!["Unpaid", "Overdue", "Partial"].includes(String(latest.status || ""))) throw financeProofError(409, "Status tagihan berubah dan tidak menerima bukti baru.");
-        transaction.update(billingRef, {
-          status: "Verification",
-          paymentMethod: "Transfer Manual (" + payChannel + ")",
-          proofFile: safeName,
-          proofStoragePath: storagePath,
-          uploadedAt: new Date().toISOString(),
-          updatedAt: FieldValue.serverTimestamp(),
-          updatedByUid: uid,
-        });
-      });
-      return res.status(201).json({ ok: true, proofFile: safeName, proofStoragePath: storagePath });
+        const actor = await loadFinanceProofActor(uid);
+        const billingId = typeof req.body?.billingId === "string" ? req.body.billingId.trim() : "";
+        if (!billingId || billingId.length > 150) return res.status(400).json({ error: "ID tagihan tidak valid." });
+        const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType : "";
+        if (!["image/png", "image/jpeg", "application/pdf"].includes(mimeType)) return res.status(400).json({ error: "Format bukti harus PNG, JPG, atau PDF." });
+        const base64 = typeof req.body?.base64 === "string" ? req.body.base64 : "";
+        const maxBytes = 3 * 1024 * 1024;
+        const maxEncodedLength = Math.ceil(maxBytes / 3) * 4;
+        if (!base64 || base64.length > maxEncodedLength || base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) return res.status(400).json({ error: "Ukuran atau encoding berkas tidak valid. Maksimal 3 MB." });
+        const bytes = Buffer.from(base64, "base64");
+        if (!bytes.length || bytes.length > maxBytes || bytes.toString("base64") !== base64 || detectPaymentProofMime(bytes) !== mimeType) return res.status(400).json({ error: "Isi berkas tidak cocok dengan tipe PNG, JPG, atau PDF." });
+        const payChannel = typeof req.body?.payChannel === "string" ? req.body.payChannel.trim() : "";
+        if (!["BSI", "Muamalat", "MandiriSyariah"].includes(payChannel)) return res.status(400).json({ error: "Metode transfer tidak valid." });
+        const billing = await getSupabaseFinanceBill(actor.tenantId, billingId);
+        if (actor.role === "Walisantri" && (!actor.linkedSantriId || actor.linkedSantriId !== String(billing.student_id))) return res.status(404).json({ error: "Tagihan tidak ditemukan pada tenant ini." });
+        const requestId = typeof req.body?.clientRequestId === "string" ? req.body.clientRequestId : "";
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) return res.status(400).json({ error: "Kunci unggahan pembayaran tidak valid." });
+        if (!consumePaymentProofUploadLimit(uid)) {
+          res.setHeader("Retry-After", "900");
+          return res.status(429).json({ error: "Batas unggahan bukti pembayaran sementara tercapai." });
+        }
+        const safeName = safePaymentProofName(req.body?.fileName);
+        const safeSantriId = String(billing.student_id || "unlinked");
+        uploadedPath = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(safeSantriId) + "/" + encodeURIComponent(billingId) + "/" + uid + "-" + Date.now() + "-" + randomUUID() + "-" + safeName;
+        await uploadSupabaseFinanceProof(uploadedPath, bytes, mimeType);
+        const fileSha256 = createHash("sha256").update(bytes).digest("hex");
+        const result = await registerSupabaseFinanceProof(actor.tenantId, uid, actor.role, billingId, uploadedPath, safeName, payChannel, fileSha256, requestId);
+        const alreadyApplied = result.alreadyApplied === true;
+        const savedBill = alreadyApplied ? await getSupabaseFinanceBill(actor.tenantId, billingId) : null;
+        if (alreadyApplied) { try { await deleteSupabaseFinanceProof(uploadedPath); } catch { /* The referenced original remains private and readable. */ } }
+        return res.status(alreadyApplied ? 200 : 201).json({ ok: true, alreadyApplied, proofFile: alreadyApplied ? savedBill?.proof_file : safeName, proofStoragePath: alreadyApplied ? savedBill?.proof_storage_path : uploadedPath, proofStorageProvider: "supabase" });
     } catch (error: any) {
-      if (storedFile) {
-        try { await storedFile.delete({ ignoreNotFound: true }); } catch { /* Compensating cleanup is best-effort. */ }
-      }
-      if (error?.status) return res.status(error.status).json({ error: error.message });
-      console.error("Payment proof upload failed:", error?.code || "internal");
+      if (uploadedPath) { try { await deleteSupabaseFinanceProof(uploadedPath); } catch { /* Best-effort cleanup after a failed metadata transaction. */ } }
+      if (error instanceof FinanceProofStorageError || error?.status) return res.status(Number(error.status) || 503).json({ error: error.message || "Bukti pembayaran gagal disimpan." });
+      console.error("Supabase payment proof upload failed:", error?.code || "internal");
       return res.status(500).json({ error: "Bukti pembayaran gagal disimpan. Silakan coba kembali." });
     }
   });
 
   app.get("/api/finance/payment-proofs/:billingId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "private, no-store");
-    const services = getAdminServices();
-    if (services.ok === false) return res.status(503).json({ error: "Layanan keuangan belum tersedia." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Bukti pembayaran Supabase belum disiapkan; penyimpanan lama telah dinonaktifkan." });
     try {
-      const uid = (req as any).user?.uid;
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadFinanceProofActor(uid);
-      const billingId = typeof req.params.billingId === "string" ? req.params.billingId.trim() : "";
-      if (!billingId || billingId.length > 150 || billingId.includes("/")) return res.status(400).json({ error: "ID tagihan tidak valid." });
-      const billingSnapshot = await services.db.collection("financeBillings").doc(billingId).get();
-      if (!billingSnapshot.exists) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
-      const billing = billingSnapshot.data() || {};
-      if (billing.tenantId !== actor.tenantId || typeof billing.proofStoragePath !== "string") return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
-      const santriId = typeof billing.santriId === "string" && billing.santriId ? billing.santriId : "unlinked";
-      if (actor.role === "Walisantri" && (!actor.linkedSantriId || actor.linkedSantriId !== santriId)) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
-      const expectedPrefix = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(santriId) + "/" + encodeURIComponent(billingId) + "/";
-      if (!billing.proofStoragePath.startsWith(expectedPrefix) || billing.proofStoragePath.includes("..")) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
-      const bucketName = String(process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || "").trim();
-      if (!bucketName || !adminApp) return res.status(503).json({ error: "Bucket Storage server belum dikonfigurasi." });
-      const file = getStorage(adminApp).bucket(bucketName).file(billing.proofStoragePath);
-      const [exists] = await file.exists();
-      if (!exists) return res.status(404).json({ error: "Berkas bukti transfer tidak ditemukan." });
-      const [metadata] = await file.getMetadata();
-      const custom = metadata.metadata || {};
-      if ((custom.tenantId && custom.tenantId !== actor.tenantId) || (custom.billingId && custom.billingId !== billingId) || (custom.santriId && custom.santriId !== santriId)) {
-        return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
-      }
-      const allowedMime = ["image/png", "image/jpeg", "application/pdf"];
-      const mimeType = String(metadata.contentType || "");
-      if (!allowedMime.includes(mimeType)) return res.status(415).json({ error: "Tipe berkas bukti tidak didukung." });
-      res.setHeader("Content-Type", mimeType);
-      res.setHeader("Content-Disposition", 'inline; filename="' + safePaymentProofName(billing.proofFile) + '"');
-      res.setHeader("X-Content-Type-Options", "nosniff");
-      getStorage(adminApp).bucket(bucketName).file(billing.proofStoragePath).createReadStream()
-        .on("error", () => { if (!res.headersSent) res.status(404).end(); else res.end(); })
-        .pipe(res);
+        const uid = String((req as any).user?.uid || "");
+        if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+        const actor = await loadFinanceProofActor(uid);
+        const billingId = typeof req.params.billingId === "string" ? req.params.billingId.trim() : "";
+        if (!billingId || billingId.length > 150) return res.status(400).json({ error: "ID tagihan tidak valid." });
+        const billing = await getSupabaseFinanceBill(actor.tenantId, billingId);
+        if (actor.role === "Walisantri" && (!actor.linkedSantriId || actor.linkedSantriId !== String(billing.student_id))) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
+        if (billing.proof_storage_provider !== "supabase" || typeof billing.proof_storage_path !== "string") return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
+        const safeSantriId = String(billing.student_id || "unlinked");
+        const expectedPrefix = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(safeSantriId) + "/" + encodeURIComponent(billingId) + "/";
+        if (!billing.proof_storage_path.startsWith(expectedPrefix) || billing.proof_storage_path.includes("..")) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
+        const proof = await downloadSupabaseFinanceProof(billing.proof_storage_path);
+        if (!["image/png", "image/jpeg", "application/pdf"].includes(proof.contentType)) return res.status(415).json({ error: "Tipe berkas bukti tidak didukung." });
+        res.setHeader("Content-Disposition", 'inline; filename="' + safePaymentProofName(billing.proof_file) + '"');
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Content-Type", proof.contentType);
+        return res.end(proof.bytes);
     } catch (error: any) {
-      if (error?.status) return res.status(error.status).json({ error: error.message });
-      console.error("Payment proof download failed:", error?.code || "internal");
+      if (error instanceof FinanceProofStorageError || error?.status) return res.status(Number(error.status) || 503).json({ error: error.message || "Bukti transfer tidak dapat dibuka." });
+      console.error("Supabase payment proof download failed:", error?.code || "internal");
       return res.status(500).json({ error: "Bukti pembayaran tidak dapat dibuka." });
     }
   });
@@ -833,6 +2819,64 @@ async function startServer() {
   // --------------------------------------------------------------------------
   // USER MANAGEMENT ENDPOINTS
   // --------------------------------------------------------------------------
+
+  // HRIS core runtime: employee directory and attendance are tenant scoped.
+  app.get("/api/hris/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.json(await listSupabaseHrisSnapshot(actor.tenantId));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.post("/api/hris/employees", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.json(await upsertSupabaseHrisEmployee(actor.tenantId, actor.uid, req.body?.employee));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.post("/api/hris/attendance", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.json(await recordSupabaseHrisAttendance(actor.tenantId, actor.uid, req.body));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.post("/api/hris/leave-requests", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.status(201).json(await requestSupabaseHrisLeave(actor.tenantId, actor.uid, req.body?.leaveRequest));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.post("/api/hris/leave-requests/:leaveRequestId/review", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.json(await reviewSupabaseHrisLeave(actor.tenantId, actor.uid, {
+        ...(req.body || {}), leaveRequestId: req.params.leaveRequestId,
+      }));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
 
   // 1. List / Search Users for acting admin's tenant
   app.get("/api/users", requireAuth, requireTenantAdmin, async (req, res) => {
@@ -1062,11 +3106,6 @@ async function startServer() {
       if (status && ["active", "disabled", "inactive"].includes(String(status).toLowerCase())) {
         const normalizedStatus = String(status).toLowerCase();
         updates.status = normalizedStatus;
-        try {
-          await setAuthDisabled(targetUid, normalizedStatus !== "active");
-        } catch {
-          // Continue if auth update fails due to preview limits
-        }
       }
 
       // Module permissions handling
@@ -1094,13 +3133,24 @@ async function startServer() {
         updates.modulePermissions = merged;
       }
 
-      await updateUserProfile(targetUid, {
-        name: updates.name,
-        role: updates.role,
-        status: updates.status,
-        modulePermissions: updates.modulePermissions,
-        updatedByUid: actor.uid,
-      });
+      const statusChanged = typeof updates.status === "string";
+      const wasDisabled = String(targetData.status || "active").toLowerCase() !== "active";
+      if (statusChanged) await setAuthDisabled(targetUid, updates.status !== "active");
+      try {
+        await updateUserProfile(targetUid, {
+          name: updates.name,
+          role: updates.role,
+          status: updates.status,
+          modulePermissions: updates.modulePermissions,
+          updatedByUid: actor.uid,
+        });
+      } catch (profileError) {
+        if (statusChanged) {
+          try { await setAuthDisabled(targetUid, wasDisabled); }
+          catch { console.error("Could not compensate Supabase Auth ban after profile update failure."); }
+        }
+        throw profileError;
+      }
 
       return res.json({
         success: true,

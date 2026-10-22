@@ -3,6 +3,7 @@ import type { User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { setAuthSession } from '../authSession';
 import { supabase, supabaseClientConfigured } from '../utils/supabase';
 import { UserRole } from '../rbac';
+import { normalizeTenantTimeZone } from '../lib/tenantTimeZone';
 
 export interface AuthUser {
   uid: string;
@@ -12,6 +13,7 @@ export interface AuthUser {
   role: UserRole;
   tenantId: string;
   tenantName: string;
+  tenantTimeZone?: string;
   tenantType?: 'Pesantren' | 'Sekolah' | 'Tahfidz Center';
   unitId?: string;
   status: string;
@@ -77,6 +79,7 @@ function profileToAuthUser(uid: string, email: string | null, profile: Record<st
     tenantName: typeof profile.tenantName === 'string' && profile.tenantName.trim()
       ? profile.tenantName.trim()
       : tenantId,
+    tenantTimeZone: normalizeTenantTimeZone(profile.tenantTimeZone),
     tenantType: profile.tenantType === 'Sekolah' || profile.tenantType === 'Tahfidz Center'
       ? profile.tenantType
       : 'Pesantren',
@@ -93,21 +96,30 @@ function profileToAuthUser(uid: string, email: string | null, profile: Record<st
 }
 
 async function loadUserProfile(authUser: SupabaseAuthUser): Promise<{ user: AuthUser; role: UserRole }> {
+  const roleByDatabaseValue: Record<string, UserRole> = {
+    super_admin: 'SuperAdmin',
+    admin: 'Admin',
+    ustadz: 'Ustadz',
+    santri: 'Santri',
+    wali_santri: 'Walisantri',
+  };
   const { data, error } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('id', authUser.id)
+    .from('profiles')
+    .select('user_id,tenant_id,email,display_name,username,role,status,must_change_password,module_permissions,unit_id,linked_santri_id,linked_santri_name,linked_santri_nis,linked_santri_class,linked_santri_room,tenants(name,tenant_type,status,time_zone)')
+    .eq('user_id', authUser.id)
     .maybeSingle();
   if (error) throw new Error('Profil akun tidak dapat dibaca. Silakan coba kembali.');
   if (!data) throw new Error('Profil akun belum diprovisikan. Hubungi administrator pesantren.');
+  const tenant = Array.isArray(data.tenants) ? data.tenants[0] : data.tenants;
   const profile = {
-    role: data.role,
+    role: roleByDatabaseValue[String(data.role || '').toLowerCase()] || data.role,
     tenantId: data.tenant_id,
-    tenantName: data.tenant_name,
-    tenantType: data.tenant_type,
+    tenantName: tenant?.name,
+    tenantTimeZone: tenant?.time_zone,
+    tenantType: tenant?.tenant_type,
     unitId: data.unit_id,
-    status: data.status,
-    name: data.name,
+    status: tenant?.status !== 'active' ? 'disabled' : data.status === 'suspended' ? 'disabled' : data.status === 'invited' ? 'inactive' : data.status,
+    name: data.display_name,
     email: data.email,
     username: data.username,
     mustChangePassword: data.must_change_password,

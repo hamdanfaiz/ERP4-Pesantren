@@ -37,10 +37,14 @@ import {
 import { UserRole } from '../rbac';
 import { ModuleId } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { getLegacyOperationalDataSummary, migrateLegacyOperationalDataset } from '../firebaseUtils';
+import { getAccessToken } from '../authSession';
+import { supabaseRuntimeEnabled } from '../runtimeBackend';
+
+const SUPABASE_SYSTEM_SETTINGS = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_SYSTEM_SETTINGS);
+const SUPABASE_SYSTEM_SETTINGS_IMPORT = import.meta.env.VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED === 'true';
 
 export function SettingsManager() {
-  const { role, user } = useAuth();
+  const { role, user, refreshProfile } = useAuth();
   const { 
     settings, 
     general, 
@@ -49,30 +53,89 @@ export function SettingsManager() {
     mobileConfig: currentMobileConfig,
     permissions: currentPermissions,
     updateSettings,
+    settingsReady,
+    settingsLoadError,
+    retrySettingsLoad,
     exportBackup
   } = useSystemSettings();
 
   const [activeTab, setActiveTab] = useState<'general' | 'organization' | 'security' | 'integrations' | 'mobile' | 'backup'>('general');
   const [isSaving, setIsSaving] = useState(false);
+  const [settingsConflict, setSettingsConflict] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [legacyDataSummary, setLegacyDataSummary] = useState<any[]>(() => getLegacyOperationalDataSummary());
+  const [legacyDataSummary, setLegacyDataSummary] = useState<any[]>([]);
   const [migrationBusyKey, setMigrationBusyKey] = useState<string | null>(null);
   const [migrationResults, setMigrationResults] = useState<Record<string, string>>({});
   const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [settingsMigrationBusy, setSettingsMigrationBusy] = useState(false);
+  const [settingsMigrationReport, setSettingsMigrationReport] = useState<any>(null);
+  const [settingsMigrationError, setSettingsMigrationError] = useState<string | null>(null);
   const canMigrateLocalData = role === 'Admin' || role === 'SuperAdmin';
   const handleMigrateLegacyDataset = async (key: string) => {
+    if (SUPABASE_SYSTEM_SETTINGS) {
+      setMigrationError('Impor dataset lokal melalui Firebase dinonaktifkan pada runtime pengaturan Supabase.');
+      return;
+    }
     setMigrationBusyKey(key); setMigrationError(null);
     try {
+      const { migrateLegacyOperationalDataset } = await import('../firebaseUtils');
       const result = await migrateLegacyOperationalDataset(key);
       setMigrationResults(previous => ({ ...previous, [key]: result.alreadyCompleted ? 'Dataset ini sudah pernah diproses; tidak ada duplikasi.' : `Masuk: ${result.imported}; dilewati karena ID sudah ada: ${result.skipped}.` }));
     } catch (error: any) {
       setMigrationError(error?.message || 'Migrasi gagal. Data lokal tetap dipertahankan.');
     } finally {
       setMigrationBusyKey(null);
-      setLegacyDataSummary(getLegacyOperationalDataSummary());
+      void refreshLegacyDataSummary();
     }
   };
-  const refreshLegacyDataSummary = () => { setMigrationError(null); setLegacyDataSummary(getLegacyOperationalDataSummary()); };
+  const refreshLegacyDataSummary = async () => {
+    setMigrationError(null);
+    if (SUPABASE_SYSTEM_SETTINGS) { setLegacyDataSummary([]); return; }
+    try {
+      const { getLegacyOperationalDataSummary } = await import('../firebaseUtils');
+      setLegacyDataSummary(getLegacyOperationalDataSummary());
+    } catch (error: any) {
+      setMigrationError(error?.message || 'Ringkasan data lokal belum dapat dimuat.');
+    }
+  };
+
+  useEffect(() => {
+    if (SUPABASE_SYSTEM_SETTINGS) return;
+    let active = true;
+    void import('../firebaseUtils').then(({ getLegacyOperationalDataSummary }) => {
+      if (active) setLegacyDataSummary(getLegacyOperationalDataSummary());
+    }).catch(() => {
+      if (active) setLegacyDataSummary([]);
+    });
+    return () => { active = false; };
+  }, []);
+
+  const runSettingsMigration = async (apply: boolean) => {
+    setSettingsMigrationBusy(true);
+    setSettingsMigrationError(null);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch('/api/system/settings/migrate', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({
+          apply,
+          ...(apply ? {
+            confirmation: 'IMPORT_TENANT_SYSTEM_SETTINGS',
+            previewFingerprint: settingsMigrationReport?.previewFingerprint,
+          } : {}),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Migrasi pengaturan tenant gagal.');
+      setSettingsMigrationReport(payload);
+    } catch (error: any) {
+      setSettingsMigrationError(error?.message || 'Migrasi pengaturan tenant gagal.');
+    } finally {
+      setSettingsMigrationBusy(false);
+    }
+  };
 
   // Local form states initialized from store
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
@@ -88,6 +151,7 @@ export function SettingsManager() {
     setIntegrations(currentIntegrations);
     setMobileConfig(currentMobileConfig);
     setPermissions(currentPermissions);
+    setSettingsConflict(false);
   }, [settings]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -107,9 +171,18 @@ export function SettingsManager() {
         mobileConfig,
         permissions,
       });
+      if (SUPABASE_SYSTEM_SETTINGS && generalSettings.timezone !== user?.tenantTimeZone) {
+        try {
+          await refreshProfile();
+        } catch {
+          showToast('Pengaturan tersimpan. Muat ulang sesi agar zona waktu Tahfidz diperbarui.', 'info');
+          return;
+        }
+      }
       showToast('Konfigurasi sistem berhasil disimpan dan disinkronkan secara realtime!', 'success');
     } catch (err: any) {
       console.error(err);
+      if (err?.status === 409) setSettingsConflict(true);
       showToast(err.message || 'Gagal menyimpan pengaturan ke database.', 'error');
     } finally {
       setIsSaving(false);
@@ -235,6 +308,23 @@ export function SettingsManager() {
         </div>
       )}
 
+      {SUPABASE_SYSTEM_SETTINGS && !settingsReady && (
+        <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+              {settingsLoadError ? <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" /> : <RefreshCw className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-indigo-500" />}
+              <div>
+                <h2 className="font-semibold text-slate-900 dark:text-white">{settingsLoadError ? "Pengaturan belum dapat dimuat" : "Memuat pengaturan tenant"}</h2>
+                <p role={settingsLoadError ? "alert" : "status"} className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                  {settingsLoadError || "Pengaturan dari Supabase sedang dimuat. Form dikunci sampai data tenant diterima agar nilai awal tidak menimpa konfigurasi tersimpan."}
+                </p>
+                {settingsLoadError && <button type="button" onClick={retrySettingsLoad} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Coba lagi</button>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -254,7 +344,7 @@ export function SettingsManager() {
         <div className="flex items-center gap-3">
           <button 
             onClick={handleSaveAll}
-            disabled={isSaving}
+            disabled={isSaving || !settingsReady || settingsConflict}
             className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-indigo-500 transition-colors shadow-sm disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
@@ -262,6 +352,13 @@ export function SettingsManager() {
           </button>
         </div>
       </div>
+
+      {settingsConflict && (
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/25 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm">Pengaturan sudah diubah oleh Admin lain. Perubahan Anda belum disimpan; muat ulang data terbaru sebelum mengedit kembali.</p>
+          <button type="button" onClick={retrySettingsLoad} className="shrink-0 rounded-lg border border-amber-400/60 px-3 py-2 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900/30">Muat ulang pengaturan</button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Navigation Sidebar */}
@@ -318,7 +415,7 @@ export function SettingsManager() {
                   </p>
                 </div>
 
-                <div className="p-5 rounded-xl border border-indigo-500/25 bg-indigo-500/[0.04] space-y-4">
+                {!SUPABASE_SYSTEM_SETTINGS && <div className="p-5 rounded-xl border border-indigo-500/25 bg-indigo-500/[0.04] space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Migrasi data operasional dari browser</h3>
@@ -349,7 +446,7 @@ export function SettingsManager() {
                     {legacyDataSummary.every(dataset => dataset.count === 0 && dataset.valid) && <p className="py-3 text-xs text-slate-500">Tidak ada dataset operasional legacy yang terdeteksi pada browser ini.</p>}
                   </div>
                   <p className="text-[11px] text-slate-500">Draf formulir Master Data dan identitas lokal tidak diimpor otomatis. Draf harus diselesaikan melalui form; identitas santri/wali harus cocok dengan Master Data.</p>
-                </div>
+                </div>}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -412,7 +509,7 @@ export function SettingsManager() {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
-                      Zona Waktu Server & Presensi
+                      Zona Waktu Pesantren (Tahfidz & Operasional)
                     </label>
                     <select 
                       value={generalSettings.timezone}
@@ -904,7 +1001,7 @@ export function SettingsManager() {
                     <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
                       <div className="flex justify-between py-1 border-b border-white/5">
                         <span>Database Target:</span>
-                        <span className="font-mono text-emerald-400">Firestore (settings/global)</span>
+                        <span className="font-mono text-emerald-400">{SUPABASE_SYSTEM_SETTINGS ? 'Supabase (tenant_settings)' : 'Firestore (settings/global)'}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-white/5">
                         <span>Modul Terdaftar:</span>
@@ -921,6 +1018,33 @@ export function SettingsManager() {
                     </div>
                   </div>
                 </div>
+
+                {role === 'SuperAdmin' && SUPABASE_SYSTEM_SETTINGS_IMPORT && (
+                  <section className="p-5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3" aria-labelledby="settings-import-title">
+                    <div>
+                      <h3 id="settings-import-title" className="font-semibold text-sm text-slate-800 dark:text-slate-200">Migrasi Pengaturan Tenant dari Firestore</h3>
+                      <p className="text-xs text-slate-500 mt-1">Preview membaca snapshot tenant aktif dan membuang field credential. Terapkan hanya setelah memeriksa nama pesantren dan tahun ajaran.</p>
+                    </div>
+                    {settingsMigrationError && <p role="alert" className="text-xs text-rose-500">{settingsMigrationError}</p>}
+                    {settingsMigrationReport && (
+                      <div className="rounded-lg bg-slate-100 dark:bg-black/20 p-3 text-xs space-y-1">
+                        <p>Sumber ditemukan: <strong>{settingsMigrationReport.sourceExists ? 'Ya' : 'Tidak; snapshot kosong'}</strong></p>
+                        <p>Pesantren: <strong>{settingsMigrationReport.settings?.orgInfo?.schoolName || '—'}</strong></p>
+                        <p>Tahun ajaran: <strong>{settingsMigrationReport.settings?.generalSettings?.academicYear || '—'}</strong></p>
+                        <p className="break-all text-slate-500">Fingerprint: {settingsMigrationReport.previewFingerprint}</p>
+                        {settingsMigrationReport.alreadyImported && <p className="text-emerald-600">Snapshot ini sudah pernah diimpor.</p>}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => void runSettingsMigration(false)} disabled={settingsMigrationBusy} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-xs font-medium disabled:opacity-50">
+                        {settingsMigrationBusy ? 'Memeriksa…' : 'Preview snapshot'}
+                      </button>
+                      <button type="button" onClick={() => void runSettingsMigration(true)} disabled={settingsMigrationBusy || !settingsMigrationReport?.previewFingerprint || settingsMigrationReport?.alreadyImported} className="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium disabled:opacity-50">
+                        {settingsMigrationBusy ? 'Memproses…' : 'Terapkan snapshot yang ditinjau'}
+                      </button>
+                    </div>
+                  </section>
+                )}
               </div>
             )}
 

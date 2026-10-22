@@ -64,7 +64,7 @@ export function UserManagementView() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [backendErrorCode, setBackendErrorCode] = useState<string | null>(null);
-  const [isSdkUnavailable, setIsSdkUnavailable] = useState(false);
+  const [isIdentityUnavailable, setIsIdentityUnavailable] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
   // Modals state
@@ -117,7 +117,7 @@ export function UserManagementView() {
     setIsLoading(true);
     setErrorBanner(null);
     setBackendErrorCode(null);
-    setIsSdkUnavailable(false);
+    setIsIdentityUnavailable(false);
 
     try {
       const token = await getAccessToken();
@@ -135,16 +135,16 @@ export function UserManagementView() {
 
       if (res.status === 503) {
         const data = await res.json().catch(() => ({}));
-        setIsSdkUnavailable(true);
-        setBackendErrorCode(data.code || 'ADMIN_SDK_UNAVAILABLE');
-        setErrorBanner(data.error || 'Layanan Firebase Admin SDK / Firestore Store tidak tersedia.');
+        setIsIdentityUnavailable(true);
+        setBackendErrorCode(data.code || 'SUPABASE_IDENTITY_UNAVAILABLE');
+        setErrorBanner(data.error || 'Layanan identitas Supabase tidak tersedia.');
         setUsers([]);
         return;
       }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setIsSdkUnavailable(false);
+        setIsIdentityUnavailable(false);
         setBackendErrorCode(data.code || 'REQUEST_FAILED');
         throw new Error(data.error || 'Gagal memuat daftar pengguna tenant.');
       }
@@ -227,8 +227,8 @@ export function UserManagementView() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 503) {
-        setIsSdkUnavailable(true);
-        throw new Error(data.error || 'Firebase Admin SDK credentials are not configured in preview.');
+        setIsIdentityUnavailable(true);
+        throw new Error(data.error || 'Layanan Supabase Auth belum tersedia pada backend.');
       }
 
       if (!res.ok) {
@@ -320,7 +320,7 @@ export function UserManagementView() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 503) {
-        throw new Error(data.error || 'Firebase Admin SDK credentials are not configured in preview.');
+        throw new Error(data.error || 'Layanan Supabase Auth belum tersedia pada backend.');
       }
 
       if (!res.ok) {
@@ -357,7 +357,7 @@ export function UserManagementView() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 503) {
-        alert(data.error || 'Firebase Admin SDK credentials unavailable in this preview environment.');
+        alert(data.error || 'Layanan Supabase Auth belum tersedia pada backend.');
         return;
       }
 
@@ -488,29 +488,26 @@ export function UserManagementView() {
       )}
 
       {/* Error / SDK Warning Banner */}
-      {isSdkUnavailable && (
+      {isIdentityUnavailable && (
         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs space-y-2">
           <div className="flex items-center gap-2 font-bold text-sm">
             <ServerOff className="w-4 h-4 text-amber-500 shrink-0" />
             <span>
-              {backendErrorCode === 'ADMIN_PROFILE_STORE_UNAVAILABLE'
-                ? 'Layanan Penyimpanan Profil Admin (Firestore) Belum Tersedia'
-                : 'Kredensial Firebase Admin SDK Belum Terpasang di Server'}
+              Layanan identitas Supabase belum tersedia
             </span>
           </div>
           <p className="leading-relaxed">
             {errorBanner}
           </p>
           <div className="p-3 bg-black/10 dark:bg-black/30 rounded-lg font-mono text-[11px] leading-relaxed space-y-1">
-            <div className="font-semibold text-slate-800 dark:text-slate-200">Panduan Konfigurasi IAM Backend (Google Cloud Console):</div>
-            <div>1. Berikan IAM Role <strong>Cloud Datastore User</strong> (<code>roles/datastore.user</code>) dan <strong>Firebase Authentication Admin</strong> pada Service Account backend Cloud Run.</div>
-            <div>2. Pastikan target database Firestore (<code>ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8</code>) aktif pada GCP project <code>graphite-ship-q5xj8</code>.</div>
-            <div>3. Untuk lingkungan runtime lokal: pasang variabel <code>GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json</code>.</div>
+            <div className="font-semibold text-slate-800 dark:text-slate-200">Periksa konfigurasi backend Supabase:</div>
+            <div>Pastikan <code>SUPABASE_URL</code> dan <code>SUPABASE_SECRET_KEY</code> tersedia hanya pada server, serta migrasi profil tenant telah diterapkan.</div>
+            <div>Jangan menaruh secret key di variabel frontend atau mengirimkannya ke browser.</div>
           </div>
         </div>
       )}
 
-      {errorBanner && !isSdkUnavailable && (
+      {errorBanner && !isIdentityUnavailable && (
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-sm flex items-center gap-3">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <div className="space-y-0.5">
@@ -589,9 +586,9 @@ export function UserManagementView() {
                   <td colSpan={5} className="py-12 text-center text-slate-400">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     <div>Tidak ada pengguna ditemukan.</div>
-                    {isSdkUnavailable && (
+                    {isIdentityUnavailable && (
                       <p className="text-[11px] text-amber-500/80 mt-1">
-                        Backend memerlukan konfigurasi Application Default Credentials (ADC) dan IAM role Cloud Datastore User untuk membaca data Firestore.
+                        Pastikan backend Supabase dan tabel profil tenant tersedia.
                       </p>
                     )}
                   </td>
@@ -901,7 +898,7 @@ export function UserManagementView() {
                 </div>
 
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  🛡️ <strong>Prinsip Keamanan Zero-Knowledge:</strong> Kata sandi sementara hanya digunakan untuk aktivasi pertama kali. Pengguna akan diwajibkan mengubah kata sandi saat pertama kali login (<code>mustChangePassword=true</code>). Kata sandi tidak disimpan di Firestore, log, ataupun respon server.
+                  🛡️ <strong>Perlindungan kredensial:</strong> Kata sandi sementara hanya digunakan untuk aktivasi pertama kali. Pengguna diwajibkan mengubah kata sandi saat pertama kali login (<code>mustChangePassword=true</code>). Kata sandi tidak disimpan sebagai plaintext di tabel profil, log, atau respons server.
                 </p>
               </div>
 

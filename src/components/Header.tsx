@@ -20,9 +20,15 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
-import { collection, addDoc } from "firebase/firestore";
-import { getAuthSession } from "../authSession";
-import { db } from "../firebase";
+import { getAccessToken } from "../authSession";
+
+function createFeedbackRequestId() {
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 interface HeaderProps {
   currentTenant: Tenant;
@@ -109,6 +115,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
     setIsSearchOpen(true);
     setSearchResult(null);
     setFeedbackGiven(null);
+    feedbackRequestIdRef.current = createFeedbackRequestId();
     try {
       const records = getAllMasterDataRecords();
       const response = await fetch("/api/header-ai-search", {
@@ -130,17 +137,21 @@ export function Header({ currentTenant, branding }: HeaderProps) {
   };
 
   const [feedbackGiven, setFeedbackGiven] = useState<"up" | "down" | null>(null);
+  const feedbackRequestIdRef = useRef(createFeedbackRequestId());
 
   const handleRating = async (rating: "up" | "down") => {
     if (feedbackGiven) return;
-    setFeedbackGiven(rating);
     try {
-      await addDoc(collection(db, "SearchLogs"), {
-        query: searchQuery,
-        rating,
-        createdAt: new Date().toISOString(),
-        userId: getAuthSession()?.uid || "anonymous",
+      const token = await getAccessToken();
+      const response = await fetch("/api/search/feedback", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ requestId: feedbackRequestIdRef.current, rating }),
       });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Feedback belum dapat disimpan.");
+      setFeedbackGiven(rating);
     } catch (error) {
       console.error("Failed to save search log:", error);
     }

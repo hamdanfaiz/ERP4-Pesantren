@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { db } from '../firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
+import { listSupabaseMasterDataStructures } from '../services/masterDataApi';
 import { Layers } from 'lucide-react';
 
 interface StructureNode {
@@ -14,37 +14,53 @@ interface StructureNode {
 }
 
 export const StructureHierarchyD3: React.FC = () => {
+  const { user } = useAuth();
   const d3Container = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<StructureNode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    // Fetch all master data related to structure
-    const structureCategories = ["Yayasan", "Kampus", "Gedung", "Kamar", "Kelas", "Halaqah"];
-    
-    // We fetch all master_data since Firebase 'in' queries are limited to 10
-    // and we might need to fetch them all anyway. We'll filter on the client.
-    const unsubscribe = onSnapshot(collection(db, 'master_data'), (snapshot) => {
-      const fetchedNodes: StructureNode[] = [];
-      snapshot.docs.forEach(doc => {
-        const docData = doc.data();
-        if (structureCategories.includes(docData.category)) {
-          fetchedNodes.push({
-            id: docData.id || doc.id,
-            name: docData.name || 'Unnamed',
-            type: docData.type || docData.category,
-            category: docData.category,
-            parentCode: docData.parentCode || '',
-            status: docData.status || 'Active'
-          });
-        }
-      });
-      setData(fetchedNodes);
-      setIsLoading(false);
-    });
+    let active = true;
+    const structureCategories = ["Gedung", "Kamar", "Kelas"];
+    const tenantId = user?.tenantId?.trim();
+    setIsLoading(true);
+    setLoadError('');
 
-    return () => unsubscribe();
-  }, []);
+    const acceptNodes = (rows: Array<Record<string, any>>) => {
+      if (!active) return;
+      setData(rows.filter((row) => structureCategories.includes(String(row.category || ''))).map((row) => ({
+        id: String(row.id || ''),
+        name: String(row.name || 'Tanpa nama'),
+        type: String(row.type || row.category || ''),
+        category: String(row.category || ''),
+        parentCode: String(row.parentId || row.parentCode || ''),
+        status: String(row.status || 'Active'),
+      })).filter((row) => row.id));
+      setIsLoading(false);
+    };
+
+    if (!tenantId) {
+      setData([]);
+      setLoadError('Profil tenant aktif diperlukan untuk membaca struktur.');
+      setIsLoading(false);
+      return () => { active = false; };
+    }
+
+    listSupabaseMasterDataStructures()
+      .then((rows) => acceptNodes(rows as Array<Record<string, any>>))
+      .catch((error: any) => {
+        if (!active) return;
+        setData([]);
+        setLoadError(error?.message || 'Struktur tenant belum dapat dimuat dari Supabase.');
+        setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user?.tenantId, user?.uid, reloadToken]);
 
   useEffect(() => {
     if (isLoading || !data.length || !d3Container.current) return;
@@ -265,7 +281,7 @@ export const StructureHierarchyD3: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-slate-500">
         <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <div className="text-sm">Loading structure map...</div>
+        <div className="text-sm">Memuat peta struktur…</div>
       </div>
     );
   }
@@ -274,8 +290,9 @@ export const StructureHierarchyD3: React.FC = () => {
     return (
       <div className="p-12 text-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
         <Layers className="w-12 h-12 mx-auto mb-4 opacity-30" />
-        <h3 className="font-semibold text-lg text-slate-700 dark:text-slate-300 mb-1">No Structure Data</h3>
-        <p className="text-sm">Add Yayasan, Kampus, Gedung, or Kelas data to generate the map.</p>
+        <h3 className="font-semibold text-lg text-slate-700 dark:text-slate-300 mb-1">{loadError ? 'Struktur belum dapat dimuat' : 'Belum ada data struktur'}</h3>
+        <p role={loadError ? 'alert' : undefined} className="text-sm">{loadError || 'Tambahkan Gedung, Kamar, atau Kelas pada tenant ini untuk membangun peta struktur.'}</p>
+        {loadError && <button type="button" onClick={() => setReloadToken((value) => value + 1)} className="mt-4 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Coba lagi</button>}
       </div>
     );
   }
@@ -289,12 +306,9 @@ export const StructureHierarchyD3: React.FC = () => {
             </h3>
             <div className="space-y-1.5">
                 {[
-                    { label: 'Yayasan', color: 'bg-indigo-500' },
-                    { label: 'Kampus', color: 'bg-blue-500' },
                     { label: 'Gedung', color: 'bg-emerald-500' },
                     { label: 'Kamar', color: 'bg-amber-500' },
                     { label: 'Kelas', color: 'bg-pink-500' },
-                    { label: 'Halaqah', color: 'bg-violet-500' },
                 ].map(legend => (
                     <div key={legend.label} className="flex items-center gap-2 text-[10px] text-slate-600 dark:text-slate-400">
                         <div className={`w-2 h-2 rounded-full ${legend.color}`}></div>

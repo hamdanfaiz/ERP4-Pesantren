@@ -12,6 +12,7 @@ export type StoredUserProfile = {
   status: string;
   tenantId: string;
   tenantName: string;
+  tenantTimeZone: string;
   tenantType?: string;
   unitId?: string;
   mustChangePassword: boolean;
@@ -27,16 +28,14 @@ export type StoredUserProfile = {
   linkedSantriRoom: string | null;
 };
 
-type ProfileRow = {
-  id: string;
+type CanonicalProfileRow = {
+  user_id: string;
   email?: string | null;
-  name?: string | null;
+  display_name?: string | null;
   username?: string | null;
   role?: string | null;
   status?: string | null;
   tenant_id?: string | null;
-  tenant_name?: string | null;
-  tenant_type?: string | null;
   unit_id?: string | null;
   must_change_password?: boolean | null;
   module_permissions?: Record<string, boolean> | null;
@@ -49,6 +48,7 @@ type ProfileRow = {
   linked_santri_nis?: string | null;
   linked_santri_class?: string | null;
   linked_santri_room?: string | null;
+  tenants?: { name?: string | null; tenant_type?: string | null; status?: string | null; time_zone?: string | null } | null;
 };
 
 let adminClient: SupabaseClient | null = null;
@@ -67,20 +67,39 @@ function supabaseAdmin(): SupabaseClient {
   return adminClient;
 }
 
-function mapProfile(row: ProfileRow): StoredUserProfile {
+const CANONICAL_PROFILE_SELECT = [
+  "user_id", "tenant_id", "email", "display_name", "username", "role", "status", "must_change_password",
+  "unit_id", "module_permissions", "linked_santri_id", "linked_santri_name", "linked_santri_nis",
+  "linked_santri_class", "linked_santri_room", "created_at", "updated_at", "created_by_uid", "updated_by_uid",
+  "tenants(name,tenant_type,status,time_zone)",
+].join(",");
+
+function mapCanonicalProfile(row: CanonicalProfileRow): StoredUserProfile {
+  const roleByDatabaseValue: Record<string, string> = {
+    super_admin: "SuperAdmin",
+    admin: "Admin",
+    ustadz: "Ustadz",
+    santri: "Santri",
+    wali_santri: "Walisantri",
+  };
+  const profileStatus = String(row.status || "active").toLowerCase();
+  const status = String(row.tenants?.status || "").toLowerCase() === "active"
+    ? profileStatus
+    : "suspended";
   const permissions = row.module_permissions && typeof row.module_permissions === "object"
     ? row.module_permissions
     : {};
   return {
-    uid: row.id,
+    uid: row.user_id,
     email: row.email || "",
-    name: row.name || "",
+    name: row.display_name || "",
     username: row.username || "",
-    role: row.role || "",
-    status: row.status || "active",
+    role: roleByDatabaseValue[String(row.role || "").toLowerCase()] || String(row.role || ""),
+    status: status === "suspended" ? "disabled" : status === "invited" ? "inactive" : status,
     tenantId: row.tenant_id || "",
-    tenantName: row.tenant_name || row.tenant_id || "",
-    tenantType: row.tenant_type || undefined,
+    tenantName: row.tenants?.name || row.tenant_id || "",
+    tenantTimeZone: row.tenants?.time_zone || "Asia/Jakarta",
+    tenantType: row.tenants?.tenant_type || undefined,
     unitId: row.unit_id || undefined,
     mustChangePassword: Boolean(row.must_change_password),
     modulePermissions: permissions,
@@ -107,16 +126,16 @@ export async function verifyAccessToken(token: string): Promise<{ uid: string; e
 
 export async function getUserProfile(uid: string): Promise<StoredUserProfile | null> {
   const supabase = supabaseAdmin();
-  const { data, error } = await supabase.from("user_profiles").select("*").eq("id", uid).maybeSingle();
+  const { data, error } = await supabase.from("profiles").select(CANONICAL_PROFILE_SELECT).eq("user_id", uid).maybeSingle();
   if (error) throw new IdentityUnavailableError("Profil pengguna tidak dapat dibaca dari Supabase.");
-  return data ? mapProfile(data as ProfileRow) : null;
+  return data ? mapCanonicalProfile(data as unknown as CanonicalProfileRow) : null;
 }
 
 export async function listTenantProfiles(tenantId: string): Promise<StoredUserProfile[]> {
   const supabase = supabaseAdmin();
-  const { data, error } = await supabase.from("user_profiles").select("*").eq("tenant_id", tenantId);
+  const { data, error } = await supabase.from("profiles").select(CANONICAL_PROFILE_SELECT).eq("tenant_id", tenantId);
   if (error) throw new IdentityUnavailableError("Daftar pengguna tidak dapat dibaca dari Supabase.");
-  return (data || []).map((row) => mapProfile(row as ProfileRow));
+  return (data || []).map((row) => mapCanonicalProfile(row as unknown as CanonicalProfileRow));
 }
 
 export async function createAuthUserWithProfile(input: {
@@ -136,6 +155,14 @@ export async function createAuthUserWithProfile(input: {
   linkedSantriRoom?: string;
 }): Promise<StoredUserProfile> {
   const supabase = supabaseAdmin();
+  const tenantResult = await supabase.from("tenants")
+    .select("id,name,tenant_type,status,time_zone")
+    .eq("id", input.tenantId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (tenantResult.error) throw new IdentityUnavailableError("Tenant pengguna tidak dapat diverifikasi di Supabase.");
+  if (!tenantResult.data) throw new IdentityConflictError("Tenant tidak ditemukan atau sedang tidak aktif.");
+
   const { data, error } = await supabase.auth.admin.createUser({
     email: input.email,
     password: input.password,
@@ -151,14 +178,16 @@ export async function createAuthUserWithProfile(input: {
   }
 
   const now = new Date().toISOString();
-  const row: ProfileRow = {
-    id: data.user.id,
+  const roleByUiValue: Record<string, string> = {
+    SuperAdmin: "super_admin", Admin: "admin", Ustadz: "ustadz", Santri: "santri", Walisantri: "wali_santri",
+  };
+  const row: CanonicalProfileRow = {
+    user_id: data.user.id,
     email: input.email,
-    name: input.name,
+    display_name: input.name,
     username: input.username,
-    role: input.role,
+    role: roleByUiValue[input.role],
     tenant_id: input.tenantId,
-    tenant_name: input.tenantName,
     status: "active",
     must_change_password: true,
     module_permissions: input.modulePermissions,
@@ -170,13 +199,39 @@ export async function createAuthUserWithProfile(input: {
     linked_santri_nis: input.linkedSantriNis || null,
     linked_santri_class: input.linkedSantriClass || null,
     linked_santri_room: input.linkedSantriRoom || null,
+    tenants: {
+      name: tenantResult.data.name,
+      tenant_type: tenantResult.data.tenant_type,
+      status: tenantResult.data.status,
+      time_zone: tenantResult.data.time_zone,
+    },
   };
-  const inserted = await supabase.from("user_profiles").insert(row);
+  const inserted = await supabase.from("profiles").insert({
+    user_id: row.user_id,
+    tenant_id: row.tenant_id,
+    email: row.email,
+    display_name: row.display_name,
+    username: row.username,
+    role: row.role,
+    status: row.status,
+    must_change_password: row.must_change_password,
+    module_permissions: row.module_permissions,
+    unit_id: row.unit_id || null,
+    linked_santri_id: row.linked_santri_id,
+    linked_santri_name: row.linked_santri_name,
+    linked_santri_nis: row.linked_santri_nis,
+    linked_santri_class: row.linked_santri_class,
+    linked_santri_room: row.linked_santri_room,
+    created_by_uid: row.created_by_uid,
+    updated_by_uid: row.updated_by_uid || null,
+    created_at: now,
+    updated_at: now,
+  });
   if (inserted.error) {
     try { await supabase.auth.admin.deleteUser(data.user.id); } catch { /* Keep auth and profile in step. */ }
     throw new IdentityUnavailableError("Gagal menyimpan profil pengguna.");
   }
-  return mapProfile(row);
+  return mapCanonicalProfile(row);
 }
 
 export async function updateUserProfile(uid: string, patch: {
@@ -191,11 +246,16 @@ export async function updateUserProfile(uid: string, patch: {
     updated_at: new Date().toISOString(),
     updated_by_uid: patch.updatedByUid,
   };
-  if (patch.name) row.name = patch.name;
-  if (patch.role) row.role = patch.role;
-  if (patch.status) row.status = patch.status;
+  if (patch.name) row.display_name = patch.name;
+  if (patch.role) {
+    const roleByUiValue: Record<string, string> = {
+      SuperAdmin: "super_admin", Admin: "admin", Ustadz: "ustadz", Santri: "santri", Walisantri: "wali_santri",
+    };
+    row.role = roleByUiValue[patch.role];
+  }
+  if (patch.status) row.status = patch.status === "inactive" ? "invited" : patch.status === "disabled" ? "suspended" : "active";
   if (patch.modulePermissions) row.module_permissions = patch.modulePermissions;
-  const { error } = await supabase.from("user_profiles").update(row).eq("id", uid);
+  const { error } = await supabase.from("profiles").update(row).eq("user_id", uid);
   if (error) throw new IdentityUnavailableError("Gagal memperbarui profil pengguna.");
 }
 
@@ -204,7 +264,7 @@ export async function setAuthDisabled(uid: string, disabled: boolean): Promise<v
   const { error } = await supabase.auth.admin.updateUserById(uid, {
     ban_duration: disabled ? "876600h" : "none",
   });
-  if (error) throw error;
+  if (error) throw new IdentityUnavailableError("Status autentikasi Supabase tidak dapat diperbarui.");
 }
 
 export async function createRecoveryLink(email: string): Promise<string> {
@@ -218,8 +278,8 @@ export async function createRecoveryLink(email: string): Promise<string> {
 export async function clearPasswordChangeRequired(uid: string): Promise<void> {
   const supabase = supabaseAdmin();
   const { error } = await supabase
-    .from("user_profiles")
+    .from("profiles")
     .update({ must_change_password: false, updated_at: new Date().toISOString() })
-    .eq("id", uid);
+    .eq("user_id", uid);
   if (error) throw new IdentityUnavailableError("Gagal memperbarui status kata sandi pengguna.");
 }

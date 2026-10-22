@@ -1,10 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from './firebase';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { useAuth } from './contexts/AuthContext';
-import { centralStructureService } from './services/centralStructureService';
 import { FrontendOverview } from './pages/FrontendOverview';
 import { LoginView } from './pages/LoginView';
 
@@ -13,6 +10,7 @@ import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal'
 import { Tenant, ModuleId } from './types';
 import { ROLE_MODULES } from './rbac';
 import { useSystemSettings } from './hooks/useSystemSettings';
+import { SUPABASE_ONLY_RUNTIME } from './runtimeBackend';
 
 // Module pages are loaded on demand to keep the initial bundle small.
 const DashboardOverview = React.lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.DashboardOverview })));
@@ -27,11 +25,11 @@ const CommunicationHub = React.lazy(() => import('./pages/CommunicationHub').the
 const AcademicManager = React.lazy(() => import('./pages/AcademicManager').then((module) => ({ default: module.AcademicManager })));
 const HealthcareManager = React.lazy(() => import('./pages/HealthcareManager').then((module) => ({ default: module.HealthcareManager })));
 const CooperativeManager = React.lazy(() => import('./pages/CooperativeManager').then((module) => ({ default: module.CooperativeManager })));
-const HRISManager = React.lazy(() => import('./pages/HRISManager').then((module) => ({ default: module.HRISManager })));
+const SupabaseHrisManager = React.lazy(() => import('./pages/SupabaseHrisManager').then((module) => ({ default: module.SupabaseHrisManager })));
 const DocumentManager = React.lazy(() => import('./pages/DocumentManager').then((module) => ({ default: module.DocumentManager })));
 const LibraryManager = React.lazy(() => import('./pages/LibraryManager').then((module) => ({ default: module.LibraryManager })));
 const DonationManager = React.lazy(() => import('./pages/DonationManager').then((module) => ({ default: module.DonationManager })));
-const LaundryManager = React.lazy(() => import('./pages/LaundryManager').then((module) => ({ default: module.LaundryManager })));
+const SupabaseLaundryManager = React.lazy(() => import('./pages/SupabaseLaundryManager').then((module) => ({ default: module.SupabaseLaundryManager })));
 const SettingsManager = React.lazy(() => import('./pages/SettingsManager').then((module) => ({ default: module.SettingsManager })));
 const EnterpriseManager = React.lazy(() => import('./pages/EnterpriseManager').then((module) => ({ default: module.EnterpriseManager })));
 const ERPManager = React.lazy(() => import('./pages/ERPManager').then((module) => ({ default: module.ERPManager })));
@@ -43,7 +41,6 @@ const IntelligenceManager = React.lazy(() => import('./pages/IntelligenceManager
 const MarketplaceManager = React.lazy(() => import('./pages/MarketplaceManager').then((module) => ({ default: module.MarketplaceManager })));
 const EcosystemManager = React.lazy(() => import('./pages/EcosystemManager').then((module) => ({ default: module.EcosystemManager })));
 const UserManagementView = React.lazy(() => import('./pages/UserManagementView').then((module) => ({ default: module.UserManagementView })));
-
 export default function App() {
   const { role, user } = useAuth();
   const currentTenant: Tenant = {
@@ -51,7 +48,7 @@ export default function App() {
     name: user?.tenantName || 'Pesantren',
     type: user?.tenantType || 'Pesantren',
   };
-  const { getUserAllowedModules, canAccessModule } = useSystemSettings();
+  const { getUserAllowedModules, canAccessModule, general, orgInfo } = useSystemSettings();
   const [showLogin, setShowLogin] = useState(false);
   const [activeModule, setActiveModule] = useState<ModuleId>('dashboard');
   const [branding, setBranding] = useState({
@@ -60,8 +57,18 @@ export default function App() {
   });
 
   useEffect(() => {
-    centralStructureService.setTenant(user?.tenantId || null);
-    return () => centralStructureService.setTenant(null);
+    if (SUPABASE_ONLY_RUNTIME) return;
+    let active = true;
+    let clearTenant: (() => void) | null = null;
+    void import('./services/centralStructureService').then(({ centralStructureService }) => {
+      if (!active) return;
+      centralStructureService.setTenant(user?.tenantId || null);
+      clearTenant = () => centralStructureService.setTenant(null);
+    });
+    return () => {
+      active = false;
+      clearTenant?.();
+    };
   }, [user?.tenantId]);
 
   useEffect(() => {
@@ -88,70 +95,35 @@ export default function App() {
       }
     };
 
-    const unsub = onSnapshot(doc(db, 'tenants', user.tenantId, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        
-        if (data.generalSettings) {
-           const theme = data.generalSettings.theme || 'dark';
-           
-           if (mediaQuery) {
-              mediaQuery.removeEventListener('change', handleSystemThemeChange);
-           }
-           
-           if (theme === 'system') {
-               mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-               mediaQuery.addEventListener('change', handleSystemThemeChange);
-               if (mediaQuery.matches) {
-                  document.documentElement.classList.add('dark');
-               } else {
-                  document.documentElement.classList.remove('dark');
-               }
-           } else if (theme === 'light') {
-               document.documentElement.classList.remove('dark');
-           } else {
-               document.documentElement.classList.add('dark');
-           }
-        } else {
-           document.documentElement.classList.add('dark');
-        }
+    const theme = general.theme || 'dark';
+    if (theme === 'system') {
+      mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener('change', handleSystemThemeChange);
+      document.documentElement.classList.toggle('dark', mediaQuery.matches);
+    } else {
+      document.documentElement.classList.toggle('dark', theme !== 'light');
+    }
 
-        if (data.orgInfo) {
-          const { schoolName, pageTitleFormat, faviconUrl, logoUrl } = data.orgInfo;
-          
-          setBranding({
-            logoUrl: logoUrl || '',
-            schoolName: schoolName || 'Pesantren OS'
-          });
+    const schoolName = orgInfo.schoolName || 'Pesantren OS';
+    setBranding({ logoUrl: orgInfo.logoUrl || '', schoolName });
+    document.title = orgInfo.pageTitleFormat
+      ? orgInfo.pageTitleFormat.replace('{schoolName}', schoolName)
+      : `Pesantren OS | ${schoolName}`;
 
-          // Update Document Title
-          if (pageTitleFormat) {
-            document.title = pageTitleFormat.replace('{schoolName}', schoolName || 'Pesantren');
-          } else if (schoolName) {
-            document.title = `Pesantren OS | ${schoolName}`;
-          }
-
-          // Update Favicon
-          if (faviconUrl) {
-            let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-            if (!link) {
-              link = document.createElement('link');
-              link.rel = 'icon';
-              document.head.appendChild(link);
-            }
-            link.href = faviconUrl;
-          }
-        }
-      } else {
-        document.documentElement.classList.add('dark');
+    if (orgInfo.faviconUrl) {
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
       }
-    });
+      link.href = orgInfo.faviconUrl;
+    }
 
     return () => {
-       unsub();
        if (mediaQuery) mediaQuery.removeEventListener('change', handleSystemThemeChange);
     };
-  }, [user?.tenantId]);
+  }, [user?.tenantId, general.theme, orgInfo.schoolName, orgInfo.pageTitleFormat, orgInfo.logoUrl, orgInfo.faviconUrl]);
 
   const renderModule = () => {
     // Route guard: verify module permission for current user
@@ -199,15 +171,17 @@ export default function App() {
       case 'cooperative':
         return <CooperativeManager />;
       case 'hris':
-        return <HRISManager />;
+        return <SupabaseHrisManager />;
       case 'document':
-        return <DocumentManager />;
+        return SUPABASE_ONLY_RUNTIME
+          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
+          : <DocumentManager />;
       case 'library':
         return <LibraryManager />;
       case 'donation':
         return <DonationManager />;
       case 'laundry':
-        return <LaundryManager />;
+        return <SupabaseLaundryManager />;
       case 'settings':
         if (role !== 'SuperAdmin') {
           return (
@@ -224,23 +198,33 @@ export default function App() {
         }
         return <SettingsManager />;
       case 'enterprise':
-        return <EnterpriseManager />;
+        return SUPABASE_ONLY_RUNTIME
+          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
+          : <EnterpriseManager />;
       case 'erp':
-        return <ERPManager />;
+        return SUPABASE_ONLY_RUNTIME
+          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
+          : <ERPManager />;
       case 'ga':
         return <GeneralAffairManager />;
       case 'alumni':
         return <AlumniManager />;
       case 'crm':
-        return <CRMManager />;
+        return SUPABASE_ONLY_RUNTIME
+          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
+          : <CRMManager />;
       case 'lms':
         return <LMSManager />;
       case 'intelligence':
-        return <IntelligenceManager />;
+        return SUPABASE_ONLY_RUNTIME
+          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
+          : <IntelligenceManager />;
       case 'marketplace':
         return <MarketplaceManager />;
       case 'ecosystem':
-        return <EcosystemManager />;
+        return SUPABASE_ONLY_RUNTIME
+          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
+          : <EcosystemManager />;
       default:
         return <ModulePlaceholder module={activeModule} />;
     }
