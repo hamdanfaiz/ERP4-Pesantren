@@ -1,7 +1,7 @@
 # Status Cutover Runtime Firebase ke Supabase
 
 **Checkpoint:** 22 Oktober 2026
-**Repository:** branch `codex/supabase-runtime-cutover-20261022` pada commit `21140c3`
+**Source branch:** `codex/supabase-runtime-cutover-20261022`; kode runtime yang diuji pada commit `21140c3`
 **Supabase target:** project `ptsasgdvgrbdtgyqieie`
 **Tujuan:** mencatat batas cutover, migrasi database yang sudah diterapkan, dan syarat aman untuk melanjutkan PR #11.
 
@@ -13,7 +13,7 @@ Commit `21140c3` lulus pada [GitHub Actions run #39778292353](https://github.com
 - Build dan startup image Docker, validasi konfigurasi Compose, dan smoke test container.
 - Supabase lokal terisolasi: database tests/pgTAP, reservasi NIS serentak, API auth dan isolasi tenant, alur HTTP unggah bukti Finance ke Storage, serta backup/restore database lokal.
 
-**Batas bukti:** CI memakai Supabase lokal dan data sintetis. CI tidak menerapkan migrasi ke project pelanggan, tidak menguji data atau kredensial pelanggan, dan tidak membuktikan end-to-end semua modul/role pada environment non-produksi. Tidak ada feature flag runtime yang diaktifkan atau data live yang diubah. Catatan modul di bawah yang menyebut migrasi “belum diuji” berarti belum diuji/diterapkan pada project pelanggan dan alur modul penuh belum tentu tercakup; pengujian CI di atas hanya membuktikan cakupan yang disebutkan di sini.
+**Batas bukti:** CI memakai Supabase lokal dan data sintetis. Run tersebut sendiri tidak menerapkan migrasi ke project pelanggan, tidak menguji kredensial pelanggan, dan tidak membuktikan end-to-end semua modul/role pada environment non-produksi. Migrasi ke project target dilakukan terpisah setelah run CI, dengan hasil dicatat di bagian “Migrasi Supabase yang sudah diterapkan” di bawah. Tidak ada feature flag runtime yang diaktifkan atau record operasional pelanggan yang diubah. Catatan modul di bawah yang menyebut migrasi “belum diuji” berarti alur modul belum teruji penuh pada environment pelanggan, kecuali bukti di bawah menyatakan lain.
 
 
 ## Keputusan arsitektur
@@ -105,13 +105,28 @@ Working tree lokal menambahkan `20261127000000_facility_bookings_runtime.sql`, A
 
 ## Migrasi Supabase yang sudah diterapkan
 
-Remote Supabase telah mencatat `20260603000000` dan `20261022000000`. Pemeriksaan remote memastikan tabel `candidates`, `candidate_documents`, dan `user_profiles` memiliki RLS aktif serta `tenant_id` wajib. Browser tidak mendapat grant akses pada tabel PPDB; `authenticated` hanya dapat membaca profil sendiri. Tabel profil yang sudah ada tidak dihapus.
+**Target:** project Supabase `ptsasgdvgrbdtgyqieie`. Pemeriksaan dilakukan memakai koneksi database dari file lingkungan lokal yang diabaikan Git; kredensial tidak dicatat pada dokumen.
 
-Read-only preflight pada 22 Oktober 2026 memverifikasi keadaan aktual berikut: belum ada tabel `tenants` atau `profiles`; `user_profiles` memiliki `tenant_id TEXT`; `candidates` dan `candidate_documents` juga memiliki `tenant_id TEXT`, dan `candidates` masih memiliki kolom `nik`/`nisn` plaintext. `user_profiles`, `candidates`, `candidate_documents`, dan `auth.users` saat ini berisi nol record. RLS aktif tetapi belum `FORCE ROW LEVEL SECURITY`. Karena tabel kosong, migrasi maju dapat dibuat tanpa menyalin data saat ini, tetapi harus menolak apply jika data muncul sebelum migrasi dan perlu dipindahkan dengan jalur PII yang terenkripsi. Akun admin belum ada pada Supabase Auth project ini; akun Firebase tidak otomatis dapat login ke backend Supabase.
+### Preflight sebelum penerapan
 
-File migrasi maju `20261023000000_tenant_profile_foundation.sql` menyiapkan `tenants`/`profiles`, mempertahankan sementara `user_profiles` dengan trigger sinkronisasi, mengubah FK tenant ke UUID, dan mengganti kolom NIK/NISN plaintext dengan ciphertext/fingerprint. Preflight di dalam migrasi menolak eksekusi jika tabel kandidat sudah berisi data. Migrasi berhasil dijalankan pada database PostgreSQL terisolasi PGlite dengan skema awal yang sama dan satu akun sintetis; pemeriksaan mengonfirmasi trigger profil bekerja dan atribut RLS aktif/force. Ini belum membuktikan seluruh kebijakan tenant secara runtime. File ini sudah ditambahkan ke branch PR #1, tetapi belum diterapkan ke Supabase live. PR #1 sekarang diverged dari `main` (9 commit di depan dan 2 di belakang) serta belum mergeable; branch harus diselaraskan sebelum stack migrasi dapat diproses.
+Pada 22 Oktober 2026, riwayat remote berisi dua versi yang cocok dengan source branch: `20260603000000` dan `20261022000000`. Schema awal hanya memiliki `candidates`, `candidate_documents`, dan `user_profiles`; ketiganya kosong. `auth.users`, `auth.identities`, bucket Storage, dan objek Storage juga kosong. Tidak ada tenant, profile, atau akun Admin yang tersedia.
 
-Migrasi PPDB memakai akses backend tepercaya untuk operasi data pribadi. Ini menyiapkan skema, tetapi belum menghubungkan formulir PPDB atau modul lain ke API Supabase.
+Dry-run Supabase CLI menunjukkan 43 migrasi tertunda. Seluruh 50 file di bawah `supabase/` pada checkout kerja cocok byte-untuk-byte dengan branch cutover saat itu; 45 migrasi berada dalam daftar yang telah lulus CI terisolasi. Migrasi yang mengganti kolom NIK/NISN plaintext diperiksa terhadap tabel kandidat yang kosong.
+
+### Hasil penerapan dan postflight
+
+Dengan persetujuan sebelumnya untuk menjalankan migrasi, `supabase db push` menerapkan 43 versi yang tertunda. Pemeriksaan ulang menunjukkan **45/45 migrasi tersinkron** sampai `20261204000000`, tanpa versi tertunda.
+
+Postflight baca-saja pada project target menghasilkan:
+
+- 118 tabel publik; semuanya memiliki RLS aktif dan `FORCE ROW LEVEL SECURITY`. Tidak ditemukan tabel publik tanpa salah satu kontrol tersebut.
+- Jumlah baris `tenants`, `profiles`, `user_profiles`, `candidates`, `candidate_documents`, `auth.users`, `auth.identities`, dan `storage.objects` tetap nol.
+- Bucket `erp4-private-finance-proofs` dan `ppdb-documents` berstatus privat.
+- `storage.objects` memiliki RLS aktif dan tidak memiliki policy browser; meski role browser mempunyai grant tabel dasar, tanpa policy row-level akses ditolak. Operasi aplikasi harus melalui backend tepercaya.
+
+### Batas setelah migrasi schema
+
+Ini memigrasikan **schema**, bukan data Firebase atau akun pengguna. Belum ada tenant, profile Admin, atau pengguna Supabase Auth. Server-side runtime/import flags tidak ditambahkan ke `.env` dan tetap fail-closed; migrasi tidak mengaktifkannya. Karena itu, keberhasilan schema push tidak berarti login, pemetaan role/tenant, impor arsip, upload aplikasi, atau workflow modul sudah terverifikasi pada project ini. Jangan membuka feature flag sebelum provisioning tenant/Admin, rotasi kredensial yang pernah dibagikan, dan smoke test aplikasi pada environment yang disepakati.
 
 ## Irisan operasional Komunikasi
 
