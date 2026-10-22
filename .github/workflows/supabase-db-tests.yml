@@ -36,6 +36,9 @@ jobs:
       - name: Typecheck
         run: bun run lint
 
+      - name: Verify Firebase Admin is disabled outside local development
+        run: npm run test:legacy-firebase-gate
+
       - name: Build client and server
         run: bun run build
 
@@ -86,4 +89,3 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
-

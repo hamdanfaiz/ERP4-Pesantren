@@ -81,4 +81,3 @@ try {
   console.error(`Local backup/restore smoke test failed (${detail}). Check the local Supabase stack and PostgreSQL client tools.`);
   process.exitCode = 1;
 }
-

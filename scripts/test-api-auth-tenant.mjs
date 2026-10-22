@@ -120,7 +120,7 @@ async function main() {
         SUPABASE_SECRET_KEY: serviceKey,
         SUPABASE_SERVICE_ROLE_KEY: '',
         SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED: 'false',
-        SUPABASE_LEGACY_FIREBASE_ADMIN_ENABLED: 'false',
+        LEGACY_FIREBASE_ADMIN_ENABLED: 'false',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -201,4 +201,3 @@ main().catch((error) => {
   console.error(`API auth and tenant integration test failed (${detail}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
-

@@ -35,6 +35,7 @@ import {
   SystemSettingsStoreError,
 } from "./src/server/systemSettingsStore";
 import { recordTenantSearchFeedback, SearchFeedbackStoreError } from "./src/server/searchFeedbackStore";
+import { isLegacyFirebaseAdminEnabled } from "./src/server/legacyFirebaseGate";
 import {
   assignSupabaseTahfidzMembership,
   getSupabaseTahfidzLegacyTenantKey,
@@ -226,7 +227,7 @@ let adminApp: App | null = null;
 let adminDb: Firestore | null = null;
 let adminInitError: string | null = null;
 let adminInitPromise: Promise<AdminServicesResult> | null = null;
-const legacyFirebaseAdminEnabled = String(process.env.LEGACY_FIREBASE_ADMIN_ENABLED || "").trim().toLowerCase() === "true";
+const legacyFirebaseAdminEnabled = isLegacyFirebaseAdminEnabled(process.env);
 
 function isCredentialError(err: any): boolean {
   if (!err) return false;

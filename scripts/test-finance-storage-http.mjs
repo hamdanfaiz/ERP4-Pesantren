@@ -170,7 +170,7 @@ async function main() {
         SUPABASE_SERVICE_ROLE_KEY: '',
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED: 'true',
-        SUPABASE_LEGACY_FIREBASE_ADMIN_ENABLED: 'false',
+        LEGACY_FIREBASE_ADMIN_ENABLED: 'false',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -296,4 +296,3 @@ main().catch((error) => {
   console.error(`Finance Storage HTTP test failed (${detail}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
-
