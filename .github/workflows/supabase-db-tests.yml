@@ -45,6 +45,15 @@ jobs:
       - name: Build client and server
         run: bun run build
 
+      - name: Remove development dependency installation
+        run: rm -rf node_modules
+
+      - name: Install production dependencies only
+        run: bun install --production --frozen-lockfile
+
+      - name: Smoke-test production runtime without Firebase packages
+        run: node scripts/test-production-runtime.mjs
+
   database:
     name: Migrations, API auth, and pgTAP
     runs-on: ubuntu-latest
