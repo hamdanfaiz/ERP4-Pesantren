@@ -1,9 +1,20 @@
 # Status Cutover Runtime Firebase ke Supabase
 
 **Checkpoint:** 22 Oktober 2026
-**Repository:** `main` pada `c873818` ditambah perubahan migrasi lokal
+**Repository:** branch `codex/supabase-runtime-cutover-20261022` pada commit `21140c3`
 **Supabase target:** project `ptsasgdvgrbdtgyqieie`
 **Tujuan:** mencatat batas cutover, migrasi database yang sudah diterapkan, dan syarat aman untuk melanjutkan PR #11.
+
+## Bukti CI terbaru — 22 Oktober 2026
+
+Commit `21140c3` lulus pada [GitHub Actions run #39778292353](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/39778292353). Kedua job selesai dengan sukses:
+
+- Typecheck, build client/server, pemeriksaan bahwa Firebase bukan dependensi produksi, gate Firebase Admin di luar development, serta smoke test production tanpa paket Firebase.
+- Build dan startup image Docker, validasi konfigurasi Compose, dan smoke test container.
+- Supabase lokal terisolasi: database tests/pgTAP, reservasi NIS serentak, API auth dan isolasi tenant, alur HTTP unggah bukti Finance ke Storage, serta backup/restore database lokal.
+
+**Batas bukti:** CI memakai Supabase lokal dan data sintetis. CI tidak menerapkan migrasi ke project pelanggan, tidak menguji data atau kredensial pelanggan, dan tidak membuktikan end-to-end semua modul/role pada environment non-produksi. Tidak ada feature flag runtime yang diaktifkan atau data live yang diubah. Catatan modul di bawah yang menyebut migrasi “belum diuji” berarti belum diuji/diterapkan pada project pelanggan dan alur modul penuh belum tentu tercakup; pengujian CI di atas hanya membuktikan cakupan yang disebutkan di sini.
+
 
 ## Keputusan arsitektur
 
