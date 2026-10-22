@@ -120,6 +120,7 @@ SELECT throws_ok(
     )
   )$$,
   '23505',
+  'duplicate key value violates unique constraint "candidates_nik_fingerprint_tenant_uq"',
   'duplicate NIK fingerprint is rejected transactionally'
 );
 SELECT is(
@@ -200,6 +201,7 @@ SELECT throws_ok(
     )
   )$$,
   '22023',
+  'Invalid PPDB document path',
   'document object paths cannot point outside their tenant/candidate prefix'
 );
 SELECT is(
