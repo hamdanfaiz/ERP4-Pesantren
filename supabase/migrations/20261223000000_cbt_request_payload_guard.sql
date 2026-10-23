@@ -217,7 +217,6 @@ BEGIN
     RAISE EXCEPTION 'Every exam participant must be an active student in this tenant' USING ERRCODE = '23503';
   END IF;
   IF v_status = 'published' THEN
-  IF v_status = 'published' THEN
     FOREACH v_student IN ARRAY v_sorted_students LOOP
       PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
         'cbt-student-schedule:' || p_tenant_id::TEXT || ':' || v_student::TEXT, 0));
