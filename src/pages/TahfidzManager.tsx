@@ -831,12 +831,12 @@ export function TahfidzManager() {
       {SUPABASE_TAHFIDZ_RUNTIME && SUPABASE_TAHFIDZ_IMPORT && tahfidzImportPreview && (
         <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h3 className="font-semibold text-slate-900 dark:text-slate-100">Preview impor konfigurasi Tahfidz</h3><p className="mt-1 text-xs text-slate-500">{tahfidzImportPreview.sourceCount?.halaqahs || 0} halaqah · {tahfidzImportPreview.sourceCount?.students || 0} santri · {tahfidzImportPreview.planned?.memberships || 0} penempatan direncanakan</p></div>
+            <div><h3 className="font-semibold text-slate-900 dark:text-slate-100">Pratinjau impor konfigurasi Tahfidz</h3><p className="mt-1 text-xs text-slate-500">{tahfidzImportPreview.sourceCount?.halaqahs || 0} halaqah · {tahfidzImportPreview.sourceCount?.students || 0} santri · {tahfidzImportPreview.planned?.memberships || 0} penempatan direncanakan</p></div>
             {tahfidzImportPreview.canApply && tahfidzImportPreview.dryRun && <button onClick={() => void handleTahfidzImport(true)} disabled={isApplyingTahfidzImport} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{isApplyingTahfidzImport ? "Mengimpor…" : "Terapkan hasil preview"}</button>}
           </div>
           {!!tahfidzImportPreview.errors?.length && <div className="text-sm text-rose-700 dark:text-rose-300">{tahfidzImportPreview.errors.map((issue: any) => <p key={`${issue.category}-${issue.id}`}>{issue.category} {issue.id}: {issue.message}</p>)}</div>}
           {!!tahfidzImportPreview.warnings?.length && <div className="text-sm text-amber-700 dark:text-amber-300">{tahfidzImportPreview.warnings.map((issue: any) => <p key={`${issue.category}-${issue.id}`}>{issue.category} {issue.id}: {issue.message}</p>)}</div>}
-          {!tahfidzImportPreview.canApply && <p className="text-xs font-medium text-rose-700 dark:text-rose-300">Selesaikan konflik, lalu jalankan preview baru sebelum impor.</p>}
+          {!tahfidzImportPreview.canApply && <p className="text-xs font-medium text-rose-700 dark:text-rose-300">Selesaikan konflik, lalu jalankan pratinjau baru sebelum impor.</p>}
           {!tahfidzImportPreview.dryRun && <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Impor selesai. {tahfidzImportPreview.imported?.halaqahs || 0} halaqah dan {tahfidzImportPreview.imported?.memberships || 0} penempatan diimpor.</p>}
         </section>
       )}
