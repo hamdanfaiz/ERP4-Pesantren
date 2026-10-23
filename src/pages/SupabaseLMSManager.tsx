@@ -190,13 +190,27 @@ export function SupabaseLMSManager() {
   const addLearningRecord = async (kind: "note" | "comment", materialId: string) => {
     const text = (kind === "note" ? noteDraft : commentDraft)[materialId] || "";
     if (!text.trim()) return;
-    setBusy(true); setError("");
+    const payload = { kind, materialId, timestampSeconds: 0, text: text.trim() };
+    const lease = await pendingMutationIds.acquire(
+      `lms:${user?.tenantId || ""}:${user?.uid || ""}:learning-record:${kind}`,
+      payload,
+    );
+    setBusy(true); setError(""); setNotice("");
     try {
-      await requestLms("/api/lms/learning-records", { method: "POST", body: JSON.stringify({ kind, materialId, timestampSeconds: 0, text }) });
-      if (kind === "note") setNoteDraft((old) => ({ ...old, [materialId]: "" })); else setCommentDraft((old) => ({ ...old, [materialId]: "" }));
-      setNotice(kind === "note" ? "Catatan pribadi tersimpan." : "Komentar materi terkirim."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Catatan belum tersimpan."); }
-    finally { setBusy(false); }
+      const result = await requestLms("/api/lms/learning-records", {
+        method: "POST",
+        body: JSON.stringify({ ...payload, requestId: lease.requestId }),
+      });
+      lease.clear();
+      if (kind === "note") setNoteDraft((old) => ({ ...old, [materialId]: "" }));
+      else setCommentDraft((old) => ({ ...old, [materialId]: "" }));
+      setNotice(result?.alreadyApplied
+        ? (kind === "note" ? "Catatan sudah tersimpan; percobaan ulang dikenali." : "Komentar sudah terkirim; percobaan ulang dikenali.")
+        : (kind === "note" ? "Catatan pribadi tersimpan." : "Komentar materi terkirim."));
+      await refresh();
+    } catch (cause: any) {
+      setError(cause?.message || "Catatan belum terkonfirmasi. Ulangi dengan isi yang sama jika koneksi terputus.");
+    } finally { setBusy(false); }
   };
 
   const completedMaterialIds = useMemo(() => new Set(snapshot.progress.filter((item) => item.completedAt).map((item) => item.materialId)), [snapshot.progress]);
