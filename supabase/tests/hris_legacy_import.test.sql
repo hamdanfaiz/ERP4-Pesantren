@@ -58,7 +58,7 @@ SELECT is(
       'employeeNumber', 'EMP-001', 'fullName', 'Pegawai Uji', 'jobTitle', 'Pengelola Perpustakaan',
       'department', 'Perpustakaan', 'email', 'pegawai@test.invalid', 'phone', '+6281234567890',
       'employmentStatus', 'active', 'legacyDetails', '{"address":"Alamat Sintetis","sourceStatus":"Active"}'::jsonb
-    ))->>'imported',
+    )))->>'imported',
   '1',
   'Admin can import a valid HRIS employee snapshot'
 );
@@ -88,7 +88,7 @@ SELECT is(
       'employeeNumber', 'EMP-001', 'fullName', 'Pegawai Uji', 'jobTitle', 'Pengelola Perpustakaan',
       'department', 'Perpustakaan', 'email', 'pegawai@test.invalid', 'phone', '+6281234567890',
       'employmentStatus', 'active', 'legacyDetails', '{"address":"Alamat Sintetis","sourceStatus":"Active"}'::jsonb
-    ))->>'alreadyApplied',
+    )))->>'alreadyApplied',
   'true', 'retrying the same source snapshot is idempotent'
 );
 SELECT throws_ok(
@@ -129,3 +129,4 @@ SELECT is((
 
 SELECT * FROM finish();
 ROLLBACK;
+
