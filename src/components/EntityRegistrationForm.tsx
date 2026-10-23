@@ -289,7 +289,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Full Name *</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nama Lengkap *</label>
               <input
                 type="text"
                 value={formData.name}
@@ -328,7 +328,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Grade / Department</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenjang / Bagian</label>
               <input
                 type="text"
                 value={formData.gradeOrDepartment}
@@ -469,7 +469,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 </div>
                 {formData.type === 'Santri' && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Previous School</label>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Sekolah Sebelumnya</label>
                     <input
                       type="text"
                       value={formData.previousSchool}
@@ -951,7 +951,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Bank Name</label>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nama Bank</label>
                       <input
                         type="text"
                         value={formData.bankName || ''}
@@ -993,7 +993,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                     {(formData.certifications || []).map((cert: any, i: number) => (
                       <div key={i} className="flex gap-2 items-start bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-white/10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 flex-1">
-                          <input type="text" placeholder="Certification Name" value={cert.name} onChange={(e) => handleArrayChange('certifications', i, 'name', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Nama Sertifikasi" value={cert.name} onChange={(e) => handleArrayChange('certifications', i, 'name', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                           <input type="text" placeholder="Issuer / Institution" value={cert.institution} onChange={(e) => handleArrayChange('certifications', i, 'institution', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                           <input type="text" placeholder="Year" value={cert.year} onChange={(e) => handleArrayChange('certifications', i, 'year', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                         </div>
@@ -1014,8 +1014,8 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                       <div key={i} className="flex gap-2 items-start bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-white/10">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 flex-1">
                           <input type="text" placeholder="Institution/Company" value={exp.company} onChange={(e) => handleArrayChange('experiences', i, 'company', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-                          <input type="text" placeholder="Role/Position" value={exp.role} onChange={(e) => handleArrayChange('experiences', i, 'role', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-                          <input type="text" placeholder="Start Date/Year" value={exp.startDate} onChange={(e) => handleArrayChange('experiences', i, 'startDate', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Jabatan/Posisi" value={exp.role} onChange={(e) => handleArrayChange('experiences', i, 'role', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Tanggal/Tahun Mulai" value={exp.startDate} onChange={(e) => handleArrayChange('experiences', i, 'startDate', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                           <input type="text" placeholder="End Date/Year" value={exp.endDate} onChange={(e) => handleArrayChange('experiences', i, 'endDate', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                         </div>
                         <button type="button" onClick={() => removeArrayItem('experiences', i)} className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded"><X className="w-4 h-4" /></button>
@@ -1036,7 +1036,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 flex-1">
                           <div>
                             <select value={assignment.role} onChange={(e) => handleArrayChange('assignments', i, 'role', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-                              <option value="">Select Role</option>
+                              <option value="">Pilih Peran</option>
                               <option value="Guru / Pengajar">Guru / Pengajar</option>
                               <option value="Wali Kelas">Wali Kelas</option>
                               <option value="Musyrif / Musyrifah">Musyrif / Musyrifah (Kamar)</option>
