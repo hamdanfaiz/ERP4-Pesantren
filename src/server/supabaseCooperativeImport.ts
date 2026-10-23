@@ -524,13 +524,14 @@ export function previewSupabaseLegacyCooperativeFinancialHistory(
   const mappedWallets: Row[] = [];
   for (const candidate of walletCandidates) {
     const mapping = mappings.wallets?.[String(candidate.sourceRef)];
+    const publicCandidate = Object.fromEntries(Object.entries(candidate).filter(([key]) => key !== "sourceId"));
     const targetWalletId = text(mapping?.targetWalletId);
     const targetWallet = targetWalletId ? targetWalletById.get(targetWalletId) : undefined;
     const targetStudent = targetWallet ? targetStudentById.get(String(targetWallet.student_id || "")) : undefined;
     const openingBalance = mapping?.openingBalance;
     if (!targetWallet) {
       issue("wallet_student_mapping_required", "cooperative_wallets", String(candidate.sourceId));
-      mappedWallets.push({ ...candidate, targetWalletId: null, targetStudentLabel: null, openingBalance: null, expectedClosingBalance: null });
+      mappedWallets.push({ ...publicCandidate, targetWalletId: null, targetStudentLabel: null, openingBalance: null, expectedClosingBalance: null });
       continue;
     }
     counts.mappedWallets += 1;
@@ -558,7 +559,7 @@ export function previewSupabaseLegacyCooperativeFinancialHistory(
       counts.readyWallets += 1;
     }
     mappedWallets.push({
-      ...candidate,
+      ...publicCandidate,
       targetWalletId,
       targetStudentId: targetWallet.student_id,
       targetStudentLabel: targetStudent?.name || "",
