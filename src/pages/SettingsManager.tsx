@@ -763,7 +763,7 @@ export function SettingsManager() {
                     <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Belum terhubung</span>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Penyedia Layanan (Provider)</label>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Penyedia Layanan</label>
                     <select
                       value={integrations.paymentGatewayProvider || 'midtrans'}
                       onChange={e => setIntegrations({...integrations, paymentGatewayProvider: e.target.value as any})}
