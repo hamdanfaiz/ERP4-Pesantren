@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, BookOpen, CheckCircle2, CircleCheck, ClipboardList, FilePlus2, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { pendingMutationIds } from "../utils/pendingMutationId";
 
 type Material = { id: string; title: string; material_type: "video" | "pdf" | "link" | "text"; resource_url: string; body: string; duration_seconds: number | null; display_order: number };
 type Module = { id: string; title: string; description: string; display_order: number; materials: Material[] };
@@ -89,13 +90,15 @@ export function SupabaseLMSManager() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const catalogWrite = async (action: string, item: Record<string, any>, message: string) => {
+  const catalogWrite = async (action: string, item: Record<string, any>, message: string, lease?: { clear: () => void }) => {
     setBusy(true); setError(""); setNotice("");
     try {
       const result = await requestLms("/api/lms/catalog/" + action, { method: "POST", body: JSON.stringify({ item }) });
+      // Clear the retry key after the RPC confirms success; refresh errors must not turn a committed write into a duplicate submission.
+      lease?.clear();
       if (action === "course" && result.id) setSelectedCourseId(String(result.id));
       setNotice(message); await refresh(); return result;
-    } catch (cause: any) { setError(cause?.message || "Perubahan LMS belum tersimpan."); return null; }
+    } catch (cause: any) { setError(cause?.message || "Perubahan LMS belum terkonfirmasi. Ulangi dengan data yang sama bila koneksi terputus."); return null; }
     finally { setBusy(false); }
   };
 
@@ -108,20 +111,26 @@ export function SupabaseLMSManager() {
   const saveCourse = async (event: React.FormEvent) => {
     event.preventDefault();
     const instructorUserId = isAdmin ? course.instructorUserId : user?.uid || "";
-    const result = await catalogWrite("course", { ...course, instructorUserId, clientRequestId: crypto.randomUUID() }, "Kursus tersimpan di tenant Supabase.");
+    const item = { ...course, instructorUserId };
+    const lease = await pendingMutationIds.acquire(`lms:${user?.tenantId || ""}:${user?.uid || ""}:course`, item);
+    const result = await catalogWrite("course", { ...item, clientRequestId: lease.requestId }, "Kursus tersimpan di tenant Supabase.", lease);
     if (result) setCourse({ title: "", description: "", grade: "", categoryId: "", categoryName: "Umum", instructorUserId: "", status: "published", color: "indigo" });
   };
 
   const saveModule = async (event: React.FormEvent) => {
     event.preventDefault(); if (!selectedCourse) return;
-    const result = await catalogWrite("module", { courseId: selectedCourse.id, ...moduleDraft, displayOrder: selectedCourse.modules.length, clientRequestId: crypto.randomUUID() }, "Modul pembelajaran ditambahkan.");
+    const item = { courseId: selectedCourse.id, ...moduleDraft, displayOrder: selectedCourse.modules.length };
+    const lease = await pendingMutationIds.acquire(`lms:${user?.tenantId || ""}:${user?.uid || ""}:module`, item);
+    const result = await catalogWrite("module", { ...item, clientRequestId: lease.requestId }, "Modul pembelajaran ditambahkan.", lease);
     if (result) { setModuleDraft({ title: "", description: "" }); setMaterialDraft((old) => ({ ...old, moduleId: result.id })); }
   };
 
   const saveMaterial = async (event: React.FormEvent) => {
     event.preventDefault(); if (!selectedCourse || !materialDraft.moduleId) return;
     const module = selectedCourse.modules.find((item) => item.id === materialDraft.moduleId);
-    const result = await catalogWrite("material", { ...materialDraft, courseId: selectedCourse.id, displayOrder: module?.materials.length || 0, durationSeconds: null, clientRequestId: crypto.randomUUID() }, "Materi tersimpan.");
+    const item = { ...materialDraft, courseId: selectedCourse.id, displayOrder: module?.materials.length || 0, durationSeconds: null };
+    const lease = await pendingMutationIds.acquire(`lms:${user?.tenantId || ""}:${user?.uid || ""}:material`, item);
+    const result = await catalogWrite("material", { ...item, clientRequestId: lease.requestId }, "Materi tersimpan.", lease);
     if (result) setMaterialDraft((old) => ({ ...old, title: "", url: "", body: "" }));
   };
 
@@ -133,7 +142,9 @@ export function SupabaseLMSManager() {
 
   const saveAssignment = async (event: React.FormEvent) => {
     event.preventDefault();
-    const result = await catalogWrite("assignment", { ...assignmentDraft, dueAt: assignmentDraft.dueAt ? new Date(assignmentDraft.dueAt).toISOString() : null, clientRequestId: crypto.randomUUID() }, "Tugas LMS diterbitkan.");
+    const item = { ...assignmentDraft, dueAt: assignmentDraft.dueAt ? new Date(assignmentDraft.dueAt).toISOString() : null };
+    const lease = await pendingMutationIds.acquire(`lms:${user?.tenantId || ""}:${user?.uid || ""}:assignment`, item);
+    const result = await catalogWrite("assignment", { ...item, clientRequestId: lease.requestId }, "Tugas LMS diterbitkan.", lease);
     if (result) setAssignmentDraft((old) => ({ ...old, title: "", instructions: "", dueAt: "", moduleId: "" }));
   };
 
