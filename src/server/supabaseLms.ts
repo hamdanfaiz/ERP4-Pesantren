@@ -191,11 +191,11 @@ export async function addSupabaseLmsLearningRecord(tenantId: string, actorId: st
 }
 
 export async function submitSupabaseLmsAssignment(tenantId: string, actorId: string, assignmentId: string, item: any) {
-  if (!uuid(assignmentId) || typeof item?.responseText !== "string" || typeof item?.resourceUrl !== "string") throw new SupabaseLmsError(400, "Jawaban tugas LMS tidak valid.");
-  return request("/rest/v1/rpc/submit_lms_assignment", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_assignment_id: assignmentId, p_text: item.responseText, p_url: item.resourceUrl }) });
+  if (!uuid(assignmentId) || !uuid(item?.requestId) || typeof item?.responseText !== "string" || typeof item?.resourceUrl !== "string") throw new SupabaseLmsError(400, "Jawaban tugas LMS tidak valid.");
+  return request("/rest/v1/rpc/submit_lms_assignment", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_request_id: item.requestId, p_assignment_id: assignmentId, p_text: item.responseText, p_url: item.resourceUrl }) });
 }
 
 export async function gradeSupabaseLmsSubmission(tenantId: string, actorId: string, submissionId: string, item: any) {
-  if (!uuid(submissionId) || !Number.isFinite(item?.score) || typeof item?.feedback !== "string") throw new SupabaseLmsError(400, "Nilai atau umpan balik tugas tidak valid.");
-  return request("/rest/v1/rpc/grade_lms_submission", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_submission_id: submissionId, p_score: item.score, p_feedback: item.feedback }) });
+  if (!uuid(submissionId) || !uuid(item?.requestId) || !Number.isFinite(item?.score) || typeof item?.feedback !== "string") throw new SupabaseLmsError(400, "Nilai atau umpan balik tugas tidak valid.");
+  return request("/rest/v1/rpc/grade_lms_submission", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_request_id: item.requestId, p_submission_id: submissionId, p_score: item.score, p_feedback: item.feedback }) });
 }
