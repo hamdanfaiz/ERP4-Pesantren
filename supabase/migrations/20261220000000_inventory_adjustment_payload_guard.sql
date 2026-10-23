@@ -11,7 +11,7 @@ BEGIN
   IF p_medicine_id IS NULL OR p_delta=0 OR p_request_id IS NULL OR length(btrim(COALESCE(p_reason,''))) NOT BETWEEN 1 AND 1000 THEN RAISE EXCEPTION 'Invalid stock adjustment' USING ERRCODE='22023'; END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('health-stock:'||p_tenant_id::TEXT||':'||p_request_id::TEXT,0));
   SELECT * INTO v_existing FROM public.healthcare_stock_movements
-  WHERE tenant_id=p_tenant_id AND request_id=p_request_id FOR UPDATE;
+  WHERE tenant_id=p_tenant_id AND request_id=p_request_id;
   IF FOUND THEN
     IF v_existing.created_by IS DISTINCT FROM p_actor_user_id
       OR v_existing.medicine_id IS DISTINCT FROM p_medicine_id
