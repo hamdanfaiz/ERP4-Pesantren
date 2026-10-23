@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path=public,extensions;
-SELECT plan(10);
+SELECT plan(11);
 
 INSERT INTO public.tenants(id,slug,name,status)
 VALUES ('e2000000-0000-4000-8000-000000000009','inventory-idempotency-test','Inventory Idempotency Test','active');
