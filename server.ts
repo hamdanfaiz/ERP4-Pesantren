@@ -112,6 +112,7 @@ import { getSupabaseAcademicSnapshot, saveSupabaseAcademicRecord, SupabaseAcadem
 import {
   adjustSupabaseCooperativeStock,
   checkoutSupabaseCooperativeSale,
+  getSupabaseCooperativeLegacyImportContext,
   getSupabaseCooperativeSnapshot,
   manageSupabaseCooperativeProduct,
   manageSupabaseCooperativeSupplier,
@@ -119,6 +120,7 @@ import {
   SupabaseCooperativeError,
   topUpSupabaseCooperativeWallet,
 } from "./src/server/supabaseCooperative";
+import { applySupabaseLegacyCooperativeCatalog, previewSupabaseLegacyCooperativeCatalog } from "./src/server/supabaseCooperativeImport";
 import {
   applySupabaseLegacyHrisEmployeeImport,
   previewSupabaseLegacyHrisEmployees,
@@ -634,6 +636,7 @@ async function startServer() {
   };
   const hrisRuntimeEnabled = String(process.env.SUPABASE_HRIS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const cooperativeRuntimeEnabled = String(process.env.SUPABASE_COOPERATIVE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const cooperativeImportEnabled = String(process.env.SUPABASE_COOPERATIVE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const loadCooperativeActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
     const tenantId = String(profile?.tenantId || "").trim();
@@ -650,6 +653,7 @@ async function startServer() {
   };
   const cooperativeRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseCooperativeError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase cooperative endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan Koperasi Supabase belum dapat diproses." });
@@ -1346,6 +1350,35 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadCooperativeActor(uid);
       return res.json(await getSupabaseCooperativeSnapshot(actor.tenantId));
+    } catch (error) { return cooperativeRouteError(res, error); }
+  });
+  app.post("/api/cooperative/legacy/catalog-import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cooperativeImportEnabled) return res.status(503).json({ error: "Impor arsip Koperasi belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCooperativeActor(uid);
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor Koperasi tidak valid." });
+      const [context, services] = await Promise.all([getSupabaseCooperativeLegacyImportContext(actor.tenantId), getAdminServices()]);
+      if (!services.ok) throw new SupabaseCooperativeError(503, "Arsip Firestore Koperasi belum dapat dibaca backend migrasi lokal.");
+      const [products, suppliers, wallets, transactions] = await Promise.all([
+        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_inventory", tenantKey: context.legacyTenantKey, limit: 1000 }),
+        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_suppliers", tenantKey: context.legacyTenantKey, limit: 1000 }),
+        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_wallets", tenantKey: context.legacyTenantKey, limit: 1000 }),
+        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_transactions", tenantKey: context.legacyTenantKey, limit: 1000 }),
+      ]);
+      const sources = { products, suppliers, wallets, transactions };
+      const preview = previewSupabaseLegacyCooperativeCatalog(actor.tenantId, sources, context.existingProducts, context.existingSuppliers);
+      const { items: _items, ...summary } = preview;
+      if (action === "preview") return res.json(summary);
+      if (String(req.body?.expectedFingerprint || "") !== preview.snapshotFingerprint) {
+        return res.status(409).json({ error: "Snapshot Koperasi berubah setelah pratinjau; jalankan pratinjau ulang.", preview: summary });
+      }
+      if (!preview.canApply) return res.status(409).json({ error: "Impor katalog Koperasi memiliki konflik atau data yang perlu ditinjau.", preview: summary });
+      const result = await applySupabaseLegacyCooperativeCatalog(actor.tenantId, actor.uid, sources, context.existingProducts, context.existingSuppliers, preview.snapshotFingerprint);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return cooperativeRouteError(res, error); }
   });
   app.post("/api/cooperative/products", requireAuth, async (req, res) => {
