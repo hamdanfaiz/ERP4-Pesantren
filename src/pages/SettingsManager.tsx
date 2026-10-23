@@ -286,15 +286,15 @@ export function SettingsManager() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-medium text-slate-700 dark:text-slate-300 border-b border-indigo-500 pb-1 inline-block">
-              Settings & Central Configuration
+              Pengaturan & Konfigurasi Pusat
             </h1>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Live Sync Active
+              Sinkronisasi Langsung Aktif
             </span>
           </div>
           <p className="text-slate-500 text-sm mt-2">
-            Kelola identitas institusi, kalender akademik, hak akses dinamis (RBAC), gateway, dan konfigurasi portal
+            Kelola identitas institusi, kalender akademik, hak akses dinamis (RBAC), integrasi layanan, dan konfigurasi portal
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -321,9 +321,9 @@ export function SettingsManager() {
         <div className="md:col-span-1 border-r border-slate-200 dark:border-white/5 pr-4">
           <div className="flex flex-col gap-1.5">
             {[
-              { id: 'general', label: 'General & Kalender', icon: <Globe className="w-4 h-4" /> },
+              { id: 'general', label: 'Umum & Kalender', icon: <Globe className="w-4 h-4" /> },
               { id: 'organization', label: 'Profil Institusi', icon: <Building className="w-4 h-4" /> },
-              { id: 'security', label: 'Role & Matriks RBAC', icon: <Shield className="w-4 h-4" /> },
+              { id: 'security', label: 'Peran & Matriks RBAC', icon: <Shield className="w-4 h-4" /> },
               { id: 'integrations', label: 'Integrasi API & Layanan', icon: <Database className="w-4 h-4" /> },
               { id: 'mobile', label: 'Portal Wali & Santri', icon: <Smartphone className="w-4 h-4" /> },
               { id: 'backup', label: 'Cadangan & Utilitas Basis Data', icon: <Download className="w-4 h-4" /> },
@@ -364,7 +364,7 @@ export function SettingsManager() {
               <div className="p-6 space-y-6">
                 <div>
                   <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-indigo-400" /> General Settings & Kalender Akademik
+                    <Globe className="w-5 h-5 text-indigo-400" /> Pengaturan Umum & Kalender Akademik
                   </h2>
                   <p className="text-xs text-slate-500">
                     Parameter umum sistem yang menjadi acuan default untuk seluruh modul aplikasi.
@@ -821,7 +821,7 @@ export function SettingsManager() {
               <div className="p-6 space-y-6">
                 <div>
                   <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-2">
-                    <Smartphone className="w-5 h-5 text-indigo-400" /> Konfigurasi Portal Wali Santri & Mobile App
+                    <Smartphone className="w-5 h-5 text-indigo-400" /> Konfigurasi Portal Wali Santri & Aplikasi Seluler
                   </h2>
                   <p className="text-xs text-slate-500">
                     Atur transparansi nilai dan fitur mandiri yang dapat diakses oleh Wali Santri.
@@ -865,7 +865,7 @@ export function SettingsManager() {
                       className="w-5 h-5 rounded border-slate-600 bg-black/20 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0"
                     />
                     <div>
-                      <div className="font-medium text-slate-800 dark:text-slate-200">Push Notification Otomatis ke Smartphone Wali</div>
+                      <div className="font-medium text-slate-800 dark:text-slate-200">Notifikasi Otomatis ke Ponsel Wali</div>
                       <div className="text-xs text-slate-500">Kirim notifikasi instan saat setoran hafalan baru dicatat atau perizinan disetujui musyrif.</div>
                     </div>
                   </label>
