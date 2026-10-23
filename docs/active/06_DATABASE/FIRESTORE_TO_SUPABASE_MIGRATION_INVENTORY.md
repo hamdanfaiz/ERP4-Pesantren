@@ -88,11 +88,13 @@ Pencarian source code menemukan importer atau jalur migrasi yang mengharapkan su
 | `users` | 1 | 1 |
 
   Totalnya 560 dokumen di luar registry tenant; 559 dokumen operasional tidak mempunyai `tenantId`. Satu dokumen `tenants` adalah registry tenant sehingga tidak diharapkan memiliki `tenantId` yang menunjuk dirinya sendiri. Satu profil pada `users` memiliki `tenantId=pesantren-digital`, sesuai kunci dokumen tenant sumber.
-- Pembacaan source code PR menunjukkan endpoint migrasi domain memfilter Firestore dengan `where("tenantId", "==", legacyTenantKey)`. Karena 559 dokumen operasional tidak menyimpan field itu, jalur tersebut tidak akan menemukan record-record itu. Jangan menjalankan `apply`; diperlukan aturan pemetaan tenant yang eksplisit, preview yang mencakup seluruh record, serta penanganan record tanpa kepemilikan yang bisa dibuktikan.
-- Pemeriksaan Supabase baca-saja sebelumnya melihat tenant dengan slug `pesantren-digital`, tetapi `legacy_tenant_key` masih `NULL`. Selain pemetaan Firestore yang hilang, nilai mapping Supabase ini harus ditetapkan dan diverifikasi pada environment non-produksi sebelum preview dapat dianggap siap.
-- Belum ada ekspor Firestore, pembacaan subkoleksi atau Firebase Storage, dry-run importer terhadap seluruh dataset, maupun penulisan ke Supabase.
+- Pemeriksaan agregat khusus Tahfidz menemukan 40 record kategori Halaqah pada `master_data` dan 7 record tipe Santri pada `entityRecords`; semua record yang relevan itu tidak memiliki `tenantId`.
+- Endpoint migrasi selain Tahfidz masih menggunakan filter Firestore `where("tenantId", "==", legacyTenantKey)`; tanpa perubahan, endpoint tersebut melewatkan data tenantless. Jangan apply modul-modul tersebut sebelum loader dan laporan ownership diperbaiki.
+- Route migrasi Tahfidz pada PR ini sekarang membaca snapshot terbatas, hanya memilih record Halaqah/Santri, dan mengaudit `tenantId`. Record tanpa tenant dapat dipetakan **dalam memori untuk preview** hanya jika registry Firestore berisi tepat satu tenant yang cocok dengan kunci sumber. Jika `legacy_tenant_key` Supabase kosong, preview dapat memakai satu-satunya kunci sumber tetapi memberi `canApply=false`. Apply memerlukan mapping tersimpan, fingerprint terbaru, dan konfirmasi tenantless ownership yang sama dengan kunci sumber. Jika registry ambigu atau ada tenant field yang invalid, apply diblokir.
+- Pemeriksaan Supabase baca-saja sebelumnya melihat tenant dengan slug `pesantren-digital`, tetapi `legacy_tenant_key` masih `NULL`. Belum ada preview Tahfidz terhadap target Supabase live/non-produksi dan belum ada apply.
+- Belum ada ekspor Firestore, pembacaan subkoleksi atau Firebase Storage, dry-run seluruh importer terhadap dataset, maupun penulisan ke Supabase.
 - Database alternatif yang memuat `cbt_questions` belum direkonsiliasi dengan sumber kanonis.
-- PR cutover tetap draft; pembaruan inventaris ini tidak mengubah runtime atau database.
+- PR cutover tetap draft; perubahan ini tidak menerapkan migrasi database atau mengubah runtime produksi.
 
 ## Jalur migrasi server-side yang sudah tersedia
 
@@ -123,11 +125,13 @@ Jalur tersebut belum mencakup seluruh koleksi kanonis. Root `candidates`, empat 
 
 Halaman Import/Export Google Cloud untuk database kanonis masih menonaktifkan tombol Import dan Export pada sesi Starter Tier. Namun, ADC dengan scope `cloud-platform` kini berhasil mengambil token dan Firestore REST API berhasil dipakai untuk membaca ID koleksi, jumlah dokumen, serta nama field tingkat atas. Tidak ada ekspor atau operasi tulis yang dijalankan. ADC tersimpan di konfigurasi sementara di luar direktori repository; jangan menyalin file kredensial itu ke repository atau chat.
 
-Inventaris root ini belum membuktikan isi subkoleksi atau Firebase Storage. Karena dokumen operasional tidak memiliki `tenantId`, endpoint import yang hanya membaca berdasarkan field tersebut tidak dapat menjadi satu-satunya jalur migrasi. Langkah aman berikutnya:
+Inventaris root ini belum membuktikan isi subkoleksi atau Firebase Storage. Route Tahfidz sudah mempunyai pemeriksaan ownership untuk preview, tetapi importer domain lain belum menangani 559 record tenantless. Langkah berikutnya:
 
-1. Backend team menetapkan aturan pemetaan sumber ke tenant tujuan secara eksplisit dan menambahkan mode preview yang dapat membaca record tenantless tanpa menulis data. Jika snapshot hanya berisi satu pesantren, kebijakan pemetaan itu harus dinyatakan eksplisit dan setiap koleksi harus tercakup dalam preview.
-2. Jalankan preview pada environment Supabase non-produksi setelah `legacy_tenant_key` tenant tujuan disiapkan; tampilkan hitungan siap, ditolak, duplikat, dan konflik tanpa memuat nilai identitas.
-3. Inventarisasi subkoleksi dan Firebase Storage, lalu rekonsiliasi jumlah sumber dan target.
-4. Baru setelah dry-run, tenant isolation, serta rekonsiliasi lulus, rencanakan apply terkontrol. Sampai saat itu tidak ada perubahan produksi yang dilakukan.
+1. Tetapkan `legacy_tenant_key=pesantren-digital` pada tenant tujuan di environment non-produksi, lalu jalankan preview Tahfidz dan periksa hitungan, konflik santri/halaqah, serta fingerprint. Apply tetap memerlukan konfirmasi eksplisit dan tidak dijalankan di production.
+2. Terapkan loader dan audit ownership yang setara ke importer Akademik, CBT, UKS, GA, Marketplace, peminjaman fasilitas, LMS, Boarding, dan Komunikasi; preview harus menghitung record tenantless/mismatch dan memblokir apply jika ownership tidak lengkap.
+3. Bangun importer untuk koleksi root yang belum didukung (PPDB kandidat, koperasi, perpustakaan, serta profil pengguna) dengan validasi relasi dan rekonsiliasi transaksi.
+4. Inventarisasi subkoleksi dan Firebase Storage, lalu rekonsiliasi jumlah sumber/target dan uji restore sebelum cutover.
+
+Sampai preview per domain dan mapping Supabase diverifikasi, tidak ada perubahan data produksi.
 
 Jangan mengaktifkan feature flag import di production, jangan mengirim service-account key atau token lewat chat, dan jangan menghapus Firebase sebelum backup serta proses restore Supabase diuji.
