@@ -28,7 +28,7 @@ VALUES (
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
 VALUES (
   'd9000000-0000-4000-8000-000000000101', 'd9000000-0000-4000-8000-000000000009',
-  'COOP-TZ-TEST-001', 'Santri Cooperative Timezone Test', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')
+  'CTZ001', 'Santri Cooperative Timezone Test', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')
 );
 
 INSERT INTO public.students (
@@ -37,7 +37,7 @@ INSERT INTO public.students (
 )
 VALUES (
   'd9000000-0000-4000-8000-000000000201', 'd9000000-0000-4000-8000-000000000009',
-  'd9000000-0000-4000-8000-000000000101', 'COOP-TZ-TEST-001', 'Santri Cooperative Timezone Test', 'L', 'VII',
+  'd9000000-0000-4000-8000-000000000101', 'CTZ001', 'Santri Cooperative Timezone Test', 'L', 'VII',
   decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'active'
 );
 
@@ -52,7 +52,7 @@ INSERT INTO public.cooperative_products (
 )
 VALUES (
   'd9000000-0000-4000-8000-000000000301', 'd9000000-0000-4000-8000-000000000009',
-  'COOP-TZ-TEST-001', 'Produk Cooperative Timezone Test', 'Test', 10, 10, 100,
+  'CTZ001', 'Produk Cooperative Timezone Test', 'Test', 10, 10, 100,
   0, 'd9000000-0000-4000-8000-000000000302',
   'd9000000-0000-4000-8000-000000000011', 'd9000000-0000-4000-8000-000000000011'
 );
