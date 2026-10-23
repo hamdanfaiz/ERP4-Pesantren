@@ -22,7 +22,8 @@
     "test:business-date": "tsx scripts/test-business-date.ts",
     "test:rbac-permissions": "tsx scripts/test-rbac-permissions.ts",
     "test:hris-legacy-import": "tsx scripts/test-hris-legacy-import.ts",
-    "test:alumni-workflow": "tsx scripts/test-alumni-workflow.ts"
+    "test:alumni-workflow": "tsx scripts/test-alumni-workflow.ts",
+    "test:cooperative-legacy-import": "tsx scripts/test-cooperative-legacy-import.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -72,4 +73,3 @@
     "typescript": "~5.8.2"
   }
 }
-
