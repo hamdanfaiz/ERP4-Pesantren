@@ -163,3 +163,13 @@ Validasi lokal: 12 kasus helper tanggal bisnis, lint, dan build lulus. pgTAP har
 ### Tahap katalog Koperasi — 23 Oktober 2026
 
 Endpoint Admin `POST /api/cooperative/legacy/catalog-import` menyediakan preview dan apply dengan feature flag server yang default-nya mati. Snapshot fingerprint mencakup koleksi produk, pemasok, wallet, dan transaksi; apply memvalidasi ulang fingerprint dan menolak konflik atau record malformed. Request ID deterministik memungkinkan pemulihan impor parsial tanpa menggandakan catatan. Tahap ini hanya mengimpor produk, stok awal atomik, serta pemasok; wallet, transaksi, dan ledger tetap ditunda agar tidak membuat saldo atau relasi santri semu. Tes unit preview lulus lokal. Migration `20261210000000` dan pgTAP untuk mempertahankan status pemasok perlu lulus CI sebelum dianggap tervalidasi; production tidak disentuh.
+
+### Riwayat sirkulasi Perpustakaan: importer bertahap
+
+Importer Admin-only POST /api/library/circulations/legacy/import menyediakan pratinjau dan apply untuk library_circulations, dengan feature flag terpisah SUPABASE_LIBRARY_CIRCULATIONS_IMPORT_ENABLED=false. Pembacaan arsip dibatasi oleh tenant registry Firestore; seluruh pemetaan dan validasi dilakukan ulang saat apply dan fingerprint snapshot harus sama dengan pratinjau.
+
+Setiap pinjaman harus terhubung ke buku yang diimpor melalui HMAC document ID dan ke santri yang dipilih secara eksplisit dari roster tenant. Nama santri atau judul buku tidak pernah menjadi kunci pencocokan otomatis. Tanggal hanya menerima ISO calendar date; status harus didukung; peminjaman aktif tidak boleh memiliki tanggal kembali; transaksi dikembalikan wajib memiliki tanggal kembali; denda selain nol atau field denda yang hilang ditahan untuk rekonsiliasi Finance. Perbedaan nama juga memblokir apply untuk pemeriksaan identitas.
+
+Migration 20261211000000_library_circulation_legacy_import.sql menambahkan fingerprint sumber immutable, audit batch, serta RPC atomik yang memeriksa Admin aktif, foreign key tenant, benturan source ID, retry idempoten, dan jumlah peminjaman aktif terhadap jumlah eksemplar di bawah row lock. RPC hanya dapat dijalankan service role. Unit preview dan pgTAP mencakup pemetaan, konflik tenant, retry, data berubah, kapasitas eksemplar, dan status pengembalian. Lint, build, dan 14 kasus preview lulus lokal; pgTAP dan CI menunggu run branch. Tidak ada migration atau data production yang diterapkan.
+
+Data sumber yang terinventarisasi hanya satu record peminjaman dan field peminjam berupa teks; tidak ditemukan ID santri atau tanggal kembali pada bentuk dokumen. Karena itu apply tetap akan ditahan sampai pratinjau aktual menyelesaikan pemetaan/konflik tersebut. Runtime dan kedua flag impor tetap mati.
