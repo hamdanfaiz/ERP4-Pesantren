@@ -97,7 +97,7 @@ export function SupabaseBoardingFacilityOpsManager() {
   };
   const reload = () => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); };
   const runLegacyImport = async (apply = false) => {
-    if (apply && (!migrationReport?.canApply || !window.confirm("Impor snapshot audit dan tiket Firestore ke tenant Supabase? Data lama tidak dihapus."))) return;
+    if (apply && (!migrationReport?.canApply || !window.confirm("Impor data audit dan tiket Firestore ke data pesantren di Supabase? Data lama tidak dihapus."))) return;
     setMigrationBusy(true); setError(""); setNotice("");
     try {
       const report = await migrateSupabaseFacilityOps(apply, migrationReport?.previewFingerprint || "");
@@ -106,7 +106,7 @@ export function SupabaseBoardingFacilityOpsManager() {
         setNotice(`Impor selesai: ${report.imported?.audits || 0} audit dan ${report.imported?.tickets || 0} tiket baru; record identik yang sudah ada dilewati.`);
         try { await refresh(); } catch { setError("Impor selesai, tetapi snapshot fasilitas belum dapat dimuat ulang."); }
       }
-    } catch (e: any) { setError(e?.message || "Preview impor audit dan tiket belum dapat diproses."); }
+    } catch (e: any) { setError(e?.message || "Pratinjau impor audit dan tiket belum dapat diproses."); }
     finally { setMigrationBusy(false); }
   };
 
@@ -117,8 +117,8 @@ export function SupabaseBoardingFacilityOpsManager() {
     {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
     {FACILITY_OPS_IMPORT_ENABLED && ["Admin", "SuperAdmin"].includes(role) && <div className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="font-semibold text-indigo-950">Migrasi riwayat audit dan tiket</h2><p className="mt-1 text-sm text-indigo-800">Preview membaca snapshot tenant Firestore. Nama kamar harus cocok unik dengan Master Data Supabase; record lama tetap tersimpan selama rekonsiliasi.</p></div>
-        <div className="flex shrink-0 gap-2"><button type="button" onClick={() => void runLegacyImport(false)} disabled={migrationBusy} className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 disabled:opacity-50">{migrationBusy ? "Memproses…" : "Preview impor"}</button><button type="button" onClick={() => void runLegacyImport(true)} disabled={migrationBusy || !migrationReport?.canApply} className="rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Terapkan snapshot</button></div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="font-semibold text-indigo-950">Migrasi riwayat audit dan tiket</h2><p className="mt-1 text-sm text-indigo-800">Pratinjau membaca data pesantren dari Firestore. Nama kamar harus cocok secara unik dengan Data Induk Supabase; data lama tetap tersimpan selama rekonsiliasi.</p></div>
+        <div className="flex shrink-0 gap-2"><button type="button" onClick={() => void runLegacyImport(false)} disabled={migrationBusy} className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 disabled:opacity-50">{migrationBusy ? "Memproses…" : "Pratinjau impor"}</button><button type="button" onClick={() => void runLegacyImport(true)} disabled={migrationBusy || !migrationReport?.canApply} className="rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Terapkan data</button></div>
       </div>
       {migrationReport && <div className="space-y-2 rounded-lg border border-indigo-200 bg-white p-3 text-sm text-slate-700"><p>Sumber: {migrationReport.sourceCount.audits} audit · {migrationReport.sourceCount.tickets} tiket. Rencana baru: {migrationReport.planned.audits} audit · {migrationReport.planned.tickets} tiket. Sudah terimpor: {migrationReport.alreadyImported.audits} · {migrationReport.alreadyImported.tickets}.</p><p className={migrationReport.canApply ? "font-medium text-emerald-800" : "font-medium text-rose-700"}>{migrationReport.canApply ? "Snapshot siap diterapkan; fingerprint akan diperiksa kembali oleh server." : `${migrationReport.blockingIssues.length} masalah harus direkonsiliasi sebelum apply.`}</p>{migrationReport.blockingIssues.length > 0 && <ul className="max-h-40 space-y-1 overflow-auto text-xs text-rose-800">{migrationReport.blockingIssues.map((issue, index) => <li key={`${issue.type}-${issue.id}-${index}`}><strong>{issue.type} {issue.id}:</strong> {issue.message}</li>)}</ul>}<p className="break-all font-mono text-[10px] text-slate-500">Fingerprint: {migrationReport.previewFingerprint}</p></div>}
     </div>}
