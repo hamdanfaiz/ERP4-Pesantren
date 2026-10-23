@@ -77,7 +77,7 @@ BEGIN
     RAISE EXCEPTION 'Invalid laundry order' USING ERRCODE='22023';
   END IF;
   v_fingerprint:=public.laundry_request_fingerprint(jsonb_build_object(
-    'studentId',p_student_id,'weightKg',p_weight_kg,'pieces',p_pieces
+    'studentId',p_student_id,'weightKg',p_weight_kg::NUMERIC(7,2),'pieces',p_pieces
   ));
   PERFORM pg_advisory_xact_lock(hashtextextended('laundry-request:'||p_tenant_id::TEXT||':'||p_client_request_id::TEXT,0));
   SELECT * INTO v_existing FROM public.laundry_mutation_requests
@@ -146,7 +146,7 @@ BEGIN
     RAISE EXCEPTION 'Invalid laundry settings' USING ERRCODE='22023';
   END IF;
   v_fingerprint:=public.laundry_request_fingerprint(jsonb_build_object(
-    'monthlyQuotaKg',p_monthly_quota_kg,'excessRatePerKg',p_excess_rate_per_kg
+    'monthlyQuotaKg',p_monthly_quota_kg::NUMERIC(8,2),'excessRatePerKg',p_excess_rate_per_kg
   ));
   PERFORM pg_advisory_xact_lock(hashtextextended('laundry-settings:'||p_tenant_id::TEXT,0));
   PERFORM pg_advisory_xact_lock(hashtextextended('laundry-request:'||p_tenant_id::TEXT||':'||p_client_request_id::TEXT,0));
