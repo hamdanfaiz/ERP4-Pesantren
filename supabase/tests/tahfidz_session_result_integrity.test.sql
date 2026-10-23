@@ -40,14 +40,14 @@ SELECT ok(EXISTS (
   WHERE conrelid='public.tahfidz_sessions'::regclass
     AND conname='tahfidz_sessions_exam_completion_result_required'
 ), 'completed exam result integrity constraint exists');
-SELECT like(
-  (SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='tahfidz_sessions_exam_completion_result_required'),
-  '%score IS NOT NULL%',
+SELECT ok(
+  (SELECT pg_get_constraintdef(oid) ILIKE '%score IS NOT NULL%'
+   FROM pg_constraint WHERE conname='tahfidz_sessions_exam_completion_result_required'),
   'the constraint requires a non-null score'
 );
-SELECT like(
-  (SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='tahfidz_sessions_exam_completion_result_required'),
-  '%outcome IS NOT NULL%',
+SELECT ok(
+  (SELECT pg_get_constraintdef(oid) ILIKE '%outcome IS NOT NULL%'
+   FROM pg_constraint WHERE conname='tahfidz_sessions_exam_completion_result_required'),
   'the constraint requires a non-null pass/retest outcome'
 );
 SELECT throws_ok(
