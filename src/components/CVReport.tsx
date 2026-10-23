@@ -121,7 +121,7 @@ export const CVReport: React.FC<CVReportProps> = ({ data }) => {
           {/* Personal Details */}
           <section>
             <div className="flex items-center gap-2 mb-4 text-slate-800 border-b border-slate-200 pb-2">
-              <h2 className="text-lg font-bold uppercase tracking-wider">Personal Info</h2>
+              <h2 className="text-lg font-bold uppercase tracking-wider">Informasi Pribadi</h2>
             </div>
             <div className="space-y-3 text-sm">
               {data.gender && (
