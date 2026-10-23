@@ -35,7 +35,7 @@ async function request(path: string, init: RequestInit = {}) {
     if (["23505", "23503", "23514"].includes(code) || response.status === 409) {
       throw new SupabaseLibraryError(409, payload?.message || "Perubahan bertentangan dengan transaksi perpustakaan tenant.");
     }
-    if (code === "22023" || response.status === 400) throw new SupabaseLibraryError(400, payload?.message || "Data perpustakaan tidak valid.");
+    if (["22023", "22007", "22008", "22P02"].includes(code) || response.status === 400) throw new SupabaseLibraryError(400, payload?.message || "Data perpustakaan tidak valid.");
     if (code === "P0002" || response.status === 404) throw new SupabaseLibraryError(404, payload?.message || "Data tidak ditemukan pada tenant.");
     if (code === "42501" || response.status === 403) throw new SupabaseLibraryError(403, "Operasi perpustakaan ditolak oleh kebijakan tenant.");
     throw new SupabaseLibraryError(503, "Layanan perpustakaan Supabase belum dapat diproses.");
@@ -233,6 +233,25 @@ export async function getSupabaseLibraryLegacyImportContext(tenantIdentifier: st
   return { tenantId, legacyTenantKey, existingRows };
 }
 
+export async function getSupabaseLibraryCirculationImportContext(tenantIdentifier: string) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const tenants = await request("/rest/v1/tenants?" + new URLSearchParams({
+    select: "id,legacy_tenant_key", id: "eq." + tenantId, limit: "2",
+  }).toString());
+  const legacyTenantKey = Array.isArray(tenants) ? String(tenants[0]?.legacy_tenant_key || "").trim() : "";
+  if (!legacyTenantKey) throw new SupabaseLibraryError(409, "Tenant belum memiliki pemetaan arsip Firestore lama.");
+  const [books, students, existingCirculations] = await Promise.all([
+    tenantRows("library_books", tenantId, "id,title,status,source_system,source_record_id", "title.asc,id.asc"),
+    tenantRows("students", tenantId, "id,name,nis,status", "name.asc,id.asc"),
+    tenantRows(
+      "library_circulations", tenantId,
+      "id,book_id,student_id,borrowed_on,due_on,returned_on,status,source_system,source_record_id,source_fingerprint",
+      "borrowed_on.desc,id.desc",
+    ),
+  ]);
+  return { tenantId, legacyTenantKey, books, students, existingCirculations };
+}
+
 export async function applySupabaseLegacyLibraryBooks(
   tenantId: string,
   actorId: string,
@@ -250,4 +269,27 @@ export async function applySupabaseLegacyLibraryBooks(
     body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_snapshot_fingerprint: snapshotFingerprint, p_source_count: sourceCount, p_rows: items }),
   });
 }
-
+export async function applySupabaseLegacyLibraryCirculations(
+  tenantId: string,
+  actorId: string,
+  snapshotFingerprint: string,
+  sourceCount: number,
+  items: Row[],
+) {
+  if (!isUuid(tenantId) || !isUuid(actorId) || !/^[0-9a-f]{64}$/.test(snapshotFingerprint)
+    || !Number.isInteger(sourceCount) || sourceCount < 1 || sourceCount > 1000
+    || !Array.isArray(items) || items.length > 1000 || items.length !== sourceCount) {
+    throw new SupabaseLibraryError(400, "Snapshot impor sirkulasi perpustakaan tidak valid.");
+  }
+  return request("/rest/v1/rpc/import_legacy_library_circulations", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_snapshot_fingerprint: snapshotFingerprint,
+      p_source_count: sourceCount,
+      p_rows: items,
+    }),
+  });
+}
+\n
