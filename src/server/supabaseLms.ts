@@ -186,8 +186,22 @@ export async function saveSupabaseLmsProgress(tenantId: string, actorId: string,
 }
 
 export async function addSupabaseLmsLearningRecord(tenantId: string, actorId: string, item: any) {
-  if (!uuid(item?.materialId) || !["note","comment"].includes(item?.kind) || !Number.isInteger(item?.timestampSeconds) || typeof item?.text !== "string") throw new SupabaseLmsError(400, "Catatan atau komentar materi tidak valid.");
-  return request("/rest/v1/rpc/add_lms_learning_record", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_kind: item.kind, p_material_id: item.materialId, p_timestamp_seconds: item.timestampSeconds, p_text: item.text }) });
+  if (!uuid(item?.requestId) || !uuid(item?.materialId) || !["note","comment"].includes(item?.kind)
+    || !Number.isInteger(item?.timestampSeconds) || typeof item?.text !== "string") {
+    throw new SupabaseLmsError(400, "Catatan atau komentar materi tidak valid.");
+  }
+  return request("/rest/v1/rpc/add_lms_learning_record", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_request_id: item.requestId,
+      p_kind: item.kind,
+      p_material_id: item.materialId,
+      p_timestamp_seconds: item.timestampSeconds,
+      p_text: item.text,
+    }),
+  });
 }
 
 export async function submitSupabaseLmsAssignment(tenantId: string, actorId: string, assignmentId: string, item: any) {
