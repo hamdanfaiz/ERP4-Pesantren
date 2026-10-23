@@ -74,8 +74,8 @@ BEGIN
     CASE WHEN p_completed THEN now() ELSE NULL END, now()
   )
   ON CONFLICT (tenant_id, student_id, material_id) DO UPDATE SET
-    position_seconds = GREATEST(public.lms_material_progress.position_seconds, EXCLUDED.position_seconds),
-    completed_at = COALESCE(public.lms_material_progress.completed_at, EXCLUDED.completed_at),
+    position_seconds = GREATEST(lms_material_progress.position_seconds, EXCLUDED.position_seconds),
+    completed_at = COALESCE(lms_material_progress.completed_at, EXCLUDED.completed_at),
     updated_at = now();
 
   RETURN jsonb_build_object('saved', true);
