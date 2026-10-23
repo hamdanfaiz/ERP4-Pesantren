@@ -23,7 +23,8 @@
     "test:rbac-permissions": "tsx scripts/test-rbac-permissions.ts",
     "test:hris-legacy-import": "tsx scripts/test-hris-legacy-import.ts",
     "test:alumni-workflow": "tsx scripts/test-alumni-workflow.ts",
-    "test:cooperative-legacy-import": "tsx scripts/test-cooperative-legacy-import.ts"
+    "test:cooperative-legacy-import": "tsx scripts/test-cooperative-legacy-import.ts",
+    "test:library-circulation-import": "tsx scripts/test-library-circulation-import.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
