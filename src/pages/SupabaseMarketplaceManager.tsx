@@ -3,6 +3,7 @@ import { Activity, CheckCircle2, Clock3, FileText, Loader2, Package, Plus, Refre
 import { ERPTabs } from "../components/ERPDesignSystem";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { pendingMutationIds } from "../utils/pendingMutationId";
 
 type Product = { id: string; sku: string; name: string; category: string; price: number; stock: number; seller: string; image: string; status: string };
 type OrderLine = { id: string; product_id: string | null; product_sku_snapshot: string; product_name_snapshot: string; quantity: number; unit_price: number; line_total: number };
@@ -26,6 +27,13 @@ const TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
 function money(value: number) { return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value) || 0); }
 function statusLabel(status: string) { return ({ pending: "Menunggu", processing: "Diproses", ready_to_ship: "Siap dikirim", delivered: "Selesai", cancelled: "Dibatalkan" } as Record<string, string>)[status] || status; }
 function nextStatuses(status: string) { return status === "pending" ? ["processing", "cancelled"] : status === "processing" ? ["ready_to_ship", "cancelled"] : status === "ready_to_ship" ? ["delivered"] : []; }
+
+async function runIdempotentMarketplaceMutation<T>(operation: string, tenantId: string, actorId: string, payload: unknown, send: (clientRequestId: string) => Promise<T>): Promise<T> {
+  const lease = await pendingMutationIds.acquire(`marketplace:${operation}`, { tenantId, actorId, payload });
+  const result = await send(lease.requestId);
+  lease.clear();
+  return result;
+}
 
 async function requestMarketplace(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -81,7 +89,12 @@ export function SupabaseMarketplaceManager() {
     event.preventDefault(); if (!cartLines.length || !customer.name.trim()) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      await requestMarketplace("/api/marketplace/orders", { method: "POST", body: JSON.stringify({ customerName: customer.name.trim(), customerType: customer.type, clientRequestId: crypto.randomUUID(), items: cartLines.map(({ product, quantity }) => ({ productId: product.id, quantity })) }) });
+      const order = {
+        customerName: customer.name.trim(), customerType: customer.type,
+        items: cartLines.map(({ product, quantity }) => ({ productId: product.id, quantity })).sort((a, b) => a.productId.localeCompare(b.productId)),
+      };
+      await runIdempotentMarketplaceMutation("create-order", user?.tenantId || "", user?.uid || "", order, (clientRequestId) =>
+        requestMarketplace("/api/marketplace/orders", { method: "POST", body: JSON.stringify({ ...order, clientRequestId }) }));
       setCart({}); setCheckoutOpen(false); setCustomer({ name: "", type: "Parent" }); setTab("orders"); setNotice("Pesanan tercatat dan stok dipesan secara transaksional."); await refresh();
     } catch (cause: any) { setError(cause?.message || "Pesanan belum dapat dicatat."); await refresh(); }
     finally { setBusy(false); }
@@ -89,7 +102,9 @@ export function SupabaseMarketplaceManager() {
   const saveProduct = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
-      await requestMarketplace("/api/marketplace/products", { method: "POST", body: JSON.stringify({ action: "create", sku: productDraft.sku, name: productDraft.name, category: productDraft.category, unitPrice: Number(productDraft.price), initialStock: Number(productDraft.initialStock), seller: productDraft.seller, imageLabel: productDraft.imageLabel, clientRequestId: crypto.randomUUID() }) });
+      const product = { action: "create", sku: productDraft.sku.trim(), name: productDraft.name.trim(), category: productDraft.category.trim(), unitPrice: Number(productDraft.price), initialStock: Number(productDraft.initialStock), seller: productDraft.seller.trim(), imageLabel: productDraft.imageLabel.trim() };
+      await runIdempotentMarketplaceMutation("create-product", user?.tenantId || "", user?.uid || "", product, (clientRequestId) =>
+        requestMarketplace("/api/marketplace/products", { method: "POST", body: JSON.stringify({ ...product, clientRequestId }) }));
       setProductDraft(emptyProduct()); setProductModal(false); setNotice("Produk tersimpan di katalog tenant."); await refresh();
     } catch (cause: any) { setError(cause?.message || "Produk belum dapat disimpan."); }
     finally { setBusy(false); }
@@ -99,7 +114,9 @@ export function SupabaseMarketplaceManager() {
     if (!draft?.reason.trim() || !Number.isFinite(delta) || delta === 0) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      await requestMarketplace("/api/marketplace/stock-adjustments", { method: "POST", body: JSON.stringify({ productId: product.id, delta, reason: draft.reason.trim(), clientRequestId: crypto.randomUUID() }) });
+      const adjustment = { productId: product.id, delta, reason: draft.reason.trim() };
+      await runIdempotentMarketplaceMutation("adjust-stock", user?.tenantId || "", user?.uid || "", adjustment, (clientRequestId) =>
+        requestMarketplace("/api/marketplace/stock-adjustments", { method: "POST", body: JSON.stringify({ ...adjustment, clientRequestId }) }));
       setStockDraft((old) => ({ ...old, [product.id]: { delta: "", reason: "" } })); setNotice("Mutasi inventaris tersimpan di ledger."); await refresh();
     } catch (cause: any) { setError(cause?.message || "Mutasi inventaris belum dapat dicatat."); }
     finally { setBusy(false); }
@@ -107,7 +124,9 @@ export function SupabaseMarketplaceManager() {
   const transitionOrder = async (order: Order, next: string) => {
     setBusy(true); setError(""); setNotice("");
     try {
-      await requestMarketplace(`/api/marketplace/orders/${encodeURIComponent(order.id)}/status`, { method: "PATCH", body: JSON.stringify({ status: next, clientRequestId: crypto.randomUUID() }) });
+      const transition = { orderId: order.id, status: next };
+      await runIdempotentMarketplaceMutation("transition-order", user?.tenantId || "", user?.uid || "", transition, (clientRequestId) =>
+        requestMarketplace(`/api/marketplace/orders/${encodeURIComponent(order.id)}/status`, { method: "PATCH", body: JSON.stringify({ status: next, clientRequestId }) }));
       setNotice(next === "cancelled" ? "Pesanan dibatalkan dan stok dikembalikan." : `Status pesanan menjadi ${statusLabel(next)}.`); await refresh();
     } catch (cause: any) { setError(cause?.message || "Status pesanan belum dapat diperbarui."); }
     finally { setBusy(false); }
@@ -149,3 +168,4 @@ export function SupabaseMarketplaceManager() {
 
 function Metric({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) { return <article className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex justify-between text-sm text-slate-500">{label}<span className="text-pink-700">{icon}</span></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{value}</p></article>; }
 function Empty({ message }: { message: string }) { return <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900">{message}</div>; }
+
