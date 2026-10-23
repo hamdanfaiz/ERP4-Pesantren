@@ -3,6 +3,7 @@ import { AlertCircle, Archive, BookOpen, Check, Clock3, Loader2, Plus, RefreshCw
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { addCalendarDays, isCalendarDate, tenantBusinessDate } from "../utils/businessDate";
+import { pendingMutationIds } from "../utils/pendingMutationId";
 
 type Book = { id: string; title: string; author: string; category: string; isbn: string; totalCopies: number; shelf: string; availableCopies: number };
 type Student = { id: string; name: string; nis: string };
@@ -22,6 +23,13 @@ async function requestLibrary(path: string, init: RequestInit = {}) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Layanan perpustakaan Supabase belum dapat diproses.");
   return payload;
+}
+
+async function runIdempotentLibraryMutation<T>(operation: string, tenantId: string, actorId: string, payload: unknown, send: (clientRequestId: string) => Promise<T>): Promise<T> {
+  const lease = await pendingMutationIds.acquire(`library:${operation}`, { tenantId, actorId, payload });
+  const result = await send(lease.requestId);
+  lease.clear();
+  return result;
 }
 
 function markOverdue(circulations: Circulation[], today: string) {
@@ -57,6 +65,7 @@ export function SupabaseLibraryManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [activeTab, setActiveTab] = useState<"catalog" | "circulation">("catalog");
   const [search, setSearch] = useState("");
   const [bookModal, setBookModal] = useState(false);
@@ -119,13 +128,13 @@ export function SupabaseLibraryManager() {
   const availableCopies = snapshot.books.reduce((sum, book) => sum + book.availableCopies, 0);
 
   const openBookForm = (book?: Book) => {
-    setError(""); setEditingBook(book || null);
+    setError(""); setNotice(""); setEditingBook(book || null);
     setBookForm(book ? { title: book.title, author: book.author, category: book.category, isbn: book.isbn, totalCopies: book.totalCopies, shelf: book.shelf } : { title: "", author: "", category: "Kajian Islam", isbn: "", totalCopies: 1, shelf: "" });
     setBookModal(true);
   };
 
   const openCheckoutForm = async () => {
-    setError("");
+    setError(""); setNotice("");
     try {
       const latest = await refresh();
       if (!latest.students.length || !latest.books.some((book) => book.availableCopies > 0)) {
@@ -140,32 +149,48 @@ export function SupabaseLibraryManager() {
   };
 
   const submitBook = async (event: React.FormEvent) => {
-    event.preventDefault(); setSaving(true); setError("");
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    const book = { ...bookForm, id: editingBook?.id || null };
     try {
-      await requestLibrary("/api/library/books", { method: "POST", body: JSON.stringify({ book: { ...bookForm, id: editingBook?.id || null, clientRequestId: crypto.randomUUID() } }) });
-      setBookModal(false); await refresh();
+      await runIdempotentLibraryMutation(editingBook ? "update-book" : "create-book", user?.tenantId || "", user?.uid || "", book, (clientRequestId) =>
+        requestLibrary("/api/library/books", { method: "POST", body: JSON.stringify({ book: { ...book, clientRequestId } }) }));
+      setBookModal(false);
+      setNotice(editingBook ? "Data buku berhasil diperbarui." : "Buku berhasil ditambahkan.");
+      try { await refresh(); } catch { setNotice("Buku berhasil disimpan, tetapi daftar belum berhasil dimuat ulang. Gunakan tombol Muat ulang."); }
     } catch (saveError: any) { setError(saveError?.message || "Buku belum dapat disimpan."); }
     finally { setSaving(false); }
   };
 
   const submitCheckout = async (event: React.FormEvent) => {
-    event.preventDefault(); setSaving(true); setError("");
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    const checkout = { ...checkoutForm };
     try {
-      await requestLibrary("/api/library/checkout", { method: "POST", body: JSON.stringify({ checkout: { ...checkoutForm, clientRequestId: crypto.randomUUID() } }) });
-      setCheckoutModal(false); setCheckoutForm({ studentId: "", bookId: "", borrowedOn: snapshot.businessDate, dueOn: addCalendarDays(snapshot.businessDate, 14) }); await refresh();
+      await runIdempotentLibraryMutation("checkout", user?.tenantId || "", user?.uid || "", checkout, (clientRequestId) =>
+        requestLibrary("/api/library/checkout", { method: "POST", body: JSON.stringify({ checkout: { ...checkout, clientRequestId } }) }));
+      setCheckoutModal(false);
+      setCheckoutForm({ studentId: "", bookId: "", borrowedOn: snapshot.businessDate, dueOn: addCalendarDays(snapshot.businessDate, 14) });
+      setNotice("Peminjaman berhasil dicatat.");
+      try { await refresh(); } catch { setNotice("Peminjaman berhasil dicatat, tetapi daftar belum berhasil dimuat ulang. Gunakan tombol Muat ulang."); }
     } catch (checkoutError: any) { setError(checkoutError?.message || "Peminjaman belum dapat dicatat."); }
     finally { setSaving(false); }
   };
 
   const returnBook = async (circulation: Circulation) => {
     if (!window.confirm(`Catat pengembalian ${circulation.bookTitle} dari ${circulation.student}?`)) return;
-    setSaving(true); setError("");
+    setSaving(true); setError(""); setNotice("");
     try {
       const latest = await refresh();
       const current = latest.circulations.find((item) => item.id === circulation.id);
-      if (!current || current.status === "Returned") throw new Error("Transaksi peminjaman ini sudah berubah. Periksa data terbaru.");
-      await requestLibrary("/api/library/returns", { method: "POST", body: JSON.stringify({ return: { circulationId: circulation.id, returnedOn: latest.businessDate, clientRequestId: crypto.randomUUID() } }) });
-      await refresh();
+      if (!current) throw new Error("Transaksi peminjaman tidak ditemukan pada data terbaru.");
+      if (current.status === "Returned") {
+        setNotice("Pengembalian ini sudah tercatat. Data terbaru sudah diperiksa.");
+        return;
+      }
+      const payload = { circulationId: circulation.id, returnedOn: latest.businessDate };
+      await runIdempotentLibraryMutation("return", user?.tenantId || "", user?.uid || "", payload, (clientRequestId) =>
+        requestLibrary("/api/library/returns", { method: "POST", body: JSON.stringify({ return: { ...payload, clientRequestId } }) }));
+      setNotice("Pengembalian berhasil dicatat.");
+      try { await refresh(); } catch { setNotice("Pengembalian berhasil dicatat, tetapi daftar belum berhasil dimuat ulang. Gunakan tombol Muat ulang."); }
     } catch (returnError: any) { setError(returnError?.message || "Pengembalian belum dapat dicatat."); }
     finally { setSaving(false); }
   };
@@ -218,6 +243,7 @@ export function SupabaseLibraryManager() {
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">Mode Supabase berisi katalog dan peminjaman. Aset digital dan pembayaran denda belum diaktifkan karena file belum memakai penyimpanan privat dan transaksi Finance belum bermigrasi.</div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
+      {notice && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-200">{notice}</div>}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[
         { label: "Judul aktif", value: snapshot.books.length, icon: BookOpen },
