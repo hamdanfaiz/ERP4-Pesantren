@@ -18,7 +18,7 @@ Struktur dokumentasi untuk PesantrenOS (SaaS Enterprise). Desain dan dokumentasi
 │   ├── 08_SECURITY
 │   ├── 09_AI
 │   ├── 10_MODULES
-│   ├── 11_UI_UX
+│   ├── 11_UI_UX (Design System)
 │   ├── 12_DEVOPS
 │   └── 13_TESTING
 │
@@ -55,3 +55,5 @@ Lihat dokumentasi utama sebelum menyelami sistem teknis:
 - **[Product Requirements Document (PRD)](active/02_PRODUCT/PRD.md)** - Daftar produk, visi, dan fitur.
 - **[Database ERD & Structure](active/06_DATABASE/ERD.md)** - Schema spesifik Firestore dan multi-tenancy.
 - **[Firestore Legacy Index Info](active/06_DATABASE/FIRESTORE_STRUCTURE.md)** - Struktur Firestore lawas.
+- **[Design System](active/11_UI_UX/DESIGN_SYSTEM.md)** - Token visual, komponen bersama, serta aturan konsistensi dan aksesibilitas UI.
+
