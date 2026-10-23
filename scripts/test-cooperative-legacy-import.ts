@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { previewSupabaseLegacyCooperativeCatalog } from "../src/server/supabaseCooperativeImport";
+import { previewSupabaseLegacyCooperativeCatalog, previewSupabaseLegacyCooperativeFinancialHistory } from "../src/server/supabaseCooperativeImport";
 
 process.env.SUPABASE_LEGACY_FINGERPRINT_KEY = "cooperative-import-test-key-0123456789abcdef";
 
@@ -128,5 +128,92 @@ process.env.SUPABASE_LEGACY_FINGERPRINT_KEY = "short";
 assert.throws(() => previewSupabaseLegacyCooperativeCatalog(tenantId, source, [], []), /Kunci fingerprint migrasi server belum dikonfigurasi/);
 process.env.SUPABASE_LEGACY_FINGERPRINT_KEY = previousKey;
 
-console.log("cooperative legacy catalog import: 8 cases passed");
+
+
+const financialSources = {
+  wallets: [{ id: "wallet-source-01", data: { id: "wallet-key-01", student: "Label Santri", balance: 3000, status: "Active" } }],
+  transactions: [{ id: "sale-source-01", data: {
+    id: "sale-source-01",
+    walletId: "wallet-key-01",
+    date: "2026-10-22T10:00:00Z",
+    items: [{ name: "Buku Tulis", price: 1000, qty: 2 }],
+    total: 2000,
+    status: "Success",
+  } }],
+};
+const targetWallets = [{ id: "target-wallet-01", student_id: "target-student-01", balance: 0, status: "active" }];
+const targetStudents = [{ id: "target-student-01", name: "Santri Tujuan", nis: "S-001", grade: "VII", status: "active" }];
+const targetProducts = [{ id: "target-product-01", sku: "SKU-001", name: "Buku Tulis", status: "active" }];
+const unmappedFinancialPreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId, financialSources, targetWallets, targetStudents, targetProducts, [],
+);
+assert.equal(unmappedFinancialPreview.canApply, false, "financial imports require explicit wallet and product mappings");
+assert.equal(unmappedFinancialPreview.counts.sourceWallets, 1);
+assert.equal(unmappedFinancialPreview.counts.sourceTransactions, 1);
+assert.equal(unmappedFinancialPreview.counts.sourceItems, 1);
+assert.ok(unmappedFinancialPreview.issues.some((item) => item.code === "wallet_student_mapping_required"));
+assert.ok(unmappedFinancialPreview.issues.some((item) => item.code === "transaction_item_product_mapping_required"));
+assert.equal(JSON.stringify(unmappedFinancialPreview).includes("wallet-source-01"), false, "raw source wallet IDs are not returned to the browser");
+assert.equal(JSON.stringify(unmappedFinancialPreview).includes("sale-source-01"), false, "raw source transaction IDs are not returned to the browser");
+
+const walletRef = unmappedFinancialPreview.wallets[0].sourceRef;
+const itemRef = unmappedFinancialPreview.transactions[0].items[0].itemRef;
+const completeMappings = {
+  wallets: { [walletRef]: { targetWalletId: "target-wallet-01", openingBalance: 5000 } },
+  products: { [itemRef]: "target-product-01" },
+  confirmCompleteHistory: true,
+};
+const reconciledFinancialPreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId, financialSources, targetWallets, targetStudents, targetProducts, [], completeMappings,
+);
+assert.equal(reconciledFinancialPreview.canApply, true, "explicit mappings and an exact opening-balance reconciliation allow the plan");
+assert.equal(reconciledFinancialPreview.wallets[0].expectedClosingBalance, 3000);
+assert.equal(reconciledFinancialPreview.transactions[0].createdAt, "2026-10-22T10:00:00.000Z");
+assert.equal(reconciledFinancialPreview.transactions[0].items[0].costSnapshotKnown, false, "unknown historical cost is never copied from today's catalog");
+assert.equal(reconciledFinancialPreview.transactions[0].items[0].costPrice, null);
+
+const mismatchFinancialPreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId, financialSources, targetWallets, targetStudents, targetProducts, [],
+  { ...completeMappings, wallets: { [walletRef]: { targetWalletId: "target-wallet-01", openingBalance: 5200 } } },
+);
+assert.equal(mismatchFinancialPreview.canApply, false);
+assert.ok(mismatchFinancialPreview.issues.some((item) => item.code === "opening_balance_does_not_reconcile"));
+
+const usedWalletPreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId, financialSources, targetWallets, targetStudents, targetProducts, ["target-wallet-01"], completeMappings,
+);
+assert.equal(usedWalletPreview.canApply, false);
+assert.ok(usedWalletPreview.issues.some((item) => item.code === "target_wallet_has_existing_history"));
+
+const incompleteArchivePreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId, financialSources, targetWallets, targetStudents, targetProducts, [],
+  { ...completeMappings, confirmCompleteHistory: false },
+);
+assert.equal(incompleteArchivePreview.canApply, false);
+assert.ok(incompleteArchivePreview.warnings.some((item) => item.code === "operator_must_confirm_sales_archive_is_complete_and_opening_balance_is_reconciled"));
+
+const invalidStatusPreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId,
+  { ...financialSources, transactions: [{ ...financialSources.transactions[0], data: { ...financialSources.transactions[0].data, status: "Pending" } }] },
+  targetWallets, targetStudents, targetProducts, [], completeMappings,
+);
+assert.equal(invalidStatusPreview.canApply, false);
+assert.ok(invalidStatusPreview.issues.some((item) => item.code === "unsupported_transaction_status"));
+
+const invalidDatePreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId,
+  { ...financialSources, transactions: [{ ...financialSources.transactions[0], data: { ...financialSources.transactions[0].data, date: "2026-10-22T10:00:00" } }] },
+  targetWallets, targetStudents, targetProducts, [], completeMappings,
+);
+assert.equal(invalidDatePreview.canApply, false);
+assert.ok(invalidDatePreview.issues.some((item) => item.code === "invalid_transaction_date"));
+
+const noAttestationPreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId, financialSources, targetWallets, targetStudents, targetProducts, [],
+  { ...completeMappings, confirmCompleteHistory: undefined },
+);
+assert.equal(noAttestationPreview.canApply, false, "opening balance alone is insufficient without explicit archive completeness confirmation");
+
+console.log("cooperative legacy financial preview: 8 validation groups passed");
+
 
