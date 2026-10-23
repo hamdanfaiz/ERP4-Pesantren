@@ -37,7 +37,7 @@ INSERT INTO public.students (
 )
 VALUES (
   'd9000000-0000-4000-8000-000000000201', 'd9000000-0000-4000-8000-000000000009',
-  'd9000000-0000-4000-8000-000000000101', 'CTZ001', 'Santri Cooperative Timezone Test', 'L', 'VII',
+  'd9000000-0000-4000-8000-000000000101', '9000000001', 'Santri Cooperative Timezone Test', 'L', 'VII',
   decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'active'
 );
 
