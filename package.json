@@ -15,7 +15,8 @@
     "test:api:auth-tenant": "node scripts/test-api-auth-tenant.mjs",
     "test:api:finance-storage": "node scripts/test-finance-storage-http.mjs",
     "test:db:backup-restore": "node scripts/test-database-backup-restore.mjs",
-    "test:legacy-firebase-gate": "tsx scripts/test-legacy-firebase-gate.ts"
+    "test:legacy-firebase-gate": "tsx scripts/test-legacy-firebase-gate.ts",
+    "test:legacy-firestore-tenant-scope": "tsx scripts/test-legacy-firestore-tenant-scope.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
