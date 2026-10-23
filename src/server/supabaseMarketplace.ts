@@ -99,7 +99,6 @@ export async function getSupabaseMarketplaceImportContext(tenantIdentifier: stri
   const tenantId = await tenantIdFrom(tenantIdentifier);
   const tenants = await request("/rest/v1/tenants?" + new URLSearchParams({ select: "id,legacy_tenant_key", id: "eq." + tenantId, limit: "2" }).toString());
   const legacyTenantKey = Array.isArray(tenants) ? String(tenants[0]?.legacy_tenant_key || "").trim() : "";
-  if (!legacyTenantKey) throw new SupabaseMarketplaceError(409, "Tenant belum memiliki pemetaan arsip Firestore lama.");
   const [products, orders, skus] = await Promise.all([
     rows("marketplace_products", tenantId, "source_record_id,source_fingerprint", "name.asc,id.asc", 6000),
     rows("marketplace_orders", tenantId, "source_record_id,source_fingerprint", "created_at.asc,id.asc", 6000),
