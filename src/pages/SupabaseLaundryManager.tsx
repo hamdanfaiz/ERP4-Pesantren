@@ -75,9 +75,10 @@ export function SupabaseLaundryManager() {
         method: "POST",
         body: JSON.stringify({ ...payload, clientRequestId: lease.requestId }),
       });
+      // The server confirmed the commit, so a later intentional identical action gets a new key.
+      lease.clear();
       try {
         await refresh();
-        lease.clear();
         setNotice(success);
       } catch {
         setError("Perubahan laundry sudah tersimpan, tetapi daftar belum berhasil dimuat ulang. Klik Muat ulang.");
