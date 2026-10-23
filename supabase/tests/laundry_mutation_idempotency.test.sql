@@ -46,7 +46,7 @@ SELECT is((SELECT result->>'replayed' FROM laundry_idempotency_order),'false','f
 SELECT is(public.create_tenant_laundry_order(
   'd1500000-0000-4000-8000-000000000009','d1500000-0000-4000-8000-000000000011',
   'd1500000-0000-4000-8000-000000000201',2.50,3,'d1500000-0000-4000-8000-000000000401'
-)->>'replayed','false','same create request returns its original committed response');
+)->>'replayed','true','same create request returns its original committed response');
 SELECT is((SELECT count(*)::INTEGER FROM public.laundry_orders WHERE tenant_id='d1500000-0000-4000-8000-000000000009'),1,'create replay did not duplicate the order');
 SELECT throws_ok(
   $$SELECT public.create_tenant_laundry_order(
@@ -73,7 +73,7 @@ SELECT is(public.transition_tenant_laundry_order(
   'd1500000-0000-4000-8000-000000000009','d1500000-0000-4000-8000-000000000011',
   (SELECT (result->>'id')::UUID FROM laundry_idempotency_order),'washing',
   'd1500000-0000-4000-8000-000000000402'
-)->>'replayed','false','same transition request returns original response');
+)->>'replayed','true','same transition request returns original response');
 SELECT throws_ok(
   $$SELECT public.transition_tenant_laundry_order(
     'd1500000-0000-4000-8000-000000000009','d1500000-0000-4000-8000-000000000011',
@@ -90,8 +90,8 @@ SELECT is(public.save_tenant_laundry_settings(
 )->>'replayed','false','first settings request applies the policy');
 SELECT is(public.save_tenant_laundry_settings(
   'd1500000-0000-4000-8000-000000000009','d1500000-0000-4000-8000-000000000011',
-  18.00,12000,'d1500000-0000-4000-8000-000000000403'
-)->>'replayed','false','same settings request replays original response');
+  18,12000,'d1500000-0000-4000-8000-000000000403'
+)->>'replayed','true','same settings request replays original response');
 SELECT throws_ok(
   $$SELECT public.save_tenant_laundry_settings(
     'd1500000-0000-4000-8000-000000000009','d1500000-0000-4000-8000-000000000011',
