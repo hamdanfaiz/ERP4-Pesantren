@@ -119,7 +119,7 @@ BEGIN
     pg_catalog.hashtextextended('lms-submission-request:' || p_tenant_id::TEXT || ':' || p_request_id::TEXT, 0)
   );
   SELECT * INTO v_existing_request FROM public.lms_submission_requests
-  WHERE tenant_id = p_tenant_id AND request_id = p_request_id FOR UPDATE;
+  WHERE tenant_id = p_tenant_id AND request_id = p_request_id;
   IF FOUND THEN
     IF v_existing_request.actor_user_id IS DISTINCT FROM p_actor_user_id
       OR v_existing_request.assignment_id IS DISTINCT FROM p_assignment_id
@@ -224,7 +224,7 @@ BEGIN
     pg_catalog.hashtextextended('lms-grade-request:' || p_tenant_id::TEXT || ':' || p_request_id::TEXT, 0)
   );
   SELECT * INTO v_existing_event FROM public.lms_submission_grade_events
-  WHERE tenant_id = p_tenant_id AND request_id = p_request_id FOR UPDATE;
+  WHERE tenant_id = p_tenant_id AND request_id = p_request_id;
   IF FOUND THEN
     IF v_existing_event.actor_user_id IS DISTINCT FROM p_actor_user_id
       OR v_existing_event.submission_id IS DISTINCT FROM p_submission_id
