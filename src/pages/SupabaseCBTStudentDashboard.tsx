@@ -40,6 +40,7 @@ export function SupabaseCBTStudentDashboard() {
   const [notice, setNotice] = useState("");
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const submitLock = useRef(false);
+  const answerSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const restoreComplete = useRef(false);
   const attemptDeadline = useRef(0);
 
@@ -84,15 +85,24 @@ export function SupabaseCBTStudentDashboard() {
     finally { setBusy(false); }
   };
 
+  const persistAnswersInOrder = (attemptId: string, snapshot: Record<string, number>) => {
+    // Serializing autosaves prevents a slow, older snapshot from landing after a newer answer set.
+    const save = answerSaveQueue.current.catch(() => undefined).then(() =>
+      requestCbt("/api/cbt/attempts/" + encodeURIComponent(attemptId) + "/answers", {
+        method: "PUT", body: JSON.stringify({ answers: snapshot }),
+      })
+    );
+    answerSaveQueue.current = save.then(() => undefined, () => undefined);
+    return save;
+  };
+
   const submitAttempt = async (attemptId = attempt?.attemptId || "", finalAnswers = answers, automatic = false) => {
     if (!attemptId || submitLock.current) return;
     submitLock.current = true; setBusy(true); setError(""); setNotice("");
     try {
       if (performance.now() < attemptDeadline.current) {
         try {
-          await requestCbt("/api/cbt/attempts/" + encodeURIComponent(attemptId) + "/answers", {
-            method: "PUT", body: JSON.stringify({ answers: finalAnswers }),
-          });
+          await persistAnswersInOrder(attemptId, finalAnswers);
         } catch (cause) {
           if (performance.now() < attemptDeadline.current) throw cause;
         }
@@ -110,9 +120,8 @@ export function SupabaseCBTStudentDashboard() {
     if (!attempt || !restoreComplete.current || !attempt.attemptId || busy || performance.now() >= attemptDeadline.current) return;
     const saveTimer = setTimeout(() => {
       if (performance.now() >= attemptDeadline.current) return;
-      void requestCbt("/api/cbt/attempts/" + encodeURIComponent(attempt.attemptId) + "/answers", {
-        method: "PUT", body: JSON.stringify({ answers }),
-      }).catch((cause: any) => setError(cause?.message || "Jawaban belum tersinkron."));
+      void persistAnswersInOrder(attempt.attemptId, answers)
+        .catch((cause: any) => setError(cause?.message || "Jawaban belum tersinkron."));
     }, 500);
     return () => clearTimeout(saveTimer);
   }, [answers, attempt?.attemptId, attempt?.expiresAt, busy]);
