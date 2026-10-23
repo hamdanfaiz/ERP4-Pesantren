@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, BookOpen, Check, Clock3, Loader2, Plus, RefreshCw, Search, Users, X } from "lucide-react";
+import { AlertCircle, Archive, BookOpen, Check, Clock3, Loader2, Plus, RefreshCw, Search, Users, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { addCalendarDays, isCalendarDate, tenantBusinessDate } from "../utils/businessDate";
@@ -8,6 +8,8 @@ type Book = { id: string; title: string; author: string; category: string; isbn:
 type Student = { id: string; name: string; nis: string };
 type Circulation = { id: string; bookId: string; bookTitle: string; studentId: string; student: string; nis: string; borrowDate: string; dueDate: string; returnedDate: string | null; status: string; fine: number };
 type Snapshot = { businessDate: string; books: Book[]; students: Student[]; circulations: Circulation[] };
+type CirculationImportRecord = { recordRef: string; borrower: string; sourceBookTitle: string; targetBookTitle: string; borrowedOn: string | null; dueOn: string | null; returnedOn: string | null; status: "active" | "returned" | null; studentId: string; studentName: string; alreadyImported: boolean; issues: string[]; warnings: string[] };
+type CirculationImportPreview = { snapshotFingerprint: string; counts: { source: number; ready: number; alreadyImported: number; active: number; returned: number; invalid: number }; issueCount: number; blockingCount: number; canApply: boolean; issues: Array<{ code: string; recordRef: string }>; records: CirculationImportRecord[]; studentOptions: Array<{ id: string; name: string; nis: string; status: string }> };
 
 async function requestLibrary(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -26,6 +28,27 @@ function markOverdue(circulations: Circulation[], today: string) {
   return circulations.map((item) => item.status === "Active" && item.dueDate < today ? { ...item, status: "Overdue" } : item);
 }
 
+function circulationImportIssueLabel(code: string) {
+  const labels: Record<string, string> = {
+    borrower_name_missing: "Nama peminjam sumber tidak tersedia",
+    book_title_missing: "Judul buku sumber tidak tersedia",
+    book_not_imported_by_source_id: "Buku belum dipetakan melalui ID sumber",
+    invalid_borrow_date: "Tanggal pinjam sumber tidak valid",
+    invalid_due_date: "Tanggal jatuh tempo sumber tidak valid",
+    due_date_out_of_range: "Rentang pinjam melebihi batas 90 hari",
+    unsupported_status: "Status sumber tidak dikenali",
+    returned_date_missing_or_invalid: "Tanggal kembali wajib untuk transaksi selesai",
+    active_record_has_returned_date: "Status aktif bertentangan dengan tanggal kembali",
+    fine_requires_finance_reconciliation: "Denda harus direkonsiliasi dengan Finance",
+    student_mapping_required: "Santri tujuan belum dipilih",
+    student_not_found_in_tenant: "Santri tidak ditemukan pada tenant ini",
+    student_name_mismatch_review_identity: "Nama berbeda; identitas perlu direkonsiliasi",
+    imported_record_changed_or_mapping_conflict: "Data berubah dari impor sebelumnya",
+    duplicate_source_record: "ID transaksi sumber duplikat",
+  };
+  return labels[code] || code.replaceAll("_", " ");
+}
+
 const emptySnapshot: Snapshot = { businessDate: tenantBusinessDate(), books: [], students: [], circulations: [] };
 
 export function SupabaseLibraryManager() {
@@ -38,10 +61,18 @@ export function SupabaseLibraryManager() {
   const [search, setSearch] = useState("");
   const [bookModal, setBookModal] = useState(false);
   const [checkoutModal, setCheckoutModal] = useState(false);
+  const [circulationImportOpen, setCirculationImportOpen] = useState(false);
+  const [circulationImportBusy, setCirculationImportBusy] = useState(false);
+  const [circulationImportError, setCirculationImportError] = useState("");
+  const [circulationImportPreview, setCirculationImportPreview] = useState<CirculationImportPreview | null>(null);
+  const [circulationStudentMappings, setCirculationStudentMappings] = useState<Record<string, string>>({});
+  const [previewedMappingKey, setPreviewedMappingKey] = useState("");
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [bookForm, setBookForm] = useState({ title: "", author: "", category: "Kajian Islam", isbn: "", totalCopies: 1, shelf: "" });
   const [checkoutForm, setCheckoutForm] = useState({ studentId: "", bookId: "", borrowedOn: emptySnapshot.businessDate, dueOn: addCalendarDays(emptySnapshot.businessDate, 14) });
   const canManage = ["Admin", "SuperAdmin", "Ustadz"].includes(role) && user?.modulePermissions?.library !== false;
+  const canImportLegacy = ["Admin", "SuperAdmin"].includes(role) && user?.modulePermissions?.library !== false;
+  const mappingKey = JSON.stringify(Object.entries(circulationStudentMappings).sort(([left], [right]) => left.localeCompare(right)));
 
   const refresh = useCallback(async (): Promise<Snapshot> => {
     const payload = await requestLibrary("/api/library/snapshot");
@@ -139,12 +170,51 @@ export function SupabaseLibraryManager() {
     finally { setSaving(false); }
   };
 
+  const previewLegacyCirculations = async (mappings = circulationStudentMappings, mappingsKey = mappingKey) => {
+    setCirculationImportBusy(true); setCirculationImportError("");
+    try {
+      const payload = await requestLibrary("/api/library/circulations/legacy/import", {
+        method: "POST", body: JSON.stringify({ action: "preview", studentMappings: mappings }),
+      });
+      setCirculationImportPreview(payload as CirculationImportPreview);
+      setPreviewedMappingKey(mappingsKey);
+    } catch (previewError: any) {
+      setCirculationImportError(previewError?.message || "Pratinjau riwayat peminjaman belum dapat dimuat.");
+      setCirculationImportPreview(null);
+    } finally { setCirculationImportBusy(false); }
+  };
+
+  const openLegacyCirculationImport = () => {
+    setCirculationImportOpen(true); setCirculationImportError("");
+    setCirculationImportPreview(null); setCirculationStudentMappings({}); setPreviewedMappingKey("");
+    window.setTimeout(() => { void previewLegacyCirculations({}, "[]"); }, 0);
+  };
+
+  const applyLegacyCirculations = async () => {
+    if (!circulationImportPreview?.canApply || previewedMappingKey !== mappingKey) return;
+    setCirculationImportBusy(true); setCirculationImportError("");
+    try {
+      await requestLibrary("/api/library/circulations/legacy/import", {
+        method: "POST",
+        body: JSON.stringify({ action: "apply", expectedFingerprint: circulationImportPreview.snapshotFingerprint, studentMappings: circulationStudentMappings }),
+      });
+      await refresh();
+      setCirculationImportOpen(false); setCirculationImportPreview(null);
+    } catch (applyError: any) {
+      setCirculationImportError(applyError?.message || "Riwayat peminjaman belum dapat diimpor. Buat pratinjau ulang.");
+    } finally { setCirculationImportBusy(false); }
+  };
+
   return (
     <main className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between dark:border-slate-800">
         <div><div className="mb-2 inline-flex rounded-lg bg-slate-100 p-2.5 dark:bg-slate-800"><BookOpen className="h-5 w-5 text-slate-700 dark:text-slate-200" /></div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Perpustakaan</h1><p className="mt-1 text-sm text-slate-500">Katalog dan peminjaman tenant dikelola melalui Supabase.</p></div>
         <div className="flex flex-wrap gap-2">{canManage && activeTab === "catalog" && <button onClick={() => openBookForm()} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"><Plus className="h-4 w-4" /> Tambah buku</button>}{canManage && activeTab === "circulation" && <button onClick={openCheckoutForm} disabled={!snapshot.students.length || !snapshot.books.some((book) => book.availableCopies > 0)} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><Plus className="h-4 w-4" /> Catat peminjaman</button>}<button onClick={() => { setLoading(true); setError(""); void refresh().catch((refreshError: any) => setError(refreshError?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} aria-label="Muat ulang perpustakaan" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><RefreshCw className="h-4 w-4" /></button></div>
       </header>
+
+      {canImportLegacy && activeTab === "circulation" && <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900"><div><p className="text-sm font-semibold text-slate-900 dark:text-white">Riwayat arsip</p><p className="mt-1 text-xs text-slate-500">Pemetaan santri dilakukan manual; data yang tidak dapat direkonsiliasi akan ditahan.</p></div><button type="button" onClick={openLegacyCirculationImport} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"><Archive className="h-4 w-4" /> Pratinjau impor arsip</button></div>}
+
+      {circulationImportOpen && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-3 sm:p-6"><section role="dialog" aria-modal="true" aria-labelledby="legacy-circulation-title" className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"><header className="flex items-center justify-between border-b border-slate-200 p-4 sm:p-5 dark:border-slate-800"><div><h2 id="legacy-circulation-title" className="font-semibold text-slate-900 dark:text-white">Pratinjau impor riwayat peminjaman</h2><p className="mt-1 text-xs text-slate-500">Hanya Admin tenant. Tidak ada data ditulis sampai Anda memilih Terapkan.</p></div><button type="button" onClick={() => setCirculationImportOpen(false)} disabled={circulationImportBusy} aria-label="Tutup pratinjau" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></header><div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5"><div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">Katalog buku harus sudah diimpor. Santri dipilih manual per transaksi; judul dan nama tidak dipakai sebagai relasi otomatis. Denda dan tanggal kembali yang tidak tersedia akan memblokir apply.</div>{circulationImportError && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">{circulationImportError}</div>}{circulationImportBusy && !circulationImportPreview ? <div role="status" className="flex items-center gap-2 p-6 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Membaca dan memvalidasi arsip tenant…</div> : circulationImportPreview ? <><div className="grid gap-3 sm:grid-cols-4">{[{label:"Sumber",value:circulationImportPreview.counts.source},{label:"Siap",value:circulationImportPreview.counts.ready},{label:"Sudah diimpor",value:circulationImportPreview.counts.alreadyImported},{label:"Perlu koreksi",value:circulationImportPreview.counts.invalid}].map(({label,value})=><div key={label} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{value}</p></div>)}</div>{circulationImportPreview.records.length ? <div className="space-y-3">{circulationImportPreview.records.map((record)=><article key={record.recordRef} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-medium text-slate-900 dark:text-white">{record.borrower || "Nama tidak tersedia"}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{record.sourceBookTitle || "Judul buku tidak tersedia"}{record.targetBookTitle && record.targetBookTitle !== record.sourceBookTitle ? ` → ${record.targetBookTitle}` : ""}</p><p className="mt-1 text-xs text-slate-500">{record.borrowedOn || "Tanggal pinjam tidak valid"} · Jatuh tempo {record.dueOn || "tidak valid"} · {record.status === "returned" ? `Kembali ${record.returnedOn || "tanggal tidak ada"}` : record.status === "active" ? "Belum kembali" : "Status tidak dikenal"}</p></div>{record.alreadyImported && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">Sudah diimpor</span>}</div><label className="mt-3 block text-sm font-medium text-slate-700 dark:text-slate-200">Pilih santri tujuan<select value={circulationStudentMappings[record.recordRef] || (record.alreadyImported ? record.studentId : "")} onChange={(event)=>setCirculationStudentMappings((current)=>({...current,[record.recordRef]:event.target.value}))} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700 dark:text-slate-200"><option value="">Pilih berdasarkan rekonsiliasi identitas</option>{circulationImportPreview.studentOptions.map((student)=><option key={student.id} value={student.id}>{student.name}{student.nis ? ` · ${student.nis}` : ""}{student.status && student.status.toLowerCase() !== "active" ? ` · ${student.status}` : ""}</option>)}</select></label>{record.issues.length>0 && <ul className="mt-3 space-y-1 text-xs text-rose-700 dark:text-rose-300">{record.issues.map((code,index)=><li key={`${code}-${index}`}>• {circulationImportIssueLabel(code)}</li>)}</ul>}</article>)}</div> : <div className="rounded-lg border border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-slate-800">Tidak ada record sirkulasi pada arsip tenant ini.</div>}{previewedMappingKey !== mappingKey && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">Pemetaan berubah. Jalankan pratinjau ulang sebelum menerapkan.</p>}{circulationImportPreview.canApply && <p className="text-sm text-emerald-700 dark:text-emerald-300">Semua record memiliki pemetaan valid. Tinjau setiap baris sebelum apply.</p>}</> : null}</div><footer className="flex flex-wrap justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800"><button type="button" onClick={()=>setCirculationImportOpen(false)} disabled={circulationImportBusy} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">Tutup</button><button type="button" onClick={()=>void previewLegacyCirculations()} disabled={circulationImportBusy} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200">{circulationImportBusy && <Loader2 className="h-4 w-4 animate-spin" />}Pratinjau ulang</button><button type="button" onClick={()=>{if(circulationImportPreview?.canApply && previewedMappingKey===mappingKey && window.confirm(`Terapkan ${circulationImportPreview.counts.source} riwayat peminjaman yang sudah dipetakan? Data sumber tidak akan diubah.`)) void applyLegacyCirculations();}} disabled={circulationImportBusy || !circulationImportPreview?.canApply || previewedMappingKey!==mappingKey} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"><Archive className="h-4 w-4" />Terapkan impor</button></footer></section></div>}
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">Mode Supabase berisi katalog dan peminjaman. Aset digital dan pembayaran denda belum diaktifkan karena file belum memakai penyimpanan privat dan transaksi Finance belum bermigrasi.</div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
