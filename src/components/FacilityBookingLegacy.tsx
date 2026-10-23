@@ -353,7 +353,7 @@ export function FacilityBookingLegacy() {
                   <input
                     type="text"
                     required
-                    placeholder="Your name"
+                    placeholder="Nama Anda"
                     value={formData.booker}
                     onChange={(e) =>
                       setFormData({ ...formData, booker: e.target.value })
