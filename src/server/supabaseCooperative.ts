@@ -161,6 +161,34 @@ export async function getSupabaseCooperativeLegacyImportContext(tenantId: string
   return { legacyTenantKey, existingProducts: products, existingSuppliers: suppliers };
 }
 
+export async function getSupabaseCooperativeFinancialImportContext(tenantId: string) {
+  assertUuid(tenantId, "Tenant");
+  const [tenantResult, targetProducts, targetWallets, targetStudents, walletLedger, sales] = await Promise.all([
+    client().from("tenants").select("legacy_tenant_key,time_zone").eq("id", tenantId).eq("status", "active").maybeSingle(),
+    rows("cooperative_products", tenantId, "id,sku,name,status", "sku.asc", 5000),
+    rows("cooperative_wallets", tenantId, "id,student_id,balance,status", "student_id.asc", 5000),
+    rows("students", tenantId, "id,name,nis,grade,class_id,status", "name.asc", 5000),
+    rows("cooperative_wallet_ledger", tenantId, "wallet_id", "created_at.asc", 5000),
+    rows("cooperative_sales", tenantId, "wallet_id", "created_at.asc", 5000),
+  ]);
+  if (tenantResult.error) mapStoreError(tenantResult.error);
+  const legacyTenantKey = String(tenantResult.data?.legacy_tenant_key || "").trim();
+  if (!legacyTenantKey) throw new SupabaseCooperativeError(409, "Tenant belum memiliki pemetaan sumber Firestore.");
+  const usedWalletIds = [...new Set([
+    ...walletLedger.map((row) => String(row.wallet_id || "")),
+    ...sales.map((row) => String(row.wallet_id || "")),
+  ].filter(Boolean))];
+  return {
+    legacyTenantKey,
+    timeZone: String(tenantResult.data?.time_zone || DEFAULT_TENANT_TIME_ZONE),
+    targetProducts,
+    targetWallets,
+    targetStudents,
+    usedWalletIds,
+    historyScanIncomplete: [targetProducts, targetWallets, targetStudents, walletLedger, sales].some((result) => result.length >= 5000),
+  };
+}
+
 export async function manageSupabaseCooperativeProduct(tenantId: string, actorId: string, item: Row) {
   assertUuid(tenantId, "Tenant"); assertUuid(actorId, "Aktor"); assertUuid(item?.clientRequestId, "Request ID");
   if (item?.id != null) assertUuid(item.id, "Produk");
