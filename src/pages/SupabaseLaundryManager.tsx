@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Check, Clock3, Loader2, Plus, RefreshCw, Shirt, Settings2, WashingMachine } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { pendingMutationIds } from "../utils/pendingMutationId";
 
 type Student = { id: string; name: string; nis: string; room: string };
 type Order = { id: string; orderNumber: string; studentId: string; student: string; nis: string; room: string; weightKg: number; pieces: number; status: string; receivedAt: string; collectedAt: string | null };
@@ -30,7 +31,7 @@ async function requestLaundry(path: string, init: RequestInit = {}) {
 }
 
 export function SupabaseLaundryManager() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [tab, setTab] = useState<"orders" | "history" | "quotas" | "settings">("orders");
   const [loading, setLoading] = useState(true);
@@ -63,11 +64,31 @@ export function SupabaseLaundryManager() {
 
   const runMutation = async (path: string, body: Record<string, unknown>, success: string) => {
     setBusy(true); setError(""); setNotice("");
+    let lease: Awaited<ReturnType<typeof pendingMutationIds.acquire>> | null = null;
     try {
-      await requestLaundry(path, { method: "POST", body: JSON.stringify(body) });
-      await refresh(); setNotice(success); return true;
-    } catch (e: any) { setError(e?.message || "Perubahan laundry gagal disimpan."); return false; }
-    finally { setBusy(false); }
+      const { clientRequestId: _clientRequestId, ...payload } = body;
+      lease = await pendingMutationIds.acquire(
+        `laundry:${user?.tenantId || "unknown"}:${user?.uid || "unknown"}:${path}`,
+        payload,
+      );
+      await requestLaundry(path, {
+        method: "POST",
+        body: JSON.stringify({ ...payload, clientRequestId: lease.requestId }),
+      });
+      lease.clear();
+      try {
+        await refresh();
+        setNotice(success);
+      } catch {
+        setError("Perubahan laundry sudah tersimpan, tetapi daftar belum berhasil dimuat ulang. Klik Muat ulang.");
+      }
+      return true;
+    } catch (e: any) {
+      setError(e?.message || "Perubahan laundry gagal disimpan.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
   };
 
   const activeOrders = useMemo(() => snapshot.orders.filter((order) => ["received", "washing", "ready"].includes(order.status)), [snapshot.orders]);
@@ -79,19 +100,19 @@ export function SupabaseLaundryManager() {
     event.preventDefault();
     if (!studentId) { setError("Pilih santri yang akan dicatat cucianya."); return; }
     const created = await runMutation("/api/laundry/orders", {
-      studentId, weightKg: Number(weightKg), pieces: Number(pieces), clientRequestId: crypto.randomUUID(),
+      studentId, weightKg: Number(weightKg), pieces: Number(pieces),
     }, "Pesanan laundry tercatat.");
     if (created) { setStudentId(""); setWeightKg(""); setPieces("0"); }
   };
 
   const transition = (order: Order, status: string) => runMutation(`/api/laundry/orders/${encodeURIComponent(order.id)}/status`, {
-    status, clientRequestId: crypto.randomUUID(),
+    status,
   }, `Status ${order.orderNumber} diperbarui: ${statusLabel[status]}.`);
 
   const submitSettings = async (event: React.FormEvent) => {
     event.preventDefault();
     await runMutation("/api/laundry/settings", {
-      monthlyQuotaKg: Number(monthlyQuotaKg), excessRatePerKg: Number(excessRatePerKg), clientRequestId: crypto.randomUUID(),
+      monthlyQuotaKg: Number(monthlyQuotaKg), excessRatePerKg: Number(excessRatePerKg),
     }, "Pengaturan kuota laundry disimpan.");
   };
 
