@@ -11,7 +11,7 @@ const source = [
 const singleTenant = scopeLegacyTenantRecords(source, ["pesantren-digital"], "pesantren-digital");
 assert.deepEqual(singleTenant.records.map((row) => row.id), ["owned", "legacy"]);
 assert.equal(singleTenant.records[1].record.tenantId, "pesantren-digital");
-assert.equal(source[1].record.tenantId, undefined, "source records must remain unmodified");
+assert.equal(Object.prototype.hasOwnProperty.call(source[1].record, "tenantId"), false, "source records must remain unmodified");
 assert.deepEqual(singleTenant.audit, {
   sourceRecordCount: 4,
   includedRecordCount: 2,
