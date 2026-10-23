@@ -36,6 +36,7 @@ import {
 } from "./src/server/systemSettingsStore";
 import { recordTenantSearchFeedback, SearchFeedbackStoreError } from "./src/server/searchFeedbackStore";
 import { isLegacyFirebaseAdminEnabled } from "./src/server/legacyFirebaseGate";
+import { scopeLegacyTenantRecords } from "./src/server/legacyFirestoreTenantScope";
 import {
   assignSupabaseTahfidzMembership,
   getSupabaseTahfidzLegacyTenantKey,
@@ -2409,29 +2410,150 @@ async function startServer() {
       }
       const services = await getAdminServices();
       if (services.ok === false) return res.status(503).json({ error: "Sumber legacy Firestore untuk preview belum tersedia." });
-      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const [halaqahSnapshot, studentSnapshot] = await Promise.all([
-        services.db.collection("master_data").where("tenantId", "==", legacyTenantId).where("category", "==", "Halaqah").limit(2001).get(),
-        services.db.collection("entityRecords").where("tenantId", "==", legacyTenantId).where("type", "==", "Santri").limit(5001).get(),
-      ]);
-      if (halaqahSnapshot.size > 2000 || studentSnapshot.size > 5000) {
-        return res.status(413).json({ error: "Snapshot dibatasi maksimal 2.000 halaqah dan 5.000 santri." });
-      }
-      const halaqahRows = halaqahSnapshot.docs.map((doc) => ({ id: doc.id, record: doc.data() as Record<string, any> }));
-      const studentRows = studentSnapshot.docs.map((doc) => ({ id: doc.id, record: doc.data() as Record<string, any> }));
       const apply = req.body?.apply === true;
       if (apply && String(req.body?.confirmation || "") !== "IMPORT_TAHFIDZ_CONFIGURATION") {
         return res.status(400).json({ error: "Konfirmasi impor Tahfidz tidak cocok." });
       }
-      const report = await migrateSupabaseTahfidzConfiguration(
+
+      const [tenantRegistrySnapshot, masterDataSnapshot, entityRecordsSnapshot] = await Promise.all([
+        services.db.collection("tenants").limit(2).get(),
+        services.db.collection("master_data").limit(2001).get(),
+        services.db.collection("entityRecords").limit(5001).get(),
+      ]);
+      if (masterDataSnapshot.size > 2000 || entityRecordsSnapshot.size > 5000) {
+        return res.status(413).json({ error: "Snapshot Tahfidz dibatasi maksimal 2.000 halaqah dan 5.000 santri." });
+      }
+
+      const sourceTenantIds = tenantRegistrySnapshot.docs.map((doc) => doc.id);
+      const halaqahCandidates = masterDataSnapshot.docs.flatMap((doc) => {
+        const record = doc.data() as Record<string, unknown>;
+        return record.category === "Halaqah" ? [{ id: doc.id, record }] : [];
+      });
+      const studentCandidates = entityRecordsSnapshot.docs.flatMap((doc) => {
+        const record = doc.data() as Record<string, unknown>;
+        return record.type === "Santri" ? [{ id: doc.id, record }] : [];
+      });
+
+      let legacyTenantId = "";
+      let targetLegacyMappingConfigured = true;
+      try {
+        legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      } catch (error) {
+        if (!(error instanceof SupabaseTahfidzError) || error.status !== 409 || apply) throw error;
+        const uniqueSourceTenantIds = Array.from(new Set(sourceTenantIds.map((id) => id.trim()).filter(Boolean)));
+        if (uniqueSourceTenantIds.length !== 1) {
+          return res.status(409).json({
+            code: "LEGACY_TENANT_MAPPING_REQUIRED",
+            error: "Isi legacy_tenant_key tenant tujuan di Supabase; sumber tidak memiliki satu tenant yang dapat diverifikasi untuk pratinjau.",
+            sourceTenantRegistryHasSingleRecord: false,
+          });
+        }
+        legacyTenantId = uniqueSourceTenantIds[0];
+        targetLegacyMappingConfigured = false;
+      }
+
+      const halaqahScope = scopeLegacyTenantRecords(halaqahCandidates, sourceTenantIds, legacyTenantId);
+      const studentScope = scopeLegacyTenantRecords(studentCandidates, sourceTenantIds, legacyTenantId);
+      const halaqahRows = halaqahScope.records.map(({ id, record }) => ({
+        id, record: record as Record<string, any>,
+      }));
+      const studentRows = studentScope.records.map(({ id, record }) => ({
+        id, record: record as Record<string, any>,
+      }));
+      const sourceOwnership = {
+        sourceTenantKey: legacyTenantId,
+        targetLegacyMappingConfigured,
+        singleSourceTenantVerified:
+          halaqahScope.audit.singleSourceTenantVerified && studentScope.audit.singleSourceTenantVerified,
+        halaqahs: halaqahScope.audit,
+        students: studentScope.audit,
+      };
+
+      const importPreview = await migrateSupabaseTahfidzConfiguration(
         actor.tenantId,
         halaqahRows,
         studentRows,
-        apply,
-        String(req.body?.previewFingerprint || "")
+        false,
       );
-      if (apply && !report.canApply) return res.status(409).json(report);
-      return res.json(report);
+      const previewFingerprint = createHash("sha256")
+        .update(JSON.stringify({
+          tenantId: actor.tenantId,
+          sourceOwnership,
+          importerFingerprint: importPreview.previewFingerprint,
+        }))
+        .digest("hex");
+      const unresolvedOwnershipCount =
+        halaqahScope.audit.unresolvedTenantlessCount + halaqahScope.audit.invalidTenantIdCount
+        + studentScope.audit.unresolvedTenantlessCount + studentScope.audit.invalidTenantIdCount;
+      const tenantlessAssignedCount =
+        halaqahScope.audit.assignedBySingleTenantMappingCount
+        + studentScope.audit.assignedBySingleTenantMappingCount;
+      const warnings = [...(Array.isArray(importPreview.warnings) ? importPreview.warnings : [])];
+      if (!targetLegacyMappingConfigured) {
+        warnings.push({
+          id: "legacy-tenant-mapping",
+          category: "Tenant",
+          message: "Pratinjau memakai satu-satunya tenant sumber; simpan legacy_tenant_key di Supabase lalu jalankan pratinjau ulang sebelum apply.",
+        });
+      }
+      if (tenantlessAssignedCount > 0) {
+        warnings.push({
+          id: "tenantless-source-records",
+          category: "Tenant",
+          message: String(tenantlessAssignedCount) + " record tanpa tenantId dipetakan dalam memori berdasarkan registry tenant sumber tunggal. Apply memerlukan konfirmasi tenant eksplisit.",
+        });
+      }
+      if (unresolvedOwnershipCount > 0) {
+        warnings.push({
+          id: "unresolved-source-ownership",
+          category: "Tenant",
+          message: String(unresolvedOwnershipCount) + " record belum memiliki pemetaan tenant yang dapat diverifikasi dan memblokir apply.",
+        });
+      }
+      const canApply =
+        importPreview.canApply
+        && targetLegacyMappingConfigured
+        && unresolvedOwnershipCount === 0;
+      const report = {
+        ...importPreview,
+        previewFingerprint,
+        sourceOwnership,
+        canApply,
+        warnings,
+      };
+
+      if (!apply) return res.json(report);
+      if (!canApply) return res.status(409).json(report);
+      if (tenantlessAssignedCount > 0
+        && String(req.body?.tenantlessOwnershipConfirmation || "") !== legacyTenantId) {
+        return res.status(400).json({
+          code: "TENANTLESS_OWNERSHIP_CONFIRMATION_REQUIRED",
+          error: "Konfirmasikan bahwa record tanpa tenantId berasal dari tenant sumber yang ditampilkan pada pratinjau.",
+          sourceTenantKey: legacyTenantId,
+          previewFingerprint,
+        });
+      }
+      if (String(req.body?.previewFingerprint || "") !== previewFingerprint) {
+        return res.status(409).json({
+          ...report,
+          error: "Sumber, tenant mapping, atau konflik berubah sejak pratinjau. Jalankan pratinjau ulang.",
+        });
+      }
+
+      const appliedReport = await migrateSupabaseTahfidzConfiguration(
+        actor.tenantId,
+        halaqahRows,
+        studentRows,
+        true,
+        importPreview.previewFingerprint,
+      );
+      return res.json({
+        ...appliedReport,
+        previewFingerprint,
+        sourceOwnership,
+        canApply: true,
+        warnings,
+      });
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 
