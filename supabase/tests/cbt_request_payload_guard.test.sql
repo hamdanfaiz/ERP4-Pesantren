@@ -33,6 +33,7 @@ INSERT INTO public.students(
 
 CREATE TEMP TABLE cbt_question_payload AS
 SELECT '{"subject":"Matematika","grade":"VII","template":"Idempotency","questionHtml":"2 + 2 = ?","options":["3","4"],"correctAnswer":1,"explanation":"Empat","difficulty":"Easy","tags":["aritmetika"]}'::jsonb AS payload;
+GRANT SELECT ON cbt_question_payload TO service_role;
 SET LOCAL ROLE service_role;
 
 CREATE TEMP TABLE cbt_question_first AS
