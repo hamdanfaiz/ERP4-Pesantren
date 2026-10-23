@@ -19,7 +19,7 @@ Pemilik proyek menyatakan seluruh data Firestore tersebut adalah data dummy. Inv
 
 Project yang sama memiliki database Firestore terpisah dengan ID app `ai-studio-a116e14b-1aa6-4667-8bdb-f0af384ccfa8`. Database itu menampilkan lima koleksi tingkat atas, termasuk `cbt_questions`, sedangkan koleksi tersebut tidak tampak pada daftar database kanonis. Karena aplikasi menunjuk database bernama ERP4, database terpisah ini **tidak dimasukkan** ke sumber migrasi tanpa rekonsiliasi lebih lanjut. Kemunculan `cbt_questions` di sana tidak membuktikan bahwa itu bagian dari snapshot ERP kanonis.
 
-Inventaris baca-saja pada 23 Oktober 2026 telah menghitung dokumen tingkat atas dan nama field tingkat atas. Inventaris ini belum mencakup subkoleksi, Firebase Storage, struktur field bertingkat secara lengkap, atau nilai dokumen. Nama koleksi yang tidak ditemukan pada daftar ini mungkin berada di subkoleksi, data lokal/browser, atau sumber lain.
+Inventaris baca-saja pada 23 Oktober 2026 menghitung dokumen tingkat atas dan nama field. Pemeriksaan `listCollectionIds` pada seluruh 561 dokumen root berhasil dan menemukan 0 subkoleksi. Karena itu, `tenants/{tenant}/settings/global` dan koleksi lain yang hanya dirujuk sebagai subkoleksi belum ada pada dokumen kanonis yang diperiksa. Firebase Storage, struktur field bertingkat lengkap, dan nilai dokumen belum dibaca. Sumber yang tidak ditemukan di root/subkoleksi mungkin berada di browser, database terpisah, atau sumber lain.
 
 ## Pemetaan awal dan kesiapan importer
 
@@ -41,7 +41,7 @@ Inventaris baca-saja pada 23 Oktober 2026 telah menghitung dokumen tingkat atas 
 | `marketplace_orders` | `marketplace_orders`, `marketplace_order_items`, event/pergerakan terkait | Didukung importer Marketplace yang ada, tetapi perlu pratinjau dan rekonsiliasi dependency produk, item, status, serta total. |
 | `marketplace_products` | `marketplace_products` | Didukung importer Marketplace yang ada, termasuk pemeriksaan SKU unik. |
 | `master_data` | `master_data_records`; record halaqah juga dapat menjadi `tahfidz_halaqahs` | Importer struktur Master Data dan konfigurasi Tahfidz tersedia untuk jenis record tertentu. Kategori/ID dan hubungan harus diverifikasi; importer Tahfidz belum memindahkan riwayat setoran. |
-| `tenants` | `tenants`, `tenant_settings` | Import pengaturan tenant tersedia. Provisioning tenant/UUID dan pemetaan `legacy_tenant_key` harus diselaraskan terlebih dahulu; nested `settings/global` perlu ikut diekspor. |
+| `tenants` | `tenants`, `tenant_settings` | Import pengaturan tenant tersedia. Provisioning tenant/UUID dan pemetaan `legacy_tenant_key` harus diselaraskan terlebih dahulu. Pemeriksaan subkoleksi tidak menemukan `tenants/{tenant}/settings/global`; sumber konfigurasi itu belum tersedia di database kanonis yang diperiksa. |
 | `users` | `profiles` dan undangan Supabase Auth | Tidak ada migrasi kata sandi. Profil dan role perlu rekonsiliasi; kredensial harus dibuat ulang lewat undangan/reset Supabase Auth. |
 
 Pemetaan ini bersifat awal, bukan persetujuan untuk mengimpor setiap baris apa adanya. Importer yang ada adalah fungsi per domain dan sebagian memerlukan pratinjau bertanda fingerprint; belum ada satu exporter/importer lengkap yang membaca seluruh Firestore.
@@ -93,7 +93,7 @@ Pencarian source code menemukan importer atau jalur migrasi yang mengharapkan su
 - Route migrasi Tahfidz pada PR ini sekarang membaca snapshot terbatas, hanya memilih record Halaqah/Santri, dan mengaudit `tenantId`. Record tanpa tenant dapat dipetakan **dalam memori untuk preview** hanya jika registry Firestore berisi tepat satu tenant yang cocok dengan kunci sumber. Jika `legacy_tenant_key` Supabase kosong, preview dapat memakai satu-satunya kunci sumber tetapi memberi `canApply=false`. Apply memerlukan mapping tersimpan, fingerprint terbaru, dan konfirmasi tenantless ownership yang sama dengan kunci sumber. Jika registry ambigu atau ada tenant field yang invalid, apply diblokir.
 - Pemeriksaan Supabase baca-saja sebelumnya melihat tenant dengan slug `pesantren-digital`, tetapi `legacy_tenant_key` masih `NULL`. Belum ada preview Tahfidz terhadap target Supabase live/non-produksi dan belum ada apply.
 - Ref Supabase pada `supabase/config.toml` adalah `ptsasgdvgrbdtgyqieie`, tetapi check Supabase Preview PR masih terhubung ke project lama `vqemuyzveuirlkvdggjd` dan dilewati karena branch PR belum terkait dengan Supabase Branch. Belum ada validasi preview dari project yang dituju; integrasi branch harus diarahkan ke ref `ptsasgdvgrbdtgyqieie` sebelum menganggap deployment/preview terhubung.
-- Belum ada ekspor Firestore, pembacaan subkoleksi atau Firebase Storage, dry-run seluruh importer terhadap dataset, maupun penulisan ke Supabase.
+- Belum ada ekspor Firestore, pembacaan isi subkoleksi (metadata seluruh 561 dokumen sudah diperiksa dan tidak ditemukan), inventaris Firebase Storage, dry-run seluruh importer terhadap dataset, maupun penulisan ke Supabase.
 - Database alternatif yang memuat `cbt_questions` belum direkonsiliasi dengan sumber kanonis.
 - PR cutover tetap draft; perubahan ini tidak menerapkan migrasi database atau mengubah runtime produksi.
 
@@ -126,12 +126,12 @@ Jalur tersebut belum mencakup seluruh koleksi kanonis. Root `candidates`, empat 
 
 Halaman Import/Export Google Cloud untuk database kanonis masih menonaktifkan tombol Import dan Export pada sesi Starter Tier. Namun, ADC dengan scope `cloud-platform` kini berhasil mengambil token dan Firestore REST API berhasil dipakai untuk membaca ID koleksi, jumlah dokumen, serta nama field tingkat atas. Tidak ada ekspor atau operasi tulis yang dijalankan. ADC tersimpan di konfigurasi sementara di luar direktori repository; jangan menyalin file kredensial itu ke repository atau chat.
 
-Inventaris root ini belum membuktikan isi subkoleksi atau Firebase Storage. Route Tahfidz sudah mempunyai pemeriksaan ownership untuk preview, tetapi importer domain lain belum menangani 559 record tenantless. Langkah berikutnya:
+Pemeriksaan metadata seluruh 561 dokumen root tidak menemukan subkoleksi pada database kanonis. Isi Firebase Storage belum diperiksa. Route Tahfidz sudah mempunyai pemeriksaan ownership untuk preview, tetapi importer domain lain belum menangani 559 record tenantless. Langkah berikutnya:
 
 1. Tetapkan `legacy_tenant_key=pesantren-digital` pada tenant tujuan di environment non-produksi, lalu jalankan preview Tahfidz dan periksa hitungan, konflik santri/halaqah, serta fingerprint. Apply tetap memerlukan konfirmasi eksplisit dan tidak dijalankan di production.
 2. Terapkan loader dan audit ownership yang setara ke importer Akademik, CBT, UKS, GA, Marketplace, peminjaman fasilitas, LMS, Boarding, dan Komunikasi; preview harus menghitung record tenantless/mismatch dan memblokir apply jika ownership tidak lengkap.
 3. Bangun importer untuk koleksi root yang belum didukung (PPDB kandidat, koperasi, perpustakaan, serta profil pengguna) dengan validasi relasi dan rekonsiliasi transaksi.
-4. Inventarisasi subkoleksi dan Firebase Storage, lalu rekonsiliasi jumlah sumber/target dan uji restore sebelum cutover.
+4. Inventarisasi Firebase Storage, lalu rekonsiliasi jumlah sumber/target dan uji restore sebelum cutover. Subkoleksi telah diperiksa pada seluruh dokumen root dan tidak ditemukan.
 
 Sampai preview per domain dan mapping Supabase diverifikasi, tidak ada perubahan data produksi.
 
