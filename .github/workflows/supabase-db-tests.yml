@@ -139,6 +139,9 @@ jobs:
       - name: Verify cooperative catalog import preview logic
         run: npm run test:cooperative-legacy-import
 
+      - name: Verify stable idempotency keys for retried mutations
+        run: npm run test:pending-mutation-id
+
       - name: Verify legacy HRIS employee import preview logic
         run: npm run test:hris-legacy-import
 
