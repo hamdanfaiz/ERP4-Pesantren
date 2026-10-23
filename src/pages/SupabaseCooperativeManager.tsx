@@ -3,6 +3,7 @@ import { AlertCircle, BarChart3, Check, Loader2, Package, Plus, RefreshCw, Shopp
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { DEFAULT_TENANT_TIME_ZONE } from "../utils/businessDate";
+import { pendingMutationIds } from "../utils/pendingMutationId";
 
 type Product = { id: string; sku: string; name: string; category: string; stock: number; costPrice: number; price: number; reorderPoint: number; expiryDate: string; status: string };
 type WalletAccount = { id: string; studentId: string; student: string; nis: string; grade: string; balance: number; limit: number; status: "Active" | "Blocked" };
@@ -76,23 +77,40 @@ export function SupabaseCooperativeManager() {
 
   const runMutation = async (path: string, method: string, body: Record<string, unknown>, success: string) => {
     setBusy(true); setError(""); setNotice("");
+    const { clientRequestId: _callerRequestId, ...payload } = body;
+    const stablePath = path.split("/").map((part) => /^[0-9a-f-]{36}$/i.test(part) ? ":id" : part).join("/");
+    let lease: Awaited<ReturnType<typeof pendingMutationIds.acquire>> | null = null;
     try {
-      await requestCooperative(path, { method, body: JSON.stringify(body) });
-      await refresh();
-      setNotice(success);
-      return true;
+      lease = await pendingMutationIds.acquire(`cooperative:${method.toUpperCase()}:${stablePath}`, {
+        tenantId: user?.tenantId || null,
+        actorId: user?.uid || null,
+        method: method.toUpperCase(),
+        path,
+        payload,
+      });
+      await requestCooperative(path, { method, body: JSON.stringify({ ...payload, clientRequestId: lease.requestId }) });
+      // The API confirmed its atomic mutation; clear the key before refreshing.
+      // If refresh fails, don't invite the user to charge the same cart again.
+      lease.clear();
     } catch (mutationError: any) {
       setError(mutationError?.message || "Perubahan belum dapat disimpan.");
+      setBusy(false);
       return false;
+    }
+    try {
+      await refresh();
+      setNotice(success);
+    } catch {
+      setError("Perubahan berhasil dicatat, tetapi data terbaru belum dapat dimuat. Gunakan Muat ulang sebelum transaksi berikutnya.");
     } finally { setBusy(false); }
+    return true;
   };
 
   const checkout = async () => {
     if (!selectedWallet || cart.length === 0) return;
     const result = await runMutation("/api/cooperative/sales", "POST", {
       walletId: selectedWallet.id,
-      clientRequestId: crypto.randomUUID(),
-      items: cart,
+      items: [...cart].sort((left, right) => left.productId.localeCompare(right.productId)),
     }, "Transaksi berhasil dicatat secara atomik pada saldo dompet dan stok.");
     if (result) { setCart([]); setWalletId(""); }
   };
@@ -107,7 +125,6 @@ export function SupabaseCooperativeManager() {
       costPrice: Number(productDraft.costPrice), unitPrice: Number(productDraft.price),
       ...(productDraft.id ? {} : { initialStock: Number(productDraft.stock) }),
       reorderPoint: Number(productDraft.reorderPoint), expiryDate: productDraft.expiryDate || null,
-      clientRequestId: crypto.randomUUID(),
     };
     if (await runMutation("/api/cooperative/products", "POST", payload, "Produk tersimpan.")) setProductDraft(null);
   };
@@ -115,7 +132,7 @@ export function SupabaseCooperativeManager() {
   const saveSupplier = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!supplierDraft) return;
-    const payload = { action: supplierDraft.id ? "update" : "create", ...supplierDraft, clientRequestId: crypto.randomUUID() };
+    const payload = { action: supplierDraft.id ? "update" : "create", ...supplierDraft };
     if (await runMutation("/api/cooperative/suppliers", "POST", payload, "Pemasok tersimpan.")) setSupplierDraft(null);
   };
 
@@ -123,7 +140,7 @@ export function SupabaseCooperativeManager() {
     event.preventDefault();
     if (!topUpWallet) return;
     if (await runMutation(`/api/cooperative/wallets/${encodeURIComponent(topUpWallet.id)}/top-ups`, "POST", {
-      amount: Number(topUpAmount), reference: topUpReference, clientRequestId: crypto.randomUUID(),
+      amount: Number(topUpAmount), reference: topUpReference.trim(),
     }, "Top-up tercatat pada ledger dompet.")) {
       setTopUpWallet(null); setTopUpAmount(""); setTopUpReference("");
     }
@@ -136,7 +153,7 @@ export function SupabaseCooperativeManager() {
     if (!Number.isInteger(delta) || delta === 0) { setError("Perubahan stok harus berupa bilangan bulat selain nol."); return; }
     const reason = window.prompt("Alasan penyesuaian stok:")?.trim();
     if (!reason) return;
-    await runMutation("/api/cooperative/stock-adjustments", "POST", { productId: product.id, delta, reason, clientRequestId: crypto.randomUUID() }, "Mutasi stok tercatat pada ledger.");
+    await runMutation("/api/cooperative/stock-adjustments", "POST", { productId: product.id, delta, reason }, "Mutasi stok tercatat pada ledger.");
   };
 
   const updateWalletPolicy = async (wallet: WalletAccount) => {
@@ -146,7 +163,7 @@ export function SupabaseCooperativeManager() {
     if (!Number.isFinite(dailyLimit) || dailyLimit < 0) { setError("Batas belanja harian tidak valid."); return; }
     const status = wallet.status === "Active" ? "blocked" : "active";
     if (!window.confirm(`Simpan batas ${money(dailyLimit)} dan ubah status dompet menjadi ${status === "active" ? "aktif" : "diblokir"}?`)) return;
-    await runMutation(`/api/cooperative/wallets/${encodeURIComponent(wallet.id)}/policy`, "PATCH", { dailyLimit, status, clientRequestId: crypto.randomUUID() }, "Kebijakan dompet diperbarui.");
+    await runMutation(`/api/cooperative/wallets/${encodeURIComponent(wallet.id)}/policy`, "PATCH", { dailyLimit, status }, "Kebijakan dompet diperbarui.");
   };
 
   if (role !== "Admin" && role !== "SuperAdmin") return <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">Modul Koperasi Supabase saat ini tersedia untuk Admin tenant dengan izin Koperasi.</div>;
@@ -188,12 +205,12 @@ export function SupabaseCooperativeManager() {
         </div>}
 
         {activeTab === "inventory" && <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Inventaris Produk</h2><p className="mt-1 text-xs text-slate-500">Penyesuaian stok dicatat sebagai ledger tenant.</p></div><button type="button" className={primaryClass} onClick={() => setProductDraft({ sku: "", name: "", category: "Kantin", costPrice: "0", price: "0", stock: "0", reorderPoint: "0", expiryDate: "" })}><Plus className="h-4 w-4" />Produk baru</button></div>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Produk</th><th className="p-3">Kategori</th><th className="p-3 text-right">Stok</th><th className="p-3 text-right">HPP / Harga</th><th className="p-3">Kedaluwarsa</th><th className="p-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.products.filter((x) => x.status === "active").map((product) => <tr key={product.id}><td className="p-3"><div className="font-medium text-slate-900 dark:text-white">{product.name}</div><div className="text-xs text-slate-500">{product.sku}</div></td><td className="p-3 text-slate-600 dark:text-slate-300">{product.category}</td><td className="p-3 text-right"><span className={product.stock <= product.reorderPoint ? "font-semibold text-rose-600" : "text-slate-700 dark:text-slate-300"}>{product.stock} / {product.reorderPoint}</span></td><td className="p-3 text-right text-xs text-slate-600 dark:text-slate-300">{money(product.costPrice)} / {money(product.price)}</td><td className="p-3 text-slate-500">{product.expiryDate || "—"}</td><td className="p-3 text-right"><div className="flex justify-end gap-2"><button type="button" className={outlineClass} onClick={() => setProductDraft({ id: product.id, sku: product.sku, name: product.name, category: product.category, costPrice: String(product.costPrice), price: String(product.price), stock: String(product.stock), reorderPoint: String(product.reorderPoint), expiryDate: product.expiryDate || "" })}>Ubah</button><button type="button" className={outlineClass} onClick={() => void adjustStock(product)}>Stok ±</button><button type="button" className="rounded-lg px-2 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40" onClick={() => window.confirm(`Arsipkan ${product.name}?`) && void runMutation("/api/cooperative/products", "POST", { action: "archive", id: product.id, clientRequestId: crypto.randomUUID() }, "Produk diarsipkan.")}>Arsip</button></div></td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Produk</th><th className="p-3">Kategori</th><th className="p-3 text-right">Stok</th><th className="p-3 text-right">HPP / Harga</th><th className="p-3">Kedaluwarsa</th><th className="p-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.products.filter((x) => x.status === "active").map((product) => <tr key={product.id}><td className="p-3"><div className="font-medium text-slate-900 dark:text-white">{product.name}</div><div className="text-xs text-slate-500">{product.sku}</div></td><td className="p-3 text-slate-600 dark:text-slate-300">{product.category}</td><td className="p-3 text-right"><span className={product.stock <= product.reorderPoint ? "font-semibold text-rose-600" : "text-slate-700 dark:text-slate-300"}>{product.stock} / {product.reorderPoint}</span></td><td className="p-3 text-right text-xs text-slate-600 dark:text-slate-300">{money(product.costPrice)} / {money(product.price)}</td><td className="p-3 text-slate-500">{product.expiryDate || "—"}</td><td className="p-3 text-right"><div className="flex justify-end gap-2"><button type="button" className={outlineClass} onClick={() => setProductDraft({ id: product.id, sku: product.sku, name: product.name, category: product.category, costPrice: String(product.costPrice), price: String(product.price), stock: String(product.stock), reorderPoint: String(product.reorderPoint), expiryDate: product.expiryDate || "" })}>Ubah</button><button type="button" className={outlineClass} onClick={() => void adjustStock(product)}>Stok ±</button><button type="button" className="rounded-lg px-2 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40" onClick={() => window.confirm(`Arsipkan ${product.name}?`) && void runMutation("/api/cooperative/products", "POST", { action: "archive", id: product.id }, "Produk diarsipkan.")}>Arsip</button></div></td></tr>)}</tbody></table></div>
         </div>}
 
         {activeTab === "wallets" && <div className="space-y-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Dompet Santri</h2><p className="mt-1 text-xs text-slate-500">Saldo berasal dari ledger. Pengubahan batas/status dan top-up direkam di backend.</p></div><div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Santri</th><th className="p-3 text-right">Saldo</th><th className="p-3 text-right">Batas harian</th><th className="p-3">Status</th><th className="p-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.wallets.map((wallet) => <tr key={wallet.id}><td className="p-3"><div className="font-medium text-slate-900 dark:text-white">{wallet.student}</div><div className="text-xs text-slate-500">{wallet.nis} · {wallet.grade}</div></td><td className="p-3 text-right font-semibold">{money(wallet.balance)}</td><td className="p-3 text-right">{money(wallet.limit)}</td><td className="p-3"><span className={wallet.status === "Active" ? "text-emerald-700" : "text-rose-700"}>{wallet.status === "Active" ? "Aktif" : "Diblokir"}</span></td><td className="p-3"><div className="flex justify-end gap-2"><button type="button" className={outlineClass} onClick={() => { setTopUpWallet(wallet); setTopUpAmount(""); setTopUpReference(""); }} disabled={!canTopUp || wallet.status !== "Active"}>Top-up</button><button type="button" className={outlineClass} onClick={() => void updateWalletPolicy(wallet)}>Atur</button></div></td></tr>)}</tbody></table></div></div>}
 
-        {activeTab === "suppliers" && <div className="space-y-4"><div className="flex items-center justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Pemasok</h2><p className="mt-1 text-xs text-slate-500">Direktori pemasok tenant.</p></div><button type="button" className={primaryClass} onClick={() => setSupplierDraft({ name: "", category: "", contact: "", pic: "" })}><Plus className="h-4 w-4" />Pemasok baru</button></div><div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Nama / PIC</th><th className="p-3">Kategori</th><th className="p-3">Kontak</th><th className="p-3">Status</th><th className="p-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.suppliers.map((supplier) => <tr key={supplier.id}><td className="p-3"><div className="font-medium text-slate-900 dark:text-white">{supplier.name}</div><div className="text-xs text-slate-500">{supplier.pic || "—"}</div></td><td className="p-3">{supplier.category || "—"}</td><td className="p-3">{supplier.contact || "—"}</td><td className="p-3">{supplier.status === "active" ? "Aktif" : "Nonaktif"}</td><td className="p-3 text-right"><div className="flex justify-end gap-2">{supplier.status === "active" && <><button type="button" className={outlineClass} onClick={() => setSupplierDraft({ id: supplier.id, name: supplier.name, category: supplier.category, contact: supplier.contact, pic: supplier.pic })}>Ubah</button><button type="button" className="rounded-lg px-2 py-1.5 text-xs text-rose-700 hover:bg-rose-50" onClick={() => void runMutation("/api/cooperative/suppliers", "POST", { action: "deactivate", id: supplier.id, clientRequestId: crypto.randomUUID() }, "Pemasok dinonaktifkan.")}>Nonaktifkan</button></>}</div></td></tr>)}</tbody></table></div></div>}
+        {activeTab === "suppliers" && <div className="space-y-4"><div className="flex items-center justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Pemasok</h2><p className="mt-1 text-xs text-slate-500">Direktori pemasok tenant.</p></div><button type="button" className={primaryClass} onClick={() => setSupplierDraft({ name: "", category: "", contact: "", pic: "" })}><Plus className="h-4 w-4" />Pemasok baru</button></div><div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Nama / PIC</th><th className="p-3">Kategori</th><th className="p-3">Kontak</th><th className="p-3">Status</th><th className="p-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.suppliers.map((supplier) => <tr key={supplier.id}><td className="p-3"><div className="font-medium text-slate-900 dark:text-white">{supplier.name}</div><div className="text-xs text-slate-500">{supplier.pic || "—"}</div></td><td className="p-3">{supplier.category || "—"}</td><td className="p-3">{supplier.contact || "—"}</td><td className="p-3">{supplier.status === "active" ? "Aktif" : "Nonaktif"}</td><td className="p-3 text-right"><div className="flex justify-end gap-2">{supplier.status === "active" && <><button type="button" className={outlineClass} onClick={() => setSupplierDraft({ id: supplier.id, name: supplier.name, category: supplier.category, contact: supplier.contact, pic: supplier.pic })}>Ubah</button><button type="button" className="rounded-lg px-2 py-1.5 text-xs text-rose-700 hover:bg-rose-50" onClick={() => void runMutation("/api/cooperative/suppliers", "POST", { action: "deactivate", id: supplier.id }, "Pemasok dinonaktifkan.")}>Nonaktifkan</button></>}</div></td></tr>)}</tbody></table></div></div>}
 
         {activeTab === "transactions" && <div className="space-y-3"><h2 className="font-semibold text-slate-900 dark:text-white">Riwayat Transaksi & Ledger Dompet</h2>{snapshot.sales.length ? <div className="space-y-3">{snapshot.sales.map((sale) => <article key={sale.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold text-slate-900 dark:text-white">{sale.studentName} <span className="text-xs font-normal text-slate-500">{sale.grade}</span></div><div className="mt-1 font-mono text-xs text-slate-500">{sale.id} · {new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short", timeZone: snapshot.timeZone }).format(new Date(sale.date))}</div></div><div className="font-semibold text-slate-900 dark:text-white">{money(sale.total)}</div></div><div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm dark:border-slate-800">{sale.items.map((item) => <div key={item.id} className="flex justify-between gap-4 text-slate-600 dark:text-slate-300"><span>{item.name} × {item.quantity}</span><span>{money(item.lineTotal)}</span></div>)}</div></article>)}</div> : <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada transaksi pada tenant ini.</div>}
           <div className="mt-6"><h3 className="font-semibold text-slate-900 dark:text-white">Mutasi saldo terbaru</h3><div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Waktu</th><th className="p-3">Jenis / Referensi</th><th className="p-3 text-right">Perubahan</th><th className="p-3 text-right">Saldo akhir</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.walletLedger.map((entry) => <tr key={entry.id}><td className="p-3 text-xs">{new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short", timeZone: snapshot.timeZone }).format(new Date(entry.createdAt))}</td><td className="p-3">{entry.type} · {entry.reference}</td><td className="p-3 text-right">{money(entry.amount)}</td><td className="p-3 text-right">{money(entry.balanceAfter)}</td></tr>)}</tbody></table></div></div></div>}
