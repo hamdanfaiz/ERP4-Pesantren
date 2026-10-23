@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   Bell,
   Search,
-  ChevronDown,
   User,
   Sparkles,
   Loader2,
@@ -15,6 +14,7 @@ import {
 import { Tenant } from "../types";
 import Markdown from "react-markdown";
 import { cn } from "../lib/utils";
+import { useAuth } from "../contexts/AuthContext";
 import { getAllMasterDataRecords } from "../data/mockRecords";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from "recharts";
 import jsPDF from "jspdf";
@@ -39,6 +39,7 @@ interface HeaderProps {
 }
 
 export function Header({ currentTenant, branding }: HeaderProps) {
+  const { user, role } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<{
@@ -79,14 +80,14 @@ export function Header({ currentTenant, branding }: HeaderProps) {
         
         autoTable(doc, {
           startY,
-          head: [["Name / Category", "Value"]],
+          head: [["Nama / Kategori", "Nilai"]],
           body: tableBody,
           theme: "striped",
           headStyles: { fillColor: [16, 185, 129] },
         });
       }
       
-      doc.save("Data_Summary.pdf");
+      doc.save("Ringkasan_Data.pdf");
     } catch (e) {
       console.error(e);
     } finally {
@@ -128,7 +129,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
     } catch (e) {
       console.error(e);
       setSearchResult({
-        answer: "An error occurred while searching.",
+        answer: "Terjadi kesalahan saat mencari.",
         sources: [],
       });
     } finally {
@@ -162,7 +163,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
       <div className="flex justify-between items-center w-full">
         <div className="flex items-center gap-4">
           {/* Multi-Tenant Selector Mockup */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg  hover:bg-slate-200 dark:bg-white/10 cursor-pointer transition-colors bg-slate-100 dark:bg-white/5">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/5">
             {branding?.logoUrl ? (
                <img src={branding.logoUrl} alt="Logo" className="w-6 h-6 object-contain rounded bg-slate-100 dark:bg-white/5" />
             ) : (
@@ -178,7 +179,6 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                 {currentTenant.type}
               </span>
             </div>
-            <ChevronDown className="w-4 h-4 text-slate-500 ml-2" />
           </div>
         </div>
 
@@ -193,11 +193,11 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                 onFocus={() => {
                   if (searchResult || isSearching) setIsSearchOpen(true);
                 }}
-                placeholder="Ask AI about santri, master data..."
+                placeholder="Tanya AI tentang santri atau data utama..."
                 className="pl-9 pr-10 py-2  rounded-lg text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-80 bg-slate-50 dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-300 transition-all hover:glass-panel"
               />
               <button
-                type="submit"
+                type="submit" aria-label="Cari dengan AI"
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10 rounded"
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -211,7 +211,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                   <div className="p-3 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-black/40 sticky top-0 z-10">
                     <div className="flex items-center gap-2 text-sm font-medium text-emerald-400">
                       <Sparkles className="w-4 h-4" />
-                      AI Search Results
+                      Hasil Pencarian AI
                     </div>
                     <button
                       onClick={() => setIsSearchOpen(false)}
@@ -226,7 +226,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                       <div className="flex flex-col items-center justify-center py-8 gap-3 text-emerald-500/80">
                         <Loader2 className="w-8 h-8 animate-spin" />
                         <span className="text-xs font-medium tracking-wide">
-                          Searching master data & web...
+                          Menelusuri data utama dan web...
                         </span>
                       </div>
                     ) : searchResult ? (
@@ -247,7 +247,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                                 className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
                               >
                                 {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                                Export PDF
+                                Ekspor PDF
                               </button>
                             </div>
                             <div id="search-chart-container" className="h-64 w-full bg-white dark:bg-[#0f0f0f]">
@@ -295,7 +295,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                           searchResult.sources.length > 0 && (
                             <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4">
                               <h4 className="text-xs font-semibold tracking-wider text-slate-500 uppercase mb-3">
-                                Sources
+                                Sumber
                               </h4>
                               <div className="flex flex-col gap-2">
                                 {searchResult.sources.map(
@@ -328,10 +328,11 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                           )}
 
                         <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4 flex items-center justify-between">
-                          <span className="text-xs text-slate-500">Was this answer helpful?</span>
+                          <span className="text-xs text-slate-500">Apakah jawaban ini membantu?</span>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleRating("up")}
+                              aria-label="Jawaban ini membantu"
                               disabled={feedbackGiven !== null}
                               className={cn(
                                 "p-1.5 rounded-md border transition-colors",
@@ -340,10 +341,11 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                                   : "border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
                               )}
                             >
-                              <ThumbsUp className="w-4 h-4" />
+                              <ThumbsUp className="w-4 h-4" aria-hidden="true" />
                             </button>
                             <button
                               onClick={() => handleRating("down")}
+                              aria-label="Jawaban ini tidak membantu"
                               disabled={feedbackGiven !== null}
                               className={cn(
                                 "p-1.5 rounded-md border transition-colors",
@@ -352,7 +354,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                                   : "border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
                               )}
                             >
-                              <ThumbsDown className="w-4 h-4" />
+                              <ThumbsDown className="w-4 h-4" aria-hidden="true" />
                             </button>
                           </div>
                         </div>
@@ -364,9 +366,14 @@ export function Header({ currentTenant, branding }: HeaderProps) {
               )}
           </div>
 
-          <button className="relative p-2 rounded-full hover:bg-slate-200 dark:bg-white/10 transition-colors text-slate-500 dark:text-slate-400">
+          <button
+            type="button"
+            disabled
+            aria-label="Notifikasi belum tersedia"
+            title="Notifikasi belum tersedia"
+            className="relative cursor-not-allowed rounded-full p-2 text-slate-400 opacity-50"
+          >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-2 w-2 h-2 bg-emerald-500 rounded-full border-2 border-[#0a0a0a]"></span>
           </button>
 
           <div className="h-8 w-px bg-slate-200 dark:bg-white/10 mx-2"></div>
@@ -374,9 +381,9 @@ export function Header({ currentTenant, branding }: HeaderProps) {
           <div className="flex items-center gap-3 cursor-pointer group">
             <div className="text-right hidden md:block">
               <div className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-emerald-400 transition-colors">
-                Ahmad Fauzi
+                {user?.name || user?.email || "Pengguna"}
               </div>
-              <div className="text-xs text-slate-500">Super Admin Yayasan</div>
+              <div className="text-xs text-slate-500">{({ SuperAdmin: "Superadmin Yayasan", Admin: "Administrator", Ustadz: "Ustadz", Santri: "Santri", Walisantri: "Wali Santri", Public: "Pengunjung" } as Record<string, string>)[role] || role}</div>
             </div>
             <div className="w-9 h-9 rounded-full bg-emerald-900/30 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
               <User className="w-5 h-5" />
