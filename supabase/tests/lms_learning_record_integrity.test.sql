@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(20);
+SELECT plan(28);
 
 INSERT INTO public.tenants(id, slug, name, status)
 VALUES ('e2600000-0000-4000-8000-000000000009', 'lms-learning-record-test', 'LMS Learning Record Test', 'active');
@@ -159,6 +159,54 @@ SELECT throws_ok(
     'e2600000-0000-4000-8000-000000000405','note','e2600000-0000-4000-8000-000000000303',0,'Santri nonaktif'
   )$$,'42501','Active LMS student record is required',
   'inactive student cannot add a learning record');
+
+SELECT is(public.save_lms_progress(
+  'e2600000-0000-4000-8000-000000000009','e2600000-0000-4000-8000-000000000011',
+  'e2600000-0000-4000-8000-000000000303',30,false
+)->>'saved','true','first progress save succeeds');
+
+SELECT is(public.save_lms_progress(
+  'e2600000-0000-4000-8000-000000000009','e2600000-0000-4000-8000-000000000011',
+  'e2600000-0000-4000-8000-000000000303',12,false
+)->>'saved','true','late progress snapshot cannot fail the save');
+
+SELECT is((SELECT position_seconds FROM public.lms_material_progress
+  WHERE tenant_id='e2600000-0000-4000-8000-000000000009'
+    AND student_id='e2600000-0000-4000-8000-000000000201'
+    AND material_id='e2600000-0000-4000-8000-000000000303'),30,
+  'out-of-order autosave cannot reduce the stored position');
+
+SELECT is(public.save_lms_progress(
+  'e2600000-0000-4000-8000-000000000009','e2600000-0000-4000-8000-000000000011',
+  'e2600000-0000-4000-8000-000000000303',60,true
+)->>'saved','true','completion at the exact media duration succeeds');
+
+SELECT ok((SELECT completed_at IS NOT NULL FROM public.lms_material_progress
+  WHERE tenant_id='e2600000-0000-4000-8000-000000000009'
+    AND student_id='e2600000-0000-4000-8000-000000000201'
+    AND material_id='e2600000-0000-4000-8000-000000000303'),
+  'completion is recorded');
+
+SELECT throws_ok(
+  $SELECT public.save_lms_progress(
+    'e2600000-0000-4000-8000-000000000009','e2600000-0000-4000-8000-000000000011',
+    'e2600000-0000-4000-8000-000000000303',61,true
+  )$,'22023','LMS progress exceeds the material duration',
+  'progress beyond media duration is rejected');
+
+SELECT throws_ok(
+  $SELECT public.save_lms_progress(
+    'e2600000-0000-4000-8000-000000000009','e2600000-0000-4000-8000-000000000013',
+    'e2600000-0000-4000-8000-000000000303',10,false
+  )$,'42501','Active LMS student record is required',
+  'inactive student cannot save progress');
+
+SELECT throws_ok(
+  $SELECT public.save_lms_progress(
+    'e2600000-0000-4000-8000-000000000009','e2600000-0000-4000-8000-000000000011',
+    'e2600000-0000-4000-8000-000000000303',10,NULL
+  )$,'22023','Invalid LMS progress profile or position',
+  'completion state cannot be null');
 
 SELECT is((SELECT count(*)::integer FROM public.lms_learning_record_requests
   WHERE tenant_id='e2600000-0000-4000-8000-000000000009'),3,
