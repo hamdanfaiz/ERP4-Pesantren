@@ -200,6 +200,11 @@ import {
 const LazyStructureHierarchyD3 = React.lazy(async () => ({ default: (await import("../components/StructureHierarchyD3")).StructureHierarchyD3 }));
 const LazyFacilityBooking = React.lazy(async () => ({ default: (await import("../components/FacilityBooking")).FacilityBooking }));
 
+function masterDataFieldLabel(key: string) {
+  const labels: Record<string, string> = { id: "ID", name: "Nama", gender: "Jenis Kelamin", grade: "Jenjang", className: "Kelas", nis: "NIS", nisn: "NISN", nik: "NIK", phone: "Nomor Telepon", email: "Email", parentName: "Nama Wali", parentPhone: "Telepon Wali", whatsappPhone: "Nomor WhatsApp", address: "Alamat", dateOfBirth: "Tanggal Lahir", birthDate: "Tanggal Lahir", placeOfBirth: "Tempat Lahir", religion: "Agama", bloodType: "Golongan Darah", medical: "Riwayat Kesehatan", status: "Status", qrcode: "Kode QR", currentActivity: "Kegiatan Saat Ini", institution: "Instansi", employmentType: "Jenis Kepegawaian", gradeOrDepartment: "Jenjang/Unit", graduationYear: "Tahun Lulus", occupation: "Pekerjaan", income: "Penghasilan", relation: "Hubungan", nuptk: "NUPTK", npwp: "NPWP", createdAt: "Dibuat pada", updatedAt: "Diperbarui pada" };
+  return labels[key] || key.replace(/([A-Z])/g, " $1").trim();
+}
+
 function masterAuditActionLabel(action: string) {
   const labels: Record<string, string> = { CREATE: "Ditambahkan", UPDATE: "Diperbarui", DELETE: "Dihapus", IMPORT: "Diimpor" };
   return labels[action] || action;
@@ -1049,7 +1054,7 @@ export function MasterDataManager() {
             />
           </th>
           <th className="px-6 py-4">ID</th>
-          <th className="px-6 py-4">Name</th>
+          <th className="px-6 py-4">Nama</th>
           <th className="px-6 py-4">Type</th>
           <th className="px-6 py-4">Capacity/Size</th>
           <th className="px-6 py-4">Status</th>
@@ -1091,7 +1096,7 @@ export function MasterDataManager() {
             />
           </th>
           <th className="px-6 py-4">ID</th>
-          <th className="px-6 py-4">Name</th>
+          <th className="px-6 py-4">Nama</th>
           <th className="px-6 py-4">NIK</th>
           <th className="px-6 py-4">Nama Santri</th>
           <th className="px-6 py-4">Status</th>
@@ -1112,8 +1117,8 @@ export function MasterDataManager() {
           />
         </th>
         <th className="px-6 py-4">ID</th>
-        <th className="px-6 py-4">Name</th>
-        <th className="px-6 py-4">Gender</th>
+        <th className="px-6 py-4">Nama</th>
+        <th className="px-6 py-4">Jenis Kelamin</th>
         <th className="px-6 py-4">Jenjang/Kelas</th>
         <th className="px-6 py-4">Status</th>
         <th className="px-6 py-4">Enrolled/Date</th>
@@ -3158,7 +3163,7 @@ export function MasterDataManager() {
                         className="accent-emerald-500 rounded border-slate-200 dark:border-white/10 bg-black/20"
                       />
                       <span className="text-sm text-slate-700 dark:text-slate-300 capitalize">
-                        {key.replace(/([A-Z])/g, " $1").trim()}
+                        {masterDataFieldLabel(key)}
                       </span>
                     </label>
                   ))}
