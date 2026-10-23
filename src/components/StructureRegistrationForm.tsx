@@ -103,7 +103,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Name *</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nama *</label>
               <input
                 type="text"
                 value={formData.name}
@@ -121,14 +121,14 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
               >
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
-                <option value="Maintenance">Maintenance</option>
+                <option value="Maintenance">Pemeliharaan</option>
               </select>
             </div>
 
             {(type === 'Yayasan' || type === 'Kampus') && (
               <>
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Location/Address</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Lokasi/Alamat</label>
                   <textarea
                     value={formData.location}
                     onChange={(e) => handleFieldChange('location', e.target.value)}
@@ -172,7 +172,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
             {(type === 'Kelas' || type === 'Halaqah') && (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Grade/Level</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenjang/Tingkat</label>
                   <input
                     type="text"
                     value={formData.grade}
