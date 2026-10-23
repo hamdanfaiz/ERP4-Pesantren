@@ -146,7 +146,7 @@ SELECT throws_ok(
 SELECT is((SELECT count(*)::int FROM public.donations WHERE tenant_id='d9400000-0000-4000-8000-000000000009'),1,'same receipt key records only one donation');
 SELECT is(
   (SELECT last_number FROM public.donation_receipt_counters WHERE tenant_id='d9400000-0000-4000-8000-000000000009' AND receipt_year=2026),
-  1,
+  1::BIGINT,
   'retry does not consume a second receipt number'
 );
 
