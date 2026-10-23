@@ -383,7 +383,7 @@ export function SettingsManager() {
                     >
                       <option value="dark">Dark Mode (Default)</option>
                       <option value="light">Light Mode</option>
-                      <option value="system">Ikuti Sistem Perangkat (Auto Sync)</option>
+                      <option value="system">Ikuti Pengaturan Perangkat (Sinkronisasi Otomatis)</option>
                     </select>
                   </div>
 
@@ -931,7 +931,7 @@ export function SettingsManager() {
                         <span className="font-medium text-slate-300">{ALL_MODULE_LIST.length} Modul</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-white/5">
-                        <span>Role Sistem:</span>
+                        <span>Peran Sistem:</span>
                         <span className="font-medium text-slate-300">{SYSTEM_ROLES.length} Peran Pengguna</span>
                       </div>
                       <div className="flex justify-between py-1">
