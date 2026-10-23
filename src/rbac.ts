@@ -35,6 +35,16 @@ export const ROLE_MODULES: Record<UserRole, ModuleId[]> = {
 };
 
 /**
+ * Reject malformed or unknown permission keys at API boundaries.
+ */
+export function isValidModulePermissions(value: unknown): value is Record<string, boolean> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.entries(value).every(([moduleId, enabled]) =>
+    ALL_SYSTEM_MODULE_IDS.includes(moduleId as ModuleId) && typeof enabled === "boolean"
+  );
+}
+
+/**
  * Evaluates whether a user with a given role and per-user modulePermissions map can access a module.
  *
  * Rules:
@@ -61,7 +71,7 @@ export function isModuleAccessible(
 
   // Explicit per-user override: true grants within tenant scope, false denies
   if (userPermissions && typeof userPermissions === 'object' && moduleId in userPermissions) {
-    return Boolean(userPermissions[moduleId]);
+    return userPermissions[moduleId] === true;
   }
 
   // Fallback to role baseline:
