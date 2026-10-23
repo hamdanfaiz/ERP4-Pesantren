@@ -185,15 +185,15 @@ SELECT is((public.grade_lms_submission(
 
 RESET ROLE;
 SELECT throws_ok(
-  $UPDATE public.lms_submission_requests SET payload_fingerprint=decode(repeat('00',32),'hex')
+  $q$UPDATE public.lms_submission_requests SET payload_fingerprint=decode(repeat('00',32),'hex')
     WHERE tenant_id='e2500000-0000-4000-8000-000000000009'
-      AND request_id='e2500000-0000-4000-8000-000000000501'$,
+      AND request_id='e2500000-0000-4000-8000-000000000501'$q$,
   '55000','LMS idempotency and grade audit ledgers are immutable',
   'submission request ledger rejects updates');
 SELECT throws_ok(
-  $DELETE FROM public.lms_submission_grade_events
+  $q$DELETE FROM public.lms_submission_grade_events
     WHERE tenant_id='e2500000-0000-4000-8000-000000000009'
-      AND request_id='e2500000-0000-4000-8000-000000000601'$,
+      AND request_id='e2500000-0000-4000-8000-000000000601'$q$,
   '55000','LMS idempotency and grade audit ledgers are immutable',
   'grade audit ledger rejects deletes');
 
