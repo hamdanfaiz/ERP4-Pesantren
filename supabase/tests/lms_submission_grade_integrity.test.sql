@@ -177,11 +177,11 @@ SELECT is(public.submit_lms_assignment(
   'e2500000-0000-4000-8000-000000000501','e2500000-0000-4000-8000-000000000401',
   'Jawaban awal',''
 )->>'alreadyApplied','true','a committed submission retry still replays after a later resubmission');
-SELECT is(public.grade_lms_submission(
+SELECT is((public.grade_lms_submission(
   'e2500000-0000-4000-8000-000000000009','e2500000-0000-4000-8000-000000000013',
   'e2500000-0000-4000-8000-000000000601',
   (SELECT (result->>'id')::uuid FROM lms_submit_first),75,'Baik'
-)->>'score','75.00','a committed grade retry returns its original result after correction');
+)->>'score')::numeric,75::numeric,'a committed grade retry returns its original result after correction');
 
 RESET ROLE;
 SELECT throws_ok(
