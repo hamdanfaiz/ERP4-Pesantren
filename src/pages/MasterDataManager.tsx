@@ -1088,7 +1088,7 @@ export function MasterDataManager() {
           <th className="px-6 py-4">ID</th>
           <th className="px-6 py-4">Name</th>
           <th className="px-6 py-4">NIK</th>
-          <th className="px-6 py-4">Student Name</th>
+          <th className="px-6 py-4">Nama Santri</th>
           <th className="px-6 py-4">Status</th>
           <th className="px-6 py-4">Phone</th>
           <th className="px-6 py-4 text-right">Actions</th>
@@ -1109,7 +1109,7 @@ export function MasterDataManager() {
         <th className="px-6 py-4">ID</th>
         <th className="px-6 py-4">Name</th>
         <th className="px-6 py-4">Gender</th>
-        <th className="px-6 py-4">Grade/Class</th>
+        <th className="px-6 py-4">Jenjang/Kelas</th>
         <th className="px-6 py-4">Status</th>
         <th className="px-6 py-4">Enrolled/Date</th>
         <th className="px-6 py-4 text-right">Actions</th>
@@ -1509,7 +1509,7 @@ export function MasterDataManager() {
             title="Ekspor Data ke Excel (.xlsx/.csv), CSV, atau JSON"
           >
             <Download className="w-4 h-4" />
-            <span>Export Data</span>
+            <span>Ekspor Data</span>
           </button>
           <button
             onClick={() => setShowScanner(true)}
@@ -1609,10 +1609,10 @@ export function MasterDataManager() {
                   <button
                     onClick={handleExportAuditLogs}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-medium transition-colors"
-                    title="Export Log Audit ke CSV"
+                    title="Ekspor Log Audit ke CSV"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Export Logs</span>
+                    <span>Ekspor Log</span>
                   </button>
                 </div>
               </div>
@@ -2812,7 +2812,7 @@ export function MasterDataManager() {
 
                           {selectedRecord.educations && Array.isArray(selectedRecord.educations) && selectedRecord.educations.length > 0 && (
                             <div className="mt-4">
-                               <div className="text-[10px] uppercase text-slate-500 font-semibold mb-2">Education History</div>
+                               <div className="text-[10px] uppercase text-slate-500 font-semibold mb-2">Riwayat Pendidikan</div>
                                <div className="space-y-2">
                                   {selectedRecord.educations.map((edu: any, i: number) => (
                                      <div key={i} className="bg-slate-50 dark:bg-black/20 p-2 rounded border border-slate-200 dark:border-white/10 text-xs">
@@ -2964,7 +2964,7 @@ export function MasterDataManager() {
                       <button
                         onClick={handlePrintClick}
                         className="px-4 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300  rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                        title="Print Record"
+                        title="Cetak Data"
                       >
                         <Printer className="w-4 h-4" />
                         <span>Print</span>
