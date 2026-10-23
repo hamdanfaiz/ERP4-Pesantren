@@ -66,6 +66,8 @@ async function tenantRows(table: string, tenantId: string, select: string, order
   throw new SupabaseOnboardingError(503, "Data kehadiran melebihi batas halaman yang didukung.");
 }
 const folded = (value: unknown) => String(value || "").trim().toLocaleLowerCase("id-ID");
+const NON_OPERATIONAL_STUDENT_STATUSES = new Set(["archived", "alumni", "graduated", "inactive", "nonaktif", "dikeluarkan"]);
+const isOperationalStudent = (student: Row) => !NON_OPERATIONAL_STUDENT_STATUSES.has(folded(student.status));
 type BoardingLocationScope = { roomIds: Set<string>; buildingIds: Set<string> };
 async function getBoardingLocationScope(tenantId: string, userId: string): Promise<BoardingLocationScope> {
   const params = new URLSearchParams({ select: "room_id,building_id", tenant_id: "eq." + tenantId,
@@ -98,7 +100,7 @@ export async function getSupabaseBoardingAttendance(actor: Actor, dateValue: unk
     tenantRows("students", tenantId, "id,source_record_id,name,nis,room_id,building_id,status", "name.asc,id.asc"),
     tenantRows("master_data_records", tenantId, "id,name,category", "name.asc,id.asc"),
   ]);
-  const activeStudents = students.filter((student) => String(student.status || "").toLowerCase() !== "archived"
+  const activeStudents = students.filter((student) => isOperationalStudent(student)
     && (!scope || isStudentInScope(student, scope)));
   const roomById = new Map(structures.filter((item) => item.category === "Kamar").map((item) => [String(item.id), String(item.name || item.id)] as const));
   const sessionParams = new URLSearchParams({ select: "id,attendance_date", tenant_id: "eq." + tenantId, attendance_date: "eq." + date, session_type: "eq.nightly_curfew", limit: "2" });
