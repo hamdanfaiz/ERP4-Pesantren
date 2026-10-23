@@ -1090,7 +1090,7 @@ export function MasterDataManager() {
           <th className="px-6 py-4">NIK</th>
           <th className="px-6 py-4">Nama Santri</th>
           <th className="px-6 py-4">Status</th>
-          <th className="px-6 py-4">Phone</th>
+          <th className="px-6 py-4">Telepon</th>
           <th className="px-6 py-4 text-right">Actions</th>
         </tr>
       );
@@ -1164,7 +1164,7 @@ export function MasterDataManager() {
             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm"
-                title="Edit"
+                title="Ubah"
                 onClick={(e) => handleEditClick(row, e)}
               >
                 <Edit className="w-4 h-4" />
@@ -1174,8 +1174,8 @@ export function MasterDataManager() {
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-red-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm disabled:opacity-30 disabled:hover:text-slate-500 dark:text-slate-400 disabled:cursor-not-allowed"
                 title={
                   userRole !== "Super Administrator"
-                    ? "Requires Super Administrator access"
-                    : "Delete"
+                    ? "Memerlukan akses Super Administrator"
+                    : "Hapus"
                 }
                 onClick={(e) => handleDeleteClick(row, e)}
               >
@@ -1251,7 +1251,7 @@ export function MasterDataManager() {
             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 transition-colors shadow-sm"
-                title="Edit"
+                title="Ubah"
                 onClick={(e) => handleEditClick(row, e)}
               >
                 <Edit className="w-4 h-4" />
@@ -1259,7 +1259,7 @@ export function MasterDataManager() {
               <button
                 disabled={userRole !== "Super Administrator"}
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-red-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 transition-colors shadow-sm disabled:opacity-30 disabled:hover:text-slate-500 dark:text-slate-400 disabled:cursor-not-allowed"
-                title="Delete"
+                title="Hapus"
                 onClick={(e) => handleDeleteClick(row, e)}
               >
                 <Trash2 className="w-4 h-4" />
@@ -1319,7 +1319,7 @@ export function MasterDataManager() {
             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm"
-                title="Edit"
+                title="Ubah"
                 onClick={(e) => handleEditClick(row, e)}
               >
                 <Edit className="w-4 h-4" />
@@ -1329,8 +1329,8 @@ export function MasterDataManager() {
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-red-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm disabled:opacity-30 disabled:hover:text-slate-500 dark:text-slate-400 disabled:cursor-not-allowed"
                 title={
                   userRole !== "Super Administrator"
-                    ? "Requires Super Administrator access"
-                    : "Delete"
+                    ? "Memerlukan akses Super Administrator"
+                    : "Hapus"
                 }
                 onClick={(e) => handleDeleteClick(row, e)}
               >
@@ -1396,7 +1396,7 @@ export function MasterDataManager() {
           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm"
-              title="Edit"
+              title="Ubah"
               onClick={(e) => handleEditClick(row, e)}
             >
               <Edit className="w-4 h-4" />
@@ -1406,8 +1406,8 @@ export function MasterDataManager() {
               className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-red-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm disabled:opacity-30 disabled:hover:text-slate-500 dark:text-slate-400 disabled:cursor-not-allowed"
               title={
                 userRole !== "Super Administrator"
-                  ? "Requires Super Administrator access"
-                  : "Delete"
+                  ? "Memerlukan akses Super Administrator"
+                  : "Hapus"
               }
               onClick={(e) => handleDeleteClick(row, e)}
             >
@@ -2353,7 +2353,7 @@ export function MasterDataManager() {
                                     {selectedRecord.phone || "-"}
                                   </div>
                                   <div className="text-[10px] text-slate-500 uppercase mt-0.5">
-                                    Mobile Phone
+                                    Nomor Ponsel
                                   </div>
                                 </div>
                               </div>
@@ -2710,7 +2710,7 @@ export function MasterDataManager() {
                                     {selectedRecord.phone || "-"}
                                   </div>
                                   <div className="text-[10px] text-slate-500 uppercase mt-0.5">
-                                    Mobile Phone / WhatsApp
+                                    Nomor Ponsel / WhatsApp
                                   </div>
                                 </div>
                               </div>
@@ -2959,7 +2959,7 @@ export function MasterDataManager() {
                         onClick={() => handleEditClick(selectedRecord)}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-medium transition-colors"
                       >
-                        Edit Profile
+                        Ubah Profil
                       </button>
                       <button
                         onClick={handlePrintClick}
@@ -2967,16 +2967,16 @@ export function MasterDataManager() {
                         title="Cetak Data"
                       >
                         <Printer className="w-4 h-4" />
-                        <span>Print</span>
+                        <span>Cetak</span>
                       </button>
                       {activeTab === 'entities' && ['Guru', 'Asatidz', 'Pegawai'].includes(activeSubTab) && (
                         <button
                           onClick={() => setShowCVModal(true)}
                           className="px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                          title="Generate CV"
+                          title="Buat CV"
                         >
                           <FileText className="w-4 h-4" />
-                          <span>Generate CV</span>
+                          <span>Buat CV</span>
                         </button>
                       )}
                     </div>
@@ -3074,7 +3074,7 @@ export function MasterDataManager() {
                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors text-sm font-medium"
                 >
                   <Printer className="w-4 h-4" />
-                  Print CV
+                  Cetak CV
                 </button>
                 <button
                   onClick={() => setShowCVModal(false)}
@@ -3093,14 +3093,14 @@ export function MasterDataManager() {
         </>
       )}
 
-      {/* Print Configuration Modal */}
+      {/* Pengaturan Cetak Modal */}
       {showPrintModal && selectedRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 print:hidden animate-in fade-in duration-200">
           <div className="glass-panel  rounded-xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-black/40">
               <h3 className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <Printer className="w-4 h-4 text-emerald-400" />
-                Print Configuration
+                Pengaturan Cetak
               </h3>
               <button
                 onClick={() => setShowPrintModal(false)}
@@ -3111,8 +3111,8 @@ export function MasterDataManager() {
             </div>
             <div className="p-4 max-h-[60vh] overflow-y-auto">
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 tracking-wide">
-                Select the fields you want to include in the printed report.
-                Name and ID are always included.
+                Pilih kolom yang ingin disertakan dalam laporan cetak.
+                Nama dan ID selalu disertakan.
               </p>
               <div className="space-y-1 mt-2">
                 <label className="flex items-center gap-3 p-2 rounded hover:bg-slate-100 dark:bg-white/5 cursor-pointer border border-transparent hover:border-slate-200 dark:border-white/5 transition-colors">
@@ -3128,9 +3128,9 @@ export function MasterDataManager() {
                     className="accent-emerald-500 rounded border-slate-200 dark:border-white/10 bg-black/20"
                   />
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-700 dark:text-slate-300">QR Code</span>
+                    <span className="text-sm text-slate-700 dark:text-slate-300">Kode QR</span>
                     <span className="text-[10px] text-emerald-400 uppercase font-semibold bg-emerald-900/40 px-1.5 py-0.5 rounded">
-                      Scan
+                      Pindai
                     </span>
                   </div>
                 </label>
@@ -3164,7 +3164,7 @@ export function MasterDataManager() {
                 onClick={() => setShowPrintModal(false)}
                 className="px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:bg-white/5 rounded-lg transition-colors border border-transparent"
               >
-                Cancel
+                Batal
               </button>
               <button
                 onClick={() => {
@@ -3174,7 +3174,7 @@ export function MasterDataManager() {
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors shadow-lg shadow-emerald-900/20"
               >
                 <Printer className="w-4 h-4" />
-                Generate Print
+                Cetak Sekarang
               </button>
             </div>
           </div>
