@@ -1434,20 +1434,39 @@ async function startServer() {
       const context = await getSupabaseMarketplaceImportContext(actor.tenantId);
       const services = await getAdminServices();
       if (!services.ok) throw new SupabaseMarketplaceError(503, "Arsip Firestore lama belum dapat dibaca oleh backend migrasi.");
+      const targetLegacyMappingConfigured = Boolean(context.legacyTenantKey);
+      if (action === "apply" && !targetLegacyMappingConfigured) {
+        return res.status(409).json({ code: "LEGACY_TENANT_MAPPING_REQUIRED", error: "Konfigurasikan legacy_tenant_key tenant tujuan sebelum menerapkan impor." });
+      }
       const sourceTenantRegistry = await services.db.collection("tenants").limit(2).get();
       const sourceTenantIds = sourceTenantRegistry.docs.map((document) => document.id);
+      const sourceTenantKey = targetLegacyMappingConfigured
+        ? context.legacyTenantKey
+        : sourceTenantIds.length === 1 ? sourceTenantIds[0] : "";
+      if (!sourceTenantKey) {
+        return res.status(409).json({
+          code: "LEGACY_TENANT_MAPPING_REQUIRED",
+          error: "Pratinjau memerlukan legacy_tenant_key tujuan atau tepat satu tenant pada registry sumber.",
+          sourceTenantRegistryCount: sourceTenantIds.length,
+        });
+      }
       const readLegacyRows = async (collectionName: string) => {
         const result = await services.db.collection(collectionName).limit(6001).get();
         if (result.size > 6000) throw new SupabaseMarketplaceError(413, "Snapshot Marketplace dibatasi maksimal 6.000 record per koleksi.");
         return scopeLegacyTenantRecords(
           result.docs.map((document) => ({ id: document.id, record: document.data() as Record<string, unknown> })),
           sourceTenantIds,
-          context.legacyTenantKey,
+          sourceTenantKey,
         );
       };
       const [productScope, orderScope] = await Promise.all([readLegacyRows("marketplace_products"), readLegacyRows("marketplace_orders")]);
-      const sourceOwnership = { products: productScope.audit, orders: orderScope.audit };
-      const ownershipUnresolved = Object.values(sourceOwnership).some((audit) =>
+      const collectionOwnership = { products: productScope.audit, orders: orderScope.audit };
+      const sourceOwnership = {
+        targetLegacyMappingConfigured,
+        sourceTenantRegistryCount: sourceTenantIds.length,
+        collections: collectionOwnership,
+      };
+      const ownershipUnresolved = Object.values(collectionOwnership).some((audit) =>
         audit.unresolvedTenantlessCount > 0 || audit.invalidTenantIdCount > 0
       );
       if (ownershipUnresolved) {
@@ -1464,10 +1483,10 @@ async function startServer() {
       if (action === "preview") {
         const preview = previewSupabaseLegacyMarketplace(sources, context.existingRows, context.skus);
         const { items: _items, ...summary } = preview;
-        return res.json({ ...summary, sourceOwnership });
+        return res.json({ ...summary, canApply: targetLegacyMappingConfigured && summary.canApply, sourceOwnership });
       }
-      const tenantlessRowsMapped = Object.values(sourceOwnership).some((audit) => audit.assignedBySingleTenantMappingCount > 0);
-      if (tenantlessRowsMapped && String(req.body?.sourceTenantConfirmation || "") !== context.legacyTenantKey) {
+      const tenantlessRowsMapped = Object.values(collectionOwnership).some((audit) => audit.assignedBySingleTenantMappingCount > 0);
+      if (tenantlessRowsMapped && String(req.body?.sourceTenantConfirmation || "") !== sourceTenantKey) {
         return res.status(400).json({ error: "Konfirmasi kunci tenant sumber diperlukan untuk menerapkan record tenantless." });
       }
       return res.status(201).json(await applySupabaseLegacyMarketplace(actor.tenantId, actor.uid, sources, context.existingRows, context.skus, String(req.body?.expectedFingerprint || "")));
@@ -1603,26 +1622,45 @@ async function startServer() {
       const context = await getSupabaseLmsLegacyImportContext(actor.tenantId);
       const services = await getAdminServices();
       if (!services.ok) throw new SupabaseLmsError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
+      const targetLegacyMappingConfigured = Boolean(context.legacyTenantKey);
+      if (action === "apply" && !targetLegacyMappingConfigured) {
+        return res.status(409).json({ code: "LEGACY_TENANT_MAPPING_REQUIRED", error: "Konfigurasikan legacy_tenant_key tenant tujuan sebelum menerapkan impor." });
+      }
       const sourceTenantRegistry = await services.db.collection("tenants").limit(2).get();
       const sourceTenantIds = sourceTenantRegistry.docs.map((document) => document.id);
+      const sourceTenantKey = targetLegacyMappingConfigured
+        ? context.legacyTenantKey
+        : sourceTenantIds.length === 1 ? sourceTenantIds[0] : "";
+      if (!sourceTenantKey) {
+        return res.status(409).json({
+          code: "LEGACY_TENANT_MAPPING_REQUIRED",
+          error: "Pratinjau memerlukan legacy_tenant_key tujuan atau tepat satu tenant pada registry sumber.",
+          sourceTenantRegistryCount: sourceTenantIds.length,
+        });
+      }
       const fetchTenantRows = async (collectionName: string) => {
         const result = await services.db.collection(collectionName).limit(3001).get();
         if (result.size > 3000) throw new SupabaseLmsError(413, "Snapshot katalog LMS dibatasi maksimal 3.000 record per koleksi.");
         return scopeLegacyTenantRecords(
           result.docs.map((document) => ({ id: document.id, record: document.data() as Record<string, unknown> })),
           sourceTenantIds,
-          context.legacyTenantKey,
+          sourceTenantKey,
         );
       };
       const [categoryScope, courseScope, assessmentScope] = await Promise.all([
         fetchTenantRows("lms_categories"), fetchTenantRows("lms_courses"), fetchTenantRows("lms_assessments"),
       ]);
-      const sourceOwnership = {
+      const collectionOwnership = {
         categories: categoryScope.audit,
         courses: courseScope.audit,
         assessments: assessmentScope.audit,
       };
-      const ownershipUnresolved = Object.values(sourceOwnership).some((audit) =>
+      const sourceOwnership = {
+        targetLegacyMappingConfigured,
+        sourceTenantRegistryCount: sourceTenantIds.length,
+        collections: collectionOwnership,
+      };
+      const ownershipUnresolved = Object.values(collectionOwnership).some((audit) =>
         audit.unresolvedTenantlessCount > 0 || audit.invalidTenantIdCount > 0
       );
       if (ownershipUnresolved) {
@@ -1640,10 +1678,10 @@ async function startServer() {
       if (action === "preview") {
         const preview = previewSupabaseLegacyLms(collections, context.existingRows, context.teachers);
         const { items: _items, ...summary } = preview;
-        return res.json({ ...summary, sourceOwnership });
+        return res.json({ ...summary, canApply: targetLegacyMappingConfigured && summary.canApply, sourceOwnership });
       }
-      const tenantlessRowsMapped = Object.values(sourceOwnership).some((audit) => audit.assignedBySingleTenantMappingCount > 0);
-      if (tenantlessRowsMapped && String(req.body?.sourceTenantConfirmation || "") !== context.legacyTenantKey) {
+      const tenantlessRowsMapped = Object.values(collectionOwnership).some((audit) => audit.assignedBySingleTenantMappingCount > 0);
+      if (tenantlessRowsMapped && String(req.body?.sourceTenantConfirmation || "") !== sourceTenantKey) {
         return res.status(400).json({ error: "Konfirmasi kunci tenant sumber diperlukan untuk menerapkan record tenantless." });
       }
       const result = await applySupabaseLegacyLmsImport(actor.tenantId, actor.uid, collections, context.existingRows, context.teachers, String(req.body?.expectedFingerprint || ""));
