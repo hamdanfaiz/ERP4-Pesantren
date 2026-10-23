@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(21);
+SELECT plan(20);
 
 INSERT INTO public.tenants(id, slug, name, status)
 VALUES ('e2600000-0000-4000-8000-000000000009', 'lms-learning-record-test', 'LMS Learning Record Test', 'active');
