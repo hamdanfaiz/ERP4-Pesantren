@@ -119,6 +119,7 @@ import {
   adjustSupabaseCooperativeStock,
   checkoutSupabaseCooperativeSale,
   getSupabaseCooperativeLegacyImportContext,
+  getSupabaseCooperativeFinancialImportContext,
   getSupabaseCooperativeSnapshot,
   manageSupabaseCooperativeProduct,
   manageSupabaseCooperativeSupplier,
@@ -126,7 +127,12 @@ import {
   SupabaseCooperativeError,
   topUpSupabaseCooperativeWallet,
 } from "./src/server/supabaseCooperative";
-import { applySupabaseLegacyCooperativeCatalog, previewSupabaseLegacyCooperativeCatalog } from "./src/server/supabaseCooperativeImport";
+import {
+  applySupabaseLegacyCooperativeCatalog,
+  previewSupabaseLegacyCooperativeCatalog,
+  previewSupabaseLegacyCooperativeFinancialHistory,
+  type LegacyCooperativeFinancialMappings,
+} from "./src/server/supabaseCooperativeImport";
 import {
   applySupabaseLegacyHrisEmployeeImport,
   previewSupabaseLegacyHrisEmployees,
@@ -1386,6 +1392,44 @@ async function startServer() {
       if (!preview.canApply) return res.status(409).json({ error: "Impor katalog Koperasi memiliki konflik atau data yang perlu ditinjau.", preview: summary });
       const result = await applySupabaseLegacyCooperativeCatalog(actor.tenantId, actor.uid, sources, context.existingProducts, context.existingSuppliers, preview.snapshotFingerprint);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return cooperativeRouteError(res, error); }
+  });
+  app.post("/api/cooperative/legacy/financial-import/preview", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cooperativeImportEnabled) return res.status(503).json({ error: "Pratinjau impor finansial Koperasi belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCooperativeActor(uid);
+      const [context, services] = await Promise.all([getSupabaseCooperativeFinancialImportContext(actor.tenantId), getAdminServices()]);
+      if (!services.ok) throw new SupabaseCooperativeError(503, "Arsip Firestore Koperasi belum dapat dibaca backend migrasi lokal.");
+      const [wallets, transactions] = await Promise.all([
+        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_wallets", tenantKey: context.legacyTenantKey, limit: 1000 }),
+        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_transactions", tenantKey: context.legacyTenantKey, limit: 1000 }),
+      ]);
+      const rawMappings = req.body?.mappings;
+      const mappings: LegacyCooperativeFinancialMappings = rawMappings && typeof rawMappings === "object" && !Array.isArray(rawMappings)
+        ? rawMappings
+        : {};
+      const preview = previewSupabaseLegacyCooperativeFinancialHistory(
+        actor.tenantId,
+        { wallets, transactions },
+        context.targetWallets,
+        context.targetStudents,
+        context.targetProducts,
+        context.usedWalletIds,
+        mappings,
+        context.timeZone,
+      );
+      if (!context.historyScanIncomplete) return res.json(preview);
+      const scanIssue = { code: "target_financial_history_scan_incomplete", recordRef: "", severity: "blocking" as const };
+      return res.json({
+        ...preview,
+        canApply: false,
+        issueCount: preview.issueCount + 1,
+        blockingCount: preview.blockingCount + 1,
+        issues: [...preview.issues, scanIssue].slice(0, 100),
+      });
     } catch (error) { return cooperativeRouteError(res, error); }
   });
   app.post("/api/cooperative/products", requireAuth, async (req, res) => {
