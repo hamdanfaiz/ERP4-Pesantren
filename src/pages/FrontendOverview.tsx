@@ -35,7 +35,7 @@ export function FrontendOverview({ onLoginClick, branding }: FrontendProps) {
         <div className="flex items-center gap-4">
           <button onClick={onLoginClick} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-500/20">
             <LogIn className="w-4 h-4" />
-            Portal Login
+            Masuk ke Sistem
           </button>
         </div>
       </header>
