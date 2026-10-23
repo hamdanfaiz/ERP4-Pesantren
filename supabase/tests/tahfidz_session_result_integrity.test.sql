@@ -35,8 +35,11 @@ INSERT INTO public.tahfidz_halaqahs(id,tenant_id,name,ustadz_user_id,ustadz_name
 VALUES ('d1600000-0000-4000-8000-000000000301','d1600000-0000-4000-8000-000000000009',
   'Halaqah Uji Result','d1600000-0000-4000-8000-000000000012','Tahfidz Test Teacher','active');
 
-SELECT ok(to_regclass('public.tahfidz_sessions_exam_completion_result_required') IS NOT NULL,
-  'completed exam result integrity constraint exists');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_constraint
+  WHERE conrelid='public.tahfidz_sessions'::regclass
+    AND conname='tahfidz_sessions_exam_completion_result_required'
+), 'completed exam result integrity constraint exists');
 SELECT like(
   (SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='tahfidz_sessions_exam_completion_result_required'),
   '%score IS NOT NULL%',
