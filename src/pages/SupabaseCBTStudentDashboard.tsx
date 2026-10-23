@@ -10,7 +10,7 @@ type AssignedExam = {
 };
 type Question = { id: string; text: string; options: string[] };
 type Attempt = {
-  attemptId: string; examId: string; title: string; startsAt: string; expiresAt: string;
+  attemptId: string; examId: string; title: string; startsAt: string; expiresAt: string; serverNow: string;
   expired: boolean; submitted: boolean; questions: Question[]; answers: Record<string, number>;
 };
 
@@ -41,6 +41,7 @@ export function SupabaseCBTStudentDashboard() {
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const submitLock = useRef(false);
   const restoreComplete = useRef(false);
+  const attemptDeadline = useRef(0);
 
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
@@ -60,14 +61,23 @@ export function SupabaseCBTStudentDashboard() {
   const startExam = async (examId: string) => {
     setBusy(true); setError(""); setNotice(""); setConfirmSubmit(false); restoreComplete.current = false;
     try {
+      const requestStartedAt = performance.now();
       const result = await requestCbt("/api/cbt/exams/" + encodeURIComponent(examId) + "/start", { method: "POST" });
+      const responseReceivedAt = performance.now();
       const nextAttempt = result as Attempt;
+      const serverNow = Date.parse(nextAttempt.serverNow);
+      const expiresAt = Date.parse(nextAttempt.expiresAt);
+      if (!Number.isFinite(serverNow) || !Number.isFinite(expiresAt)) {
+        throw new Error("Waktu server ujian tidak valid. Coba muat ulang ujian.");
+      }
+      const remainingMs = Math.max(0, expiresAt - serverNow - (responseReceivedAt - requestStartedAt));
+      attemptDeadline.current = responseReceivedAt + remainingMs;
       setAttempt(nextAttempt);
       setAnswers(nextAttempt.answers || {});
       setCurrentIndex(0);
-      setTimeLeft(Math.max(0, Math.ceil((Date.parse(nextAttempt.expiresAt) - Date.now()) / 1000)));
+      setTimeLeft(Math.ceil(remainingMs / 1000));
       restoreComplete.current = true;
-      if (nextAttempt.expired) {
+      if (nextAttempt.expired || remainingMs <= 0) {
         await submitAttempt(nextAttempt.attemptId, nextAttempt.answers || {}, true);
       }
     } catch (cause: any) { setError(cause?.message || "Ujian tidak dapat dimulai."); }
@@ -78,23 +88,28 @@ export function SupabaseCBTStudentDashboard() {
     if (!attemptId || submitLock.current) return;
     submitLock.current = true; setBusy(true); setError(""); setNotice("");
     try {
-      if (Date.now() < Date.parse(attempt?.expiresAt || "")) {
-        await requestCbt("/api/cbt/attempts/" + encodeURIComponent(attemptId) + "/answers", {
-          method: "PUT", body: JSON.stringify({ answers: finalAnswers }),
-        });
+      if (performance.now() < attemptDeadline.current) {
+        try {
+          await requestCbt("/api/cbt/attempts/" + encodeURIComponent(attemptId) + "/answers", {
+            method: "PUT", body: JSON.stringify({ answers: finalAnswers }),
+          });
+        } catch (cause) {
+          if (performance.now() < attemptDeadline.current) throw cause;
+        }
       }
       const result = await requestCbt("/api/cbt/attempts/" + encodeURIComponent(attemptId) + "/submit", { method: "POST" });
       setNotice((automatic ? "Waktu habis. Jawaban tersimpan dikumpulkan otomatis. " : "Ujian selesai. ")
         + "Nilai " + Number(result.score || 0) + " — " + (result.passed ? "Lulus." : "Belum lulus."));
-      setAttempt(null); setAnswers({}); setConfirmSubmit(false);
+      setAttempt(null); setAnswers({}); setConfirmSubmit(false); attemptDeadline.current = 0;
       await refresh();
     } catch (cause: any) { setError(cause?.message || "Jawaban belum dapat dikumpulkan."); }
     finally { setBusy(false); submitLock.current = false; }
   };
 
   useEffect(() => {
-    if (!attempt || !restoreComplete.current || !attempt.attemptId || busy || Date.now() >= Date.parse(attempt.expiresAt)) return;
+    if (!attempt || !restoreComplete.current || !attempt.attemptId || busy || performance.now() >= attemptDeadline.current) return;
     const saveTimer = setTimeout(() => {
+      if (performance.now() >= attemptDeadline.current) return;
       void requestCbt("/api/cbt/attempts/" + encodeURIComponent(attempt.attemptId) + "/answers", {
         method: "PUT", body: JSON.stringify({ answers }),
       }).catch((cause: any) => setError(cause?.message || "Jawaban belum tersinkron."));
@@ -105,7 +120,7 @@ export function SupabaseCBTStudentDashboard() {
   useEffect(() => {
     if (!attempt) return;
     const timer = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((Date.parse(attempt.expiresAt) - Date.now()) / 1000));
+      const remaining = Math.max(0, Math.ceil((attemptDeadline.current - performance.now()) / 1000));
       setTimeLeft(remaining);
       if (remaining === 0 && !submitLock.current) void submitAttempt(attempt.attemptId, answers, true);
     }, 1000);
