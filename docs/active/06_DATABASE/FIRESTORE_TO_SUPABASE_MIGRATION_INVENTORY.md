@@ -68,3 +68,10 @@ Pencarian source code menemukan importer atau jalur migrasi yang mengharapkan su
 - Belum ada hitungan lengkap, inspeksi subkoleksi/Storage, dry-run importer terhadap dataset, atau rekonsiliasi target Supabase.
 - Database alternatif yang memuat `cbt_questions` belum digabungkan ke snapshot kanonis.
 - PR cutover tetap draft; dokumentasi ini tidak menerapkan migrasi database atau mengubah runtime.
+
+
+## Batas akses ekspor yang teramati
+
+Pemeriksaan read-only pada halaman Import/Export Google Cloud untuk database kanonis menunjukkan tombol Import dan Export nonaktif. Halaman menyebut identitas Google yang sedang digunakan tidak memiliki izin yang diperlukan; Cloud Shell juga nonaktif pada sesi project Starter Tier ini. Karena itu, sesi saat ini belum dapat menghasilkan snapshot koleksi melalui jalur resmi konsol. Tidak ada ekspor yang dijalankan.
+
+**Tindakan pembuka:** project owner atau tim backend perlu menyediakan salah satu jalur yang disetujui: akses ekspor Firestore dan bucket GCS terbatas untuk snapshot, atau snapshot server-side yang dibuat oleh identitas tepercaya dan dibagikan ke ruang kerja ini. Jangan mengirim service-account key atau token melalui chat. Setelah akses tersedia, tahap berikutnya adalah ekspor snapshot, hitung dokumen, lalu dry-run per tenant; bukan langsung menulis ke database target.
