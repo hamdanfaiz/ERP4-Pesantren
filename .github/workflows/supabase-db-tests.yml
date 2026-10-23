@@ -42,6 +42,9 @@ jobs:
       - name: Verify Firebase Admin is disabled outside local development
         run: npm run test:legacy-firebase-gate
 
+      - name: Verify legacy Firestore tenant scoping
+        run: npm run test:legacy-firestore-tenant-scope
+
       - name: Build client and server
         run: bun run build
 
