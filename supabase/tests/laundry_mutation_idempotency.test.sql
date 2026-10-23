@@ -90,8 +90,8 @@ SELECT is(public.save_tenant_laundry_settings(
 )->>'replayed','false','first settings request applies the policy');
 SELECT is(public.save_tenant_laundry_settings(
   'd1500000-0000-4000-8000-000000000009','d1500000-0000-4000-8000-000000000011',
-  18,12000,'d1500000-0000-4000-8000-000000000403'
-)->>'replayed','true','same settings request replays original response');
+  18.00,12000,'d1500000-0000-4000-8000-000000000403'
+)->>'replayed','true','same settings request with equivalent numeric scale replays');
 SELECT throws_ok(
   $$SELECT public.save_tenant_laundry_settings(
     'd1500000-0000-4000-8000-000000000009','d1500000-0000-4000-8000-000000000011',
