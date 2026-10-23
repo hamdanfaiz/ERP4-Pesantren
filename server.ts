@@ -675,6 +675,7 @@ async function startServer() {
   const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryRuntimeEnabled = String(process.env.SUPABASE_LIBRARY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryImportEnabled = String(process.env.SUPABASE_LIBRARY_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const libraryCirculationImportEnabled = String(process.env.SUPABASE_LIBRARY_CIRCULATIONS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const hrisImportEnabled = String(process.env.SUPABASE_HRIS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const boardingRuntimeEnabled = String(process.env.SUPABASE_BOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingPermitsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -2007,7 +2008,7 @@ async function startServer() {
 
   app.post("/api/library/circulations/legacy/import", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryImportEnabled) return res.status(503).json({ error: "Impor arsip perpustakaan belum diaktifkan operator." });
+    if (!libraryCirculationImportEnabled) return res.status(503).json({ error: "Impor riwayat peminjaman perpustakaan belum diaktifkan operator." });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
