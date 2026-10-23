@@ -150,21 +150,31 @@ export function SupabaseLMSManager() {
 
   const submitAssignment = async (assignmentId: string) => {
     const draft = submissionsDraft[assignmentId] || { responseText: "", resourceUrl: "" };
+    const payload = { assignmentId, responseText: draft.responseText, resourceUrl: draft.resourceUrl };
+    const lease = await pendingMutationIds.acquire(`lms:${user?.tenantId || ""}:${user?.uid || ""}:submission`, payload);
     setBusy(true); setError(""); setNotice("");
     try {
-      await requestLms(`/api/lms/assignments/${encodeURIComponent(assignmentId)}/submissions`, { method: "POST", body: JSON.stringify(draft) });
+      await requestLms(`/api/lms/assignments/${encodeURIComponent(assignmentId)}/submissions`, {
+        method: "POST", body: JSON.stringify({ responseText: draft.responseText, resourceUrl: draft.resourceUrl, requestId: lease.requestId }),
+      });
+      lease.clear();
       setNotice("Pengumpulan tugas tersimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Tugas belum terkirim."); }
+    } catch (cause: any) { setError(cause?.message || "Pengumpulan belum terkonfirmasi. Ulangi dengan jawaban yang sama jika koneksi terputus."); }
     finally { setBusy(false); }
   };
 
   const gradeSubmission = async (submission: Submission) => {
     const draft = gradeDraft[submission.id] || { score: submission.score == null ? "" : String(submission.score), feedback: submission.feedback || "" };
+    const payload = { submissionId: submission.id, score: Number(draft.score), feedback: draft.feedback };
+    const lease = await pendingMutationIds.acquire(`lms:${user?.tenantId || ""}:${user?.uid || ""}:grade`, payload);
     setBusy(true); setError(""); setNotice("");
     try {
-      await requestLms(`/api/lms/submissions/${encodeURIComponent(submission.id)}/grade`, { method: "PATCH", body: JSON.stringify({ score: Number(draft.score), feedback: draft.feedback }) });
+      await requestLms(`/api/lms/submissions/${encodeURIComponent(submission.id)}/grade`, {
+        method: "PATCH", body: JSON.stringify({ score: payload.score, feedback: payload.feedback, requestId: lease.requestId }),
+      });
+      lease.clear();
       setNotice("Nilai dan umpan balik tersimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Penilaian belum tersimpan."); }
+    } catch (cause: any) { setError(cause?.message || "Penilaian belum terkonfirmasi. Ulangi dengan data yang sama jika koneksi terputus."); }
     finally { setBusy(false); }
   };
 
