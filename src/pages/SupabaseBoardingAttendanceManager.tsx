@@ -71,7 +71,7 @@ export function SupabaseBoardingAttendanceManager() {
     try {
       const nextReport = await migrateSupabaseBoardingAttendance(date, apply, report?.previewFingerprint);
       setReport(nextReport);
-      if (apply) { await refresh(date); setNotice(`Impor snapshot kehadiran tanggal ${date}: ${nextReport.imported} baru, ${nextReport.unchanged} sudah sama.`); }
+      if (apply) { await refresh(date); setNotice(`Impor data kehadiran tanggal ${date}: ${nextReport.imported} data baru, ${nextReport.unchanged} data sudah sama.`); }
     } catch (e: any) { setError(e?.message || "Preview/impor kehadiran belum dapat diproses."); }
     finally { setImportBusy(false); }
   };
@@ -98,10 +98,10 @@ export function SupabaseBoardingAttendanceManager() {
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
 
     {canImport && <section className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div><h2 className="font-semibold text-indigo-950">Impor snapshot kehadiran lama</h2><p className="mt-1 text-sm text-indigo-800">Record Firestore lama tidak menyimpan tanggal sesi. Tanggal di atas akan menjadi tanggal resmi snapshot; preview akan menghentikan identitas ambigu dan konflik.</p></div>
+      <div><h2 className="font-semibold text-indigo-950">Impor catatan kehadiran lama</h2><p className="mt-1 text-sm text-indigo-800">Data Firestore lama tidak menyimpan tanggal sesi. Tanggal di atas menjadi tanggal resmi impor; pratinjau menghentikan proses jika menemukan identitas ambigu atau konflik.</p></div>
       <button type="button" onClick={() => void runImport(false)} disabled={importBusy} className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50">{importBusy ? "Memproses…" : "Preview impor"}</button></div>
       {report && <div className="mt-4 space-y-2 border-t border-indigo-200 pt-3 text-sm text-indigo-950"><div>Tanggal {report.attendanceDate} · {report.sourceCount} sumber · {report.planned} siap · {report.alreadyImported} sudah sama · {report.issues.length} perlu rekonsiliasi</div>
-        {report.canApply && report.dryRun && <button type="button" onClick={() => void runImport(true)} disabled={importBusy} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">{importBusy ? "Mengimpor…" : "Terapkan snapshot ini"}</button>}
+        {report.canApply && report.dryRun && <button type="button" onClick={() => void runImport(true)} disabled={importBusy} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">{importBusy ? "Mengimpor…" : "Terapkan data ini"}</button>}
         {report.issues.length > 0 && <ul className="max-h-40 list-disc space-y-1 overflow-auto pl-5 text-xs text-rose-800">{report.issues.map((item, index) => <li key={`${item.sourceId}-${index}`}><span className="font-mono">{item.sourceId}:</span> {item.reason}</li>)}</ul>}
         {report.warnings.length > 0 && <ul className="max-h-32 list-disc space-y-1 overflow-auto pl-5 text-xs text-amber-800">{report.warnings.map((item, index) => <li key={`${item.sourceId}-${index}`}><span className="font-mono">{item.sourceId}:</span> {item.reason}</li>)}</ul>}</div>}
     </section>}
