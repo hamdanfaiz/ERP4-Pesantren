@@ -200,6 +200,11 @@ import {
 const LazyStructureHierarchyD3 = React.lazy(async () => ({ default: (await import("../components/StructureHierarchyD3")).StructureHierarchyD3 }));
 const LazyFacilityBooking = React.lazy(async () => ({ default: (await import("../components/FacilityBooking")).FacilityBooking }));
 
+function masterAuditActionLabel(action: string) {
+  const labels: Record<string, string> = { CREATE: "Ditambahkan", UPDATE: "Diperbarui", DELETE: "Dihapus", IMPORT: "Diimpor" };
+  return labels[action] || action;
+}
+
 export function MasterDataManager() {
   const { user } = useAuth();
   const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME ? TABS.filter((tab) => ["entities", "structure"].includes(tab.id)) : TABS;
@@ -1481,7 +1486,7 @@ export function MasterDataManager() {
           </div>}
           {!SUPABASE_MASTER_DATA_RUNTIME && <div className="flex flex-col gap-1 ml-2 py-1 border-l border-slate-200 dark:border-white/10 pl-6">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-              Active Role
+              Peran Aktif
             </span>
             <select
               value={userRole}
@@ -1647,7 +1652,7 @@ export function MasterDataManager() {
                   )}
                 >
                   <div className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider mb-1">
-                    Create
+                    Tambah
                   </div>
                   <div className="text-xl font-mono font-medium text-emerald-300">
                     {auditLogs.filter((log) => log.action === "CREATE").length}
@@ -1664,7 +1669,7 @@ export function MasterDataManager() {
                   )}
                 >
                   <div className="text-[10px] uppercase font-bold text-blue-400 tracking-wider mb-1">
-                    Update
+                    Perbarui
                   </div>
                   <div className="text-xl font-mono font-medium text-blue-300">
                     {auditLogs.filter((log) => log.action === "UPDATE").length}
@@ -1681,7 +1686,7 @@ export function MasterDataManager() {
                   )}
                 >
                   <div className="text-[10px] uppercase font-bold text-red-400 tracking-wider mb-1">
-                    Delete
+                    Hapus
                   </div>
                   <div className="text-xl font-mono font-medium text-red-300">
                     {auditLogs.filter((log) => log.action === "DELETE").length}
@@ -1698,7 +1703,7 @@ export function MasterDataManager() {
                   )}
                 >
                   <div className="text-[10px] uppercase font-bold text-amber-400 tracking-wider mb-1">
-                    Import
+                    Impor
                   </div>
                   <div className="text-xl font-mono font-medium text-amber-300">
                     {auditLogs.filter((log) => log.action === "IMPORT").length}
@@ -1751,7 +1756,7 @@ export function MasterDataManager() {
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
-                              {log.action}
+                              {masterAuditActionLabel(log.action)}
                             </span>
                             <span className="text-[10px] bg-slate-200 dark:bg-white/10 px-2 py-0.5 rounded uppercase font-mono tracking-wider text-slate-400">
                               {log.entity}
@@ -1768,7 +1773,7 @@ export function MasterDataManager() {
                           </span>{" "}
                           menjalankan aksi{" "}
                           <span className="uppercase text-[10px] bg-slate-200 dark:bg-white/10 px-1 py-0.5 rounded tracking-wide font-medium">
-                            {log.action}
+                            {masterAuditActionLabel(log.action)}
                           </span>{" "}
                           pada entitas{" "}
                           <span className="text-emerald-400 font-medium">
