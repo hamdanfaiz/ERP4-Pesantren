@@ -188,24 +188,24 @@ SELECT ok((SELECT completed_at IS NOT NULL FROM public.lms_material_progress
   'completion is recorded');
 
 SELECT throws_ok(
-  $SELECT public.save_lms_progress(
+  $q$SELECT public.save_lms_progress(
     'e2600000-0000-4000-8000-000000000009','e2600000-0000-4000-8000-000000000011',
     'e2600000-0000-4000-8000-000000000303',61,true
-  )$,'22023','LMS progress exceeds the material duration',
+   )$q$,'22023','LMS progress exceeds the material duration',
   'progress beyond media duration is rejected');
 
 SELECT throws_ok(
-  $SELECT public.save_lms_progress(
+  $q$SELECT public.save_lms_progress(
     'e2600000-0000-4000-8000-000000000009','e2600000-0000-4000-8000-000000000013',
     'e2600000-0000-4000-8000-000000000303',10,false
-  )$,'42501','Active LMS student record is required',
+   )$q$,'42501','Active LMS student record is required',
   'inactive student cannot save progress');
 
 SELECT throws_ok(
-  $SELECT public.save_lms_progress(
+  $q$SELECT public.save_lms_progress(
     'e2600000-0000-4000-8000-000000000009','e2600000-0000-4000-8000-000000000011',
     'e2600000-0000-4000-8000-000000000303',10,NULL
-  )$,'22023','Invalid LMS progress profile or position',
+   )$q$,'22023','Invalid LMS progress profile or position',
   'completion state cannot be null');
 
 SELECT is((SELECT count(*)::integer FROM public.lms_learning_record_requests
