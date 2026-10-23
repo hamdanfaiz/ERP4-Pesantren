@@ -87,7 +87,7 @@ BEGIN
       OR (v_existing.payload_fingerprint IS NOT NULL AND v_existing.payload_fingerprint<>v_fingerprint) THEN
       RAISE EXCEPTION 'Laundry request ID reused with another actor, operation, or payload' USING ERRCODE='23514';
     END IF;
-    RETURN v_existing.response;
+    RETURN v_existing.response||jsonb_build_object('replayed',true);
   END IF;
   v_result:=public.create_tenant_laundry_order_pre_payload_guard(
     p_tenant_id,p_actor_user_id,p_student_id,p_weight_kg,p_pieces,p_client_request_id
@@ -108,7 +108,7 @@ DECLARE
 BEGIN
   PERFORM public.assert_tenant_laundry_admin(p_tenant_id,p_actor_user_id);
   IF p_tenant_id IS NULL OR p_actor_user_id IS NULL OR p_order_id IS NULL OR p_client_request_id IS NULL
-    OR p_next_status NOT IN ('washing','ready','collected','cancelled') THEN
+    OR p_next_status IS NULL OR p_next_status NOT IN ('washing','ready','collected','cancelled') THEN
     RAISE EXCEPTION 'Invalid laundry transition' USING ERRCODE='22023';
   END IF;
   v_fingerprint:=public.laundry_request_fingerprint(jsonb_build_object('orderId',p_order_id,'status',p_next_status));
@@ -120,7 +120,7 @@ BEGIN
       OR (v_existing.payload_fingerprint IS NOT NULL AND v_existing.payload_fingerprint<>v_fingerprint) THEN
       RAISE EXCEPTION 'Laundry request ID reused with another actor, operation, or payload' USING ERRCODE='23514';
     END IF;
-    RETURN v_existing.response;
+    RETURN v_existing.response||jsonb_build_object('replayed',true);
   END IF;
   v_result:=public.transition_tenant_laundry_order_pre_payload_guard(
     p_tenant_id,p_actor_user_id,p_order_id,p_next_status,p_client_request_id
@@ -157,7 +157,7 @@ BEGIN
       OR (v_existing.payload_fingerprint IS NOT NULL AND v_existing.payload_fingerprint<>v_fingerprint) THEN
       RAISE EXCEPTION 'Laundry request ID reused with another actor, operation, or payload' USING ERRCODE='23514';
     END IF;
-    RETURN v_existing.response;
+    RETURN v_existing.response||jsonb_build_object('replayed',true);
   END IF;
   v_result:=public.save_tenant_laundry_settings_pre_payload_guard(
     p_tenant_id,p_actor_user_id,p_monthly_quota_kg,p_excess_rate_per_kg,p_client_request_id
