@@ -90,7 +90,7 @@ export const SocioEconomicForm: React.FC<SocioEconomicFormProps> = ({
               type="text"
               value={data.motherJob || ""}
               onChange={(e) => handleChange("motherJob", e.target.value)}
-              placeholder="e.g. Teacher, Housewife"
+              placeholder="mis. Guru, Ibu Rumah Tangga"
               className="w-full bg-black/20  rounded-md px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
             />
           </div>
