@@ -417,15 +417,16 @@ export function previewSupabaseLegacyCooperativeFinancialHistory(
       continue;
     }
     seenWalletRefs.add(sourceRef);
+    const candidate = { sourceId, sourceRef, studentLabel, closingBalance, salesTotal: 0 };
     for (const alias of [sourceId, sourceAlias].filter((item): item is string => Boolean(item))) {
       const prior = sourceWalletByAlias.get(alias);
       if (prior && prior.sourceRef !== sourceRef) {
         issue("ambiguous_source_wallet_reference", "cooperative_wallets", sourceId);
         continue;
       }
-      sourceWalletByAlias.set(alias, { sourceRef, sourceId });
+      sourceWalletByAlias.set(alias, candidate);
     }
-    walletCandidates.push({ sourceId, sourceRef, studentLabel, closingBalance, salesTotal: 0 });
+    walletCandidates.push(candidate);
   }
 
   const walletByRef = new Map(walletCandidates.map((row) => [String(row.sourceRef), row]));
@@ -463,18 +464,20 @@ export function previewSupabaseLegacyCooperativeFinancialHistory(
 
     rawItems.forEach((item, index) => {
       const name = text(item?.name);
-      const price = item?.price;
-      const quantity = item?.qty;
+      const rawPrice: unknown = item?.price;
+      const rawQuantity: unknown = item?.qty;
       const itemRef = hmac(["cooperative_transactions", sourceId, index, stable(item)]).slice(0, 32);
       const validItem = Boolean(name && name.length <= 180)
-        && safeLegacyAmount(price)
-        && Number.isSafeInteger(quantity) && quantity > 0 && quantity <= 500
-        && Number.isSafeInteger(price * quantity);
+        && safeLegacyAmount(rawPrice)
+        && typeof rawQuantity === "number" && Number.isSafeInteger(rawQuantity) && rawQuantity > 0 && rawQuantity <= 500
+        && Number.isSafeInteger(rawPrice * rawQuantity);
       if (!validItem) {
         invalidItem = true;
         issue("invalid_transaction_item", "cooperative_transactions", sourceId);
         return;
       }
+      const price = rawPrice as number;
+      const quantity = rawQuantity as number;
       counts.sourceItems += 1;
       const mappedProductId = mappings.products?.[itemRef];
       const product = mappedProductId ? targetProductById.get(mappedProductId) : undefined;
