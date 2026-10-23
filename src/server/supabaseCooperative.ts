@@ -148,6 +148,19 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
   };
 }
 
+export async function getSupabaseCooperativeLegacyImportContext(tenantId: string) {
+  assertUuid(tenantId, "Tenant");
+  const [tenantResult, products, suppliers] = await Promise.all([
+    client().from("tenants").select("legacy_tenant_key").eq("id", tenantId).eq("status", "active").maybeSingle(),
+    rows("cooperative_products", tenantId, "id,sku,name,category,stock_quantity,cost_price,unit_price,reorder_point,expiry_date,status,client_request_id", "sku.asc"),
+    rows("cooperative_suppliers", tenantId, "id,name,category,contact,pic,status,client_request_id", "name.asc"),
+  ]);
+  if (tenantResult.error) mapStoreError(tenantResult.error);
+  const legacyTenantKey = String(tenantResult.data?.legacy_tenant_key || "").trim();
+  if (!legacyTenantKey) throw new SupabaseCooperativeError(409, "Tenant belum memiliki pemetaan sumber Firestore.");
+  return { legacyTenantKey, existingProducts: products, existingSuppliers: suppliers };
+}
+
 export async function manageSupabaseCooperativeProduct(tenantId: string, actorId: string, item: Row) {
   assertUuid(tenantId, "Tenant"); assertUuid(actorId, "Aktor"); assertUuid(item?.clientRequestId, "Request ID");
   if (item?.id != null) assertUuid(item.id, "Produk");
