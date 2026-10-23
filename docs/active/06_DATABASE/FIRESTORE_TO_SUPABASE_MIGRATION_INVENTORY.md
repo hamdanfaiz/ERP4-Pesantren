@@ -70,8 +70,33 @@ Pencarian source code menemukan importer atau jalur migrasi yang mengharapkan su
 - PR cutover tetap draft; dokumentasi ini tidak menerapkan migrasi database atau mengubah runtime.
 
 
-## Batas akses ekspor yang teramati
+## Jalur migrasi server-side yang sudah tersedia
 
-Pemeriksaan read-only pada halaman Import/Export Google Cloud untuk database kanonis menunjukkan tombol Import dan Export nonaktif. Halaman menyebut identitas Google yang sedang digunakan tidak memiliki izin yang diperlukan; Cloud Shell juga nonaktif pada sesi project Starter Tier ini. Karena itu, sesi saat ini belum dapat menghasilkan snapshot koleksi melalui jalur resmi konsol. Tidak ada ekspor yang dijalankan.
+Source PR #13 sudah memiliki endpoint per modul di `server.ts`. Endpoint ini membaca data langsung dari Firestore lewat Firebase Admin, memfilter koleksi menggunakan kunci tenant legacy, lalu menyediakan pratinjau dan apply melalui importer Supabase. Dengan jalur tersebut, ekspor GCS tidak wajib untuk koleksi yang didukung.
 
-**Tindakan pembuka:** project owner atau tim backend perlu menyediakan salah satu jalur yang disetujui: akses ekspor Firestore dan bucket GCS terbatas untuk snapshot, atau snapshot server-side yang dibuat oleh identitas tepercaya dan dibagikan ke ruang kerja ini. Jangan mengirim service-account key atau token melalui chat. Setelah akses tersedia, tahap berikutnya adalah ekspor snapshot, hitung dokumen, lalu dry-run per tenant; bukan langsung menulis ke database target.
+| Domain | Endpoint | Koleksi sumber yang dibaca |
+|---|---|---|
+| Akademik | `POST /api/academic/legacy/import` | `academic_schedules`, `academic_journals`, `academic_assessments` |
+| CBT | `POST /api/cbt/legacy/import` | `cbt_questions` |
+| UKS | `POST /api/healthcare/legacy/import` | `healthcare_records`, `healthcare_visits`, `healthcare_inventory` |
+| GA | `POST /api/ga/legacy/import` | `ga_facilities`, `ga_inventory` |
+| Marketplace | `POST /api/marketplace/legacy/import` | `marketplace_products`, `marketplace_orders` |
+| Peminjaman fasilitas | `POST /api/facility-bookings/legacy/import` | `facility_bookings` |
+| LMS | `POST /api/lms/legacy/import` | `lms_categories`, `lms_courses`, `lms_assessments` |
+| Boarding | `POST /api/boarding/permits/migrate` | `boarding_permits` |
+| Boarding | `POST /api/boarding/discipline/migrate` | `boarding_discipline` |
+| Boarding | `POST /api/boarding/attendance/migrate` | `boarding_attendance` |
+| Boarding | `POST /api/boarding/facility-ops/migrate` | `boarding_audits`, `boarding_tickets` |
+| Tahfidz | `POST /api/tahfidz/migration` | `master_data` kategori Halaqah dan `entityRecords` tipe Santri |
+| Komunikasi | `POST /api/communication/announcements/migrate` | `communication_announcements` |
+| Pengaturan tenant | `POST /api/system/settings/migrate` | `tenants/{tenant}/settings/global` |
+
+Endpoint migrasi memerlukan sesi Supabase yang terautentikasi dan otorisasi Admin sesuai domain. Setiap jalur apply dikendalikan feature flag `SUPABASE_*_IMPORT_ENABLED`; Firebase Admin hanya diizinkan saat `NODE_ENV=development` dan `LEGACY_FIREBASE_ADMIN_ENABLED=true`. SDK memakai Application Default Credentials, bukan private key yang disimpan di source code. Importer yang sudah ada menerapkan batas ukuran, pratinjau/fingerprint, dan penolakan konflik untuk domain tertentu.
+
+Jalur tersebut belum mencakup seluruh koleksi kanonis. Root `candidates`, empat koleksi koperasi, tiga koleksi perpustakaan, dan `users` belum memiliki importer penuh. Ada juga mismatch sumber penting: rute CBT mengharapkan `cbt_questions`, sedangkan koleksi itu hanya terlihat di database Firestore terpisah yang tidak dikonfigurasi aplikasi. Endpoint Akademik, UKS, GA, peminjaman fasilitas, boarding, dan komunikasi merujuk koleksi yang tidak tampak di root kanonis; keberadaan pada subkoleksi atau sumber lain belum diverifikasi.
+
+## Batas akses yang teramati dan langkah pembuka
+
+Halaman Import/Export Google Cloud untuk database kanonis menonaktifkan tombol Import dan Export dan menyatakan identitas Google yang sedang digunakan tidak memiliki izin yang diperlukan. Cloud Shell juga nonaktif pada sesi Starter Tier. Karena itu, jalur ekspor konsol belum dapat dipakai dari sesi ini. Ini tidak meniadakan endpoint migrasi server-side di atas, tetapi kredensial ADC dan akses Firestore untuk proses development belum tersedia/terverifikasi di workspace ini.
+
+Langkah pembuka yang disarankan adalah menjalankan server migrasi di environment development tepercaya dengan ADC yang memiliki akses baca Firestore dan akses layanan Supabase. Jangan mengaktifkan flag di production; jangan mengirim service-account key atau token melalui chat. Jika jalur development itu belum dapat disediakan, project owner/tim backend dapat membuat snapshot server-side terbatas dan menyerahkannya melalui kanal file aman. Tahap pertama setelah akses tersedia tetap pratinjau per tenant; belum ada ekspor, apply, atau penulisan ke Supabase yang dijalankan.
