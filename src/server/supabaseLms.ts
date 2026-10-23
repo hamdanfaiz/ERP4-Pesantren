@@ -61,7 +61,6 @@ export async function getSupabaseLmsLegacyImportContext(tenantIdentifier: string
   const tenantId = await tenantIdFrom(tenantIdentifier);
   const tenants = await rows("/rest/v1/tenants?" + new URLSearchParams({ select: "id,legacy_tenant_key", id: "eq." + tenantId, limit: "2" }).toString(), 1, "legacy tenant mapping");
   const legacyTenantKey = String(tenants[0]?.legacy_tenant_key || "").trim();
-  if (!legacyTenantKey) throw new SupabaseLmsError(409, "Tenant belum memiliki pemetaan arsip Firebase lama.");
   const [existingCategories, existingCourses, existingModules, existingMaterials, existingAssignments, teachers] = await Promise.all([
     rows("/rest/v1/lms_categories?" + new URLSearchParams({ select: "name,source_record_id,source_fingerprint", tenant_id: "eq." + tenantId, limit: "7001" }).toString(), 7000, "LMS categories"),
     rows("/rest/v1/lms_courses?" + new URLSearchParams({ select: "source_record_id,source_fingerprint", tenant_id: "eq." + tenantId, source_system: "eq.legacy_firestore", limit: "7001" }).toString(), 7000, "imported LMS courses"),
