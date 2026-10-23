@@ -2,7 +2,7 @@
 
 > **Dokumen historis — bukan arsitektur target saat ini.** Rancangan ini dibuat ketika Firebase dipertimbangkan sebagai backend operasional. Keputusan terbaru menetapkan Supabase sebagai backend tujuan dan Firebase hanya sebagai sumber arsip baca-saja sementara untuk migrasi. Ikuti [Panduan migrasi Firebase ke Supabase](../../guides/MIGRATION_GUIDE.md) dan [status cutover](../05_ARCHITECTURE/SUPABASE_RUNTIME_CUTOVER_STATUS.md) untuk status dan langkah yang berlaku. Jangan menerapkan saran lama di bawah (misalnya Firebase Auth/custom claims) sebagai target baru.
 
-**Status:** rancangan untuk ditinjau; belum diterapkan ke Firebase atau lingkungan produksi.  
+**Status:** rancangan untuk ditinjau; belum diterapkan ke Firebase atau lingkungan produksi.
 **Tujuan:** menyiapkan autentikasi, isolasi data antar-pesantren, dan aturan akses sebelum fitur ERP dikembangkan lebih jauh.
 
 ## Temuan audit awal

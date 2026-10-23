@@ -124,15 +124,31 @@ jobs:
       - name: Verify concurrent NIS reservation
         run: npm run test:db:nis-race
 
+      - name: Verify legacy library catalog import preview logic
+        run: npm run test:library-legacy-import
+
+      - name: Verify legacy HRIS employee import preview logic
+        run: npm run test:hris-legacy-import
+      - name: Verify Alumni graduation workflow logic
+        run: npm run test:alumni-workflow
+      - name: Verify legacy PPDB import preview logic
+        run: npm run test:ppdb-legacy-import
+
+      - name: Verify legacy library catalog import preview logic
+        run: npm run test:library-legacy-import
+
+      - name: Verify legacy HRIS employee import preview logic
+        run: npm run test:hris-legacy-import
+
+      - name: Verify Alumni graduation workflow logic
+        run: npm run test:alumni-workflow
+
       - name: Verify API auth and tenant isolation
         run: npm run test:api:auth-tenant
-
       - name: Verify Finance payment proof Storage HTTP flow
         run: npm run test:api:finance-storage
-
       - name: Verify local database backup and restore
         run: npm run test:db:backup-restore
-
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup

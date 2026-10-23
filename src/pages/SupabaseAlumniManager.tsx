@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Briefcase, GraduationCap, Search, Users, UserPlus, X, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { getAccessToken } from "../authSession";
+import { createAlumniClientRequestId, getStableAlumniRequestIdentity, type AlumniRequestIdentity } from "../lib/alumniWorkflow";
+import { normalizeTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
 
 type Alumni = { id: string; studentId: string; name: string; nis: string; grade: string; graduationYear: number; graduatedAt: string };
-type EligibleStudent = { id: string; name: string; nis: string; grade: string };
+type EligibleStudent = { id: string; name: string; nis: string; grade: string; status: string };
 
 async function requestAlumni(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -21,6 +23,7 @@ async function requestAlumni(path: string, init: RequestInit = {}) {
 
 export function SupabaseAlumniManager() {
   const { role, user } = useAuth();
+  const timeZone = normalizeTenantTimeZone(user?.tenantTimeZone);
   const [alumni, setAlumni] = useState<Alumni[]>([]);
   const [students, setStudents] = useState<EligibleStudent[]>([]);
   const [query, setQuery] = useState("");
@@ -28,8 +31,9 @@ export function SupabaseAlumniManager() {
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [studentId, setStudentId] = useState("");
-  const [graduatedAt, setGraduatedAt] = useState(new Date().toISOString().slice(0, 10));
+  const [graduatedAt, setGraduatedAt] = useState(() => tenantDate(new Date(), timeZone));
   const [saving, setSaving] = useState(false);
+  const requestIdentity = useRef<AlumniRequestIdentity | null>(null);
   const canManage = role === "Admin" || role === "SuperAdmin";
 
   const refresh = useCallback(async () => {
@@ -67,10 +71,17 @@ export function SupabaseAlumniManager() {
     setSaving(true);
     setError("");
     try {
+      const identity = getStableAlumniRequestIdentity(
+        requestIdentity.current,
+        JSON.stringify([studentId, graduatedAt]),
+        createAlumniClientRequestId,
+      );
+      requestIdentity.current = identity;
       await requestAlumni("/api/alumni/graduations", {
         method: "POST",
-        body: JSON.stringify({ studentId, graduationYear: year, graduatedAt, clientRequestId: crypto.randomUUID() }),
+        body: JSON.stringify({ studentId, graduationYear: year, graduatedAt, clientRequestId: identity.requestId }),
       });
+      requestIdentity.current = null;
       setModalOpen(false);
       setStudentId("");
       await refresh();
@@ -79,7 +90,7 @@ export function SupabaseAlumniManager() {
     } finally { setSaving(false); }
   };
 
-  const thisYear = new Date().getFullYear();
+  const thisYear = Number(tenantDate(new Date(), timeZone).slice(0, 4));
   const thisYearGraduates = alumni.filter((item) => item.graduationYear === thisYear).length;
 
   return (
@@ -90,7 +101,7 @@ export function SupabaseAlumniManager() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Direktori Alumni</h1>
           <p className="mt-1 text-sm text-slate-500">Data kelulusan dari backend Supabase untuk tenant aktif.</p>
         </div>
-        {canManage && <button onClick={() => setModalOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"><UserPlus className="h-4 w-4" /> Catat Kelulusan</button>}
+        {canManage && <button onClick={() => { setGraduatedAt(tenantDate(new Date(), timeZone)); setModalOpen(true); }} className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"><UserPlus className="h-4 w-4" /> Catat Kelulusan</button>}
       </header>
 
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
@@ -99,7 +110,7 @@ export function SupabaseAlumniManager() {
         {[
           { label: "Total Alumni", value: alumni.length, icon: Users },
           { label: `Lulus tahun ${thisYear}`, value: thisYearGraduates, icon: GraduationCap },
-          { label: "Santri aktif", value: students.length, icon: Briefcase },
+          { label: "Santri tanpa profil Alumni", value: students.length, icon: Briefcase },
         ].map(({ label, value, icon: Icon }) => <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{label}</p><Icon className="h-4 w-4 text-slate-400" /></div><p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{loading ? "—" : value}</p></div>)}
       </section>
 
@@ -113,7 +124,7 @@ export function SupabaseAlumniManager() {
           : <div className="p-12 text-center"><GraduationCap className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-medium text-slate-800 dark:text-slate-200">{query ? "Alumni tidak ditemukan" : "Belum ada data Alumni di Supabase"}</p><p className="mt-1 text-sm text-slate-500">{query ? "Ubah kata kunci pencarian." : "Data historis belum dimigrasikan. Proses ini tidak mengimpor data contoh."}</p></div>}
       </section>
 
-      {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation"><form onSubmit={handleGraduate} className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800"><div><h2 className="font-semibold text-slate-900 dark:text-white">Catat Kelulusan</h2><p className="mt-1 text-xs text-slate-500">Perubahan status Santri dan pencatatan Alumni diproses atomik.</p></div><button type="button" onClick={() => setModalOpen(false)} aria-label="Tutup" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div><div className="space-y-4 p-5"><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Santri<select required value={studentId} onChange={(event) => setStudentId(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700"><option value="">Pilih santri aktif</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}{student.nis ? ` · ${student.nis}` : ""}</option>)}</select></label><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal kelulusan<input type="date" required value={graduatedAt} onChange={(event) => setGraduatedAt(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700" /></label><p className="text-xs text-slate-500">Tahun angkatan diambil dari tanggal yang dipilih. Santri akan diarsipkan dan tetap tercatat sebagai Alumni.</p></div><div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800"><button type="button" onClick={() => setModalOpen(false)} disabled={saving} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">Batal</button><button type="submit" disabled={!studentId || saving} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Simpan Kelulusan</button></div></form></div>}
+      {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation"><form onSubmit={handleGraduate} className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800"><div><h2 className="font-semibold text-slate-900 dark:text-white">Catat Kelulusan</h2><p className="mt-1 text-xs text-slate-500">Perubahan status Santri dan pencatatan Alumni diproses atomik.</p></div><button type="button" onClick={() => setModalOpen(false)} aria-label="Tutup" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div><div className="space-y-4 p-5"><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Santri<select required value={studentId} onChange={(event) => setStudentId(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700"><option value="">Pilih santri tanpa profil Alumni</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}{student.nis ? ` · ${student.nis}` : ""} · {student.status}</option>)}</select><span className="mt-1.5 block text-xs font-normal text-slate-500">Status lama Alumni tetap dapat dipilih jika profil kelulusannya belum tercatat.</span></label><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal kelulusan<input type="date" required value={graduatedAt} onChange={(event) => setGraduatedAt(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700" /></label><p className="text-xs text-slate-500">Pilih tanggal berdasarkan dokumen kelulusan. Tahun angkatan diambil dari tanggal tersebut; data status lama tidak digunakan untuk menebak tanggal.</p></div><div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800"><button type="button" onClick={() => setModalOpen(false)} disabled={saving} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">Batal</button><button type="submit" disabled={!studentId || saving} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Simpan Kelulusan</button></div></form></div>}
     </div>
   );
 }

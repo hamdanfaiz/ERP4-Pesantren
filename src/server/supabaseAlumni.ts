@@ -1,3 +1,5 @@
+import { isAlumniGraduationCandidate } from "../lib/alumniWorkflow";
+
 type Row = Record<string, any>;
 
 export class SupabaseAlumniError extends Error {
@@ -113,6 +115,7 @@ export async function listSupabaseAlumniSnapshot(tenantIdentifier: string) {
     alumniStudents.push(...rows);
   }
   const studentById = new Map(alumniStudents.map((student) => [String(student.id), student]));
+  const alumniStudentIds = new Set(ids);
   return {
     alumni: alumni.flatMap((profile) => {
       const student = studentById.get(String(profile.student_id));
@@ -127,12 +130,16 @@ export async function listSupabaseAlumniSnapshot(tenantIdentifier: string) {
       }] : [];
     }),
     eligibleStudents: currentStudents
-      .filter((student) => !["archived", "alumni"].includes(String(student.status || "").trim().toLowerCase()))
+      .filter((student) => isAlumniGraduationCandidate(
+        student.status,
+        alumniStudentIds.has(String(student.id)),
+      ))
       .map((student) => ({
       id: String(student.id),
       name: String(student.name || ""),
       nis: String(student.nis || ""),
       grade: String(student.grade || ""),
+      status: String(student.status || ""),
       })),
   };
 }

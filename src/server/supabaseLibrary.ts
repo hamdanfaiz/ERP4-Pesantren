@@ -53,6 +53,19 @@ function validDate(value: unknown, label: string) {
   return date;
 }
 
+function canonicalIsbn(value: unknown) {
+  if (value == null || value === "") return "";
+  if (typeof value !== "string") throw new SupabaseLibraryError(400, "ISBN harus berupa teks.");
+  const raw = value.trim().toUpperCase();
+  if (!raw) return "";
+  if (raw.length > 32 || !/^[0-9X -]+$/.test(raw)) throw new SupabaseLibraryError(400, "Format ISBN tidak valid.");
+  const canonical = raw.replace(/[ -]/g, "");
+  if (!/^\d{9}[\dX]$/.test(canonical) && !/^\d{13}$/.test(canonical)) {
+    throw new SupabaseLibraryError(400, "ISBN harus terdiri dari 10 atau 13 karakter yang valid.");
+  }
+  return canonical;
+}
+
 async function resolveTenantId(identifier: string) {
   const normalized = String(identifier || "").trim();
   if (!normalized) throw new SupabaseLibraryError(403, "Tenant aktif tidak ditemukan.");
@@ -131,7 +144,7 @@ export async function upsertSupabaseLibraryBook(tenantIdentifier: string, actorI
   const title = String(item.title || "").trim();
   const author = String(item.author || "").trim();
   const category = String(item.category || "").trim();
-  const isbn = String(item.isbn || "").trim();
+  const isbn = canonicalIsbn(item.isbn);
   const shelf = String(item.shelf || "").trim();
   const totalCopies = Number(item.totalCopies);
   if ((id && !isUuid(id)) || !isUuid(requestId) || !title || title.length > 240 || !author || author.length > 180
@@ -190,5 +203,38 @@ export async function returnSupabaseLibraryBook(tenantIdentifier: string, actorI
       p_actor_user_id: actorId, p_expected_role: role === "SuperAdmin" ? "super_admin" : role.toLowerCase(),
       p_client_request_id: requestId,
     }),
+  });
+}
+
+export async function getSupabaseLibraryLegacyImportContext(tenantIdentifier: string) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const tenants = await request("/rest/v1/tenants?" + new URLSearchParams({
+    select: "id,legacy_tenant_key", id: "eq." + tenantId, limit: "2",
+  }).toString());
+  const legacyTenantKey = Array.isArray(tenants) ? String(tenants[0]?.legacy_tenant_key || "").trim() : "";
+  if (!legacyTenantKey) throw new SupabaseLibraryError(409, "Tenant belum memiliki pemetaan arsip Firestore lama.");
+  const existingRows = await tenantRows(
+    "library_books", tenantId,
+    "id,title,author,isbn,source_system,source_record_id,source_fingerprint",
+    "title.asc,id.asc",
+  );
+  return { tenantId, legacyTenantKey, existingRows };
+}
+
+export async function applySupabaseLegacyLibraryBooks(
+  tenantId: string,
+  actorId: string,
+  snapshotFingerprint: string,
+  sourceCount: number,
+  items: Row[],
+) {
+  if (!isUuid(tenantId) || !isUuid(actorId) || !/^[0-9a-f]{64}$/.test(snapshotFingerprint)
+    || !Number.isInteger(sourceCount) || sourceCount < 0 || sourceCount > 1000
+    || !Array.isArray(items) || items.length > 1000 || items.length !== sourceCount) {
+    throw new SupabaseLibraryError(400, "Snapshot impor katalog perpustakaan tidak valid.");
+  }
+  return request("/rest/v1/rpc/import_legacy_library_books", {
+    method: "POST",
+    body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_snapshot_fingerprint: snapshotFingerprint, p_source_count: sourceCount, p_rows: items }),
   });
 }

@@ -44,8 +44,6 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import { cn, generateUniqueId } from "../lib/utils";
 import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
-import { CentralSyncBadge } from "../components/CentralSyncBadge";
-import { centralStructureService } from "../services/centralStructureService";
 import { SUPABASE_ONLY_RUNTIME, supabaseRuntimeEnabled } from "../runtimeBackend";
 import {
   COUNTRIES,
@@ -632,7 +630,6 @@ export function MasterDataManager() {
       }));
       addAuditLog("DELETE", record.id, record.name);
       if (selectedRecord?.id === record.id) setSelectedRecord(null);
-      centralStructureService.notifyExternalUpdate();
       showToast(`Data "${record.name}" berhasil diarsipkan atau dihapus.`, "success");
     } catch (error: any) {
       showToast(error?.message || "Perubahan data Supabase gagal.", "error");
@@ -701,7 +698,6 @@ export function MasterDataManager() {
         });
       }
     }
-    centralStructureService.notifyExternalUpdate();
   };
 
   const validateField = (key: string, value: string): string => {
@@ -864,7 +860,6 @@ export function MasterDataManager() {
       else addAuditLog("UPDATE", recordId, String(savedRecord.name || ""));
       if (selectedRecord?.id === editingId) setSelectedRecord({ ...selectedRecord, ...savedRecord });
       setIsModalOpen(false);
-      centralStructureService.notifyExternalUpdate();
       showToast(`Data "${savedRecord.name}" berhasil ${modalMode === "add" ? "disimpan" : "diperbarui"}.`, "success");
     } catch (error: any) {
       showToast(error?.message || "Gagal menyimpan data ke Supabase.", "error");
@@ -1461,7 +1456,6 @@ export function MasterDataManager() {
               <h1 className="text-xl font-medium text-slate-700 dark:text-slate-300 border-b border-emerald-500 pb-1 inline-block">
                 Master Data Management
               </h1>
-              {!SUPABASE_ONLY_RUNTIME && <CentralSyncBadge moduleName="Master Data" />}
             </div>
             <p className="text-slate-500 text-sm mt-2">
               Centralized single source of truth for all foundational data &mdash; Terkoneksi ke Asrama & Akademik
@@ -3202,7 +3196,6 @@ export function MasterDataManager() {
                         ? [savedData, ...(prev.Santri || [])]
                         : (prev.Santri || []).map((record) => record.id === savedData.id ? { ...record, ...savedData } : record),
                     }));
-                    centralStructureService.notifyExternalUpdate();
                   } else if (savedData) {
                     handleEntitySavedRelationalSync(savedData);
                   }
@@ -3227,7 +3220,6 @@ export function MasterDataManager() {
                         ? [savedData, ...(prev[activeSubTab] || [])]
                         : (prev[activeSubTab] || []).map((record) => record.id === savedData.id ? { ...record, ...savedData } : record),
                     }));
-                    centralStructureService.notifyExternalUpdate();
                   }
                   setIsModalOpen(false);
                 }}

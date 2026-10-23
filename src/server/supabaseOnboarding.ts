@@ -1117,9 +1117,14 @@ export async function migrateSupabaseLegacyMasterDataStudents(
     const legacyClassId = legacyText(record.classId, 160);
     const legacyRoomId = legacyText(record.roomId, 160);
     const legacyBuildingId = legacyText(record.buildingId ?? record.dormitoryId, 160);
+    const legacyDormitory = legacyText(record.dormitory, 160);
     if (legacyClassId) details.legacyClassId = legacyClassId;
     if (legacyRoomId) details.legacyRoomId = legacyRoomId;
     if (legacyBuildingId) details.legacyBuildingId = legacyBuildingId;
+    if (legacyDormitory && !legacyRoomId && !legacyBuildingId) {
+      details.legacyDormitory = legacyDormitory;
+      localWarnings.push("Label asrama lama disimpan untuk rekonsiliasi; relasi kamar belum dapat dipetakan.");
+    }
     const student: JsonObject = {
       sourceRecordId: sourceId,
       name,

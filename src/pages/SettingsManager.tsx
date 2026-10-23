@@ -63,53 +63,9 @@ export function SettingsManager() {
   const [isSaving, setIsSaving] = useState(false);
   const [settingsConflict, setSettingsConflict] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [legacyDataSummary, setLegacyDataSummary] = useState<any[]>([]);
-  const [migrationBusyKey, setMigrationBusyKey] = useState<string | null>(null);
-  const [migrationResults, setMigrationResults] = useState<Record<string, string>>({});
-  const [migrationError, setMigrationError] = useState<string | null>(null);
   const [settingsMigrationBusy, setSettingsMigrationBusy] = useState(false);
   const [settingsMigrationReport, setSettingsMigrationReport] = useState<any>(null);
   const [settingsMigrationError, setSettingsMigrationError] = useState<string | null>(null);
-  const canMigrateLocalData = role === 'Admin' || role === 'SuperAdmin';
-  const handleMigrateLegacyDataset = async (key: string) => {
-    if (SUPABASE_SYSTEM_SETTINGS) {
-      setMigrationError('Impor dataset lokal melalui Firebase dinonaktifkan pada runtime pengaturan Supabase.');
-      return;
-    }
-    setMigrationBusyKey(key); setMigrationError(null);
-    try {
-      const { migrateLegacyOperationalDataset } = await import('../firebaseUtils');
-      const result = await migrateLegacyOperationalDataset(key);
-      setMigrationResults(previous => ({ ...previous, [key]: result.alreadyCompleted ? 'Dataset ini sudah pernah diproses; tidak ada duplikasi.' : `Masuk: ${result.imported}; dilewati karena ID sudah ada: ${result.skipped}.` }));
-    } catch (error: any) {
-      setMigrationError(error?.message || 'Migrasi gagal. Data lokal tetap dipertahankan.');
-    } finally {
-      setMigrationBusyKey(null);
-      void refreshLegacyDataSummary();
-    }
-  };
-  const refreshLegacyDataSummary = async () => {
-    setMigrationError(null);
-    if (SUPABASE_SYSTEM_SETTINGS) { setLegacyDataSummary([]); return; }
-    try {
-      const { getLegacyOperationalDataSummary } = await import('../firebaseUtils');
-      setLegacyDataSummary(getLegacyOperationalDataSummary());
-    } catch (error: any) {
-      setMigrationError(error?.message || 'Ringkasan data lokal belum dapat dimuat.');
-    }
-  };
-
-  useEffect(() => {
-    if (SUPABASE_SYSTEM_SETTINGS) return;
-    let active = true;
-    void import('../firebaseUtils').then(({ getLegacyOperationalDataSummary }) => {
-      if (active) setLegacyDataSummary(getLegacyOperationalDataSummary());
-    }).catch(() => {
-      if (active) setLegacyDataSummary([]);
-    });
-    return () => { active = false; };
-  }, []);
-
   const runSettingsMigration = async (apply: boolean) => {
     setSettingsMigrationBusy(true);
     setSettingsMigrationError(null);
@@ -414,39 +370,6 @@ export function SettingsManager() {
                     Parameter umum sistem yang menjadi acuan default untuk seluruh modul aplikasi.
                   </p>
                 </div>
-
-                {!SUPABASE_SYSTEM_SETTINGS && <div className="p-5 rounded-xl border border-indigo-500/25 bg-indigo-500/[0.04] space-y-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Migrasi data operasional dari browser</h3>
-                      <p className="text-xs text-slate-500 mt-1">Pindai dataset lama pada browser ini. Data hanya dikirim setelah Admin memilih tombol migrasi; tenant ditentukan ulang dari profil server. Data lokal tidak dihapus, dan record dengan ID yang sudah ada akan dilewati.</p>
-                    </div>
-                    <button type="button" onClick={refreshLegacyDataSummary} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300">Pindai ulang</button>
-                  </div>
-                  {!canMigrateLocalData && <p className="text-xs text-amber-600">Hanya Admin tenant yang dapat memigrasikan data.</p>}
-                  {!user?.tenantId && <p className="text-xs text-rose-500">Profil aktif belum memuat tenant; migrasi dinonaktifkan.</p>}
-                  {migrationError && <p role="alert" className="text-xs text-rose-500">{migrationError}</p>}
-                  <div className="divide-y divide-slate-200 dark:divide-white/10">
-                    {legacyDataSummary.filter(dataset => dataset.count > 0 || !dataset.valid).map(dataset => (
-                      <div key={dataset.key} className="py-3 flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <div className="text-sm text-slate-700 dark:text-slate-200">{dataset.label}</div>
-                          <div className="text-[11px] text-slate-500">{dataset.count} {dataset.kind === 'array' ? 'record' : 'item'} · tujuan: {dataset.collection}</div>
-                          {migrationResults[dataset.key] && <div className="text-[11px] text-emerald-600 mt-1">{migrationResults[dataset.key]}</div>}
-                          {!dataset.valid && <div className="text-[11px] text-rose-500 mt-1">Format lokal tidak valid; periksa sebelum migrasi.</div>}
-                          {dataset.kind === 'manual' && <div className="text-[11px] text-amber-600 mt-1">Perlu rekonsiliasi dengan Master Data agar tidak membuat santri ganda.</div>}
-                                </div>
-                        {dataset.kind !== 'manual' && dataset.valid && dataset.count > 0 && (
-                          <button type="button" onClick={() => handleMigrateLegacyDataset(dataset.key)} disabled={!canMigrateLocalData || !user?.tenantId || migrationBusyKey !== null} className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium disabled:opacity-40">
-                            {migrationBusyKey === dataset.key ? 'Memindahkan…' : 'Migrasikan dataset'}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    {legacyDataSummary.every(dataset => dataset.count === 0 && dataset.valid) && <p className="py-3 text-xs text-slate-500">Tidak ada dataset operasional legacy yang terdeteksi pada browser ini.</p>}
-                  </div>
-                  <p className="text-[11px] text-slate-500">Draf formulir Master Data dan identitas lokal tidak diimpor otomatis. Draf harus diselesaikan melalui form; identitas santri/wali harus cocok dengan Master Data.</p>
-                </div>}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>

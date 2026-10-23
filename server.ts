@@ -36,7 +36,7 @@ import {
 } from "./src/server/systemSettingsStore";
 import { recordTenantSearchFeedback, SearchFeedbackStoreError } from "./src/server/searchFeedbackStore";
 import { isLegacyFirebaseAdminEnabled } from "./src/server/legacyFirebaseGate";
-import { scopeLegacyTenantRecords } from "./src/server/legacyFirestoreTenantScope";
+import { LegacyFirestoreTenantScopeError, readLegacyFirestoreTenantRows, scopeLegacyTenantRecords } from "./src/server/legacyFirestoreTenantScope";
 import {
   assignSupabaseTahfidzMembership,
   getSupabaseTahfidzLegacyTenantKey,
@@ -75,11 +75,13 @@ import {
 } from "./src/server/supabaseAlumni";
 import {
   checkoutSupabaseLibraryBook,
+  getSupabaseLibraryLegacyImportContext,
   listSupabaseLibrarySnapshot,
   returnSupabaseLibraryBook,
   SupabaseLibraryError,
   upsertSupabaseLibraryBook,
 } from "./src/server/supabaseLibrary";
+import { applySupabaseLegacyLibraryBooks, previewSupabaseLegacyLibraryBooks } from "./src/server/supabaseLibraryImport";
 import {
   createSupabaseLaundryOrder,
   getSupabaseLaundrySnapshot,
@@ -117,6 +119,11 @@ import {
   topUpSupabaseCooperativeWallet,
 } from "./src/server/supabaseCooperative";
 import {
+  applySupabaseLegacyHrisEmployeeImport,
+  previewSupabaseLegacyHrisEmployees,
+} from "./src/server/supabaseHrisImport";
+import {
+  getSupabaseHrisLegacyImportContext,
   listSupabaseHrisSnapshot,
   recordSupabaseHrisAttendance,
   requestSupabaseHrisLeave,
@@ -137,6 +144,12 @@ import {
 } from "./src/server/supabaseCbt";
 import { applySupabaseLegacyCbtImport, getSupabaseCbtLegacyImportContext, previewSupabaseLegacyCbt } from "./src/server/supabaseCbtImport";
 import { listSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate } from "./src/server/supabasePpdb";
+import {
+  applySupabaseLegacyPpdbImport,
+  getSupabasePpdbLegacyImportContext,
+  LEGACY_PPDB_DATE_FORMAT,
+  previewSupabaseLegacyPpdb,
+} from "./src/server/supabasePpdbLegacyImport";
 import { addSupabaseLmsLearningRecord, getSupabaseLmsLegacyImportContext, getSupabaseLmsSnapshot, gradeSupabaseLmsSubmission, manageSupabaseLmsCatalog, saveSupabaseLmsProgress, submitSupabaseLmsAssignment, SupabaseLmsError } from "./src/server/supabaseLms";
 import { applySupabaseLegacyLmsImport, previewSupabaseLegacyLms } from "./src/server/supabaseLmsImport";
 import {
@@ -591,6 +604,7 @@ async function startServer() {
     return profile;
   };
   const communicationRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) {
       return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     }
@@ -622,6 +636,7 @@ async function startServer() {
   const tahfidzRuntimeEnabled = String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const tahfidzImportEnabled = String(process.env.SUPABASE_TAHFIDZ_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const tahfidzRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Tahfidz endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -682,6 +697,7 @@ async function startServer() {
   };
   const hrisRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseHrisError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase HRIS endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan HRIS Supabase belum dapat diproses." });
@@ -689,6 +705,8 @@ async function startServer() {
   const masterDataRuntimeEnabled = String(process.env.SUPABASE_MASTER_DATA_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryRuntimeEnabled = String(process.env.SUPABASE_LIBRARY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const libraryImportEnabled = String(process.env.SUPABASE_LIBRARY_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const hrisImportEnabled = String(process.env.SUPABASE_HRIS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const boardingRuntimeEnabled = String(process.env.SUPABASE_BOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingPermitsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingPermitsImportEnabled = String(process.env.SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
@@ -700,6 +718,7 @@ async function startServer() {
   const boardingFacilityOpsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingFacilityOpsImportEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbRuntimeEnabled = String(process.env.SUPABASE_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const ppdbLegacyImportEnabled = String(process.env.SUPABASE_PPDB_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbOnboardingRuntimeEnabled = String(process.env.SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const academicRuntimeEnabled = String(process.env.SUPABASE_ACADEMIC_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const academicImportEnabled = String(process.env.SUPABASE_ACADEMIC_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
@@ -717,6 +736,7 @@ async function startServer() {
   const facilityBookingsRuntimeEnabled = String(process.env.SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const facilityBookingsImportEnabled = String(process.env.SUPABASE_FACILITY_BOOKINGS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const masterDataRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Master Data endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -752,6 +772,7 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const academicRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseAcademicError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase academic endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -774,6 +795,7 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const cbtRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseCbtError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase CBT endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -789,6 +811,7 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const lmsRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseLmsError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase LMS endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -803,6 +826,7 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const healthcareRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseHealthcareError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase healthcare endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -817,6 +841,7 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const generalAffairsRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseGeneralAffairsError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase General Affairs endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -831,6 +856,7 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const marketplaceRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseMarketplaceError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Marketplace endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -860,12 +886,14 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const facilityBookingRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseFacilityBookingError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase facility booking endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan pemesanan fasilitas Supabase belum dapat diproses." });
   };
   const ppdbRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabasePpdbError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
@@ -927,6 +955,61 @@ async function startServer() {
       const limit = Math.max(1, Math.min(250, Number.parseInt(String(req.query.limit || "250"), 10) || 250));
       const offset = Math.max(0, Math.min(50000, Number.parseInt(String(req.query.offset || "0"), 10) || 0));
       return res.json(await listSupabasePpdbCandidates(actor.tenantId, limit, offset));
+    } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  app.post("/api/ppdb/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!ppdbLegacyImportEnabled) return res.status(503).json({ error: "Impor arsip PPDB belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadPpdbActor(uid);
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor PPDB tidak valid." });
+
+      const [context, services] = await Promise.all([
+        getSupabasePpdbLegacyImportContext(actor.tenantId),
+        getAdminServices(),
+      ]);
+      if (!services.ok) throw new SupabasePpdbError(503, "Arsip Firestore PPDB belum dapat dibaca backend migrasi lokal.");
+      const [candidateRows, userSnapshot] = await Promise.all([
+        readLegacyFirestoreTenantRows(services.db, {
+          collectionName: "candidates", tenantKey: context.legacyTenantKey, limit: 500,
+        }),
+        services.db.collection("users").limit(5001).get(),
+      ]);
+      const sourceTenantKeys = [...new Set(userSnapshot.docs.map((document) => {
+        const data = document.data() as Record<string, any>;
+        const camel = String(data.tenantId || "").trim();
+        const snake = String(data.tenant_id || "").trim();
+        if (camel && snake && camel !== snake) return "__source_tenant_registry_conflict__";
+        return camel || snake || "__source_tenant_registry_missing__";
+      }))];
+      if (userSnapshot.size > 5000) sourceTenantKeys.push("__source_tenant_registry_truncated__");
+      const sourceRows = candidateRows.map(({ id, data }) => ({ id, data }));
+      const preview = previewSupabaseLegacyPpdb(sourceRows, context.existingRows, {
+        targetLegacyTenantKey: context.legacyTenantKey,
+        sourceTenantKeys,
+        sourceTenantConfirmation: String(req.body?.sourceTenantConfirmation || ""),
+        dateFormatConfirmation: String(req.body?.dateFormatConfirmation || ""),
+      });
+      const { items, ...summary } = preview;
+      if (action === "preview") return res.json(summary);
+      if (String(req.body?.expectedFingerprint || "") !== preview.snapshotFingerprint) {
+        return res.status(409).json({ error: "Snapshot PPDB berubah setelah pratinjau; jalankan pratinjau ulang.", preview: summary });
+      }
+      if (!preview.canApply) {
+        return res.status(409).json({ error: "Impor PPDB belum lolos pemeriksaan tenant, kualitas, duplikasi, atau konfirmasi format tanggal.", preview: summary });
+      }
+      const result = await applySupabaseLegacyPpdbImport(
+        context.tenantId,
+        actor.uid,
+        preview.snapshotFingerprint,
+        context.legacyTenantKey,
+        items,
+      );
+      return res.status(result?.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return ppdbRouteError(res, error); }
   });
 
@@ -1024,10 +1107,11 @@ async function startServer() {
       const services = await getAdminServices();
       if (!services.ok) throw new SupabaseAcademicError(503, "Sumber arsip Firebase belum dapat dibaca oleh backend migrasi.");
       const collections = ["academic_schedules", "academic_journals", "academic_assessments"];
-      const snapshots = await Promise.all(collections.map((name) => services.db.collection(name)
-        .where("tenantId", "==", legacyTenantKey).limit(3001).get()));
-      const sourceRows = snapshots.flatMap((snapshot, index) => snapshot.docs.map((document) => ({
-        collection: collections[index], id: document.id, data: document.data() as Record<string, any>,
+      const snapshots = await Promise.all(collections.map((name) => readLegacyFirestoreTenantRows(services.db, {
+        collectionName: name, tenantKey: legacyTenantKey, limit: 3000,
+      })));
+      const sourceRows = snapshots.flatMap((rows, index) => rows.map((row) => ({
+        collection: collections[index], id: row.id, data: row.data,
       })));
       if (action === "preview") return res.json(await previewSupabaseLegacyAcademic(actor.tenantId, sourceRows));
       const expectedFingerprint = String(req.body?.expectedFingerprint || "");
@@ -1059,9 +1143,9 @@ async function startServer() {
       const { legacyTenantKey, existingRows } = await getSupabaseCbtLegacyImportContext(actor.tenantId);
       const services = await getAdminServices();
       if (!services.ok) throw new SupabaseCbtError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
-      const snapshot = await services.db.collection("cbt_questions")
-        .where("tenantId", "==", legacyTenantKey).limit(3001).get();
-      const sourceRows = snapshot.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
+      const sourceRows = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "cbt_questions", tenantKey: legacyTenantKey, limit: 3000,
+      });
       if (action === "preview") {
         const preview = await previewSupabaseLegacyCbt(sourceRows, existingRows);
         const { items: _items, ...summary } = preview;
@@ -1207,10 +1291,9 @@ async function startServer() {
       const context = await getSupabaseHealthcareLegacyImportContext(actor.tenantId);
       const services = await getAdminServices();
       if (!services.ok) throw new SupabaseHealthcareError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
-      const readLegacyRows = async (collectionName: string) => {
-        const result = await services.db.collection(collectionName).where("tenantId", "==", context.legacyTenantKey).limit(3001).get();
-        return result.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
-      };
+      const readLegacyRows = (collectionName: string) => readLegacyFirestoreTenantRows(services.db, {
+        collectionName, tenantKey: context.legacyTenantKey, limit: 3000,
+      });
       const [records, visits, medicines] = await Promise.all([
         readLegacyRows("healthcare_records"), readLegacyRows("healthcare_visits"), readLegacyRows("healthcare_inventory"),
       ]);
@@ -1281,10 +1364,9 @@ async function startServer() {
       const context = await getSupabaseGeneralAffairsImportContext(actor.tenantId);
       const services = await getAdminServices();
       if (!services.ok) throw new SupabaseGeneralAffairsError(503, "Arsip Firestore lama belum dapat dibaca oleh backend migrasi.");
-      const readLegacyRows = async (collectionName: string) => {
-        const result = await services.db.collection(collectionName).where("tenantId", "==", context.legacyTenantKey).limit(6001).get();
-        return result.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
-      };
+      const readLegacyRows = (collectionName: string) => readLegacyFirestoreTenantRows(services.db, {
+        collectionName, tenantKey: context.legacyTenantKey, limit: 6000,
+      });
       const [facilities, inventory] = await Promise.all([readLegacyRows("ga_facilities"), readLegacyRows("ga_inventory")]);
       const sources = { facilities, inventory };
       if (action === "preview") {
@@ -1526,8 +1608,9 @@ async function startServer() {
       const context = await getSupabaseFacilityBookingImportContext(actor.tenantId);
       const services = await getAdminServices();
       if (!services.ok) throw new SupabaseFacilityBookingError(503, "Arsip Firestore lama belum dapat dibaca backend migrasi.");
-      const snapshot = await services.db.collection("facility_bookings").where("tenantId", "==", context.legacyTenantKey).limit(6001).get();
-      const sources = snapshot.docs.map((document) => ({ id: document.id, data: document.data() as Record<string, any> }));
+      const sources = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "facility_bookings", tenantKey: context.legacyTenantKey, limit: 6000,
+      });
       if (action === "preview") {
         const preview = previewSupabaseLegacyFacilityBookings(sources, context.existingRows);
         const { items: _items, ...summary } = preview;
@@ -1761,6 +1844,7 @@ async function startServer() {
   };
   const libraryRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseLibraryError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase library endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan Perpustakaan Supabase belum dapat diproses." });
@@ -1892,6 +1976,34 @@ async function startServer() {
       const actor = await loadLibraryActor(uid);
       const result = await returnSupabaseLibraryBook(actor.tenantId, actor.uid, actor.role, req.body?.return);
       return res.status(result?.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.post("/api/library/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryImportEnabled) return res.status(503).json({ error: "Impor katalog arsip perpustakaan belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Pratinjau dan impor katalog hanya tersedia untuk Admin tenant." });
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor katalog tidak valid." });
+      const context = await getSupabaseLibraryLegacyImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseLibraryError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
+      const sources = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "library_books", tenantKey: context.legacyTenantKey, limit: 1000,
+      });
+      if (action === "preview") {
+        const preview = previewSupabaseLegacyLibraryBooks(sources, context.existingRows);
+        const { items: _items, ...summary } = preview;
+        return res.json(summary);
+      }
+      const result = await applySupabaseLegacyLibraryBooks(
+        actor.tenantId, actor.uid, sources, context.existingRows, String(req.body?.expectedFingerprint || ""),
+      );
+      return res.status(201).json(result);
     } catch (error) { return libraryRouteError(res, error); }
   });
 
@@ -2166,12 +2278,10 @@ async function startServer() {
       const services = await getAdminServices();
       if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore izin lama belum dapat diakses." });
       const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const snapshot = await services.db.collection("boarding_permits")
-        .where("tenantId", "==", legacyTenantId)
-        .limit(1001)
-        .get();
-      if (snapshot.size > 1000) return res.status(413).json({ error: "Impor izin dibatasi maksimal 1.000 record per tenant." });
-      const sourceRows = snapshot.docs.map((doc) => ({ sourceId: doc.id, value: doc.data() as Record<string, any> }));
+      const rows = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "boarding_permits", tenantKey: legacyTenantId, limit: 1000,
+      });
+      const sourceRows = rows.map((row) => ({ sourceId: row.id, value: row.data }));
       const apply = req.body?.apply === true;
       if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_PERMITS") {
         return res.status(400).json({ error: "Konfirmasi impor izin tidak cocok." });
@@ -2232,10 +2342,10 @@ async function startServer() {
       const services = await getAdminServices();
       if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore kedisiplinan lama belum dapat diakses." });
       const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const snapshot = await services.db.collection("boarding_discipline")
-        .where("tenantId", "==", legacyTenantId).limit(1001).get();
-      if (snapshot.size > 1000) return res.status(413).json({ error: "Impor kedisiplinan dibatasi maksimal 1.000 record per tenant." });
-      const sourceRows = snapshot.docs.map((doc) => ({ sourceId: doc.id, value: doc.data() as Record<string, any> }));
+      const rows = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "boarding_discipline", tenantKey: legacyTenantId, limit: 1000,
+      });
+      const sourceRows = rows.map((row) => ({ sourceId: row.id, value: row.data }));
       const apply = req.body?.apply === true;
       if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_DISCIPLINE") {
         return res.status(400).json({ error: "Konfirmasi impor kedisiplinan tidak cocok." });
@@ -2279,10 +2389,10 @@ async function startServer() {
       const services = await getAdminServices();
       if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore kehadiran lama belum dapat diakses." });
       const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const snapshot = await services.db.collection("boarding_attendance")
-        .where("tenantId", "==", legacyTenantId).limit(1001).get();
-      if (snapshot.size > 1000) return res.status(413).json({ error: "Impor kehadiran dibatasi maksimal 1.000 record per tenant." });
-      const sourceRows = snapshot.docs.map((doc) => ({ sourceId: doc.id, value: doc.data() as Record<string, any> }));
+      const rows = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "boarding_attendance", tenantKey: legacyTenantId, limit: 1000,
+      });
+      const sourceRows = rows.map((row) => ({ sourceId: row.id, value: row.data }));
       const apply = req.body?.apply === true;
       if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_ATTENDANCE") {
         return res.status(400).json({ error: "Konfirmasi impor kehadiran tidak cocok." });
@@ -2376,21 +2486,12 @@ async function startServer() {
       const services = await getAdminServices();
       if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore asrama lama belum dapat diakses." });
       const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const [auditSnapshot, ticketSnapshot] = await Promise.all([
-        services.db.collection("boarding_audits").where("tenantId", "==", legacyTenantId).limit(1001).get(),
-        services.db.collection("boarding_tickets").where("tenantId", "==", legacyTenantId).limit(1001).get(),
+      const [auditRows, ticketRows] = await Promise.all([
+        readLegacyFirestoreTenantRows(services.db, { collectionName: "boarding_audits", tenantKey: legacyTenantId, limit: 1000 }),
+        readLegacyFirestoreTenantRows(services.db, { collectionName: "boarding_tickets", tenantKey: legacyTenantId, limit: 1000 }),
       ]);
-      if (auditSnapshot.size > 1000 || ticketSnapshot.size > 1000) {
-        return res.status(413).json({ error: "Impor dibatasi maksimal 1.000 audit dan 1.000 tiket per tenant." });
-      }
-      const audits = auditSnapshot.docs.map((document) => {
-        const value = document.data() as Record<string, any>;
-        return { ...value, sourceRecordId: String(value.id || document.id) };
-      });
-      const tickets = ticketSnapshot.docs.map((document) => {
-        const value = document.data() as Record<string, any>;
-        return { ...value, sourceRecordId: String(value.id || document.id) };
-      });
+      const audits = auditRows.map(({ id, data: value }) => ({ ...value, sourceRecordId: String(value.id || id) }));
+      const tickets = ticketRows.map(({ id, data: value }) => ({ ...value, sourceRecordId: String(value.id || id) }));
       const apply = req.body?.apply === true;
       if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_FACILITY_OPS") {
         return res.status(400).json({ error: "Konfirmasi impor audit dan tiket tidak cocok." });
@@ -2704,12 +2805,11 @@ async function startServer() {
       }
       const services = await getAdminServices();
       if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore untuk preview migrasi belum tersedia." });
-      const snapshot = await services.db.collection("communication_announcements")
-        .where("tenantId", "==", actor.tenantId)
-        .limit(501)
-        .get();
-      if (snapshot.size > 500) return res.status(413).json({ error: "Impor pengumuman dibatasi maksimal 500 record per preview." });
-      const sourceRows = snapshot.docs.map((doc) => ({ sourceId: doc.id, value: doc.data() as Record<string, any> }));
+      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      const rows = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "communication_announcements", tenantKey: legacyTenantId, limit: 500,
+      });
+      const sourceRows = rows.map((row) => ({ sourceId: row.id, value: row.data }));
       const preview = await previewLegacyCommunicationAnnouncements(actor.tenantId, actor, sourceRows);
       const summary = {
         previewFingerprint: preview.fingerprint,
@@ -2826,12 +2926,13 @@ async function startServer() {
       if (!actor || actor.role !== "SuperAdmin") return res.status(403).json({ error: "Hanya SuperAdmin tenant yang dapat mengimpor pengaturan." });
       const services = await getAdminServices();
       if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore pengaturan lama belum dapat diakses." });
-      const legacySnapshot = await services.db.collection("tenants").doc(actor.tenantId)
+      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      const legacySnapshot = await services.db.collection("tenants").doc(legacyTenantId)
         .collection("settings").doc("global").get();
       const legacySource = legacySnapshot.exists ? legacySnapshot.data() || {} : {};
       const sanitizedSettings = sanitizeTenantSettings(legacySource);
       const sourceFingerprint = createHash("sha256")
-        .update(JSON.stringify({ tenantId: actor.tenantId, exists: legacySnapshot.exists, settings: sanitizedSettings }))
+        .update(JSON.stringify({ tenantId: actor.tenantId, legacyTenantId, exists: legacySnapshot.exists, settings: sanitizedSettings }))
         .digest("hex");
       const preview = {
         sourceExists: legacySnapshot.exists,
@@ -2871,11 +2972,15 @@ async function startServer() {
       if (profile.role !== "SuperAdmin") {
         return res.status(403).json({ error: "Pembersihan settings legacy hanya dapat dijalankan oleh SuperAdmin." });
       }
-      const settingsRef = services.db.collection("tenants").doc(tenantId).collection("settings").doc("global");
+      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(tenantId);
+      const settingsRef = services.db.collection("tenants").doc(legacyTenantId).collection("settings").doc("global");
       const settingsSnapshot = await settingsRef.get();
       if (settingsSnapshot.exists) {
         const settings = settingsSnapshot.data() || {};
-        if (settings.tenantId !== tenantId) return res.status(409).json({ error: "Tenant pada settings tidak cocok." });
+        const sourceTenantId = String(settings.tenantId || settings.tenant_id || "").trim();
+        if (sourceTenantId && sourceTenantId !== legacyTenantId && sourceTenantId !== tenantId) {
+          return res.status(409).json({ error: "Tenant pada settings tidak cocok." });
+        }
         const integrations = settings.integrations && typeof settings.integrations === "object" ? settings.integrations : {};
         const patch: Record<string, any> = {};
         const FieldValue = await loadFirestoreFieldValue();
@@ -3059,6 +3164,36 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadHrisActor(uid);
       return res.json(await upsertSupabaseHrisEmployee(actor.tenantId, actor.uid, req.body?.employee));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.post("/api/hris/legacy/employees/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisImportEnabled) return res.status(503).json({ error: "Impor Pegawai arsip belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor Pegawai tidak valid." });
+      const context = await getSupabaseHrisLegacyImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseHrisError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
+      const sources = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "master_data",
+        tenantKey: context.legacyTenantKey,
+        limit: 1000,
+        filters: [{ field: "type", value: "Pegawai" }],
+      });
+      if (action === "preview") {
+        const preview = previewSupabaseLegacyHrisEmployees(sources, context.existingRows);
+        const { items: _items, ...summary } = preview;
+        return res.json(summary);
+      }
+      const result = await applySupabaseLegacyHrisEmployeeImport(
+        actor.tenantId, actor.uid, sources, context.existingRows, String(req.body?.expectedFingerprint || ""),
+      );
+      return res.status(201).json(result);
     } catch (error) { return hrisRouteError(res, error); }
   });
 

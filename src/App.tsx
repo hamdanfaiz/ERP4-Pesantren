@@ -57,21 +57,6 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (SUPABASE_ONLY_RUNTIME) return;
-    let active = true;
-    let clearTenant: (() => void) | null = null;
-    void import('./services/centralStructureService').then(({ centralStructureService }) => {
-      if (!active) return;
-      centralStructureService.setTenant(user?.tenantId || null);
-      clearTenant = () => centralStructureService.setTenant(null);
-    });
-    return () => {
-      active = false;
-      clearTenant?.();
-    };
-  }, [user?.tenantId]);
-
-  useEffect(() => {
     if (role !== 'Public') {
       const allowed = getUserAllowedModules(user, role);
       if (allowed.length > 0 && !allowed.includes(activeModule)) {

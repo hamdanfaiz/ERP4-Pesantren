@@ -16,7 +16,11 @@
     "test:api:finance-storage": "node scripts/test-finance-storage-http.mjs",
     "test:db:backup-restore": "node scripts/test-database-backup-restore.mjs",
     "test:legacy-firebase-gate": "tsx scripts/test-legacy-firebase-gate.ts",
-    "test:legacy-firestore-tenant-scope": "tsx scripts/test-legacy-firestore-tenant-scope.ts"
+    "test:legacy-firestore-tenant-scope": "tsx scripts/test-legacy-firestore-tenant-scope.ts",
+    "test:ppdb-legacy-import": "tsx scripts/test-supabase-ppdb-import.ts",
+    "test:library-legacy-import": "tsx scripts/test-library-legacy-import.ts",
+    "test:hris-legacy-import": "tsx scripts/test-hris-legacy-import.ts",
+    "test:alumni-workflow": "tsx scripts/test-alumni-workflow.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

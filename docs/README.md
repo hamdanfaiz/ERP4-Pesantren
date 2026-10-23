@@ -55,5 +55,5 @@ Lihat dokumentasi utama sebelum menyelami sistem teknis:
 - **[Product Requirements Document (PRD)](active/02_PRODUCT/PRD.md)** - Daftar produk, visi, dan fitur.
 - **[Database ERD & Structure](active/06_DATABASE/ERD.md)** - Schema spesifik Firestore dan multi-tenancy.
 - **[Firestore Legacy Index Info](active/06_DATABASE/FIRESTORE_STRUCTURE.md)** - Struktur Firestore lawas.
-- **[Firestore to Supabase Migration Inventory](active/06_DATABASE/FIRESTORE_TO_SUPABASE_MIGRATION_INVENTORY.md)** - Sumber kanonis, koleksi legacy, cakupan importer, dan gerbang rekonsiliasi migrasi.
 - **[Design System](active/11_UI_UX/DESIGN_SYSTEM.md)** - Token visual, komponen bersama, serta aturan konsistensi dan aksesibilitas UI.
+- **[Firestore to Supabase Migration Inventory](active/06_DATABASE/FIRESTORE_TO_SUPABASE_MIGRATION_INVENTORY.md)** - Sumber kanonis, koleksi legacy, cakupan importer, dan gerbang rekonsiliasi migrasi.

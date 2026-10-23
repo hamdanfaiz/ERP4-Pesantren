@@ -119,6 +119,45 @@ export async function listSupabaseHrisSnapshot(tenantIdentifier: string) {
   };
 }
 
+export async function getSupabaseHrisLegacyImportContext(tenantIdentifier: string) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const tenants = await request("/rest/v1/tenants?" + new URLSearchParams({
+    select: "id,legacy_tenant_key", id: "eq." + tenantId, limit: "2",
+  }).toString());
+  const legacyTenantKey = Array.isArray(tenants) ? String(tenants[0]?.legacy_tenant_key || "").trim() : "";
+  if (!legacyTenantKey) throw new SupabaseHrisError(409, "Tenant belum memiliki pemetaan arsip Firestore lama.");
+  const existingRows = await listTenantRows(
+    "hris_employees", tenantId,
+    "id,employee_number,email,employment_status,source_system,source_record_id,source_fingerprint",
+    "employee_number.asc,id.asc",
+  );
+  return { tenantId, legacyTenantKey, existingRows };
+}
+
+export async function applySupabaseLegacyHrisEmployees(
+  tenantId: string,
+  actorId: string,
+  snapshotFingerprint: string,
+  sourceCount: number,
+  items: Row[],
+) {
+  if (!isUuid(tenantId) || !isUuid(actorId) || !/^[0-9a-f]{64}$/.test(snapshotFingerprint)
+    || !Number.isInteger(sourceCount) || sourceCount < 0 || sourceCount > 1000
+    || !Array.isArray(items) || items.length > 1000 || items.length !== sourceCount) {
+    throw new SupabaseHrisError(400, "Snapshot impor Pegawai tidak valid.");
+  }
+  return request("/rest/v1/rpc/import_legacy_hris_employees", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_snapshot_fingerprint: snapshotFingerprint,
+      p_source_count: sourceCount,
+      p_rows: items,
+    }),
+  });
+}
+
 function requiredText(value: unknown, label: string, maxLength: number) {
   const text = typeof value === "string" ? value.trim() : "";
   if (!text || text.length > maxLength) throw new SupabaseHrisError(400, `${label} tidak valid.`);

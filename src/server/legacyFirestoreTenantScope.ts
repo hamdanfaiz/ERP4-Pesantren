@@ -91,3 +91,72 @@ export function scopeLegacyTenantRecords(
     },
   };
 }
+
+
+import type { Firestore } from "firebase-admin/firestore";
+
+export class LegacyFirestoreTenantScopeError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "LegacyFirestoreTenantScopeError";
+    this.status = status;
+  }
+}
+
+type LegacyFirestoreRow = { id: string; data: Record<string, any> };
+type ReadLegacyRowsOptions = {
+  collectionName: string;
+  tenantKey: string;
+  limit: number;
+  filters?: Array<{ field: string; value: unknown }>;
+};
+
+/**
+ * Read a bounded Firestore snapshot for an explicitly mapped source tenant.
+ * Rows with tenantless ownership are accepted only when the source tenant
+ * registry has exactly one document and its ID equals the configured key.
+ * This helper never writes tenant metadata back to Firestore.
+ */
+export async function readLegacyFirestoreTenantRows(
+  db: Firestore,
+  options: ReadLegacyRowsOptions,
+): Promise<LegacyFirestoreRow[]> {
+  const tenantKey = String(options.tenantKey || "").trim();
+  const limit = Number(options.limit);
+  if (!String(options.collectionName || "").trim() || !Number.isSafeInteger(limit) || limit < 1 || limit > 10000) {
+    throw new LegacyFirestoreTenantScopeError(400, "Batas atau nama koleksi sumber legacy tidak valid.");
+  }
+  if (!tenantKey) throw new LegacyFirestoreTenantScopeError(409, "Kunci tenant sumber belum dapat dipetakan dengan aman.");
+
+  let query: FirebaseFirestore.Query = db.collection(options.collectionName);
+  for (const filter of options.filters || []) query = query.where(filter.field, "==", filter.value);
+  const [snapshot, registry] = await Promise.all([
+    query.limit(limit + 1).get(),
+    db.collection("tenants").limit(2).get(),
+  ]);
+  if (snapshot.size > limit) {
+    throw new LegacyFirestoreTenantScopeError(413, `Impor ${options.collectionName} dibatasi maksimal ${limit} record per tenant.`);
+  }
+
+  const rows: LegacyTenantSourceRecord[] = snapshot.docs.map((document) => {
+    const source = document.data() as Record<string, unknown>;
+    const camel = source.tenantId;
+    const snake = source.tenant_id;
+    const hasCamel = camel !== undefined && camel !== null && camel !== "";
+    const hasSnake = snake !== undefined && snake !== null && snake !== "";
+    if (hasCamel && hasSnake && (
+      typeof camel !== "string" || typeof snake !== "string" || camel.trim() !== snake.trim()
+    )) {
+      throw new LegacyFirestoreTenantScopeError(409, `Koleksi ${options.collectionName} memiliki tenantId dan tenant_id yang bertentangan.`);
+    }
+    const normalized = hasCamel || !hasSnake ? source : { ...source, tenantId: snake };
+    return { id: document.id, record: normalized };
+  });
+  const scoped = scopeLegacyTenantRecords(rows, registry.docs.map((document) => document.id), tenantKey);
+  if (scoped.audit.invalidTenantIdCount > 0 || scoped.audit.unresolvedTenantlessCount > 0) {
+    throw new LegacyFirestoreTenantScopeError(409, "Record legacy tanpa ownership tenant yang dapat diverifikasi tidak dapat diproses.");
+  }
+  return scoped.records.map(({ id, record }) => ({ id, data: record as Record<string, any> }));
+}
