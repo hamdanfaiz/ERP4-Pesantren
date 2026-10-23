@@ -1801,7 +1801,8 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
-      return res.status(201).json(await addSupabaseLmsLearningRecord(actor.tenantId, actor.uid, req.body));
+      const result = await addSupabaseLmsLearningRecord(actor.tenantId, actor.uid, req.body);
+      return res.status(result?.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return lmsRouteError(res, error); }
   });
 
