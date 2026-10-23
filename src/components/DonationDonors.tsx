@@ -38,7 +38,7 @@ export function DonationDonors() {
       <div className="flex justify-between items-center">
          <div>
            <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200">Donor Directory</h2>
-           <p className="text-sm text-slate-500 dark:text-slate-400">Manage your donors, tracking and engagement</p>
+           <p className="text-sm text-slate-500 dark:text-slate-400">Kelola data donatur, pantau kontribusi, dan jaga keterlibatan</p>
          </div>
          <button className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
            <Plus className="w-4 h-4" /> Add Donor
@@ -49,7 +49,7 @@ export function DonationDonors() {
         <table className="w-full text-left">
           <thead className="bg-black/40 text-xs uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
             <tr>
-              <th className="px-6 py-4 font-medium">Donor Name</th>
+              <th className="px-6 py-4 font-medium">Nama Donatur</th>
               <th className="px-6 py-4 font-medium">Contact</th>
               <th className="px-6 py-4 font-medium">Type</th>
               <th className="px-6 py-4 font-medium">Total Donated</th>
