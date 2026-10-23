@@ -133,6 +133,9 @@ jobs:
       - name: Verify legacy library catalog import preview logic
         run: npm run test:library-legacy-import
 
+      - name: Verify cooperative catalog import preview logic
+        run: npm run test:cooperative-legacy-import
+
       - name: Verify legacy HRIS employee import preview logic
         run: npm run test:hris-legacy-import
 
