@@ -36,6 +36,7 @@ import {
 } from "./src/server/systemSettingsStore";
 import { recordTenantSearchFeedback, SearchFeedbackStoreError } from "./src/server/searchFeedbackStore";
 import { isLegacyFirebaseAdminEnabled } from "./src/server/legacyFirebaseGate";
+import { ALL_SYSTEM_MODULE_IDS as ALL_SYSTEM_MODULES, PLATFORM_ONLY_MODULES, isModuleAccessible, isValidModulePermissions, type UserRole } from "./src/rbac";
 import { LegacyFirestoreTenantScopeError, readLegacyFirestoreTenantRows, scopeLegacyTenantRecords } from "./src/server/legacyFirestoreTenantScope";
 import {
   assignSupabaseTahfidzMembership,
@@ -339,54 +340,12 @@ async function loadFirestoreFieldValue() {
   return FieldValue;
 }
 
-const PLATFORM_ONLY_MODULES = ["settings"];
-
-const ALL_SYSTEM_MODULES = [
-  "dashboard", "master-data", "users", "settings", "ppdb", "cbt", "tahfidz", "boarding",
-  "academic", "lms", "library", "finance", "communication", "healthcare", "cooperative",
-  "laundry", "enterprise", "erp", "hris", "ga", "document", "alumni", "crm", "donation",
-  "marketplace", "ecosystem", "intelligence"
-];
-
-const TENANT_SCOPED_MODULES = ALL_SYSTEM_MODULES.filter(
-  (m) => !PLATFORM_ONLY_MODULES.includes(m)
-);
-
-const DEFAULT_ROLE_MODULES: Record<string, string[]> = {
-  SuperAdmin: [...ALL_SYSTEM_MODULES],
-  Admin: [...TENANT_SCOPED_MODULES],
-  Ustadz: [
-    "dashboard", "academic", "tahfidz", "boarding", "lms", "cbt", "communication", "library"
-  ],
-  Santri: [
-    "dashboard", "academic", "tahfidz", "boarding", "finance", "lms", "cbt", "library"
-  ],
-  Walisantri: [
-    "dashboard", "academic", "tahfidz", "boarding", "finance", "communication", "donation"
-  ],
-};
-
 function resolveUserModulePermissions(role: string, perms?: Record<string, boolean> | null): Record<string, boolean> {
   const result: Record<string, boolean> = {};
-  const isSuper = role === "SuperAdmin";
-  const isAdmin = role === "Admin";
-  const baseline = DEFAULT_ROLE_MODULES[role] || [];
-
+  const supportedRoles = ["SuperAdmin", "Admin", "Ustadz", "Santri", "Walisantri", "Public"] as const;
+  const safeRole: UserRole = supportedRoles.includes(role as UserRole) ? role as UserRole : "Public";
   ALL_SYSTEM_MODULES.forEach((modId) => {
-    if (isSuper) {
-      result[modId] = true;
-      return;
-    }
-    if (PLATFORM_ONLY_MODULES.includes(modId)) {
-      result[modId] = false;
-      return;
-    }
-    if (perms && typeof perms === "object" && modId in perms) {
-      result[modId] = Boolean(perms[modId]);
-      return;
-    }
-    // Missing key or missing map falls back to role baseline (Admin gets all tenant modules by default)
-    result[modId] = isAdmin ? true : baseline.includes(modId);
+    result[modId] = isModuleAccessible(safeRole, modId, perms);
   });
   return result;
 }
@@ -3331,6 +3290,9 @@ async function startServer() {
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({ code: "INVALID_ROLE", error: "Role yang dipilih tidak valid." });
     }
+    if (modulePermissions != null && !isValidModulePermissions(modulePermissions)) {
+      return res.status(400).json({ code: "INVALID_MODULE_PERMISSIONS", error: "Format izin modul tidak valid." });
+    }
 
     if (actor.role === "Admin") {
       if (role === "SuperAdmin" || role === "Admin") {
@@ -3345,28 +3307,10 @@ async function startServer() {
     // SuperAdmin gets all access and its permissions cannot be reduced.
     // Tenant Admin gets all tenant-scoped modules by default, settings is locked out.
     // Ensure actor cannot grant platform-only module 'settings' (Admin boundary).
-    const finalPermissions: Record<string, boolean> = {};
-
-    if (role === "SuperAdmin") {
-      ALL_SYSTEM_MODULES.forEach((modId) => {
-        finalPermissions[modId] = true;
-      });
-    } else {
-      ALL_SYSTEM_MODULES.forEach((modId) => {
-        if (PLATFORM_ONLY_MODULES.includes(modId)) {
-          finalPermissions[modId] = false;
-          return;
-        }
-        if (modulePermissions && typeof modulePermissions === "object" && modId in modulePermissions) {
-          finalPermissions[modId] = Boolean(modulePermissions[modId]);
-        } else {
-          finalPermissions[modId] = (DEFAULT_ROLE_MODULES[role] || []).includes(modId);
-        }
-      });
-      // Safety: actor cannot grant modules outside their boundary (Admin cannot grant settings)
-      if (actor.role === "Admin") {
-        finalPermissions["settings"] = false;
-      }
+    const finalPermissions = resolveUserModulePermissions(role, modulePermissions || undefined);
+    // Safety: actor cannot grant platform-only modules (Admin can never grant settings).
+    if (actor.role === "Admin") {
+      finalPermissions["settings"] = false;
     }
 
     try {
@@ -3415,6 +3359,9 @@ async function startServer() {
       }
 
       const { name, role, status, modulePermissions } = req.body || {};
+      if (modulePermissions != null && !isValidModulePermissions(modulePermissions)) {
+        return res.status(400).json({ code: "INVALID_MODULE_PERMISSIONS", error: "Format izin modul tidak valid." });
+      }
 
       // Prevent actor from disabling or demoting their own account
       if (targetUid === actor.uid) {
@@ -3469,16 +3416,14 @@ async function startServer() {
         ALL_SYSTEM_MODULES.forEach((m) => { fullPerms[m] = true; });
         updates.modulePermissions = fullPerms;
       } else if (modulePermissions && typeof modulePermissions === "object") {
-        const merged: Record<string, boolean> = { ...(targetData.modulePermissions || {}) };
+        const merged: Record<string, boolean> = resolveUserModulePermissions(newRole, targetData.modulePermissions);
         ALL_SYSTEM_MODULES.forEach((m) => {
           if (PLATFORM_ONLY_MODULES.includes(m)) {
             merged[m] = false;
             return;
           }
           if (modulePermissions[m] !== undefined) {
-            merged[m] = Boolean(modulePermissions[m]);
-          } else if (merged[m] === undefined) {
-            merged[m] = (DEFAULT_ROLE_MODULES[newRole] || []).includes(m);
+            merged[m] = modulePermissions[m] === true;
           }
         });
         if (actor.role === "Admin") {
