@@ -36,6 +36,9 @@ jobs:
       - name: Typecheck
         run: bun run lint
 
+      - name: Verify strict shared RBAC permissions
+        run: npm run test:rbac-permissions
+
       - name: Verify Firebase packages are excluded from production dependencies
         run: node scripts/test-production-dependencies.mjs
 
