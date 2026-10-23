@@ -571,7 +571,7 @@ export function SettingsManager() {
                               type="text" 
                               value={orgInfo.logoUrl}
                               onChange={e => setOrgInfo({...orgInfo, logoUrl: e.target.value})}
-                              placeholder="URL atau pilih upload..."
+                              placeholder="URL atau pilih berkas..."
                               className="flex-1 glass-card rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
                             />
                             <label className="flex items-center justify-center bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-indigo-500/20 transition-colors text-xs font-medium">
@@ -598,7 +598,7 @@ export function SettingsManager() {
                               type="text" 
                               value={orgInfo.faviconUrl}
                               onChange={e => setOrgInfo({...orgInfo, faviconUrl: e.target.value})}
-                              placeholder="URL atau pilih upload..."
+                              placeholder="URL atau pilih berkas..."
                               className="flex-1 glass-card rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
                             />
                             <label className="flex items-center justify-center bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-indigo-500/20 transition-colors text-xs font-medium">
@@ -758,7 +758,7 @@ export function SettingsManager() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <CreditCard className="w-5 h-5 text-indigo-400" />
-                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Payment Gateway (VA, QRIS, & Kartu Pembayaran)</h3>
+                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Gerbang Pembayaran (VA, QRIS, & Kartu Pembayaran)</h3>
                     </div>
                     <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Belum terhubung</span>
                   </div>
@@ -769,7 +769,7 @@ export function SettingsManager() {
                       onChange={e => setIntegrations({...integrations, paymentGatewayProvider: e.target.value as any})}
                       className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
                     >
-                      <option value="midtrans">Midtrans Payment (Snap & Core API)</option>
+                      <option value="midtrans">Pembayaran Midtrans (Snap & Core API)</option>
                       <option value="xendit">Xendit Invoice & XenPlatform</option>
                     </select>
                   </div>
@@ -913,7 +913,7 @@ export function SettingsManager() {
                       className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors"
                     >
                       <Download className="w-4 h-4" />
-                      <span>Download JSON Backup</span>
+                      <span>Unduh Cadangan JSON</span>
                     </button>
                   </div>
 
@@ -923,7 +923,7 @@ export function SettingsManager() {
                     </h3>
                     <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
                       <div className="flex justify-between py-1 border-b border-white/5">
-                        <span>Database Target:</span>
+                        <span>Basis Data Tujuan:</span>
                         <span className="font-mono text-emerald-400">{SUPABASE_SYSTEM_SETTINGS ? 'Supabase (tenant_settings)' : 'Firestore (settings/global)'}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-white/5">
