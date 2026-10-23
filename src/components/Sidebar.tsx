@@ -45,54 +45,54 @@ interface SidebarProps {
 
 const MENU_GROUPS = [
   {
-     label: "Core Systems",
+     label: "Sistem Inti",
      items: [
-       { id: 'dashboard', label: 'Overview Dashboard', icon: LayoutDashboard },
-       { id: 'master-data', label: 'Master Data', icon: Users },
-       { id: 'users', label: 'User Management', icon: ShieldCheck },
-       { id: 'settings', label: 'Settings', icon: Settings },
+       { id: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard },
+       { id: 'master-data', label: 'Data Induk', icon: Users },
+       { id: 'users', label: 'Manajemen Pengguna', icon: ShieldCheck },
+       { id: 'settings', label: 'Pengaturan', icon: Settings },
      ]
   },
   {
-     label: "Academic & Boarding",
+     label: "Pendidikan & Asrama",
      items: [
-       { id: 'ppdb', label: 'PPDB Digital', icon: FileText },
-       { id: 'cbt', label: 'Exams (CBT)', icon: MonitorPlay },
-       { id: 'tahfidz', label: 'Tahfidz System', icon: BookOpen },
-       { id: 'boarding', label: 'Boarding (Asrama)', icon: Home },
-       { id: 'academic', label: 'Academic & Formal', icon: GraduationCap },
-       { id: 'lms', label: 'Digital LMS', icon: MonitorPlay },
-       { id: 'library', label: 'Library', icon: Library },
+       { id: 'ppdb', label: 'Penerimaan Santri (PPDB)', icon: FileText },
+       { id: 'cbt', label: 'Ujian Berbasis Komputer (CBT)', icon: MonitorPlay },
+       { id: 'tahfidz', label: 'Tahfidz', icon: BookOpen },
+       { id: 'boarding', label: 'Asrama', icon: Home },
+       { id: 'academic', label: 'Akademik Formal', icon: GraduationCap },
+       { id: 'lms', label: 'LMS Pembelajaran', icon: MonitorPlay },
+       { id: 'library', label: 'Perpustakaan', icon: Library },
      ]
   },
   {
-     label: "Operations & Students",
+     label: "Operasional Santri",
      items: [
-       { id: 'finance', label: 'Finance Billing', icon: Wallet },
-       { id: 'communication', label: 'Communication Hub', icon: MessageSquare },
-       { id: 'healthcare', label: 'Healthcare (UKS)', icon: Stethoscope },
-       { id: 'cooperative', label: 'Koperasi & Canteen', icon: Store },
-       { id: 'laundry', label: 'Laundry System', icon: Shirt },
+       { id: 'finance', label: 'Keuangan & Tagihan', icon: Wallet },
+       { id: 'communication', label: 'Pusat Komunikasi', icon: MessageSquare },
+       { id: 'healthcare', label: 'Kesehatan (UKS)', icon: Stethoscope },
+       { id: 'cooperative', label: 'Koperasi & Kantin', icon: Store },
+       { id: 'laundry', label: 'Laundry', icon: Shirt },
      ]
   },
   {
-     label: "Enterprise & Resource",
+     label: "Manajemen & Sumber Daya",
      items: [
-        { id: 'enterprise', label: 'Multi-Unit Mgmt', icon: Building2 },
-        { id: 'erp', label: 'ERP Finance & Budget', icon: PieChart },
-        { id: 'hris', label: 'Human Capital (HCM)', icon: Briefcase },
-        { id: 'ga', label: 'General Affair', icon: Wrench },
-        { id: 'document', label: 'E-Document', icon: FileBox },
+        { id: 'enterprise', label: 'Manajemen Multi-Unit', icon: Building2 },
+        { id: 'erp', label: 'Keuangan & Anggaran (ERP)', icon: PieChart },
+        { id: 'hris', label: 'Sumber Daya Manusia (HCM)', icon: Briefcase },
+        { id: 'ga', label: 'Sarana & Prasarana', icon: Wrench },
+        { id: 'document', label: 'Dokumen Digital', icon: FileBox },
      ]
   },
   {
-     label: "Ecosystem & Relations",
+     label: "Relasi & Ekosistem",
      items: [
-        { id: 'alumni', label: 'Alumni Directory', icon: GraduationCap },
-        { id: 'crm', label: 'Parent CRM & Donor', icon: HeartHandshake },
-        { id: 'donation', label: 'Donation & Waqf', icon: Gift },
+        { id: 'alumni', label: 'Data Alumni', icon: GraduationCap },
+        { id: 'crm', label: 'Relasi Wali & Donatur', icon: HeartHandshake },
+        { id: 'donation', label: 'Donasi & Wakaf', icon: Gift },
         { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
-        { id: 'ecosystem', label: 'PPOB & Services', icon: CreditCard },
+        { id: 'ecosystem', label: 'PPOB & Layanan', icon: CreditCard },
      ]
   }
 ];
@@ -115,7 +115,7 @@ export function Sidebar({ activeModule, onNavigate, branding }: SidebarProps) {
           )}
           <h1 className="text-xl font-serif italic text-emerald-500 tracking-tight line-clamp-1">{branding?.schoolName ? branding.schoolName.substring(0, 15) : 'Pesantren OS'}</h1>
         </div>
-        <p className="text-[10px] uppercase tracking-[0.2em] opacity-40">Enterprise Suite v4.0</p>
+        <p className="text-[10px] uppercase tracking-[0.2em] opacity-40">Sistem Terpadu v4.0</p>
       </div>
       
       <div className="flex-1 py-2 flex flex-col gap-6 px-3 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
@@ -157,7 +157,7 @@ export function Sidebar({ activeModule, onNavigate, branding }: SidebarProps) {
         {allowedModules.includes('intelligence') && (
           <>
             <div className="mt-2 px-3 pb-2 text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
-              AI Intelligence
+              Analitik AI
             </div>
             <button 
               onClick={() => onNavigate('intelligence')}
@@ -169,7 +169,7 @@ export function Sidebar({ activeModule, onNavigate, branding }: SidebarProps) {
               )}
             >
                <BrainCircuit className={cn("w-5 h-5", activeModule === 'intelligence' ? "text-emerald-400" : "text-emerald-500")} />
-               Data Warehouse Hub
+               Pusat Data Analitik
             </button>
           </>
         )}
@@ -184,11 +184,11 @@ export function Sidebar({ activeModule, onNavigate, branding }: SidebarProps) {
               </div>
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-800 dark:text-white">{role} User</div>
-              <div className="text-[10px] text-slate-500">{role}</div>
+              <div className="text-xs font-bold text-slate-800 dark:text-white">{user?.name || user?.email || "Pengguna"}</div>
+              <div className="text-[10px] text-slate-500">{({ SuperAdmin: "Superadmin Yayasan", Admin: "Administrator", Ustadz: "Ustadz", Santri: "Santri", Walisantri: "Wali Santri" } as Record<string, string>)[role] || role}</div>
             </div>
           </div>
-          <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Logout">
+          <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Keluar" aria-label="Keluar dari sistem">
             <LogOut className="w-4 h-4" />
           </button>
         </div>
