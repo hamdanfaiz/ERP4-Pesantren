@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import { CalendarDays, CircleDollarSign, FileText, HeartHandshake, Loader2, Plus, RefreshCw, ShieldCheck, Users, Vault, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { pendingMutationIds } from "../utils/pendingMutationId";
 
 type Campaign = { id: string; title: string; type: string; description: string; target: number; current: number; end_date: string | null; status: string };
 type Donor = { id: string; name: string; type: string; email: string | null; phone: string | null; notes: string; status: string; lifetime: number; lastDonation: string | null; count: number };
@@ -71,9 +72,32 @@ export function SupabaseDonationManager() {
 
   const runWrite = async (path: string, payload: Record<string, unknown>, success: string) => {
     setSaving(true); setError(""); setNotice("");
-    try { const result = await donationRequest(path, { method: path.includes("/void") ? "PATCH" : "POST", body: JSON.stringify(payload) }); await refresh(); setNotice(success); return result; }
-    catch (cause: any) { setError(cause?.message || "Perubahan belum dapat disimpan."); return null; }
-    finally { setSaving(false); }
+    const { clientRequestId: _callerRequestId, ...mutationPayload } = payload;
+    let lease: Awaited<ReturnType<typeof pendingMutationIds.acquire>> | null = null;
+    try {
+      lease = await pendingMutationIds.acquire(`donation:${path}`, {
+        tenantId: user?.tenantId || "",
+        actorId: user?.uid || "",
+        payload: mutationPayload,
+      });
+      const result = await donationRequest(path, {
+        method: path.includes("/void") ? "PATCH" : "POST",
+        body: JSON.stringify({ ...mutationPayload, clientRequestId: lease.requestId }),
+      });
+      lease.clear();
+      setNotice(success);
+      try {
+        await refresh();
+      } catch {
+        setNotice(`${success} Transaksi tersimpan, tetapi daftar belum berhasil dimuat ulang. Klik Muat ulang.`);
+      }
+      return result;
+    } catch (cause: any) {
+      setError(cause?.message || "Perubahan belum dapat disimpan.");
+      return null;
+    } finally {
+      setSaving(false);
+    }
   };
 
   const monthlyChart = useMemo(() => snapshot.summary.monthly.map((item) => ({ ...item, label: new Date(`${item.month}-01T00:00:00`).toLocaleDateString("id-ID", { month: "short", year: "2-digit" }) })), [snapshot.summary.monthly]);
