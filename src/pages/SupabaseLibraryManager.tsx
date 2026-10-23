@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, BookOpen, Check, Clock3, Loader2, Plus, RefreshCw, Search, Users, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { addCalendarDays, isCalendarDate, tenantBusinessDate } from "../utils/businessDate";
 
 type Book = { id: string; title: string; author: string; category: string; isbn: string; totalCopies: number; shelf: string; availableCopies: number };
 type Student = { id: string; name: string; nis: string };
 type Circulation = { id: string; bookId: string; bookTitle: string; studentId: string; student: string; nis: string; borrowDate: string; dueDate: string; returnedDate: string | null; status: string; fine: number };
-type Snapshot = { books: Book[]; students: Student[]; circulations: Circulation[] };
+type Snapshot = { businessDate: string; books: Book[]; students: Student[]; circulations: Circulation[] };
 
 async function requestLibrary(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -21,18 +22,11 @@ async function requestLibrary(path: string, init: RequestInit = {}) {
   return payload;
 }
 
-function localDate(daysFromToday = 0) {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromToday);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function markOverdue(circulations: Circulation[]) {
-  const today = localDate();
+function markOverdue(circulations: Circulation[], today: string) {
   return circulations.map((item) => item.status === "Active" && item.dueDate < today ? { ...item, status: "Overdue" } : item);
 }
 
-const emptySnapshot: Snapshot = { books: [], students: [], circulations: [] };
+const emptySnapshot: Snapshot = { businessDate: tenantBusinessDate(), books: [], students: [], circulations: [] };
 
 export function SupabaseLibraryManager() {
   const { role, user } = useAuth();
@@ -46,16 +40,20 @@ export function SupabaseLibraryManager() {
   const [checkoutModal, setCheckoutModal] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [bookForm, setBookForm] = useState({ title: "", author: "", category: "Kajian Islam", isbn: "", totalCopies: 1, shelf: "" });
-  const [checkoutForm, setCheckoutForm] = useState({ studentId: "", bookId: "", borrowedOn: localDate(), dueOn: localDate(14) });
+  const [checkoutForm, setCheckoutForm] = useState({ studentId: "", bookId: "", borrowedOn: emptySnapshot.businessDate, dueOn: addCalendarDays(emptySnapshot.businessDate, 14) });
   const canManage = ["Admin", "SuperAdmin", "Ustadz"].includes(role) && user?.modulePermissions?.library !== false;
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<Snapshot> => {
     const payload = await requestLibrary("/api/library/snapshot");
-    setSnapshot({
+    const businessDate = isCalendarDate(payload.businessDate) ? payload.businessDate : tenantBusinessDate();
+    const nextSnapshot: Snapshot = {
+      businessDate,
       books: Array.isArray(payload.books) ? payload.books : [],
       students: Array.isArray(payload.students) ? payload.students : [],
-      circulations: markOverdue(Array.isArray(payload.circulations) ? payload.circulations : []),
-    });
+      circulations: markOverdue(Array.isArray(payload.circulations) ? payload.circulations : [], businessDate),
+    };
+    setSnapshot(nextSnapshot);
+    return nextSnapshot;
   }, []);
 
   useEffect(() => {
@@ -63,7 +61,10 @@ export function SupabaseLibraryManager() {
     setLoading(true); setError("");
     requestLibrary("/api/library/snapshot")
       .then((payload) => {
-        if (active) setSnapshot({ books: Array.isArray(payload.books) ? payload.books : [], students: Array.isArray(payload.students) ? payload.students : [], circulations: markOverdue(Array.isArray(payload.circulations) ? payload.circulations : []) });
+        if (active) {
+          const businessDate = isCalendarDate(payload.businessDate) ? payload.businessDate : tenantBusinessDate();
+          setSnapshot({ businessDate, books: Array.isArray(payload.books) ? payload.books : [], students: Array.isArray(payload.students) ? payload.students : [], circulations: markOverdue(Array.isArray(payload.circulations) ? payload.circulations : [], businessDate) });
+        }
       })
       .catch((loadError: any) => { if (active) setError(loadError?.message || "Data perpustakaan belum dapat dimuat."); })
       .finally(() => { if (active) setLoading(false); });
@@ -81,7 +82,7 @@ export function SupabaseLibraryManager() {
     return snapshot.circulations.filter((item) => !needle || [item.bookTitle, item.student, item.nis]
       .some((value) => String(value || "").toLocaleLowerCase("id-ID").includes(needle)));
   }, [search, snapshot.circulations]);
-  const isOverdue = (item: Circulation) => item.status !== "Returned" && item.dueDate < localDate();
+  const isOverdue = (item: Circulation) => item.status !== "Returned" && item.dueDate < snapshot.businessDate;
   const activeLoans = snapshot.circulations.filter((item) => item.status !== "Returned").length;
   const overdueLoans = snapshot.circulations.filter(isOverdue).length;
   const availableCopies = snapshot.books.reduce((sum, book) => sum + book.availableCopies, 0);
@@ -90,6 +91,21 @@ export function SupabaseLibraryManager() {
     setError(""); setEditingBook(book || null);
     setBookForm(book ? { title: book.title, author: book.author, category: book.category, isbn: book.isbn, totalCopies: book.totalCopies, shelf: book.shelf } : { title: "", author: "", category: "Kajian Islam", isbn: "", totalCopies: 1, shelf: "" });
     setBookModal(true);
+  };
+
+  const openCheckoutForm = async () => {
+    setError("");
+    try {
+      const latest = await refresh();
+      if (!latest.students.length || !latest.books.some((book) => book.availableCopies > 0)) {
+        setError("Tidak ada santri atau eksemplar buku yang tersedia saat ini.");
+        return;
+      }
+      setCheckoutForm({ studentId: "", bookId: "", borrowedOn: latest.businessDate, dueOn: addCalendarDays(latest.businessDate, 14) });
+      setCheckoutModal(true);
+    } catch (loadError: any) {
+      setError(loadError?.message || "Data terbaru belum dapat dimuat.");
+    }
   };
 
   const submitBook = async (event: React.FormEvent) => {
@@ -105,7 +121,7 @@ export function SupabaseLibraryManager() {
     event.preventDefault(); setSaving(true); setError("");
     try {
       await requestLibrary("/api/library/checkout", { method: "POST", body: JSON.stringify({ checkout: { ...checkoutForm, clientRequestId: crypto.randomUUID() } }) });
-      setCheckoutModal(false); setCheckoutForm({ studentId: "", bookId: "", borrowedOn: localDate(), dueOn: localDate(14) }); await refresh();
+      setCheckoutModal(false); setCheckoutForm({ studentId: "", bookId: "", borrowedOn: snapshot.businessDate, dueOn: addCalendarDays(snapshot.businessDate, 14) }); await refresh();
     } catch (checkoutError: any) { setError(checkoutError?.message || "Peminjaman belum dapat dicatat."); }
     finally { setSaving(false); }
   };
@@ -114,7 +130,10 @@ export function SupabaseLibraryManager() {
     if (!window.confirm(`Catat pengembalian ${circulation.bookTitle} dari ${circulation.student}?`)) return;
     setSaving(true); setError("");
     try {
-      await requestLibrary("/api/library/returns", { method: "POST", body: JSON.stringify({ return: { circulationId: circulation.id, returnedOn: localDate(), clientRequestId: crypto.randomUUID() } }) });
+      const latest = await refresh();
+      const current = latest.circulations.find((item) => item.id === circulation.id);
+      if (!current || current.status === "Returned") throw new Error("Transaksi peminjaman ini sudah berubah. Periksa data terbaru.");
+      await requestLibrary("/api/library/returns", { method: "POST", body: JSON.stringify({ return: { circulationId: circulation.id, returnedOn: latest.businessDate, clientRequestId: crypto.randomUUID() } }) });
       await refresh();
     } catch (returnError: any) { setError(returnError?.message || "Pengembalian belum dapat dicatat."); }
     finally { setSaving(false); }
@@ -124,7 +143,7 @@ export function SupabaseLibraryManager() {
     <main className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between dark:border-slate-800">
         <div><div className="mb-2 inline-flex rounded-lg bg-slate-100 p-2.5 dark:bg-slate-800"><BookOpen className="h-5 w-5 text-slate-700 dark:text-slate-200" /></div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Perpustakaan</h1><p className="mt-1 text-sm text-slate-500">Katalog dan peminjaman tenant dikelola melalui Supabase.</p></div>
-        <div className="flex flex-wrap gap-2">{canManage && activeTab === "catalog" && <button onClick={() => openBookForm()} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"><Plus className="h-4 w-4" /> Tambah buku</button>}{canManage && activeTab === "circulation" && <button onClick={() => setCheckoutModal(true)} disabled={!snapshot.students.length || !snapshot.books.some((book) => book.availableCopies > 0)} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><Plus className="h-4 w-4" /> Catat peminjaman</button>}<button onClick={() => { setLoading(true); setError(""); void refresh().catch((refreshError: any) => setError(refreshError?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} aria-label="Muat ulang perpustakaan" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><RefreshCw className="h-4 w-4" /></button></div>
+        <div className="flex flex-wrap gap-2">{canManage && activeTab === "catalog" && <button onClick={() => openBookForm()} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"><Plus className="h-4 w-4" /> Tambah buku</button>}{canManage && activeTab === "circulation" && <button onClick={openCheckoutForm} disabled={!snapshot.students.length || !snapshot.books.some((book) => book.availableCopies > 0)} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><Plus className="h-4 w-4" /> Catat peminjaman</button>}<button onClick={() => { setLoading(true); setError(""); void refresh().catch((refreshError: any) => setError(refreshError?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} aria-label="Muat ulang perpustakaan" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><RefreshCw className="h-4 w-4" /></button></div>
       </header>
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">Mode Supabase berisi katalog dan peminjaman. Aset digital dan pembayaran denda belum diaktifkan karena file belum memakai penyimpanan privat dan transaksi Finance belum bermigrasi.</div>
@@ -150,3 +169,4 @@ export function SupabaseLibraryManager() {
     </main>
   );
 }
+

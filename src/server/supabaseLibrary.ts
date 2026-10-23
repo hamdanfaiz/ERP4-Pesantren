@@ -1,3 +1,5 @@
+import { tenantBusinessDate } from "../utils/businessDate";
+
 type Row = Record<string, any>;
 
 export class SupabaseLibraryError extends Error {
@@ -66,11 +68,11 @@ function canonicalIsbn(value: unknown) {
   return canonical;
 }
 
-async function resolveTenantId(identifier: string) {
+async function resolveTenant(identifier: string) {
   const normalized = String(identifier || "").trim();
   if (!normalized) throw new SupabaseLibraryError(403, "Tenant aktif tidak ditemukan.");
   const find = async (column: "id" | "legacy_tenant_key" | "slug", value: string) => {
-    const params = new URLSearchParams({ select: "id,status", [column]: "eq." + value, limit: "2" });
+    const params = new URLSearchParams({ select: "id,status,time_zone", [column]: "eq." + value, limit: "2" });
     return request("/rest/v1/tenants?" + params.toString());
   };
   let rows: Row[] = [];
@@ -88,7 +90,14 @@ async function resolveTenantId(identifier: string) {
   if (rows.length !== 1 || String(rows[0]?.status || "").toLowerCase() !== "active") {
     throw new SupabaseLibraryError(403, "Tenant aktif tidak ditemukan di Supabase.");
   }
-  return String(rows[0].id);
+  return {
+    id: String(rows[0].id),
+    timeZone: String(rows[0].time_zone || "Asia/Jakarta"),
+  };
+}
+
+async function resolveTenantId(identifier: string) {
+  return (await resolveTenant(identifier)).id;
 }
 
 async function tenantRows(table: string, tenantId: string, select: string, order: string, extra: Record<string, string> = {}) {
@@ -99,7 +108,9 @@ async function tenantRows(table: string, tenantId: string, select: string, order
 }
 
 export async function listSupabaseLibrarySnapshot(tenantIdentifier: string) {
-  const tenantId = await resolveTenantId(tenantIdentifier);
+  const tenant = await resolveTenant(tenantIdentifier);
+  const tenantId = tenant.id;
+  const businessDate = tenantBusinessDate(new Date(), tenant.timeZone);
   const [books, circulations, students] = await Promise.all([
     tenantRows("library_books", tenantId, "id,title,author,category,isbn,total_copies,shelf,status", "title.asc,id.asc", { status: "eq.active" }),
     tenantRows("library_circulations", tenantId, "id,book_id,student_id,borrowed_on,due_on,returned_on,status", "borrowed_on.desc,id.desc"),
@@ -114,6 +125,7 @@ export async function listSupabaseLibrarySnapshot(tenantIdentifier: string) {
     counts.set(String(circulation.book_id), (counts.get(String(circulation.book_id)) || 0) + 1);
   }
   return {
+    businessDate,
     books: books.map((book) => ({
       id: String(book.id), title: String(book.title), author: String(book.author), category: String(book.category),
       isbn: String(book.isbn || ""), totalCopies: Number(book.total_copies), shelf: String(book.shelf || ""),
@@ -238,3 +250,4 @@ export async function applySupabaseLegacyLibraryBooks(
     body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_snapshot_fingerprint: snapshotFingerprint, p_source_count: sourceCount, p_rows: items }),
   });
 }
+

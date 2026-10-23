@@ -151,3 +151,9 @@ Pemeriksaan metadata seluruh 561 dokumen root tidak menemukan subkoleksi pada da
 Sampai preview per domain dan mapping Supabase diverifikasi, tidak ada perubahan data produksi.
 
 Jangan mengaktifkan feature flag import di production, jangan mengirim service-account key atau token lewat chat, dan jangan menghapus Firebase sebelum backup serta proses restore Supabase diuji.
+
+### Audit logic kalender bisnis — 23 Oktober 2026
+
+Checkout Koperasi kini memvalidasi dan memakai `tenants.time_zone` untuk menentukan transaksi yang masuk ke batas belanja harian; dashboard dan waktu riwayat juga memakai kalender tenant. Migration `20261209000000_cooperative_tenant_business_day.sql` dan tes pgTAP transaksional tersedia pada branch pengembangan. Helper tanggal bisnis juga dipakai pada checkout/pengembalian Library agar hasil antarperangkat konsisten.
+
+Validasi lokal: 12 kasus helper tanggal bisnis, lint, dan build lulus. pgTAP harus lulus di CI/test stack terisolasi sebelum migration diterapkan. Perubahan ini tidak mengimpor atau mengubah data Supabase live dan tidak menyelesaikan rekonsiliasi 4 buku/1 sirkulasi Library maupun 6 inventory/3 pemasok/3 transaksi/3 wallet Koperasi dari arsip Firebase.

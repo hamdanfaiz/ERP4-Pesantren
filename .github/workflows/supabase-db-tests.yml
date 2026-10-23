@@ -45,6 +45,9 @@ jobs:
       - name: Verify legacy Firestore tenant scoping
         run: npm run test:legacy-firestore-tenant-scope
 
+      - name: Verify tenant business-day calculations
+        run: npm run test:business-date
+
       - name: Build client and server
         run: bun run build
 

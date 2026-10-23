@@ -343,3 +343,9 @@ Branch `codex/supabase-runtime-cutover-20261022` pada commit `fe0d50ec5096ce4476
 Bukti yang lulus mencakup typecheck/build, pemeriksaan runtime produksi tanpa Firebase, build dan smoke test Docker/Compose, seluruh migrasi serta pgTAP, reservasi NIS serentak, importer Library/HRIS/PPDB, workflow Alumni, API auth/isolasi tenant, unggah bukti Finance ke Storage, dan backup/restore Supabase lokal. Data uji bersifat sintetis dan database Supabase yang dipakai terisolasi di CI.
 
 Bukti ini **tidak** berarti migrasi telah diterapkan ke project Supabase target, kredensial pengguna telah diuji, seluruh gap fitur legacy telah tertutup, atau aplikasi siap go-live. PR #13 masih open dan tidak di-merge. Tidak ada record maupun schema pada Supabase live yang diubah. Pernyataan checkpoint lama yang menyebut assertion HRIS belum dieksekusi merujuk kondisi sebelum run ini.
+
+## Checkpoint: kalender bisnis Library dan Koperasi — 23 Oktober 2026
+
+Logic transaksi Library kini memakai tanggal kalender tenant untuk menghitung keterlambatan, mengisi tanggal peminjaman/pengembalian, dan memuat ulang kondisi terbaru sebelum transaksi. Koperasi kini memakai zona waktu yang sama untuk KPI “Transaksi hari ini”, cap waktu riwayat, dan batas belanja harian pada checkout. Batas checkout dihitung sebagai rentang lokal `[mulai hari, mulai besok)`, sehingga pergantian DST juga dihitung dengan benar; penguncian wallet dan posting atomik tetap dipertahankan.
+
+Perubahan kode memakai helper tanggal bisnis bersama dan migration baru `20261209000000_cooperative_tenant_business_day.sql`. Uji sintetis tanggal tenant lulus 12 kasus; typecheck dan build lulus. Tes pgTAP Koperasi ditambahkan ke suite CI, tetapi belum dijalankan lokal karena Supabase CLI/Docker tidak tersedia. Migration 07/08/09 belum dinyatakan terpasang di project live; tidak ada schema atau data live yang ditulis. PR #13 tetap draft sampai rekonsiliasi migrasi, import data, login, dan akses tenant selesai.

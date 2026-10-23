@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { businessDateForInstant, DEFAULT_TENANT_TIME_ZONE, tenantBusinessDate } from "../utils/businessDate";
 
 type Row = Record<string, any>;
 
@@ -51,7 +52,8 @@ async function callRpc<T = any>(name: string, args: Row): Promise<T> {
 
 export async function getSupabaseCooperativeSnapshot(tenantId: string) {
   assertUuid(tenantId, "Tenant");
-  const [products, suppliers, wallets, sales, saleItems, ledger] = await Promise.all([
+  const [tenantResult, products, suppliers, wallets, sales, saleItems, ledger] = await Promise.all([
+    client().from("tenants").select("time_zone").eq("id", tenantId).eq("status", "active").maybeSingle(),
     rows("cooperative_products", tenantId, "id,sku,name,category,stock_quantity,cost_price,unit_price,reorder_point,expiry_date,status,updated_at", "name.asc"),
     rows("cooperative_suppliers", tenantId, "id,name,category,contact,pic,status,updated_at", "name.asc"),
     rows("cooperative_wallets", tenantId, "id,student_id,balance,daily_limit,status,updated_at", "student_id.asc"),
@@ -59,6 +61,15 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
     rows("cooperative_sale_items", tenantId, "id,sale_id,product_id,sku_snapshot,name_snapshot,quantity,cost_price,unit_price,line_total,created_at", "created_at.asc", 20000),
     rows("cooperative_wallet_ledger", tenantId, "id,wallet_id,student_id,sale_id,entry_type,amount_delta,balance_after,reference,created_at", "created_at.desc", 5000),
   ]);
+  if (tenantResult.error) mapStoreError(tenantResult.error);
+  if (!tenantResult.data) throw new SupabaseCooperativeError(403, "Tenant aktif tidak ditemukan.");
+  const timeZone = String(tenantResult.data.time_zone || DEFAULT_TENANT_TIME_ZONE);
+  let businessDate: string;
+  try {
+    businessDate = tenantBusinessDate(new Date(), timeZone);
+  } catch {
+    throw new SupabaseCooperativeError(503, "Zona waktu tenant tidak valid untuk ringkasan koperasi.");
+  }
 
   const studentIds = [...new Set(wallets.map((wallet) => String(wallet.student_id || "")).filter(Boolean))];
   const studentById = new Map<string, Row>();
@@ -89,6 +100,8 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
   const walletById = new Map(wallets.map((wallet) => [String(wallet.id), wallet]));
 
   return {
+    timeZone,
+    businessDate,
     products: products.map((item) => ({ ...item, stock: Number(item.stock_quantity), costPrice: Number(item.cost_price), price: Number(item.unit_price), reorderPoint: Number(item.reorder_point), expiryDate: item.expiry_date || "" })),
     suppliers,
     wallets: wallets.map((wallet) => {
@@ -114,6 +127,7 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
         studentName: student?.name || "Santri tidak aktif",
         grade: student?.grade || student?.class_id || "",
         date: sale.created_at,
+        businessDate: businessDateForInstant(String(sale.created_at), timeZone),
         total: Number(sale.total_amount),
         status: "Success",
         items: itemsBySale.get(String(sale.id)) || [],
@@ -173,3 +187,4 @@ export async function checkoutSupabaseCooperativeSale(tenantId: string, actorId:
   }
   return callRpc("checkout_cooperative_wallet_sale", { p_tenant_id: tenantId, p_actor_user_id: actorId, p_wallet_id: input.walletId, p_items: input.items.map((line: Row) => ({ product_id: line.productId, quantity: line.quantity })), p_request_id: input.clientRequestId });
 }
+
