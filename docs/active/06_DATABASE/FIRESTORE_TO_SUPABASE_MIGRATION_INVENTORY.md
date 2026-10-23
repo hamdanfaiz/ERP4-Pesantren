@@ -88,6 +88,21 @@ Pencarian source code menemukan importer atau jalur migrasi yang mengharapkan su
 | `users` | 1 | 1 |
 
   Totalnya 560 dokumen di luar registry tenant; 559 dokumen operasional tidak mempunyai `tenantId`. Satu dokumen `tenants` adalah registry tenant sehingga tidak diharapkan memiliki `tenantId` yang menunjuk dirinya sendiri. Satu profil pada `users` memiliki `tenantId=pesantren-digital`, sesuai kunci dokumen tenant sumber.
+
+### Struktur data yang diamati (tanpa nilai dokumen)
+
+Pemeriksaan skema membaca nama field dan tipe Firestore, tanpa mencetak atau menyimpan nilai pribadi:
+
+- `master_data` (453 dokumen) memakai 13 kategori: Active Role 3, Active Unit 10, Alumni 50, Asatidz 50, Gedung 15, Guru 50, Halaqah 40, Kamar 50, Kampus 5, Kelas 30, Pegawai 50, Santri 50, dan Wali Santri 50.
+- `entityRecords` (14 dokumen) terbagi menjadi 7 Santri dan 7 Wali Santri. `master_data` juga memiliki masing-masing 50 Santri dan Wali Santri. Kedua sumber berpotensi berisi identitas yang sama; jangan menggabungkannya berdasarkan nama saja. Rekonsiliasi memakai ID sumber, NIS/NISN/NIK yang telah diproses secara aman, dan relasi wali diperlukan.
+- `candidates` (50 dokumen) memiliki tahap: Registered 9, Document Review 11, Entry Exam 6, Interview 7, Accepted 8, Rejected 9. `examSlot`, `interviewSlot`, dan `score` berisi null pada sebagian record; importer harus mempertahankan null secara eksplisit.
+- Field bernama `nik`/`nisn` ditemukan di `candidates`, `entityRecords`, dan `master_data`. Jangan tulis nilainya ke log atau fingerprint yang dapat dibaca klien; transformasi ke kolom terenkripsi harus berlangsung di server.
+- Field tanggal yang diamati, termasuk `dateApplied`, `dob`, `createdAt`, `updatedAt`, dan `date`, tersimpan sebagai string pada koleksi yang diperiksa, bukan sebagai Firestore timestamp. Parsing/normalisasi format harus eksplisit; jangan mengandalkan cast otomatis.
+- `cooperative_transactions.items` adalah array berisi objek `name`, `price`, dan `qty` (4 item detail pada 3 transaksi). Saldo wallet dan total transaksi adalah angka; migrasi harus mencocokkan detail item, total, dan saldo.
+- `marketplace_orders.items` adalah angka jumlah item pada kelima order, bukan array detail baris. Dengan sumber ini, `marketplace_order_items` tidak dapat direkonstruksi; jangan membuat baris order sintetis.
+- `lms_courses.modules` menyimpan array modul dan materi bertingkat; hanya satu modul beserta satu materi teramati pada snapshot ini. Relasi course, module, dan material perlu mempertahankan ID sumber.
+- `users` hanya memiliki field profil `email`, `role`, `status`, dan `tenantId`; field password tidak ditemukan pada dokumen profil ini. Ini tidak mencakup kredensial Firebase Auth.
+
 - Pemeriksaan agregat khusus Tahfidz menemukan 40 record kategori Halaqah pada `master_data` dan 7 record tipe Santri pada `entityRecords`; semua record yang relevan itu tidak memiliki `tenantId`.
 - Endpoint migrasi selain Tahfidz masih memfilter Firestore dengan `tenantId == kunci tenant legacy`; karena dokumen-dokumen itu tidak memiliki field tersebut, endpoint tersebut melewatkan data tenantless. Jangan apply modul-modul tersebut sebelum loader dan laporan ownership diperbaiki.
 - Route migrasi Tahfidz pada PR ini sekarang membaca snapshot terbatas, hanya memilih record Halaqah/Santri, dan mengaudit `tenantId`. Record tanpa tenant dapat dipetakan **dalam memori untuk preview** hanya jika registry Firestore berisi tepat satu tenant yang cocok dengan kunci sumber. Jika `legacy_tenant_key` Supabase kosong, preview dapat memakai satu-satunya kunci sumber tetapi memberi `canApply=false`. Apply memerlukan mapping tersimpan, fingerprint terbaru, dan konfirmasi tenantless ownership yang sama dengan kunci sumber. Jika registry ambigu atau ada tenant field yang invalid, apply diblokir.
