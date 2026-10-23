@@ -775,7 +775,7 @@ export function SettingsManager() {
                   </div>
                   <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-3 space-y-1 text-xs text-slate-500 dark:text-slate-400">
                     <p>Jangan masukkan Server Key di sini. Simpan sebagai secret server bernama <code>PAYMENT_GATEWAY_SECRET_KEY</code> di Cloud Run Secret Manager.</p>
-                    <p>Pembuatan transaksi gateway dan uji koneksi belum tersedia di backend; pilihan provider hanya konfigurasi, bukan bukti koneksi.</p>
+                    <p>Pembuatan transaksi melalui layanan pembayaran dan uji koneksi belum tersedia di backend; pilihan penyedia hanya mengatur konfigurasi, bukan bukti koneksi.</p>
                   </div>
                 </div>
 
@@ -946,7 +946,7 @@ export function SettingsManager() {
                   <section className="p-5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3" aria-labelledby="settings-import-title">
                     <div>
                       <h3 id="settings-import-title" className="font-semibold text-sm text-slate-800 dark:text-slate-200">Migrasi Pengaturan Tenant dari Firestore</h3>
-                      <p className="text-xs text-slate-500 mt-1">Preview membaca snapshot tenant aktif dan membuang field credential. Terapkan hanya setelah memeriksa nama pesantren dan tahun ajaran.</p>
+                      <p className="text-xs text-slate-500 mt-1">Pratinjau membaca data sumber pesantren aktif dan mengabaikan kolom kredensial. Terapkan hanya setelah memeriksa nama pesantren dan tahun ajaran.</p>
                     </div>
                     {settingsMigrationError && <p role="alert" className="text-xs text-rose-500">{settingsMigrationError}</p>}
                     {settingsMigrationReport && (
@@ -955,7 +955,7 @@ export function SettingsManager() {
                         <p>Pesantren: <strong>{settingsMigrationReport.settings?.orgInfo?.schoolName || '—'}</strong></p>
                         <p>Tahun ajaran: <strong>{settingsMigrationReport.settings?.generalSettings?.academicYear || '—'}</strong></p>
                         <p className="break-all text-slate-500">Sidik digital: {settingsMigrationReport.previewFingerprint}</p>
-                        {settingsMigrationReport.alreadyImported && <p className="text-emerald-600">Snapshot ini sudah pernah diimpor.</p>}
+                        {settingsMigrationReport.alreadyImported && <p className="text-emerald-600">Data sumber ini sudah pernah diimpor.</p>}
                       </div>
                     )}
                     <div className="flex flex-wrap gap-2">
