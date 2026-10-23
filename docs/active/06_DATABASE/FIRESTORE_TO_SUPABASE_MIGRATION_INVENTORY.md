@@ -19,7 +19,7 @@ Pemilik proyek menyatakan seluruh data Firestore tersebut adalah data dummy. Inv
 
 Project yang sama memiliki database Firestore terpisah dengan ID app `ai-studio-a116e14b-1aa6-4667-8bdb-f0af384ccfa8`. Database itu menampilkan lima koleksi tingkat atas, termasuk `cbt_questions`, sedangkan koleksi tersebut tidak tampak pada daftar database kanonis. Karena aplikasi menunjuk database bernama ERP4, database terpisah ini **tidak dimasukkan** ke sumber migrasi tanpa rekonsiliasi lebih lanjut. Kemunculan `cbt_questions` di sana tidak membuktikan bahwa itu bagian dari snapshot ERP kanonis.
 
-Daftar tingkat atas belum menginventarisasi subkoleksi, file Firebase Storage, jumlah seluruh dokumen, atau bentuk skema lengkap. Nama koleksi yang tidak ditemukan pada daftar ini mungkin berada di subkoleksi, data lokal/browser, atau sumber lain.
+Inventaris baca-saja pada 23 Oktober 2026 telah menghitung dokumen tingkat atas dan nama field tingkat atas. Inventaris ini belum mencakup subkoleksi, Firebase Storage, struktur field bertingkat secara lengkap, atau nilai dokumen. Nama koleksi yang tidak ditemukan pada daftar ini mungkin berada di subkoleksi, data lokal/browser, atau sumber lain.
 
 ## Pemetaan awal dan kesiapan importer
 
@@ -62,15 +62,37 @@ Pencarian source code menemukan importer atau jalur migrasi yang mengharapkan su
 
 ## Status saat ini
 
-- Sumber kanonis ditetapkan dari konfigurasi aplikasi dan inventaris nama koleksi tingkat atas.
-- Pengguna mengonfirmasi dataset Firestore adalah dummy.
-- Pemeriksaan baca-saja tenant pada 23 Oktober 2026: dokumen sumber Firestore berada di `tenants/pesantren-digital`; project Supabase tujuan memiliki baris tenant dengan slug `pesantren-digital`, tetapi `legacy_tenant_key` masih `NULL`. Sampel dokumen `candidates` yang dibuka tidak menampilkan `tenantId`; ini belum membuktikan keadaan semua dokumen. Karena itu pemetaan sumber-target belum lengkap dan importer tidak boleh dijalankan sampai seluruh kepemilikan tenant diverifikasi serta mapping disiapkan di environment non-produksi.
-- Spot-check skema baca-saja di Firestore Console pada contoh dokumen dari `cbt_config`, `cooperative_suppliers`, `cooperative_transactions`, `cooperative_wallets`, `entityRecords`, `library_books`, `library_circulations`, `lms_assessments`, dan `lms_categories` juga tidak menemukan field `tenantId`; contoh dokumen `users` memilikinya. Ini hanya sampel, bukan bukti untuk seluruh koleksi. Jangan mengisi tenant berdasarkan tebakan; importer harus menolak atau mengarantina record yang kepemilikan tenant-nya belum diverifikasi.
-- Belum ada ekspor atau penyalinan record/file ke lokal maupun Supabase.
-- Belum ada hitungan lengkap, inspeksi subkoleksi/Storage, dry-run importer terhadap dataset, atau rekonsiliasi target Supabase.
-- Database alternatif yang memuat `cbt_questions` belum digabungkan ke snapshot kanonis.
-- PR cutover tetap draft; dokumentasi ini tidak menerapkan migrasi database atau mengubah runtime.
+- Sumber kanonis tetap database Firestore bernama ERP4 pada project `graphite-ship-q5xj8`.
+- Pemilik proyek menyatakan dataset Firestore adalah data dummy. Pembacaan di bawah hanya menghasilkan hitungan dan nama field; nilai dokumen tidak dicetak, disimpan, atau disalin ke repository.
+- Pada 23 Oktober 2026, ADC berhasil dipakai untuk inventaris baca-saja REST Firestore. Ditemukan 18 koleksi root dan 561 dokumen:
 
+| Koleksi | Dokumen | Memiliki `tenantId` |
+|---|---:|---:|
+| `candidates` | 50 | 0 |
+| `cbt_config` | 1 | 0 |
+| `cooperative_inventory` | 6 | 0 |
+| `cooperative_suppliers` | 3 | 0 |
+| `cooperative_transactions` | 3 | 0 |
+| `cooperative_wallets` | 3 | 0 |
+| `entityRecords` | 14 | 0 |
+| `library_books` | 4 | 0 |
+| `library_circulations` | 1 | 0 |
+| `library_digital_assets` | 4 | 0 |
+| `lms_assessments` | 1 | 0 |
+| `lms_categories` | 1 | 0 |
+| `lms_courses` | 2 | 0 |
+| `marketplace_orders` | 5 | 0 |
+| `marketplace_products` | 8 | 0 |
+| `master_data` | 453 | 0 |
+| `tenants` | 1 | — |
+| `users` | 1 | 1 |
+
+  Totalnya 560 dokumen di luar registry tenant; 559 dokumen operasional tidak mempunyai `tenantId`. Satu dokumen `tenants` adalah registry tenant sehingga tidak diharapkan memiliki `tenantId` yang menunjuk dirinya sendiri. Satu profil pada `users` memiliki `tenantId=pesantren-digital`, sesuai kunci dokumen tenant sumber.
+- Pembacaan source code PR menunjukkan endpoint migrasi domain memfilter Firestore dengan `where("tenantId", "==", legacyTenantKey)`. Karena 559 dokumen operasional tidak menyimpan field itu, jalur tersebut tidak akan menemukan record-record itu. Jangan menjalankan `apply`; diperlukan aturan pemetaan tenant yang eksplisit, preview yang mencakup seluruh record, serta penanganan record tanpa kepemilikan yang bisa dibuktikan.
+- Pemeriksaan Supabase baca-saja sebelumnya melihat tenant dengan slug `pesantren-digital`, tetapi `legacy_tenant_key` masih `NULL`. Selain pemetaan Firestore yang hilang, nilai mapping Supabase ini harus ditetapkan dan diverifikasi pada environment non-produksi sebelum preview dapat dianggap siap.
+- Belum ada ekspor Firestore, pembacaan subkoleksi atau Firebase Storage, dry-run importer terhadap seluruh dataset, maupun penulisan ke Supabase.
+- Database alternatif yang memuat `cbt_questions` belum direkonsiliasi dengan sumber kanonis.
+- PR cutover tetap draft; pembaruan inventaris ini tidak mengubah runtime atau database.
 
 ## Jalur migrasi server-side yang sudah tersedia
 
@@ -99,6 +121,13 @@ Jalur tersebut belum mencakup seluruh koleksi kanonis. Root `candidates`, empat 
 
 ## Batas akses yang teramati dan langkah pembuka
 
-Halaman Import/Export Google Cloud untuk database kanonis menonaktifkan tombol Import dan Export dan menyatakan identitas Google yang sedang digunakan tidak memiliki izin yang diperlukan. Cloud Shell juga nonaktif pada sesi Starter Tier. Karena itu, jalur ekspor konsol belum dapat dipakai dari sesi ini. Ini tidak meniadakan endpoint migrasi server-side di atas, tetapi kredensial ADC dan akses Firestore untuk proses development belum tersedia/terverifikasi di workspace ini.
+Halaman Import/Export Google Cloud untuk database kanonis masih menonaktifkan tombol Import dan Export pada sesi Starter Tier. Namun, ADC dengan scope `cloud-platform` kini berhasil mengambil token dan Firestore REST API berhasil dipakai untuk membaca ID koleksi, jumlah dokumen, serta nama field tingkat atas. Tidak ada ekspor atau operasi tulis yang dijalankan. ADC tersimpan di konfigurasi sementara di luar direktori repository; jangan menyalin file kredensial itu ke repository atau chat.
 
-Langkah pembuka yang disarankan adalah menjalankan server migrasi di environment development tepercaya dengan ADC yang memiliki akses baca Firestore dan akses layanan Supabase. Jangan mengaktifkan flag di production; jangan mengirim service-account key atau token melalui chat. Jika jalur development itu belum dapat disediakan, project owner/tim backend dapat membuat snapshot server-side terbatas dan menyerahkannya melalui kanal file aman. Tahap pertama setelah akses tersedia tetap pratinjau per tenant; belum ada ekspor, apply, atau penulisan ke Supabase yang dijalankan.
+Inventaris root ini belum membuktikan isi subkoleksi atau Firebase Storage. Karena dokumen operasional tidak memiliki `tenantId`, endpoint import yang hanya membaca berdasarkan field tersebut tidak dapat menjadi satu-satunya jalur migrasi. Langkah aman berikutnya:
+
+1. Backend team menetapkan aturan pemetaan sumber ke tenant tujuan secara eksplisit dan menambahkan mode preview yang dapat membaca record tenantless tanpa menulis data. Jika snapshot hanya berisi satu pesantren, kebijakan pemetaan itu harus dinyatakan eksplisit dan setiap koleksi harus tercakup dalam preview.
+2. Jalankan preview pada environment Supabase non-produksi setelah `legacy_tenant_key` tenant tujuan disiapkan; tampilkan hitungan siap, ditolak, duplikat, dan konflik tanpa memuat nilai identitas.
+3. Inventarisasi subkoleksi dan Firebase Storage, lalu rekonsiliasi jumlah sumber dan target.
+4. Baru setelah dry-run, tenant isolation, serta rekonsiliasi lulus, rencanakan apply terkontrol. Sampai saat itu tidak ada perubahan produksi yang dilakukan.
+
+Jangan mengaktifkan feature flag import di production, jangan mengirim service-account key atau token lewat chat, dan jangan menghapus Firebase sebelum backup serta proses restore Supabase diuji.
