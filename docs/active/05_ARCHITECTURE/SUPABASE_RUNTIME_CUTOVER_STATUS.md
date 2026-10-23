@@ -335,3 +335,11 @@ Sebelas kasus sintetik HRIS lulus. Migration dan 19 assertion pgTAP telah disiap
 ## Integrasi branch dan validasi logic — 23 Oktober 2026
 
 Perubahan Alumni, importer PPDB/perpustakaan/HRIS, UI terkait, dan uji regresi lokal diintegrasikan dengan head GitHub terbaru tanpa mengganti pembaruan tenant-ownership remote. Perubahan migrasi tetap berupa kode dan preview baca-saja; tidak ada data atau schema yang ditulis ke Supabase live. Jalur import tetap fail-closed dan harus melewati CI terisolasi sebelum rilis.
+
+## Checkpoint terbaru: validasi CI cutover dan pgTAP — 23 Oktober 2026
+
+Branch `codex/supabase-runtime-cutover-20261022` pada commit `fe0d50ec5096ce44760ad3b6403cfe27ce71790d` lulus pada [GitHub Actions run #39911744634](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/39911744634). Kedua job selesai sukses. Perbaikan pada checkpoint ini menutup satu kurung pemanggilan RPC yang hilang pada empat assertion awal di pgTAP HRIS dan Perpustakaan; uji perilaku impor kini berjalan sampai selesai.
+
+Bukti yang lulus mencakup typecheck/build, pemeriksaan runtime produksi tanpa Firebase, build dan smoke test Docker/Compose, seluruh migrasi serta pgTAP, reservasi NIS serentak, importer Library/HRIS/PPDB, workflow Alumni, API auth/isolasi tenant, unggah bukti Finance ke Storage, dan backup/restore Supabase lokal. Data uji bersifat sintetis dan database Supabase yang dipakai terisolasi di CI.
+
+Bukti ini **tidak** berarti migrasi telah diterapkan ke project Supabase target, kredensial pengguna telah diuji, seluruh gap fitur legacy telah tertutup, atau aplikasi siap go-live. PR #13 masih open dan tidak di-merge. Tidak ada record maupun schema pada Supabase live yang diubah. Pernyataan checkpoint lama yang menyebut assertion HRIS belum dieksekusi merujuk kondisi sebelum run ini.
