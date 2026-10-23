@@ -75,9 +75,9 @@ export function SupabaseLaundryManager() {
         method: "POST",
         body: JSON.stringify({ ...payload, clientRequestId: lease.requestId }),
       });
-      lease.clear();
       try {
         await refresh();
+        lease.clear();
         setNotice(success);
       } catch {
         setError("Perubahan laundry sudah tersimpan, tetapi daftar belum berhasil dimuat ulang. Klik Muat ulang.");
