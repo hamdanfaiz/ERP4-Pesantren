@@ -61,15 +61,15 @@ SELECT public.start_cbt_attempt(
 ) AS result;
 
 SELECT ok(result ? 'serverNow' AND jsonb_typeof(result->'serverNow')='string',
-  'start response includes a database time anchor');
+  'start response includes a database time anchor') FROM cbt_deadline_result;
 SELECT ok((result->>'serverNow')::timestamptz BETWEEN now()-interval '1 minute' AND now()+interval '1 second',
-  'server time anchor reflects the database clock');
+  'server time anchor reflects the database clock') FROM cbt_deadline_result;
 SELECT ok((result->>'expiresAt')::timestamptz > (result->>'serverNow')::timestamptz,
-  'active attempt deadline is later than server time');
+  'active attempt deadline is later than server time') FROM cbt_deadline_result;
 SELECT is((result->>'expired')::boolean,false,
-  'active attempt is not marked expired by the server');
+  'active attempt is not marked expired by the server') FROM cbt_deadline_result;
 SELECT ok(NOT ((result->'questions'->0) ? 'correctAnswer'),
-  'student start response does not expose the answer key');
+  'student start response does not expose the answer key') FROM cbt_deadline_result;
 
 SELECT * FROM finish();
 ROLLBACK;
