@@ -209,7 +209,7 @@ SELECT o.tenant_id,o.client_request_id,o.created_by,'create_order',
   public.marketplace_request_fingerprint(jsonb_build_object(
     'customerName',o.customer_name,'customerType',o.customer_type,
     'items',COALESCE((
-      SELECT jsonb_agg(jsonb_build_object('productId',i.product_id,'quantity',i.quantity) ORDER BY i.product_id)
+      SELECT jsonb_agg(jsonb_build_object('product_id',i.product_id,'quantity',i.quantity) ORDER BY i.product_id)
       FROM public.marketplace_order_items i
       WHERE i.tenant_id=o.tenant_id AND i.order_id=o.id
     ),'[]'::JSONB))),
