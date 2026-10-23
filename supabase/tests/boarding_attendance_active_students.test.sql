@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(12);
+SELECT plan(14);
 
 INSERT INTO public.tenants(id, slug, name, status)
 VALUES ('e2800000-0000-4000-8000-000000000009','boarding-active-student-test','Boarding Active Student Test','active');
@@ -80,6 +80,23 @@ SELECT is(public.set_boarding_attendance_status(
   '2026-10-23','Hadir','e2800000-0000-4000-8000-000000000011','admin',
   'e2800000-0000-4000-8000-000000000301'
 )->>'alreadyApplied','true','identical attendance retry is replayed');
+
+UPDATE public.students SET status='Inactive'
+WHERE id='e2800000-0000-4000-8000-000000000201';
+
+SELECT is(public.set_boarding_attendance_status(
+  'e2800000-0000-4000-8000-000000000009','e2800000-0000-4000-8000-000000000201',
+  '2026-10-23','Hadir','e2800000-0000-4000-8000-000000000011','admin',
+  'e2800000-0000-4000-8000-000000000301'
+)->>'alreadyApplied','true','identical attendance retry is replayed after student becomes inactive');
+
+SELECT throws_ok(
+  $q$SELECT public.set_boarding_attendance_status(
+    'e2800000-0000-4000-8000-000000000009','e2800000-0000-4000-8000-000000000201',
+    '2026-10-23','Hadir','e2800000-0000-4000-8000-000000000011','admin',
+    'e2800000-0000-4000-8000-000000000302'
+  )$q$,'P0002','Santri tidak ditemukan pada tenant ini',
+  'inactive student cannot be marked with a new request');
 
 SELECT is((SELECT count(*)::integer FROM public.boarding_attendance_events
   WHERE tenant_id='e2800000-0000-4000-8000-000000000009'),1,
