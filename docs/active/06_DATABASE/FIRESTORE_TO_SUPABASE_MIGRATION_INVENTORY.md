@@ -27,10 +27,10 @@ Inventaris baca-saja pada 23 Oktober 2026 menghitung dokumen tingkat atas dan na
 |---|---|---|
 | `candidates` | `candidates`, dan `candidate_documents` bila dokumen terpisah | Belum ditemukan importer snapshot PPDB. Alur penerimaan/onboarding bukan pengganti importer arsip. |
 | `cbt_config` | `cbt_exams`, penugasan ujian, dan konfigurasi terkait | Belum ada pemetaan importer dari `cbt_config`. Importer bank soal yang ada mengharapkan `cbt_questions`, yang tidak tampak di database kanonis. |
-| `cooperative_inventory` | `cooperative_products`, `cooperative_stock_movements` | Belum ditemukan importer batch; stok awal perlu direkonsiliasi dengan pergerakan stok. |
-| `cooperative_suppliers` | `cooperative_suppliers` | Belum ditemukan importer batch. |
-| `cooperative_transactions` | `cooperative_sales`, `cooperative_sale_items`, `cooperative_wallet_ledger`, serta pergerakan stok terkait | Belum ditemukan importer batch. Data transaksi perlu dipetakan urut waktu dan saldo harus cocok dengan ledger. |
-| `cooperative_wallets` | `cooperative_wallets` | Belum ditemukan importer batch. Saldo tidak boleh dipindah tanpa rekonsiliasi transaksi dan ledger. |
+| `cooperative_inventory` | `cooperative_products`, `cooperative_stock_movements` | Importer katalog preview-first tersedia: validasi SKU/harga/stok/tanggal, konflik, fingerprint, dan idempotency key. Stok awal serta pergerakannya dibuat atomik melalui RPC create produk. |
+| `cooperative_suppliers` | `cooperative_suppliers` | Importer katalog tersedia. Migration `20261210000000_cooperative_supplier_import_status.sql` mempertahankan status aktif/nonaktif dan menolak status tak dikenal. |
+| `cooperative_transactions` | `cooperative_sales`, `cooperative_sale_items`, `cooperative_wallet_ledger`, serta pergerakan stok terkait | Ditunda dari impor katalog sampai item dipetakan ke produk dan ledger direkonsiliasi secara kronologis. |
+| `cooperative_wallets` | `cooperative_wallets` | Ditunda dari impor katalog; nama santri tidak cukup untuk pemetaan ID dan saldo harus direkonsiliasi dengan ledger. |
 | `entityRecords` | `students`, `guardians`, `guardian_students`, dan data referensi | Importer santri/wali tersedia. Perlu pengelompokan tipe record, relasi wali, tenant, dan deduplikasi identitas sebelum dijalankan. Import Tahfidz juga memakai snapshot santri untuk keanggotaan. |
 | `library_books` | `library_books` | Runtime Supabase tersedia; importer arsip Firestore belum ditemukan. |
 | `library_circulations` | `library_circulations` | Runtime Supabase tersedia; importer arsip belum ditemukan. Relasi buku dan santri harus sudah dipetakan terlebih dahulu. |
@@ -130,12 +130,13 @@ Source PR #13 memiliki endpoint per modul di `server.ts` yang membaca Firestore 
 | Boarding | `POST /api/boarding/attendance/migrate` | `boarding_attendance` |
 | Boarding | `POST /api/boarding/facility-ops/migrate` | `boarding_audits`, `boarding_tickets` |
 | Tahfidz | `POST /api/tahfidz/migration` | `master_data` kategori Halaqah dan `entityRecords` tipe Santri |
+| Koperasi | `POST /api/cooperative/legacy/catalog-import` | empat koleksi Koperasi; hanya katalog diterapkan, wallet/transaksi ditandai deferred |
 | Komunikasi | `POST /api/communication/announcements/migrate` | `communication_announcements` |
 | Pengaturan tenant | `POST /api/system/settings/migrate` | `tenants/{tenant}/settings/global` |
 
 Endpoint migrasi memerlukan sesi Supabase yang terautentikasi dan otorisasi Admin sesuai domain. Setiap jalur apply dikendalikan feature flag `SUPABASE_*_IMPORT_ENABLED`; Firebase Admin hanya diizinkan saat `NODE_ENV=development` dan `LEGACY_FIREBASE_ADMIN_ENABLED=true`. SDK memakai Application Default Credentials, bukan private key yang disimpan di source code. Importer yang sudah ada menerapkan batas ukuran, pratinjau/fingerprint, dan penolakan konflik untuk domain tertentu.
 
-Jalur tersebut belum mencakup seluruh koleksi kanonis. Root `candidates`, empat koleksi koperasi, tiga koleksi perpustakaan, dan `users` belum memiliki importer penuh. Ada juga mismatch sumber penting: rute CBT mengharapkan `cbt_questions`, sedangkan koleksi itu hanya terlihat di database Firestore terpisah yang tidak dikonfigurasi aplikasi. Endpoint Akademik, UKS, GA, peminjaman fasilitas, boarding, dan komunikasi merujuk koleksi yang tidak tampak di root kanonis; keberadaan pada subkoleksi atau sumber lain belum diverifikasi.
+Jalur tersebut belum mencakup seluruh koleksi kanonis. Katalog inventory/pemasok Koperasi kini memiliki tahap impor bertahap; wallet/sales/ledger tetap deferred sampai rekonsiliasi identitas santri dan transaksi selesai. Sirkulasi/aset digital perpustakaan, root `candidates`, dan `users` masih memerlukan importer penuh. Ada mismatch sumber penting: rute CBT mengharapkan `cbt_questions`, sedangkan koleksi itu hanya terlihat di database Firestore terpisah yang tidak dikonfigurasi aplikasi. Endpoint Akademik, UKS, GA, peminjaman fasilitas, boarding, dan komunikasi merujuk koleksi yang tidak tampak di root kanonis; keberadaan pada subkoleksi atau sumber lain belum diverifikasi.
 
 ## Batas akses yang teramati dan langkah pembuka
 
@@ -157,3 +158,8 @@ Jangan mengaktifkan feature flag import di production, jangan mengirim service-a
 Checkout Koperasi kini memvalidasi dan memakai `tenants.time_zone` untuk menentukan transaksi yang masuk ke batas belanja harian; dashboard dan waktu riwayat juga memakai kalender tenant. Migration `20261209000000_cooperative_tenant_business_day.sql` dan tes pgTAP transaksional tersedia pada branch pengembangan. Helper tanggal bisnis juga dipakai pada checkout/pengembalian Library agar hasil antarperangkat konsisten.
 
 Validasi lokal: 12 kasus helper tanggal bisnis, lint, dan build lulus. pgTAP harus lulus di CI/test stack terisolasi sebelum migration diterapkan. Perubahan ini tidak mengimpor atau mengubah data Supabase live dan tidak menyelesaikan rekonsiliasi 4 buku/1 sirkulasi Library maupun 6 inventory/3 pemasok/3 transaksi/3 wallet Koperasi dari arsip Firebase.
+
+
+### Tahap katalog Koperasi — 23 Oktober 2026
+
+Endpoint Admin `POST /api/cooperative/legacy/catalog-import` menyediakan preview dan apply dengan feature flag server yang default-nya mati. Snapshot fingerprint mencakup koleksi produk, pemasok, wallet, dan transaksi; apply memvalidasi ulang fingerprint dan menolak konflik atau record malformed. Request ID deterministik memungkinkan pemulihan impor parsial tanpa menggandakan catatan. Tahap ini hanya mengimpor produk, stok awal atomik, serta pemasok; wallet, transaksi, dan ledger tetap ditunda agar tidak membuat saldo atau relasi santri semu. Tes unit preview lulus lokal. Migration `20261210000000` dan pgTAP untuk mempertahankan status pemasok perlu lulus CI sebelum dianggap tervalidasi; production tidak disentuh.
