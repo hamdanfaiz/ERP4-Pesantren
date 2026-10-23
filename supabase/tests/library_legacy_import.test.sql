@@ -78,7 +78,7 @@ SELECT is(
       'clientRequestId', 'c3000000-0000-4000-8000-000000000099',
       'title', 'Kitab Uji', 'author', 'Penyusun Uji', 'category', 'Fikih',
       'isbn', '9780306406157', 'totalCopies', 2, 'shelf', 'A-01'
-    ))->>'imported',
+    )))->>'imported',
   '1',
   'Admin can import a valid book snapshot'
 );
@@ -100,7 +100,7 @@ SELECT is(
       'clientRequestId', 'c3000000-0000-4000-8000-000000000099',
       'title', 'Kitab Uji', 'author', 'Penyusun Uji', 'category', 'Fikih',
       'isbn', '9780306406157', 'totalCopies', 2, 'shelf', 'A-01'
-    ))->>'alreadyApplied',
+    )))->>'alreadyApplied',
   'true',
   'retrying an applied snapshot is idempotent'
 );
@@ -161,3 +161,4 @@ SELECT is(
 
 SELECT * FROM finish();
 ROLLBACK;
+
