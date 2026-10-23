@@ -937,7 +937,7 @@ export function UserManagementView() {
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span>Izin Akses Modul Sistem (Per-User Module Permissions)</span>
+                    <span>Izin akses modul sistem khusus pengguna</span>
                   </label>
                   {createRole !== 'SuperAdmin' && (
                     <div className="flex items-center gap-2 text-[11px]">
@@ -1059,7 +1059,7 @@ export function UserManagementView() {
                   <Edit3 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base">Edit Pengguna & Hak Akses Modul</h3>
+                  <h3 className="font-bold text-base">Ubah Pengguna & Hak Akses Modul</h3>
                   <p className="text-xs text-slate-300">
                     {editingUser.name} ({editingUser.email})
                   </p>
