@@ -138,10 +138,10 @@ export function SupabaseGeneralAffairsAssets() {
     finally { setBusy(false); }
   };
 
-  if (!canManage) return <main className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Register aset dan inventaris Supabase pada tahap ini hanya dapat dikelola Admin tenant yang memiliki izin General Affairs.</main>;
+  if (!canManage) return <main className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Register aset dan inventaris Supabase pada tahap ini hanya dapat dikelola Admin tenant yang memiliki izin Sarana & Prasarana.</main>;
   return <main className="mx-auto max-w-7xl space-y-5">
     <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between dark:border-slate-800">
-      <div><div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-400/10 dark:text-indigo-200"><ShieldCheck className="h-3.5 w-3.5" />Sumber data: Supabase tenant</div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">General Affairs · Aset & Inventaris</h1><p className="mt-1 text-sm text-slate-500">Register fasilitas dan mutasi stok operasional dengan jejak perubahan.</p></div>
+      <div><div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-400/10 dark:text-indigo-200"><ShieldCheck className="h-3.5 w-3.5" />Sumber data: Supabase tenant</div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Sarana & Prasarana · Aset & Inventaris</h1><p className="mt-1 text-sm text-slate-500">Register fasilitas dan mutasi stok operasional dengan jejak perubahan.</p></div>
       <button type="button" onClick={() => void refresh()} disabled={loading} className={OUTLINE}><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Bagian yang sudah dipindahkan:</strong> aset/fasilitas dan inventaris barang GA. Pengadaan, kendaraan, housekeeping, dapur, dan tiket pemeliharaan masih berada di jalur lama; tab tersebut belum ikut dialihkan.</div>
