@@ -324,9 +324,9 @@ export function SettingsManager() {
               { id: 'general', label: 'General & Kalender', icon: <Globe className="w-4 h-4" /> },
               { id: 'organization', label: 'Profil Institusi', icon: <Building className="w-4 h-4" /> },
               { id: 'security', label: 'Role & Matriks RBAC', icon: <Shield className="w-4 h-4" /> },
-              { id: 'integrations', label: 'Integrasi API & Gateway', icon: <Database className="w-4 h-4" /> },
+              { id: 'integrations', label: 'Integrasi API & Layanan', icon: <Database className="w-4 h-4" /> },
               { id: 'mobile', label: 'Portal Wali & Santri', icon: <Smartphone className="w-4 h-4" /> },
-              { id: 'backup', label: 'Backup & Database Utility', icon: <Download className="w-4 h-4" /> },
+              { id: 'backup', label: 'Cadangan & Utilitas Basis Data', icon: <Download className="w-4 h-4" /> },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -576,7 +576,7 @@ export function SettingsManager() {
                             />
                             <label className="flex items-center justify-center bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-indigo-500/20 transition-colors text-xs font-medium">
                               <Upload className="w-3.5 h-3.5 mr-1" />
-                              <span>Upload</span>
+                              <span>Unggah</span>
                               <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUrl')} className="hidden" />
                             </label>
                           </div>
@@ -603,7 +603,7 @@ export function SettingsManager() {
                             />
                             <label className="flex items-center justify-center bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-indigo-500/20 transition-colors text-xs font-medium">
                               <Upload className="w-3.5 h-3.5 mr-1" />
-                              <span>Upload</span>
+                              <span>Unggah</span>
                               <input type="file" accept="image/x-icon,image/png" onChange={(e) => handleFileUpload(e, 'faviconUrl')} className="hidden" />
                             </label>
                           </div>
@@ -733,13 +733,13 @@ export function SettingsManager() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <Send className="w-5 h-5 text-emerald-400" />
-                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">WhatsApp Gateway (Notifikasi Wali & Pengajar)</h3>
+                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Integrasi WhatsApp (Notifikasi Wali & Pengajar)</h3>
                     </div>
                     <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Rahasia server-side</span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Token WhatsApp tidak lagi dimasukkan atau disimpan di browser maupun Firestore. Simpan sebagai secret server bernama <code>WA_GATEWAY_API_KEY</code> pada Cloud Run Secret Manager.</p>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">API Endpoint URL</label>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat URL API</label>
                     <input
                       type="url"
                       value={integrations.waGatewayEndpoint || ''}
@@ -954,13 +954,13 @@ export function SettingsManager() {
                         <p>Sumber ditemukan: <strong>{settingsMigrationReport.sourceExists ? 'Ya' : 'Tidak; snapshot kosong'}</strong></p>
                         <p>Pesantren: <strong>{settingsMigrationReport.settings?.orgInfo?.schoolName || '—'}</strong></p>
                         <p>Tahun ajaran: <strong>{settingsMigrationReport.settings?.generalSettings?.academicYear || '—'}</strong></p>
-                        <p className="break-all text-slate-500">Fingerprint: {settingsMigrationReport.previewFingerprint}</p>
+                        <p className="break-all text-slate-500">Sidik digital: {settingsMigrationReport.previewFingerprint}</p>
                         {settingsMigrationReport.alreadyImported && <p className="text-emerald-600">Snapshot ini sudah pernah diimpor.</p>}
                       </div>
                     )}
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={() => void runSettingsMigration(false)} disabled={settingsMigrationBusy} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-xs font-medium disabled:opacity-50">
-                        {settingsMigrationBusy ? 'Memeriksa…' : 'Preview snapshot'}
+                        {settingsMigrationBusy ? 'Memeriksa…' : 'Pratinjau data sumber'}
                       </button>
                       <button type="button" onClick={() => void runSettingsMigration(true)} disabled={settingsMigrationBusy || !settingsMigrationReport?.previewFingerprint || settingsMigrationReport?.alreadyImported} className="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium disabled:opacity-50">
                         {settingsMigrationBusy ? 'Memproses…' : 'Terapkan snapshot yang ditinjau'}
