@@ -76,6 +76,7 @@ import {
 } from "./src/server/supabaseAlumni";
 import {
   checkoutSupabaseLibraryBook,
+  getSupabaseLibraryCirculationImportContext,
   getSupabaseLibraryLegacyImportContext,
   listSupabaseLibrarySnapshot,
   returnSupabaseLibraryBook,
@@ -83,6 +84,11 @@ import {
   upsertSupabaseLibraryBook,
 } from "./src/server/supabaseLibrary";
 import { applySupabaseLegacyLibraryBooks, previewSupabaseLegacyLibraryBooks } from "./src/server/supabaseLibraryImport";
+import {
+  applySupabaseLegacyLibraryCirculations,
+  previewSupabaseLegacyLibraryCirculations,
+  type LegacyLibraryStudentMappings,
+} from "./src/server/supabaseLibraryCirculationImport";
 import {
   createSupabaseLaundryOrder,
   getSupabaseLaundrySnapshot,
@@ -1996,6 +2002,44 @@ async function startServer() {
         actor.tenantId, actor.uid, sources, context.existingRows, String(req.body?.expectedFingerprint || ""),
       );
       return res.status(201).json(result);
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.post("/api/library/circulations/legacy/import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryImportEnabled) return res.status(503).json({ error: "Impor arsip perpustakaan belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Pratinjau dan impor riwayat sirkulasi hanya tersedia untuk Admin tenant." });
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor sirkulasi tidak valid." });
+      const rawMappings = req.body?.studentMappings;
+      if (rawMappings != null && (typeof rawMappings !== "object" || Array.isArray(rawMappings) || Object.keys(rawMappings).length > 1000)) {
+        return res.status(400).json({ error: "Pemetaan santri tidak valid." });
+      }
+      const studentMappings = (rawMappings || {}) as LegacyLibraryStudentMappings;
+      const context = await getSupabaseLibraryCirculationImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseLibraryError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
+      const sources = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "library_circulations", tenantKey: context.legacyTenantKey, limit: 1000,
+      });
+      if (action === "preview") {
+        const preview = previewSupabaseLegacyLibraryCirculations(sources, context, studentMappings);
+        const { items: _items, ...summary } = preview;
+        return res.json({
+          ...summary,
+          studentOptions: context.students.map((student) => ({
+            id: String(student.id), name: String(student.name || ""), nis: String(student.nis || ""), status: String(student.status || ""),
+          })),
+        });
+      }
+      const result = await applySupabaseLegacyLibraryCirculations(
+        actor.tenantId, actor.uid, sources, context, studentMappings, String(req.body?.expectedFingerprint || ""),
+      );
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return libraryRouteError(res, error); }
   });
 
