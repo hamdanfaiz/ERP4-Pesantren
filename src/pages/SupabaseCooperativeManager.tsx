@@ -325,10 +325,10 @@ export function SupabaseCooperativeManager() {
                   </label>
                 </div>
                 {wallet.targetStudentLabel && <p className="text-xs text-slate-500">Santri tujuan: {wallet.targetStudentLabel} · {wallet.targetStudentNis || "tanpa NIS"} · perkiraan saldo akhir {money(wallet.expectedClosingBalance ?? 0)}</p>}
-              </article>) : <div className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700">Tidak ada wallet arsip yang dapat dipetakan.</div>}
+              </article>) : <div className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700">Tidak ada dompet arsip yang dapat dipetakan.</div>}
             </section>
             <section className="space-y-3">
-              <div><h3 className="font-semibold text-slate-900 dark:text-white">2. Pemetaan produk per baris transaksi</h3><p className="mt-1 text-xs text-slate-500">Pemetaan per item menghindari pencocokan otomatis berdasarkan nama. Harga dan jumlah arsip tetap diperiksa terhadap total transaksi.</p></div>
+              <div><h3 className="font-semibold text-slate-900 dark:text-white">2. Pemetaan produk per baris transaksi</h3><p className="mt-1 text-xs text-slate-500">Pemetaan per baris produk menghindari pencocokan otomatis berdasarkan nama. Harga dan jumlah arsip tetap diperiksa terhadap total transaksi.</p></div>
               {financialPreview.transactions.some((transaction) => transaction.items.length > 0) ? financialPreview.transactions.flatMap((transaction) => transaction.items.map((item) => <article key={item.itemRef} className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-[1fr_1fr] dark:border-slate-800">
                 <div><div className="font-medium text-slate-900 dark:text-white">{item.name}</div><div className="mt-1 text-xs text-slate-500">{transaction.createdAt ? new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeZone: snapshot.timeZone }).format(new Date(transaction.createdAt)) : "Tanggal tidak valid"} · {item.quantity} × {money(item.unitPrice)} = {money(item.lineTotal)}</div><div className="mt-1 font-mono text-[11px] text-slate-400">Transaksi {transaction.sourceRef.slice(0, 12)}</div></div>
                 <label className="text-sm">Produk tujuan
@@ -347,7 +347,7 @@ export function SupabaseCooperativeManager() {
             {financialPreview.issues.length > 0 && <section role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30"><h3 className="font-semibold text-rose-900 dark:text-rose-100">Masalah yang menghambat ({financialPreview.blockingCount})</h3><ul className="mt-2 space-y-1 text-sm text-rose-900 dark:text-rose-100">{financialPreview.issues.map((issue, index) => <li key={issue.code + issue.recordRef + index}>{cooperativeFinancialIssueLabel(issue.code)}{issue.recordRef ? " · referensi " + issue.recordRef : ""}</li>)}</ul></section>}
             <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">Status "siap" pada pratinjau hanya berarti data lolos pemeriksaan awal. Belum ada endpoint penerapan, posting ledger atomik, atau rekonsiliasi final; jangan menganggap data sudah dipindahkan.</div>
           </div>}
-          {!financialPreview && !financialBusy && <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Muat arsip untuk melihat kandidat wallet, transaksi, dan pilihan tujuan tenant ini.</div>}
+          {!financialPreview && !financialBusy && <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Muat arsip untuk melihat kandidat dompet, transaksi, dan pilihan tujuan tenant ini.</div>}
         </div>}
       </div>}
     </section>
