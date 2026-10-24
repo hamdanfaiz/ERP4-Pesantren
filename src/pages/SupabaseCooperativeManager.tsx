@@ -317,7 +317,7 @@ export function SupabaseCooperativeManager() {
                   <label className="text-sm">Dompet tujuan
                     <select value={financialMappings.wallets[wallet.sourceRef]?.targetWalletId || ""} onChange={(e) => { setFinancialMappings((current) => ({ ...current, wallets: { ...current.wallets, [wallet.sourceRef]: { ...current.wallets[wallet.sourceRef], targetWalletId: e.target.value || undefined } } })); markFinancialMappingChanged(); }} className={inputClass}>
                       <option value="">Pilih dompet santri</option>
-                      {financialPreview.targetWalletOptions.filter((target) => target.status.toLowerCase() === "active").map((target) => <option key={target.walletId} value={target.walletId}>{target.student} · {target.nis || "tanpa NIS"} · saldo {money(target.balance)}</option>)}
+                      {financialPreview.targetWalletOptions.map((target) => <option key={target.walletId} value={target.walletId}>{target.student} · {target.nis || "tanpa NIS"} · saldo {money(target.balance)} · {target.status === "active" ? "aktif" : "diblokir"}</option>)}
                     </select>
                   </label>
                   <label className="text-sm">Saldo pembuka hasil konfirmasi (rupiah)
@@ -334,7 +334,7 @@ export function SupabaseCooperativeManager() {
                 <label className="text-sm">Produk tujuan
                   <select value={financialMappings.products[item.itemRef] || ""} onChange={(e) => { setFinancialMappings((current) => ({ ...current, products: { ...current.products, [item.itemRef]: e.target.value } })); markFinancialMappingChanged(); }} className={inputClass}>
                     <option value="">Pilih produk</option>
-                    {financialPreview.targetProductOptions.filter((target) => target.status.toLowerCase() === "active").map((target) => <option key={target.id} value={target.id}>{target.sku || "tanpa SKU"} · {target.name}</option>)}
+                    {financialPreview.targetProductOptions.map((target) => <option key={target.id} value={target.id}>{target.sku || "tanpa SKU"} · {target.name} · {target.status === "active" ? "aktif" : "diarsipkan"}</option>)}
                   </select>
                 </label>
               </article>)) : <div className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700">Tidak ada baris produk yang ditemukan.</div>}
