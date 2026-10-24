@@ -14,6 +14,27 @@ type CartLine = { productId: string; quantity: number };
 type ProductDraft = { id?: string; sku: string; name: string; category: string; costPrice: string; price: string; stock: string; reorderPoint: string; expiryDate: string };
 type SupplierDraft = { id?: string; name: string; category: string; contact: string; pic: string };
 
+type LegacyFinancialPreview = {
+  snapshotFingerprint: string;
+  canApply: boolean;
+  attestCompleteHistory: boolean;
+  issueCount: number;
+  blockingCount: number;
+  counts: { sourceWallets: number; sourceTransactions: number; sourceItems: number; mappedWallets: number; mappedProducts: number; readyWallets: number; readyTransactions: number; invalid: number };
+  issues: Array<{ code: string; recordRef: string; severity: string }>;
+  warnings: Array<{ code: string; count: number }>;
+  wallets: Array<{ sourceRef: string; studentLabel: string; closingBalance: number; salesTotal: number; targetWalletId: string | null; targetStudentLabel?: string | null; targetStudentNis?: string; openingBalance: number | null; expectedClosingBalance: number | null }>;
+  transactions: Array<{ sourceRef: string; status: string; createdAt: string | null; total: number | null; items: Array<{ itemRef: string; name: string; unitPrice: number; quantity: number; lineTotal: number; productId: string | null; skuSnapshot: string }> }>;
+  targetWalletOptions: Array<{ walletId: string; student: string; nis: string; grade: string; balance: number; status: string }>;
+  targetProductOptions: Array<{ id: string; sku: string; name: string; status: string }>;
+};
+
+type LegacyFinancialMappings = {
+  wallets: Record<string, { targetWalletId?: string; openingBalance?: number }>;
+  products: Record<string, string>;
+  confirmCompleteHistory: boolean;
+};
+
 const EMPTY: Snapshot = { timeZone: DEFAULT_TENANT_TIME_ZONE, businessDate: "", products: [], suppliers: [], wallets: [], sales: [], walletLedger: [] };
 const inputClass = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white";
 const primaryClass = "inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50";
@@ -50,6 +71,10 @@ export function SupabaseCooperativeManager() {
   const [topUpWallet, setTopUpWallet] = useState<WalletAccount | null>(null);
   const [topUpAmount, setTopUpAmount] = useState("");
   const [topUpReference, setTopUpReference] = useState("");
+  const [financialPreview, setFinancialPreview] = useState<LegacyFinancialPreview | null>(null);
+  const [financialMappings, setFinancialMappings] = useState<LegacyFinancialMappings>({ wallets: {}, products: {}, confirmCompleteHistory: false });
+  const [financialBusy, setFinancialBusy] = useState(false);
+  const [financialDirty, setFinancialDirty] = useState(false);
 
   const refresh = useCallback(async () => {
     const payload = await requestCooperative("/api/cooperative/snapshot");
@@ -146,6 +171,25 @@ export function SupabaseCooperativeManager() {
     }
   };
 
+  const runFinancialPreview = async () => {
+    setFinancialBusy(true); setError(""); setNotice("");
+    try {
+      const result = await requestCooperative("/api/cooperative/legacy/financial-import/preview", {
+        method: "POST",
+        body: JSON.stringify({ mappings: financialMappings }),
+      });
+      setFinancialPreview(result as LegacyFinancialPreview);
+      setFinancialDirty(false);
+      setNotice("Pratinjau finansial berhasil dihitung. Belum ada data yang diubah.");
+    } catch (previewError: any) {
+      setError(previewError?.message || "Pratinjau arsip Koperasi belum dapat dimuat.");
+    } finally { setFinancialBusy(false); }
+  };
+
+  const markFinancialMappingChanged = () => {
+    setFinancialDirty(true); setNotice("");
+  };
+
   const adjustStock = async (product: Product) => {
     const rawDelta = window.prompt(`Perubahan stok untuk ${product.name}. Gunakan angka positif untuk menambah dan negatif untuk mengurangi.`);
     if (rawDelta == null) return;
@@ -174,6 +218,7 @@ export function SupabaseCooperativeManager() {
     { id: "wallets", label: "Dompet Santri", icon: Wallet },
     { id: "suppliers", label: "Pemasok", icon: Truck },
     { id: "transactions", label: "Transaksi", icon: BarChart3 },
+    { id: "migration", label: "Impor Arsip", icon: RefreshCw },
   ];
 
   return <main className="mx-auto max-w-7xl space-y-6 pb-10">
@@ -214,6 +259,61 @@ export function SupabaseCooperativeManager() {
 
         {activeTab === "transactions" && <div className="space-y-3"><h2 className="font-semibold text-slate-900 dark:text-white">Riwayat Transaksi & Buku Besar Dompet</h2>{snapshot.sales.length ? <div className="space-y-3">{snapshot.sales.map((sale) => <article key={sale.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold text-slate-900 dark:text-white">{sale.studentName} <span className="text-xs font-normal text-slate-500">{sale.grade}</span></div><div className="mt-1 font-mono text-xs text-slate-500">{sale.id} · {new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short", timeZone: snapshot.timeZone }).format(new Date(sale.date))}</div></div><div className="font-semibold text-slate-900 dark:text-white">{money(sale.total)}</div></div><div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm dark:border-slate-800">{sale.items.map((item) => <div key={item.id} className="flex justify-between gap-4 text-slate-600 dark:text-slate-300"><span>{item.name} × {item.quantity}</span><span>{money(item.lineTotal)}</span></div>)}</div></article>)}</div> : <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada transaksi pada tenant ini.</div>}
           <div className="mt-6"><h3 className="font-semibold text-slate-900 dark:text-white">Mutasi saldo terbaru</h3><div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Waktu</th><th className="p-3">Jenis / Referensi</th><th className="p-3 text-right">Perubahan</th><th className="p-3 text-right">Saldo akhir</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.walletLedger.map((entry) => <tr key={entry.id}><td className="p-3 text-xs">{new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short", timeZone: snapshot.timeZone }).format(new Date(entry.createdAt))}</td><td className="p-3">{entry.type} · {entry.reference}</td><td className="p-3 text-right">{money(entry.amount)}</td><td className="p-3 text-right">{money(entry.balanceAfter)}</td></tr>)}</tbody></table></div></div></div>}
+        {activeTab === "migration" && <div className="space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div><h2 className="font-semibold text-slate-900 dark:text-white">Pratinjau migrasi saldo dan transaksi</h2><p className="mt-1 max-w-3xl text-sm text-slate-500">Cocokkan wallet arsip dengan wallet santri dan produk tujuan. Saldo pembuka harus dapat direkonsiliasi dengan saldo akhir arsip setelah dikurangi seluruh penjualan yang ditemukan.</p></div>
+            <button type="button" onClick={() => void runFinancialPreview()} disabled={financialBusy || busy} className={outlineClass}><RefreshCw className={financialBusy ? "h-4 w-4 animate-spin" : "h-4 w-4"} />{financialBusy ? "Menghitung…" : financialPreview ? "Hitung ulang pratinjau" : "Muat arsip dan pratinjau"}</button>
+          </div>
+          <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Pratinjau saja:</strong> layar ini tidak menulis ke Firebase atau Supabase. Dompet dan item harus dipetakan secara eksplisit. Riwayat penjualan harus dinyatakan lengkap dan saldo harus cocok. HPP historis tidak tersedia, sehingga tidak dihitung dari harga pokok produk saat ini. Jalur penerapan transaksi belum tersedia.</div>
+          {financialBusy && <div role="status" className="flex items-center gap-2 rounded-xl border border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-800"><Loader2 className="h-4 w-4 animate-spin" />Membaca arsip tenant dan memeriksa pemetaan…</div>}
+          {financialPreview && <div className="space-y-5">
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Wallet arsip</p><p className="mt-1 text-xl font-semibold">{financialPreview.counts.sourceWallets}</p><p className="text-xs text-slate-500">{financialPreview.counts.readyWallets} lolos rekonsiliasi</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Transaksi arsip</p><p className="mt-1 text-xl font-semibold">{financialPreview.counts.sourceTransactions}</p><p className="text-xs text-slate-500">{financialPreview.counts.readyTransactions} tanggal dan item valid</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Baris produk</p><p className="mt-1 text-xl font-semibold">{financialPreview.counts.sourceItems}</p><p className="text-xs text-slate-500">{financialPreview.counts.mappedProducts} sudah dipetakan</p></div>
+              <div className={financialPreview.blockingCount ? "rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30" : "rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30"}><p className="text-xs">Pemeriksaan penghambat</p><p className="mt-1 text-xl font-semibold">{financialPreview.blockingCount}</p><p className="text-xs">{financialPreview.canApply ? "Semua pemeriksaan pratinjau terpenuhi" : "Perlu pemetaan atau perbaikan data"}</p></div>
+            </section>
+            {financialDirty && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Pemetaan berubah. Hasil pemeriksaan di bawah ini sudah kedaluwarsa; hitung ulang pratinjau sebelum menyimpulkan rekonsiliasi.</div>}
+            <section className="space-y-3">
+              <div><h3 className="font-semibold text-slate-900 dark:text-white">1. Pemetaan wallet dan saldo pembuka</h3><p className="mt-1 text-xs text-slate-500">Referensi arsip ditampilkan sebagai kode tersamar. Saldo tujuan harus nol dan belum memiliki riwayat.</p></div>
+              {financialPreview.wallets.length ? financialPreview.wallets.map((wallet) => <article key={wallet.sourceRef} className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                <div className="flex flex-wrap items-start justify-between gap-2"><div><div className="font-medium text-slate-900 dark:text-white">{wallet.studentLabel || "Wallet tanpa label santri"}</div><div className="font-mono text-xs text-slate-500">Ref arsip {wallet.sourceRef.slice(0, 12)}</div></div><div className="text-right text-xs text-slate-500">Saldo akhir arsip <strong className="text-slate-800 dark:text-slate-200">{money(wallet.closingBalance)}</strong><br />Penjualan terhitung <strong className="text-slate-800 dark:text-slate-200">{money(wallet.salesTotal)}</strong></div></div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm">Wallet tujuan
+                    <select value={financialMappings.wallets[wallet.sourceRef]?.targetWalletId || ""} onChange={(e) => { setFinancialMappings((current) => ({ ...current, wallets: { ...current.wallets, [wallet.sourceRef]: { ...current.wallets[wallet.sourceRef], targetWalletId: e.target.value || undefined } } })); markFinancialMappingChanged(); }} className={inputClass}>
+                      <option value="">Pilih wallet santri</option>
+                      {financialPreview.targetWalletOptions.filter((target) => target.status.toLowerCase() === "active").map((target) => <option key={target.walletId} value={target.walletId}>{target.student} · {target.nis || "tanpa NIS"} · saldo {money(target.balance)}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-sm">Saldo pembuka hasil konfirmasi (rupiah)
+                    <input type="number" min="0" step="1" inputMode="numeric" value={financialMappings.wallets[wallet.sourceRef]?.openingBalance ?? ""} onChange={(e) => { const value = e.target.value; setFinancialMappings((current) => ({ ...current, wallets: { ...current.wallets, [wallet.sourceRef]: { ...current.wallets[wallet.sourceRef], openingBalance: value === "" ? undefined : Number(value) } } })); markFinancialMappingChanged(); }} className={inputClass} />
+                  </label>
+                </div>
+                {wallet.targetStudentLabel && <p className="text-xs text-slate-500">Santri tujuan: {wallet.targetStudentLabel} · {wallet.targetStudentNis || "tanpa NIS"} · perkiraan saldo akhir {money(wallet.expectedClosingBalance ?? 0)}</p>}
+              </article>) : <div className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700">Tidak ada wallet arsip yang dapat dipetakan.</div>}
+            </section>
+            <section className="space-y-3">
+              <div><h3 className="font-semibold text-slate-900 dark:text-white">2. Pemetaan produk per baris transaksi</h3><p className="mt-1 text-xs text-slate-500">Pemetaan per item menghindari pencocokan otomatis berdasarkan nama. Harga dan jumlah arsip tetap diperiksa terhadap total transaksi.</p></div>
+              {financialPreview.transactions.some((transaction) => transaction.items.length > 0) ? financialPreview.transactions.flatMap((transaction) => transaction.items.map((item) => <article key={item.itemRef} className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-[1fr_1fr] dark:border-slate-800">
+                <div><div className="font-medium text-slate-900 dark:text-white">{item.name}</div><div className="mt-1 text-xs text-slate-500">{transaction.createdAt ? new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeZone: snapshot.timeZone }).format(new Date(transaction.createdAt)) : "Tanggal tidak valid"} · {item.quantity} × {money(item.unitPrice)} = {money(item.lineTotal)}</div><div className="mt-1 font-mono text-[11px] text-slate-400">Transaksi {transaction.sourceRef.slice(0, 12)}</div></div>
+                <label className="text-sm">Produk tujuan
+                  <select value={financialMappings.products[item.itemRef] || ""} onChange={(e) => { setFinancialMappings((current) => ({ ...current, products: { ...current.products, [item.itemRef]: e.target.value } })); markFinancialMappingChanged(); }} className={inputClass}>
+                    <option value="">Pilih produk</option>
+                    {financialPreview.targetProductOptions.filter((target) => target.status.toLowerCase() === "active").map((target) => <option key={target.id} value={target.id}>{target.sku || "tanpa SKU"} · {target.name}</option>)}
+                  </select>
+                </label>
+              </article>)) : <div className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700">Tidak ada baris produk yang ditemukan.</div>}
+            </section>
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200">
+              <input type="checkbox" checked={financialMappings.confirmCompleteHistory} onChange={(e) => { setFinancialMappings((current) => ({ ...current, confirmCompleteHistory: e.target.checked })); markFinancialMappingChanged(); }} className="mt-0.5" />
+              <span>Saya telah memastikan seluruh penjualan arsip untuk periode migrasi tersedia dan saldo pembuka dapat direkonsiliasi dengan saldo akhir masing-masing wallet.</span>
+            </label>
+            {financialPreview.warnings.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30"><h3 className="font-semibold text-amber-900 dark:text-amber-100">Catatan pemeriksaan</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-100">{financialPreview.warnings.map((warning) => <li key={warning.code}>{warning.code.replace(/_/g, " ")} · {warning.count}</li>)}</ul></section>}
+            {financialPreview.issues.length > 0 && <section role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30"><h3 className="font-semibold text-rose-900 dark:text-rose-100">Masalah yang menghambat ({financialPreview.blockingCount})</h3><ul className="mt-2 space-y-1 text-sm text-rose-900 dark:text-rose-100">{financialPreview.issues.map((issue, index) => <li key={issue.code + issue.recordRef + index}>{issue.code.replace(/_/g, " ")}{issue.recordRef ? " · ref " + issue.recordRef : ""}</li>)}</ul></section>}
+            <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">Status "siap" pada pratinjau hanya berarti data lolos pemeriksaan awal. Belum ada endpoint penerapan, posting ledger atomik, atau rekonsiliasi final; jangan menganggap data sudah dipindahkan.</div>
+          </div>}
+          {!financialPreview && !financialBusy && <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Muat arsip untuk melihat kandidat wallet, transaksi, dan pilihan tujuan tenant ini.</div>}
+        </div>}
       </div>}
     </section>
 
