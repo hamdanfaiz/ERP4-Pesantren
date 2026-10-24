@@ -40,6 +40,41 @@ const inputClass = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px
 const primaryClass = "inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50";
 const outlineClass = "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
 const money = (value: number) => `Rp ${Number(value || 0).toLocaleString("id-ID")}`;
+function cooperativeFinancialIssueLabel(code: string): string {
+  const labels: Record<string, string> = {
+    record_limit_exceeded: "Jumlah arsip melebihi batas pemeriksaan.",
+    invalid_or_duplicate_source_wallet: "Data dompet arsip tidak valid atau terduplikasi.",
+    ambiguous_source_wallet_reference: "Referensi dompet pada arsip tidak dapat dipastikan.",
+    invalid_or_duplicate_source_transaction: "Data transaksi arsip tidak valid atau terduplikasi.",
+    transaction_wallet_reference_unresolved: "Dompet transaksi tidak cocok dengan dompet arsip.",
+    unsupported_transaction_status: "Status transaksi bukan transaksi berhasil.",
+    invalid_transaction_total: "Nilai total transaksi tidak valid.",
+    invalid_transaction_date: "Tanggal transaksi tidak valid atau zona waktunya tidak jelas.",
+    invalid_transaction_items: "Jumlah baris produk pada transaksi tidak valid.",
+    invalid_transaction_item: "Data salah satu baris produk tidak valid.",
+    transaction_item_product_mapping_required: "Pilih produk tujuan untuk setiap baris transaksi.",
+    transaction_total_does_not_match_items: "Jumlah baris transaksi tidak cocok dengan total transaksi.",
+    wallet_student_mapping_required: "Pilih dompet santri tujuan untuk setiap dompet arsip.",
+    target_wallet_mapped_more_than_once: "Satu dompet tujuan dipakai lebih dari satu kali.",
+    target_wallet_student_missing: "Dompet tujuan tidak terhubung dengan data santri.",
+    target_wallet_has_existing_history: "Dompet tujuan sudah memiliki riwayat transaksi.",
+    target_wallet_balance_must_be_zero: "Saldo dompet tujuan harus nol sebelum migrasi.",
+    opening_balance_required: "Masukkan saldo pembuka yang sudah dikonfirmasi.",
+    opening_balance_less_than_archived_sales: "Saldo pembuka lebih kecil daripada total penjualan arsip.",
+    opening_balance_does_not_reconcile: "Saldo pembuka tidak cocok dengan saldo akhir arsip.",
+  };
+  return labels[code] || "Pemeriksaan gagal (" + code + ").";
+}
+
+function cooperativeFinancialWarningLabel(code: string): string {
+  const labels: Record<string, string> = {
+    operator_must_confirm_sales_archive_is_complete_and_opening_balance_is_reconciled: "Konfirmasi bahwa arsip penjualan lengkap dan saldo pembuka sudah direkonsiliasi.",
+    date_only_transactions_use_tenant_local_noon: "Transaksi yang hanya memiliki tanggal ditafsirkan pada tengah hari zona waktu tenant.",
+    historical_cost_is_unknown_and_will_not_be_used_for_margin: "HPP historis tidak tersedia dan tidak digunakan untuk menghitung margin.",
+  };
+  return labels[code] || "Catatan pemeriksaan: " + code + ".";
+}
+
 
 async function requestCooperative(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -261,14 +296,14 @@ export function SupabaseCooperativeManager() {
           <div className="mt-6"><h3 className="font-semibold text-slate-900 dark:text-white">Mutasi saldo terbaru</h3><div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Waktu</th><th className="p-3">Jenis / Referensi</th><th className="p-3 text-right">Perubahan</th><th className="p-3 text-right">Saldo akhir</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.walletLedger.map((entry) => <tr key={entry.id}><td className="p-3 text-xs">{new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short", timeZone: snapshot.timeZone }).format(new Date(entry.createdAt))}</td><td className="p-3">{entry.type} · {entry.reference}</td><td className="p-3 text-right">{money(entry.amount)}</td><td className="p-3 text-right">{money(entry.balanceAfter)}</td></tr>)}</tbody></table></div></div></div>}
         {activeTab === "migration" && <div className="space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 className="font-semibold text-slate-900 dark:text-white">Pratinjau migrasi saldo dan transaksi</h2><p className="mt-1 max-w-3xl text-sm text-slate-500">Cocokkan wallet arsip dengan wallet santri dan produk tujuan. Saldo pembuka harus dapat direkonsiliasi dengan saldo akhir arsip setelah dikurangi seluruh penjualan yang ditemukan.</p></div>
+            <div><h2 className="font-semibold text-slate-900 dark:text-white">Pratinjau migrasi saldo dan transaksi</h2><p className="mt-1 max-w-3xl text-sm text-slate-500">Cocokkan dompet arsip dengan dompet santri dan produk tujuan. Saldo pembuka harus dapat direkonsiliasi dengan saldo akhir arsip setelah dikurangi seluruh penjualan yang ditemukan.</p></div>
             <button type="button" onClick={() => void runFinancialPreview()} disabled={financialBusy || busy} className={outlineClass}><RefreshCw className={financialBusy ? "h-4 w-4 animate-spin" : "h-4 w-4"} />{financialBusy ? "Menghitung…" : financialPreview ? "Hitung ulang pratinjau" : "Muat arsip dan pratinjau"}</button>
           </div>
-          <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Pratinjau saja:</strong> layar ini tidak menulis ke Firebase atau Supabase. Dompet dan item harus dipetakan secara eksplisit. Riwayat penjualan harus dinyatakan lengkap dan saldo harus cocok. HPP historis tidak tersedia, sehingga tidak dihitung dari harga pokok produk saat ini. Jalur penerapan transaksi belum tersedia.</div>
+          <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Pratinjau saja:</strong> layar ini tidak menulis ke Firebase atau Supabase. Dompet dan baris produk harus dipetakan secara eksplisit. Riwayat penjualan harus dinyatakan lengkap dan saldo harus cocok. HPP historis tidak tersedia, sehingga tidak dihitung dari harga pokok produk saat ini. Jalur penerapan transaksi belum tersedia.</div>
           {financialBusy && <div role="status" className="flex items-center gap-2 rounded-xl border border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-800"><Loader2 className="h-4 w-4 animate-spin" />Membaca arsip tenant dan memeriksa pemetaan…</div>}
           {financialPreview && <div className="space-y-5">
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Wallet arsip</p><p className="mt-1 text-xl font-semibold">{financialPreview.counts.sourceWallets}</p><p className="text-xs text-slate-500">{financialPreview.counts.readyWallets} lolos rekonsiliasi</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Dompet arsip</p><p className="mt-1 text-xl font-semibold">{financialPreview.counts.sourceWallets}</p><p className="text-xs text-slate-500">{financialPreview.counts.readyWallets} lolos rekonsiliasi</p></div>
               <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Transaksi arsip</p><p className="mt-1 text-xl font-semibold">{financialPreview.counts.sourceTransactions}</p><p className="text-xs text-slate-500">{financialPreview.counts.readyTransactions} tanggal dan item valid</p></div>
               <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Baris produk</p><p className="mt-1 text-xl font-semibold">{financialPreview.counts.sourceItems}</p><p className="text-xs text-slate-500">{financialPreview.counts.mappedProducts} sudah dipetakan</p></div>
               <div className={financialPreview.blockingCount ? "rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30" : "rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30"}><p className="text-xs">Pemeriksaan penghambat</p><p className="mt-1 text-xl font-semibold">{financialPreview.blockingCount}</p><p className="text-xs">{financialPreview.canApply ? "Semua pemeriksaan pratinjau terpenuhi" : "Perlu pemetaan atau perbaikan data"}</p></div>
@@ -279,9 +314,9 @@ export function SupabaseCooperativeManager() {
               {financialPreview.wallets.length ? financialPreview.wallets.map((wallet) => <article key={wallet.sourceRef} className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
                 <div className="flex flex-wrap items-start justify-between gap-2"><div><div className="font-medium text-slate-900 dark:text-white">{wallet.studentLabel || "Wallet tanpa label santri"}</div><div className="font-mono text-xs text-slate-500">Ref arsip {wallet.sourceRef.slice(0, 12)}</div></div><div className="text-right text-xs text-slate-500">Saldo akhir arsip <strong className="text-slate-800 dark:text-slate-200">{money(wallet.closingBalance)}</strong><br />Penjualan terhitung <strong className="text-slate-800 dark:text-slate-200">{money(wallet.salesTotal)}</strong></div></div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-sm">Wallet tujuan
+                  <label className="text-sm">Dompet tujuan
                     <select value={financialMappings.wallets[wallet.sourceRef]?.targetWalletId || ""} onChange={(e) => { setFinancialMappings((current) => ({ ...current, wallets: { ...current.wallets, [wallet.sourceRef]: { ...current.wallets[wallet.sourceRef], targetWalletId: e.target.value || undefined } } })); markFinancialMappingChanged(); }} className={inputClass}>
-                      <option value="">Pilih wallet santri</option>
+                      <option value="">Pilih dompet santri</option>
                       {financialPreview.targetWalletOptions.filter((target) => target.status.toLowerCase() === "active").map((target) => <option key={target.walletId} value={target.walletId}>{target.student} · {target.nis || "tanpa NIS"} · saldo {money(target.balance)}</option>)}
                     </select>
                   </label>
@@ -306,10 +341,10 @@ export function SupabaseCooperativeManager() {
             </section>
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200">
               <input type="checkbox" checked={financialMappings.confirmCompleteHistory} onChange={(e) => { setFinancialMappings((current) => ({ ...current, confirmCompleteHistory: e.target.checked })); markFinancialMappingChanged(); }} className="mt-0.5" />
-              <span>Saya telah memastikan seluruh penjualan arsip untuk periode migrasi tersedia dan saldo pembuka dapat direkonsiliasi dengan saldo akhir masing-masing wallet.</span>
+              <span>Saya telah memastikan seluruh penjualan arsip untuk periode migrasi tersedia dan saldo pembuka dapat direkonsiliasi dengan saldo akhir setiap dompet.</span>
             </label>
-            {financialPreview.warnings.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30"><h3 className="font-semibold text-amber-900 dark:text-amber-100">Catatan pemeriksaan</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-100">{financialPreview.warnings.map((warning) => <li key={warning.code}>{warning.code.replace(/_/g, " ")} · {warning.count}</li>)}</ul></section>}
-            {financialPreview.issues.length > 0 && <section role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30"><h3 className="font-semibold text-rose-900 dark:text-rose-100">Masalah yang menghambat ({financialPreview.blockingCount})</h3><ul className="mt-2 space-y-1 text-sm text-rose-900 dark:text-rose-100">{financialPreview.issues.map((issue, index) => <li key={issue.code + issue.recordRef + index}>{issue.code.replace(/_/g, " ")}{issue.recordRef ? " · ref " + issue.recordRef : ""}</li>)}</ul></section>}
+            {financialPreview.warnings.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30"><h3 className="font-semibold text-amber-900 dark:text-amber-100">Catatan pemeriksaan</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-100">{financialPreview.warnings.map((warning) => <li key={warning.code}>{cooperativeFinancialWarningLabel(warning.code)} · {warning.count}</li>)}</ul></section>}
+            {financialPreview.issues.length > 0 && <section role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30"><h3 className="font-semibold text-rose-900 dark:text-rose-100">Masalah yang menghambat ({financialPreview.blockingCount})</h3><ul className="mt-2 space-y-1 text-sm text-rose-900 dark:text-rose-100">{financialPreview.issues.map((issue, index) => <li key={issue.code + issue.recordRef + index}>{cooperativeFinancialIssueLabel(issue.code)}{issue.recordRef ? " · referensi " + issue.recordRef : ""}</li>)}</ul></section>}
             <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">Status "siap" pada pratinjau hanya berarti data lolos pemeriksaan awal. Belum ada endpoint penerapan, posting ledger atomik, atau rekonsiliasi final; jangan menganggap data sudah dipindahkan.</div>
           </div>}
           {!financialPreview && !financialBusy && <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Muat arsip untuk melihat kandidat wallet, transaksi, dan pilihan tujuan tenant ini.</div>}
