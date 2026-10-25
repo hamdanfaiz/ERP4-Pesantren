@@ -133,7 +133,7 @@ Pemeriksaan ini menggantikan angka migrasi pada snapshot sebelumnya; query dilak
 
 - Perbaikan kode PR #13 menambahkan migration `20270109000000_boarding_room_history_baseline.sql`, sehingga repository memuat 81 migration sampai `20270109000000`.
 - Baseline Production pada pembacaan metadata sebelumnya adalah 47 versi sampai `20261206000000`. Jika ledger belum berubah sejak pembacaan itu, 34 migration repository setelahnya masih pending; status live harus dibaca ulang sebelum rehearsal atau penerapan. Pemeriksaan sesi ini tidak menulis atau membaca ulang database Production.
-- CI `40240024866` menguji migration tersebut pada Supabase lokal yang terisolasi dan seluruh 51 assertion riwayat penempatan kamar lulus, bersama job frontend/Docker dan rangkaian uji lain. Hasil ini bukan bukti upgrade berhasil pada skema/data Production.
-- Migration mengisi snapshot kondisi sekarang hanya untuk santri yang memiliki gedung/kamar dan belum punya event riwayat. Snapshot tidak mengklaim menyimpan perpindahan sebelum tanggal cutover dan tidak menetapkan aktor historis.
+- CI `40240448804` pada commit kode `de3ae340d0c11bc8bc927c33314884daee21f648` menguji migration tersebut pada Supabase lokal yang terisolasi dan seluruh 52 assertion riwayat penempatan kamar lulus, bersama job frontend/Docker dan rangkaian uji lain. Hasil ini bukan bukti upgrade berhasil pada skema/data Production.
+- Migration membuat satu snapshot kondisi saat cutover bagi setiap santri yang masih memiliki gedung/kamar, sambil mempertahankan event sebelumnya. Snapshot tidak mengklaim menyimpan perpindahan sebelum tanggal cutover dan tidak menetapkan aktor historis.
 
 **Keputusan:** jangan jalankan migration Production. Baca ulang ledger, siapkan backup dan uji restore, lalu lakukan rehearsal lengkap pada staging yang mewakili skema/data sebelum rencana upgrade disetujui.
