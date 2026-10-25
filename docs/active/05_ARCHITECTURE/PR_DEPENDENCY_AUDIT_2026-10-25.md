@@ -209,3 +209,15 @@ Penilaian membedakan head PR #13 di GitHub dari worktree lokal: koreksi di workt
 - Hasil ini menggantikan status kegagalan runner yang dicatat di bagian sebelumnya. PR #13 tetap Open/Draft dan tidak memiliki review approval.
 - Rerun hanya menguji head remote. Perubahan worktree belum didorong, termasuk migration riwayat kamar dengan 42 assertion pgTAP; perubahan itu belum memiliki bukti CI.
 - Skor kesiapan rilis terkini 58/100. Tidak ada perubahan pada Supabase Production.
+
+## Revalidasi paritas PR #11 → PR #13 — 25 Oktober 2026
+
+Pemeriksaan ini memakai head GitHub PR #11 `88f2686d34bbffb1aa1c7997b55cd015c424f85c` dan head PR #13 setelah pembaruan `e3d91bc4eb29bac2e59310e435394c98196ee211`. Hasil berikut menggantikan catatan lama yang menyebut route migrasi Master Data dan riwayat kamar hanya ada di worktree lokal:
+
+- Route pratinjau/impor struktur dan santri kini ada pada `server.ts`; halaman Master Data memanggil importer Supabase dan UI pratinjau tersedia pada PR #13. Flag server/UI tetap mematikan apply secara default. Kehadiran route tidak membuktikan rekonsiliasi data sumber atau apply pada staging.
+- Riwayat penempatan kamar kini ada pada migration `20270106000000_boarding_room_assignment_history.sql`, test pgTAP `boarding_room_assignment_history.test.sql`, endpoint detail riwayat, serta layar detail Santri. CI run `40188865422` lulus pada database terisolasi setelah migration dan seluruh pgTAP dijalankan.
+- Operasi inti Tahfidz dari #11 memiliki padanan Supabase pada #13: snapshot/setoran, membership halaqah, target harian, impor halaqah, dan sesi Tahfidz. #13 menyimpan modul server pada `src/server/supabaseTahfidz.ts` dengan migrasi berurutan `20261103000000`–`20261107000000` dan `20261116000000`; jembatan UID Firebase/Auth di #11 sengaja tidak dibawa karena identitas runtime kini Supabase.
+- CI sampai run `40188865422` belum memiliki test pgTAP khusus yang langsung menguji RPC setoran, CRUD halaqah, penempatan membership, dan target sebagai satu rangkaian. File baru `supabase/tests/tahfidz_runtime_write_api.test.sql` menambahkan 62 assertion sintetis untuk tenant/role, validasi membership, retry identik, konflik payload, RLS, dan hak execute; hasilnya menunggu CI.
+- Fitur lanjutan Talaqqi, laporan Wali, peer review, dan pencapaian Tahfidz belum memiliki penyimpanan/API runtime terverifikasi. Jangan menyalin migrasi #11 satu per satu: nama, urutan, Auth, dan kontrak tenant sudah berevolusi di #13.
+
+PR #11 tetap Open/Draft dan divergen; status parity inti pada #13 bukan alasan untuk merge stack #11. Pertahankan #13 sebagai jalur utama, port hanya celah yang terbukti, dan tunggu CI baru untuk test Tahfidz sebelum menaikkan skor kesiapan dari **61/100**.

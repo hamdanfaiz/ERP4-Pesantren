@@ -125,3 +125,9 @@ Skor tetap 61/100. Perubahan lokal belum masuk ke PR #13 dan belum diuji oleh CI
 - Supabase Production tidak disentuh. Belum ada migrasi, perubahan database, atau data produksi yang ditulis.
 
 Gerbang berikutnya: kirim perubahan ke PR #13, tunggu CI lulus pada commit yang sama, lanjutkan audit paritas PR #11 dan #12, lalu uji migrasi serta aplikasi pada staging terisolasi. Skor tetap berbasis bukti dan bukan ukuran linear pekerjaan yang tersisa.
+
+## Pembaruan status setelah CI commit e3d91bc — 25 Oktober 2026
+
+- Koreksi runtime Firebase telah masuk ke head PR #13 `e3d91bc4eb29bac2e59310e435394c98196ee211`. CI run `40188865422` lulus untuk kedua job, termasuk typecheck/build/Docker, guard frontend baru, seluruh migration/pgTAP Supabase lokal, API tenant, NIS serentak, Storage, dan backup/restore.
+- Progres rilis tetap **61/100**. CI mengonfirmasi kualitas kode pada commit tersebut, tetapi belum menguji kredensial Admin di staging, rekonsiliasi/apply data, atau deployment di environment pelanggan.
+- Perbaikan lanjutan berupa 62 assertion Tahfidz untuk setoran, halaqah, membership, target, batas tenant/role, idempotensi, RLS, dan hak RPC kini disiapkan dalam worktree. Supabase CLI/Docker tidak tersedia lokal; tes menunggu workflow CI setelah perubahan dikirim.
