@@ -87,6 +87,9 @@ function cleanup(dbUrl) {
     DELETE FROM public.tahfidz_sessions WHERE tenant_id = '${tenantId}'::uuid;
     DELETE FROM public.tahfidz_memberships WHERE tenant_id = '${tenantId}'::uuid;
     DELETE FROM public.tahfidz_halaqahs WHERE tenant_id = '${tenantId}'::uuid;
+    DELETE FROM public.cooperative_wallets
+    WHERE tenant_id = '${tenantId}'::uuid
+      AND student_id IN ('${students[0].id}'::uuid, '${students[1].id}'::uuid);
     DELETE FROM public.students WHERE tenant_id = '${tenantId}'::uuid;
     DELETE FROM public.candidates WHERE tenant_id = '${tenantId}'::uuid;
     DELETE FROM public.profiles WHERE tenant_id = '${tenantId}'::uuid;
