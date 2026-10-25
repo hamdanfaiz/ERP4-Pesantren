@@ -18,6 +18,7 @@ export type LegacyCooperativeCatalogSources = {
 };
 
 const MAX_ROWS_PER_COLLECTION = 1000;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function hmac(value: unknown): string {
   const key = String(process.env.SUPABASE_LEGACY_FINGERPRINT_KEY || "").trim();
@@ -650,8 +651,8 @@ export async function applySupabaseLegacyCooperativeFinancialHistory(
   const wallets = preview.wallets.map((wallet: Row) => {
     if (!/^[0-9a-f]{64}$/.test(String(wallet.sourceRef || ""))
       || !/^[0-9a-f]{64}$/.test(String(wallet.sourceFingerprint || ""))
-      || !/^[0-9a-f-]{36}$/i.test(String(wallet.targetWalletId || ""))
-      || !/^[0-9a-f-]{36}$/i.test(String(wallet.clientRequestId || ""))
+      || !UUID_PATTERN.test(String(wallet.targetWalletId || ""))
+      || !UUID_PATTERN.test(String(wallet.clientRequestId || ""))
       || !safeLegacyAmount(wallet.openingBalance)
       || !safeLegacyAmount(wallet.closingBalance)
       || !safeLegacyAmount(wallet.salesTotal)) {
@@ -671,7 +672,7 @@ export async function applySupabaseLegacyCooperativeFinancialHistory(
   const transactions = preview.transactions.map((transaction: Row) => {
     if (!/^[0-9a-f]{64}$/.test(String(transaction.sourceRef || ""))
       || !/^[0-9a-f]{64}$/.test(String(transaction.sourceFingerprint || ""))
-      || !/^[0-9a-f-]{36}$/i.test(String(transaction.clientRequestId || ""))
+      || !UUID_PATTERN.test(String(transaction.clientRequestId || ""))
       || !/^[0-9a-f]{64}$/.test(String(transaction.sourceWalletRef || ""))
       || normalized(transaction.status) !== "success"
       || typeof transaction.createdAt !== "string"
@@ -680,7 +681,7 @@ export async function applySupabaseLegacyCooperativeFinancialHistory(
       throw new SupabaseCooperativeError(409, "Transaksi arsip belum lengkap atau tidak valid.");
     }
     const items = transaction.items.map((item: Row) => {
-      if (!/^[0-9a-f-]{36}$/i.test(String(item.productId || ""))
+      if (!UUID_PATTERN.test(String(item.productId || ""))
         || !text(item.name) || String(item.name).length > 180
         || !safeLegacyAmount(item.unitPrice)
         || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 500
