@@ -1,3 +1,4 @@
+import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHash } from "node:crypto";
 import { SupabaseOnboardingError } from "./supabaseOnboarding";
 
@@ -78,10 +79,14 @@ async function listTenantRows(table: string, tenantId: string, select: string, o
 
 type BoardingLocationScope = { roomIds: Set<string>; buildingIds: Set<string> };
 async function getBoardingLocationScope(tenantId: string, userId: string): Promise<BoardingLocationScope> {
-  const params = new URLSearchParams({ select: "room_id,building_id", tenant_id: "eq." + tenantId,
-    user_id: "eq." + userId, status: "eq.active", limit: "1000" });
-  const rows = await supabaseRequest("/rest/v1/boarding_staff_assignments?" + params.toString());
-  if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Penugasan lokasi petugas belum dapat diverifikasi.");
+  const path = "/rest/v1/boarding_staff_assignments?" + new URLSearchParams({
+    select: "room_id,building_id", tenant_id: "eq." + tenantId, user_id: "eq." + userId,
+    status: "eq.active", order: "id.asc",
+  }).toString();
+  const rows = await readPostgrestRowsInPages<JsonObject>({
+    request: supabaseRequest, path, maxRows: 5000,
+    onIncomplete: () => new SupabaseOnboardingError(503, "Penugasan lokasi petugas melebihi batas aman atau hasilnya tidak lengkap."),
+  });
   const structures = await listTenantRows("master_data_records", tenantId, "id,category,status", "category.asc,id.asc");
   const activeRooms = new Set(structures.filter((row) => row.category === "Kamar"
     && !["inactive", "nonaktif", "disabled"].includes(String(row.status || "").toLowerCase())).map((row) => String(row.id)));

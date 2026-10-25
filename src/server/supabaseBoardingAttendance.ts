@@ -72,8 +72,8 @@ async function getBoardingLocationScope(tenantId: string, userId: string): Promi
   const path = "/rest/v1/boarding_staff_assignments?" + new URLSearchParams({ select: "room_id,building_id", tenant_id: "eq." + tenantId,
     user_id: "eq." + userId, status: "eq.active", order: "room_id.asc,building_id.asc,user_id.asc" }).toString();
   const rows = await readPostgrestRowsInPages<Row>({
-    request, path, maxRows: 1000,
-    onIncomplete: () => new SupabaseOnboardingError(503, "Penugasan lokasi petugas melewati batas aman atau tidak lengkap."),
+    request, path, maxRows: 5000,
+    onIncomplete: () => new SupabaseOnboardingError(503, "Penugasan lokasi petugas melebihi batas aman atau hasilnya tidak lengkap."),
   });
   const structures = await tenantRows("master_data_records", tenantId, "id,category,status", "category.asc,id.asc");
   const activeRooms = new Set(structures.filter((row) => row.category === "Kamar"
