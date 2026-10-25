@@ -209,12 +209,12 @@ export async function listTenantProfilesPage(
     const escaped = search
       .replace(/\\/g, "\\\\")
       .replace(/"/g, '\\"')
-      .replace(/[%_*]/g, (character) => \`\\\\\${character}\`);
-    const pattern = \`"%\${escaped}%"\`;
+      .replace(/[%_*]/g, (character) => `\\\\${character}`);
+    const pattern = `"%${escaped}%"`;
     query = query.or([
-      \`display_name.ilike.\${pattern}\`,
-      \`email.ilike.\${pattern}\`,
-      \`username.ilike.\${pattern}\`,
+      `display_name.ilike.${pattern}`,
+      `email.ilike.${pattern}`,
+      `username.ilike.${pattern}`,
     ].join(","));
   }
 
