@@ -201,3 +201,18 @@ Skor naik satu poin dari 64/100 setelah pembacaan riwayat Tahfidz tidak lagi ter
 - Head PR #13: `8ee9ed2a258d28b69af40519e4c9ed573d0042e6`. PR masih Open/Draft. Tidak ada migrasi atau penulisan data Supabase Production.
 
 Pagination ini mengatasi riwayat Tahfidz; snapshot roster, target, dan assignment masih memiliki batas pemindaian masing-masing dan perlu evaluasi skala terpisah. Staging yang benar, migrasi/rekonsiliasi data, login dan role UAT, rotasi secret, serta uji instalasi VPS/on-premise tetap menjadi release gate.
+
+
+## Optimasi snapshot dan cakupan halaman Tahfidz — 25 Oktober 2026
+
+### Progres menuju go-live: 66/100
+
+Skor naik satu poin dari 65/100 setelah halaman riwayat Tahfidz tidak lagi memuat ulang snapshot seluruh tabel pada setiap permintaan. Cakupan tenant/role, filter tanggal bisnis, tes terarah, serta CI berhasil diverifikasi pada commit yang sama.
+
+- API halaman riwayat memverifikasi actor/profile terlebih dahulu, lalu hanya membaca assignment halaqah aktif Ustadz atau tautan santri yang disahkan untuk Santri/Wali. Data dibatasi tenant di server; nama santri untuk riwayat Ustadz dimuat hanya untuk catatan di halaman yang diminta.
+- Snapshot awal kini hanya mengambil membership yang mencakup tanggal bisnis tenant dan target yang berlaku pada tanggal itu. Riwayat penempatan/target yang kedaluwarsa tidak memenuhi pemindaian roster aktif.
+- Tes dengan mock Supabase membuktikan permintaan riwayat Ustadz memakai filter tenant dan halaqah, tidak membaca tabel membership/target penuh, serta hanya mengambil identitas santri pada halaman. Tes snapshot memeriksa batas tanggal membership dan target.
+- Tes pagination dan typecheck terisolasi lulus lokal. CI run [40194508286](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40194508286) lulus pada kedua job: typecheck, tes Tahfidz, build client/server, Docker smoke test, seluruh migrasi/pgTAP Supabase lokal, NIS serentak, auth/isolasi tenant, Storage, dan backup/restore.
+- Head kode PR #13: `c2461726a60e540595ce7059a1cd37bf89af2b54`. Tidak ada migrasi atau data Supabase Production yang dijalankan.
+
+Batas pemindaian snapshot roster santri/halaqah masih 5.000 baris dan halaman UI Tahfidz belum memiliki pagination roster sisi server. Ini tetap perlu dibereskan untuk tenant di atas batas tersebut. PR masih Open/Draft; staging, rekonsiliasi migrasi, Admin/Wali UAT, rotasi secret, dan uji pemasangan VPS/on-premise tetap release gate.
