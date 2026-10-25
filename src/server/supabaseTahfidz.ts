@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { isValidTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
 import { buildTahfidzRecordPageParams, encodeTahfidzRecordCursor, TAHFIDZ_RECORD_PAGE_SIZE } from "../lib/tahfidzRecordPagination";
 import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch, TAHFIDZ_ROSTER_PAGE_SIZE } from "../lib/tahfidzRosterPagination";
+import { buildTahfidzSessionPageParams, encodeTahfidzSessionCursor, TAHFIDZ_SESSION_PAGE_SIZE } from "../lib/tahfidzSessionPagination";
 
 type JsonObject = Record<string, any>;
 
@@ -505,7 +506,8 @@ export async function listSupabaseTahfidzSessions(
   tenantIdentifier: string,
   actorSupabaseUid: string,
   role: string,
-  kind: "talaqqi" | "exam"
+  kind: "talaqqi" | "exam",
+  cursorValue?: unknown
 ) {
   if (!(["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"] as string[]).includes(role)) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca sesi Tahfidz.");
@@ -514,27 +516,62 @@ export async function listSupabaseTahfidzSessions(
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
   const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
   const scope = await resolveTahfidzRecordPageScope(tenantId, actorId, role);
-  const sessionFilters: Record<string, string> = { kind: "eq." + kind };
-  if (role === "Ustadz") {
-    const halaqahIds = [...new Set(scope.halaqahs.map((item) => String(item.id)).filter(isUuid))];
-    if (!halaqahIds.length) return { sessions: [], canManage: true, actorUserId: actorId };
-    sessionFilters.halaqah_id = "in.(" + halaqahIds.join(",") + ")";
-  } else if (role === "Santri" || role === "Walisantri") {
-    const studentIds = [...new Set(scope.roster.map((item) => String(item.id)).filter(isUuid))];
-    if (!studentIds.length) return { sessions: [], canManage: false, actorUserId: actorId };
-    sessionFilters.student_id = "in.(" + studentIds.join(",") + ")";
+  let sessionParams: URLSearchParams | null;
+  try {
+    sessionParams = buildTahfidzSessionPageParams({
+      tenantId,
+      kind,
+      role,
+      halaqahIds: scope.halaqahs.map((item) => String(item.id)),
+      studentIds: scope.roster.map((item) => String(item.id)),
+      cursor: cursorValue,
+    });
+  } catch {
+    throw new SupabaseTahfidzError(400, "Kursor atau cakupan halaman sesi Tahfidz tidak valid.");
   }
+  if (!sessionParams) return {
+    sessions: [], hasMore: false, nextCursor: null,
+    canManage: ["Admin", "SuperAdmin", "Ustadz"].includes(role), actorUserId: actorId,
+  };
   const [snapshot, rows] = await Promise.all([
     listSupabaseTahfidzSnapshot(tenantIdentifier, actorSupabaseUid, role, false),
-    listRows("tahfidz_sessions", tenantId,
-      "id,kind,student_id,halaqah_id,teacher_user_id,exam_type,juz_start,juz_end,scheduled_at,duration_minutes,focus,status,score,outcome,notes,completed_at,created_at",
-      "scheduled_at.asc,id.asc", sessionFilters),
+    supabaseRequest("/rest/v1/tahfidz_sessions?" + sessionParams.toString()),
   ]);
+  if (!Array.isArray(rows)) throw new SupabaseTahfidzError(503, "Halaman sesi Tahfidz belum dapat dimuat.");
+  const hasMore = rows.length > TAHFIDZ_SESSION_PAGE_SIZE;
+  const pageRows = rows.slice(0, TAHFIDZ_SESSION_PAGE_SIZE);
+  const lastRow = pageRows[pageRows.length - 1];
+  let nextCursor: string | null = null;
+  if (hasMore && lastRow) {
+    try {
+      nextCursor = encodeTahfidzSessionCursor({ scheduledAt: String(lastRow.scheduled_at || ""), id: String(lastRow.id || "") });
+    } catch {
+      throw new SupabaseTahfidzError(503, "Urutan sesi Tahfidz tidak konsisten.");
+    }
+  }
   const sessionRoster = role === "Santri" || role === "Walisantri" ? scope.roster : snapshot.roster;
   const visibleStudentIds = new Set(sessionRoster.map((item: JsonObject) => String(item.id)));
   const visibleHalaqahs = new Map<string, JsonObject>(snapshot.halaqahs.map((item: JsonObject) => [String(item.id), item]));
   const visibleRoster = new Map<string, JsonObject>([...snapshot.roster, ...sessionRoster].map((item: JsonObject) => [String(item.id), item]));
-  const sessions = rows.filter((row) => {
+  const missingStudentIds = [...new Set(pageRows.map((row) => String(row.student_id || "")))]
+    .filter((studentId) => studentId && !visibleRoster.has(studentId));
+  if (missingStudentIds.some((studentId) => !isUuid(studentId))) {
+    throw new SupabaseTahfidzError(503, "Referensi santri pada jadwal Tahfidz tidak valid.");
+  }
+  if (missingStudentIds.length) {
+    const studentParams = new URLSearchParams({
+      select: "id,nis,name,status",
+      tenant_id: "eq." + tenantId,
+      id: "in.(" + missingStudentIds.join(",") + ")",
+      limit: String(missingStudentIds.length + 1),
+    });
+    const students = await supabaseRequest("/rest/v1/students?" + studentParams.toString());
+    if (!Array.isArray(students) || students.length > missingStudentIds.length) {
+      throw new SupabaseTahfidzError(503, "Identitas santri pada sesi Tahfidz belum dapat diverifikasi.");
+    }
+    for (const student of students) visibleRoster.set(String(student.id), student);
+  }
+  const sessions = pageRows.filter((row) => {
     if (role === "Ustadz") return visibleHalaqahs.has(String(row.halaqah_id));
     if (role === "Santri" || role === "Walisantri") return visibleStudentIds.has(String(row.student_id));
     return true;
@@ -564,7 +601,7 @@ export async function listSupabaseTahfidzSessions(
       completedAt: row.completed_at || null,
     };
   });
-  return { sessions, canManage: ["Admin", "SuperAdmin", "Ustadz"].includes(role), actorUserId: actorId };
+  return { sessions, hasMore, nextCursor, canManage: ["Admin", "SuperAdmin", "Ustadz"].includes(role), actorUserId: actorId };
 }
 
 export async function mutateSupabaseTahfidzSession(

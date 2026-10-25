@@ -51,6 +51,9 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
   const timeZone = normalizeTenantTimeZone(tenantTimeZone || user?.tenantTimeZone || DEFAULT_TENANT_TIME_ZONE);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
+  const [hasMoreSessions, setHasMoreSessions] = useState(false);
+  const [nextSessionCursor, setNextSessionCursor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -59,6 +62,9 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
   const [form, setForm] = useState(() => ({ studentId: "", scheduledAt: tenantLocalDateTime(1, timeZone), durationMinutes: "30", focus: "", examType: "munaqasyah", juzStart: "1", juzEnd: "1" }));
   const [resultForm, setResultForm] = useState({ score: "", outcome: "pass", notes: "" });
   const requestIds = useRef(new Map<string, string>());
+  const sessionListSequence = useRef(0);
+  const loadingMoreSequence = useRef(0);
+  const loadingMoreGuard = useRef(false);
   const canManage = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
 
   const requestIdFor = (signature: string) => {
@@ -87,19 +93,66 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
   }, [user?.tenantId, user?.uid, timeZone]);
 
   const refresh = useCallback(async () => {
-    const payload = await requestSessions(`/api/tahfidz/sessions?kind=${kind}`);
-    setSessions(Array.isArray(payload.sessions) ? payload.sessions : []);
+    const sequence = ++sessionListSequence.current;
+    loadingMoreSequence.current += 1;
+    loadingMoreGuard.current = false;
+    setLoadingMoreSessions(false);
+    setLoading(true);
+    setError("");
+    try {
+      const payload = await requestSessions(`/api/tahfidz/sessions?kind=${kind}`);
+      if (sequence !== sessionListSequence.current) return;
+      setSessions(Array.isArray(payload.sessions) ? payload.sessions : []);
+      setHasMoreSessions(payload.hasMore === true);
+      setNextSessionCursor(typeof payload.nextCursor === "string" ? payload.nextCursor : null);
+    } catch (loadError: any) {
+      if (sequence === sessionListSequence.current) setError(loadError?.message || "Jadwal Tahfidz belum dapat dimuat.");
+      throw loadError;
+    } finally {
+      if (sequence === sessionListSequence.current) setLoading(false);
+    }
   }, [kind]);
 
   useEffect(() => {
-    let active = true;
-    setLoading(true); setError("");
-    requestSessions(`/api/tahfidz/sessions?kind=${kind}`)
-      .then((payload) => { if (active) setSessions(Array.isArray(payload.sessions) ? payload.sessions : []); })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Jadwal Tahfidz belum dapat dimuat."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [kind, user?.tenantId, user?.uid]);
+    setSessions([]);
+    setHasMoreSessions(false);
+    setNextSessionCursor(null);
+    void refresh().catch(() => undefined);
+    return () => {
+      sessionListSequence.current += 1;
+      loadingMoreSequence.current += 1;
+      loadingMoreGuard.current = false;
+    };
+  }, [refresh, user?.tenantId, user?.uid]);
+
+  const loadMoreSessions = async () => {
+    const cursor = nextSessionCursor;
+    const sequence = sessionListSequence.current;
+    if (!hasMoreSessions || !cursor || loadingMoreGuard.current) return;
+    const loadSequence = ++loadingMoreSequence.current;
+    loadingMoreGuard.current = true;
+    setLoadingMoreSessions(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ kind, cursor });
+      const payload = await requestSessions(`/api/tahfidz/sessions?${params.toString()}`);
+      if (sequence !== sessionListSequence.current) return;
+      const incoming = Array.isArray(payload.sessions) ? payload.sessions as Session[] : [];
+      setSessions((current) => {
+        const knownIds = new Set(current.map((session) => session.id));
+        return [...current, ...incoming.filter((session) => !knownIds.has(session.id))];
+      });
+      setHasMoreSessions(payload.hasMore === true);
+      setNextSessionCursor(typeof payload.nextCursor === "string" ? payload.nextCursor : null);
+    } catch (loadError: any) {
+      if (sequence === sessionListSequence.current) setError(loadError?.message || "Halaman jadwal berikutnya belum dapat dimuat.");
+    } finally {
+      if (loadSequence === loadingMoreSequence.current) {
+        loadingMoreGuard.current = false;
+        if (sequence === sessionListSequence.current) setLoadingMoreSessions(false);
+      }
+    }
+  };
 
   const eligibleStudents = useMemo(() => students.filter((student) => {
     const halaqah = halaqahs.find((item) => item.id === student.halaqahId);
@@ -167,13 +220,13 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white"><CalendarClock className="h-5 w-5 text-emerald-600" />{title}</h2><p className="mt-1 text-sm text-slate-500">Jadwal dan hasil disimpan pada tenant Supabase, dengan validasi penempatan santri dan pengampu.</p></div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} aria-label="Muat ulang jadwal" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><RefreshCw className="h-4 w-4" /></button>
+          <button type="button" onClick={() => void refresh().catch(() => undefined)} aria-label="Muat ulang jadwal" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><RefreshCw className="h-4 w-4" /></button>
           {canManage && <button type="button" disabled={!eligibleStudents.length && !rosterHasMore} onClick={() => { setError(""); setCreateOpen(true); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-4 w-4" /> Jadwalkan</button>}
         </div>
       </div>
       {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">{error}</div>}
       {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat jadwal tenant…</div>
-        : sessions.length ? <div className="grid gap-3">{sessions.map((session) => <article key={session.id} className="flex flex-col gap-4 rounded-xl border border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+        : sessions.length ? <><div className="grid gap-3">{sessions.map((session) => <article key={session.id} className="flex flex-col gap-4 rounded-xl border border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{session.studentName}</h3><span className="text-xs text-slate-500">{session.nis || "—"}</span><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${session.status === "completed" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : session.status === "cancelled" ? "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300" : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"}`}>{statusLabel(session)}</span></div>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{formatTenantDateTime(session.scheduledAt, timeZone)} ({timeZone}) · {session.durationMinutes} menit · {session.halaqahName}</p>
             <p className="mt-1 text-sm text-slate-500">{kind === "exam" ? `${session.examType === "tasmi" ? "Tasmi'" : "Munaqasyah"} juz ${session.juzStart}–${session.juzEnd}` : session.focus} · Pengampu: {session.teacherName}</p>
@@ -181,7 +234,7 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
             {session.status === "completed" && kind === "talaqqi" && session.notes && <p className="mt-1 text-sm text-slate-500">Catatan: {session.notes}</p>}
           </div>
           {canManage && session.status === "scheduled" && <div className="flex shrink-0 gap-2"><button type="button" disabled={saving} onClick={() => { setError(""); setCompleteSession(session); setResultForm({ score: "", outcome: "pass", notes: "" }); }} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-500/20 dark:text-emerald-300 dark:hover:bg-emerald-950/30"><CheckCircle2 className="h-4 w-4" /> Selesaikan</button><button type="button" disabled={saving} onClick={() => { if (window.confirm("Batalkan jadwal ini?")) void mutateStatus(session, "cancelled"); }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5">Batalkan</button></div>}
-        </article>)}</div>
+        </article>)}</div>{hasMoreSessions && <div className="flex justify-center"><button type="button" onClick={() => void loadMoreSessions()} disabled={loadingMoreSessions} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMoreSessions && <Loader2 className="h-4 w-4 animate-spin" />}{loadingMoreSessions ? "Memuat sesi…" : "Muat sesi berikutnya"}</button></div>}</>
         : <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center dark:border-white/15"><ClipboardCheck className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-medium text-slate-800 dark:text-slate-200">Belum ada {kind === "talaqqi" ? "jadwal talaqqi" : "jadwal munaqasyah"}</p><p className="mt-1 text-sm text-slate-500">Tidak ada data contoh yang dimasukkan otomatis.</p></div>}
 
       {createOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><form onSubmit={submitCreate} className="w-full max-w-xl rounded-xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900">

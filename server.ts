@@ -2914,8 +2914,11 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const kind = String(req.query.kind || "");
       if (kind !== "talaqqi" && kind !== "exam") return res.status(400).json({ error: "Jenis sesi Tahfidz tidak valid." });
+      if (req.query.cursor !== undefined && typeof req.query.cursor !== "string") {
+        return res.status(400).json({ error: "Kursor halaman sesi Tahfidz tidak valid." });
+      }
       const actor = await loadTahfidzActor(uid);
-      return res.json(await listSupabaseTahfidzSessions(actor.tenantId, actor.uid, actor.role, kind));
+      return res.json(await listSupabaseTahfidzSessions(actor.tenantId, actor.uid, actor.role, kind, req.query.cursor));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 
