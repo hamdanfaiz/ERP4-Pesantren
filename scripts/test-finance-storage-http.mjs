@@ -38,7 +38,7 @@ async function availablePort() {
   return port;
 }
 
-async function createUser(admin, tenantId, role, label, options = {}) {
+async function createUser(admin, tenantId, role, label) {
   const id = randomUUID();
   const email = `storage-${label}-${id.slice(0, 8)}@example.test`;
   const password = `Storage-Test-${id}-Aa1!`;
@@ -58,7 +58,6 @@ async function createUser(admin, tenantId, role, label, options = {}) {
     role,
     status: 'active',
     module_permissions: { finance: true },
-    linked_santri_id: options.linkedSantriId || null,
   });
   if (profileError) {
     await admin.auth.admin.deleteUser(data.user.id);
@@ -84,6 +83,8 @@ async function main() {
   const tenantId = randomUUID();
   const studentId = randomUUID();
   const candidateId = randomUUID();
+  const otherCandidateId = randomUUID();
+  const otherStudentId = randomUUID();
   const billRequestId = randomUUID();
   const fixtureSuffix = randomUUID().slice(0, 10);
   const classId = `storage-class-${fixtureSuffix}`;
@@ -132,10 +133,53 @@ async function main() {
     });
     if (studentError) throw new Error('Unable to create a synthetic student.');
 
-    const guardian = await createUser(admin, tenantId, 'wali_santri', 'guardian', { linkedSantriId: studentId });
+    const guardian = await createUser(admin, tenantId, 'wali_santri', 'guardian');
     users.push(guardian);
-    const otherGuardian = await createUser(admin, tenantId, 'wali_santri', 'other-guardian', { linkedSantriId: randomUUID() });
+    const otherGuardian = await createUser(admin, tenantId, 'wali_santri', 'other-guardian');
     users.push(otherGuardian);
+
+    const { error: otherCandidateError } = await admin.from('candidates').insert({
+      id: otherCandidateId,
+      tenant_id: tenantId,
+      registration_id: `ST-${fixtureSuffix}-OTHER`,
+      name: 'Santri Storage Test Other',
+    });
+    if (otherCandidateError) throw new Error('Unable to create the unrelated guardian candidate.');
+
+    const { error: otherStudentError } = await admin.from('students').insert({
+      id: otherStudentId,
+      tenant_id: tenantId,
+      source_candidate_id: otherCandidateId,
+      nis: `97${randomUUID().replace(/\D/g, '').slice(0, 8).padEnd(8, '0')}`,
+      name: 'Santri Storage Test Other',
+      gender: 'L',
+      grade: 'VII',
+      nik_ciphertext: `\\x${'ef'.repeat(44)}`,
+      nik_fingerprint: `\\x${'12'.repeat(32)}`,
+      class_id: classId,
+      room_id: roomId,
+    });
+    if (otherStudentError) throw new Error('Unable to create the unrelated synthetic student.');
+
+    const guardianRecordId = randomUUID();
+    const otherGuardianRecordId = randomUUID();
+    const { error: guardianRecordsError } = await admin.from('guardians').insert([
+      { id: guardianRecordId, tenant_id: tenantId, source_candidate_id: candidateId, name: 'Wali Santri Uji', phone: '081234567801' },
+      { id: otherGuardianRecordId, tenant_id: tenantId, source_candidate_id: otherCandidateId, name: 'Wali Santri Lain', phone: '081234567802' },
+    ]);
+    if (guardianRecordsError) throw new Error('Unable to create canonical guardian records.');
+
+    const { error: guardianLinksError } = await admin.from('guardian_students').insert([
+      { tenant_id: tenantId, guardian_id: guardianRecordId, student_id: studentId },
+      { tenant_id: tenantId, guardian_id: otherGuardianRecordId, student_id: otherStudentId },
+    ]);
+    if (guardianLinksError) throw new Error('Unable to create canonical guardian-to-student links.');
+
+    const { error: guardianAccountsError } = await admin.from('guardian_user_accounts').insert([
+      { tenant_id: tenantId, guardian_id: guardianRecordId, user_id: guardian.uid },
+      { tenant_id: tenantId, guardian_id: otherGuardianRecordId, user_id: otherGuardian.uid },
+    ]);
+    if (guardianAccountsError) throw new Error('Unable to create canonical guardian account links.');
 
     const { data: billResult, error: billError } = await admin.rpc('create_tenant_finance_bills', {
       p_tenant_id: tenantId,
@@ -203,8 +247,8 @@ async function main() {
         fileName: 'synthetic-proof.pdf',
       }),
     });
-    assert.equal(uploadResponse.status, 201, 'A linked guardian should be able to submit a valid payment proof.');
     const uploadPayload = await uploadResponse.json();
+    assert.equal(uploadResponse.status, 201, 'A linked guardian should be able to submit a valid payment proof (HTTP ' + uploadResponse.status + ': ' + (uploadPayload.error || uploadPayload.code || 'unknown response') + ').');
     assert.equal(uploadPayload.proofStorageProvider, 'supabase');
     uploadedPath = uploadPayload.proofStoragePath;
     assert.ok(uploadedPath.startsWith(`financeProofs/${tenantId}/${studentId}/${bill.id}/`), 'The object path must be scoped to its tenant, student, and bill.');
@@ -279,7 +323,7 @@ async function main() {
     if (uploadedPath) {
       try { await admin.storage.from(BUCKET).remove([uploadedPath]); } catch {}
     }
-    for (const table of ['finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'students', 'candidate_documents', 'candidates', 'master_data_records']) {
+    for (const table of ['finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'students', 'candidate_documents', 'candidates', 'master_data_records']) {
       try { await admin.from(table).delete().eq('tenant_id', tenantId); } catch {}
     }
     for (const user of users) {
