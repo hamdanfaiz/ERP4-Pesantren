@@ -57,13 +57,7 @@ BEGIN
     ON building.tenant_id = student.tenant_id
    AND building.category = 'Gedung'
    AND building.id = student.building_id
-  WHERE (student.room_id IS NOT NULL OR student.building_id IS NOT NULL)
-    AND NOT EXISTS (
-      SELECT 1
-      FROM public.student_room_assignment_history AS history
-      WHERE history.tenant_id = student.tenant_id
-        AND history.student_id = student.id
-    )
+  WHERE student.room_id IS NOT NULL OR student.building_id IS NOT NULL
   ON CONFLICT DO NOTHING;
 
   GET DIAGNOSTICS v_inserted = ROW_COUNT;

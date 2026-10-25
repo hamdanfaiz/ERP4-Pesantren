@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(51);
+SELECT plan(52);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -70,32 +70,37 @@ SELECT is((SELECT room_name FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
   'Kamar Utara','history preserves the room name snapshot');
 
-DELETE FROM public.student_room_assignment_history
-WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
-  AND student_id='d4600000-0000-4000-8000-000000000201'
-  AND event_type='initial_assignment';
 SELECT is(public.backfill_student_room_assignment_history_baseline(), 1,
-  'baseline backfill captures an assigned student with no recorded history');
+  'baseline backfill captures an assigned student at cutover');
 SELECT is((SELECT event_type FROM public.student_room_assignment_history
-  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'
+    AND event_type='baseline_snapshot'),
   'baseline_snapshot','cutover state has a distinct baseline event type');
 SELECT is((SELECT change_source FROM public.student_room_assignment_history
-  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'
+    AND event_type='baseline_snapshot'),
   'migration_baseline','cutover state identifies the migration as its source');
 SELECT is((SELECT room_name FROM public.student_room_assignment_history
-  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'
+    AND event_type='baseline_snapshot'),
   'Kamar Utara','baseline preserves the room name at cutover');
 SELECT is((SELECT building_name FROM public.student_room_assignment_history
-  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'
+    AND event_type='baseline_snapshot'),
   'Gedung Utara','baseline preserves the building name at cutover');
 SELECT ok((SELECT changed_by IS NULL AND changed_at IS NOT NULL FROM public.student_room_assignment_history
-  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'
+    AND event_type='baseline_snapshot'),
   'baseline does not invent a historical actor and has a cutover timestamp');
+SELECT is((SELECT count(*)::INTEGER FROM public.student_room_assignment_history
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND student_id='d4600000-0000-4000-8000-000000000201' AND event_type='initial_assignment'),
+  1,'baseline backfill preserves the existing initial assignment event');
 SELECT is(public.backfill_student_room_assignment_history_baseline(), 0,
-  'replaying the baseline backfill does not duplicate snapshots or existing history');
+  'replaying the baseline backfill does not duplicate snapshots');
 SELECT is((SELECT count(*)::INTEGER FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
-  1,'baseline replay leaves one history row');
+  2,'baseline replay preserves the baseline and original event');
 SELECT ok(NOT has_function_privilege('service_role','public.backfill_student_room_assignment_history_baseline()','EXECUTE'),
   'service role cannot invoke the one-time migration backfill');
 
@@ -130,7 +135,7 @@ SELECT is(public.assign_student_to_room_audited(
 )->>'success','true','Admin can move a student within their tenant');
 SELECT is((SELECT count(*)::INTEGER FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
-  2,'room move appends rather than replaces history');
+  3,'room move appends rather than replaces history');
 SELECT is((SELECT event_type FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'
   ORDER BY id DESC LIMIT 1),'moved','room change is recorded as a move');
@@ -159,7 +164,7 @@ SELECT is(public.assign_student_to_room_audited(
 )->>'alreadyAssigned','true','identical placement replay is acknowledged');
 SELECT is((SELECT count(*)::INTEGER FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
-  2,'identical placement does not append a duplicate history event');
+  3,'identical placement does not append a duplicate history event');
 
 SELECT is(public.assign_student_to_room_audited(
   'd4600000-0000-4000-8000-000000000001','d4600000-0000-4000-8000-000000000201',
@@ -167,7 +172,7 @@ SELECT is(public.assign_student_to_room_audited(
 )->>'success','true','Admin can unassign a student');
 SELECT is((SELECT count(*)::INTEGER FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
-  3,'unassignment is appended to the audit history');
+  4,'unassignment is appended to the audit history');
 SELECT is((SELECT event_type FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'
   ORDER BY id DESC LIMIT 1),'unassigned','unassignment has an explicit event type');
@@ -184,14 +189,14 @@ SELECT is(public.assign_student_to_room_audited(
 )->>'success','true','Admin can assign the student again after unassignment');
 SELECT is((SELECT count(*)::INTEGER FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
-  4,'reassignment appends another history event');
+  5,'reassignment appends another history event');
 SELECT is(public.archive_master_data_student_with_actor(
   'd4600000-0000-4000-8000-000000000001','d4600000-0000-4000-8000-000000000201',
   NULL,'d4600000-0000-4000-8000-000000000011'
 )->>'success','true','Admin archive unassigns through the audited Master Data wrapper');
 SELECT is((SELECT count(*)::INTEGER FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
-  5,'archiving an assigned student appends an unassignment event');
+  6,'archiving an assigned student appends an unassignment event');
 SELECT is((SELECT event_type FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'
   ORDER BY id DESC LIMIT 1),'unassigned','archive history records the room removal');
