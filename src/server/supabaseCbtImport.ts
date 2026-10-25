@@ -1,3 +1,4 @@
+import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHmac } from "node:crypto";
 import { cbtSupabaseRequest, SupabaseCbtError } from "./supabaseCbt";
 
@@ -13,13 +14,16 @@ export async function getSupabaseCbtLegacyImportContext(tenantIdentifier: string
   if (!Array.isArray(tenants) || tenants.length !== 1 || tenants[0].status !== "active") throw new SupabaseCbtError(403, "Tenant CBT tidak ditemukan.");
   const legacyTenantKey = String(tenants[0].legacy_tenant_key || "").trim();
   if (!legacyTenantKey) throw new SupabaseCbtError(409, "Tenant belum memiliki pemetaan arsip Firebase lama.");
-  const query = new URLSearchParams({
-    select: "source_record_id,source_fingerprint", tenant_id: "eq." + tenantId,
-    source_system: "eq.legacy_firestore", limit: "3001",
+  const existingRows = await readPostgrestRowsInPages<Row>({
+    request: cbtSupabaseRequest,
+    path: `/rest/v1/cbt_questions?${new URLSearchParams({
+      select: "source_record_id,source_fingerprint", tenant_id: "eq." + tenantId,
+      source_system: "eq.legacy_firestore", order: "id.asc",
+    })}`,
+    maxRows: 3000,
+    onIncomplete: () => new SupabaseCbtError(503, "Bank soal lama tenant melewati batas aman atau hasil pemindaian tidak lengkap."),
   });
-  const existing = await cbtSupabaseRequest("/rest/v1/cbt_questions?" + query.toString());
-  if (!Array.isArray(existing) || existing.length > 3000) throw new SupabaseCbtError(503, "Bank soal lama tenant melewati batas aman pratinjau.");
-  return { tenantId, legacyTenantKey, existingRows: existing as Row[] };
+  return { tenantId, legacyTenantKey, existingRows };
 }
 
 function stableValue(value: any): any {
