@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { businessDateForInstant, DEFAULT_TENANT_TIME_ZONE, tenantBusinessDate } from "../utils/businessDate";
+import { readTenantRowsInPages } from "./paginatedTenantRows";
 
 type Row = Record<string, any>;
 
@@ -42,6 +43,22 @@ async function rows(table: string, tenantId: string, select: string, order: stri
   const { data, error } = await client().from(table).select(select).eq("tenant_id", tenantId).order(order.split(".")[0], { ascending: order.endsWith(".asc") }).limit(limit);
   if (error) mapStoreError(error);
   return (data || []) as Row[];
+}
+
+async function paginatedTenantRows(table: string, tenantId: string, select: string) {
+  const getExactCount = async () => {
+    const { count, error } = await client().from(table).select("id", { count: "exact", head: true }).eq("tenant_id", tenantId);
+    if (error) mapStoreError(error);
+    return count;
+  };
+  const readPage = async (afterId: string | null, limit: number) => {
+    let query = client().from(table).select(select).eq("tenant_id", tenantId);
+    if (afterId) query = query.gt("id", afterId);
+    const { data, error } = await query.order("id", { ascending: true }).limit(limit);
+    if (error) mapStoreError(error);
+    return (data || []) as Row[];
+  };
+  return readTenantRowsInPages<Row>({ getExactCount, readPage, pageSize: 1000, maxRows: 5000 });
 }
 
 async function callRpc<T = any>(name: string, args: Row): Promise<T> {
@@ -163,17 +180,22 @@ export async function getSupabaseCooperativeLegacyImportContext(tenantId: string
 
 export async function getSupabaseCooperativeFinancialImportContext(tenantId: string) {
   assertUuid(tenantId, "Tenant");
-  const [tenantResult, targetProducts, targetWallets, targetStudents, walletLedger, sales] = await Promise.all([
+  const [tenantResult, productScan, walletScan, studentScan, walletLedgerScan, salesScan] = await Promise.all([
     client().from("tenants").select("legacy_tenant_key,time_zone").eq("id", tenantId).eq("status", "active").maybeSingle(),
-    rows("cooperative_products", tenantId, "id,sku,name,status", "sku.asc", 5000),
-    rows("cooperative_wallets", tenantId, "id,student_id,balance,status", "student_id.asc", 5000),
-    rows("students", tenantId, "id,name,nis,grade,class_id,status", "name.asc", 5000),
-    rows("cooperative_wallet_ledger", tenantId, "wallet_id", "created_at.asc", 5000),
-    rows("cooperative_sales", tenantId, "wallet_id", "created_at.asc", 5000),
+    paginatedTenantRows("cooperative_products", tenantId, "id,sku,name,status"),
+    paginatedTenantRows("cooperative_wallets", tenantId, "id,student_id,balance,status"),
+    paginatedTenantRows("students", tenantId, "id,name,nis,grade,class_id,status"),
+    paginatedTenantRows("cooperative_wallet_ledger", tenantId, "id,wallet_id"),
+    paginatedTenantRows("cooperative_sales", tenantId, "id,wallet_id"),
   ]);
   if (tenantResult.error) mapStoreError(tenantResult.error);
   const legacyTenantKey = String(tenantResult.data?.legacy_tenant_key || "").trim();
   if (!legacyTenantKey) throw new SupabaseCooperativeError(409, "Tenant belum memiliki pemetaan sumber Firestore.");
+  const targetProducts = productScan.rows;
+  const targetWallets = walletScan.rows;
+  const targetStudents = studentScan.rows;
+  const walletLedger = walletLedgerScan.rows;
+  const sales = salesScan.rows;
   const usedWalletIds = [...new Set([
     ...walletLedger.map((row) => String(row.wallet_id || "")),
     ...sales.map((row) => String(row.wallet_id || "")),
@@ -185,7 +207,7 @@ export async function getSupabaseCooperativeFinancialImportContext(tenantId: str
     targetWallets,
     targetStudents,
     usedWalletIds,
-    historyScanIncomplete: [targetProducts, targetWallets, targetStudents, walletLedger, sales].some((result) => result.length >= 5000),
+    historyScanIncomplete: [productScan, walletScan, studentScan, walletLedgerScan, salesScan].some((scan) => !scan.complete),
   };
 }
 
