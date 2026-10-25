@@ -185,3 +185,19 @@ Skor naik satu poin dari 63/100 setelah koreksi roster dan batas akses berdasark
 - Tidak ada perubahan skema, migration, atau data Supabase Production. Target project `ptsasgdvgrbdtgyqieie` tetap tidak dapat diakses melalui konektor.
 
 PR #13 tetap Open/Draft. Login Admin/Wali pada staging, rekonsiliasi dan uji migrasi data, rotasi secret, review, serta UAT VPS/on-premise masih menjadi release gate. Persentase kesiapan bukan izin deploy.
+
+
+## Pagination riwayat Tahfidz tenant-aware — 25 Oktober 2026
+
+### Progres menuju go-live: 65/100
+
+Skor naik satu poin dari 64/100 setelah pembacaan riwayat Tahfidz tidak lagi terikat pada batas snapshot 5.000 catatan. Implementasi, tes kontrak, frontend, dan suite database lulus pada head PR yang sama. Ini membuktikan jalur kode di CI sintetis; belum membuktikan staging, data Production, atau UAT pelanggan.
+
+- Snapshot awal mengirim maksimal 100 catatan terbaru. Riwayat selanjutnya memakai cursor keyset stabil berdasarkan `performed_at DESC, id DESC`, sehingga halaman berikutnya tidak mengandalkan offset dan tidak berhenti di 5.000 catatan.
+- API memasang filter tenant di server. Ustadz dibatasi ke halaqah aktif yang diampu; Santri dan Wali dibatasi ke santri pada profil/tautan yang sudah diverifikasi server. Role tanpa cakupan yang sah mendapat hasil kosong.
+- Tab Riwayat menyediakan tombol **Muat riwayat lebih lama**. Dashboard menandai angka hari/minggu/bulan sebagai batas bawah (`≥`) bila rentang tersebut belum sepenuhnya termuat; profil juga tidak lagi menyebut riwayat lama sebagai “belum ada setoran”.
+- Tes sintetis memeriksa urutan dan batas halaman, presisi timestamp mikrodetik, cursor rusak/terlalu panjang, filter tenant, filter role, dan penolakan cakupan kosong/tidak valid. Tes lokal `npm run test:tahfidz-record-pagination` lulus.
+- CI run [40193542972](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40193542972) sukses pada kedua job. Job frontend lulus typecheck, tes pagination, build, guard dependensi Firebase, dan Docker smoke test. Job database lulus rangkaian Supabase lokal, migrasi/pgTAP, NIS serentak, auth/isolasi tenant, Storage, dan backup/restore.
+- Head PR #13: `8ee9ed2a258d28b69af40519e4c9ed573d0042e6`. PR masih Open/Draft. Tidak ada migrasi atau penulisan data Supabase Production.
+
+Pagination ini mengatasi riwayat Tahfidz; snapshot roster, target, dan assignment masih memiliki batas pemindaian masing-masing dan perlu evaluasi skala terpisah. Staging yang benar, migrasi/rekonsiliasi data, login dan role UAT, rotasi secret, serta uji instalasi VPS/on-premise tetap menjadi release gate.
