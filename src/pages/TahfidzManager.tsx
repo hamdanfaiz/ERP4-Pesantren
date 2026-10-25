@@ -1007,6 +1007,10 @@ export function TahfidzManager() {
           const halaqahSantri = displaySantri.filter(
             (s) => s.halaqah === halaqah.name,
           );
+          const halaqahStudentCount = SUPABASE_TAHFIDZ_RUNTIME && Number.isFinite(Number(halaqah.studentCount))
+            ? Math.max(0, Number(halaqah.studentCount))
+            : halaqahSantri.length;
+          const halaqahStudentPreview = halaqahSantri.slice(0, 3);
           return (
             <div
               key={halaqah.id}
@@ -1049,7 +1053,7 @@ export function TahfidzManager() {
                       <Users className="w-3.5 h-3.5" /> Santri
                     </div>
                     <div className="font-medium text-slate-700 dark:text-slate-300">
-                      {halaqahSantri.length} Orang
+                      {halaqahStudentCount} Orang
                     </div>
                   </div>
                 </div>
@@ -1068,13 +1072,20 @@ export function TahfidzManager() {
                     <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                       Daftar Santri
                     </h4>
-                    <button className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedHalaqahFilter(halaqah.name);
+                        setActiveTab("dashboard");
+                      }}
+                      className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+                    >
                       Lihat Semua
                     </button>
                   </div>
                   <div className="space-y-2">
-                    {halaqahSantri.length > 0 ? (
-                      halaqahSantri.slice(0, 3).map((santri) => (
+                    {halaqahStudentPreview.length > 0 ? (
+                      halaqahStudentPreview.map((santri) => (
                         <div
                           key={santri.id}
                           className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent hover:border-slate-100 dark:hover:border-white/5 transition-colors"
@@ -1101,15 +1112,19 @@ export function TahfidzManager() {
                           </div>
                         </div>
                       ))
+                    ) : halaqahStudentCount > 0 && SUPABASE_TAHFIDZ_RUNTIME ? (
+                      <div className="text-center py-4 text-sm text-slate-500 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">
+                        Daftar santri halaqah dimuat bertahap. Pilih “Lihat Semua” untuk membuka roster.
+                      </div>
                     ) : (
                       <div className="text-center py-4 text-sm text-slate-500 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">
                         Belum ada santri
                       </div>
                     )}
-                    {halaqahSantri.length > 3 && (
+                    {halaqahStudentCount > halaqahStudentPreview.length && (
                       <div className="text-center pt-2">
                         <span className="text-xs text-slate-500">
-                          +{halaqahSantri.length - 3} santri lainnya
+                          +{halaqahStudentCount - halaqahStudentPreview.length} santri lainnya
                         </span>
                       </div>
                     )}
