@@ -259,6 +259,7 @@ export function UserManagementView() {
       setActionSuccessMessage(`Pengguna "${createName}" berhasil dibuat dengan status mustChangePassword=true.`);
       setTimeout(() => setActionSuccessMessage(null), 5000);
       setPage(0);
+      void fetchUsers(0);
     } catch (err: any) {
       setCreateError(err.message || 'Terjadi kesalahan saat membuat pengguna.');
     } finally {
