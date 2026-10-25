@@ -3362,15 +3362,42 @@ async function startServer() {
 
   // 1. List / Search Users for acting admin's tenant
   app.get("/api/users", requireAuth, requireTenantAdmin, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     const actor = (req as any).actor;
 
     try {
-      const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
+      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
       const roleFilter = typeof req.query.role === "string" ? req.query.role.trim() : "";
       const statusFilter = typeof req.query.status === "string" ? req.query.status.trim().toLowerCase() : "";
+      const parseInteger = (value: unknown, fallback: number) => {
+        if (value === undefined) return fallback;
+        if (typeof value !== "string" || !/^(0|[1-9]\d*)$/.test(value)) return null;
+        const parsed = Number(value);
+        return Number.isSafeInteger(parsed) ? parsed : null;
+      };
+      const limit = parseInteger(req.query.limit, 50);
+      const offset = parseInteger(req.query.offset, 0);
+      if (q.length > 100) {
+        return res.status(400).json({ code: "INVALID_QUERY", error: "Pencarian pengguna maksimal 100 karakter." });
+      }
+      if (limit === null || limit < 1 || limit > 100 || offset === null || offset > 100000) {
+        return res.status(400).json({ code: "INVALID_PAGINATION", error: "Ukuran atau posisi halaman pengguna tidak valid." });
+      }
+      if (roleFilter && !["SuperAdmin", "Admin", "Ustadz", "Santri", "Walisantri"].includes(roleFilter)) {
+        return res.status(400).json({ code: "INVALID_ROLE_FILTER", error: "Filter peran pengguna tidak valid." });
+      }
+      if (statusFilter && !["active", "disabled", "inactive"].includes(statusFilter)) {
+        return res.status(400).json({ code: "INVALID_STATUS_FILTER", error: "Filter status pengguna tidak valid." });
+      }
 
-      const profiles = await listTenantProfiles(actor.tenantId);
-      let users = profiles.map((data) => ({
+      const result = await listTenantProfiles(actor.tenantId, {
+        query: q,
+        role: roleFilter,
+        status: statusFilter,
+        limit,
+        offset,
+      });
+      const users = result.profiles.map((data) => ({
         uid: data.uid,
         id: data.uid,
         name: data.name || "",
@@ -3388,26 +3415,7 @@ async function startServer() {
         linkedSantriName: data.linkedSantriName || null,
         linkedSantriNis: data.linkedSantriNis || null,
       }));
-
-      // Filter in memory for search query and role/status
-      if (q) {
-        users = users.filter((u) =>
-          u.name.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q) ||
-          u.username.toLowerCase().includes(q)
-        );
-      }
-      if (roleFilter) {
-        users = users.filter((u) => u.role === roleFilter);
-      }
-      if (statusFilter) {
-        users = users.filter((u) => u.status.toLowerCase() === statusFilter);
-      }
-
-      // Sort by name or createdAt
-      users.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-
-      return res.json({ users, total: users.length });
+      return res.json({ users, total: result.total, limit, offset });
     } catch (err: any) {
       const unavailable = identityFailure(res, err);
       if (unavailable) return unavailable;
