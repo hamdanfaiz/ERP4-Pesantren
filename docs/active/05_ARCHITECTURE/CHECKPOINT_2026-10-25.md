@@ -300,3 +300,16 @@ Skor naik satu poin dari 71/100 setelah pencatatan setoran, penetapan target har
 - Tidak ada migrasi atau data yang diterapkan ke Supabase Production. PR #13 tetap Open/Draft.
 
 Nilai 72/100 mencerminkan peningkatan alur inti untuk roster pesantren besar yang sudah diverifikasi di CI sintetis; belum membuktikan beban pada data tenant nyata. Rekonsiliasi dan penerapan migrasi/data, staging, login Admin/Wali dan UAT role, rotasi secret yang pernah dibagikan, benchmark skala, review PR, serta pemasangan/pemulihan di VPS dan on-premise tetap menjadi release gate.
+
+## Paginasi jadwal Talaqqi dan Munaqasyah — 26 Oktober 2026
+
+### Progres menuju go-live: 73/100
+
+Skor naik satu poin dari 72/100 setelah halaman jadwal sesi Tahfidz berhenti membaca seluruh riwayat sekaligus dan beralih ke keyset pagination yang tetap dibatasi tenant serta role.
+
+- API hanya mengirim 100 sesi per halaman, mengurutkan dengan pasangan waktu jadwal dan ID, serta memberikan cursor yang tervalidasi untuk permintaan berikutnya. Filter tenant, jenis sesi, halaqah Ustadz, dan tautan santri/Wali diterapkan pada query server.
+- UI menyediakan tombol **Muat sesi berikutnya**, menggabungkan hasil tanpa duplikasi, dan membuang respons lama ketika role, tenant, atau jenis halaman berubah. Identitas santri untuk halaman yang tidak ada di roster awal diambil terbatas berdasarkan ID sesi pada halaman itu dan tenant aktif.
+- Tes sintetis memeriksa ukuran halaman 100, cursor timestamp/ID, filter role dan tenant, tidak menggunakan offset, serta nama santri dari halaman lanjutan. CI pada head `cae31669c902146253e25086fd77ae5b18be21bc`, [run 40237298777](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40237298777), sukses pada kedua job: typecheck, tes pagination, build client/server, guard Firebase, Docker customer-managed, migrasi dan pgTAP Supabase lokal, NIS serentak, API auth/isolasi tenant, Finance Storage, serta backup/restore.
+- Perubahan hanya berada di branch PR #13. Tidak ada migrasi atau data yang ditulis ke Supabase Production.
+
+Skor 73/100 mencatat kesiapan baca jadwal Tahfidz bertumbuh seiring riwayat data; belum membuktikan beban produksi pada tenant besar. Rekonsiliasi dan migrasi data, staging, login Admin/Wali serta UAT role, rotasi secret, benchmark tenant besar, review PR, dan uji pemasangan/pemulihan VPS maupun on-premise tetap menjadi release gate.
