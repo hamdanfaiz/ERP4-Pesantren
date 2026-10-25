@@ -390,3 +390,18 @@ Peninjauan source terhadap 34 migration yang tertunda menemukan beberapa pemerik
 - Berikutnya: pulihkan backup ke staging terisolasi, jalankan pemeriksaan, rehearsal 34 migration, ukur lock/durasi, jalankan suite integrasi pada skema upgrade, lalu verifikasi restore.
 
 PR #13 tetap Open/Draft. Production tidak berubah dan belum siap menerima migration.
+
+
+## Rekonsiliasi migrasi dan gerbang backup — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 76/100
+
+Skor tidak berubah: dokumentasi kini lebih akurat, tetapi belum ada baseline Production yang dapat dipulihkan, rehearsal staging, atau rekonsiliasi data. Status ini tetap berbasis bukti dan bukan izin deploy.
+
+- Head PR #13 adalah `91fe846d22550a402c30cb2c16fb2ab06d0e1903`. CI run `40242110749` sukses pada kedua job di head tersebut, termasuk build, pemeriksaan migrasi, integrasi tenant/role, transaksi NIS/Tahfidz, Finance Storage, dan backup/restore lokal berbasis data sintetis.
+- Audit source memperbarui status: preview/apply PPDB, katalog dan riwayat sirkulasi Perpustakaan, katalog Koperasi, serta jalur preview/apply finansial Koperasi sudah ada di codebase dengan flag terpisah. Tidak ada bukti bahwa data arsip telah diterapkan. Profil/Auth, aset digital Storage, serta sumber CBT masih memerlukan rekonsiliasi atau jalur migrasi.
+- Dashboard Supabase project `ptsasgdvgrbdtgyqieie` menunjukkan paket Free tidak menyediakan backup project terjadwal. Tanpa baseline restore, 34 migration yang belum tercatat di Production belum boleh direhearsal di target Production.
+- Rincian terbaru dan syarat per importer tercatat pada [inventaris migrasi Firestore](../06_DATABASE/FIRESTORE_TO_SUPABASE_MIGRATION_INVENTORY.md); checklist rehearsal tetap di [PRODUCTION_MIGRATION_REHEARSAL_CHECKLIST_2026-10-26.md](../06_DATABASE/PRODUCTION_MIGRATION_REHEARSAL_CHECKLIST_2026-10-26.md).
+- Langkah berikutnya: tim backend menyediakan staging terisolasi dan backup yang berhasil dipulihkan; setelah itu jalankan pemeriksaan data khusus, rehearsal 34 migration, seluruh suite pada skema hasil upgrade, dan uji pemulihan ulang. Tidak ada perubahan Supabase Production pada checkpoint ini.
+
+PR #13 masih Open/Draft. Go-live ditahan sampai rehearsal, migrasi dan rekonsiliasi data, login/UAT role, rotasi secret, review PR, serta uji pemasangan dan pemulihan environment customer-managed selesai.

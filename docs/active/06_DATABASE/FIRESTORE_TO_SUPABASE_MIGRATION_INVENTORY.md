@@ -3,6 +3,8 @@
 **Tanggal pemeriksaan:** 23 Oktober 2026  
 **Status:** inventaris sumber; belum ada ekspor, dry-run terhadap data live, atau penulisan ke Supabase.
 
+> Catatan pembaruan: tabel awal di bawah merekam keadaan pada 23 Oktober. Implementasi importer berkembang sesudah tanggal itu; status source code terbaru dan kesiapan datanya dirangkum pada bagian **Rekonsiliasi status importer — 26 Oktober 2026** di bagian akhir dokumen.
+
 ## Sumber yang ditetapkan
 
 Konfigurasi aplikasi pada `firebase-applet-config.json` menunjuk project Firebase `graphite-ship-q5xj8` dan database Firestore:
@@ -191,3 +193,27 @@ Tabel kesiapan di atas adalah snapshot awal. Pembaruan berikut mencatat implemen
 Koreksi tersebut dicakup CI pada head `e1a83c84f39f9b6e0dee3d54be36dbb60bf9ef64`, [run 40149247360](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40149247360): migrasi/pgTAP lokal, preview import, API tenant isolation, Firebase production guard, Docker, Storage, dan backup/restore lulus.
 
 Hitungan arsip tetap snapshot 23 Oktober: 561 dokumen root pada sumber. Implementasi importer atau CI tidak mengubahnya dan bukan bukti bahwa data sudah ditulis ke Supabase. Tidak ada importer Storage yang lengkap, akun Auth yang dibuat, atau apply Koperasi/sirkulasi yang dijalankan pada pembaruan ini.
+
+
+## Rekonsiliasi status importer — 26 Oktober 2026
+
+Bagian ini memperbarui status **source code** setelah pemeriksaan endpoint pada head PR #13 `91fe846d22550a402c30cb2c16fb2ab06d0e1903`. Ini tidak mengubah hasil inventaris sumber 23 Oktober dan tidak membuktikan ada data yang sudah dipindahkan.
+
+| Data sumber | Status implementasi terbaru | Syarat dan bukti yang masih diperlukan |
+| --- | --- | --- |
+| `candidates` (PPDB) | Endpoint `POST /api/ppdb/legacy/import` mendukung preview/apply. Preview mengikat snapshot dengan fingerprint, memeriksa registry tenant dari dokumen `users`, dan meminta konfirmasi tenant sumber serta format tanggal. | Feature flag `SUPABASE_PPDB_IMPORT_ENABLED` tetap harus diaktifkan secara sadar di environment migrasi. Belum ada apply yang dibuktikan; rekonsiliasi hasil preview dan pemeriksaan target tetap wajib. |
+| `library_books` | Endpoint Admin `POST /api/library/legacy/import` mendukung preview/apply dengan fingerprint sumber. | Flag `SUPABASE_LIBRARY_IMPORT_ENABLED` harus tetap mati sampai backup, staging, migrasi skema, konflik ISBN, dan pemetaan tenant tervalidasi. Belum ada apply yang dibuktikan. |
+| `library_circulations` | Endpoint Admin `POST /api/library/circulations/legacy/import` mendukung preview/apply. Relasi buku dan santri harus dipetakan eksplisit; RPC migration `20261211000000_library_circulation_legacy_import.sql` memeriksa idempotensi, tenant, dan kapasitas eksemplar. | Flag `SUPABASE_LIBRARY_CIRCULATIONS_IMPORT_ENABLED` harus tetap mati sampai preview aktual dan pemetaan peminjam direkonsiliasi. Belum ada apply yang dibuktikan. |
+| Katalog `cooperative_inventory` dan `cooperative_suppliers` | Endpoint `POST /api/cooperative/legacy/catalog-import` menyediakan preview/apply dan mengikat penerapan ke fingerprint; produk, pemasok, dan stok awal diterapkan melalui alur atomik. | `SUPABASE_COOPERATIVE_IMPORT_ENABLED` tetap mati. Sebelum apply, periksa duplikasi, harga/stok, status pemasok, tenant, dan hasil rekonsiliasi pada staging. |
+| Riwayat finansial `cooperative_wallets` dan `cooperative_transactions` | Endpoint `.../financial-import/preview` tersedia; endpoint `.../financial-import/apply` terpisah dan memerlukan `SUPABASE_COOPERATIVE_IMPORT_ENABLED=true`, `SUPABASE_COOPERATIVE_FINANCIAL_IMPORT_APPLY_ENABLED=true`, pemetaan eksplisit, fingerprint, pemindaian riwayat lengkap, serta konfirmasi rekonsiliasi. | Jangan aktifkan flag apply sebelum saldo pembuka, transaksi, wallet, produk, dan tanggal bisnis cocok pada backup staging. HPP yang hilang tidak direka. Belum ada apply yang dibuktikan. |
+| `users` → `profiles` / Supabase Auth | Belum ada importer profil/tautan akun yang menyelesaikan pemetaan Auth secara penuh. | Buat atau undang akun lewat alur Auth tepercaya; cocokkan UID, tenant, role, status, dan relasi secara eksplisit. Jangan memindahkan kata sandi, session, atau mencocokkan hanya berdasarkan nama/email. |
+| `library_digital_assets` | Belum ada pemindahan byte file ke Supabase Storage. | Bucket Firebase yang dikonfigurasi tidak ditemukan pada pemeriksaan metadata. Empat dokumen metadata bukan bukti bahwa file dapat diunduh. Verifikasi sumber file dan aksesnya terlebih dahulu. |
+| `cbt_config` / `cbt_questions` | Belum ada importer yang memetakan `cbt_config`; importer soal yang ada mengharapkan `cbt_questions`, yang tidak tampak pada database Firestore kanonis aplikasi. | Rekonsiliasi database sumber sebelum menganggap konfigurasi atau bank soal tersedia untuk migrasi. |
+
+Untuk endpoint yang memakai `readLegacyFirestoreTenantRows`, helper memverifikasi registry `tenants` dan menerima record tanpa tenant hanya bila registry berisi tepat satu tenant dengan document ID yang sama dengan `legacyTenantKey` yang dikonfigurasi. `tenantId` dan `tenant_id` yang bertentangan, nilai tenant malformed, tenantless yang ambigu, serta record dari tenant lain tidak boleh diterapkan. Ini adalah aturan per jalur importer; jangan menganggapnya sebagai bukti bahwa semua importer legacy telah memakai helper tersebut.
+
+## Gerbang lingkungan backup dan rehearsal — 26 Oktober 2026
+
+Dashboard Supabase untuk project target `ptsasgdvgrbdtgyqieie` menampilkan paket **Free** dan menyatakan bahwa backup project terjadwal tidak disertakan pada paket tersebut. Karena itu, saat ini belum ada backup terkelola yang dapat dipulihkan untuk rehearsal Production. Suite CI memakai database dan data sintetis lokal; hasil itu tidak menggantikan pemulihan backup target.
+
+Sebelum satu pun migration Production dijalankan, tim backend perlu menyediakan staging terisolasi dan baseline yang dipulihkan dari backup melalui jalur yang disetujui (misalnya project staging terpisah dengan backup memadai atau lingkungan Postgres/Supabase customer-managed). Catat asal backup, versi PostgreSQL/extension, hasil restore, dan pemeriksaan agregat; simpan dump serta credential di tempat terbatas, bukan di repository atau chat. Jalankan checklist rehearsal hanya pada staging tersebut. Tidak ada upgrade atau perubahan Production pada pemeriksaan 26 Oktober.
