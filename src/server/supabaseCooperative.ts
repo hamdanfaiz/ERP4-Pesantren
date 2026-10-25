@@ -40,9 +40,34 @@ function mapStoreError(error: any): never {
 }
 
 async function rows(table: string, tenantId: string, select: string, order: string, limit = 5000): Promise<Row[]> {
-  const { data, error } = await client().from(table).select(select).eq("tenant_id", tenantId).order(order.split(".")[0], { ascending: order.endsWith(".asc") }).limit(limit);
-  if (error) mapStoreError(error);
-  return (data || []) as Row[];
+  const result: Row[] = [];
+  const seenIds = new Set<string>();
+  const pageSize = 500;
+  const orderFields = order.split(",").map((item) => {
+    const [column, direction] = item.trim().split(".");
+    return { column, ascending: direction !== "desc" };
+  });
+  if (!orderFields.some((item) => item.column === "id")) orderFields.push({ column: "id", ascending: true });
+
+  for (let page = 0; page < Math.ceil((limit + 1) / pageSize) + 1; page += 1) {
+    const requested = Math.min(pageSize, limit + 1 - result.length);
+    if (requested < 1) break;
+    let query: any = client().from(table).select(select).eq("tenant_id", tenantId);
+    for (const field of orderFields) query = query.order(field.column, { ascending: field.ascending });
+    const { data, error } = await query.range(result.length, result.length + requested - 1);
+    if (error) mapStoreError(error);
+    const rows = (data || []) as Row[];
+    if (rows.length > requested) throw new SupabaseCooperativeError(503, "Pemindaian data koperasi tidak konsisten.");
+    if (!rows.length) return result;
+    for (const row of rows) {
+      const id = String(row.id || "");
+      if (!id || seenIds.has(id)) throw new SupabaseCooperativeError(503, "Pemindaian data koperasi tidak konsisten.");
+      seenIds.add(id);
+      result.push(row);
+    }
+    if (result.length > limit) throw new SupabaseCooperativeError(503, "Data koperasi melebihi batas aman tampilan.");
+  }
+  throw new SupabaseCooperativeError(503, "Pemindaian data koperasi tidak lengkap.");
 }
 
 async function paginatedTenantRows(table: string, tenantId: string, select: string) {
@@ -88,16 +113,25 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
     throw new SupabaseCooperativeError(503, "Zona waktu tenant tidak valid untuk ringkasan koperasi.");
   }
 
-  const studentIds = [...new Set(wallets.map((wallet) => String(wallet.student_id || "")).filter(Boolean))];
+  const studentIds = [...new Set([
+    ...wallets.map((wallet) => String(wallet.student_id || "")),
+    ...sales.map((sale) => String(sale.student_id || "")),
+  ].filter(Boolean))];
   const studentById = new Map<string, Row>();
   if (studentIds.length) {
-    const { data, error } = await client().from("students")
-      .select("id,name,nis,grade,class_id,status")
-      .eq("tenant_id", tenantId)
-      .in("id", studentIds)
-      .limit(5000);
-    if (error) mapStoreError(error);
-    for (const student of data || []) studentById.set(String(student.id), student as Row);
+    const studentBatches = await Promise.all(Array.from({ length: Math.ceil(studentIds.length / 200) }, (_, index) => {
+      const ids = studentIds.slice(index * 200, (index + 1) * 200);
+      return client().from("students")
+        .select("id,name,nis,grade,class_id,status")
+        .eq("tenant_id", tenantId)
+        .in("id", ids)
+        .order("id", { ascending: true })
+        .limit(ids.length);
+    }));
+    for (const batch of studentBatches) {
+      if (batch.error) mapStoreError(batch.error);
+      for (const student of batch.data || []) studentById.set(String(student.id), student as Row);
+    }
   }
 
   const itemsBySale = new Map<string, Row[]>();
