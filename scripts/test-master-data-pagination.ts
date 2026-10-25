@@ -123,7 +123,7 @@ try {
   );
   assert.equal(studentQueries.length, studentQueryCount, "out-of-range page must fail before querying the roster");
 
-  console.log("Master Data pagination and recursive PII minimization: 25 assertions passed.");
+  console.log("Master Data pagination and recursive PII minimization checks passed.");
 } finally {
   globalThis.fetch = originalFetch;
   if (originalEnv.url === undefined) delete process.env.SUPABASE_URL;
