@@ -65,6 +65,7 @@ export function UserManagementView() {
   const [totalUsers, setTotalUsers] = useState(0);
   const userListRequestId = useRef(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchQueryForFetch, setSearchQueryForFetch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
@@ -117,18 +118,31 @@ export function UserManagementView() {
     setCreateTempPassword(result);
   };
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setSearchQueryForFetch(searchQuery), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
+
   const fetchUsers = useCallback(async (pageIndex = page) => {
     if (!currentActor) return;
     const requestId = ++userListRequestId.current;
-    setIsLoading(true);
+    const normalizedSearchQuery = searchQueryForFetch.trim();
     setErrorBanner(null);
     setBackendErrorCode(null);
     setIsIdentityUnavailable(false);
 
+    if (normalizedSearchQuery && normalizedSearchQuery.length < 3) {
+      setIsLoading(false);
+      setUsers([]);
+      setTotalUsers(0);
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const token = await getAccessToken();
       const params = new URLSearchParams();
-      if (searchQuery.trim()) params.append('q', searchQuery.trim());
+      if (normalizedSearchQuery) params.append('q', normalizedSearchQuery);
       if (roleFilter !== 'ALL') params.append('role', roleFilter);
       if (statusFilter !== 'ALL') params.append('status', statusFilter);
       params.append('limit', String(USER_DIRECTORY_PAGE_SIZE));
@@ -176,7 +190,7 @@ export function UserManagementView() {
     } finally {
       if (requestId === userListRequestId.current) setIsLoading(false);
     }
-  }, [currentActor, searchQuery, roleFilter, statusFilter, page]);
+  }, [currentActor, searchQueryForFetch, roleFilter, statusFilter, page]);
 
   useEffect(() => {
     fetchUsers();
@@ -547,10 +561,23 @@ export function UserManagementView() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              userListRequestId.current += 1;
+              setIsLoading(false);
+              setUsers([]);
+              setTotalUsers(0);
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
             placeholder="Cari nama, email, atau username pengguna..."
+            aria-describedby="user-directory-search-help"
             className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
+          <p id="user-directory-search-help" aria-live="polite" className="mt-1.5 px-1 text-[11px] text-slate-500 dark:text-slate-400">
+            {searchQuery.trim().length > 0 && searchQuery.trim().length < 3
+              ? 'Ketik minimal 3 karakter untuk mencari.'
+              : 'Pencarian mulai setelah Anda berhenti mengetik.'}
+          </p>
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto">
