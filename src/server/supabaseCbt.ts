@@ -1,3 +1,5 @@
+import { readPostgrestRowsInPages } from "./postgrestPagination";
+
 type Row = Record<string, any>;
 
 export class SupabaseCbtError extends Error {
@@ -75,36 +77,49 @@ async function tenantIdFrom(identifier: string) {
 export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
   const [questionRows, examRows, assignmentRows, attemptRows, studentRows, classRows] = await Promise.all([
-    request("/rest/v1/cbt_questions?" + new URLSearchParams({
-      select: "id,subject,grade,template,question_html,options,correct_answer,explanation,difficulty,tags,status,created_at,updated_at",
-      tenant_id: "eq." + tenantId, order: "updated_at.desc,id.asc", limit: "2001",
-    }).toString()),
-    request("/rest/v1/cbt_exams?" + new URLSearchParams({
-      select: "id,title,subject,grade,starts_at,ends_at,duration_minutes,passing_score,correct_points,wrong_points,blank_points,shuffle_questions,status,created_at",
-      tenant_id: "eq." + tenantId, order: "starts_at.desc,id.asc", limit: "501",
-    }).toString()),
-    request("/rest/v1/cbt_exam_assignments?" + new URLSearchParams({
-      select: "id,exam_id,student_id,status,assigned_at", tenant_id: "eq." + tenantId, order: "assigned_at.desc", limit: "5001",
-    }).toString()),
-    request("/rest/v1/cbt_attempts?" + new URLSearchParams({
-      select: "id,assignment_id,score,passed,correct_count,wrong_count,blank_count,submitted_at,expires_at",
-      tenant_id: "eq." + tenantId, limit: "5001",
-    }).toString()),
-    request("/rest/v1/students?" + new URLSearchParams({
-      select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, order: "name.asc,id.asc", limit: "2001",
-    }).toString()),
-    request("/rest/v1/master_data_records?" + new URLSearchParams({
-      select: "id,name,status", tenant_id: "eq." + tenantId, category: "eq.Kelas", limit: "501",
-    }).toString()),
+    readPostgrestRowsInPages<Row>({
+      request,
+      path: `/rest/v1/cbt_questions?${new URLSearchParams({ select: "id,subject,grade,template,question_html,options,correct_answer,explanation,difficulty,tags,status,created_at,updated_at", tenant_id: "eq." + tenantId, order: "updated_at.desc,id.asc" })}`,
+      maxRows: 2000,
+      onIncomplete: () => new SupabaseCbtError(503, "Bank soal CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
+    }),
+    readPostgrestRowsInPages<Row>({
+      request,
+      path: `/rest/v1/cbt_exams?${new URLSearchParams({ select: "id,title,subject,grade,starts_at,ends_at,duration_minutes,passing_score,correct_points,wrong_points,blank_points,shuffle_questions,status,created_at", tenant_id: "eq." + tenantId, order: "starts_at.desc,id.asc" })}`,
+      maxRows: 500,
+      onIncomplete: () => new SupabaseCbtError(503, "Daftar ujian CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
+    }),
+    readPostgrestRowsInPages<Row>({
+      request,
+      path: `/rest/v1/cbt_exam_assignments?${new URLSearchParams({ select: "id,exam_id,student_id,status,assigned_at", tenant_id: "eq." + tenantId, order: "assigned_at.desc,id.asc" })}`,
+      maxRows: 5000,
+      onIncomplete: () => new SupabaseCbtError(503, "Daftar penugasan CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
+    }),
+    readPostgrestRowsInPages<Row>({
+      request,
+      path: `/rest/v1/cbt_attempts?${new URLSearchParams({ select: "id,assignment_id,score,passed,correct_count,wrong_count,blank_count,submitted_at,expires_at", tenant_id: "eq." + tenantId, order: "submitted_at.desc.nullslast,id.asc" })}`,
+      maxRows: 5000,
+      onIncomplete: () => new SupabaseCbtError(503, "Hasil ujian CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
+    }),
+    readPostgrestRowsInPages<Row>({
+      request,
+      path: `/rest/v1/students?${new URLSearchParams({ select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, order: "name.asc,id.asc" })}`,
+      maxRows: 2000,
+      onIncomplete: () => new SupabaseCbtError(503, "Roster CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
+    }),
+    readPostgrestRowsInPages<Row>({
+      request,
+      path: `/rest/v1/master_data_records?${new URLSearchParams({ select: "id,name,status", tenant_id: "eq." + tenantId, category: "eq.Kelas", order: "name.asc,id.asc" })}`,
+      maxRows: 500,
+      onIncomplete: () => new SupabaseCbtError(503, "Daftar kelas CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
+    }),
   ]);
-  const arrays = [questionRows, examRows, assignmentRows, attemptRows, studentRows, classRows];
-  if (!arrays.every(Array.isArray)
-    || questionRows.length > 2000 || examRows.length > 500 || assignmentRows.length > 5000
-    || attemptRows.length > 5000 || studentRows.length > 2000 || classRows.length > 500) {
-    throw new SupabaseCbtError(503, "Data tenant melewati batas aman tampilan CBT.");
-  }
   const attemptsByAssignment = new Map<string, Row>();
-  for (const attempt of attemptRows as Row[]) attemptsByAssignment.set(String(attempt.assignment_id), attempt);
+  for (const attempt of attemptRows) {
+    if (!attemptsByAssignment.has(String(attempt.assignment_id))) {
+      attemptsByAssignment.set(String(attempt.assignment_id), attempt);
+    }
+  }
   const assignmentsByExam = new Map<string, Row[]>();
   for (const assignment of assignmentRows as Row[]) {
     assignmentsByExam.set(String(assignment.exam_id), [...(assignmentsByExam.get(String(assignment.exam_id)) || []), assignment]);
@@ -227,22 +242,46 @@ export async function createSupabaseCbtExam(tenantIdentifier: string, actorId: s
 export async function getSupabaseCbtStudentSnapshot(tenantIdentifier: string, studentIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
   if (!isUuid(studentIdentifier)) throw new SupabaseCbtError(403, "Profil santri belum tertaut ke roster tenant.");
-  const assignmentParams = new URLSearchParams({
-    select: "id,exam_id,status,assigned_at", tenant_id: "eq." + tenantId, student_id: "eq." + studentIdentifier, order: "assigned_at.desc", limit: "100",
+  const assignments = await readPostgrestRowsInPages<Row>({
+    request,
+    path: `/rest/v1/cbt_exam_assignments?${new URLSearchParams({
+      select: "id,exam_id,status,assigned_at", tenant_id: "eq." + tenantId, student_id: "eq." + studentIdentifier, order: "assigned_at.desc,id.asc",
+    })}`,
+    maxRows: 5000,
+    onIncomplete: () => new SupabaseCbtError(503, "Riwayat ujian CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
   });
-  const assignments = await request("/rest/v1/cbt_exam_assignments?" + assignmentParams.toString());
-  if (!Array.isArray(assignments)) throw new SupabaseCbtError(503, "Daftar ujian CBT belum dapat dimuat.");
   if (!assignments.length) return { exams: [] };
-  const ids = [...new Set(assignments.map((row: Row) => String(row.exam_id)))];
-  const attempts = await request("/rest/v1/cbt_attempts?" + new URLSearchParams({
-    select: "id,assignment_id,score,passed,submitted_at,expires_at", tenant_id: "eq." + tenantId,
-    assignment_id: "in.(" + assignments.map((row: Row) => row.id).join(",") + ")", limit: "100",
-  }).toString());
-  const exams = await request("/rest/v1/cbt_exams?" + new URLSearchParams({
-    select: "id,title,subject,grade,starts_at,ends_at,duration_minutes,status", tenant_id: "eq." + tenantId,
-    id: "in.(" + ids.join(",") + ")", limit: "100",
-  }).toString());
-  if (!Array.isArray(attempts) || !Array.isArray(exams)) throw new SupabaseCbtError(503, "Daftar ujian CBT belum dapat dimuat.");
+
+  const attemptByAssignment = new Map<string, Row>();
+  const examById = new Map<string, Row>();
+  for (let offset = 0; offset < assignments.length; offset += 200) {
+    const batch = assignments.slice(offset, offset + 200);
+    const assignmentIds = batch.map((row) => String(row.id));
+    const attemptRows = await readPostgrestRowsInPages<Row>({
+      request,
+      path: `/rest/v1/cbt_attempts?${new URLSearchParams({
+        select: "id,assignment_id,score,passed,submitted_at,expires_at", tenant_id: "eq." + tenantId,
+        assignment_id: "in.(${assignmentIds.join(",")})", order: "submitted_at.desc.nullslast,id.asc",
+      })}`,
+      maxRows: batch.length,
+      onIncomplete: () => new SupabaseCbtError(503, "Hasil ujian CBT tidak lengkap."),
+    });
+    for (const row of attemptRows) {
+      if (!attemptByAssignment.has(String(row.assignment_id))) attemptByAssignment.set(String(row.assignment_id), row);
+    }
+
+    const examIds = [...new Set(batch.map((row) => String(row.exam_id)))];
+    const examRows = await readPostgrestRowsInPages<Row>({
+      request,
+      path: `/rest/v1/cbt_exams?${new URLSearchParams({
+        select: "id,title,subject,grade,starts_at,ends_at,duration_minutes,status", tenant_id: "eq." + tenantId,
+        id: "in.(${examIds.join(",")})",
+      })}`,
+      maxRows: examIds.length,
+      onIncomplete: () => new SupabaseCbtError(503, "Daftar ujian CBT tidak lengkap."),
+    });
+    for (const row of examRows) examById.set(String(row.id), row);
+  }
   const attemptByAssignment = new Map<string, Row>((attempts as Row[]).map((row): [string, Row] => [String(row.assignment_id), row]));
   const examById = new Map<string, Row>((exams as Row[]).map((row): [string, Row] => [String(row.id), row]));
   return {
