@@ -433,6 +433,7 @@ export function TahfidzManager() {
   const [isReminderEnabled, setIsReminderEnabled] = useState(false);
   const [selectedGuardianStudentId, setSelectedGuardianStudentId] = useState("");
   const [selectedSantri, setSelectedSantri] = useState<any>(null);
+  const [dashboardActionStudent, setDashboardActionStudent] = useState<any>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
   const [halaqahList, setHalaqahList] = useState<any[]>([]);
@@ -704,6 +705,9 @@ export function TahfidzManager() {
 
   const [formData, setFormData] = useState<any>(createEmptyTahfidzRecordForm);
   const displaySantri = santriList;
+  const selectableSantri = dashboardActionStudent && !displaySantri.some((student) => String(student.id) === String(dashboardActionStudent.id))
+    ? [dashboardActionStudent, ...displaySantri]
+    : displaySantri;
   const displayHalaqah = halaqahList;
   const selectTahfidzStudent = (value: string) => {
     const student = displaySantri.find((item) => String(SUPABASE_TAHFIDZ_RUNTIME ? item.id : item.name) === value);
@@ -746,6 +750,7 @@ export function TahfidzManager() {
       });
       releaseTahfidzWriteRequestId(signature, clientRequestId);
       setIsTargetModalOpen(false);
+      setDashboardActionStudent(null);
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Target tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang snapshot sebelum melakukan perubahan berikutnya."); }
     } catch (error: any) {
@@ -816,6 +821,7 @@ export function TahfidzManager() {
       });
       releaseTahfidzWriteRequestId(signature, clientRequestId);
       setIsMembershipModalOpen(false);
+      setDashboardActionStudent(null);
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Penempatan tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang snapshot sebelum melakukan perubahan berikutnya."); }
     } catch (error: any) {
@@ -1736,6 +1742,8 @@ export function TahfidzManager() {
                   </div>
                   <div className="flex flex-wrap gap-1.5 sm:justify-end">
                     {student.reasons.map((reason: string) => <span key={reason} className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">{reason}</span>)}
+                    {canManageTargets && student.reasons.includes("Target harian belum ditetapkan") && <button type="button" onClick={() => { setDashboardActionStudent(student); setTargetForm({ studentId: student.id, ziyadahPagesPerDay: "1", murojaahPagesPerDay: "0.5", periodStart: currentTenantDate(), periodEnd: "", policy: "standard" }); setIsTargetModalOpen(true); }} className="rounded-full border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-400/10">Tetapkan target</button>}
+                    {canManageTahfidz && student.reasons.includes("Belum ditempatkan pada halaqah") && <button type="button" onClick={() => { setDashboardActionStudent(student); setMembershipForm({ halaqahId: "", studentId: student.id, startsOn: currentTenantDate() }); setIsMembershipModalOpen(true); }} className="rounded-full border border-blue-200 px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-400/10">Tempatkan ke halaqah</button>}
                   </div>
                 </div>
               )) : <p className="px-5 py-8 text-center text-sm text-slate-500">{tahfidzLoading ? "Memuat ringkasan tindak lanjut…" : dashboardFollowUps ? "Tidak ada sinyal tindak lanjut dari data yang tersedia." : rosterHasMore ? "Belum ada sinyal tindak lanjut pada halaman roster yang dimuat." : "Tidak ada sinyal tindak lanjut dari data yang tersedia."}</p>}
@@ -3638,7 +3646,7 @@ export function TahfidzManager() {
                 </div>
               </div>
               <button
-                onClick={() => setIsTargetModalOpen(false)}
+                onClick={() => { setIsTargetModalOpen(false); setDashboardActionStudent(null); }}
                 className="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-colors text-slate-500"
               >
                 <X className="w-4 h-4" />
@@ -3652,7 +3660,7 @@ export function TahfidzManager() {
                 </label>
                 <select value={targetForm.studentId} onChange={(e) => setTargetForm({ ...targetForm, studentId: e.target.value })} className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
                   <option value="">Pilih santri...</option>
-                  {displaySantri.map((s) => (
+                  {selectableSantri.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} - {s.nis}
                     </option>
@@ -3702,7 +3710,7 @@ export function TahfidzManager() {
 
             <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40 flex justify-end gap-3">
               <button
-                onClick={() => setIsTargetModalOpen(false)}
+                onClick={() => { setIsTargetModalOpen(false); setDashboardActionStudent(null); }}
                 className="px-4 py-2 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/5 font-medium transition-colors border border-slate-200 dark:border-transparent bg-white dark:bg-slate-900"
               >
                 Batal
@@ -3739,11 +3747,11 @@ export function TahfidzManager() {
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">Tempatkan Santri ke Halaqah</h2><p className="mt-1 text-sm text-slate-500">Penempatan aktif akan disimpan pada tenant Supabase.</p></div>
             <div className="space-y-4 p-5">
-              <div><label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri<select value={membershipForm.studentId} onChange={(e) => setMembershipForm({ ...membershipForm, studentId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih santri…</option>{santriList.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis} {student.halaqah ? `· saat ini ${student.halaqah}` : ""}</option>)}</select></label>{rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}</div>
+              <div><label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri<select value={membershipForm.studentId} onChange={(e) => setMembershipForm({ ...membershipForm, studentId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih santri…</option>{selectableSantri.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis} {student.halaqah ? `· saat ini ${student.halaqah}` : ""}</option>)}</select></label>{rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}</div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Halaqah<select value={membershipForm.halaqahId} onChange={(e) => setMembershipForm({ ...membershipForm, halaqahId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih halaqah…</option>{halaqahList.map((halaqah) => <option key={halaqah.id} value={halaqah.id}>{halaqah.name}</option>)}</select></label>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Mulai tanggal<input type="date" value={membershipForm.startsOn} onChange={(e) => setMembershipForm({ ...membershipForm, startsOn: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40" /></label>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"><button onClick={() => setIsMembershipModalOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button onClick={() => void handleMembershipSubmit()} disabled={isSavingMembership || !membershipForm.studentId || !membershipForm.halaqahId || !membershipForm.startsOn} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">{isSavingMembership ? "Menyimpan…" : "Simpan Penempatan"}</button></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"><button onClick={() => { setIsMembershipModalOpen(false); setDashboardActionStudent(null); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button onClick={() => void handleMembershipSubmit()} disabled={isSavingMembership || !membershipForm.studentId || !membershipForm.halaqahId || !membershipForm.startsOn} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">{isSavingMembership ? "Menyimpan…" : "Simpan Penempatan"}</button></div>
           </div>
         </div>
       )}
