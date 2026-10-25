@@ -835,7 +835,7 @@ function mapSupabaseStudentRow(
   row: JsonObject,
   tenantId: string,
   structures: SupabaseStructureRecord[],
-  includeSensitive = true,
+  includeSensitive = false,
 ) {
   const supabaseId = String(row.id || "");
   const sourceRecordId = typeof row.source_record_id === "string" ? row.source_record_id : null;
@@ -886,41 +886,6 @@ async function getSupabaseStudentRow(tenantId: string, studentId: string) {
   const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
   if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Data santri belum dapat dimuat.");
   return rows[0] as JsonObject | undefined;
-}
-
-export async function listSupabaseMasterDataStudents(tenantIdentifier: string): Promise<JsonObject[]> {
-  const tenantId = await resolveActiveTenantId(tenantIdentifier);
-  const structures = await listSupabaseMasterDataStructures(tenantId);
-  const all: JsonObject[] = [];
-  const pageSize = 1000;
-  for (let offset = 0; offset < 10000; offset += pageSize) {
-    const params = new URLSearchParams({
-      select: "id,tenant_id,source_system,source_record_id,nis,name,gender,grade,nik_ciphertext,nisn_ciphertext,class_id,room_id,building_id,details,status,created_at,updated_at",
-      tenant_id: "eq." + tenantId,
-      status: "neq.Archived",
-      order: "name.asc,id.asc",
-      limit: String(pageSize),
-      offset: String(offset),
-    });
-    const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
-    if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Data santri belum dapat dimuat.");
-    all.push(...rows);
-    if (rows.length < pageSize) break;
-    if (offset + pageSize >= 10000) {
-      const overflowParams = new URLSearchParams({
-        select: "id",
-        tenant_id: "eq." + tenantId,
-        status: "neq.Archived",
-        limit: "1",
-        offset: "10000",
-      });
-      const overflow = await supabaseRequest("/rest/v1/students?" + overflowParams.toString());
-      if (!Array.isArray(overflow)) throw new SupabaseOnboardingError(503, "Jumlah data santri belum dapat diverifikasi.");
-      if (overflow.length > 0) throw new SupabaseOnboardingError(503, "Jumlah data santri melebihi batas tampilan 10.000 record.");
-      break;
-    }
-  }
-  return all.map((row) => mapSupabaseStudentRow(row, tenantId, structures));
 }
 
 
