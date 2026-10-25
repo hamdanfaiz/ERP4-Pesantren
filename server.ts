@@ -14,7 +14,7 @@ import {
   createAuthUserWithProfile,
   createRecoveryLink,
   getUserProfile,
-  listTenantProfiles,
+  listTenantProfilesPage,
   setAuthDisabled,
   updateUserProfile,
   verifyAccessToken,
@@ -3390,7 +3390,7 @@ async function startServer() {
         return res.status(400).json({ code: "INVALID_STATUS_FILTER", error: "Filter status pengguna tidak valid." });
       }
 
-      const result = await listTenantProfiles(actor.tenantId, {
+      const result = await listTenantProfilesPage(actor.tenantId, {
         query: q,
         role: roleFilter,
         status: statusFilter,
