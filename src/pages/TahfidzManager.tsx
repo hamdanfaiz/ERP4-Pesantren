@@ -236,8 +236,9 @@ function TahfidzStudentSearchSelect({
   const sourceStudents = search.length >= 2
     ? (resultsQuery === search ? results : [])
     : initialStudents;
-  const options = [selectedOption, ...sourceStudents]
-    .filter((student): student is any => Boolean(student) && filterStudent(student))
+  const matchingStudents = sourceStudents.filter(filterStudent);
+  const options = [selectedOption, ...matchingStudents]
+    .filter((student): student is any => Boolean(student))
     .filter((student, index, all) => all.findIndex((item) => String(item.id) === String(student.id)) === index);
 
   return (
@@ -254,6 +255,7 @@ function TahfidzStudentSearchSelect({
       <select
         required
         value={selectedStudentId}
+        aria-label="Santri"
         onChange={(event) => {
           const student = options.find((item) => String(item.id) === event.target.value) || null;
           setSelectedOption(student);
@@ -269,8 +271,8 @@ function TahfidzStudentSearchSelect({
       </select>
       {loading && <p role="status" className="text-xs text-slate-500">Mencari santri…</p>}
       {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
-      {!loading && search.length >= 2 && resultsQuery === search && !options.some((student) => student.id !== selectedStudentId) && (
-        <p className="text-xs text-slate-500">Tidak ada santri yang cocok pada cakupan akun ini.</p>
+      {!loading && search.length >= 2 && resultsQuery === search && matchingStudents.length === 0 && (
+        <p className="text-xs text-slate-500">Tidak ada santri yang cocok atau memenuhi kriteria.</p>
       )}
       {hasMore && resultsQuery === search && <button
         type="button"
