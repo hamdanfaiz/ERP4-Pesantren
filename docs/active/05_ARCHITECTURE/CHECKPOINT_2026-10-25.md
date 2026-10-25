@@ -273,3 +273,16 @@ Skor naik satu poin dari 69/100 setelah ringkasan “Perlu ditindaklanjuti” ti
 - Tidak ada migrasi atau data yang diterapkan ke Supabase Production. PR #13 masih Open/Draft.
 
 Angka 70/100 mencatat satu peningkatan yang diuji di CI lokal sintetis, bukan kesiapan go-live. Migrasi dan rekonsiliasi data, staging, login Admin/Wali dan uji matriks izin, rotasi secret, UAT, review PR, serta uji pemasangan/pemulihan VPS dan on-premise masih menjadi gerbang rilis.
+
+## Tindak lanjut Tahfidz dapat dibuka langsung — 26 Oktober 2026
+
+### Progres menuju go-live: 71/100
+
+Skor naik satu poin dari 70/100 setelah antrean risiko Dashboard dapat langsung membuka tindakan yang sesuai. Admin/SuperAdmin dapat membuka penempatan halaqah untuk santri yang belum memiliki halaqah; role yang diizinkan mengatur target dapat membuka formulir target untuk santri yang belum memilikinya.
+
+- Formulir menerima pilihan santri dari baris tindak lanjut server-side, termasuk saat santri belum berada di halaman roster yang sedang dimuat. ID santri dan tenant tetap divalidasi ulang oleh API Supabase; pemeriksaan izin server tetap menjadi kontrol utama.
+- Aksi hanya muncul bila role dapat melakukan operasi tersebut. Tombol bersifat terarah pada masalah yang ditemukan, dan form tetap dapat dibatalkan tanpa mempertahankan pilihan santri lama.
+- CI [run 40235009744](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40235009744) sukses pada kedua job di head e0605f2c55aab46e61c185e48c3bc73815a96362: typecheck, tes frontend Tahfidz dan guard Firebase, build, Docker/Compose smoke test, migrasi/pgTAP Supabase lokal, NIS serentak, API auth/isolasi tenant, Finance Storage, dan backup/restore.
+- Perubahan masih berada di PR #13 yang Open/Draft. Tidak ada migrasi atau data yang diterapkan ke Supabase Production.
+
+Angka 71/100 mencatat alur tindak lanjut yang telah dibangun dan diverifikasi di CI sintetis; belum membuktikan proses login/data pada tenant pelanggan. Rekonsiliasi serta penerapan migrasi/data, staging, login Admin/Wali dan uji matriks izin, rotasi secret, UAT, review PR, serta uji pemasangan/pemulihan VPS dan on-premise tetap menjadi gerbang rilis.
