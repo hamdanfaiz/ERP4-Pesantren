@@ -262,3 +262,27 @@ Rekomendasi operasional tetap: pertahankan PR #13 sebagai jalur utama; audit fit
 - Konektor Supabase masih menolak akses ke target `ptsasgdvgrbdtgyqieie` dan hanya menampilkan project `vqemuyzveuirlkvdggjd`. Staging target dan migrasi data belum diverifikasi.
 
 Hasil CI tidak menutup release gate staging, review, rekonsiliasi data, login/role UAT, dan deployment customer-managed. Jangan menggabungkan PR #11 seluruhnya ke #13; audit fitur uniknya per domain.
+
+## Revalidasi status seluruh PR — 26 Oktober 2026
+
+Metadata PR GitHub dibaca ulang. Tabel ini adalah snapshot status branch dan dependensi, bukan pernyataan bahwa setiap fitur di semua branch sudah memiliki parity.
+
+| PR | Status saat pemeriksaan | Base → head | Catatan |
+|---|---|---|---|
+| #1 | Open / Draft | `main@f7f8bb0` → `backend/supabase-tenant-foundation@736ec92` | Foundation lama; base belum diperbarui setelah merge #12. |
+| #2 | Open / Draft | `main@f7f8bb0` → `product/commercial-readiness@98e98a4` | Dokumen kesiapan komersial pada base lama. |
+| #3 | Open / Draft | `backend/supabase-tenant-foundation@e3cbb70` → `backend/tenant-user-provisioning@515def6` | Stack lama di atas #1. |
+| #4 | Open / Draft | `main@f7f8bb0` → `deployment/self-hosted-app-container@b4cd1b8` | Container transisi; perlu dinilai terhadap runtime Supabase #13. |
+| #5 | Open / Draft | `backend/supabase-tenant-foundation@e3cbb70` → `backend/supabase-public-ppdb-runtime@57b5ec7` | Stack PPDB lama. |
+| #6 | Open / Draft | `main@f7f8bb0` → `docs/supabase-complete-migration-roadmap@3732db4` | Dokumen roadmap pada base lama. |
+| #7 | Open / Draft | `backend/supabase-public-ppdb-runtime@57b5ec7` → `backend/supabase-ppdb-admin-runtime@0b8bc4e` | Stack di atas #5. |
+| #8 | Open / Draft | `backend/supabase-ppdb-admin-runtime@0b8bc4e` → `backend/supabase-masterdata-onboarding@a9fc880` | Stack Master Data/onboarding lama. |
+| #9 | Open / Draft | `backend/supabase-masterdata-onboarding@a9fc880` → `backend/supabase-finance-foundation@c27bace` | Stack Finance lama. |
+| #10 | Open / Draft | `backend/supabase-finance-foundation@c27bace` → `backend/supabase-finance-ui@127c67e` | Stack UI Finance lama. |
+| #11 | Open / Draft | `backend/supabase-finance-ui@127c67e` → `backend/supabase-masterdata-structures-ui@88f2686` | Bukan leluhur #13; jangan merge sebagai satu stack. |
+| #12 | Merged | `main@f7f8bb0` → `tegar@afe5167` | Merge commit `c8738185ff6e5080ae427ef0021ee25681036c40`; menjadi base #13. |
+| #13 | Open / Draft | `main@c873818` → `codex/supabase-runtime-cutover-20261022@adf299f` | Jalur cutover utama; head pada snapshot ini sebelum catatan ditambahkan. |
+
+Pada snapshot yang sama, perbandingan head #11 dan #13 berstatus `diverged`, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8` (396 commit #13 di depan dan 235 di belakang). PR #11 dan #13 belum memiliki review submission; thread review #13 juga kosong. `mergeable=true` hanya berarti GitHub tidak melaporkan konflik merge.
+
+CI run `40244584892` sukses di kedua job pada commit kode #13 `5fa94d13f0739c364bb946d21ebf321013d2b4af`; run `40244853760` juga sukses di kedua job pada snapshot dokumentasi `adf299fc90ee01d0dbc81cada54d90f409f51a3b`. CI sintetis tidak menggantikan review, staging, backup/restore, migrasi data, login/UAT, atau keputusan pemilik repository atas PR bertingkat. Pertahankan #13 sebagai jalur utama, audit/port fitur unik secara selektif, dan jangan menutup atau menggabungkan PR lama secara otomatis.
