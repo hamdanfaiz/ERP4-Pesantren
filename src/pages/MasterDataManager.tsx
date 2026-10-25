@@ -2486,6 +2486,7 @@ export function MasterDataManager() {
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                           <span className="font-semibold text-slate-800 dark:text-slate-100">
                                             {{
+                                              baseline_snapshot: "Kondisi saat cutover",
                                               initial_assignment: "Penempatan awal",
                                               assigned: "Penempatan kamar",
                                               moved: "Perpindahan kamar",
@@ -2506,8 +2507,13 @@ export function MasterDataManager() {
                                           </p>
                                         )}
                                         <p className="mt-1 text-slate-500 dark:text-slate-400">
-                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : "Sistem"}
+                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : entry.changeSource === "migration_baseline" ? "Snapshot cutover" : "Sistem"}
                                         </p>
+                                        {entry.eventType === "baseline_snapshot" && (
+                                          <p className="mt-2 text-amber-700 dark:text-amber-300">
+                                            Kondisi ini dicatat saat migrasi; riwayat sebelum tanggal tersebut tidak tersedia.
+                                          </p>
+                                        )}
                                       </div>
                                     ))}
                                   </div>

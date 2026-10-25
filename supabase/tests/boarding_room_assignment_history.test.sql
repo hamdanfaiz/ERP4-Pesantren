@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(42);
+SELECT plan(51);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -69,6 +69,35 @@ SELECT is((SELECT event_type FROM public.student_room_assignment_history
 SELECT is((SELECT room_name FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
   'Kamar Utara','history preserves the room name snapshot');
+
+DELETE FROM public.student_room_assignment_history
+WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+  AND student_id='d4600000-0000-4000-8000-000000000201'
+  AND event_type='initial_assignment';
+SELECT is(public.backfill_student_room_assignment_history_baseline(), 1,
+  'baseline backfill captures an assigned student with no recorded history');
+SELECT is((SELECT event_type FROM public.student_room_assignment_history
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  'baseline_snapshot','cutover state has a distinct baseline event type');
+SELECT is((SELECT change_source FROM public.student_room_assignment_history
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  'migration_baseline','cutover state identifies the migration as its source');
+SELECT is((SELECT room_name FROM public.student_room_assignment_history
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  'Kamar Utara','baseline preserves the room name at cutover');
+SELECT is((SELECT building_name FROM public.student_room_assignment_history
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  'Gedung Utara','baseline preserves the building name at cutover');
+SELECT ok((SELECT changed_by IS NULL AND changed_at IS NOT NULL FROM public.student_room_assignment_history
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  'baseline does not invent a historical actor and has a cutover timestamp');
+SELECT is(public.backfill_student_room_assignment_history_baseline(), 0,
+  'replaying the baseline backfill does not duplicate snapshots or existing history');
+SELECT is((SELECT count(*)::INTEGER FROM public.student_room_assignment_history
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND student_id='d4600000-0000-4000-8000-000000000201'),
+  1,'baseline replay leaves one history row');
+SELECT ok(NOT has_function_privilege('service_role','public.backfill_student_room_assignment_history_baseline()','EXECUTE'),
+  'service role cannot invoke the one-time migration backfill');
 
 SELECT ok((SELECT relrowsecurity FROM pg_class
   WHERE oid='public.student_room_assignment_history'::regclass),'history enables RLS');

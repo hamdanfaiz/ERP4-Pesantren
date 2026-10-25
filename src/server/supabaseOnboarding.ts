@@ -661,13 +661,13 @@ export async function assignSupabaseStudentRoom(
 
 export type SupabaseStudentRoomAssignmentHistoryEntry = {
   id: number;
-  eventType: "initial_assignment" | "assigned" | "moved" | "unassigned" | "building_changed";
+  eventType: "baseline_snapshot" | "initial_assignment" | "assigned" | "moved" | "unassigned" | "building_changed";
   previousRoomName: string | null;
   roomName: string | null;
   previousBuildingName: string | null;
   buildingName: string | null;
   changedByName: string;
-  changeSource: "boarding_runtime" | "master_data" | "legacy_import" | "ppdb_onboarding" | "system";
+  changeSource: "boarding_runtime" | "master_data" | "legacy_import" | "ppdb_onboarding" | "migration_baseline" | "system";
   changedAt: string;
 };
 
