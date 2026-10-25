@@ -212,6 +212,8 @@ Bagian ini memperbarui status **source code** setelah pemeriksaan endpoint pada 
 
 Untuk endpoint yang memakai `readLegacyFirestoreTenantRows`, helper memverifikasi registry `tenants` dan menerima record tanpa tenant hanya bila registry berisi tepat satu tenant dengan document ID yang sama dengan `legacyTenantKey` yang dikonfigurasi. `tenantId` dan `tenant_id` yang bertentangan, nilai tenant malformed, tenantless yang ambigu, serta record dari tenant lain tidak boleh diterapkan. Ini adalah aturan per jalur importer; jangan menganggapnya sebagai bukti bahwa semua importer legacy telah memakai helper tersebut.
 
+Hardening pada 26 Oktober memperluas `scopeLegacyTenantRecords` agar jalur Marketplace, LMS, dan Tahfidz yang memanggil fungsi scope langsung juga mengkanonisasi `tenantId`/`tenant_id`. Alias yang bertentangan, malformed, atau hanya berisi spasi kini dihitung invalid dan memblokir apply; record tenant asing pada `tenant_id` tidak lagi berisiko dianggap tenantless. Regresi tes mencakup alias valid/asing, nilai ganda yang bertentangan, nilai malformed/kosong, dan memastikan snapshot Firestore asli tidak dimutasi. Perubahan ada pada commit `edd9f08b794f08fa55ef38467a9826ff1d3a9bf6`; tes terarah dan CI dua job lulus. Tidak ada data yang ditulis ke Supabase.
+
 ## Gerbang lingkungan backup dan rehearsal — 26 Oktober 2026
 
 Dashboard Supabase untuk project target `ptsasgdvgrbdtgyqieie` menampilkan paket **Free** dan menyatakan bahwa backup project terjadwal tidak disertakan pada paket tersebut. Karena itu, saat ini belum ada backup terkelola yang dapat dipulihkan untuk rehearsal Production. Suite CI memakai database dan data sintetis lokal; hasil itu tidak menggantikan pemulihan backup target.

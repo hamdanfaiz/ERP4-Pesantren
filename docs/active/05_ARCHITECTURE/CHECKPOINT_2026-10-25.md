@@ -405,3 +405,17 @@ Skor tidak berubah: dokumentasi kini lebih akurat, tetapi belum ada baseline Pro
 - Langkah berikutnya: tim backend menyediakan staging terisolasi dan backup yang berhasil dipulihkan; setelah itu jalankan pemeriksaan data khusus, rehearsal 34 migration, seluruh suite pada skema hasil upgrade, dan uji pemulihan ulang. Tidak ada perubahan Supabase Production pada checkpoint ini.
 
 PR #13 masih Open/Draft. Go-live ditahan sampai rehearsal, migrasi dan rekonsiliasi data, login/UAT role, rotasi secret, review PR, serta uji pemasangan dan pemulihan environment customer-managed selesai.
+
+
+## Hardening alias tenant pada importer legacy — 26 Oktober 2026
+
+### Progres menuju go-live: 77/100
+
+Skor naik satu poin setelah semua jalur pemanggil `scopeLegacyTenantRecords` memakai aturan kepemilikan yang sama untuk `tenantId` dan `tenant_id`. Perubahan mengurangi risiko salah memetakan record tenant asing sebagai record tanpa tenant.
+
+- Record dengan salah satu alias tenant dinormalisasi ke `tenantId` kanonis. Alias yang sama dibuang dari salinan in-memory; snapshot Firestore asli tidak diubah. Dua alias yang bertentangan, tenant malformed, atau nilai tenant hanya-spasi dihitung invalid dan memblokir apply.
+- Regresi tes mencakup alias snake_case milik tenant, tenant asing, dua alias yang cocok/bertentangan, nilai bukan string, nilai kosong-spasi, serta non-mutasi sumber. `test:legacy-firestore-tenant-scope` lulus pada workspace.
+- CI [run 40243790788](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40243790788) lulus pada commit kode `edd9f08b794f08fa55ef38467a9826ff1d3a9bf6`: frontend typecheck/build, guard Firebase, Docker customer-managed, seluruh migration/pgTAP, NIS/Tahfidz concurrency, preview importer, API auth/isolasi tenant, Finance Storage, dan backup/restore sintetis.
+- PR #13 tetap Open/Draft. Tidak ada perubahan Production atau apply Firestore. Skor belum mencakup rehearsal migrasi di staging, pemetaan akun Auth, pemindahan byte Storage, rekonsiliasi data, login/UAT, rotasi secret, maupun pemasangan dan pemulihan environment pelanggan.
+
+Gerbang utama berikutnya tetap menyediakan staging dengan baseline yang dapat dipulihkan. Lihat [inventaris migrasi](../06_DATABASE/FIRESTORE_TO_SUPABASE_MIGRATION_INVENTORY.md) dan [checklist rehearsal](../06_DATABASE/PRODUCTION_MIGRATION_REHEARSAL_CHECKLIST_2026-10-26.md).
