@@ -1,6 +1,7 @@
 import { listGuardianStudentIds } from "./identityStore";
 import { createHash } from "node:crypto";
 import { isValidTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
+import { selectCurrentTahfidzMemberships } from "../lib/tahfidzMembership";
 
 type JsonObject = Record<string, any>;
 
@@ -138,7 +139,7 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   const [tenantRows, halaqahs, memberships, students, records, targets, ustadzProfiles] = await Promise.all([
     supabaseRequest("/rest/v1/tenants?" + new URLSearchParams({ select: "time_zone", id: "eq." + tenantId, status: "eq.active", limit: "2" }).toString()),
     listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", { status: "eq.active" }),
-    listRows("tahfidz_memberships", tenantId, "id,halaqah_id,student_id,starts_on,status", "starts_on.asc,id.asc", { status: "eq.active" }),
+    listRows("tahfidz_memberships", tenantId, "id,halaqah_id,student_id,starts_on,ends_on,status", "starts_on.asc,id.asc", { status: "eq.active" }),
     listRows("students", tenantId, "id,source_record_id,nis,name,gender,grade,class_id,status", "name.asc,id.asc", { status: "neq.Archived" }),
     listRows("tahfidz_records", tenantId, "id,student_id,halaqah_id,activity_type,surah_name,ayah_start,ayah_end,fluency_grade,tajweed_grade,notes,performed_at,recorded_by_name", "performed_at.desc,id.desc"),
     listRows("tahfidz_targets", tenantId, "id,student_id,period_start,period_end,ziyadah_pages_per_day,murojaah_pages_per_day,target_policy,status", "period_start.desc,id.desc", { status: "eq.active" }),
@@ -180,9 +181,11 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   }
   const studentById = new Map<string, JsonObject>();
   for (const student of students) studentById.set(String(student.id), student);
+  const today = tenantDate(new Date(), tenantTimeZone);
+  const currentMemberships = selectCurrentTahfidzMemberships(memberships, today);
   const membershipsByStudent = new Map<string, JsonObject>();
   const studentsByHalaqah = new Map<string, JsonObject[]>();
-  for (const membership of memberships) {
+  for (const membership of currentMemberships) {
     const studentId = String(membership.student_id || "");
     const halaqahId = String(membership.halaqah_id || "");
     const student = studentById.get(studentId);
@@ -194,7 +197,6 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   }
 
   const targetByStudent = new Map<string, JsonObject>();
-  const today = tenantDate(new Date(), tenantTimeZone);
   for (const target of targets) {
     const studentId = String(target.student_id);
     const periodStart = String(target.period_start || "");

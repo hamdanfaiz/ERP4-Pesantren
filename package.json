@@ -29,7 +29,8 @@
     "test:library-circulation-import": "tsx scripts/test-library-circulation-import.ts",
     "test:master-data-pagination": "tsx scripts/test-master-data-pagination.ts",
     "test:supabase-runtime-no-firebase": "node scripts/test-supabase-runtime-no-firebase.mjs",
-    "test:guardian-student-selection": "tsx scripts/test-guardian-student-selection.ts"
+    "test:guardian-student-selection": "tsx scripts/test-guardian-student-selection.ts",
+    "test:tahfidz-membership-date": "tsx scripts/test-tahfidz-membership-date.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -41,6 +41,9 @@ jobs:
       - name: Verify Wali santri selection stays within linked children
         run: npm run test:guardian-student-selection
 
+      - name: Verify Tahfidz membership uses tenant business date
+        run: npm run test:tahfidz-membership-date
+
       - name: Verify guardian invitation before password activation
         run: npm run test:guardian-invitation-verification
 
