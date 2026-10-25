@@ -1,9 +1,11 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { isCalendarDate } from "../utils/businessDate";
 import {
   manageSupabaseCooperativeProduct,
   manageSupabaseCooperativeSupplier,
   SupabaseCooperativeError,
+  applySupabaseCooperativeFinancialHistoryRpc,
+  getSupabaseCooperativeFinancialImportBatch,
 } from "./supabaseCooperative";
 
 type Row = Record<string, any>;
@@ -342,7 +344,7 @@ function parseLegacyCooperativeInstant(value: unknown, timeZone: string): string
 }
 
 function safeLegacyAmount(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 1000000000000;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 999999999999;
 }
 
 export function previewSupabaseLegacyCooperativeFinancialHistory(
@@ -618,5 +620,122 @@ export function previewSupabaseLegacyCooperativeFinancialHistory(
     transactions,
     targetWalletOptions,
     targetProductOptions,
+  };
+}
+
+
+export async function applySupabaseLegacyCooperativeFinancialHistory(
+  tenantId: string,
+  actorId: string,
+  sources: Pick<LegacyCooperativeCatalogSources, "wallets" | "transactions">,
+  targetWallets: Row[],
+  targetStudents: Row[],
+  targetProducts: Row[],
+  usedWalletIds: string[],
+  mappings: LegacyCooperativeFinancialMappings,
+  timeZone: string,
+  expectedFingerprint: string,
+) {
+  const preview = previewSupabaseLegacyCooperativeFinancialHistory(
+    tenantId, sources, targetWallets, targetStudents, targetProducts, usedWalletIds, mappings, timeZone,
+  );
+  if (!/^[0-9a-f]{64}$/.test(String(expectedFingerprint || ""))
+    || preview.snapshotFingerprint !== expectedFingerprint) {
+    throw new SupabaseCooperativeError(409, "Snapshot arsip Koperasi berubah sejak pratinjau. Buat pratinjau baru sebelum menerapkan impor.");
+  }
+  if (mappings.confirmCompleteHistory !== true) {
+    throw new SupabaseCooperativeError(409, "Kelengkapan arsip dan rekonsiliasi saldo harus dikonfirmasi sebelum impor.");
+  }
+
+  const wallets = preview.wallets.map((wallet: Row) => {
+    if (!/^[0-9a-f]{64}$/.test(String(wallet.sourceRef || ""))
+      || !/^[0-9a-f]{64}$/.test(String(wallet.sourceFingerprint || ""))
+      || !/^[0-9a-f-]{36}$/i.test(String(wallet.targetWalletId || ""))
+      || !/^[0-9a-f-]{36}$/i.test(String(wallet.clientRequestId || ""))
+      || !safeLegacyAmount(wallet.openingBalance)
+      || !safeLegacyAmount(wallet.closingBalance)
+      || !safeLegacyAmount(wallet.salesTotal)) {
+      throw new SupabaseCooperativeError(409, "Pemetaan dompet belum lengkap atau saldo arsip tidak valid.");
+    }
+    return {
+      source_ref: wallet.sourceRef,
+      source_fingerprint: wallet.sourceFingerprint,
+      target_wallet_id: wallet.targetWalletId,
+      client_request_id: wallet.clientRequestId,
+      opening_balance: wallet.openingBalance,
+      closing_balance: wallet.closingBalance,
+      sales_total: wallet.salesTotal,
+    };
+  }).sort((left: Row, right: Row) => left.source_ref.localeCompare(right.source_ref));
+
+  const transactions = preview.transactions.map((transaction: Row) => {
+    if (!/^[0-9a-f]{64}$/.test(String(transaction.sourceRef || ""))
+      || !/^[0-9a-f]{64}$/.test(String(transaction.sourceFingerprint || ""))
+      || !/^[0-9a-f-]{36}$/i.test(String(transaction.clientRequestId || ""))
+      || !/^[0-9a-f]{64}$/.test(String(transaction.sourceWalletRef || ""))
+      || normalized(transaction.status) !== "success"
+      || typeof transaction.createdAt !== "string"
+      || !safeLegacyAmount(transaction.total) || transaction.total <= 0
+      || !Array.isArray(transaction.items) || transaction.items.length < 1 || transaction.items.length > 50) {
+      throw new SupabaseCooperativeError(409, "Transaksi arsip belum lengkap atau tidak valid.");
+    }
+    const items = transaction.items.map((item: Row) => {
+      if (!/^[0-9a-f-]{36}$/i.test(String(item.productId || ""))
+        || !text(item.name) || String(item.name).length > 180
+        || !safeLegacyAmount(item.unitPrice)
+        || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 500
+        || item.lineTotal !== item.unitPrice * item.quantity
+        || item.costSnapshotKnown !== false || item.costPrice !== null) {
+        throw new SupabaseCooperativeError(409, "Detail produk arsip tidak valid atau informasi HPP tidak diketahui berubah.");
+      }
+      return {
+        product_id: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        line_total: item.lineTotal,
+        cost_snapshot_known: false,
+        cost_price: null,
+      };
+    });
+    return {
+      source_ref: transaction.sourceRef,
+      source_fingerprint: transaction.sourceFingerprint,
+      client_request_id: transaction.clientRequestId,
+      source_wallet_ref: transaction.sourceWalletRef,
+      status: transaction.status,
+      created_at: transaction.createdAt,
+      total: transaction.total,
+      items,
+    };
+  }).sort((left: Row, right: Row) => left.source_ref.localeCompare(right.source_ref));
+
+  if (wallets.length !== preview.counts.sourceWallets
+    || transactions.length !== preview.counts.sourceTransactions
+    || wallets.length === 0) {
+    throw new SupabaseCooperativeError(409, "Arsip Koperasi belum lengkap untuk diterapkan.");
+  }
+
+  const payloadFingerprint = createHash("sha256")
+    .update(JSON.stringify(stable({ wallets, transactions })))
+    .digest("hex");
+  const prior = await getSupabaseCooperativeFinancialImportBatch(tenantId, preview.snapshotFingerprint);
+  if (prior && String(prior.payload_fingerprint || "") !== payloadFingerprint) {
+    throw new SupabaseCooperativeError(409, "Snapshot arsip ini sudah pernah diterapkan dengan pemetaan berbeda.");
+  }
+  if (!prior && !preview.canApply) {
+    throw new SupabaseCooperativeError(409, "Pratinjau impor finansial Koperasi memiliki konflik atau relasi yang perlu ditinjau.");
+  }
+
+  const result: Row = await applySupabaseCooperativeFinancialHistoryRpc(
+    tenantId, actorId, preview.snapshotFingerprint, payloadFingerprint, wallets, transactions,
+  );
+  return {
+    snapshotFingerprint: preview.snapshotFingerprint,
+    counts: preview.counts,
+    importedWallets: Number(result?.wallets || 0),
+    importedSales: Number(result?.sales || 0),
+    importedItems: Number(result?.items || 0),
+    alreadyApplied: Boolean(result?.alreadyApplied),
   };
 }
