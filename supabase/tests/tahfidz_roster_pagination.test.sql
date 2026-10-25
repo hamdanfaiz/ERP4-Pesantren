@@ -96,7 +96,10 @@ SELECT is((public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009
 SELECT is((public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','ustadz',CURRENT_DATE,NULL,NULL,100,true)->>'followUpCount'), '1', 'ustadz follow-up summary is scoped to assigned halaqahs');
 SELECT is((public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000013','santri',CURRENT_DATE,NULL,NULL,100,true)->'followUps'->0->>'id'), 'd1900000-0000-4000-8000-000000000203', 'santri follow-up summary is scoped to the linked student');
 SELECT is((public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000014','wali_santri',CURRENT_DATE,NULL,NULL,100,true)->>'followUpCount'), '1', 'wali follow-up summary is scoped to linked children');
-SELECT is((public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009','d2900000-0000-4000-8000-000000000021','admin',CURRENT_DATE,NULL,NULL,100,true)->>'followUpCount'), '0', 'another tenant cannot see or count these follow-ups');
+SELECT throws_ok(
+  $$SELECT public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009','d2900000-0000-4000-8000-000000000021','admin',CURRENT_DATE,NULL,NULL,100,true)$$,
+  '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'another tenant cannot read or count these follow-ups'
+);
 
 SELECT is(jsonb_array_length(public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','ustadz',CURRENT_DATE,NULL,NULL,100,false)->'roster'), 2, 'Ustadz sees only students in assigned active halaqahs');
 SELECT ok(NOT (public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','ustadz',CURRENT_DATE,NULL,NULL,100,false)->'roster') @> '[{"id":"d1900000-0000-4000-8000-000000000203"}]'::jsonb, 'Ustadz cannot see an unassigned student');
