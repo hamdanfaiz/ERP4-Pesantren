@@ -1,6 +1,8 @@
 # Checkpoint rilis dan progres — 25 Oktober 2026
 
-## Progres menuju go-live: sekitar 58%
+> **Status terbaru (26 Oktober 2026): 78/100.** PR #13 masih Draft dan produk belum siap deploy. Lihat checkpoint terbaru di bagian akhir; tabel di bawah adalah snapshot awal.
+
+## Snapshot awal saat dokumen dibuat: 58/100
 
 Persentase ini adalah skor kesiapan rilis berbasis bukti, bukan jumlah fitur yang sudah ditulis atau jumlah commit. Skor dihitung dengan bobot tetap 100 poin. Poin hanya diperoleh bila ada artefak atau verifikasi yang mendukungnya; fitur yang belum diuji di lingkungan target tidak dihitung selesai. Nilai dapat naik maupun turun setelah audit atau pengujian baru.
 
@@ -433,3 +435,19 @@ Skor naik satu poin setelah dua endpoint yang membaca dan membersihkan settings 
 - Tidak ada migration atau data Production yang dijalankan. PR #13 tetap Open/Draft.
 
 Peningkatan ini hanya menguatkan ownership saat migrasi settings. Staging dengan backup restore, 34 migration Production, pemetaan Auth/profil, byte Storage, rekonsiliasi data, login/UAT, rotasi secret, dan instalasi/pemulihan customer-managed tetap menjadi release gate.
+
+
+## Checkpoint kelanjutan: paritas PR, runtime, dan akses project target — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+Skor tidak berubah. CI pada head terbaru #13 lulus, tetapi project Supabase target belum terlihat melalui konektor yang tersedia sehingga skema dan status migrasi target tidak dapat diverifikasi.
+
+- Head terbaru PR #13 yang diverifikasi adalah `c6cd7e971c2979a03d6c3a2599bbae2bb0b84d18`; GitHub Actions run `40245171876` berakhir sukses. PR #13 tetap Open/Draft dan berbasis merge PR #12.
+- PR #11 tetap Open/Draft, bukan leluhur #13. Perbandingan GitHub terbaru: status `diverged`, 397 commit #13 di depan dan 235 di belakang, merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Jangan merge seluruh branch #11.
+- Inspeksi source mengonfirmasi route migrasi Master Data, API transaksional penempatan kamar, serta baca/tulis dan import Tahfidz tersedia pada jalur #13. Ini bukti code parity untuk alur inti, bukan bukti migrasi atau transaksi sudah diuji pada database target.
+- Graf impor frontend memiliki guard CI yang menolak Firebase pada runtime aktif. Firebase Admin dan Firestore tetap berada di source sebagai alat baca arsip, hanya dapat diinisialisasi pada development lokal yang diaktifkan eksplisit; paket Firebase tidak masuk dependency produksi.
+- Daftar project pada konektor Supabase saat ini hanya menampilkan `vqemuyzveuirlkvdggjd`, sedangkan target yang sebelumnya ditetapkan untuk migrasi adalah `ptsasgdvgrbdtgyqieie`. Tidak ada query, migration, atau penulisan data ke project lain.
+- Gerbang tetap terbuka: akses konektor ke project target, staging dengan baseline restore, rehearsal migration dan rekonsiliasi data, pemetaan akun Auth, pemindahan byte Storage, login/UAT Admin-Wali, rotasi secret, serta pemasangan dan pemulihan di VPS/on-premise.
+
+Langkah berikutnya adalah menyambungkan konektor ke project target yang benar atau memakai staging yang disetujui, lalu menjalankan preflight dan rehearsal baca-saja. Sampai saat itu, jangan menerapkan migration atau mengaktifkan feature flag produksi.

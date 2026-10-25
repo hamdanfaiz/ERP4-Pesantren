@@ -286,3 +286,14 @@ Metadata PR GitHub dibaca ulang. Tabel ini adalah snapshot status branch dan dep
 Pada snapshot yang sama, perbandingan head #11 dan #13 berstatus `diverged`, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8` (396 commit #13 di depan dan 235 di belakang). PR #11 dan #13 belum memiliki review submission; thread review #13 juga kosong. `mergeable=true` hanya berarti GitHub tidak melaporkan konflik merge.
 
 CI run `40244584892` sukses di kedua job pada commit kode #13 `5fa94d13f0739c364bb946d21ebf321013d2b4af`; run `40244853760` juga sukses di kedua job pada snapshot dokumentasi `adf299fc90ee01d0dbc81cada54d90f409f51a3b`. CI sintetis tidak menggantikan review, staging, backup/restore, migrasi data, login/UAT, atau keputusan pemilik repository atas PR bertingkat. Pertahankan #13 sebagai jalur utama, audit/port fitur unik secara selektif, dan jangan menutup atau menggabungkan PR lama secara otomatis.
+
+
+## Revalidasi PR #11 → #13 dan akses project Supabase — 26 Oktober 2026
+
+- Metadata GitHub terkini: PR #11 Open/Draft pada head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`; PR #13 Open/Draft pada head `c6cd7e971c2979a03d6c3a2599bbae2bb0b84d18`, base merge PR #12 (`c8738185ff6e5080ae427ef0021ee25681036c40`).
+- Perbandingan head terkini menyatakan `diverged`: #13 397 commit di depan dan 235 di belakang #11, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Hasil ini tidak membenarkan merge stack lama; gunakan matriks parity untuk memilih fitur yang benar-benar belum tersedia.
+- CI PR #13 pada SHA `c6cd7e9` sukses pada kedua job di run [`40245171876`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40245171876). Ini hanya memvalidasi source dan database sintetis yang dipakai CI; tidak mengesahkan project Supabase target atau migrasi data.
+- Konektor Supabase yang aktif hanya mengembalikan project `vqemuyzveuirlkvdggjd`. Target yang ditetapkan sebelumnya adalah `ptsasgdvgrbdtgyqieie`, dan target itu tidak tersedia pada daftar konektor. Karena itu pemeriksaan tabel, migration ledger, advisor, backup, atau data target belum dilakukan dalam checkpoint ini.
+- Tidak ada query tulis, migration, perubahan skema, atau pengaktifan feature flag Supabase pada project mana pun. Jangan gunakan project `vqemuyzveuirlkvdggjd` sebagai pengganti target.
+
+Status akhir tetap: #13 adalah jalur cutover utama tetapi belum siap merge/go-live; #11 belum ditutup dan tidak boleh digabungkan utuh; staging, target Supabase yang benar, rekonsiliasi, review, login/UAT, secret rotation, dan uji customer-managed tetap diperlukan.
