@@ -131,11 +131,77 @@ export async function getUserProfile(uid: string): Promise<StoredUserProfile | n
   return data ? mapCanonicalProfile(data as unknown as CanonicalProfileRow) : null;
 }
 
-export async function listTenantProfiles(tenantId: string): Promise<StoredUserProfile[]> {
+export type TenantProfileListOptions = {
+  query?: string;
+  role?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type TenantProfileListPage = {
+  profiles: StoredUserProfile[];
+  total: number;
+};
+
+export async function listTenantProfiles(
+  tenantId: string,
+  options: TenantProfileListOptions = {},
+): Promise<TenantProfileListPage> {
   const supabase = supabaseAdmin();
-  const { data, error } = await supabase.from("profiles").select(CANONICAL_PROFILE_SELECT).eq("tenant_id", tenantId);
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
+  let query = supabase.from("profiles")
+    .select(CANONICAL_PROFILE_SELECT, { count: "exact" })
+    .eq("tenant_id", tenantId);
+
+  const roleByUiValue: Record<string, string> = {
+    SuperAdmin: "super_admin",
+    Admin: "admin",
+    Ustadz: "ustadz",
+    Santri: "santri",
+    Walisantri: "wali_santri",
+  };
+  if (options.role) {
+    const role = roleByUiValue[options.role];
+    if (!role) throw new IdentityConflictError("Filter peran pengguna tidak valid.");
+    query = query.eq("role", role);
+  }
+
+  const statusByUiValue: Record<string, string> = {
+    active: "active",
+    disabled: "suspended",
+    inactive: "invited",
+  };
+  if (options.status) {
+    const status = statusByUiValue[options.status];
+    if (!status) throw new IdentityConflictError("Filter status pengguna tidak valid.");
+    query = query.eq("status", status);
+  }
+
+  const search = String(options.query || "").trim();
+  if (search) {
+    const escaped = search
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/[%_*]/g, (character) => `\\${character}`);
+    const pattern = `"%${escaped}%"`;
+    query = query.or([
+      `display_name.ilike.${pattern}`,
+      `email.ilike.${pattern}`,
+      `username.ilike.${pattern}`,
+    ].join(","));
+  }
+
+  const { data, error, count } = await query
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .order("user_id", { ascending: true })
+    .range(offset, offset + limit - 1);
   if (error) throw new IdentityUnavailableError("Daftar pengguna tidak dapat dibaca dari Supabase.");
-  return (data || []).map((row) => mapCanonicalProfile(row as unknown as CanonicalProfileRow));
+  return {
+    profiles: (data || []).map((row) => mapCanonicalProfile(row as unknown as CanonicalProfileRow)),
+    total: Number(count || 0),
+  };
 }
 
 export async function createAuthUserWithProfile(input: {
