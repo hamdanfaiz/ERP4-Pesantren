@@ -35,6 +35,9 @@ jobs:
       - name: Typecheck
         run: bun run lint
 
+      - name: Verify read-only Supabase migration preflight
+        run: npm run test:migration-preflight
+
       - name: Verify strict shared RBAC permissions
         run: npm run test:rbac-permissions
 
@@ -141,6 +144,9 @@ jobs:
 
       - name: Start isolated local Supabase
         run: supabase start
+
+      - name: Verify local migration ledger against repository (read-only)
+        run: npm run preflight:db-migrations:local
 
       - name: Run database tests
         run: npm run test:db
