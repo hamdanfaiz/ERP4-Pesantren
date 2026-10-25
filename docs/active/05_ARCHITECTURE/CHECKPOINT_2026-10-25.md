@@ -216,3 +216,17 @@ Skor naik satu poin dari 65/100 setelah halaman riwayat Tahfidz tidak lagi memua
 - Head kode PR #13: `c2461726a60e540595ce7059a1cd37bf89af2b54`. Tidak ada migrasi atau data Supabase Production yang dijalankan.
 
 Batas pemindaian snapshot roster santri/halaqah masih 5.000 baris dan halaman UI Tahfidz belum memiliki pagination roster sisi server. Ini tetap perlu dibereskan untuk tenant di atas batas tersebut. PR masih Open/Draft; staging, rekonsiliasi migrasi, Admin/Wali UAT, rotasi secret, dan uji pemasangan VPS/on-premise tetap release gate.
+
+## Pengurangan beban snapshot roster Tahfidz — 25 Oktober 2026
+
+### Progres menuju go-live: 67/100
+
+Skor naik satu poin dari 66/100 setelah optimasi snapshot Tahfidz lolos tes dan CI pada SHA yang sama. Kenaikan ini mencatat pengurangan biaya pemrosesan dan payload pada jalur yang diuji; kesiapan tenant besar dan go-live tetap bergantung pada paginasi roster, staging, migrasi, autentikasi, dan UAT.
+
+- Backend menghitung jumlah santri per halaqah dan membangun lookup halaqah dengan peta. Snapshot tidak lagi menggandakan objek identitas (ID, nama, NIS) santri pada setiap halaqah; hitungan Wali tetap berasal hanya dari anak yang tertaut.
+- Uji sintetis mencakup dua halaqah, dua santri, jumlah anggota 2 dan 0, serta memastikan daftar identitas tidak disalin ke setiap halaqah.
+- Verifikasi lokal lulus: tes pagination/snapshot Tahfidz, typecheck terarah untuk backend dan tes, transpile TSX halaman Tahfidz, serta `git diff --check`.
+- CI run [40196046052](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40196046052) sukses pada kedua job di head `96df4d7b3fc9e8f2e24ea9cdfb6638720a31ec64`: typecheck, test frontend, build/Docker, migration/pgTAP Supabase lokal, isolasi tenant, Finance Storage, dan backup/restore.
+- Tidak ada perubahan migration atau penulisan ke Supabase Production.
+
+Batas pemindaian snapshot roster santri dan halaqah masih 5.000 baris; server-side pagination dan pencarian roster tetap menjadi pekerjaan skala selanjutnya. PR #13 tetap Open/Draft, dan release gate staging, rekonsiliasi data, uji login/role, rotasi secret, review, serta uji VPS/on-premise tetap terbuka.
