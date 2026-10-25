@@ -56,7 +56,8 @@ import { MOCK_SANTRI, MOCK_WALISANTRI } from "../data/mockRecords";
 import {
   archiveSupabaseMasterDataStudent,
   deleteSupabaseMasterDataStructure,
-  listSupabaseMasterDataStudents,
+  getSupabaseMasterDataStudentDetails,
+  listSupabaseMasterDataStudentsPage,
   listSupabaseMasterDataStructures,
   upsertSupabaseMasterDataStudent,
   upsertSupabaseMasterDataStructure,
@@ -329,6 +330,7 @@ export function MasterDataManager() {
   const [isHierarchyView, setIsHierarchyView] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [serverStudentHasMore, setServerStudentHasMore] = useState(false);
   const recordsPerPage = 10;
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
@@ -383,8 +385,20 @@ export function MasterDataManager() {
     const loadSupabase = async () => {
       try {
         if (activeTab === "entities" && activeSubTab === "Santri") {
-          const items = await listSupabaseMasterDataStudents();
-          if (!cancelled) setDataSources((prev) => ({ ...prev, Santri: items }));
+          const page = await listSupabaseMasterDataStudentsPage({
+            page: currentPage,
+            pageSize: recordsPerPage,
+            search: searchQuery,
+            statuses: statusFilter,
+            gender: genderFilter,
+            grade: gradeFilter,
+            dormitory: dormitoryFilter,
+            completeness: completenessFilter,
+          });
+          if (!cancelled) {
+            setDataSources((prev) => ({ ...prev, Santri: page.records }));
+            setServerStudentHasMore(page.hasMore);
+          }
           return;
         }
         if (activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab)) {
@@ -400,12 +414,16 @@ export function MasterDataManager() {
         if (cancelled) return;
         console.error(`Supabase Master Data ${activeSubTab} failed:`, error);
         setDataSources((prev) => ({ ...prev, [activeSubTab]: [] }));
+        if (activeTab === "entities" && activeSubTab === "Santri") {
+          setServerStudentHasMore(false);
+          showToast(error instanceof Error ? error.message : "Daftar santri belum dapat dimuat.", "error");
+        }
       }
     };
 
     void loadSupabase();
     return () => { cancelled = true; };
-  }, [activeTab, activeSubTab, user?.tenantId, user?.uid]);
+  }, [activeTab, activeSubTab, user?.tenantId, user?.uid, currentPage, searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter]);
 
   useEffect(() => {
     // We intentionally removed the auto-pop-up on mount for drafts,
@@ -459,6 +477,11 @@ export function MasterDataManager() {
 
   const performAISearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (SUPABASE_MASTER_DATA_RUNTIME && activeTab === "entities" && activeSubTab === "Santri") {
+      setSearchResults(null);
+      setCurrentPage(1);
+      return;
+    }
     if (!searchQuery.trim()) {
       setSearchResults(null);
       return;
@@ -587,10 +610,19 @@ export function MasterDataManager() {
     }
   };
 
-  const handleEditClick = (record: any, e?: React.MouseEvent) => {
+  const handleEditClick = async (record: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setFormErrors({});
     setTouchedFields({});
+
+    if (SUPABASE_MASTER_DATA_RUNTIME && activeTab === "entities" && activeSubTab === "Santri") {
+      try {
+        record = await getSupabaseMasterDataStudentDetails(String(record.id || ""));
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Rincian santri belum dapat dibuka.", "error");
+        return;
+      }
+    }
 
     const draftKey = getMdmDraftKey(user?.tenantId, user?.uid);
     const savedDraft = SUPABASE_MASTER_DATA_RUNTIME ? null : readMdmDraft(draftKey);
@@ -876,10 +908,12 @@ export function MasterDataManager() {
     }
   };
 
+  const isServerPaginatedSantri = SUPABASE_MASTER_DATA_RUNTIME && activeTab === "entities" && activeSubTab === "Santri";
   const baseData = dataSources[activeSubTab] || [];
   
   // Instant search query fallback if AI search is not triggered
   const searchFiltered = React.useMemo(() => {
+    if (isServerPaginatedSantri) return baseData;
     let list = baseData;
     if (searchResults) {
       list = list.filter((r) => searchResults.includes(r.id));
@@ -904,10 +938,11 @@ export function MasterDataManager() {
       });
     }
     return list;
-  }, [baseData, searchResults, searchQuery]);
+  }, [baseData, searchResults, searchQuery, isServerPaginatedSantri]);
 
   // Multi-facet filtering (Status, Gender, Grade, Dormitory, Completeness)
   const filteredData = React.useMemo(() => {
+    if (isServerPaginatedSantri) return searchFiltered;
     return searchFiltered.filter((r) => {
       // 1. Status Filter
       if (statusFilter.length > 0 && !statusFilter.includes(r.status)) {
@@ -938,7 +973,7 @@ export function MasterDataManager() {
 
       return true;
     });
-  }, [searchFiltered, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter]);
+  }, [searchFiltered, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, isServerPaginatedSantri]);
 
   const resetAllFilters = () => {
     setStatusFilter([]);
@@ -960,10 +995,9 @@ export function MasterDataManager() {
     Boolean(searchQuery.trim());
 
   const totalPages = Math.ceil(filteredData.length / recordsPerPage) || 1;
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * recordsPerPage,
-    currentPage * recordsPerPage,
-  );
+  const paginatedData = isServerPaginatedSantri
+    ? filteredData
+    : filteredData.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   const allSelected =
     paginatedData.length > 0 &&
@@ -1820,7 +1854,7 @@ export function MasterDataManager() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder={`AI Search ${activeSubTab}... (e.g. "enrolled in 2022")`}
+                      placeholder={isServerPaginatedSantri ? "Cari nama, NIS, atau ID santri…" : `AI Search ${activeSubTab}... (e.g. "enrolled in 2022")`}
                       className="pl-9 pr-10 py-2  rounded-md text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 w-full bg-slate-50 dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-300 transition-all placeholder:text-slate-600"
                     />
                     <button
@@ -1830,6 +1864,8 @@ export function MasterDataManager() {
                     >
                       {isSearching ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isServerPaginatedSantri ? (
+                        <Search className="w-4 h-4" />
                       ) : (
                         <Sparkles className="w-4 h-4" />
                       )}
@@ -1968,10 +2004,11 @@ export function MasterDataManager() {
                     <span>Relasi Terintegrasi (ID-Normalized)</span>
                   </div>
                   <span>
-                    Total records:{" "}
-                    <span className="font-mono text-emerald-400 text-sm font-bold">
-                      {filteredData.length}
-                    </span>
+                    {isServerPaginatedSantri ? (
+                      <span className="font-medium">Halaman {currentPage} · {serverStudentHasMore ? "ada data berikutnya" : "halaman terakhir"}</span>
+                    ) : <>Total records:{" "}
+                      <span className="font-mono text-emerald-400 text-sm font-bold">{filteredData.length}</span>
+                    </>}
                   </span>
                 </div>
               </div>
@@ -2996,8 +3033,9 @@ export function MasterDataManager() {
 
               <div className="p-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-500 bg-black/40 uppercase tracking-widest mt-auto print:hidden">
                 <div>
-                  Showing {paginatedData.length} of {filteredData.length}{" "}
-                  records
+                  {isServerPaginatedSantri
+                    ? `Menampilkan ${paginatedData.length} santri · halaman ${currentPage}${serverStudentHasMore ? " · masih ada halaman berikutnya" : " · halaman terakhir"}`
+                    : `Showing ${paginatedData.length} of ${filteredData.length} records`}
                 </div>
                 <div className="flex items-center gap-2 font-mono">
                   <button
@@ -3009,7 +3047,7 @@ export function MasterDataManager() {
                   >
                     Prev
                   </button>
-                  {Array.from({ length: totalPages }).map((_, i) => (
+                  {!isServerPaginatedSantri && Array.from({ length: totalPages }).map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setCurrentPage(i + 1)}
@@ -3024,10 +3062,8 @@ export function MasterDataManager() {
                     </button>
                   ))}
                   <button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                    }
-                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                    disabled={isServerPaginatedSantri ? !serverStudentHasMore : currentPage === totalPages}
                     className="px-3 py-1  rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 disabled:opacity-50 transition-colors"
                   >
                     Next
