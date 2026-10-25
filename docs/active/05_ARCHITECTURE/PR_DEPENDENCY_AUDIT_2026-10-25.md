@@ -235,3 +235,21 @@ PR #11 tetap Open/Draft dan divergen; status parity inti pada #13 bukan alasan u
 - PR #13 head `67e8699c2955da0371c25fb1a9d3f063da402dec` lulus run `40190799618` pada job frontend dan database. Tidak ada perubahan schema atau data produksi.
 - Kesiapan rilis naik **62→63/100** pada cakupan modul dan bukti integrasi UI. PR masih Draft; login staging, migrasi/rekonsiliasi sumber, rotasi secret, dan UAT customer-managed belum dilaksanakan.
 
+## Revalidasi semua PR dan head CI — 25 Oktober 2026
+
+Metadata GitHub diperiksa ulang untuk PR #1–#13:
+
+| Kelompok | Status terbaru | Dasar dan tindakan |
+|---|---|---|
+| #1–#2, #4, #6 | Open / Draft | Berbasis `main` lama `f7f8bb0`; segarkan base setelah jalur cutover ditetapkan. |
+| #3, #5 | Open / Draft | Berbasis tenant foundation `e3cbb70`; cek ulang stack dan konflik sebelum dipertimbangkan. |
+| #7–#10 | Open / Draft | Stack berurutan PPDB → Master Data → Finance → UI Finance; PR #11 dibangun di atas #10. |
+| #11 | Open / Draft | Base `backend/supabase-finance-ui` pada `127c67e`, head `backend/supabase-masterdata-structures-ui` pada `88f2686`. Tetap stack lama, bukan base PR #13. |
+| #12 | Merged | Merge commit `c8738185ff6e5080ae427ef0021ee25681036c40`; menjadi dasar PR #13. |
+| #13 | Open / Draft | Jalur utama cutover; base merge PR #12, head `a972b8a079af68d4d71a3032c18c386f0bf7ae42`. |
+
+Run GitHub Actions `40191075189` pada head PR #13 lulus di kedua job. Ini mengesahkan suite CI lokal/sintetis untuk commit tersebut; tidak menandakan migrasi Production, review, autentikasi staging, atau UAT telah selesai. Nilai `mergeable=true` hanyalah laporan konflik Git dan bukan persetujuan merge.
+
+Konektor Supabase masih tidak memiliki izin pada project target `ptsasgdvgrbdtgyqieie`; daftar project yang dapat dilihat hanya memuat `vqemuyzveuirlkvdggjd`. Jangan menggunakan project yang berbeda sebagai pengganti target dan jangan menyatakan database Production sudah diverifikasi.
+
+Rekomendasi operasional tetap: pertahankan PR #13 sebagai jalur utama; audit fitur unik #11 per domain dan port hanya yang diperlukan setelah CI; jangan merge stack #11 langsung ke #13. PR #1–#11 yang masih Draft perlu ditandai sebagai stack/arsip/review satu per satu oleh pemilik repo sebelum rilis, supaya tidak ada jalur yang dianggap selesai hanya karena #13 lulus CI.
