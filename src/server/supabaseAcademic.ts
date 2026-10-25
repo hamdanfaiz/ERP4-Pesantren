@@ -1,3 +1,5 @@
+import { readPostgrestRowsInPages } from "./postgrestPagination";
+
 type Row = Record<string, any>;
 
 export class SupabaseAcademicError extends Error {
@@ -80,16 +82,24 @@ async function tenantRows(tenantId: string, role: string, actorId: string) {
     limit: "5001",
   });
   if (role === "Ustadz") params.set("teacher_user_id", "eq." + actorId);
-  const rows = await request("/rest/v1/academic_records?" + params.toString());
-  if (!Array.isArray(rows) || rows.length > 5000) throw new SupabaseAcademicError(503, "Data akademik melebihi batas aman tampilan.");
-  return rows as Row[];
+  return readPostgrestRowsInPages<Row>({
+    request,
+    path: "/rest/v1/academic_records?" + params.toString(),
+    maxRows: 5000,
+    onIncomplete: () => new SupabaseAcademicError(503, "Data akademik melebihi batas aman tampilan atau hasil pemindaian tidak lengkap."),
+  });
 }
 
 export async function getSupabaseAcademicSnapshot(tenantIdentifier: string, actorId: string, role: string) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   const records = await tenantRows(tenantId, role, actorId);
   const [studentRows, staffRows, classRows] = await Promise.all([
-    request(`/rest/v1/students?${new URLSearchParams({ select: "id,name,nis,grade,status,class_id,details", tenant_id: "eq." + tenantId, status: "neq.Archived", order: "name.asc,id.asc", limit: "5001" })}`),
+    readPostgrestRowsInPages<Row>({
+      request,
+      path: `/rest/v1/students?${new URLSearchParams({ select: "id,name,nis,grade,status,class_id,details", tenant_id: "eq." + tenantId, status: "neq.Archived", order: "name.asc,id.asc", limit: "5001" })}`,
+      maxRows: 5000,
+      onIncomplete: () => new SupabaseAcademicError(503, "Roster santri melebihi batas aman tampilan atau hasil pemindaian tidak lengkap."),
+    }),
     request(`/rest/v1/profiles?${new URLSearchParams({ select: "user_id,display_name", tenant_id: "eq." + tenantId, role: "eq.ustadz", status: "eq.active", order: "display_name.asc,user_id.asc", limit: "501" })}`),
     request(`/rest/v1/master_data_records?${new URLSearchParams({ select: "id,name,status", tenant_id: "eq." + tenantId, category: "eq.Kelas", order: "name.asc,id.asc", limit: "501" })}`),
   ]);
