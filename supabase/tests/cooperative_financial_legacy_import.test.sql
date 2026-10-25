@@ -155,7 +155,7 @@ SELECT throws_ok(
         ))
       ))
     )
-  $,
+  $$,
   '23514',
   'Transaction total does not equal its historical items',
   'sale total must equal the sum of its imported item lines'
