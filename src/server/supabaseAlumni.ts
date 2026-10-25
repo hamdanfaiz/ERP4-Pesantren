@@ -1,4 +1,5 @@
 import { isAlumniGraduationCandidate } from "../lib/alumniWorkflow";
+import { readPostgrestRowsInPages } from "./postgrestPagination";
 
 type Row = Record<string, any>;
 
@@ -83,14 +84,14 @@ async function listTenantRows(table: string, tenantId: string, select: string, o
     select,
     tenant_id: "eq." + tenantId,
     order,
-    limit: "5001",
     ...filters,
   });
-  const rows = await request(`/rest/v1/${table}?${params.toString()}`);
-  if (!Array.isArray(rows) || rows.length > 5000) {
-    throw new SupabaseAlumniError(503, "Data Alumni melebihi batas aman tampilan.");
-  }
-  return rows as Row[];
+  return readPostgrestRowsInPages<Row>({
+    request,
+    path: `/rest/v1/${table}?${params.toString()}`,
+    maxRows: 5000,
+    onIncomplete: () => new SupabaseAlumniError(503, "Data Alumni melebihi batas aman tampilan atau hasil pemindaian tidak lengkap."),
+  });
 }
 
 export async function listSupabaseAlumniSnapshot(tenantIdentifier: string) {
