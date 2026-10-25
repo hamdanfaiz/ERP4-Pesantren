@@ -154,3 +154,5 @@ Query langsung baca-saja pada SQL Editor project `ptsasgdvgrbdtgyqieie`, branch 
 - Tidak ditemukan versi Production yang asing terhadap source. Query hanya membaca metadata migration; tidak ada DDL, DML, import, atau perubahan Production.
 
 **Keputusan:** angka 34 pending sekarang terkonfirmasi pada Production, tetapi jangan menerapkannya langsung. Jalankan alat `preflight:db-migrations` untuk cek ulang sebelum setiap rehearsal, lakukan rehearsal lengkap pada staging terisolasi yang dipulihkan dari backup, dan validasi hasilnya sebelum menyusun rencana upgrade Production.
+
+Audit statis atas migration pending dan pemeriksaan data yang perlu dijalankan pada salinan staging tersedia di [checklist rehearsal](PRODUCTION_MIGRATION_REHEARSAL_CHECKLIST_2026-10-26.md). Query pemeriksaan tersebut tidak dijalankan pada data Production.

@@ -377,3 +377,16 @@ Kueri baca-saja pada SQL Editor project `ptsasgdvgrbdtgyqieie`, branch `main / P
 - Alat preflight lokal/CI tetap hanya membaca ledger dan melaporkan versi pending. Langkah berikutnya ialah mendapatkan staging yang mewakili skema dan data, memulihkan backup ke lingkungan terpisah, lalu rehearsal seluruh 34 migration di sana.
 
 PR #13 tetap Open/Draft dan belum siap deploy. Konfirmasi ini bukan persetujuan menjalankan migration Production.
+
+
+## Audit statis untuk rehearsal migrasi — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 76/100
+
+Peninjauan source terhadap 34 migration yang tertunda menemukan beberapa pemeriksaan khusus data dan lock yang harus masuk rehearsal. Ini belum merupakan bukti upgrade sukses pada snapshot staging, sehingga skor tidak berubah.
+
+- Risiko yang perlu dibuktikan pada data representatif: duplikasi ISBN setelah normalisasi; hasil ujian Tahfidz lama yang gagal constraint; nilai/jenis ledger Koperasi yang tidak cocok aturan baru; pemetaan akun Wali yang ambigu; waktu dan lock saat membangun indeks; serta jumlah snapshot kamar hasil cutover.
+- SQL prapemeriksaan dan langkah sebelum/sesudah migration tercatat di [checklist rehearsal Production](../06_DATABASE/PRODUCTION_MIGRATION_REHEARSAL_CHECKLIST_2026-10-26.md). Query pemeriksaan dari checklist tidak dijalankan pada data Production.
+- Berikutnya: pulihkan backup ke staging terisolasi, jalankan pemeriksaan, rehearsal 34 migration, ukur lock/durasi, jalankan suite integrasi pada skema upgrade, lalu verifikasi restore.
+
+PR #13 tetap Open/Draft. Production tidak berubah dan belum siap menerima migration.
