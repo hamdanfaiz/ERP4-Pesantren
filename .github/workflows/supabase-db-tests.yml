@@ -50,6 +50,9 @@ jobs:
       - name: Verify tenant business-day calculations
         run: npm run test:business-date
 
+      - name: Verify Master Data pagination and nested PII minimization
+        run: npm run test:master-data-pagination
+
       - name: Build client and server
         run: bun run build
 

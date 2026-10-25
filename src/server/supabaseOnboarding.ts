@@ -840,9 +840,10 @@ function mapSupabaseStudentRow(
   const supabaseId = String(row.id || "");
   const sourceRecordId = typeof row.source_record_id === "string" ? row.source_record_id : null;
   const rawDetails = row.details && typeof row.details === "object" && !Array.isArray(row.details) ? row.details : {};
-  const details = includeSensitive ? rawDetails : Object.fromEntries(
-    Object.entries(rawDetails).filter(([key]) => !/nik|nisn|password|secret|token|api.?key/i.test(key) && !key.startsWith("_")),
-  );
+  const safeDetails = includeSensitive ? rawDetails : safeStudentJsonValue(rawDetails);
+  const details = safeDetails && typeof safeDetails === "object" && !Array.isArray(safeDetails)
+    ? safeDetails as JsonObject
+    : {};
   const classId = typeof row.class_id === "string" ? row.class_id : null;
   const roomId = typeof row.room_id === "string" ? row.room_id : null;
   const buildingId = typeof row.building_id === "string" ? row.building_id : null;
