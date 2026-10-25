@@ -245,3 +245,16 @@ Skor naik satu poin dari 67/100 setelah roster dan pencarian Tahfidz beralih ke 
 - Tes logika Tahfidz dan transpile halaman juga lulus lokal. Perubahan tidak diterapkan ke Supabase Production. PR #13 masih Open/Draft.
 
 Kenaikan ini membuktikan jalur roster Tahfidz pada database sintetis di CI, bukan kesiapan go-live. Migrasi dan rekonsiliasi data, staging, login Admin/Wali dan matriks izin, rotasi secret yang pernah dibagikan, UAT, review PR, serta uji pemasangan/pemulihan VPS dan on-premise tetap terbuka.
+
+## Ketepatan jumlah santri per halaqah — 26 Oktober 2026
+
+### Progres menuju go-live: 69/100
+
+Skor naik satu poin dari 68/100 setelah kartu halaqah menggunakan hitungan pasti dari backend dan tombol **Lihat Semua** membuka roster dengan filter halaqah yang dipilih. Typecheck, build, dan suite CI pada commit yang sama lulus.
+
+- Jumlah santri pada kartu tidak lagi menghitung hanya baris yang kebetulan sudah berada di halaman roster pertama. Daftar pratinjau menandai saat anggota halaqah belum seluruhnya dimuat.
+- Tombol **Lihat Semua** berpindah ke roster dashboard dengan filter halaqah terkait; pengguna dapat melanjutkan pemuatan halaman santri sesuai pagination yang ada.
+- CI run [40232490749](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40232490749) sukses pada kedua job di head 86b4a5d94dd336cae03b993db53cda06577f6ff6: typecheck, tes frontend, build, guard Firebase, Docker/Compose smoke test, migrasi dan pgTAP Supabase lokal, NIS serentak, auth/isolasi tenant, Finance Storage, dan backup/restore.
+- Perubahan hanya ada di branch PR #13. Tidak ada migrasi atau penulisan data Supabase Production; PR #13 tetap Open/Draft.
+
+Angka 69/100 mencerminkan satu koreksi UI yang diverifikasi, bukan kesiapan rilis. Migrasi dan rekonsiliasi data, staging, Admin/Wali UAT, rotasi secret, review PR, serta uji pemasangan/pemulihan VPS dan on-premise masih menjadi gerbang go-live.
