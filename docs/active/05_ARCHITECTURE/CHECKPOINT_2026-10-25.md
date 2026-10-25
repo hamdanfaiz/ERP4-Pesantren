@@ -141,3 +141,17 @@ Run `40189469182` menunjukkan frontend berhasil, tetapi job database gagal sebel
 ## Koreksi fixture keanggotaan Tahfidz — 25 Oktober 2026
 
 Run `40189751690` mengeksekusi 62 assertion pada test Tahfidz; 61 lulus. Assertion membership gagal karena Ustadz B diuji terhadap halaqah A, sehingga validasi hak ampu menolak lebih dahulu—hasil yang benar untuk fixture tersebut. Fixture kini menggunakan halaqah B yang diampu Ustadz B, sementara santri tetap terdaftar di halaqah A. Ini mengisolasi guard membership yang sedang diuji. Frontend kembali lulus; test pgTAP perlu dijalankan ulang. Skor tetap **61/100**.
+
+## Checkpoint Portal Wali multi-santri — 25 Oktober 2026
+
+### Progres menuju go-live: 63/100
+
+Skor naik satu poin pada cakupan modul dan alur pengguna setelah Portal Wali dapat menampilkan progres setiap anak yang tertaut, bukan hanya anak pertama. Poin ini berlaku untuk alur yang sekarang terverifikasi pada kode dan CI; kesiapan rilis secara keseluruhan tetap rendah karena staging, migrasi, dan UAT belum dilakukan.
+
+- Pada PR #13 head `67e8699c2955da0371c25fb1a9d3f063da402dec`, akun Wali dengan beberapa santri tertaut kini dapat memilih santri yang akan dilihat pada ringkasan dan riwayat Tahfidz.
+- Daftar pilihan hanya berasal dari snapshot server yang sudah disaring berdasarkan relasi guardian–student aktif. Pilihan yang tidak lagi terdaftar diganti dengan santri pertama yang masih diizinkan; akun Santri tetap hanya melihat profilnya sendiri.
+- Enam assertion sintetis memeriksa daftar kosong, pilihan awal, pilihan yang tetap sah, tautan yang dicabut, ID kosong, dan normalisasi ID. Typecheck, build, serta seluruh CI lulus pada commit yang sama.
+- CI run `40190799618` sukses pada job frontend dan database. Tidak ada perubahan skema, migration, atau data Supabase Production.
+- PR #13 tetap Open/Draft. Uji login Admin/Wali pada staging, rekonsiliasi/impor data, rotasi secret, serta UAT environment VPS/on-premise masih menahan go-live.
+
+Skor bukan izin deploy. Gerbang berikutnya tetap staging yang benar, verifikasi autentikasi dan role/tenant, dry-run migrasi, pemulihan backup, serta uji instalasi pelanggan.

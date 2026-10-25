@@ -226,3 +226,12 @@ PR #11 tetap Open/Draft dan divergen; status parity inti pada #13 bukan alasan u
 
 - CI run `40189751690` berhasil mengurai dan menjalankan seluruh 62 assertion baru. Sebanyak 61 assertion lulus; satu assertion membership mengirim Ustadz B ke halaqah A, padahal Ustadz B hanya mengampu halaqah B. Penolakan RPC dengan kode `42501` membuktikan pemeriksaan akses pengampu berjalan dan menunjukkan fixture belum mengisolasi pemeriksaan membership.
 - Fixture diperbaiki agar Ustadz B menulis pada halaqah B yang diampunya untuk santri yang masih terdaftar pada halaqah A. Tidak ada perubahan pada SQL runtime atau skema. CI baru diperlukan untuk menilai ulang assertion tersebut; skor go-live tetap **61/100** sampai suite berhasil.
+
+## Perbaikan Portal Wali Tahfidz untuk beberapa santri — 25 Oktober 2026
+
+- Ringkasan Tahfidz untuk Wali sebelumnya selalu memilih elemen pertama dari daftar santri yang tertaut, walaupun backend sudah membatasi snapshot ke relasi guardian–student aktif dan dapat mengembalikan lebih dari satu santri.
+- Portal kini menampilkan pilihan santri jika terdapat beberapa tautan. Ringkasan halaqah, target, setoran bulanan, setoran terakhir, serta riwayat mengikuti santri yang dipilih. Akun Santri tetap memakai tautan tunggal profilnya.
+- Fungsi pemilihan memvalidasi ID terhadap daftar server yang diizinkan; bila sebuah tautan dicabut, pilihan lama tidak dipertahankan. Enam assertion sintetis untuk perilaku ini masuk ke workflow CI.
+- PR #13 head `67e8699c2955da0371c25fb1a9d3f063da402dec` lulus run `40190799618` pada job frontend dan database. Tidak ada perubahan schema atau data produksi.
+- Kesiapan rilis naik **62→63/100** pada cakupan modul dan bukti integrasi UI. PR masih Draft; login staging, migrasi/rekonsiliasi sumber, rotasi secret, dan UAT customer-managed belum dilaksanakan.
+
