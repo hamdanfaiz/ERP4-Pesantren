@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { previewSupabaseLegacyCooperativeCatalog, previewSupabaseLegacyCooperativeFinancialHistory } from "../src/server/supabaseCooperativeImport";
 import { readTenantRowsInPages } from "../src/server/paginatedTenantRows";
+import { readPostgrestRowsInPages } from "../src/server/postgrestPagination";
 
 process.env.SUPABASE_LEGACY_FINGERPRINT_KEY = "cooperative-import-test-key-0123456789abcdef";
 
@@ -282,6 +283,55 @@ const prematurelyEmptyScan = await readTenantRowsInPages({
 });
 assert.equal(prematurelyEmptyScan.complete, false, "an empty page before the exact count is reached must not appear complete");
 
-console.log("cooperative legacy financial preview and pagination: 12 validation groups passed");
+
+const postgrestDataset = cappedRows(1005);
+let postgrestPageCalls = 0;
+const postgrestPagedRows = await readPostgrestRowsInPages({
+  request: async (path) => {
+    postgrestPageCalls += 1;
+    const params = new URLSearchParams(path.slice(path.indexOf("?") + 1));
+    assert.ok(params.get("select")?.split(",").includes("id"), "the unique key is selected for duplicate detection");
+    assert.ok(params.get("order")?.split(",").some((part) => part.split(".")[0] === "id"), "pagination appends a stable unique order");
+    const offset = Number(params.get("offset"));
+    const limit = Number(params.get("limit"));
+    return postgrestDataset.slice(offset, offset + Math.min(limit, 1000));
+  },
+  path: "/rest/v1/students?select=name&tenant_id=eq.tenant&order=name.asc&limit=5001",
+  maxRows: 2000,
+  pageSize: 1000,
+  onIncomplete: () => new Error("snapshot tidak lengkap"),
+});
+assert.equal(postgrestPagedRows.length, 1005, "PostgREST row pages include data after the first 1,000 rows");
+assert.equal(postgrestPageCalls, 3, "pagination requests a final empty page before declaring completeness");
+
+const oversizedPostgrestDataset = cappedRows(1501);
+await assert.rejects(() => readPostgrestRowsInPages({
+  request: async (path) => {
+    const params = new URLSearchParams(path.slice(path.indexOf("?") + 1));
+    const offset = Number(params.get("offset"));
+    const limit = Number(params.get("limit"));
+    return oversizedPostgrestDataset.slice(offset, offset + Math.min(limit, 1000));
+  },
+  path: "/rest/v1/students?select=id&order=id.asc",
+  maxRows: 1500,
+  pageSize: 1000,
+  onIncomplete: () => new Error("snapshot melebihi batas"),
+}), /snapshot melebihi batas/);
+
+let unstablePage = 0;
+await assert.rejects(() => readPostgrestRowsInPages({
+  request: async () => {
+    unstablePage += 1;
+    return unstablePage === 1
+      ? [{ id: "00000001" }, { id: "00000002" }]
+      : [{ id: "00000002" }, { id: "00000003" }];
+  },
+  path: "/rest/v1/students?select=id",
+  maxRows: 10,
+  pageSize: 2,
+  onIncomplete: () => new Error("snapshot berubah"),
+}), /snapshot berubah/);
+
+console.log("cooperative and PostgREST pagination: 15 validation groups passed");
 
 
