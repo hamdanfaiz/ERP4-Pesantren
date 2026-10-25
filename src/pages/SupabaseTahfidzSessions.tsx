@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CalendarClock, CheckCircle2, ClipboardCheck, Loader2, Plus, RefreshCw, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { TahfidzStudentSearchSelect } from "../components/TahfidzStudentSearchSelect";
 import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, normalizeTenantTimeZone, tenantLocalDateTime, tenantLocalDateTimeToIso } from "../lib/tenantTimeZone";
 
 type Kind = "talaqqi" | "exam";
@@ -28,6 +29,23 @@ async function requestSessions(path: string, init: RequestInit = {}) {
   return payload;
 }
 
+async function searchTahfidzSessionRoster(search: string, cursor?: string) {
+  const params = new URLSearchParams({ search });
+  if (cursor) params.set("cursor", cursor);
+  const page = await requestSessions(`/api/tahfidz/roster?${params.toString()}`);
+  return {
+    students: Array.isArray(page.roster) ? page.roster.map((student: any): Student => ({
+      id: String(student.id || ""),
+      name: String(student.name || "Santri"),
+      nis: String(student.nis || ""),
+      halaqahId: student.halaqahId ? String(student.halaqahId) : null,
+      halaqah: String(student.halaqah || ""),
+    })) : [],
+    hasMore: page.hasMore === true,
+    nextCursor: typeof page.nextCursor === "string" ? page.nextCursor : null,
+  };
+}
+
 export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZone, rosterHasMore = false, rosterLoadingMore = false, onLoadMoreRoster }: { kind: Kind; students: Student[]; halaqahs: Halaqah[]; tenantTimeZone?: string; rosterHasMore?: boolean; rosterLoadingMore?: boolean; onLoadMoreRoster?: () => void }) {
   const { role, user } = useAuth();
   const timeZone = normalizeTenantTimeZone(tenantTimeZone || user?.tenantTimeZone || DEFAULT_TENANT_TIME_ZONE);
@@ -37,6 +55,7 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [completeSession, setCompleteSession] = useState<Session | null>(null);
+  const [selectedRosterStudent, setSelectedRosterStudent] = useState<Student | null>(null);
   const [form, setForm] = useState(() => ({ studentId: "", scheduledAt: tenantLocalDateTime(1, timeZone), durationMinutes: "30", focus: "", examType: "munaqasyah", juzStart: "1", juzEnd: "1" }));
   const [resultForm, setResultForm] = useState({ score: "", outcome: "pass", notes: "" });
   const requestIds = useRef(new Map<string, string>());
@@ -62,6 +81,7 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
   useEffect(() => {
     setCreateOpen(false);
     setCompleteSession(null);
+    setSelectedRosterStudent(null);
     setForm({ studentId: "", scheduledAt: tenantLocalDateTime(1, timeZone), durationMinutes: "30", focus: "", examType: "munaqasyah", juzStart: "1", juzEnd: "1" });
     requestIds.current.clear();
   }, [user?.tenantId, user?.uid, timeZone]);
@@ -89,7 +109,8 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
   const submitCreate = async (event: React.FormEvent) => {
     event.preventDefault(); setSaving(true); setError("");
     try {
-      const student = eligibleStudents.find((item) => item.id === form.studentId);
+      const student = eligibleStudents.find((item) => item.id === form.studentId)
+        || (selectedRosterStudent?.id === form.studentId ? selectedRosterStudent : null);
       const halaqah = student && halaqahs.find((item) => item.id === student.halaqahId);
       if (!student || !halaqah?.ustadzUserId) throw new Error("Pilih santri dengan penempatan halaqah aktif.");
       const focus = kind === "exam" ? (form.focus.trim() || `Ujian juz ${form.juzStart}–${form.juzEnd}`) : form.focus;
@@ -108,7 +129,7 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
       });
       await refresh();
       releaseRequestId(signature, clientRequestId);
-      setCreateOpen(false); setForm({ studentId: "", scheduledAt: tenantLocalDateTime(1, timeZone), durationMinutes: "30", focus: "", examType: "munaqasyah", juzStart: "1", juzEnd: "1" });
+      setCreateOpen(false); setSelectedRosterStudent(null); setForm({ studentId: "", scheduledAt: tenantLocalDateTime(1, timeZone), durationMinutes: "30", focus: "", examType: "munaqasyah", juzStart: "1", juzEnd: "1" });
     } catch (saveError: any) { setError(saveError?.message || "Jadwal belum dapat disimpan."); }
     finally { setSaving(false); }
   };
@@ -166,13 +187,23 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
       {createOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><form onSubmit={submitCreate} className="w-full max-w-xl rounded-xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900">
         <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-white/10"><div><h3 className="font-semibold text-slate-900 dark:text-white">{title} baru</h3><p className="mt-1 text-xs text-slate-500">Jadwal pengampu yang bertabrakan ditolak oleh transaksi di basis data.</p></div><button type="button" onClick={() => setCreateOpen(false)} aria-label="Tutup" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10"><X className="h-5 w-5" /></button></div>
         <div className="grid gap-4 p-5 sm:grid-cols-2">
-          <div className="sm:col-span-2"><label className="text-sm font-medium text-slate-700 dark:text-slate-200">Santri dan halaqah<select required value={form.studentId} onChange={(event) => setForm({ ...form, studentId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-white/10"><option value="">Pilih santri…</option>{eligibleStudents.map((student) => { const h = halaqahs.find((item) => item.id === student.halaqahId); return <option key={student.id} value={student.id}>{student.name} · {student.nis || "tanpa NIS"} · {h?.name}</option>; })}</select></label>{rosterHasMore && <button type="button" onClick={onLoadMoreRoster} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}</div>
+          <div className="sm:col-span-2"><span className="text-sm font-medium text-slate-700 dark:text-slate-200">Santri dan halaqah</span><TahfidzStudentSearchSelect
+            key={`${user?.tenantId || ""}:${user?.uid || ""}:${role}`}
+            scopeKey={`${user?.tenantId || ""}:${user?.uid || ""}:${role}`}
+            searchStudents={searchTahfidzSessionRoster}
+            initialStudents={eligibleStudents}
+            selectedStudentId={form.studentId}
+            selectedStudent={eligibleStudents.find((student) => student.id === form.studentId) || selectedRosterStudent}
+            filterStudent={(student) => Boolean(halaqahs.find((halaqah) => halaqah.id === student.halaqahId)?.ustadzUserId)}
+            onSelect={(student) => { setSelectedRosterStudent(student); setForm((current) => ({ ...current, studentId: String(student?.id || "") })); }}
+            disabled={saving}
+          />{rosterHasMore && <button type="button" onClick={onLoadMoreRoster} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}</div>
           <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal dan waktu ({timeZone})<input required type="datetime-local" value={form.scheduledAt} onChange={(event) => setForm({ ...form, scheduledAt: event.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-white/10" /></label>
           <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Durasi (menit)<input required type="number" min="15" max="240" step="15" value={form.durationMinutes} onChange={(event) => setForm({ ...form, durationMinutes: event.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-white/10" /></label>
           {kind === "exam" && <><label className="text-sm font-medium text-slate-700 dark:text-slate-200">Jenis ujian<select value={form.examType} onChange={(event) => setForm({ ...form, examType: event.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-white/10"><option value="munaqasyah">Munaqasyah</option><option value="tasmi">Tasmi'</option></select></label><div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium text-slate-700 dark:text-slate-200">Juz mulai<input required type="number" min="1" max="30" value={form.juzStart} onChange={(event) => setForm({ ...form, juzStart: event.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-white/10" /></label><label className="text-sm font-medium text-slate-700 dark:text-slate-200">Juz akhir<input required type="number" min={form.juzStart} max="30" value={form.juzEnd} onChange={(event) => setForm({ ...form, juzEnd: event.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-white/10" /></label></div></>}
           <label className="text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">{kind === "exam" ? "Fokus / catatan ujian (opsional)" : "Fokus talaqqi"}<textarea required={kind === "talaqqi"} maxLength={500} value={form.focus} onChange={(event) => setForm({ ...form, focus: event.target.value })} placeholder={kind === "exam" ? `Ujian juz ${form.juzStart}–${form.juzEnd}` : "Contoh: makharijul huruf dan ghunnah"} className="mt-1.5 min-h-20 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-white/10" /></label>
         </div>
-        <div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-white/10"><button type="button" onClick={() => setCreateOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button type="submit" disabled={saving || !form.studentId} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{saving ? "Menyimpan…" : "Simpan jadwal"}</button></div>
+        <div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-white/10"><button type="button" onClick={() => { setCreateOpen(false); setSelectedRosterStudent(null); setForm((current) => ({ ...current, studentId: "" })); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button type="submit" disabled={saving || !form.studentId} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{saving ? "Menyimpan…" : "Simpan jadwal"}</button></div>
       </form></div>}
 
       {completeSession && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><form onSubmit={submitResult} className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900">

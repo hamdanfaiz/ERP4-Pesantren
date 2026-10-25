@@ -1,6 +1,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import React, { useState, useEffect, useRef } from "react";
+import { TahfidzStudentSearchSelect } from "../components/TahfidzStudentSearchSelect";
 import {
   Search,
   Filter,
@@ -93,6 +94,20 @@ function mapSupabaseTahfidzRosterStudent(student: any, latestRecord?: any) {
   };
 }
 
+async function searchSupabaseTahfidzRoster(search: string, cursor?: string) {
+  const params = new URLSearchParams();
+  params.set("search", search);
+  if (cursor) params.set("cursor", cursor);
+  const page = await requestSupabaseTahfidzApi(`/api/tahfidz/roster?${params.toString()}`);
+  return {
+    students: Array.isArray(page.roster)
+      ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student))
+      : [],
+    hasMore: page.hasMore === true,
+    nextCursor: typeof page.nextCursor === "string" ? page.nextCursor : null,
+  };
+}
+
 function localDate(value: Date = new Date()) {
   const year = value.getFullYear();
   const month = String(value.getMonth() + 1).padStart(2, "0");
@@ -102,186 +117,6 @@ function localDate(value: Date = new Date()) {
 
 function localTime(value: Date) {
   return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`;
-}
-
-type TahfidzStudentSearchSelectProps = {
-  initialStudents: any[];
-  selectedStudentId: string;
-  selectedStudent?: any | null;
-  scopeKey: string;
-  onSelect: (student: any | null) => void;
-  filterStudent?: (student: any) => boolean;
-  disabled?: boolean;
-};
-
-function TahfidzStudentSearchSelect({
-  initialStudents,
-  selectedStudentId,
-  selectedStudent = null,
-  scopeKey,
-  onSelect,
-  filterStudent = () => true,
-  disabled = false,
-}: TahfidzStudentSearchSelectProps) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<any[]>([]);
-  const [resultsQuery, setResultsQuery] = useState("");
-  const [nextCursor, setNextCursor] = useState("");
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [selectedOption, setSelectedOption] = useState<any | null>(selectedStudent);
-  const requestSequence = useRef(0);
-
-  useEffect(() => {
-    setQuery("");
-    setResults([]);
-    setResultsQuery("");
-    setNextCursor("");
-    setHasMore(false);
-    setError("");
-    setSelectedOption(selectedStudent || null);
-  }, [scopeKey]);
-
-  useEffect(() => {
-    if (!selectedStudentId) {
-      setSelectedOption(null);
-      return;
-    }
-    setSelectedOption((current) => {
-      if (current && String(current.id) === selectedStudentId) return current;
-      return initialStudents.find((student) => String(student.id) === selectedStudentId)
-        || (selectedStudent && String(selectedStudent.id) === selectedStudentId ? selectedStudent : current);
-    });
-  }, [selectedStudentId, selectedStudent?.id, initialStudents]);
-
-  useEffect(() => {
-    const sequence = ++requestSequence.current;
-    const search = query.trim();
-    if (search.length < 2) {
-      setResults([]);
-      setResultsQuery("");
-      setNextCursor("");
-      setHasMore(false);
-      setLoading(false);
-      setError("");
-      return;
-    }
-
-    let active = true;
-    setResults([]);
-    setResultsQuery("");
-    setNextCursor("");
-    setHasMore(false);
-    setLoading(true);
-    setError("");
-    const timer = window.setTimeout(() => {
-      requestSupabaseTahfidzApi(`/api/tahfidz/roster?search=${encodeURIComponent(search)}`)
-        .then((page) => {
-          if (!active || sequence !== requestSequence.current || search !== query.trim()) return;
-          const students = Array.isArray(page.roster)
-            ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student))
-            : [];
-          setResults(students);
-          setResultsQuery(search);
-          setHasMore(page.hasMore === true);
-          setNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
-        })
-        .catch((requestError: any) => {
-          if (active && sequence === requestSequence.current) {
-            setError(requestError?.message || "Pencarian santri belum dapat dimuat.");
-          }
-        })
-        .finally(() => {
-          if (active && sequence === requestSequence.current) setLoading(false);
-        });
-    }, 250);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [query, scopeKey]);
-
-  const loadMore = async () => {
-    const search = query.trim();
-    const sequence = requestSequence.current;
-    if (!hasMore || !nextCursor || loading || search !== resultsQuery) return;
-    setLoading(true);
-    setError("");
-    try {
-      const page = await requestSupabaseTahfidzApi(
-        `/api/tahfidz/roster?cursor=${encodeURIComponent(nextCursor)}&search=${encodeURIComponent(search)}`,
-      );
-      if (sequence !== requestSequence.current || search !== query.trim()) return;
-      const incoming = Array.isArray(page.roster)
-        ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student))
-        : [];
-      setResults((current) => {
-        const knownIds = new Set(current.map((student) => String(student.id)));
-        return [...current, ...incoming.filter((student: any) => !knownIds.has(String(student.id)))];
-      });
-      setHasMore(page.hasMore === true);
-      setNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
-    } catch (requestError: any) {
-      if (sequence === requestSequence.current) {
-        setError(requestError?.message || "Hasil pencarian berikutnya belum dapat dimuat.");
-      }
-    } finally {
-      if (sequence === requestSequence.current) setLoading(false);
-    }
-  };
-
-  const search = query.trim();
-  const sourceStudents = search.length >= 2
-    ? (resultsQuery === search ? results : [])
-    : initialStudents;
-  const matchingStudents = sourceStudents.filter(filterStudent);
-  const options = [selectedOption, ...matchingStudents]
-    .filter((student): student is any => Boolean(student))
-    .filter((student, index, all) => all.findIndex((item) => String(item.id) === String(student.id)) === index);
-
-  return (
-    <div className="space-y-2">
-      <input
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Cari nama atau NIS (minimal 2 karakter)"
-        aria-label="Cari santri berdasarkan nama atau NIS"
-        disabled={disabled}
-        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-white/10 dark:bg-black/40 dark:text-slate-200"
-      />
-      <select
-        required
-        value={selectedStudentId}
-        aria-label="Santri"
-        onChange={(event) => {
-          const student = options.find((item) => String(item.id) === event.target.value) || null;
-          setSelectedOption(student);
-          onSelect(student);
-        }}
-        disabled={disabled}
-        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-white/10 dark:bg-black/40 dark:text-slate-200"
-      >
-        <option value="">Pilih santri…</option>
-        {options.map((student) => (
-          <option key={student.id} value={student.id}>{student.name} · {student.nis || "tanpa NIS"}</option>
-        ))}
-      </select>
-      {loading && <p role="status" className="text-xs text-slate-500">Mencari santri…</p>}
-      {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
-      {!loading && search.length >= 2 && resultsQuery === search && matchingStudents.length === 0 && (
-        <p className="text-xs text-slate-500">Tidak ada santri yang cocok atau memenuhi kriteria.</p>
-      )}
-      {hasMore && resultsQuery === search && <button
-        type="button"
-        onClick={() => void loadMore()}
-        disabled={loading}
-        className="text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300"
-      >{loading ? "Memuat hasil…" : "Muat hasil pencarian berikutnya"}</button>}
-    </div>
-  );
 }
 
 function createEmptyTahfidzRecordForm() {
@@ -2120,6 +1955,7 @@ export function TahfidzManager() {
           {SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
             key={tahfidzStudentScopeKey}
             scopeKey={tahfidzStudentScopeKey}
+            searchStudents={searchSupabaseTahfidzRoster}
             initialStudents={selectableSantri}
             selectedStudentId={formData.studentId || ""}
             selectedStudent={selectableSantri.find((student) => String(student.id) === String(formData.studentId || "")) || null}
@@ -3847,6 +3683,7 @@ export function TahfidzManager() {
                 {SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
                   key={tahfidzStudentScopeKey}
                   scopeKey={tahfidzStudentScopeKey}
+                  searchStudents={searchSupabaseTahfidzRoster}
                   initialStudents={selectableSantri}
                   selectedStudentId={targetForm.studentId}
                   selectedStudent={selectableSantri.find((student) => String(student.id) === String(targetForm.studentId)) || null}
@@ -3936,6 +3773,7 @@ export function TahfidzManager() {
               <div><span className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri</span>{SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
                 key={tahfidzStudentScopeKey}
                 scopeKey={tahfidzStudentScopeKey}
+                searchStudents={searchSupabaseTahfidzRoster}
                 initialStudents={selectableSantri}
                 selectedStudentId={membershipForm.studentId}
                 selectedStudent={selectableSantri.find((student) => String(student.id) === String(membershipForm.studentId)) || null}
@@ -4909,6 +4747,7 @@ export function TahfidzManager() {
                   {SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
                     key={tahfidzStudentScopeKey}
                     scopeKey={tahfidzStudentScopeKey}
+                    searchStudents={searchSupabaseTahfidzRoster}
                     initialStudents={selectableSantri}
                     selectedStudentId={formData.studentId || ""}
                     selectedStudent={selectableSantri.find((student) => String(student.id) === String(formData.studentId || "")) || null}
