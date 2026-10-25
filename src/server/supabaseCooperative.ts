@@ -189,6 +189,46 @@ export async function getSupabaseCooperativeFinancialImportContext(tenantId: str
   };
 }
 
+export async function getSupabaseCooperativeFinancialImportBatch(tenantId: string, snapshotFingerprint: string) {
+  assertUuid(tenantId, "Tenant");
+  if (!/^[0-9a-f]{64}$/.test(snapshotFingerprint)) throw new SupabaseCooperativeError(400, "Fingerprint arsip tidak valid.");
+  const { data, error } = await client().from("cooperative_financial_import_batches")
+    .select("payload_fingerprint,wallet_count,sale_count,item_count")
+    .eq("tenant_id", tenantId)
+    .eq("snapshot_fingerprint", snapshotFingerprint)
+    .maybeSingle();
+  if (error) mapStoreError(error);
+  return data as Row | null;
+}
+
+export async function applySupabaseCooperativeFinancialHistoryRpc(
+  tenantId: string,
+  actorId: string,
+  snapshotFingerprint: string,
+  payloadFingerprint: string,
+  wallets: Row[],
+  transactions: Row[],
+) {
+  assertUuid(tenantId, "Tenant");
+  assertUuid(actorId, "Aktor");
+  if (!/^[0-9a-f]{64}$/.test(snapshotFingerprint) || !/^[0-9a-f]{64}$/.test(payloadFingerprint)
+    || !Array.isArray(wallets) || wallets.length < 1 || wallets.length > 1000
+    || !Array.isArray(transactions) || transactions.length > 1000
+    || wallets.length + transactions.length === 0
+    || transactions.reduce((count, transaction) => count + (Array.isArray(transaction?.items) ? transaction.items.length : 0), 0) > 5000) {
+    throw new SupabaseCooperativeError(400, "Payload impor finansial Koperasi tidak valid.");
+  }
+  return callRpc("apply_cooperative_legacy_financial_history", {
+    p_tenant_id: tenantId,
+    p_actor_user_id: actorId,
+    p_snapshot_fingerprint: snapshotFingerprint,
+    p_payload_fingerprint: payloadFingerprint,
+    p_confirm_complete_history: true,
+    p_wallets: wallets,
+    p_transactions: transactions,
+  });
+}
+
 export async function manageSupabaseCooperativeProduct(tenantId: string, actorId: string, item: Row) {
   assertUuid(tenantId, "Tenant"); assertUuid(actorId, "Aktor"); assertUuid(item?.clientRequestId, "Request ID");
   if (item?.id != null) assertUuid(item.id, "Produk");
