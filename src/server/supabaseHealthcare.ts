@@ -1,3 +1,5 @@
+import { readPostgrestRowsInPages } from "./postgrestPagination";
+
 type Row = Record<string, any>;
 
 export class SupabaseHealthcareError extends Error {
@@ -42,9 +44,12 @@ async function tenantIdFrom(value: string) {
   return value;
 }
 async function boundedRows(path: string, limit: number, label: string) {
-  const rows = await request(path);
-  if (!Array.isArray(rows) || rows.length > limit) throw new SupabaseHealthcareError(503, `Data ${label} melewati batas aman tampilan.`);
-  return rows as Row[];
+  return readPostgrestRowsInPages<Row>({
+    request,
+    path,
+    maxRows: limit,
+    onIncomplete: () => new SupabaseHealthcareError(503, `Data ${label} melewati batas aman tampilan atau hasil pemindaian tidak lengkap.`),
+  });
 }
 
 export async function getSupabaseHealthcareSnapshot(tenantIdentifier: string) {
