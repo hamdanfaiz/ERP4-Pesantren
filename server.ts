@@ -1423,10 +1423,11 @@ async function startServer() {
         mappings,
         context.timeZone,
       );
-      if (!context.historyScanIncomplete) return res.json(preview);
+      if (!context.historyScanIncomplete) return res.json({ ...preview, applyEnabled: cooperativeFinancialImportApplyEnabled });
       const scanIssue = { code: "target_financial_history_scan_incomplete", recordRef: "", severity: "blocking" as const };
       return res.json({
         ...preview,
+        applyEnabled: cooperativeFinancialImportApplyEnabled,
         canApply: false,
         issueCount: preview.issueCount + 1,
         blockingCount: preview.blockingCount + 1,
