@@ -1,3 +1,4 @@
+import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHash } from "node:crypto";
 import { SupabaseOnboardingError } from "./supabaseOnboarding";
 
@@ -55,25 +56,25 @@ function isoDate(value: unknown) {
   return day;
 }
 async function tenantRows(table: string, tenantId: string, select: string, order: string) {
-  const result: Row[] = [];
-  for (let offset = 0; offset < 5000; offset += 500) {
-    const params = new URLSearchParams({ select, tenant_id: "eq." + tenantId, order, limit: "500", offset: String(offset) });
-    const rows = await request("/rest/v1/" + table + "?" + params.toString());
-    if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Data kehadiran belum dapat dimuat.");
-    result.push(...rows);
-    if (rows.length < 500) return result;
-  }
-  throw new SupabaseOnboardingError(503, "Data kehadiran melebihi batas halaman yang didukung.");
+  const params = new URLSearchParams({ select, tenant_id: "eq." + tenantId, order });
+  return readPostgrestRowsInPages<Row>({
+    request,
+    path: "/rest/v1/" + table + "?" + params.toString(),
+    maxRows: 5000,
+    onIncomplete: () => new SupabaseOnboardingError(503, "Data kehadiran melebihi batas halaman yang didukung atau hasil pemindaian tidak lengkap."),
+  });
 }
 const folded = (value: unknown) => String(value || "").trim().toLocaleLowerCase("id-ID");
 const NON_OPERATIONAL_STUDENT_STATUSES = new Set(["archived", "alumni", "graduated", "inactive", "nonaktif", "dikeluarkan"]);
 const isOperationalStudent = (student: Row) => !NON_OPERATIONAL_STUDENT_STATUSES.has(folded(student.status));
 type BoardingLocationScope = { roomIds: Set<string>; buildingIds: Set<string> };
 async function getBoardingLocationScope(tenantId: string, userId: string): Promise<BoardingLocationScope> {
-  const params = new URLSearchParams({ select: "room_id,building_id", tenant_id: "eq." + tenantId,
-    user_id: "eq." + userId, status: "eq.active", limit: "1000" });
-  const rows = await request("/rest/v1/boarding_staff_assignments?" + params.toString());
-  if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Penugasan lokasi petugas belum dapat diverifikasi.");
+  const path = "/rest/v1/boarding_staff_assignments?" + new URLSearchParams({ select: "room_id,building_id", tenant_id: "eq." + tenantId,
+    user_id: "eq." + userId, status: "eq.active", order: "room_id.asc,building_id.asc,user_id.asc" }).toString();
+  const rows = await readPostgrestRowsInPages<Row>({
+    request, path, maxRows: 1000, uniqueOrderColumn: "user_id",
+    onIncomplete: () => new SupabaseOnboardingError(503, "Penugasan lokasi petugas melewati batas aman atau tidak lengkap."),
+  });
   const structures = await tenantRows("master_data_records", tenantId, "id,category,status", "category.asc,id.asc");
   const activeRooms = new Set(structures.filter((row) => row.category === "Kamar"
     && !["inactive", "nonaktif", "disabled"].includes(String(row.status || "").toLowerCase())).map((row) => String(row.id)));
@@ -108,10 +109,11 @@ export async function getSupabaseBoardingAttendance(actor: Actor, dateValue: unk
   if (!Array.isArray(sessions) || sessions.length > 1) throw new SupabaseOnboardingError(503, "Sesi kehadiran tenant tidak konsisten.");
   let attendanceRows: Row[] = [];
   if (sessions.length) {
-    const params = new URLSearchParams({ select: "id,student_id,room_id,room_name_snapshot,status,marked_at", tenant_id: "eq." + tenantId, session_id: "eq." + sessions[0].id, order: "student_id.asc", limit: "5000" });
-    const rows = await request("/rest/v1/boarding_attendance_records?" + params.toString());
-    if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Record kehadiran belum dapat dimuat.");
-    attendanceRows = rows;
+    const path = "/rest/v1/boarding_attendance_records?" + new URLSearchParams({ select: "id,student_id,room_id,room_name_snapshot,status,marked_at", tenant_id: "eq." + tenantId, session_id: "eq." + sessions[0].id, order: "student_id.asc,id.asc" }).toString();
+    attendanceRows = await readPostgrestRowsInPages<Row>({
+      request, path, maxRows: 5000,
+      onIncomplete: () => new SupabaseOnboardingError(503, "Record kehadiran melewati batas aman atau tidak lengkap."),
+    });
   }
   const byStudent = new Map(attendanceRows.map((row) => [String(row.student_id), row] as const));
   return {
