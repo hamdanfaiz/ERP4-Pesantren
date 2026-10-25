@@ -153,6 +153,7 @@ DECLARE
   v_balance NUMERIC(16,2);
   v_sale_total NUMERIC(16,2);
   v_line_total NUMERIC(16,2);
+  v_declared_line_total NUMERIC(16,2);
   v_price NUMERIC(16,2);
   v_quantity INTEGER;
   v_line_count INTEGER;
@@ -273,14 +274,17 @@ BEGIN
       END IF;
       v_quantity:=(v_item->>'quantity')::INTEGER;
       v_price:=(v_item->>'unit_price')::NUMERIC;
-      v_line_total:=(v_item->>'line_total')::NUMERIC;
+      v_declared_line_total:=(v_item->>'line_total')::NUMERIC;
       IF v_quantity NOT BETWEEN 1 AND 500 OR v_price<0 OR v_price>999999999999
-        OR v_price<>trunc(v_price) OR v_line_total<>v_price*v_quantity THEN
+        OR v_price<>trunc(v_price) OR v_declared_line_total<>v_price*v_quantity THEN
         RAISE EXCEPTION 'Invalid cooperative historical sale item amount' USING ERRCODE='22023';
       END IF;
+      v_line_total:=v_line_total+(v_price*v_quantity);
       v_seen_items:=v_seen_items+1;
     END LOOP;
-    IF v_line_total IS NULL THEN RAISE EXCEPTION 'Invalid cooperative sale line total' USING ERRCODE='22023'; END IF;
+    IF v_line_total<>v_sale_total THEN
+      RAISE EXCEPTION 'Transaction total does not equal its historical items' USING ERRCODE='23514';
+    END IF;
   END LOOP;
 
   SELECT time_zone INTO v_time_zone FROM public.tenants

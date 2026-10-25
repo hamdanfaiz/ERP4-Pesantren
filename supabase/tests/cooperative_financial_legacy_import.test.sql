@@ -3,7 +3,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(17);
+SELECT plan(23);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES (
@@ -118,6 +118,79 @@ SELECT ok(
 );
 
 SET LOCAL ROLE service_role;
+
+SELECT throws_ok(
+  $
+    SELECT public.apply_cooperative_legacy_financial_history(
+      'd9200000-0000-4000-8000-000000000009',
+      'd9200000-0000-4000-8000-000000000011',
+      repeat('9',64),
+      repeat('8',64),
+      true,
+      jsonb_build_array(jsonb_build_object(
+        'source_ref',repeat('c',64),
+        'source_fingerprint',repeat('d',64),
+        'target_wallet_id',(SELECT id::text FROM cooperative_financial_import_target_wallet),
+        'client_request_id','d9200000-0000-4000-8000-000000000411',
+        'opening_balance',1000,
+        'closing_balance',899,
+        'sales_total',101
+      )),
+      jsonb_build_array(jsonb_build_object(
+        'source_ref',repeat('e',64),
+        'source_fingerprint',repeat('f',64),
+        'client_request_id','d9200000-0000-4000-8000-000000000412',
+        'source_wallet_ref',repeat('c',64),
+        'status','success',
+        'created_at','2026-01-15T03:00:00Z',
+        'total',101,
+        'items',jsonb_build_array(jsonb_build_object(
+          'product_id','d9200000-0000-4000-8000-000000000301',
+          'name','Test Product',
+          'quantity',1,
+          'unit_price',100,
+          'line_total',100,
+          'cost_snapshot_known',false,
+          'cost_price',NULL
+        ))
+      ))
+    )
+  $,
+  '23514',
+  'Transaction total does not equal its historical items',
+  'sale total must equal the sum of its imported item lines'
+);
+SELECT is(
+  (SELECT balance FROM public.cooperative_wallets
+   WHERE tenant_id='d9200000-0000-4000-8000-000000000009'
+     AND student_id='d9200000-0000-4000-8000-000000000201'),
+  0::numeric,
+  'rejected aggregate mismatch leaves wallet balance unchanged'
+);
+SELECT is(
+  (SELECT count(*)::integer FROM public.cooperative_sales
+   WHERE tenant_id='d9200000-0000-4000-8000-000000000009'),
+  0,
+  'rejected aggregate mismatch writes no sale'
+);
+SELECT is(
+  (SELECT count(*)::integer FROM public.cooperative_wallet_ledger
+   WHERE tenant_id='d9200000-0000-4000-8000-000000000009'),
+  0,
+  'rejected aggregate mismatch writes no wallet ledger'
+);
+SELECT is(
+  (SELECT count(*)::integer FROM public.finance_ledger
+   WHERE tenant_id='d9200000-0000-4000-8000-000000000009'),
+  0,
+  'rejected aggregate mismatch writes no Finance ledger'
+);
+SELECT is(
+  (SELECT count(*)::integer FROM public.cooperative_financial_import_batches
+   WHERE tenant_id='d9200000-0000-4000-8000-000000000009'),
+  0,
+  'rejected aggregate mismatch writes no import batch'
+);
 
 SELECT lives_ok(
   $$
