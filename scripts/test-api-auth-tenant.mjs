@@ -189,6 +189,39 @@ async function main() {
     assert.ok(tenantPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'The response must remain scoped to the actor tenant even when a foreign tenantId is requested.');
     assert.ok(!tenantPayload.users.some((profile) => profile.email === users[2].email), 'A profile from another tenant must never appear in the response.');
 
+    const pageResponses = await Promise.all([0, 3, 6].map((offset) => fetch(`${apiBase}/api/users?limit=3&offset=${offset}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })));
+    for (const response of pageResponses) assert.equal(response.status, 200, 'Tenant user pages must be readable.');
+    const pagePayloads = await Promise.all(pageResponses.map((response) => response.json()));
+    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), [3, 3, 1], 'Pagination must return bounded, non-overlapping page sizes.');
+    assert.ok(pagePayloads.every((payload) => payload.total === 7), 'Every page must report the filtered tenant total.');
+    const pagedIds = pagePayloads.flatMap((payload) => payload.users.map((profile) => profile.uid));
+    assert.equal(new Set(pagedIds).size, 7, 'Stable ordering must not duplicate profiles between pages.');
+
+    const searchResponse = await fetch(`${apiBase}/api/users?q=${encodeURIComponent(users[0].email)}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(searchResponse.status, 200, 'Search by email containing reserved punctuation must be supported.');
+    const searchPayload = await searchResponse.json();
+    assert.equal(searchPayload.total, 1, 'Search must be applied before pagination and return exact counts.');
+    assert.equal(searchPayload.users[0].uid, users[0].uid, 'Search must match within the acting tenant.');
+
+    const roleResponse = await fetch(`${apiBase}/api/users?role=Ustadz`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal((await roleResponse.json()).total, 1, 'Role filtering must happen in the database query.');
+
+    const statusResponse = await fetch(`${apiBase}/api/users?status=disabled`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal((await statusResponse.json()).total, 1, 'Status filtering must map to suspended profiles.');
+
+    const invalidPageResponse = await fetch(`${apiBase}/api/users?limit=101`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(invalidPageResponse.status, 400, 'Page sizes above the server limit must be rejected.');
+
     const superAdminResponse = await fetch(`${apiBase}/api/users?tenantId=${tenantIds[1]}`, {
       headers: { Authorization: `Bearer ${superAdminToken}` },
     });
