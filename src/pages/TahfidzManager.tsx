@@ -76,6 +76,23 @@ async function requestSupabaseTahfidzApi(path: string, init: RequestInit = {}) {
   return payload;
 }
 
+function mapSupabaseTahfidzRosterStudent(student: any, latestRecord?: any) {
+  return {
+    id: student.id,
+    nis: student.nis || "",
+    name: student.name || "Santri",
+    grade: student.grade || student.classId || "",
+    halaqahId: student.halaqahId || "",
+    halaqah: student.halaqah || "Belum ditempatkan",
+    juz: null,
+    status: student.target ? "on-track" : "no-target",
+    progress: null,
+    lastSetoran: latestRecord ? `${latestRecord.surah}: ${latestRecord.ayahStart}-${latestRecord.ayahEnd}` : "Riwayat belum dimuat",
+    score: null,
+    target: student.target || null,
+  };
+}
+
 function localDate(value: Date = new Date()) {
   const year = value.getFullYear();
   const month = String(value.getMonth() + 1).padStart(2, "0");
@@ -463,6 +480,15 @@ export function TahfidzManager() {
     }
   };
   const [santriList, setSantriList] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : SANTRI_DATA);
+  const [rosterHasMore, setRosterHasMore] = useState(false);
+  const [rosterNextCursor, setRosterNextCursor] = useState("");
+  const [rosterLoadingMore, setRosterLoadingMore] = useState(false);
+  const [rosterStats, setRosterStats] = useState<any>(null);
+  const [rosterSearchResults, setRosterSearchResults] = useState<any[] | null>(null);
+  const [rosterSearchTerm, setRosterSearchTerm] = useState("");
+  const [rosterSearchHasMore, setRosterSearchHasMore] = useState(false);
+  const [rosterSearchCursor, setRosterSearchCursor] = useState("");
+  const [rosterSearchLoading, setRosterSearchLoading] = useState(false);
   const [records, setRecords] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : INITIAL_RECORDS);
   const [recordsHasMore, setRecordsHasMore] = useState(false);
   const [recordsNextCursor, setRecordsNextCursor] = useState("");
@@ -504,24 +530,12 @@ export function TahfidzManager() {
     recordRows.forEach((record: any) => {
       if (!latestByStudent.has(String(record.studentId))) latestByStudent.set(String(record.studentId), record);
     });
-    const students = (Array.isArray(snapshot.roster) ? snapshot.roster : []).map((student: any) => {
-      const latest = latestByStudent.get(String(student.id));
-      return {
-        id: student.id,
-        nis: student.nis || "",
-        name: student.name || "Santri",
-        grade: student.grade || student.classId || "",
-        halaqahId: student.halaqahId || "",
-        halaqah: student.halaqah || "Belum ditempatkan",
-        juz: null,
-        status: student.target ? "on-track" : "no-target",
-        progress: null,
-        lastSetoran: latest ? `${latest.surah}: ${latest.ayahStart}-${latest.ayahEnd}` : hasMoreRecords ? "Riwayat lama belum dimuat" : "Belum ada setoran",
-        score: null,
-        target: student.target || null,
-      };
-    });
+    const students = (Array.isArray(snapshot.roster) ? snapshot.roster : []).map((student: any) =>
+      mapSupabaseTahfidzRosterStudent(student, latestByStudent.get(String(student.id))));
     setSantriList(students);
+    setRosterHasMore(snapshot.rosterPage?.hasMore === true);
+    setRosterNextCursor(typeof snapshot.rosterPage?.nextCursor === "string" ? snapshot.rosterPage.nextCursor : "");
+    setRosterStats(snapshot.rosterStats && typeof snapshot.rosterStats === "object" ? snapshot.rosterStats : null);
     setHalaqahList((Array.isArray(snapshot.halaqahs) ? snapshot.halaqahs : []).map((halaqah: any) => ({
       ...halaqah,
       target: `${Number(halaqah.dailyTargetPages || 0)} halaman/hari`,
@@ -562,10 +576,89 @@ export function TahfidzManager() {
     }
   };
 
+  const loadMoreTahfidzRoster = async () => {
+    if (!rosterHasMore || !rosterNextCursor || rosterLoadingMore) return;
+    setRosterLoadingMore(true);
+    setTahfidzError("");
+    try {
+      const page = await requestSupabaseTahfidzApi(
+        `/api/tahfidz/roster?cursor=${encodeURIComponent(rosterNextCursor)}`,
+      );
+      const incoming = Array.isArray(page.roster) ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student)) : [];
+      setSantriList((current) => {
+        const knownIds = new Set(current.map((student) => String(student.id)));
+        return [...current, ...incoming.filter((student: any) => !knownIds.has(String(student.id)))];
+      });
+      setRosterHasMore(page.hasMore === true);
+      setRosterNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
+    } catch (error: any) {
+      setTahfidzError(error?.message || "Halaman roster santri berikutnya belum dapat dimuat.");
+    } finally {
+      setRosterLoadingMore(false);
+    }
+  };
+
+  const loadMoreTahfidzSearch = async () => {
+    if (!rosterSearchHasMore || !rosterSearchCursor || rosterSearchLoading || !searchQuery.trim()) return;
+    setRosterSearchLoading(true);
+    setTahfidzError("");
+    try {
+      const page = await requestSupabaseTahfidzApi(
+        `/api/tahfidz/roster?cursor=${encodeURIComponent(rosterSearchCursor)}&search=${encodeURIComponent(searchQuery.trim())}`,
+      );
+      const incoming = Array.isArray(page.roster) ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student)) : [];
+      setRosterSearchResults((current) => {
+        const knownIds = new Set((current || []).map((student) => String(student.id)));
+        return [...(current || []), ...incoming.filter((student: any) => !knownIds.has(String(student.id)))];
+      });
+      setRosterSearchHasMore(page.hasMore === true);
+      setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
+    } catch (error: any) {
+      setTahfidzError(error?.message || "Hasil pencarian santri berikutnya belum dapat dimuat.");
+    } finally {
+      setRosterSearchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!SUPABASE_TAHFIDZ_RUNTIME || !searchQuery.trim()) {
+      setRosterSearchResults(null);
+      setRosterSearchTerm("");
+      setRosterSearchHasMore(false);
+      setRosterSearchCursor("");
+      setRosterSearchLoading(false);
+      return;
+    }
+    let active = true;
+    const query = searchQuery.trim();
+    setRosterSearchTerm(query);
+    setRosterSearchResults([]);
+    setRosterSearchHasMore(false);
+    setRosterSearchCursor("");
+    setRosterSearchLoading(true);
+    const timer = window.setTimeout(() => {
+      requestSupabaseTahfidzApi(`/api/tahfidz/roster?search=${encodeURIComponent(query)}`)
+        .then((page) => {
+          if (!active) return;
+          setRosterSearchResults(Array.isArray(page.roster) ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student)) : []);
+          setRosterSearchHasMore(page.hasMore === true);
+          setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
+        })
+        .catch((error: any) => {
+          if (active) setTahfidzError(error?.message || "Pencarian roster santri belum dapat dimuat.");
+        })
+        .finally(() => { if (active) setRosterSearchLoading(false); });
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [searchQuery, user?.tenantId, user?.uid, role]);
+
   useEffect(() => {
     let active = true;
     if (!user?.tenantId || !user?.uid) {
       setSantriList([]);
+      setRosterHasMore(false);
+      setRosterNextCursor("");
+      setRosterStats(null);
       setHalaqahList([]);
       setRecords([]);
       setRecordsHasMore(false);
@@ -584,6 +677,9 @@ export function TahfidzManager() {
       .catch((error: any) => {
         if (!active) return;
         setSantriList([]);
+        setRosterHasMore(false);
+        setRosterNextCursor("");
+        setRosterStats(null);
         setHalaqahList([]);
         setRecords([]);
         setRecordsHasMore(false);
@@ -847,10 +943,13 @@ export function TahfidzManager() {
     setIsInputOpen(false);
   };
 
-  const filteredSantri = displaySantri.filter((s) => {
-    const matchQuery =
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.nis.includes(searchQuery);
+  const santriForSearch = SUPABASE_TAHFIDZ_RUNTIME && searchQuery.trim()
+    ? (searchQuery.trim() === rosterSearchTerm ? rosterSearchResults || [] : [])
+    : displaySantri;
+  const filteredSantri = santriForSearch.filter((s) => {
+    const matchQuery = SUPABASE_TAHFIDZ_RUNTIME && searchQuery.trim()
+      ? true
+      : s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.nis.includes(searchQuery);
     const matchHalaqah =
       selectedHalaqahFilter === "Semua Halaqah" ||
       s.halaqah === selectedHalaqahFilter;
@@ -1101,7 +1200,7 @@ export function TahfidzManager() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cari santri berdasar nama/NIS..."
+                    placeholder={SUPABASE_TAHFIDZ_RUNTIME ? "Cari awalan nama/NIS…" : "Cari santri berdasar nama/NIS..."}
                     className="pl-9 pr-4 py-2 rounded-md text-sm border border-slate-200 dark:border-white/10 focus:outline-none focus:border-emerald-500 w-full sm:w-80 bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 shadow-sm"
                   />
                 </div>
@@ -1341,13 +1440,15 @@ export function TahfidzManager() {
                         colSpan={6}
                         className="text-center py-8 text-slate-500 dark:text-slate-400 font-medium"
                       >
-                        Tidak ada santri yang cocok dengan pencarian Anda.
+                        {rosterSearchLoading ? "Mencari santri…" : "Tidak ada santri yang cocok dengan pencarian Anda."}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+            {SUPABASE_TAHFIDZ_RUNTIME && searchQuery.trim() && rosterSearchHasMore && <div className="border-t border-slate-100 px-4 py-3 text-center dark:border-white/5"><button type="button" onClick={() => void loadMoreTahfidzSearch()} disabled={rosterSearchLoading} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">{rosterSearchLoading ? "Memuat hasil…" : "Muat hasil pencarian berikutnya"}</button></div>}
+            {SUPABASE_TAHFIDZ_RUNTIME && !searchQuery.trim() && rosterHasMore && <div className="border-t border-slate-100 px-4 py-3 text-center dark:border-white/5"><button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Muat santri berikutnya"}</button></div>}
 
             <div className="p-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-500 bg-slate-50 dark:bg-black/40 uppercase tracking-widest font-semibold">
               <div>Menampilkan 1 hingga 5 dari 1,240 santri</div>
@@ -1503,8 +1604,8 @@ export function TahfidzManager() {
   const renderSupabaseDashboard = () => {
     const today = currentTenantDate();
     const todayRecords = records.filter((record) => record.date === today);
-    const studentsWithoutTargets = santriList.filter((student) => !student.target).length;
-    const studentsWithoutHalaqah = santriList.filter((student) => !student.halaqahId).length;
+    const studentsWithoutTargets = Number(rosterStats?.studentsWithoutTarget ?? santriList.filter((student) => !student.target).length);
+    const studentsWithoutHalaqah = Number(rosterStats?.studentsWithoutHalaqah ?? santriList.filter((student) => !student.halaqahId).length);
     const latestRecordByStudent = new Map<string, any>();
     for (const record of records) {
       const studentId = String(record.studentId || "");
@@ -1537,11 +1638,13 @@ export function TahfidzManager() {
     const weekCoverageComplete = recordCoverageCompleteBefore(weekDays[0].date);
     const todayRecordsDisplay = todayCoverageComplete ? todayRecords.length : `≥${todayRecords.length}`;
     const weekRecordsDisplay = weekCoverageComplete ? weekRecords : `≥${weekRecords}`;
-    const targetCoverage = santriList.length
-      ? `${santriList.length - studentsWithoutTargets}/${santriList.length}`
+    const totalStudents = Number(rosterStats?.studentCount ?? santriList.length);
+    const studentsWithTarget = Number(rosterStats?.studentsWithTarget ?? (santriList.length - studentsWithoutTargets));
+    const targetCoverage = totalStudents
+      ? `${studentsWithTarget}/${totalStudents}`
       : "0/0";
     const metricCards = [
-      { label: "Santri dalam Roster", value: santriList.length, tone: "emerald" },
+      { label: "Santri dalam Roster", value: totalStudents, tone: "emerald" },
       { label: "Halaqah Aktif", value: halaqahList.length, tone: "blue" },
       { label: "Setoran Hari Ini", value: todayRecordsDisplay, tone: "violet" },
       { label: "Cakupan Target", value: targetCoverage, tone: "amber" },
@@ -1549,8 +1652,12 @@ export function TahfidzManager() {
     return (
       <div className="space-y-6">
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200">
-          Ringkasan ini dihitung dari data Tahfidz Supabase yang dapat diakses akun Anda. Grafik menunjukkan jumlah setoran, bukan jumlah halaman atau juz; ukuran progres hafalan tersebut belum dicatat oleh backend.
+          Ringkasan roster dan cakupan target dihitung tepat di backend Supabase untuk cakupan akun Anda. Tabel santri dimuat bertahap; grafik menunjukkan jumlah setoran, bukan jumlah halaman atau juz.
         </div>
+        {rosterHasMore && <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+          <span>Menampilkan {santriList.length} dari {totalStudents} santri. Daftar tindak lanjut di bawah juga menilai halaman yang sudah dimuat.</span>
+          <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">{rosterLoadingMore ? "Memuat…" : "Muat santri berikutnya"}</button>
+        </div>}
         {recordsHasMore && <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200">
           Riwayat setoran dimuat bertahap. Ringkasan yang rentangnya belum tercakup penuh ditandai ≥.
         </div>}
@@ -1604,7 +1711,7 @@ export function TahfidzManager() {
                     {student.reasons.map((reason: string) => <span key={reason} className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">{reason}</span>)}
                   </div>
                 </div>
-              )) : <p className="px-5 py-8 text-center text-sm text-slate-500">Tidak ada sinyal tindak lanjut dari data yang tersedia.</p>}
+              )) : <p className="px-5 py-8 text-center text-sm text-slate-500">{rosterHasMore ? "Belum ada sinyal tindak lanjut pada halaman roster yang dimuat." : "Tidak ada sinyal tindak lanjut dari data yang tersedia."}</p>}
               {followUpRows.length === 6 && santriList.length > followUpRows.length && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Menampilkan 6 santri pertama yang memerlukan perhatian.</p>}
             </div>
           </section>
@@ -1780,6 +1887,7 @@ export function TahfidzManager() {
             </tbody>
           </table>
         </div>
+        {rosterHasMore && <div className="border-t border-slate-100 px-3 py-3 text-center dark:border-white/5"><button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri berikutnya…" : "Muat santri berikutnya"}</button></div>}
       </section>
     </div>
   );
@@ -1804,6 +1912,7 @@ export function TahfidzManager() {
               </option>
             ))}
           </select>
+          {SUPABASE_TAHFIDZ_RUNTIME && rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}
         </div>
         <div className="w-full md:w-auto">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
@@ -3341,6 +3450,10 @@ export function TahfidzManager() {
           {tahfidzError && <button onClick={() => { setTahfidzLoading(true); setTahfidzError(""); void refreshSupabaseTahfidz().catch((error: any) => setTahfidzError(error?.message || "Data belum dapat dimuat.")).finally(() => setTahfidzLoading(false)); }} className="font-semibold underline underline-offset-2">Coba lagi</button>}
         </div>
       )}
+      {SUPABASE_TAHFIDZ_RUNTIME && rosterHasMore && <div className="flex flex-col gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
+        <span>Roster dimuat bertahap: {santriList.length}{rosterStats?.studentCount != null ? ` dari ${Number(rosterStats.studentCount)}` : " santri"}.</span>
+        <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">{rosterLoadingMore ? "Memuat…" : "Muat santri berikutnya"}</button>
+      </div>}
 
       <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-max mb-6 border border-slate-200 dark:border-white/5">
         <button
@@ -3461,8 +3574,8 @@ export function TahfidzManager() {
       {activeTab === "targets" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseTargets() : renderTargets())}
       {activeTab === "talaqqi" && !SUPABASE_TAHFIDZ_RUNTIME && renderTalaqqiCalendar()}
       {activeTab === "exams" && !SUPABASE_TAHFIDZ_RUNTIME && renderExams()}
-      {activeTab === "talaqqi" && SUPABASE_TAHFIDZ_RUNTIME && <SupabaseTahfidzSessions kind="talaqqi" students={displaySantri} halaqahs={displayHalaqah} tenantTimeZone={user?.tenantTimeZone} />}
-      {activeTab === "exams" && SUPABASE_TAHFIDZ_RUNTIME && <SupabaseTahfidzSessions kind="exam" students={displaySantri} halaqahs={displayHalaqah} tenantTimeZone={user?.tenantTimeZone} />}
+      {activeTab === "talaqqi" && SUPABASE_TAHFIDZ_RUNTIME && <SupabaseTahfidzSessions kind="talaqqi" students={displaySantri} halaqahs={displayHalaqah} tenantTimeZone={user?.tenantTimeZone} rosterHasMore={rosterHasMore} rosterLoadingMore={rosterLoadingMore} onLoadMoreRoster={() => void loadMoreTahfidzRoster()} />}
+      {activeTab === "exams" && SUPABASE_TAHFIDZ_RUNTIME && <SupabaseTahfidzSessions kind="exam" students={displaySantri} halaqahs={displayHalaqah} tenantTimeZone={user?.tenantTimeZone} rosterHasMore={rosterHasMore} rosterLoadingMore={rosterLoadingMore} onLoadMoreRoster={() => void loadMoreTahfidzRoster()} />}
       {activeTab === "parent" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseParentDashboard() : renderParentDashboard())}
       {activeTab === "peer-review" && !SUPABASE_TAHFIDZ_RUNTIME && renderPeerReview()}
       {activeTab === "badges" && !SUPABASE_TAHFIDZ_RUNTIME && renderBadges()}
@@ -3517,6 +3630,7 @@ export function TahfidzManager() {
                     </option>
                   ))}
                 </select>
+                {rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -3597,7 +3711,7 @@ export function TahfidzManager() {
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">Tempatkan Santri ke Halaqah</h2><p className="mt-1 text-sm text-slate-500">Penempatan aktif akan disimpan pada tenant Supabase.</p></div>
             <div className="space-y-4 p-5">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri<select value={membershipForm.studentId} onChange={(e) => setMembershipForm({ ...membershipForm, studentId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih santri…</option>{santriList.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis} {student.halaqah ? `· saat ini ${student.halaqah}` : ""}</option>)}</select></label>
+              <div><label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri<select value={membershipForm.studentId} onChange={(e) => setMembershipForm({ ...membershipForm, studentId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih santri…</option>{santriList.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis} {student.halaqah ? `· saat ini ${student.halaqah}` : ""}</option>)}</select></label>{rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}</div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Halaqah<select value={membershipForm.halaqahId} onChange={(e) => setMembershipForm({ ...membershipForm, halaqahId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih halaqah…</option>{halaqahList.map((halaqah) => <option key={halaqah.id} value={halaqah.id}>{halaqah.name}</option>)}</select></label>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Mulai tanggal<input type="date" value={membershipForm.startsOn} onChange={(e) => setMembershipForm({ ...membershipForm, startsOn: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40" /></label>
             </div>
@@ -4576,6 +4690,8 @@ export function TahfidzManager() {
                       </option>
                     ))}
                   </select>
+                  {SUPABASE_TAHFIDZ_RUNTIME && searchQuery.trim() && rosterSearchHasMore && <button type="button" onClick={() => void loadMoreTahfidzSearch()} disabled={rosterSearchLoading} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterSearchLoading ? "Memuat hasil…" : "Muat hasil pencarian berikutnya"}</button>}
+                  {SUPABASE_TAHFIDZ_RUNTIME && !searchQuery.trim() && rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

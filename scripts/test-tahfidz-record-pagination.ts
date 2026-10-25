@@ -6,6 +6,8 @@ import {
   encodeTahfidzRecordCursor,
   TAHFIDZ_RECORD_PAGE_SIZE,
 } from "../src/lib/tahfidzRecordPagination";
+import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch } from "../src/lib/tahfidzRosterPagination";
+import { listSupabaseTahfidzRosterPage, listSupabaseTahfidzSessions } from "../src/server/supabaseTahfidz";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const halaqahId = "00000000-0000-4000-8000-000000000002";
@@ -45,6 +47,13 @@ assert.throws(() => buildTahfidzRecordPageParams({ tenantId: "tenant", role: "Ad
 assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Ustadz", halaqahIds: ["bad-id"] }), /Cakupan halaqah/);
 assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Santri", studentIds: [studentId], cursor: "bad" }), /Kursor riwayat/);
 assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Guest" }), /Role/);
+assert.equal(normalizeTahfidzRosterCursor(studentId), studentId);
+assert.equal(normalizeTahfidzRosterCursor(null), null);
+assert.equal(normalizeTahfidzRosterSearch("  A_B%  "), "A_B%");
+assert.equal(normalizeTahfidzRosterSearch("   "), null);
+assert.throws(() => normalizeTahfidzRosterCursor("not-a-cursor"), /Kursor roster/);
+assert.throws(() => normalizeTahfidzRosterSearch("x".repeat(81)), /Pencarian roster/);
+assert.throws(() => normalizeTahfidzRosterSearch("santri\nbaru"), /Pencarian roster/);
 
 async function testRecordPageDoesNotLoadFullSnapshot() {
   const originalFetch = globalThis.fetch;
@@ -58,7 +67,7 @@ async function testRecordPageDoesNotLoadFullSnapshot() {
   process.env.SUPABASE_URL = "https://supabase.test";
   process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
 
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     requests.push(url);
     const table = url.pathname.split("/").pop();
@@ -112,21 +121,20 @@ async function testRecordPageDoesNotLoadFullSnapshot() {
   }
 }
 
-async function testSnapshotOnlyLoadsCurrentMembershipsAndTargets() {
+async function testSnapshotUsesTenantScopedRosterRpc() {
   const originalFetch = globalThis.fetch;
   const originalUrl = process.env.SUPABASE_URL;
   const originalSecret = process.env.SUPABASE_SECRET_KEY;
   const tenant = "00000000-0000-4000-8000-000000000021";
   const actor = "00000000-0000-4000-8000-000000000022";
   const halaqahA = "00000000-0000-4000-8000-000000000023";
-  const halaqahB = "00000000-0000-4000-8000-000000000024";
   const studentA = "00000000-0000-4000-8000-000000000025";
   const studentB = "00000000-0000-4000-8000-000000000026";
   const requests: URL[] = [];
   process.env.SUPABASE_URL = "https://supabase.test";
   process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
 
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     requests.push(url);
     const table = url.pathname.split("/").pop();
@@ -138,22 +146,30 @@ async function testSnapshotOnlyLoadsCurrentMembershipsAndTargets() {
     } else if (table === "profiles" && url.searchParams.get("select") === "user_id,role,status") {
       rows = [{ user_id: actor, role: "admin", status: "active" }];
     } else if (table === "profiles") {
-      rows = [];
+      rows = [{ user_id: "00000000-0000-4000-8000-000000000027", display_name: "Ustadz Uji" }];
+    } else if (url.pathname.endsWith("/rpc/list_tahfidz_roster_page")) {
+      assert.equal(init?.method, "POST");
+      const body = JSON.parse(String(init?.body || "{}"));
+      assert.equal(body.p_tenant_id, tenant);
+      assert.equal(body.p_actor_user_id, actor);
+      assert.equal(body.p_expected_role, "admin");
+      assert.match(body.p_business_date, /^\d{4}-\d{2}-\d{2}$/);
+      assert.equal(body.p_after_student_id, null);
+      assert.equal(body.p_search, null);
+      assert.equal(body.p_page_size, 100);
+      assert.equal(body.p_include_support, true);
+      return new Response(JSON.stringify({
+        roster: [
+          { id: studentA, nis: "0000000001", name: "Santri A", grade: "VII", halaqahId: halaqahA, halaqah: "Halaqah A", target: null },
+          { id: studentB, nis: "0000000002", name: "Santri B", grade: "VIII", halaqahId: halaqahA, halaqah: "Halaqah A", target: { periodStart: "2026-01-01", ziyadahPagesPerDay: 1, murojaahPagesPerDay: 0.5, policy: "standard" } },
+        ],
+        hasMore: false,
+        nextCursor: null,
+        stats: { studentCount: 2, studentsWithTarget: 1, studentsWithoutTarget: 1, studentsWithoutHalaqah: 0 },
+        halaqahCounts: { [halaqahA]: 2 },
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
     } else if (table === "tahfidz_halaqahs") {
-      rows = [
-        { id: halaqahA, name: "Halaqah A", status: "active", daily_target_pages: 1 },
-        { id: halaqahB, name: "Halaqah B", status: "active", daily_target_pages: 1 },
-      ];
-    } else if (table === "tahfidz_memberships") {
-      rows = [
-        { halaqah_id: halaqahA, student_id: studentA, starts_on: "2000-01-01", ends_on: null, status: "active" },
-        { halaqah_id: halaqahA, student_id: studentB, starts_on: "2000-01-01", ends_on: null, status: "active" },
-      ];
-    } else if (table === "students") {
-      rows = [
-        { id: studentA, name: "Santri A", nis: "0000000001", status: "Active" },
-        { id: studentB, name: "Santri B", nis: "0000000002", status: "Active" },
-      ];
+      rows = [{ id: halaqahA, name: "Halaqah A", status: "active", daily_target_pages: 1 }];
     } else {
       rows = [];
     }
@@ -163,19 +179,97 @@ async function testSnapshotOnlyLoadsCurrentMembershipsAndTargets() {
   try {
     const snapshot = await listSupabaseTahfidzSnapshot(tenant, actor, "Admin", false);
     assert.deepEqual(snapshot.records, []);
-    assert.equal(snapshot.roster.length, 2, "roster tenant mencakup santri aktif");
-    assert.equal(snapshot.halaqahs[0].studentCount, 2, "jumlah anggota halaqah dihitung dari penempatan aktif");
-    assert.equal(snapshot.halaqahs[1].studentCount, 0, "halaqah tanpa penempatan memiliki jumlah nol");
+    assert.equal(snapshot.roster.length, 2, "snapshot memuat halaman roster dari RPC");
+    assert.equal(snapshot.rosterStats.studentCount, 2, "jumlah santri pasti dihitung di backend");
+    assert.equal(snapshot.rosterStats.studentsWithoutTarget, 1);
+    assert.equal(snapshot.halaqahs[0].studentCount, 2, "jumlah anggota halaqah dihitung di backend");
     assert.ok(!Object.hasOwn(snapshot.halaqahs[0], "students"), "snapshot tidak menduplikasi identitas santri di tiap halaqah");
-    const membershipQuery = requests.find((url) => url.pathname.endsWith("/tahfidz_memberships"));
-    const targetQuery = requests.find((url) => url.pathname.endsWith("/tahfidz_targets"));
-    const membershipStart = membershipQuery?.searchParams.get("starts_on") || "";
-    const targetStart = targetQuery?.searchParams.get("period_start") || "";
-    assert.match(membershipStart, /^lte\.\d{4}-\d{2}-\d{2}$/);
-    assert.match(targetStart, /^lte\.\d{4}-\d{2}-\d{2}$/);
-    const businessDate = membershipStart.slice("lte.".length);
-    assert.equal(membershipQuery?.searchParams.get("or"), `(ends_on.is.null,ends_on.gte.${businessDate})`);
-    assert.equal(targetQuery?.searchParams.get("or"), `(period_end.is.null,period_end.gte.${businessDate})`);
+    const rpcQuery = requests.find((url) => url.pathname.endsWith("/rpc/list_tahfidz_roster_page"));
+    assert.ok(rpcQuery, "snapshot memakai satu RPC terikat tenant, bukan membaca semua baris operasional");
+    const tableNames = requests.filter((url) => url.pathname.startsWith("/rest/v1/") && !url.pathname.includes("/rpc/"))
+      .map((url) => url.pathname.split("/").pop());
+    assert.ok(!tableNames.some((name) => ["students", "tahfidz_memberships", "tahfidz_targets"].includes(String(name))),
+      "snapshot tidak memindai roster, membership, atau target secara langsung");
+    assert.equal(snapshot.rosterPage.hasMore, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.SUPABASE_SECRET_KEY;
+    else process.env.SUPABASE_SECRET_KEY = originalSecret;
+  }
+}
+
+async function testRosterPagePassesCursorAndSearchToRpc() {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.SUPABASE_URL;
+  const originalSecret = process.env.SUPABASE_SECRET_KEY;
+  const tenant = "00000000-0000-4000-8000-000000000031";
+  const actor = "00000000-0000-4000-8000-000000000032";
+  const cursorId = "00000000-0000-4000-8000-000000000033";
+  let rpcBody: Record<string, unknown> | null = null;
+  process.env.SUPABASE_URL = "https://supabase.test";
+  process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/tenants") && url.searchParams.get("select") === "time_zone") {
+      return new Response(JSON.stringify([{ time_zone: "Asia/Jakarta" }]), { status: 200 });
+    }
+    if (url.pathname.endsWith("/tenants")) {
+      return new Response(JSON.stringify([{ id: tenant, status: "active" }]), { status: 200 });
+    }
+    if (url.pathname.endsWith("/profiles")) {
+      return new Response(JSON.stringify([{ user_id: actor, role: "ustadz", status: "active" }]), { status: 200 });
+    }
+    if (url.pathname.endsWith("/rpc/list_tahfidz_roster_page")) {
+      rpcBody = JSON.parse(String(init?.body || "{}"));
+      return new Response(JSON.stringify({ roster: [], hasMore: true, nextCursor: cursorId, stats: null, halaqahCounts: null }), { status: 200 });
+    }
+    throw new Error(`Unexpected request ${url.pathname}`);
+  }) as typeof fetch;
+  try {
+    const page = await listSupabaseTahfidzRosterPage(tenant, actor, "Ustadz", cursorId, "Nur");
+    assert.equal(page.hasMore, true);
+    assert.equal(page.nextCursor, cursorId);
+    assert.equal(rpcBody?.p_expected_role, "ustadz");
+    assert.equal(rpcBody?.p_after_student_id, cursorId);
+    assert.equal(rpcBody?.p_search, "Nur");
+    assert.equal(rpcBody?.p_include_support, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.SUPABASE_SECRET_KEY;
+    else process.env.SUPABASE_SECRET_KEY = originalSecret;
+  }
+}
+
+async function testUstadzWithoutHalaqahDoesNotReadTenantSessions() {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.SUPABASE_URL;
+  const originalSecret = process.env.SUPABASE_SECRET_KEY;
+  const tenant = "00000000-0000-4000-8000-000000000041";
+  const actor = "00000000-0000-4000-8000-000000000042";
+  const requests: URL[] = [];
+  process.env.SUPABASE_URL = "https://supabase.test";
+  process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input));
+    requests.push(url);
+    if (url.pathname.endsWith("/tenants")) {
+      return new Response(JSON.stringify([{ id: tenant, status: "active" }]), { status: 200 });
+    }
+    if (url.pathname.endsWith("/profiles")) {
+      return new Response(JSON.stringify([{ user_id: actor, role: "ustadz", status: "active" }]), { status: 200 });
+    }
+    if (url.pathname.endsWith("/tahfidz_halaqahs")) return new Response("[]", { status: 200 });
+    throw new Error(`Unexpected unscoped request ${url.pathname}`);
+  }) as typeof fetch;
+  try {
+    const result = await listSupabaseTahfidzSessions(tenant, actor, "Ustadz", "talaqqi");
+    assert.deepEqual(result.sessions, []);
+    assert.equal(result.canManage, true);
+    assert.ok(!requests.some((url) => url.pathname.endsWith("/tahfidz_sessions")), "empty assigned-halaqah scope never queries tenant session rows");
   } finally {
     globalThis.fetch = originalFetch;
     if (originalUrl === undefined) delete process.env.SUPABASE_URL;
@@ -186,5 +280,7 @@ async function testSnapshotOnlyLoadsCurrentMembershipsAndTargets() {
 }
 
 await testRecordPageDoesNotLoadFullSnapshot();
-await testSnapshotOnlyLoadsCurrentMembershipsAndTargets();
-console.log("Tes pagination riwayat Tahfidz lulus.");
+await testSnapshotUsesTenantScopedRosterRpc();
+await testRosterPagePassesCursorAndSearchToRpc();
+await testUstadzWithoutHalaqahDoesNotReadTenantSessions();
+console.log("Tes pagination roster dan riwayat Tahfidz lulus.");

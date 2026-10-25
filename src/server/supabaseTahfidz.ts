@@ -1,8 +1,8 @@
 import { listGuardianStudentIds } from "./identityStore";
 import { createHash } from "node:crypto";
 import { isValidTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
-import { selectCurrentTahfidzMemberships } from "../lib/tahfidzMembership";
 import { buildTahfidzRecordPageParams, encodeTahfidzRecordCursor, TAHFIDZ_RECORD_PAGE_SIZE } from "../lib/tahfidzRecordPagination";
+import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch, TAHFIDZ_ROSTER_PAGE_SIZE } from "../lib/tahfidzRosterPagination";
 
 type JsonObject = Record<string, any>;
 
@@ -220,13 +220,7 @@ async function fetchTahfidzRecordPage(
   };
 }
 
-export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, actorSupabaseUid: string, role: string, includeRecords = true) {
-  if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
-    throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca data operasional Tahfidz.");
-  }
-  const tenantId = await resolveTenantId(tenantIdentifier);
-  const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
-  const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+async function getTahfidzBusinessDate(tenantId: string) {
   const tenantRows = await supabaseRequest("/rest/v1/tenants?" + new URLSearchParams({
     select: "time_zone", id: "eq." + tenantId, status: "eq.active", limit: "2",
   }).toString());
@@ -237,94 +231,120 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   if (!isValidTenantTimeZone(tenantTimeZone)) {
     throw new SupabaseTahfidzError(503, "Zona waktu tenant belum valid. Hubungi SuperAdmin untuk memperbaiki pengaturan.");
   }
-  const today = tenantDate(new Date(), tenantTimeZone);
+  return tenantDate(new Date(), tenantTimeZone);
+}
 
-  const [halaqahs, memberships, students, targets, ustadzProfiles] = await Promise.all([
-    listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", { status: "eq.active" }),
-    listRows("tahfidz_memberships", tenantId, "id,halaqah_id,student_id,starts_on,ends_on,status", "starts_on.asc,id.asc", {
-      status: "eq.active", starts_on: "lte." + today, or: "(ends_on.is.null,ends_on.gte." + today + ")",
+async function requestTahfidzRosterPage(
+  tenantId: string,
+  actorId: string,
+  role: string,
+  businessDate: string,
+  cursor: string | null,
+  search: string | null,
+  includeSupport: boolean
+) {
+  const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
+  const result = await supabaseRequest("/rest/v1/rpc/list_tahfidz_roster_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_business_date: businessDate,
+      p_after_student_id: cursor,
+      p_search: search,
+      p_page_size: TAHFIDZ_ROSTER_PAGE_SIZE,
+      p_include_support: includeSupport,
     }),
-    listRows("students", tenantId, "id,source_record_id,nis,name,gender,grade,class_id,status", "name.asc,id.asc", { status: "neq.Archived" }),
-    listRows("tahfidz_targets", tenantId, "id,student_id,period_start,period_end,ziyadah_pages_per_day,murojaah_pages_per_day,target_policy,status", "period_start.desc,id.desc", {
-      status: "eq.active", period_start: "lte." + today, or: "(period_end.is.null,period_end.gte." + today + ")",
-    }),
+  });
+  if (!result || typeof result !== "object" || !Array.isArray(result.roster)) {
+    throw new SupabaseTahfidzError(503, "Halaman roster Tahfidz belum dapat dimuat.");
+  }
+  const roster = result.roster.map((student: JsonObject) => ({
+    id: String(student.id || ""),
+    nis: String(student.nis || ""),
+    name: String(student.name || ""),
+    gender: student.gender || null,
+    grade: String(student.grade || ""),
+    classId: student.classId || null,
+    studentStatus: String(student.studentStatus || ""),
+    halaqahId: student.halaqahId ? String(student.halaqahId) : null,
+    halaqah: String(student.halaqah || ""),
+    target: student.target ? {
+      periodStart: String(student.target.periodStart || ""),
+      periodEnd: student.target.periodEnd ? String(student.target.periodEnd) : null,
+      ziyadahPagesPerDay: Number(student.target.ziyadahPagesPerDay || 0),
+      murojaahPagesPerDay: Number(student.target.murojaahPagesPerDay || 0),
+      policy: String(student.target.policy || "standard"),
+    } : null,
+  }));
+  if (roster.some((student: JsonObject) => !isUuid(student.id))) {
+    throw new SupabaseTahfidzError(503, "ID santri pada roster Tahfidz tidak valid.");
+  }
+  const nextCursor = result.nextCursor == null ? null : String(result.nextCursor);
+  if (nextCursor && !isUuid(nextCursor)) throw new SupabaseTahfidzError(503, "Kursor roster Tahfidz tidak valid.");
+  const stats = result.stats && typeof result.stats === "object" ? {
+    studentCount: Number(result.stats.studentCount || 0),
+    studentsWithTarget: Number(result.stats.studentsWithTarget || 0),
+    studentsWithoutTarget: Number(result.stats.studentsWithoutTarget || 0),
+    studentsWithoutHalaqah: Number(result.stats.studentsWithoutHalaqah || 0),
+  } : null;
+  const halaqahCounts = result.halaqahCounts && typeof result.halaqahCounts === "object" ? result.halaqahCounts : {};
+  return { roster, hasMore: result.hasMore === true, nextCursor, stats, halaqahCounts };
+}
+
+export async function listSupabaseTahfidzRosterPage(
+  tenantIdentifier: string,
+  actorSupabaseUid: string,
+  role: string,
+  cursorValue?: unknown,
+  searchValue?: unknown
+) {
+  if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
+    throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca roster Tahfidz.");
+  }
+  let cursor: string | null;
+  let search: string | null;
+  try {
+    cursor = normalizeTahfidzRosterCursor(cursorValue);
+    search = normalizeTahfidzRosterSearch(searchValue);
+  } catch {
+    throw new SupabaseTahfidzError(400, "Kursor atau pencarian roster Tahfidz tidak valid.");
+  }
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
+  const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  const businessDate = await getTahfidzBusinessDate(tenantId);
+  return requestTahfidzRosterPage(tenantId, actorId, role, businessDate, cursor, search, false);
+}
+
+export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, actorSupabaseUid: string, role: string, includeRecords = true) {
+  if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
+    throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca data operasional Tahfidz.");
+  }
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
+  const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  const today = await getTahfidzBusinessDate(tenantId);
+  const rosterPage = await requestTahfidzRosterPage(tenantId, actorId, role, today, null, null, true);
+  const countIds = Object.keys(rosterPage.halaqahCounts).filter(isUuid);
+  const halaqahFilters: Record<string, string> = { status: "eq.active" };
+  if (role === "Ustadz") halaqahFilters.ustadz_user_id = "eq." + actorId;
+  else if (role === "Santri" || role === "Walisantri") {
+    if (!countIds.length) {
+      // An empty set must not turn into an unscoped query.
+      halaqahFilters.id = "eq.00000000-0000-4000-8000-000000000000";
+    } else {
+      halaqahFilters.id = "in.(" + countIds.join(",") + ")";
+    }
+  }
+  const [halaqahs, ustadzProfiles] = await Promise.all([
+    listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", halaqahFilters),
     ["Admin", "SuperAdmin"].includes(role)
       ? listRows("profiles", tenantId, "user_id,display_name", "display_name.asc,user_id.asc", { role: "eq.ustadz", status: "eq.active" })
       : Promise.resolve([]),
   ]);
-
-  const linkedStudentIds = new Set<string>();
-  if (role === "Santri") {
-    const profileParams = new URLSearchParams({
-      select: "linked_santri_id",
-      tenant_id: "eq." + tenantId,
-      user_id: "eq." + actorId,
-      status: "eq.active",
-      limit: "2",
-    });
-    const profiles = await supabaseRequest("/rest/v1/profiles?" + profileParams.toString());
-    const linkedId = Array.isArray(profiles) && profiles.length === 1 ? String(profiles[0]?.linked_santri_id || "").trim() : "";
-    if (!linkedId) throw new SupabaseTahfidzError(403, "Profil belum tertaut ke data santri.");
-    const linkedMatches = students.filter((student) => String(student.status || "").toLowerCase() !== "archived"
-      && (String(student.id) === linkedId || String(student.source_record_id || "") === linkedId));
-    if (linkedMatches.length !== 1) throw new SupabaseTahfidzError(403, "Tautan santri pada profil tidak valid atau belum unik.");
-    linkedStudentIds.add(String(linkedMatches[0].id));
-  } else if (role === "Walisantri") {
-    try {
-      for (const studentId of await listGuardianStudentIds(tenantId, actorId)) linkedStudentIds.add(studentId);
-    } catch {
-      throw new SupabaseTahfidzError(403, "Akun Wali belum memiliki tautan santri aktif yang valid.");
-    }
-    if (!linkedStudentIds.size) throw new SupabaseTahfidzError(403, "Akun Wali belum tertaut ke santri aktif.");
-  }
-  const studentById = new Map<string, JsonObject>();
-  for (const student of students) studentById.set(String(student.id), student);
-  const currentMemberships = selectCurrentTahfidzMemberships(memberships, today);
-  const membershipsByStudent = new Map<string, JsonObject>();
-  const studentCountByHalaqah = new Map<string, number>();
-  for (const membership of currentMemberships) {
-    const studentId = String(membership.student_id || "");
-    const halaqahId = String(membership.halaqah_id || "");
-    const student = studentById.get(studentId);
-    if (!student) continue;
-    membershipsByStudent.set(studentId, membership);
-    studentCountByHalaqah.set(halaqahId, (studentCountByHalaqah.get(halaqahId) || 0) + 1);
-  }
-
-  const targetByStudent = new Map<string, JsonObject>();
-  for (const target of targets) {
-    const studentId = String(target.student_id);
-    const periodStart = String(target.period_start || "");
-    const periodEnd = String(target.period_end || "");
-    if (periodStart > today || (periodEnd && periodEnd < today) || targetByStudent.has(studentId)) continue;
-    targetByStudent.set(studentId, target);
-  }
-  const halaqahById = new Map(halaqahs.map((halaqah) => [String(halaqah.id), halaqah]));
-  const roster = students.map((student) => {
-    const membership = membershipsByStudent.get(String(student.id));
-    const halaqah = halaqahById.get(String(membership?.halaqah_id || ""));
-    const target = targetByStudent.get(String(student.id));
-    return {
-      id: String(student.id),
-      nis: String(student.nis || ""),
-      name: String(student.name || ""),
-      gender: student.gender || null,
-      grade: student.grade || "",
-      classId: student.class_id || null,
-      studentStatus: String(student.status || ""),
-      halaqahId: halaqah ? String(halaqah.id) : null,
-      halaqah: halaqah ? String(halaqah.name) : "",
-      target: target ? {
-        periodStart: target.period_start,
-        periodEnd: target.period_end || null,
-        ziyadahPagesPerDay: Number(target.ziyadah_pages_per_day || 0),
-        murojaahPagesPerDay: Number(target.murojaah_pages_per_day || 0),
-        policy: String(target.target_policy || "standard"),
-      } : null,
-    };
-  });
-
-  const snapshot = {
+  const snapshot: any = {
     halaqahs: halaqahs.map((halaqah) => ({
       id: String(halaqah.id),
       name: String(halaqah.name),
@@ -333,9 +353,11 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
       schedule: halaqah.schedule_text || "",
       room: halaqah.room_text || "",
       dailyTargetPages: Number(halaqah.daily_target_pages || 0),
-      studentCount: studentCountByHalaqah.get(String(halaqah.id)) || 0,
+      studentCount: Number(rosterPage.halaqahCounts[String(halaqah.id)] || 0),
     })),
-    roster,
+    roster: rosterPage.roster,
+    rosterPage: { hasMore: rosterPage.hasMore, nextCursor: rosterPage.nextCursor },
+    rosterStats: rosterPage.stats,
     records: [],
     recordsPage: { hasMore: false, nextCursor: null, oldestPerformedAt: null },
     ustadzOptions: ["Admin", "SuperAdmin"].includes(role)
@@ -343,26 +365,11 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
       : [],
   };
 
-  if (role === "Ustadz") {
-    const assignedHalaqahs = snapshot.halaqahs.filter((halaqah) => halaqah.ustadzUserId === actorId);
-    const allowedHalaqahIds = new Set(assignedHalaqahs.map((halaqah) => halaqah.id));
-    snapshot.halaqahs = assignedHalaqahs;
-    snapshot.roster = snapshot.roster.filter((student) => allowedHalaqahIds.has(String(student.halaqahId || "")));
-  } else if (role === "Santri" || role === "Walisantri") {
-    const linkedRoster = snapshot.roster.filter((student) => linkedStudentIds.has(student.id));
-    const allowedHalaqahIds = new Set(linkedRoster.map((student) => String(student.halaqahId || "")).filter(Boolean));
-    const linkedStudentCountByHalaqah = new Map<string, number>();
-    for (const student of linkedRoster) {
-      const halaqahId = String(student.halaqahId || "");
-      if (halaqahId) linkedStudentCountByHalaqah.set(halaqahId, (linkedStudentCountByHalaqah.get(halaqahId) || 0) + 1);
-    }
-    snapshot.halaqahs = snapshot.halaqahs.filter((halaqah) => allowedHalaqahIds.has(halaqah.id))
-      .map((halaqah) => ({ ...halaqah, studentCount: linkedStudentCountByHalaqah.get(halaqah.id) || 0 }));
-    snapshot.roster = linkedRoster;
-  }
-
   if (includeRecords) {
-    const recordPage = await fetchTahfidzRecordPage(tenantId, role, snapshot);
+    const recordScope = role === "Santri" || role === "Walisantri"
+      ? await resolveTahfidzRecordPageScope(tenantId, actorId, role)
+      : { roster: snapshot.roster, halaqahs: snapshot.halaqahs };
+    const recordPage = await fetchTahfidzRecordPage(tenantId, role, recordScope);
     snapshot.records = recordPage.records;
     snapshot.recordsPage = {
       hasMore: recordPage.hasMore,
@@ -486,15 +493,27 @@ export async function listSupabaseTahfidzSessions(
   const tenantId = await resolveTenantId(tenantIdentifier);
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
   const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  const scope = await resolveTahfidzRecordPageScope(tenantId, actorId, role);
+  const sessionFilters: Record<string, string> = { kind: "eq." + kind };
+  if (role === "Ustadz") {
+    const halaqahIds = [...new Set(scope.halaqahs.map((item) => String(item.id)).filter(isUuid))];
+    if (!halaqahIds.length) return { sessions: [], canManage: true, actorUserId: actorId };
+    sessionFilters.halaqah_id = "in.(" + halaqahIds.join(",") + ")";
+  } else if (role === "Santri" || role === "Walisantri") {
+    const studentIds = [...new Set(scope.roster.map((item) => String(item.id)).filter(isUuid))];
+    if (!studentIds.length) return { sessions: [], canManage: false, actorUserId: actorId };
+    sessionFilters.student_id = "in.(" + studentIds.join(",") + ")";
+  }
   const [snapshot, rows] = await Promise.all([
-    listSupabaseTahfidzSnapshot(tenantIdentifier, actorSupabaseUid, role),
+    listSupabaseTahfidzSnapshot(tenantIdentifier, actorSupabaseUid, role, false),
     listRows("tahfidz_sessions", tenantId,
       "id,kind,student_id,halaqah_id,teacher_user_id,exam_type,juz_start,juz_end,scheduled_at,duration_minutes,focus,status,score,outcome,notes,completed_at,created_at",
-      "scheduled_at.asc,id.asc", { kind: "eq." + kind }),
+      "scheduled_at.asc,id.asc", sessionFilters),
   ]);
-  const visibleStudentIds = new Set(snapshot.roster.map((item: JsonObject) => String(item.id)));
-  const visibleHalaqahs = new Map(snapshot.halaqahs.map((item: JsonObject) => [String(item.id), item]));
-  const visibleRoster = new Map(snapshot.roster.map((item: JsonObject) => [String(item.id), item]));
+  const sessionRoster = role === "Santri" || role === "Walisantri" ? scope.roster : snapshot.roster;
+  const visibleStudentIds = new Set(sessionRoster.map((item: JsonObject) => String(item.id)));
+  const visibleHalaqahs = new Map<string, JsonObject>(snapshot.halaqahs.map((item: JsonObject) => [String(item.id), item]));
+  const visibleRoster = new Map<string, JsonObject>([...snapshot.roster, ...sessionRoster].map((item: JsonObject) => [String(item.id), item]));
   const sessions = rows.filter((row) => {
     if (role === "Ustadz") return visibleHalaqahs.has(String(row.halaqah_id));
     if (role === "Santri" || role === "Walisantri") return visibleStudentIds.has(String(row.student_id));
