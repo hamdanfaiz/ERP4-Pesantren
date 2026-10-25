@@ -1,3 +1,5 @@
+import { readPostgrestRowsInPages } from "./postgrestPagination";
+
 type Row = Record<string, any>;
 
 export class SupabaseLmsError extends Error {
@@ -52,9 +54,15 @@ function inUuid(values: string[]) {
 }
 
 async function rows(path: string, limit: number, label: string) {
-  const result = await request(path);
-  if (!Array.isArray(result) || result.length > limit) throw new SupabaseLmsError(503, `Data ${label} melewati batas aman tampilan LMS.`);
-  return result as Row[];
+  const resource = path.slice(0, path.indexOf("?")).split("/").pop();
+  const uniqueOrderColumn = resource === "profiles" ? "user_id" : resource === "lms_material_progress" ? "material_id" : "id";
+  return readPostgrestRowsInPages<Row>({
+    request,
+    path,
+    maxRows: limit,
+    uniqueOrderColumn,
+    onIncomplete: () => new SupabaseLmsError(503, `Data ${label} melewati batas aman tampilan LMS atau hasil pemindaian tidak lengkap.`),
+  });
 }
 
 export async function getSupabaseLmsLegacyImportContext(tenantIdentifier: string) {
