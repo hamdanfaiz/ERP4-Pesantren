@@ -35,14 +35,7 @@ CREATE INDEX student_room_history_tenant_student_time_idx
 
 ALTER TABLE public.student_room_assignment_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_room_assignment_history FORCE ROW LEVEL SECURITY;
-CREATE POLICY student_room_assignment_history_service_read
-  ON public.student_room_assignment_history
-  FOR SELECT TO service_role
-  USING (true);
-CREATE POLICY student_room_assignment_history_service_insert
-  ON public.student_room_assignment_history
-  FOR INSERT TO service_role
-  WITH CHECK (true);
+-- Access is governed by explicit table grants; do not add broad allow-all policies here.
 REVOKE ALL ON public.student_room_assignment_history FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.student_room_assignment_history FROM service_role;
 GRANT SELECT, INSERT ON public.student_room_assignment_history TO service_role;
