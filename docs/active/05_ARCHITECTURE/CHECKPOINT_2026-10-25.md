@@ -286,3 +286,17 @@ Skor naik satu poin dari 70/100 setelah antrean risiko Dashboard dapat langsung 
 - Perubahan masih berada di PR #13 yang Open/Draft. Tidak ada migrasi atau data yang diterapkan ke Supabase Production.
 
 Angka 71/100 mencatat alur tindak lanjut yang telah dibangun dan diverifikasi di CI sintetis; belum membuktikan proses login/data pada tenant pelanggan. Rekonsiliasi serta penerapan migrasi/data, staging, login Admin/Wali dan uji matriks izin, rotasi secret, UAT, review PR, serta uji pemasangan/pemulihan VPS dan on-premise tetap menjadi gerbang rilis.
+
+
+## Pencarian santri untuk alur kerja Tahfidz — 26 Oktober 2026
+
+### Progres menuju go-live: 72/100
+
+Skor naik satu poin dari 71/100 setelah pencatatan setoran, penetapan target harian, dan penempatan halaqah dapat mencari santri lewat API tenant tanpa memuat roster satu halaman demi satu halaman.
+
+- Pemilih santri kini mencari berdasarkan awalan nama atau NIS, menunda permintaan saat pengguna masih mengetik, membatasi hasil pada halaman backend, memuat hasil lanjutan dengan kursor, serta mencegah respons pencarian lama menggantikan kueri terbaru.
+- Alur setoran hanya menawarkan santri dengan halaqah aktif. Penetapan target dan penempatan halaqah tetap dapat memilih santri tanpa halaqah. Semua hasil tetap mengikuti role dan tenant yang diverifikasi API Supabase; UI tidak menjadi batas keamanan.
+- CI pada head `40f551122b6f596f1d07e8d18db623ac8073ec7f`, [run 40235931014](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40235931014), sukses pada kedua job: typecheck, pemeriksaan RBAC dan cakupan tenant, build client/server, Docker customer-managed, seluruh migrasi/pgTAP Supabase lokal, NIS serentak, API auth/isolasi tenant, Finance Storage, serta backup/restore.
+- Tidak ada migrasi atau data yang diterapkan ke Supabase Production. PR #13 tetap Open/Draft.
+
+Nilai 72/100 mencerminkan peningkatan alur inti untuk roster pesantren besar yang sudah diverifikasi di CI sintetis; belum membuktikan beban pada data tenant nyata. Rekonsiliasi dan penerapan migrasi/data, staging, login Admin/Wali dan UAT role, rotasi secret yang pernah dibagikan, benchmark skala, review PR, serta pemasangan/pemulihan di VPS dan on-premise tetap menjadi release gate.
