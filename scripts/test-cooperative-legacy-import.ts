@@ -214,6 +214,32 @@ const noAttestationPreview = previewSupabaseLegacyCooperativeFinancialHistory(
 );
 assert.equal(noAttestationPreview.canApply, false, "opening balance alone is insufficient without explicit archive completeness confirmation");
 
+const maxSupportedBalance = 999999999999;
+const maxBalanceSources = {
+  wallets: [{ id: "wallet-source-max", data: { id: "wallet-key-max", student: "Label Santri", balance: maxSupportedBalance } }],
+  transactions: [],
+};
+const maxBalanceUnmapped = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId, maxBalanceSources, targetWallets, targetStudents, targetProducts, [],
+);
+const maxBalanceRef = maxBalanceUnmapped.wallets[0].sourceRef;
+const maxBalancePreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId, maxBalanceSources, targetWallets, targetStudents, targetProducts, [],
+  { wallets: { [maxBalanceRef]: { targetWalletId: "target-wallet-01", openingBalance: maxSupportedBalance } }, confirmCompleteHistory: true },
+);
+assert.equal(maxBalancePreview.canApply, true, "the largest integer amount supported by NUMERIC(14,2) is accepted");
+
+const overLimitSources = {
+  wallets: [{ id: "wallet-source-over", data: { id: "wallet-key-over", student: "Label Santri", balance: 1000000000000 } }],
+  transactions: [],
+};
+const overLimitPreview = previewSupabaseLegacyCooperativeFinancialHistory(
+  tenantId, overLimitSources, targetWallets, targetStudents, targetProducts, [],
+  { wallets: { "unused": { targetWalletId: "target-wallet-01", openingBalance: 1000000000000 } }, confirmCompleteHistory: true },
+);
+assert.equal(overLimitPreview.canApply, false, "an amount outside the Finance ledger range is rejected in preview");
+assert.ok(overLimitPreview.issues.some((item) => item.code === "invalid_or_duplicate_source_wallet"));
+
 console.log("cooperative legacy financial preview: 8 validation groups passed");
 
 
