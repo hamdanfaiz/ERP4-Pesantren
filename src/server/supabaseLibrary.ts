@@ -1,5 +1,7 @@
 import { tenantBusinessDate } from "../utils/businessDate";
 
+import { readPostgrestRowsInPages } from "./postgrestPagination";
+
 type Row = Record<string, any>;
 
 export class SupabaseLibraryError extends Error {
@@ -102,9 +104,12 @@ async function resolveTenantId(identifier: string) {
 
 async function tenantRows(table: string, tenantId: string, select: string, order: string, extra: Record<string, string> = {}) {
   const params = new URLSearchParams({ select, tenant_id: "eq." + tenantId, order, limit: "5001", ...extra });
-  const rows = await request(`/rest/v1/${table}?${params.toString()}`);
-  if (!Array.isArray(rows) || rows.length > 5000) throw new SupabaseLibraryError(503, "Data perpustakaan melewati batas aman tampilan.");
-  return rows as Row[];
+  return readPostgrestRowsInPages<Row>({
+    request,
+    path: `/rest/v1/${table}?${params.toString()}`,
+    maxRows: 5000,
+    onIncomplete: () => new SupabaseLibraryError(503, "Data perpustakaan melebihi batas aman tampilan atau hasil pemindaian tidak lengkap."),
+  });
 }
 
 export async function listSupabaseLibrarySnapshot(tenantIdentifier: string) {
