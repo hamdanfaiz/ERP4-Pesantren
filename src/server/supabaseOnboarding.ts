@@ -1124,7 +1124,7 @@ export async function upsertSupabaseMasterDataStudent(
   const row = await getSupabaseStudentRow(tenantId, savedStudentId);
   if (!row) throw new SupabaseOnboardingError(503, "Data santri tersimpan tetapi tidak dapat dibaca ulang.");
   const structures = await listSupabaseMasterDataStructures(tenantId);
-  return mapSupabaseStudentRow(row, tenantId, structures);
+  return mapSupabaseStudentRow(row, tenantId, structures, false);
 }
 
 export async function archiveSupabaseMasterDataStudent(
