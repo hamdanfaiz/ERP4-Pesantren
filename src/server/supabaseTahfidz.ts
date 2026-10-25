@@ -191,8 +191,29 @@ async function fetchTahfidzRecordPage(
       throw new SupabaseTahfidzError(503, "Urutan riwayat Tahfidz tidak konsisten.");
     }
   }
+  const knownStudentIds = new Set(scope.roster.map((student) => String(student.id)));
+  const missingStudentIds = [...new Set(pageRows.map((row) => String(row.student_id || "")))]
+    .filter((studentId) => studentId && !knownStudentIds.has(studentId));
+  let recordRoster = scope.roster;
+  if (missingStudentIds.length) {
+    if (missingStudentIds.some((studentId) => !isUuid(studentId))) {
+      throw new SupabaseTahfidzError(503, "Referensi santri pada riwayat Tahfidz tidak valid.");
+    }
+    const studentParams = new URLSearchParams({
+      select: "id,nis,name,status",
+      tenant_id: "eq." + tenantId,
+      id: "in.(" + missingStudentIds.join(",") + ")",
+      status: "neq.Archived",
+      limit: String(missingStudentIds.length + 1),
+    });
+    const students = await supabaseRequest("/rest/v1/students?" + studentParams.toString());
+    if (!Array.isArray(students)) throw new SupabaseTahfidzError(503, "Nama santri pada riwayat Tahfidz belum dapat dimuat.");
+    const activeStudents = students.filter((student) => String(student.status || "").toLowerCase() !== "archived");
+    recordRoster = [...scope.roster, ...activeStudents];
+  }
+
   return {
-    records: mapTahfidzRecordRows(pageRows, scope.roster),
+    records: mapTahfidzRecordRows(pageRows, recordRoster),
     hasMore,
     nextCursor,
     oldestPerformedAt: lastRow ? String(lastRow.performed_at || "") : null,
@@ -206,16 +227,9 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   const tenantId = await resolveTenantId(tenantIdentifier);
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
   const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
-  const [tenantRows, halaqahs, memberships, students, targets, ustadzProfiles] = await Promise.all([
-    supabaseRequest("/rest/v1/tenants?" + new URLSearchParams({ select: "time_zone", id: "eq." + tenantId, status: "eq.active", limit: "2" }).toString()),
-    listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", { status: "eq.active" }),
-    listRows("tahfidz_memberships", tenantId, "id,halaqah_id,student_id,starts_on,ends_on,status", "starts_on.asc,id.asc", { status: "eq.active" }),
-    listRows("students", tenantId, "id,source_record_id,nis,name,gender,grade,class_id,status", "name.asc,id.asc", { status: "neq.Archived" }),
-    listRows("tahfidz_targets", tenantId, "id,student_id,period_start,period_end,ziyadah_pages_per_day,murojaah_pages_per_day,target_policy,status", "period_start.desc,id.desc", { status: "eq.active" }),
-    ["Admin", "SuperAdmin"].includes(role)
-      ? listRows("profiles", tenantId, "user_id,display_name", "display_name.asc,user_id.asc", { role: "eq.ustadz", status: "eq.active" })
-      : Promise.resolve([]),
-  ]);
+  const tenantRows = await supabaseRequest("/rest/v1/tenants?" + new URLSearchParams({
+    select: "time_zone", id: "eq." + tenantId, status: "eq.active", limit: "2",
+  }).toString());
   if (!Array.isArray(tenantRows) || tenantRows.length !== 1) {
     throw new SupabaseTahfidzError(503, "Zona waktu tenant belum dapat diverifikasi.");
   }
@@ -223,6 +237,21 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   if (!isValidTenantTimeZone(tenantTimeZone)) {
     throw new SupabaseTahfidzError(503, "Zona waktu tenant belum valid. Hubungi SuperAdmin untuk memperbaiki pengaturan.");
   }
+  const today = tenantDate(new Date(), tenantTimeZone);
+
+  const [halaqahs, memberships, students, targets, ustadzProfiles] = await Promise.all([
+    listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", { status: "eq.active" }),
+    listRows("tahfidz_memberships", tenantId, "id,halaqah_id,student_id,starts_on,ends_on,status", "starts_on.asc,id.asc", {
+      status: "eq.active", starts_on: "lte." + today, or: "(ends_on.is.null,ends_on.gte." + today + ")",
+    }),
+    listRows("students", tenantId, "id,source_record_id,nis,name,gender,grade,class_id,status", "name.asc,id.asc", { status: "neq.Archived" }),
+    listRows("tahfidz_targets", tenantId, "id,student_id,period_start,period_end,ziyadah_pages_per_day,murojaah_pages_per_day,target_policy,status", "period_start.desc,id.desc", {
+      status: "eq.active", period_start: "lte." + today, or: "(period_end.is.null,period_end.gte." + today + ")",
+    }),
+    ["Admin", "SuperAdmin"].includes(role)
+      ? listRows("profiles", tenantId, "user_id,display_name", "display_name.asc,user_id.asc", { role: "eq.ustadz", status: "eq.active" })
+      : Promise.resolve([]),
+  ]);
 
   const linkedStudentIds = new Set<string>();
   if (role === "Santri") {
@@ -250,7 +279,6 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   }
   const studentById = new Map<string, JsonObject>();
   for (const student of students) studentById.set(String(student.id), student);
-  const today = tenantDate(new Date(), tenantTimeZone);
   const currentMemberships = selectCurrentTahfidzMemberships(memberships, today);
   const membershipsByStudent = new Map<string, JsonObject>();
   const studentsByHalaqah = new Map<string, JsonObject[]>();
@@ -344,15 +372,104 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   return snapshot;
 }
 
+async function resolveTahfidzRecordPageScope(tenantId: string, actorId: string, role: string): Promise<TahfidzSnapshotScope> {
+  if (role === "Ustadz") {
+    const params = new URLSearchParams({
+      select: "id",
+      tenant_id: "eq." + tenantId,
+      ustadz_user_id: "eq." + actorId,
+      status: "eq.active",
+      order: "id.asc",
+      limit: "5001",
+    });
+    const rows = await supabaseRequest("/rest/v1/tahfidz_halaqahs?" + params.toString());
+    if (!Array.isArray(rows) || rows.length > 5000) {
+      throw new SupabaseTahfidzError(503, "Cakupan halaqah Ustadz melebihi batas yang didukung.");
+    }
+    return { roster: [], halaqahs: rows };
+  }
+
+  if (role === "Santri") {
+    const profileParams = new URLSearchParams({
+      select: "linked_santri_id",
+      tenant_id: "eq." + tenantId,
+      user_id: "eq." + actorId,
+      status: "eq.active",
+      limit: "2",
+    });
+    const profiles = await supabaseRequest("/rest/v1/profiles?" + profileParams.toString());
+    const linkedId = Array.isArray(profiles) && profiles.length === 1
+      ? String(profiles[0]?.linked_santri_id || "").trim()
+      : "";
+    if (!linkedId || !/^[A-Za-z0-9_.:@-]{1,128}$/.test(linkedId)) {
+      throw new SupabaseTahfidzError(403, "Profil belum tertaut ke data santri yang valid.");
+    }
+
+    const queryStudent = async (filter: Record<string, string>) => {
+      const params = new URLSearchParams({
+        select: "id,source_record_id,nis,name,status",
+        tenant_id: "eq." + tenantId,
+        status: "neq.Archived",
+        limit: "2",
+        ...filter,
+      });
+      const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
+      if (!Array.isArray(rows)) throw new SupabaseTahfidzError(503, "Tautan santri pada profil belum dapat diverifikasi.");
+      return rows;
+    };
+    const [byId, bySourceId] = await Promise.all([
+      isUuid(linkedId) ? queryStudent({ id: "eq." + linkedId }) : Promise.resolve([]),
+      queryStudent({ source_record_id: "eq." + linkedId }),
+    ]);
+    const matches = new Map<string, JsonObject>();
+    for (const student of [...byId, ...bySourceId]) {
+      if (String(student.status || "").toLowerCase() !== "archived") matches.set(String(student.id), student);
+    }
+    if (matches.size !== 1) throw new SupabaseTahfidzError(403, "Tautan santri pada profil tidak valid atau belum unik.");
+    return { roster: [...matches.values()], halaqahs: [] };
+  }
+
+  if (role === "Walisantri") {
+    let linkedIds: string[];
+    try {
+      linkedIds = await listGuardianStudentIds(tenantId, actorId);
+    } catch {
+      throw new SupabaseTahfidzError(403, "Akun Wali belum memiliki tautan santri aktif yang valid.");
+    }
+    if (!linkedIds.length || linkedIds.length > 5000 || linkedIds.some((id) => !isUuid(String(id)))) {
+      throw new SupabaseTahfidzError(403, "Akun Wali belum memiliki tautan santri aktif yang valid.");
+    }
+    const params = new URLSearchParams({
+      select: "id,source_record_id,nis,name,status",
+      tenant_id: "eq." + tenantId,
+      id: "in.(" + [...new Set(linkedIds)].join(",") + ")",
+      status: "neq.Archived",
+      limit: String(linkedIds.length + 1),
+    });
+    const students = await supabaseRequest("/rest/v1/students?" + params.toString());
+    if (!Array.isArray(students)) throw new SupabaseTahfidzError(503, "Tautan santri Wali belum dapat diverifikasi.");
+    const activeStudents = students.filter((student) => String(student.status || "").toLowerCase() !== "archived");
+    if (!activeStudents.length) throw new SupabaseTahfidzError(403, "Akun Wali belum tertaut ke santri aktif.");
+    return { roster: activeStudents, halaqahs: [] };
+  }
+
+  return { roster: [], halaqahs: [] };
+}
+
 export async function listSupabaseTahfidzRecordPage(
   tenantIdentifier: string,
   actorSupabaseUid: string,
   role: string,
   cursorValue?: unknown
 ) {
-  const snapshot = await listSupabaseTahfidzSnapshot(tenantIdentifier, actorSupabaseUid, role, false);
+  if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
+    throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca riwayat Tahfidz.");
+  }
   const tenantId = await resolveTenantId(tenantIdentifier);
-  return fetchTahfidzRecordPage(tenantId, role, snapshot, cursorValue);
+  const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
+  const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  const scope = await resolveTahfidzRecordPageScope(tenantId, actorId, role);
+  return fetchTahfidzRecordPage(tenantId, role, scope, cursorValue);
 }
 
 export async function listSupabaseTahfidzSessions(
