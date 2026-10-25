@@ -831,10 +831,18 @@ function safeStudentDetails(record: JsonObject): JsonObject {
   return details;
 }
 
-function mapSupabaseStudentRow(row: JsonObject, tenantId: string, structures: SupabaseStructureRecord[]) {
+function mapSupabaseStudentRow(
+  row: JsonObject,
+  tenantId: string,
+  structures: SupabaseStructureRecord[],
+  includeSensitive = true,
+) {
   const supabaseId = String(row.id || "");
   const sourceRecordId = typeof row.source_record_id === "string" ? row.source_record_id : null;
-  const details = row.details && typeof row.details === "object" && !Array.isArray(row.details) ? row.details : {};
+  const rawDetails = row.details && typeof row.details === "object" && !Array.isArray(row.details) ? row.details : {};
+  const details = includeSensitive ? rawDetails : Object.fromEntries(
+    Object.entries(rawDetails).filter(([key]) => !/nik|nisn|password|secret|token|api.?key/i.test(key) && !key.startsWith("_")),
+  );
   const classId = typeof row.class_id === "string" ? row.class_id : null;
   const roomId = typeof row.room_id === "string" ? row.room_id : null;
   const buildingId = typeof row.building_id === "string" ? row.building_id : null;
@@ -850,8 +858,10 @@ function mapSupabaseStudentRow(row: JsonObject, tenantId: string, structures: Su
     type: "Santri",
     name: String(row.name || ""),
     nis: typeof row.nis === "string" ? row.nis : "",
-    nik: decryptLegacyIdentity(row.nik_ciphertext),
-    nisn: decryptLegacyIdentity(row.nisn_ciphertext),
+    nik: includeSensitive ? decryptLegacyIdentity(row.nik_ciphertext) : "",
+    nisn: includeSensitive ? decryptLegacyIdentity(row.nisn_ciphertext) : "",
+    hasNik: Boolean(row.nik_ciphertext),
+    hasNisn: Boolean(row.nisn_ciphertext),
     gender: row.gender === "L" || row.gender === "P" ? row.gender : "",
     grade: typeof row.grade === "string" ? row.grade : "",
     classId,
@@ -911,6 +921,130 @@ export async function listSupabaseMasterDataStudents(tenantIdentifier: string): 
     }
   }
   return all.map((row) => mapSupabaseStudentRow(row, tenantId, structures));
+}
+
+
+type MasterDataStudentPageOptions = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  statuses?: string[];
+  gender?: string;
+  grade?: string;
+  dormitory?: string;
+  completeness?: string;
+};
+
+function postgrestQuotedValue(value: string) {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`;
+}
+
+export async function listSupabaseMasterDataStudentsPage(
+  tenantIdentifier: string,
+  options: MasterDataStudentPageOptions = {},
+): Promise<{ records: JsonObject[]; page: number; pageSize: number; hasMore: boolean }> {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const page = Number(options.page ?? 1);
+  const pageSize = Number(options.pageSize ?? 10);
+  if (!Number.isSafeInteger(page) || page < 1 || page > 100000
+    || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    throw new SupabaseOnboardingError(400, "Nomor halaman atau ukuran halaman santri tidak valid.");
+  }
+  const offset = (page - 1) * pageSize;
+  if (!Number.isSafeInteger(offset) || offset > 1000000) {
+    throw new SupabaseOnboardingError(400, "Halaman santri melewati batas navigasi yang didukung.");
+  }
+
+  const structures = await listSupabaseMasterDataStructures(tenantId);
+  const params = new URLSearchParams({
+    select: "id,tenant_id,source_system,source_record_id,nis,name,gender,grade,nik_ciphertext,nisn_ciphertext,class_id,room_id,building_id,details,status,created_at,updated_at",
+    tenant_id: "eq." + tenantId,
+    order: "name.asc,id.asc",
+    limit: String(pageSize + 1),
+    offset: String(offset),
+  });
+  const logic: string[] = [];
+  const search = String(options.search || "").normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s._-]/gu, " ").trim().replace(/\s+/g, " ").slice(0, 80);
+  if (search) {
+    const pattern = `*${search.replace(/\s/g, "*")}*`;
+    logic.push(`or(name.ilike.${pattern},nis.ilike.${pattern},source_record_id.ilike.${pattern})`);
+  }
+
+  const allowedStatuses = new Set(["Active", "Inactive", "Alumni", "Suspended"]);
+  const statuses = Array.isArray(options.statuses)
+    ? [...new Set(options.statuses.map((value) => String(value).trim()).filter(Boolean))]
+    : [];
+  if (statuses.some((status) => !allowedStatuses.has(status))) {
+    throw new SupabaseOnboardingError(400, "Filter status santri tidak valid.");
+  }
+  if (statuses.length) params.set("status", `in.(${statuses.join(",")})`);
+  else params.set("status", "neq.Archived");
+
+  const gender = String(options.gender || "ALL");
+  if (gender !== "ALL") {
+    if (gender !== "L" && gender !== "P") throw new SupabaseOnboardingError(400, "Filter jenis kelamin tidak valid.");
+    params.set("gender", "eq." + gender);
+  }
+
+  const grade = String(options.grade || "").trim().slice(0, 100);
+  if (grade) {
+    const schoolClass = structures.find((row) => row.category === "Kelas" && row.name === grade);
+    const filters = [`grade.eq.${postgrestQuotedValue(grade)}`];
+    if (schoolClass) filters.push(`class_id.eq.${schoolClass.id}`);
+    logic.push(`or(${filters.join(",")})`);
+  }
+
+  const dormitory = String(options.dormitory || "").trim().slice(0, 100);
+  if (dormitory) {
+    const building = structures.find((row) => row.category === "Gedung" && row.name === dormitory);
+    const filters = [`details->>dormitory.eq.${postgrestQuotedValue(dormitory)}`];
+    if (building) filters.push(`building_id.eq.${building.id}`);
+    logic.push(`or(${filters.join(",")})`);
+  }
+
+  const completeness = String(options.completeness || "ALL");
+  if (completeness === "WITH_NIK") params.set("nik_ciphertext", "not.is.null");
+  else if (completeness === "WITH_WALI") {
+    logic.push("or(details->>waliSantriId.not.is.null,details->>parentName.not.is.null)");
+  } else if (completeness === "WITHOUT_WALI") {
+    logic.push("and(details->>waliSantriId.is.null,details->>parentName.is.null)");
+  } else if (completeness !== "ALL") throw new SupabaseOnboardingError(400, "Filter kelengkapan data tidak valid.");
+
+  if (logic.length) params.set("and", `(${logic.join(",")})`);
+  const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
+  if (!Array.isArray(rows) || rows.length > pageSize + 1) {
+    throw new SupabaseOnboardingError(503, "Halaman data santri tidak dapat diverifikasi.");
+  }
+  const hasMore = rows.length > pageSize;
+  return {
+    records: rows.slice(0, pageSize).map((row) => mapSupabaseStudentRow(row, tenantId, structures, false)),
+    page,
+    pageSize,
+    hasMore,
+  };
+}
+
+export async function getSupabaseMasterDataStudent(
+  tenantIdentifier: string,
+  studentIdentifier: string,
+): Promise<JsonObject> {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const identifier = String(studentIdentifier || "").trim();
+  if (!identifier || identifier.length > 1500) throw new SupabaseOnboardingError(400, "ID santri tidak valid.");
+  const params = new URLSearchParams({
+    select: "id,tenant_id,source_system,source_record_id,nis,name,gender,grade,nik_ciphertext,nisn_ciphertext,class_id,room_id,building_id,details,status,created_at,updated_at",
+    tenant_id: "eq." + tenantId,
+    limit: "2",
+  });
+  if (isCanonicalUuid(identifier)) params.set("id", "eq." + identifier);
+  else params.set("source_record_id", "eq." + identifier);
+  const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
+  if (!Array.isArray(rows) || rows.length !== 1) {
+    throw new SupabaseOnboardingError(rows?.length > 1 ? 409 : 404, "Data santri tidak ditemukan secara unik pada tenant ini.");
+  }
+  const structures = await listSupabaseMasterDataStructures(tenantId);
+  return mapSupabaseStudentRow(rows[0], tenantId, structures, true);
 }
 
 export async function upsertSupabaseMasterDataStudent(
