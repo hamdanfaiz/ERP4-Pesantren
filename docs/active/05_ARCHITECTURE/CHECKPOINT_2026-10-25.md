@@ -313,3 +313,16 @@ Skor naik satu poin dari 72/100 setelah halaman jadwal sesi Tahfidz berhenti mem
 - Perubahan hanya berada di branch PR #13. Tidak ada migrasi atau data yang ditulis ke Supabase Production.
 
 Skor 73/100 mencatat kesiapan baca jadwal Tahfidz bertumbuh seiring riwayat data; belum membuktikan beban produksi pada tenant besar. Rekonsiliasi dan migrasi data, staging, login Admin/Wali serta UAT role, rotasi secret, benchmark tenant besar, review PR, dan uji pemasangan/pemulihan VPS maupun on-premise tetap menjadi release gate.
+
+## Integritas transaksi jadwal Talaqqi dan Munaqasyah — 26 Oktober 2026
+
+### Progres menuju go-live: 74/100
+
+Skor naik satu poin dari 73/100 setelah jalur tulis untuk sesi Talaqqi dan Munaqasyah serta perebutan slot Ustadz diuji dengan transaksi nyata pada Supabase lokal yang terisolasi.
+
+- Suite pgTAP baru memeriksa 24 kondisi, termasuk pembuatan jadwal, retry idempoten, penolakan perubahan payload dengan kunci idempotensi yang sama, bentrok jadwal Ustadz, jadwal berurutan tanpa jeda, penyelesaian ujian dengan nilai, pembatalan, batas role, dan hak pemanggilan fungsi.
+- Uji konkurensi mengirim dua permintaan yang bertabrakan pada slot Ustadz yang sama. Tepat satu transaksi berhasil; transaksi lainnya menerima penolakan konflik yang konsisten. Pembersihan fixture juga menghapus wallet sintetis lebih dahulu agar tidak melanggar relasi data.
+- CI pada head `723ef1657ad53566e15d640051c17880478cda5c`, [run 40238243861](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40238243861), sukses pada kedua job. Job database menyelesaikan migrasi/pgTAP, uji NIS serentak, uji slot Tahfidz serentak, API auth/isolasi tenant, Finance Storage, dan backup/pemulihan lokal.
+- Perubahan berada di branch PR #13. Pengujian hanya menggunakan Supabase lokal dan data sintetis; tidak ada migrasi atau penulisan ke Supabase Production.
+
+Nilai 74/100 membuktikan integritas transaksi jadwal pada pengujian lokal, bukan kesiapan menyeluruh untuk go-live. Rekonsiliasi dan migrasi data, staging, login Admin/Wali dan UAT izin, rotasi secret, benchmark skala besar, review PR, serta uji pemasangan dan pemulihan pada VPS maupun on-premise tetap menjadi gerbang rilis.
