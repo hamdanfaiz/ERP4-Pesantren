@@ -451,3 +451,19 @@ Skor tidak berubah. CI pada head terbaru #13 lulus, tetapi project Supabase targ
 - Gerbang tetap terbuka: akses konektor ke project target, staging dengan baseline restore, rehearsal migration dan rekonsiliasi data, pemetaan akun Auth, pemindahan byte Storage, login/UAT Admin-Wali, rotasi secret, serta pemasangan dan pemulihan di VPS/on-premise.
 
 Langkah berikutnya adalah menyambungkan konektor ke project target yang benar atau memakai staging yang disetujui, lalu menjalankan preflight dan rehearsal baca-saja. Sampai saat itu, jangan menerapkan migration atau mengaktifkan feature flag produksi.
+
+
+## Koreksi checkpoint: verifikasi langsung target Supabase — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+Pernyataan sebelumnya bahwa project target tidak dapat diverifikasi melalui konektor hanya berlaku untuk konektor MCP. Dashboard Supabase yang sudah masuk ternyata memberi akses baca ke project yang benar. Temuan baru memperjelas risiko upgrade, tetapi tidak mengurangi release gate sehingga skor tetap 78/100.
+
+- Dashboard menunjukkan project `ERP4-Pesantren`, ref `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`, PostgreSQL 17.11.0.003. Pemeriksaan dilakukan lewat UI dan query SELECT metadata yang sudah ada; query pengguna yang belum disimpan tidak diubah atau dijalankan ulang.
+- Ledger produksi berisi 47 versi sampai `20261206000000`. Repository pada head PR #13 memiliki 81 migration sampai `20270109000000`, sehingga 34 migration belum tercatat pada target. Uji regresi `test:migration-preflight` kini juga mengunci baseline ini secara sintetis: 47 applied, 34 pending, tanpa versi asing atau urutan tertinggal. Tes lulus; koneksi Production tidak dipakai oleh tes.
+- Halaman Policies menampilkan RLS aktif pada seluruh 119 tabel `public`, akses Data API bertanda `API DISABLED`, dan 114 tabel tanpa policy. Lima tabel memiliki policy SELECT untuk `authenticated`: `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`. Ini menjaga akses browser tetap tertutup. Tampilan tersebut tidak membuktikan bahwa seluruh grant `service_role` dan jalur API backend berhasil pada target; hal itu harus diverifikasi setelah rehearsal non-production.
+- Halaman Scheduled Backups menyatakan paket Free tidak menyediakan backup project terjadwal. Karena baseline Production tidak memiliki backup terjadwal yang dapat dipakai pada alur ini, 34 migration tidak boleh diterapkan ke branch Production. Siapkan salinan yang dapat dipulihkan di environment terpisah sebelum rehearsal.
+- PR #13 tetap Open/Draft, head `b17517d834e6f01eddb0f2df16b3f1378a24edae`, base `c8738185ff6e5080ae427ef0021ee25681036c40`; CI run `40245870815` sukses pada kedua job. PR #11 tetap Open/Draft dan divergen dari #13; jangan merge stack #11 utuh.
+- Tidak ada migration, perubahan skema, data, grant, policy, feature flag, atau pengaturan backup yang diubah pada project Supabase. Tidak ada operasi tulis yang dilakukan.
+
+Langkah berikutnya adalah menyiapkan backup yang benar-benar dapat dipulihkan dan staging terpisah, menjalankan semua 34 migration pada salinan tersebut, lalu memvalidasi grant backend, RLS, pgTAP, API, storage, serta pemulihan. Rotasi secret dan login/UAT tetap menyusul sebelum release review.

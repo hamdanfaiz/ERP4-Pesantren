@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readdirSync } from 'node:fs';
 import {
   compareMigrationVersions,
   databaseUrlFromSupabaseStatus,
@@ -37,6 +38,25 @@ assert.doesNotMatch(formatReport(unknownRemote), /selaras/);
 const outOfOrder = compareMigrationVersions(local, ['20270102000000']);
 assert.deepEqual(outOfOrder.outOfOrderPending.map(({ version }) => version), ['20270101000000']);
 assert.equal(outOfOrder.canContinueToStagingReview, false);
+
+// Regression fixture from the read-only Production ledger observed on 2026-10-26.
+// This validates planning output only; it does not connect to or change Production.
+const repositoryMigrations = listLocalMigrations(
+  readdirSync(new URL('../supabase/migrations/', import.meta.url))
+);
+const observedProductionVersions = repositoryMigrations
+  .filter(({ version }) => version <= '20261206000000')
+  .map(({ version }) => version);
+assert.equal(observedProductionVersions.length, 47);
+const productionBaseline = compareMigrationVersions(repositoryMigrations, observedProductionVersions);
+assert.equal(productionBaseline.appliedCount, 47);
+assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
+assert.equal(productionBaseline.pending.length, repositoryMigrations.length - 47);
+assert.equal(productionBaseline.pending[0].version, '20261207000000');
+assert.equal(productionBaseline.pending.at(-1).version, repositoryMigrations.at(-1).version);
+assert.equal(productionBaseline.outOfOrderPending.length, 0);
+assert.equal(productionBaseline.unknownApplied.length, 0);
+assert.equal(productionBaseline.canContinueToStagingReview, true);
 
 assert.throws(() => compareMigrationVersions(local, ['invalid-version']), /tidak valid/);
 assert.throws(() => compareMigrationVersions(local, ['20270101000000', '20270101000000']), /duplikat/);

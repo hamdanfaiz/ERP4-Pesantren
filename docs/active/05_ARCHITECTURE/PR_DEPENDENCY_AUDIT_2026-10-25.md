@@ -297,3 +297,15 @@ CI run `40244584892` sukses di kedua job pada commit kode #13 `5fa94d13f0739c364
 - Tidak ada query tulis, migration, perubahan skema, atau pengaktifan feature flag Supabase pada project mana pun. Jangan gunakan project `vqemuyzveuirlkvdggjd` sebagai pengganti target.
 
 Status akhir tetap: #13 adalah jalur cutover utama tetapi belum siap merge/go-live; #11 belum ditutup dan tidak boleh digabungkan utuh; staging, target Supabase yang benar, rekonsiliasi, review, login/UAT, secret rotation, dan uji customer-managed tetap diperlukan.
+
+
+## Koreksi status terkini — 26 Oktober 2026
+
+Dashboard, bukan konektor Supabase MCP, berhasil memberikan akses baca pada target `ptsasgdvgrbdtgyqieie`. Karena itu pernyataan di snapshot sebelumnya bahwa ledger target belum dapat diperiksa sudah tidak berlaku.
+
+- PR #13 masih Open/Draft, head `b17517d834e6f01eddb0f2df16b3f1378a24edae`, base merge PR #12 `c8738185ff6e5080ae427ef0021ee25681036c40`; CI run [`40245870815`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40245870815) sukses pada kedua job.
+- PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, base `backend/supabase-finance-ui` pada `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. Perbandingan terhadap head #13 terbaru berstatus `diverged`: #13 398 commit di depan dan 235 di belakang, merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`.
+- Target production memiliki 47 migration tercatat hingga `20261206000000`; 34 migration repository dari `20261207000000` hingga `20270109000000` belum tercatat. Paket Supabase Free menyatakan tidak menyediakan backup project terjadwal. RLS aktif di 119 tabel `public`, sedangkan akses Data API ditampilkan sebagai disabled/restricted.
+- Pengamatan dashboard dan status migration hanya baca. Tidak ada migration, data, policy, grant, atau konfigurasi target yang diubah. CI memakai database lokal sintetis dan tidak mencakup target production.
+
+Jangan menerapkan migration ke Production. Lanjutkan setelah ada salinan terisolasi yang dapat dipulihkan; lakukan rehearsal 34 migration, validasi jalur service-role/API dan pemulihan, lalu tutup review PR serta login/UAT sebelum menetapkan readiness.
