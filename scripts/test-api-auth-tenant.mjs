@@ -146,6 +146,16 @@ async function main() {
     }
     assert.ok(ready, 'API server did not become ready on its configured test port.');
 
+    const liveResponse = await fetch(`${apiBase}/health/live`);
+    assert.equal(liveResponse.status, 200, 'Liveness must report a running API without exposing diagnostics.');
+    assert.equal((await liveResponse.json()).status, 'live');
+    assert.equal(liveResponse.headers.get('cache-control'), 'no-store');
+
+    const readyResponse = await fetch(`${apiBase}/health/ready`);
+    assert.equal(readyResponse.status, 200, 'Readiness must verify the local Supabase profile store.');
+    assert.equal((await readyResponse.json()).status, 'ready');
+    assert.equal(readyResponse.headers.get('cache-control'), 'no-store');
+
     const unauthenticated = await fetch(`${apiBase}/api/users`);
     assert.equal(unauthenticated.status, 401, 'Requests without a session must be rejected.');
 
