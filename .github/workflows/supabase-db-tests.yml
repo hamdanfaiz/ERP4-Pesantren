@@ -148,6 +148,9 @@ jobs:
       - name: Verify concurrent NIS reservation
         run: npm run test:db:nis-race
 
+      - name: Verify concurrent Tahfidz teacher slot reservation
+        run: npm run test:db:tahfidz-session-race
+
       - name: Verify legacy library catalog import preview logic
         run: npm run test:library-legacy-import
 

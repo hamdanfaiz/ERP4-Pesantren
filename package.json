@@ -12,6 +12,7 @@
     "lint": "tsc --noEmit",
     "test:db": "supabase test db",
     "test:db:nis-race": "node scripts/test-nis-concurrency.mjs",
+    "test:db:tahfidz-session-race": "node scripts/test-tahfidz-session-concurrency.mjs",
     "test:api:auth-tenant": "node scripts/test-api-auth-tenant.mjs",
     "test:api:finance-storage": "node scripts/test-finance-storage-http.mjs",
     "test:db:backup-restore": "node scripts/test-database-backup-restore.mjs",
