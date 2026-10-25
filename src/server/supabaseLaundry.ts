@@ -1,3 +1,5 @@
+import { readPostgrestRowsInPages } from "./postgrestPagination";
+
 type Row = Record<string, any>;
 
 export class SupabaseLaundryError extends Error {
@@ -60,9 +62,12 @@ async function tenant(tenantId: string) {
 
 async function rows(table: string, tenantId: string, select: string, order: string, extra: Record<string, string> = {}) {
   const params = new URLSearchParams({ select, tenant_id: "eq." + tenantId, order, limit: "5001", ...extra });
-  const result = await request(`/rest/v1/${table}?${params.toString()}`);
-  if (!Array.isArray(result) || result.length > 5000) throw new SupabaseLaundryError(503, "Data laundry melewati batas tampilan aman.");
-  return result as Row[];
+  return readPostgrestRowsInPages<Row>({
+    request,
+    path: `/rest/v1/${table}?${params.toString()}`,
+    maxRows: 5000,
+    onIncomplete: () => new SupabaseLaundryError(503, "Data laundry melewati batas aman tampilan atau hasil pemindaian tidak lengkap."),
+  });
 }
 
 function localMonthBounds(timeZone: string, now = new Date()) {
