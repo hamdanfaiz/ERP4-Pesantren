@@ -230,3 +230,18 @@ Skor naik satu poin dari 66/100 setelah optimasi snapshot Tahfidz lolos tes dan 
 - Tidak ada perubahan migration atau penulisan ke Supabase Production.
 
 Batas pemindaian snapshot roster santri dan halaqah masih 5.000 baris; server-side pagination dan pencarian roster tetap menjadi pekerjaan skala selanjutnya. PR #13 tetap Open/Draft, dan release gate staging, rekonsiliasi data, uji login/role, rotasi secret, review, serta uji VPS/on-premise tetap terbuka.
+
+## Pagination roster Tahfidz untuk tenant besar — 26 Oktober 2026
+
+### Progres menuju go-live: 68/100
+
+Skor naik satu poin dari 67/100 setelah roster dan pencarian Tahfidz beralih ke halaman keyset server-side dengan batas tenant/role, tes pgTAP, typecheck, build, serta pemeriksaan instalasi customer-managed lulus pada commit yang sama.
+
+- Endpoint roster baru memuat paling banyak 100 santri per halaman, memakai cursor ID stabil, serta mendukung pencarian awalan nama/NIS tanpa memperlakukan `%`, `_`, atau `\\` sebagai wildcard. Ringkasan dashboard tetap menghitung jumlah santri, cakupan target, santri tanpa halaqah, dan isi halaqah secara tepat.
+- RPC memeriksa profil aktif, tenant aktif, role, dan izin Tahfidz. Ustadz hanya melihat santri di halaqah yang diampu; Santri dan Wali dibatasi pada relasi santri yang sudah diverifikasi server. Hak eksekusi RPC hanya diberikan kepada `service_role`.
+- UI memuat halaman roster berikutnya saat diperlukan. Nomor urut permintaan mencegah hasil pencarian lama menimpa hasil query baru atau mengubah status loading/error pencarian yang sedang aktif.
+- Uji pgTAP dengan 20 assertion mencakup hak RPC, isolasi tenant/role, agregat ringkasan, pencarian literal, pagination cursor, dan penolakan izin Tahfidz nonaktif. Kesalahan assertion pgTAP yang ditemukan pada percobaan pertama sudah diperbaiki.
+- CI run [40231699139](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40231699139) sukses pada kedua job di head `5e556ec9594ed267d4a5bd057cd6aee6a9909797`: typecheck, tes frontend, build, guard Firebase, image/Compose/Docker smoke test, migrasi dan pgTAP Supabase lokal, NIS serentak, API auth/isolasi tenant, Finance Storage, serta backup/restore.
+- Tes logika Tahfidz dan transpile halaman juga lulus lokal. Perubahan tidak diterapkan ke Supabase Production. PR #13 masih Open/Draft.
+
+Kenaikan ini membuktikan jalur roster Tahfidz pada database sintetis di CI, bukan kesiapan go-live. Migrasi dan rekonsiliasi data, staging, login Admin/Wali dan matriks izin, rotasi secret yang pernah dibagikan, UAT, review PR, serta uji pemasangan/pemulihan VPS dan on-premise tetap terbuka.
