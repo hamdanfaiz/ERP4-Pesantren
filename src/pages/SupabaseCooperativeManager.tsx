@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, BarChart3, Check, Loader2, Package, Plus, RefreshCw, ShoppingCart, Truck, Wallet, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
@@ -112,6 +112,8 @@ export function SupabaseCooperativeManager() {
   const [financialBusy, setFinancialBusy] = useState(false);
   const [financialApplyBusy, setFinancialApplyBusy] = useState(false);
   const [financialDirty, setFinancialDirty] = useState(false);
+  const financialMappingRevision = useRef(0);
+  const financialPreviewRequestId = useRef(0);
 
   const refresh = useCallback(async () => {
     const payload = await requestCooperative("/api/cooperative/snapshot");
@@ -209,18 +211,28 @@ export function SupabaseCooperativeManager() {
   };
 
   const runFinancialPreview = async () => {
+    const requestId = ++financialPreviewRequestId.current;
+    const mappingRevision = financialMappingRevision.current;
     setFinancialBusy(true); setError(""); setNotice("");
     try {
       const result = await requestCooperative("/api/cooperative/legacy/financial-import/preview", {
         method: "POST",
         body: JSON.stringify({ mappings: financialMappings }),
       });
+      if (requestId !== financialPreviewRequestId.current) return;
       setFinancialPreview(result as LegacyFinancialPreview);
-      setFinancialDirty(false);
-      setNotice("Pratinjau finansial berhasil dihitung. Belum ada data yang diubah.");
+      const mappingsUnchanged = mappingRevision === financialMappingRevision.current;
+      setFinancialDirty(!mappingsUnchanged);
+      setNotice(mappingsUnchanged
+        ? "Pratinjau finansial berhasil dihitung. Belum ada data yang diubah."
+        : "Pemetaan berubah saat pratinjau berjalan. Hasil ini kedaluwarsa; hitung ulang sebelum melanjutkan.");
     } catch (previewError: any) {
-      setError(previewError?.message || "Pratinjau arsip Koperasi belum dapat dimuat.");
-    } finally { setFinancialBusy(false); }
+      if (requestId === financialPreviewRequestId.current) {
+        setError(previewError?.message || "Pratinjau arsip Koperasi belum dapat dimuat.");
+      }
+    } finally {
+      if (requestId === financialPreviewRequestId.current) setFinancialBusy(false);
+    }
   };
 
   const applyFinancialHistory = async () => {
@@ -258,6 +270,7 @@ export function SupabaseCooperativeManager() {
   };
 
   const markFinancialMappingChanged = () => {
+    financialMappingRevision.current += 1;
     setFinancialDirty(true); setNotice("");
   };
 
@@ -351,13 +364,13 @@ export function SupabaseCooperativeManager() {
                 <div className="flex flex-wrap items-start justify-between gap-2"><div><div className="font-medium text-slate-900 dark:text-white">{wallet.studentLabel || "Wallet tanpa label santri"}</div><div className="font-mono text-xs text-slate-500">Ref arsip {wallet.sourceRef.slice(0, 12)}</div></div><div className="text-right text-xs text-slate-500">Saldo akhir arsip <strong className="text-slate-800 dark:text-slate-200">{money(wallet.closingBalance)}</strong><br />Penjualan terhitung <strong className="text-slate-800 dark:text-slate-200">{money(wallet.salesTotal)}</strong></div></div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="text-sm">Dompet tujuan
-                    <select value={financialMappings.wallets[wallet.sourceRef]?.targetWalletId || ""} onChange={(e) => { setFinancialMappings((current) => ({ ...current, wallets: { ...current.wallets, [wallet.sourceRef]: { ...current.wallets[wallet.sourceRef], targetWalletId: e.target.value || undefined } } })); markFinancialMappingChanged(); }} className={inputClass}>
+                    <select value={financialMappings.wallets[wallet.sourceRef]?.targetWalletId || ""} onChange={(e) => { setFinancialMappings((current) => ({ ...current, wallets: { ...current.wallets, [wallet.sourceRef]: { ...current.wallets[wallet.sourceRef], targetWalletId: e.target.value || undefined } } })); markFinancialMappingChanged(); }} disabled={financialBusy || financialApplyBusy || busy} className={inputClass}>
                       <option value="">Pilih dompet santri</option>
                       {financialPreview.targetWalletOptions.map((target) => <option key={target.walletId} value={target.walletId}>{target.student} · {target.nis || "tanpa NIS"} · saldo {money(target.balance)} · {target.status === "active" ? "aktif" : "diblokir"}</option>)}
                     </select>
                   </label>
                   <label className="text-sm">Saldo pembuka hasil konfirmasi (rupiah)
-                    <input type="number" min="0" step="1" inputMode="numeric" value={financialMappings.wallets[wallet.sourceRef]?.openingBalance ?? ""} onChange={(e) => { const value = e.target.value; setFinancialMappings((current) => ({ ...current, wallets: { ...current.wallets, [wallet.sourceRef]: { ...current.wallets[wallet.sourceRef], openingBalance: value === "" ? undefined : Number(value) } } })); markFinancialMappingChanged(); }} className={inputClass} />
+                    <input type="number" min="0" step="1" inputMode="numeric" value={financialMappings.wallets[wallet.sourceRef]?.openingBalance ?? ""} onChange={(e) => { const value = e.target.value; setFinancialMappings((current) => ({ ...current, wallets: { ...current.wallets, [wallet.sourceRef]: { ...current.wallets[wallet.sourceRef], openingBalance: value === "" ? undefined : Number(value) } } })); markFinancialMappingChanged(); }} disabled={financialBusy || financialApplyBusy || busy} className={inputClass} />
                   </label>
                 </div>
                 {wallet.targetStudentLabel && <p className="text-xs text-slate-500">Santri tujuan: {wallet.targetStudentLabel} · {wallet.targetStudentNis || "tanpa NIS"} · perkiraan saldo akhir {money(wallet.expectedClosingBalance ?? 0)}</p>}
@@ -368,7 +381,7 @@ export function SupabaseCooperativeManager() {
               {financialPreview.transactions.some((transaction) => transaction.items.length > 0) ? financialPreview.transactions.flatMap((transaction) => transaction.items.map((item) => <article key={item.itemRef} className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-[1fr_1fr] dark:border-slate-800">
                 <div><div className="font-medium text-slate-900 dark:text-white">{item.name}</div><div className="mt-1 text-xs text-slate-500">{transaction.createdAt ? new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeZone: snapshot.timeZone }).format(new Date(transaction.createdAt)) : "Tanggal tidak valid"} · {item.quantity} × {money(item.unitPrice)} = {money(item.lineTotal)}</div><div className="mt-1 font-mono text-[11px] text-slate-400">Transaksi {transaction.sourceRef.slice(0, 12)}</div></div>
                 <label className="text-sm">Produk tujuan
-                  <select value={financialMappings.products[item.itemRef] || ""} onChange={(e) => { setFinancialMappings((current) => ({ ...current, products: { ...current.products, [item.itemRef]: e.target.value } })); markFinancialMappingChanged(); }} className={inputClass}>
+                  <select value={financialMappings.products[item.itemRef] || ""} onChange={(e) => { setFinancialMappings((current) => ({ ...current, products: { ...current.products, [item.itemRef]: e.target.value } })); markFinancialMappingChanged(); }} disabled={financialBusy || financialApplyBusy || busy} className={inputClass}>
                     <option value="">Pilih produk</option>
                     {financialPreview.targetProductOptions.map((target) => <option key={target.id} value={target.id}>{target.sku || "tanpa SKU"} · {target.name} · {target.status === "active" ? "aktif" : "diarsipkan"}</option>)}
                   </select>
@@ -376,7 +389,7 @@ export function SupabaseCooperativeManager() {
               </article>)) : <div className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700">Tidak ada baris produk yang ditemukan.</div>}
             </section>
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200">
-              <input type="checkbox" checked={financialMappings.confirmCompleteHistory} onChange={(e) => { setFinancialMappings((current) => ({ ...current, confirmCompleteHistory: e.target.checked })); markFinancialMappingChanged(); }} className="mt-0.5" />
+              <input type="checkbox" checked={financialMappings.confirmCompleteHistory} onChange={(e) => { setFinancialMappings((current) => ({ ...current, confirmCompleteHistory: e.target.checked })); markFinancialMappingChanged(); }} disabled={financialBusy || financialApplyBusy || busy} className="mt-0.5" />
               <span>Saya telah memastikan seluruh penjualan arsip untuk periode migrasi tersedia dan saldo pembuka dapat direkonsiliasi dengan saldo akhir setiap dompet.</span>
             </label>
             {financialPreview.warnings.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30"><h3 className="font-semibold text-amber-900 dark:text-amber-100">Catatan pemeriksaan</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-100">{financialPreview.warnings.map((warning) => <li key={warning.code}>{cooperativeFinancialWarningLabel(warning.code)} · {warning.count}</li>)}</ul></section>}
