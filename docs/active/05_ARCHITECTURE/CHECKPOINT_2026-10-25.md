@@ -131,3 +131,9 @@ Gerbang berikutnya: kirim perubahan ke PR #13, tunggu CI lulus pada commit yang 
 - Koreksi runtime Firebase telah masuk ke head PR #13 `e3d91bc4eb29bac2e59310e435394c98196ee211`. CI run `40188865422` lulus untuk kedua job, termasuk typecheck/build/Docker, guard frontend baru, seluruh migration/pgTAP Supabase lokal, API tenant, NIS serentak, Storage, dan backup/restore.
 - Progres rilis tetap **61/100**. CI mengonfirmasi kualitas kode pada commit tersebut, tetapi belum menguji kredensial Admin di staging, rekonsiliasi/apply data, atau deployment di environment pelanggan.
 - Perbaikan lanjutan berupa 62 assertion Tahfidz untuk setoran, halaqah, membership, target, batas tenant/role, idempotensi, RLS, dan hak RPC kini disiapkan dalam worktree. Supabase CLI/Docker tidak tersedia lokal; tes menunggu workflow CI setelah perubahan dikirim.
+
+## Koreksi awal test Tahfidz — 25 Oktober 2026
+
+### Progres menuju go-live: 61/100
+
+Run `40189469182` menunjukkan frontend berhasil, tetapi job database gagal sebelum test Tahfidz berjalan. Log menunjuk sintaks kurang satu kurung pada sembilan ekspresi pgTAP yang membaca field hasil RPC; 62 assertion direncanakan, 0 dieksekusi. Tes database lain sebelum file tersebut lulus. Kesalahan sintaks telah diperbaiki, namun suite wajib diulang pada commit baru sebelum test Tahfidz dinyatakan lulus. Skor tidak naik.

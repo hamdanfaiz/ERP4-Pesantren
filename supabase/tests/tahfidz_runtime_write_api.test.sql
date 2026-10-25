@@ -52,13 +52,13 @@ SELECT is((public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', 'd1800000-0000-4000-8000-000000000401',
   'Ziyadah', 'Al-Baqarah', 1, 5, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
   'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000501'
-)->>'alreadyRecorded', 'false', 'assigned Ustadz can record a valid setoran');
+)->>'alreadyRecorded'), 'false', 'assigned Ustadz can record a valid setoran');
 SELECT is((SELECT count(*)::INTEGER FROM public.tahfidz_records WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009'), 1, 'one setoran is stored');
 SELECT is((public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', 'd1800000-0000-4000-8000-000000000401',
   'Ziyadah', 'Al-Baqarah', 1, 5, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
   'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000501'
-)->>'alreadyRecorded', 'true', 'identical setoran retry returns the committed record');
+)->>'alreadyRecorded'), 'true', 'identical setoran retry returns the committed record');
 SELECT is((SELECT count(*)::INTEGER FROM public.tahfidz_records WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009'), 1, 'identical retry does not create another setoran');
 SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', 'd1800000-0000-4000-8000-000000000401',
@@ -95,12 +95,12 @@ SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
 SELECT is((public.save_tahfidz_halaqah(
   'd1800000-0000-4000-8000-000000000009', NULL::UUID, 'Halaqah C', 'd1800000-0000-4000-8000-000000000012',
   'Pagi', 'Mushalla', 2.00::NUMERIC, 'active', 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000507'
-)->>'alreadyApplied', 'false', 'Admin can create an active halaqah');
+)->>'alreadyApplied'), 'false', 'Admin can create an active halaqah');
 SELECT is((SELECT count(*)::INTEGER FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND status = 'active'), 3, 'new halaqah is persisted once');
 SELECT is((public.save_tahfidz_halaqah(
   'd1800000-0000-4000-8000-000000000009', NULL::UUID, 'Halaqah C', 'd1800000-0000-4000-8000-000000000012',
   'Pagi', 'Mushalla', 2.00::NUMERIC, 'active', 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000507'
-)->>'alreadyApplied', 'true', 'identical halaqah retry returns the original record');
+)->>'alreadyApplied'), 'true', 'identical halaqah retry returns the original record');
 SELECT throws_ok($$SELECT public.save_tahfidz_halaqah(
   'd1800000-0000-4000-8000-000000000009', NULL::UUID, 'Halaqah C Ubah', 'd1800000-0000-4000-8000-000000000012',
   'Pagi', 'Mushalla', 2.00::NUMERIC, 'active', 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000507'
@@ -118,7 +118,7 @@ SELECT is((public.assign_tahfidz_membership(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
   (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
   CURRENT_DATE, 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000510'
-)->>'alreadyApplied', 'false', 'Admin can move a student to a new halaqah');
+)->>'alreadyApplied'), 'false', 'Admin can move a student to a new halaqah');
 SELECT is((SELECT count(*)::INTEGER FROM public.tahfidz_memberships WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND student_id = 'd1800000-0000-4000-8000-000000000201' AND status = 'active'), 1, 'student has only one active halaqah');
 SELECT is((SELECT count(*)::INTEGER FROM public.tahfidz_memberships WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND student_id = 'd1800000-0000-4000-8000-000000000201'), 2, 'moving a student preserves both membership records');
 SELECT is((SELECT ends_on::TEXT FROM public.tahfidz_memberships WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND student_id = 'd1800000-0000-4000-8000-000000000201' AND status = 'ended'), (CURRENT_DATE - 1)::TEXT, 'previous membership ends the day before the new assignment');
@@ -126,7 +126,7 @@ SELECT is((public.assign_tahfidz_membership(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
   (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
   CURRENT_DATE, 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000510'
-)->>'alreadyApplied', 'true', 'identical membership retry is detected');
+)->>'alreadyApplied'), 'true', 'identical membership retry is detected');
 SELECT is((SELECT count(*)::INTEGER FROM public.tahfidz_memberships WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND student_id = 'd1800000-0000-4000-8000-000000000201'), 2, 'membership retry does not duplicate history');
 SELECT throws_ok($$SELECT public.assign_tahfidz_membership(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', 'd1800000-0000-4000-8000-000000000402',
@@ -153,12 +153,12 @@ SELECT throws_ok($$SELECT public.assign_tahfidz_membership(
 SELECT is((public.record_tahfidz_daily_target(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE, NULL,
   1.00::NUMERIC, 1.00::NUMERIC, 'standard', NULL, 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000515'
-)->>'alreadyApplied', 'false', 'Admin can save a tenant-scoped daily target');
+)->>'alreadyApplied'), 'false', 'Admin can save a tenant-scoped daily target');
 SELECT is((SELECT count(*)::INTEGER FROM public.tahfidz_targets WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND student_id = 'd1800000-0000-4000-8000-000000000201'), 1, 'one target is stored for the student');
 SELECT is((public.record_tahfidz_daily_target(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE, NULL,
   1.00::NUMERIC, 1.00::NUMERIC, 'standard', NULL, 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000515'
-)->>'alreadyApplied', 'true', 'identical target retry is detected');
+)->>'alreadyApplied'), 'true', 'identical target retry is detected');
 SELECT throws_ok($$SELECT public.record_tahfidz_daily_target(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE, NULL,
   2.00::NUMERIC, 1.00::NUMERIC, 'standard', NULL, 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000515'
@@ -166,7 +166,7 @@ SELECT throws_ok($$SELECT public.record_tahfidz_daily_target(
 SELECT is((public.record_tahfidz_daily_target(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE, NULL,
   2.00::NUMERIC, 1.00::NUMERIC, 'standard', NULL, 'd1800000-0000-4000-8000-000000000012', 'ustadz', 'd1800000-0000-4000-8000-000000000516'
-)->>'alreadyApplied', 'false', 'assigned Ustadz may update the target of a student in their halaqah');
+)->>'alreadyApplied'), 'false', 'assigned Ustadz may update the target of a student in their halaqah');
 SELECT throws_ok($$SELECT public.record_tahfidz_daily_target(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE, NULL,
   3.00::NUMERIC, 1.00::NUMERIC, 'standard', NULL, 'd1800000-0000-4000-8000-000000000013', 'ustadz', 'd1800000-0000-4000-8000-000000000517'
