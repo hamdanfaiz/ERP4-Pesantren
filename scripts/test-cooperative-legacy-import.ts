@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { previewSupabaseLegacyCooperativeCatalog, previewSupabaseLegacyCooperativeFinancialHistory } from "../src/server/supabaseCooperativeImport";
+import { readTenantRowsInPages } from "../src/server/paginatedTenantRows";
 
 process.env.SUPABASE_LEGACY_FINGERPRINT_KEY = "cooperative-import-test-key-0123456789abcdef";
 
@@ -240,6 +241,47 @@ const overLimitPreview = previewSupabaseLegacyCooperativeFinancialHistory(
 assert.equal(overLimitPreview.canApply, false, "an amount outside the Finance ledger range is rejected in preview");
 assert.ok(overLimitPreview.issues.some((item) => item.code === "invalid_or_duplicate_source_wallet"));
 
-console.log("cooperative legacy financial preview: 8 validation groups passed");
+
+const cappedRows = (count: number) => Array.from({ length: count }, (_, index) => ({
+  id: String(index + 1).padStart(8, "0"),
+}));
+const sourceRowsAboveApiCap = cappedRows(1005);
+const completePagedScan = await readTenantRowsInPages({
+  getExactCount: async () => sourceRowsAboveApiCap.length,
+  readPage: async (afterId, limit) => sourceRowsAboveApiCap
+    .filter((row) => afterId === null || row.id > afterId)
+    .slice(0, Math.min(limit, 1000)),
+});
+assert.equal(completePagedScan.complete, true, "keyset paging must continue past Supabase's 1,000-row API cap");
+assert.equal(completePagedScan.rows.length, 1005);
+assert.equal(new Set(completePagedScan.rows.map((row) => row.id)).size, 1005, "pages have no duplicate IDs");
+
+const sourceRowsAboveImportLimit = cappedRows(5001);
+const boundedPagedScan = await readTenantRowsInPages({
+  getExactCount: async () => sourceRowsAboveImportLimit.length,
+  readPage: async (afterId, limit) => sourceRowsAboveImportLimit
+    .filter((row) => afterId === null || row.id > afterId)
+    .slice(0, Math.min(limit, 1000)),
+});
+assert.equal(boundedPagedScan.rows.length, 5000);
+assert.equal(boundedPagedScan.complete, false, "a tenant scan above the explicit 5,000-row safety cap must fail closed");
+
+const changingCountRows = cappedRows(1005);
+let countRead = 0;
+const changingCountScan = await readTenantRowsInPages({
+  getExactCount: async () => (++countRead === 1 ? 1005 : 1006),
+  readPage: async (afterId, limit) => changingCountRows
+    .filter((row) => afterId === null || row.id > afterId)
+    .slice(0, Math.min(limit, 1000)),
+});
+assert.equal(changingCountScan.complete, false, "a changing tenant row count during the scan must fail closed");
+
+const prematurelyEmptyScan = await readTenantRowsInPages({
+  getExactCount: async () => 1005,
+  readPage: async () => [],
+});
+assert.equal(prematurelyEmptyScan.complete, false, "an empty page before the exact count is reached must not appear complete");
+
+console.log("cooperative legacy financial preview and pagination: 12 validation groups passed");
 
 
