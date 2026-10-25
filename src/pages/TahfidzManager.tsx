@@ -489,6 +489,7 @@ export function TahfidzManager() {
   const [rosterSearchHasMore, setRosterSearchHasMore] = useState(false);
   const [rosterSearchCursor, setRosterSearchCursor] = useState("");
   const [rosterSearchLoading, setRosterSearchLoading] = useState(false);
+  const rosterSearchRequestSequence = useRef(0);
   const [records, setRecords] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : INITIAL_RECORDS);
   const [recordsHasMore, setRecordsHasMore] = useState(false);
   const [recordsNextCursor, setRecordsNextCursor] = useState("");
@@ -600,12 +601,15 @@ export function TahfidzManager() {
 
   const loadMoreTahfidzSearch = async () => {
     if (!rosterSearchHasMore || !rosterSearchCursor || rosterSearchLoading || !searchQuery.trim()) return;
+    const requestedSearch = searchQuery.trim();
+    const requestSequence = rosterSearchRequestSequence.current;
     setRosterSearchLoading(true);
     setTahfidzError("");
     try {
       const page = await requestSupabaseTahfidzApi(
-        `/api/tahfidz/roster?cursor=${encodeURIComponent(rosterSearchCursor)}&search=${encodeURIComponent(searchQuery.trim())}`,
+        `/api/tahfidz/roster?cursor=${encodeURIComponent(rosterSearchCursor)}&search=${encodeURIComponent(requestedSearch)}`,
       );
+      if (requestSequence !== rosterSearchRequestSequence.current || requestedSearch !== searchQuery.trim()) return;
       const incoming = Array.isArray(page.roster) ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student)) : [];
       setRosterSearchResults((current) => {
         const knownIds = new Set((current || []).map((student) => String(student.id)));
@@ -614,13 +618,16 @@ export function TahfidzManager() {
       setRosterSearchHasMore(page.hasMore === true);
       setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
-      setTahfidzError(error?.message || "Hasil pencarian santri berikutnya belum dapat dimuat.");
+      if (requestSequence === rosterSearchRequestSequence.current && requestedSearch === searchQuery.trim()) {
+        setTahfidzError(error?.message || "Hasil pencarian santri berikutnya belum dapat dimuat.");
+      }
     } finally {
-      setRosterSearchLoading(false);
+      if (requestSequence === rosterSearchRequestSequence.current) setRosterSearchLoading(false);
     }
   };
 
   useEffect(() => {
+    const requestSequence = ++rosterSearchRequestSequence.current;
     if (!SUPABASE_TAHFIDZ_RUNTIME || !searchQuery.trim()) {
       setRosterSearchResults(null);
       setRosterSearchTerm("");
@@ -639,15 +646,15 @@ export function TahfidzManager() {
     const timer = window.setTimeout(() => {
       requestSupabaseTahfidzApi(`/api/tahfidz/roster?search=${encodeURIComponent(query)}`)
         .then((page) => {
-          if (!active) return;
+          if (!active || requestSequence !== rosterSearchRequestSequence.current) return;
           setRosterSearchResults(Array.isArray(page.roster) ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student)) : []);
           setRosterSearchHasMore(page.hasMore === true);
           setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
         })
         .catch((error: any) => {
-          if (active) setTahfidzError(error?.message || "Pencarian roster santri belum dapat dimuat.");
+          if (active && requestSequence === rosterSearchRequestSequence.current) setTahfidzError(error?.message || "Pencarian roster santri belum dapat dimuat.");
         })
-        .finally(() => { if (active) setRosterSearchLoading(false); });
+        .finally(() => { if (active && requestSequence === rosterSearchRequestSequence.current) setRosterSearchLoading(false); });
     }, 250);
     return () => { active = false; window.clearTimeout(timer); };
   }, [searchQuery, user?.tenantId, user?.uid, role]);

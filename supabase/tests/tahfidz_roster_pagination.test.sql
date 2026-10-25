@@ -62,7 +62,7 @@ VALUES ('d1900000-0000-4000-8000-000000000009', 'd1900000-0000-4000-8000-0000000
 INSERT INTO public.guardian_user_accounts (tenant_id, guardian_id, user_id, status)
 VALUES ('d1900000-0000-4000-8000-000000000009', 'd1900000-0000-4000-8000-000000000501', 'd1900000-0000-4000-8000-000000000014', 'active');
 
-SELECT ok(has_function('public', 'list_tahfidz_roster_page', ARRAY['uuid','uuid','text','date','uuid','text','integer','boolean']), 'the tenant-scoped roster RPC exists');
+SELECT has_function('public', 'list_tahfidz_roster_page', ARRAY['uuid','uuid','text','date','uuid','text','integer','boolean'], 'the tenant-scoped roster RPC exists');
 SELECT ok(NOT has_function_privilege('anon', 'public.list_tahfidz_roster_page(uuid,uuid,text,date,uuid,text,integer,boolean)', 'EXECUTE'), 'anonymous users cannot execute roster RPC');
 SELECT ok(NOT has_function_privilege('authenticated', 'public.list_tahfidz_roster_page(uuid,uuid,text,date,uuid,text,integer,boolean)', 'EXECUTE'), 'authenticated clients cannot bypass the trusted server for roster RPC');
 SELECT ok(has_function_privilege('service_role', 'public.list_tahfidz_roster_page(uuid,uuid,text,date,uuid,text,integer,boolean)', 'EXECUTE'), 'trusted server can execute roster RPC');
