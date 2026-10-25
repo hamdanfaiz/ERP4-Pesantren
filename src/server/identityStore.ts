@@ -144,7 +144,32 @@ export type TenantProfileListPage = {
   total: number;
 };
 
-export async function listTenantProfiles(
+const TENANT_PROFILE_BATCH_SIZE = 500;
+
+export async function listTenantProfiles(tenantId: string): Promise<StoredUserProfile[]> {
+  const supabase = supabaseAdmin();
+  const profiles: StoredUserProfile[] = [];
+  let lastUserId = "";
+
+  while (true) {
+    let query = supabase.from("profiles")
+      .select(CANONICAL_PROFILE_SELECT)
+      .eq("tenant_id", tenantId)
+      .order("user_id", { ascending: true })
+      .limit(TENANT_PROFILE_BATCH_SIZE);
+    if (lastUserId) query = query.gt("user_id", lastUserId);
+    const { data, error } = await query;
+    if (error) throw new IdentityUnavailableError("Daftar pengguna tidak dapat dibaca dari Supabase.");
+    const rows = (data || []) as unknown as CanonicalProfileRow[];
+    profiles.push(...rows.map(mapCanonicalProfile));
+    if (rows.length < TENANT_PROFILE_BATCH_SIZE) break;
+    lastUserId = String(rows[rows.length - 1].user_id);
+  }
+
+  return profiles;
+}
+
+export async function listTenantProfilesPage(
   tenantId: string,
   options: TenantProfileListOptions = {},
 ): Promise<TenantProfileListPage> {
@@ -184,12 +209,12 @@ export async function listTenantProfiles(
     const escaped = search
       .replace(/\\/g, "\\\\")
       .replace(/"/g, '\\"')
-      .replace(/[%_*]/g, (character) => `\\${character}`);
-    const pattern = `"%${escaped}%"`;
+      .replace(/[%_*]/g, (character) => \`\\\\\${character}\`);
+    const pattern = \`"%\${escaped}%"\`;
     query = query.or([
-      `display_name.ilike.${pattern}`,
-      `email.ilike.${pattern}`,
-      `username.ilike.${pattern}`,
+      \`display_name.ilike.\${pattern}\`,
+      \`email.ilike.\${pattern}\`,
+      \`username.ilike.\${pattern}\`,
     ].join(","));
   }
 
