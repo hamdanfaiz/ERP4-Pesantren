@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { Firestore } from "firebase-admin/firestore";
-import { LegacyFirestoreTenantScopeError, readLegacyFirestoreTenantRows, scopeLegacyTenantRecords } from "../src/server/legacyFirestoreTenantScope";
+import { LegacyFirestoreTenantScopeError, legacyTenantPathRecordMatches, readLegacyFirestoreTenantRows, scopeLegacyTenantRecords } from "../src/server/legacyFirestoreTenantScope";
 
 const source = [
   { id: "owned", record: { tenantId: "pesantren-digital", name: "masked" } },
@@ -67,6 +67,14 @@ assert.throws(
   () => scopeLegacyTenantRecords([], ["pesantren-digital"], " "),
   /Legacy tenant key is required/,
 );
+
+assert.equal(legacyTenantPathRecordMatches({}, "pesantren-digital", "target-tenant-uuid"), true, "nested path establishes ownership when no duplicate owner field exists");
+assert.equal(legacyTenantPathRecordMatches({ tenantId: "pesantren-digital" }, "pesantren-digital", "target-tenant-uuid"), true);
+assert.equal(legacyTenantPathRecordMatches({ tenant_id: "target-tenant-uuid" }, "pesantren-digital", "target-tenant-uuid"), true);
+assert.equal(legacyTenantPathRecordMatches({ tenant_id: "another-tenant" }, "pesantren-digital", "target-tenant-uuid"), false, "explicit owner must match the source path or mapped target");
+assert.equal(legacyTenantPathRecordMatches({ tenantId: "pesantren-digital", tenant_id: "another-tenant" }, "pesantren-digital", "target-tenant-uuid"), false, "contradictory aliases must block nested settings operations");
+assert.equal(legacyTenantPathRecordMatches({ tenantId: 42 }, "pesantren-digital", "target-tenant-uuid"), false, "malformed owner field must block nested settings operations");
+assert.equal(legacyTenantPathRecordMatches({ tenant_id: "   " }, "pesantren-digital", "target-tenant-uuid"), false, "blank owner field must not be treated as absent");
 
 type FakeRow = { id: string; data: Record<string, unknown> };
 

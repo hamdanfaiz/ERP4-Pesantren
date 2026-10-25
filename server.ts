@@ -43,7 +43,7 @@ import {
 import { recordTenantSearchFeedback, SearchFeedbackStoreError } from "./src/server/searchFeedbackStore";
 import { isLegacyFirebaseAdminEnabled } from "./src/server/legacyFirebaseGate";
 import { ALL_SYSTEM_MODULE_IDS as ALL_SYSTEM_MODULES, PLATFORM_ONLY_MODULES, isModuleAccessible, isValidModulePermissions, type UserRole } from "./src/rbac";
-import { LegacyFirestoreTenantScopeError, readLegacyFirestoreTenantRows, scopeLegacyTenantRecords } from "./src/server/legacyFirestoreTenantScope";
+import { LegacyFirestoreTenantScopeError, legacyTenantPathRecordMatches, readLegacyFirestoreTenantRows, scopeLegacyTenantRecords } from "./src/server/legacyFirestoreTenantScope";
 import {
   assignSupabaseTahfidzMembership,
   getSupabaseTahfidzLegacyTenantKey,
@@ -3324,6 +3324,9 @@ async function startServer() {
       const legacySnapshot = await services.db.collection("tenants").doc(legacyTenantId)
         .collection("settings").doc("global").get();
       const legacySource = legacySnapshot.exists ? legacySnapshot.data() || {} : {};
+      if (!legacyTenantPathRecordMatches(legacySource, legacyTenantId, actor.tenantId)) {
+        return res.status(409).json({ error: "Tenant pada pengaturan sumber tidak cocok dengan mapping tenant." });
+      }
       const sanitizedSettings = sanitizeTenantSettings(legacySource);
       const sourceFingerprint = createHash("sha256")
         .update(JSON.stringify({ tenantId: actor.tenantId, legacyTenantId, exists: legacySnapshot.exists, settings: sanitizedSettings }))
@@ -3371,8 +3374,7 @@ async function startServer() {
       const settingsSnapshot = await settingsRef.get();
       if (settingsSnapshot.exists) {
         const settings = settingsSnapshot.data() || {};
-        const sourceTenantId = String(settings.tenantId || settings.tenant_id || "").trim();
-        if (sourceTenantId && sourceTenantId !== legacyTenantId && sourceTenantId !== tenantId) {
+        if (!legacyTenantPathRecordMatches(settings, legacyTenantId, tenantId)) {
           return res.status(409).json({ error: "Tenant pada settings tidak cocok." });
         }
         const integrations = settings.integrations && typeof settings.integrations === "object" ? settings.integrations : {};

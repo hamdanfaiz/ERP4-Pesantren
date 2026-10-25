@@ -19,6 +19,56 @@ export type LegacyTenantScopeResult = {
   audit: LegacyTenantScopeAudit;
 };
 
+export type LegacyTenantRecordNormalization =
+  | { valid: true; tenantId: string | null; record: Record<string, unknown> }
+  | { valid: false; tenantId: null; record: null };
+
+/** Normalize supported tenant aliases without mutating the Firestore snapshot. */
+export function normalizeLegacyTenantRecord(
+  source: Record<string, unknown>,
+): LegacyTenantRecordNormalization {
+  const camelTenantId = source.tenantId;
+  const snakeTenantId = source.tenant_id;
+  const hasCamelTenantId = camelTenantId !== undefined && camelTenantId !== null && camelTenantId !== "";
+  const hasSnakeTenantId = snakeTenantId !== undefined && snakeTenantId !== null && snakeTenantId !== "";
+  const normalizedCamelTenantId = typeof camelTenantId === "string" ? camelTenantId.trim() : "";
+  const normalizedSnakeTenantId = typeof snakeTenantId === "string" ? snakeTenantId.trim() : "";
+
+  if (
+    (hasCamelTenantId && typeof camelTenantId !== "string")
+    || (hasSnakeTenantId && typeof snakeTenantId !== "string")
+    || (hasCamelTenantId && !normalizedCamelTenantId)
+    || (hasSnakeTenantId && !normalizedSnakeTenantId)
+    || (hasCamelTenantId && hasSnakeTenantId
+      && normalizedCamelTenantId !== normalizedSnakeTenantId)
+  ) {
+    return { valid: false, tenantId: null, record: null };
+  }
+
+  const tenantId = hasCamelTenantId
+    ? normalizedCamelTenantId
+    : hasSnakeTenantId ? normalizedSnakeTenantId : null;
+  const record: Record<string, unknown> = { ...source };
+  delete record.tenant_id;
+  if (tenantId) record.tenantId = tenantId;
+  else delete record.tenantId;
+  return { valid: true, tenantId, record };
+}
+
+/** A nested Firestore document is owned by its path; reject conflicting owner fields. */
+export function legacyTenantPathRecordMatches(
+  source: Record<string, unknown>,
+  expectedLegacyTenantKey: string,
+  targetTenantId: string,
+): boolean {
+  const normalized = normalizeLegacyTenantRecord(source);
+  if (!normalized.valid || !normalized.tenantId) return normalized.valid;
+  const legacyKey = expectedLegacyTenantKey.trim();
+  const tenantId = targetTenantId.trim();
+  return Boolean(legacyKey && tenantId)
+    && (normalized.tenantId === legacyKey || normalized.tenantId === tenantId);
+}
+
 /**
  * Scope a bounded legacy snapshot to one explicitly configured source tenant.
  * Tenantless records are eligible only when the Firestore tenant registry
@@ -47,38 +97,16 @@ export function scopeLegacyTenantRecords(
   let invalidTenantIdCount = 0;
 
   for (const source of records) {
-    const camelTenantId = source.record.tenantId;
-    const snakeTenantId = source.record.tenant_id;
-    const hasCamelTenantId = camelTenantId !== undefined && camelTenantId !== null && camelTenantId !== "";
-    const hasSnakeTenantId = snakeTenantId !== undefined && snakeTenantId !== null && snakeTenantId !== "";
-    const normalizedCamelTenantId = typeof camelTenantId === "string" ? camelTenantId.trim() : "";
-    const normalizedSnakeTenantId = typeof snakeTenantId === "string" ? snakeTenantId.trim() : "";
-
-    if (
-      (hasCamelTenantId && typeof camelTenantId !== "string")
-      || (hasSnakeTenantId && typeof snakeTenantId !== "string")
-      || (hasCamelTenantId && !normalizedCamelTenantId)
-      || (hasSnakeTenantId && !normalizedSnakeTenantId)
-      || (hasCamelTenantId && hasSnakeTenantId
-        && normalizedCamelTenantId !== normalizedSnakeTenantId)
-    ) {
+    const normalized = normalizeLegacyTenantRecord(source.record);
+    if (!normalized.valid) {
       invalidTenantIdCount += 1;
       continue;
     }
-
-    const recordTenantId = hasCamelTenantId
-      ? normalizedCamelTenantId
-      : hasSnakeTenantId ? normalizedSnakeTenantId : "";
-
-    const canonicalRecord = (tenantId: string): LegacyTenantSourceRecord => {
-      const record: Record<string, unknown> = { ...source.record, tenantId };
-      delete record.tenant_id;
-      return { id: source.id, record };
-    };
+    const recordTenantId = normalized.tenantId || "";
 
     if (recordTenantId) {
       if (recordTenantId === tenantKey) {
-        included.push(canonicalRecord(recordTenantId));
+        included.push({ id: source.id, record: normalized.record });
         matchedTenantIdCount += 1;
       } else {
         excludedOtherTenantCount += 1;
@@ -91,7 +119,7 @@ export function scopeLegacyTenantRecords(
       continue;
     }
 
-    included.push(canonicalRecord(tenantKey));
+    included.push({ id: source.id, record: { ...normalized.record, tenantId: tenantKey } });
     assignedBySingleTenantMappingCount += 1;
   }
 
