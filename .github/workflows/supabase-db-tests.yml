@@ -47,6 +47,9 @@ jobs:
       - name: Verify Firebase Admin is disabled outside local development
         run: npm run test:legacy-firebase-gate
 
+      - name: Verify the active frontend graph contains no Firebase runtime
+        run: npm run test:supabase-runtime-no-firebase
+
       - name: Verify legacy Firestore tenant scoping
         run: npm run test:legacy-firestore-tenant-scope
 

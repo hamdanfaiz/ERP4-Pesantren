@@ -112,3 +112,16 @@ Skor bertambah 5 poin setelah CI berhasil pada commit remote yang menjadi baseli
 
 Gerbang berikutnya: review perubahan worktree terhadap head PR, dorong perubahan yang disetujui ke cabang PR #13 sesuai otorisasi pengguna, lalu tunggu CI baru pada SHA perubahan tersebut. Skor kesiapan hanya naik lagi jika hasil CI baru dan bukti staging/migrasi mengonfirmasi perubahan itu.
 Validasi lokal setelah rerun CI: `npm run lint`, `npm run build`, `node scripts/test-production-dependencies.mjs`, dan `npm run test:legacy-firebase-gate` lulus. Lima suite lokal (undangan Wali, RBAC, Master Data pagination, PPDB import preview, dan ID mutasi) juga lulus. Build tetap memberi peringatan chunk PDF tertunda sekitar 1,24 MB. Skor tetap 58/100 sampai CI pada commit perubahan worktree yang sama lulus; bukti lokal tidak menggantikan pgTAP atau target staging.
+
+## Checkpoint: menghapus sisa Firestore dari helper asrama — 25 Oktober 2026
+
+### Progres menuju go-live: 61/100
+
+Skor tetap 61/100. Perubahan lokal belum masuk ke PR #13 dan belum diuji oleh CI pada SHA yang sama; hasil lokal membuktikan build dan pemeriksaan terarah saja, bukan kesiapan go-live.
+
+- Helper struktur bersama kini tidak lagi memiliki dynamic import listener Firestore maupun transaksi alokasi/penghapusan kamar Firestore. Operasi penempatan hanya memakai API Supabase dan ditutup jika runtime Master Data atau Asrama belum aktif.
+- Pemeriksaan baru menelusuri 98 modul frontend dari `src/main.tsx`, menolak paket Firebase dan adapter Firebase yang sudah dipensiunkan, serta telah ditambahkan ke workflow CI.
+- Bukti lokal: `npm run lint`, `npm run build`, `npm run test:supabase-runtime-no-firebase`, `npm run test:legacy-firebase-gate`, `npm run test:legacy-firestore-tenant-scope`, `node scripts/test-production-dependencies.mjs`, dan `git diff --check` lulus. Build menampilkan peringatan ukuran chunk PDF sekitar 1,24 MB.
+- Supabase Production tidak disentuh. Belum ada migrasi, perubahan database, atau data produksi yang ditulis.
+
+Gerbang berikutnya: kirim perubahan ke PR #13, tunggu CI lulus pada commit yang sama, lanjutkan audit paritas PR #11 dan #12, lalu uji migrasi serta aplikasi pada staging terisolasi. Skor tetap berbasis bukti dan bukan ukuran linear pekerjaan yang tersisa.
