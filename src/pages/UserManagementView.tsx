@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import { 
@@ -55,10 +55,15 @@ interface UserRecord {
   linkedSantriNis?: string;
 }
 
+const USER_DIRECTORY_PAGE_SIZE = 50;
+
 export function UserManagementView() {
   const { user: currentActor, role: currentRole } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const userListRequestId = useRef(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -112,8 +117,9 @@ export function UserManagementView() {
     setCreateTempPassword(result);
   };
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (pageIndex = page) => {
     if (!currentActor) return;
+    const requestId = ++userListRequestId.current;
     setIsLoading(true);
     setErrorBanner(null);
     setBackendErrorCode(null);
@@ -121,42 +127,56 @@ export function UserManagementView() {
 
     try {
       const token = await getAccessToken();
-
       const params = new URLSearchParams();
       if (searchQuery.trim()) params.append('q', searchQuery.trim());
       if (roleFilter !== 'ALL') params.append('role', roleFilter);
       if (statusFilter !== 'ALL') params.append('status', statusFilter);
+      params.append('limit', String(USER_DIRECTORY_PAGE_SIZE));
+      params.append('offset', String(pageIndex * USER_DIRECTORY_PAGE_SIZE));
 
-      const res = await fetch(`/api/users?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const res = await fetch('/api/users?' + params.toString(), {
+        headers: { 'Authorization': 'Bearer ' + token }
       });
+      if (requestId !== userListRequestId.current) return;
 
       if (res.status === 503) {
         const data = await res.json().catch(() => ({}));
+        if (requestId !== userListRequestId.current) return;
         setIsIdentityUnavailable(true);
         setBackendErrorCode(data.code || 'SUPABASE_IDENTITY_UNAVAILABLE');
         setErrorBanner(data.error || 'Layanan identitas Supabase tidak tersedia.');
         setUsers([]);
+        setTotalUsers(0);
         return;
       }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (requestId !== userListRequestId.current) return;
         setIsIdentityUnavailable(false);
         setBackendErrorCode(data.code || 'REQUEST_FAILED');
         throw new Error(data.error || 'Gagal memuat daftar pengguna tenant.');
       }
 
       const data = await res.json();
-      setUsers(data.users || []);
+      if (requestId !== userListRequestId.current) return;
+      const nextTotal = Math.max(0, Number(data.total) || 0);
+      setTotalUsers(nextTotal);
+      if (pageIndex > 0 && pageIndex * USER_DIRECTORY_PAGE_SIZE >= nextTotal) {
+        setUsers([]);
+        setPage(Math.max(0, Math.ceil(nextTotal / USER_DIRECTORY_PAGE_SIZE) - 1));
+        return;
+      }
+      setUsers(Array.isArray(data.users) ? data.users : []);
     } catch (err: any) {
+      if (requestId !== userListRequestId.current) return;
+      setUsers([]);
+      setTotalUsers(0);
       setErrorBanner(err.message || 'Gagal menghubungi server untuk memuat pengguna.');
     } finally {
-      setIsLoading(false);
+      if (requestId === userListRequestId.current) setIsLoading(false);
     }
-  }, [currentActor, searchQuery, roleFilter, statusFilter]);
+  }, [currentActor, searchQuery, roleFilter, statusFilter, page]);
 
   useEffect(() => {
     fetchUsers();
@@ -238,7 +258,7 @@ export function UserManagementView() {
       setIsCreateModalOpen(false);
       setActionSuccessMessage(`Pengguna "${createName}" berhasil dibuat dengan status mustChangePassword=true.`);
       setTimeout(() => setActionSuccessMessage(null), 5000);
-      fetchUsers();
+      setPage(0);
     } catch (err: any) {
       setCreateError(err.message || 'Terjadi kesalahan saat membuat pengguna.');
     } finally {
@@ -526,7 +546,7 @@ export function UserManagementView() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
             placeholder="Cari nama, email, atau username pengguna..."
             className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
@@ -535,7 +555,7 @@ export function UserManagementView() {
         <div className="flex items-center gap-2.5 w-full md:w-auto">
           <select
             value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
+            onChange={(e) => { setRoleFilter(e.target.value); setPage(0); }}
             className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="ALL">Semua Peran</option>
@@ -548,7 +568,7 @@ export function UserManagementView() {
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
             className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="ALL">Semua Status</option>
@@ -748,6 +768,33 @@ export function UserManagementView() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="glass-panel px-4 py-3 rounded-2xl border border-slate-200/80 dark:border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+        <p className="text-slate-500 dark:text-slate-400" aria-live="polite">
+          Menampilkan {totalUsers === 0 ? 0 : page * USER_DIRECTORY_PAGE_SIZE + 1}–{Math.min(page * USER_DIRECTORY_PAGE_SIZE + users.length, totalUsers)} dari {totalUsers} pengguna
+        </p>
+        <div className="flex items-center justify-between sm:justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.max(0, current - 1))}
+            disabled={isLoading || page === 0}
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Sebelumnya
+          </button>
+          <span className="min-w-24 text-center text-slate-500 dark:text-slate-400">
+            Halaman {page + 1} dari {Math.max(1, Math.ceil(totalUsers / USER_DIRECTORY_PAGE_SIZE))}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((current) => current + 1)}
+            disabled={isLoading || (page + 1) * USER_DIRECTORY_PAGE_SIZE >= totalUsers}
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Berikutnya
+          </button>
         </div>
       </div>
 
