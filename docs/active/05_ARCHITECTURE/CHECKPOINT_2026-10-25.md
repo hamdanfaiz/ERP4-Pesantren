@@ -137,3 +137,7 @@ Gerbang berikutnya: kirim perubahan ke PR #13, tunggu CI lulus pada commit yang 
 ### Progres menuju go-live: 61/100
 
 Run `40189469182` menunjukkan frontend berhasil, tetapi job database gagal sebelum test Tahfidz berjalan. Log menunjuk sintaks kurang satu kurung pada sembilan ekspresi pgTAP yang membaca field hasil RPC; 62 assertion direncanakan, 0 dieksekusi. Tes database lain sebelum file tersebut lulus. Kesalahan sintaks telah diperbaiki, namun suite wajib diulang pada commit baru sebelum test Tahfidz dinyatakan lulus. Skor tidak naik.
+
+## Koreksi fixture keanggotaan Tahfidz — 25 Oktober 2026
+
+Run `40189751690` mengeksekusi 62 assertion pada test Tahfidz; 61 lulus. Assertion membership gagal karena Ustadz B diuji terhadap halaqah A, sehingga validasi hak ampu menolak lebih dahulu—hasil yang benar untuk fixture tersebut. Fixture kini menggunakan halaqah B yang diampu Ustadz B, sementara santri tetap terdaftar di halaqah A. Ini mengisolasi guard membership yang sedang diuji. Frontend kembali lulus; test pgTAP perlu dijalankan ulang. Skor tetap **61/100**.

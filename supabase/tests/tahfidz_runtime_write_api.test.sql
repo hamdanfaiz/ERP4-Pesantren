@@ -71,7 +71,7 @@ SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000502'
 )$$, '42501', 'Ustadz hanya dapat mencatat setoran pada halaqah tugasnya', 'Ustadz cannot write to another Ustadz’s halaqah');
 SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', 'd1800000-0000-4000-8000-000000000401',
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', 'd1800000-0000-4000-8000-000000000402',
   'Ziyadah', 'Al-Baqarah', 1, 5, NULL, NULL, NULL, '2026-10-25 09:00:00+00',
   'd1800000-0000-4000-8000-000000000013', 'Ustadz B', 'ustadz', 'd1800000-0000-4000-8000-000000000503'
 )$$, '23514', 'Santri belum terdaftar pada halaqah ini', 'setoran requires active student membership');

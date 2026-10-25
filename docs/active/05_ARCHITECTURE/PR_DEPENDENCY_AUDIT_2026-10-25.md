@@ -221,3 +221,8 @@ Pemeriksaan ini memakai head GitHub PR #11 `88f2686d34bbffb1aa1c7997b55cd015c424
 - Fitur lanjutan Talaqqi, laporan Wali, peer review, dan pencapaian Tahfidz belum memiliki penyimpanan/API runtime terverifikasi. Jangan menyalin migrasi #11 satu per satu: nama, urutan, Auth, dan kontrak tenant sudah berevolusi di #13.
 
 PR #11 tetap Open/Draft dan divergen; status parity inti pada #13 bukan alasan untuk merge stack #11. Pertahankan #13 sebagai jalur utama, port hanya celah yang terbukti, dan tunggu CI baru untuk test Tahfidz sebelum menaikkan skor kesiapan dari **61/100**.
+
+## Iterasi pgTAP Tahfidz — 25 Oktober 2026
+
+- CI run `40189751690` berhasil mengurai dan menjalankan seluruh 62 assertion baru. Sebanyak 61 assertion lulus; satu assertion membership mengirim Ustadz B ke halaqah A, padahal Ustadz B hanya mengampu halaqah B. Penolakan RPC dengan kode `42501` membuktikan pemeriksaan akses pengampu berjalan dan menunjukkan fixture belum mengisolasi pemeriksaan membership.
+- Fixture diperbaiki agar Ustadz B menulis pada halaqah B yang diampunya untuk santri yang masih terdaftar pada halaqah A. Tidak ada perubahan pada SQL runtime atau skema. CI baru diperlukan untuk menilai ulang assertion tersebut; skor go-live tetap **61/100** sampai suite berhasil.
