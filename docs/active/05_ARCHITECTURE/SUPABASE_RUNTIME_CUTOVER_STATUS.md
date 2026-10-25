@@ -349,3 +349,14 @@ Bukti ini **tidak** berarti migrasi telah diterapkan ke project Supabase target,
 Logic transaksi Library kini memakai tanggal kalender tenant untuk menghitung keterlambatan, mengisi tanggal peminjaman/pengembalian, dan memuat ulang kondisi terbaru sebelum transaksi. Koperasi kini memakai zona waktu yang sama untuk KPI “Transaksi hari ini”, cap waktu riwayat, dan batas belanja harian pada checkout. Batas checkout dihitung sebagai rentang lokal `[mulai hari, mulai besok)`, sehingga pergantian DST juga dihitung dengan benar; penguncian wallet dan posting atomik tetap dipertahankan.
 
 Perubahan kode memakai helper tanggal bisnis bersama dan migration baru `20261209000000_cooperative_tenant_business_day.sql`. Uji sintetis tanggal tenant lulus 12 kasus; typecheck dan build lulus. Tes pgTAP Koperasi ditambahkan ke suite CI, tetapi belum dijalankan lokal karena Supabase CLI/Docker tidak tersedia. Migration 07/08/09 belum dinyatakan terpasang di project live; tidak ada schema atau data live yang ditulis. PR #13 tetap draft sampai rekonsiliasi migrasi, import data, login, dan akses tenant selesai.
+
+
+## Koreksi idempotensi pemasok dan validasi CI — 25 Oktober 2026
+
+Migration `20261231000000_cooperative_supplier_payload_idempotency.sql` menambahkan ledger permintaan pemasok yang immutable dan tenant-scoped. Wrapper RPC mengikat replay pada tenant, aktor, operasi, serta fingerprint payload JSON; request ID yang sama dengan payload/operasi/aktor berbeda ditolak. ID permintaan lama yang tersimpan pada pemasok dicadangkan sebagai `legacy` karena payload asal tidak tersedia, sehingga tidak mendapat replay sukses yang tidak dapat dibuktikan. Hak eksekusi wrapper diberikan hanya kepada `service_role`.
+
+Tes pgTAP mencakup replay identik, konflik payload/operasi/aktor, request legacy dengan payload yang tidak diketahui, dan update valid dengan request baru. Run awal menemukan dua assertion scalar test yang hanya memfilter tenant sehingga ambigu setelah fixture legacy ditambahkan. Assertion diperbaiki agar mengikat supplier yang dibuat lewat `client_request_id`; ini merupakan koreksi fixture test.
+
+Commit kode `bfb6c55f87145aa16be2ccbc1c1c55a7f02b2bb6` dan koreksi test `c8a204b1f27b8fe3f5be9ff9c82ba10095aa27f0` lulus pada [GitHub Actions run #40150919774](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40150919774). Frontend/build guard dan job Supabase lokal selesai sukses, termasuk seluruh migration/pgTAP, NIS concurrency, auth/isolasi tenant, Storage Finance, backup/restore, serta build dan smoke test Docker customer-managed.
+
+CI menggunakan database lokal terisolasi dan data sintetis. Tidak ada perubahan schema/data Supabase production, merge, atau deployment. PR #13 tetap Draft; migration ini masih menunggu preflight dan persetujuan terpisah sebelum penerapan production.
