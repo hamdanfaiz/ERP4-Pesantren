@@ -150,6 +150,27 @@ export type SupabaseBoardingStudent = {
   status: string;
 };
 
+export type SupabaseStudentRoomAssignmentHistoryEntry = {
+  id: number;
+  eventType: "initial_assignment" | "assigned" | "moved" | "unassigned" | "building_changed";
+  previousRoomName: string | null;
+  roomName: string | null;
+  previousBuildingName: string | null;
+  buildingName: string | null;
+  changedByName: string;
+  changeSource: "boarding_runtime" | "master_data" | "legacy_import" | "ppdb_onboarding" | "system";
+  changedAt: string;
+};
+
+export async function listSupabaseStudentRoomAssignmentHistory(
+  studentId: string
+): Promise<SupabaseStudentRoomAssignmentHistoryEntry[]> {
+  const result = await requestMasterData<{ records: SupabaseStudentRoomAssignmentHistoryEntry[] }>(
+    "/api/master-data/students/" + encodeURIComponent(studentId) + "/room-history"
+  );
+  return Array.isArray(result.records) ? result.records : [];
+}
+
 export async function listSupabaseBoardingSnapshot(): Promise<{
   structures: SupabaseStructureRecord[];
   students: SupabaseBoardingStudent[];

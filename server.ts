@@ -13,6 +13,11 @@ import {
   checkIdentityStoreReady,
   clearPasswordChangeRequired,
   createAuthUserWithProfile,
+  guardianCanAccessStudent,
+  createGuardianAccountInvitation,
+  listGuardianAccountCandidates,
+  verifyGuardianAccountInvitation,
+  claimGuardianAccountInvitation,
   createRecoveryLink,
   getUserProfile,
   listTenantProfilesPage,
@@ -63,9 +68,12 @@ import {
   deleteSupabaseMasterDataStructure,
   getSupabaseNextSantriNis,
   listSupabaseBoardingSnapshot,
+  listSupabaseStudentRoomAssignmentHistory,
   getSupabaseMasterDataStudent,
   listSupabaseMasterDataStudentsPage,
   listSupabaseMasterDataStructures,
+  migrateSupabaseLegacyMasterDataStudents,
+  migrateSupabaseMasterDataStructures,
   onboardSupabaseAcceptedCandidate,
   SupabaseOnboardingError,
   upsertSupabaseMasterDataStudent,
@@ -519,7 +527,6 @@ async function loadFinanceProofActor(uid: string) {
     uid,
     role,
     tenantId,
-    linkedSantriId: typeof profile.linkedSantriId === "string" ? profile.linkedSantriId : "",
   };
 }
 
@@ -565,6 +572,10 @@ async function startServer() {
 
   // Cloud Run terminates TLS at one trusted proxy hop.
   app.set("trust proxy", 1);
+  app.use((_req, res, next) => {
+    res.setHeader("Referrer-Policy", "no-referrer");
+    next();
+  });
   app.use(express.json({ limit: "5mb" }));
 
   let lastReadinessCheckedAt = 0;
@@ -703,6 +714,7 @@ async function startServer() {
     return res.status(503).json({ error: "Layanan HRIS Supabase belum dapat diproses." });
   };
   const masterDataRuntimeEnabled = String(process.env.SUPABASE_MASTER_DATA_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const masterDataImportEnabled = String(process.env.SUPABASE_MASTER_DATA_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryRuntimeEnabled = String(process.env.SUPABASE_LIBRARY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryImportEnabled = String(process.env.SUPABASE_LIBRARY_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
@@ -740,6 +752,7 @@ async function startServer() {
     if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Master Data endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan Master Data Supabase belum dapat diproses." });
   };
@@ -898,6 +911,7 @@ async function startServer() {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabasePpdbError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase PPDB endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan PPDB Supabase belum dapat diproses." });
   };
@@ -2295,6 +2309,95 @@ async function startServer() {
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
+  app.post("/api/master-data/structures/migrate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled || !masterDataImportEnabled) {
+      return res.status(503).json({ error: "Impor Master Data belum diaktifkan operator setelah skema, tenant, dan jendela migrasi disiapkan." });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      const apply = req.body?.apply === true;
+      if (apply && req.body?.confirm !== "IMPORT_MASTER_DATA_STRUCTURES") {
+        return res.status(400).json({ error: "Konfirmasi impor struktur belum valid. Jalankan pratinjau terlebih dahulu." });
+      }
+      const services = await getAdminServices();
+      if (!services.ok) return res.status(503).json({ error: "Sumber arsip Firestore belum dapat diakses untuk migrasi." });
+      const legacyTenantKey = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      const [structureRows, studentRows] = await Promise.all([
+        readLegacyFirestoreTenantRows(services.db, {
+          collectionName: "master_data", tenantKey: legacyTenantKey, limit: 5000,
+        }),
+        readLegacyFirestoreTenantRows(services.db, {
+          collectionName: "entityRecords", tenantKey: legacyTenantKey, limit: 5000,
+          filters: [{ field: "type", value: "Santri" }],
+        }),
+      ]);
+      const allowedCategories = new Set(["Gedung", "Kamar", "Kelas"]);
+      const legacyStructures: Array<{
+        id: string;
+        category: "Gedung" | "Kamar" | "Kelas";
+        record: Record<string, unknown>;
+      }> = [];
+      for (const document of structureRows) {
+        const raw = document.data || {};
+        const category = typeof raw.category === "string" ? raw.category : "";
+        if (!allowedCategories.has(category)) continue;
+        const prefix = category + "_";
+        const id = typeof raw.id === "string" && raw.id.trim()
+          ? raw.id.trim()
+          : document.id.startsWith(prefix) ? document.id.slice(prefix.length) : document.id;
+        const safeRecord = JSON.parse(JSON.stringify(raw, (key, value) => {
+          if (["tenantId", "tenant_id", "_firestoreId", "createdByUid"].includes(key)) return undefined;
+          if (/password|secret|api.?key|smtp|token/i.test(key)) return undefined;
+          return value;
+        })) as Record<string, unknown>;
+        legacyStructures.push({
+          id,
+          category: category as "Gedung" | "Kamar" | "Kelas",
+          record: { ...safeRecord, id, category },
+        });
+      }
+      const roomsById = new Map<string, { id: string; record: Record<string, unknown> }>();
+      const roomIdsByName = new Map<string, string[]>();
+      for (const item of legacyStructures) {
+        if (item.category !== "Kamar") continue;
+        roomsById.set(item.id, item);
+        const roomName = String(item.record.name || "").trim().toLowerCase();
+        if (roomName) roomIdsByName.set(roomName, [...(roomIdsByName.get(roomName) || []), item.id]);
+      }
+      const roomOccupancy = new Map<string, number>();
+      let studentsWithoutUnambiguousRoom = 0;
+      for (const student of studentRows) {
+        const roomId = typeof student.data.roomId === "string" ? student.data.roomId.trim() : "";
+        const roomName = typeof student.data.room === "string" ? student.data.room.trim().toLowerCase() : "";
+        let matchedId = roomId && roomsById.has(roomId) ? roomId : "";
+        if (!matchedId && roomName) {
+          const matches = roomIdsByName.get(roomName) || [];
+          if (matches.length === 1) matchedId = matches[0];
+        }
+        if (!matchedId) {
+          studentsWithoutUnambiguousRoom += 1;
+          continue;
+        }
+        roomOccupancy.set(matchedId, (roomOccupancy.get(matchedId) || 0) + 1);
+      }
+      const records = legacyStructures.map((item) => ({
+        ...item,
+        occupied: item.category === "Kamar" ? roomOccupancy.get(item.id) || 0 : 0,
+      }));
+      const result = await migrateSupabaseMasterDataStructures(actor.tenantId, records, apply);
+      return res.json({
+        ...result,
+        legacyStructureCount: legacyStructures.length,
+        legacyStudentCount: studentRows.length,
+        studentsWithoutUnambiguousRoom,
+        mode: apply ? "apply" : "preview",
+      });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
   app.put("/api/master-data/structures/:category/:recordId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
@@ -2364,7 +2467,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "master-data");
       requireMasterDataAdmin(actor);
-      const record = await upsertSupabaseMasterDataStudent(actor.tenantId, req.params.studentId, req.body?.record);
+      const record = await upsertSupabaseMasterDataStudent(actor.tenantId, req.params.studentId, req.body?.record, uid);
       return res.json({ record });
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -2377,10 +2480,75 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "master-data");
       requireMasterDataAdmin(actor);
-      return res.json(await archiveSupabaseMasterDataStudent(actor.tenantId, req.params.studentId));
+      return res.json(await archiveSupabaseMasterDataStudent(actor.tenantId, req.params.studentId, uid));
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
+  app.post("/api/master-data/students/migrate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled || !masterDataImportEnabled) {
+      return res.status(503).json({ error: "Impor data santri belum diaktifkan operator setelah skema, tenant, dan jendela migrasi disiapkan." });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      const apply = req.body?.apply === true;
+      if (apply && req.body?.confirm !== "IMPORT_LEGACY_MASTER_DATA_STUDENTS") {
+        return res.status(400).json({ error: "Konfirmasi impor santri belum valid. Jalankan pratinjau terlebih dahulu." });
+      }
+      const services = await getAdminServices();
+      if (!services.ok) return res.status(503).json({ error: "Sumber arsip Firestore belum dapat diakses untuk migrasi." });
+      const legacyTenantKey = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
+      const [studentRows, guardianRows] = await Promise.all([
+        readLegacyFirestoreTenantRows(services.db, {
+          collectionName: "entityRecords", tenantKey: legacyTenantKey, limit: 5000,
+          filters: [{ field: "type", value: "Santri" }],
+        }),
+        readLegacyFirestoreTenantRows(services.db, {
+          collectionName: "entityRecords", tenantKey: legacyTenantKey, limit: 5000,
+          filters: [{ field: "type", value: "Wali Santri" }],
+        }),
+      ]);
+      const guardiansById = new Map<string, { id: string; record: Record<string, any> }>();
+      const guardiansByStudent = new Map<string, Array<{ id: string; record: Record<string, any> }>>();
+      for (const document of guardianRows) {
+        const record = document.data || {};
+        const guardian = { id: document.id, record };
+        guardiansById.set(document.id, guardian);
+        if (typeof record.id === "string" && record.id.trim()) guardiansById.set(record.id.trim(), guardian);
+        const studentIds = Array.isArray(record.santriIds) ? record.santriIds : [];
+        for (const studentId of studentIds) {
+          if (typeof studentId !== "string" || !studentId.trim()) continue;
+          const key = studentId.trim();
+          guardiansByStudent.set(key, [...(guardiansByStudent.get(key) || []), guardian]);
+        }
+      }
+      const source = studentRows.map((document) => {
+        const record = document.data || {};
+        const recordId = typeof record.id === "string" && record.id.trim() ? record.id.trim() : document.id;
+        const linkedIds = [record.waliSantriId, record.guardianId, record.parentId]
+          .filter((value) => typeof value === "string" && value.trim())
+          .map((value) => String(value).trim());
+        const directMatches = Array.from(new Map(linkedIds
+          .map((id) => guardiansById.get(id))
+          .filter((guardian): guardian is { id: string; record: Record<string, any> } => Boolean(guardian))
+          .map((guardian) => [guardian.id, guardian])).values());
+        const studentMatches = Array.from(new Map([
+          ...(guardiansByStudent.get(document.id) || []),
+          ...(guardiansByStudent.get(recordId) || []),
+        ].map((guardian) => [guardian.id, guardian])).values());
+        const candidates = directMatches.length ? directMatches : studentMatches;
+        const sourceWarnings: string[] = [];
+        const guardian = candidates.length === 1 ? candidates[0] : null;
+        if (candidates.length > 1) sourceWarnings.push("Relasi wali ambigu pada sumber; perlu dipetakan manual.");
+        return { id: document.id, record, guardian, sourceWarnings };
+      });
+      const result = await migrateSupabaseLegacyMasterDataStudents(actor.tenantId, source, apply);
+      return res.json({ ...result, legacyGuardianCount: guardianRows.length, mode: apply ? "apply" : "preview" });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
   app.get("/api/boarding/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!boardingRuntimeEnabled) return res.status(503).json({ error: "Runtime asrama Supabase belum diaktifkan operator." });
@@ -2402,8 +2570,21 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
       requireMasterDataAdmin(actor);
-      const result = await assignSupabaseStudentRoom(actor.tenantId, req.params.studentId, req.body?.roomId ?? null, req.body?.buildingId ?? null);
+      const result = await assignSupabaseStudentRoom(actor.tenantId, req.params.studentId, req.body?.roomId ?? null, req.body?.buildingId ?? null, uid);
       return res.json(result);
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/master-data/students/:studentId/room-history", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingRuntimeEnabled) return res.status(503).json({ error: "Runtime asrama Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      const records = await listSupabaseStudentRoomAssignmentHistory(actor.tenantId, req.params.studentId);
+      return res.json({ records });
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
@@ -3262,7 +3443,7 @@ async function startServer() {
         const payChannel = typeof req.body?.payChannel === "string" ? req.body.payChannel.trim() : "";
         if (!["BSI", "Muamalat", "MandiriSyariah"].includes(payChannel)) return res.status(400).json({ error: "Metode transfer tidak valid." });
         const billing = await getSupabaseFinanceBill(actor.tenantId, billingId);
-        if (actor.role === "Walisantri" && (!actor.linkedSantriId || actor.linkedSantriId !== String(billing.student_id))) return res.status(404).json({ error: "Tagihan tidak ditemukan pada tenant ini." });
+        if (actor.role === "Walisantri" && !(await guardianCanAccessStudent(actor.tenantId, actor.uid, String(billing.student_id)))) return res.status(404).json({ error: "Tagihan tidak ditemukan pada tenant ini." });
         const requestId = typeof req.body?.clientRequestId === "string" ? req.body.clientRequestId : "";
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) return res.status(400).json({ error: "Kunci unggahan pembayaran tidak valid." });
         if (!consumePaymentProofUploadLimit(uid)) {
@@ -3297,7 +3478,7 @@ async function startServer() {
         const billingId = typeof req.params.billingId === "string" ? req.params.billingId.trim() : "";
         if (!billingId || billingId.length > 150) return res.status(400).json({ error: "ID tagihan tidak valid." });
         const billing = await getSupabaseFinanceBill(actor.tenantId, billingId);
-        if (actor.role === "Walisantri" && (!actor.linkedSantriId || actor.linkedSantriId !== String(billing.student_id))) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
+        if (actor.role === "Walisantri" && !(await guardianCanAccessStudent(actor.tenantId, actor.uid, String(billing.student_id)))) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
         if (billing.proof_storage_provider !== "supabase" || typeof billing.proof_storage_path !== "string") return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
         const safeSantriId = String(billing.student_id || "unlinked");
         const expectedPrefix = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(safeSantriId) + "/" + encodeURIComponent(billingId) + "/";
@@ -3407,6 +3588,96 @@ async function startServer() {
     } catch (error) { return hrisRouteError(res, error); }
   });
 
+  app.get("/api/users/guardian-candidates", requireAuth, requireTenantAdmin, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const actor = (req as any).actor;
+      const guardians = await listGuardianAccountCandidates(actor.tenantId);
+      return res.json({ guardians });
+    } catch (err: any) {
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
+      return res.status(500).json({ code: "INTERNAL_ERROR", error: "Gagal memuat daftar Wali tenant." });
+    }
+  });
+
+  app.post("/api/users/guardian-invitations", requireAuth, requireTenantAdmin, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    const actor = (req as any).actor;
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const guardianId = typeof req.body?.guardianId === "string" ? req.body.guardianId.trim() : "";
+    const requestedPermissions = req.body?.modulePermissions;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
+      return res.status(400).json({ code: "INVALID_EMAIL", error: "Alamat email tidak valid." });
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(guardianId)) {
+      return res.status(400).json({ code: "INVALID_GUARDIAN", error: "Pilih data Wali yang valid dari tenant ini." });
+    }
+    if (requestedPermissions != null && !isValidModulePermissions(requestedPermissions)) {
+      return res.status(400).json({ code: "INVALID_MODULE_PERMISSIONS", error: "Format izin modul tidak valid." });
+    }
+    const permissions = resolveUserModulePermissions("Walisantri", requestedPermissions || undefined);
+    permissions.settings = false;
+    try {
+      const invitation = await createGuardianAccountInvitation({
+        tenantId: actor.tenantId,
+        guardianId,
+        email,
+        modulePermissions: permissions,
+        createdByUid: actor.uid,
+      });
+      return res.status(invitation.linkedExistingAccount ? 200 : 201).json({
+        success: true,
+        linkedExistingAccount: Boolean(invitation.linkedExistingAccount),
+        linkedStudentCount: invitation.linkedStudentCount || 0,
+        inviteUrl: invitation.inviteUrl || null,
+        expiresAt: invitation.expiresAt || null,
+        message: invitation.linkedExistingAccount
+          ? "Akun Wali terverifikasi berhasil ditautkan ke data Master Data."
+          : "Tautan aktivasi dibuat. Bagikan tautan ini hanya kepada pemilik email yang dituju.",
+      });
+    } catch (err: any) {
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
+      return res.status(400).json({ code: "INVITATION_FAILED", error: err.message || "Gagal membuat undangan Wali." });
+    }
+  });
+
+  app.post("/api/guardian-invitations/verify", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+      return res.status(400).json({ code: "INVALID_INVITATION", error: "Tautan aktivasi tidak valid atau telah kedaluwarsa." });
+    }
+    try {
+      const sessionUser = (req as any).user;
+      const email = await verifyGuardianAccountInvitation(token, sessionUser.uid, sessionUser.email || "");
+      return res.json({ success: true, email });
+    } catch (err: any) {
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
+      return res.status(400).json({ code: "INVITATION_VERIFY_FAILED", error: err.message || "Undangan Wali tidak dapat diverifikasi." });
+    }
+  });
+  app.post("/api/guardian-invitations/claim", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+      return res.status(400).json({ code: "INVALID_INVITATION", error: "Tautan aktivasi tidak valid atau telah kedaluwarsa." });
+    }
+    try {
+      const sessionUser = (req as any).user;
+      const linkedStudentCount = await claimGuardianAccountInvitation(token, sessionUser.uid, sessionUser.email || "");
+      return res.status(201).json({ success: true, linkedStudentCount });
+    } catch (err: any) {
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
+      return res.status(400).json({ code: "INVITATION_CLAIM_FAILED", error: err.message || "Undangan Wali tidak dapat diaktifkan." });
+    }
+  });
   // 1. List / Search Users for acting admin's tenant
   app.get("/api/users", requireAuth, requireTenantAdmin, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -3497,6 +3768,14 @@ async function startServer() {
       return res.status(400).json({ code: "INVALID_EMAIL", error: "Alamat email tidak valid." });
     }
 
+    // Validate role early so Wali accounts cannot enter the legacy password path.
+    const allowedRoles = ["SuperAdmin", "Admin", "Ustadz", "Santri", "Walisantri"];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ code: "INVALID_ROLE", error: "Role yang dipilih tidak valid." });
+    }
+    if (role === "Walisantri") {
+      return res.status(400).json({ code: "WALI_INVITATION_REQUIRED", error: "Akun Wali harus dibuat melalui undangan yang terhubung ke data Wali tenant." });
+    }
     // Validate name
     const normalizedName = typeof name === "string" ? name.trim() : "";
     if (!normalizedName || normalizedName.length < 2) {
@@ -3511,12 +3790,7 @@ async function startServer() {
       });
     }
 
-    // Validate role and enforce hierarchy:
-    // "Admin must not grant SuperAdmin; only SuperAdmin may grant Admin."
-    const allowedRoles = ["SuperAdmin", "Admin", "Ustadz", "Santri", "Walisantri"];
-    if (!allowedRoles.includes(role)) {
-      return res.status(400).json({ code: "INVALID_ROLE", error: "Role yang dipilih tidak valid." });
-    }
+    // Validate role hierarchy: only SuperAdmin can create Admin accounts.
     if (modulePermissions != null && !isValidModulePermissions(modulePermissions)) {
       return res.status(400).json({ code: "INVALID_MODULE_PERMISSIONS", error: "Format izin modul tidak valid." });
     }

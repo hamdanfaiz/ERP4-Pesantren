@@ -17,8 +17,6 @@ import {
   HeartPulse,
   GraduationCap,
   Download,
-  Sparkles,
-  Loader2,
   Activity,
   Clock,
   Printer,
@@ -59,11 +57,16 @@ import {
   getSupabaseMasterDataStudentDetails,
   listSupabaseMasterDataStudentsPage,
   listSupabaseMasterDataStructures,
+  migrateLegacySupabaseMasterDataStructures,
+  migrateLegacySupabaseStudents,
+  listSupabaseStudentRoomAssignmentHistory,
+  type SupabaseStudentRoomAssignmentHistoryEntry,
   upsertSupabaseMasterDataStudent,
   upsertSupabaseMasterDataStructure,
 } from "../services/masterDataApi";
 
 const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED);
+const SUPABASE_MASTER_DATA_IMPORT = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED);
 const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "Kelas"]);
 const MDM_DRAFT_KEY_PREFIX = "mdm-form-autosave";
 
@@ -222,6 +225,10 @@ export function MasterDataManager() {
     ? activeTab === "entities" ? ["Santri"] : activeTab === "structure" ? ["Gedung", "Kamar", "Kelas"] : []
     : SUB_TABS[activeTab];
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [roomHistory, setRoomHistory] = useState<SupabaseStudentRoomAssignmentHistoryEntry[]>([]);
+  const [roomHistoryStudentId, setRoomHistoryStudentId] = useState("");
+  const [roomHistoryLoading, setRoomHistoryLoading] = useState(false);
+  const [roomHistoryError, setRoomHistoryError] = useState("");
   const [dataSources, setDataSources] = useState<Record<string, any[]>>(() => SUPABASE_MASTER_DATA_RUNTIME
     ? { Santri: [], "Wali Santri": [], Gedung: [], Kamar: [], Kelas: [] }
     : { Santri: MOCK_SANTRI, "Wali Santri": MOCK_WALISANTRI, ...DEFAULT_STRUCTURE });
@@ -316,6 +323,48 @@ export function MasterDataManager() {
   }, [units]);
 
   const [notification, setNotification] = useState<{message: string, type: 'success'|'error'} | null>(null);
+  const [legacyMigrationPreviews, setLegacyMigrationPreviews] = useState<Record<string, any>>({});
+  const [legacyMigrationBusy, setLegacyMigrationBusy] = useState<string | null>(null);
+  const [legacyMigrationRefreshKey, setLegacyMigrationRefreshKey] = useState(0);
+  const runLegacyMasterDataMigration = async (kind: "structures" | "students", apply: boolean) => {
+    const preview = legacyMigrationPreviews[kind];
+    if (apply) {
+      if (!preview || preview.dryRun !== true || (preview.errors || []).length > 0) {
+        showToast("Jalankan pratinjau yang valid dan selesaikan konflik sebelum menerapkan impor.", "error");
+        return;
+      }
+      const label = kind === "structures" ? "struktur Gedung, Kamar, dan Kelas" : "data Santri dan relasi Wali";
+      if (!window.confirm("Impor " + (preview.planned || 0) + " record " + label + " ke tenant aktif? Data yang ada tidak akan dihapus. Pastikan backup dan pratinjau sudah ditinjau.")) return;
+    }
+
+    setLegacyMigrationPreviews((current) => ({ ...current, [kind]: null }));
+    const actionKey = kind + "-" + (apply ? "apply" : "preview");
+    setLegacyMigrationBusy(actionKey);
+    try {
+      const result = kind === "structures"
+        ? (apply
+          ? await migrateLegacySupabaseMasterDataStructures(true)
+          : await migrateLegacySupabaseMasterDataStructures(false))
+        : (apply
+          ? await migrateLegacySupabaseStudents(true)
+          : await migrateLegacySupabaseStudents(false));
+      if (apply) {
+        setLegacyMigrationPreviews((current) => ({ ...current, [kind]: null }));
+        setLegacyMigrationRefreshKey((value) => value + 1);
+        showToast("Impor selesai: " + (result.imported || 0) + " ditambahkan, " + (result.skipped || 0) + " dilewati, " + (result.errors?.length || 0) + " konflik.", result.errors?.length ? "error" : "success");
+      } else {
+        setLegacyMigrationPreviews((current) => ({ ...current, [kind]: result }));
+        showToast(result.errors?.length
+          ? "Pratinjau selesai dengan " + result.errors.length + " konflik yang perlu diselesaikan."
+          : "Pratinjau selesai: " + (result.planned || 0) + " record siap ditinjau.",
+        result.errors?.length ? "error" : "success");
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Impor arsip Master Data belum dapat diproses.", "error");
+    } finally {
+      setLegacyMigrationBusy(null);
+    }
+  };
   const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
   const [draftToRestore, setDraftToRestore] = useState<{ mode: "add" | "edit"; draft: any; record?: any } | null>(null);
 
@@ -324,8 +373,27 @@ export function MasterDataManager() {
     setTimeout(() => setNotification(null), 5000);
   };
 
+  const handleLoadRoomHistory = async (studentId: unknown) => {
+    const id = typeof studentId === "string" ? studentId.trim() : "";
+    if (!id) return;
+    setRoomHistory([]);
+    setRoomHistoryStudentId("");
+    setRoomHistoryLoading(true);
+    setRoomHistoryError("");
+    try {
+      const records = await listSupabaseStudentRoomAssignmentHistory(id);
+      setRoomHistory(records);
+      setRoomHistoryStudentId(id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Riwayat penempatan kamar belum dapat dimuat.";
+      setRoomHistoryError(message);
+      setRoomHistoryStudentId(id);
+    } finally {
+      setRoomHistoryLoading(false);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<string[] | null>(null);
   const [isHierarchyView, setIsHierarchyView] = useState(true);
 
@@ -428,7 +496,7 @@ export function MasterDataManager() {
 
     void loadSupabase();
     return () => { cancelled = true; };
-  }, [activeTab, activeSubTab, user?.tenantId, user?.uid, currentPage, searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter]);
+  }, [activeTab, activeSubTab, user?.tenantId, user?.uid, currentPage, searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, legacyMigrationRefreshKey]);
 
   useEffect(() => {
     // We intentionally removed the auto-pop-up on mount for drafts,
@@ -480,35 +548,10 @@ export function MasterDataManager() {
     setSelectedRows([]);
   };
 
-  const performAISearch = async (e?: React.FormEvent) => {
+  const submitSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (SUPABASE_MASTER_DATA_RUNTIME && activeTab === "entities" && activeSubTab === "Santri") {
-      setSearchResults(null);
-      setCurrentPage(1);
-      return;
-    }
-    if (!searchQuery.trim()) {
-      setSearchResults(null);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const records = dataSources[activeSubTab] || getMockData(activeSubTab);
-      const response = await fetch("/api/ai-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery, records }),
-      });
-      const data = await response.json();
-      if (data.matchedIds) {
-        setSearchResults(data.matchedIds);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSearching(false);
-    }
+    setSearchResults(null);
+    setCurrentPage(1);
   };
 
   const handleAddClick = () => {
@@ -1498,7 +1541,74 @@ export function MasterDataManager() {
           Mode Supabase aktif. Sumber data tenant untuk Santri, Gedung, Kamar, dan Kelas berasal dari backend. Modul Master Data lain belum dipindahkan dan disembunyikan pada mode ini.
         </div>
       )}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+      {SUPABASE_MASTER_DATA_RUNTIME && SUPABASE_MASTER_DATA_IMPORT && user && ["Admin", "SuperAdmin"].includes(user.role) && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Migrasi arsip Master Data</h2>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500 dark:text-slate-400">
+                Pratinjau membaca arsip Firestore tenant aktif tanpa menulis data. Terapkan impor hanya setelah konflik, relasi, dan backup ditinjau. Selesaikan impor struktur sebelum impor santri.
+              </p>
+            </div>
+            <span className="inline-flex w-fit items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              Admin · Perlu tinjauan
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            {([
+              { kind: "structures", title: "Gedung, Kamar, dan Kelas" },
+              { kind: "students", title: "Santri dan relasi Wali" },
+            ] as const).map(({ kind, title }) => {
+              const preview = legacyMigrationPreviews[kind];
+              const isBusy = legacyMigrationBusy?.startsWith(kind) || false;
+              const canApply = Boolean(preview?.dryRun === true && !(preview.errors || []).length && Number(preview.planned || 0) > 0);
+              return (
+                <div key={kind} className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
+                  <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">{title}</h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={Boolean(legacyMigrationBusy)}
+                      onClick={() => void runLegacyMasterDataMigration(kind, false)}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
+                    >
+                      {legacyMigrationBusy === kind + "-preview" ? "Memuat pratinjau…" : "Pratinjau"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(legacyMigrationBusy) || !canApply || isBusy}
+                      onClick={() => void runLegacyMasterDataMigration(kind, true)}
+                      className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {legacyMigrationBusy === kind + "-apply" ? "Mengimpor…" : "Terapkan impor"}
+                    </button>
+                  </div>
+                  {preview && (
+                    <div className="mt-3 space-y-2 text-xs text-slate-600 dark:text-slate-300" aria-live="polite">
+                      <p>
+                        Sumber {preview.sourceCount || 0} · Siap {preview.planned || 0} · Dilewati {preview.skipped || 0}
+                        {typeof preview.imported === "number" ? " · Diimpor " + preview.imported : ""}
+                      </p>
+                      {typeof preview.legacyStructureCount === "number" && (
+                        <p>Struktur {preview.legacyStructureCount} · Santri sumber {preview.legacyStudentCount || 0} · Penempatan kamar belum cocok unik {preview.studentsWithoutUnambiguousRoom || 0}</p>
+                      )}
+                      {typeof preview.legacyGuardianCount === "number" && <p>Record Wali sumber {preview.legacyGuardianCount}</p>}
+                      {(preview.errors || []).slice(0, 4).map((item: any, index: number) => (
+                        <p key={"error-" + index} className="rounded-md bg-rose-50 px-2 py-1.5 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200">{item.category || "Konflik"} · {item.message}</p>
+                      ))}
+                      {(preview.warnings || []).slice(0, 3).map((item: any, index: number) => (
+                        <p key={"warning-" + index} className="rounded-md bg-amber-50 px-2 py-1.5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{item.category || "Catatan"} · {item.message}</p>
+                      ))}
+                      {(preview.errors || []).length > 4 && <p>Dan {(preview.errors || []).length - 4} konflik lainnya.</p>}
+                      {(preview.warnings || []).length > 3 && <p>Dan {(preview.warnings || []).length - 3} catatan lainnya.</p>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-4">
           <div>
             <div className="flex items-center gap-3">
@@ -1851,7 +1961,7 @@ export function MasterDataManager() {
               <div className="p-4 border-b border-slate-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-black/10 print:hidden">
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                   <form
-                    onSubmit={performAISearch}
+                    onSubmit={submitSearch}
                     className="relative w-full sm:w-80 group"
                   >
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
@@ -1859,21 +1969,15 @@ export function MasterDataManager() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder={isServerPaginatedSantri ? "Cari nama, NIS, atau ID santri…" : `AI Search ${activeSubTab}... (e.g. "enrolled in 2022")`}
+                      placeholder={isServerPaginatedSantri ? "Cari nama, NIS, atau ID santri…" : "Cari nama, ID, kelas, atau lokasi…"}
                       className="pl-9 pr-10 py-2  rounded-md text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 w-full bg-slate-50 dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-300 transition-all placeholder:text-slate-600"
                     />
                     <button
                       type="submit"
-                      disabled={isSearching}
+
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-emerald-500/70 hover:text-emerald-400 disabled:opacity-50 transition-colors"
                     >
-                      {isSearching ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : isServerPaginatedSantri ? (
-                        <Search className="w-4 h-4" />
-                      ) : (
-                        <Sparkles className="w-4 h-4" />
-                      )}
+                      <Search className="w-4 h-4" />
                     </button>
                   </form>
                   <div className="relative">
@@ -2355,6 +2459,61 @@ export function MasterDataManager() {
                                 </span>
                               </div>
                             </div>
+                            {SUPABASE_MASTER_DATA_RUNTIME && selectedRecord.supabaseId && (
+                              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <h5 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Riwayat penempatan kamar</h5>
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Riwayat mulai dicatat sejak fitur ini diaktifkan; perubahan sebelum itu mungkin tidak tersedia.</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    disabled={roomHistoryLoading}
+                                    onClick={() => void handleLoadRoomHistory(selectedRecord.supabaseId)}
+                                    className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-60 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10"
+                                  >
+                                    {roomHistoryLoading ? "Memuat…" : roomHistoryStudentId === selectedRecord.supabaseId ? "Segarkan" : "Lihat"}
+                                  </button>
+                                </div>
+                                {roomHistoryStudentId === selectedRecord.supabaseId && (
+                                  <div className="mt-3 space-y-2">
+                                    {roomHistoryError && <p role="alert" className="text-xs text-rose-600 dark:text-rose-300">{roomHistoryError}</p>}
+                                    {!roomHistoryError && roomHistory.length === 0 && !roomHistoryLoading && (
+                                      <p className="text-xs text-slate-500 dark:text-slate-400">Belum ada riwayat penempatan kamar.</p>
+                                    )}
+                                    {roomHistory.map((entry) => (
+                                      <div key={entry.id} className="rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-white/10 dark:bg-slate-900/60">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <span className="font-semibold text-slate-800 dark:text-slate-100">
+                                            {{
+                                              initial_assignment: "Penempatan awal",
+                                              assigned: "Penempatan kamar",
+                                              moved: "Perpindahan kamar",
+                                              unassigned: "Pengakhiran penempatan",
+                                              building_changed: "Perubahan gedung",
+                                            }[entry.eventType] || "Perubahan penempatan"}
+                                          </span>
+                                          <time className="text-slate-500 dark:text-slate-400" dateTime={entry.changedAt}>
+                                            {new Date(entry.changedAt).toLocaleString("id-ID")}
+                                          </time>
+                                        </div>
+                                        <p className="mt-1 text-slate-700 dark:text-slate-300">
+                                          {entry.previousRoomName || "Belum ditempatkan"} → {entry.roomName || "Tidak ditempatkan"}
+                                        </p>
+                                        {(entry.previousBuildingName || entry.buildingName) && (
+                                          <p className="mt-1 text-slate-500 dark:text-slate-400">
+                                            Gedung: {entry.previousBuildingName || "—"} → {entry.buildingName || "—"}
+                                          </p>
+                                        )}
+                                        <p className="mt-1 text-slate-500 dark:text-slate-400">
+                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : "Sistem"}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* Keuangan */}

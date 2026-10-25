@@ -6,7 +6,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(56);
+SELECT plan(57);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -38,10 +38,15 @@ SET linked_santri_id = 'e5000000-0000-4000-8000-000000000299'
 WHERE user_id = 'e5000000-0000-4000-8000-000000000014';
 
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
-VALUES (
-  'e5000000-0000-4000-8000-000000000101', 'e5000000-0000-4000-8000-000000000005',
-  'FIN-TEST-001', 'Santri Finance Test', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')
-);
+VALUES
+  ('e5000000-0000-4000-8000-000000000101', 'e5000000-0000-4000-8000-000000000005',
+   'FIN-TEST-001', 'Santri Finance Test', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')),
+  ('e5000000-0000-4000-8000-000000000102', 'e5000000-0000-4000-8000-000000000005',
+   'FIN-TEST-002', 'Sibling Finance Test', decode(repeat('ac', 44), 'hex'), decode(repeat('ce', 32), 'hex')),
+  ('e5000000-0000-4000-8000-000000000103', 'e5000000-0000-4000-8000-000000000005',
+   'FIN-GUARDIAN-001', 'Finance Guardian', decode(repeat('ad', 44), 'hex'), decode(repeat('cf', 32), 'hex')),
+  ('e5000000-0000-4000-8000-000000000104', 'e5000000-0000-4000-8000-000000000005',
+   'FIN-GUARDIAN-002', 'Other Guardian', decode(repeat('ae', 44), 'hex'), decode(repeat('d0', 32), 'hex'));
 INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity)
 VALUES
   ('e5000000-0000-4000-8000-000000000005', 'Kelas', 'finance-class-test', 'Kelas Finance Test', NULL),
@@ -56,6 +61,33 @@ VALUES (
   decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'finance-class-test', 'finance-room-test'
 );
 
+INSERT INTO public.students (
+  id, tenant_id, source_candidate_id, nis, name, gender, grade,
+  nik_ciphertext, nik_fingerprint, class_id, room_id
+) VALUES (
+  'e5000000-0000-4000-8000-000000000202', 'e5000000-0000-4000-8000-000000000005',
+  'e5000000-0000-4000-8000-000000000102', '1234567891', 'Sibling Finance Test', 'L', 'VIII',
+  decode(repeat('f0', 44), 'hex'), decode(repeat('13', 32), 'hex'), 'finance-class-test', 'finance-room-test'
+);
+INSERT INTO public.guardians (id, tenant_id, source_candidate_id, name, phone)
+VALUES
+  ('e5000000-0000-4000-8000-000000000301', 'e5000000-0000-4000-8000-000000000005',
+   'e5000000-0000-4000-8000-000000000103', 'Finance Guardian', '081200000001'),
+  ('e5000000-0000-4000-8000-000000000302', 'e5000000-0000-4000-8000-000000000005',
+   'e5000000-0000-4000-8000-000000000104', 'Other Guardian', '081200000002');
+INSERT INTO public.guardian_students (tenant_id, guardian_id, student_id)
+VALUES
+  ('e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000301', 'e5000000-0000-4000-8000-000000000201'),
+  ('e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000301', 'e5000000-0000-4000-8000-000000000202');
+INSERT INTO public.guardian_user_accounts (tenant_id, guardian_id, user_id)
+VALUES
+  ('e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000301', 'e5000000-0000-4000-8000-000000000013'),
+  ('e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000302', 'e5000000-0000-4000-8000-000000000014');
+
+SELECT ok(
+  public.guardian_can_access_student('e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000013', 'e5000000-0000-4000-8000-000000000202'),
+  'guardian account authorizes a second linked child'
+);
 SELECT ok(NOT has_table_privilege('anon', 'public.finance_expenses', 'SELECT'), 'anon cannot read Finance expenses directly');
 SELECT ok(NOT has_table_privilege('authenticated', 'public.finance_expenses', 'SELECT'), 'authenticated cannot read Finance expenses directly');
 SELECT ok(NOT has_table_privilege('anon', 'public.finance_bills', 'SELECT'), 'anon cannot read Finance bills directly');

@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { useAuth } from './contexts/AuthContext';
 import { FrontendOverview } from './pages/FrontendOverview';
 import { LoginView } from './pages/LoginView';
+import { GuardianInvitationActivationView } from './pages/GuardianInvitationActivationView';
 
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
@@ -42,7 +43,8 @@ const MarketplaceManager = React.lazy(() => import('./pages/MarketplaceManager')
 const EcosystemManager = React.lazy(() => import('./pages/EcosystemManager').then((module) => ({ default: module.EcosystemManager })));
 const UserManagementView = React.lazy(() => import('./pages/UserManagementView').then((module) => ({ default: module.UserManagementView })));
 export default function App() {
-  const { role, user } = useAuth();
+  const { role, user, completeGuardianInvitation } = useAuth();
+  const [guardianInviteToken, setGuardianInviteToken] = useState(() => new URLSearchParams(window.location.search).get('guardianInvite') || '');
   const currentTenant: Tenant = {
     id: user?.tenantId || '',
     name: user?.tenantName || 'Pesantren',
@@ -214,6 +216,10 @@ export default function App() {
         return <ModulePlaceholder module={activeModule} />;
     }
   };
+
+  if (guardianInviteToken) {
+    return <GuardianInvitationActivationView token={guardianInviteToken} onActivated={() => { completeGuardianInvitation(); setGuardianInviteToken(''); }} />;
+  }
 
   if (role === 'Public') {
     if (showLogin) {

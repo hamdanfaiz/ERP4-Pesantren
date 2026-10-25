@@ -12,15 +12,11 @@ import {
   ThumbsDown,
 } from "lucide-react";
 import { Tenant } from "../types";
-import Markdown from "react-markdown";
 import { cn } from "../lib/utils";
 import { useAuth } from "../contexts/AuthContext";
-import { getAllMasterDataRecords } from "../data/mockRecords";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from "recharts";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import html2canvas from "html2canvas";
 import { getAccessToken } from "../authSession";
+
+const HeaderSearchInsight = React.lazy(() => import("./HeaderSearchInsight").then((module) => ({ default: module.HeaderSearchInsight })));
 
 function createFeedbackRequestId() {
   const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
@@ -50,6 +46,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
       data: { name: string; value: number }[];
     };
     sources: any[];
+    isError?: boolean;
   } | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -59,6 +56,11 @@ export function Header({ currentTenant, branding }: HeaderProps) {
     if (!searchResult?.chartData) return;
     setIsExporting(true);
     try {
+      const [{ default: jsPDF }, { default: autoTable }, { default: html2canvas }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+        import("html2canvas"),
+      ]);
       const doc = new jsPDF();
       doc.setFontSize(16);
       doc.text(searchResult.chartData.title, 14, 15);
@@ -118,19 +120,33 @@ export function Header({ currentTenant, branding }: HeaderProps) {
     setFeedbackGiven(null);
     feedbackRequestIdRef.current = createFeedbackRequestId();
     try {
-      const records = getAllMasterDataRecords();
       const response = await fetch("/api/header-ai-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery, records }),
+        cache: "no-store",
+        body: JSON.stringify({ query: searchQuery }),
       });
-      const data = await response.json();
-      setSearchResult(data);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setSearchResult({
+          answer: typeof data.error === "string" ? data.error : "Pencarian AI belum tersedia.",
+          sources: [],
+          isError: true,
+        });
+        return;
+      }
+
+      setSearchResult({
+        answer: typeof data.answer === "string" ? data.answer : "Pencarian tidak mengembalikan jawaban yang valid.",
+        chartData: data.chartData,
+        sources: Array.isArray(data.sources) ? data.sources : [],
+      });
     } catch (e) {
       console.error(e);
       setSearchResult({
         answer: "Terjadi kesalahan saat mencari.",
         sources: [],
+        isError: true,
       });
     } finally {
       setIsSearching(false);
@@ -231,65 +247,14 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                       </div>
                     ) : searchResult ? (
                       <div className="space-y-4">
-                        <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline">
-                          <Markdown>{searchResult.answer}</Markdown>
-                        </div>
-
-                        {searchResult.chartData && searchResult.chartData.data && searchResult.chartData.data.length > 0 && (
-                          <div className="mt-4 p-4 border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f0f0f] rounded-xl shadow-sm">
-                            <div className="flex justify-between items-center mb-4">
-                              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                                {searchResult.chartData.title}
-                              </h4>
-                              <button 
-                                onClick={exportChartToPDF}
-                                disabled={isExporting}
-                                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
-                              >
-                                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                                Ekspor PDF
-                              </button>
-                            </div>
-                            <div id="search-chart-container" className="h-64 w-full bg-white dark:bg-[#0f0f0f]">
-                              <ResponsiveContainer width="100%" height="100%">
-                                {searchResult.chartData.type === 'pie' ? (
-                                  <PieChart>
-                                    <Pie
-                                      data={searchResult.chartData.data}
-                                      cx="50%"
-                                      cy="50%"
-                                      innerRadius={60}
-                                      outerRadius={80}
-                                      paddingAngle={5}
-                                      dataKey="value"
-                                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                    >
-                                      {searchResult.chartData.data.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]} />
-                                      ))}
-                                    </Pie>
-                                    <Tooltip
-                                      contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#333', color: '#fff' }}
-                                      itemStyle={{ color: '#10b981' }}
-                                    />
-                                  </PieChart>
-                                ) : (
-                                  <BarChart data={searchResult.chartData.data}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" opacity={0.2} />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                                    <Tooltip
-                                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                      contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#333', color: '#fff' }}
-                                      itemStyle={{ color: '#10b981' }}
-                                    />
-                                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                  </BarChart>
-                                )}
-                              </ResponsiveContainer>
-                            </div>
-                          </div>
-                        )}
+                        <React.Suspense fallback={<div role="status" className="py-6 text-center text-xs text-slate-500">Menyiapkan jawaban...</div>}>
+                          <HeaderSearchInsight
+                            answer={searchResult.answer}
+                            chartData={searchResult.chartData}
+                            isExporting={isExporting}
+                            onExport={exportChartToPDF}
+                          />
+                        </React.Suspense>
 
                         {searchResult.sources &&
                           searchResult.sources.length > 0 && (
@@ -327,7 +292,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                             </div>
                           )}
 
-                        <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4 flex items-center justify-between">
+                        {!searchResult.isError && <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4 flex items-center justify-between">
                           <span className="text-xs text-slate-500">Apakah jawaban ini membantu?</span>
                           <div className="flex items-center gap-2">
                             <button
@@ -357,7 +322,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                               <ThumbsDown className="w-4 h-4" aria-hidden="true" />
                             </button>
                           </div>
-                        </div>
+                        </div>}
 
                       </div>
                     ) : null}

@@ -1,3 +1,4 @@
+import { listGuardianStudentIds } from "./identityStore";
 import { createHash } from "node:crypto";
 import { isValidTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
 
@@ -153,8 +154,8 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
     throw new SupabaseTahfidzError(503, "Zona waktu tenant belum valid. Hubungi SuperAdmin untuk memperbaiki pengaturan.");
   }
 
-  let linkedStudentId = "";
-  if (role === "Santri" || role === "Walisantri") {
+  const linkedStudentIds = new Set<string>();
+  if (role === "Santri") {
     const profileParams = new URLSearchParams({
       select: "linked_santri_id",
       tenant_id: "eq." + tenantId,
@@ -168,9 +169,15 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
     const linkedMatches = students.filter((student) => String(student.status || "").toLowerCase() !== "archived"
       && (String(student.id) === linkedId || String(student.source_record_id || "") === linkedId));
     if (linkedMatches.length !== 1) throw new SupabaseTahfidzError(403, "Tautan santri pada profil tidak valid atau belum unik.");
-    linkedStudentId = String(linkedMatches[0].id);
+    linkedStudentIds.add(String(linkedMatches[0].id));
+  } else if (role === "Walisantri") {
+    try {
+      for (const studentId of await listGuardianStudentIds(tenantId, actorId)) linkedStudentIds.add(studentId);
+    } catch {
+      throw new SupabaseTahfidzError(403, "Akun Wali belum memiliki tautan santri aktif yang valid.");
+    }
+    if (!linkedStudentIds.size) throw new SupabaseTahfidzError(403, "Akun Wali belum tertaut ke santri aktif.");
   }
-
   const studentById = new Map<string, JsonObject>();
   for (const student of students) studentById.set(String(student.id), student);
   const membershipsByStudent = new Map<string, JsonObject>();
@@ -266,12 +273,12 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
     snapshot.roster = snapshot.roster.filter((student) => allowedHalaqahIds.has(String(student.halaqahId || "")));
     snapshot.records = snapshot.records.filter((record) => allowedHalaqahIds.has(record.halaqahId));
   } else if (role === "Santri" || role === "Walisantri") {
-    const linkedRoster = snapshot.roster.filter((student) => student.id === linkedStudentId);
+    const linkedRoster = snapshot.roster.filter((student) => linkedStudentIds.has(student.id));
     const allowedHalaqahIds = new Set(linkedRoster.map((student) => String(student.halaqahId || "")).filter(Boolean));
     snapshot.halaqahs = snapshot.halaqahs.filter((halaqah) => allowedHalaqahIds.has(halaqah.id))
-      .map((halaqah) => ({ ...halaqah, students: halaqah.students.filter((student) => student.id === linkedStudentId) }));
+      .map((halaqah) => ({ ...halaqah, students: halaqah.students.filter((student) => linkedStudentIds.has(student.id)) }));
     snapshot.roster = linkedRoster;
-    snapshot.records = snapshot.records.filter((record) => record.studentId === linkedStudentId);
+    snapshot.records = snapshot.records.filter((record) => linkedStudentIds.has(record.studentId));
   }
 
   return snapshot;

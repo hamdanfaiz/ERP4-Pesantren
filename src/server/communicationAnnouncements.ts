@@ -78,17 +78,39 @@ async function assertAnnouncementImportReady(tenantUuid: string): Promise<void> 
   if (!data) throw new CommunicationStoreError(503, 'Admin harus meninjau dan menyelesaikan snapshot pengumuman lama sebelum modul diaktifkan.');
 }
 
-function isAnnouncementRecipient(target: string, profile: StoredUserProfile): boolean {
-  if (String(profile.status || '').toLowerCase() !== 'active') return false;
-  const role = normalizedRole(profile);
-  if (target === 'Semua Wali Santri') return role === 'walisantri' || role === 'wali_santri';
-  if (target === 'Guru & Musyrif') return role === 'ustadz';
-  if (target === 'Semua Santri') return role === 'santri';
-  if (target === 'Wali Santri Kelas VII - A') {
-    const linkedClass = String(profile.linkedSantriClass || '').trim().toLowerCase();
-    return (role === 'walisantri' || role === 'wali_santri') && linkedClass === 'vii - a';
+const ALLOWED_ANNOUNCEMENT_TARGETS = [
+  'Semua Wali Santri', 'Guru & Musyrif', 'Semua Santri', 'Wali Santri Kelas VII - A',
+];
+
+async function announcementRecipientUserIds(tenantUuid: string, target: string): Promise<Set<string>> {
+  if (!ALLOWED_ANNOUNCEMENT_TARGETS.includes(target)) return new Set();
+  const client = getServiceClient();
+  const recipients = new Set<string>();
+  const pageSize = 500;
+  const maxRecipients = 50000;
+  for (let offset = 0; offset < maxRecipients; offset += pageSize) {
+    const { data, error } = await client.rpc('communication_announcement_recipient_user_ids', {
+      p_tenant_id: tenantUuid,
+      p_target_audience: target,
+    }).range(offset, offset + pageSize - 1);
+    if (error || !Array.isArray(data)) {
+      throw new CommunicationStoreError(503, 'Daftar penerima pengumuman belum dapat diverifikasi.');
+    }
+    for (const row of data as Array<{ user_id?: string }>) {
+      const userId = String(row.user_id || '').trim();
+      if (userId) recipients.add(userId);
+    }
+    if (data.length < pageSize) return recipients;
   }
-  return false;
+  throw new CommunicationStoreError(503, 'Jumlah penerima pengumuman melebihi batas pemrosesan aman.');
+}
+async function announcementRecipientsByTarget(tenantUuid: string, targets: string[]) {
+  const uniqueTargets = [...new Set(targets)].filter((target) => ALLOWED_ANNOUNCEMENT_TARGETS.includes(target));
+  const entries = await Promise.all(uniqueTargets.map(async (target) => [
+    target,
+    await announcementRecipientUserIds(tenantUuid, target),
+  ] as const));
+  return new Map<string, Set<string>>(entries);
 }
 
 function mapAnnouncement(row: AnnouncementRow, readCount: number, totalTarget: number, readByActor: boolean, actorName: string) {
@@ -114,22 +136,19 @@ export async function listCommunicationAnnouncements(tenantId: string, actor: St
   const client = getServiceClient();
   const tenantUuid = await resolveTenantUuid(tenantId);
   await assertAnnouncementImportReady(tenantUuid);
-  const [rowsResult, profiles] = await Promise.all([
-    client.from('communication_announcements')
+  const rowsResult = await client.from('communication_announcements')
     .select('id,tenant_id,title,body,target_audience,status,is_urgent,read_count,legacy_read_count,created_by_user_id,created_at,scheduled_at')
-      .eq('tenant_id', tenantUuid)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(500),
-    listTenantProfiles(tenantId),
-  ]);
+    .eq('tenant_id', tenantUuid)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(500);
   if (rowsResult.error) throw new CommunicationStoreError(503, 'Pengumuman belum dapat dimuat dari Supabase.');
   const rows = (rowsResult.data || []) as AnnouncementRow[];
-  const role = normalizedRole(actor);
-  const canManageAnnouncements = ['admin', 'superadmin', 'super_admin'].includes(role);
+  const recipientsByTarget = await announcementRecipientsByTarget(tenantUuid, rows.map((row) => row.target_audience));
+  const canManageAnnouncements = ['admin', 'superadmin', 'super_admin'].includes(normalizedRole(actor));
   const visibleRows = rows.filter((row) => canManageAnnouncements
     ? true
-    : row.status === 'sent' && isAnnouncementRecipient(row.target_audience, actor));
+    : row.status === 'sent' && recipientsByTarget.get(row.target_audience)?.has(actor.uid));
   if (!visibleRows.length) return [];
 
   const announcementIds = visibleRows.map((row) => row.id);
@@ -143,7 +162,7 @@ export async function listCommunicationAnnouncements(tenantId: string, actor: St
   const actorReadIds = new Set((readsResult.data || []).map((read) => String(read.announcement_id)));
 
   return visibleRows.map((row) => {
-    const totalTarget = profiles.filter((profile) => isAnnouncementRecipient(row.target_audience, profile)).length;
+    const totalTarget = recipientsByTarget.get(row.target_audience)?.size || 0;
     return mapAnnouncement(row, Number(row.read_count || 0) + Number(row.legacy_read_count || 0), totalTarget, actorReadIds.has(row.id), actor.name);
   });
 }
@@ -159,18 +178,16 @@ export async function createCommunicationAnnouncement(
   const rawTitle = String(input.title || '').trim();
   const content = String(input.content || '').trim();
   const target = String(input.target || '').trim();
-  const allowedTargets = ['Semua Wali Santri', 'Guru & Musyrif', 'Semua Santri', 'Wali Santri Kelas VII - A'];
-  const title = input.isUrgent === true && !rawTitle.toLowerCase().startsWith('darurat:') ? `DARURAT: ${rawTitle}` : rawTitle;
-  if (!title || title.length > 180 || !content || content.length > 12000 || !allowedTargets.includes(target)) {
+  const title = input.isUrgent === true && !rawTitle.toLowerCase().startsWith('darurat:') ? 'DARURAT: ' + rawTitle : rawTitle;
+  if (!title || title.length > 180 || !content || content.length > 12000 || !ALLOWED_ANNOUNCEMENT_TARGETS.includes(target)) {
     throw new CommunicationStoreError(400, 'Judul, isi, atau target pengumuman tidak valid.');
   }
-  const client = getServiceClient();
-  const profiles = await listTenantProfiles(tenantId);
-  const totalTarget = profiles.filter((profile) => isAnnouncementRecipient(target, profile)).length;
-  if (totalTarget === 0) {
-    throw new CommunicationStoreError(409, 'Belum ada akun aktif pada audiens ini; pengumuman belum diterbitkan.');
-  }
   const tenantUuid = await resolveTenantUuid(tenantId);
+  const totalTarget = (await announcementRecipientUserIds(tenantUuid, target)).size;
+  if (totalTarget === 0) {
+    throw new CommunicationStoreError(409, 'Belum ada akun aktif dan tertaut pada audiens ini; pengumuman belum diterbitkan.');
+  }
+  const client = getServiceClient();
   await assertAnnouncementImportReady(tenantUuid);
   const { data, error } = await client.from('communication_announcements').insert({
     tenant_id: tenantUuid,
@@ -201,7 +218,8 @@ export async function acknowledgeCommunicationAnnouncement(tenantId: string, act
     .maybeSingle();
   if (announcementError) throw new CommunicationStoreError(503, 'Pengumuman belum dapat diverifikasi.');
   if (!announcement || announcement.status !== 'sent') throw new CommunicationStoreError(404, 'Pengumuman tidak ditemukan.');
-  if (!isAnnouncementRecipient(String(announcement.target_audience), actor)) {
+  const recipients = await announcementRecipientUserIds(tenantUuid, String(announcement.target_audience));
+  if (!recipients.has(actor.uid)) {
     throw new CommunicationStoreError(403, 'Pengumuman ini bukan untuk akun Anda.');
   }
 
@@ -214,7 +232,6 @@ export async function acknowledgeCommunicationAnnouncement(tenantId: string, act
   if (error.code === '23505') return { alreadyRead: true };
   throw new CommunicationStoreError(503, 'Konfirmasi baca belum dapat disimpan.');
 }
-
 type PreparedLegacyAnnouncement = {
   legacy_source_id: string;
   title: string;
@@ -268,8 +285,9 @@ export async function previewLegacyCommunicationAnnouncements(
   const warnings: LegacyAnnouncementPreview['warnings'] = [];
   const rows: PreparedLegacyAnnouncement[] = [];
   const sourceIds = new Set<string>();
-  const allowedTargets = ['Semua Wali Santri', 'Guru & Musyrif', 'Semua Santri', 'Wali Santri Kelas VII - A'];
+  const allowedTargets = ALLOWED_ANNOUNCEMENT_TARGETS;
   const orderedSourceRows = [...sourceRows].sort((left, right) => String(left?.sourceId || '').localeCompare(String(right?.sourceId || '')));
+  const recipientIdsByTarget = await announcementRecipientsByTarget(tenantUuid, orderedSourceRows.map((item) => String(item?.value?.target || '').trim()));
 
   for (const item of orderedSourceRows) {
     const sourceId = String(item?.sourceId || '').trim();
@@ -306,7 +324,7 @@ export async function previewLegacyCommunicationAnnouncements(
       const matches = profiles.filter((profile) =>
         String(profile.name || '').trim().toLocaleLowerCase() === name
         && ['walisantri', 'wali_santri'].includes(normalizedRole(profile))
-        && isAnnouncementRecipient(target, profile));
+        && recipientIdsByTarget.get(target)?.has(profile.uid) === true);
       if (matches.length !== 1) {
         hasUnmatchedAcknowledgement = true;
         issue('Satu atau lebih konfirmasi baca tidak cocok secara unik dengan akun Wali aktif pada audiens ini.');

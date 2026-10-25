@@ -1,3 +1,4 @@
+import { listGuardianStudentIds } from "./identityStore";
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHash } from "node:crypto";
 import { SupabaseOnboardingError } from "./supabaseOnboarding";
@@ -141,6 +142,20 @@ async function resolveLinkedStudent(actor: BoardingActor) {
   return rows[0];
 }
 
+async function resolveLinkedStudents(actor: BoardingActor, tenantId: string): Promise<JsonObject[]> {
+  if (actor.role !== "Walisantri") return [await resolveLinkedStudent(actor)];
+  let studentIds: string[];
+  try { studentIds = await listGuardianStudentIds(tenantId, requiredUuid(actor.uid, "Akun")); }
+  catch { throw new SupabaseOnboardingError(403, "Akun Wali belum terhubung ke santri aktif."); }
+  if (!studentIds.length) throw new SupabaseOnboardingError(403, "Akun Wali belum terhubung ke santri aktif.");
+  const allStudents = await listTenantRows("students", tenantId,
+    "id,source_record_id,name,nis,room_id,building_id,status", "name.asc,id.asc");
+  const visible = new Set(studentIds);
+  const linked = allStudents.filter((student) => visible.has(String(student.id))
+    && !["archived", "inactive", "nonaktif", "tidak aktif"].includes(String(student.status || "").trim().toLowerCase()));
+  if (linked.length !== studentIds.length) throw new SupabaseOnboardingError(403, "Relasi santri Wali tidak valid atau belum lengkap.");
+  return linked;
+}
 function mapPermit(row: JsonObject, studentById: Map<string, JsonObject>, roomById: Map<string, string>) {
   const studentId = String(row.student_id || "");
   const student = studentById.get(studentId);
@@ -170,7 +185,7 @@ export async function listSupabaseBoardingPermits(actor: BoardingActor) {
   let students: JsonObject[];
   const scope = role === "ustadz" ? await getBoardingLocationScope(tenantId, requiredUuid(actor.uid, "Akun")) : null;
   if (role === "santri" || role === "wali_santri") {
-    students = [await resolveLinkedStudent(actor)];
+    students = await resolveLinkedStudents(actor, tenantId);
   } else {
     students = await listTenantRows("students", tenantId, "id,source_record_id,name,nis,room_id,building_id,status", "name.asc,id.asc");
     students = students.filter((student) => String(student.status || "").toLowerCase() !== "archived"

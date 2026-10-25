@@ -499,7 +499,7 @@ export async function onboardSupabaseAcceptedCandidate(
     : null;
   if (!assignment) throw new SupabaseOnboardingError(400, "Penempatan santri tidak valid.");
 
-  const body = await supabaseRequest("/rest/v1/rpc/onboard_accepted_ppdb_candidate_for_admin", {
+  const body = await supabaseRequest("/rest/v1/rpc/onboard_accepted_ppdb_candidate_with_room_history_actor", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId,
@@ -619,9 +619,11 @@ export async function assignSupabaseStudentRoom(
   tenantIdentifier: string,
   studentIdValue: unknown,
   roomIdValue: unknown,
-  buildingIdValue?: unknown
+  buildingIdValue: unknown,
+  actorUserId: string
 ): Promise<JsonObject> {
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const actorId = validateUuid(actorUserId, "ID Admin");
   const studentId = validateUuid(studentIdValue, "ID santri");
   let roomId: string | null = null;
   if (roomIdValue !== null) {
@@ -641,19 +643,77 @@ export async function assignSupabaseStudentRoom(
     }
   }
 
-  const result = await supabaseRequest("/rest/v1/rpc/assign_student_to_room", {
+  const result = await supabaseRequest("/rest/v1/rpc/assign_student_to_room_audited", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId,
       p_student_id: studentId,
       p_room_id: roomId,
       p_building_id: buildingId,
+      p_actor_user_id: actorId,
     }),
   });
   if (!result || typeof result !== "object" || result.success !== true) {
     throw new SupabaseOnboardingError(503, "Backend belum mengonfirmasi perubahan penempatan kamar.");
   }
   return result as JsonObject;
+}
+
+export type SupabaseStudentRoomAssignmentHistoryEntry = {
+  id: number;
+  eventType: "initial_assignment" | "assigned" | "moved" | "unassigned" | "building_changed";
+  previousRoomName: string | null;
+  roomName: string | null;
+  previousBuildingName: string | null;
+  buildingName: string | null;
+  changedByName: string;
+  changeSource: "boarding_runtime" | "master_data" | "legacy_import" | "ppdb_onboarding" | "system";
+  changedAt: string;
+};
+
+export async function listSupabaseStudentRoomAssignmentHistory(
+  tenantIdentifier: string,
+  studentIdentifier: string
+): Promise<SupabaseStudentRoomAssignmentHistoryEntry[]> {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const studentId = validateUuid(studentIdentifier, "ID santri");
+  const params = new URLSearchParams({
+    select: "id,event_type,previous_room_name,room_name,previous_building_name,building_name,changed_by,change_source,changed_at",
+    tenant_id: "eq." + tenantId,
+    student_id: "eq." + studentId,
+    order: "changed_at.desc,id.desc",
+    limit: "100",
+  });
+  const rows = await supabaseRequest("/rest/v1/student_room_assignment_history?" + params.toString());
+  if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Riwayat penempatan kamar belum dapat dibaca.");
+  const actorIds = [...new Set(rows.map((row: any) => String(row?.changed_by || "")).filter(isCanonicalUuid))];
+  const actorNames = new Map<string, string>();
+  if (actorIds.length > 0) {
+    const profileParams = new URLSearchParams({
+      select: "user_id,display_name",
+      tenant_id: "eq." + tenantId,
+      user_id: "in.(" + actorIds.join(",") + ")",
+    });
+    const profiles = await supabaseRequest("/rest/v1/profiles?" + profileParams.toString());
+    if (Array.isArray(profiles)) {
+      for (const profile of profiles) {
+        if (isCanonicalUuid(String(profile?.user_id || "")) && typeof profile?.display_name === "string") {
+          actorNames.set(profile.user_id, profile.display_name);
+        }
+      }
+    }
+  }
+  return rows.map((row: any) => ({
+    id: Number(row.id),
+    eventType: row.event_type,
+    previousRoomName: typeof row.previous_room_name === "string" ? row.previous_room_name : null,
+    roomName: typeof row.room_name === "string" ? row.room_name : null,
+    previousBuildingName: typeof row.previous_building_name === "string" ? row.previous_building_name : null,
+    buildingName: typeof row.building_name === "string" ? row.building_name : null,
+    changedByName: actorNames.get(String(row.changed_by || "")) || (row.changed_by ? "Admin" : "Sistem"),
+    changeSource: row.change_source,
+    changedAt: row.changed_at,
+  }));
 }
 
 export type LegacySupabaseStudentSource = {
@@ -1016,9 +1076,11 @@ export async function getSupabaseMasterDataStudent(
 export async function upsertSupabaseMasterDataStudent(
   tenantIdentifier: string,
   studentIdentifier: string,
-  recordValue: unknown
+  recordValue: unknown,
+  actorUserId: string
 ): Promise<JsonObject> {
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const actorId = validateUuid(actorUserId, "ID Admin");
   if (!recordValue || typeof recordValue !== "object" || Array.isArray(recordValue)) {
     throw new SupabaseOnboardingError(400, "Data santri tidak valid.");
   }
@@ -1072,7 +1134,7 @@ export async function upsertSupabaseMasterDataStudent(
   const buildingId = rawBuildingId || null;
   const details = safeStudentDetails(record);
 
-  const result = await supabaseRequest("/rest/v1/rpc/upsert_master_data_student", {
+  const result = await supabaseRequest("/rest/v1/rpc/upsert_master_data_student_with_actor", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId,
@@ -1083,6 +1145,7 @@ export async function upsertSupabaseMasterDataStudent(
       p_nik_fingerprint_hex: nikFingerprintHex,
       p_nisn_ciphertext_hex: nisnCiphertextHex,
       p_nisn_fingerprint_hex: nisnFingerprintHex,
+      p_actor_user_id: actorId,
     }),
   });
   const savedStudentId = isCanonicalUuid(String(result?.studentId || "")) ? String(result.studentId) : "";
@@ -1095,16 +1158,19 @@ export async function upsertSupabaseMasterDataStudent(
 
 export async function archiveSupabaseMasterDataStudent(
   tenantIdentifier: string,
-  studentIdentifier: string
+  studentIdentifier: string,
+  actorUserId: string
 ): Promise<JsonObject> {
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const actorId = validateUuid(actorUserId, "ID Admin");
   const studentId = isCanonicalUuid(studentIdentifier) ? validateUuid(studentIdentifier, "ID santri") : null;
-  const result = await supabaseRequest("/rest/v1/rpc/archive_master_data_student", {
+  const result = await supabaseRequest("/rest/v1/rpc/archive_master_data_student_with_actor", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId,
       p_student_id: studentId,
       p_source_record_id: studentId ? null : studentIdentifier,
+      p_actor_user_id: actorId,
     }),
   });
   if (!result || typeof result !== "object" || result.success !== true) {

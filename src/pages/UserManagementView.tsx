@@ -87,6 +87,11 @@ export function UserManagementView() {
   const [createPermissions, setCreatePermissions] = useState<Record<string, boolean>>({});
   const [createLinkedName, setCreateLinkedName] = useState('');
   const [createLinkedNis, setCreateLinkedNis] = useState('');
+  const [guardianCandidates, setGuardianCandidates] = useState<Array<{ id: string; name: string; students: Array<{ id: string; nis: string; name: string; grade: string }> }>>([]);
+  const [selectedGuardianId, setSelectedGuardianId] = useState('');
+  const [isLoadingGuardians, setIsLoadingGuardians] = useState(false);
+  const [guardianInviteLink, setGuardianInviteLink] = useState('');
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -196,6 +201,31 @@ export function UserManagementView() {
     fetchUsers();
   }, [fetchUsers]);
 
+  useEffect(() => {
+    if (!isCreateModalOpen || createRole !== "Walisantri") return;
+    let cancelled = false;
+    setIsLoadingGuardians(true);
+    setCreateError(null);
+    void (async () => {
+      try {
+        const token = await getAccessToken();
+        const response = await fetch("/api/users/guardian-candidates", {
+          headers: { Authorization: "Bearer " + token },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Data Wali tidak dapat dimuat.");
+        if (!cancelled) {
+          setGuardianCandidates(Array.isArray(payload.guardians) ? payload.guardians : []);
+          setSelectedGuardianId("");
+        }
+      } catch (error) {
+        if (!cancelled) setCreateError(error instanceof Error ? error.message : "Data Wali tidak dapat dimuat.");
+      } finally {
+        if (!cancelled) setIsLoadingGuardians(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isCreateModalOpen, createRole]);
   // Open Create Modal
   const handleOpenCreateModal = () => {
     setCreateName('');
@@ -206,6 +236,10 @@ export function UserManagementView() {
     setCreateTempPassword('');
     setCreateLinkedName('');
     setCreateLinkedNis('');
+    setSelectedGuardianId('');
+    setGuardianCandidates([]);
+    setGuardianInviteLink('');
+    setInviteLinkCopied(false);
     setCreateError(null);
     generateRandomPassword();
     setIsCreateModalOpen(true);
@@ -216,7 +250,11 @@ export function UserManagementView() {
     e.preventDefault();
     setCreateError(null);
 
-    if (createTempPassword.length < 12) {
+    if (createRole === 'Walisantri' && !selectedGuardianId) {
+      setCreateError('Pilih data Wali yang telah terhubung ke santri aktif.');
+      return;
+    }
+    if (createRole !== 'Walisantri' && createTempPassword.length < 12) {
       setCreateError('Kata sandi sementara harus minimal 12 karakter.');
       return;
     }
@@ -234,8 +272,34 @@ export function UserManagementView() {
       const finalPerms = createRole === 'SuperAdmin'
         ? ALL_MODULE_LIST.reduce((acc, m) => ({ ...acc, [m.id]: true }), {})
         : { ...createPermissions };
-      if (currentRole === 'Admin') {
+      if (currentRole === 'Admin' || createRole === 'Walisantri') {
         finalPerms['settings'] = false;
+      }
+
+      if (createRole === 'Walisantri') {
+        const res = await fetch('/api/users/guardian-invitations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({
+            email: createEmail.trim().toLowerCase(),
+            guardianId: selectedGuardianId,
+            modulePermissions: finalPerms,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Gagal membuat undangan Wali.');
+        if (data.linkedExistingAccount === true) {
+          setIsCreateModalOpen(false);
+          setActionSuccessMessage('Akun Wali terverifikasi berhasil ditautkan ke data Master Data.');
+          setTimeout(() => setActionSuccessMessage(null), 6000);
+          setPage(0);
+          return;
+        }
+        setGuardianInviteLink(String(data.inviteUrl || ''));
+        setActionSuccessMessage('Undangan Wali telah dibuat. Bagikan tautan aktivasi hanya ke email yang didaftarkan.');
+        setTimeout(() => setActionSuccessMessage(null), 6000);
+        setPage(0);
+        return;
       }
 
       const payload = {
@@ -859,6 +923,7 @@ export function UserManagementView() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {createRole !== 'Walisantri' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
                     Nama Lengkap <span className="text-red-500">*</span>
@@ -873,6 +938,7 @@ export function UserManagementView() {
                   />
                 </div>
 
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
                     Email Pengguna <span className="text-red-500">*</span>
@@ -895,7 +961,7 @@ export function UserManagementView() {
                   </label>
                   <select
                     value={createRole}
-                    onChange={(e) => setCreateRole(e.target.value as UserRole)}
+                    onChange={(e) => { setCreateRole(e.target.value as UserRole); setGuardianInviteLink(''); setCreateError(null); }}
                     className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="Ustadz">Ustadz / Tenaga Pengajar</option>
@@ -922,6 +988,7 @@ export function UserManagementView() {
                   )}
                 </div>
 
+                {createRole !== 'Walisantri' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
                     Username (Opsional)
@@ -934,9 +1001,12 @@ export function UserManagementView() {
                     className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+                )}
               </div>
 
-              {/* Temporary Password Field */}
+              {createRole !== 'Walisantri' && (
+                <>
+                  {/* Temporary Password Field */}
               <div className="p-3.5 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
@@ -976,9 +1046,11 @@ export function UserManagementView() {
                   🛡️ <strong>Perlindungan kredensial:</strong> Kata sandi sementara hanya digunakan untuk aktivasi pertama kali. Pengguna diwajibkan mengubah kata sandi saat pertama kali login (<code>mustChangePassword=true</code>). Kata sandi tidak disimpan sebagai plaintext di tabel profil, log, atau respons server.
                 </p>
               </div>
+                </>
+              )}
 
-              {/* Santri Linkage (if Walisantri or Santri) */}
-              {(createRole === 'Walisantri' || createRole === 'Santri') && (
+                            {/* Student accounts link to one verified student; guardian accounts use the canonical guardian relation below. */}
+              {createRole === 'Santri' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
@@ -994,19 +1066,87 @@ export function UserManagementView() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                      NIS Santri Terhubung
+                      NIS Santri Terhubung <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
+                      inputMode="numeric"
                       value={createLinkedNis}
-                      onChange={(e) => setCreateLinkedNis(e.target.value)}
-                      placeholder="Contoh: 202607001"
+                      onChange={(e) => setCreateLinkedNis(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      required
+                      placeholder="Masukkan NIS yang terdaftar"
                       className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white"
                     />
+                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                      NIS diverifikasi ke data santri aktif pada tenant ini. Akun Wali hanya dapat ditautkan jika relasi Wali sudah tercatat di Master Data.
+                    </p>
                   </div>
                 </div>
               )}
 
+              {createRole === 'Walisantri' && (
+                <div className="p-3.5 bg-cyan-500/5 border border-cyan-500/20 rounded-xl space-y-2">
+                  <label htmlFor="guardian-account-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Data Wali pada Master Data <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="guardian-account-select"
+                    value={selectedGuardianId}
+                    onChange={(event) => setSelectedGuardianId(event.target.value)}
+                    required
+                    disabled={isLoadingGuardians || guardianCandidates.length === 0}
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white"
+                  >
+                    <option value="">{isLoadingGuardians ? 'Memuat data Wali…' : 'Pilih Wali yang terhubung ke santri aktif'}</option>
+                    {guardianCandidates.map((guardian) => (
+                      <option key={guardian.id} value={guardian.id}>
+                        {guardian.name} — {guardian.students.map((student) => student.name + ' (' + student.nis + ')').join(', ')}
+                      </option>
+                    ))}
+                  </select>
+                  {guardianCandidates.length === 0 && !isLoadingGuardians ? (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                      Tidak ada Wali aktif tanpa akun. Periksa Master Data dan relasi Wali–santri.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Hak akses santri mengikuti seluruh relasi aktif Wali pada tenant. Wali membuat kata sandi sendiri melalui tautan aktivasi.
+                    </p>
+                  )}
+                  {guardianInviteLink && (
+                    <div className="space-y-2 pt-2 border-t border-cyan-500/20">
+                      <label htmlFor="guardian-invite-link" className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        Tautan aktivasi Wali
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="guardian-invite-link"
+                          readOnly
+                          value={guardianInviteLink}
+                          className="min-w-0 flex-1 px-3 py-2 rounded-lg text-[11px] bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(guardianInviteLink);
+                              setInviteLinkCopied(true);
+                            } catch {
+                              setCreateError('Tautan tidak dapat disalin otomatis. Salin dari kolom tautan.');
+                            }
+                          }}
+                          className="px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-semibold"
+                        >
+                          {inviteLinkCopied ? 'Tersalin' : 'Salin'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                        Tautan bersifat rahasia dan kedaluwarsa dalam 24 jam. Kirim hanya kepada pemilik email yang didaftarkan.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Module Permissions Checklist */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1114,7 +1254,7 @@ export function UserManagementView() {
                   ) : (
                     <>
                       <UserPlus className="w-4 h-4" />
-                      <span>Simpan & Buat Pengguna</span>
+                      <span>{createRole === 'Walisantri' ? (guardianInviteLink ? 'Buat Ulang Undangan' : 'Buat Tautan Aktivasi') : 'Simpan & Buat Pengguna'}</span>
                     </>
                   )}
                 </button>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { setAuthSession } from '../authSession';
 import { supabase, supabaseClientConfigured } from '../utils/supabase';
@@ -35,6 +35,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearMustChangePassword: () => Promise<void>;
+  completeGuardianInvitation: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -46,6 +47,7 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   refreshProfile: async () => {},
   clearMustChangePassword: async () => {},
+  completeGuardianInvitation: () => {},
 });
 
 const ALLOWED_ROLES: UserRole[] = ['SuperAdmin', 'Admin', 'Ustadz', 'Santri', 'Walisantri'];
@@ -136,6 +138,7 @@ async function loadUserProfile(authUser: SupabaseAuthUser): Promise<{ user: Auth
 }
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const guardianInvitationRoute = useRef(typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('guardianInvite'));
   const [role, setRole] = useState<UserRole>('Public');
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -175,10 +178,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setRole(session.role);
             } catch {
               if (!mounted || currentRevision !== revision) return;
-              setAuthSession(null);
               setUser(null);
               setRole('Public');
-              try { await supabase.auth.signOut(); } catch { /* Keep the session fail-closed. */ }
+              if (!guardianInvitationRoute.current) {
+                setAuthSession(null);
+                try { await supabase.auth.signOut(); } catch { /* Keep the session fail-closed. */ }
+              }
             } finally {
               if (mounted && currentRevision === revision) setIsLoading(false);
             }
@@ -257,6 +262,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setRole(session.role);
   };
 
+  const completeGuardianInvitation = () => { guardianInvitationRoute.current = false; };
+
   const clearMustChangePassword = async () => {
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) throw new Error('Pengguna belum terautentikasi.');
@@ -285,6 +292,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       logout,
       refreshProfile,
       clearMustChangePassword,
+      completeGuardianInvitation,
     }}>
       {children}
     </AuthContext.Provider>

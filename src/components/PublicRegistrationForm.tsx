@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { lazy, Suspense, useState, useEffect } from "react";
 import {
   Sparkles,
   Upload,
@@ -9,7 +9,6 @@ import {
   GraduationCap,
   X,
   Building,
-  Download,
   Copy,
   Check,
   AlertCircle,
@@ -20,8 +19,7 @@ import { cn } from "../lib/utils";
 import { Candidate } from "../types";
 import { RegionSelector } from "./RegionSelector";
 import { systemSettingsService, SystemSettings } from "../services/systemSettingsService";
-import { PDFDownloadLink } from "@react-pdf/renderer";
-import { CandidatePDFDocument } from "./CandidatePDFCard";
+const CandidatePDFDownload = lazy(() => import("./CandidatePDFDownload").then((module) => ({ default: module.CandidatePDFDownload })));
 
 interface PublicRegistrationFormProps {
   onClose: () => void;
@@ -743,23 +741,9 @@ export function PublicRegistrationForm({
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                 {submittedCandidate && (
-                  <PDFDownloadLink
-                    document={
-                      <CandidatePDFDocument
-                        candidate={submittedCandidate}
-                        settings={systemSettings}
-                      />
-                    }
-                    fileName={`Kartu_PPDB_${submittedCandidate.registrationId}.pdf`}
-                    className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
-                  >
-                    {({ loading }) => (
-                      <>
-                        <Download className="w-4 h-4" />
-                        <span>{loading ? "Menyiapkan Berkas PDF..." : "Unduh Kartu Pendaftaran (PDF)"}</span>
-                      </>
-                    )}
-                  </PDFDownloadLink>
+<Suspense fallback={<div role="status" className="w-full sm:w-auto px-6 py-3 rounded-xl text-sm text-slate-500 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Menyiapkan komponen kartu...</div>}>
+                    <CandidatePDFDownload candidate={submittedCandidate} settings={systemSettings} />
+                  </Suspense>
                 )}
 
                 <button

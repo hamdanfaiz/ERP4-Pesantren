@@ -127,6 +127,10 @@ async function main() {
         SUPABASE_SECRET_KEY: serviceKey,
         SUPABASE_SERVICE_ROLE_KEY: '',
         SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED: 'false',
+        SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
+        SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
+        SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'false',
+        SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
         LEGACY_FIREBASE_ADMIN_ENABLED: 'false',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
@@ -156,6 +160,60 @@ async function main() {
     assert.equal((await readyResponse.json()).status, 'ready');
     assert.equal(readyResponse.headers.get('cache-control'), 'no-store');
 
+    const anonymousRoomHistory = await fetch(apiBase + "/api/master-data/students/" + randomUUID() + "/room-history");
+    assert.equal(anonymousRoomHistory.status, 401, "Room history must reject anonymous callers.");
+    const gatedRoomHistory = await fetch(apiBase + "/api/master-data/students/" + randomUUID() + "/room-history", {
+      headers: { Authorization: "Bearer " + adminToken },
+    });
+    assert.equal(gatedRoomHistory.status, 503, "Room history must remain closed while the Master Data runtime is disabled.");
+
+    for (const path of ["/api/master-data/structures/migrate", "/api/master-data/students/migrate"]) {
+      const anonymousImport = await fetch(apiBase + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apply: false }),
+      });
+      assert.equal(anonymousImport.status, 401, path + " must reject anonymous callers.");
+      const gatedImport = await fetch(apiBase + path, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + adminToken, "Content-Type": "application/json" },
+        body: JSON.stringify({ apply: false }),
+      });
+      assert.equal(gatedImport.status, 503, path + " must remain closed until the operator enables migration.");
+    }
+    const missingWaliLinkEmail = "wali-missing-link-" + randomUUID() + "@example.test";
+    const missingWaliLink = await fetch(apiBase + "/api/users", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + adminToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: missingWaliLinkEmail,
+        name: "Wali tanpa tautan",
+        role: "Walisantri",
+        tempPassword: "Wali-Test-" + randomUUID() + "-Aa1!",
+        modulePermissions: {},
+      }),
+    });
+    assert.equal(missingWaliLink.status, 400, "A Wali account without a tenant-scoped student link must be rejected.");
+    assert.equal((await missingWaliLink.json()).code, "WALI_INVITATION_REQUIRED");
+
+    const unrecognizedWaliEmail = "wali-unknown-nis-" + randomUUID() + "@example.test";
+    const unrecognizedWaliNis = await fetch(apiBase + "/api/users", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + adminToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: unrecognizedWaliEmail,
+        name: "Wali dengan NIS tidak terdaftar",
+        role: "Walisantri",
+        tempPassword: "Wali-Test-" + randomUUID() + "-Aa1!",
+        linkedSantriNis: "9999999999",
+        modulePermissions: {},
+      }),
+    });
+    assert.equal(unrecognizedWaliNis.status, 400, "A Wali account with an unknown NIS must be rejected.");
+    assert.equal((await unrecognizedWaliNis.json()).code, "WALI_INVITATION_REQUIRED");
+    const authDirectory = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    assert.equal(authDirectory.error, null, "The synthetic Auth directory must remain readable for the assertion.");
+    assert.ok(!authDirectory.data.users.some((user) => [missingWaliLinkEmail, unrecognizedWaliEmail].includes(user.email)), "Rejected Wali registrations must not leave Auth accounts behind.");
     const unauthenticated = await fetch(`${apiBase}/api/users`);
     assert.equal(unauthenticated.status, 401, 'Requests without a session must be rejected.');
 
@@ -164,6 +222,35 @@ async function main() {
     });
     assert.equal(invalidSession.status, 401, 'Invalid Supabase sessions must be rejected.');
 
+    const updateWaliPermissions = async (modulePermissions) => {
+      const { data, error } = await admin.from('profiles')
+        .update({ module_permissions: modulePermissions })
+        .eq('tenant_id', tenantIds[0])
+        .eq('user_id', users[6].uid)
+        .select('user_id');
+      assert.equal(error, null, 'The synthetic Wali permissions must be updateable by the local service role.');
+      assert.equal(data?.length, 1, 'Exactly one synthetic Wali profile must be updated.');
+    };
+
+    await updateWaliPermissions({ finance: false, boarding: false });
+    const deniedWaliFinance = await fetch(`${apiBase}/api/finance/snapshot`, {
+      headers: { Authorization: `Bearer ${waliToken}` },
+    });
+    assert.equal(deniedWaliFinance.status, 403, 'Wali access must be denied when the Finance module permission is off.');
+    const deniedWaliBoarding = await fetch(`${apiBase}/api/boarding/permits`, {
+      headers: { Authorization: `Bearer ${waliToken}` },
+    });
+    assert.equal(deniedWaliBoarding.status, 403, 'Wali access must be denied when the Boarding module permission is off.');
+
+    await updateWaliPermissions({ finance: true, boarding: true });
+    const unlinkedWaliFinance = await fetch(`${apiBase}/api/finance/snapshot`, {
+      headers: { Authorization: `Bearer ${waliToken}` },
+    });
+    assert.equal(unlinkedWaliFinance.status, 403, 'Wali access must be denied without a canonical guardian-to-student link.');
+    const unlinkedWaliBoarding = await fetch(`${apiBase}/api/boarding/permits`, {
+      headers: { Authorization: `Bearer ${waliToken}` },
+    });
+    assert.equal(unlinkedWaliBoarding.status, 403, 'Boarding access must be denied without a canonical guardian-to-student link.');
     for (const [role, token] of [['Ustadz', ustadzToken], ['Santri', santriToken], ['Walisantri', waliToken]]) {
       const nonAdmin = await fetch(`${apiBase}/api/users`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -247,7 +334,7 @@ async function main() {
     assert.ok(superAdminPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'SuperAdmin results must remain tenant-scoped.');
     assert.ok(!superAdminPayload.users.some((profile) => profile.email === users[2].email), 'SuperAdmin must not receive a foreign-tenant profile through query spoofing.');
 
-    console.log('API auth and tenant isolation passed: Admin/SuperAdmin allow-list, Ustadz/Santri/Walisantri denial, module denial, suspended accounts/tenants, and cross-tenant query spoofing.');
+    console.log('API auth and tenant isolation passed: role/tenant denial, module denial, suspended accounts, cross-tenant query spoofing, and Wali link validation.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');

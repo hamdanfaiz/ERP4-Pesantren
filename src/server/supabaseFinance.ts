@@ -1,3 +1,4 @@
+import { listGuardianStudentIds } from "./identityStore";
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 
 type Row = Record<string, any>;
@@ -89,14 +90,18 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
   const expected = expectedRole(role);
   if (!expected || !isUuid(actorUserId)) throw new SupabaseFinanceError(403, "Akun ini tidak dapat membaca keuangan tenant.");
   if (!["Admin", "SuperAdmin", "Ustadz", "Walisantri"].includes(role)) throw new SupabaseFinanceError(403, "Role ini belum memiliki akses Finance Supabase.");
-  const profileParams = new URLSearchParams({ select: "user_id,role,status,linked_santri_id", tenant_id: "eq." + tenantId, user_id: "eq." + actorUserId, status: "eq.active", limit: "2" });
+  const profileParams = new URLSearchParams({ select: "user_id,role,status", tenant_id: "eq." + tenantId, user_id: "eq." + actorUserId, status: "eq.active", limit: "2" });
   const profiles = await request("/rest/v1/profiles?" + profileParams.toString());
   if (!Array.isArray(profiles) || profiles.length !== 1 || String(profiles[0]?.role || "").toLowerCase() !== expected) throw new SupabaseFinanceError(403, "Profil Finance Supabase tidak cocok dengan tenant aktif.");
-  const linkedId = String(profiles[0]?.linked_santri_id || "");
   const isAdmin = role === "Admin" || role === "SuperAdmin";
+  let guardianStudentIds: string[] = [];
+  if (role === "Walisantri") {
+    try { guardianStudentIds = await listGuardianStudentIds(tenantId, actorUserId); }
+    catch { throw new SupabaseFinanceError(403, "Akun Wali belum tertaut ke santri aktif."); }
+  }
   const [billRows, expenseRows, ledgerRows, students, controls] = await Promise.all([
-    role === "Walisantri" && isUuid(linkedId)
-      ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type", "bill_date.desc,id.desc", { student_id: "eq." + linkedId })
+    role === "Walisantri" && guardianStudentIds.length > 0
+      ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type", "bill_date.desc,id.desc", { student_id: "in.(" + guardianStudentIds.join(",") + ")" })
       : isAdmin ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type", "bill_date.desc,id.desc") : Promise.resolve([]),
     isAdmin
       ? tenantRows("finance_expenses", tenantId, "id,category,description,amount,expense_date,status,department,requester_user_id,requester_name,reviewed_by_user_id,reviewed_at,rejection_reason,created_at", "expense_date.desc,id.desc")

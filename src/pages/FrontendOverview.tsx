@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn, GraduationCap, Users, CalendarDays, Heart, Play } from 'lucide-react';
-import { PublicRegistrationForm } from '../components/PublicRegistrationForm';
+const PublicRegistrationForm = React.lazy(() => import('../components/PublicRegistrationForm').then((module) => ({ default: module.PublicRegistrationForm })));
 
 interface FrontendProps {
   onLoginClick: () => void;
@@ -97,7 +97,9 @@ export function FrontendOverview({ onLoginClick, branding }: FrontendProps) {
                   Kembali ke Beranda
                 </button>
              </div>
-             <PublicRegistrationForm onClose={() => setActiveView('home')} />
+             <React.Suspense fallback={<div role="status" className="glass-panel rounded-xl p-8 text-center text-sm text-slate-500">Memuat formulir pendaftaran...</div>}>
+               <PublicRegistrationForm onClose={() => setActiveView('home')} />
+             </React.Suspense>
           </div>
         )}
       </main>

@@ -1,3 +1,4 @@
+import { listGuardianStudentIds } from "./identityStore";
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHash } from "node:crypto";
 import { SupabaseOnboardingError } from "./supabaseOnboarding";
@@ -94,7 +95,20 @@ async function linkedStudent(actor: Actor, tenantId: string) {
   if (active.length !== 1) throw new SupabaseOnboardingError(403, "Tautan santri pada profil tidak valid atau belum unik.");
   return active[0];
 }
-function isAssignedRoom(room: Row, scope: Scope) {
+async function linkedStudents(actor: Actor, tenantId: string): Promise<Row[]> {
+  if (actor.role !== "Walisantri") return [await linkedStudent(actor, tenantId)];
+  let studentIds: string[];
+  try { studentIds = await listGuardianStudentIds(tenantId, uuid(actor.uid, "Akun")); }
+  catch { throw new SupabaseOnboardingError(403, "Akun Wali belum terhubung ke santri aktif."); }
+  if (!studentIds.length) throw new SupabaseOnboardingError(403, "Akun Wali belum terhubung ke santri aktif.");
+  const linked = new Set(studentIds);
+  const candidates = await rows("students", tenantId,
+    "id,name,room_id,building_id,source_record_id,status", "name.asc,id.asc");
+  const visible = candidates.filter((student) => linked.has(String(student.id))
+    && !["archived", "inactive", "nonaktif", "tidak aktif"].includes(String(student.status || "").trim().toLowerCase()));
+  if (visible.length !== studentIds.length) throw new SupabaseOnboardingError(403, "Relasi santri Wali tidak valid atau belum lengkap.");
+  return visible;
+}function isAssignedRoom(room: Row, scope: Scope) {
   return scope.roomIds.has(String(room.id)) || (room.parent_id && scope.buildingIds.has(String(room.parent_id)));
 }
 function date(value: unknown) {
@@ -120,8 +134,9 @@ export async function listSupabaseBoardingFacilityOps(actor: Actor) {
     const scope = await locationScope(tenantId, userId, structures);
     visibleRooms = activeRooms.filter((room) => isAssignedRoom(room, scope));
   } else if (role === "santri" || role === "wali_santri") {
-    const student = await linkedStudent(actor, tenantId);
-    visibleRooms = activeRooms.filter((room) => String(student.room_id || "") === String(room.id));
+    const students = await linkedStudents(actor, tenantId);
+    const linkedRoomIds = new Set(students.map((student) => String(student.room_id || "")).filter(Boolean));
+    visibleRooms = activeRooms.filter((room) => linkedRoomIds.has(String(room.id)));
   } else if (!(role === "admin" || role === "super_admin")) {
     throw new SupabaseOnboardingError(403, "Role tidak dapat mengakses audit dan tiket asrama.");
   }
