@@ -185,11 +185,6 @@ export interface SupabaseMasterDataStudentRecord {
   [key: string]: unknown;
 }
 
-export async function listSupabaseMasterDataStudents(): Promise<SupabaseMasterDataStudentRecord[]> {
-  const result = await requestMasterData<{ records: SupabaseMasterDataStudentRecord[] }>("/api/master-data/students");
-  return Array.isArray(result.records) ? result.records : [];
-}
-
 export type SupabaseMasterDataStudentPageOptions = {
   page: number;
   pageSize?: number;
