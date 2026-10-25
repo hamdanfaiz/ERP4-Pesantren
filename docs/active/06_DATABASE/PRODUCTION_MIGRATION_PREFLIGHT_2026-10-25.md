@@ -128,3 +128,12 @@ Pemeriksaan ini menggantikan angka migrasi pada snapshot sebelumnya; query dilak
 - Supabase connector yang tersedia pada sesi ini hanya menampilkan project `vqemuyzveuirlkvdggjd`, bukan target `ptsasgdvgrbdtgyqieie`. Pemeriksaan baseline di atas dilakukan baca-saja melalui dashboard yang sudah terbuka; tidak ada migrasi, perubahan schema, atau data yang ditulis.
 
 **Keputusan:** jangan jalankan 33 migrasi itu ke Production dari pemeriksaan ini. Perubahan guardian, akses Finance/Asrama, riwayat kamar, dan query Tahfidz memerlukan rehearsal upgrade pada staging serta backup yang sudah diuji restore. Flag runtime tetap mengikuti nilai default off sampai urutan migrasi dan versi server disetujui.
+
+## Migration lanjutan riwayat penempatan — 26 Oktober 2026
+
+- Perbaikan kode PR #13 menambahkan migration `20270109000000_boarding_room_history_baseline.sql`, sehingga repository memuat 81 migration sampai `20270109000000`.
+- Baseline Production pada pembacaan metadata sebelumnya adalah 47 versi sampai `20261206000000`. Jika ledger belum berubah sejak pembacaan itu, 34 migration repository setelahnya masih pending; status live harus dibaca ulang sebelum rehearsal atau penerapan. Pemeriksaan sesi ini tidak menulis atau membaca ulang database Production.
+- CI `40240024866` menguji migration tersebut pada Supabase lokal yang terisolasi dan seluruh 51 assertion riwayat penempatan kamar lulus, bersama job frontend/Docker dan rangkaian uji lain. Hasil ini bukan bukti upgrade berhasil pada skema/data Production.
+- Migration mengisi snapshot kondisi sekarang hanya untuk santri yang memiliki gedung/kamar dan belum punya event riwayat. Snapshot tidak mengklaim menyimpan perpindahan sebelum tanggal cutover dan tidak menetapkan aktor historis.
+
+**Keputusan:** jangan jalankan migration Production. Baca ulang ledger, siapkan backup dan uji restore, lalu lakukan rehearsal lengkap pada staging yang mewakili skema/data sebelum rencana upgrade disetujui.

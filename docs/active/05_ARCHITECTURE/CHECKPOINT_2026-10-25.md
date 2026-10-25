@@ -337,3 +337,16 @@ Angka tidak berubah karena pemeriksaan ini menemukan kondisi target, tetapi belu
 - Tujuh migrasi terbaru menambah akun/undangan Wali dan akses Finance/Asrama, audiens komunikasi Wali, riwayat penempatan kamar, paginasi roster Tahfidz, dan ringkasan tindak lanjut. Rinciannya tercatat pada [preflight migrasi Production](../06_DATABASE/PRODUCTION_MIGRATION_PREFLIGHT_2026-10-25.md).
 - Pemeriksaan memakai `SELECT` pada metadata saja. Tidak ada perubahan database. Konektor Supabase pada sesi ini hanya melihat project lain, sehingga jangan menggunakannya sebagai pengganti target.
 - Langkah aman selanjutnya: lakukan rehearsal 33 migrasi pada staging yang representatif, pulihkan backup di environment terpisah, lalu verifikasi hasil sebelum menjadwalkan upgrade Production.
+
+## Snapshot penempatan kamar saat cutover — 26 Oktober 2026
+
+### Progres menuju go-live: 75/100
+
+Skor naik satu poin dari 74/100 setelah kondisi asrama yang sudah ada memperoleh snapshot awal yang jujur saat migrasi, dengan verifikasi CI pada migration dan kontrak tampilannya.
+
+- Migration `20270109000000_boarding_room_history_baseline.sql` mencatat satu kondisi kamar/gedung bagi santri berpenempatan yang belum memiliki event riwayat. Snapshot bertanggal saat cutover, tidak mengarang aktor, dan tidak mengklaim merekonstruksi perpindahan lama. Pemanggilan ulang aman dan fungsi backfill tidak dapat dipanggil `service_role`.
+- UI menampilkan label **Kondisi saat cutover** serta menjelaskan bahwa riwayat sebelum tanggal snapshot tidak tersedia. Tipe API/server mencakup event dan sumber baru.
+- CI run `40240024866` sukses di kedua job pada commit kode `90d0024eaea090186bc9a3a9dab5675a035f2ba6`. Cakupan mencakup typecheck, build client/server, Docker/Compose smoke test, seluruh migration dan pgTAP (51 assertion untuk riwayat kamar), NIS/Tahfidz concurrency, API auth/isolasi tenant, Finance Storage, dan backup/restore lokal.
+- Tes lokal `npm run lint` tidak dapat dimulai karena dependensi proyek belum terpasang (`tsc` tidak tersedia); typecheck dan build yang sama berhasil pada CI. Tidak ada migrasi atau data yang ditulis ke Supabase Production.
+
+Skor 75/100 mencerminkan implementasi dan CI sintetis. Baseline Production terakhir yang dibaca menunjukkan 47 migrasi hingga `20261206000000`; dengan migration baru ini, status Production harus dibaca ulang sebelum upgrade. Staging representatif, backup/restore yang diuji, rekonsiliasi dan impor data, login Admin/Wali, UAT izin, rotasi secret, benchmark pesantren besar, review PR, serta uji pemasangan/pemulihan VPS dan on-premise tetap menjadi gerbang rilis. PR #13 masih Open/Draft dan belum siap deploy.
