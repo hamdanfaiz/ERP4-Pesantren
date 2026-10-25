@@ -155,3 +155,18 @@ Skor naik satu poin pada cakupan modul dan alur pengguna setelah Portal Wali dap
 - PR #13 tetap Open/Draft. Uji login Admin/Wali pada staging, rekonsiliasi/impor data, rotasi secret, serta UAT environment VPS/on-premise masih menahan go-live.
 
 Skor bukan izin deploy. Gerbang berikutnya tetap staging yang benar, verifikasi autentikasi dan role/tenant, dry-run migrasi, pemulihan backup, serta uji instalasi pelanggan.
+
+## Revalidasi PR dan akses staging — 25 Oktober 2026
+
+### Progres menuju go-live: 63/100
+
+Skor tetap 63/100 karena pemeriksaan ini memperbarui status kontrol dan PR, tetapi tidak menambah bukti autentikasi staging, rekonsiliasi data, atau UAT environment pelanggan.
+
+- Revalidasi GitHub PR #1–#13: PR #12 sudah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`; PR #1–#11 dan #13 masih Open/Draft.
+- PR #11 tetap bertumpuk di atas PR #10: base `backend/supabase-finance-ui` pada `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`, head `backend/supabase-masterdata-structures-ui` pada `88f2686d34bbffb1aa1c7997b55cd015c424f85c`.
+- PR #13 tetap jalur utama: base `main` pada merge PR #12, head `codex/supabase-runtime-cutover-20261022` pada `a972b8a079af68d4d71a3032c18c386f0bf7ae42`. PR #11 bukan leluhur #13 dan tidak boleh digabung sekaligus; bawa hanya kekurangan yang terbukti.
+- GitHub Actions run `40191075189` pada head PR #13 tersebut sukses pada job frontend dan database. Hasilnya memverifikasi kode serta migrasi pada Supabase lokal sintetis, bukan database Production.
+- Akses konektor Supabase ke target `ptsasgdvgrbdtgyqieie` masih ditolak. Daftar project konektor hanya menampilkan `vqemuyzveuirlkvdggjd`, project berbeda yang tidak dipakai sebagai target. Tidak ada migrasi atau penulisan Production.
+- Pengujian multi-anak Portal Wali pada head `a972b8a` telah lolos CI; perubahan ini tidak mengubah status login staging atau kesiapan rilis.
+
+Gerbang berikutnya adalah menyediakan akses baca ke project Supabase target atau staging terpisah, lalu menjalankan uji upgrade, dry-run migrasi/rekonsiliasi, autentikasi Admin/Wali, dan UAT. Jangan menaikkan persentase hanya karena branch mergeable atau CI lokal berhasil.
