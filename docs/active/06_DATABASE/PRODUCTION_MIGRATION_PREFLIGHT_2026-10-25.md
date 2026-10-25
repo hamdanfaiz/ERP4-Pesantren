@@ -97,3 +97,11 @@ CI tersebut menguji database kosong sintetis. CI tidak membuktikan upgrade terha
 6. Jalankan preview migrasi Firebase per tenant dan rekonsiliasi datanya. Apply impor, rotasi secret, pengujian login final, merge, dan deploy adalah release actions terpisah; dokumen ini tidak menyetujuinya.
 
 Jangan menerapkan migration produksi hanya berdasarkan keberhasilan CI pada database kosong.
+
+
+## Pembaruan validasi branch PR — 25 Oktober 2026
+
+- Snapshot database pada dokumen ini tetap merupakan hasil baca-saja saat preflight awal; angka live harus dibaca ulang sebelum upgrade.
+- Perbandingan 15 commit dari head preflight awal `18be5a983262783284dfb309a76205dc300ecc97` ke head PR `a650c91ec211040cd02a55b26a06d3ceb30ce7a6` tidak menemukan perubahan pada `supabase/migrations/**`. Karena itu, inventaris 26 migrasi pending pada head terbaru tetap sama, tetapi hal ini tidak menggantikan uji upgrade di staging.
+- CI pada head terbaru, [run 40162903438](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40162903438), lulus untuk frontend/build/Docker serta Supabase lokal, pgTAP, API auth/tenant, NIS concurrency, Storage, dan backup/restore sintetis.
+- CI tersebut tidak menjalankan migrasi pada Production dan tidak membuktikan kinerja upgrade terhadap data Production. PR #13 tetap Draft; backup yang dapat dipulihkan, staging, rekonsiliasi data, login Admin, rotasi secret, dan UAT tetap menjadi gerbang sebelum go-live.
