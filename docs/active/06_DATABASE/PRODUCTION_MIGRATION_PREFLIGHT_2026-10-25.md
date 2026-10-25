@@ -106,3 +106,25 @@ Jangan menerapkan migration produksi hanya berdasarkan keberhasilan CI pada data
 - CI untuk head kode `a650c91ec211040cd02a55b26a06d3ceb30ce7a6`, [run 40162903438](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40162903438), lulus untuk frontend/build/Docker serta Supabase lokal, pgTAP, API auth/tenant, NIS concurrency, Storage, dan backup/restore sintetis.
 - Dokumen preflight ini diperbarui setelahnya dalam commit dokumentasi `ba28dc7fc2da1b48f2df2283eca062bc879cae83`; kedua job CI pada [run 40163482514](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40163482514) lulus. Pemeriksaan Supabase Preview dilewati karena branch PR belum terhubung ke Supabase Branch.
 - CI tersebut tidak menjalankan migrasi pada Production dan tidak membuktikan kinerja upgrade terhadap data Production. PR #13 tetap Draft; backup yang dapat dipulihkan, staging, rekonsiliasi data, login Admin, rotasi secret, dan UAT tetap menjadi gerbang sebelum go-live.
+
+## Revalidasi baseline Production — 26 Oktober 2026
+
+Pemeriksaan ini menggantikan angka migrasi pada snapshot sebelumnya; query dilakukan melalui SQL Editor dashboard proyek `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`, dan hanya membaca metadata migrasi.
+
+- `supabase_migrations.schema_migrations` berisi 47 versi. Semuanya cocok dengan 47 file pertama pada repository sampai `20261206000000`; tidak ada versi awal yang hilang.
+- Repository pada head PR #13 `a40f0e0dfd5ff41ff6674a6e7ea759904ecc89fc` memiliki 80 file migrasi, dengan versi terbaru `20270108000000`. Dengan demikian, 33 migrasi setelah `20261206000000` belum diterapkan ke Production.
+- Tujuh versi tambahan yang belum tercantum pada inventaris snapshot lama adalah:
+
+  | Versi | File |
+  | --- | --- |
+  | 20270102000000 | `guardian_accounts_and_invitations.sql` |
+  | 20270103000000 | `guardian_finance_access.sql` |
+  | 20270104000000 | `guardian_boarding_access.sql` |
+  | 20270105000000 | `communication_guardian_audience.sql` |
+  | 20270106000000 | `boarding_room_assignment_history.sql` |
+  | 20270107000000 | `tahfidz_roster_keyset_pagination.sql` |
+  | 20270108000000 | `tahfidz_dashboard_follow_up_summary.sql` |
+
+- Supabase connector yang tersedia pada sesi ini hanya menampilkan project `vqemuyzveuirlkvdggjd`, bukan target `ptsasgdvgrbdtgyqieie`. Pemeriksaan baseline di atas dilakukan baca-saja melalui dashboard yang sudah terbuka; tidak ada migrasi, perubahan schema, atau data yang ditulis.
+
+**Keputusan:** jangan jalankan 33 migrasi itu ke Production dari pemeriksaan ini. Perubahan guardian, akses Finance/Asrama, riwayat kamar, dan query Tahfidz memerlukan rehearsal upgrade pada staging serta backup yang sudah diuji restore. Flag runtime tetap mengikuti nilai default off sampai urutan migrasi dan versi server disetujui.

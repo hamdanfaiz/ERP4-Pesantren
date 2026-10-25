@@ -326,3 +326,14 @@ Skor naik satu poin dari 73/100 setelah jalur tulis untuk sesi Talaqqi dan Munaq
 - Perubahan berada di branch PR #13. Pengujian hanya menggunakan Supabase lokal dan data sintetis; tidak ada migrasi atau penulisan ke Supabase Production.
 
 Nilai 74/100 membuktikan integritas transaksi jadwal pada pengujian lokal, bukan kesiapan menyeluruh untuk go-live. Rekonsiliasi dan migrasi data, staging, login Admin/Wali dan UAT izin, rotasi secret, benchmark skala besar, review PR, serta uji pemasangan dan pemulihan pada VPS maupun on-premise tetap menjadi gerbang rilis.
+
+## Baseline migrasi Supabase Production — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 74/100
+
+Angka tidak berubah karena pemeriksaan ini menemukan kondisi target, tetapi belum mengurangi selisih migrasi atau membuktikan upgrade pada staging.
+
+- Query baca-saja pada project `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`, membuktikan 47 dari 47 versi awal repository sudah tercatat sampai `20261206000000`. Repository PR #13 berisi 80 migration file sampai `20270108000000`; 33 versi berikutnya masih pending.
+- Tujuh migrasi terbaru menambah akun/undangan Wali dan akses Finance/Asrama, audiens komunikasi Wali, riwayat penempatan kamar, paginasi roster Tahfidz, dan ringkasan tindak lanjut. Rinciannya tercatat pada [preflight migrasi Production](../06_DATABASE/PRODUCTION_MIGRATION_PREFLIGHT_2026-10-25.md).
+- Pemeriksaan memakai `SELECT` pada metadata saja. Tidak ada perubahan database. Konektor Supabase pada sesi ini hanya melihat project lain, sehingga jangan menggunakannya sebagai pengganti target.
+- Langkah aman selanjutnya: lakukan rehearsal 33 migrasi pada staging yang representatif, pulihkan backup di environment terpisah, lalu verifikasi hasil sebelum menjadwalkan upgrade Production.
