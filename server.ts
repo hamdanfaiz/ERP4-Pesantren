@@ -10,6 +10,7 @@ import { Buffer } from "node:buffer";
 import {
   IdentityConflictError,
   IdentityUnavailableError,
+  checkIdentityStoreReady,
   clearPasswordChangeRequired,
   createAuthUserWithProfile,
   createRecoveryLink,
@@ -564,6 +565,27 @@ async function startServer() {
   // Cloud Run terminates TLS at one trusted proxy hop.
   app.set("trust proxy", 1);
   app.use(express.json({ limit: "5mb" }));
+
+  let lastReadinessCheckedAt = 0;
+  let lastReadinessResult = false;
+  let readinessInFlight: Promise<boolean> | null = null;
+
+  app.get("/health/live", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ status: "live" });
+  });
+
+  app.get("/health/ready", async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (Date.now() - lastReadinessCheckedAt >= 5000) {
+      readinessInFlight ??= checkIdentityStoreReady().then(() => true).catch(() => false);
+      lastReadinessResult = await readinessInFlight;
+      lastReadinessCheckedAt = Date.now();
+      readinessInFlight = null;
+    }
+    if (!lastReadinessResult) return res.status(503).json({ status: "unavailable" });
+    return res.status(200).json({ status: "ready" });
+  });
 
   const loadCommunicationActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
