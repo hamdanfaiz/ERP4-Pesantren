@@ -173,3 +173,21 @@ Setiap pinjaman harus terhubung ke buku yang diimpor melalui HMAC document ID da
 Migration 20261211000000_library_circulation_legacy_import.sql menambahkan fingerprint sumber immutable, audit batch, serta RPC atomik yang memeriksa Admin aktif, foreign key tenant, benturan source ID, retry idempoten, dan jumlah peminjaman aktif terhadap jumlah eksemplar di bawah row lock. RPC hanya dapat dijalankan service role. Unit preview dan pgTAP mencakup pemetaan, konflik tenant, retry, data berubah, kapasitas eksemplar, dan status pengembalian. Lint dan build lokal lulus; 14 kasus preview lulus. Seluruh CI pada head 849809a6a9988734aadfb87236edb12bb973360a lulus ([run 39923084482](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/39923084482)), termasuk migration/pgTAP, NIS concurrency, auth/tenant, Finance Storage, Docker/Compose, dan backup/restore. Tidak ada migration atau data production yang diterapkan.
 
 Data sumber yang terinventarisasi hanya satu record peminjaman dan field peminjam berupa teks; tidak ditemukan ID santri atau tanggal kembali pada bentuk dokumen. Karena itu apply tetap akan ditahan sampai pratinjau aktual menyelesaikan pemetaan/konflik tersebut. Runtime dan kedua flag impor tetap mati.
+
+
+## Perkembangan jalur impor setelah inventaris awal — 25 Oktober 2026
+
+Tabel kesiapan di atas adalah snapshot awal. Pembaruan berikut mencatat implementasi yang masuk ke branch setelah inventaris tersebut; ini tidak berarti data live sudah diimpor.
+
+| Sumber | Status kode terbaru | Status data |
+| --- | --- | --- |
+| `cooperative_inventory`, `cooperative_suppliers` | Preview dan apply katalog tersedia dengan validasi, fingerprint, konflik, dan RPC atomik. | Feature flag tetap mati; data contoh belum diterapkan. |
+| `cooperative_wallets`, `cooperative_transactions` | Preview/apply finansial tersedia. Setiap dompet harus dipetakan eksplisit ke dompet tenant, setiap baris transaksi ke produk, serta saldo pembuka harus direkonsiliasi. HPP yang tidak ada tetap unknown; penjualan arsip tidak mengurangi stok saat ini. | Apply belum dijalankan; diperlukan pemeriksaan ulang arsip dan persetujuan operator. |
+| `library_books` | Importer preview/apply untuk katalog tersedia; peringatan ISBN ditampilkan dan snapshot diikat ke fingerprint. | Perlu cek status migration pada target sebelum apply; belum ada apply yang dibuktikan pada catatan ini. |
+| `library_circulations` | Importer preview/apply tersedia melalui migration `20261211000000_library_circulation_legacy_import.sql`, dengan pemetaan eksplisit santri/buku dan pemeriksaan kapasitas. | Peminjam dari arsip ini belum memiliki relasi santri yang terverifikasi; belum layak diterapkan. |
+| `library_digital_assets` | Belum ada pemindahan objek Storage. | Empat dokumen metadata tidak membuktikan keberadaan byte file. Bucket Firebase yang dikonfigurasi belum ditemukan; perlu pulihkan/verifikasi sumber file sebelum migrasi aset. |
+| `users` | Tidak mengimpor kata sandi atau sesi Firebase. Profil hanya dapat diprovisikan terhadap akun Auth Supabase yang dibuat melalui alur undangan/administrasi tepercaya. | Hubungan profil, role, tenant, dan akun Auth perlu rekonsiliasi; tidak ada credential yang dapat dipulihkan dari dokumen profil Firestore. |
+
+Koreksi tersebut dicakup CI pada head `e1a83c84f39f9b6e0dee3d54be36dbb60bf9ef64`, [run 40149247360](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40149247360): migrasi/pgTAP lokal, preview import, API tenant isolation, Firebase production guard, Docker, Storage, dan backup/restore lulus.
+
+Hitungan arsip tetap snapshot 23 Oktober: 561 dokumen root pada sumber. Implementasi importer atau CI tidak mengubahnya dan bukan bukti bahwa data sudah ditulis ke Supabase. Tidak ada importer Storage yang lengkap, akun Auth yang dibuat, atau apply Koperasi/sirkulasi yang dijalankan pada pembaruan ini.
