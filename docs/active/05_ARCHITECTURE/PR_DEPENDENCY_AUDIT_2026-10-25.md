@@ -253,3 +253,12 @@ Run GitHub Actions `40191075189` pada head PR #13 lulus di kedua job. Ini menges
 Konektor Supabase masih tidak memiliki izin pada project target `ptsasgdvgrbdtgyqieie`; daftar project yang dapat dilihat hanya memuat `vqemuyzveuirlkvdggjd`. Jangan menggunakan project yang berbeda sebagai pengganti target dan jangan menyatakan database Production sudah diverifikasi.
 
 Rekomendasi operasional tetap: pertahankan PR #13 sebagai jalur utama; audit fitur unik #11 per domain dan port hanya yang diperlukan setelah CI; jangan merge stack #11 langsung ke #13. PR #1–#11 yang masih Draft perlu ditandai sebagai stack/arsip/review satu per satu oleh pemilik repo sebelum rilis, supaya tidak ada jalur yang dianggap selesai hanya karena #13 lulus CI.
+
+## Head PR #13 setelah koreksi roster Tahfidz — 25 Oktober 2026
+
+- Head PR #13 bergerak ke `ba327e8c5b5ca7e11dff00922fd53ff0d393f06a`; PR tetap Open/Draft dan berbasis pada merge PR #12. PR #11 masih Open/Draft di atas #10 dan tidak menjadi dependensi #13.
+- CI run `40192352964` sukses pada kedua job. Frontend meliputi typecheck, tes tanggal keanggotaan Tahfidz, build, Docker, dan smoke test; job database menjalankan Supabase lokal, semua migration/pgTAP, NIS serentak, auth/isolasi tenant, Storage, dan backup/restore.
+- Koreksi memilih membership Tahfidz aktif menurut tanggal bisnis tenant. Perubahan diuji dengan fixture sintetis; tidak ada skema atau data Production yang diubah.
+- Konektor Supabase masih menolak akses ke target `ptsasgdvgrbdtgyqieie` dan hanya menampilkan project `vqemuyzveuirlkvdggjd`. Staging target dan migrasi data belum diverifikasi.
+
+Hasil CI tidak menutup release gate staging, review, rekonsiliasi data, login/role UAT, dan deployment customer-managed. Jangan menggabungkan PR #11 seluruhnya ke #13; audit fitur uniknya per domain.
