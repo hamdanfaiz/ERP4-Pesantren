@@ -360,3 +360,14 @@ Tes pgTAP mencakup replay identik, konflik payload/operasi/aktor, request legacy
 Commit kode `bfb6c55f87145aa16be2ccbc1c1c55a7f02b2bb6` dan koreksi test `c8a204b1f27b8fe3f5be9ff9c82ba10095aa27f0` lulus pada [GitHub Actions run #40150919774](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40150919774). Frontend/build guard dan job Supabase lokal selesai sukses, termasuk seluruh migration/pgTAP, NIS concurrency, auth/isolasi tenant, Storage Finance, backup/restore, serta build dan smoke test Docker customer-managed.
 
 CI menggunakan database lokal terisolasi dan data sintetis. Tidak ada perubahan schema/data Supabase production, merge, atau deployment. PR #13 tetap Draft; migration ini masih menunggu preflight dan persetujuan terpisah sebelum penerapan production.
+
+
+## Rekonsiliasi jumlah item impor finansial Koperasi — 25 Oktober 2026
+
+Tinjauan migration `20261230000000_cooperative_financial_legacy_import.sql` menemukan bahwa pemeriksaan awal menimpa total baris dengan nilai item terakhir, sehingga jumlah seluruh item baru diperiksa saat transaksi hendak disimpan. Proses tetap atomik dan rollback pada mismatch, tetapi pemeriksaan awal tidak menutup konflik lebih cepat. Logic diperbaiki agar menjumlahkan semua baris dan mencocokkannya dengan total transaksi sebelum batch atau record tujuan dibuat.
+
+pgTAP kini berjumlah 23 assertion. Kasus baru menolak transaksi yang totalnya berbeda dari baris barang dan memastikan penolakan tidak meninggalkan saldo, penjualan, ledger wallet, ledger Finance, atau batch impor. CI sempat menangkap delimiter SQL yang salah pada assertion baru; delimiter diperbaiki sebelum verifikasi berikutnya.
+
+Commit kode `ec955fb254cbee61587833d0201a8a53430b46ca` beserta koreksi delimiter `51e19ea9f84e65562eb8de5380fe163952bd3658` dan `8938c750f8a39fcacf8dbb7beeb866cdcd905ec8` lulus pada [GitHub Actions run #40152009992](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40152009992). Kedua job selesai sukses: frontend/runtime/Docker dan seluruh migrasi/pgTAP, NIS concurrency, preview importer, auth/isolasi tenant, Storage Finance, serta backup/restore.
+
+Bukti hanya mencakup Supabase lokal terisolasi dan data sintetis. Supabase production tetap tidak berubah; tidak ada migration/data yang diterapkan, merge, atau deployment. PR #13 tetap Draft.
