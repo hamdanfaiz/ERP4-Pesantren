@@ -258,3 +258,18 @@ Skor naik satu poin dari 68/100 setelah kartu halaqah menggunakan hitungan pasti
 - Perubahan hanya ada di branch PR #13. Tidak ada migrasi atau penulisan data Supabase Production; PR #13 tetap Open/Draft.
 
 Angka 69/100 mencerminkan satu koreksi UI yang diverifikasi, bukan kesiapan rilis. Migrasi dan rekonsiliasi data, staging, Admin/Wali UAT, rotasi secret, review PR, serta uji pemasangan/pemulihan VPS dan on-premise masih menjadi gerbang go-live.
+
+## Dashboard Tahfidz: antrean tindak lanjut server-side — 26 Oktober 2026
+
+### Progres menuju go-live: 70/100
+
+Skor naik satu poin dari 69/100 setelah ringkasan “Perlu ditindaklanjuti” tidak lagi bergantung pada halaman roster/riwayat yang kebetulan dimuat. Backend menghitung cakupan lengkap per tenant dan role, lalu mengirim enam kasus dengan prioritas tertinggi beserta jumlah total yang tepat.
+
+- Antrean menilai penempatan halaqah, target harian aktif, dan nilai D pada setoran terbaru. Nilai lama yang sudah digantikan setoran baru tidak memicu tindak lanjut. Pengurutan memprioritaskan jumlah sinyal, nilai D terbaru, lalu waktu dan ID sebagai pemecah seri yang stabil.
+- RPC tetap memeriksa profil, tenant, role, dan izin Tahfidz; cakupan Ustadz, Santri, dan Wali mengikuti relasi yang sudah diverifikasi server. Fungsi tetap hanya dapat dipanggil `service_role`; indeks baru mempercepat pencarian nilai terakhir per santri.
+- UI menampilkan jumlah antrean yang pasti serta menjelaskan bahwa roster reguler masih dimuat per halaman. Tidak ada klaim hitungan antrean parsial dari halaman yang kebetulan terbuka.
+- Tes pgTAP bertambah menjadi 29 assertion dan mencakup tenant/role, isolasi lintas tenant, prioritas, nilai terbaru, serta tenant dengan tujuh kasus tindak lanjut: hitungan tetap tujuh sementara UI menerima enam baris teratas.
+- Percobaan CI awal menolak akses lintas tenant dengan benar, tetapi assertion mengharapkan hasil kosong. Assertion diperbaiki untuk mengharapkan penolakan `42501`; CI akhir [run 40234152584](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40234152584) lulus pada kedua job di head `b1db77b1c158cc5fa3b30f51a30039c569136cdd`, mencakup typecheck, tes frontend Tahfidz, build, guard Firebase, Docker/Compose smoke test, migrasi/pgTAP Supabase lokal, NIS serentak, API auth/isolasi tenant, Finance Storage, dan backup/restore.
+- Tidak ada migrasi atau data yang diterapkan ke Supabase Production. PR #13 masih Open/Draft.
+
+Angka 70/100 mencatat satu peningkatan yang diuji di CI lokal sintetis, bukan kesiapan go-live. Migrasi dan rekonsiliasi data, staging, login Admin/Wali dan uji matriks izin, rotasi secret, UAT, review PR, serta uji pemasangan/pemulihan VPS dan on-premise masih menjadi gerbang rilis.
