@@ -60,11 +60,13 @@ SELECT lives_ok(
 );
 SELECT set_config(
   'erp4.cooperative_supplier_test_id',
-  (SELECT id::text FROM public.cooperative_suppliers WHERE tenant_id='d9000000-0000-4000-8000-000000000009'),
+  (SELECT id::text FROM public.cooperative_suppliers WHERE tenant_id='d9000000-0000-4000-8000-000000000009'
+     AND client_request_id='d9000000-0000-4000-8000-000000000021'),
   true
 );
 SELECT is(
-  (SELECT status FROM public.cooperative_suppliers WHERE tenant_id='d9000000-0000-4000-8000-000000000009'),
+  (SELECT status FROM public.cooperative_suppliers WHERE tenant_id='d9000000-0000-4000-8000-000000000009'
+     AND client_request_id='d9000000-0000-4000-8000-000000000021'),
   'inactive',
   'import preserves inactive supplier state'
 );
