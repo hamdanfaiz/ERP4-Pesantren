@@ -371,3 +371,12 @@ pgTAP kini berjumlah 23 assertion. Kasus baru menolak transaksi yang totalnya be
 Commit kode `ec955fb254cbee61587833d0201a8a53430b46ca` beserta koreksi delimiter `51e19ea9f84e65562eb8de5380fe163952bd3658` dan `8938c750f8a39fcacf8dbb7beeb866cdcd905ec8` lulus pada [GitHub Actions run #40152009992](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40152009992). Kedua job selesai sukses: frontend/runtime/Docker dan seluruh migrasi/pgTAP, NIS concurrency, preview importer, auth/isolasi tenant, Storage Finance, serta backup/restore.
 
 Bukti hanya mencakup Supabase lokal terisolasi dan data sintetis. Supabase production tetap tidak berubah; tidak ada migration/data yang diterapkan, merge, atau deployment. PR #13 tetap Draft.
+
+
+## Konsistensi pratinjau pemetaan Koperasi — 25 Oktober 2026
+
+Layar impor finansial dapat mengembalikan hasil pratinjau yang dihitung dari pemetaan lama bila operator mengubah pemetaan saat request sedang berjalan. Respons lama sebelumnya dapat menghapus penanda bahwa hasil sudah kedaluwarsa. Perbaikan pada `SupabaseCooperativeManager.tsx` menambahkan versi pemetaan dan nomor request; respons hanya dianggap mutakhir bila versi pemetaan tidak berubah. Kontrol pemetaan dikunci selama preview/apply, dan hasil yang terlanjur memakai pemetaan lama tetap ditandai kedaluwarsa serta tidak dapat diterapkan.
+
+Commit `d80cff6f8384a46b835158b5ee1263a7c3e02ab1` lulus pada [GitHub Actions run #40152711049](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40152711049). Build frontend/runtime/Docker serta seluruh migration/pgTAP, NIS concurrency, preview importer, auth/isolasi tenant, Storage Finance, dan backup/restore selesai sukses.
+
+Perbaikan ini hanya mengubah kode aplikasi dan diuji dengan stack Supabase lokal terisolasi. Supabase production tidak berubah; PR #13 tetap Draft dan belum di-merge atau di-deploy.
