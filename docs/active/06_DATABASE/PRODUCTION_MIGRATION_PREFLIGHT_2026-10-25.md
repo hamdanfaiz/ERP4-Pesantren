@@ -150,7 +150,7 @@ Pemeriksaan ini menggantikan angka migrasi pada snapshot sebelumnya; query dilak
 Query langsung baca-saja pada SQL Editor project `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`, mengembalikan 47 versi: `20260603000000` sampai `20261206000000`. Daftar versinya cocok seluruhnya dengan file pada head repository PR #13 `a2de822fdc835e5661c9f61071a59fbf373bd87e`.
 
 - Source berisi 81 file migration sampai `20270109000000`.
-- 34 migration yang belum tercatat pada ledger Production adalah versi harian dari `20261207000000` sampai `20270109000000`, termasuk seluruh 7 migration setelah `20261231000000` yang menambah akun/undangan Wali, akses Wali, riwayat kamar, paginasi roster Tahfidz, ringkasan tindak lanjut, dan baseline kamar saat cutover.
+- 34 migration yang belum tercatat pada ledger Production adalah versi harian dari `20261207000000` sampai `20270109000000`, termasuk migration Januari 2027 yang menambah akun/undangan dan akses Wali, riwayat kamar, paginasi roster Tahfidz, ringkasan tindak lanjut, serta baseline kamar saat cutover.
 - Tidak ditemukan versi Production yang asing terhadap source. Query hanya membaca metadata migration; tidak ada DDL, DML, import, atau perubahan Production.
 
 **Keputusan:** angka 34 pending sekarang terkonfirmasi pada Production, tetapi jangan menerapkannya langsung. Jalankan alat `preflight:db-migrations` untuk cek ulang sebelum setiap rehearsal, lakukan rehearsal lengkap pada staging terisolasi yang dipulihkan dari backup, dan validasi hasilnya sebelum menyusun rencana upgrade Production.
