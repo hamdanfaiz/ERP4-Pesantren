@@ -1,3 +1,4 @@
+import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHmac } from "node:crypto";
 import { academicSupabaseRequest, resolveAcademicTenantId, SupabaseAcademicError } from "./supabaseAcademic";
 
@@ -76,24 +77,37 @@ export async function getSupabaseAcademicLegacyTenantKey(tenantIdentifier: strin
 }
 
 async function loadAcademicImportContext(tenantId: string) {
-  const base = { tenant_id: "eq." + tenantId, limit: "5001" };
   const [studentRows, staffRows, classRows, existingRows] = await Promise.all([
-    academicSupabaseRequest("/rest/v1/students?" + new URLSearchParams({ ...base, select: "id,name,status,class_id,grade,details" }).toString()),
-    academicSupabaseRequest("/rest/v1/profiles?" + new URLSearchParams({ tenant_id: "eq." + tenantId, select: "user_id,display_name", role: "eq.ustadz", status: "eq.active", limit: "501" }).toString()),
-    academicSupabaseRequest("/rest/v1/master_data_records?" + new URLSearchParams({ ...base, select: "id,name,status", category: "eq.Kelas" }).toString()),
-    academicSupabaseRequest("/rest/v1/academic_records?" + new URLSearchParams({
-      ...base, select: "id,kind,teacher_user_id,record_data,source_system,source_record_id,source_fingerprint,deleted_at",
-    }).toString()),
+    readPostgrestRowsInPages<Row>({
+      request: academicSupabaseRequest,
+      path: `/rest/v1/students?${new URLSearchParams({ tenant_id: "eq." + tenantId, select: "id,name,status,class_id,grade,details", order: "id.asc" })}`,
+      maxRows: 5000,
+      onIncomplete: () => new SupabaseAcademicError(503, "Roster santri melewati batas aman pratinjau migrasi atau hasil pemindaian tidak lengkap."),
+    }),
+    readPostgrestRowsInPages<Row>({
+      request: academicSupabaseRequest,
+      path: `/rest/v1/profiles?${new URLSearchParams({ tenant_id: "eq." + tenantId, select: "user_id,display_name", role: "eq.ustadz", status: "eq.active", order: "display_name.asc,user_id.asc" })}`,
+      uniqueOrderColumn: "user_id",
+      maxRows: 500,
+      onIncomplete: () => new SupabaseAcademicError(503, "Daftar pengajar melewati batas aman pratinjau migrasi atau hasil pemindaian tidak lengkap."),
+    }),
+    readPostgrestRowsInPages<Row>({
+      request: academicSupabaseRequest,
+      path: `/rest/v1/master_data_records?${new URLSearchParams({ tenant_id: "eq." + tenantId, select: "id,name,status", category: "eq.Kelas", order: "name.asc,id.asc" })}`,
+      maxRows: 500,
+      onIncomplete: () => new SupabaseAcademicError(503, "Daftar kelas melewati batas aman pratinjau migrasi atau hasil pemindaian tidak lengkap."),
+    }),
+    readPostgrestRowsInPages<Row>({
+      request: academicSupabaseRequest,
+      path: `/rest/v1/academic_records?${new URLSearchParams({ tenant_id: "eq." + tenantId, select: "id,kind,teacher_user_id,record_data,source_system,source_record_id,source_fingerprint,deleted_at", order: "id.asc" })}`,
+      maxRows: 5000,
+      onIncomplete: () => new SupabaseAcademicError(503, "Data akademik terimpor melewati batas aman pratinjau migrasi atau hasil pemindaian tidak lengkap."),
+    }),
   ]);
-  if (![studentRows, staffRows, classRows, existingRows].every(Array.isArray)
-    || studentRows.length > 5000 || staffRows.length > 500 || classRows.length > 500 || existingRows.length > 5000) {
-    throw new SupabaseAcademicError(503, "Roster tenant melewati batas aman untuk pratinjau migrasi.");
-  }
   return {
-    students: studentRows as Row[], staff: staffRows as Row[], classes: classRows as Row[], existing: existingRows as Row[],
+    students: studentRows, staff: staffRows, classes: classRows, existing: existingRows,
   };
 }
-
 function preview(sourceRows: LegacyAcademicSourceRow[], context: Awaited<ReturnType<typeof loadAcademicImportContext>>) {
   const sources = sourceRows
     .filter((row) => Boolean(COLLECTION_KIND[row.collection]))
