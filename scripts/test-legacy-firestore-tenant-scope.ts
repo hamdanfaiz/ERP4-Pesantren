@@ -24,6 +24,32 @@ assert.deepEqual(singleTenant.audit, {
   singleSourceTenantVerified: true,
 });
 
+const aliasSourceRecords = [
+  { id: "snake-owned", record: { tenant_id: " pesantren-digital ", name: "masked" } },
+  { id: "snake-foreign", record: { tenant_id: "another-tenant", name: "masked" } },
+  { id: "matching-aliases", record: { tenantId: "pesantren-digital", tenant_id: "pesantren-digital" } },
+  { id: "conflicting-aliases", record: { tenantId: "pesantren-digital", tenant_id: "another-tenant" } },
+  { id: "malformed-alias", record: { tenant_id: 42 } },
+  { id: "blank-alias", record: { tenantId: "   " } },
+];
+const aliasOwnership = scopeLegacyTenantRecords(aliasSourceRecords, ["pesantren-digital"], "pesantren-digital");
+assert.deepEqual(aliasOwnership.records.map((row) => row.id), ["snake-owned", "matching-aliases"]);
+assert.equal(aliasOwnership.records[0].record.tenantId, "pesantren-digital", "snake_case ownership is normalized to the canonical field");
+assert.equal(aliasSourceRecords[0].record.tenant_id, " pesantren-digital ", "normalization must not mutate Firestore snapshots");
+for (const row of aliasOwnership.records) {
+  assert.equal(Object.prototype.hasOwnProperty.call(row.record, "tenant_id"), false, "normalized records expose one canonical tenant field");
+}
+assert.deepEqual(aliasOwnership.audit, {
+  sourceRecordCount: 6,
+  includedRecordCount: 2,
+  matchedTenantIdCount: 2,
+  assignedBySingleTenantMappingCount: 0,
+  unresolvedTenantlessCount: 0,
+  excludedOtherTenantCount: 1,
+  invalidTenantIdCount: 3,
+  singleSourceTenantVerified: true,
+});
+
 const ambiguous = scopeLegacyTenantRecords(source, ["pesantren-digital", "another-tenant"], "pesantren-digital");
 assert.deepEqual(ambiguous.records.map((row) => row.id), ["owned"]);
 assert.equal(ambiguous.audit.unresolvedTenantlessCount, 1);

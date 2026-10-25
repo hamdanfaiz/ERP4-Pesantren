@@ -47,21 +47,42 @@ export function scopeLegacyTenantRecords(
   let invalidTenantIdCount = 0;
 
   for (const source of records) {
-    const rawTenantId = source.record.tenantId;
-    const recordTenantId = typeof rawTenantId === "string" ? rawTenantId.trim() : "";
+    const camelTenantId = source.record.tenantId;
+    const snakeTenantId = source.record.tenant_id;
+    const hasCamelTenantId = camelTenantId !== undefined && camelTenantId !== null && camelTenantId !== "";
+    const hasSnakeTenantId = snakeTenantId !== undefined && snakeTenantId !== null && snakeTenantId !== "";
+    const normalizedCamelTenantId = typeof camelTenantId === "string" ? camelTenantId.trim() : "";
+    const normalizedSnakeTenantId = typeof snakeTenantId === "string" ? snakeTenantId.trim() : "";
+
+    if (
+      (hasCamelTenantId && typeof camelTenantId !== "string")
+      || (hasSnakeTenantId && typeof snakeTenantId !== "string")
+      || (hasCamelTenantId && !normalizedCamelTenantId)
+      || (hasSnakeTenantId && !normalizedSnakeTenantId)
+      || (hasCamelTenantId && hasSnakeTenantId
+        && normalizedCamelTenantId !== normalizedSnakeTenantId)
+    ) {
+      invalidTenantIdCount += 1;
+      continue;
+    }
+
+    const recordTenantId = hasCamelTenantId
+      ? normalizedCamelTenantId
+      : hasSnakeTenantId ? normalizedSnakeTenantId : "";
+
+    const canonicalRecord = (tenantId: string): LegacyTenantSourceRecord => {
+      const record = { ...source.record, tenantId };
+      delete record.tenant_id;
+      return { id: source.id, record };
+    };
 
     if (recordTenantId) {
       if (recordTenantId === tenantKey) {
-        included.push(source);
+        included.push(canonicalRecord(recordTenantId));
         matchedTenantIdCount += 1;
       } else {
         excludedOtherTenantCount += 1;
       }
-      continue;
-    }
-
-    if (rawTenantId !== undefined && rawTenantId !== null && rawTenantId !== "") {
-      invalidTenantIdCount += 1;
       continue;
     }
 
@@ -70,10 +91,7 @@ export function scopeLegacyTenantRecords(
       continue;
     }
 
-    included.push({
-      id: source.id,
-      record: { ...source.record, tenantId: tenantKey },
-    });
+    included.push(canonicalRecord(tenantKey));
     assignedBySingleTenantMappingCount += 1;
   }
 
