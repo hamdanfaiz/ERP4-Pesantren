@@ -171,6 +171,8 @@ export interface SupabaseMasterDataStudentRecord {
   nis: string;
   nik: string;
   nisn: string;
+  hasNik?: boolean;
+  hasNisn?: boolean;
   gender: string;
   grade: string;
   classId: string | null;
@@ -186,6 +188,53 @@ export interface SupabaseMasterDataStudentRecord {
 export async function listSupabaseMasterDataStudents(): Promise<SupabaseMasterDataStudentRecord[]> {
   const result = await requestMasterData<{ records: SupabaseMasterDataStudentRecord[] }>("/api/master-data/students");
   return Array.isArray(result.records) ? result.records : [];
+}
+
+export type SupabaseMasterDataStudentPageOptions = {
+  page: number;
+  pageSize?: number;
+  search?: string;
+  statuses?: string[];
+  gender?: "ALL" | "L" | "P";
+  grade?: string;
+  dormitory?: string;
+  completeness?: "ALL" | "WITH_NIK" | "WITH_WALI" | "WITHOUT_WALI";
+};
+
+export async function listSupabaseMasterDataStudentsPage(
+  options: SupabaseMasterDataStudentPageOptions,
+): Promise<{ records: SupabaseMasterDataStudentRecord[]; page: number; pageSize: number; hasMore: boolean }> {
+  const params = new URLSearchParams({
+    page: String(options.page),
+    pageSize: String(options.pageSize ?? 10),
+  });
+  const search = String(options.search || "").trim();
+  if (search) params.set("search", search);
+  for (const status of options.statuses || []) params.append("status", status);
+  if (options.gender && options.gender !== "ALL") params.set("gender", options.gender);
+  if (options.grade) params.set("grade", options.grade);
+  if (options.dormitory) params.set("dormitory", options.dormitory);
+  if (options.completeness && options.completeness !== "ALL") params.set("completeness", options.completeness);
+  const result = await requestMasterData<{
+    records: SupabaseMasterDataStudentRecord[];
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+  }>("/api/master-data/students?" + params.toString());
+  if (!Array.isArray(result.records) || typeof result.hasMore !== "boolean") {
+    throw new Error("Respons halaman data santri dari server tidak valid.");
+  }
+  return { ...result, records: result.records };
+}
+
+export async function getSupabaseMasterDataStudentDetails(identifier: string): Promise<SupabaseMasterDataStudentRecord> {
+  const result = await requestMasterData<{ record: SupabaseMasterDataStudentRecord }>(
+    "/api/master-data/students/" + encodeURIComponent(identifier),
+  );
+  if (!result.record || typeof result.record.id !== "string") {
+    throw new Error("Rincian santri tidak dapat diverifikasi.");
+  }
+  return result.record;
 }
 
 export async function upsertSupabaseMasterDataStudent(
