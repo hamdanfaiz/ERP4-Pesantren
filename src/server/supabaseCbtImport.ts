@@ -21,6 +21,7 @@ export async function getSupabaseCbtLegacyImportContext(tenantIdentifier: string
       source_system: "eq.legacy_firestore", order: "id.asc",
     })}`,
     maxRows: 3000,
+      verifyStableSnapshot: true,
     onIncomplete: () => new SupabaseCbtError(503, "Bank soal lama tenant melewati batas aman atau hasil pemindaian tidak lengkap."),
   });
   return { tenantId, legacyTenantKey, existingRows };

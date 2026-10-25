@@ -82,6 +82,7 @@ async function loadAcademicImportContext(tenantId: string) {
       request: academicSupabaseRequest,
       path: `/rest/v1/students?${new URLSearchParams({ tenant_id: "eq." + tenantId, select: "id,name,status,class_id,grade,details", order: "id.asc" })}`,
       maxRows: 5000,
+      verifyStableSnapshot: true,
       onIncomplete: () => new SupabaseAcademicError(503, "Roster santri melewati batas aman pratinjau migrasi atau hasil pemindaian tidak lengkap."),
     }),
     readPostgrestRowsInPages<Row>({
@@ -89,18 +90,21 @@ async function loadAcademicImportContext(tenantId: string) {
       path: `/rest/v1/profiles?${new URLSearchParams({ tenant_id: "eq." + tenantId, select: "user_id,display_name", role: "eq.ustadz", status: "eq.active", order: "display_name.asc,user_id.asc" })}`,
       uniqueOrderColumn: "user_id",
       maxRows: 500,
+      verifyStableSnapshot: true,
       onIncomplete: () => new SupabaseAcademicError(503, "Daftar pengajar melewati batas aman pratinjau migrasi atau hasil pemindaian tidak lengkap."),
     }),
     readPostgrestRowsInPages<Row>({
       request: academicSupabaseRequest,
       path: `/rest/v1/master_data_records?${new URLSearchParams({ tenant_id: "eq." + tenantId, select: "id,name,status", category: "eq.Kelas", order: "name.asc,id.asc" })}`,
       maxRows: 500,
+      verifyStableSnapshot: true,
       onIncomplete: () => new SupabaseAcademicError(503, "Daftar kelas melewati batas aman pratinjau migrasi atau hasil pemindaian tidak lengkap."),
     }),
     readPostgrestRowsInPages<Row>({
       request: academicSupabaseRequest,
       path: `/rest/v1/academic_records?${new URLSearchParams({ tenant_id: "eq." + tenantId, select: "id,kind,teacher_user_id,record_data,source_system,source_record_id,source_fingerprint,deleted_at", order: "id.asc" })}`,
       maxRows: 5000,
+      verifyStableSnapshot: true,
       onIncomplete: () => new SupabaseAcademicError(503, "Data akademik terimpor melewati batas aman pratinjau migrasi atau hasil pemindaian tidak lengkap."),
     }),
   ]);

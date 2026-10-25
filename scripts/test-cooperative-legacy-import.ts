@@ -332,6 +332,45 @@ await assert.rejects(() => readPostgrestRowsInPages({
   onIncomplete: () => new Error("snapshot berubah"),
 }), /snapshot berubah/);
 
-console.log("cooperative and PostgREST pagination: 15 validation groups passed");
+
+const stablePostgrestDataset = cappedRows(1005);
+let stablePostgrestCalls = 0;
+const stablePostgrestRows = await readPostgrestRowsInPages({
+  request: async (path) => {
+    stablePostgrestCalls += 1;
+    const params = new URLSearchParams(path.slice(path.indexOf("?") + 1));
+    const offset = Number(params.get("offset"));
+    const limit = Number(params.get("limit"));
+    return stablePostgrestDataset.slice(offset, offset + Math.min(limit, 1000));
+  },
+  path: "/rest/v1/students?select=id&order=id.asc",
+  maxRows: 2000,
+  pageSize: 1000,
+  verifyStableSnapshot: true,
+  onIncomplete: () => new Error("snapshot berubah"),
+});
+assert.equal(stablePostgrestRows.length, 1005, "stable multi-page snapshots are accepted");
+assert.equal(stablePostgrestCalls, 6, "strict scans confirm the multi-page result with a second pass");
+
+const shiftingPostgrestDataset = cappedRows(5);
+let shiftingPostgrestCalls = 0;
+await assert.rejects(() => readPostgrestRowsInPages({
+  request: async (path) => {
+    shiftingPostgrestCalls += 1;
+    const params = new URLSearchParams(path.slice(path.indexOf("?") + 1));
+    const offset = Number(params.get("offset"));
+    const limit = Number(params.get("limit"));
+    const page = shiftingPostgrestDataset.slice(offset, offset + limit);
+    if (shiftingPostgrestCalls === 1) shiftingPostgrestDataset.splice(1, 1);
+    return page;
+  },
+  path: "/rest/v1/students?select=id&order=id.asc",
+  maxRows: 10,
+  pageSize: 2,
+  verifyStableSnapshot: true,
+  onIncomplete: () => new Error("snapshot berubah"),
+}), /snapshot berubah/);
+
+console.log("cooperative and PostgREST pagination: 17 validation groups passed");
 
 
