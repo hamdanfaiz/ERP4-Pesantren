@@ -49,6 +49,7 @@ import {
   getSupabaseTahfidzLegacyTenantKey,
   listSupabaseTahfidzSessions,
   listSupabaseTahfidzSnapshot,
+  listSupabaseTahfidzRecordPage,
   migrateSupabaseTahfidzConfiguration,
   mutateSupabaseTahfidzSession,
   recordSupabaseTahfidzSetoran,
@@ -2868,6 +2869,22 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
       return res.json(await listSupabaseTahfidzSnapshot(actor.tenantId, actor.uid, actor.role));
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.get("/api/tahfidz/records", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      if (req.query.cursor !== undefined && typeof req.query.cursor !== "string") {
+        return res.status(400).json({ error: "Kursor riwayat Tahfidz tidak valid." });
+      }
+      const actor = await loadTahfidzActor(uid);
+      return res.json(await listSupabaseTahfidzRecordPage(
+        actor.tenantId, actor.uid, actor.role, req.query.cursor,
+      ));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 
