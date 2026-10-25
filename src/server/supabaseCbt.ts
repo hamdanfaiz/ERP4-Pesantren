@@ -261,7 +261,7 @@ export async function getSupabaseCbtStudentSnapshot(tenantIdentifier: string, st
       request,
       path: `/rest/v1/cbt_attempts?${new URLSearchParams({
         select: "id,assignment_id,score,passed,submitted_at,expires_at", tenant_id: "eq." + tenantId,
-        assignment_id: "in.(${assignmentIds.join(",")})", order: "submitted_at.desc.nullslast,id.asc",
+        assignment_id: `in.(${assignmentIds.join(",")})`, order: "submitted_at.desc.nullslast,id.asc",
       })}`,
       maxRows: batch.length,
       onIncomplete: () => new SupabaseCbtError(503, "Hasil ujian CBT tidak lengkap."),
@@ -275,7 +275,7 @@ export async function getSupabaseCbtStudentSnapshot(tenantIdentifier: string, st
       request,
       path: `/rest/v1/cbt_exams?${new URLSearchParams({
         select: "id,title,subject,grade,starts_at,ends_at,duration_minutes,status", tenant_id: "eq." + tenantId,
-        id: "in.(${examIds.join(",")})",
+        id: `in.(${examIds.join(",")})`,
       })}`,
       maxRows: examIds.length,
       onIncomplete: () => new SupabaseCbtError(503, "Daftar ujian CBT tidak lengkap."),
