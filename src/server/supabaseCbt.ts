@@ -282,8 +282,6 @@ export async function getSupabaseCbtStudentSnapshot(tenantIdentifier: string, st
     });
     for (const row of examRows) examById.set(String(row.id), row);
   }
-  const attemptByAssignment = new Map<string, Row>((attempts as Row[]).map((row): [string, Row] => [String(row.assignment_id), row]));
-  const examById = new Map<string, Row>((exams as Row[]).map((row): [string, Row] => [String(row.id), row]));
   return {
     exams: (assignments as Row[]).map((assignment) => {
       const exam = examById.get(String(assignment.exam_id));
