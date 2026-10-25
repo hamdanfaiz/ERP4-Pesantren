@@ -118,6 +118,10 @@ async function testSnapshotOnlyLoadsCurrentMembershipsAndTargets() {
   const originalSecret = process.env.SUPABASE_SECRET_KEY;
   const tenant = "00000000-0000-4000-8000-000000000021";
   const actor = "00000000-0000-4000-8000-000000000022";
+  const halaqahA = "00000000-0000-4000-8000-000000000023";
+  const halaqahB = "00000000-0000-4000-8000-000000000024";
+  const studentA = "00000000-0000-4000-8000-000000000025";
+  const studentB = "00000000-0000-4000-8000-000000000026";
   const requests: URL[] = [];
   process.env.SUPABASE_URL = "https://supabase.test";
   process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
@@ -133,6 +137,23 @@ async function testSnapshotOnlyLoadsCurrentMembershipsAndTargets() {
       rows = [{ time_zone: "Asia/Jakarta" }];
     } else if (table === "profiles" && url.searchParams.get("select") === "user_id,role,status") {
       rows = [{ user_id: actor, role: "admin", status: "active" }];
+    } else if (table === "profiles") {
+      rows = [];
+    } else if (table === "tahfidz_halaqahs") {
+      rows = [
+        { id: halaqahA, name: "Halaqah A", status: "active", daily_target_pages: 1 },
+        { id: halaqahB, name: "Halaqah B", status: "active", daily_target_pages: 1 },
+      ];
+    } else if (table === "tahfidz_memberships") {
+      rows = [
+        { halaqah_id: halaqahA, student_id: studentA, starts_on: "2000-01-01", ends_on: null, status: "active" },
+        { halaqah_id: halaqahA, student_id: studentB, starts_on: "2000-01-01", ends_on: null, status: "active" },
+      ];
+    } else if (table === "students") {
+      rows = [
+        { id: studentA, name: "Santri A", nis: "0000000001", status: "Active" },
+        { id: studentB, name: "Santri B", nis: "0000000002", status: "Active" },
+      ];
     } else {
       rows = [];
     }
@@ -142,6 +163,10 @@ async function testSnapshotOnlyLoadsCurrentMembershipsAndTargets() {
   try {
     const snapshot = await listSupabaseTahfidzSnapshot(tenant, actor, "Admin", false);
     assert.deepEqual(snapshot.records, []);
+    assert.equal(snapshot.roster.length, 2, "roster tenant mencakup santri aktif");
+    assert.equal(snapshot.halaqahs[0].studentCount, 2, "jumlah anggota halaqah dihitung dari penempatan aktif");
+    assert.equal(snapshot.halaqahs[1].studentCount, 0, "halaqah tanpa penempatan memiliki jumlah nol");
+    assert.ok(!Object.hasOwn(snapshot.halaqahs[0], "students"), "snapshot tidak menduplikasi identitas santri di tiap halaqah");
     const membershipQuery = requests.find((url) => url.pathname.endsWith("/tahfidz_memberships"));
     const targetQuery = requests.find((url) => url.pathname.endsWith("/tahfidz_targets"));
     const membershipStart = membershipQuery?.searchParams.get("starts_on") || "";

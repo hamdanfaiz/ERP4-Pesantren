@@ -1622,7 +1622,7 @@ export function TahfidzManager() {
                     <p className="font-medium text-slate-800 dark:text-slate-200">{halaqah.name}</p>
                     <p className="mt-1 text-xs text-slate-500">{halaqah.ustadz || "Belum ada ustadz"} · {halaqah.schedule || "Jadwal belum diatur"}</p>
                   </div>
-                  <span className="text-sm text-slate-500">{halaqah.students?.length || 0} santri</span>
+                  <span className="text-sm text-slate-500">{Number(halaqah.studentCount ?? halaqah.students?.length ?? 0)} santri</span>
                 </div>
               )) : <p className="px-5 py-8 text-center text-sm text-slate-500">{tahfidzLoading ? "Memuat data…" : "Belum ada halaqah aktif."}</p>}
             </div>

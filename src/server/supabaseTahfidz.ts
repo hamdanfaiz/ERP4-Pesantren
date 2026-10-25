@@ -281,16 +281,14 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   for (const student of students) studentById.set(String(student.id), student);
   const currentMemberships = selectCurrentTahfidzMemberships(memberships, today);
   const membershipsByStudent = new Map<string, JsonObject>();
-  const studentsByHalaqah = new Map<string, JsonObject[]>();
+  const studentCountByHalaqah = new Map<string, number>();
   for (const membership of currentMemberships) {
     const studentId = String(membership.student_id || "");
     const halaqahId = String(membership.halaqah_id || "");
     const student = studentById.get(studentId);
     if (!student) continue;
     membershipsByStudent.set(studentId, membership);
-    const members = studentsByHalaqah.get(halaqahId) || [];
-    members.push(student);
-    studentsByHalaqah.set(halaqahId, members);
+    studentCountByHalaqah.set(halaqahId, (studentCountByHalaqah.get(halaqahId) || 0) + 1);
   }
 
   const targetByStudent = new Map<string, JsonObject>();
@@ -301,9 +299,10 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
     if (periodStart > today || (periodEnd && periodEnd < today) || targetByStudent.has(studentId)) continue;
     targetByStudent.set(studentId, target);
   }
+  const halaqahById = new Map(halaqahs.map((halaqah) => [String(halaqah.id), halaqah]));
   const roster = students.map((student) => {
     const membership = membershipsByStudent.get(String(student.id));
-    const halaqah = halaqahs.find((item) => String(item.id) === String(membership?.halaqah_id || ""));
+    const halaqah = halaqahById.get(String(membership?.halaqah_id || ""));
     const target = targetByStudent.get(String(student.id));
     return {
       id: String(student.id),
@@ -334,9 +333,7 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
       schedule: halaqah.schedule_text || "",
       room: halaqah.room_text || "",
       dailyTargetPages: Number(halaqah.daily_target_pages || 0),
-      students: (studentsByHalaqah.get(String(halaqah.id)) || []).map((student) => ({
-        id: String(student.id), name: String(student.name || ""), nis: String(student.nis || ""),
-      })),
+      studentCount: studentCountByHalaqah.get(String(halaqah.id)) || 0,
     })),
     roster,
     records: [],
@@ -354,8 +351,13 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   } else if (role === "Santri" || role === "Walisantri") {
     const linkedRoster = snapshot.roster.filter((student) => linkedStudentIds.has(student.id));
     const allowedHalaqahIds = new Set(linkedRoster.map((student) => String(student.halaqahId || "")).filter(Boolean));
+    const linkedStudentCountByHalaqah = new Map<string, number>();
+    for (const student of linkedRoster) {
+      const halaqahId = String(student.halaqahId || "");
+      if (halaqahId) linkedStudentCountByHalaqah.set(halaqahId, (linkedStudentCountByHalaqah.get(halaqahId) || 0) + 1);
+    }
     snapshot.halaqahs = snapshot.halaqahs.filter((halaqah) => allowedHalaqahIds.has(halaqah.id))
-      .map((halaqah) => ({ ...halaqah, students: halaqah.students.filter((student) => linkedStudentIds.has(student.id)) }));
+      .map((halaqah) => ({ ...halaqah, studentCount: linkedStudentCountByHalaqah.get(halaqah.id) || 0 }));
     snapshot.roster = linkedRoster;
   }
 
