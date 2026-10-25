@@ -120,7 +120,7 @@ SELECT ok(
 SET LOCAL ROLE service_role;
 
 SELECT throws_ok(
-  $
+  $$
     SELECT public.apply_cooperative_legacy_financial_history(
       'd9200000-0000-4000-8000-000000000009',
       'd9200000-0000-4000-8000-000000000011',
