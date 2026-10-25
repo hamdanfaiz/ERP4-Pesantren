@@ -131,6 +131,15 @@ export async function getUserProfile(uid: string): Promise<StoredUserProfile | n
   return data ? mapCanonicalProfile(data as unknown as CanonicalProfileRow) : null;
 }
 
+export async function checkIdentityStoreReady(): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("profiles")
+    .select("user_id")
+    .limit(1)
+    .abortSignal(AbortSignal.timeout(5000));
+  if (error) throw new IdentityUnavailableError("Pemeriksaan kesiapan database gagal.");
+}
+
 export type TenantProfileListOptions = {
   query?: string;
   role?: string;
