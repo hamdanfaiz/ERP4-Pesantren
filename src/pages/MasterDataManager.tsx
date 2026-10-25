@@ -336,6 +336,11 @@ export function MasterDataManager() {
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+    setSearchResults(null);
+  }, [searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter]);
+
   const toggleStatusFilter = (status: string) => {
     setStatusFilter((prev) =>
       prev.includes(status)
