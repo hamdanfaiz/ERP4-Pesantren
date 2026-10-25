@@ -71,7 +71,7 @@ export function scopeLegacyTenantRecords(
       : hasSnakeTenantId ? normalizedSnakeTenantId : "";
 
     const canonicalRecord = (tenantId: string): LegacyTenantSourceRecord => {
-      const record = { ...source.record, tenantId };
+      const record: Record<string, unknown> = { ...source.record, tenantId };
       delete record.tenant_id;
       return { id: source.id, record };
     };
