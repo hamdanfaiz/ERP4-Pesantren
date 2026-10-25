@@ -350,3 +350,16 @@ Skor naik satu poin dari 74/100 setelah kondisi asrama yang sudah ada memperoleh
 - Tes lokal `npm run lint` tidak dapat dimulai karena dependensi proyek belum terpasang (`tsc` tidak tersedia); typecheck dan build yang sama berhasil pada CI. Tidak ada migrasi atau data yang ditulis ke Supabase Production.
 
 Skor 75/100 mencerminkan implementasi dan CI sintetis. Baseline Production terakhir yang dibaca menunjukkan 47 migrasi hingga `20261206000000`; dengan migration baru ini, status Production harus dibaca ulang sebelum upgrade. Staging representatif, backup/restore yang diuji, rekonsiliasi dan impor data, login Admin/Wali, UAT izin, rotasi secret, benchmark pesantren besar, review PR, serta uji pemasangan/pemulihan VPS dan on-premise tetap menjadi gerbang rilis. PR #13 masih Open/Draft dan belum siap deploy.
+
+## Preflight ledger migration yang dapat diulang — 26 Oktober 2026
+
+### Progres menuju go-live: 76/100
+
+Skor naik satu poin dari 75/100 setelah tim mendapat alat pemeriksaan yang dapat mengungkap selisih migration target tanpa mengubah database.
+
+- `scripts/preflight-supabase-migrations.mjs` membandingkan seluruh 81 file repository dengan versi pada `supabase_migrations.schema_migrations`. Pemeriksaan memakai `BEGIN READ ONLY`, `PGOPTIONS=default_transaction_read_only=on`, dan mewajibkan SSL untuk host jarak jauh. Kredensial hanya diteruskan ke `psql` lewat environment dan tidak dicetak.
+- Preflight menghentikan rencana bila ledger memuat versi yang tidak ada di source, duplikat, atau terdapat migration lama yang belum tercatat setelah versi yang lebih baru. Mode lokal membaca DB_URL dari `supabase status`; runbook operator tersedia di [MIGRATION_PREFLIGHT_RUNBOOK.md](../06_DATABASE/MIGRATION_PREFLIGHT_RUNBOOK.md).
+- CI run `40241264730` sukses di kedua job pada commit kode `36e67a278055a9b5720cd9c54789a197e533eafb`. Preflight lokal menemukan ledger dan repository selaras; seluruh migration/pgTAP, concurrency NIS/Tahfidz, API tenant, Finance Storage, backup/restore, typecheck/build, dan Docker juga lulus.
+- Tidak ada query atau penulisan ke Supabase Production pada tahap ini. Baseline live yang tercatat sebelumnya perlu dibaca ulang sebelum rehearsal; keberhasilan lokal bukan bukti status Production atau uji upgrade data nyata.
+
+Skor 76/100 tetap bukan izin deploy. PR #13 masih Draft; staging representatif, backup/restore terpisah, rekonsiliasi/impor Firebase, login Admin/Wali dan UAT izin, rotasi secret, benchmark skala besar, review PR, serta uji pemasangan/pemulihan VPS dan on-premise tetap menjadi gerbang rilis.

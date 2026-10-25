@@ -137,3 +137,9 @@ Pemeriksaan ini menggantikan angka migrasi pada snapshot sebelumnya; query dilak
 - Migration membuat satu snapshot kondisi saat cutover bagi setiap santri yang masih memiliki gedung/kamar, sambil mempertahankan event sebelumnya. Snapshot tidak mengklaim menyimpan perpindahan sebelum tanggal cutover dan tidak menetapkan aktor historis.
 
 **Keputusan:** jangan jalankan migration Production. Baca ulang ledger, siapkan backup dan uji restore, lalu lakukan rehearsal lengkap pada staging yang mewakili skema/data sebelum rencana upgrade disetujui.
+
+## Alat pembanding ledger read-only — 26 Oktober 2026
+
+- PR #13 kini menyediakan [runbook pemeriksaan ledger](MIGRATION_PREFLIGHT_RUNBOOK.md) dan `scripts/preflight-supabase-migrations.mjs`. Mode target menerima `SUPABASE_DB_URL`; mode lokal mengambil URL dari `supabase status -o env`. Keduanya hanya memilih versi migration dalam transaksi read-only dan tidak menjalankan SQL migration.
+- CI run `40241264730` pada commit kode `36e67a278055a9b5720cd9c54789a197e533eafb` menjalankan mode lokal sesudah stack Supabase terisolasi siap. Ledger lokal cocok dengan 81 file migration dan suite penuh selesai sukses.
+- Pemeriksaan Production tidak diulang saat menambahkan alat ini. Angka 47 versi hingga `20261206000000` tetap hanya baseline baca-saja sebelumnya; operator harus menjalankan preflight ulang dengan URL target yang benar, lalu memeriksa staging dan backup. Jangan menganggap jumlah pending lama sebagai keadaan live terkini.
