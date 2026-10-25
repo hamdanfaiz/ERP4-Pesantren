@@ -207,6 +207,12 @@ async function main() {
     assert.equal(searchPayload.total, 1, 'Search must be applied before pagination and return exact counts.');
     assert.equal(searchPayload.users[0].uid, users[0].uid, 'Search must match within the acting tenant.');
 
+    const shortSearchResponse = await fetch(`${apiBase}/api/users?q=ab`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(shortSearchResponse.status, 400, 'Search terms shorter than three characters must not trigger broad directory scans.');
+    assert.equal((await shortSearchResponse.json()).code, 'QUERY_TOO_SHORT');
+
     const roleResponse = await fetch(`${apiBase}/api/users?role=Ustadz`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
