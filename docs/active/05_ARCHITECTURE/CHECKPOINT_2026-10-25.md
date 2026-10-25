@@ -363,3 +363,17 @@ Skor naik satu poin dari 75/100 setelah tim mendapat alat pemeriksaan yang dapat
 - Tidak ada query atau penulisan ke Supabase Production pada tahap ini. Baseline live yang tercatat sebelumnya perlu dibaca ulang sebelum rehearsal; keberhasilan lokal bukan bukti status Production atau uji upgrade data nyata.
 
 Skor 76/100 tetap bukan izin deploy. PR #13 masih Draft; staging representatif, backup/restore terpisah, rekonsiliasi/impor Firebase, login Admin/Wali dan UAT izin, rotasi secret, benchmark skala besar, review PR, serta uji pemasangan/pemulihan VPS dan on-premise tetap menjadi gerbang rilis.
+
+
+## Konfirmasi ulang ledger Production — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 76/100
+
+Kueri baca-saja pada SQL Editor project `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`, mengonfirmasi ledger langsung sebelum menyiapkan rehearsal. Skor tidak berubah karena pemeriksaan ini memperbarui fakta target, tetapi belum menjalankan rehearsal atau mengurangi risiko upgrade.
+
+- `supabase_migrations.schema_migrations` memuat 47 versi, dari `20260603000000` sampai `20261206000000`. Seluruh 47 versi cocok dengan file repository; tidak ada versi Production yang tidak dikenal atau hilang dari source.
+- Head repository PR #13 `a2de822fdc835e5661c9f61071a59fbf373bd87e` memiliki 81 file migration sampai `20270109000000`. Ada 34 migration repository setelah baseline Production, mulai `20261207000000` hingga `20270109000000`.
+- Pembandingan daftar dilakukan hanya terhadap nama versi; query di dashboard hanya `SELECT` metadata. Tidak ada perubahan skema, migration, atau data Production.
+- Alat preflight lokal/CI tetap hanya membaca ledger dan melaporkan versi pending. Langkah berikutnya ialah mendapatkan staging yang mewakili skema dan data, memulihkan backup ke lingkungan terpisah, lalu rehearsal seluruh 34 migration di sana.
+
+PR #13 tetap Open/Draft dan belum siap deploy. Konfirmasi ini bukan persetujuan menjalankan migration Production.
