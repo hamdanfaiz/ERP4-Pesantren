@@ -64,7 +64,6 @@ import {
   getSupabaseNextSantriNis,
   listSupabaseBoardingSnapshot,
   getSupabaseMasterDataStudent,
-  listSupabaseMasterDataStudents,
   listSupabaseMasterDataStudentsPage,
   listSupabaseMasterDataStructures,
   onboardSupabaseAcceptedCandidate,
@@ -2329,22 +2328,19 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "master-data");
       requireMasterDataAdmin(actor);
-      if (req.query.page !== undefined) {
-        const rawStatuses = Array.isArray(req.query.status)
-          ? req.query.status.map(String)
-          : req.query.status == null ? [] : [String(req.query.status)];
-        return res.json(await listSupabaseMasterDataStudentsPage(actor.tenantId, {
-          page: Number(req.query.page),
-          pageSize: Number(req.query.pageSize ?? 10),
-          search: typeof req.query.search === "string" ? req.query.search : "",
-          statuses: rawStatuses,
-          gender: typeof req.query.gender === "string" ? req.query.gender : "ALL",
-          grade: typeof req.query.grade === "string" ? req.query.grade : "",
-          dormitory: typeof req.query.dormitory === "string" ? req.query.dormitory : "",
-          completeness: typeof req.query.completeness === "string" ? req.query.completeness : "ALL",
-        }));
-      }
-      return res.json({ records: await listSupabaseMasterDataStudents(actor.tenantId) });
+      const rawStatuses = Array.isArray(req.query.status)
+        ? req.query.status.map(String)
+        : req.query.status == null ? [] : [String(req.query.status)];
+      return res.json(await listSupabaseMasterDataStudentsPage(actor.tenantId, {
+        page: req.query.page == null ? 1 : Number(req.query.page),
+        pageSize: req.query.pageSize == null ? 10 : Number(req.query.pageSize),
+        search: typeof req.query.search === "string" ? req.query.search : "",
+        statuses: rawStatuses,
+        gender: typeof req.query.gender === "string" ? req.query.gender : "ALL",
+        grade: typeof req.query.grade === "string" ? req.query.grade : "",
+        dormitory: typeof req.query.dormitory === "string" ? req.query.dormitory : "",
+        completeness: typeof req.query.completeness === "string" ? req.query.completeness : "ALL",
+      }));
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
