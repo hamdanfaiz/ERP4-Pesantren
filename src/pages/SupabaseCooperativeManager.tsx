@@ -16,6 +16,7 @@ type SupplierDraft = { id?: string; name: string; category: string; contact: str
 
 type LegacyFinancialPreview = {
   snapshotFingerprint: string;
+  applyEnabled: boolean;
   canApply: boolean;
   attestCompleteHistory: boolean;
   issueCount: number;
@@ -109,6 +110,7 @@ export function SupabaseCooperativeManager() {
   const [financialPreview, setFinancialPreview] = useState<LegacyFinancialPreview | null>(null);
   const [financialMappings, setFinancialMappings] = useState<LegacyFinancialMappings>({ wallets: {}, products: {}, confirmCompleteHistory: false });
   const [financialBusy, setFinancialBusy] = useState(false);
+  const [financialApplyBusy, setFinancialApplyBusy] = useState(false);
   const [financialDirty, setFinancialDirty] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -221,6 +223,40 @@ export function SupabaseCooperativeManager() {
     } finally { setFinancialBusy(false); }
   };
 
+  const applyFinancialHistory = async () => {
+    if (!financialPreview || !financialPreview.applyEnabled || !financialPreview.canApply || financialDirty) return;
+    const confirmed = window.confirm(
+      `Terapkan ${financialPreview.counts.sourceWallets} dompet dan ${financialPreview.counts.sourceTransactions} transaksi arsip ke tenant ini? Perubahan akan menambah saldo, penjualan historis, serta ledger Koperasi dan Finance. Stok saat ini tidak berubah; HPP historis tetap tidak diketahui.`,
+    );
+    if (!confirmed) return;
+    setFinancialApplyBusy(true); setError(""); setNotice("");
+    let result: any;
+    try {
+      result = await requestCooperative("/api/cooperative/legacy/financial-import/apply", {
+        method: "POST",
+        body: JSON.stringify({
+          mappings: financialMappings,
+          expectedFingerprint: financialPreview.snapshotFingerprint,
+        }),
+      });
+    } catch (applyError: any) {
+      setError(applyError?.message || "Hasil penerapan belum dapat dipastikan. Jalankan pratinjau ulang dengan pemetaan yang sama sebelum mencoba lagi.");
+      setFinancialApplyBusy(false);
+      return;
+    }
+    setFinancialPreview(null);
+    setFinancialDirty(false);
+    const message = result?.alreadyApplied
+      ? "Arsip ini sudah pernah diterapkan; tidak ada transaksi duplikat."
+      : `Impor selesai: ${Number(result?.importedWallets || 0)} dompet, ${Number(result?.importedSales || 0)} transaksi, dan ${Number(result?.importedItems || 0)} baris produk historis.`;
+    try {
+      await refresh();
+      setNotice(message);
+    } catch {
+      setNotice(message + " Data sudah tersimpan, tetapi ringkasan perlu dimuat ulang.");
+    } finally { setFinancialApplyBusy(false); }
+  };
+
   const markFinancialMappingChanged = () => {
     setFinancialDirty(true); setNotice("");
   };
@@ -299,7 +335,7 @@ export function SupabaseCooperativeManager() {
             <div><h2 className="font-semibold text-slate-900 dark:text-white">Pratinjau migrasi saldo dan transaksi</h2><p className="mt-1 max-w-3xl text-sm text-slate-500">Cocokkan dompet arsip dengan dompet santri dan produk tujuan. Saldo pembuka harus dapat direkonsiliasi dengan saldo akhir arsip setelah dikurangi seluruh penjualan yang ditemukan.</p></div>
             <button type="button" onClick={() => void runFinancialPreview()} disabled={financialBusy || busy} className={outlineClass}><RefreshCw className={financialBusy ? "h-4 w-4 animate-spin" : "h-4 w-4"} />{financialBusy ? "Menghitung…" : financialPreview ? "Hitung ulang pratinjau" : "Muat arsip dan pratinjau"}</button>
           </div>
-          <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Pratinjau saja:</strong> layar ini tidak menulis ke Firebase atau Supabase. Dompet dan baris produk harus dipetakan secara eksplisit. Riwayat penjualan harus dinyatakan lengkap dan saldo harus cocok. HPP historis tidak tersedia, sehingga tidak dihitung dari harga pokok produk saat ini. Jalur penerapan transaksi belum tersedia.</div>
+          <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Pratinjau arsip:</strong> belum ada data yang ditulis. Dompet dan baris produk harus dipetakan secara eksplisit; riwayat penjualan harus dinyatakan lengkap dan saldonya cocok. Penerapan memerlukan konfirmasi tambahan dan izin Admin Keuangan. HPP historis yang tidak tersedia tidak akan dihitung dari harga pokok produk saat ini.</div>
           {financialBusy && <div role="status" className="flex items-center gap-2 rounded-xl border border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-800"><Loader2 className="h-4 w-4 animate-spin" />Membaca arsip tenant dan memeriksa pemetaan…</div>}
           {financialPreview && <div className="space-y-5">
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -345,7 +381,9 @@ export function SupabaseCooperativeManager() {
             </label>
             {financialPreview.warnings.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30"><h3 className="font-semibold text-amber-900 dark:text-amber-100">Catatan pemeriksaan</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-100">{financialPreview.warnings.map((warning) => <li key={warning.code}>{cooperativeFinancialWarningLabel(warning.code)} · {warning.count}</li>)}</ul></section>}
             {financialPreview.issues.length > 0 && <section role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30"><h3 className="font-semibold text-rose-900 dark:text-rose-100">Masalah yang menghambat ({financialPreview.blockingCount})</h3><ul className="mt-2 space-y-1 text-sm text-rose-900 dark:text-rose-100">{financialPreview.issues.map((issue, index) => <li key={issue.code + issue.recordRef + index}>{cooperativeFinancialIssueLabel(issue.code)}{issue.recordRef ? " · referensi " + issue.recordRef : ""}</li>)}</ul></section>}
-            <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">Status "siap" pada pratinjau hanya berarti data lolos pemeriksaan awal. Belum ada endpoint penerapan, posting ledger atomik, atau rekonsiliasi final; jangan menganggap data sudah dipindahkan.</div>
+            {!financialPreview.applyEnabled && <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">Penerapan arsip belum diaktifkan operator. Pratinjau dan pemetaan tetap dapat ditinjau tanpa menulis data.</div>}
+            {financialPreview.canApply && financialPreview.applyEnabled && !financialDirty && <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-900 dark:bg-emerald-950/30"><p className="text-sm text-emerald-900 dark:text-emerald-100">Pemetaan dan rekonsiliasi lolos pemeriksaan. Penerapan akan dicatat atomik pada saldo, transaksi, dan ledger tenant.</p><button type="button" onClick={() => void applyFinancialHistory()} disabled={financialApplyBusy || financialBusy || busy} className={primaryClass}>{financialApplyBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}{financialApplyBusy ? "Menerapkan…" : "Terapkan impor arsip"}</button></div>}
+            <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">Status "siap" berarti pemeriksaan awal lolos dan belum berarti data sudah dipindahkan. Pastikan arsip lengkap serta hasil saldo sudah direkonsiliasi sebelum penerapan.</div>
           </div>}
           {!financialPreview && !financialBusy && <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Muat arsip untuk melihat kandidat dompet, transaksi, dan pilihan tujuan tenant ini.</div>}
         </div>}
