@@ -289,8 +289,27 @@ async function requestTahfidzRosterPage(
     studentsWithoutTarget: Number(result.stats.studentsWithoutTarget || 0),
     studentsWithoutHalaqah: Number(result.stats.studentsWithoutHalaqah || 0),
   } : null;
+  let followUps: { count: number; rows: JsonObject[] } | null = null;
+  if (includeSupport) {
+    const followUpCount = Number(result.followUpCount);
+    if (!Array.isArray(result.followUps) || !Number.isSafeInteger(followUpCount) || followUpCount < 0 || result.followUps.length !== Math.min(followUpCount, 6)) {
+      throw new SupabaseTahfidzError(503, "Ringkasan tindak lanjut Tahfidz belum tersedia. Terapkan migrasi database terbaru terlebih dahulu.");
+    }
+    const rows = result.followUps.map((item: JsonObject) => ({
+      id: String(item.id || ""),
+      nis: String(item.nis || ""),
+      name: String(item.name || ""),
+      halaqahId: item.halaqahId ? String(item.halaqahId) : null,
+      halaqah: String(item.halaqah || ""),
+      reasons: Array.isArray(item.reasons) ? item.reasons.filter((reason: unknown) => typeof reason === "string").slice(0, 4) : [],
+    }));
+    if (rows.some((student: JsonObject) => !isUuid(student.id) || !Array.isArray(student.reasons) || student.reasons.length === 0)) {
+      throw new SupabaseTahfidzError(503, "Ringkasan tindak lanjut Tahfidz memiliki data yang tidak valid.");
+    }
+    followUps = { count: followUpCount, rows };
+  }
   const halaqahCounts = result.halaqahCounts && typeof result.halaqahCounts === "object" ? result.halaqahCounts : {};
-  return { roster, hasMore: result.hasMore === true, nextCursor, stats, halaqahCounts };
+  return { roster, hasMore: result.hasMore === true, nextCursor, stats, halaqahCounts, followUps };
 }
 
 export async function listSupabaseTahfidzRosterPage(
@@ -358,6 +377,7 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
     roster: rosterPage.roster,
     rosterPage: { hasMore: rosterPage.hasMore, nextCursor: rosterPage.nextCursor },
     rosterStats: rosterPage.stats,
+    followUps: rosterPage.followUps,
     records: [],
     recordsPage: { hasMore: false, nextCursor: null, oldestPerformedAt: null },
     ustadzOptions: ["Admin", "SuperAdmin"].includes(role)

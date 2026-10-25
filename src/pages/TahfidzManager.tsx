@@ -484,6 +484,7 @@ export function TahfidzManager() {
   const [rosterNextCursor, setRosterNextCursor] = useState("");
   const [rosterLoadingMore, setRosterLoadingMore] = useState(false);
   const [rosterStats, setRosterStats] = useState<any>(null);
+  const [dashboardFollowUps, setDashboardFollowUps] = useState<{ count: number; rows: any[] } | null>(null);
   const [rosterSearchResults, setRosterSearchResults] = useState<any[] | null>(null);
   const [rosterSearchTerm, setRosterSearchTerm] = useState("");
   const [rosterSearchHasMore, setRosterSearchHasMore] = useState(false);
@@ -537,6 +538,7 @@ export function TahfidzManager() {
     setRosterHasMore(snapshot.rosterPage?.hasMore === true);
     setRosterNextCursor(typeof snapshot.rosterPage?.nextCursor === "string" ? snapshot.rosterPage.nextCursor : "");
     setRosterStats(snapshot.rosterStats && typeof snapshot.rosterStats === "object" ? snapshot.rosterStats : null);
+    setDashboardFollowUps(snapshot.followUps && typeof snapshot.followUps === "object" ? snapshot.followUps : null);
     setHalaqahList((Array.isArray(snapshot.halaqahs) ? snapshot.halaqahs : []).map((halaqah: any) => ({
       ...halaqah,
       target: `${Number(halaqah.dailyTargetPages || 0)} halaman/hari`,
@@ -666,6 +668,7 @@ export function TahfidzManager() {
       setRosterHasMore(false);
       setRosterNextCursor("");
       setRosterStats(null);
+      setDashboardFollowUps(null);
       setHalaqahList([]);
       setRecords([]);
       setRecordsHasMore(false);
@@ -687,6 +690,7 @@ export function TahfidzManager() {
         setRosterHasMore(false);
         setRosterNextCursor("");
         setRosterStats(null);
+        setDashboardFollowUps(null);
         setHalaqahList([]);
         setRecords([]);
         setRecordsHasMore(false);
@@ -1633,7 +1637,7 @@ export function TahfidzManager() {
       const studentId = String(record.studentId || "");
       if (studentId && !latestRecordByStudent.has(studentId)) latestRecordByStudent.set(studentId, record);
     }
-    const followUpRows = santriList.map((student) => {
+    const inferredFollowUpRows = santriList.map((student) => {
       const latest = latestRecordByStudent.get(String(student.id));
       const reasons = [
         !student.halaqahId ? "Belum ditempatkan pada halaqah" : "",
@@ -1643,6 +1647,7 @@ export function TahfidzManager() {
       ].filter(Boolean);
       return { ...student, reasons };
     }).filter((student) => student.reasons.length > 0).slice(0, 6);
+    const followUpRows = dashboardFollowUps?.rows ?? inferredFollowUpRows;
     const weekDays = Array.from({ length: 7 }, (_, index) => {
       const date = new Date(`${today}T00:00:00Z`);
       date.setUTCDate(date.getUTCDate() - (6 - index));
@@ -1677,7 +1682,7 @@ export function TahfidzManager() {
           Ringkasan roster dan cakupan target dihitung tepat di backend Supabase untuk cakupan akun Anda. Tabel santri dimuat bertahap; grafik menunjukkan jumlah setoran, bukan jumlah halaman atau juz.
         </div>
         {rosterHasMore && <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
-          <span>Menampilkan {santriList.length} dari {totalStudents} santri. Daftar tindak lanjut di bawah juga menilai halaman yang sudah dimuat.</span>
+          <span>Menampilkan {santriList.length} dari {totalStudents} santri pada roster. Ringkasan tindak lanjut dihitung terpisah untuk seluruh cakupan akun Anda.</span>
           <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">{rosterLoadingMore ? "Memuat…" : "Muat santri berikutnya"}</button>
         </div>}
         {recordsHasMore && <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200">
@@ -1720,7 +1725,7 @@ export function TahfidzManager() {
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">Perlu ditindaklanjuti</h2>
-              <p className="mt-1 text-sm text-slate-500">Penempatan, target, atau nilai terbaru yang memerlukan perhatian</p>
+              <p className="mt-1 text-sm text-slate-500">{dashboardFollowUps ? `${dashboardFollowUps.count} santri dalam antrean prioritas` : "Penempatan, target, atau nilai terbaru yang memerlukan perhatian"}</p>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-white/5">
               {followUpRows.length ? followUpRows.map((student) => (
@@ -1733,8 +1738,9 @@ export function TahfidzManager() {
                     {student.reasons.map((reason: string) => <span key={reason} className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">{reason}</span>)}
                   </div>
                 </div>
-              )) : <p className="px-5 py-8 text-center text-sm text-slate-500">{rosterHasMore ? "Belum ada sinyal tindak lanjut pada halaman roster yang dimuat." : "Tidak ada sinyal tindak lanjut dari data yang tersedia."}</p>}
-              {followUpRows.length === 6 && santriList.length > followUpRows.length && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Menampilkan 6 santri pertama yang memerlukan perhatian.</p>}
+              )) : <p className="px-5 py-8 text-center text-sm text-slate-500">{tahfidzLoading ? "Memuat ringkasan tindak lanjut…" : dashboardFollowUps ? "Tidak ada sinyal tindak lanjut dari data yang tersedia." : rosterHasMore ? "Belum ada sinyal tindak lanjut pada halaman roster yang dimuat." : "Tidak ada sinyal tindak lanjut dari data yang tersedia."}</p>}
+              {dashboardFollowUps && dashboardFollowUps.count > followUpRows.length && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Menampilkan {followUpRows.length} dari {dashboardFollowUps.count} santri. Urutan memprioritaskan jumlah dan tingkat risiko.</p>}
+              {!dashboardFollowUps && followUpRows.length === 6 && santriList.length > followUpRows.length && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Daftar ini berdasarkan halaman roster yang telah dimuat.</p>}
             </div>
           </section>
         </div>

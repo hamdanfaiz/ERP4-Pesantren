@@ -167,6 +167,8 @@ async function testSnapshotUsesTenantScopedRosterRpc() {
         nextCursor: null,
         stats: { studentCount: 2, studentsWithTarget: 1, studentsWithoutTarget: 1, studentsWithoutHalaqah: 0 },
         halaqahCounts: { [halaqahA]: 2 },
+        followUpCount: 1,
+        followUps: [{ id: studentA, nis: "0000000001", name: "Santri A", halaqahId: halaqahA, halaqah: "Halaqah A", reasons: ["Target harian belum ditetapkan"] }],
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     } else if (table === "tahfidz_halaqahs") {
       rows = [{ id: halaqahA, name: "Halaqah A", status: "active", daily_target_pages: 1 }];
@@ -182,6 +184,8 @@ async function testSnapshotUsesTenantScopedRosterRpc() {
     assert.equal(snapshot.roster.length, 2, "snapshot memuat halaman roster dari RPC");
     assert.equal(snapshot.rosterStats.studentCount, 2, "jumlah santri pasti dihitung di backend");
     assert.equal(snapshot.rosterStats.studentsWithoutTarget, 1);
+    assert.equal(snapshot.followUps.count, 1, "jumlah tindak lanjut pasti dihitung di backend");
+    assert.deepEqual(snapshot.followUps.rows[0].reasons, ["Target harian belum ditetapkan"]);
     assert.equal(snapshot.halaqahs[0].studentCount, 2, "jumlah anggota halaqah dihitung di backend");
     assert.ok(!Object.hasOwn(snapshot.halaqahs[0], "students"), "snapshot tidak menduplikasi identitas santri di tiap halaqah");
     const rpcQuery = requests.find((url) => url.pathname.endsWith("/rpc/list_tahfidz_roster_page"));
