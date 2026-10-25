@@ -104,6 +104,184 @@ function localTime(value: Date) {
   return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`;
 }
 
+type TahfidzStudentSearchSelectProps = {
+  initialStudents: any[];
+  selectedStudentId: string;
+  selectedStudent?: any | null;
+  scopeKey: string;
+  onSelect: (student: any | null) => void;
+  filterStudent?: (student: any) => boolean;
+  disabled?: boolean;
+};
+
+function TahfidzStudentSearchSelect({
+  initialStudents,
+  selectedStudentId,
+  selectedStudent = null,
+  scopeKey,
+  onSelect,
+  filterStudent = () => true,
+  disabled = false,
+}: TahfidzStudentSearchSelectProps) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [resultsQuery, setResultsQuery] = useState("");
+  const [nextCursor, setNextCursor] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [selectedOption, setSelectedOption] = useState<any | null>(selectedStudent);
+  const requestSequence = useRef(0);
+
+  useEffect(() => {
+    setQuery("");
+    setResults([]);
+    setResultsQuery("");
+    setNextCursor("");
+    setHasMore(false);
+    setError("");
+    setSelectedOption(selectedStudent || null);
+  }, [scopeKey]);
+
+  useEffect(() => {
+    if (!selectedStudentId) {
+      setSelectedOption(null);
+      return;
+    }
+    setSelectedOption((current) => {
+      if (current && String(current.id) === selectedStudentId) return current;
+      return initialStudents.find((student) => String(student.id) === selectedStudentId)
+        || (selectedStudent && String(selectedStudent.id) === selectedStudentId ? selectedStudent : current);
+    });
+  }, [selectedStudentId, selectedStudent?.id, initialStudents]);
+
+  useEffect(() => {
+    const sequence = ++requestSequence.current;
+    const search = query.trim();
+    if (search.length < 2) {
+      setResults([]);
+      setResultsQuery("");
+      setNextCursor("");
+      setHasMore(false);
+      setLoading(false);
+      setError("");
+      return;
+    }
+
+    let active = true;
+    setResults([]);
+    setResultsQuery("");
+    setNextCursor("");
+    setHasMore(false);
+    setLoading(true);
+    setError("");
+    const timer = window.setTimeout(() => {
+      requestSupabaseTahfidzApi(`/api/tahfidz/roster?search=${encodeURIComponent(search)}`)
+        .then((page) => {
+          if (!active || sequence !== requestSequence.current || search !== query.trim()) return;
+          const students = Array.isArray(page.roster)
+            ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student))
+            : [];
+          setResults(students);
+          setResultsQuery(search);
+          setHasMore(page.hasMore === true);
+          setNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
+        })
+        .catch((requestError: any) => {
+          if (active && sequence === requestSequence.current) {
+            setError(requestError?.message || "Pencarian santri belum dapat dimuat.");
+          }
+        })
+        .finally(() => {
+          if (active && sequence === requestSequence.current) setLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, scopeKey]);
+
+  const loadMore = async () => {
+    const search = query.trim();
+    const sequence = requestSequence.current;
+    if (!hasMore || !nextCursor || loading || search !== resultsQuery) return;
+    setLoading(true);
+    setError("");
+    try {
+      const page = await requestSupabaseTahfidzApi(
+        `/api/tahfidz/roster?cursor=${encodeURIComponent(nextCursor)}&search=${encodeURIComponent(search)}`,
+      );
+      if (sequence !== requestSequence.current || search !== query.trim()) return;
+      const incoming = Array.isArray(page.roster)
+        ? page.roster.map((student: any) => mapSupabaseTahfidzRosterStudent(student))
+        : [];
+      setResults((current) => {
+        const knownIds = new Set(current.map((student) => String(student.id)));
+        return [...current, ...incoming.filter((student: any) => !knownIds.has(String(student.id)))];
+      });
+      setHasMore(page.hasMore === true);
+      setNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
+    } catch (requestError: any) {
+      if (sequence === requestSequence.current) {
+        setError(requestError?.message || "Hasil pencarian berikutnya belum dapat dimuat.");
+      }
+    } finally {
+      if (sequence === requestSequence.current) setLoading(false);
+    }
+  };
+
+  const search = query.trim();
+  const sourceStudents = search.length >= 2
+    ? (resultsQuery === search ? results : [])
+    : initialStudents;
+  const options = [selectedOption, ...sourceStudents]
+    .filter((student): student is any => Boolean(student) && filterStudent(student))
+    .filter((student, index, all) => all.findIndex((item) => String(item.id) === String(student.id)) === index);
+
+  return (
+    <div className="space-y-2">
+      <input
+        type="search"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Cari nama atau NIS (minimal 2 karakter)"
+        aria-label="Cari santri berdasarkan nama atau NIS"
+        disabled={disabled}
+        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-white/10 dark:bg-black/40 dark:text-slate-200"
+      />
+      <select
+        required
+        value={selectedStudentId}
+        onChange={(event) => {
+          const student = options.find((item) => String(item.id) === event.target.value) || null;
+          setSelectedOption(student);
+          onSelect(student);
+        }}
+        disabled={disabled}
+        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-white/10 dark:bg-black/40 dark:text-slate-200"
+      >
+        <option value="">Pilih santri…</option>
+        {options.map((student) => (
+          <option key={student.id} value={student.id}>{student.name} · {student.nis || "tanpa NIS"}</option>
+        ))}
+      </select>
+      {loading && <p role="status" className="text-xs text-slate-500">Mencari santri…</p>}
+      {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
+      {!loading && search.length >= 2 && resultsQuery === search && !options.some((student) => student.id !== selectedStudentId) && (
+        <p className="text-xs text-slate-500">Tidak ada santri yang cocok pada cakupan akun ini.</p>
+      )}
+      {hasMore && resultsQuery === search && <button
+        type="button"
+        onClick={() => void loadMore()}
+        disabled={loading}
+        className="text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300"
+      >{loading ? "Memuat hasil…" : "Muat hasil pencarian berikutnya"}</button>}
+    </div>
+  );
+}
+
 function createEmptyTahfidzRecordForm() {
   return {
     studentId: "", santriName: "", type: "Ziyadah", time: "", juz: "", surah: "",
@@ -708,9 +886,10 @@ export function TahfidzManager() {
   const selectableSantri = dashboardActionStudent && !displaySantri.some((student) => String(student.id) === String(dashboardActionStudent.id))
     ? [dashboardActionStudent, ...displaySantri]
     : displaySantri;
+  const tahfidzStudentScopeKey = `${user?.tenantId || ""}:${user?.uid || ""}:${role}`;
   const displayHalaqah = halaqahList;
-  const selectTahfidzStudent = (value: string) => {
-    const student = displaySantri.find((item) => String(SUPABASE_TAHFIDZ_RUNTIME ? item.id : item.name) === value);
+  const selectTahfidzStudent = (value: string, selectedStudent?: any | null) => {
+    const student = selectedStudent || selectableSantri.find((item) => String(SUPABASE_TAHFIDZ_RUNTIME ? item.id : item.name) === value);
     setFormData({
       ...formData,
       santriName: student?.name || "",
@@ -1936,18 +2115,23 @@ export function TahfidzManager() {
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Santri
           </label>
-          <select
-            value={SUPABASE_TAHFIDZ_RUNTIME ? formData.studentId || "" : formData.santriName || ""}
+          {SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
+            key={tahfidzStudentScopeKey}
+            scopeKey={tahfidzStudentScopeKey}
+            initialStudents={selectableSantri}
+            selectedStudentId={formData.studentId || ""}
+            selectedStudent={selectableSantri.find((student) => String(student.id) === String(formData.studentId || "")) || null}
+            onSelect={(student) => selectTahfidzStudent(String(student?.id || ""), student)}
+            filterStudent={(student) => Boolean(student.halaqahId)}
+            disabled={isSavingRecord}
+          /> : <select
+            value={formData.santriName || ""}
             onChange={(e) => selectTahfidzStudent(e.target.value)}
             className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
           >
             <option value="">-- Pilih Santri --</option>
-            {displaySantri.map((s) => (
-              <option key={s.id} value={SUPABASE_TAHFIDZ_RUNTIME ? s.id : s.name}>
-                {s.name} - {s.nis}
-              </option>
-            ))}
-          </select>
+            {displaySantri.map((s) => <option key={s.id} value={s.name}>{s.name} - {s.nis}</option>)}
+          </select>}
           {SUPABASE_TAHFIDZ_RUNTIME && rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}
         </div>
         <div className="w-full md:w-auto">
@@ -3658,14 +3842,14 @@ export function TahfidzManager() {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                   Pilih Santri
                 </label>
-                <select value={targetForm.studentId} onChange={(e) => setTargetForm({ ...targetForm, studentId: e.target.value })} className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-                  <option value="">Pilih santri...</option>
-                  {selectableSantri.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} - {s.nis}
-                    </option>
-                  ))}
-                </select>
+                {SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
+                  key={tahfidzStudentScopeKey}
+                  scopeKey={tahfidzStudentScopeKey}
+                  initialStudents={selectableSantri}
+                  selectedStudentId={targetForm.studentId}
+                  selectedStudent={selectableSantri.find((student) => String(student.id) === String(targetForm.studentId)) || null}
+                  onSelect={(student) => setTargetForm((current) => ({ ...current, studentId: String(student?.id || "") }))}
+                /> : <select value={targetForm.studentId || ""} onChange={(event) => setTargetForm((current) => ({ ...current, studentId: event.target.value }))} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 dark:border-white/10 dark:bg-black/40 dark:text-slate-200"><option value="">Pilih santri…</option>{selectableSantri.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis}</option>)}</select>}
                 {rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}
               </div>
 
@@ -3747,7 +3931,14 @@ export function TahfidzManager() {
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">Tempatkan Santri ke Halaqah</h2><p className="mt-1 text-sm text-slate-500">Penempatan aktif akan disimpan pada tenant Supabase.</p></div>
             <div className="space-y-4 p-5">
-              <div><label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri<select value={membershipForm.studentId} onChange={(e) => setMembershipForm({ ...membershipForm, studentId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih santri…</option>{selectableSantri.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis} {student.halaqah ? `· saat ini ${student.halaqah}` : ""}</option>)}</select></label>{rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}</div>
+              <div><span className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri</span>{SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
+                key={tahfidzStudentScopeKey}
+                scopeKey={tahfidzStudentScopeKey}
+                initialStudents={selectableSantri}
+                selectedStudentId={membershipForm.studentId}
+                selectedStudent={selectableSantri.find((student) => String(student.id) === String(membershipForm.studentId)) || null}
+                onSelect={(student) => setMembershipForm((current) => ({ ...current, studentId: String(student?.id || "") }))}
+              /> : <select value={membershipForm.studentId} onChange={(event) => setMembershipForm((current) => ({ ...current, studentId: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih santri…</option>{selectableSantri.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis}</option>)}</select>}{SUPABASE_TAHFIDZ_RUNTIME && rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}</div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Halaqah<select value={membershipForm.halaqahId} onChange={(e) => setMembershipForm({ ...membershipForm, halaqahId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih halaqah…</option>{halaqahList.map((halaqah) => <option key={halaqah.id} value={halaqah.id}>{halaqah.name}</option>)}</select></label>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Mulai tanggal<input type="date" value={membershipForm.startsOn} onChange={(e) => setMembershipForm({ ...membershipForm, startsOn: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40" /></label>
             </div>
@@ -4713,19 +4904,23 @@ export function TahfidzManager() {
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                     Pilih Santri ({selectedHalaqahFilter})
                   </label>
-                  <select
+                  {SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
+                    key={tahfidzStudentScopeKey}
+                    scopeKey={tahfidzStudentScopeKey}
+                    initialStudents={selectableSantri}
+                    selectedStudentId={formData.studentId || ""}
+                    selectedStudent={selectableSantri.find((student) => String(student.id) === String(formData.studentId || "")) || null}
+                    onSelect={(student) => selectTahfidzStudent(String(student?.id || ""), student)}
+                    filterStudent={(student) => Boolean(student.halaqahId) && (selectedHalaqahFilter === "Semua Halaqah" || student.halaqah === selectedHalaqahFilter)}
+                  /> : <select
                     required
-                    value={SUPABASE_TAHFIDZ_RUNTIME ? formData.studentId || "" : formData.santriName || ""}
+                    value={formData.santriName || ""}
                     onChange={(e) => selectTahfidzStudent(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
                   >
                     <option value="">-- Pilih Santri --</option>
-                    {filteredSantri.map((s) => (
-                      <option key={s.id} value={SUPABASE_TAHFIDZ_RUNTIME ? s.id : s.name}>
-                        {s.name} - {s.nis}
-                      </option>
-                    ))}
-                  </select>
+                    {filteredSantri.map((s) => <option key={s.id} value={s.name}>{s.name} - {s.nis}</option>)}
+                  </select>}
                   {SUPABASE_TAHFIDZ_RUNTIME && searchQuery.trim() && rosterSearchHasMore && <button type="button" onClick={() => void loadMoreTahfidzSearch()} disabled={rosterSearchLoading} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterSearchLoading ? "Memuat hasil…" : "Muat hasil pencarian berikutnya"}</button>}
                   {SUPABASE_TAHFIDZ_RUNTIME && !searchQuery.trim() && rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}
                 </div>
