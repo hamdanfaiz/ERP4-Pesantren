@@ -170,3 +170,18 @@ Skor tetap 63/100 karena pemeriksaan ini memperbarui status kontrol dan PR, teta
 - Pengujian multi-anak Portal Wali pada head `a972b8a` telah lolos CI; perubahan ini tidak mengubah status login staging atau kesiapan rilis.
 
 Gerbang berikutnya adalah menyediakan akses baca ke project Supabase target atau staging terpisah, lalu menjalankan uji upgrade, dry-run migrasi/rekonsiliasi, autentikasi Admin/Wali, dan UAT. Jangan menaikkan persentase hanya karena branch mergeable atau CI lokal berhasil.
+
+## Koreksi tanggal penempatan halaqah Tahfidz — 25 Oktober 2026
+
+### Progres menuju go-live: 64/100
+
+Skor naik satu poin dari 63/100 setelah koreksi roster dan batas akses berdasarkan masa berlaku penempatan lolos tes lokal dan kedua job CI pada commit yang sama. Poin ini mencakup validasi kode; belum membuktikan autentikasi atau data produksi.
+
+- Snapshot Tahfidz kini memilih keanggotaan halaqah yang berstatus aktif dan mencakup tanggal bisnis tenant. Penempatan dengan tanggal mulai mendatang tidak muncul lebih awal, dan penempatan yang berakhir sebelum hari ini tidak lagi mengarahkan roster ke halaqah lama.
+- Karena hak baca Ustadz Tahfidz mengikuti halaqah pada roster tenant, koreksi ini juga menghindari pemberian akses berbasis penempatan masa depan/kedaluwarsa.
+- Tes sintetis memeriksa 7 fixture: mulai hari ini, mulai mendatang, berakhir hari ini, kedaluwarsa, status berakhir, serta tanggal mulai/akhir yang tidak valid. Pemeriksaan tanggal batas tetap inklusif sesuai aturan database.
+- `npm run test:tahfidz-membership-date`, `npm run lint`, `npm run build`, dan `git diff --check` lulus lokal. Build masih menampilkan peringatan chunk PDF tertunda sekitar 1,24 MB.
+- Commit PR #13 `ba327e8c5b5ca7e11dff00922fd53ff0d393f06a`; CI run `40192352964` sukses untuk job frontend dan database. Tes database menggunakan Supabase lokal sintetis.
+- Tidak ada perubahan skema, migration, atau data Supabase Production. Target project `ptsasgdvgrbdtgyqieie` tetap tidak dapat diakses melalui konektor.
+
+PR #13 tetap Open/Draft. Login Admin/Wali pada staging, rekonsiliasi dan uji migrasi data, rotasi secret, review, serta UAT VPS/on-premise masih menjadi release gate. Persentase kesiapan bukan izin deploy.
