@@ -49,6 +49,7 @@ import { GamificationProfile } from "../components/GamificationManager";
 import { SupabaseTahfidzSessions } from "./SupabaseTahfidzSessions";
 import { supabaseRuntimeEnabled } from "../runtimeBackend";
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTime } from "../lib/tenantTimeZone";
+import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
 import { cn, generateUniqueId } from "../lib/utils";
 import {
   AreaChart,
@@ -413,6 +414,7 @@ export function TahfidzManager() {
   const [membershipForm, setMembershipForm] = useState({ halaqahId: "", studentId: "", startsOn: currentTenantDate() });
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [isReminderEnabled, setIsReminderEnabled] = useState(false);
+  const [selectedGuardianStudentId, setSelectedGuardianStudentId] = useState("");
   const [selectedSantri, setSelectedSantri] = useState<any>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
@@ -462,6 +464,14 @@ export function TahfidzManager() {
   };
   const [santriList, setSantriList] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : SANTRI_DATA);
   const [records, setRecords] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : INITIAL_RECORDS);
+
+  useEffect(() => {
+    if (role !== "Walisantri") {
+      setSelectedGuardianStudentId("");
+      return;
+    }
+    setSelectedGuardianStudentId((current) => resolveGuardianStudentId(santriList, current));
+  }, [role, santriList, user?.tenantId, user?.uid]);
 
   const applyTahfidzSnapshot = (snapshot: any) => {
     const recordRows = Array.isArray(snapshot.records) ? snapshot.records : [];
@@ -1600,7 +1610,10 @@ export function TahfidzManager() {
       );
     }
 
-    const student = santriList[0];
+    const studentId = role === "Walisantri"
+      ? resolveGuardianStudentId(santriList, selectedGuardianStudentId)
+      : String(santriList[0]?.id || "");
+    const student = santriList.find((item) => String(item.id) === studentId);
     if (!student) {
       return (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-900">
@@ -1625,10 +1638,17 @@ export function TahfidzManager() {
               <h2 className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{student.name}</h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">NIS {student.nis || "—"} · {student.grade || "Kelas belum tercatat"}</p>
             </div>
-            <div className="rounded-xl border border-emerald-200 bg-white/80 px-4 py-3 text-sm dark:border-emerald-500/20 dark:bg-black/10">
+            <div className="flex flex-col gap-3 sm:items-end">
+              {role === "Walisantri" && santriList.length > 1 && <label className="w-full text-xs font-medium text-slate-600 dark:text-slate-300 sm:w-64">Pilih santri
+                <select value={studentId} onChange={(event) => setSelectedGuardianStudentId(resolveGuardianStudentId(santriList, event.target.value))} className="mt-1.5 w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-emerald-500/20 dark:bg-slate-900 dark:text-white">
+                  {santriList.map((linkedStudent) => <option key={linkedStudent.id} value={linkedStudent.id}>{linkedStudent.name} · {linkedStudent.nis || "tanpa NIS"}</option>)}
+                </select>
+              </label>}
+              <div className="rounded-xl border border-emerald-200 bg-white/80 px-4 py-3 text-sm dark:border-emerald-500/20 dark:bg-black/10">
               <p className="text-xs text-slate-500">Halaqah</p>
               <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{halaqah?.name || "Belum ditempatkan"}</p>
               {halaqah?.ustadz && <p className="mt-1 text-xs text-slate-500">Pengampu: {halaqah.ustadz}</p>}
+            </div>
             </div>
           </div>
         </section>

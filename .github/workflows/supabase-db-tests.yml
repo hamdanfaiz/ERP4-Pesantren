@@ -38,6 +38,9 @@ jobs:
       - name: Verify strict shared RBAC permissions
         run: npm run test:rbac-permissions
 
+      - name: Verify Wali santri selection stays within linked children
+        run: npm run test:guardian-student-selection
+
       - name: Verify guardian invitation before password activation
         run: npm run test:guardian-invitation-verification
 
