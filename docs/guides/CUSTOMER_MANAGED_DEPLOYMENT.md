@@ -39,6 +39,7 @@ Compose sets `NODE_ENV=production` and disables the legacy Firebase Admin and se
 
 - Back up the customer's Supabase database and Storage separately. This Compose file does not configure scheduled backups or prove a customer's recovery objectives.
 - Apply migrations from the reviewed source revision using the agreed Supabase deployment process. Do not enable runtime flags until the migration history, tenant data, RLS, Auth profiles, and Storage policies have been checked in that customer's non-production environment.
+- The user-directory migration builds ordinary GIN indexes on `profiles`; for a large existing profile table, estimate duration and disk use on a staging copy, then schedule a maintenance window because writes to `profiles` wait while each index is built.
 - Put the service behind TLS and configure firewall rules. Do not expose the Supabase secret key, database password, or database port to browsers.
 - To update, build the selected source revision and replace the container only after its CI run passes. Keep the prior image available for rollback.
 - The current CI image smoke test proves container build/startup and that Firebase packages are absent from the production image. It does not prove authentication against a customer Supabase project, migrate customer data, or establish on-premise readiness for a complete Supabase stack.
