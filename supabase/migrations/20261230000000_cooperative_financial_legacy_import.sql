@@ -140,6 +140,7 @@ DECLARE
   v_source_ref TEXT;
   v_source_fingerprint TEXT;
   v_target_wallet_id UUID;
+  v_product_id UUID;
   v_request_id UUID;
   v_created_at TIMESTAMPTZ;
   v_opening_at TIMESTAMPTZ;
@@ -311,14 +312,14 @@ BEGIN
     END IF;
   END LOOP;
 
-  FOR v_wallet_json IN
-    SELECT value FROM jsonb_array_elements(p_transactions) AS transactions(value),
-      LATERAL jsonb_array_elements(value->'items') AS items(item)
-    GROUP BY (items.item->>'product_id')::UUID
-    ORDER BY (items.item->>'product_id')::UUID
+  FOR v_product_id IN
+    SELECT DISTINCT (items.item->>'product_id')::UUID
+    FROM jsonb_array_elements(p_transactions) AS transactions(value)
+    CROSS JOIN LATERAL jsonb_array_elements(transactions.value->'items') AS items(item)
+    ORDER BY 1
   LOOP
     PERFORM 1 FROM public.cooperative_products
-      WHERE tenant_id=p_tenant_id AND id=(v_wallet_json->>'product_id')::UUID FOR SHARE;
+      WHERE tenant_id=p_tenant_id AND id=v_product_id FOR SHARE;
     IF NOT FOUND THEN RAISE EXCEPTION 'Mapped cooperative product is not in this tenant' USING ERRCODE='23503'; END IF;
   END LOOP;
 
