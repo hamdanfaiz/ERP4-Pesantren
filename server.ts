@@ -3380,6 +3380,9 @@ async function startServer() {
       if (q.length > 100) {
         return res.status(400).json({ code: "INVALID_QUERY", error: "Pencarian pengguna maksimal 100 karakter." });
       }
+      if (q.length > 0 && q.length < 3) {
+        return res.status(400).json({ code: "QUERY_TOO_SHORT", error: "Pencarian pengguna harus minimal 3 karakter." });
+      }
       if (limit === null || limit < 1 || limit > 100 || offset === null || offset > 100000) {
         return res.status(400).json({ code: "INVALID_PAGINATION", error: "Ukuran atau posisi halaman pengguna tidak valid." });
       }
