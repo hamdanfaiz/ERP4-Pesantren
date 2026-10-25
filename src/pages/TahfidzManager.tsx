@@ -464,6 +464,10 @@ export function TahfidzManager() {
   };
   const [santriList, setSantriList] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : SANTRI_DATA);
   const [records, setRecords] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : INITIAL_RECORDS);
+  const [recordsHasMore, setRecordsHasMore] = useState(false);
+  const [recordsNextCursor, setRecordsNextCursor] = useState("");
+  const [recordsOldestDate, setRecordsOldestDate] = useState("");
+  const [recordsLoadingMore, setRecordsLoadingMore] = useState(false);
 
   useEffect(() => {
     if (role !== "Walisantri") {
@@ -473,8 +477,29 @@ export function TahfidzManager() {
     setSelectedGuardianStudentId((current) => resolveGuardianStudentId(santriList, current));
   }, [role, santriList, user?.tenantId, user?.uid]);
 
+  const mapTahfidzRecord = (record: any) => {
+    const performedAt = new Date(record.performedAt);
+    return {
+      id: record.id,
+      studentId: record.studentId,
+      halaqahId: record.halaqahId,
+      date: Number.isNaN(performedAt.getTime()) ? "" : currentTenantDate(performedAt),
+      time: Number.isNaN(performedAt.getTime()) ? "" : currentTenantTime(performedAt),
+      santriName: record.studentName || "Santri tidak tersedia",
+      type: record.activityType,
+      surah: record.surah,
+      ayat: `${record.ayahStart}-${record.ayahEnd}`,
+      fluency: record.fluency || "N/A",
+      tajweed: record.tajweed || "N/A",
+      notes: record.notes || "-",
+      ust: record.recordedByName || "",
+    };
+  };
+
   const applyTahfidzSnapshot = (snapshot: any) => {
     const recordRows = Array.isArray(snapshot.records) ? snapshot.records : [];
+    const hasMoreRecords = snapshot.recordsPage?.hasMore === true;
+    const mappedRecords = recordRows.map(mapTahfidzRecord);
     const latestByStudent = new Map<string, any>();
     recordRows.forEach((record: any) => {
       if (!latestByStudent.has(String(record.studentId))) latestByStudent.set(String(record.studentId), record);
@@ -491,7 +516,7 @@ export function TahfidzManager() {
         juz: null,
         status: student.target ? "on-track" : "no-target",
         progress: null,
-        lastSetoran: latest ? `${latest.surah}: ${latest.ayahStart}-${latest.ayahEnd}` : "Belum ada setoran",
+        lastSetoran: latest ? `${latest.surah}: ${latest.ayahStart}-${latest.ayahEnd}` : hasMoreRecords ? "Riwayat lama belum dimuat" : "Belum ada setoran",
         score: null,
         target: student.target || null,
       };
@@ -501,24 +526,10 @@ export function TahfidzManager() {
       ...halaqah,
       target: `${Number(halaqah.dailyTargetPages || 0)} halaman/hari`,
     })));
-    setRecords(recordRows.map((record: any) => {
-      const performedAt = new Date(record.performedAt);
-      return {
-        id: record.id,
-        studentId: record.studentId,
-        halaqahId: record.halaqahId,
-        date: Number.isNaN(performedAt.getTime()) ? "" : currentTenantDate(performedAt),
-        time: Number.isNaN(performedAt.getTime()) ? "" : currentTenantTime(performedAt),
-        santriName: record.studentName || "Santri tidak tersedia",
-        type: record.activityType,
-        surah: record.surah,
-        ayat: `${record.ayahStart}-${record.ayahEnd}`,
-        fluency: record.fluency || "N/A",
-        tajweed: record.tajweed || "N/A",
-        notes: record.notes || "-",
-        ust: record.recordedByName || "",
-      };
-    }));
+    setRecords(mappedRecords);
+    setRecordsHasMore(hasMoreRecords);
+    setRecordsNextCursor(typeof snapshot.recordsPage?.nextCursor === "string" ? snapshot.recordsPage.nextCursor : "");
+    setRecordsOldestDate(mappedRecords[mappedRecords.length - 1]?.date || "");
     setUstadzOptions(Array.isArray(snapshot.ustadzOptions) ? snapshot.ustadzOptions : []);
   };
 
@@ -528,12 +539,38 @@ export function TahfidzManager() {
     return snapshot;
   };
 
+  const loadMoreTahfidzRecords = async () => {
+    if (!recordsHasMore || !recordsNextCursor || recordsLoadingMore) return;
+    setRecordsLoadingMore(true);
+    setTahfidzError("");
+    try {
+      const page = await requestSupabaseTahfidzApi(
+        `/api/tahfidz/records?cursor=${encodeURIComponent(recordsNextCursor)}`,
+      );
+      const incoming = Array.isArray(page.records) ? page.records.map(mapTahfidzRecord) : [];
+      setRecords((current) => {
+        const knownIds = new Set(current.map((record) => String(record.id)));
+        return [...current, ...incoming.filter((record: any) => !knownIds.has(String(record.id)))];
+      });
+      setRecordsHasMore(page.hasMore === true);
+      setRecordsNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
+      if (incoming[incoming.length - 1]?.date) setRecordsOldestDate(incoming[incoming.length - 1].date);
+    } catch (error: any) {
+      setTahfidzError(error?.message || "Riwayat setoran berikutnya belum dapat dimuat.");
+    } finally {
+      setRecordsLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     if (!user?.tenantId || !user?.uid) {
       setSantriList([]);
       setHalaqahList([]);
       setRecords([]);
+      setRecordsHasMore(false);
+      setRecordsNextCursor("");
+      setRecordsOldestDate("");
       setTahfidzError("Profil tenant aktif diperlukan untuk membaca data Tahfidz.");
       setTahfidzLoading(false);
       return () => { active = false; };
@@ -549,6 +586,9 @@ export function TahfidzManager() {
         setSantriList([]);
         setHalaqahList([]);
         setRecords([]);
+        setRecordsHasMore(false);
+        setRecordsNextCursor("");
+        setRecordsOldestDate("");
         setTahfidzError(error?.message || "Data Tahfidz belum dapat dimuat.");
       })
       .finally(() => { if (active) setTahfidzLoading(false); });
@@ -1492,13 +1532,18 @@ export function TahfidzManager() {
     });
     const maxDailyRecords = Math.max(1, ...weekDays.map((day) => day.count));
     const weekRecords = weekDays.reduce((total, day) => total + day.count, 0);
+    const recordCoverageCompleteBefore = (date: string) => !recordsHasMore || Boolean(recordsOldestDate && recordsOldestDate < date);
+    const todayCoverageComplete = recordCoverageCompleteBefore(today);
+    const weekCoverageComplete = recordCoverageCompleteBefore(weekDays[0].date);
+    const todayRecordsDisplay = todayCoverageComplete ? todayRecords.length : `≥${todayRecords.length}`;
+    const weekRecordsDisplay = weekCoverageComplete ? weekRecords : `≥${weekRecords}`;
     const targetCoverage = santriList.length
       ? `${santriList.length - studentsWithoutTargets}/${santriList.length}`
       : "0/0";
     const metricCards = [
       { label: "Santri dalam Roster", value: santriList.length, tone: "emerald" },
       { label: "Halaqah Aktif", value: halaqahList.length, tone: "blue" },
-      { label: "Setoran Hari Ini", value: todayRecords.length, tone: "violet" },
+      { label: "Setoran Hari Ini", value: todayRecordsDisplay, tone: "violet" },
       { label: "Cakupan Target", value: targetCoverage, tone: "amber" },
     ];
     return (
@@ -1506,6 +1551,9 @@ export function TahfidzManager() {
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200">
           Ringkasan ini dihitung dari data Tahfidz Supabase yang dapat diakses akun Anda. Grafik menunjukkan jumlah setoran, bukan jumlah halaman atau juz; ukuran progres hafalan tersebut belum dicatat oleh backend.
         </div>
+        {recordsHasMore && <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200">
+          Riwayat setoran dimuat bertahap. Ringkasan yang rentangnya belum tercakup penuh ditandai ≥.
+        </div>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {metricCards.map((card) => (
             <div key={card.label} className="rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
@@ -1520,19 +1568,19 @@ export function TahfidzManager() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold text-slate-900 dark:text-slate-100">Aktivitas setoran 7 hari</h2>
-                <p className="mt-1 text-sm text-slate-500">{weekRecords} setoran pada cakupan akun ini</p>
+                <p className="mt-1 text-sm text-slate-500">{weekRecordsDisplay} setoran pada cakupan akun ini</p>
               </div>
               <span className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200">{studentsWithoutHalaqah} tanpa halaqah</span>
             </div>
             <div className="mt-6 grid grid-cols-7 gap-2" role="img" aria-label={`Grafik aktivitas setoran selama 7 hari, total ${weekRecords}`}>
               {weekDays.map((day) => (
                 <div key={day.date} className="flex min-w-0 flex-col items-center gap-2">
-                  <span className="text-xs font-medium tabular-nums text-slate-600 dark:text-slate-300">{day.count}</span>
+                  <span className="text-xs font-medium tabular-nums text-slate-600 dark:text-slate-300">{recordCoverageCompleteBefore(day.date) ? day.count : `≥${day.count}`}</span>
                   <div className="flex h-28 w-full items-end rounded-lg bg-slate-50 px-1 dark:bg-white/5">
                     <div
                       className="w-full rounded-md bg-emerald-500 transition-[height]"
                       style={{ height: `${day.count ? Math.max(10, Math.round((day.count / maxDailyRecords) * 100)) : 2}%` }}
-                      title={`${day.date}: ${day.count} setoran`}
+                      title={`${day.date}: ${recordCoverageCompleteBefore(day.date) ? day.count : `≥${day.count}`} setoran`}
                     />
                   </div>
                   <span className="text-[11px] capitalize text-slate-500">{day.label}</span>
@@ -1627,6 +1675,9 @@ export function TahfidzManager() {
     const studentRecords = records.filter((record) => String(record.studentId || "") === String(student.id));
     const currentMonth = currentTenantDate().slice(0, 7);
     const monthlySubmissions = studentRecords.filter((record) => String(record.date || "").slice(0, 7) === currentMonth).length;
+    const monthStart = `${currentMonth}-01`;
+    const monthlyCoverageComplete = !recordsHasMore || Boolean(recordsOldestDate && recordsOldestDate < monthStart);
+    const monthlySubmissionsDisplay = monthlyCoverageComplete ? monthlySubmissions : `≥${monthlySubmissions}`;
     const latestRecord = studentRecords[0];
 
     return (
@@ -1656,8 +1707,8 @@ export function TahfidzManager() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Setoran bulan ini</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{tahfidzLoading ? "—" : monthlySubmissions}</p>
-            <p className="mt-1 text-xs text-slate-500">Berdasarkan catatan setoran tersimpan pada tenant</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{tahfidzLoading ? "—" : monthlySubmissionsDisplay}</p>
+            <p className="mt-1 text-xs text-slate-500">{monthlyCoverageComplete ? "Jumlah setoran pada bulan berjalan" : "Jumlah minimum dari riwayat yang termuat; buka Riwayat Setoran untuk melengkapi."}</p>
           </article>
           <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Target harian</p>
@@ -1666,8 +1717,8 @@ export function TahfidzManager() {
           </article>
           <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900 sm:col-span-2 xl:col-span-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Setoran terakhir</p>
-            <p className="mt-2 font-bold text-slate-900 dark:text-white">{latestRecord ? `${latestRecord.surah} · ayat ${latestRecord.ayat}` : "Belum ada setoran"}</p>
-            <p className="mt-1 text-xs text-slate-500">{latestRecord ? `${latestRecord.date || "Tanggal tidak tersedia"} · ${latestRecord.time || "Waktu tidak tersedia"}` : "Catatan akan muncul setelah setoran tersimpan."}</p>
+            <p className="mt-2 font-bold text-slate-900 dark:text-white">{latestRecord ? `${latestRecord.surah} · ayat ${latestRecord.ayat}` : recordsHasMore ? "Riwayat lama belum dimuat" : "Belum ada setoran"}</p>
+            <p className="mt-1 text-xs text-slate-500">{latestRecord ? `${latestRecord.date || "Tanggal tidak tersedia"} · ${latestRecord.time || "Waktu tidak tersedia"}` : recordsHasMore ? "Muat riwayat lama untuk memeriksa setoran sebelumnya." : "Catatan akan muncul setelah setoran tersimpan."}</p>
           </article>
         </div>
 
@@ -1899,6 +1950,12 @@ export function TahfidzManager() {
             </tbody>
           </table>
         </div>
+        {SUPABASE_TAHFIDZ_RUNTIME && recordsHasMore && <div className="flex justify-center border-t border-slate-100 px-4 py-4 dark:border-white/5">
+          <button type="button" onClick={loadMoreTahfidzRecords} disabled={recordsLoadingMore} className="rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-wait disabled:opacity-60 dark:border-emerald-500/30 dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-white/5">
+            {recordsLoadingMore ? "Memuat riwayat…" : "Muat riwayat lebih lama"}
+          </button>
+        </div>}
+        {SUPABASE_TAHFIDZ_RUNTIME && <p className="text-center text-xs text-slate-500">Menampilkan {records.length} catatan terbaru yang telah dimuat.</p>}
       </div>
     </div>
   );
