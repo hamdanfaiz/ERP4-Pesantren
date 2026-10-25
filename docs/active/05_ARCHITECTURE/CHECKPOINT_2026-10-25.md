@@ -419,3 +419,17 @@ Skor naik satu poin setelah semua jalur pemanggil `scopeLegacyTenantRecords` mem
 - PR #13 tetap Open/Draft. Tidak ada perubahan Production atau apply Firestore. Skor belum mencakup rehearsal migrasi di staging, pemetaan akun Auth, pemindahan byte Storage, rekonsiliasi data, login/UAT, rotasi secret, maupun pemasangan dan pemulihan environment pelanggan.
 
 Gerbang utama berikutnya tetap menyediakan staging dengan baseline yang dapat dipulihkan. Lihat [inventaris migrasi](../06_DATABASE/FIRESTORE_TO_SUPABASE_MIGRATION_INVENTORY.md) dan [checklist rehearsal](../06_DATABASE/PRODUCTION_MIGRATION_REHEARSAL_CHECKLIST_2026-10-26.md).
+
+
+## Validasi tenant pada pengaturan legacy — 26 Oktober 2026
+
+### Progres menuju go-live: 78/100
+
+Skor naik satu poin setelah dua endpoint yang membaca dan membersihkan settings Firebase nested ikut memvalidasi ownership deklaratif, selain mengandalkan path dokumen.
+
+- `/api/system/settings/migrate` dan `/api/system/settings/prepare` kini menerima `tenantId` atau `tenant_id` hanya bila cocok dengan `legacyTenantKey` path atau UUID tenant tujuan. Nilai malformed, dua alias bertentangan, atau tenant eksplisit lain mengembalikan konflik. Bila field ownership tidak ada, path nested yang diminta dengan mapping eksplisit tetap menjadi sumber kepemilikan.
+- Tes `test:legacy-firestore-tenant-scope` mencakup owner path, owner tenant tujuan, tenant asing, alias konflik, tipe malformed, dan nilai kosong-spasi; tes lokal lulus.
+- CI [run 40244584892](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40244584892) lulus pada kedua job di commit `5fa94d13f0739c364bb946d21ebf321013d2b4af`: typecheck/build, seluruh migration/pgTAP, API auth/isolasi tenant, test importer, Storage, Docker, serta backup/restore sintetis.
+- Tidak ada migration atau data Production yang dijalankan. PR #13 tetap Open/Draft.
+
+Peningkatan ini hanya menguatkan ownership saat migrasi settings. Staging dengan backup restore, 34 migration Production, pemetaan Auth/profil, byte Storage, rekonsiliasi data, login/UAT, rotasi secret, dan instalasi/pemulihan customer-managed tetap menjadi release gate.
