@@ -33,7 +33,7 @@ docker compose -f docker-compose.yml ps
 docker compose -f docker-compose.yml logs --tail=100 erp4-pesantren
 ```
 
-Compose sets `NODE_ENV=production` and disables the legacy Firebase Admin and settings-cleanup gates. The container runs as the unprivileged `node` user, has a read-only root filesystem, drops Linux capabilities, and exposes a health check on the application page.
+Compose sets `NODE_ENV=production` and disables the legacy Firebase Admin and settings-cleanup gates. The container runs as the unprivileged `node` user, has a read-only root filesystem, and drops Linux capabilities. `/health/live` confirms the process is running; `/health/ready` confirms the Supabase profile store responds and is used by the container health check. Health responses disclose no credentials or database error details.
 
 ## Operations and release gates
 
