@@ -264,6 +264,31 @@ async function main() {
     });
     assert.equal(noPpdbDocument.status, 403, 'Private PPDB documents must require the PPDB module permission.');
 
+    const ppdbUploadPayload = JSON.stringify({
+      clientRequestId: randomUUID(),
+      file: { mimeType: 'application/pdf', base64: Buffer.from('%PDF-1.7\n%%EOF\n').toString('base64') },
+    });
+    const disabledPpdbDocumentUpload = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: ppdbUploadPayload,
+    });
+    assert.equal(disabledPpdbDocumentUpload.status, 503, 'PPDB document uploads must stay unavailable until the storage runtime is enabled.');
+
+    const noPpdbDocumentUpload = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
+      body: ppdbUploadPayload,
+    });
+    assert.equal(noPpdbDocumentUpload.status, 403, 'PPDB document uploads must require the PPDB module permission.');
+
+    const waliPpdbDocumentUpload = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${waliToken}`, 'Content-Type': 'application/json' },
+      body: ppdbUploadPayload,
+    });
+    assert.equal(waliPpdbDocumentUpload.status, 403, 'Wali accounts cannot upload Admin PPDB candidate documents.');
+
     const noPpdbCandidate = await fetch(`${apiBase}/api/ppdb/candidates`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },

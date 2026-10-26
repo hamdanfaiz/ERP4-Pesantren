@@ -96,6 +96,7 @@ async function main() {
   let serverProcess;
   let uploadedPath = '';
   let ppdbDocumentPath = '';
+  let ppdbUploadPath = '';
   let foreignDocumentPath = '';
 
   try {
@@ -287,6 +288,110 @@ async function main() {
     assert.equal(ppdbDownload.headers.get('x-content-type-options'), 'nosniff');
     assert.deepEqual(Buffer.from(await ppdbDownload.arrayBuffer()), ppdbDocumentBytes, 'Authorized PPDB download must return the exact stored bytes.');
 
+    const offlineDocumentBytes = Buffer.from('%PDF-1.7\n% ERP4 synthetic Admin PPDB attachment\n%%EOF\n', 'utf8');
+    const ppdbUploadRequestId = randomUUID();
+    const adminPpdbUpload = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/birthCertificate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${financeAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientRequestId: ppdbUploadRequestId,
+        file: { mimeType: 'application/pdf', base64: offlineDocumentBytes.toString('base64') },
+      }),
+    });
+    const adminPpdbUploadBody = await adminPpdbUpload.json();
+    assert.equal(adminPpdbUpload.status, 201, 'A tenant Admin with PPDB permission should attach an offline candidate document (HTTP ' + adminPpdbUpload.status + ': ' + (adminPpdbUploadBody.error || 'unknown response') + ').');
+    assert.equal(adminPpdbUploadBody.documentKey, 'birthCertificate');
+    assert.equal(Object.hasOwn(adminPpdbUploadBody, 'storagePath'), false, 'The upload response must not expose internal object paths.');
+
+    const { data: uploadedCandidateDocument, error: uploadedCandidateDocumentError } = await admin.from('candidate_documents')
+      .select('birth_certificate,birth_certificate_path')
+      .eq('tenant_id', tenantId)
+      .eq('candidate_id', candidateId)
+      .single();
+    assertNoError({ error: uploadedCandidateDocumentError }, 'Unable to inspect the synthetic Admin PPDB attachment metadata.');
+    assert.equal(uploadedCandidateDocument.birth_certificate, true, 'A successful attachment must update document completeness.');
+    ppdbUploadPath = uploadedCandidateDocument.birth_certificate_path;
+    assert.ok(ppdbUploadPath.startsWith(`${tenantId}/${candidateId}/birthCertificate-`), 'The uploaded object path must be scoped to the tenant, candidate, and document type.');
+
+    const { data: uploadEvents, error: uploadEventsError } = await admin.from('ppdb_document_upload_events')
+      .select('tenant_id,candidate_id,actor_user_id,document_key,content_sha256')
+      .eq('tenant_id', tenantId)
+      .eq('candidate_id', candidateId);
+    assertNoError({ error: uploadEventsError }, 'Unable to inspect the synthetic PPDB upload audit record.');
+    assert.equal(uploadEvents.length, 1, 'A successful document upload must be audited exactly once.');
+    assert.equal(uploadEvents[0].actor_user_id, financeAdmin.uid);
+    assert.equal(uploadEvents[0].document_key, 'birthCertificate');
+    assert.equal(uploadEvents[0].content_sha256, '\\x' + createHash('sha256').update(offlineDocumentBytes).digest('hex'));
+
+    const repeatedPpdbUpload = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/birthCertificate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${financeAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientRequestId: ppdbUploadRequestId,
+        file: { mimeType: 'application/pdf', base64: offlineDocumentBytes.toString('base64') },
+      }),
+    });
+    assert.equal(repeatedPpdbUpload.status, 200, 'A retry after a lost response must return the original committed upload.');
+    assert.equal((await repeatedPpdbUpload.json()).alreadyApplied, true);
+
+    const changedRetry = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/birthCertificate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${financeAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientRequestId: ppdbUploadRequestId,
+        file: { mimeType: 'application/pdf', base64: Buffer.from('%PDF-1.7\n% changed file\n%%EOF\n').toString('base64') },
+      }),
+    });
+    assert.equal(changedRetry.status, 409, 'An idempotency key cannot be reused for different document bytes.');
+
+    const duplicatePpdbDocument = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/birthCertificate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${financeAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientRequestId: randomUUID(),
+        file: { mimeType: 'application/pdf', base64: offlineDocumentBytes.toString('base64') },
+      }),
+    });
+    assert.equal(duplicatePpdbDocument.status, 409, 'A separate upload request cannot silently replace an existing document.');
+
+    const invalidPpdbSignature = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/reportCards`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${financeAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientRequestId: randomUUID(), file: { mimeType: 'image/png', base64: offlineDocumentBytes.toString('base64') } }),
+    });
+    assert.equal(invalidPpdbSignature.status, 400, 'The server must reject a declared MIME type that does not match file bytes.');
+
+    const oversizedPpdbDocument = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/reportCards`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${financeAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientRequestId: randomUUID(),
+        file: { mimeType: 'application/pdf', base64: Buffer.alloc(1024 * 1024 + 1, 65).toString('base64') },
+      }),
+    });
+    assert.equal(oversizedPpdbDocument.status, 400, 'The server must reject documents larger than 1 MB before Storage upload.');
+
+    const foreignCandidateUpload = await fetch(`${apiBase}/api/ppdb/candidates/${foreignCandidateId}/documents/kk`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${financeAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientRequestId: randomUUID(), file: { mimeType: 'application/pdf', base64: offlineDocumentBytes.toString('base64') } }),
+    });
+    assert.equal(foreignCandidateUpload.status, 404, 'A tenant Admin cannot attach a file to a candidate in another tenant.');
+
+    const ppdbCandidateDirectory = `${tenantId}/${candidateId}`;
+    const { data: candidateObjects, error: candidateObjectsError } = await admin.storage.from(PPDB_BUCKET).list(ppdbCandidateDirectory, { limit: 20 });
+    assertNoError({ error: candidateObjectsError }, 'Unable to inspect synthetic private PPDB candidate objects.');
+    assert.equal(candidateObjects.filter(({ name }) => name.startsWith('birthCertificate-')).length, 1, 'Retries and rejected uploads must not leave duplicate private objects.');
+    const directPpdbUploadRead = await fetch(`${url}/storage/v1/object/${PPDB_BUCKET}/${ppdbUploadPath.split('/').map(encodeURIComponent).join('/')}`, {
+      headers: { apikey: anonKey },
+    });
+    assert.ok(!directPpdbUploadRead.ok, 'The newly uploaded Admin attachment must remain private to browser clients.');
+    const downloadedAdminAttachment = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/birthCertificate`, {
+      headers: { Authorization: `Bearer ${financeAdminToken}` },
+    });
+    assert.equal(downloadedAdminAttachment.status, 200, 'The Admin can download the attachment through the authorized API.');
+    assert.deepEqual(Buffer.from(await downloadedAdminAttachment.arrayBuffer()), offlineDocumentBytes, 'The authorized API must return the exact uploaded bytes.');
+
     const anonymousPpdbStorageRead = await fetch(`${url}/storage/v1/object/${PPDB_BUCKET}/${ppdbDocumentPath.split('/').map(encodeURIComponent).join('/')}`, {
       headers: { apikey: anonKey },
     });
@@ -309,10 +414,11 @@ async function main() {
       .eq('tenant_id', tenantId)
       .eq('candidate_id', candidateId);
     assertNoError({ error: accessEventsError }, 'Unable to read synthetic PPDB document audit events.');
-    assert.equal(accessEvents.length, 1, 'Only the successful Admin download must be audited.');
-    assert.equal(accessEvents[0].actor_user_id, financeAdmin.uid);
-    assert.equal(accessEvents[0].document_key, 'kk');
-    assert.equal(accessEvents[0].content_sha256, '\\x' + createHash('sha256').update(ppdbDocumentBytes).digest('hex'));
+    assert.equal(accessEvents.length, 2, 'Only the two successful Admin downloads must be audited.');
+    assert.ok(accessEvents.every((event) => event.actor_user_id === financeAdmin.uid));
+    assert.deepEqual(accessEvents.map((event) => event.document_key).sort(), ['birthCertificate', 'kk']);
+    const originalDownloadEvent = accessEvents.find((event) => event.document_key === 'kk');
+    assert.equal(originalDownloadEvent.content_sha256, '\\x' + createHash('sha256').update(ppdbDocumentBytes).digest('hex'));
 
     const pdfBytes = Buffer.from('%PDF-1.7\n% ERP4 synthetic test payment proof\n%%EOF\n', 'utf8');
     const proofRequestId = randomUUID();
@@ -404,11 +510,11 @@ async function main() {
     if (uploadedPath) {
       try { await admin.storage.from(BUCKET).remove([uploadedPath]); } catch {}
     }
-    const ppdbObjects = [ppdbDocumentPath, foreignDocumentPath].filter(Boolean);
+    const ppdbObjects = [ppdbDocumentPath, ppdbUploadPath, foreignDocumentPath].filter(Boolean);
     if (ppdbObjects.length) {
       try { await admin.storage.from(PPDB_BUCKET).remove(ppdbObjects); } catch {}
     }
-    for (const table of ['ppdb_document_access_events', 'finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'students', 'candidate_documents', 'candidates', 'master_data_records']) {
+    for (const table of ['ppdb_document_access_events', 'ppdb_document_upload_events', 'ppdb_document_upload_requests', 'finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'students', 'candidate_documents', 'candidates', 'master_data_records']) {
       try { await admin.from(table).delete().eq('tenant_id', tenantId); } catch {}
     }
     for (const table of ['ppdb_document_access_events', 'candidate_documents', 'candidates']) {

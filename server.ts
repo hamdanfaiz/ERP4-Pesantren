@@ -171,7 +171,7 @@ import {
   upsertSupabaseCbtQuestion,
 } from "./src/server/supabaseCbt";
 import { applySupabaseLegacyCbtImport, getSupabaseCbtLegacyImportContext, previewSupabaseLegacyCbt } from "./src/server/supabaseCbtImport";
-import { createSupabasePpdbCandidateBill, createSupabasePpdbCandidates, downloadSupabasePpdbCandidateDocument, listSupabasePpdbCandidates, previewSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate } from "./src/server/supabasePpdb";
+import { createSupabasePpdbCandidateBill, createSupabasePpdbCandidates, downloadSupabasePpdbCandidateDocument, listSupabasePpdbCandidates, previewSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate, uploadSupabasePpdbCandidateDocument } from "./src/server/supabasePpdb";
 import {
   applySupabaseLegacyPpdbImport,
   getSupabasePpdbLegacyImportContext,
@@ -1087,6 +1087,28 @@ async function startServer() {
       res.setHeader("Content-Disposition", `attachment; filename="${document.fileName}"`);
       res.setHeader("Content-Length", String(document.bytes.byteLength));
       return res.status(200).send(document.bytes);
+    } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  app.post("/api/ppdb/candidates/:candidateId/documents/:documentKey", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadPpdbActor(uid);
+      if (!ppdbRuntimeEnabled || !ppdbDocumentsRuntimeEnabled) {
+        return res.status(503).json({ error: "Unggah berkas PPDB menunggu migration dan pengaktifan runtime Storage." });
+      }
+      const result = await uploadSupabasePpdbCandidateDocument(
+        actor.tenantId,
+        actor.uid,
+        actor.role,
+        req.params.candidateId,
+        req.params.documentKey,
+        req.body,
+      );
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return ppdbRouteError(res, error); }
   });
 

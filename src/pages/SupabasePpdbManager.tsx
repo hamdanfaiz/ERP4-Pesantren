@@ -104,6 +104,18 @@ async function downloadPpdbDocument(candidate: Candidate, key: CandidateDocument
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
+async function fileAsBase64(file: File) {
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  const digest = await crypto.subtle.digest("SHA-256", arrayBuffer);
+  const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + 0x8000, bytes.length)));
+  }
+  return { base64: btoa(binary), sha256 };
+}
+
 export function SupabasePpdbManager() {
   const { user, role } = useAuth();
   const isAdmin = ["Admin", "SuperAdmin"].includes(role);
@@ -429,7 +441,7 @@ export function SupabasePpdbManager() {
           })}</tbody></table></div>}
         {hasMore && <div className="mt-4 flex justify-center border-t border-slate-100 pt-4 dark:border-white/5"><button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}Muat 250 pendaftar berikutnya</button></div>}
       </section>
-      {expandedId && candidates.some((candidate) => candidate.id === expandedId) && <CandidateDocumentDownloads candidate={candidates.find((candidate) => candidate.id === expandedId)!} enabled={PPDB_DOCUMENTS_ENABLED} />}
+      {expandedId && candidates.some((candidate) => candidate.id === expandedId) && <CandidateDocumentManager candidate={candidates.find((candidate) => candidate.id === expandedId)!} enabled={PPDB_DOCUMENTS_ENABLED} tenantId={user?.tenantId || ""} actorUserId={user?.uid || ""} onUpdated={() => { void refresh(); }} />}
       {csvImportOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-5"><section role="dialog" aria-modal="true" aria-labelledby="ppdb-csv-title" className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div><h2 id="ppdb-csv-title" className="text-lg font-bold text-slate-900 dark:text-white">Impor pendaftar dari CSV</h2><p className="mt-1 text-sm text-slate-500">Pratinjau memeriksa kelengkapan dan duplikasi pada tenant ini. Tidak ada data yang disimpan sebelum Anda menekan “Impor pendaftar”.</p></div><button type="button" aria-label="Tutup impor CSV" onClick={closeCsvImport} disabled={csvSaving || csvLoading} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
         <div className="space-y-4 p-5">
@@ -559,12 +571,23 @@ const PPDB_DOCUMENT_LABELS: Array<{ key: CandidateDocumentKey; label: string }> 
   { key: "pasPhoto", label: "Pas foto" },
 ];
 
-function CandidateDocumentDownloads({ candidate, enabled }: { candidate: Candidate; enabled: boolean }) {
+function CandidateDocumentManager({
+  candidate,
+  enabled,
+  tenantId,
+  actorUserId,
+  onUpdated,
+}: {
+  candidate: Candidate;
+  enabled: boolean;
+  tenantId: string;
+  actorUserId: string;
+  onUpdated: () => void;
+}) {
   const [downloading, setDownloading] = useState<CandidateDocumentKey | "">("");
+  const [uploading, setUploading] = useState<CandidateDocumentKey | "">("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const available = PPDB_DOCUMENT_LABELS.filter(({ key }) => candidate.documents.downloadable[key]);
-  if (available.length === 0) return null;
 
   const download = async (key: CandidateDocumentKey, label: string) => {
     setDownloading(key);
@@ -580,11 +603,60 @@ function CandidateDocumentDownloads({ candidate, enabled }: { candidate: Candida
     }
   };
 
+  const upload = async (key: CandidateDocumentKey, label: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+    setError(""); setNotice("");
+    if (file.size < 1 || file.size > 1024 * 1024) {
+      setError("Pilih berkas berukuran maksimal 1 MB."); return;
+    }
+    if (!["application/pdf", "image/jpeg", "image/png"].includes(file.type)) {
+      setError("Pilih berkas PDF, JPG, atau PNG."); return;
+    }
+    if (!tenantId || !actorUserId) { setError("Profil Admin dan tenant aktif diperlukan."); return; }
+    setUploading(key);
+    try {
+      const { base64, sha256 } = await fileAsBase64(file);
+      const lease = await pendingMutationIds.acquire(
+        `ppdb-document-upload:${tenantId}:${actorUserId}`,
+        { candidateId: candidate.id, documentKey: key, sha256 },
+      );
+      try {
+        const result = await requestPpdb(`/api/ppdb/candidates/${encodeURIComponent(candidate.id)}/documents/${encodeURIComponent(key)}`, {
+          method: "POST",
+          body: JSON.stringify({ clientRequestId: lease.requestId, file: { mimeType: file.type, base64 } }),
+        });
+        lease.clear();
+        setNotice(`${label} ${result.alreadyApplied ? "sudah tersimpan dari percobaan sebelumnya." : "berhasil diunggah dan tercatat."}`);
+        onUpdated();
+      } catch (uploadError) {
+        // Keep the lease so reselecting the same file safely retries the same idempotency key.
+        throw uploadError;
+      }
+    } catch (uploadError: any) {
+      setError(uploadError?.message || `Berkas ${label} belum dapat diunggah. Pilih berkas yang sama untuk mencoba kembali.`);
+    } finally { setUploading(""); }
+  };
+
   return <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
-    <div><h3 className="text-sm font-semibold text-slate-900 dark:text-white">Berkas privat · {candidate.name}</h3><p className="mt-1 text-xs text-slate-500">Diunduh melalui server setelah izin Admin dan tenant diverifikasi. Setiap unduhan berhasil tercatat.</p></div>
-    <div className="flex flex-wrap gap-2">{available.map(({ key, label }) => <button key={key} type="button" onClick={() => void download(key, label)} disabled={!enabled || downloading !== ""} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{downloading === key ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}{downloading === key ? "Mengunduh…" : label}</button>)}</div>
-    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Unduh belum diaktifkan. Aktifkan hanya setelah migration dan uji akses Storage selesai.</p>}
+    <div><h3 className="text-sm font-semibold text-slate-900 dark:text-white">Lampiran PPDB · {candidate.name}</h3><p className="mt-1 text-xs text-slate-500">Berkas disimpan privat. Akses dan unggahan diproses server setelah izin Admin serta tenant diverifikasi.</p></div>
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{PPDB_DOCUMENT_LABELS.map(({ key, label }) => {
+      const hasFile = candidate.documents.downloadable[key];
+      const isRecorded = candidate.documents[key];
+      return <div key={key} className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 p-2.5 dark:border-white/10">
+        <div className="min-w-0"><div className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{label}</div><div className="text-[11px] text-slate-500">{hasFile ? "Berkas tersedia" : isRecorded ? "Tercatat tanpa berkas" : "Belum tersedia"}</div></div>
+        {hasFile ? <button type="button" onClick={() => void download(key, label)} disabled={!enabled || downloading !== "" || uploading !== ""} className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{downloading === key ? "Mengunduh…" : "Unduh"}</button>
+          : <label className={`shrink-0 cursor-pointer rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-950/30 ${!enabled || uploading !== "" ? "pointer-events-none opacity-50" : ""}`}>
+            {uploading === key ? "Mengunggah…" : "Unggah"}
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="sr-only" disabled={!enabled || uploading !== ""} onChange={(event) => void upload(key, label, event)} />
+          </label>}
+      </div>;
+    })}</div>
+    <p className="text-[11px] text-slate-500">Maksimal 1 MB per lampiran. Format PDF, JPG, dan PNG. Lampiran yang sudah ada tidak dapat ditimpa dari layar ini.</p>
+    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Unggah dan unduh belum diaktifkan. Operator perlu menerapkan migration serta menuntaskan uji Storage sebelum membuka flag runtime.</p>}
     {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
-    {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice}</p>}
+    {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice} Jika status belum berubah, muat ulang detail pendaftar.</p>}
   </section>;
 }

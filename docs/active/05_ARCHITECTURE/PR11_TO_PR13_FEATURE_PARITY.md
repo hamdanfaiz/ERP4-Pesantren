@@ -16,8 +16,8 @@ GitHub membandingkan kedua head sebagai `diverged`: PR #13 398 commit di depan d
 | Tahfidz: roster, setoran, target, halaqah/anggota, impor | `src/server/supabaseTahfidz.ts`, `src/pages/TahfidzManager.tsx`, `src/pages/SupabaseTahfidzSessions.tsx`; API paginasi dan sesi; migration Tahfidz hingga `20270108000000`; uji paginasi, tanggal tenant, race, dan pgTAP di CI. | Alur inti memiliki padanan Supabase-native dan diuji dengan data sintetis. | Jangan port jembatan Firebase Auth PR #11. Pertahankan Supabase Auth/profile dan lanjutkan UAT tenant. |
 | Identitas Tahfidz melalui Firebase UID | PR #11 memakai bridge Firebase Auth/profile. PR #13 memakai sesi Supabase Auth, profil `user_profiles`/`profiles`, serta guard Firebase yang melarang SDK Firebase dalam bundle aktif. | Sengaja diganti oleh arsitektur cutover; bukan fitur yang harus dipertahankan. | Jangan aktifkan bridge lama. Firebase Admin hanya dipakai untuk pembacaan arsip migrasi yang dipagari. |
 | Pendaftaran publik PPDB dan perubahan tahap/nilai | `src/server/supabasePublicPpdb.ts`, `src/server/supabasePpdb.ts`, route `/api/public/ppdb/*` dan `/api/ppdb/candidates*`, `SupabasePpdbManager`. | Pendaftaran publik, penilaian, tahap, dan onboarding memiliki padanan. | Pertahankan alur ini dan uji ujung ke ujung pada staging. |
-| Pembuatan kandidat manual oleh Admin dan perubahan batch | PR #13 menambah modal Admin, endpoint `POST /api/ppdb/candidates`, validasi server, enkripsi NIK/NISN, RPC batch transaksional, pembuat kandidat, dan kunci retry idempoten. API menerima 1–100 entri; UI saat ini membuat satu entri per pengiriman. | Build/typecheck, pgTAP, dan uji API role/tenant lulus CI lokal terisolasi. Impor CSV dan berkas kandidat offline belum tersedia. | Susun pratinjau CSV dan alur lampiran privat setelah migration direhearsal di staging. |
-| Berkas dokumen calon santri | Pendaftaran publik di `src/server/supabasePublicPpdb.ts` sudah memvalidasi berkas lalu mengunggahnya ke bucket privat `ppdb-documents`; path disimpan pada `candidate_documents`. PR #13 kini menambahkan endpoint unduh Admin tenant-scoped, pemeriksaan role/modul, validasi path/MIME/ukuran, log audit unduhan, serta tombol pada detail kandidat. CI terisolasi lulus untuk migration, pgTAP, dan HTTP role/tenant/Storage. | Unggah publik tersedia dan unduh Admin lolos CI. Rehearsal staging belum dilakukan. Pembuatan kandidat offline/batch beserta lampiran tetap belum ada. | Pertahankan bucket privat dan akses melalui backend; jangan membuka bucket untuk browser. Flag unduh tetap mati sampai rehearsal staging lulus. |
+| Pembuatan kandidat manual oleh Admin dan perubahan batch | PR #13 menambah modal Admin, endpoint `POST /api/ppdb/candidates`, validasi server, enkripsi NIK/NISN, RPC batch transaksional, pembuat kandidat, dan kunci retry idempoten. API menerima 1–100 entri; UI saat ini membuat satu entri per pengiriman. Impor CSV sudah menyediakan pratinjau duplikasi sebelum impor. | Build/typecheck, pgTAP, dan uji API role/tenant lulus CI lokal terisolasi pada checkpoint sebelumnya. | Pertahankan pemeriksaan identitas transaksi dan jangan membuka tulis langsung dari browser. |
+| Berkas dokumen calon santri | Pendaftaran publik memvalidasi berkas lalu mengunggahnya ke bucket privat `ppdb-documents`; path disimpan pada `candidate_documents`. PR #13 menambahkan endpoint unduh dan unggah Admin tenant-scoped, pemeriksaan role/modul, validasi path/MIME/ukuran, log audit unduhan dan unggahan, serta kontrol lampiran pada detail kandidat. Unggahan baru memakai request ID idempoten dan tidak menimpa dokumen lama tanpa alur penggantian terpisah. | Perubahan unggah Admin dan pgTAP/HTTP regression baru disiapkan; menunggu CI. Rehearsal staging belum dilakukan. | Pertahankan bucket privat dan akses melalui backend; jangan membuka bucket untuk browser. Feature flag tetap mati sampai migration dan rehearsal staging lulus. |
 | Tagihan dan pembayaran PPDB kandidat, penolakan, impor tagihan | PR #11 memiliki route/service tagihan pendaftaran/uang pangkal, pencatatan dan penolakan pembayaran, serta impor arsip. PR #13 sekarang menambah invoice kandidat di `finance_bills`, RPC Admin idempoten, kontrol tenant/buku Finance, tautan otomatis ke `student_id` saat onboarding, dan pemakaian alur bukti bayar/verifikasi/ledger yang sudah ada. | Tagihan kandidat terhubung ke Finance di source; alur keluarga sebelum onboarding dan impor arsip #11 tetap belum tersedia. Migration baru belum diuji pada staging/Production. | Uji pgTAP serta CI; lakukan rehearsal pada salinan yang dapat dipulihkan. Putuskan terpisah apakah pembayaran mandiri sebelum onboarding dan impor arsip tagihan diperlukan. Jangan merge migration Finance lama dari #11. |
 | Portabilitas VPS/on-premise | PR #11 menambah dokumen portabilitas. PR #13 menyediakan `docs/guides/CUSTOMER_MANAGED_DEPLOYMENT.md`, Docker/Compose, dan CI smoke test. | Padanan dokumentasi dan instalasi tersedia; uji pemulihan di environment pelanggan belum ada. | Uji instalasi/backup/restore pada VM bersih sebelum komersialisasi. |
 
@@ -31,7 +31,7 @@ GitHub membandingkan kedua head sebagai `diverged`: PR #13 398 commit di depan d
 ## Gerbang penutupan PR #11
 
 1. Tentukan kebutuhan Admin untuk mendaftarkan pendaftar offline.
-2. Verifikasi jalur unduh dokumen privat Admin melalui rehearsal staging. CI sudah lulus. Pendaftaran publik sudah mengunggah dokumen ke bucket privat; lampiran untuk kandidat offline/batch belum memiliki alur. Tagihan kandidat sudah memiliki kontrak source, tetapi keputusan alur pembayaran sebelum onboarding dan impor arsip masih terbuka.
+2. Rehearsal staging untuk unggah/unduh dokumen privat Admin dan UAT kandidat offline/CSV. Jalur unggah dan unduh publik/Admin tetap melalui backend; bucket tidak diberi akses browser umum. Tagihan kandidat sudah memiliki kontrak source, tetapi keputusan alur pembayaran sebelum onboarding dan impor arsip masih terbuka.
 3. Tambahkan uji pgTAP dan API role/tenant untuk setiap kontrak baru; jalankan seluruh CI.
 4. Rehearsal migration dan impor pada salinan Supabase yang dapat dipulihkan, lalu UAT dengan akun Admin dan Wali.
 5. Setelah pemilik PR menyetujui matriks dan semua fitur yang dibutuhkan memiliki keputusan, baru tutup PR #11. Jangan merge branch lama secara utuh.
@@ -51,7 +51,7 @@ Perbaikan akses dokumen Admin dan audit baca lulus CI terisolasi. Skor belum ber
 - Source berisi 83 migration; baseline Production yang pernah diverifikasi tetap 47 migration sampai `20261206000000`, dengan 36 migration menunggu rehearsal. Tidak ada migration, data, flag runtime, atau pengaturan Storage yang diterapkan ke Production. Kedua flag unduh Admin tetap `false`.
 - `node --check` untuk dua skrip API, `npm run test:migration-preflight`, dan pemeriksaan whitespace lulus. Typecheck, build, serta tes database/HTTP dijalankan pada GitHub Actions karena toolchain dan Supabase lokal tidak tersedia di workspace.
 
-Langkah pengembangan berikutnya: implementasikan pembuatan kandidat Admin untuk pendaftar offline/batch dengan pemeriksaan identitas unik per tenant dan lampiran privat, lalu tinjau impor arsip tagihan. Jangan aktifkan flag dokumen sebelum rehearsal staging. PR #13 tetap Draft; tidak ada merge, deploy, atau migration Production pada checkpoint ini.
+Langkah pengembangan berikutnya: tunggu CI untuk unggah lampiran Admin, lalu tinjau impor arsip tagihan dan rehearsal staging. Jangan aktifkan flag dokumen sebelum rehearsal staging. PR #13 tetap Draft; tidak ada merge, deploy, atau migration Production pada checkpoint ini.
 
 ## Checkpoint pembuatan kandidat Admin PPDB — 26 Oktober 2026
 
@@ -59,7 +59,7 @@ Langkah pengembangan berikutnya: implementasikan pembuatan kandidat Admin untuk 
 
 Pembuatan pendaftar Admin untuk satu record per pengiriman sudah lolos CI pada Supabase lokal terisolasi. Skor tetap 78/100 karena belum ada rehearsal staging, migrasi target, UAT Admin/Wali, backup/restore target, dan simulasi deployment pelanggan.
 
-- Formulir Admin mengumpulkan data pendaftar dan orang tua, menampilkan batas lampiran dengan jelas, dan tidak menandai dokumen sebagai diterima tanpa upload.
+- Formulir Admin mengumpulkan data pendaftar dan orang tua; status dokumen tidak menandai lampiran sebagai tersedia sebelum file benar-benar diunggah.
 - Endpoint mensyaratkan profil aktif, role Admin/SuperAdmin, permission PPDB, dan tenant dari sesi; browser tidak dapat menentukan tenant atau aktor untuk menulis langsung.
 - NIK/NISN divalidasi dan dienkripsi/fingerprint di server. Fingerprint payload idempotensi memakai HMAC rahasia, sehingga retry setelah respons jaringan tidak membuat kandidat ganda dan catatan tidak menyimpan PII.
 - RPC memeriksa profil dan status tenant di dalam transaksi, mengunci baris otorisasi, membatasi batch 1–100, mencatat actor, dan mengembalikan hasil lama hanya jika actor serta fingerprint payload sama. Identitas ganda membatalkan seluruh batch.
@@ -68,7 +68,7 @@ Pembuatan pendaftar Admin untuk satu record per pengiriman sudah lolos CI pada S
 - Jumlah migration pada source bertambah menjadi 84; dibanding ledger Production yang sebelumnya terbaca 47 migration sampai `20261206000000`, ada 37 migration pending. Angka ini tetap perlu dibaca ulang sebelum rehearsal.
 - Belum ada migration/data/flag yang diterapkan ke Supabase Production. CLI dan dependensi proyek tidak tersedia di workspace ini; bukti build dan database berasal dari CI PR #13, bukan mesin lokal.
 
-Tindak lanjut: lengkapi upload lampiran privat untuk kandidat Admin. Pertahankan PR #13 Draft dan jangan jalankan migration ke Production pada tahap ini.
+Tindak lanjut: validasi unggah lampiran privat untuk kandidat Admin di CI. Pertahankan PR #13 Draft dan jangan jalankan migration ke Production pada tahap ini.
 
 ## Checkpoint pratinjau impor PPDB CSV — 26 Oktober 2026
 
@@ -78,4 +78,16 @@ Tindak lanjut: lengkapi upload lampiran privat untuk kandidat Admin. Pertahankan
 - Pratinjau memvalidasi kolom dan format di server, mendeteksi nomor pendaftaran, NIK, dan NISN yang berulang di berkas atau sudah dipakai tenant ini, serta hanya mengembalikan status dan nomor baris tanpa mengirim NIK/NISN kembali ke browser.
 - Penyimpanan batch hanya tersedia setelah semua baris lolos pratinjau. Jalur akhir memakai RPC tenant-aware, actor-attributed, idempoten, dan atomik yang sudah ada; constraint unik database memeriksa ulang kondisi yang berubah bersamaan. Jika satu baris berbenturan, seluruh batch ditolak.
 - Tes baru mencakup parser/angka identitas berawalan nol, akses role PPDB, penolakan Wali, privasi respons, duplikasi batch, dan tidak adanya penulisan saat preview. Commit kode `62949ac08ce9f159cc13e17f3d9e1d72fdcb66c0` lulus pada kedua job CI [run 40252732580](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40252732580), termasuk build/typecheck, Docker/Compose, Supabase lokal/pgTAP, API auth/isolasi tenant, Storage, dan backup/restore sintetis.
-- Tidak ada migration, penulisan data, feature flag, merge, atau deploy ke Supabase Production. PR #13 tetap Draft. Upload lampiran privat untuk kandidat Admin masih menjadi langkah lanjutan sebelum rehearsal staging dan UAT.
+- Tidak ada migration, penulisan data, feature flag, merge, atau deploy ke Supabase Production. PR #13 tetap Draft. Unggah lampiran privat Admin masih menunggu CI dan rehearsal staging.
+
+## Checkpoint lampiran privat pendaftar PPDB Admin — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+- Detail kandidat Admin kini menampilkan status dan menyediakan unggah satu lampiran yang belum tersedia: Kartu Keluarga, akta kelahiran, rapor, ijazah, SKHUN, atau pas foto.
+- Backend membatasi ukuran ke 1 MB, memeriksa tanda tangan byte PDF/JPG/PNG, membangun path tenant/kandidat di server, dan memakai service key hanya di backend. UI tidak menerima atau menyimpan path Storage.
+- RPC mengunci kandidat, memeriksa profil Admin aktif/permission PPDB/tenant aktif, mengaitkan metadata dan status dokumen secara atomik, serta menolak unggahan lintas tenant atau penggantian diam-diam.
+- ID permintaan dan hash isi membuat retry aman; bucket tetap privat. Jejak audit append-only menyimpan tenant, kandidat, aktor, jenis dokumen, dan SHA-256 tanpa isi berkas.
+- Tes pgTAP memeriksa privilege, RLS, otorisasi, idempotensi, konflik, dan tenant; tes HTTP mencakup unggah, validasi MIME, retry, duplikasi, akses langsung Storage, dan penolakan lintas tenant. Hasil masih menunggu CI.
+- Tidak ada migration/data/flag yang diterapkan ke Supabase Production. Flag unggah dan unduh tetap mati. Source berisi 85 migration; baseline Production yang pernah diverifikasi masih 47 migration sampai `20261206000000`, dengan 38 migration menunggu rehearsal dan pembacaan ulang ledger.
+- PR #13 tetap Draft; tidak ada merge, deploy, atau migration Production pada checkpoint ini.

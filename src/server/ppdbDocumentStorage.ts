@@ -53,3 +53,48 @@ export async function downloadSupabasePpdbDocument(path: string, tenantId: strin
   const contentType = detectMime(bytes, extension);
   return { bytes, contentType };
 }
+
+export async function uploadSupabasePpdbDocument(
+  path: string,
+  tenantId: string,
+  candidateId: string,
+  documentKey: string,
+  bytes: Buffer,
+  contentType: string,
+) {
+  const encodedPath = encodedObjectPath(path, tenantId, candidateId, documentKey);
+  if (!bytes.length || bytes.byteLength > 1024 * 1024) {
+    throw new PpdbDocumentStorageError(413, "Ukuran berkas PPDB melebihi batas 1 MB.");
+  }
+  const extension = contentType === "application/pdf" ? "pdf" : contentType === "image/png" ? "png" : contentType === "image/jpeg" ? "jpg" : "";
+  if (!extension || path.slice(path.lastIndexOf(".") + 1).toLowerCase() !== extension
+      || detectMime(bytes, extension) !== contentType) {
+    throw new PpdbDocumentStorageError(415, "Isi berkas tidak sesuai dengan format PDF, JPG, atau PNG.");
+  }
+  const { baseUrl, secretKey } = storageConfig();
+  const headers = new Headers({
+    Accept: "application/json",
+    "Content-Type": contentType,
+    "x-upsert": "false",
+    apikey: secretKey,
+  });
+  if (!secretKey.startsWith("sb_secret_")) headers.set("Authorization", `Bearer ${secretKey}`);
+  const response = await fetch(`${baseUrl}/storage/v1/object/${BUCKET}/${encodedPath}`, {
+    method: "POST", headers, body: new Uint8Array(bytes), cache: "no-store",
+  });
+  if (!response.ok) throw new PpdbDocumentStorageError(response.status === 409 ? 409 : 503, "Berkas PPDB privat belum dapat diunggah.");
+}
+
+export async function removeSupabasePpdbDocument(path: string, tenantId: string, candidateId: string, documentKey: string) {
+  const encodedPath = encodedObjectPath(path, tenantId, candidateId, documentKey);
+  const { baseUrl, secretKey } = storageConfig();
+  const headers = new Headers({ Accept: "application/json", "Content-Type": "application/json", apikey: secretKey });
+  if (!secretKey.startsWith("sb_secret_")) headers.set("Authorization", `Bearer ${secretKey}`);
+  const response = await fetch(`${baseUrl}/storage/v1/object/${BUCKET}`, {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify({ prefixes: [path] }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new PpdbDocumentStorageError(503, "Berkas sementara PPDB belum dapat dibersihkan.");
+}

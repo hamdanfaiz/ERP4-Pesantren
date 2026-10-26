@@ -1,6 +1,11 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
-import { downloadSupabasePpdbDocument } from "./ppdbDocumentStorage";
+import {
+  downloadSupabasePpdbDocument,
+  PpdbDocumentStorageError,
+  removeSupabasePpdbDocument,
+  uploadSupabasePpdbDocument,
+} from "./ppdbDocumentStorage";
 import { protectPpdbIdentityValues, SupabaseOnboardingError } from "./supabaseOnboarding";
 
 type JsonObject = Record<string, any>;
@@ -569,8 +574,122 @@ export async function downloadSupabasePpdbCandidateDocument(
   return { ...downloaded, fileName: `ppdb-${documentKey}-${candidateId}.${extension}` };
 }
 
+const PPDB_UPLOAD_DOCUMENT_KEYS = new Set(["kk", "birthCertificate", "reportCards", "ijazah", "skhun", "pasPhoto"]);
+
+function decodeAdminPpdbDocument(value: unknown) {
+  const file = value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
+  const base64 = typeof file.base64 === "string" ? file.base64 : "";
+  const contentType = typeof file.mimeType === "string" ? file.mimeType : "";
+  const maxBytes = 1024 * 1024;
+  if (!base64 || base64.length > Math.ceil(maxBytes / 3) * 4 || base64.length % 4 !== 0
+      || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+    throw new SupabasePpdbError(400, "Ukuran atau encoding berkas tidak valid. Maksimal 1 MB.");
+  }
+  const bytes = Buffer.from(base64, "base64");
+  if (!bytes.length || bytes.length > maxBytes || bytes.toString("base64") !== base64) {
+    throw new SupabasePpdbError(400, "Isi berkas kosong atau melebihi batas 1 MB.");
+  }
+  let detectedType = "";
+  if (bytes.subarray(0, 5).toString("ascii") === "%PDF-") detectedType = "application/pdf";
+  else if (bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) detectedType = "image/png";
+  else if (bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255]))) detectedType = "image/jpeg";
+  if (!detectedType || detectedType !== contentType) {
+    throw new SupabasePpdbError(400, "Isi berkas tidak sesuai dengan format PDF, JPG, atau PNG.");
+  }
+  return { bytes, contentType: detectedType };
+}
+
+/** Upload a single private attachment to an existing tenant PPDB candidate. */
+export async function uploadSupabasePpdbCandidateDocument(
+  tenantIdentifier: string,
+  actorUserIdentifier: string,
+  actorRole: string,
+  candidateIdentifier: string,
+  documentKey: string,
+  input: unknown,
+) {
+  const { tenantId, actorId, expectedRole } = assertAdminPpdbActor(tenantIdentifier, actorUserIdentifier, actorRole);
+  const candidateId = requireUuid(candidateIdentifier);
+  if (!PPDB_UPLOAD_DOCUMENT_KEYS.has(documentKey)) throw new SupabasePpdbError(404, "Jenis dokumen PPDB tidak ditemukan.");
+  const payload = input && typeof input === "object" && !Array.isArray(input) ? input as JsonObject : {};
+  const clientRequestId = String(payload.clientRequestId || "").trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)) {
+    throw new SupabasePpdbError(400, "ID permintaan unggah tidak valid.");
+  }
+  const { bytes, contentType } = decodeAdminPpdbDocument(payload.file);
+  await requireActiveTenant(tenantId);
+
+  const candidateParams = new URLSearchParams({ select: "id", tenant_id: `eq.${tenantId}`, id: `eq.${candidateId}`, limit: "2" });
+  const documentColumn = PPDB_DOCUMENT_PATH_COLUMNS[documentKey as keyof typeof PPDB_DOCUMENT_PATH_COLUMNS];
+  const documentParams = new URLSearchParams({
+    select: `candidate_id,${documentColumn}`,
+    tenant_id: `eq.${tenantId}`,
+    candidate_id: `eq.${candidateId}`,
+    limit: "2",
+  });
+  const [candidateRows, documentRows] = await Promise.all([
+    request(`/rest/v1/candidates?${candidateParams.toString()}`),
+    request(`/rest/v1/candidate_documents?${documentParams.toString()}`),
+  ]);
+  if (!Array.isArray(candidateRows) || candidateRows.length !== 1) throw new SupabasePpdbError(404, "Calon santri tidak ditemukan pada tenant ini.");
+  if (!Array.isArray(documentRows) || documentRows.length > 1) throw new SupabasePpdbError(503, "Status lampiran PPDB belum dapat diverifikasi.");
+  if (typeof documentRows[0]?.[documentColumn] === "string" && documentRows[0][documentColumn]) {
+    throw new SupabasePpdbError(409, "Lampiran jenis ini sudah tersedia. Hubungi Admin sistem jika perlu menggantinya.");
+  }
+
+  const contentSha256 = createHash("sha256").update(bytes).digest("hex");
+  const extension = contentType === "application/pdf" ? "pdf" : contentType === "image/png" ? "png" : "jpg";
+  const storagePath = `${tenantId}/${candidateId}/${documentKey}-${randomUUID()}.${extension}`;
+  try {
+    await uploadSupabasePpdbDocument(storagePath, tenantId, candidateId, documentKey, bytes, contentType);
+  } catch (error) {
+    if (error instanceof PpdbDocumentStorageError) throw new SupabasePpdbError(error.status, error.message);
+    throw error;
+  }
+
+  try {
+    let result: any;
+    try {
+      result = await request("/rest/v1/rpc/register_admin_ppdb_document_upload", {
+        method: "POST",
+        body: JSON.stringify({
+          p_tenant_id: tenantId,
+          p_actor_user_id: actorId,
+          p_expected_role: expectedRole,
+          p_candidate_id: candidateId,
+          p_document_key: documentKey,
+          p_client_request_id: clientRequestId,
+          p_content_sha256: contentSha256,
+          p_content_type: contentType,
+          p_storage_path: storagePath,
+        }),
+      });
+    } catch (error) {
+      if (error instanceof SupabasePpdbError && error.status === 409) {
+        throw new SupabasePpdbError(409, "Lampiran sudah tersedia atau ID permintaan digunakan untuk berkas berbeda.");
+      }
+      throw error;
+    }
+    if (!result || typeof result !== "object" || result.documentKey !== documentKey
+        || typeof result.storagePath !== "string") {
+      throw new SupabasePpdbError(503, "Backend belum mengonfirmasi lampiran PPDB.");
+    }
+    if (result.storagePath !== storagePath) {
+      // A retry after a lost response creates a fresh temporary object. Keep the original committed path.
+      try { await removeSupabasePpdbDocument(storagePath, tenantId, candidateId, documentKey); } catch { /* Reconciliation can remove an orphan later. */ }
+    }
+    return { alreadyApplied: result.alreadyApplied === true, documentKey };
+  } catch (error) {
+    // Only clean up after a definite database rejection. A network/5xx failure may have committed.
+    if (error instanceof SupabasePpdbError && [400, 403, 404, 409].includes(error.status)) {
+      try { await removeSupabasePpdbDocument(storagePath, tenantId, candidateId, documentKey); } catch { /* Reconciliation can remove an orphan later. */ }
+    }
+    throw error;
+  }
+}
+
 const CORE_FIELDS = new Set(["stage", "notes"]);
-// No UI upload/storage flow exists yet, so clients cannot assert document completeness.
+// Document completeness is controlled only by the private upload flow, never by a client status patch.
 const DOCUMENT_FIELDS = new Set<string>();
 const WORKFLOW_FIELDS = new Set(["examScores", "interviewScores", "religiousScores"]);
 
