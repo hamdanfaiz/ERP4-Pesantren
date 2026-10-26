@@ -120,3 +120,12 @@ Tindak lanjut: validasi unggah lampiran privat untuk kandidat Admin di CI. Perta
 - Baseline baca-saja terakhir yang tercatat untuk target `ptsasgdvgrbdtgyqieie` menunjukkan 47 migration hingga `20261206000000`. Source PR #13 memiliki 88 migration hingga `20270116000000`, sehingga 41 migration pending menurut snapshot tersebut. Saya tidak dapat memperbarui ledger live dari konektor Supabase saat ini karena hanya project lama `vqemuyzveuirlkvdggjd` yang terlihat. Rehearsal staging yang dapat dipulihkan dan bukti backup/restore Production belum tersedia.
 - **Perkiraan kesiapan go-live keseluruhan: 45/100.** CI hijau membuktikan source dan database sintetis yang dipakai CI, bukan kelayakan upgrade Production, rekonsiliasi/impor data Firestore, login/UAT, maupun instalasi dan pemulihan pada environment pelanggan. Tidak ada migration atau data yang ditulis ke Production.
 
+## Checkpoint verifikasi terbaru — 26 Oktober 2026
+
+- **Progres menuju go-live: 45/100 (estimasi, tetap).** CI terbaru lulus, tetapi tidak menutup gerbang Production/staging, UAT, atau pemulihan environment pelanggan.
+- Head PR #13 pada checkpoint ini adalah `46c9fc1aac00dcba00889c4de442db0be2001084`; PR #13 masih Open/Draft dan belum digabung. PR #11 juga masih Open/Draft dan bercabang jauh dari jalur cutover; PR #12 sudah merged.
+- GitHub Actions run [`40280830976`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40280830976) lulus **2/2 job**. Job frontend/runtime dan job migration/API/pgTAP sama-sama sukses; cakupannya termasuk build dan smoke test Docker customer-managed, seluruh migration serta pgTAP pada Supabase lokal terisolasi, uji konkurensi NIS/Tahfidz, isolasi tenant, alur Storage Finance/PPDB/Perpustakaan, dan backup/restore sintetis.
+- Bukti run tersebut **tidak** menerapkan migration/data ke Supabase Production. Baseline baca-saja yang terakhir terdokumentasi untuk target `ptsasgdvgrbdtgyqieie` masih 47 migration sampai `20261206000000`; dibanding 88 file source, 41 tampak pending pada snapshot itu. Angka ledger sudah historis dan wajib dibaca ulang sebelum rehearsal.
+- **Gerbang berikutnya:** tim backend menyediakan target staging terpisah yang dapat dipulihkan, menyegarkan ledger migration, lalu menjalankan backup/restore dan rehearsal upgrade penuh. Setelah itu lakukan UAT login dan matriks role/tenant, validasi seluruh Storage, serta simulasi instalasi dan pemulihan pada environment pelanggan. Jangan merge PR #11 secara utuh; selesaikan parity per fitur lebih dahulu.
+
+
