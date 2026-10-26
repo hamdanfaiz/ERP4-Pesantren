@@ -48,6 +48,7 @@ DECLARE
   v_existing public.cbt_tenant_settings%ROWTYPE;
   v_role TEXT;
   v_field TEXT;
+  v_max_length INTEGER;
   v_values JSONB;
   v_item JSONB;
   -- Keep unrestricted precision until scale/range checks complete; constrained
@@ -74,6 +75,7 @@ BEGIN
   END IF;
 
   FOREACH v_field IN ARRAY ARRAY['subjects','grades','templates'] LOOP
+    v_max_length := CASE v_field WHEN 'subjects' THEN 150 WHEN 'grades' THEN 40 ELSE 80 END;
     v_values := p_settings->v_field;
     IF jsonb_typeof(v_values) IS DISTINCT FROM 'array' OR jsonb_array_length(v_values) > 100 THEN
       RAISE EXCEPTION 'Daftar % CBT tidak valid atau melebihi batas 100 item', v_field USING ERRCODE = '22023';
@@ -81,8 +83,8 @@ BEGIN
     FOR v_item IN SELECT value FROM jsonb_array_elements(v_values)
     LOOP
       IF jsonb_typeof(v_item) IS DISTINCT FROM 'string'
-        OR length(btrim(v_item #>> '{}')) NOT BETWEEN 1
-          AND CASE v_field WHEN 'subjects' THEN 150 WHEN 'grades' THEN 40 ELSE 80 END THEN
+        OR length(btrim(v_item #>> '{}')) < 1
+        OR length(btrim(v_item #>> '{}')) > v_max_length THEN
         RAISE EXCEPTION 'Item daftar % CBT tidak valid', v_field USING ERRCODE = '22023';
       END IF;
     END LOOP;
