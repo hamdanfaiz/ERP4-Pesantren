@@ -14,4 +14,5 @@ Once a feature is fully implemented and merged, its documentation should be move
 - [Firestore to Supabase Migration Inventory](06_DATABASE/FIRESTORE_TO_SUPABASE_MIGRATION_INVENTORY.md) — confirmed Firestore source database, top-level collection inventory, importer coverage, and migration gates.
 
 - [ERD target Supabase](06_DATABASE/SUPABASE_ERD.md) — relasi tenant, domain utama, dan inventaris tabel berdasarkan migrasi pada checkout.
-- [Checkpoint rilis dan progres — diperbarui 26 Okt 2026](05_ARCHITECTURE/CHECKPOINT_2026-10-25.md) — persentase berbobot menuju go-live, bukti, dan release gate berikutnya.
+- [Checkpoint rilis dan progres — diperbarui 26 Okt 2026](05_ARCHITECTURE/CHECKPOINT_2026-10-25.md) — estimasi kematangan fitur dan kesiapan go-live, bukti, dan release gate berikutnya.
+

@@ -591,3 +591,51 @@ Status “menunggu CI” pada checkpoint pencarian PPDB di atas sudah kedaluwars
 - PR #13 tetap Open/Draft. Skor tidak berubah karena CI lokal tidak menggantikan backup dan rehearsal migration staging, rekonsiliasi data/identitas, login/UAT, serta simulasi environment pelanggan.
 
 Checkpoint berikutnya: selesaikan rekonsiliasi perubahan dari worktree lama tanpa mengembalikan snapshot usang, lalu siapkan staging yang bisa dipulihkan untuk rehearsal. Jangan menerapkan 40 migration tersebut ke Production berdasarkan hitungan historis ini.
+
+
+## Revalidasi checkpoint cutover — 26 Oktober 2026
+
+### Progres saat ini
+
+- **Kematangan fitur: sekitar 73%.** Ini estimasi cakupan fitur yang telah dibangun; bukan persentase UAT.
+- **Kesiapan go-live: sekitar 46%.** Ini estimasi release gate yang telah dibuktikan. Skor lama 78/100 pada bagian historis memakai satu skala gabungan dan tidak dapat dibandingkan langsung; dua metrik di atas menjadi checkpoint saat ini.
+- PR #13 masih Open/Draft pada head `f4660b63074a05680d4a53a2ab8850ecc4bc40fa`. Sebelum checkpoint dokumentasi ini ditambahkan, worktree lokal bersih pada commit `3625bfcb9a0fc191c011cf8eb4c7e1d6c95eb722`; tree lokal dan remote PR sebelumnya telah diverifikasi identik.
+- GitHub Actions run [40296284846](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40296284846) selesai sukses pada kedua job: Supabase lokal/migrasi/API/pgTAP dan frontend/build/Firebase guard. Pengujian memakai data sintetis dan bukan bukti UAT atau kondisi database target.
+
+### Pemeriksaan Firebase baca-saja
+
+Dengan ADC yang telah disetujui, daftar ID koleksi dan agregat Firestore dihitung ulang tanpa mengambil atau mencatat isi record. Hasilnya tetap **18 koleksi tingkat atas dan 561 dokumen**:
+
+| Koleksi | Dokumen | Koleksi | Dokumen |
+| --- | ---: | --- | ---: |
+| `candidates` | 50 | `cbt_config` | 1 |
+| `cooperative_inventory` | 6 | `cooperative_suppliers` | 3 |
+| `cooperative_transactions` | 3 | `cooperative_wallets` | 3 |
+| `entityRecords` | 14 | `library_books` | 4 |
+| `library_circulations` | 1 | `library_digital_assets` | 4 |
+| `lms_assessments` | 1 | `lms_categories` | 1 |
+| `lms_courses` | 2 | `marketplace_orders` | 5 |
+| `marketplace_products` | 8 | `master_data` | 453 |
+| `tenants` | 1 | `users` | 1 |
+| **Total** | **561** | **Koleksi** | **18** |
+
+Bucket yang dikonfigurasi aplikasi, `graphite-ship-q5xj8.firebasestorage.app`, mengembalikan HTTP 404. Daftar Google Cloud Storage project hanya menampilkan bucket sumber Cloud Run `run-sources-955585477176-ift-asia-southeast1` dengan satu objek; nama atau isi objek tidak dibaca. Temuan itu bukan bukti adanya berkas Firebase yang siap dipindahkan. Empat dokumen metadata `library_digital_assets` tetap harus diperlakukan terpisah dari byte file.
+
+Terakhir terdokumentasi, 50 kandidat PPDB dan 235 record `master_data` telah diimpor. Angka sisa 276 berasal dari rekonsiliasi target sebelumnya; **tidak dihitung ulang pada checkpoint ini**. Kode importer yang tersedia atau CI hijau tidak membuktikan data telah diterapkan. Record contoh Koperasi/Marketplace, akun Auth, hubungan identitas, serta aset digital masih memerlukan keputusan atau rekonsiliasi per jalur.
+
+### Pemeriksaan Supabase baca-saja
+
+Dashboard project target `ptsasgdvgrbdtgyqieie` menunjukkan status **Healthy**, organisasi **Free**, compute **Nano**, `Last Migration: Unknown`, `Last Backup: No backups`, dan Advisor tidak menemukan masalah pada tampilan ringkasan saat diperiksa. Halaman Scheduled Backups menyatakan Free Plan tidak menyertakan backup project. Karena itu belum ada bukti backup Production yang dapat dipulihkan untuk rehearsal.
+
+Koneksi Supabase MCP yang tersedia hanya menampilkan project lama `vqemuyzveuirlkvdggjd`, bukan project target. Saya belum dapat membaca `supabase_migrations.schema_migrations`, tabel tenant, atau jumlah data target melalui konektor; angka ledger 47 versi yang ada pada bagian historis wajib dianggap snapshot lama, bukan baseline saat ini. Tidak ada migration, data, flag, policy, bucket, atau konfigurasi Supabase yang diubah.
+
+### Gerbang berikutnya
+
+1. Hubungkan konektor Supabase ke project `ptsasgdvgrbdtgyqieie`, atau minta tim backend menjalankan query **baca-saja** untuk daftar versi migration, ID/slug/`legacy_tenant_key` tenant, dan hitungan tabel tanpa mengirim PII.
+2. Siapkan staging terpisah yang dapat dipulihkan. Karena paket Free tidak menyediakan backup terjadwal, buktikan dump dan restore eksternal sebelum rehearsal.
+3. Baca ulang ledger target dan lakukan preflight/rehearsal semua migration yang benar-benar pending pada staging; jangan gunakan hitungan historis untuk apply ke Production.
+4. Jalankan preview tiap importer, rekonsiliasi tenant/identitas/relasi, tandai data seeded yang harus ditolak, dan verifikasi byte Firebase Storage sebelum cutover. Buat ulang akses Auth dengan invitation/reset, tanpa memindahkan password.
+5. Setelah staging lulus, lanjutkan login dan matriks role/tenant, UAT lintas modul, backup/restore, serta simulasi VPS/on-premise.
+
+Tidak ada perubahan Production pada pemeriksaan ini. Skor tetap 73% kematangan fitur dan 46% kesiapan go-live karena inventaris sumber hanya memperbarui bukti; staging, ledger target, backup/restore, rekonsiliasi, login/UAT, dan simulasi environment pelanggan masih terbuka.
+

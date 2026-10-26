@@ -228,3 +228,26 @@ Sebelum satu pun migration Production dijalankan, tim backend perlu menyediakan 
 Pembacaan Firestore REST dengan ADC dilakukan pada database kanonis yang tercantum di atas, hanya untuk menghitung dokumen pada jalur `financeBillings`. Hasilnya **0 dokumen**. Tidak ada payload dokumen yang dicatat, dan tidak ada perubahan ke Firebase maupun Supabase. Karena Firestore tidak menyimpan koleksi kosong sebagai objek tersendiri, hasil ini berarti jalur koleksi tidak memiliki dokumen yang dapat diimpor saat pemeriksaan; ini bukan bukti bahwa aplikasi lama tidak pernah mendukung koleksi tersebut.
 
 Keputusan cutover: tidak ada arsip tagihan PPDB yang perlu dipindahkan dari snapshot Firebase saat ini, sehingga importer arsip tagihan tidak diperlukan untuk menyelesaikan migrasi data snapshot ini. Jangan membuat tagihan atau ledger sintetis. Pembayaran keluarga sebelum onboarding tetap merupakan gap alur produk yang terpisah dan belum diimplementasikan; invoice PPDB yang ada tetap dikelola Admin melalui `finance_bills` dan baru terkait ke akun wali setelah onboarding serta relasi santri terbentuk.
+
+
+## Revalidasi jumlah sumber dan bucket — 26 Oktober 2026
+
+Jumlah koleksi root dihitung ulang melalui Firestore REST dengan ADC. Permintaan hanya meminta ID koleksi dan agregat `count`; payload record tidak diambil atau disimpan. Snapshot kembali menghasilkan **18 koleksi dan 561 dokumen**, sama dengan inventaris sebelumnya:
+
+| Koleksi | Jumlah | Koleksi | Jumlah |
+| --- | ---: | --- | ---: |
+| `candidates` | 50 | `cbt_config` | 1 |
+| `cooperative_inventory` | 6 | `cooperative_suppliers` | 3 |
+| `cooperative_transactions` | 3 | `cooperative_wallets` | 3 |
+| `entityRecords` | 14 | `library_books` | 4 |
+| `library_circulations` | 1 | `library_digital_assets` | 4 |
+| `lms_assessments` | 1 | `lms_categories` | 1 |
+| `lms_courses` | 2 | `marketplace_orders` | 5 |
+| `marketplace_products` | 8 | `master_data` | 453 |
+| `tenants` | 1 | `users` | 1 |
+| **Total** | **561** | **Koleksi** | **18** |
+
+Bucket yang tercantum pada konfigurasi aplikasi (`graphite-ship-q5xj8.firebasestorage.app`) mengembalikan HTTP 404 melalui Cloud Storage API. Listing bucket project menampilkan satu bucket Cloud Run `run-sources-955585477176-ift-asia-southeast1` dengan satu objek. Hanya nama bucket dan jumlah objek yang dihitung; nama/isi objek tidak dibaca. Ini tidak menunjukkan adanya byte berkas Firebase yang dapat dipindahkan. Status empat dokumen metadata `library_digital_assets` tetap tidak menyatakan berkas fisiknya tersedia.
+
+Inventaris count ini tidak mengubah status penerapan. Catatan target terakhir yang terdokumentasi menyebut 50 kandidat PPDB dan 235 dari 453 record `master_data` sudah diimpor; hitungan sisa 276 bersifat historis dan belum diverifikasi ulang pada target Supabase. Importer, preview lama, serta CI sintetis tidak membuktikan import apply. Supabase Production tidak diubah.
+

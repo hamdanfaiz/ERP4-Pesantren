@@ -1,6 +1,6 @@
 # Master Data legacy import checkpoint
 
-**Updated:** 23 October 2026
+**Data checkpoint:** 23 October 2026 (snapshot target historis; lihat revalidasi 26 Oktober di bawah)
 **Source:** Firestore project `graphite-ship-q5xj8`, database `ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8`
 **Target:** Supabase project `ptsasgdvgrbdtgyqieie`, tenant `pesantren-digital`
 
@@ -61,11 +61,13 @@ Legacy reads now use a shared tenant-scope guard: tenantless rows are included o
 
 ## Remaining cutover work
 
-There are 276 of the original 561 Firestore documents not yet migrated: the 218 categories above plus 58 documents across other top-level collections. Runtime flags remain unchanged; Firebase Admin is still needed for approved archive reads. This checkpoint does not represent full Firebase retirement or production readiness. Before the next module import, define its field mapping and uniqueness rules, preview all rows, and reconcile target conflicts before applying them.
+Pada checkpoint target 23 Oktober, 276 dari 561 dokumen Firestore belum dimigrasikan: 218 kategori di atas ditambah 58 dokumen di koleksi root lain. Angka 276 **historis dan belum diverifikasi ulang pada target**; kode importer dan status preview sejak saat itu berubah. Runtime flags tetap tidak aktif, dan Firebase Admin hanya boleh dipakai untuk pembacaan arsip yang disetujui. Checkpoint ini bukan bukti Firebase sudah dipensiunkan atau produk siap produksi.
 
 ### Remaining root collection inventory
 
 The Firestore `listCollectionIds` audit counted 18 root collections and 561 documents. The residual 58 documents outside `master_data` and the already imported PPDB `candidates` collection are:
+
+> Catatan: status ketersediaan importer pada tabel berikut menggambarkan checkpoint 23 Oktober. Untuk status source code terbaru, lihat tabel **Rekonsiliasi status importer — 26 Oktober 2026** pada [inventaris migrasi](FIRESTORE_TO_SUPABASE_MIGRATION_INVENTORY.md). Tidak ada apply baru yang dapat disimpulkan hanya dari keberadaan importer.
 
 | Collection | Rows | Review status |
 | --- | ---: | --- |
@@ -103,3 +105,4 @@ The source registry again resolves all tenantless `master_data` records to the e
 A read-only comparison found 50 source `Alumni` rows and 50 imported Supabase students. Email comparison alone creates 50 unique candidate pairs, but none of those pairs has the same normalized name or phone; only 22 of 50 also have matching gender. Email therefore is not a safe relationship key for this dataset. All 50 source rows contain a valid graduation year, but do not contain a verified graduation date required by the current Alumni contract. The target still has zero `alumni_profiles`; no source Alumni row was applied.
 
 The 50 imported Santri statuses are 15 `Active`, 14 `Inactive`, and 21 `Alumni`. The 21 legacy-Alumni-status students had no formal Alumni profile and were previously excluded from the Admin graduation form. The form/API logic now makes a non-archived student selectable until a profile exists, shows the stored status, asks the Admin to choose a date from a verified graduation document, and uses the tenant timezone for its default date and current-year metric. This does not attach the mismatched source Alumni records automatically. Do not join by email alone or infer a specific date from graduation year; collect a verified mapping/date or correct the source records first.
+
