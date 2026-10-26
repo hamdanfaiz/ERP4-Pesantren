@@ -6,7 +6,21 @@ Pembacaan baca-saja pada halaman Database → Migrations dashboard project `ptsa
 
 Beberapa snapshot lama (85/86, lalu 87/88/90 file dan 40/41/43 migration) dipertahankan sebagai riwayat. Angka terkini untuk snapshot 26 Oktober adalah 91 file source, 47 versi terpasang, dan 44 file source yang belum tercatat; lakukan preflight dan rehearsal pada staging sebelum penerapan.
 
-Dokumen ini adalah rencana pemeriksaan berbasis source. Pembacaan dashboard hanya memverifikasi metadata versi migration; Table Editor dan Schema Visualizer tidak selesai memuat, sehingga kecocokan schema dan inventaris tabel Production belum terverifikasi. Tidak ada isi data operasional yang dibaca, dan tidak ada migration atau perubahan schema/data Production yang diterapkan. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
+Dokumen ini adalah rencana pemeriksaan berbasis source. Query SQL baca-saja memeriksa metadata versi migration, nama tabel, flag RLS, grant, serta metadata dan definisi empat fungsi helper yang dapat dijalankan pengguna. Query tidak membaca baris data operasional. Daftar 119 tabel publik dan kontrol akses dasarnya telah tercatat di bawah, tetapi perbandingan seluruh kolom, constraint, indeks, trigger, dan fungsi dengan semua migration source belum dilakukan; kesesuaian schema Production dengan source tetap belum terverifikasi. Tidak ada migration atau data/schema Production yang diubah. CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
+
+
+
+## Inventaris akses database Production baca-saja — 26 Oktober 2026
+
+Pemeriksaan SQL Editor pada branch `main / PRODUCTION` hanya membaca catalog dan privilege, tanpa mengambil baris data operasional.
+
+- Ada **119 tabel/partisi publik**; seluruh 119 memiliki RLS aktif dan `FORCE ROW LEVEL SECURITY`. Satu tabel tanpa kolom `tenant_id` adalah `tenants`; policy-nya membatasi baca ke `id = current_tenant_id()`.
+- Tidak ditemukan grant tabel kepada `PUBLIC` atau `anon`. `authenticated` memiliki grant tabel `SELECT` hanya pada `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`; tidak terlihat grant tabel `INSERT`, `UPDATE`, atau `DELETE` untuk role tersebut. Policy kandidat/kandidat-dokumen memeriksa tenant aktif, Admin, dan izin PPDB; profil memeriksa pemilik atau Admin tenant dengan izin Users; tenant hanya dapat dibaca melalui tenant aktif; user profile hanya oleh UID sendiri.
+- Dari 119 fungsi publik, `anon` tidak memiliki hak `EXECUTE`; `authenticated` hanya dapat menjalankan empat helper `SECURITY DEFINER`: `current_app_role`, `current_tenant_id`, `has_module_access`, dan `is_tenant_admin`. Semuanya membatasi hasil pada profil dan tenant aktif, serta menetapkan `search_path` ke `pg_catalog, public`. Role `anon`, `authenticated`, dan `service_role` tidak memiliki privilege `CREATE` pada schema `public`.
+- `service_role` berstatus `BYPASSRLS` dan memperoleh grant langsung pada sebagian besar tabel (SELECT 115, INSERT 112, UPDATE 109, DELETE 109). Ini menjadikan route server dan secret service-role sebagai batas kepercayaan utama; hasil ini **tidak** membuktikan pemeriksaan tenant/role pada endpoint berjalan benar. Jangan menaruh secret ini di klien.
+- Metadata ini mengonfirmasi pembatasan akses langsung ke tabel, bukan perilaku API, RPC yang tidak termasuk empat helper di atas, kelengkapan data tenant, maupun kesamaan seluruh schema dengan 91 file migration source. Login, matriks izin live, dan uji endpoint di staging tetap diperlukan.
+
+Tidak ada privilege, policy, fungsi, migration, data, atau konfigurasi Production yang diubah.
 
 ## Gerbang sebelum rehearsal
 

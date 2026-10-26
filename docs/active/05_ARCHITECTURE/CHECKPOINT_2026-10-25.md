@@ -657,3 +657,14 @@ Tidak ada perubahan Production pada pemeriksaan ini. Skor tetap 73% kematangan f
 - Progress tidak berubah: **kematangan fitur sekitar 73%; kesiapan go-live sekitar 46%**. Ledger versi kini terbaca, tetapi backup/restore Production, staging representatif, inventaris schema, rehearsal 44 kandidat migration, rekonsiliasi, login/UAT, rotasi secret, dan simulasi environment pelanggan masih terbuka.
 
 Langkah berikutnya: peroleh inventaris schema dan backup melalui jalur yang dapat dibaca, pulihkan backup ke staging terisolasi, jalankan preflight dan rehearsal pada salinan tersebut, lalu evaluasi hasil sebelum memutuskan cutover. Jangan menerapkan migration ke Production dari hitungan ini.
+
+## Audit akses RLS dan grant Production — 26 Oktober 2026
+
+Query SQL Editor baca-saja pada project `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`, memberi bukti tambahan tanpa membaca baris data:
+
+- Terdapat 119 tabel/partisi di schema `public`; seluruhnya RLS-enabled dan `FORCE RLS`. Tidak ada grant tabel `PUBLIC` atau `anon`; `authenticated` hanya punya grant SELECT pada 5 tabel dan tidak punya grant DML tabel. Policy kelima tabel membatasi kandidat PPDB oleh tenant/Admin/izin PPDB, profil oleh pemilik atau Admin tenant berizin Users, data tenant ke tenant aktif, dan user profile ke UID sendiri. `tenants` menggunakan `id = current_tenant_id()` sebagai policy, bukan kolom `tenant_id`.
+- Dari 119 fungsi publik, role `anon` tidak dapat mengeksekusi fungsi; `authenticated` dapat menjalankan empat helper SECURITY DEFINER: `current_app_role`, `current_tenant_id`, `has_module_access`, dan `is_tenant_admin`. Keempatnya memeriksa profil/tenant aktif dan menggunakan `search_path=pg_catalog, public`; role pengguna tidak memiliki privilege CREATE pada schema `public`.
+- `service_role` mempunyai `BYPASSRLS=true` serta grant SELECT pada 115 tabel, INSERT 112, dan UPDATE/DELETE masing-masing 109. Karena itu backend server dengan secret tersebut adalah batas kepercayaan utama. Keberadaan RLS/CI tidak menggantikan pemeriksaan tenant/role pada setiap route; perilaku endpoint Production belum diuji.
+- Pemeriksaan ini tidak membaca data operasional dan tidak mengubah database. Kesamaan semua kolom, constraint, indeks, trigger, dan fungsi terhadap migration source masih belum dibuktikan.
+- Progress tetap **73% kematangan fitur / 46% kesiapan go-live**. Bukti akses langsung Production lebih lengkap, tetapi backup/restore, staging dan rehearsal migration, validasi endpoint/login, rekonsiliasi operasional, rotasi secret, serta simulasi environment pelanggan tetap menjadi release gate.
+
