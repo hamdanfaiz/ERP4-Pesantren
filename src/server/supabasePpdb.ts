@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
+import { downloadSupabasePpdbDocument } from "./ppdbDocumentStorage";
+
 type JsonObject = Record<string, any>;
 
 export class SupabasePpdbError extends Error {
@@ -131,6 +135,14 @@ function toCandidate(row: JsonObject, documents: JsonObject = {}, bills: JsonObj
       ijazah: Boolean(documents.ijazah),
       skhun: Boolean(documents.skhun),
       pasPhoto: Boolean(documents.pas_photo),
+      downloadable: {
+        kk: typeof documents.kk_path === "string" && Boolean(documents.kk_path),
+        birthCertificate: typeof documents.birth_certificate_path === "string" && Boolean(documents.birth_certificate_path),
+        reportCards: typeof documents.report_cards_path === "string" && Boolean(documents.report_cards_path),
+        ijazah: typeof documents.ijazah_path === "string" && Boolean(documents.ijazah_path),
+        skhun: typeof documents.skhun_path === "string" && Boolean(documents.skhun_path),
+        pasPhoto: typeof documents.pas_photo_path === "string" && Boolean(documents.pas_photo_path),
+      },
     },
   };
 }
@@ -154,7 +166,7 @@ export async function listSupabasePpdbCandidates(tenantIdentifier: string, reque
   let billsByCandidate = new Map<string, JsonObject>();
   if (ids.length) {
     const documentParams = new URLSearchParams({
-      select: "candidate_id,kk,birth_certificate,report_cards,ijazah,skhun,pas_photo",
+      select: "candidate_id,kk,birth_certificate,report_cards,ijazah,skhun,pas_photo,kk_path,birth_certificate_path,report_cards_path,ijazah_path,skhun_path,pas_photo_path",
       tenant_id: `eq.${tenantId}`,
       candidate_id: `in.(${ids.join(",")})`,
       limit: String(Math.min(ids.length + 1, 501)),
@@ -242,6 +254,66 @@ export async function createSupabasePpdbCandidateBill(
     throw new SupabasePpdbError(503, "Backend Keuangan belum mengonfirmasi tagihan PPDB.");
   }
   return result as JsonObject;
+}
+
+const PPDB_DOCUMENT_PATH_COLUMNS = {
+  kk: "kk_path",
+  birthCertificate: "birth_certificate_path",
+  reportCards: "report_cards_path",
+  ijazah: "ijazah_path",
+  skhun: "skhun_path",
+  pasPhoto: "pas_photo_path",
+} as const;
+
+export async function downloadSupabasePpdbCandidateDocument(
+  tenantIdentifier: string,
+  candidateIdentifier: string,
+  actorUserIdentifier: string,
+  documentKey: string,
+) {
+  const tenantId = requireUuid(tenantIdentifier);
+  await requireActiveTenant(tenantId);
+  const candidateId = requireUuid(candidateIdentifier);
+  const actorUserId = requireUuid(actorUserIdentifier);
+  if (!Object.hasOwn(PPDB_DOCUMENT_PATH_COLUMNS, documentKey)) {
+    throw new SupabasePpdbError(404, "Berkas PPDB tidak ditemukan pada tenant ini.");
+  }
+  const column = PPDB_DOCUMENT_PATH_COLUMNS[documentKey as keyof typeof PPDB_DOCUMENT_PATH_COLUMNS];
+  const params = new URLSearchParams({
+    select: column,
+    tenant_id: `eq.${tenantId}`,
+    candidate_id: `eq.${candidateId}`,
+    limit: "2",
+  });
+  const rows = await request(`/rest/v1/candidate_documents?${params.toString()}`);
+  if (!Array.isArray(rows) || rows.length !== 1 || typeof rows[0]?.[column] !== "string") {
+    throw new SupabasePpdbError(404, "Berkas PPDB tidak ditemukan pada tenant ini.");
+  }
+
+  let downloaded: { bytes: Buffer; contentType: string };
+  try {
+    downloaded = await downloadSupabasePpdbDocument(rows[0][column], tenantId, candidateId, documentKey);
+  } catch (error) {
+    if (error instanceof Error && "status" in error) {
+      const status = Number((error as Error & { status?: number }).status);
+      throw new SupabasePpdbError(status || 503, error.message);
+    }
+    throw error;
+  }
+
+  await request("/rest/v1/ppdb_document_access_events", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      tenant_id: tenantId,
+      candidate_id: candidateId,
+      actor_user_id: actorUserId,
+      document_key: documentKey,
+      content_sha256: `\\x${createHash("sha256").update(downloaded.bytes).digest("hex")}`,
+    }),
+  });
+  const extension = downloaded.contentType === "application/pdf" ? "pdf" : downloaded.contentType === "image/png" ? "png" : "jpg";
+  return { ...downloaded, fileName: `ppdb-${documentKey}-${candidateId}.${extension}` };
 }
 
 const CORE_FIELDS = new Set(["stage", "notes"]);

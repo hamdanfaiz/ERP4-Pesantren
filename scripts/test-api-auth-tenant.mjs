@@ -132,6 +132,7 @@ async function main() {
         SUPABASE_SERVICE_ROLE_KEY: '',
         SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED: 'false',
         SUPABASE_PPDB_RUNTIME_ENABLED: 'true',
+        SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED: 'false',
         SUPABASE_PPDB_FINANCE_BILLS_ENABLED: 'false',
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
@@ -248,6 +249,16 @@ async function main() {
       body: JSON.stringify({ bill: { paymentType: 'registration', amount: 350000, clientRequestId: randomUUID() } }),
     });
     assert.equal(noFinanceBill.status, 403, 'PPDB invoice creation must require Finance module access.');
+
+    const disabledPpdbDocument = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(disabledPpdbDocument.status, 503, 'Private PPDB documents must stay closed until their server runtime is enabled.');
+
+    const noPpdbDocument = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
+      headers: { Authorization: `Bearer ${noPpdbAdminToken}` },
+    });
+    assert.equal(noPpdbDocument.status, 403, 'Private PPDB documents must require the PPDB module permission.');
 
     const updateWaliPermissions = async (modulePermissions) => {
       const { data, error } = await admin.from('profiles')

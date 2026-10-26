@@ -181,7 +181,7 @@ jobs:
       - name: Verify API auth and tenant isolation
         run: npm run test:api:auth-tenant
 
-      - name: Verify Finance payment proof Storage HTTP flow
+      - name: Verify Finance proof and PPDB document Storage HTTP flows
         run: npm run test:api:finance-storage
 
       - name: Verify local database backup and restore

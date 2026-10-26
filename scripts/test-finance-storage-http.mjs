@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
 
 const BUCKET = 'erp4-private-finance-proofs';
+const PPDB_BUCKET = 'ppdb-documents';
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function localSupabaseEnvironment() {
@@ -57,7 +58,7 @@ async function createUser(admin, tenantId, role, label) {
     display_name: `Storage test ${label}`,
     role,
     status: 'active',
-    module_permissions: { finance: true },
+    module_permissions: role === 'admin' ? { finance: true, ppdb: true } : { finance: true },
   });
   if (profileError) {
     await admin.auth.admin.deleteUser(data.user.id);
@@ -81,8 +82,10 @@ async function main() {
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const anon = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const tenantId = randomUUID();
+  const foreignTenantId = randomUUID();
   const studentId = randomUUID();
   const candidateId = randomUUID();
+  const foreignCandidateId = randomUUID();
   const otherCandidateId = randomUUID();
   const otherStudentId = randomUUID();
   const billRequestId = randomUUID();
@@ -92,6 +95,8 @@ async function main() {
   const users = [];
   let serverProcess;
   let uploadedPath = '';
+  let ppdbDocumentPath = '';
+  let foreignDocumentPath = '';
 
   try {
     const { error: tenantError } = await admin.from('tenants').insert({
@@ -101,6 +106,13 @@ async function main() {
       status: 'active',
     });
     if (tenantError) throw new Error('Unable to create a synthetic finance tenant.');
+    const { error: foreignTenantError } = await admin.from('tenants').insert({
+      id: foreignTenantId,
+      slug: `storage-foreign-${fixtureSuffix}`,
+      name: `Foreign PPDB Storage Test ${fixtureSuffix}`,
+      status: 'active',
+    });
+    if (foreignTenantError) throw new Error('Unable to create a foreign synthetic tenant.');
 
     const financeAdmin = await createUser(admin, tenantId, 'admin', 'finance-admin');
     users.push(financeAdmin);
@@ -117,6 +129,35 @@ async function main() {
       name: 'Santri Storage Test',
     });
     if (candidateError) throw new Error('Unable to create a synthetic candidate.');
+
+    const { error: foreignCandidateError } = await admin.from('candidates').insert({
+      id: foreignCandidateId,
+      tenant_id: foreignTenantId,
+      registration_id: `FOREIGN-${fixtureSuffix}`,
+      name: 'Foreign tenant candidate',
+    });
+    if (foreignCandidateError) throw new Error('Unable to create a foreign tenant candidate.');
+    const ppdbDocumentBytes = Buffer.from('%PDF-1.7\n% ERP4 synthetic PPDB candidate document\n%%EOF\n', 'utf8');
+    ppdbDocumentPath = `${tenantId}/${candidateId}/kk-${randomUUID()}.pdf`;
+    foreignDocumentPath = `${foreignTenantId}/${foreignCandidateId}/kk-${randomUUID()}.pdf`;
+    for (const [path, bytes] of [[ppdbDocumentPath, ppdbDocumentBytes], [foreignDocumentPath, ppdbDocumentBytes]]) {
+      const { error } = await admin.storage.from(PPDB_BUCKET).upload(path, bytes, { contentType: 'application/pdf', upsert: false });
+      if (error) throw new Error('Unable to seed a synthetic private PPDB document.');
+    }
+    const { error: candidateDocumentsError } = await admin.from('candidate_documents').insert({
+      tenant_id: tenantId,
+      candidate_id: candidateId,
+      kk: true,
+      kk_path: ppdbDocumentPath,
+    });
+    if (candidateDocumentsError) throw new Error('Unable to link the synthetic PPDB document.');
+    const { error: foreignCandidateDocumentsError } = await admin.from('candidate_documents').insert({
+      tenant_id: foreignTenantId,
+      candidate_id: foreignCandidateId,
+      kk: true,
+      kk_path: foreignDocumentPath,
+    });
+    if (foreignCandidateDocumentsError) throw new Error('Unable to link the foreign synthetic PPDB document.');
 
     const { error: studentError } = await admin.from('students').insert({
       id: studentId,
@@ -201,6 +242,7 @@ async function main() {
 
     const guardianToken = await signIn(anon, guardian);
     const otherGuardianToken = await signIn(anon, otherGuardian);
+    const financeAdminToken = await signIn(anon, financeAdmin);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
     serverProcess = spawn('bun', ['run', 'dev'], {
@@ -214,6 +256,8 @@ async function main() {
         SUPABASE_SERVICE_ROLE_KEY: '',
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED: 'true',
+        SUPABASE_PPDB_RUNTIME_ENABLED: 'true',
+        SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED: 'true',
         LEGACY_FIREBASE_ADMIN_ENABLED: 'false',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
@@ -232,6 +276,43 @@ async function main() {
       await sleep(250);
     }
     assert.ok(ready, 'API server did not become ready on its configured test port.');
+
+    const ppdbDownload = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/kk`, {
+      headers: { Authorization: `Bearer ${financeAdminToken}` },
+    });
+    assert.equal(ppdbDownload.status, 200, 'A tenant Admin with PPDB access should download a candidate document through the server.');
+    assert.equal(ppdbDownload.headers.get('content-type'), 'application/pdf');
+    assert.match(ppdbDownload.headers.get('content-disposition') || '', /attachment; filename="ppdb-kk-/);
+    assert.equal(ppdbDownload.headers.get('cache-control'), 'private, no-store');
+    assert.equal(ppdbDownload.headers.get('x-content-type-options'), 'nosniff');
+    assert.deepEqual(Buffer.from(await ppdbDownload.arrayBuffer()), ppdbDocumentBytes, 'Authorized PPDB download must return the exact stored bytes.');
+
+    const anonymousPpdbStorageRead = await fetch(`${url}/storage/v1/object/${PPDB_BUCKET}/${ppdbDocumentPath.split('/').map(encodeURIComponent).join('/')}`, {
+      headers: { apikey: anonKey },
+    });
+    assert.ok(!anonymousPpdbStorageRead.ok, 'Anonymous browser access must not read private PPDB documents.');
+    const authenticatedPpdbStorageRead = await fetch(`${url}/storage/v1/object/${PPDB_BUCKET}/${ppdbDocumentPath.split('/').map(encodeURIComponent).join('/')}`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${financeAdminToken}` },
+    });
+    assert.ok(!authenticatedPpdbStorageRead.ok, 'Authenticated browser access must not bypass server-only PPDB Storage.');
+
+    const waliPpdbDownload = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/kk`, {
+      headers: { Authorization: `Bearer ${guardianToken}` },
+    });
+    assert.equal(waliPpdbDownload.status, 403, 'Wali accounts must not download PPDB candidate records as an Admin.');
+    const foreignTenantPpdbDownload = await fetch(`${apiBase}/api/ppdb/candidates/${foreignCandidateId}/documents/kk`, {
+      headers: { Authorization: `Bearer ${financeAdminToken}` },
+    });
+    assert.equal(foreignTenantPpdbDownload.status, 404, 'An Admin must not read a candidate document from another tenant.');
+    const { data: accessEvents, error: accessEventsError } = await admin.from('ppdb_document_access_events')
+      .select('tenant_id,candidate_id,actor_user_id,document_key,content_sha256')
+      .eq('tenant_id', tenantId)
+      .eq('candidate_id', candidateId);
+    assertNoError({ error: accessEventsError }, 'Unable to read synthetic PPDB document audit events.');
+    assert.equal(accessEvents.length, 1, 'Only the successful Admin download must be audited.');
+    assert.equal(accessEvents[0].actor_user_id, financeAdmin.uid);
+    assert.equal(accessEvents[0].document_key, 'kk');
+    assert.equal(accessEvents[0].content_sha256, '\\x' + createHash('sha256').update(ppdbDocumentBytes).digest('hex'));
 
     const pdfBytes = Buffer.from('%PDF-1.7\n% ERP4 synthetic test payment proof\n%%EOF\n', 'utf8');
     const proofRequestId = randomUUID();
@@ -309,7 +390,7 @@ async function main() {
     assertNoError({ error: listError }, 'Unable to inspect the synthetic private proof directory.');
     assert.equal(storedObjects.length, 1, 'The idempotent retry must not leave an orphan duplicate object.');
 
-    console.log('Finance Storage HTTP test passed: private upload, exact-byte authorized download, guardian isolation, idempotency, and orphan cleanup.');
+    console.log('Storage HTTP tests passed: Finance proof upload/download and PPDB Admin document download, private-bucket isolation, tenant/RBAC boundaries, audit logging, idempotency, and cleanup.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -323,12 +404,20 @@ async function main() {
     if (uploadedPath) {
       try { await admin.storage.from(BUCKET).remove([uploadedPath]); } catch {}
     }
-    for (const table of ['finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'students', 'candidate_documents', 'candidates', 'master_data_records']) {
+    const ppdbObjects = [ppdbDocumentPath, foreignDocumentPath].filter(Boolean);
+    if (ppdbObjects.length) {
+      try { await admin.storage.from(PPDB_BUCKET).remove(ppdbObjects); } catch {}
+    }
+    for (const table of ['ppdb_document_access_events', 'finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'students', 'candidate_documents', 'candidates', 'master_data_records']) {
       try { await admin.from(table).delete().eq('tenant_id', tenantId); } catch {}
+    }
+    for (const table of ['ppdb_document_access_events', 'candidate_documents', 'candidates']) {
+      try { await admin.from(table).delete().eq('tenant_id', foreignTenantId); } catch {}
     }
     for (const user of users) {
       try { await admin.auth.admin.deleteUser(user.uid); } catch {}
     }
+    try { await admin.from('tenants').delete().eq('id', foreignTenantId); } catch {}
     try { await admin.from('tenants').delete().eq('id', tenantId); } catch {}
   }
 }

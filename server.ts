@@ -171,7 +171,7 @@ import {
   upsertSupabaseCbtQuestion,
 } from "./src/server/supabaseCbt";
 import { applySupabaseLegacyCbtImport, getSupabaseCbtLegacyImportContext, previewSupabaseLegacyCbt } from "./src/server/supabaseCbtImport";
-import { createSupabasePpdbCandidateBill, listSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate } from "./src/server/supabasePpdb";
+import { createSupabasePpdbCandidateBill, downloadSupabasePpdbCandidateDocument, listSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate } from "./src/server/supabasePpdb";
 import {
   applySupabaseLegacyPpdbImport,
   getSupabasePpdbLegacyImportContext,
@@ -733,6 +733,7 @@ async function startServer() {
   const boardingFacilityOpsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingFacilityOpsImportEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbRuntimeEnabled = String(process.env.SUPABASE_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const ppdbDocumentsRuntimeEnabled = String(process.env.SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbFinanceBillsEnabled = String(process.env.SUPABASE_PPDB_FINANCE_BILLS_ENABLED || "").trim().toLowerCase() === "true";
   const financeRuntimeEnabled = String(process.env.SUPABASE_FINANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbLegacyImportEnabled = String(process.env.SUPABASE_PPDB_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
@@ -1040,6 +1041,29 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadPpdbActor(uid);
       return res.json(await updateSupabasePpdbCandidate(actor.tenantId, actor.uid, req.params.candidateId, req.body));
+    } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  app.get("/api/ppdb/candidates/:candidateId/documents/:documentKey", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadPpdbActor(uid);
+      if (!ppdbRuntimeEnabled || !ppdbDocumentsRuntimeEnabled) {
+        return res.status(503).json({ error: "Unduh berkas PPDB menunggu audit dan pengaktifan runtime Storage." });
+      }
+      const document = await downloadSupabasePpdbCandidateDocument(
+        actor.tenantId,
+        req.params.candidateId,
+        actor.uid,
+        req.params.documentKey,
+      );
+      res.setHeader("Content-Type", document.contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${document.fileName}"`);
+      res.setHeader("Content-Length", String(document.bytes.byteLength));
+      return res.status(200).send(document.bytes);
     } catch (error) { return ppdbRouteError(res, error); }
   });
 

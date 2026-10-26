@@ -6,6 +6,7 @@ import { listSupabaseMasterDataStructures, type SupabaseStructureRecord } from "
 
 type Stage = "Registered" | "Document Review" | "Entry Exam" | "Interview" | "Accepted" | "Rejected";
 type CandidateBill = { id: string; feeType: string; period: string; amount: number; paidAmount: number; status: string };
+type CandidateDocumentKey = "kk" | "birthCertificate" | "reportCards" | "ijazah" | "skhun" | "pasPhoto";
 type Candidate = {
   id: string; registrationId: string; name: string; previousSchool: string; grade: string; phone: string;
   email: string; gender: "L" | "P"; stage: Stage; score?: number; dateApplied: string; notes: string;
@@ -16,7 +17,10 @@ type Candidate = {
     memorizedJuz?: string; notes?: string; totalScore?: number; evaluatedAt?: string; evaluator?: string;
   };
   bills?: { registration?: CandidateBill | null; tuition?: CandidateBill | null };
-  documents: { kk: boolean; birthCertificate: boolean; reportCards: boolean; ijazah: boolean; skhun: boolean; pasPhoto: boolean };
+  documents: {
+    kk: boolean; birthCertificate: boolean; reportCards: boolean; ijazah: boolean; skhun: boolean; pasPhoto: boolean;
+    downloadable: Record<CandidateDocumentKey, boolean>;
+  };
 };
 type CandidateDraft = {
   stage: Stage;
@@ -28,6 +32,8 @@ type CandidateDraft = {
 type OnboardingDraft = { nis: string; classId: string; roomId: string; guardianName: string; guardianPhone: string };
 
 const PPDB_ONBOARDING_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED === "true";
+const PPDB_DOCUMENTS_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_RUNTIME_ENABLED === "true"
+  && import.meta.env.VITE_SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED === "true";
 const PPDB_FINANCE_BILLS_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_FINANCE_BILLS_ENABLED === "true";
 const FORM_CONTROL = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white";
 
@@ -55,6 +61,31 @@ async function requestPpdb(path: string, init: RequestInit = {}) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Data PPDB belum dapat diproses.");
   return payload;
+}
+
+async function downloadPpdbDocument(candidate: Candidate, key: CandidateDocumentKey, label: string) {
+  const token = await getAccessToken();
+  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  const response = await fetch(`/api/ppdb/candidates/${encodeURIComponent(candidate.id)}/documents/${encodeURIComponent(key)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || "Berkas PPDB belum dapat diunduh.");
+  }
+  const blob = await response.blob();
+  const mime = response.headers.get("content-type") || "";
+  const extension = mime === "application/pdf" ? "pdf" : mime === "image/png" ? "png" : mime === "image/jpeg" ? "jpg" : "bin";
+  const safeId = candidate.registrationId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = `${safeId}-${label.replace(/[^a-zA-Z0-9_-]/g, "_")}.${extension}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
 export function SupabasePpdbManager() {
@@ -259,7 +290,7 @@ export function SupabasePpdbManager() {
         <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
       </header>
 
-      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Mode Supabase: layar ini mengelola daftar, tahap, nilai, penilaian Al-Qur’an dan Tahfidz, serta onboarding santri transaksional. Admin dapat menerbitkan tagihan kandidat setelah migration Finance dan flag PPDB–Keuangan diaktifkan. Pendaftaran publik dan unggah dokumen privat masih menunggu cutover terpisah.</div>
+      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Mode Supabase: layar ini mengelola daftar, tahap, nilai, penilaian Al-Qur’an dan Tahfidz, serta onboarding santri transaksional. Pendaftaran publik yang diaktifkan menyimpan berkas pada Storage privat; unduh berkas oleh Admin melalui server masih menunggu flag runtime tersendiri. Admin dapat menerbitkan tagihan kandidat setelah migration Finance dan flag PPDB–Keuangan diaktifkan.</div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
@@ -278,6 +309,7 @@ export function SupabasePpdbManager() {
           })}</tbody></table></div>}
         {hasMore && <div className="mt-4 flex justify-center border-t border-slate-100 pt-4 dark:border-white/5"><button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}Muat 250 pendaftar berikutnya</button></div>}
       </section>
+      {expandedId && candidates.some((candidate) => candidate.id === expandedId) && <CandidateDocumentDownloads candidate={candidates.find((candidate) => candidate.id === expandedId)!} enabled={PPDB_DOCUMENTS_ENABLED} />}
       {onboardingCandidate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={(event) => void submitOnboarding(event)} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"><header className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white"><UserCheck className="h-5 w-5 text-emerald-600" />Onboarding santri diterima</h2><p className="mt-1 text-sm text-slate-500">{onboardingCandidate.name} · {onboardingCandidate.registrationId} · {onboardingCandidate.grade}</p></div><button type="button" aria-label="Tutup" onClick={() => setOnboardingCandidate(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
         <div className="space-y-4 p-5"><p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200">Pembuatan data santri, wali, klaim identitas, reservasi NIS, dan kapasitas kamar dijalankan dalam satu transaksi Supabase. Jika ada data yang berbenturan, seluruh transaksi ditolak.</p>
           {onboardingLoading && <div role="status" className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat struktur tenant dan nomor NIS…</div>}
@@ -352,6 +384,45 @@ function CandidateBilling({
     {candidate.stage === "Accepted" && renderBill("tuition", "Uang pangkal", candidate.bills?.tuition)}
     {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Belum aktif: migration Finance dan flag runtime PPDB–Keuangan harus disiapkan terlebih dahulu.</p>}
     {enabled && !canManage && <p className="text-xs text-amber-700 dark:text-amber-300">Akses modul Keuangan diperlukan untuk menerbitkan tagihan.</p>}
+    {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
+    {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice}</p>}
+  </section>;
+}
+
+const PPDB_DOCUMENT_LABELS: Array<{ key: CandidateDocumentKey; label: string }> = [
+  { key: "kk", label: "Kartu keluarga" },
+  { key: "birthCertificate", label: "Akta kelahiran" },
+  { key: "reportCards", label: "Rapor" },
+  { key: "ijazah", label: "Ijazah" },
+  { key: "skhun", label: "SKHUN" },
+  { key: "pasPhoto", label: "Pas foto" },
+];
+
+function CandidateDocumentDownloads({ candidate, enabled }: { candidate: Candidate; enabled: boolean }) {
+  const [downloading, setDownloading] = useState<CandidateDocumentKey | "">("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const available = PPDB_DOCUMENT_LABELS.filter(({ key }) => candidate.documents.downloadable[key]);
+  if (available.length === 0) return null;
+
+  const download = async (key: CandidateDocumentKey, label: string) => {
+    setDownloading(key);
+    setError("");
+    setNotice("");
+    try {
+      await downloadPpdbDocument(candidate, key, label);
+      setNotice(`${label} berhasil diunduh. Akses tercatat untuk audit.`);
+    } catch (issue: any) {
+      setError(issue?.message || "Berkas PPDB belum dapat diunduh.");
+    } finally {
+      setDownloading("");
+    }
+  };
+
+  return <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
+    <div><h3 className="text-sm font-semibold text-slate-900 dark:text-white">Berkas privat · {candidate.name}</h3><p className="mt-1 text-xs text-slate-500">Diunduh melalui server setelah izin Admin dan tenant diverifikasi. Setiap unduhan berhasil tercatat.</p></div>
+    <div className="flex flex-wrap gap-2">{available.map(({ key, label }) => <button key={key} type="button" onClick={() => void download(key, label)} disabled={!enabled || downloading !== ""} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{downloading === key ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}{downloading === key ? "Mengunduh…" : label}</button>)}</div>
+    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Unduh belum diaktifkan. Aktifkan hanya setelah migration dan uji akses Storage selesai.</p>}
     {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
     {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice}</p>}
   </section>;
