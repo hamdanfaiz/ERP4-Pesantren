@@ -2,11 +2,11 @@
 
 ## Tujuan dan batas
 
-Snapshot ledger baca-saja yang tercatat pada 26 Oktober 2026 pukul 04:04 UTC untuk project `ptsasgdvgrbdtgyqieie` memuat 47 migration sampai `20261206000000`. Source kerja sekarang berisi 91 file migration sampai `20270119000000`. Jika ledger lama itu belum berubah, selisih aritmetisnya 44 migration; angka tersebut **bukan hitungan pending terkini**. Dashboard project sekarang menampilkan “Last Migration: Unknown”, dan akses baca-terprogram ke ref target belum tersedia, sehingga ledger serta kecocokan schema Production belum terverifikasi. Baca ulang ledger target sebelum rehearsal; jangan menerapkan migration berdasarkan snapshot lama.
+Pembacaan baca-saja pada halaman Database → Migrations dashboard project `ptsasgdvgrbdtgyqieie` (branch `main / PRODUCTION`, 26 Oktober 2026) menampilkan **47 versi migration terpasang**, dari `20260603000000` hingga `20261206000000`. Perbandingan set ID dengan 91 file source PR #13 hingga `20270119000000` cocok untuk seluruh 47 versi; 44 file source belum tercatat di ledger, dari `20261207000000_library_legacy_catalog_import.sql` sampai `20270119000000_master_data_student_search_indexes.sql`. Tidak ada versi terpasang yang tidak dikenal atau migration lama yang tertinggal. Angka 44 adalah kandidat belum tercatat, bukan izin atau bukti bahwa migration aman diterapkan. Kartu ringkasan dashboard masih menampilkan “Last Migration: Unknown”, sedangkan tabel migration terperinci menampilkan 47 versi tersebut.
 
-Catatan di bawah mempertahankan beberapa snapshot lama (85/86, lalu 87/88/90 file dan 40/41/43 migration pending) sebagai riwayat pemeriksaan. Source sekarang berisi 91 file migration; jumlah pending live belum diketahui sampai ledger target dibaca ulang.
+Beberapa snapshot lama (85/86, lalu 87/88/90 file dan 40/41/43 migration) dipertahankan sebagai riwayat. Angka terkini untuk snapshot 26 Oktober adalah 91 file source, 47 versi terpasang, dan 44 file source yang belum tercatat; lakukan preflight dan rehearsal pada staging sebelum penerapan.
 
-Dokumen ini adalah rencana pemeriksaan berbasis source. Query Production pada pembaruan terbaru hanya membaca metadata migration dan tabel, bukan isi data operasional. Tidak ada migration atau perubahan schema/data Production yang diterapkan. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
+Dokumen ini adalah rencana pemeriksaan berbasis source. Pembacaan dashboard hanya memverifikasi metadata versi migration; Table Editor dan Schema Visualizer tidak selesai memuat, sehingga kecocokan schema dan inventaris tabel Production belum terverifikasi. Tidak ada isi data operasional yang dibaca, dan tidak ada migration atau perubahan schema/data Production yang diterapkan. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
 
 ## Gerbang sebelum rehearsal
 
