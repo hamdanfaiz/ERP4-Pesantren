@@ -156,3 +156,15 @@ Query langsung baca-saja pada SQL Editor project `ptsasgdvgrbdtgyqieie`, branch 
 **Keputusan:** angka 34 pending sekarang terkonfirmasi pada Production, tetapi jangan menerapkannya langsung. Jalankan alat `preflight:db-migrations` untuk cek ulang sebelum setiap rehearsal, lakukan rehearsal lengkap pada staging terisolasi yang dipulihkan dari backup, dan validasi hasilnya sebelum menyusun rencana upgrade Production.
 
 Audit statis atas migration pending dan pemeriksaan data yang perlu dijalankan pada salinan staging tersedia di [checklist rehearsal](PRODUCTION_MIGRATION_REHEARSAL_CHECKLIST_2026-10-26.md). Query pemeriksaan tersebut tidak dijalankan pada data Production.
+
+## Revalidasi ledger target pada head PR #13 — 26 Oktober 2026
+
+Halaman **Database → Migrations** pada project `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`, dibaca kembali melalui dashboard Supabase. Daftar tetap berisi 47 versi dari `20260603000000` sampai `20261206000000`; tidak terlihat versi yang hilang atau versi asing. Pemeriksaan hanya membaca daftar migration dan tidak menjalankan SQL.
+
+- Head PR #13 saat pemeriksaan: `91f71708ac3461b505255fbfe281d92a102f7328`, masih Open/Draft.
+- Source sekarang memiliki 85 file migration. Dibanding 47 versi pada target, **38 migration masih pending**, mulai `20261207000000_library_legacy_catalog_import.sql` sampai `20270113000000_admin_ppdb_document_upload.sql`.
+- Empat migration baru sejak rekonsiliasi sebelumnya (`20270109000000`) adalah `20270110000000_ppdb_candidate_finance_bills.sql`, `20270111000000_ppdb_document_access_audit.sql`, `20270112000000_admin_ppdb_candidate_create.sql`, dan `20270113000000_admin_ppdb_document_upload.sql`.
+- Konektor Supabase pada sesi ini hanya memberi akses ke project lain (`vqemuyzveuirlkvdggjd`); target dikonfirmasi melalui halaman dashboard target yang sudah login. ADC Firestore tidak berhasil menerbitkan access token pada percobaan hitung ulang koleksi, sehingga hitungan Firestore terbaru selain pemeriksaan `financeBillings` 0 dokumen belum dapat diverifikasi ulang.
+- GitHub Actions run [`40256254007`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40256254007) untuk checkpoint sebelumnya selesai sukses pada kedua job: frontend/build/runtime serta migration, API auth/tenant, dan pgTAP. Bukti ini tetap memakai Supabase lokal terisolasi, bukan target Production.
+
+**Keputusan:** jangan terapkan 38 migration ke branch Production. Project staging yang benar-benar terpisah dan dapat dipulihkan belum tersedia; project `vqemuyzveuirlkvdggjd` tidak dipakai sebagai staging karena bukan target dan belum disetujui untuk tujuan itu. Lanjutkan audit code dan CI terisolasi; sebelum upgrade, sediakan staging/backup yang dapat diuji restore, lalu jalankan preflight, rehearsal lengkap, dan postflight di sana.

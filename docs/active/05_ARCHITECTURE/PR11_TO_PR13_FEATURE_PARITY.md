@@ -2,9 +2,9 @@
 
 ## Status branch
 
-Pemeriksaan GitHub pada 26 Oktober 2026 menunjukkan PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, berbasis pada head PR #10 `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. PR #13 masih Open/Draft, head `b17517d834e6f01eddb0f2df16b3f1378a24edae`, berbasis pada merge PR #12 di `c8738185ff6e5080ae427ef0021ee25681036c40`.
+Pemeriksaan GitHub pada 26 Oktober 2026 menunjukkan PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, berbasis pada head PR #10 `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`. PR #13 masih Open/Draft pada head `91f71708ac3461b505255fbfe281d92a102f7328`, berbasis pada merge PR #12 tersebut.
 
-GitHub membandingkan kedua head sebagai `diverged`: PR #13 398 commit di depan dan 235 commit di belakang, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Jangan menggabungkan seluruh PR #11 ke PR #13. Migrasi PR #11 bertanggal `20260606000000`–`20260618000000` adalah bagian dari lineage lamanya dan tidak boleh ditambahkan ke lineage PR #13 secara mekanis.
+GitHub membandingkan kedua head sebagai `diverged`: PR #13 416 commit di depan dan 235 commit di belakang, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Jangan menggabungkan seluruh PR #11 ke PR #13. Migrasi PR #11 bertanggal `20260606000000`–`20260618000000` adalah bagian dari lineage lamanya dan tidak boleh ditambahkan ke lineage PR #13 secara mekanis.
 
 ## Matriks fitur
 

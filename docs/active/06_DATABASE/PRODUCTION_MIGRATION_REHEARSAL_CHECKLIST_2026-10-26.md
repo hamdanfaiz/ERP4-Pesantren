@@ -2,7 +2,7 @@
 
 ## Tujuan dan batas
 
-Ledger Production dibaca ulang secara baca-saja: 47 migration tercatat sampai `20261206000000`, sedangkan source PR #13 memiliki 81 file sampai `20270109000000`. Sebanyak 34 migration berikutnya harus direhearsal pada environment terisolasi sebelum rencana upgrade Production dibuat.
+Ledger Production dibaca ulang secara baca-saja: 47 migration tercatat sampai `20261206000000`, sedangkan source PR #13 pada head `91f71708ac3461b505255fbfe281d92a102f7328` memiliki 85 file sampai `20270113000000`. Sebanyak 38 migration berikutnya harus direhearsal pada environment terisolasi sebelum rencana upgrade Production dibuat.
 
 Dokumen ini adalah rencana pemeriksaan berbasis source. Tidak ada query data operasional Production, migrasi, atau perubahan database yang dijalankan untuk menyusunnya. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
 
@@ -73,9 +73,16 @@ Selain direktori pengguna, beberapa migration lain membuat indeks pada tabel ope
 
 Migration memasukkan satu snapshot bagi setiap Santri yang kini mempunyai `room_id` atau `building_id`. Ia tidak membuat riwayat perpindahan lama dan tidak mengarang aktor. Sebelum dan sesudah migration, bandingkan jumlah Santri yang memiliki penempatan dengan jumlah event `baseline_snapshot` per tenant; tinjau jumlah penempatan tanpa nama ruang/gedung yang cocok. Uji pemanggilan ulang pada salinan terisolasi untuk memastikan tidak menggandakan snapshot.
 
+### Tagihan dan berkas kandidat PPDB Admin — `20270110000000`–`20270113000000`
+
+- `20270110000000`: pastikan kandidat yang diterima tetap mengarah ke tagihan kandidat yang sama setelah `master_student_id` terisi; tagihan tidak boleh terduplikasi untuk pasangan kandidat/jenis pembayaran. Uji penerbitan dan penyelesaian tagihan pada tenant sintetis.
+- `20270111000000` dan `20270113000000`: pastikan tabel audit akses/unggah memakai RLS `FORCE`, tidak memiliki grant browser, dan hanya menerima operasi service role yang dirutekan oleh backend. Bucket `ppdb-documents` harus tetap privat; uji bahwa pengguna `anon` dan `authenticated` tidak dapat membaca objek secara langsung.
+- `20270112000000`: uji batch Admin 1–100 calon, atribusi actor/tenant, retry identik, konflik request ID, NIK/NISN/nomor pendaftaran yang bentrok, serta rollback seluruh batch bila satu baris gagal.
+- Snapshot Firestore kanonis pada pemeriksaan 26 Oktober berisi 0 dokumen `financeBillings`. Jangan membuat tagihan atau ledger historis sintetis; bila sumber berubah, lakukan preview dan rekonsiliasi baru sebelum import.
+
 ## Pemeriksaan setelah migration
 
-- Ledger staging cocok persis dengan semua 81 file source dan `preflight:db-migrations` menyatakan tidak ada migration tertunda.
+- Ledger staging cocok persis dengan semua 85 file source dan `preflight:db-migrations` menyatakan tidak ada migration tertunda.
 - Tidak ada constraint gagal, foreign key yatim, perubahan jumlah yang tidak dijelaskan, atau tenant lintas batas.
 - pgTAP dan suite integrasi lulus pada schema hasil upgrade, bukan hanya pada database kosong.
 - API utama, login Admin/Wali, penyimpanan berkas, transaksi Koperasi/Keuangan, Tahfidz, dan riwayat asrama diuji dengan data sintetis tenant-scoped.
