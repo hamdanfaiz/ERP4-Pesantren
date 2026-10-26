@@ -77,20 +77,105 @@ gcloud firestore databases list --project graphite-ship-q5xj8
 
 Pastikan database yang dipilih adalah ID kanonis yang tercantum pada header dokumen ini. Jangan mencampur database Firestore lain pada project yang sama.
 
-## 4. Baca ulang ledger Supabase secara aman
+## 4. Verifikasi ledger, schema, RLS, dan grant secara baca-saja
 
-Lakukan pemeriksaan ini dari root repository pada mesin tim, setelah credential terbaru dimasukkan ke environment secara aman:
+### Peralatan lokal
+
+Pemeriksaan lingkungan kerja checkpoint ini tidak menemukan Supabase CLI maupun `psql` di PATH. CI repository memakai Supabase CLI **2.84.2** dan Bun **1.4.4**. Tim perlu memasang alat yang diperlukan sesuai [panduan resmi Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) dan [installer PostgreSQL untuk Windows](https://www.postgresql.org/download/windows/), lalu verifikasi:
 
 ```powershell
-supabase migration list --db-url $env:SUPABASE_DB_URL
+supabase --version
+psql --version
 ```
 
-Perintah ini membandingkan timestamp migration lokal dengan `supabase_migrations.schema_migrations` remote. Simpan hanya nomor versi, status lokal/remote, dan pesan error yang sudah disanitasi. Jangan jalankan `supabase migration up`, `supabase db push`, `supabase migration repair`, atau SQL DDL pada target saat langkah audit ini.
+Gunakan versi Supabase CLI yang sama dengan CI saat mereproduksi pemeriksaan. Bun hanya diperlukan bila tim menjalankan suite aplikasi lokal.
 
-Dashboard saat ini memperlihatkan 47 versi ledger yang dirinci pada Ringkasan. Jalankan perintah baca-saja ini untuk mengonfirmasi perbandingan lokal/remote dari CLI tim. Perbedaan timestamp antara versi source yang belum tercatat dan entri remote bukan izin untuk menerapkan migration. Tanggal entri terakhir terlihat lebih baru daripada tanggal checkpoint; konfirmasi provenance jam/metadata dengan pemilik project.
+### Ledger migration
 
-Rujukan sintaks: [Supabase CLI — migration list](https://supabase.com/docs/reference/cli/supabase-migration-list). Pastikan koneksi SSL dan host dari Dashboard benar. Jika jaringan IPv4 tidak dapat mencapai host langsung, gunakan connection string pooler yang sesuai; jangan mengganti target project.
+Jalankan dari root repository dengan connection string session pooler target yang sudah tersedia aman di environment:
 
+```powershell
+supabase migration list --db-url "$env:SUPABASE_DB_POOLER_URL"
+```
+
+Perintah ini membandingkan timestamp migration lokal dengan `supabase_migrations.schema_migrations` remote; ia membandingkan nomor versi, bukan kesamaan schema. Simpan hanya nomor versi/status lokal-remote dan pesan error yang sudah disanitasi. Jangan jalankan `supabase migration up`, `supabase db push`, `supabase migration repair`, atau SQL DDL pada target saat audit.
+
+Dashboard read-only pada checkpoint ini memperlihatkan 47 versi ledger. Perintah di atas perlu dikonfirmasi oleh tim karena CLI belum tersedia pada workspace ini. Konfirmasi juga jam database sebelum menafsirkan entri bertanggal setelah checkpoint.
+
+### Inventaris schema dan kontrol akses
+
+Jika memakai SQL Editor, buka query baru yang hanya berisi `SELECT`; jangan menimpa query yang sudah ada. Query berikut hanya membaca katalog sistem, bukan baris data ERP. Jalankan terpisah dan kirim hasil metadata yang sudah disanitasi.
+
+Jam database dan zona waktu:
+
+```sql
+SELECT now() AS database_now, current_setting('TimeZone') AS session_timezone;
+```
+
+Tabel public dan pengaturan RLS:
+
+```sql
+SELECT n.nspname AS schema_name,
+       c.relname AS table_name,
+       c.relkind AS relation_kind,
+       c.relrowsecurity AS rls_enabled,
+       c.relforcerowsecurity AS rls_forced
+FROM pg_class AS c
+JOIN pg_namespace AS n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r', 'p')
+  AND n.nspname = 'public'
+ORDER BY n.nspname, c.relname;
+```
+
+Policy RLS public:
+
+```sql
+SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
+FROM pg_policies
+WHERE schemaname = 'public'
+ORDER BY tablename, policyname;
+```
+
+Grant tabel public:
+
+```sql
+SELECT table_schema, table_name, grantee, privilege_type, is_grantable
+FROM information_schema.table_privileges
+WHERE table_schema = 'public'
+  AND grantee IN ('anon', 'authenticated', 'service_role', 'PUBLIC')
+ORDER BY table_name, grantee, privilege_type;
+```
+
+View public dan opsi keamanan:
+
+```sql
+SELECT n.nspname AS schema_name,
+       c.relname AS view_name,
+       COALESCE(c.reloptions, ARRAY[]::text[]) AS view_options
+FROM pg_class AS c
+JOIN pg_namespace AS n ON n.oid = c.relnamespace
+WHERE c.relkind = 'v'
+  AND n.nspname = 'public'
+ORDER BY c.relname;
+```
+
+Fungsi `SECURITY DEFINER` pada schema public:
+
+```sql
+SELECT n.nspname AS schema_name,
+       p.oid::regprocedure::text AS function_signature,
+       p.prosecdef AS security_definer,
+       p.proacl AS function_acl
+FROM pg_proc AS p
+JOIN pg_namespace AS n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.prosecdef
+ORDER BY function_signature;
+```
+
+Periksa juga daftar schema yang diekspos pada pengaturan Data API dan ulangi inventaris tabel/policy/grant untuk setiap schema yang diekspos selain `public`. Tinjau apakah tabel data tenant memiliki RLS aktif/forced, policy mencakup role dan tenant yang dimaksud, tidak ada grant anon/PUBLIC yang tidak diperlukan, view tidak melewati RLS tanpa sengaja, serta fungsi definer dibatasi dengan tepat. Gunakan dokumentasi PostgreSQL tentang [`pg_class`](https://www.postgresql.org/docs/current/catalog-pg-class.html), [`pg_policies`](https://www.postgresql.org/docs/current/view-pg-policies.html), dan [`table_privileges`](https://www.postgresql.org/docs/current/infoschema-table-privileges.html).
+
+Daftar migration, katalog schema, RLS, dan grants tidak menguji hak akses efektif setiap pengguna. Matriks role/tenant tetap harus diuji pada staging dengan akun sintetis setelah inventaris dan backup tersedia.
 ## 5. Dry-run data sebelum rehearsal
 
 1. Refresh inventaris sumber dan cocokkan jumlah dokumen, nama koleksi, field yang tersedia, relasi, serta object Storage. Hindari mencetak nilai identitas ke output.
