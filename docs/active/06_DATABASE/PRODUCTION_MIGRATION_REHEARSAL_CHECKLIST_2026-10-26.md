@@ -173,3 +173,16 @@ Jumlah dokumen tingkat atas dihitung dengan agregasi `COUNT(*)`; query tidak men
 Batas inventaris: hitungan ini mencakup 18 koleksi tingkat atas; subkoleksi dan objek Firebase Storage belum dihitung. Pemeriksaan skema metadata pada satu-satunya dokumen `users` menemukan field `email`, `role`, `status`, dan `tenantId`; tidak ada field `password` pada dokumen tersebut. Ini tidak memeriksa kredensial Firebase Authentication. Jangan migrasikan password atau hash autentikasi; buat akun Supabase melalui undangan/reset yang tepercaya.
 
 Hitungan bukan persetujuan untuk import. Belum ada dokumen atau objek yang dipindahkan ke Supabase, dan tidak ada perubahan pada Firebase maupun Supabase Production. Tim backend tetap perlu memetakan setiap koleksi ke tenant dan tabel target, menjalankan preview/dry-run, merekonsiliasi selisih, serta memeriksa subkoleksi dan berkas sebelum import staging. Ulangi inventaris bila sumber berubah.
+
+### Cakupan tenant pada data Firestore legacy — pemeriksaan 26 Oktober 2026
+
+Pemeriksaan baca-saja berikut melengkapi inventaris jumlah dokumen di atas. Hanya keberadaan field dan label jenis record dihitung; nilai identitas pribadi tidak dicetak.
+
+- Seluruh **453/453** dokumen `master_data` tidak memiliki field tingkat atas `tenantId`.
+- Seluruh **50/50** dokumen `candidates` tidak memiliki field tingkat atas `tenantId`.
+- Satu dokumen `users` memiliki `tenantId` yang cocok dengan ID dokumen atau field `id` pada satu-satunya dokumen `tenants`. Ini memberi calon tenant untuk verifikasi, tetapi bukan bukti bahwa semua record legacy pasti milik tenant itu.
+- Distribusi `master_data.type` yang teramati: Alumni 50, Asatidz 50, Gedung 15, Guru 50, Halaqah 40, Kamar 50, Kampus 5, Kelas 30, Pegawai 50, Santri 50, Staff 2, System 1, Unit 10, dan Wali Santri 50.
+
+**Gerbang migrasi:** jangan menulis `tenant_id` saat import hanya karena dokumen tidak memilikinya. Tim backend harus menyetujui pemetaan eksplisit sumber-ke-tenant, memeriksa apakah database sumber memang khusus satu pesantren, lalu menjalankan preview/dry-run yang menunjukkan hitungan per tipe, record yatim/duplikat, dan total yang akan ditulis. Tolak import bila ada record tanpa pemetaan atau tenant yang tidak dikenal. Jangan menyimpulkan kepemilikan dari nama, email, telepon, atau ID santri. Simpan hitungan dan checksum untuk rekonsiliasi tanpa menaruh PII di log. Rekam pemetaan yang disetujui sebagai konfigurasi migrasi berversi dan dapat diulang dengan aman.
+
+Belum ada data yang diimpor atau diubah. Hasil ini tidak memeriksa subkoleksi maupun Firebase Storage.
