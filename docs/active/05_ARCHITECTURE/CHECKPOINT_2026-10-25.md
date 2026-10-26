@@ -1,6 +1,6 @@
 # Checkpoint rilis dan progres — 25 Oktober 2026
 
-> **Status terbaru (26 Oktober 2026): 78/100.** PR #13 masih Draft dan produk belum siap deploy. Lihat checkpoint terbaru di bagian akhir; tabel di bawah adalah snapshot awal.
+> **Status terbaru (26 Oktober 2026): kematangan fitur sekitar 73%; kesiapan go-live sekitar 46%.** PR #13 masih Draft dan produk belum siap deploy. Angka 78/100 pada entri lama adalah skor gabungan historis dan tidak dapat dibandingkan langsung dengan dua metrik saat ini. Lihat checkpoint terbaru di bagian akhir; tabel di bawah adalah snapshot awal.
 
 ## Snapshot awal saat dokumen dibuat: 58/100
 
