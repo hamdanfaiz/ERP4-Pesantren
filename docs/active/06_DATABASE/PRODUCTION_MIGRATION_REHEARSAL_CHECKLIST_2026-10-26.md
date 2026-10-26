@@ -2,9 +2,9 @@
 
 ## Tujuan dan batas
 
-Pembaruan ledger baca-saja terbaru (26 Oktober 2026, 04:04 UTC) pada project `ptsasgdvgrbdtgyqieie` mencatat 47 migration sampai `20261206000000`. Head PR #13 `1c263a1b391f8b868f9c5e99fb008387e4273efe` memiliki 87 file sampai `20270115000000`, sehingga 40 migration masih pending. Versi Production cocok persis dengan file source sampai versi terakhir yang tercatat. Gunakan angka terbaru ini sebagai baseline; setiap rehearsal harus tetap membaca ulang ledger.
+Pembaruan ledger baca-saja terakhir yang tercatat (26 Oktober 2026, 04:04 UTC) pada project `ptsasgdvgrbdtgyqieie` mencatat 47 migration sampai `20261206000000`. Source kode PR #13 pada commit `e13943ea77e79375e848d297150e95c9ce1ec8f5` memiliki 88 migration sampai `20270116000000`, sehingga 41 migration masih pending berdasarkan snapshot tersebut. Commit sesudahnya hanya memperbarui dokumentasi. Versi Production cocok persis dengan file source sampai versi terakhir yang tercatat. Gunakan angka ini sebagai baseline sementara; setiap rehearsal harus membaca ulang ledger dan tidak boleh menganggap angka lama masih aktual.
 
-Catatan di bawah mempertahankan snapshot lama (head 85/86 file) sebagai riwayat pemeriksaan. Angka tersebut telah digantikan oleh baseline 87 file dan 40 migration pending di atas.
+Catatan di bawah mempertahankan beberapa snapshot lama (85/86, lalu 87 file dan 40 migration pending) sebagai riwayat pemeriksaan. Angka tersebut telah digantikan oleh baseline 88 file dan 41 migration pending di atas.
 
 Dokumen ini adalah rencana pemeriksaan berbasis source. Query Production pada pembaruan terbaru hanya membaca metadata migration dan tabel, bukan isi data operasional. Tidak ada migration atau perubahan schema/data Production yang diterapkan. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
 
@@ -97,6 +97,15 @@ Migration memasukkan satu snapshot bagi setiap Santri yang kini mempunyai `room_
 - Uji batas halaman maksimum 250, cursor keyset `(created_at, id)`, pencarian minimum 3 dan maksimum 100 karakter, escape `%`, `_`, dan `\`, filter tahap yang valid, serta isolasi tenant.
 - RPC `list_admin_ppdb_candidates_page` berstatus `SECURITY INVOKER` dan hanya diberi grant ke `service_role`; pastikan endpoint server memverifikasi Admin aktif, tenant, serta izin PPDB sebelum memanggilnya.
 - Migration menambahkan indeks biasa, bukan `CONCURRENTLY`; jangan jalankan pada Production sebelum dampak lock terhadap pendaftaran aktif diperkirakan dari rehearsal.
+
+### Aset digital Perpustakaan privat — `20270116000000`
+
+- Pastikan bucket `erp4-private-library-assets` tetap privat, pembatasan ukuran/MIME cocok dengan kontrak migration, metadata dan reservasi upload memakai RLS `FORCE`, dan browser tidak mendapat grant langsung ke tabel atau RPC.
+- Sebelum mengaktifkan `SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED`, uji pada salinan non-produksi: unggah PDF/EPUB/MP3/M4A yang valid; tolak ekstensi, MIME, tanda tangan berkas, ukuran, dan SHA-256 yang tidak cocok; pastikan berkas invalid dibuang dari Storage dan tidak menghasilkan metadata.
+- Uji Admin/Ustadz yang memiliki izin, role tanpa izin, profil nonaktif, tenant berbeda, retry reservasi/finalisasi, serta konflik saat request ID yang sama dipakai untuk isi berkas berbeda. Pastikan API hanya mengeluarkan tautan unduh singkat dan tautan kedaluwarsa ditolak.
+- Dengan flag mati, katalog dan peminjaman tetap harus bekerja tanpa membaca tabel aset yang belum dipasang. Aktifkan flag hanya setelah migration, pgTAP, serta uji Storage bertanda tangan di non-produksi lulus.
+- CI run [40277948722](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40277948722) pada head kode `e13943ea77e79375e848d297150e95c9ce1ec8f5` lulus pada job frontend dan migrasi/pgTAP Supabase lokal. Check Supabase Preview dilewati; tidak ada bukti upgrade pada backup Production atau pengujian Storage lewat proyek pelanggan.
+- Audit sumber tidak menemukan byte berkas Perpustakaan lama yang dapat dipulihkan. Migration ini tidak mengimpor metadata lama atau mengarang isi berkas.
 
 ## Pemeriksaan setelah migration
 
