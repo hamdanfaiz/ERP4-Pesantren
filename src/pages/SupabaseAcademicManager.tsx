@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, BookOpen, CalendarDays, Check, ClipboardList, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { SupabaseAcademicPortal } from "./SupabaseAcademicPortal";
 
 type RecordRow = Record<string, any> & { id: string };
 type Student = { id: string; name: string; nis: string; className: string };
@@ -92,6 +93,8 @@ export function SupabaseAcademicManager() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  if (role === "Santri" || role === "Walisantri") return <SupabaseAcademicPortal />;
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
     try {
@@ -148,7 +151,7 @@ export function SupabaseAcademicManager() {
     finally { setMigrationLoading(false); }
   };
 
-  if (!canManage) return <section className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Runtime Akademik Supabase saat ini tersedia untuk Admin dan Ustadz. Portal Santri/Wali menunggu kebijakan akses dan kontrak rapor tersendiri.</section>;
+  if (!canManage) return <section className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Akses Akademik tidak tersedia untuk akun ini.</section>;
 
   return <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">

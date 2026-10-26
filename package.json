@@ -38,7 +38,8 @@
     "test:guardian-student-selection": "tsx scripts/test-guardian-student-selection.ts",
     "test:tahfidz-membership-date": "tsx scripts/test-tahfidz-membership-date.ts",
     "test:tahfidz-record-pagination": "tsx scripts/test-tahfidz-record-pagination.ts",
-    "test:tahfidz-session-pagination": "tsx scripts/test-tahfidz-session-pagination.ts"
+    "test:tahfidz-session-pagination": "tsx scripts/test-tahfidz-session-pagination.ts",
+    "test:academic-portal": "tsx scripts/test-academic-portal.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -549,3 +549,15 @@ Audit silang source dan inventaris menemukan beberapa ringkasan lama yang masih 
 - Jalur yang masih terbuka tetap mencakup pemetaan profil ke akun Supabase Auth, pemindahan byte aset digital, rekonsiliasi transaksi Koperasi, database sumber CBT yang memuat soal, serta rehearsal staging yang bisa dipulihkan.
 - Perubahan ini hanya dokumentasi. Tidak ada data Firebase yang diekspor, tidak ada data Supabase yang ditulis, dan feature flag produksi tidak diubah.
 - GitHub Actions run [40260536432](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40260536432) pada commit `9754b9cb2f4c4771ee126b7752fe07f9b8c4c808` selesai sukses pada dua job. Pemeriksaan mencakup build/typecheck, migrasi/pgTAP, API tenant/auth, Storage, backup/restore sintetis, dan Docker customer-managed.
+
+
+## Portal Akademik baca-saja untuk Santri dan Wali — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+- Runtime Akademik menyediakan endpoint terpisah bagi Santri dan Wali. Profil aktif, tenant, role, izin modul, tautan profil Santri, serta relasi guardian aktif diverifikasi oleh backend; Santri tidak dapat mengganti ID ke santri lain, dan Wali hanya dapat memilih santri yang masih tertaut.
+- Portal hanya membaca penilaian milik santri terpilih, memakai filter tenant/student di PostgREST dan keyset pagination 50 record. Respons memakai allowlist bidang dan tidak memuat jurnal, roster kelas, identitas pengajar, komentar, atau data record mentah.
+- Tampilan Indonesia memuat pemilih santri tertaut bagi Wali, loading/error/kosong, nilai per penilaian, dan muat-lanjutan. UI menyatakan bahwa daftar ini bukan rapor resmi atau nilai rata-rata.
+- Tes fokus tenant/role/ID relasi/kursor dan minimisasi bidang respons lulus. RBAC (11 kasus), pemilihan santri Wali (6 assertion), serta esbuild bundle server dan layar Akademik juga lulus secara lokal.
+- `npm run lint` belum dapat dibuktikan lokal: checkout bersih tidak memiliki `node_modules`, dan TypeScript dari cache worktree berbeda tidak menemukan beberapa paket/tipe. Build dan typecheck CI PR #13 menjadi verifikasi akhir kode ini. `git diff --check` bersih.
+- Perubahan hanya pada source dan tes lokal; tidak ada database, data, Storage, feature flag, atau kredensial Supabase yang disentuh. Progress tetap 78/100 karena rehearsal migration pada staging yang dapat dipulihkan, migrasi/rekonsiliasi operasional, login/UAT, rotasi secret, dan simulasi environment pelanggan masih menjadi gerbang release.

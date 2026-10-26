@@ -14,6 +14,7 @@ import {
   clearPasswordChangeRequired,
   createAuthUserWithProfile,
   guardianCanAccessStudent,
+  listGuardianStudents,
   createGuardianAccountInvitation,
   listGuardianAccountCandidates,
   verifyGuardianAccountInvitation,
@@ -126,7 +127,8 @@ import {
   SupabaseFinanceError,
 } from "./src/server/supabaseFinance";
 import { getSupabaseDashboardSnapshot, SupabaseDashboardError } from "./src/server/supabaseDashboard";
-import { getSupabaseAcademicSnapshot, saveSupabaseAcademicRecord, SupabaseAcademicError } from "./src/server/supabaseAcademic";
+import { getSupabaseAcademicPortalPage, getSupabaseAcademicPortalStudent, getSupabaseAcademicSnapshot, saveSupabaseAcademicRecord, SupabaseAcademicError } from "./src/server/supabaseAcademic";
+import { resolveAcademicPortalStudentId } from "./src/lib/academicPortalPagination";
 import {
   adjustSupabaseCooperativeStock,
   checkoutSupabaseCooperativeSale,
@@ -791,9 +793,24 @@ async function startServer() {
     }
     return { ...profile, uid, tenantId };
   };
+  const loadAcademicPortalActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseAcademicError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).academic) {
+      throw new SupabaseAcademicError(403, "Akses modul Akademik tidak diberikan kepada akun ini.");
+    }
+    if (!["Santri", "Walisantri"].includes(profile.role)) {
+      throw new SupabaseAcademicError(403, "Portal ini hanya tersedia untuk akun Santri dan Wali.");
+    }
+    return { ...profile, uid, tenantId };
+  };
   const academicRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityConflictError) return res.status(403).json({ error: error.message });
     if (error instanceof SupabaseAcademicError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase academic endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan Akademik Supabase belum dapat diproses." });
@@ -1181,6 +1198,40 @@ async function startServer() {
       );
       return res.status(result.alreadyOnboarded ? 200 : 201).json(result);
     } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  app.get("/api/academic/portal", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicPortalActor(uid);
+      if (req.query.studentId !== undefined && typeof req.query.studentId !== "string") {
+        throw new SupabaseAcademicError(400, "Pilihan santri tidak valid.");
+      }
+      const requestedStudentId = typeof req.query.studentId === "string" ? req.query.studentId : "";
+      let students: Array<{ id: string; name: string; nis: string; className: string }>;
+      let studentId: string;
+      if (actor.role === "Walisantri") {
+        students = await listGuardianStudents(actor.tenantId, actor.uid);
+        if (!students.length) return res.json({ students: [], selectedStudentId: null, assessments: [], hasMore: false, nextCursor: null });
+        try {
+          studentId = resolveAcademicPortalStudentId({ role: "Walisantri", guardianStudentIds: students.map((student) => student.id), requestedStudentId });
+        } catch (error) {
+          throw new SupabaseAcademicError(403, error instanceof Error ? error.message : "Akses santri tidak diizinkan.");
+        }
+      } else {
+        try {
+          studentId = resolveAcademicPortalStudentId({ role: "Santri", linkedSantriId: actor.linkedSantriId, requestedStudentId });
+        } catch (error) {
+          throw new SupabaseAcademicError(403, error instanceof Error ? error.message : "Akses santri tidak diizinkan.");
+        }
+        students = [await getSupabaseAcademicPortalStudent(actor.tenantId, studentId)];
+      }
+      const page = await getSupabaseAcademicPortalPage(actor.tenantId, studentId, req.query.cursor);
+      return res.json({ ...page, students, selectedStudentId: studentId });
+    } catch (error) { return academicRouteError(res, error); }
   });
 
   app.get("/api/academic/snapshot", requireAuth, async (req, res) => {

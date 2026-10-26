@@ -1,4 +1,10 @@
 import { readPostgrestRowsInPages } from "./postgrestPagination";
+import {
+  ACADEMIC_PORTAL_PAGE_SIZE,
+  buildAcademicPortalAssessmentParams,
+  decodeAcademicPortalCursor,
+  encodeAcademicPortalCursor,
+} from "../lib/academicPortalPagination";
 
 type Row = Record<string, any>;
 
@@ -132,6 +138,72 @@ export async function getSupabaseAcademicSnapshot(tenantIdentifier: string, acto
     .map((row) => String(row.name || "").trim()).filter(Boolean))]
     .filter((className) => !visibleClassNames || visibleClassNames.has(className));
   return { schedules, journals, assessments, students, teachers, classes };
+}
+
+export async function getSupabaseAcademicPortalStudent(tenantIdentifier: string, studentId: string) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  if (!isUuid(studentId)) throw new SupabaseAcademicError(400, "Tautan data santri tidak valid.");
+  const params = new URLSearchParams({
+    select: "id,name,nis,grade,status",
+    tenant_id: "eq." + tenantId,
+    id: "eq." + studentId,
+    limit: "2",
+  });
+  const rows = await request("/rest/v1/students?" + params.toString());
+  const student = Array.isArray(rows) && rows.length === 1 ? rows[0] as Row : null;
+  if (!student || !["active", "aktif"].includes(String(student.status || "").trim().toLowerCase())) {
+    throw new SupabaseAcademicError(403, "Data santri aktif tidak ditemukan pada tenant ini.");
+  }
+  return {
+    id: String(student.id),
+    name: String(student.name || "Santri"),
+    nis: String(student.nis || ""),
+    className: String(student.grade || ""),
+  };
+}
+
+export function mapSupabaseAcademicPortalAssessment(row: Row) {
+  const record = row.record_data && typeof row.record_data === "object" && !Array.isArray(row.record_data) ? row.record_data : {};
+  const score = Number(record.score);
+  if (!isUuid(String(row.id || "")) || !Number.isFinite(score) || score < 0 || score > 100 || !Number.isFinite(Date.parse(String(row.updated_at || "")))) {
+    throw new SupabaseAcademicError(503, "Ada nilai dengan format tidak valid; minta Admin memeriksa data akademik.");
+  }
+  const text = (value: unknown, fallback: string, max: number) => typeof value === "string" && value.trim()
+    ? value.trim().slice(0, max)
+    : fallback;
+  return {
+    id: String(row.id),
+    subject: text(record.subject, "Mata pelajaran", 150),
+    assessmentType: text(record.assessmentType, "Penilaian", 100),
+    category: record.category === "Summative" ? "Sumatif" : record.category === "Formative" ? "Formatif" : "Kategori belum ditetapkan",
+    score,
+    remedialStatus: record.remedialStatus === "Needed" ? "Perlu tindak lanjut" : record.remedialStatus === "None" ? "Tuntas" : "Status tindak lanjut belum tersedia",
+    className: text(record.className, "", 100),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+export async function getSupabaseAcademicPortalPage(
+  tenantIdentifier: string,
+  studentId: string,
+  cursorValue?: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const cursor = decodeAcademicPortalCursor(cursorValue);
+  const params = buildAcademicPortalAssessmentParams({ tenantId, studentId, cursor });
+  const response = await request("/rest/v1/academic_records?" + params.toString());
+  if (!Array.isArray(response)) throw new SupabaseAcademicError(503, "Riwayat nilai belum dapat dibaca.");
+  if (response.length > ACADEMIC_PORTAL_PAGE_SIZE + 1) throw new SupabaseAcademicError(503, "Riwayat nilai melebihi batas halaman yang aman.");
+
+  const hasMore = response.length > ACADEMIC_PORTAL_PAGE_SIZE;
+  const page = (response as Row[]).slice(0, ACADEMIC_PORTAL_PAGE_SIZE);
+  const assessments = page.map(mapSupabaseAcademicPortalAssessment);
+  const last = page[page.length - 1];
+  return {
+    assessments,
+    hasMore,
+    nextCursor: hasMore && last ? encodeAcademicPortalCursor({ updatedAt: String(last.updated_at), id: String(last.id) }) : null,
+  };
 }
 
 function text(value: unknown, label: string, max: number, required = false) {

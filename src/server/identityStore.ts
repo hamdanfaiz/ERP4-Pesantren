@@ -770,6 +770,8 @@ export async function claimGuardianAccountInvitation(token: string, userId: stri
   return Number(result.data.linkedStudentCount || 0);
 }
 
+export type GuardianStudentOption = { id: string; name: string; nis: string; className: string };
+
 export async function listGuardianStudentIds(tenantId: string, userId: string): Promise<string[]> {
   const supabase = supabaseAdmin();
   const profile = await supabase.from("profiles")
@@ -806,15 +808,40 @@ export async function listGuardianStudentIds(tenantId: string, userId: string): 
     .range(from, to), "Relasi Wali dan santri tidak dapat dibaca.");
   const studentIds = [...new Set(relation.map((row: any) => String(row.student_id || "")).filter(Boolean))];
   if (!studentIds.length) return [];
-  const students = await readIdentityPages((from, to) => supabase.from("students")
-    .select("id,status")
-    .eq("tenant_id", tenantId)
-    .in("id", studentIds)
-    .order("id", { ascending: true })
-    .range(from, to), "Status santri Wali tidak dapat diverifikasi.");
-  return students
-    .filter((row: any) => ["active", "aktif"].includes(String(row.status || "").trim().toLowerCase()))
-    .map((row: any) => String(row.id));
+  const activeIds: string[] = [];
+  for (let index = 0; index < studentIds.length; index += 100) {
+    const batch = studentIds.slice(index, index + 100);
+    const students = await readIdentityPages((from, to) => supabase.from("students")
+      .select("id,status")
+      .eq("tenant_id", tenantId)
+      .in("id", batch)
+      .order("id", { ascending: true })
+      .range(from, to), "Status santri Wali tidak dapat diverifikasi.");
+    activeIds.push(...students
+      .filter((row: any) => ["active", "aktif"].includes(String(row.status || "").trim().toLowerCase()))
+      .map((row: any) => String(row.id)));
+  }
+  return activeIds;
+}
+
+export async function listGuardianStudents(tenantId: string, userId: string): Promise<GuardianStudentOption[]> {
+  const supabase = supabaseAdmin();
+  const studentIds = await listGuardianStudentIds(tenantId, userId);
+  if (!studentIds.length) return [];
+  const result: GuardianStudentOption[] = [];
+  for (let index = 0; index < studentIds.length; index += 100) {
+    const batch = studentIds.slice(index, index + 100);
+    const students = await readIdentityPages((from, to) => supabase.from("students")
+      .select("id,name,nis,grade,status")
+      .eq("tenant_id", tenantId)
+      .in("id", batch)
+      .order("id", { ascending: true })
+      .range(from, to), "Data santri Wali tidak dapat dibaca.");
+    result.push(...students
+      .filter((row: any) => ["active", "aktif"].includes(String(row.status || "").trim().toLowerCase()))
+      .map((row: any) => ({ id: String(row.id), name: String(row.name || "Santri"), nis: String(row.nis || ""), className: String(row.grade || "") })));
+  }
+  return result.sort((a, b) => a.name.localeCompare(b.name, "id") || a.id.localeCompare(b.id));
 }
 
 export async function guardianCanAccessStudent(tenantId: string, userId: string, studentId: string): Promise<boolean> {
