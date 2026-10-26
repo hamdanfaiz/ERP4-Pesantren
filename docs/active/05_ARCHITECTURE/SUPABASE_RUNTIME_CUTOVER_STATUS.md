@@ -423,3 +423,13 @@ Commit `7f5e4fb0c41e2cea909156a1c8b37172f4f0a492` (tree `5c524fd1aac7fef69621895
 Route ke halaman Supabase **tidak berarti semua fitur aktif atau siap dipakai**. Feature flag runtime/import tetap mati secara default; migrasi belum diterapkan ke staging atau production, dan Supabase Preview tidak berjalan karena PR belum terhubung ke Supabase Branch. Tidak ada perubahan pada database live, merge, atau deployment. Pengujian login dan verifikasi konfigurasi deployment customer-managed masih menjadi release gate.
 
 Setelah pengalihan route dan CI ini, estimasi kematangan fitur keseluruhan sekitar **73%** dan kesiapan go-live sekitar **48%**. Angka ini merupakan estimasi proyek, bukan ukuran otomatis; kenaikannya terbatas karena migrasi operasional, pemeriksaan login, validasi staging, dan konfigurasi environment pelanggan belum selesai. PR #13 tetap Draft.
+
+## Pemeriksaan project Supabase target — 26 Oktober 2026
+
+Pemeriksaan baca-saja pada dashboard ref ptsasgdvgrbdtgyqieie menunjukkan project berstatus Healthy pada tier Free, region ap-southeast-2, compute t4g.nano, dan branch main berlabel PRODUCTION. Overview menyatakan repo GitHub belum terhubung, belum ada branch pengembangan, status migrasi terakhir Unknown, dan belum ada backup terjadwal. Halaman migrasi tidak memberikan bukti yang cukup untuk menyatakan schema aplikasi sudah cocok dengan repository; status migrasi live karena itu tetap belum terverifikasi.
+
+Tidak ada migration, query tulis, feature flag, backup, atau perubahan project yang dijalankan. Sebelum staging atau go-live, tim harus memverifikasi migration ledger/schema target secara baca-saja, menyambungkan integrasi repository yang tepat bila dibutuhkan, serta menyiapkan dan menguji backup/restore untuk environment penerapan. CI run #40290807466 tetap lulus pada kedua job menggunakan Supabase lokal terisolasi; hasil CI tidak menggantikan verifikasi project live.
+
+Koneksi Supabase yang tersedia melalui plugin tidak mencantumkan ref target ini (hanya project lama vqemuyzveuirlkvdggjd), sehingga query langsung terprogram ke target belum tersedia. Status ini diperlakukan sebagai bukti akses terbatas, bukan alasan untuk menebak atau menerapkan migration.
+
+Dengan gap deployment tersebut terverifikasi, estimasi fitur tetap sekitar **73%** dan estimasi kesiapan go-live direvisi menjadi **46%**. Persentase adalah perkiraan release gate, bukan metrik otomatis. PR #13 tetap Draft; database live dan konfigurasi deployment tidak berubah.
