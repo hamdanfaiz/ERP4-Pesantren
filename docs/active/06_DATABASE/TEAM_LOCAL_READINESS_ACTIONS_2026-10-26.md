@@ -111,6 +111,90 @@ Untuk tiap file tertunda catat:
 
 Kalau migration bergantung pada bentuk schema/data yang berbeda dari target, hentikan rehearsal dan kirimkan diff yang disanitasi. Jangan “memperbaiki” ledger menggunakan repair agar daftar terlihat cocok.
 
+## Hasil pemeriksaan statis 44 migration yang tertunda
+
+**Source diperiksa:** head PR #13 `59578f7fd2a7f95cd39335b74bbc4b1695e233fc`, 44 file dengan versi setelah `20261206000000`. Pemeriksaan ini membaca SQL source saja; tidak terkoneksi ke database target dan tidak mengubah data.
+
+- Pencarian statis tidak menemukan `DROP TABLE`, `DROP COLUMN`, `DROP SCHEMA`, atau `TRUNCATE` pada 44 file. Ada perubahan `DROP INDEX`, `DROP CONSTRAINT`, dan pergantian fungsi; perubahan itu tetap harus ditinjau.
+- Ditemukan **40 pernyataan `CREATE INDEX` biasa** (bukan `CONCURRENTLY`). Ukuran tabel, durasi, lock, ruang disk, dan dampaknya terhadap penulisan aplikasi belum diketahui. Ukur melalui rehearsal dari backup; jadwalkan maintenance window bila perlu.
+- Sebagian migration mengisi tabel baru saat migration berjalan. `ON CONFLICT DO NOTHING` mempertahankan idempotensi, tetapi dapat menyembunyikan konflik sumber. Hitung konflik sebelum rehearsal dan cocokkan jumlah baris yang diharapkan dengan yang benar-benar dibuat.
+
+| Migration | Efek yang terjadi saat migration | Pemeriksaan wajib sebelum rehearsal |
+|---|---|---|
+| `20261207000000_library_legacy_catalog_import.sql` | Mengganti indeks ISBN dengan indeks unik berdasarkan ISBN aktif yang dinormalisasi; menambahkan RPC import katalog yang hanya dapat dijalankan `service_role`. | Cari ISBN canonical duplikat per tenant; jangan menghapus atau menggabungkan katalog otomatis. |
+| `20261213000000_marketplace_mutation_payload_guard.sql` | Menyalin kunci permintaan lama dari produk, pergerakan stok, pesanan, dan event status ke ledger idempotensi. | Pastikan satu pasangan tenant/kunci permintaan tidak muncul di lebih dari satu operasi sumber. `ON CONFLICT DO NOTHING` bisa menyisakan satu replay saja. |
+| `20261214000000_donation_mutation_payload_guard.sql`, `20261215000000_laundry_mutation_payload_guard.sql`, `20261231000000_cooperative_supplier_payload_idempotency.sql` | Menyalin kunci idempotensi historis ke ledger baru; payload lama yang tidak tersedia disimpan sebagai `NULL`, bukan direkonstruksi. | Hitung kunci tenant/request yang berulang dan konflik aktor/operasi; bandingkan jumlah event eligible dengan baris ledger hasil seed. |
+| `20261216000000_tahfidz_session_result_integrity.sql` | Memvalidasi constraint bahwa ujian Tahfidz berstatus selesai memiliki nilai dan hasil lulus/ulang. | Hitung ujian selesai dengan nilai/hasil kosong atau di luar rentang; bereskan data secara terverifikasi sebelum validasi. |
+| `20261230000000_cooperative_financial_legacy_import.sql` | Mengubah constraint ledger koperasi dan menambah RPC impor saldo/transaksi historis. Fungsi impor tidak menjalankan impor arsip sendiri; pemanggilan apply tetap tindakan terpisah. | Periksa tipe transaksi dan tanda nominal terhadap constraint baru. Cocokkan saldo awal, transaksi, penjualan, saldo akhir, urutan ledger, serta batas kunci idempotensi. Uji hanya dengan snapshot finance yang direkonsiliasi di staging. |
+| `20270102000000_guardian_accounts_and_invitations.sql` | Membuat relasi akun Wali untuk profil aktif yang dapat ditautkan ke tepat satu Wali aktif; profil ambigu dibiarkan tanpa akses. Konflik unique diabaikan oleh `ON CONFLICT DO NOTHING`. | Hitung profil yang tidak tertaut/ambigu dan Wali yang memiliki lebih dari satu profil calon. Tinjau konflik manual; jangan menganggap setiap profil Wali berhasil terhubung. |
+| `20270109000000_boarding_room_history_baseline.sql` | Menambahkan satu `baseline_snapshot` untuk penempatan kamar/gedung saat cutover. Ini bukan rekonstruksi histori sebelum cutover. | Hitung siswa dengan penempatan sekarang, pastikan referensi kamar/gedung cocok dalam tenant, dan pastikan tidak ada baseline ganda sebelum indeks unik. |
+| `20270110000000_ppdb_candidate_finance_bills.sql` | Menambahkan hubungan tagihan calon santri, indeks unik jenis tagihan per calon, serta memperluas daftar aksi permintaan keuangan. | Cari tagihan duplikat kandidat/jenis dan aksi lama yang tidak termasuk daftar constraint baru. Uji linkage calon→santri dan laporan keuangan setelah onboarding. |
+| `20270116000000_private_library_digital_assets.sql`, `20270117000000_document_center_core.sql` | Membuat bucket Storage dengan `public=false`; saat bucket sudah ada, konfigurasi bucket diubah menjadi private dan batas/MIME diperbarui. | Cocokkan bucket lama, metadata objek, jalur signed upload/download, ukuran dan MIME. Pastikan tidak ada modul lama yang mengandalkan bucket yang sama sebagai publik. Jangan membuka isi file. |
+| `20270119000000_master_data_student_search_indexes.sql` | Menambah indeks pencarian/keyset dan menghapus indeks pencarian lama. | Periksa ukuran tabel, rencana query dan lock; pastikan jalur pencarian baru tetap memenuhi kontrak tenant/paginasi sebelum flag runtime diaktifkan. |
+
+### Query preflight agregat
+
+Jalankan pada **salinan staging/hasil restore** setelah migration pendahulu tersedia, atau pada target dengan izin baca-saja jika tabelnya sudah ada. Bila nama tabel/kolom berbeda dari source, hentikan dan rekonsiliasi drift; jangan mengubah query lama yang belum tersimpan. Hasil yang dibagikan cukup hitungan agregat.
+
+ISBN aktif yang akan bentrok setelah normalisasi:
+
+```sql
+SELECT tenant_id,
+       regexp_replace(upper(btrim(isbn)), '[[:space:]-]+', '', 'g') AS isbn_canonical,
+       count(*) AS row_count
+FROM public.library_books
+WHERE isbn IS NOT NULL AND btrim(isbn) <> '' AND status = 'active'
+GROUP BY tenant_id, regexp_replace(upper(btrim(isbn)), '[[:space:]-]+', '', 'g')
+HAVING count(*) > 1;
+```
+
+Ujian Tahfidz selesai yang tidak memenuhi hasil wajib:
+
+```sql
+SELECT tenant_id, count(*) AS invalid_completed_exams
+FROM public.tahfidz_sessions
+WHERE kind = 'exam' AND status = 'completed'
+  AND (score IS NULL OR score NOT BETWEEN 0 AND 100
+       OR outcome IS NULL OR outcome NOT IN ('pass', 'retest'))
+GROUP BY tenant_id;
+```
+
+Nilai/jenis ledger koperasi yang tidak sesuai constraint baru:
+
+```sql
+SELECT entry_type, count(*) AS invalid_rows
+FROM public.cooperative_wallet_ledger
+WHERE entry_type NOT IN ('top_up', 'purchase', 'adjustment', 'opening_balance')
+   OR NOT (
+     (entry_type IN ('top_up', 'opening_balance') AND amount_delta > 0 AND sale_id IS NULL)
+     OR (entry_type = 'purchase' AND amount_delta < 0 AND sale_id IS NOT NULL)
+     OR (entry_type = 'adjustment' AND sale_id IS NULL)
+   )
+GROUP BY entry_type;
+```
+
+Tagihan kandidat duplikat dan aksi finance yang akan ditolak constraint:
+
+```sql
+SELECT tenant_id, candidate_id, payment_type, count(*) AS row_count
+FROM public.finance_bills
+WHERE candidate_id IS NOT NULL
+GROUP BY tenant_id, candidate_id, payment_type
+HAVING count(*) > 1;
+
+SELECT action, count(*) AS row_count
+FROM public.finance_write_requests
+WHERE action NOT IN (
+  'create_bills', 'create_ppdb_bill', 'create_expense', 'approve_expense',
+  'reject_expense', 'settle_bill', 'reject_bill', 'set_lock', 'payment_proof'
+)
+GROUP BY action;
+```
+
+Kunci request historis harus dihitung dengan query yang sama persis dengan `INSERT … SELECT` tiap migration. Untuk marketplace, gabungkan pasangan `tenant_id/client_request_id` eligible dari empat sumber yang disebut di tabel; untuk Donation, Laundry, dan pemasok koperasi gunakan sumber masing-masing. Laporkan hanya total pasangan unik, kunci berulang lintas operasi, konflik aktor, dan selisih jumlah seed—tanpa payload atau identitas. Untuk Wali, gunakan CTE sumber `unique_legacy_guardian` dalam migration, kemudian hitung profil ambigu dan beberapa profil calon per Wali. Untuk baseline asrama, hitung `students` yang memiliki `room_id` atau `building_id` per tenant dan cocokkan dengan jumlah baseline yang akan ditambahkan.
+
+Hasil source review ini memperjelas prasyarat rehearsal; ia **belum** membuktikan migration berhasil pada schema target. Tetap jalankan seluruh urutan pada staging yang dapat dipulihkan dan periksa log sebelum keputusan Production.
+
 ## Migrasi data Firestore dan tenant
 
 Data yang sebelumnya terlihat mengandung record tanpa tenant. Tim data harus membuat pemetaan eksplisit dari tenant sumber ke UUID tenant Supabase, lalu meninjau record yang tidak dapat dipastikan pemiliknya. Jangan menggunakan satu-satunya tenant yang terlihat sebagai alasan otomatis untuk mengklaim semua record.
