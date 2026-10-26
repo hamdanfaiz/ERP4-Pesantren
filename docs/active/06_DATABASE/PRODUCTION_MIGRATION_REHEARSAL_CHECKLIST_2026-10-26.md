@@ -2,9 +2,9 @@
 
 ## Tujuan dan batas
 
-Snapshot ledger baca-saja yang tercatat pada 26 Oktober 2026 pukul 04:04 UTC untuk project `ptsasgdvgrbdtgyqieie` memuat 47 migration sampai `20261206000000`. Head PR #13 saat ini (`a0607e30a7b0eb2f81d743cfc6b161fa7af083d6`) berisi 90 file migration sampai `20270118000000`. Jika ledger lama itu belum berubah, selisih aritmetisnya 43 migration; angka tersebut **bukan hitungan pending terkini**. Dashboard project sekarang menampilkan “Last Migration: Unknown”, dan akses baca-terprogram ke ref target belum tersedia, sehingga ledger serta kecocokan schema Production belum terverifikasi. Baca ulang ledger target sebelum rehearsal; jangan menerapkan migration berdasarkan snapshot lama.
+Snapshot ledger baca-saja yang tercatat pada 26 Oktober 2026 pukul 04:04 UTC untuk project `ptsasgdvgrbdtgyqieie` memuat 47 migration sampai `20261206000000`. Source kerja sekarang berisi 91 file migration sampai `20270119000000`. Jika ledger lama itu belum berubah, selisih aritmetisnya 44 migration; angka tersebut **bukan hitungan pending terkini**. Dashboard project sekarang menampilkan “Last Migration: Unknown”, dan akses baca-terprogram ke ref target belum tersedia, sehingga ledger serta kecocokan schema Production belum terverifikasi. Baca ulang ledger target sebelum rehearsal; jangan menerapkan migration berdasarkan snapshot lama.
 
-Catatan di bawah mempertahankan beberapa snapshot lama (85/86, lalu 87/88 file dan 40/41 migration pending) sebagai riwayat pemeriksaan. Source sekarang berisi 90 file migration; jumlah pending live belum diketahui sampai ledger target dibaca ulang.
+Catatan di bawah mempertahankan beberapa snapshot lama (85/86, lalu 87/88/90 file dan 40/41/43 migration pending) sebagai riwayat pemeriksaan. Source sekarang berisi 91 file migration; jumlah pending live belum diketahui sampai ledger target dibaca ulang.
 
 Dokumen ini adalah rencana pemeriksaan berbasis source. Query Production pada pembaruan terbaru hanya membaca metadata migration dan tabel, bukan isi data operasional. Tidak ada migration atau perubahan schema/data Production yang diterapkan. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
 
@@ -19,6 +19,13 @@ Dokumen ini adalah rencana pemeriksaan berbasis source. Query Production pada pe
 ## Pemeriksaan data khusus
 
 Pemeriksaan di bawah harus dijalankan pada salinan staging sebelum migration terkait. Hasil yang tidak kosong perlu ditinjau dan direkonsiliasi; jangan menghapus atau mengubah data otomatis untuk membuat migration lolos.
+
+### Indeks pencarian roster Master Data — `20270119000000`
+
+- Migration membangun B-tree `(tenant_id, name, id)` untuk urutan halaman roster dan tiga indeks GIN trigram untuk pencarian substring nama, NIS, dan ID sumber. Indeks `(tenant_id, name)` lama dihapus karena tercakup oleh indeks komposit baru.
+- Cari roster dengan minimal 3 karakter agar setiap pencarian substring memiliki trigram yang bisa dipakai. Endpoint menolak input lebih pendek; antarmuka menampilkan petunjuk tanpa menjalankan query.
+- `CREATE INDEX` biasa memblokir penulisan saat indeks dibangun. Pada salinan staging berukuran representatif, ukur durasi, disk, lock, dan query p95 untuk daftar tenant, pencarian substring 3+ karakter, serta filter status/jenis kelamin/kelas/asrama. Periksa `EXPLAIN (ANALYZE, BUFFERS)`; jangan menganggap indeks dipakai hanya karena sudah dibuat.
+- Jalankan pgTAP `master_data_student_search_indexes.test.sql` dan tes API `test:master-data-pagination`. Rehearsal Production tetap wajib menilai maintenance window dan rollback sebelum menerapkan migration.
 
 ### ISBN katalog Perpustakaan — `20261207000000`
 

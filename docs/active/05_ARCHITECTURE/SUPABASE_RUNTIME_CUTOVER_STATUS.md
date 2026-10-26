@@ -433,3 +433,11 @@ Tidak ada migration, query tulis, feature flag, backup, atau perubahan project y
 Koneksi Supabase yang tersedia melalui plugin tidak mencantumkan ref target ini (hanya project lama vqemuyzveuirlkvdggjd), sehingga query langsung terprogram ke target belum tersedia. Status ini diperlakukan sebagai bukti akses terbatas, bukan alasan untuk menebak atau menerapkan migration.
 
 Dengan gap deployment tersebut terverifikasi, estimasi fitur tetap sekitar **73%** dan estimasi kesiapan go-live direvisi menjadi **46%**. Persentase adalah perkiraan release gate, bukan metrik otomatis. PR #13 tetap Draft; database live dan konfigurasi deployment tidak berubah.
+
+## Pencarian roster Master Data — 26 Oktober 2026
+
+Daftar Santri kini menolak pencarian substring di bawah tiga karakter sebelum mengirim query, memberi petunjuk Bahasa Indonesia, memakai indeks komposit tenant/nama/ID untuk urutan halaman, serta indeks trigram untuk nama, NIS, dan ID sumber. Indeks nama tenant dua kolom yang tercakup indeks komposit dihapus. Migration `20270119000000_master_data_student_search_indexes.sql` dan pgTAP memeriksa kontrak indeks.
+
+Verifikasi lokal `npm run lint`, `npm run build`, `npm run test:master-data-pagination`, `npm run test:migration-preflight`, dan `git diff --check` lulus. Build masih memberi peringatan chunk JavaScript besar; Docker tidak tersedia di workstation, jadi pgTAP belum dijalankan lokal. Perubahan belum masuk CI PR dan belum diterapkan ke database mana pun.
+
+Indeks `CREATE INDEX` biasa dapat memblokir tulis saat dibangun. Tim harus mengukur durasi, disk, lock, dan `EXPLAIN (ANALYZE, BUFFERS)` pada salinan staging berukuran representatif. Pagination server masih memakai offset; indeks mengurangi kerja pengurutan/pencarian, tetapi benchmark halaman dalam dan keputusan keyset pagination tetap terbuka. Progress fitur dan kesiapan go-live tidak berubah sampai verifikasi staging: sekitar **73%** dan **46%**.

@@ -969,6 +969,12 @@ export async function listSupabaseMasterDataStudentsPage(
   tenantIdentifier: string,
   options: MasterDataStudentPageOptions = {},
 ): Promise<{ records: JsonObject[]; page: number; pageSize: number; hasMore: boolean }> {
+  const search = String(options.search || "").normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s._-]/gu, " ").trim().replace(/\s+/g, " ").slice(0, 80);
+  if (search && Array.from(search).length < 3) {
+    throw new SupabaseOnboardingError(400, "Pencarian santri harus berisi minimal 3 karakter.");
+  }
+
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
   const page = Number(options.page ?? 1);
   const pageSize = Number(options.pageSize ?? 10);
@@ -990,8 +996,6 @@ export async function listSupabaseMasterDataStudentsPage(
     offset: String(offset),
   });
   const logic: string[] = [];
-  const search = String(options.search || "").normalize("NFKC")
-    .replace(/[^\p{L}\p{N}\s._-]/gu, " ").trim().replace(/\s+/g, " ").slice(0, 80);
   if (search) {
     const pattern = `*${search.replace(/\s/g, "*")}*`;
     logic.push(`or(name.ilike.${pattern},nis.ilike.${pattern},source_record_id.ilike.${pattern})`);

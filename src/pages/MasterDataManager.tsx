@@ -397,6 +397,11 @@ export function MasterDataManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<string[] | null>(null);
   const [isHierarchyView, setIsHierarchyView] = useState(true);
+  const normalizedStudentSearch = searchQuery.normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s._-]/gu, " ").trim().replace(/\s+/g, " ").slice(0, 80);
+  const studentSearchTooShort = SUPABASE_MASTER_DATA_RUNTIME
+    && activeTab === "entities" && activeSubTab === "Santri"
+    && normalizedStudentSearch.length > 0 && Array.from(normalizedStudentSearch).length < 3;
 
   const [currentPage, setCurrentPage] = useState(1);
   const [serverStudentHasMore, setServerStudentHasMore] = useState(false);
@@ -459,6 +464,13 @@ export function MasterDataManager() {
     const loadSupabase = async () => {
       try {
         if (activeTab === "entities" && activeSubTab === "Santri") {
+          if (studentSearchTooShort) {
+            if (!cancelled) {
+              setDataSources((prev) => ({ ...prev, Santri: [] }));
+              setServerStudentHasMore(false);
+            }
+            return;
+          }
           const page = await listSupabaseMasterDataStudentsPage({
             page: currentPage,
             pageSize: recordsPerPage,
@@ -1980,6 +1992,11 @@ export function MasterDataManager() {
                     >
                       <Search className="w-4 h-4" />
                     </button>
+                    {studentSearchTooShort && (
+                      <span role="status" className="absolute left-0 top-full z-10 mt-1 rounded bg-slate-950 px-2 py-1 text-[11px] text-slate-300 shadow-lg">
+                        Masukkan minimal 3 karakter untuk mencari santri.
+                      </span>
+                    )}
                   </form>
                   <div className="relative">
                     <button
@@ -2204,7 +2221,9 @@ export function MasterDataManager() {
                           colSpan={7}
                           className="px-6 py-12 text-center text-slate-500"
                         >
-                          No records found for {activeSubTab}.
+                          {studentSearchTooShort
+                            ? "Masukkan minimal 3 karakter untuk mencari santri."
+                            : `Tidak ada data ${activeSubTab} yang sesuai.`}
                         </td>
                       </tr>
                     )}

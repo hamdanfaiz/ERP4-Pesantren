@@ -118,6 +118,12 @@ try {
 
   const studentQueryCount = studentQueries.length;
   await assert.rejects(
+    () => listSupabaseMasterDataStudentsPage(tenantId, { search: "ab" }),
+    (error: unknown) => error instanceof SupabaseOnboardingError && error.status === 400,
+  );
+  assert.equal(studentQueries.length, studentQueryCount, "short substring searches must fail before scanning the roster");
+
+  await assert.rejects(
     () => listSupabaseMasterDataStudentsPage(tenantId, { page: 100002, pageSize: 10 }),
     (error: unknown) => error instanceof SupabaseOnboardingError && error.status === 400,
   );
