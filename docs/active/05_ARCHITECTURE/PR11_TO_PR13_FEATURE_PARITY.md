@@ -2,9 +2,9 @@
 
 ## Status branch
 
-Pemeriksaan GitHub pada 26 Oktober 2026 menunjukkan PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, dengan base branch `backend/supabase-finance-ui` pada `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`. PR #13 masih Open/Draft pada head `4a66a402bb62af556e00ff7df9b9e0494b0470c6`, berbasis pada `main` di commit tersebut.
+Pemeriksaan GitHub pada 26 Oktober 2026 menunjukkan PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, dengan base branch `backend/supabase-finance-ui` pada `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`. PR #13 masih Open/Draft pada head `6cccac6813acdd74bd1feb04fab117ac282a8f09`, dengan base `main` pada commit hasil merge PR #12 tersebut.
 
-GitHub membandingkan kedua head sebagai `diverged`: PR #13 424 commit di depan dan 235 commit di belakang, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Jangan menggabungkan seluruh PR #11 ke PR #13. Migrasi PR #11 bertanggal `20260606000000`–`20260618000000` adalah bagian dari lineage lamanya dan tidak boleh ditambahkan ke lineage PR #13 secara mekanis.
+GitHub membandingkan kedua head sebagai `diverged`: PR #13 425 commit di depan dan 235 commit di belakang, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Jangan menggabungkan seluruh PR #11 ke PR #13. Migrasi PR #11 bertanggal `20260606000000`–`20260618000000` adalah bagian dari lineage lamanya dan tidak boleh ditambahkan ke lineage PR #13 secara mekanis.
 
 ## Matriks fitur
 
@@ -25,9 +25,10 @@ GitHub membandingkan kedua head sebagai `diverged`: PR #13 424 commit di depan d
 
 - CI PR #13 pada head checkpoint `b17517d834e6f01eddb0f2df16b3f1378a24edae` sukses pada kedua job di run [`40245870815`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40245870815). CI menguji database lokal terisolasi dengan data sintetis, bukan target Supabase Production.
 - Head PR #13 berikutnya `ed7a5600d71308206003e6d23cbba525d2d4252b` juga sukses pada kedua job di run [`40246580443`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40246580443); run tersebut mencakup uji regresi preflight ledger.
-- Target Supabase Production memiliki 47 migration tercatat sampai `20261206000000`; source PR #13 memiliki 81 file migration dan 34 pending. Paket Free tidak menyediakan backup project terjadwal. Karena itu migration maupun gap fitur yang memerlukan perubahan schema belum boleh diuji dengan menulis ke Production.
+- Pembacaan ledger Production terakhir yang terdokumentasi pada 26 Oktober menunjukkan 47 migration sampai `20261206000000`. Source PR #13 pada head checkpoint ini berisi 85 migration, sehingga 38 migration masih pending dibanding pembacaan tersebut. Baca ulang ledger target sebelum rehearsal; project Free yang diperiksa tidak menyediakan backup terjadwal. Jangan menguji migration pending dengan menulis ke Production.
 - Matriks ini membuktikan pemeriksaan source dan check run yang disebutkan, bukan paritas perilaku penuh, hasil UAT, rekonsiliasi arsip, atau kesiapan deploy.
 - Run CI [`40260536432`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40260536432) pada kode commit `9754b9cb2f4c4771ee126b7752fe07f9b8c4c808` lulus pada kedua job. CI terbaru untuk commit dokumentasi `4a66a402bb62af556e00ff7df9b9e0494b0470c6` juga lulus pada kedua job di run [`40260937224`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40260937224).
+- Commit dokumentasi `6cccac6813acdd74bd1feb04fab117ac282a8f09` juga lulus pada kedua job di CI run [`40261402123`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40261402123).
 
 ## Gerbang penutupan PR #11
 
