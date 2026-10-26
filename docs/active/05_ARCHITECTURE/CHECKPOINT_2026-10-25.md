@@ -503,3 +503,19 @@ Ditambahkan kontrak Supabase untuk menerbitkan biaya pendaftaran dan uang pangka
 Perubahan masih berada di branch PR #13 dan semua flag runtime tetap nonaktif. Jalankan CI pada commit baru, perbaiki hasilnya, lalu rehearsal pada database staging yang dapat dipulihkan. Jangan mengaktifkan flag atau menerapkan migration ini di Production sebelum backup/rehearsal serta validasi jalur service-role/API berhasil.
 
 Gap #11 yang belum dipindahkan: pembuatan/batch kandidat offline Admin, unggah berkas privat, dan impor arsip tagihan. Pembayaran mandiri keluarga sebelum kandidat di-onboard juga belum didukung; alur wali yang sudah ada dimulai setelah relasi santri ditetapkan.
+
+
+## Koreksi hasil CI dan checkpoint — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+Status di atas yang menyebut CI masih menunggu sudah kedaluwarsa. PR #13 head `442794bf8f0795facc9257399b047a3994bebcb6` tetap Open/Draft. CI run [40248840857](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40248840857) sukses pada kedua job.
+
+- Job database menyelesaikan penerapan 82 migration pada Supabase lokal terisolasi, 73 assertion pgTAP, pemeriksaan migration ledger, uji NIS bersamaan, slot pengajar Tahfidz bersamaan, import preview yang ada, API autentikasi/tenant/izin modul PPDB dan Keuangan, upload bukti Finance ke Storage sintetis, dan backup/restore sintetis.
+- Job aplikasi menyelesaikan typecheck, preflight read-only, seluruh pemeriksaan role/tenant dan guard Firebase, build client/server, production runtime tanpa dependency Firebase, serta build dan smoke test Docker/Compose customer-managed.
+- CI sempat gagal pada ekspektasi jumlah profil sintetis setelah dua fixture Admin tambahan. Fixture dan ekspektasi pagination diperbarui; run sukses terbaru menguji commit di atas.
+- Lokal, `npm run test:migration-preflight`, `node --check scripts/test-api-auth-tenant.mjs`, dan `git diff --check` lulus. Typecheck dan database suite tidak dapat dijalankan lokal karena `tsc`, Docker, Supabase CLI/psql, serta PostgreSQL di `127.0.0.1:54322` tidak tersedia; CI menyediakan stack pengujian terisolasi.
+- Tidak ada migration, data, flag, Storage, atau pengaturan yang diubah pada Supabase Production. Semua flag `SUPABASE_PPDB_FINANCE_BILLS_ENABLED` tetap `false`.
+- Baseline Production yang tercatat tetap 47 migration sampai `20261206000000`; source memiliki 82, sehingga 35 migration menunggu rehearsal pada salinan yang dapat dipulihkan. CI hijau bukan bukti kesiapan migrasi Production.
+
+Checkpoint aman: perubahan tersimpan dan sudah dikirim ke PR #13, tanpa merge/deploy. Langkah berikutnya adalah lengkapi gap PPDB yang tersisa (berkas kandidat privat dan proses batch/offline), lalu rehearsal migration pada staging terisolasi dengan backup/pemulihan, verifikasi akses backend pada target, login/UAT dan simulasi deployment pelanggan. Skor tetap 78/100 sampai release gate lingkungan tersebut memiliki bukti.
