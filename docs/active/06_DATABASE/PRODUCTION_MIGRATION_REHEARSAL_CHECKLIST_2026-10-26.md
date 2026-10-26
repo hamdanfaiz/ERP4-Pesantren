@@ -2,9 +2,9 @@
 
 ## Tujuan dan batas
 
-Pembaruan ledger baca-saja terakhir yang tercatat (26 Oktober 2026, 04:04 UTC) pada project `ptsasgdvgrbdtgyqieie` mencatat 47 migration sampai `20261206000000`. Source kode PR #13 pada commit `e13943ea77e79375e848d297150e95c9ce1ec8f5` memiliki 88 migration sampai `20270116000000`, sehingga 41 migration masih pending berdasarkan snapshot tersebut. Commit sesudahnya hanya memperbarui dokumentasi. Versi Production cocok persis dengan file source sampai versi terakhir yang tercatat. Gunakan angka ini sebagai baseline sementara; setiap rehearsal harus membaca ulang ledger dan tidak boleh menganggap angka lama masih aktual.
+Snapshot ledger baca-saja yang tercatat pada 26 Oktober 2026 pukul 04:04 UTC untuk project `ptsasgdvgrbdtgyqieie` memuat 47 migration sampai `20261206000000`. Head PR #13 saat ini (`a0607e30a7b0eb2f81d743cfc6b161fa7af083d6`) berisi 90 file migration sampai `20270118000000`. Jika ledger lama itu belum berubah, selisih aritmetisnya 43 migration; angka tersebut **bukan hitungan pending terkini**. Dashboard project sekarang menampilkan “Last Migration: Unknown”, dan akses baca-terprogram ke ref target belum tersedia, sehingga ledger serta kecocokan schema Production belum terverifikasi. Baca ulang ledger target sebelum rehearsal; jangan menerapkan migration berdasarkan snapshot lama.
 
-Catatan di bawah mempertahankan beberapa snapshot lama (85/86, lalu 87 file dan 40 migration pending) sebagai riwayat pemeriksaan. Angka tersebut telah digantikan oleh baseline 88 file dan 41 migration pending di atas.
+Catatan di bawah mempertahankan beberapa snapshot lama (85/86, lalu 87/88 file dan 40/41 migration pending) sebagai riwayat pemeriksaan. Source sekarang berisi 90 file migration; jumlah pending live belum diketahui sampai ledger target dibaca ulang.
 
 Dokumen ini adalah rencana pemeriksaan berbasis source. Query Production pada pembaruan terbaru hanya membaca metadata migration dan tabel, bukan isi data operasional. Tidak ada migration atau perubahan schema/data Production yang diterapkan. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
 
