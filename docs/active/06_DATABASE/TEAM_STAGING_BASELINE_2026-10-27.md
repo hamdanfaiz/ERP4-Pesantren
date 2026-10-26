@@ -3,20 +3,20 @@
 **Tanggal pemeriksaan:** 27 Oktober 2026 (WIB)
 **Project ref:** `ptsasgdvgrbdtgyqieie` — **staging**, bukan production
 **Sumber arsip:** Firestore `graphite-ship-q5xj8`, database `ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8`
-**Head PR yang diperiksa:** `a20be46ef666e00f8ebf9a7ae13aeee3478c854a` ([PR #13](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13))
+**Head kode yang diaudit:** `b80b31098468a957bfe5a48d8b31c22dede4ef99` ([PR #13](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13))
 
 ## Ringkasan
 
-Pemeriksaan ini memakai Supabase MCP staging yang dibatasi untuk baca-saja dan Firestore ADC untuk inventaris agregat. SQL hanya membaca katalog, grant, policy, serta hitungan agregat. Firestore hanya dibaca untuk nama koleksi, jumlah dokumen, dan keberadaan field tenant; nilai field, isi dokumen, email, ID dokumen, objek Storage, serta bukti pembayaran tidak disimpan atau dicantumkan di sini. **Tidak ada migration, data, file, atau konfigurasi remote yang diubah.**
+Pemeriksaan ini memakai Supabase MCP staging yang dibatasi untuk baca-saja dan Firestore ADC. SQL hanya membaca katalog, grant, policy, serta hitungan/agregasi hash. Firestore dibaca untuk nama koleksi, jumlah dokumen, keberadaan field tenant, dan ID kandidat yang langsung diubah menjadi hash sementara untuk pencocokan. Nilai field, isi dokumen, email, ID mentah, hash, objek Storage, serta bukti pembayaran tidak disimpan atau dicantumkan di sini. **Tidak ada migration, data, file, atau konfigurasi remote yang diubah.**
 
-- PR #13 masih **Open/Draft**. GitHub Actions [run 40333408526](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40333408526) selesai sukses pada dua job wajib: build/frontend/Firebase guard dan migration/API auth/tenant/pgTAP. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch.
+- PR #13 masih **Open/Draft**. GitHub Actions [run 40413401535](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40413401535) pada head di atas selesai sukses pada dua job wajib: build/frontend/Firebase guard dan migration/API auth/tenant/pgTAP. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch.
 - Ledger staging mempunyai **47 versi** sampai `20261206000000`; source PR mempunyai **91 migration**, sehingga **44 versi** (`20261207000000`–`20270119000000`) belum tercatat pada staging. Ini status ledger saja, bukan persetujuan untuk menerapkan migration.
 - Jam database saat pemeriksaan adalah `2026-10-26 22:21 UTC` atau `2026-10-27 05:21 WIB`. Jadi tanggal `20261206000000` adalah penanda versi migration, bukan bukti jam database salah.
 - Staging memiliki 119 tabel aplikasi di schema `public`; semua mengaktifkan dan memaksa RLS. `tenants` adalah satu-satunya tabel tanpa kolom `tenant_id`, sesuai perannya sebagai tabel root tenant.
 - Tidak ada grant tabel `public` kepada `anon`. Role `authenticated` hanya memiliki akses SELECT pada lima tabel yang dipagari policy; tidak memiliki akses tulis langsung. Pola ini sesuai dengan arsitektur server-mediated, tetapi tetap perlu dibuktikan lewat login dan UAT.
 - Tenant sumber terpetakan ke satu tenant staging aktif. Verifikasi membandingkan fingerprint hash registry Firestore dengan `legacy_tenant_key` staging dan hanya menghasilkan jumlah kecocokan, bukan nilai aslinya.
 - Firestore mempunyai 18 koleksi root dengan 561 dokumen. Semua 453 dokumen `master_data` dan 50 `candidates` tidak memiliki `tenantId` maupun `tenant_id` top-level. Seluruh 559 dokumen pada 16 koleksi operasional lain juga tidak memiliki kedua field itu; satu dokumen `users` memiliki `tenantId`. Dokumen root `tenants` memang tidak memerlukan `tenantId` sendiri.
-- Hitungan agregat staging: satu tenant aktif, satu profil Admin aktif, 50 kandidat (semuanya ditandai `legacy_firestore` dan memiliki `source_record_id`), 50 santri, serta 95 record Master Data. Angka kandidat cocok dengan sumber, tetapi hitungan tidak membuktikan kecocokan record satu per satu. Hitungan Master Data berbeda 358 record; selisih tersebut harus direkonsiliasi memakai ID sumber/fingerprint sebelum import lanjutan.
+- Hitungan agregat staging: satu tenant aktif, satu profil Admin aktif, 50 kandidat (semuanya ditandai `legacy_firestore` dan memiliki `source_record_id`), 50 santri, serta 95 record Master Data. Pencocokan hash ID lokal membuktikan 50/50 ID kandidat sumber ada di staging, tanpa menampilkan atau menyimpan ID mentah. Hitungan Master Data berbeda 358 record; selisih tersebut harus direkonsiliasi memakai ID sumber/fingerprint sebelum import lanjutan.
 
 ## Inventaris koleksi Firestore
 
@@ -77,12 +77,12 @@ Supabase menjadwalkan perubahan agar tabel baru `public` tidak otomatis terekspo
 
 | Domain | Firestore | Supabase staging | Status pemeriksaan |
 |---|---:|---:|---|
-| PPDB kandidat | 50 | 50 kandidat bertanda sumber legacy | Jumlah cocok; rekonsiliasi ID/fingerprint tetap diperlukan. |
+| PPDB kandidat | 50 | 50 kandidat bertanda sumber legacy | Hash ID sumber cocok 50/50; 0 hilang dan 0 ekstra. Isi record dan kelengkapan field belum direkonsiliasi. |
 | Santri | Tidak dihitung terpisah pada koleksi root | 50 | Jumlah saja tidak memvalidasi relasi kandidat→santri. |
 | Master Data | 453 | 95 | Belum lengkap; selisih agregat 358 perlu direkonsiliasi sebelum impor. |
 | Koleksi lain | 56 dokumen pada 14 koleksi root selain Master Data/kandidat/tenant/user | Beragam/tidak dipetakan di sini | Perlu preview/import per modul setelah migration prasyarat tersedia. |
 
-Registry Firestore satu pengguna menyediakan kunci tenant sumber; hash kunci tersebut cocok dengan `legacy_tenant_key` milik satu tenant aktif slug `pesantren-digital` pada staging. **Kunci asli tidak dicatat.** Kecocokan ini mengonfirmasi pemetaan sumber, tetapi tidak membuat semua record valid atau bebas konflik. Importer tetap harus menolak snapshot berubah, duplikasi NIS/identitas, foreign key lintas tenant, dan relasi yang tidak cocok.
+Registry Firestore satu pengguna menyediakan kunci tenant sumber; hash kunci tersebut cocok dengan `legacy_tenant_key` milik satu tenant aktif slug `pesantren-digital` pada staging. **Kunci asli tidak dicatat.** Pencocokan ID kandidat memakai hash sementara di sisi klien dan agregasi hash pada query staging; nilai hash maupun ID mentah tidak disimpan dalam laporan. Kecocokan ini hanya memastikan keberadaan ID, bukan validitas isi atau relasi. Importer tetap harus menolak snapshot berubah, duplikasi NIS/identitas, foreign key lintas tenant, dan relasi yang tidak cocok.
 
 ## Gerbang pekerjaan berikutnya
 
@@ -98,4 +98,5 @@ Registry Firestore satu pengguna menyediakan kunci tenant sumber; hash kunci ter
 - Kesiapan go-live: sekitar **46%**.
 
 Angka tersebut estimasi proyek, bukan metrik otomatis. Audit staging dan inventaris Firestore meningkatkan bukti yang tersedia, tetapi tidak menambah fitur atau menggantikan rehearsal, rekonsiliasi data, rotasi secret, login/UAT, dan pengujian environment pelanggan. Tidak ada perubahan Production.
+
 
