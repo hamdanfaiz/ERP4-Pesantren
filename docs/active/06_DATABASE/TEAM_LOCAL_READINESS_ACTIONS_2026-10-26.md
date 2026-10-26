@@ -416,3 +416,20 @@ Berikutnya: minta tim menyiapkan project staging berisi data sintetis dan `proje
 - Ref `ptsasgdvgrbdtgyqieie` dikonfirmasi sebagai project staging. Konektor Supabase yang aktif tetap menolak akses project ini (`MCP -32600: You do not have permission to perform this action`), sehingga tidak ada pembacaan schema atau perubahan database.
 - MCP `supabase-staging` sudah terdaftar dengan ref staging, `read_only=true`, dan fitur `docs,database`. Pemilik menyetujui grant OAuth secara manual; CLI berhasil login dan `codex mcp list` menunjukkan status `OAuth`. Tool MCP belum muncul di sesi chat ini, jadi query staging harus diverifikasi setelah sesi memuat ulang koneksi.
 - Anggap secret server dan password database yang ditempel di percakapan sebagai terekspos; rotasi keduanya sebelum go-live. Jangan kirim nilai penggantinya melalui chat atau simpan dalam source control.
+
+
+## Checkpoint jeda aman — 26 Oktober 2026
+
+- PR #13 tetap Open/Draft; head saat checkpoint awal `310659d7a3054e2b7fca5ad30f85c0f67bcd2818`. Tidak ada merge atau deployment.
+- GitHub Actions [run 40332777455](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40332777455) lulus pada dua job wajib: frontend build/Firebase bundle guard dan migrasi/API auth/pgTAP. Check `Supabase Preview` dilewati karena branch belum terhubung ke Supabase Branch. Hasil ini tidak memverifikasi database staging atau Production.
+- Koreksi kode terakhir menghapus importer operasional `localStorage` yang tidak terpakai; tes regresi, lint, build, runtime Supabase-only, dan paginasi Master Data lulus lokal. Build masih memberi peringatan chunk PDF sekitar 1,46 MB.
+- MCP `supabase-staging` tersimpan di konfigurasi Codex dengan ref staging, `read_only=true`, dan fitur `docs,database`. CLI sempat melaporkan login OAuth berhasil, tetapi pemeriksaan terbaru `codex mcp list --json` menunjukkan `auth_status: unknown`; tool Supabase staging belum muncul pada sesi ini. Konektor Supabase bawaan juga tetap menolak project dengan `MCP -32600: You do not have permission to perform this action`.
+- Tidak ada query schema, SQL, migration, impor data, atau perubahan pada Supabase staging/Production selama checkpoint ini. Kredensial yang pernah ditempel tidak disimpan ke repo; rotasi secret server dan password database tetap wajib sebelum go-live.
+- Estimasi checkpoint proyek tetap **73% kematangan fitur / 46% kesiapan go-live**. Angka ini bukan hasil UAT atau bukti kesiapan deployment.
+
+### Langkah saat melanjutkan
+
+1. Muat ulang Codex atau buka sesi baru agar MCP staging terbaca, lalu verifikasi status OAuth dan daftar tools.
+2. Jalankan pemeriksaan baca-saja pada ledger migration, schema, grants/RLS, Storage, dan profil tenant staging; simpan hasil rekonsiliasi tanpa mengubah database.
+3. Rehearsal migration dan pemulihan backup hanya setelah snapshot staging dapat dipulihkan dan selisih source/ledger telah dikaji.
+4. Lanjutkan uji login/matriks role-tenant, UAT lintas modul, dan pemeriksaan deployment mandiri. Jangan menerapkan perubahan Production sebelum gate tersebut disetujui.
