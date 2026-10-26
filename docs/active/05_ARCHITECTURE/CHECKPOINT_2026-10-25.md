@@ -537,3 +537,15 @@ Status di atas yang menyebut CI masih menunggu sudah kedaluwarsa. PR #13 head `4
 - Baseline Production yang tercatat tetap 47 migration sampai `20261206000000`; source memiliki 82, sehingga 35 migration menunggu rehearsal pada salinan yang dapat dipulihkan. CI hijau bukan bukti kesiapan migrasi Production.
 
 Checkpoint aman: perubahan tersimpan dan sudah dikirim ke PR #13, tanpa merge/deploy. Langkah berikutnya adalah lengkapi gap PPDB yang tersisa (berkas kandidat privat dan proses batch/offline), lalu rehearsal migration pada staging terisolasi dengan backup/pemulihan, verifikasi akses backend pada target, login/UAT dan simulasi deployment pelanggan. Skor tetap 78/100 sampai release gate lingkungan tersebut memiliki bukti.
+
+
+## Rekonsiliasi dokumentasi importer — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+Audit silang source dan inventaris menemukan beberapa ringkasan lama yang masih menyebut importer PPDB kandidat, katalog/sirkulasi Perpustakaan, dan pengaturan CBT belum tersedia. Status dokumentasi diselaraskan dengan endpoint di `server.ts`; keberadaan endpoint dicatat terpisah dari apply data yang belum dibuktikan.
+
+- Inventaris kini menunjukkan bahwa `POST /api/ppdb/legacy/import`, `/api/library/legacy/import`, `/api/library/circulations/legacy/import`, dan `/api/cbt/legacy/settings-import` tersedia dengan flag dan pemeriksaan yang spesifik.
+- Jalur yang masih terbuka tetap mencakup pemetaan profil ke akun Supabase Auth, pemindahan byte aset digital, rekonsiliasi transaksi Koperasi, database sumber CBT yang memuat soal, serta rehearsal staging yang bisa dipulihkan.
+- Perubahan ini hanya dokumentasi. Tidak ada data Firebase yang diekspor, tidak ada data Supabase yang ditulis, dan feature flag produksi tidak diubah.
+- Perubahan dokumentasi menunggu CI commit baru pada PR #13; run sebelumnya tetap hijau di head sebelumnya dan bukan verifikasi untuk perubahan ini.
