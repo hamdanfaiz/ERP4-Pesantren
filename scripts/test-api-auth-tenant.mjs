@@ -318,10 +318,10 @@ async function main() {
     })));
     for (const response of pageResponses) assert.equal(response.status, 200, 'Tenant user pages must be readable.');
     const pagePayloads = await Promise.all(pageResponses.map((response) => response.json()));
-    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), [3, 3, 1], 'Pagination must return bounded, non-overlapping page sizes.');
-    assert.ok(pagePayloads.every((payload) => payload.total === 7), 'Every page must report the filtered tenant total.');
+    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), [3, 3, 3], 'Pagination must return bounded, non-overlapping page sizes.');
+    assert.ok(pagePayloads.every((payload) => payload.total === 9), 'Every page must report the filtered tenant total.');
     const pagedIds = pagePayloads.flatMap((payload) => payload.users.map((profile) => profile.uid));
-    assert.equal(new Set(pagedIds).size, 7, 'Stable ordering must not duplicate profiles between pages.');
+    assert.equal(new Set(pagedIds).size, 9, 'Stable ordering must not duplicate profiles between pages.');
 
     const searchResponse = await fetch(`${apiBase}/api/users?q=${encodeURIComponent(users[0].email)}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
@@ -357,7 +357,7 @@ async function main() {
     });
     assert.equal(superAdminResponse.status, 200, 'An active SuperAdmin should pass the user-management role gate.');
     const superAdminPayload = await superAdminResponse.json();
-    assert.equal(superAdminPayload.total, 7, 'SuperAdmin remains scoped to the profile tenant when a foreign tenantId is requested.');
+    assert.equal(superAdminPayload.total, 9, 'SuperAdmin remains scoped to the profile tenant when a foreign tenantId is requested.');
     assert.ok(superAdminPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'SuperAdmin results must remain tenant-scoped.');
     assert.ok(!superAdminPayload.users.some((profile) => profile.email === users[2].email), 'SuperAdmin must not receive a foreign-tenant profile through query spoofing.');
 
