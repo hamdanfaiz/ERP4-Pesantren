@@ -406,3 +406,18 @@ Berikutnya: minta tim menyiapkan project staging berisi data sintetis dan `proje
 - Verifikasi lokal pada perubahan: `npm run lint`, `npm run build`, `npm run test:master-data-no-browser-drafts`, `npm run test:supabase-runtime-no-firebase` (82 modul dan seluruh rute), `npm run test:master-data-pagination`, serta `git diff --check` lulus. Build masih menghasilkan peringatan chunk PDF `react-pdf.browser` sekitar 1,46 MB.
 - Formulir yang belum disimpan tidak lagi pulih otomatis setelah browser ditutup. Jika kebutuhan autosave lintas sesi muncul, implementasikan sebagai draf backend berizin tenant/aktor dan masa retensi terbatas, bukan penyimpanan PII di browser.
 - Koreksi ini tidak mengubah migration, data, flag, atau konfigurasi Supabase. Estimasi tetap **73% kematangan fitur / 46% kesiapan go-live**; UAT dan rehearsal staging tetap belum dibuktikan.
+
+## Penghapusan importer operasional localStorage — 26 Oktober 2026
+
+- Audit menemukan helper migrasi data operasional `localStorage` di `src/firebaseUtils.ts` tidak memiliki pemanggil, sedangkan endpoint tujuannya sudah ditutup permanen dengan HTTP 410.
+- Helper pembaca ringkasan dan pengirim batch lokal beserta import token yang hanya dipakai helper itu dihapus. Tes regresi memastikan helper dan referensi storage tidak kembali ke file ini, serta endpoint lama tetap fail-closed.
+- Verifikasi lokal: `npm run lint`, `npm run build`, `npm run test:master-data-no-browser-drafts`, `npm run test:supabase-runtime-no-firebase`, `npm run test:master-data-pagination`, dan `git diff --check` lulus. Build masih memberi peringatan chunk PDF sekitar 1,46 MB.
+- Ref `ptsasgdvgrbdtgyqieie` dikonfirmasi sebagai project staging. Konektor Supabase yang aktif tetap menolak akses project ini (`MCP -32600: You do not have permission to perform this action`), sehingga tidak ada pembacaan schema atau perubahan database.
+- Anggap secret server dan password database yang ditempel di percakapan sebagai terekspos; rotasi keduanya sebelum go-live. Jangan kirim nilai penggantinya melalui chat atau simpan dalam source control.
+
+## Konfigurasi MCP Supabase staging — 26 Oktober 2026
+
+- Server `supabase-staging` sudah terdaftar di konfigurasi Codex menggunakan ref staging, `read_only=true`, dan fitur `docs,database`. Nilai secret/password tidak dipakai dan tidak disimpan.
+- OAuth login belum disetujui. Metadata OAuth yang diberikan Supabase meminta cakupan baca organisasi/project/database **serta** analytics, secrets, Edge Functions, environment, dan Storage, meskipun MCP URL membatasi project dan fitur ke `docs,database`. Menunggu keputusan pemilik sebelum memberi grant ini.
+- Tidak ada data/schema yang dibaca atau ditulis lewat MCP. Sampai OAuth mendapat persetujuan dan sukses, koneksi staging belum aktif untuk query.
+
