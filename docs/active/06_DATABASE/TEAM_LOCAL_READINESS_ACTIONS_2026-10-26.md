@@ -334,3 +334,75 @@ Keputusan atau akses yang dibutuhkan:
 ```
 
 **Persentase checkpoint proyek (estimasi, bukan metrik otomatis):** kematangan fitur sekitar **73%**; kesiapan go-live sekitar **46%**. Kesiapan belum dapat dinaikkan hanya dengan CI sintetis; bukti target/staging, rekonsiliasi data, backup/restore, rotasi secret, dan UAT masih diperlukan.
+
+## Revalidasi source PR #13 bersih — 26 Oktober 2026
+
+### Source yang diperiksa
+
+- Mengambil `refs/pull/13/head` dari GitHub dan membuat checkout terpisah pada SHA **`f00ab599b3c41fb06d6997cb779d692c708489d2`**. Branch lokal `codex/readiness-checkpoint-20261026` dimulai tepat dari SHA tersebut; worktree lain yang memiliki perubahan lokal tidak disentuh.
+- Pemilik proyek mengonfirmasi integrasi GitHub saat ini menunjuk ke `hamdanfaiz/ERP4-Pesantren`.
+- Audit 22 file perubahan/untracked dari worktree lama menunjukkan file implementasi, migration, dan tes penting sudah ada di head PR #13. Empat migration koperasi/perpustakaan `20261209000000`–`20261212000000`, tes terkait, serta beberapa utilitas identik dengan source PR #13; beberapa file importer/UI lama berbeda dan versi PR #13 lebih lengkap. Jangan cherry-pick worktree lama secara massal.
+
+### Pemeriksaan lokal pada SHA tersebut
+
+- `npm ci --no-audit --no-fund` berhasil memasang 930 paket dari lockfile.
+- `npm run lint` dan `npm run build` lulus.
+- 24 pemeriksaan logika/source lulus: migration preflight, import graph tanpa Firebase, 28 flag browser/56 gate server default mati, gate dan tenant scope Firestore legacy, parser/importer PPDB/CBT/HRIS/Alumni/Koperasi/Perpustakaan, RBAC, undangan Wali, ID retry, paginasi Master Data/Tahfidz, pemilihan anak Wali, tanggal bisnis, serta portal Akademik.
+- Build mengeluarkan peringatan chunk `react-pdf.browser` sekitar **1,46 MB**. Source menunda komponen unduhan kartu hingga pendaftaran berhasil dan mengimpor renderer PDF hanya setelah tombol unduh ditekan, sehingga chunk tersebut tidak termasuk bundle awal. Tetap uji waktu unduh PDF pada jaringan pelanggan yang lambat.
+- Pemeriksaan database/API dan Docker lokal tidak dapat dijalankan: `supabase`, `docker`, `psql`, `bun`, dan `gcloud` tidak tersedia di `PATH`. Jangan mengartikan suite logika lokal sebagai uji database, Storage, atau Production.
+- GitHub Actions [run 40320053360](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40320053360) tercatat sukses pada 2/2 job di SHA yang sama dan mencakup Supabase lokal/pgTAP, Docker/Compose, API tenant, Storage, race NIS/Tahfidz, serta backup/restore sintetis. Ini tidak mencakup target Supabase Production.
+
+### Akses Supabase dan keputusan keamanan
+
+- Supabase MCP tetap menolak project `ptsasgdvgrbdtgyqieie` dengan `MCP -32600: You do not have permission to perform this action`. Halaman Dashboard project bisa dibuka; halaman Migrations tidak menampilkan ledger pada observasi ini dan Table Editor menandai schema `supabase_migrations` terlindungi/read-only. Tidak ada SQL yang dijalankan dan tidak ada perubahan database.
+- [Dokumentasi resmi Supabase MCP](https://supabase.com/docs/guides/ai-tools/mcp) menyarankan MCP untuk development/testing dan melarang menghubungkannya ke data Production. URL MCP luas tanpa `project_ref` mencakup account-level access; daftar feature yang menyertakan `functions`, `account`, atau `branching` memberi kemampuan yang tidak diperlukan untuk audit baca-saja. **Jangan pasang konfigurasi MCP tersebut pada project Production.**
+- Setelah project staging berisi data sintetis tersedia, gunakan konfigurasi MCP yang dibatasi ke `project_ref` staging, `read_only=true`, dan feature minimum `docs,database`. Bentuk perintah Codex CLI yang telah diverifikasi:
+
+  ```powershell
+  codex mcp add supabase-staging --url "https://mcp.supabase.com/mcp?project_ref=<STAGING_PROJECT_REF>&read_only=true&features=docs%2Cdatabase"
+  ```
+
+  Ganti placeholder hanya dengan ref project staging; URL memakai `https://` tanpa backslash. Project staging Free terpisah dapat dipakai bila branching tidak tersedia. Production diperiksa tim pemilik melalui prosedur baca-saja yang disetujui, bukan lewat MCP.
+
+### Status dan tindak lanjut
+
+**Tidak ada perubahan pada Supabase Production, status PR, atau branch remote.** PR #13 tetap Open/Draft. Skor tetap **73% kematangan fitur / 46% kesiapan go-live**; local test dan CI sintetis tidak memenuhi gerbang Production.
+
+Berikutnya: minta tim menyiapkan project staging berisi data sintetis dan `project_ref`-nya, lalu mengotorisasi MCP scoped read-only. Setelah itu jalankan suite Supabase/Docker lokal atau CI dari SHA terpilih, rekonsiliasi ledger/schema/RLS/Storage di staging, rehearsal restore+migration, baru UAT dan keputusan rilis. Rotasi credential yang pernah terekspos tetap wajib sebelum go-live.
+
+## Checkpoint bantuan konfigurasi MCP Codex — 26 Oktober 2026
+
+- PowerShell pemilik proyek melaporkan `codex` tidak dikenali. Pemeriksaan pada komputer Codex menemukan executable di `%LOCALAPPDATA%\OpenAI\Codex\bin\<versi>\codex.exe`; pemanggilan `codex.exe mcp add --help` berhasil. Ini masalah PATH shell, bukan error URL Supabase.
+- Untuk menemukan executable tanpa menebak nama folder versi, gunakan PowerShell berikut. Perintah pertama hanya menampilkan bantuan dan tidak mendaftarkan server:
+
+  ```powershell
+  $codex = Get-ChildItem "$env:LOCALAPPDATA\OpenAI\Codex\bin" -Recurse -Filter codex.exe |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1 -ExpandProperty FullName
+
+  if (-not $codex) { throw 'codex.exe tidak ditemukan di instalasi Codex.' }
+  & $codex mcp add --help
+  ```
+
+- Setelah `project_ref` staging nyata tersedia, gunakan:
+
+  ```powershell
+  $stagingRef = 'GANTI_DENGAN_REF_STAGING_SEBENARNYA'
+  if ($stagingRef -eq 'GANTI_DENGAN_REF_STAGING_SEBENARNYA') { throw 'Isi ref staging lebih dahulu.' }
+  & $codex mcp add supabase-staging --url "https://mcp.supabase.com/mcp?project_ref=$stagingRef&read_only=true&features=docs%2Cdatabase"
+  & $codex mcp list
+  ```
+
+  Perintah ini menyimpan konfigurasi pada profil Codex lokal. Jangan gunakan project Production sebagai pengganti staging. URL yang diberikan sebelumnya masih berisi placeholder sehingga belum valid; tidak ada server MCP yang didaftarkan.
+- Konektor Supabase saat ini hanya menampilkan `vqemuyzveuirlkvdggjd`; pembacaan daftar tabel `public` pada project itu mengembalikan kosong. Statusnya belum dikonfirmasi sebagai staging dan tidak ada skema yang diubah. Target `ptsasgdvgrbdtgyqieie` tetap tidak muncul pada daftar project konektor.
+- Dokumentasi: [Codex MCP](https://developers.openai.com/learn/docs-mcp) dan [Supabase MCP](https://supabase.com/docs/guides/ai-tools/mcp). Supabase MCP mendukung `project_ref`, `read_only=true`, serta pembatasan grup fitur.
+- PR #13 tetap Open/Draft pada head `f00ab599b3c41fb06d6997cb779d692c708489d2`; PR #11 juga Open/Draft dan tetap tidak digabung utuh ke cutover. Estimasi PR #13 masih **73% kematangan fitur / 46% kesiapan go-live**; angka itu estimasi, bukan metrik tes.
+
+## Koreksi penyimpanan draf Master Data — 26 Oktober 2026
+
+- Audit source menemukan formulir Master Data masih memiliki kode autosave `formData` ke `localStorage`. Kode tersebut tidak berjalan pada runtime Supabase-only saat ini, tetapi berisi data pribadi Santri/Wali dan dapat kembali aktif bila jalur runtime lama dihidupkan.
+- Kode autosave, pemulihan, dan modal draf lokal dihapus. Halaman Master Data tidak lagi membaca atau menulis `localStorage`/`sessionStorage`; endpoint impor `local-storage` di server tetap menolak jalur lama dengan HTTP 410.
+- Tes regresi `test:master-data-no-browser-drafts` ditambahkan ke GitHub Actions untuk memastikan halaman tidak menyimpan form ke browser dan endpoint arsip tetap fail-closed.
+- Verifikasi lokal pada perubahan: `npm run lint`, `npm run build`, `npm run test:master-data-no-browser-drafts`, `npm run test:supabase-runtime-no-firebase` (82 modul dan seluruh rute), `npm run test:master-data-pagination`, serta `git diff --check` lulus. Build masih menghasilkan peringatan chunk PDF `react-pdf.browser` sekitar 1,46 MB.
+- Formulir yang belum disimpan tidak lagi pulih otomatis setelah browser ditutup. Jika kebutuhan autosave lintas sesi muncul, implementasikan sebagai draf backend berizin tenant/aktor dan masa retensi terbatas, bukan penyimpanan PII di browser.
+- Koreksi ini tidak mengubah migration, data, flag, atau konfigurasi Supabase. Estimasi tetap **73% kematangan fitur / 46% kesiapan go-live**; UAT dan rehearsal staging tetap belum dibuktikan.

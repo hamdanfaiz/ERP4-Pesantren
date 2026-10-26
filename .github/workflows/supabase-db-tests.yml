@@ -78,6 +78,9 @@ jobs:
       - name: Verify Master Data pagination and nested PII minimization
         run: npm run test:master-data-pagination
 
+      - name: Verify Master Data PII is not persisted in browser storage
+        run: npm run test:master-data-no-browser-drafts
+
       - name: Verify Academic portal tenant and student scoping
         run: npm run test:academic-portal
 

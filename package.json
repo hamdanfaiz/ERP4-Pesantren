@@ -36,6 +36,7 @@
     "test:library-circulation-import": "tsx scripts/test-library-circulation-import.ts",
     "test:library-assets": "tsx scripts/test-library-assets.ts",
     "test:master-data-pagination": "tsx scripts/test-master-data-pagination.ts",
+    "test:master-data-no-browser-drafts": "node scripts/test-master-data-no-browser-drafts.mjs",
     "test:supabase-runtime-no-firebase": "node scripts/test-supabase-runtime-no-firebase.mjs",
     "test:customer-deployment-flags": "node scripts/test-customer-deployment-flags.mjs",
     "test:guardian-student-selection": "tsx scripts/test-guardian-student-selection.ts",

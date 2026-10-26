@@ -42,7 +42,7 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import { cn, generateUniqueId } from "../lib/utils";
 import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
-import { SUPABASE_ONLY_RUNTIME, supabaseRuntimeEnabled } from "../runtimeBackend";
+import { supabaseRuntimeEnabled } from "../runtimeBackend";
 import {
   COUNTRIES,
   PROVINCES,
@@ -69,46 +69,6 @@ const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(import.meta.env.VITE
 // Import is a separate migration-only capability; Supabase-only runtime must never unlock it.
 const SUPABASE_MASTER_DATA_IMPORT = import.meta.env.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED === "true";
 const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "Kelas"]);
-const MDM_DRAFT_KEY_PREFIX = "mdm-form-autosave";
-
-const getMdmDraftKey = (tenantId: string | null | undefined, userId: string | null | undefined) => {
-  const activeTenantId = typeof tenantId === "string" ? tenantId.trim() : "";
-  const activeUserId = typeof userId === "string" ? userId.trim() : "";
-  return activeTenantId && activeUserId
-    ? `${MDM_DRAFT_KEY_PREFIX}:${encodeURIComponent(activeTenantId)}:${encodeURIComponent(activeUserId)}`
-    : null;
-};
-
-const clearMdmDrafts = (allTenants = false) => {
-  try {
-    if (!allTenants) {
-      localStorage.removeItem(MDM_DRAFT_KEY_PREFIX);
-      // Old tenant-only keys cannot be safely restored after users share a browser.
-      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
-        const key = localStorage.key(index);
-        if (!key?.startsWith(`${MDM_DRAFT_KEY_PREFIX}:`)) continue;
-        const identityPart = key.slice(MDM_DRAFT_KEY_PREFIX.length + 1);
-        if (!identityPart.includes(":")) localStorage.removeItem(key);
-      }
-      return;
-    }
-    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
-      const key = localStorage.key(index);
-      if (key === MDM_DRAFT_KEY_PREFIX || key?.startsWith(`${MDM_DRAFT_KEY_PREFIX}:`)) {
-        localStorage.removeItem(key);
-      }
-    }
-  } catch { /* Browser storage is optional. */ }
-};
-
-const readMdmDraft = (key: string | null) => {
-  if (!key) return null;
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-};
 
 const TABS = [
   { id: "entities", label: "Entities", icon: Users },
@@ -367,7 +327,6 @@ export function MasterDataManager() {
     }
   };
   const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
-  const [draftToRestore, setDraftToRestore] = useState<{ mode: "add" | "edit"; draft: any; record?: any } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
@@ -520,40 +479,6 @@ export function MasterDataManager() {
     return () => { cancelled = true; };
   }, [activeTab, activeSubTab, user?.tenantId, user?.uid, currentPage, searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, legacyMigrationRefreshKey]);
 
-  useEffect(() => {
-    // We intentionally removed the auto-pop-up on mount for drafts,
-    // as it interrupts the user on every visit to Master Data.
-    // Drafts are still optionally restored when they click Add or Edit.
-  }, [user?.tenantId, user?.uid]);
-
-  useEffect(() => {
-    // Old drafts have no tenant marker, so they cannot be restored safely.
-    clearMdmDrafts(SUPABASE_MASTER_DATA_RUNTIME);
-  }, [user?.tenantId]);
-
-  useEffect(() => {
-    const draftKey = getMdmDraftKey(user?.tenantId, user?.uid);
-    if (SUPABASE_MASTER_DATA_RUNTIME) {
-      if (draftKey) {
-        try { localStorage.removeItem(draftKey); } catch { /* Browser storage is optional. */ }
-      }
-      return;
-    }
-    if (isModalOpen && draftKey) {
-      try {
-        localStorage.setItem(draftKey, JSON.stringify({
-          isDraft: true,
-          tenantId: user?.tenantId,
-          userId: user?.uid,
-          modalMode,
-          editingId,
-          formData,
-          activeSubTab,
-        }));
-      } catch { /* Browser storage is optional. */ }
-    }
-  }, [isModalOpen, formData, modalMode, editingId, activeSubTab, user?.tenantId]);
-
   const handleTabChange = (
     tabId: string,
   ) => {
@@ -581,20 +506,6 @@ export function MasterDataManager() {
   const handleAddClick = () => {
     setFormErrors({});
     setTouchedFields({});
-
-    const draftKey = getMdmDraftKey(user?.tenantId, user?.uid);
-    const savedDraft = SUPABASE_MASTER_DATA_RUNTIME ? null : readMdmDraft(draftKey);
-    if (savedDraft) {
-      try {
-        const parsed = JSON.parse(savedDraft);
-        if (parsed.tenantId === user?.tenantId && parsed.userId === user?.uid && parsed.isDraft && parsed.modalMode === "add") {
-          setDraftToRestore({ mode: "add", draft: parsed });
-          return;
-        }
-      } catch (e) {
-        console.error("Failed to restore draft:", e);
-      }
-    }
 
     setModalMode("add");
     const currentData = dataSources[activeSubTab] || [];
@@ -693,26 +604,6 @@ export function MasterDataManager() {
       } catch (error) {
         showToast(error instanceof Error ? error.message : "Rincian santri belum dapat dibuka.", "error");
         return;
-      }
-    }
-
-    const draftKey = getMdmDraftKey(user?.tenantId, user?.uid);
-    const savedDraft = SUPABASE_MASTER_DATA_RUNTIME ? null : readMdmDraft(draftKey);
-    if (savedDraft) {
-      try {
-        const parsed = JSON.parse(savedDraft);
-        if (
-          parsed.isDraft &&
-          parsed.tenantId === user?.tenantId &&
-          parsed.userId === user?.uid &&
-          parsed.modalMode === "edit" &&
-          parsed.editingId === record.id
-        ) {
-          setDraftToRestore({ mode: "edit", draft: parsed, record });
-          return;
-        }
-      } catch (e) {
-        console.error("Failed to restore draft:", e);
       }
     }
 
@@ -939,11 +830,6 @@ export function MasterDataManager() {
     }
 
     setFormErrors({});
-    const draftKey = getMdmDraftKey(user?.tenantId, user?.uid);
-    if (draftKey) {
-      try { localStorage.removeItem(draftKey); } catch { /* Browser storage is optional. */ }
-    }
-
     const validatedData = result.data;
     const recordId = modalMode === "edit" ? String(editingId || "") : String(validatedData.id);
     try {
@@ -3624,76 +3510,6 @@ export function MasterDataManager() {
               >
                 <Trash2 className="w-4 h-4" />
                 Hapus Permanen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Restore Draft Modal */}
-      {draftToRestore && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-amber-500/30 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-amber-500/20 text-amber-400 rounded-xl">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Pulihkan Draf Tersimpan?</h3>
-                <p className="text-xs text-slate-400">Autosave Form Terdeteksi</p>
-              </div>
-            </div>
-            <p className="text-sm text-slate-300">
-              Sistem mendeteksi draf pengisian formulir yang belum sempat tersimpan. Apakah Anda ingin melanjutkan pengisian dari draf tersebut?
-            </p>
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const draftKey = getMdmDraftKey(user?.tenantId, user?.uid);
-                  if (draftKey) {
-                    try { localStorage.removeItem(draftKey); } catch { /* Browser storage is optional. */ }
-                  }
-                  const mode = draftToRestore.mode;
-                  const rec = draftToRestore.record;
-                  setDraftToRestore(null);
-                  if (mode === "add") {
-                    setModalMode("add");
-                    const currentData = dataSources[activeSubTab] || [];
-                    setFormData({
-                      enrolled: new Date().toISOString().split("T")[0],
-                      id: generateUniqueId(activeSubTab, currentData),
-                    });
-                    setIsModalOpen(true);
-                  } else if (mode === "edit" && rec) {
-                    setModalMode("edit");
-                    setEditingId(rec.id);
-                    setFormData(rec);
-                    setIsModalOpen(true);
-                  }
-                }}
-                className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors border border-slate-700"
-              >
-                Buang & Mulai Baru
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const draftData = draftToRestore.draft;
-                  const mode = draftToRestore.mode;
-                  const rec = draftToRestore.record;
-                  setDraftToRestore(null);
-                  setModalMode(mode);
-                  setEditingId(mode === "edit" ? (rec?.id || draftData.editingId || null) : null);
-                  setFormData(draftData.formData);
-                  if (draftData.activeSubTab) setActiveSubTab(draftData.activeSubTab);
-                  setIsModalOpen(true);
-                  showToast("Draf berhasil dipulihkan.", "success");
-                }}
-                className="px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors shadow-lg shadow-amber-900/30 flex items-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Pulihkan Draf
               </button>
             </div>
           </div>
