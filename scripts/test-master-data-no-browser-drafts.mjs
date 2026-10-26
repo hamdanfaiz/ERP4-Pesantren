@@ -25,4 +25,3 @@ assert.match(retiredLocalImport[0], /status\(410\)/,
   'The legacy localStorage migration endpoint must fail closed with HTTP 410.');
 
 console.log('Master Data PII is not persisted in browser storage; legacy localStorage import remains retired.');
-

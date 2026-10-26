@@ -166,4 +166,3 @@ export function useTenantOperationalCollection<T extends TenantOperationalRecord
   }, [collectionName, tenantId, sessionUid]);
   return { records, setRecords: updateRecords, loading, error };
 }
-
