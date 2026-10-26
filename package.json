@@ -21,6 +21,7 @@
     "test:db:backup-restore": "node scripts/test-database-backup-restore.mjs",
     "test:legacy-firebase-gate": "tsx scripts/test-legacy-firebase-gate.ts",
     "test:legacy-firestore-tenant-scope": "tsx scripts/test-legacy-firestore-tenant-scope.ts",
+    "test:cbt-settings-import": "tsx scripts/test-cbt-settings-import.ts",
     "test:ppdb-legacy-import": "tsx scripts/test-supabase-ppdb-import.ts",
     "test:library-legacy-import": "tsx scripts/test-library-legacy-import.ts",
     "test:business-date": "tsx scripts/test-business-date.ts",

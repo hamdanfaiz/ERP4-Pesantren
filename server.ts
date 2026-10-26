@@ -171,6 +171,7 @@ import {
   upsertSupabaseCbtQuestion,
 } from "./src/server/supabaseCbt";
 import { applySupabaseLegacyCbtImport, getSupabaseCbtLegacyImportContext, previewSupabaseLegacyCbt } from "./src/server/supabaseCbtImport";
+import { applySupabaseLegacyCbtSettingsImport, getSupabaseCbtLegacySettingsImportContext, previewSupabaseLegacyCbtSettings } from "./src/server/supabaseCbtSettingsImport";
 import { createSupabasePpdbCandidateBill, createSupabasePpdbCandidates, downloadSupabasePpdbCandidateDocument, listSupabasePpdbCandidates, previewSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate, uploadSupabasePpdbCandidateDocument } from "./src/server/supabasePpdb";
 import {
   applySupabaseLegacyPpdbImport,
@@ -1265,6 +1266,34 @@ async function startServer() {
       }
       const result = await applySupabaseLegacyCbtImport(actor.tenantId, actor.uid, sourceRows, existingRows, String(req.body?.expectedFingerprint || ""));
       return res.status(201).json(result);
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.post("/api/cbt/legacy/settings-import", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtImportEnabled) return res.status(503).json({ error: "Impor konfigurasi CBT lama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      const action = String(req.body?.action || "");
+      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor konfigurasi CBT tidak valid." });
+      const { tenantId, legacyTenantKey, existingSettingsRows } = await getSupabaseCbtLegacySettingsImportContext(actor.tenantId);
+      const services = await getAdminServices();
+      if (!services.ok) throw new SupabaseCbtError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
+      const sourceRows = await readLegacyFirestoreTenantRows(services.db, {
+        collectionName: "cbt_config", tenantKey: legacyTenantKey, limit: 10,
+      });
+      if (action === "preview") {
+        const preview = previewSupabaseLegacyCbtSettings(sourceRows, existingSettingsRows, legacyTenantKey);
+        const { items: _items, ...summary } = preview;
+        return res.json(summary);
+      }
+      const result = await applySupabaseLegacyCbtSettingsImport(
+        tenantId, actor.uid, sourceRows, existingSettingsRows, legacyTenantKey,
+        String(req.body?.expectedFingerprint || ""),
+      );
+      return res.status(result.alreadyImported ? 200 : 201).json(result);
     } catch (error) { return cbtRouteError(res, error); }
   });
 

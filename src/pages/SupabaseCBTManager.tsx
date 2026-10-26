@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, BookOpen, CalendarClock, Check, ClipboardList, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
@@ -16,11 +16,16 @@ type Result = {
   assignmentId: string; examTitle: string; studentName: string; className: string; status: string;
   score: number | null; passed: boolean | null; submittedAt: string | null; correct: number | null; wrong: number | null; blank: number | null;
 };
-type Snapshot = { questions: Question[]; students: Student[]; exams: Exam[]; results: Result[]; classes: string[] };
+type CbtSettings = {
+  subjects: string[]; grades: string[]; templates: string[]; autoGrading: boolean; shuffleQuestions: boolean;
+  correctPoints: number; wrongPoints: number; blankPoints: number; sourceSystem: string;
+};
+type Snapshot = { questions: Question[]; students: Student[]; exams: Exam[]; results: Result[]; classes: string[]; settings: CbtSettings };
 type Tab = "questions" | "exams" | "results" | "import";
 type ImportPreview = { snapshotFingerprint: string; counts: { source: number; ready: number; alreadyImported: number; invalid: number }; issues: Array<{ code: string; recordRef: string; severity: string }>; issueCount: number; blockingCount: number; canApply: boolean };
 
-const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [] };
+const EMPTY_SETTINGS: CbtSettings = { subjects: [], grades: [], templates: [], autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults" };
+const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS };
 const FIELD = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100";
 const BUTTON = "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50";
 const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
@@ -49,6 +54,22 @@ function cbtStatusLabel(status: string) {
   return labels[status.toLowerCase()] || status;
 }
 
+function ImportPreviewDetails({ preview }: { preview: ImportPreview | null }) {
+  if (!preview) return null;
+  return <div className="space-y-3">
+    <div className="grid gap-3 sm:grid-cols-4">{[
+      { label: "Data sumber", value: preview.counts.source }, { label: "Siap diimpor", value: preview.counts.ready },
+      { label: "Sudah diimpor", value: preview.counts.alreadyImported }, { label: "Tidak valid", value: preview.counts.invalid },
+    ].map((item) => <div key={item.label} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><div className="text-xs text-slate-500">{item.label}</div><div className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.value}</div></div>)}</div>
+    <p className="break-all text-xs text-slate-400">Sidik digital data: {preview.snapshotFingerprint}</p>
+    <div className="rounded-xl border border-slate-200 dark:border-white/10">
+      <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium dark:border-white/10">Temuan ({preview.issueCount})</div>
+      {preview.issues.length ? <ul className="divide-y divide-slate-100 dark:divide-white/5">{preview.issues.map((issue, index) => <li key={issue.recordRef + issue.code + index} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-xs"><span className="font-medium text-slate-700 dark:text-slate-200">{issue.code}</span><span className="text-slate-500">Ref {issue.recordRef || "—"} · {issue.severity}</span></li>)}</ul> : <p className="p-4 text-sm text-slate-500">Tidak ada konflik pada data ini.</p>}
+    </div>
+    <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data dapat diterapkan. Server akan memeriksa ulang sidik digital sebelum penerapan." : "Data belum dapat diterapkan; perbaiki konflik atau selesaikan rekonsiliasi terlebih dahulu."}</p>
+  </div>;
+}
+
 export function SupabaseCBTManager() {
   const { role, user } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
@@ -70,6 +91,8 @@ export function SupabaseCBTManager() {
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [settingsImportPreview, setSettingsImportPreview] = useState<ImportPreview | null>(null);
+  const settingsAppliedTenant = useRef("");
 
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
@@ -81,7 +104,28 @@ export function SupabaseCBTManager() {
         results: Array.isArray(result.results) ? result.results : [],
         students: Array.isArray(result.students) ? result.students : [],
         classes: Array.isArray(result.classes) ? result.classes : [],
+        settings: result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } : EMPTY_SETTINGS,
       });
+      const settings = result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } as CbtSettings : EMPTY_SETTINGS;
+      const tenantId = String(user?.tenantId || "");
+      if (tenantId && settingsAppliedTenant.current !== tenantId) {
+        settingsAppliedTenant.current = tenantId;
+        setEditingQuestionId(null);
+        setSelectedQuestions([]);
+        setSelectedStudents([]);
+        setImportPreview(null);
+        setSettingsImportPreview(null);
+        setForm({
+          subject: settings.subjects[0] || "", grade: settings.grades[0] || "",
+          template: settings.templates[0] || "Paket A", text: "", options: ["", "", "", ""],
+          correctAnswer: "0", explanation: "", difficulty: "Medium", tags: "",
+        });
+        setExam((current) => ({
+          ...current, title: "", subject: settings.subjects[0] || "", grade: settings.grades[0] || "",
+          correctPoints: settings.correctPoints, wrongPoints: settings.wrongPoints,
+          blankPoints: settings.blankPoints, shuffleQuestions: settings.shuffleQuestions,
+        }));
+      }
     } catch (cause: any) { setSnapshot(EMPTY); setError(cause?.message || "Data CBT Supabase belum dapat dimuat."); }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
@@ -135,6 +179,27 @@ export function SupabaseCBTManager() {
         await refresh();
       }
     } catch (cause: any) { setError(cause?.message || "Impor bank soal CBT belum dapat diproses."); }
+    finally { setSaving(false); }
+  };
+
+  const runLegacySettingsImport = async (action: "preview" | "apply") => {
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const result = await requestCbt("/api/cbt/legacy/settings-import", {
+        method: "POST", body: JSON.stringify({
+          action, expectedFingerprint: action === "apply" ? settingsImportPreview?.snapshotFingerprint : undefined,
+        }),
+      });
+      if (action === "preview") {
+        setSettingsImportPreview(result as ImportPreview);
+        setNotice("Pratinjau konfigurasi CBT selesai. Tidak ada data yang diubah.");
+      } else {
+        setSettingsImportPreview(null);
+        setNotice(result.alreadyImported ? "Konfigurasi CBT ini sudah pernah diimpor." : "Konfigurasi CBT berhasil diimpor.");
+        settingsAppliedTenant.current = "";
+        await refresh();
+      }
+    } catch (cause: any) { setError(cause?.message || "Impor konfigurasi CBT belum dapat diproses."); }
     finally { setSaving(false); }
   };
 
@@ -204,8 +269,9 @@ export function SupabaseCBTManager() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div className="mb-4 flex items-center gap-2"><Plus className="h-4 w-4 text-indigo-700" /><h2 className="font-semibold text-slate-900 dark:text-white">{editingQuestionId ? "Ubah soal" : "Tambah soal"}</h2></div>
         <form onSubmit={saveQuestion} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<input required maxLength={150} className={FIELD} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></label><label className={LABEL}>Jenjang<input required maxLength={40} className={FIELD} value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} /></label></div>
-          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Paket<input required maxLength={80} className={FIELD} value={form.template} onChange={(e) => setForm({ ...form, template: e.target.value })} /></label><label className={LABEL}>Kesulitan<select className={FIELD} value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}><option value="Easy">Mudah</option><option value="Medium">Sedang</option><option value="Hard">Sulit</option></select></label></div>
+          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<input list="cbt-subject-options" required maxLength={150} className={FIELD} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></label><label className={LABEL}>Jenjang<input list="cbt-grade-options" required maxLength={40} className={FIELD} value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} /></label></div>
+          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Paket<input list="cbt-template-options" required maxLength={80} className={FIELD} value={form.template} onChange={(e) => setForm({ ...form, template: e.target.value })} /></label><label className={LABEL}>Kesulitan<select className={FIELD} value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}><option value="Easy">Mudah</option><option value="Medium">Sedang</option><option value="Hard">Sulit</option></select></label></div>
+          <datalist id="cbt-subject-options">{snapshot.settings.subjects.map((item) => <option key={item} value={item} />)}</datalist><datalist id="cbt-grade-options">{snapshot.settings.grades.map((item) => <option key={item} value={item} />)}</datalist><datalist id="cbt-template-options">{snapshot.settings.templates.map((item) => <option key={item} value={item} />)}</datalist>
           <label className={LABEL}>Teks soal<textarea required rows={4} maxLength={12000} className={FIELD} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} /></label>
           <div className="space-y-2"><span className={LABEL}>Opsi jawaban</span>{form.options.map((option, index) => <div key={index} className="flex items-center gap-2"><span className="w-6 text-xs font-bold text-slate-500">{String.fromCharCode(65 + index)}</span><input aria-label={"Opsi " + String.fromCharCode(65 + index)} maxLength={1000} className={FIELD + " mt-0"} value={option} onChange={(e) => setForm({ ...form, options: form.options.map((value, optionIndex) => optionIndex === index ? e.target.value : value) })} /></div>)}</div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Indeks jawaban benar<select className={FIELD} value={form.correctAnswer} onChange={(e) => setForm({ ...form, correctAnswer: e.target.value })}>{form.options.map((_, index) => <option key={index} value={index}>{String.fromCharCode(65 + index)}</option>)}</select></label><label className={LABEL}>Tag, pisahkan dengan koma<input className={FIELD} value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></label></div>
@@ -224,7 +290,7 @@ export function SupabaseCBTManager() {
         <h2 className="mb-4 font-semibold text-slate-900 dark:text-white">Buat jadwal ujian</h2>
         {loading ? <p className="text-sm text-slate-500">Memuat roster tenant…</p> : <form onSubmit={submitExam} className="space-y-3">
           <label className={LABEL}>Nama ujian<input required maxLength={180} className={FIELD} value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} /></label>
-          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={exam.subject} onChange={(e) => { setExam({ ...exam, subject: e.target.value, grade: "", }); setSelectedQuestions([]); }}><option value="">Pilih</option>{[...new Set(snapshot.questions.filter((q) => q.status === "active").map((q) => q.subject))].map((item) => <option key={item}>{item}</option>)}</select></label><label className={LABEL}>Jenjang<select required className={FIELD} value={exam.grade} onChange={(e) => { setExam({ ...exam, grade: e.target.value }); setSelectedQuestions([]); }}><option value="">Pilih</option>{[...new Set(snapshot.questions.filter((q) => q.status === "active" && (!exam.subject || q.subject === exam.subject)).map((q) => q.grade))].map((item) => <option key={item}>{item}</option>)}</select></label></div>
+          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={exam.subject} onChange={(e) => { setExam({ ...exam, subject: e.target.value, grade: "", }); setSelectedQuestions([]); }}><option value="">Pilih</option>{[...new Set([...snapshot.settings.subjects, ...snapshot.questions.filter((q) => q.status === "active").map((q) => q.subject)])].map((item) => <option key={item}>{item}</option>)}</select></label><label className={LABEL}>Jenjang<select required className={FIELD} value={exam.grade} onChange={(e) => { setExam({ ...exam, grade: e.target.value }); setSelectedQuestions([]); }}><option value="">Pilih</option>{[...new Set([...snapshot.settings.grades, ...snapshot.questions.filter((q) => q.status === "active" && (!exam.subject || q.subject === exam.subject)).map((q) => q.grade)])].map((item) => <option key={item}>{item}</option>)}</select></label></div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mulai<input type="datetime-local" required className={FIELD} value={exam.startsAt} onChange={(e) => setExam({ ...exam, startsAt: e.target.value })} /></label><label className={LABEL}>Akhir jendela<input type="datetime-local" required className={FIELD} value={exam.endsAt} onChange={(e) => setExam({ ...exam, endsAt: e.target.value })} /></label></div>
           <div className="grid gap-3 sm:grid-cols-3"><label className={LABEL}>Durasi (menit)<input type="number" min="1" max="600" required className={FIELD} value={exam.durationMinutes} onChange={(e) => setExam({ ...exam, durationMinutes: Number(e.target.value) })} /></label><label className={LABEL}>Nilai lulus<input type="number" min="0" max="100" step="any" className={FIELD} value={exam.passingScore} onChange={(e) => setExam({ ...exam, passingScore: Number(e.target.value) })} /></label><label className={LABEL}>Status<select className={FIELD} value={exam.status} onChange={(e) => setExam({ ...exam, status: e.target.value })}><option value="draft">Draf</option><option value="published">Terbit</option></select></label></div>
           <div className="grid gap-3 sm:grid-cols-3"><label className={LABEL}>Poin jawaban benar<input type="number" min="0" max="100" step="any" className={FIELD} value={exam.correctPoints} onChange={(e) => setExam({ ...exam, correctPoints: Number(e.target.value) })} /></label><label className={LABEL}>Poin jawaban salah<input type="number" min="-100" max="100" step="any" className={FIELD} value={exam.wrongPoints} onChange={(e) => setExam({ ...exam, wrongPoints: Number(e.target.value) })} /></label><label className={LABEL}>Poin tidak dijawab<input type="number" min="-100" max="100" step="any" className={FIELD} value={exam.blankPoints} onChange={(e) => setExam({ ...exam, blankPoints: Number(e.target.value) })} /></label></div>
@@ -240,10 +306,18 @@ export function SupabaseCBTManager() {
       {snapshot.results.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th><th className="p-3">Nilai</th><th className="p-3">Keputusan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.results.map((result) => <tr key={result.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{result.studentName}</td><td className="p-3">{result.examTitle}</td><td className="p-3">{result.className || "—"}</td><td className="p-3">{cbtStatusLabel(result.status)}</td><td className="p-3">{result.score == null ? "—" : result.score}</td><td className="p-3">{result.passed == null ? "—" : result.passed ? "Lulus" : "Belum lulus"}</td></tr>)}</tbody></table></div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada peserta ujian.</div>}
     </section>}
 
-    {tab === "import" && <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-      <div><h2 className="font-semibold text-slate-900 dark:text-white">Pratinjau dan impor bank soal Firestore</h2><p className="mt-1 max-w-3xl text-sm text-slate-500">Backend membaca maksimal 3.000 soal dengan tenant key yang cocok. Pratinjau menampilkan ringkasan dan referensi tersamar saja. Penerapan hanya berjalan jika snapshot tidak berubah dan seluruh soal lolos validasi.</p></div>
-      <div className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={() => void runLegacyImport("preview")} className={BUTTON}><RefreshCw className={saving ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Buat pratinjau baru</button><button type="button" disabled={saving || !importPreview?.canApply} onClick={() => void runLegacyImport("apply")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Check className="h-4 w-4" />Terapkan pratinjau</button></div>
-      {importPreview && <><div className="grid gap-3 sm:grid-cols-4">{[{ label: "Data sumber", value: importPreview.counts.source }, { label: "Siap diimpor", value: importPreview.counts.ready }, { label: "Sudah diimpor", value: importPreview.counts.alreadyImported }, { label: "Tidak valid", value: importPreview.counts.invalid }].map((item) => <div key={item.label} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><div className="text-xs text-slate-500">{item.label}</div><div className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.value}</div></div>)}</div><p className="break-all text-xs text-slate-400">Sidik digital data: {importPreview.snapshotFingerprint}</p><div className="rounded-xl border border-slate-200 dark:border-white/10"><div className="border-b border-slate-200 px-4 py-3 text-sm font-medium dark:border-white/10">Temuan ({importPreview.issueCount})</div>{importPreview.issues.length ? <ul className="divide-y divide-slate-100 dark:divide-white/5">{importPreview.issues.map((issue, index) => <li key={issue.recordRef + issue.code + index} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-xs"><span className="font-medium text-slate-700 dark:text-slate-200">{issue.code}</span><span className="text-slate-500">Ref {issue.recordRef || "—"} · {issue.severity}</span></li>)}</ul> : <p className="p-4 text-sm text-slate-500">Tidak ada konflik pada data ini.</p>}</div><p className={importPreview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{importPreview.canApply ? "Data dapat diterapkan. Server akan memeriksa ulang sidik digital sebelum penerapan." : "Data belum dapat diterapkan; perbaiki konflik atau tidak ada soal baru."}</p></>}
-    </section>}
+    {tab === "import" && <div className="grid gap-5 xl:grid-cols-2">
+      <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Impor bank soal Firestore</h2><p className="mt-1 text-sm text-slate-500">Backend memindai maksimal 3.000 soal dengan tenant key yang cocok. Pratinjau hanya menampilkan ringkasan dan referensi tersamar.</p></div>
+        <div className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={() => void runLegacyImport("preview")} className={BUTTON}><RefreshCw className={saving ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Buat pratinjau</button><button type="button" disabled={saving || !importPreview?.canApply} onClick={() => void runLegacyImport("apply")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Check className="h-4 w-4" />Terapkan pratinjau</button></div>
+        <ImportPreviewDetails preview={importPreview} />
+      </section>
+      <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Impor konfigurasi CBT Firestore</h2><p className="mt-1 text-sm text-slate-500">Hanya satu dokumen konfigurasi yang ID-nya harus sama dengan pemetaan tenant arsip. Nilai penilaian manual ditahan karena runtime Supabase saat ini memakai penilaian otomatis.</p></div>
+        <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">Sumber pengaturan aktif: <strong>{snapshot.settings.sourceSystem === "legacy_firestore" ? "hasil migrasi Firestore" : "nilai bawaan Supabase"}</strong>. Nilai menjadi default form ujian setelah dimuat.</p>
+        <div className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={() => void runLegacySettingsImport("preview")} className={BUTTON}><RefreshCw className={saving ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Pratinjau konfigurasi</button><button type="button" disabled={saving || !settingsImportPreview?.canApply} onClick={() => void runLegacySettingsImport("apply")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Check className="h-4 w-4" />Terapkan konfigurasi</button></div>
+        <ImportPreviewDetails preview={settingsImportPreview} />
+      </section>
+    </div>}
   </main>;
 }

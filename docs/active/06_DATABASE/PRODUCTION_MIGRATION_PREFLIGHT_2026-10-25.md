@@ -168,3 +168,11 @@ Halaman **Database → Migrations** pada project `ptsasgdvgrbdtgyqieie`, branch 
 - GitHub Actions run [`40256254007`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40256254007) untuk checkpoint sebelumnya selesai sukses pada kedua job: frontend/build/runtime serta migration, API auth/tenant, dan pgTAP. Bukti ini tetap memakai Supabase lokal terisolasi, bukan target Production.
 
 **Keputusan:** jangan terapkan 38 migration ke branch Production. Project staging yang benar-benar terpisah dan dapat dipulihkan belum tersedia; project `vqemuyzveuirlkvdggjd` tidak dipakai sebagai staging karena bukan target dan belum disetujui untuk tujuan itu. Lanjutkan audit code dan CI terisolasi; sebelum upgrade, sediakan staging/backup yang dapat diuji restore, lalu jalankan preflight, rehearsal lengkap, dan postflight di sana.
+
+## Pembaruan source PR #13 — jalur impor pengaturan CBT
+
+Perubahan berikutnya menambahkan migration `20270114000000_cbt_tenant_settings_import.sql`; source PR #13 kini memiliki 86 file migration. Dengan baseline ledger 47 versi yang terakhir dibaca, terdapat 39 migration source yang perlu diperhitungkan pada preflight berikutnya. **Ledger target belum dibaca ulang pada pembaruan ini**, jadi 47/39 adalah hitungan terhadap baseline historis, bukan verifikasi Production terkini.
+
+Migration ini membuat pengaturan CBT per tenant dengan RLS paksa dan tanpa grant browser, lalu menyediakan RPC `service_role` untuk satu impor bertanda fingerprint. Jalur aplikasi hanya menerima satu dokumen `cbt_config` yang dipetakan tepat ke `legacy_tenant_key`; konfigurasi penilaian manual, field asing, duplikasi daftar, tipe skor yang salah, serta skor berpresisi lebih dari dua angka desimal ditolak. Preview tidak mengembalikan isi konfigurasi. Koleksi `cbt_questions` tetap belum ditemukan pada sumber Firestore.
+
+CI terisolasi perlu membuktikan migration dan pgTAP pada Supabase lokal. Tidak ada migration atau data yang diterapkan ke Production. Sediakan staging terpisah yang dapat dipulihkan sebelum menjalankan rehearsal penuh; jalankan ulang `preflight:db-migrations` agar angka ledger tidak dianggap mutakhir.

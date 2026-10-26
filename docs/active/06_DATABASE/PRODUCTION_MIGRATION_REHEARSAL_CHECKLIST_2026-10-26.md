@@ -4,6 +4,8 @@
 
 Ledger Production dibaca ulang secara baca-saja: 47 migration tercatat sampai `20261206000000`, sedangkan source PR #13 pada head `91f71708ac3461b505255fbfe281d92a102f7328` memiliki 85 file sampai `20270113000000`. Sebanyak 38 migration berikutnya harus direhearsal pada environment terisolasi sebelum rencana upgrade Production dibuat.
 
+Pembaruan source setelah snapshot di atas menambahkan `20270114000000_cbt_tenant_settings_import.sql` sehingga source kini memiliki 86 file migration. Dengan baseline ledger 47 versi yang terakhir dibaca, terdapat 39 migration source yang perlu dihitung pada preflight berikutnya. Ledger Production belum dibaca ulang untuk pembaruan ini; angka tersebut bukan klaim kondisi ledger saat ini.
+
 Dokumen ini adalah rencana pemeriksaan berbasis source. Tidak ada query data operasional Production, migrasi, atau perubahan database yang dijalankan untuk menyusunnya. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
 
 ## Gerbang sebelum rehearsal
@@ -80,9 +82,16 @@ Migration memasukkan satu snapshot bagi setiap Santri yang kini mempunyai `room_
 - `20270112000000`: uji batch Admin 1–100 calon, atribusi actor/tenant, retry identik, konflik request ID, NIK/NISN/nomor pendaftaran yang bentrok, serta rollback seluruh batch bila satu baris gagal.
 - Snapshot Firestore kanonis pada pemeriksaan 26 Oktober berisi 0 dokumen `financeBillings`. Jangan membuat tagihan atau ledger historis sintetis; bila sumber berubah, lakukan preview dan rekonsiliasi baru sebelum import.
 
+### Konfigurasi CBT legacy — `20270114000000`
+
+- Pastikan satu dokumen konfigurasi saja dipetakan ke tenant melalui `legacy_tenant_key`; jangan mengimpor konfigurasi ke tenant yang tidak cocok atau menyimpulkan pemetaan dari nama.
+- Uji preview tanpa membocorkan nilai konfigurasi, retry dengan fingerprint identik, penolakan perubahan setelah impor, field asing, duplikasi label tanpa peka kapitalisasi, skor bukan angka, skor di luar rentang, dan presisi di atas dua angka desimal.
+- Verifikasi nilai `autoGrading=false` ditahan sampai runtime Supabase mendukung penilaian manual. Konfigurasi yang berhasil diimpor hanya mengisi nilai bawaan form; soal CBT belum dapat diimpor karena koleksi `cbt_questions` tidak ditemukan dalam snapshot sumber.
+- Pastikan tabel pengaturan memakai RLS `FORCE`, tidak memberi akses `anon`/`authenticated`, dan RPC hanya dapat dieksekusi `service_role`. Jalankan pgTAP pada Supabase lokal terisolasi; jangan menerapkan migration ke Production.
+
 ## Pemeriksaan setelah migration
 
-- Ledger staging cocok persis dengan semua 85 file source dan `preflight:db-migrations` menyatakan tidak ada migration tertunda.
+- Ledger staging cocok persis dengan semua file source pada commit yang direhearsal dan `preflight:db-migrations` menyatakan tidak ada migration tertunda.
 - Tidak ada constraint gagal, foreign key yatim, perubahan jumlah yang tidak dijelaskan, atau tenant lintas batas.
 - pgTAP dan suite integrasi lulus pada schema hasil upgrade, bukan hanya pada database kosong.
 - API utama, login Admin/Wali, penyimpanan berkas, transaksi Koperasi/Keuangan, Tahfidz, dan riwayat asrama diuji dengan data sintetis tenant-scoped.

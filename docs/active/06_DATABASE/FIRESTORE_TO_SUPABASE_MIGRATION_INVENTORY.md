@@ -28,7 +28,7 @@ Inventaris baca-saja pada 23 Oktober 2026 menghitung dokumen tingkat atas dan na
 | Koleksi Firestore | Tujuan Supabase yang mungkin | Kesiapan jalur impor di source code |
 |---|---|---|
 | `candidates` | `candidates`, dan `candidate_documents` bila dokumen terpisah | Belum ditemukan importer snapshot PPDB. Alur penerimaan/onboarding bukan pengganti importer arsip. |
-| `cbt_config` | `cbt_exams`, penugasan ujian, dan konfigurasi terkait | Belum ada pemetaan importer dari `cbt_config`. Importer bank soal yang ada mengharapkan `cbt_questions`, yang tidak tampak di database kanonis. |
+| `cbt_config` | `cbt_tenant_settings` | Importer konfigurasi kini memiliki pratinjau/apply dengan pemetaan document ID ke `legacy_tenant_key`, fingerprint HMAC, validasi ketat, retry aman, dan penolakan overwrite. `autoGrading=false` ditahan karena runtime Supabase belum mendukung penilaian manual. Koleksi `cbt_questions` tidak tampak pada database kanonis, jadi bank soal tidak ikut terimpor. |
 | `cooperative_inventory` | `cooperative_products`, `cooperative_stock_movements` | Importer katalog preview-first tersedia: validasi SKU/harga/stok/tanggal, konflik, fingerprint, dan idempotency key. Stok awal serta pergerakannya dibuat atomik melalui RPC create produk. |
 | `cooperative_suppliers` | `cooperative_suppliers` | Importer katalog tersedia. Migration `20261210000000_cooperative_supplier_import_status.sql` mempertahankan status aktif/nonaktif dan menolak status tak dikenal. |
 | `cooperative_transactions` | `cooperative_sales`, `cooperative_sale_items`, `cooperative_wallet_ledger`, serta pergerakan stok terkait | Ditunda dari impor katalog sampai item dipetakan ke produk dan ledger direkonsiliasi secara kronologis. |
@@ -66,6 +66,7 @@ Pencarian source code menemukan importer atau jalur migrasi yang mengharapkan su
 
 - Sumber kanonis tetap database Firestore bernama ERP4 pada project `graphite-ship-q5xj8`.
 - Pemilik proyek menyatakan dataset Firestore adalah data dummy. Pembacaan di bawah hanya menghasilkan hitungan dan nama field; nilai dokumen tidak dicetak, disimpan, atau disalin ke repository.
+- Konfigurasi `cbt_config` dipetakan ke tabel tenant `cbt_tenant_settings` lewat migration `20270114000000_cbt_tenant_settings_import.sql`. Jalur impor hanya menerima satu dokumen yang ID-nya sama persis dengan `legacy_tenant_key`; preview tidak mengungkap isi konfigurasi. Nilai dengan penilaian manual, field tak dikenal, daftar duplikat, atau skor di luar batas diblokir. Hasil impor menjadi default subjek, jenjang, paket, dan poin pada form CBT; runtime tetap menghitung nilai otomatis.
 - Pada 23 Oktober 2026, ADC berhasil dipakai untuk inventaris baca-saja REST Firestore. Ditemukan 18 koleksi root dan 561 dokumen:
 
 | Koleksi | Dokumen | Memiliki `tenantId` |

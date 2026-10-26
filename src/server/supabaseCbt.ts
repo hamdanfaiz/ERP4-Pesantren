@@ -76,7 +76,7 @@ async function tenantIdFrom(identifier: string) {
 
 export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
-  const [questionRows, examRows, assignmentRows, attemptRows, studentRows, classRows] = await Promise.all([
+  const [questionRows, examRows, assignmentRows, attemptRows, studentRows, classRows, settingsRows] = await Promise.all([
     readPostgrestRowsInPages<Row>({
       request,
       path: `/rest/v1/cbt_questions?${new URLSearchParams({ select: "id,subject,grade,template,question_html,options,correct_answer,explanation,difficulty,tags,status,created_at,updated_at", tenant_id: "eq." + tenantId, order: "updated_at.desc,id.asc" })}`,
@@ -113,7 +113,26 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
       maxRows: 500,
       onIncomplete: () => new SupabaseCbtError(503, "Daftar kelas CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
     }),
+    request("/rest/v1/cbt_tenant_settings?" + new URLSearchParams({
+      select: "subjects,grades,templates,auto_grading,shuffle_questions,correct_points,wrong_points,blank_points,source_system",
+      tenant_id: "eq." + tenantId, limit: "2",
+    }).toString()),
   ]);
+  if (!Array.isArray(settingsRows) || settingsRows.length > 1) {
+    throw new SupabaseCbtError(503, "Pengaturan CBT tenant belum dapat diverifikasi.");
+  }
+  const storedSettings = settingsRows[0] as Row | undefined;
+  const settings = {
+    subjects: Array.isArray(storedSettings?.subjects) ? storedSettings.subjects : [],
+    grades: Array.isArray(storedSettings?.grades) ? storedSettings.grades : [],
+    templates: Array.isArray(storedSettings?.templates) ? storedSettings.templates : [],
+    autoGrading: storedSettings?.auto_grading == null ? true : Boolean(storedSettings.auto_grading),
+    shuffleQuestions: storedSettings?.shuffle_questions == null ? false : Boolean(storedSettings.shuffle_questions),
+    correctPoints: storedSettings?.correct_points == null ? 1 : Number(storedSettings.correct_points),
+    wrongPoints: storedSettings?.wrong_points == null ? 0 : Number(storedSettings.wrong_points),
+    blankPoints: storedSettings?.blank_points == null ? 0 : Number(storedSettings.blank_points),
+    sourceSystem: String(storedSettings?.source_system || "defaults"),
+  };
   const attemptsByAssignment = new Map<string, Row>();
   for (const attempt of attemptRows) {
     if (!attemptsByAssignment.has(String(attempt.assignment_id))) {
@@ -160,7 +179,7 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   });
   return {
     questions: (questionRows as Row[]).map(mapQuestion),
-    exams, results, students,
+    exams, results, students, settings,
     classes: [...new Set(students.map((student) => student.className).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id")),
   };
 }
