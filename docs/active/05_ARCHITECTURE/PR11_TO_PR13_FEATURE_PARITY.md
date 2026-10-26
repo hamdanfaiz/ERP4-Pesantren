@@ -2,9 +2,9 @@
 
 ## Status branch
 
-Pemeriksaan GitHub pada 26 Oktober 2026 menunjukkan PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, dengan base branch `backend/supabase-finance-ui` pada `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`. PR #13 masih Open/Draft pada head `6cccac6813acdd74bd1feb04fab117ac282a8f09`, dengan base `main` pada commit hasil merge PR #12 tersebut.
+Pemeriksaan GitHub pada 26 Oktober 2026 menunjukkan PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, dengan base branch `backend/supabase-finance-ui` pada `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`. PR #13 masih Open/Draft pada head `0b82381ec6afb2b9602ae5f98542ce3cdaa4e402`, dengan base `main` pada commit hasil merge PR #12 tersebut.
 
-GitHub membandingkan kedua head sebagai `diverged`: PR #13 425 commit di depan dan 235 commit di belakang, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Jangan menggabungkan seluruh PR #11 ke PR #13. Migrasi PR #11 bertanggal `20260606000000`–`20260618000000` adalah bagian dari lineage lamanya dan tidak boleh ditambahkan ke lineage PR #13 secara mekanis.
+GitHub membandingkan kedua head sebagai `diverged`, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Perbandingan langsung pada 26 Oktober 2026 menunjukkan PR #11 memiliki 235 commit yang tidak ada di PR #13, sedangkan PR #13 memiliki 429 commit yang tidak ada di PR #11. Jangan menggabungkan seluruh PR #11 ke PR #13. Migrasi PR #11 bertanggal `20260606000000`–`20260618000000` adalah bagian dari lineage lamanya dan tidak boleh ditambahkan ke lineage PR #13 secara mekanis.
 
 ## Matriks fitur
 
@@ -110,4 +110,12 @@ Tindak lanjut: validasi unggah lampiran privat untuk kandidat Admin di CI. Perta
 - Keperluan impor arsip tagihan dari snapshot Firestore saat ini dinyatakan tidak berlaku. Jika snapshot berubah sebelum cutover, jalankan hitung/preview baru dan rekonsiliasi terlebih dahulu.
 - Pembayaran wali sebelum onboarding masih belum tersedia. Ini gap produk yang berbeda dari pemindahan arsip; akun wali baru memperoleh akses setelah proses onboarding menghubungkan kandidat ke santri dan akun wali.
 - Skor go-live tetap 78/100 karena langkah ini hanya menutup satu ketidakpastian sumber. Rehearsal staging yang dapat dipulihkan, migration pending, UAT Admin/Wali, dan uji deployment pelanggan tetap menjadi gerbang utama.
+
+## Revalidasi PR dan CI — 26 Oktober 2026
+
+- PR #11 masih Open/Draft pada head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`, dan PR #13 masih Open/Draft pada head `0b82381ec6afb2b9602ae5f98542ce3cdaa4e402` dengan base yang sama.
+- Perbandingan head terkini PR #13 terhadap PR #11 berstatus `diverged`, merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`: #11 memiliki 235 commit unik, sedangkan #13 memiliki 429 commit unik. PR #11 tidak boleh digabung utuh ke #13.
+- CI kode `c1755c6c943d94e42a3b349ca01776ae63105d1e` lulus di kedua job pada run [`40264878721`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40264878721): 87 migration diterapkan pada Supabase lokal terisolasi; 39 file pgTAP/803 assertion lulus; frontend, Docker/Compose, API auth/tenant, Storage privat, concurrency, importer sintetis, dan backup/restore juga lulus.
+- Checkpoint dokumentasi `0b82381ec6afb2b9602ae5f98542ce3cdaa4e402` lulus di kedua job pada run [`40265604695`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40265604695). Tidak ada migration atau data yang ditulis ke Supabase Production. Supabase Preview dilewati karena branch belum dikaitkan ke Supabase Branch.
+- Skor kesiapan tetap 78/100: pemeriksaan kode dan CI tidak membuktikan backup Production, rehearsal migration, rekonsiliasi identitas/data, login/UAT, ataupun instalasi dan pemulihan pada environment pelanggan.
 
