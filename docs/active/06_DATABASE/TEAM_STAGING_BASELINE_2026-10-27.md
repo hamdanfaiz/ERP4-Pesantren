@@ -124,3 +124,14 @@ Angka tersebut estimasi proyek, bukan metrik otomatis. Audit staging dan inventa
 
 
 
+
+## Checkpoint pengembangan — 27 Oktober 2026
+
+- Kode PR #13 diperbarui pada commit [`7ad1a37`](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/7ad1a3742b100887ed782c7aac449d0e0bd032d0): parser PPDB CSV yang ketat, pemuatan Vite hanya saat development, serta pemindahan paket Vite, XLSX, dan Quill dari dependency produksi ke dependency development.
+- GitHub Actions [run 40421786630](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40421786630) lulus pada job frontend dan job migrasi/API/pgTAP. Job menguji instalasi Bun beku, build, smoke test runtime produksi tanpa Firebase, Docker/Compose, RLS/pgTAP, isolasi tenant, NIS dan Tahfidz serentak, Storage, serta backup/restore sintetis. Supabase Preview dilewati; database staging tidak ditulis.
+- Tes lokal: typecheck, build frontend/server, parser CSV, kelayakan kamar PPDB, paginasi Master Data, guard runtime Supabase, pembatas Firebase lokal, dan audit dependency produksi (`npm audit --omit=dev`) lulus. Audit produksi melaporkan 0 kerentanan. Build masih memberi peringatan chunk PDF sekitar 1,46 MB; optimasi chunk tetap menjadi pekerjaan.
+- Pembacaan ulang ledger staging: 47 versi tercatat sampai `20261206000000`; repo memuat 91 file migrasi. Ada 44 versi lokal setelah versi ledger tertinggi yang belum tercatat, dari `20261207000000` sampai `20270119000000`.
+- Kolom `name` pada ledger bernilai `NULL` untuk versi `20261205000000` dan `20261206000000`, sedangkan nama file lokalnya masing-masing `data_api_default_privilege_hardening` dan `ppdb_legacy_candidate_import`. Versinya cocok, tetapi nama tidak tersedia sebagai bukti lineage; tim backend perlu membandingkan riwayat skema sebelum menyusun rencana apply.
+- Perbedaan ledger hanya menunjukkan status pencatatan versi; belum membuktikan bahwa isi skema target sama dengan definisi SQL lokal. Jangan menganggap 44 migration sebagai batch yang siap dijalankan. Rehearsal pada database staging yang dapat dipulihkan tetap menjadi gerbang berikutnya.
+
+Estimasi checkpoint tetap **73% kematangan fitur** dan **46% kesiapan go-live**. Angka tidak dinaikkan: hasil CI sintetis belum menggantikan rehearsal migrasi target, rekonsiliasi payload, login/UAT, rotasi secret, dan simulasi instalasi di VPS/on-premise.
