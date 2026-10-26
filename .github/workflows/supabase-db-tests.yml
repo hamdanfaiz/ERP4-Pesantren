@@ -54,6 +54,9 @@ jobs:
       - name: Verify PPDB CSV import parsing and identity preservation
         run: bun run test:ppdb-csv-import
 
+      - name: Verify PPDB onboarding room eligibility
+        run: npm run test:ppdb-onboarding-rooms
+
       - name: Verify guardian invitation before password activation
         run: npm run test:guardian-invitation-verification
 

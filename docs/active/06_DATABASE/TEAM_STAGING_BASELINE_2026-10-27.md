@@ -96,6 +96,15 @@ Supabase menjadwalkan perubahan agar tabel baru `public` tidak otomatis terekspo
 | CBT: 1 konfigurasi | Tabel `cbt_tenant_settings` belum ada pada staging karena migration sumber `20270114000000` belum tercatat. | Konfigurasi masih menunggu migration serta preview/apply bertanda tenant. Bank soal `cbt_questions` tidak ada di database Firestore kanonis yang diperiksa. |
 | `entityRecords`: 7 Santri dan 7 Wali | Data domain saat ini berasal dari kategori `master_data`; tidak ada bukti hasil merge record `entityRecords`. | Hindari duplikasi/join berdasarkan nama. Rekonsiliasi setiap ID, identitas, dan relasi secara terpisah bila sumber ini dipertimbangkan. |
 
+### Pemeriksaan alur penerimaan PPDB ke data Santri — 27 Oktober 2026
+
+- Status kandidat Firestore di staging: 8 `Accepted`, 11 `Document Review`, 6 `Entry Exam`, 7 `Interview`, 9 `Registered`, dan 9 `Rejected`. Semua 50 kandidat masih `Pending` onboarding.
+- Delapan kandidat `Accepted` mempunyai fingerprint NIK/NISN, tetapi belum memiliki `master_student_id`, `master_guardian_id`, atau waktu onboarding. Tidak ditemukan kecocokan fingerprint mereka pada 50 santri hasil impor yang ada. Semua santri impor masih belum memiliki NIS.
+- Struktur target memuat 15 Gedung, 50 Kamar, dan 30 Kelas. Semua kamar memiliki kapasitas positif, tetapi tidak satu pun terhubung ke Gedung atau menetapkan gender pada kamar/Gedung. Fungsi database onboarding tetap menolak gender yang belum dikonfigurasi.
+- UI PPDB kini hanya menampilkan kelas aktif dan kamar aktif dengan kapasitas tersisa serta gender yang sesuai. Kamar yang memakai Gedung harus menunjuk Gedung aktif. Tombol onboarding dinonaktifkan bila belum ada kelas/kamar yang memenuhi syarat, dengan pesan untuk melengkapi Master Data. RPC database tetap menjadi pemeriksaan otoritatif dan mengunci transaksi kapasitas/NIS.
+- Sebelum calon santri dapat di-onboard, Admin perlu menentukan relasi Gedung–Kamar dan gender operasional, memvalidasi data NIS/identitas pada tenant, lalu mengulang preview. Tidak ada Master Data, kandidat, NIS, atau relasi yang diubah dalam pemeriksaan ini.
+- Tes guardrail lokal: `npm run test:ppdb-onboarding-rooms`; cakupan meliputi gender L/P, gender turunan dari Gedung, kapasitas penuh/tidak valid, Gedung tidak aktif/tidak ditemukan, relasi konflik, serta baseline staging tanpa konfigurasi gender.
+
 Registry Firestore satu pengguna menyediakan kunci tenant sumber; hash kunci tersebut cocok dengan `legacy_tenant_key` milik satu tenant aktif slug `pesantren-digital` pada staging. **Kunci asli tidak dicatat.** Pencocokan ID memakai hash sementara di sisi klien dan agregasi hash pada query staging; nilai hash maupun ID mentah tidak disimpan dalam laporan. Field kategori Master Data dihitung lokal tanpa menyalin payload. Hasil pencocokan hanya memastikan keberadaan ID dan sebagian relasi, bukan validitas seluruh isi/field. Importer tetap harus menolak snapshot berubah, duplikasi NIS/identitas, foreign key lintas tenant, dan relasi yang tidak cocok.
 
 ## Gerbang pekerjaan berikutnya
