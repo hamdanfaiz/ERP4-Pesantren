@@ -146,3 +146,16 @@ Kirim ringkasan berikut tanpa secret atau PII:
 ## Status sesudah langkah ini
 
 Panduan ini hanya menyiapkan langkah tim teknis. CI lokal sintetis yang hijau dan dokumen ini tidak berarti data Firestore telah dipindah, Production telah diuji, Firebase telah dihentikan pada semua environment, atau produk sudah siap go-live.
+
+## 8. Batas dukungan environment aplikasi
+
+Repository saat ini menyediakan container untuk **aplikasi web dan API ERP**. Docker Compose tidak memasang atau mengoperasikan PostgreSQL, Supabase Auth, Supabase Storage, maupun API gateway. URL Supabase harus dapat diakses browser pengguna; endpoint server harus dapat dijangkau dari container aplikasi. Rincian konfigurasi terdapat di [panduan customer-managed deployment](../../guides/CUSTOMER_MANAGED_DEPLOYMENT.md).
+
+| Bentuk pemasangan | Status bukti saat ini | Pemeriksaan sebelum disebut siap |
+|---|---|---|
+| Aplikasi pada VPS, Supabase endpoint dikelola pelanggan/penyedia | Build dan smoke test image/Compose lulus di CI; runtime terhadap database pelanggan belum diuji. | Uji instalasi bersih, TLS/reverse proxy, reachability browser dan server, Auth, Storage, upgrade/rollback, dan backup/restore. |
+| Aplikasi di jaringan on-premise, Supabase dikelola terpisah | Dapat dikonfigurasi melalui URL; belum diuji pada topologi pelanggan. | Uji DNS, IPv4/IPv6, firewall, sertifikat, SMTP/Auth callback, Storage privat, dan restore pada jaringan tersebut. |
+| Seluruh Supabase self-hosted on-premise | **Belum termasuk paket dan belum diverifikasi.** | Tim harus memilih versi Supabase/PostgreSQL yang didukung, mengoperasikan Auth/Storage/API/SMTP/backup/monitoring, kemudian merehearsal seluruh migration dan UAT pada stack itu. |
+| Offline atau tanpa konektivitas ke Supabase | Tidak didukung oleh runtime saat ini. | Jangan menawarkan sebagai mode offline sebelum rancangan sinkronisasi, antrean transaksi, dan konflik multi-user dibuat serta diuji. |
+
+Jangan memasarkan “full on-premise” atau “offline-ready” hanya berdasarkan keberhasilan Docker build. Supabase lokal CI menggunakan versi yang ditetapkan di `supabase/config.toml`; rehearsal pelanggan harus memakai versi major PostgreSQL/Supabase yang cocok dengan environment target. Uji fitur Auth dan Storage juga harus dilakukan pada stack yang benar-benar akan dipakai, bukan hanya pada mock atau container aplikasi.
