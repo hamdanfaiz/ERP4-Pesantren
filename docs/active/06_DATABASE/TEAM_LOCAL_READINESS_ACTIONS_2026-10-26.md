@@ -96,6 +96,39 @@ Di SQL Editor pilih **New query**; jangan menimpa query lama yang mungkin belum 
 - `storage.buckets.public`, batas ukuran, MIME, serta policy Storage;
 - fungsi `SECURITY DEFINER`, view, dan hak eksekusinya.
 
+Tambahkan pemeriksaan ACL schema/default. Migration pada source mengatur default privileges untuk role `postgres`; pastikan hasil target memang efektif pada role migration yang dipakai. Output hanya metadata hak akses.
+
+```sql
+SELECT current_user AS migration_role, session_user AS login_role,
+       current_setting('search_path') AS session_search_path;
+
+SELECT nspname AS schema_name, nspowner::regrole AS owner, nspacl AS acl
+FROM pg_namespace
+WHERE nspname IN ('public', 'storage', 'extensions')
+ORDER BY nspname;
+
+SELECT COALESCE(n.nspname, '<global>') AS schema_name,
+       r.rolname AS default_privilege_owner,
+       d.defaclobjtype AS object_type,
+       d.defaclacl AS default_acl
+FROM pg_default_acl AS d
+JOIN pg_roles AS r ON r.oid = d.defaclrole
+LEFT JOIN pg_namespace AS n ON n.oid = d.defaclnamespace
+WHERE n.nspname = 'public' OR d.defaclnamespace = 0
+ORDER BY schema_name, default_privilege_owner, object_type;
+
+SELECT p.oid::regprocedure::text AS function_signature,
+       p.prosecdef AS security_definer,
+       p.proacl AS function_acl,
+       has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can_execute,
+       has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute,
+       has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_role_can_execute
+FROM pg_proc AS p
+JOIN pg_namespace AS n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.prosecdef
+ORDER BY function_signature;
+```
+
 Ambil metadata konfigurasi saja. Jangan query atau ekspor baris pengguna, password, token, bukti pembayaran, atau isi berkas untuk audit baseline.
 
 ### 3. Review setiap migration yang tertunda
@@ -116,6 +149,7 @@ Kalau migration bergantung pada bentuk schema/data yang berbeda dari target, hen
 **Source diperiksa:** head PR #13 `59578f7fd2a7f95cd39335b74bbc4b1695e233fc`, 44 file dengan versi setelah `20261206000000`. Pemeriksaan ini membaca SQL source saja; tidak terkoneksi ke database target dan tidak mengubah data.
 
 - Pencarian statis tidak menemukan `DROP TABLE`, `DROP COLUMN`, `DROP SCHEMA`, atau `TRUNCATE` pada 44 file. Ada perubahan `DROP INDEX`, `DROP CONSTRAINT`, dan pergantian fungsi; perubahan itu tetap harus ditinjau.
+- Audit lintas 91 migration menemukan 74 definisi/kemunculan `SECURITY DEFINER`; setiap kemunculan yang diperiksa memiliki `SET search_path`. Source migration `20261205000000_data_api_default_privilege_hardening.sql` mencabut default `EXECUTE` dari `PUBLIC` dan membatasi default object grants untuk role Data API. Versi itu muncul pada ledger Dashboard, tetapi itu hanya bukti versi source tercatat, bukan bukti ACL efektif target. Tim harus memverifikasi ACL schema/default dan role yang dipakai saat migration dijalankan.
 - Ditemukan **40 pernyataan `CREATE INDEX` biasa** (bukan `CONCURRENTLY`). Ukuran tabel, durasi, lock, ruang disk, dan dampaknya terhadap penulisan aplikasi belum diketahui. Ukur melalui rehearsal dari backup; jadwalkan maintenance window bila perlu.
 - Sebagian migration mengisi tabel baru saat migration berjalan. `ON CONFLICT DO NOTHING` mempertahankan idempotensi, tetapi dapat menyembunyikan konflik sumber. Hitung konflik sebelum rehearsal dan cocokkan jumlah baris yang diharapkan dengan yang benar-benar dibuat.
 
