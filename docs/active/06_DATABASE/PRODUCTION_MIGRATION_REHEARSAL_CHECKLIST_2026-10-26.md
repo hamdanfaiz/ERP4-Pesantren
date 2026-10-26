@@ -88,6 +88,7 @@ Migration memasukkan satu snapshot bagi setiap Santri yang kini mempunyai `room_
 - Uji preview tanpa membocorkan nilai konfigurasi, retry dengan fingerprint identik, penolakan perubahan setelah impor, field asing, duplikasi label tanpa peka kapitalisasi, skor bukan angka, skor di luar rentang, dan presisi di atas dua angka desimal.
 - Verifikasi nilai `autoGrading=false` ditahan sampai runtime Supabase mendukung penilaian manual. Konfigurasi yang berhasil diimpor hanya mengisi nilai bawaan form; soal CBT belum dapat diimpor karena koleksi `cbt_questions` tidak ditemukan dalam snapshot sumber.
 - Pastikan tabel pengaturan memakai RLS `FORCE`, tidak memberi akses `anon`/`authenticated`, dan RPC hanya dapat dieksekusi `service_role`. Jalankan pgTAP pada Supabase lokal terisolasi; jangan menerapkan migration ke Production.
+- CI run [40259337791](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40259337791) pada commit `bae87128cd3d04aa367b1f7f9ba967773858cd87` telah berhasil pada kedua job, termasuk migration dan pgTAP CBT di Supabase lokal. Rehearsal menggunakan salinan backup Production tetap belum dilakukan.
 
 ## Pemeriksaan setelah migration
 

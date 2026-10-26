@@ -505,6 +505,24 @@ Perubahan masih berada di branch PR #13 dan semua flag runtime tetap nonaktif. J
 Gap #11 yang belum dipindahkan: pembuatan/batch kandidat offline Admin, unggah berkas privat, dan impor arsip tagihan. Pembayaran mandiri keluarga sebelum kandidat di-onboard juga belum didukung; alur wali yang sudah ada dimulai setelah relasi santri ditetapkan.
 
 
+## Checkpoint: impor konfigurasi CBT tenant — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+Jalur migrasi konfigurasi CBT dari Firestore ke Supabase sudah ditambahkan dan lulus CI terisolasi. Skor go-live tidak berubah karena environment target belum menjalani rehearsal berbasis backup yang bisa dipulihkan, dan migration Production belum diterapkan.
+
+- Migration `20270114000000_cbt_tenant_settings_import.sql` menambah tabel konfigurasi CBT per tenant dengan RLS `FORCE`, tanpa grant browser, dan RPC impor yang hanya dapat dipanggil `service_role`.
+- API Admin menyediakan preview dan apply untuk satu dokumen `cbt_config` yang cocok persis dengan `legacy_tenant_key`. Snapshot HMAC harus tetap sama saat apply; retry identik aman, konfigurasi yang sudah ada tidak ditimpa, dan isi konfigurasi mentah tidak ditampilkan di preview.
+- Validasi menolak tenant/field yang tidak cocok, daftar duplikat, tipe skor salah, skor di luar batas, presisi lebih dari dua desimal, serta `autoGrading=false` karena runtime Supabase belum mendukung penilaian manual. Konfigurasi yang lolos mengisi nilai awal form soal dan ujian; bank soal legacy tetap belum dapat dipindahkan karena koleksi `cbt_questions` tidak ditemukan pada snapshot Firestore.
+- Tes pratinjau CBT lulus 12 kasus; tes regresi preflight migration lulus. GitHub Actions run [40259337791](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40259337791) pada commit `bae87128cd3d04aa367b1f7f9ba967773858cd87` lulus pada dua job, termasuk migration/pgTAP, typecheck/build, API, backup/restore sintetis, dan Docker customer-managed.
+- Source PR #13 sekarang memiliki 86 migration. Berdasarkan baseline ledger Production yang terakhir dibaca (47 versi sampai `20261206000000`), 39 migration masih harus diperhitungkan; ledger target perlu dibaca ulang sebelum rehearsal. Angka ini bukan verifikasi status Production terbaru.
+- Tidak ada migration, data, Storage, flag, atau konfigurasi yang ditulis ke Supabase Production. PR #13 tetap Open/Draft.
+
+### Checkpoint aman berikutnya
+
+Lanjutkan audit/perbaikan pada feature gap yang tersisa. Sebelum cutover Production, sediakan staging terpisah dari backup yang dapat dipulihkan, baca ulang ledger, jalankan 39 migration source yang benar-benar pending pada salinan tersebut, rekonsiliasi tenant/data/Auth/Storage, lalu selesaikan login/UAT dan simulasi pemasangan-pemulihan customer-managed. Jangan memakai angka 39 sebagai izin untuk menerapkan migration pada Production.
+
+
 ## Koreksi hasil CI dan checkpoint — 26 Oktober 2026
 
 ### Progres menuju go-live: tetap 78/100
