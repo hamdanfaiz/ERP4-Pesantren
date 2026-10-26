@@ -953,6 +953,7 @@ async function getSupabaseStudentRow(tenantId: string, studentId: string) {
 type MasterDataStudentPageOptions = {
   page?: number;
   pageSize?: number;
+  cursor?: unknown;
   search?: string;
   statuses?: string[];
   gender?: string;
@@ -961,6 +962,23 @@ type MasterDataStudentPageOptions = {
   completeness?: string;
 };
 
+type MasterDataStudentCursor = { name: string; id: string };
+
+function decodeMasterDataStudentCursor(raw: unknown): MasterDataStudentCursor | null {
+  if (typeof raw !== "string" || !raw || raw.length > 1024 || !/^[A-Za-z0-9_-]+$/.test(raw)) return null;
+  try {
+    const cursor = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as MasterDataStudentCursor;
+    if (!cursor || typeof cursor.name !== "string" || cursor.name.length > 180 || !isCanonicalUuid(cursor.id)) return null;
+    return { name: cursor.name, id: cursor.id };
+  } catch {
+    return null;
+  }
+}
+
+function encodeMasterDataStudentCursor(cursor: MasterDataStudentCursor) {
+  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+}
+
 function postgrestQuotedValue(value: string) {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`;
 }
@@ -968,7 +986,7 @@ function postgrestQuotedValue(value: string) {
 export async function listSupabaseMasterDataStudentsPage(
   tenantIdentifier: string,
   options: MasterDataStudentPageOptions = {},
-): Promise<{ records: JsonObject[]; page: number; pageSize: number; hasMore: boolean }> {
+): Promise<{ records: JsonObject[]; page: number; pageSize: number; hasMore: boolean; nextCursor: string | null }> {
   const search = String(options.search || "").normalize("NFKC")
     .replace(/[^\p{L}\p{N}\s._-]/gu, " ").trim().replace(/\s+/g, " ").slice(0, 80);
   if (search && Array.from(search).length < 3) {
@@ -982,9 +1000,9 @@ export async function listSupabaseMasterDataStudentsPage(
     || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) {
     throw new SupabaseOnboardingError(400, "Nomor halaman atau ukuran halaman santri tidak valid.");
   }
-  const offset = (page - 1) * pageSize;
-  if (!Number.isSafeInteger(offset) || offset > 1000000) {
-    throw new SupabaseOnboardingError(400, "Halaman santri melewati batas navigasi yang didukung.");
+  const cursor = options.cursor == null ? null : decodeMasterDataStudentCursor(options.cursor);
+  if ((options.cursor != null && !cursor) || (page === 1 && cursor) || (page > 1 && !cursor)) {
+    throw new SupabaseOnboardingError(400, "Penanda halaman santri tidak valid atau tidak sesuai nomor halaman.");
   }
 
   const structures = await listSupabaseMasterDataStructures(tenantId);
@@ -993,9 +1011,12 @@ export async function listSupabaseMasterDataStudentsPage(
     tenant_id: "eq." + tenantId,
     order: "name.asc,id.asc",
     limit: String(pageSize + 1),
-    offset: String(offset),
   });
   const logic: string[] = [];
+  if (cursor) {
+    const name = postgrestQuotedValue(cursor.name);
+    logic.push(`or(name.gt.${name},and(name.eq.${name},id.gt.${cursor.id}))`);
+  }
   if (search) {
     const pattern = `*${search.replace(/\s/g, "*")}*`;
     logic.push(`or(name.ilike.${pattern},nis.ilike.${pattern},source_record_id.ilike.${pattern})`);
@@ -1047,11 +1068,18 @@ export async function listSupabaseMasterDataStudentsPage(
     throw new SupabaseOnboardingError(503, "Halaman data santri tidak dapat diverifikasi.");
   }
   const hasMore = rows.length > pageSize;
+  const lastVisibleRow = rows[pageSize - 1];
+  if (hasMore && (!lastVisibleRow || typeof lastVisibleRow.name !== "string" || !isCanonicalUuid(String(lastVisibleRow.id || "")))) {
+    throw new SupabaseOnboardingError(503, "Penanda halaman santri tidak dapat diverifikasi.");
+  }
   return {
     records: rows.slice(0, pageSize).map((row) => mapSupabaseStudentRow(row, tenantId, structures, false)),
     page,
     pageSize,
     hasMore,
+    nextCursor: hasMore
+      ? encodeMasterDataStudentCursor({ name: String(lastVisibleRow.name), id: String(lastVisibleRow.id) })
+      : null,
   };
 }
 

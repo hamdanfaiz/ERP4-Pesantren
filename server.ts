@@ -2879,6 +2879,7 @@ async function startServer() {
       return res.json(await listSupabaseMasterDataStudentsPage(actor.tenantId, {
         page: req.query.page == null ? 1 : Number(req.query.page),
         pageSize: req.query.pageSize == null ? 10 : Number(req.query.pageSize),
+        cursor: req.query.cursor,
         search: typeof req.query.search === "string" ? req.query.search : "",
         statuses: rawStatuses,
         gender: typeof req.query.gender === "string" ? req.query.gender : "ALL",

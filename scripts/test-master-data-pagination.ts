@@ -61,16 +61,15 @@ try {
     if (url.pathname === "/rest/v1/master_data_records") return response([]);
     if (url.pathname === "/rest/v1/students") {
       studentQueries.push(url);
-      const offset = Number(url.searchParams.get("offset"));
-      if (offset === 10000) return response(Array.from({ length: 11 }, (_, i) => makeStudentRow(offset + i + 1)));
-      if (offset === 10010) return response(Array.from({ length: 3 }, (_, i) => makeStudentRow(offset + i + 1)));
-      return response([]);
+      const filters = url.searchParams.get("and") || "";
+      if (filters.includes("name.gt.")) return response(Array.from({ length: 3 }, (_, i) => makeStudentRow(20 + i)));
+      return response(Array.from({ length: 11 }, (_, i) => makeStudentRow(i + 1)));
     }
     throw new Error(`Unexpected Supabase test request: ${url.pathname}`);
   }) as typeof fetch;
 
   const page = await listSupabaseMasterDataStudentsPage("pesantren-uji", {
-    page: 1001,
+    page: 1,
     pageSize: 10,
     search: "Aminah 12",
     statuses: ["Active", "Inactive"],
@@ -79,14 +78,18 @@ try {
     dormitory: "Asrama Utama",
     completeness: "WITH_NIK",
   });
-  assert.equal(page.page, 1001);
+  assert.equal(page.page, 1);
   assert.equal(page.pageSize, 10);
   assert.equal(page.records.length, 10);
   assert.equal(page.hasMore, true);
+  assert.equal(typeof page.nextCursor, "string");
+  const cursor = JSON.parse(Buffer.from(page.nextCursor!, "base64url").toString("utf8"));
+  assert.equal(cursor.name, "Santri 10");
+  assert.equal(cursor.id, makeStudentRow(10).id);
   const query = studentQueries.at(-1);
   assert.ok(query);
   assert.equal(query.searchParams.get("tenant_id"), `eq.${tenantId}`);
-  assert.equal(query.searchParams.get("offset"), "10000");
+  assert.equal(query.searchParams.has("offset"), false, "roster pages must not use deep offsets");
   assert.equal(query.searchParams.get("limit"), "11");
   assert.equal(query.searchParams.get("order"), "name.asc,id.asc");
   assert.equal(query.searchParams.get("status"), "in.(Active,Inactive)");
@@ -112,11 +115,38 @@ try {
   assert.equal(first.profile?.nisn, undefined);
   assert.equal(first.contacts?.[0]?.apiKey, undefined);
 
-  const lastPage = await listSupabaseMasterDataStudentsPage(tenantId, { page: 1002, pageSize: 10 });
+  const lastPage = await listSupabaseMasterDataStudentsPage(tenantId, {
+    page: 2,
+    pageSize: 10,
+    cursor: page.nextCursor,
+    search: "Aminah 12",
+    statuses: ["Active", "Inactive"],
+    gender: "L",
+    grade: "Kelas A",
+    dormitory: "Asrama Utama",
+    completeness: "WITH_NIK",
+  });
+  const nextQuery = studentQueries.at(-1);
+  assert.ok(nextQuery);
+  assert.equal(nextQuery.searchParams.has("offset"), false);
+  assert.equal(nextQuery.searchParams.get("order"), "name.asc,id.asc");
+  assert.ok((nextQuery.searchParams.get("and") || "").includes('name.gt."Santri 10"'));
+  assert.match(nextQuery.searchParams.get("and") || "", /id\.gt\.00000000-0000-4000-8000-000000000010/);
   assert.equal(lastPage.records.length, 3);
   assert.equal(lastPage.hasMore, false);
+  assert.equal(lastPage.nextCursor, null);
 
   const studentQueryCount = studentQueries.length;
+  await assert.rejects(
+    () => listSupabaseMasterDataStudentsPage(tenantId, { page: 2 }),
+    (error: unknown) => error instanceof SupabaseOnboardingError && error.status === 400,
+  );
+  await assert.rejects(
+    () => listSupabaseMasterDataStudentsPage(tenantId, { page: 2, cursor: "invalid" }),
+    (error: unknown) => error instanceof SupabaseOnboardingError && error.status === 400,
+  );
+  assert.equal(studentQueries.length, studentQueryCount, "missing or malformed cursors must fail before querying the roster");
+
   await assert.rejects(
     () => listSupabaseMasterDataStudentsPage(tenantId, { search: "ab" }),
     (error: unknown) => error instanceof SupabaseOnboardingError && error.status === 400,

@@ -209,6 +209,7 @@ export interface SupabaseMasterDataStudentRecord {
 export type SupabaseMasterDataStudentPageOptions = {
   page: number;
   pageSize?: number;
+  cursor?: string | null;
   search?: string;
   statuses?: string[];
   gender?: "ALL" | "L" | "P";
@@ -219,11 +220,12 @@ export type SupabaseMasterDataStudentPageOptions = {
 
 export async function listSupabaseMasterDataStudentsPage(
   options: SupabaseMasterDataStudentPageOptions,
-): Promise<{ records: SupabaseMasterDataStudentRecord[]; page: number; pageSize: number; hasMore: boolean }> {
+): Promise<{ records: SupabaseMasterDataStudentRecord[]; page: number; pageSize: number; hasMore: boolean; nextCursor: string | null }> {
   const params = new URLSearchParams({
     page: String(options.page),
     pageSize: String(options.pageSize ?? 10),
   });
+  if (options.cursor) params.set("cursor", options.cursor);
   const search = String(options.search || "").trim();
   if (search) params.set("search", search);
   for (const status of options.statuses || []) params.append("status", status);
@@ -236,8 +238,10 @@ export async function listSupabaseMasterDataStudentsPage(
     page: number;
     pageSize: number;
     hasMore: boolean;
+    nextCursor: string | null;
   }>("/api/master-data/students?" + params.toString());
-  if (!Array.isArray(result.records) || typeof result.hasMore !== "boolean") {
+  if (!Array.isArray(result.records) || typeof result.hasMore !== "boolean"
+    || (result.nextCursor !== null && typeof result.nextCursor !== "string")) {
     throw new Error("Respons halaman data santri dari server tidak valid.");
   }
   return { ...result, records: result.records };

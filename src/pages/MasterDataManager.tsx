@@ -1,5 +1,5 @@
 import { useAuth } from '../contexts/AuthContext';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Users,
   Building,
@@ -405,6 +405,7 @@ export function MasterDataManager() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [serverStudentHasMore, setServerStudentHasMore] = useState(false);
+  const serverStudentCursorHistory = useRef<Record<number, string | null>>({ 1: null });
   const recordsPerPage = 10;
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
@@ -412,8 +413,9 @@ export function MasterDataManager() {
 
   useEffect(() => {
     setCurrentPage(1);
+    serverStudentCursorHistory.current = { 1: null };
     setSearchResults(null);
-  }, [searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter]);
+  }, [searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, user?.tenantId, user?.uid]);
 
   const toggleStatusFilter = (status: string) => {
     setStatusFilter((prev) =>
@@ -471,9 +473,15 @@ export function MasterDataManager() {
             }
             return;
           }
+          const cursor = currentPage === 1 ? null : serverStudentCursorHistory.current[currentPage];
+          if (currentPage > 1 && !cursor) {
+            if (!cancelled) setCurrentPage(1);
+            return;
+          }
           const page = await listSupabaseMasterDataStudentsPage({
             page: currentPage,
             pageSize: recordsPerPage,
+            cursor,
             search: searchQuery,
             statuses: statusFilter,
             gender: genderFilter,
@@ -482,6 +490,7 @@ export function MasterDataManager() {
             completeness: completenessFilter,
           });
           if (!cancelled) {
+            serverStudentCursorHistory.current[currentPage + 1] = page.nextCursor;
             setDataSources((prev) => ({ ...prev, Santri: page.records }));
             setServerStudentHasMore(page.hasMore);
           }
@@ -557,6 +566,7 @@ export function MasterDataManager() {
     setSearchQuery("");
     setSearchResults(null);
     setCurrentPage(1);
+    serverStudentCursorHistory.current = { 1: null };
     setIsFilterOpen(false);
     setSelectedRows([]);
   };
@@ -565,6 +575,7 @@ export function MasterDataManager() {
     if (e) e.preventDefault();
     setSearchResults(null);
     setCurrentPage(1);
+    serverStudentCursorHistory.current = { 1: null };
   };
 
   const handleAddClick = () => {
@@ -1045,6 +1056,7 @@ export function MasterDataManager() {
     setSearchQuery('');
     setSearchResults(null);
     setCurrentPage(1);
+    serverStudentCursorHistory.current = { 1: null };
   };
 
   const hasActiveFilters =
@@ -1739,6 +1751,7 @@ export function MasterDataManager() {
                     setActiveSubTab(sub);
                     setSelectedRecord(null);
                     setCurrentPage(1);
+                    serverStudentCursorHistory.current = { 1: null };
                   }}
                   className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                     isActive
