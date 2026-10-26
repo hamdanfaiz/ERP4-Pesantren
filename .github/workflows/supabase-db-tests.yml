@@ -193,6 +193,9 @@ jobs:
       - name: Verify Finance proof and PPDB document Storage HTTP flows
         run: npm run test:api:finance-storage
 
+      - name: Verify private digital library Storage HTTP flows
+        run: npm run test:api:library-storage
+
       - name: Verify local database backup and restore
         run: npm run test:db:backup-restore
       - name: Stop local Supabase
