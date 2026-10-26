@@ -380,3 +380,12 @@ Layar impor finansial dapat mengembalikan hasil pratinjau yang dihitung dari pem
 Commit `d80cff6f8384a46b835158b5ee1263a7c3e02ab1` lulus pada [GitHub Actions run #40152711049](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40152711049). Build frontend/runtime/Docker serta seluruh migration/pgTAP, NIS concurrency, preview importer, auth/isolasi tenant, Storage Finance, dan backup/restore selesai sukses.
 
 Perbaikan ini hanya mengubah kode aplikasi dan diuji dengan stack Supabase lokal terisolasi. Supabase production tidak berubah; PR #13 tetap Draft dan belum di-merge atau di-deploy.
+
+
+## Bahan digital Perpustakaan privat — 26 Oktober 2026
+
+Alur bahan digital kini menggunakan bucket Storage privat `erp4-private-library-assets`, metadata ber-RLS yang hanya dapat dibaca backend tepercaya, serta endpoint tenant-scoped untuk daftar, upload, finalisasi, dan pembuatan tautan unduh singkat. Browser menerima token upload terikat pada satu path; secret Supabase tetap di server. Upload dibatasi pada PDF, EPUB, MP3, dan M4A sampai 25 MB. Backend mencocokkan ukuran, MIME, tanda tangan format, serta SHA-256 aktual sebelum mencatat metadata. Reservasi dan finalisasi idempoten, dan database mengulang pemeriksaan role, izin modul, tenant, dan fingerprint.
+
+UI Perpustakaan Supabase kini menyediakan tab Bahan digital untuk unggah dan buka berkas privat. Metadata arsip lama tidak otomatis dianggap sebagai berkas yang tersedia; audit sumber tidak menemukan byte Storage lama yang dapat dipulihkan, sehingga file tersebut harus ditemukan kembali sebelum dipindahkan.
+
+Migration `20270116000000_private_library_digital_assets.sql` dan pgTAP `library_digital_assets.test.sql` baru ditambahkan pada branch PR #13. Migration belum diterapkan ke Supabase live. Validasi lokal 26 Oktober 2026: `npm run lint`, `npm run build`, dan `npm run test:library-assets` lulus; build memberi peringatan ukuran chunk frontend besar yang sudah ada. pgTAP belum dijalankan karena Supabase lokal/Docker tidak tersedia pada workspace. `SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED` dan `SUPABASE_LIBRARY_RUNTIME_ENABLED` tetap default `false`; aktifkan bahan digital hanya setelah migration dan pengujian non-produksi lulus.

@@ -98,6 +98,13 @@ import {
 } from "./src/server/supabaseLibrary";
 import { applySupabaseLegacyLibraryBooks, previewSupabaseLegacyLibraryBooks } from "./src/server/supabaseLibraryImport";
 import {
+  createSupabaseLibraryDigitalAssetDownloadUrl,
+  finalizeSupabaseLibraryDigitalAssetUpload,
+  listSupabaseLibraryDigitalAssets,
+  reserveSupabaseLibraryDigitalAssetUpload,
+  SupabaseLibraryAssetError,
+} from "./src/server/supabaseLibraryAssets";
+import {
   applySupabaseLegacyLibraryCirculations,
   previewSupabaseLegacyLibraryCirculations,
   type LegacyLibraryStudentMappings,
@@ -722,6 +729,7 @@ async function startServer() {
   const masterDataImportEnabled = String(process.env.SUPABASE_MASTER_DATA_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryRuntimeEnabled = String(process.env.SUPABASE_LIBRARY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const libraryDigitalAssetsEnabled = String(process.env.SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED || "").trim().toLowerCase() === "true";
   const libraryImportEnabled = String(process.env.SUPABASE_LIBRARY_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const libraryCirculationImportEnabled = String(process.env.SUPABASE_LIBRARY_CIRCULATIONS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const hrisImportEnabled = String(process.env.SUPABASE_HRIS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
@@ -2162,6 +2170,7 @@ async function startServer() {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseLibraryError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof SupabaseLibraryAssetError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase library endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan Perpustakaan Supabase belum dapat diproses." });
   };
@@ -2291,6 +2300,57 @@ async function startServer() {
       const actor = await loadLibraryActor(uid);
       const result = await returnSupabaseLibraryBook(actor.tenantId, actor.uid, actor.role, req.body?.return);
       return res.status(result?.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.get("/api/library/assets", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    if (!libraryDigitalAssetsEnabled) return res.json({ enabled: false, assets: [] });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      return res.json({ enabled: true, assets: await listSupabaseLibraryDigitalAssets(actor.tenantId) });
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.post("/api/library/assets/upload-url", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryRuntimeEnabled || !libraryDigitalAssetsEnabled) return res.status(503).json({ error: "Penyimpanan bahan digital Perpustakaan belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      const result = await reserveSupabaseLibraryDigitalAssetUpload(actor.tenantId, actor.uid, actor.role, req.body?.asset || {});
+      return res.status(result.alreadyCompleted ? 200 : 201).json({
+        ...result,
+        clientRequestId: String(req.body?.asset?.clientRequestId || ""),
+      });
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.post("/api/library/assets/finalize", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryRuntimeEnabled || !libraryDigitalAssetsEnabled) return res.status(503).json({ error: "Penyimpanan bahan digital Perpustakaan belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      const clientRequestId = String(req.body?.clientRequestId || "").trim();
+      const result = await finalizeSupabaseLibraryDigitalAssetUpload(actor.tenantId, actor.uid, actor.role, clientRequestId);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.get("/api/library/assets/:assetId/download-url", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!libraryRuntimeEnabled || !libraryDigitalAssetsEnabled) return res.status(503).json({ error: "Penyimpanan bahan digital Perpustakaan belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadLibraryActor(uid);
+      return res.json(await createSupabaseLibraryDigitalAssetDownloadUrl(actor.tenantId, req.params.assetId));
     } catch (error) { return libraryRouteError(res, error); }
   });
 
