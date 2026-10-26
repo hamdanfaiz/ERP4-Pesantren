@@ -3361,6 +3361,7 @@ export function MasterDataManager() {
                 initialData={modalMode === "edit" ? formData : undefined}
                 isEdit={modalMode === "edit"}
                 type={activeSubTab}
+                availableBuildings={dataSources["Gedung"] || []}
               />
             </div>
           )}

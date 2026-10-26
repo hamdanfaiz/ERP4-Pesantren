@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { upsertSupabaseMasterDataStructure } from '../services/masterDataApi';
+import { upsertSupabaseMasterDataStructure, type SupabaseStructureRecord } from '../services/masterDataApi';
 import { Building, Save, X, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { generateUniqueId } from '../lib/utils';
+import { isActiveOnboardingStructure } from '../utils/ppdbOnboardingRooms';
 
 interface StructureRegistrationFormProps {
   onSuccess?: (savedRecord?: any) => void;
@@ -9,9 +10,10 @@ interface StructureRegistrationFormProps {
   initialData?: any;
   isEdit?: boolean;
   type: string;
+  availableBuildings?: Pick<SupabaseStructureRecord, 'id' | 'name' | 'status'>[];
 }
 
-export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps> = ({ onSuccess, onCancel, initialData, isEdit, type }) => {
+export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps> = ({ onSuccess, onCancel, initialData, isEdit, type, availableBuildings = [] }) => {
   const [formData, setFormData] = useState({
     id: initialData?.id || '',
     name: initialData?.name || '',
@@ -22,7 +24,12 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
     grade: initialData?.grade || '',
     description: initialData?.description || '',
     parentCode: initialData?.parentCode || '', // For Kampus ID, Gedung ID etc.
+    gender: initialData?.gender || initialData?.genderRestriction || '',
   });
+
+  const selectableBuildings = availableBuildings.filter((building) =>
+    isActiveOnboardingStructure(building) || building.id === formData.parentCode
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -34,7 +41,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name) {
-      setMessage({ type: 'error', text: 'Name is required' });
+      setMessage({ type: 'error', text: 'Nama wajib diisi.' });
       return;
     }
 
@@ -68,7 +75,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
       <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
         <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-          <Building className="w-5 h-5 text-emerald-500" /> Register {type}
+          <Building className="w-5 h-5 text-emerald-500" /> Data {type}
         </h3>
         {onCancel && (
           <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -98,7 +105,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
                 value={formData.id}
                 onChange={(e) => handleFieldChange('id', e.target.value)}
                 className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                placeholder="Auto-generated if empty"
+                placeholder="Dibuat otomatis jika kosong"
                 disabled={isEdit}
               />
             </div>
@@ -119,8 +126,8 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
                 onChange={(e) => handleFieldChange('status', e.target.value)}
                 className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
+                <option value="Active">Aktif</option>
+                <option value="Inactive">Tidak aktif</option>
                 <option value="Maintenance">Pemeliharaan</option>
               </select>
             </div>
@@ -139,11 +146,31 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
               </>
             )}
 
-            {(type === 'Kampus' || type === 'Gedung' || type === 'Kamar' || type === 'Kelas') && (
+            {type === 'Kamar' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2" htmlFor="structure-parent-building">Gedung Asrama</label>
+                <select
+                  id="structure-parent-building"
+                  value={formData.parentCode}
+                  onChange={(e) => handleFieldChange('parentCode', e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                >
+                  <option value="">Tanpa gedung induk</option>
+                  {selectableBuildings.map((building) => (
+                    <option key={building.id} value={building.id}>
+                      {building.name}{!isActiveOnboardingStructure(building) ? ' (tidak aktif)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-slate-500">Pilih gedung aktif agar lokasi, gender, dan kapasitas asrama dapat divalidasi.</p>
+              </div>
+            )}
+
+            {(type === 'Kampus' || type === 'Gedung' || type === 'Kelas') && (
               <>
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    {type === 'Kampus' ? 'Yayasan Code' : type === 'Gedung' ? 'Kampus Code' : type === 'Kamar' || type === 'Kelas' ? 'Gedung Code' : 'Parent Code'}
+                    {type === 'Kampus' ? 'Kode Yayasan' : type === 'Gedung' ? 'Kode Kampus' : type === 'Kelas' ? 'Kode Gedung' : 'Kode Induk'}
                   </label>
                   <input
                     type="text"
@@ -158,15 +185,35 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
             {(type === 'Gedung' || type === 'Kamar' || type === 'Kelas') && (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Capacity / Quota</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2" htmlFor="structure-capacity">Kapasitas {type === 'Kamar' ? '*' : ''}</label>
                   <input
+                    id="structure-capacity"
                     type="number"
+                    min={type === 'Kamar' ? 1 : 0}
                     value={formData.capacity}
                     onChange={(e) => handleFieldChange('capacity', e.target.value)}
+                    required={type === 'Kamar'}
                     className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
                 </div>
               </>
+            )}
+
+            {(type === 'Gedung' || type === 'Kamar') && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2" htmlFor="structure-gender">Peruntukan Gender</label>
+                <select
+                  id="structure-gender"
+                  value={formData.gender}
+                  onChange={(e) => handleFieldChange('gender', e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                >
+                  <option value="">Belum ditentukan</option>
+                  <option value="L">Putra</option>
+                  <option value="P">Putri</option>
+                </select>
+                <p className="mt-1 text-xs text-slate-500">Gender kamar mengikuti pengaturan kamar; jika kosong, sistem memakai gender Gedung.</p>
+              </div>
             )}
 
             {(type === 'Kelas' || type === 'Halaqah') && (
@@ -193,7 +240,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
                 onClick={onCancel}
                 className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 mr-3"
               >
-                Cancel
+                Batal
               </button>
             )}
             <button
@@ -202,7 +249,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
               className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save {type}
+              Simpan {type}
             </button>
           </div>
         </form>

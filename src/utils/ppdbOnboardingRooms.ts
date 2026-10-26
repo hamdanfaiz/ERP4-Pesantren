@@ -2,7 +2,7 @@ import type { SupabaseStructureRecord } from "../services/masterDataApi";
 
 const DISABLED_STATUSES = new Set(["inactive", "nonaktif", "disabled"]);
 
-export function isActiveOnboardingStructure(record: SupabaseStructureRecord) {
+export function isActiveOnboardingStructure(record: Pick<SupabaseStructureRecord, "status">) {
   return !DISABLED_STATUSES.has(String(record.status || "Active").trim().toLowerCase());
 }
 
