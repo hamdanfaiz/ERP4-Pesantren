@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw, Search, ShieldAlert, UserCheck, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Plus, RefreshCw, Search, ShieldAlert, UserCheck, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { listSupabaseMasterDataStructures, type SupabaseStructureRecord } from "../services/masterDataApi";
+import { pendingMutationIds } from "../utils/pendingMutationId";
 
 type Stage = "Registered" | "Document Review" | "Entry Exam" | "Interview" | "Accepted" | "Rejected";
 type CandidateBill = { id: string; feeType: string; period: string; amount: number; paidAmount: number; status: string };
@@ -30,9 +31,22 @@ type CandidateDraft = {
   religiousScores: Record<string, string>;
 };
 type OnboardingDraft = { nis: string; classId: string; roomId: string; guardianName: string; guardianPhone: string };
+type NewCandidateDraft = {
+  registrationId: string; name: string; gender: "L" | "P"; grade: string; previousSchool: string;
+  phone: string; whatsappPhone: string; email: string; nik: string; nisn: string; pob: string; dob: string;
+  address: string; fatherName: string; motherName: string; fatherJob: string; motherJob: string;
+  fatherEducation: string; motherEducation: string; familyIncome: string;
+};
+
+const EMPTY_NEW_CANDIDATE: NewCandidateDraft = {
+  registrationId: "", name: "", gender: "L", grade: "", previousSchool: "", phone: "", whatsappPhone: "",
+  email: "", nik: "", nisn: "", pob: "", dob: "", address: "", fatherName: "", motherName: "",
+  fatherJob: "", motherJob: "", fatherEducation: "", motherEducation: "", familyIncome: "",
+};
 
 const PPDB_ONBOARDING_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED === "true";
-const PPDB_DOCUMENTS_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_RUNTIME_ENABLED === "true"
+const PPDB_RUNTIME_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_RUNTIME_ENABLED === "true";
+const PPDB_DOCUMENTS_ENABLED = PPDB_RUNTIME_ENABLED
   && import.meta.env.VITE_SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED === "true";
 const PPDB_FINANCE_BILLS_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_FINANCE_BILLS_ENABLED === "true";
 const FORM_CONTROL = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white";
@@ -104,6 +118,10 @@ export function SupabasePpdbManager() {
   const [savingId, setSavingId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [newCandidate, setNewCandidate] = useState<NewCandidateDraft>({ ...EMPTY_NEW_CANDIDATE });
   const [onboardingCandidate, setOnboardingCandidate] = useState<Candidate | null>(null);
   const [onboardingStructures, setOnboardingStructures] = useState<SupabaseStructureRecord[]>([]);
   const [onboardingDraft, setOnboardingDraft] = useState<OnboardingDraft>({ nis: "", classId: "", roomId: "", guardianName: "", guardianPhone: "" });
@@ -232,6 +250,31 @@ export function SupabasePpdbManager() {
     } finally { setSavingId(""); }
   };
 
+  const createCandidate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!user?.tenantId || !user.uid) { setError("Profil Admin dan tenant aktif diperlukan."); return; }
+    const candidate = { ...newCandidate, email: newCandidate.email.trim().toLowerCase() };
+    setCreateSaving(true); setCreateError(""); setError(""); setNotice("");
+    let lease: Awaited<ReturnType<typeof pendingMutationIds.acquire>> | null = null;
+    try {
+      lease = await pendingMutationIds.acquire(`ppdb-candidate-create:${user.tenantId}:${user.uid}`, candidate);
+      const result = await requestPpdb("/api/ppdb/candidates", {
+        method: "POST",
+        body: JSON.stringify({ clientRequestId: lease.requestId, candidates: [candidate] }),
+      });
+      lease.clear();
+      const created = Array.isArray(result.candidates) ? result.candidates[0] : null;
+      setNotice(result.alreadyApplied
+        ? `Permintaan sebelumnya sudah tersimpan${created?.registrationId ? ` (${created.registrationId})` : ""}.`
+        : `Pendaftar ${created?.registrationId || candidate.registrationId} berhasil ditambahkan.`);
+      setNewCandidate({ ...EMPTY_NEW_CANDIDATE });
+      setCreateOpen(false);
+      await refresh();
+    } catch (createError: any) {
+      setCreateError(createError?.message || "Pendaftar PPDB belum dapat ditambahkan. Data formulir dipertahankan agar bisa dicoba kembali.");
+    } finally { setCreateSaving(false); }
+  };
+
   const openOnboarding = async (candidate: Candidate) => {
     setOnboardingCandidate(candidate);
     setOnboardingDraft({ nis: candidate.nis || "", classId: "", roomId: "", guardianName: "", guardianPhone: candidate.phone || "" });
@@ -287,7 +330,10 @@ export function SupabasePpdbManager() {
     <div className="mx-auto max-w-7xl space-y-5 p-4 md:p-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Penerimaan Santri Baru</h1><p className="mt-1 text-sm text-slate-500">Data calon santri tenant dibaca dari Supabase. Perubahan status, nilai, dan catatan divalidasi di database.</p></div>
-        <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
+        <div className="flex flex-wrap gap-2">
+          {PPDB_RUNTIME_ENABLED && <button type="button" onClick={() => { setError(""); setCreateError(""); setCreateOpen(true); }} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"><Plus className="h-4 w-4" />Tambah pendaftar</button>}
+          <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
+        </div>
       </header>
 
       <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Mode Supabase: layar ini mengelola daftar, tahap, nilai, penilaian Al-Qur’an dan Tahfidz, serta onboarding santri transaksional. Pendaftaran publik yang diaktifkan menyimpan berkas pada Storage privat; unduh berkas oleh Admin melalui server masih menunggu flag runtime tersendiri. Admin dapat menerbitkan tagihan kandidat setelah migration Finance dan flag PPDB–Keuangan diaktifkan.</div>
@@ -310,6 +356,36 @@ export function SupabasePpdbManager() {
         {hasMore && <div className="mt-4 flex justify-center border-t border-slate-100 pt-4 dark:border-white/5"><button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}Muat 250 pendaftar berikutnya</button></div>}
       </section>
       {expandedId && candidates.some((candidate) => candidate.id === expandedId) && <CandidateDocumentDownloads candidate={candidates.find((candidate) => candidate.id === expandedId)!} enabled={PPDB_DOCUMENTS_ENABLED} />}
+      {createOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-5"><form onSubmit={(event) => void createCandidate(event)} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Tambah pendaftar</h2><p className="mt-1 text-sm text-slate-500">Untuk pendaftaran yang dicatat oleh Admin. Nomor pendaftaran harus unik di pesantren ini.</p></div><button type="button" aria-label="Tutup formulir" onClick={() => setCreateOpen(false)} disabled={createSaving} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
+        <div className="space-y-5 p-5"><p role="note" className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200">NIK dan NISN dienkripsi di server sebelum disimpan. Formulir ini belum mengunggah lampiran; dokumen pendaftar tetap berstatus belum diterima.</p>
+          {createError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">{createError}</div>}
+          <section className="space-y-3"><h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Data pendaftar</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nomor pendaftaran<input required maxLength={50} value={newCandidate.registrationId} onChange={(event) => setNewCandidate({ ...newCandidate, registrationId: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nama lengkap<input required maxLength={120} value={newCandidate.name} onChange={(event) => setNewCandidate({ ...newCandidate, name: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Jenis kelamin<select value={newCandidate.gender} onChange={(event) => setNewCandidate({ ...newCandidate, gender: event.target.value as "L" | "P" })} className={FORM_CONTROL}><option value="L">Laki-laki</option><option value="P">Perempuan</option></select></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Jenjang/kelas tujuan<input required maxLength={40} value={newCandidate.grade} onChange={(event) => setNewCandidate({ ...newCandidate, grade: event.target.value })} placeholder="Contoh: VII" className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Asal sekolah<input required maxLength={160} value={newCandidate.previousSchool} onChange={(event) => setNewCandidate({ ...newCandidate, previousSchool: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">NIK (16 digit)<input required inputMode="numeric" pattern="[0-9]{16}" maxLength={16} value={newCandidate.nik} onChange={(event) => setNewCandidate({ ...newCandidate, nik: event.target.value.replace(/\D/g, "") })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">NISN (opsional, 10 digit)<input inputMode="numeric" pattern="[0-9]{10}" maxLength={10} value={newCandidate.nisn} onChange={(event) => setNewCandidate({ ...newCandidate, nisn: event.target.value.replace(/\D/g, "") })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Telepon calon santri<input required maxLength={24} value={newCandidate.phone} onChange={(event) => setNewCandidate({ ...newCandidate, phone: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">WhatsApp<input required maxLength={24} value={newCandidate.whatsappPhone} onChange={(event) => setNewCandidate({ ...newCandidate, whatsappPhone: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Email (opsional)<input type="email" maxLength={254} value={newCandidate.email} onChange={(event) => setNewCandidate({ ...newCandidate, email: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Tempat lahir<input required maxLength={100} value={newCandidate.pob} onChange={(event) => setNewCandidate({ ...newCandidate, pob: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal lahir<input required type="date" max={new Date().toISOString().slice(0, 10)} value={newCandidate.dob} onChange={(event) => setNewCandidate({ ...newCandidate, dob: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2 lg:col-span-3">Alamat<textarea required maxLength={500} rows={2} value={newCandidate.address} onChange={(event) => setNewCandidate({ ...newCandidate, address: event.target.value })} className={FORM_CONTROL} /></label>
+          </div></section>
+          <section className="space-y-3"><h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Data orang tua/wali</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nama ayah<input required maxLength={120} value={newCandidate.fatherName} onChange={(event) => setNewCandidate({ ...newCandidate, fatherName: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Pekerjaan ayah<input maxLength={100} value={newCandidate.fatherJob} onChange={(event) => setNewCandidate({ ...newCandidate, fatherJob: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Pendidikan ayah<input maxLength={80} value={newCandidate.fatherEducation} onChange={(event) => setNewCandidate({ ...newCandidate, fatherEducation: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nama ibu<input required maxLength={120} value={newCandidate.motherName} onChange={(event) => setNewCandidate({ ...newCandidate, motherName: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Pekerjaan ibu<input maxLength={100} value={newCandidate.motherJob} onChange={(event) => setNewCandidate({ ...newCandidate, motherJob: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Pendidikan ibu<input maxLength={80} value={newCandidate.motherEducation} onChange={(event) => setNewCandidate({ ...newCandidate, motherEducation: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Penghasilan keluarga<input maxLength={80} value={newCandidate.familyIncome} onChange={(event) => setNewCandidate({ ...newCandidate, familyIncome: event.target.value })} className={FORM_CONTROL} /></label>
+          </div></section>
+        </div><footer className="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><button type="button" onClick={() => setCreateOpen(false)} disabled={createSaving} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Batal</button><button type="submit" disabled={createSaving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{createSaving && <Loader2 className="h-4 w-4 animate-spin" />}{createSaving ? "Menyimpan…" : "Simpan pendaftar"}</button></footer>
+      </form></div>}
       {onboardingCandidate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={(event) => void submitOnboarding(event)} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"><header className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white"><UserCheck className="h-5 w-5 text-emerald-600" />Onboarding santri diterima</h2><p className="mt-1 text-sm text-slate-500">{onboardingCandidate.name} · {onboardingCandidate.registrationId} · {onboardingCandidate.grade}</p></div><button type="button" aria-label="Tutup" onClick={() => setOnboardingCandidate(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
         <div className="space-y-4 p-5"><p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200">Pembuatan data santri, wali, klaim identitas, reservasi NIS, dan kapasitas kamar dijalankan dalam satu transaksi Supabase. Jika ada data yang berbenturan, seluruh transaksi ditolak.</p>
           {onboardingLoading && <div role="status" className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat struktur tenant dan nomor NIS…</div>}

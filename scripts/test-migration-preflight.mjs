@@ -48,13 +48,13 @@ const observedProductionVersions = repositoryMigrations
   .filter(({ version }) => version <= '20261206000000')
   .map(({ version }) => version);
 assert.equal(observedProductionVersions.length, 47);
-assert.equal(repositoryMigrations.length, 83);
+assert.equal(repositoryMigrations.length, 84);
 const productionBaseline = compareMigrationVersions(repositoryMigrations, observedProductionVersions);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 36);
+assert.equal(productionBaseline.pending.length, 37);
 assert.equal(productionBaseline.pending[0].version, '20261207000000');
-assert.equal(productionBaseline.pending.at(-1).version, '20270111000000');
+assert.equal(productionBaseline.pending.at(-1).version, '20270112000000');
 assert.equal(productionBaseline.outOfOrderPending.length, 0);
 assert.equal(productionBaseline.unknownApplied.length, 0);
 assert.equal(productionBaseline.canContinueToStagingReview, true);

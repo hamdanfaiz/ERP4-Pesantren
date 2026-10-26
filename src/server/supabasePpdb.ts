@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { downloadSupabasePpdbDocument } from "./ppdbDocumentStorage";
 
@@ -53,6 +53,143 @@ function requireUuid(value: string) {
     throw new SupabasePpdbError(403, "Tenant Supabase yang valid diperlukan.");
   }
   return normalized;
+}
+
+function cleanCandidateText(value: unknown, label: string, max: number, required = false) {
+  const result = typeof value === "string" ? value.trim() : "";
+  if (required && !result) throw new SupabasePpdbError(400, `${label} wajib diisi.`);
+  if (result.length > max) throw new SupabasePpdbError(400, `${label} melebihi batas karakter.`);
+  return result;
+}
+
+function ppdbRequestFingerprintKey() {
+  const key = String(process.env.PII_FINGERPRINT_KEY || "").trim();
+  if (!/^[0-9a-f]{64}$/i.test(key)) {
+    throw new SupabasePpdbError(503, "Kunci fingerprint data pribadi backend belum dikonfigurasi.");
+  }
+  return Buffer.from(key, "hex");
+}
+
+/** Create tenant-bound offline PPDB records atomically and make uncertain retries idempotent. */
+export async function createSupabasePpdbCandidates(
+  tenantIdentifier: string,
+  actorUserId: string,
+  actorRole: string,
+  input: unknown,
+) {
+  const tenantId = requireUuid(tenantIdentifier);
+  const actorId = requireUuid(actorUserId);
+  const expectedRole = String(actorRole || "").trim().toLowerCase();
+  if (expectedRole !== "admin" && expectedRole !== "super_admin") {
+    throw new SupabasePpdbError(403, "Hanya Admin tenant yang dapat menambahkan pendaftar PPDB.");
+  }
+  const payload = input && typeof input === "object" && !Array.isArray(input) ? input as JsonObject : {};
+  const clientRequestId = String(payload.clientRequestId || "").trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)) {
+    throw new SupabasePpdbError(400, "ID permintaan PPDB tidak valid. Silakan kirim ulang formulir.");
+  }
+  if (!Array.isArray(payload.candidates) || payload.candidates.length < 1 || payload.candidates.length > 100) {
+    throw new SupabasePpdbError(400, "Permintaan harus berisi 1 sampai 100 calon santri.");
+  }
+
+  const fingerprintKey = ppdbRequestFingerprintKey();
+  const candidates = payload.candidates.map((raw: unknown, index: number) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new SupabasePpdbError(400, `Data calon santri ke-${index + 1} tidak valid.`);
+    }
+    const candidate = raw as JsonObject;
+    const registrationId = cleanCandidateText(candidate.registrationId, "Nomor pendaftaran", 50, true);
+    const name = cleanCandidateText(candidate.name, "Nama calon santri", 120, true);
+    const gender = cleanCandidateText(candidate.gender, "Jenis kelamin", 1, true).toUpperCase();
+    const grade = cleanCandidateText(candidate.grade, "Jenjang", 40, true);
+    const previousSchool = cleanCandidateText(candidate.previousSchool, "Asal sekolah", 160, true);
+    const phone = cleanCandidateText(candidate.phone, "Nomor telepon", 24, true);
+    const whatsappPhone = cleanCandidateText(candidate.whatsappPhone, "Nomor WhatsApp", 24, true);
+    const email = cleanCandidateText(candidate.email, "Email", 254).toLowerCase();
+    const nik = cleanCandidateText(candidate.nik, "NIK", 16, true).replace(/\D/g, "");
+    const nisn = cleanCandidateText(candidate.nisn, "NISN", 10).replace(/\D/g, "");
+    const pob = cleanCandidateText(candidate.pob, "Tempat lahir", 100, true);
+    const dob = cleanCandidateText(candidate.dob, "Tanggal lahir", 10, true);
+    const address = cleanCandidateText(candidate.address, "Alamat", 500, true);
+    const fatherName = cleanCandidateText(candidate.fatherName, "Nama ayah", 120, true);
+    const motherName = cleanCandidateText(candidate.motherName, "Nama ibu", 120, true);
+    const fatherJob = cleanCandidateText(candidate.fatherJob, "Pekerjaan ayah", 100);
+    const motherJob = cleanCandidateText(candidate.motherJob, "Pekerjaan ibu", 100);
+    const fatherEducation = cleanCandidateText(candidate.fatherEducation, "Pendidikan ayah", 80);
+    const motherEducation = cleanCandidateText(candidate.motherEducation, "Pendidikan ibu", 80);
+    const familyIncome = cleanCandidateText(candidate.familyIncome, "Penghasilan keluarga", 80);
+    if (gender !== "L" && gender !== "P") throw new SupabasePpdbError(400, "Jenis kelamin harus L atau P.");
+    if (!/^\d{16}$/.test(nik)) throw new SupabasePpdbError(400, "NIK harus terdiri dari 16 digit.");
+    if (nisn && !/^\d{10}$/.test(nisn)) throw new SupabasePpdbError(400, "NISN harus terdiri dari 10 digit.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) throw new SupabasePpdbError(400, "Tanggal lahir harus menggunakan format YYYY-MM-DD.");
+    const [year, month, day] = dob.split("-").map(Number);
+    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+    if (parsedDate.getUTCFullYear() !== year || parsedDate.getUTCMonth() + 1 !== month || parsedDate.getUTCDate() !== day) {
+      throw new SupabasePpdbError(400, "Tanggal lahir tidak valid.");
+    }
+    if (parsedDate.getTime() > Date.now()) throw new SupabasePpdbError(400, "Tanggal lahir tidak boleh di masa depan.");
+    const validPhone = /^\+?[0-9 ().-]{8,24}$/;
+    if (!validPhone.test(phone) || !validPhone.test(whatsappPhone)) throw new SupabasePpdbError(400, "Nomor telepon tidak valid.");
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new SupabasePpdbError(400, "Alamat email tidak valid.");
+    let protectedIdentity: ReturnType<typeof protectPpdbIdentityValues>;
+    try { protectedIdentity = protectPpdbIdentityValues(nik, nisn); }
+    catch (error: any) {
+      if (error instanceof SupabaseOnboardingError) throw new SupabasePpdbError(error.status, error.message);
+      throw error;
+    }
+    return {
+      candidateId: randomUUID(),
+      registrationId,
+      requestFingerprintMaterial: {
+        registrationId, name, gender, grade, previousSchool, phone, whatsappPhone, email, nik, nisn,
+        pob, dob, address, fatherName, motherName, fatherJob, motherJob,
+        fatherEducation, motherEducation, familyIncome,
+      },
+      candidate: {
+        name, gender, grade, previousSchool, phone, whatsappPhone, email,
+        nikCiphertext: protectedIdentity.nikCiphertextHex,
+        nikFingerprint: protectedIdentity.nikFingerprintHex,
+        nisnCiphertext: protectedIdentity.nisnCiphertextHex,
+        nisnFingerprint: protectedIdentity.nisnFingerprintHex,
+        pob, dob, address, fatherName, motherName, fatherJob, motherJob,
+        fatherEducation, motherEducation, familyIncome,
+      },
+      workflowData: {},
+      documents: { kk: false, birthCertificate: false, reportCards: false, ijazah: false, skhun: false, pasPhoto: false },
+    };
+  });
+  // Fingerprint stable normalized plaintext before randomized encryption. Only the HMAC is stored.
+  const canonical = JSON.stringify(candidates.map((entry) => entry.requestFingerprintMaterial));
+  const payloadFingerprint = createHmac("sha256", fingerprintKey).update(canonical, "utf8").digest("hex");
+  const result = await request("/rest/v1/rpc/create_admin_ppdb_candidates_batch", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_client_request_id: clientRequestId,
+      p_payload_fingerprint: payloadFingerprint,
+      p_candidates: candidates.map(({ requestFingerprintMaterial: _fingerprintMaterial, ...entry }) => entry),
+    }),
+  });
+  if (!result || typeof result !== "object" || !Array.isArray(result.candidates)
+    || result.candidates.length !== candidates.length) {
+    throw new SupabasePpdbError(503, "Backend belum mengonfirmasi seluruh calon santri.");
+  }
+  const createdCandidates = result.candidates.map((item: JsonObject, index: number) => {
+    const id = String(item.id || "");
+    const registrationId = String(item.registrationId || "");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+      || registrationId !== candidates[index].registrationId) {
+      throw new SupabasePpdbError(503, "Backend belum mengonfirmasi identitas calon santri yang tersimpan.");
+    }
+    return { id, registrationId };
+  });
+  return {
+    alreadyApplied: result.alreadyApplied === true,
+    requestId: String(result.requestId || clientRequestId),
+    candidates: createdCandidates,
+  };
 }
 
 async function requireActiveTenant(tenantId: string) {

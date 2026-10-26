@@ -102,7 +102,7 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a'));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
-    users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a'));
+    users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'super_admin', 'active', 'superadmin-a', { users: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-users', { users: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
@@ -259,6 +259,20 @@ async function main() {
       headers: { Authorization: `Bearer ${noPpdbAdminToken}` },
     });
     assert.equal(noPpdbDocument.status, 403, 'Private PPDB documents must require the PPDB module permission.');
+
+    const noPpdbCandidate = await fetch(`${apiBase}/api/ppdb/candidates`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientRequestId: randomUUID(), candidates: [{}] }),
+    });
+    assert.equal(noPpdbCandidate.status, 403, 'Candidate creation must require the PPDB module permission.');
+
+    const waliPpdbCandidate = await fetch(`${apiBase}/api/ppdb/candidates`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${waliToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientRequestId: randomUUID(), candidates: [{}] }),
+    });
+    assert.equal(waliPpdbCandidate.status, 403, 'Wali accounts cannot create PPDB candidates even with PPDB module flags.');
 
     const updateWaliPermissions = async (modulePermissions) => {
       const { data, error } = await admin.from('profiles')

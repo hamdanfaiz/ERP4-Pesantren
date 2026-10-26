@@ -171,7 +171,7 @@ import {
   upsertSupabaseCbtQuestion,
 } from "./src/server/supabaseCbt";
 import { applySupabaseLegacyCbtImport, getSupabaseCbtLegacyImportContext, previewSupabaseLegacyCbt } from "./src/server/supabaseCbtImport";
-import { createSupabasePpdbCandidateBill, downloadSupabasePpdbCandidateDocument, listSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate } from "./src/server/supabasePpdb";
+import { createSupabasePpdbCandidateBill, createSupabasePpdbCandidates, downloadSupabasePpdbCandidateDocument, listSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate } from "./src/server/supabasePpdb";
 import {
   applySupabaseLegacyPpdbImport,
   getSupabasePpdbLegacyImportContext,
@@ -975,6 +975,18 @@ async function startServer() {
       const limit = Math.max(1, Math.min(250, Number.parseInt(String(req.query.limit || "250"), 10) || 250));
       const offset = Math.max(0, Math.min(50000, Number.parseInt(String(req.query.offset || "0"), 10) || 0));
       return res.json(await listSupabasePpdbCandidates(actor.tenantId, limit, offset));
+    } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  app.post("/api/ppdb/candidates", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: "Runtime PPDB Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadPpdbActor(uid);
+      const result = await createSupabasePpdbCandidates(actor.tenantId, actor.uid, actor.role, req.body);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return ppdbRouteError(res, error); }
   });
 
