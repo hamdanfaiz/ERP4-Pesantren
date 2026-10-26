@@ -9,9 +9,9 @@
 ## Ringkasan yang perlu diketahui tim
 
 - PR cutover utama #13 masih Open/Draft. PR #12 sudah merged. PR #11 tetap Open/Draft dan divergen dari #13; jangan merge seluruh branch #11.
-- Head kode PR #13 sebelum dokumen ini berisi **91 migration**. Check GitHub Actions [run 40308481444](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40308481444) lulus pada 2/2 job dengan database CI lokal sintetis. CI bukan bukti status database target atau hasil import.
+- Head PR #13 `7b78b14130e1d05839380e41cb7bf09afc81f8f0` berisi **91 migration source**. GitHub Actions [run 40311050051](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40311050051) lulus 2/2 job, termasuk build frontend, migrasi/pgTAP lokal, transaksi serentak, API auth/tenant, Storage, dan backup/restore sintetis. CI ini tidak menguji target Production atau mengimpor data.
 - Inventaris Firestore mencatat 18 koleksi root dan 561 dokumen. Pemeriksaan metadata terbaru memastikan **453/453** `master_data` dan **50/50** `candidates` tidak memiliki field tingkat atas `tenantId`. Satu dokumen pengguna memiliki tenant key yang cocok dengan satu dokumen tenant; ini calon pemetaan, bukan persetujuan otomatis atas seluruh record.
-- Status migration dan data terkini project Supabase target belum dapat diperiksa dari konektor Codex yang aktif. Snapshot ledger lama tidak boleh dipakai sebagai status terkini. Tidak ada migration atau data production yang diterapkan oleh checkpoint ini.
+- Konektor Supabase Codex aktif masih hanya menampilkan project lama, tetapi dashboard browser yang sudah masuk dapat membaca halaman Database Migrations target `ptsasgdvgrbdtgyqieie` secara baca-saja. Pada 26 Oktober 2026, halaman itu menampilkan **47 versi**: `20260603000000` serta setiap versi harian dari `20261022000000` sampai `20261206000000`. Semua 47 versi target cocok dengan file migration source PR #13; source berisi **91 file**, sehingga **44 versi source** mulai `20261207000000` sampai `20270119000000` belum tercatat pada ledger yang terlihat. Tidak ada versi ledger target yang tidak ditemukan di source. Nama untuk dua baris `20261205000000` dan `20261206000000` tampil sebagai “Name not available”. Ini hanya pencocokan nomor versi, bukan verifikasi schema penuh, data, atau persetujuan apply. Baris terbaru menampilkan tanggal 6 Desember 2026, sesudah tanggal checkpoint 26 Oktober 2026; tim harus mengonfirmasi jam/metadata sebelum menafsirkan tanggal tersebut sebagai waktu kejadian. Tidak ada migration atau data Production yang diterapkan.
 - Sebelum production, credential Supabase/database yang pernah dibagikan harus dirotasi dan ditaruh di secret manager. Jangan salin credential, token, atau isi `.env` ke chat, GitHub, log, atau kode browser.
 
 ## 1. Sambungkan akses ke project Supabase yang benar
@@ -86,6 +86,8 @@ supabase migration list --db-url $env:SUPABASE_DB_URL
 ```
 
 Perintah ini membandingkan timestamp migration lokal dengan `supabase_migrations.schema_migrations` remote. Simpan hanya nomor versi, status lokal/remote, dan pesan error yang sudah disanitasi. Jangan jalankan `supabase migration up`, `supabase db push`, `supabase migration repair`, atau SQL DDL pada target saat langkah audit ini.
+
+Dashboard saat ini memperlihatkan 47 versi ledger yang dirinci pada Ringkasan. Jalankan perintah baca-saja ini untuk mengonfirmasi perbandingan lokal/remote dari CLI tim. Perbedaan timestamp antara versi source yang belum tercatat dan entri remote bukan izin untuk menerapkan migration. Tanggal entri terakhir terlihat lebih baru daripada tanggal checkpoint; konfirmasi provenance jam/metadata dengan pemilik project.
 
 Rujukan sintaks: [Supabase CLI — migration list](https://supabase.com/docs/reference/cli/supabase-migration-list). Pastikan koneksi SSL dan host dari Dashboard benar. Jika jaringan IPv4 tidak dapat mencapai host langsung, gunakan connection string pooler yang sesuai; jangan mengganti target project.
 
