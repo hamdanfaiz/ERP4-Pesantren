@@ -639,3 +639,12 @@ Koneksi Supabase MCP yang tersedia hanya menampilkan project lama `vqemuyzveuirl
 
 Tidak ada perubahan Production pada pemeriksaan ini. Skor tetap 73% kematangan fitur dan 46% kesiapan go-live karena inventaris sumber hanya memperbarui bukti; staging, ledger target, backup/restore, rekonsiliasi, login/UAT, dan simulasi environment pelanggan masih terbuka.
 
+## Checkpoint portabilitas pengujian dan CI — 26 Oktober 2026
+
+- Perintah `test:ppdb-csv-import` sebelumnya memanggil Bun, walaupun tes hanya memerlukan TypeScript dan dependensi `tsx` yang sudah terkunci di proyek. Perintah kini menggunakan `tsx`, sehingga suite ini dapat dijalankan dari instalasi Node/npm di Windows tanpa memasang runtime Bun khusus.
+- Verifikasi lokal lulus: `npm run lint`, guard bundle Supabase-only, gate Firebase legacy, Master Data pagination/PII minimization, PPDB CSV import, dan `npm run build`. Build sukses; masih ada peringatan chunk `CandidatePDFDownload` sekitar 1,24 MB serta beberapa anotasi dependensi yang dilepas oleh Rollup.
+- GitHub Actions run [40299213191](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40299213191) sukses pada **2/2 job** di head PR #13 `ae60b2e4bdd5548059315572b826a77eae557fe1`. Cakupan mencakup typecheck, build, Docker/Compose customer-managed, runtime tanpa Firebase, seluruh migration dan pgTAP pada Supabase lokal terisolasi, API role/tenant, Storage, konkurensi NIS/Tahfidz, dan backup/restore sintetis.
+- PR #13 tetap Open/Draft. PR #11 masih Open/Draft pada stack lama dan divergen; PR #12 sudah merged ke `main`. Tidak ada merge atau deployment.
+- Konektor Supabase masih hanya menampilkan project `vqemuyzveuirlkvdggjd`; pembacaan project `ptsasgdvgrbdtgyqieie` mengembalikan `INVALID_ARGUMENT`. Tidak ada akses database live, migration, data, atau pengaturan Production yang diubah.
+- Persentase tidak berubah: **kematangan fitur sekitar 73%; kesiapan go-live sekitar 46%**. Perbaikan portability dan CI ini memperkuat kualitas engineering, tetapi belum menutup rehearsal database target/backup, rekonsiliasi, login/UAT, rotasi secret, atau simulasi environment pelanggan.
+
