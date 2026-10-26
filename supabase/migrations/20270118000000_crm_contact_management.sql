@@ -245,10 +245,10 @@ BEGIN
   v_operation := CASE WHEN p_action = 'create' THEN 'contact_create' ELSE 'contact_update' END;
   v_hash := extensions.digest(convert_to(p_item::TEXT, 'UTF8'), 'sha256');
   PERFORM pg_advisory_xact_lock(pg_catalog.hashtextextended(
-    'crm-contact:' || p_tenant_id::TEXT || ':' || p_client_request_id::TEXT, 0
+    'crm-mutation:' || p_tenant_id::TEXT || ':' || p_client_request_id::TEXT, 0
   ));
   SELECT * INTO v_existing FROM public.crm_mutation_requests
-   WHERE tenant_id = p_tenant_id AND client_request_id = p_client_request_id FOR UPDATE;
+   WHERE tenant_id = p_tenant_id AND client_request_id = p_client_request_id;
   IF FOUND THEN
     IF v_existing.actor_user_id <> p_actor_user_id OR v_existing.operation <> v_operation
       OR v_existing.payload_sha256 <> v_hash THEN
@@ -344,10 +344,10 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'Kontak CRM tidak ditemukan pada tenant ini' USING ERRCODE = 'P0002'; END IF;
   v_hash := extensions.digest(convert_to(p_item::TEXT, 'UTF8'), 'sha256');
   PERFORM pg_advisory_xact_lock(pg_catalog.hashtextextended(
-    'crm-interaction:' || p_tenant_id::TEXT || ':' || p_client_request_id::TEXT, 0
+    'crm-mutation:' || p_tenant_id::TEXT || ':' || p_client_request_id::TEXT, 0
   ));
   SELECT * INTO v_existing FROM public.crm_mutation_requests
-   WHERE tenant_id = p_tenant_id AND client_request_id = p_client_request_id FOR UPDATE;
+   WHERE tenant_id = p_tenant_id AND client_request_id = p_client_request_id;
   IF FOUND THEN
     IF v_existing.actor_user_id <> p_actor_user_id OR v_existing.operation <> 'interaction_create'
       OR v_existing.payload_sha256 <> v_hash THEN
