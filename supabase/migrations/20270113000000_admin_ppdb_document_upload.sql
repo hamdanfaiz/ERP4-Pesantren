@@ -173,14 +173,14 @@ BEGIN
       CASE WHEN p_document_key = 'pasPhoto' THEN p_storage_path END
     );
   ELSE
-    IF CASE p_document_key
+    IF (CASE p_document_key
       WHEN 'kk' THEN v_document.kk_path
       WHEN 'birthCertificate' THEN v_document.birth_certificate_path
       WHEN 'reportCards' THEN v_document.report_cards_path
       WHEN 'ijazah' THEN v_document.ijazah_path
       WHEN 'skhun' THEN v_document.skhun_path
       WHEN 'pasPhoto' THEN v_document.pas_photo_path
-    END IS NOT NULL THEN
+    END) IS NOT NULL THEN
       RAISE EXCEPTION 'PPDB document is already attached' USING ERRCODE = '23505';
     END IF;
 
