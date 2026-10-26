@@ -66,6 +66,9 @@ jobs:
       - name: Verify the active frontend graph contains no Firebase runtime
         run: npm run test:supabase-runtime-no-firebase
 
+      - name: Verify customer deployment feature flag wiring
+        run: npm run test:customer-deployment-flags
+
       - name: Verify legacy Firestore tenant scoping
         run: npm run test:legacy-firestore-tenant-scope
 
@@ -95,6 +98,8 @@ jobs:
           docker build
           --build-arg VITE_SUPABASE_URL=https://supabase.example.invalid
           --build-arg VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder
+          --build-arg VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED=true
+          --build-arg VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=true
           --tag erp4-pesantren:ci .
 
       - name: Validate customer-managed Compose configuration
@@ -103,7 +108,20 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
           SUPABASE_URL: https://supabase.example.invalid
           SUPABASE_SECRET_KEY: sb_secret_ci_placeholder
-        run: docker compose -f docker-compose.yml config --quiet
+          SUPABASE_MASTER_DATA_RUNTIME_ENABLED: "true"
+          VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED: "true"
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml config --format json > /tmp/erp4-compose.json
+          node -e '
+            const config = JSON.parse(require("node:fs").readFileSync("/tmp/erp4-compose.json", "utf8"));
+            const service = config.services["erp4-pesantren"];
+            if (service.build.args.VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED !== "true") throw new Error("Vite feature flag did not reach the image build");
+            if (service.environment.SUPABASE_MASTER_DATA_RUNTIME_ENABLED !== "true") throw new Error("Server feature flag did not reach the container");
+            for (const name of ["SUPABASE_SECRET_KEY", "PII_ENCRYPTION_KEY", "PII_FINGERPRINT_KEY"]) {
+              if (Object.hasOwn(service.build.args, name)) throw new Error(`${name} leaked into Docker build args`);
+            }
+          '
 
       - name: Smoke-test customer-managed Docker image
         run: |
@@ -201,3 +219,4 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+

@@ -21,9 +21,21 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_replace_me
 SUPABASE_URL=https://supabase.example.org
 SUPABASE_SECRET_KEY=sb_secret_replace_me
 ERP4_HTTP_PORT=3000
+# Optional server-side PII keys: generate independent random values before enabling workflows that require them.
+PII_ENCRYPTION_KEY=
+PII_FINGERPRINT_KEY=
+SUPABASE_LEGACY_FINGERPRINT_KEY=
+
+# Feature gates stay off until the matching database and tenant checks are complete.
+SUPABASE_MASTER_DATA_RUNTIME_ENABLED=false
+VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED=false
+SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false
+VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false
 ```
 
 `VITE_SUPABASE_URL` must be reachable from each user's browser. `SUPABASE_URL` must be reachable from the container and may use a private address. The publishable key is embedded in the browser build; the secret key is passed only to the server container. Never put a secret key in a `VITE_` variable or commit `.env`.
+
+The Compose file uses an explicit allowlist for browser build flags and server runtime flags; all feature and import gates default to `false`. Browser `VITE_` flags are compiled into the static frontend, so rebuild the image after changing one. Server `SUPABASE_` flags take effect after recreating the service. Enable both sides of a module only after its migrations, tenant data, Auth/profile setup, RLS, and any Storage policies are verified in that deployment. Keep every import/apply flag off during normal operation; use it only for a reviewed, time-bounded migration procedure. Public PPDB is an externally reachable intake route and requires its own abuse, privacy, and tenant configuration review before activation. PII and legacy fingerprint keys are server-only; do not prefix them with `VITE_`.
 
 ## Build and run
 
@@ -47,3 +59,4 @@ Compose sets `NODE_ENV=production` and disables the legacy Firebase Admin and se
 - The current CI image smoke test proves container build/startup and that Firebase packages are absent from the production image. It does not prove authentication against a customer Supabase project, migrate customer data, or establish on-premise readiness for a complete Supabase stack.
 
 The Supabase credentials previously shared in chat must be rotated before any real deployment. Store replacement values in the host's secret manager or an ignored local `.env` file.
+
