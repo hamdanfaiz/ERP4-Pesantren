@@ -197,6 +197,53 @@ HAVING count(*) > 1;
 
 Kunci request historis harus dihitung dengan query yang sama persis dengan `INSERT … SELECT` tiap migration. Untuk marketplace, gabungkan pasangan `tenant_id/client_request_id` eligible dari empat sumber yang disebut di tabel; untuk Donation, Laundry, dan pemasok koperasi gunakan sumber masing-masing. Laporkan hanya total pasangan unik, kunci berulang lintas operasi, konflik aktor, dan selisih jumlah seed—tanpa payload atau identitas. Untuk Wali, gunakan CTE sumber `unique_legacy_guardian` dalam migration, kemudian hitung profil ambigu dan beberapa profil calon per Wali. Untuk baseline asrama, hitung `students` yang memiliki `room_id` atau `building_id` per tenant dan cocokkan dengan jumlah baseline yang akan ditambahkan.
 
+### Pemeriksaan kunci idempotensi yang akan di-seed
+
+Marketplace menggabungkan empat jenis request lama ke satu primary key `(tenant_id, client_request_id)`. Jalankan query berikut sebelum migration `20261213000000`; hasil hanya agregat per tenant, tanpa payload/ID request:
+
+```sql
+WITH source_keys AS (
+  SELECT tenant_id, client_request_id, 'manage_product'::text AS operation, created_by AS actor_user_id
+  FROM public.marketplace_products WHERE source_system = 'supabase_runtime'
+  UNION ALL
+  SELECT tenant_id, client_request_id, 'adjust_stock', created_by
+  FROM public.marketplace_stock_movements
+  WHERE order_id IS NULL AND reason <> 'Stok awal produk'
+  UNION ALL
+  SELECT tenant_id, client_request_id, 'create_order', created_by
+  FROM public.marketplace_orders WHERE source_system = 'supabase_runtime'
+  UNION ALL
+  SELECT tenant_id, client_request_id, 'transition_order', created_by
+  FROM public.marketplace_order_events WHERE event_type = 'status_changed'
+),
+key_groups AS (
+  SELECT tenant_id, client_request_id,
+         count(*) AS source_rows,
+         count(DISTINCT operation) AS operation_count,
+         count(*) FILTER (WHERE actor_user_id IS NULL) AS null_actor_rows
+  FROM source_keys
+  WHERE client_request_id IS NOT NULL
+  GROUP BY tenant_id, client_request_id
+)
+SELECT tenant_id,
+       count(*) FILTER (WHERE source_rows > 1) AS repeated_keys,
+       count(*) FILTER (WHERE operation_count > 1) AS cross_operation_keys,
+       sum(greatest(source_rows - 1, 0)) AS extra_source_rows,
+       sum(null_actor_rows) AS null_actor_rows
+FROM key_groups
+GROUP BY tenant_id;
+```
+
+Hitung juga row tanpa kunci, serta pastikan setiap aktor sumber memiliki profil pada tenant yang sama. Periksa apakah satu produk mempunyai lebih dari satu pergerakan stok awal yang akan ikut pada `LEFT JOIN`; kalau ya, satu produk dapat menghasilkan beberapa calon receipt.
+
+Untuk Donation, Laundry, dan pemasok koperasi jalankan hitungan agregat dengan kondisi persis pada source migration:
+
+- Donation: `donation_audit_events` dengan kombinasi entity/action yang dipilih migration; hitung `tenant_id/client_request_id` berulang dan aktor yang tidak ada pada profil tenant.
+- Laundry: hitung kunci berulang pada `laundry_events`, aktor yang tidak ada pada profil tenant, serta event type selain `order_received`, `status_changed`, dan `settings_updated`. Migration memetakan event type lewat `CASE`; tipe yang tidak dikenal menghasilkan operation kosong dan dapat menggagalkan constraint insert.
+- Pemasok koperasi: hitung `cooperative_suppliers.client_request_id` berulang serta baris dengan `COALESCE(updated_by, created_by)` kosong/tidak ditemukan pada profil tenant.
+
+Jangan melanjutkan bila konflik atau baris tanpa aktor/kunci ditemukan sebelum penyebab dan penanganan setiap record disetujui. `ON CONFLICT DO NOTHING` bukan rekonsiliasi: ia bisa membuat migration berhasil tetapi hanya menyimpan sebagian receipt.
+
 Hasil source review ini memperjelas prasyarat rehearsal; ia **belum** membuktikan migration berhasil pada schema target. Tetap jalankan seluruh urutan pada staging yang dapat dipulihkan dan periksa log sebelum keputusan Production.
 
 ## Migrasi data Firestore dan tenant
