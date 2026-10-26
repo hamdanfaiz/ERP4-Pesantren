@@ -173,15 +173,9 @@ WHERE entry_type NOT IN ('top_up', 'purchase', 'adjustment', 'opening_balance')
 GROUP BY entry_type;
 ```
 
-Tagihan kandidat duplikat dan aksi finance yang akan ditolak constraint:
+Aksi finance lama yang akan ditolak constraint (jalankan sebelum migration):
 
 ```sql
-SELECT tenant_id, candidate_id, payment_type, count(*) AS row_count
-FROM public.finance_bills
-WHERE candidate_id IS NOT NULL
-GROUP BY tenant_id, candidate_id, payment_type
-HAVING count(*) > 1;
-
 SELECT action, count(*) AS row_count
 FROM public.finance_write_requests
 WHERE action NOT IN (
@@ -189,6 +183,16 @@ WHERE action NOT IN (
   'reject_expense', 'settle_bill', 'reject_bill', 'set_lock', 'payment_proof'
 )
 GROUP BY action;
+```
+
+Query kandidat duplikat hanya dapat dijalankan bila kolom `finance_bills.candidate_id` sudah ada sebelum migration karena perubahan schema terdahulu atau drift. Pada urutan bersih, migration menambahkan kolom itu dan record lama dimulai dengan nilai `NULL`; catat kondisi tersebut, jangan menganggap query yang kolomnya belum ada sebagai kegagalan migration.
+
+```sql
+SELECT tenant_id, candidate_id, payment_type, count(*) AS row_count
+FROM public.finance_bills
+WHERE candidate_id IS NOT NULL
+GROUP BY tenant_id, candidate_id, payment_type
+HAVING count(*) > 1;
 ```
 
 Kunci request historis harus dihitung dengan query yang sama persis dengan `INSERT … SELECT` tiap migration. Untuk marketplace, gabungkan pasangan `tenant_id/client_request_id` eligible dari empat sumber yang disebut di tabel; untuk Donation, Laundry, dan pemasok koperasi gunakan sumber masing-masing. Laporkan hanya total pasangan unik, kunci berulang lintas operasi, konflik aktor, dan selisih jumlah seed—tanpa payload atau identitas. Untuk Wali, gunakan CTE sumber `unique_legacy_guardian` dalam migration, kemudian hitung profil ambigu dan beberapa profil calon per Wali. Untuk baseline asrama, hitung `students` yang memiliki `room_id` atau `building_id` per tenant dan cocokkan dengan jumlah baseline yang akan ditambahkan.
