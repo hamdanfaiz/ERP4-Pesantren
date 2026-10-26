@@ -321,7 +321,12 @@ export async function finalizeSupabaseDocumentAttachmentUpload(
     p_client_request_id: clientRequestId, p_verified_file_size: verified.fileSize,
     p_verified_content_type: verified.contentType, p_verified_content_sha256: expectedHash,
   });
-  if (error) throwServiceError(error, "Metadata lampiran belum dapat diselesaikan.");
+  if (error) {
+    if (["P0002", "23514"].includes(String(error?.code || ""))) {
+      await client.storage.from(BUCKET).remove([String(request.storage_path)]).catch(() => undefined);
+    }
+    throwServiceError(error, "Metadata lampiran belum dapat diselesaikan.");
+  }
   const result = data as { attachmentId?: string; alreadyApplied?: boolean };
   if (!isUuid(result?.attachmentId)) throw new SupabaseDocumentError(503, "Respons finalisasi lampiran tidak valid.");
   return { alreadyApplied: result.alreadyApplied === true, attachmentId: result.attachmentId, documentId: String(request.document_id) };

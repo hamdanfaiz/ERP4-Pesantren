@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(38);
+SELECT plan(41);
 
 INSERT INTO public.tenants (id, slug, name, status) VALUES
   ('a1700000-0000-4000-8000-000000000001', 'document-center-a-test', 'Document Center A Test', 'active'),
@@ -122,10 +122,29 @@ SELECT is(
     'a1700000-0000-4000-8000-000000000041', 8, 'application/pdf', repeat('ab', 32)
   )->>'alreadyApplied', 'true', 'upload finalization retry is idempotent');
 SELECT is(
+  public.reserve_tenant_document_attachment_upload(
+    'a1700000-0000-4000-8000-000000000001', 'a1700000-0000-4000-8000-000000000011', 'admin',
+    'a1700000-0000-4000-8000-000000000042', 'a1700000-0000-4000-8000-000000000052',
+    'a1700000-0000-4000-8000-000000000031', 'lampiran-kedua.pdf', 8, repeat('cd', 32)
+  )->>'attachmentId', 'a1700000-0000-4000-8000-000000000052', 'another PDF can be reserved before archival');
+SELECT is(
   public.transition_tenant_document(
     'a1700000-0000-4000-8000-000000000001', 'a1700000-0000-4000-8000-000000000011', 'admin',
     'a1700000-0000-4000-8000-000000000031', 'archived', 'Arsip selesai'
   )->>'status', 'archived', 'approved document can be archived');
+SELECT throws_ok(
+  $$SELECT public.finalize_tenant_document_attachment_upload(
+    'a1700000-0000-4000-8000-000000000001', 'a1700000-0000-4000-8000-000000000011', 'admin',
+    'a1700000-0000-4000-8000-000000000042', 8, 'application/pdf', repeat('cd', 32)
+  )$$, 'P0002', 'Dokumen tidak tersedia untuk menerima lampiran', 'an archived document cannot accept a previously reserved upload'
+);
+SELECT throws_ok(
+  $$SELECT public.reserve_tenant_document_attachment_upload(
+    'a1700000-0000-4000-8000-000000000001', 'a1700000-0000-4000-8000-000000000011', 'admin',
+    'a1700000-0000-4000-8000-000000000043', 'a1700000-0000-4000-8000-000000000053',
+    'a1700000-0000-4000-8000-000000000031', 'lampiran-tertutup.pdf', 8, repeat('ef', 32)
+  )$$, 'P0002', 'Dokumen tidak tersedia untuk menerima lampiran', 'archived documents reject new upload reservations'
+);
 RESET ROLE;
 
 SELECT is((SELECT count(*)::INTEGER FROM public.document_records WHERE tenant_id = 'a1700000-0000-4000-8000-000000000001'), 1, 'one tenant document exists');

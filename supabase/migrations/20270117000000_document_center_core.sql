@@ -374,6 +374,7 @@ SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_upload public.document_attachment_upload_requests%ROWTYPE;
+  v_document_status TEXT;
 BEGIN
   PERFORM public.assert_tenant_document_actor(p_tenant_id, p_actor_user_id, p_expected_role);
   IF p_client_request_id IS NULL THEN RAISE EXCEPTION 'ID permintaan upload tidak valid' USING ERRCODE = '22023'; END IF;
@@ -384,6 +385,11 @@ BEGIN
   END IF;
   IF v_upload.status = 'completed' THEN
     RETURN jsonb_build_object('attachmentId', v_upload.attachment_id, 'alreadyApplied', true);
+  END IF;
+  SELECT status INTO v_document_status FROM public.document_records
+    WHERE tenant_id = p_tenant_id AND id = v_upload.document_id FOR SHARE;
+  IF NOT FOUND OR v_document_status = 'archived' THEN
+    RAISE EXCEPTION 'Dokumen tidak tersedia untuk menerima lampiran' USING ERRCODE = 'P0002';
   END IF;
   IF p_verified_file_size IS NULL OR p_verified_file_size <> v_upload.declared_file_size
     OR p_verified_content_type IS DISTINCT FROM 'application/pdf'
