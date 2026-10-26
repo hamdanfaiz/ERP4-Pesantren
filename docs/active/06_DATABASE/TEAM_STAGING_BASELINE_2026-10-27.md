@@ -85,6 +85,17 @@ Supabase menjadwalkan perubahan agar tabel baru `public` tidak otomatis terekspo
 | Kategori `master_data` yang belum diimpor | 218: Alumni 50, Asatidz 50, Guru 50, Kampus 5, Pegawai 50, Staff 2, System 1, Unit 10 | Belum dipetakan penuh | Perlu review dan rekonsiliasi per domain sebelum impor; kategori dengan importer/preview tersendiri tetap mengikuti gate pada inventory migrasi. |
 | Koleksi root lain | 56 dokumen pada 14 koleksi selain `master_data`, kandidat, tenant, dan user | Beragam/tidak dipetakan di sini | Perlu preview per modul setelah migration prasyarat tersedia. |
 
+### Modul operasional lain yang belum diterapkan
+
+| Modul / sumber Firestore | Kondisi target staging | Kesimpulan dan tindakan |
+|---|---|---|
+| Koperasi: 6 inventory, 3 pemasok, 3 transaksi, 3 wallet | 0 produk, 0 pemasok, 0 penjualan, 0 pergerakan stok, 0 entri ledger. Ada 15 wallet untuk 15 santri aktif; semua bersaldo nol. | Wallet target dibuat otomatis dari santri aktif oleh migration, bukan hasil impor tiga wallet sumber. Jangan menyalin saldo/transaksi sebelum produk, identitas santri, saldo pembuka, dan urutan ledger direkonsiliasi pada rehearsal. |
+| Perpustakaan: 4 buku, 1 sirkulasi, 4 metadata aset digital | 0 buku dan 0 sirkulasi; tabel metadata aset digital belum tersedia pada staging. | Preview buku lama pernah menemukan 4 calon record dengan 2 peringatan ISBN; belum ada apply. Sirkulasi belum dapat ditautkan ke santri terverifikasi. Metadata aset tidak membuktikan byte file tersedia. |
+| LMS: 1 kategori, 2 kursus, 1 penilaian | 0 kategori, 0 kursus, 0 tugas. | Belum ada impor; pemetaan pengajar harus ke profil Ustadz aktif dan konten bertingkat perlu direkonsiliasi. |
+| Marketplace: 8 produk, 5 pesanan | 0 produk dan 0 pesanan. | Snapshot sumber telah diklasifikasikan sebagai contoh browser yang perlu review Admin; jangan impor ke katalog operasional tanpa persetujuan data. |
+| CBT: 1 konfigurasi | Tabel `cbt_tenant_settings` belum ada pada staging karena migration sumber `20270114000000` belum tercatat. | Konfigurasi masih menunggu migration serta preview/apply bertanda tenant. Bank soal `cbt_questions` tidak ada di database Firestore kanonis yang diperiksa. |
+| `entityRecords`: 7 Santri dan 7 Wali | Data domain saat ini berasal dari kategori `master_data`; tidak ada bukti hasil merge record `entityRecords`. | Hindari duplikasi/join berdasarkan nama. Rekonsiliasi setiap ID, identitas, dan relasi secara terpisah bila sumber ini dipertimbangkan. |
+
 Registry Firestore satu pengguna menyediakan kunci tenant sumber; hash kunci tersebut cocok dengan `legacy_tenant_key` milik satu tenant aktif slug `pesantren-digital` pada staging. **Kunci asli tidak dicatat.** Pencocokan ID memakai hash sementara di sisi klien dan agregasi hash pada query staging; nilai hash maupun ID mentah tidak disimpan dalam laporan. Field kategori Master Data dihitung lokal tanpa menyalin payload. Hasil pencocokan hanya memastikan keberadaan ID dan sebagian relasi, bukan validitas seluruh isi/field. Importer tetap harus menolak snapshot berubah, duplikasi NIS/identitas, foreign key lintas tenant, dan relasi yang tidak cocok.
 
 ## Gerbang pekerjaan berikutnya
@@ -101,5 +112,6 @@ Registry Firestore satu pengguna menyediakan kunci tenant sumber; hash kunci ter
 - Kesiapan go-live: sekitar **46%**.
 
 Angka tersebut estimasi proyek, bukan metrik otomatis. Audit staging dan inventaris Firestore meningkatkan bukti yang tersedia, tetapi tidak menambah fitur atau menggantikan rehearsal, rekonsiliasi data, rotasi secret, login/UAT, dan pengujian environment pelanggan. Tidak ada perubahan Production.
+
 
 
