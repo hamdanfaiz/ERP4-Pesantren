@@ -176,3 +176,25 @@ Perubahan berikutnya menambahkan migration `20270114000000_cbt_tenant_settings_i
 Migration ini membuat pengaturan CBT per tenant dengan RLS paksa dan tanpa grant browser, lalu menyediakan RPC `service_role` untuk satu impor bertanda fingerprint. Jalur aplikasi hanya menerima satu dokumen `cbt_config` yang dipetakan tepat ke `legacy_tenant_key`; konfigurasi penilaian manual, field asing, duplikasi daftar, tipe skor yang salah, serta skor berpresisi lebih dari dua angka desimal ditolak. Preview tidak mengembalikan isi konfigurasi. Koleksi `cbt_questions` tetap belum ditemukan pada sumber Firestore.
 
 CI terisolasi run [40259337791](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40259337791) sukses pada commit `bae87128cd3d04aa367b1f7f9ba967773858cd87`: kedua job lulus, termasuk penerapan migration dan pgTAP pada Supabase lokal, build, API/tenant tests, serta Docker customer-managed. Ini bukan rehearsal pada snapshot data Production. Tidak ada migration atau data yang diterapkan ke Production. Sediakan staging terpisah yang dapat dipulihkan sebelum menjalankan rehearsal penuh; jalankan ulang `preflight:db-migrations` agar angka ledger tidak dianggap mutakhir.
+
+## Revalidasi ledger dan inventaris Production — 26 Oktober 2026, 04:04 UTC
+
+Query `SELECT` baca-saja dijalankan pada SQL Editor project `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`. Query membaca versi ledger, metadata tabel publik, dan status RLS; tidak membaca baris operasional, mengubah schema, menjalankan migrasi, atau menulis data.
+
+- Ledger berisi **47 versi** sampai `20261206000000`. Daftar versi cocok persis dengan 47 file pertama pada source PR #13; tidak ada versi awal yang hilang atau asing.
+- Head PR #13 yang diverifikasi adalah `1c263a1b391f8b868f9c5e99fb008387e4273efe`. Repository berisi **87 migration file** sampai `20270115000000`; jadi **40 file masih pending** (`20261207000000`–`20270115000000`). Snapshot ini menggantikan angka 26/33/34/38/39 pada catatan terdahulu.
+- Metadata database menampilkan **119 tabel biasa di schema `public`** (`relkind='r'`) dan `relrowsecurity=true` pada semua tabel yang diperiksa. Ini hanya membuktikan RLS diaktifkan; belum membuktikan RLS dipaksa, kebijakan setiap tabel benar, atau jalur `service_role` aman.
+- Estimasi `pg_class.reltuples` tidak cukup untuk menyimpulkan jumlah data: sebagian besar bernilai `-1`. Query tidak melakukan `COUNT(*)` pada tabel operasional, sehingga keberadaan maupun volume data produksi tidak boleh diasumsikan nol.
+- Pemeriksaan teks statis pada 40 file pending tidak menemukan `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, atau `DELETE FROM`. Dua migration LMS menghapus tiga signature fungsi lama (`submit_lms_assignment`, `grade_lms_submission`, dan `add_lms_learning_record`); urutan deployment server/API terhadap perubahan kontrak tersebut perlu direhearsal. Pemeriksaan teks ini bukan pengganti review SQL maupun uji upgrade.
+- Dashboard menunjukkan organisasi/proyek berada pada tier **Free** dan branch `main / PRODUCTION`. Bukti staging terisolasi atau backup yang sudah berhasil dipulihkan belum diperoleh.
+
+**Keputusan:** jangan menerapkan 40 migration langsung ke Production. Cocokkan ulang ledger pada saat rehearsal, siapkan salinan staging yang dapat dipulihkan dan lakukan uji restore, lalu jalankan migration berurutan pada salinan tersebut. Periksa ulang kebijakan RLS, kontrak fungsi LMS, indeks yang dapat mengunci penulisan, API/login, Storage, dan data agregat sebelum rencana upgrade Production disetujui. Tidak ada tindakan tulis Production pada sesi ini.
+
+Migration baru sesudah inventaris 38-file meliputi:
+
+| Versi | File |
+| --- | --- |
+| 20270114000000 | `cbt_tenant_settings_import.sql` |
+| 20270115000000 | `ppdb_admin_search_keyset.sql` |
+
+Migration `20270115000000` membuat indeks B-tree dan trigram pada calon PPDB serta RPC pencarian tenant-scoped. File meminta pembangunan indeks dilakukan saat aktivitas tulis rendah; ukur durasi dan lock pada data representatif. Fungsi RPC hanya diberikan ke `service_role`.

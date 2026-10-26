@@ -2,11 +2,11 @@
 
 ## Tujuan dan batas
 
-Ledger Production dibaca ulang secara baca-saja: 47 migration tercatat sampai `20261206000000`, sedangkan source PR #13 pada head `91f71708ac3461b505255fbfe281d92a102f7328` memiliki 85 file sampai `20270113000000`. Sebanyak 38 migration berikutnya harus direhearsal pada environment terisolasi sebelum rencana upgrade Production dibuat.
+Pembaruan ledger baca-saja terbaru (26 Oktober 2026, 04:04 UTC) pada project `ptsasgdvgrbdtgyqieie` mencatat 47 migration sampai `20261206000000`. Head PR #13 `1c263a1b391f8b868f9c5e99fb008387e4273efe` memiliki 87 file sampai `20270115000000`, sehingga 40 migration masih pending. Versi Production cocok persis dengan file source sampai versi terakhir yang tercatat. Gunakan angka terbaru ini sebagai baseline; setiap rehearsal harus tetap membaca ulang ledger.
 
-Pembaruan source setelah snapshot di atas menambahkan `20270114000000_cbt_tenant_settings_import.sql` sehingga source kini memiliki 86 file migration. Dengan baseline ledger 47 versi yang terakhir dibaca, terdapat 39 migration source yang perlu dihitung pada preflight berikutnya. Ledger Production belum dibaca ulang untuk pembaruan ini; angka tersebut bukan klaim kondisi ledger saat ini.
+Catatan di bawah mempertahankan snapshot lama (head 85/86 file) sebagai riwayat pemeriksaan. Angka tersebut telah digantikan oleh baseline 87 file dan 40 migration pending di atas.
 
-Dokumen ini adalah rencana pemeriksaan berbasis source. Tidak ada query data operasional Production, migrasi, atau perubahan database yang dijalankan untuk menyusunnya. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
+Dokumen ini adalah rencana pemeriksaan berbasis source. Query Production pada pembaruan terbaru hanya membaca metadata migration dan tabel, bukan isi data operasional. Tidak ada migration atau perubahan schema/data Production yang diterapkan. Lulusnya CI pada database kosong tidak menggantikan rehearsal menggunakan salinan backup yang representatif.
 
 ## Gerbang sebelum rehearsal
 
@@ -89,6 +89,14 @@ Migration memasukkan satu snapshot bagi setiap Santri yang kini mempunyai `room_
 - Verifikasi nilai `autoGrading=false` ditahan sampai runtime Supabase mendukung penilaian manual. Konfigurasi yang berhasil diimpor hanya mengisi nilai bawaan form; soal CBT belum dapat diimpor karena koleksi `cbt_questions` tidak ditemukan dalam snapshot sumber.
 - Pastikan tabel pengaturan memakai RLS `FORCE`, tidak memberi akses `anon`/`authenticated`, dan RPC hanya dapat dieksekusi `service_role`. Jalankan pgTAP pada Supabase lokal terisolasi; jangan menerapkan migration ke Production.
 - CI run [40259337791](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40259337791) pada commit `bae87128cd3d04aa367b1f7f9ba967773858cd87` telah berhasil pada kedua job, termasuk migration dan pgTAP CBT di Supabase lokal. Rehearsal menggunakan salinan backup Production tetap belum dilakukan.
+
+### Pencarian PPDB Admin — `20270115000000`
+
+- Migration menambahkan indeks B-tree dan empat indeks trigram untuk pencarian nama, nomor pendaftaran, sekolah asal, dan telepon. Jadwalkan pembangunan indeks saat aktivitas tulis rendah dan ukur lock/durasi pada salinan berukuran representatif.
+- Pastikan `pg_trgm` tersedia pada schema `extensions`; SQL memilih schema extension yang sebenarnya untuk operator class.
+- Uji batas halaman maksimum 250, cursor keyset `(created_at, id)`, pencarian minimum 3 dan maksimum 100 karakter, escape `%`, `_`, dan `\`, filter tahap yang valid, serta isolasi tenant.
+- RPC `list_admin_ppdb_candidates_page` berstatus `SECURITY INVOKER` dan hanya diberi grant ke `service_role`; pastikan endpoint server memverifikasi Admin aktif, tenant, serta izin PPDB sebelum memanggilnya.
+- Migration menambahkan indeks biasa, bukan `CONCURRENTLY`; jangan jalankan pada Production sebelum dampak lock terhadap pendaftaran aktif diperkirakan dari rehearsal.
 
 ## Pemeriksaan setelah migration
 
