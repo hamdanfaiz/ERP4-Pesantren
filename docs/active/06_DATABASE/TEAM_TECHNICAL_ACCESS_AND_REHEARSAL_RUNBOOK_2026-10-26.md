@@ -12,6 +12,7 @@
 - Head PR #13 `7b78b14130e1d05839380e41cb7bf09afc81f8f0` berisi **91 migration source**. GitHub Actions [run 40311050051](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40311050051) lulus 2/2 job, termasuk build frontend, migrasi/pgTAP lokal, transaksi serentak, API auth/tenant, Storage, dan backup/restore sintetis. CI ini tidak menguji target Production atau mengimpor data.
 - Inventaris Firestore mencatat 18 koleksi root dan 561 dokumen. Pemeriksaan metadata terbaru memastikan **453/453** `master_data` dan **50/50** `candidates` tidak memiliki field tingkat atas `tenantId`. Satu dokumen pengguna memiliki tenant key yang cocok dengan satu dokumen tenant; ini calon pemetaan, bukan persetujuan otomatis atas seluruh record.
 - Konektor Supabase Codex aktif masih hanya menampilkan project lama, tetapi dashboard browser yang sudah masuk dapat membaca halaman Database Migrations target `ptsasgdvgrbdtgyqieie` secara baca-saja. Pada 26 Oktober 2026, halaman itu menampilkan **47 versi**: `20260603000000` serta setiap versi harian dari `20261022000000` sampai `20261206000000`. Semua 47 versi target cocok dengan file migration source PR #13; source berisi **91 file**, sehingga **44 versi source** mulai `20261207000000` sampai `20270119000000` belum tercatat pada ledger yang terlihat. Tidak ada versi ledger target yang tidak ditemukan di source. Dashboard tidak menampilkan nama untuk dua baris terakhir; source memetakannya ke `20261205000000_data_api_default_privilege_hardening.sql` dan `20261206000000_ppdb_legacy_candidate_import.sql`. Ini hanya pencocokan nomor versi, bukan verifikasi schema penuh, data, atau persetujuan apply. Saat diperiksa, Schema Visualizer tetap menampilkan “Loading tables” dan halaman Policies tidak menampilkan daftar policy; itu bukan bukti bahwa tabel atau policy tidak ada. Baris migration terbaru menampilkan tanggal 6 Desember 2026, sesudah tanggal checkpoint 26 Oktober 2026; tim harus mengonfirmasi jam/metadata sebelum menafsirkan tanggal tersebut sebagai waktu kejadian. Tidak ada migration atau data Production yang diterapkan.
+- Daftar Storage Dashboard menampilkan dua bucket: `ppdb-documents` (2 MiB, PDF/JPEG/PNG) dan `erp4-private-finance-proofs` (3 MiB, PNG/JPEG/PDF), masing-masing dengan hitungan policy **0**. Source migration mengatur keduanya sebagai private; kolom `public` live tidak terlihat di daftar sehingga harus dikonfirmasi via query katalog di bawah. Bucket `erp4-private-document-attachments` ada pada source migration `20270117000000_document_center_core.sql`, yang belum tercatat di ledger dan bucket itu tidak terlihat di Dashboard. Kode mengunci route Dokumen Digital dengan `SUPABASE_DOCUMENT_RUNTIME_ENABLED` dan menggunakan jalur server/service key; jangan aktifkan runtime tersebut sebelum migration, bucket private, dan uji alur selesai. Pemeriksaan ini tidak membuka daftar atau isi file Storage.
 - Sebelum production, credential Supabase/database yang pernah dibagikan harus dirotasi dan ditaruh di secret manager. Jangan salin credential, token, atau isi `.env` ke chat, GitHub, log, atau kode browser.
 
 ## 1. Sambungkan akses ke project Supabase yang benar
@@ -133,7 +134,16 @@ Policy RLS public:
 SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
 FROM pg_policies
 WHERE schemaname = 'public'
-ORDER BY tablename, policyname;
+   OR (schemaname = 'storage' AND tablename = 'objects')
+ORDER BY schemaname, tablename, policyname;
+```
+
+Buckets dan batas file Storage (metadata saja):
+
+```sql
+SELECT id, name, public, file_size_limit, allowed_mime_types
+FROM storage.buckets
+ORDER BY id;
 ```
 
 Grant tabel public:
@@ -141,9 +151,10 @@ Grant tabel public:
 ```sql
 SELECT table_schema, table_name, grantee, privilege_type, is_grantable
 FROM information_schema.table_privileges
-WHERE table_schema = 'public'
+WHERE (table_schema = 'public'
+       OR (table_schema = 'storage' AND table_name IN ('buckets', 'objects')))
   AND grantee IN ('anon', 'authenticated', 'service_role', 'PUBLIC')
-ORDER BY table_name, grantee, privilege_type;
+ORDER BY table_schema, table_name, grantee, privilege_type;
 ```
 
 View public dan opsi keamanan:
@@ -223,6 +234,7 @@ Kirim ringkasan berikut tanpa secret atau PII:
 
 - project ref yang muncul pada connector Supabase; konfirmasi bahwa target adalah `ptsasgdvgrbdtgyqieie`;
 - output `supabase migration list` yang hanya berisi versi lokal/remote;
+- metadata `storage.buckets` (bucket, `public`, batas ukuran, MIME), policy `storage.objects`, serta grant role `anon`/`authenticated`/`service_role`/`PUBLIC`; jangan mengirim nama atau isi objek/berkas;
 - jumlah record per koleksi dan jumlah `tenantId` yang hilang;
 - keputusan pemetaan source tenant → target tenant dan siapa yang menyetujuinya;
 - hitungan preview per importer beserta konflik/warning dan checksum/fingerprint non-rahasia;
