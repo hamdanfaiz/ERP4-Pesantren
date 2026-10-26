@@ -66,7 +66,8 @@ import {
 } from "../services/masterDataApi";
 
 const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED);
-const SUPABASE_MASTER_DATA_IMPORT = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED);
+// Import is a separate migration-only capability; Supabase-only runtime must never unlock it.
+const SUPABASE_MASTER_DATA_IMPORT = import.meta.env.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED === "true";
 const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "Kelas"]);
 const MDM_DRAFT_KEY_PREFIX = "mdm-form-autosave";
 

@@ -11,38 +11,31 @@ import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal'
 import { Tenant, ModuleId } from './types';
 import { ROLE_MODULES } from './rbac';
 import { useSystemSettings } from './hooks/useSystemSettings';
-import { SUPABASE_ONLY_RUNTIME } from './runtimeBackend';
 
 // Module pages are loaded on demand to keep the initial bundle small.
-const DashboardOverview = React.lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.DashboardOverview })));
+const SupabaseDashboardOverview = React.lazy(() => import('./pages/SupabaseDashboardOverview').then((module) => ({ default: module.SupabaseDashboardOverview })));
 const TahfidzManager = React.lazy(() => import('./pages/TahfidzManager').then((module) => ({ default: module.TahfidzManager })));
 const MasterDataManager = React.lazy(() => import('./pages/MasterDataManager').then((module) => ({ default: module.MasterDataManager })));
-const PPDBManager = React.lazy(() => import('./pages/PPDBManager').then((module) => ({ default: module.PPDBManager })));
-const CBTManager = React.lazy(() => import('./pages/CBTManager').then((module) => ({ default: module.CBTManager })));
-const CBTStudentDashboard = React.lazy(() => import('./pages/CBTStudentDashboard').then((module) => ({ default: module.CBTStudentDashboard })));
-const BoardingManager = React.lazy(() => import('./pages/BoardingManager').then((module) => ({ default: module.BoardingManager })));
-const FinanceManager = React.lazy(() => import('./pages/FinanceManager').then((module) => ({ default: module.FinanceManager })));
-const CommunicationHub = React.lazy(() => import('./pages/CommunicationHub').then((module) => ({ default: module.CommunicationHub })));
-const AcademicManager = React.lazy(() => import('./pages/AcademicManager').then((module) => ({ default: module.AcademicManager })));
-const HealthcareManager = React.lazy(() => import('./pages/HealthcareManager').then((module) => ({ default: module.HealthcareManager })));
-const CooperativeManager = React.lazy(() => import('./pages/CooperativeManager').then((module) => ({ default: module.CooperativeManager })));
+const SupabasePpdbManager = React.lazy(() => import('./pages/SupabasePpdbManager').then((module) => ({ default: module.SupabasePpdbManager })));
+const SupabaseCBTManager = React.lazy(() => import('./pages/SupabaseCBTManager').then((module) => ({ default: module.SupabaseCBTManager })));
+const SupabaseCBTStudentDashboard = React.lazy(() => import('./pages/SupabaseCBTStudentDashboard').then((module) => ({ default: module.SupabaseCBTStudentDashboard })));
+const SupabaseBoardingManager = React.lazy(() => import('./pages/SupabaseBoardingManager').then((module) => ({ default: module.SupabaseBoardingManager })));
+const SupabaseFinanceManager = React.lazy(() => import('./pages/SupabaseFinanceManager').then((module) => ({ default: module.SupabaseFinanceManager })));
+const SupabaseCommunicationHub = React.lazy(() => import('./pages/SupabaseCommunicationHub').then((module) => ({ default: module.SupabaseCommunicationHub })));
+const SupabaseAcademicManager = React.lazy(() => import('./pages/SupabaseAcademicManager').then((module) => ({ default: module.SupabaseAcademicManager })));
+const SupabaseHealthcareManager = React.lazy(() => import('./pages/SupabaseHealthcareManager').then((module) => ({ default: module.SupabaseHealthcareManager })));
+const SupabaseCooperativeManager = React.lazy(() => import('./pages/SupabaseCooperativeManager').then((module) => ({ default: module.SupabaseCooperativeManager })));
 const SupabaseHrisManager = React.lazy(() => import('./pages/SupabaseHrisManager').then((module) => ({ default: module.SupabaseHrisManager })));
 const SupabaseDocumentManager = React.lazy(() => import('./pages/SupabaseDocumentManager').then((module) => ({ default: module.SupabaseDocumentManager })));
 const SupabaseCrmManager = React.lazy(() => import('./pages/SupabaseCrmManager').then((module) => ({ default: module.SupabaseCrmManager })));
-const DocumentManager = React.lazy(() => import('./pages/DocumentManager').then((module) => ({ default: module.DocumentManager })));
-const LibraryManager = React.lazy(() => import('./pages/LibraryManager').then((module) => ({ default: module.LibraryManager })));
-const DonationManager = React.lazy(() => import('./pages/DonationManager').then((module) => ({ default: module.DonationManager })));
+const SupabaseLibraryManager = React.lazy(() => import('./pages/SupabaseLibraryManager').then((module) => ({ default: module.SupabaseLibraryManager })));
+const SupabaseDonationManager = React.lazy(() => import('./pages/SupabaseDonationManager').then((module) => ({ default: module.SupabaseDonationManager })));
 const SupabaseLaundryManager = React.lazy(() => import('./pages/SupabaseLaundryManager').then((module) => ({ default: module.SupabaseLaundryManager })));
 const SettingsManager = React.lazy(() => import('./pages/SettingsManager').then((module) => ({ default: module.SettingsManager })));
-const EnterpriseManager = React.lazy(() => import('./pages/EnterpriseManager').then((module) => ({ default: module.EnterpriseManager })));
-const ERPManager = React.lazy(() => import('./pages/ERPManager').then((module) => ({ default: module.ERPManager })));
-const GeneralAffairManager = React.lazy(() => import('./pages/GeneralAffairManager').then((module) => ({ default: module.GeneralAffairManager })));
-const AlumniManager = React.lazy(() => import('./pages/AlumniManager').then((module) => ({ default: module.AlumniManager })));
-const CRMManager = React.lazy(() => import('./pages/CRMManager').then((module) => ({ default: module.CRMManager })));
-const LMSManager = React.lazy(() => import('./pages/LMSManager').then((module) => ({ default: module.LMSManager })));
-const IntelligenceManager = React.lazy(() => import('./pages/IntelligenceManager').then((module) => ({ default: module.IntelligenceManager })));
-const MarketplaceManager = React.lazy(() => import('./pages/MarketplaceManager').then((module) => ({ default: module.MarketplaceManager })));
-const EcosystemManager = React.lazy(() => import('./pages/EcosystemManager').then((module) => ({ default: module.EcosystemManager })));
+const SupabaseGeneralAffairManager = React.lazy(() => import('./pages/SupabaseGeneralAffairManager').then((module) => ({ default: module.SupabaseGeneralAffairManager })));
+const SupabaseAlumniManager = React.lazy(() => import('./pages/SupabaseAlumniManager').then((module) => ({ default: module.SupabaseAlumniManager })));
+const SupabaseLMSManager = React.lazy(() => import('./pages/SupabaseLMSManager').then((module) => ({ default: module.SupabaseLMSManager })));
+const SupabaseMarketplaceManager = React.lazy(() => import('./pages/SupabaseMarketplaceManager').then((module) => ({ default: module.SupabaseMarketplaceManager })));
 const UserManagementView = React.lazy(() => import('./pages/UserManagementView').then((module) => ({ default: module.UserManagementView })));
 export default function App() {
   const { role, user, completeGuardianInvitation } = useAuth();
@@ -132,7 +125,7 @@ export default function App() {
 
     switch (activeModule) {
       case 'dashboard':
-        return <DashboardOverview />;
+        return <SupabaseDashboardOverview />;
       case 'tahfidz':
         return <TahfidzManager />;
       case 'master-data':
@@ -143,32 +136,30 @@ export default function App() {
         }
         return <UserManagementView />;
       case 'ppdb':
-        return <PPDBManager />;
+        return <SupabasePpdbManager />;
       case 'cbt':
-        if (role === 'Santri') return <CBTStudentDashboard />;
-        return <CBTManager />;
+        if (role === 'Santri') return <SupabaseCBTStudentDashboard />;
+        return <SupabaseCBTManager />;
       case 'boarding':
-        return <BoardingManager />;
+        return <SupabaseBoardingManager />;
       case 'finance':
-        return <FinanceManager />;
+        return <SupabaseFinanceManager />;
       case 'communication':
-        return <CommunicationHub />;
+        return <SupabaseCommunicationHub />;
       case 'academic':
-        return <AcademicManager />;
+        return <SupabaseAcademicManager />;
       case 'healthcare':
-        return <HealthcareManager />;
+        return <SupabaseHealthcareManager />;
       case 'cooperative':
-        return <CooperativeManager />;
+        return <SupabaseCooperativeManager />;
       case 'hris':
         return <SupabaseHrisManager />;
       case 'document':
-        return SUPABASE_ONLY_RUNTIME
-          ? <SupabaseDocumentManager />
-          : <DocumentManager />;
+        return <SupabaseDocumentManager />;
       case 'library':
-        return <LibraryManager />;
+        return <SupabaseLibraryManager />;
       case 'donation':
-        return <DonationManager />;
+        return <SupabaseDonationManager />;
       case 'laundry':
         return <SupabaseLaundryManager />;
       case 'settings':
@@ -187,33 +178,23 @@ export default function App() {
         }
         return <SettingsManager />;
       case 'enterprise':
-        return SUPABASE_ONLY_RUNTIME
-          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
-          : <EnterpriseManager />;
+        return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
       case 'erp':
-        return SUPABASE_ONLY_RUNTIME
-          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
-          : <ERPManager />;
+        return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
       case 'ga':
-        return <GeneralAffairManager />;
+        return <SupabaseGeneralAffairManager />;
       case 'alumni':
-        return <AlumniManager />;
+        return <SupabaseAlumniManager />;
       case 'crm':
-        return SUPABASE_ONLY_RUNTIME
-          ? <SupabaseCrmManager />
-          : <CRMManager />;
+        return <SupabaseCrmManager />;
       case 'lms':
-        return <LMSManager />;
+        return <SupabaseLMSManager />;
       case 'intelligence':
-        return SUPABASE_ONLY_RUNTIME
-          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
-          : <IntelligenceManager />;
+        return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
       case 'marketplace':
-        return <MarketplaceManager />;
+        return <SupabaseMarketplaceManager />;
       case 'ecosystem':
-        return SUPABASE_ONLY_RUNTIME
-          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
-          : <EcosystemManager />;
+        return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
       default:
         return <ModulePlaceholder module={activeModule} />;
     }
