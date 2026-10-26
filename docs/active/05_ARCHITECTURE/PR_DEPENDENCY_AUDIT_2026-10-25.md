@@ -1,12 +1,12 @@
-# Audit dependensi Pull Request — 25 Oktober 2026
+# Audit dependensi Pull Request — 26 Oktober 2026
 
 ## Ringkasan eksekutif
 
 - PR #12 sudah digabung ke `main` pada commit `c8738185ff6e5080ae427ef0021ee25681036c40`.
-- PR #13 adalah jalur cutover utama dan berbasis tepat pada merge PR #12. PR #13 masih terbuka sebagai Draft dan belum siap di-merge atau di-deploy.
-- PR #11 adalah bagian dari rangkaian bertingkat yang berakhir di PR #10. Ia bukan leluhur commit PR #13. Perbandingan head #11 dengan head #13 menunjukkan riwayat bercabang: #13 333 commit di depan, 235 commit di belakang, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`.
+- PR #13 adalah jalur cutover utama, berbasis `main` setelah merge PR #12, pada head `83ca2b096041ceec1e5eab21e7370fe883b14992`. PR #13 masih terbuka sebagai Draft dan belum siap di-merge atau di-deploy.
+- PR #11 adalah bagian dari rangkaian bertingkat yang berakhir di PR #10. Ia bukan leluhur commit PR #13. Perbandingan head terkini #11 dengan #13 menunjukkan riwayat bercabang: #13 432 commit di depan, 235 commit di belakang, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`.
 - Karena PR #11 dan #13 divergen, kemiripan fitur bukan bukti kesetaraan implementasi. Jangan menggabungkan PR #11 secara utuh ke #13; cocokkan fitur unik dan port secara selektif setelah uji.
-- Dari PR #1–#13, hanya #12 yang merged. PR lainnya masih terbuka dan Draft pada saat audit.
+- Revalidasi GitHub pada 26 Oktober 2026 mengonfirmasi hanya PR #12 yang merged; PR #1–#11 dan #13 masih Open/Draft.
 
 ## Peta dependensi dan dasar branch
 
@@ -24,13 +24,13 @@
 | #10 | head PR #9 `c27bace37d6438a209ec3949a133eafaec13c67b` | Open / Draft | Stacked di atas PR #9. |
 | #11 | head PR #10 `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b` | Open / Draft | Bagian lanjutan dari stack #5–#10; tidak menjadi base #13. |
 | #12 | `main` sebelum merge | Merged | Merge commit `c8738185ff6e5080ae427ef0021ee25681036c40`. |
-| #13 | `main` pada merge PR #12 `c8738185ff6e5080ae427ef0021ee25681036c40` | Open / Draft | Cutover Supabase utama; head `8d9dc4c3555b69b223aa9f36c78c2e7e4cf7858b`. |
+| #13 | `main` pada merge PR #12 `c8738185ff6e5080ae427ef0021ee25681036c40` | Open / Draft | Cutover Supabase utama; head `83ca2b096041ceec1e5eab21e7370fe883b14992`. |
 
 ## Bukti PR #11 terhadap PR #13
 
 - PR #11 head: `88f2686d34bbffb1aa1c7997b55cd015c424f85c`.
-- PR #13 head: `8d9dc4c3555b69b223aa9f36c78c2e7e4cf7858b`.
-- GitHub compare melaporkan `diverged`, `ahead_by=333`, `behind_by=235`, merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`.
+- PR #13 head: `83ca2b096041ceec1e5eab21e7370fe883b14992`.
+- GitHub compare terbaru melaporkan `diverged`, `ahead_by=432`, `behind_by=235`, merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`.
 - PR #11 mengiklankan pekerjaan Master Data dan impor, penempatan asrama, CRUD santri transaksional, serta fondasi dan runtime Tahfidz. PR #13 memiliki cutover dan sejumlah padanan Supabase, tetapi audit ini tidak mengklaim paritas 100% tanpa perbandingan endpoint, skema, UI, dan tes.
 - Tindakan: buat checklist per domain dari diff PR #11, tandai padanan yang benar-benar ada di #13, port kekurangan satu per satu, lalu tutup PR #11 setelah seluruh fungsi unik tercakup. Jangan merge stack lama langsung ke #13.
 
@@ -328,3 +328,31 @@ Implementasi belum diverifikasi oleh CI atau staging pada checkpoint ini. Semua 
 ### Koreksi status CI — 26 Oktober 2026
 
 Pernyataan “belum diverifikasi oleh CI” di atas adalah snapshot sebelum push dan kini digantikan hasil run [40248840857](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40248840857) pada head `442794bf8f0795facc9257399b047a3994bebcb6`: kedua job berhasil. Suite lokal sintetis menerapkan seluruh 82 migration, memeriksa 73 assertion Finance termasuk tagihan PPDB, menguji izin PPDB+Keuangan dan batas tenant, Storage bukti pembayaran, backup/restore, serta build dan image Docker customer-managed. Ini tidak mengubah atau memvalidasi database Production; 35 migration masih menunggu rehearsal pada staging yang dapat dipulihkan. PR #13 tetap Open/Draft.
+
+## Revalidasi seluruh PR dan checkpoint go-live — 26 Oktober 2026
+
+Status berikut dibaca ulang dari GitHub pada 26 Oktober 2026. Hanya PR #12 yang telah digabung; PR lain tetap Draft dan tidak boleh dianggap selesai hanya karena berada pada stack lama.
+
+| PR | Status | Base → head | Head saat pemeriksaan |
+|---|---|---|---|
+| #1 | Open / Draft | `main` → `backend/supabase-tenant-foundation` | `736ec92ae86bf195cdaa23fe4b8d5d3797a31891` |
+| #2 | Open / Draft | `main` → `product/commercial-readiness` | `98e98a4294c462e3c5d088369ad5db1a7576b88d` |
+| #3 | Open / Draft | `backend/supabase-tenant-foundation` → `backend/tenant-user-provisioning` | `515def66fafcb45b8c6bdb11280189fa21675d5b` |
+| #4 | Open / Draft | `main` → `deployment/self-hosted-app-container` | `b4cd1b86efd14fca7cb3de0a71e469676d0c03a7` |
+| #5 | Open / Draft | `backend/supabase-tenant-foundation` → `backend/supabase-public-ppdb-runtime` | `57b5ec7b5818648b2e67adf5ceae663c416b648e` |
+| #6 | Open / Draft | `main` → `docs/supabase-complete-migration-roadmap` | `3732db4f738fa6380938f0799f9212921270ab41` |
+| #7 | Open / Draft | `backend/supabase-public-ppdb-runtime` → `backend/supabase-ppdb-admin-runtime` | `0b8bc4e103b8bf83f6da334568f183d0d97ef7d7` |
+| #8 | Open / Draft | `backend/supabase-ppdb-admin-runtime` → `backend/supabase-masterdata-onboarding` | `a9fc8809806e667bbbaea908a5e7ece7c0c55d7b` |
+| #9 | Open / Draft | `backend/supabase-masterdata-onboarding` → `backend/supabase-finance-foundation` | `c27bace37d6438a209ec3949a133eafaec13c67b` |
+| #10 | Open / Draft | `backend/supabase-finance-foundation` → `backend/supabase-finance-ui` | `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b` |
+| #11 | Open / Draft | `backend/supabase-finance-ui` → `backend/supabase-masterdata-structures-ui` | `88f2686d34bbffb1aa1c7997b55cd015c424f85c` |
+| #12 | Merged | `main` → `tegar` | merge `c8738185ff6e5080ae427ef0021ee25681036c40` |
+| #13 | Open / Draft | `main` → `codex/supabase-runtime-cutover-20261022` | `83ca2b096041ceec1e5eab21e7370fe883b14992` |
+
+PR #11 dan #13 berstatus `diverged` dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`: PR #13 memiliki 432 commit unik dan PR #11 memiliki 235 commit unik. Pertahankan matriks paritas per fitur; jangan menggabungkan stack PR #1–#11 secara utuh ke PR #13.
+
+CI terbaru pada head PR #13 `83ca2b096041ceec1e5eab21e7370fe883b14992` lulus di kedua job pada run [`40267474151`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40267474151). Cakupan mencakup typecheck/build, runtime tanpa Firebase, Docker/Compose, 87 migration dan pgTAP pada Supabase lokal, auth/isolasi tenant, Storage, concurrency, importer sintetis, serta backup/restore sintetis.
+
+Pembacaan baca-saja dashboard Supabase target `ptsasgdvgrbdtgyqieie` menunjukkan 47 migration hingga `20261206000000`; repository PR #13 memiliki 87 migration hingga `20270115000000`, sehingga 40 masih pending. Health Advisor tidak tersedia pada project dan belum ada staging/backup Production yang pemulihannya terverifikasi. Tidak ada migration atau data Production yang ditulis.
+
+**Perkiraan kesiapan go-live: 45/100.** CI source saat ini hijau, tetapi upgrade Production, preview dan rekonsiliasi/impor data, login/UAT, serta instalasi/pemulihan pada environment pelanggan masih harus dibuktikan.

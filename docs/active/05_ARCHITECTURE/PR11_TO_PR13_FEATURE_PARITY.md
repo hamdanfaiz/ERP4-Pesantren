@@ -2,9 +2,9 @@
 
 ## Status branch
 
-Pemeriksaan GitHub pada 26 Oktober 2026 menunjukkan PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, dengan base branch `backend/supabase-finance-ui` pada `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`. PR #13 masih Open/Draft pada head `0b82381ec6afb2b9602ae5f98542ce3cdaa4e402`, dengan base `main` pada commit hasil merge PR #12 tersebut.
+Pemeriksaan GitHub pada 26 Oktober 2026 menunjukkan PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, dengan base branch `backend/supabase-finance-ui` pada `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`. PR #13 masih Open/Draft pada head `83ca2b096041ceec1e5eab21e7370fe883b14992`, dengan base `main` pada commit hasil merge PR #12 tersebut.
 
-GitHub membandingkan kedua head sebagai `diverged`, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Perbandingan langsung pada 26 Oktober 2026 menunjukkan PR #11 memiliki 235 commit yang tidak ada di PR #13, sedangkan PR #13 memiliki 429 commit yang tidak ada di PR #11. Jangan menggabungkan seluruh PR #11 ke PR #13. Migrasi PR #11 bertanggal `20260606000000`–`20260618000000` adalah bagian dari lineage lamanya dan tidak boleh ditambahkan ke lineage PR #13 secara mekanis.
+GitHub membandingkan kedua head sebagai `diverged`, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Perbandingan terbaru pada 26 Oktober 2026 menunjukkan PR #11 memiliki 235 commit yang tidak ada di PR #13, sedangkan PR #13 memiliki 432 commit yang tidak ada di PR #11. Jangan menggabungkan seluruh PR #11 ke PR #13. Migrasi PR #11 bertanggal `20260606000000`–`20260618000000` adalah bagian dari lineage lamanya dan tidak boleh ditambahkan ke lineage PR #13 secara mekanis.
 
 ## Matriks fitur
 
@@ -113,9 +113,10 @@ Tindak lanjut: validasi unggah lampiran privat untuk kandidat Admin di CI. Perta
 
 ## Revalidasi PR dan CI — 26 Oktober 2026
 
-- PR #11 masih Open/Draft pada head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`, dan PR #13 masih Open/Draft pada head `0b82381ec6afb2b9602ae5f98542ce3cdaa4e402` dengan base yang sama.
-- Perbandingan head terkini PR #13 terhadap PR #11 berstatus `diverged`, merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`: #11 memiliki 235 commit unik, sedangkan #13 memiliki 429 commit unik. PR #11 tidak boleh digabung utuh ke #13.
-- CI kode `c1755c6c943d94e42a3b349ca01776ae63105d1e` lulus di kedua job pada run [`40264878721`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40264878721): 87 migration diterapkan pada Supabase lokal terisolasi; 39 file pgTAP/803 assertion lulus; frontend, Docker/Compose, API auth/tenant, Storage privat, concurrency, importer sintetis, dan backup/restore juga lulus.
-- Checkpoint dokumentasi `0b82381ec6afb2b9602ae5f98542ce3cdaa4e402` lulus di kedua job pada run [`40265604695`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40265604695). Tidak ada migration atau data yang ditulis ke Supabase Production. Supabase Preview dilewati karena branch belum dikaitkan ke Supabase Branch.
-- Skor kesiapan tetap 78/100: pemeriksaan kode dan CI tidak membuktikan backup Production, rehearsal migration, rekonsiliasi identitas/data, login/UAT, ataupun instalasi dan pemulihan pada environment pelanggan.
+- PR #11 masih Open/Draft pada head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`; PR #12 telah merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`; PR #13 masih Open/Draft pada head `83ca2b096041ceec1e5eab21e7370fe883b14992` dengan base `main` yang sama.
+- Perbandingan head #11 dan #13 berstatus `diverged`, merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`: #11 memiliki 235 commit unik dan #13 memiliki 432 commit unik. PR #11 tidak boleh digabung utuh ke #13.
+- Semua workflow pada head PR #13 `83ca2b096041ceec1e5eab21e7370fe883b14992` lulus di run [`40267474151`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40267474151). Job frontend mencakup typecheck/build, Firebase runtime guard, RBAC, wali-santri, Tahfidz, Master Data, Docker/Compose, serta smoke test runtime produksi. Job database mencakup 87 migration dan pgTAP pada Supabase lokal terisolasi, race NIS/Tahfidz, importer sintetis, API auth/tenant, Storage, dan backup/restore.
+- Pemeriksaan baca-saja pada target `ptsasgdvgrbdtgyqieie` menunjukkan 47 migration hingga `20261206000000`; source PR #13 memiliki 87 migration hingga `20270115000000`, jadi 40 masih pending. Health Advisor tidak tersedia pada project ini. Belum ada staging yang dapat dipulihkan atau bukti backup/restore Production.
+- Instalasi dependensi lokal terhenti dengan `EPERM` pada Windows. Ini membatasi verifikasi di mesin kerja, tetapi CI terbaru di atas berhasil menjalankan suite lengkap. Preflight migration murni Node dan pemeriksaan sintaks 10 skrip JS/MJS lokal juga lulus.
+- **Perkiraan kesiapan go-live: 45/100.** CI hijau membuktikan source dan database sintetis yang dipakai CI, bukan kelayakan upgrade Production, rekonsiliasi/impor data Firestore, login/UAT, maupun instalasi dan pemulihan pada environment pelanggan. Tidak ada migration atau data yang ditulis ke Production.
 
