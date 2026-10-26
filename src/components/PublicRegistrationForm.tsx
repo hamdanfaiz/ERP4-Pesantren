@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect } from "react";
+import React, { lazy, useState, useEffect } from "react";
 import {
   Sparkles,
   Upload,
@@ -740,11 +740,7 @@ export function PublicRegistrationForm({
               )}
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                {submittedCandidate && (
-<Suspense fallback={<div role="status" className="w-full sm:w-auto px-6 py-3 rounded-xl text-sm text-slate-500 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Menyiapkan komponen kartu...</div>}>
-                    <CandidatePDFDownload candidate={submittedCandidate} settings={systemSettings} />
-                  </Suspense>
-                )}
+                {submittedCandidate && <CandidatePDFDownload candidate={submittedCandidate} settings={systemSettings} />}
 
                 <button
                   type="button"
