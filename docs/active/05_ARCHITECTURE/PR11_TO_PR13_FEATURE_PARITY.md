@@ -1,0 +1,37 @@
+# Matriks Paritas Fitur PR #11 → PR #13
+
+## Status branch
+
+Pemeriksaan GitHub pada 26 Oktober 2026 menunjukkan PR #11 masih Open/Draft, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, berbasis pada head PR #10 `127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`. PR #13 masih Open/Draft, head `b17517d834e6f01eddb0f2df16b3f1378a24edae`, berbasis pada merge PR #12 di `c8738185ff6e5080ae427ef0021ee25681036c40`.
+
+GitHub membandingkan kedua head sebagai `diverged`: PR #13 398 commit di depan dan 235 commit di belakang, dengan merge-base `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Jangan menggabungkan seluruh PR #11 ke PR #13. Migrasi PR #11 bertanggal `20260606000000`–`20260618000000` adalah bagian dari lineage lamanya dan tidak boleh ditambahkan ke lineage PR #13 secara mekanis.
+
+## Matriks fitur
+
+| Area PR #11 | Bukti pada PR #13 | Status paritas | Keputusan |
+|---|---|---|---|
+| Master Data struktur: daftar, ubah, hapus, impor legacy | `src/server/supabaseOnboarding.ts`; route `/api/master-data/structures*`; migration tenant runtime; `MasterDataManager` memanggil API tenant. | Padanan Supabase-native tersedia dan tercakup oleh CI. Ini tidak membuktikan migrasi data target. | Jangan port file atau migration lama. Pertahankan kontrak #13 dan jalankan rekonsiliasi pada staging. |
+| Data Santri, enkripsi PII, NIS unik, arsip, impor legacy | `src/server/supabaseOnboarding.ts`; `/api/master-data/students*`; `nis_reservations`; test/API race NIS pada CI. | Padanan tersedia; transaksi dan race NIS tercakup CI sintetis. | Tidak perlu menggabungkan implementasi PR #11. Uji tetap perlu pada staging dan login akhir. |
+| Penempatan kamar dan riwayat | `/api/boarding/students/:studentId/room`, riwayat asrama, migration `20270106000000_boarding_room_assignment_history.sql` dan `20270109000000_boarding_room_history_baseline.sql`. | Padanan lebih baru tersedia; tidak membuktikan sejarah sebelum baseline dapat direkonstruksi. | Pertahankan snapshot baseline sebagai baseline, bukan riwayat perpindahan lama. |
+| Tahfidz: roster, setoran, target, halaqah/anggota, impor | `src/server/supabaseTahfidz.ts`, `src/pages/TahfidzManager.tsx`, `src/pages/SupabaseTahfidzSessions.tsx`; API paginasi dan sesi; migration Tahfidz hingga `20270108000000`; uji paginasi, tanggal tenant, race, dan pgTAP di CI. | Alur inti memiliki padanan Supabase-native dan diuji dengan data sintetis. | Jangan port jembatan Firebase Auth PR #11. Pertahankan Supabase Auth/profile dan lanjutkan UAT tenant. |
+| Identitas Tahfidz melalui Firebase UID | PR #11 memakai bridge Firebase Auth/profile. PR #13 memakai sesi Supabase Auth, profil `user_profiles`/`profiles`, serta guard Firebase yang melarang SDK Firebase dalam bundle aktif. | Sengaja diganti oleh arsitektur cutover; bukan fitur yang harus dipertahankan. | Jangan aktifkan bridge lama. Firebase Admin hanya dipakai untuk pembacaan arsip migrasi yang dipagari. |
+| Pendaftaran publik PPDB dan perubahan tahap/nilai | `src/server/supabasePublicPpdb.ts`, `src/server/supabasePpdb.ts`, route `/api/public/ppdb/*` dan `/api/ppdb/candidates*`, `SupabasePpdbManager`. | Pendaftaran publik, penilaian, tahap, dan onboarding memiliki padanan. | Pertahankan alur ini dan uji ujung ke ujung pada staging. |
+| Pembuatan kandidat manual oleh Admin dan perubahan batch | PR #11 menyediakan operasi create/batch. Pada PR #13, aplikasi aktif menampilkan daftar, edit satu kandidat, pendaftaran publik, dan onboarding; route create/batch Admin tidak ditemukan pada server aktif. | Belum terbukti setara. Pendaftaran publik bukan pengganti pembuatan Admin untuk pendaftar offline. | Putuskan apakah pembuatan offline diperlukan; jika ya, port sebagai endpoint/RPC tenant-scoped baru dan tambahkan uji role/tenant. |
+| Berkas dokumen calon santri | PR #11 memiliki handler unggah kandidat. Pada PR #13 tabel `candidate_documents` dan policy SELECT Admin ada, tetapi route unggah aktif dan kontrol unggah pada `SupabasePpdbManager` tidak ditemukan; layar saat ini hanya menampilkan kelengkapan dokumen. | Belum setara; fitur nyata yang masih hilang. | Bangun unggah privat melalui backend/Storage dengan validasi ukuran, MIME, tenant, akses Admin, serta audit; jangan membuka bucket publik. |
+| Tagihan dan pembayaran PPDB kandidat, penolakan, impor tagihan | PR #11 memiliki route/service tagihan pendaftaran/uang pangkal, pencatatan dan penolakan pembayaran, serta impor arsip. PR #13 sekarang menambah invoice kandidat di `finance_bills`, RPC Admin idempoten, kontrol tenant/buku Finance, tautan otomatis ke `student_id` saat onboarding, dan pemakaian alur bukti bayar/verifikasi/ledger yang sudah ada. | Tagihan kandidat terhubung ke Finance di source; alur keluarga sebelum onboarding dan impor arsip #11 tetap belum tersedia. Migration baru belum diuji pada staging/Production. | Uji pgTAP serta CI; lakukan rehearsal pada salinan yang dapat dipulihkan. Putuskan terpisah apakah pembayaran mandiri sebelum onboarding dan impor arsip tagihan diperlukan. Jangan merge migration Finance lama dari #11. |
+| Portabilitas VPS/on-premise | PR #11 menambah dokumen portabilitas. PR #13 menyediakan `docs/guides/CUSTOMER_MANAGED_DEPLOYMENT.md`, Docker/Compose, dan CI smoke test. | Padanan dokumentasi dan instalasi tersedia; uji pemulihan di environment pelanggan belum ada. | Uji instalasi/backup/restore pada VM bersih sebelum komersialisasi. |
+
+## Bukti dan batas
+
+- CI PR #13 pada head checkpoint `b17517d834e6f01eddb0f2df16b3f1378a24edae` sukses pada kedua job di run [`40245870815`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40245870815). CI menguji database lokal terisolasi dengan data sintetis, bukan target Supabase Production.
+- Head PR #13 berikutnya `ed7a5600d71308206003e6d23cbba525d2d4252b` juga sukses pada kedua job di run [`40246580443`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40246580443); run tersebut mencakup uji regresi preflight ledger.
+- Target Supabase Production memiliki 47 migration tercatat sampai `20261206000000`; source PR #13 memiliki 81 file migration dan 34 pending. Paket Free tidak menyediakan backup project terjadwal. Karena itu migration maupun gap fitur yang memerlukan perubahan schema belum boleh diuji dengan menulis ke Production.
+- Matriks ini membuktikan pemeriksaan source dan check run yang disebutkan, bukan paritas perilaku penuh, hasil UAT, rekonsiliasi arsip, atau kesiapan deploy.
+
+## Gerbang penutupan PR #11
+
+1. Tentukan kebutuhan Admin untuk mendaftarkan pendaftar offline.
+2. Selesaikan upload dokumen kandidat privat. Tagihan kandidat sudah memiliki kontrak source, tetapi menunggu CI, rehearsal staging, dan keputusan alur pembayaran sebelum onboarding.
+3. Tambahkan uji pgTAP dan API role/tenant untuk setiap kontrak baru; jalankan seluruh CI.
+4. Rehearsal migration dan impor pada salinan Supabase yang dapat dipulihkan, lalu UAT dengan akun Admin dan Wali.
+5. Setelah pemilik PR menyetujui matriks dan semua fitur yang dibutuhkan memiliki keputusan, baru tutup PR #11. Jangan merge branch lama secara utuh.

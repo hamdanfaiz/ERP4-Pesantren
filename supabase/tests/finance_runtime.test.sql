@@ -6,7 +6,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(57);
+SELECT plan(73);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -387,6 +387,135 @@ SELECT is(
      AND student_id = 'e5000000-0000-4000-8000-000000000201' AND fee_type = 'SPP' AND period = '2026-10'),
   1,
   'duplicate bill request leaves a single bill'
+);
+
+SELECT ok(NOT has_function_privilege('anon', 'public.create_tenant_ppdb_candidate_bill(uuid,uuid,text,uuid,text,numeric,uuid)', 'EXECUTE'), 'anonymous callers cannot issue PPDB bills directly');
+SELECT ok(NOT has_function_privilege('authenticated', 'public.create_tenant_ppdb_candidate_bill(uuid,uuid,text,uuid,text,numeric,uuid)', 'EXECUTE'), 'authenticated browser callers cannot issue PPDB bills directly');
+SELECT ok(has_function_privilege('service_role', 'public.create_tenant_ppdb_candidate_bill(uuid,uuid,text,uuid,text,numeric,uuid)', 'EXECUTE'), 'trusted server role can issue PPDB bills');
+SELECT throws_ok(
+  $$SELECT public.create_tenant_ppdb_candidate_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    'e5000000-0000-4000-8000-000000000101', 'tuition', 2500000,
+    'e5000000-0000-4000-8000-000000000421'
+  )$$,
+  '23514',
+  'Uang pangkal hanya dapat diterbitkan setelah calon santri diterima',
+  'tuition cannot be issued before the candidate is accepted'
+);
+SELECT is(
+  public.create_tenant_ppdb_candidate_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    'e5000000-0000-4000-8000-000000000101', 'registration', 350000,
+    'e5000000-0000-4000-8000-000000000422'
+  )->>'created',
+  '1',
+  'Admin can issue a tenant-scoped PPDB registration bill'
+);
+SELECT ok(
+  (SELECT student_id IS NULL AND candidate_id = 'e5000000-0000-4000-8000-000000000101'
+      AND payment_type = 'registration' AND amount = 350000 AND status = 'unpaid'
+   FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+     AND candidate_id = 'e5000000-0000-4000-8000-000000000101' AND payment_type = 'registration'),
+  'candidate registration bill starts unpaid and belongs to its tenant candidate'
+);
+SELECT is(
+  public.create_tenant_ppdb_candidate_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    'e5000000-0000-4000-8000-000000000101', 'registration', 350000,
+    'e5000000-0000-4000-8000-000000000422'
+  )->>'billId',
+  (SELECT id::text FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+     AND candidate_id = 'e5000000-0000-4000-8000-000000000101' AND payment_type = 'registration'),
+  'retry with the same request key returns the original candidate bill'
+);
+SELECT is(
+  (public.create_tenant_ppdb_candidate_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    'e5000000-0000-4000-8000-000000000101', 'registration', 350000,
+    'e5000000-0000-4000-8000-000000000423'
+  )->>'created'),
+  '0',
+  'a different request key does not duplicate an existing candidate fee'
+);
+SELECT throws_ok(
+  $$SELECT public.create_tenant_ppdb_candidate_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    'e5000000-0000-4000-8000-000000000101', 'registration', 360000,
+    'e5000000-0000-4000-8000-000000000422'
+  )$$,
+  '23505',
+  'Kunci permintaan telah dipakai untuk data berbeda',
+  'candidate fee idempotency key cannot be reused with a different amount'
+);
+SELECT throws_ok(
+  $$SELECT public.create_tenant_ppdb_candidate_bill(
+    'f6000000-0000-4000-8000-000000000006', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    'e5000000-0000-4000-8000-000000000101', 'registration', 350000,
+    'e5000000-0000-4000-8000-000000000424'
+  )$$,
+  '42501',
+  'Profil Admin tidak aktif pada tenant',
+  'Admin cannot issue a candidate bill across tenant boundaries'
+);
+UPDATE public.candidates
+SET stage = 'Accepted', master_student_id = 'e5000000-0000-4000-8000-000000000201'
+WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+  AND id = 'e5000000-0000-4000-8000-000000000101';
+SELECT is(
+  (SELECT student_id::text FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+     AND candidate_id = 'e5000000-0000-4000-8000-000000000101' AND payment_type = 'registration'),
+  'e5000000-0000-4000-8000-000000000201',
+  'onboarding attaches an existing candidate bill to the new student'
+);
+SELECT is(
+  public.create_tenant_ppdb_candidate_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
+    'e5000000-0000-4000-8000-000000000101', 'tuition', 2500000,
+    'e5000000-0000-4000-8000-000000000425'
+  )->>'created',
+  '1',
+  'accepted candidates can receive an idempotent tuition bill'
+);
+SELECT is(
+  (SELECT student_id::text FROM public.finance_bills
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+     AND candidate_id = 'e5000000-0000-4000-8000-000000000101' AND payment_type = 'tuition'),
+  'e5000000-0000-4000-8000-000000000201',
+  'a fee created after onboarding is linked to the student immediately'
+);
+SELECT is(
+  public.register_tenant_finance_payment_proof(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000013', 'wali_santri',
+    (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+      AND candidate_id = 'e5000000-0000-4000-8000-000000000101' AND payment_type = 'registration'),
+    'financeProofs/e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000201/' ||
+      (SELECT id::text FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+        AND candidate_id = 'e5000000-0000-4000-8000-000000000101' AND payment_type = 'registration') || '/ppdb-proof.pdf',
+    'ppdb-proof.pdf', 'BSI', repeat('b', 64), 'e5000000-0000-4000-8000-000000000426'
+  )->>'status',
+  'verification',
+  'linked guardian can submit payment proof for a PPDB candidate bill after onboarding'
+);
+SELECT is(
+  public.review_tenant_finance_bill(
+    'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000012', 'admin',
+    (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+      AND candidate_id = 'e5000000-0000-4000-8000-000000000101' AND payment_type = 'registration'),
+    'settle', 'BSI', 'e5000000-0000-4000-8000-000000000427'
+  )->>'status',
+  'paid',
+  'Finance Admin can settle the PPDB candidate bill through the existing review workflow'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.finance_ledger
+   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND source_type = 'bill'
+     AND source_id = (SELECT id FROM public.finance_bills WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
+       AND candidate_id = 'e5000000-0000-4000-8000-000000000101' AND payment_type = 'registration')),
+  1,
+  'settled candidate bill posts exactly one Finance ledger entry'
 );
 
 SELECT throws_ok(

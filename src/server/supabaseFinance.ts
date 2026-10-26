@@ -118,7 +118,7 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
     rejectionReason: row.rejection_reason || "",
   }));
   const normalizedBills = billRows.map((row) => ({
-    id: String(row.id), santriId: String(row.student_id), santriName: String(row.student_name), grade: String(row.grade || ""),
+    id: String(row.id), santriId: row.student_id ? String(row.student_id) : "", santriName: String(row.student_name), grade: String(row.grade || ""),
     type: String(row.fee_type), period: String(row.period), amount: Number(row.amount), paidAmount: Number(row.paid_amount),
     status: String(row.status), date: String(row.bill_date), paymentMethod: row.payment_method || null,
     proofFile: row.proof_file || null, proofStoragePath: row.proof_storage_path || null, uploadedAt: row.uploaded_at || null,

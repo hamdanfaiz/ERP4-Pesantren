@@ -96,7 +96,7 @@ function safeWorkflow(value: unknown) {
   };
 }
 
-function toCandidate(row: JsonObject, documents: JsonObject = {}) {
+function toCandidate(row: JsonObject, documents: JsonObject = {}, bills: JsonObject = {}) {
   const workflow = safeWorkflow(row.workflow_data);
   return {
     id: String(row.id),
@@ -120,6 +120,10 @@ function toCandidate(row: JsonObject, documents: JsonObject = {}) {
     examScores: workflow.examScores,
     interviewScores: workflow.interviewScores,
     religiousScores: workflow.religiousScores,
+    bills: {
+      registration: bills.registration || null,
+      tuition: bills.tuition || null,
+    },
     documents: {
       kk: Boolean(documents.kk),
       birthCertificate: Boolean(documents.birth_certificate),
@@ -147,6 +151,7 @@ export async function listSupabasePpdbCandidates(tenantIdentifier: string, reque
   if (!Array.isArray(rows)) throw new SupabasePpdbError(503, "Daftar PPDB belum dapat dimuat.");
   const ids = rows.map((row: JsonObject) => String(row.id)).filter((id: string) => /^[0-9a-f-]{36}$/i.test(id));
   let documentByCandidate = new Map<string, JsonObject>();
+  let billsByCandidate = new Map<string, JsonObject>();
   if (ids.length) {
     const documentParams = new URLSearchParams({
       select: "candidate_id,kk,birth_certificate,report_cards,ijazah,skhun,pas_photo",
@@ -154,15 +159,89 @@ export async function listSupabasePpdbCandidates(tenantIdentifier: string, reque
       candidate_id: `in.(${ids.join(",")})`,
       limit: String(Math.min(ids.length + 1, 501)),
     });
-    const documentRows = await request(`/rest/v1/candidate_documents?${documentParams.toString()}`);
+    const billParams = new URLSearchParams({
+      select: "id,candidate_id,payment_type,fee_type,period,amount,paid_amount,status",
+      tenant_id: `eq.${tenantId}`,
+      candidate_id: `in.(${ids.join(",")})`,
+      payment_type: "in.(registration,tuition)",
+      order: "created_at.asc,id.asc",
+      limit: "501",
+    });
+    const [documentRows, billRows] = await Promise.all([
+      request(`/rest/v1/candidate_documents?${documentParams.toString()}`),
+      String(process.env.SUPABASE_PPDB_FINANCE_BILLS_ENABLED || "").trim().toLowerCase() === "true"
+        ? request(`/rest/v1/finance_bills?${billParams.toString()}`)
+        : Promise.resolve([]),
+    ]);
     if (!Array.isArray(documentRows)) throw new SupabasePpdbError(503, "Dokumen PPDB belum dapat dimuat.");
     documentByCandidate = new Map(documentRows.map((row: JsonObject) => [String(row.candidate_id), row] as [string, JsonObject]));
+    if (!Array.isArray(billRows)) throw new SupabasePpdbError(503, "Status tagihan PPDB belum dapat dimuat.");
+    billsByCandidate = new Map();
+    for (const row of billRows as JsonObject[]) {
+      const candidateId = String(row.candidate_id || "");
+      const paymentType = String(row.payment_type || "");
+      if (!ids.includes(candidateId) || !["registration", "tuition"].includes(paymentType)) continue;
+      const entry = billsByCandidate.get(candidateId) || {};
+      entry[paymentType] = {
+        id: String(row.id),
+        feeType: String(row.fee_type || ""),
+        period: String(row.period || ""),
+        amount: Number(row.amount),
+        paidAmount: Number(row.paid_amount),
+        status: String(row.status || "unpaid"),
+      };
+      billsByCandidate.set(candidateId, entry);
+    }
   }
   return {
-    candidates: rows.map((row: JsonObject) => toCandidate(row, documentByCandidate.get(String(row.id)))),
+    candidates: rows.map((row: JsonObject) => toCandidate(
+      row,
+      documentByCandidate.get(String(row.id)),
+      billsByCandidate.get(String(row.id)),
+    )),
     hasMore: rows.length === limit,
     nextOffset: rows.length === limit ? offset + rows.length : null,
   };
+}
+
+export async function createSupabasePpdbCandidateBill(
+  tenantIdentifier: string,
+  actorUserId: string,
+  actorRole: string,
+  candidateIdentifier: string,
+  value: unknown,
+) {
+  const tenantId = requireUuid(tenantIdentifier);
+  await requireActiveTenant(tenantId);
+  const actorId = requireUuid(actorUserId);
+  const candidateId = requireUuid(candidateIdentifier);
+  const input = value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
+  const role = actorRole === "Admin" ? "admin" : actorRole === "SuperAdmin" ? "super_admin" : "";
+  const paymentType = String(input.paymentType || "");
+  const amount = Number(input.amount);
+  const clientRequestId = String(input.clientRequestId || "").trim();
+  if (!role) throw new SupabasePpdbError(403, "Hanya Admin tenant yang dapat menerbitkan tagihan PPDB.");
+  if (!["registration", "tuition"].includes(paymentType)
+      || !Number.isSafeInteger(amount) || amount <= 0
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)) {
+    throw new SupabasePpdbError(400, "Jenis, nominal, atau kunci permintaan tagihan PPDB tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/create_tenant_ppdb_candidate_bill", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: role,
+      p_candidate_id: candidateId,
+      p_payment_type: paymentType,
+      p_amount: amount,
+      p_client_request_id: clientRequestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabasePpdbError(503, "Backend Keuangan belum mengonfirmasi tagihan PPDB.");
+  }
+  return result as JsonObject;
 }
 
 const CORE_FIELDS = new Set(["stage", "notes"]);

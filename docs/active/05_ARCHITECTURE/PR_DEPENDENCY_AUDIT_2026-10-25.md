@@ -309,3 +309,17 @@ Dashboard, bukan konektor Supabase MCP, berhasil memberikan akses baca pada targ
 - Pengamatan dashboard dan status migration hanya baca. Tidak ada migration, data, policy, grant, atau konfigurasi target yang diubah. CI memakai database lokal sintetis dan tidak mencakup target production.
 
 Jangan menerapkan migration ke Production. Lanjutkan setelah ada salinan terisolasi yang dapat dipulihkan; lakukan rehearsal 34 migration, validasi jalur service-role/API dan pemulihan, lalu tutup review PR serta login/UAT sebelum menetapkan readiness.
+
+
+## Penutupan audit paritas fitur PR #11 → #13 — 26 Oktober 2026
+
+Perbandingan file dan jalur runtime menemukan bahwa Master Data/NIS/asrama dan inti Tahfidz memiliki padanan Supabase-native pada #13; bridge Firebase Auth #11 memang digantikan oleh Supabase Auth. Audit juga menemukan tiga gap PPDB yang tidak tertangkap dari perbandingan commit saja: pembuatan/batch kandidat Admin belum terbukti ada, unggah dokumen kandidat belum tersedia di UI/API aktif, dan tagihan/pembayaran kandidat belum terhubung ke Finance. Layar PPDB aktif menyebut integrasi pembayaran masih menunggu cutover.
+
+Rincian bukti, path source, status verifikasi, dan keputusan per fitur ada pada [matriks paritas PR #11 → #13](PR11_TO_PR13_FEATURE_PARITY.md). PR #11 tetap Draft dan tidak digabung utuh. Gap yang dipilih untuk produk harus diimplementasikan sebagai kontrak Supabase baru di #13, kemudian direhearsal pada staging yang dapat dipulihkan sebelum dipertimbangkan selesai.
+
+
+## Tindak lanjut audit PPDB — 26 Oktober 2026
+
+PR #13 kini memiliki migration baru `20270110000000_ppdb_candidate_finance_bills.sql` dan alur Admin untuk membuat invoice pendaftaran/uang pangkal kandidat. Invoice masuk ke Finance tenant, dibatasi role/tenant, dilindungi idempotensi dan status tutup buku, lalu tertaut ke santri saat onboarding. Bukti wali pasca-onboarding dan settlement memakai kontrak Finance yang ada. PgTAP bertambah 16 pemeriksaan dan berencana menjalankan 73 assertion. Source preflight kini menghitung 82 migration: dari Production yang tercatat pada 47 versi, 35 migration belum dijalankan.
+
+Implementasi belum diverifikasi oleh CI atau staging pada checkpoint ini. Semua flag tetap mati; jangan menerapkan migration di Production. Pembuatan kandidat offline/batch Admin, unggah dokumen privat, impor arsip tagihan, serta pembayaran mandiri wali sebelum onboarding tetap menjadi gap atau keputusan produk. Rincian ada di [matriks paritas](PR11_TO_PR13_FEATURE_PARITY.md) dan [checkpoint pengembangan PPDB–Keuangan](CHECKPOINT_2026-10-25.md#pengembangan-ppdbkeuangan--26-oktober-2026).

@@ -467,3 +467,39 @@ Pernyataan sebelumnya bahwa project target tidak dapat diverifikasi melalui kone
 - Tidak ada migration, perubahan skema, data, grant, policy, feature flag, atau pengaturan backup yang diubah pada project Supabase. Tidak ada operasi tulis yang dilakukan.
 
 Langkah berikutnya adalah menyiapkan backup yang benar-benar dapat dipulihkan dan staging terpisah, menjalankan semua 34 migration pada salinan tersebut, lalu memvalidasi grant backend, RLS, pgTAP, API, storage, serta pemulihan. Rotasi secret dan login/UAT tetap menyusul sebelum release review.
+
+
+## Lanjutan audit paritas PR #11 → #13 — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+CI pada commit checkpoint sebelumnya sukses, tetapi pemeriksaan source menemukan gap PPDB lintas modul. Temuan ini mempertahankan skor: kode fitur baru belum dibuat atau diuji pada PR, dan release gate migrasi target tetap belum terpenuhi.
+
+- Padanan Supabase-native Master Data/NIS, penempatan kamar, serta inti baca/tulis Tahfidz di PR #13 telah ditemukan pada route, API service, migration, dan CI sintetis.
+- Tiga item PR #11 belum memiliki padanan yang terbukti di UI/API aktif #13: pembuatan/batch kandidat Admin, unggah dokumen calon santri privat, dan tagihan/pembayaran kandidat yang masuk ke Finance. `SupabasePpdbManager` menyatakan integrasi pembayaran masih menunggu cutover.
+- Rincian fitur, bukti source, status CI, dan keputusan port tersedia dalam [matriks paritas PR #11 → #13](PR11_TO_PR13_FEATURE_PARITY.md). Jangan merge branch #11 secara utuh; port kebutuhan yang disetujui sebagai kontrak Supabase-native baru.
+- PR #13 tetap Open/Draft; PR #11 tetap Open/Draft. Tidak ada migration, unggahan, transaksi, atau perubahan data Supabase Production.
+
+Langkah pengembangan berikutnya: rancang skema dan API tenant-scoped untuk tagihan PPDB/Finance, lalu dokumen kandidat privat dengan Storage; tambahkan tes transaksi, idempotensi, role/tenant, dan CI. Perubahan schema baru hanya direhearsal setelah tersedia database staging yang dapat dipulihkan.
+
+
+## Pengembangan PPDB–Keuangan — 26 Oktober 2026
+
+### Progres menuju go-live: 78/100 (tidak berubah)
+
+Ditambahkan kontrak Supabase untuk menerbitkan biaya pendaftaran dan uang pangkal bagi kandidat PPDB ke buku Finance tenant. Skor tidak berubah karena migration baru belum dijalankan oleh CI pada head ini, belum direhearsal pada staging, dan target Production tetap memiliki 35 migration pending.
+
+- Migration `20270110000000_ppdb_candidate_finance_bills.sql` menambahkan relasi kandidat pada `finance_bills`, memberlakukan satu tagihan per kandidat/jenis, memeriksa tenant dan profil Admin, idempotensi, status kandidat untuk uang pangkal, batas nominal, serta status tutup buku. Table grants/RLS yang ada tetap tertutup untuk browser.
+- RPC hanya dapat dipanggil `service_role`; route juga memerlukan sesi aktif, akses modul PPDB dan Keuangan, flag Finance/PPDB, dan flag khusus `SUPABASE_PPDB_FINANCE_BILLS_ENABLED`. Semua flag baru tetap `false` pada `.env.example`.
+- Saat onboarding menetapkan `master_student_id`, trigger menautkan invoice kandidat ke santri dalam transaksi yang sama. Sesudah tertaut, wali dengan akun yang terhubung ke santri dapat memakai alur bukti pembayaran Finance yang sudah ada; Admin dapat menyelesaikan pembayaran dari Finance.
+- `SupabasePpdbManager` menampilkan status invoice dan form Admin dengan nominal eksplisit; uang pangkal baru tersedia untuk kandidat berstatus `Accepted`. `SupabaseFinanceManager` tetap menjadi tempat peninjauan/pencatatan Finance.
+- PgTAP `finance_runtime.test.sql` ditambah 16 assertion untuk privilege, eligibility, tenant, nominal, idempotensi, tautan onboarding, bukti wali, settlement, dan posting ledger. Jumlah rencana kini 73 assertion.
+- Regresi preflight mencatat 47 migration Production yang teramati, source kini 82, dan 35 pending. Tidak ada migration atau perubahan data diterapkan pada Production.
+- Konektor Supabase MCP menolak inspeksi tabel target dengan `permission denied`; database tidak berubah. Fetch dokumentasi markdown melalui web tool ditolak karena content-type, lalu panduan RPC/RLS dibaca melalui pencarian dokumentasi Supabase.
+- `npm run lint` belum berjalan karena workspace lokal tidak memiliki `tsc` pada PATH (`node_modules` belum tersedia). CI menjadi pemeriksaan build/typecheck berikutnya setelah push; migration dan pgTAP terbaru belum punya bukti lulus.
+
+### Checkpoint aman
+
+Perubahan masih berada di branch PR #13 dan semua flag runtime tetap nonaktif. Jalankan CI pada commit baru, perbaiki hasilnya, lalu rehearsal pada database staging yang dapat dipulihkan. Jangan mengaktifkan flag atau menerapkan migration ini di Production sebelum backup/rehearsal serta validasi jalur service-role/API berhasil.
+
+Gap #11 yang belum dipindahkan: pembuatan/batch kandidat offline Admin, unggah berkas privat, dan impor arsip tagihan. Pembayaran mandiri keluarga sebelum kandidat di-onboard juga belum didukung; alur wali yang sudah ada dimulai setelah relasi santri ditetapkan.

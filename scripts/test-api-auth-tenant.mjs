@@ -105,6 +105,8 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a'));
     users.push(await createUserFixture(admin, tenantIds[0], 'super_admin', 'active', 'superadmin-a', { users: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-users', { users: false }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
 
     const adminToken = await signIn(anon, users[0]);
     const santriToken = await signIn(anon, users[1]);
@@ -114,6 +116,8 @@ async function main() {
     const limitedAdminToken = await signIn(anon, users[8]);
     const inactiveAdminToken = await signIn(anon, users[4]);
     const suspendedTenantAdminToken = await signIn(anon, users[5]);
+    const noPpdbAdminToken = await signIn(anon, users[9]);
+    const noFinanceAdminToken = await signIn(anon, users[10]);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
 
@@ -127,6 +131,8 @@ async function main() {
         SUPABASE_SECRET_KEY: serviceKey,
         SUPABASE_SERVICE_ROLE_KEY: '',
         SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED: 'false',
+        SUPABASE_PPDB_RUNTIME_ENABLED: 'true',
+        SUPABASE_PPDB_FINANCE_BILLS_ENABLED: 'false',
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'false',
@@ -221,6 +227,27 @@ async function main() {
       headers: { Authorization: 'Bearer definitely-not-a-supabase-session' },
     });
     assert.equal(invalidSession.status, 401, 'Invalid Supabase sessions must be rejected.');
+
+    const disabledPpdbBill = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/bills`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bill: { paymentType: 'registration', amount: 350000, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(disabledPpdbBill.status, 503, 'PPDB billing must stay unavailable until its runtime and schema are enabled.');
+
+    const noPpdbBill = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/bills`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bill: { paymentType: 'registration', amount: 350000, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(noPpdbBill.status, 403, 'PPDB invoice creation must require PPDB module access.');
+
+    const noFinanceBill = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/bills`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${noFinanceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bill: { paymentType: 'registration', amount: 350000, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(noFinanceBill.status, 403, 'PPDB invoice creation must require Finance module access.');
 
     const updateWaliPermissions = async (modulePermissions) => {
       const { data, error } = await admin.from('profiles')

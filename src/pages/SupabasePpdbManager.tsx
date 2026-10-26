@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { listSupabaseMasterDataStructures, type SupabaseStructureRecord } from "../services/masterDataApi";
 
 type Stage = "Registered" | "Document Review" | "Entry Exam" | "Interview" | "Accepted" | "Rejected";
+type CandidateBill = { id: string; feeType: string; period: string; amount: number; paidAmount: number; status: string };
 type Candidate = {
   id: string; registrationId: string; name: string; previousSchool: string; grade: string; phone: string;
   email: string; gender: "L" | "P"; stage: Stage; score?: number; dateApplied: string; notes: string;
@@ -14,6 +15,7 @@ type Candidate = {
     quranFluency?: number; tajweedMastery?: number; worshipPractice?: number;
     memorizedJuz?: string; notes?: string; totalScore?: number; evaluatedAt?: string; evaluator?: string;
   };
+  bills?: { registration?: CandidateBill | null; tuition?: CandidateBill | null };
   documents: { kk: boolean; birthCertificate: boolean; reportCards: boolean; ijazah: boolean; skhun: boolean; pasPhoto: boolean };
 };
 type CandidateDraft = {
@@ -26,6 +28,7 @@ type CandidateDraft = {
 type OnboardingDraft = { nis: string; classId: string; roomId: string; guardianName: string; guardianPhone: string };
 
 const PPDB_ONBOARDING_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED === "true";
+const PPDB_FINANCE_BILLS_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_FINANCE_BILLS_ENABLED === "true";
 const FORM_CONTROL = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white";
 
 const STAGES: Stage[] = ["Registered", "Document Review", "Entry Exam", "Interview", "Accepted", "Rejected"];
@@ -57,6 +60,7 @@ async function requestPpdb(path: string, init: RequestInit = {}) {
 export function SupabasePpdbManager() {
   const { user, role } = useAuth();
   const isAdmin = ["Admin", "SuperAdmin"].includes(role);
+  const canManageCandidateBills = isAdmin && user?.modulePermissions?.finance !== false;
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [drafts, setDrafts] = useState<Record<string, CandidateDraft>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -255,7 +259,7 @@ export function SupabasePpdbManager() {
         <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
       </header>
 
-      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Mode Supabase: layar ini mengelola daftar, tahap, nilai ujian, wawancara, penilaian Al-Qur’an dan Tahfidz, catatan, serta—setelah seluruh flag terkait dibuka—onboarding santri transaksional. Pendaftaran publik, penyimpanan berkas privat, dan integrasi pembayaran masih menunggu cutover tersendiri.</div>
+      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Mode Supabase: layar ini mengelola daftar, tahap, nilai, penilaian Al-Qur’an dan Tahfidz, serta onboarding santri transaksional. Admin dapat menerbitkan tagihan kandidat setelah migration Finance dan flag PPDB–Keuangan diaktifkan. Pendaftaran publik dan unggah dokumen privat masih menunggu cutover terpisah.</div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
@@ -270,7 +274,7 @@ export function SupabasePpdbManager() {
             const draft = draftFor(candidate);
             const expanded = expandedId === candidate.id;
             return <React.Fragment key={candidate.id}><tr className="border-b border-slate-100 dark:border-white/5"><td className="px-3 py-3"><div className="font-semibold text-slate-900 dark:text-white">{candidate.name}</div><div className="text-xs text-slate-500">{candidate.registrationId} · {candidate.phone || "Tanpa telepon"}</div></td><td className="px-3 py-3 text-slate-700 dark:text-slate-300">{candidate.previousSchool || "—"}<div className="text-xs text-slate-500">{candidate.grade || "—"}</div></td><td className="px-3 py-3 text-slate-600 dark:text-slate-400">{candidate.dateApplied || "—"}</td><td className="px-3 py-3"><select aria-label={`Tahap untuk ${candidate.name}`} value={draft.stage} onChange={(event) => updateDraft(candidate, { stage: event.target.value as Stage })} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs dark:border-white/10 dark:bg-slate-950 dark:text-white">{STAGES.map((stage) => <option key={stage}>{stage}</option>)}</select>{candidate.onboardingStatus === "Completed" && <span className="mt-1 block text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Sudah menjadi santri · NIS {candidate.nis || "tersimpan"}</span>}</td><td className="px-3 py-3 text-right"><div className="flex flex-wrap justify-end gap-1"><button type="button" onClick={() => { setError(""); setExpandedId(expanded ? null : candidate.id); }} className="rounded-lg px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30">{expanded ? "Tutup" : "Detail & nilai"}</button>{PPDB_ONBOARDING_ENABLED && candidate.stage === "Accepted" && candidate.onboardingStatus !== "Completed" && <button type="button" onClick={() => void openOnboarding(candidate)} className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"><UserCheck className="h-3.5 w-3.5" />Onboard</button>}</div></td></tr>
-              {expanded && <tr className="border-b border-slate-200 bg-slate-50/80 dark:border-white/10 dark:bg-slate-950/40"><td colSpan={5} className="p-4"><div className="grid gap-5 lg:grid-cols-2"><div className="space-y-3"><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nilai ujian masuk (0–100)</div><div className="grid grid-cols-2 gap-3 sm:grid-cols-5">{EXAM_FIELDS.map((field) => <label key={field} className="text-xs capitalize text-slate-500">{field}<input type="number" min="0" max="100" value={draft.examScores[field] || ""} onChange={(event) => updateDraft(candidate, { examScores: { ...draft.examScores, [field]: event.target.value } })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label>)}</div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dokumen tercatat</div><div className="flex flex-wrap gap-2">{[["KK", candidate.documents.kk], ["Akta", candidate.documents.birthCertificate], ["Rapor", candidate.documents.reportCards], ["Ijazah", candidate.documents.ijazah], ["SKHUN", candidate.documents.skhun], ["Pas foto", candidate.documents.pasPhoto]].map(([label, complete]) => <span key={String(label)} className={`rounded-full px-2.5 py-1 text-xs ${complete ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" : "bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-400"}`}>{String(label)} · {complete ? "lengkap" : "belum"}</span>)}</div></div><div className="space-y-3"><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Penilaian Al-Qur’an & Tahfidz (0–100)</div><div className="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-white/10"><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rincian penilaian</div><div className="grid gap-3 sm:grid-cols-3">{RELIGIOUS_FIELDS.map(({ key, label }) => <label key={key} className="text-xs text-slate-500">{label}<input type="number" min="0" max="100" step="1" value={draft.religiousScores[key] || ""} onChange={(event) => updateDraft(candidate, { religiousScores: { ...draft.religiousScores, [key]: event.target.value } })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label>)}</div><label className="block text-xs text-slate-500">Hafalan yang sudah dikuasai<input maxLength={500} value={draft.religiousScores.memorizedJuz || ""} onChange={(event) => updateDraft(candidate, { religiousScores: { ...draft.religiousScores, memorizedJuz: event.target.value } })} placeholder="Contoh: Juz 30" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label><label className="block text-xs text-slate-500">Catatan penilaian<textarea rows={2} maxLength={4000} value={draft.religiousScores.notes || ""} onChange={(event) => updateDraft(candidate, { religiousScores: { ...draft.religiousScores, notes: event.target.value } })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label>{candidate.religiousScores?.totalScore != null && <div role="note" className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">Rata-rata {candidate.religiousScores.totalScore}/100 · {candidate.religiousScores.evaluatedAt || "tanggal tidak tersedia"}{candidate.religiousScores.evaluator ? ` · Dinilai oleh ${candidate.religiousScores.evaluator}` : ""}</div>}</div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Penilaian wawancara (1–5)</div><div className="grid gap-3 sm:grid-cols-3">{INTERVIEW_FIELDS.map(({ key, label }) => <label key={key} className="text-xs text-slate-500">{label}<select value={draft.interviewScores[key] || ""} onChange={(event) => updateDraft(candidate, { interviewScores: { ...draft.interviewScores, [key]: event.target.value } })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white"><option value="">Pilih nilai</option>{[1,2,3,4,5].map((score) => <option key={score} value={score}>{score}</option>)}</select></label>)}</div><label className="block text-xs text-slate-500">Catatan panitia<textarea rows={4} maxLength={4000} value={draft.notes} onChange={(event) => updateDraft(candidate, { notes: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label><button type="button" onClick={() => void saveCandidate(candidate)} disabled={savingId === candidate.id} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{savingId === candidate.id && <Loader2 className="h-4 w-4 animate-spin" />}Simpan perubahan</button></div></div></td></tr>}</React.Fragment>;
+              {expanded && <tr className="border-b border-slate-200 bg-slate-50/80 dark:border-white/10 dark:bg-slate-950/40"><td colSpan={5} className="p-4"><div className="grid gap-5 lg:grid-cols-2"><div className="space-y-3"><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nilai ujian masuk (0–100)</div><div className="grid grid-cols-2 gap-3 sm:grid-cols-5">{EXAM_FIELDS.map((field) => <label key={field} className="text-xs capitalize text-slate-500">{field}<input type="number" min="0" max="100" value={draft.examScores[field] || ""} onChange={(event) => updateDraft(candidate, { examScores: { ...draft.examScores, [field]: event.target.value } })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label>)}</div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dokumen tercatat</div><div className="flex flex-wrap gap-2">{[["KK", candidate.documents.kk], ["Akta", candidate.documents.birthCertificate], ["Rapor", candidate.documents.reportCards], ["Ijazah", candidate.documents.ijazah], ["SKHUN", candidate.documents.skhun], ["Pas foto", candidate.documents.pasPhoto]].map(([label, complete]) => <span key={String(label)} className={`rounded-full px-2.5 py-1 text-xs ${complete ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" : "bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-400"}`}>{String(label)} · {complete ? "lengkap" : "belum"}</span>)}</div><CandidateBilling candidate={candidate} enabled={PPDB_FINANCE_BILLS_ENABLED} canManage={canManageCandidateBills} onCreated={() => { void refresh(); }} /></div><div className="space-y-3"><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Penilaian Al-Qur’an & Tahfidz (0–100)</div><div className="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-white/10"><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rincian penilaian</div><div className="grid gap-3 sm:grid-cols-3">{RELIGIOUS_FIELDS.map(({ key, label }) => <label key={key} className="text-xs text-slate-500">{label}<input type="number" min="0" max="100" step="1" value={draft.religiousScores[key] || ""} onChange={(event) => updateDraft(candidate, { religiousScores: { ...draft.religiousScores, [key]: event.target.value } })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label>)}</div><label className="block text-xs text-slate-500">Hafalan yang sudah dikuasai<input maxLength={500} value={draft.religiousScores.memorizedJuz || ""} onChange={(event) => updateDraft(candidate, { religiousScores: { ...draft.religiousScores, memorizedJuz: event.target.value } })} placeholder="Contoh: Juz 30" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label><label className="block text-xs text-slate-500">Catatan penilaian<textarea rows={2} maxLength={4000} value={draft.religiousScores.notes || ""} onChange={(event) => updateDraft(candidate, { religiousScores: { ...draft.religiousScores, notes: event.target.value } })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label>{candidate.religiousScores?.totalScore != null && <div role="note" className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">Rata-rata {candidate.religiousScores.totalScore}/100 · {candidate.religiousScores.evaluatedAt || "tanggal tidak tersedia"}{candidate.religiousScores.evaluator ? ` · Dinilai oleh ${candidate.religiousScores.evaluator}` : ""}</div>}</div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Penilaian wawancara (1–5)</div><div className="grid gap-3 sm:grid-cols-3">{INTERVIEW_FIELDS.map(({ key, label }) => <label key={key} className="text-xs text-slate-500">{label}<select value={draft.interviewScores[key] || ""} onChange={(event) => updateDraft(candidate, { interviewScores: { ...draft.interviewScores, [key]: event.target.value } })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white"><option value="">Pilih nilai</option>{[1,2,3,4,5].map((score) => <option key={score} value={score}>{score}</option>)}</select></label>)}</div><label className="block text-xs text-slate-500">Catatan panitia<textarea rows={4} maxLength={4000} value={draft.notes} onChange={(event) => updateDraft(candidate, { notes: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label><button type="button" onClick={() => void saveCandidate(candidate)} disabled={savingId === candidate.id} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{savingId === candidate.id && <Loader2 className="h-4 w-4 animate-spin" />}Simpan perubahan</button></div></div></td></tr>}</React.Fragment>;
           })}</tbody></table></div>}
         {hasMore && <div className="mt-4 flex justify-center border-t border-slate-100 pt-4 dark:border-white/5"><button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}Muat 250 pendaftar berikutnya</button></div>}
       </section>
@@ -286,4 +290,69 @@ export function SupabasePpdbManager() {
         </div><footer className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-white/10"><button type="button" onClick={() => setOnboardingCandidate(null)} disabled={onboardingSaving} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Batal</button><button type="submit" disabled={onboardingLoading || onboardingSaving || !onboardingStructures.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{onboardingSaving && <Loader2 className="h-4 w-4 animate-spin" />}{onboardingSaving ? "Memproses transaksi…" : "Simpan onboarding"}</button></footer></form></div>}
     </div>
   );
+}
+
+function CandidateBilling({
+  candidate,
+  enabled,
+  canManage,
+  onCreated,
+}: {
+  candidate: Candidate;
+  enabled: boolean;
+  canManage: boolean;
+  onCreated: () => void;
+}) {
+  const [amounts, setAmounts] = useState<Record<"registration" | "tuition", string>>({ registration: "", tuition: "" });
+  const [savingType, setSavingType] = useState<"registration" | "tuition" | "">("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const issueBill = async (paymentType: "registration" | "tuition") => {
+    const amount = Number(amounts[paymentType]);
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      setError("Nominal tagihan harus berupa bilangan bulat positif.");
+      return;
+    }
+    const label = paymentType === "registration" ? "biaya pendaftaran" : "uang pangkal";
+    if (!window.confirm(`Terbitkan ${label} ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount)} untuk ${candidate.name}?`)) return;
+    setSavingType(paymentType);
+    setError("");
+    setNotice("");
+    try {
+      const result = await requestPpdb(`/api/ppdb/candidates/${encodeURIComponent(candidate.id)}/bills`, {
+        method: "POST",
+        body: JSON.stringify({ bill: { paymentType, amount, clientRequestId: crypto.randomUUID() } }),
+      });
+      setNotice(result.alreadyExists ? "Tagihan jenis ini sudah ada; tidak dibuat ulang." : "Tagihan diterbitkan dan masuk ke modul Keuangan.");
+      setAmounts((current) => ({ ...current, [paymentType]: "" }));
+      onCreated();
+    } catch (issueError: any) {
+      setError(issueError?.message || "Tagihan PPDB belum dapat diterbitkan.");
+    } finally {
+      setSavingType("");
+    }
+  };
+
+  const renderBill = (paymentType: "registration" | "tuition", label: string, bill: CandidateBill | null | undefined) => {
+    const eligible = paymentType === "registration" ? candidate.stage !== "Rejected" : candidate.stage === "Accepted";
+    const status = bill?.status === "paid" ? "Lunas" : bill?.status === "verification" ? "Menunggu verifikasi" : bill?.status === "partial" ? "Dibayar sebagian" : "Belum dibayar";
+    return <div key={paymentType} className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</div>{bill && <div className="mt-1 text-xs text-slate-500">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(bill.amount)} · {status}</div>}</div>
+        {!bill && enabled && canManage && eligible && <div className="flex flex-wrap items-end gap-2"><label className="text-xs text-slate-500">Nominal (Rp)<input aria-label={`Nominal ${label} ${candidate.name}`} type="number" min="1" step="1" inputMode="numeric" value={amounts[paymentType]} onChange={(event) => setAmounts((current) => ({ ...current, [paymentType]: event.target.value }))} className="mt-1 w-36 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white" /></label><button type="button" onClick={() => void issueBill(paymentType)} disabled={savingType !== ""} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{savingType === paymentType ? "Menerbitkan…" : "Terbitkan"}</button></div>}
+        {!bill && paymentType === "tuition" && !eligible && <span className="text-xs text-slate-500">Tersedia setelah status diterima</span>}
+      </div>
+    </div>;
+  };
+
+  return <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-900">
+    <div><h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tagihan PPDB</h3><p className="mt-1 text-xs text-slate-500">Tagihan masuk ke Finance dan tertaut ke santri saat onboarding. Wali melihatnya setelah akun wali dan santri terhubung.</p></div>
+    {renderBill("registration", "Biaya pendaftaran", candidate.bills?.registration)}
+    {candidate.stage === "Accepted" && renderBill("tuition", "Uang pangkal", candidate.bills?.tuition)}
+    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Belum aktif: migration Finance dan flag runtime PPDB–Keuangan harus disiapkan terlebih dahulu.</p>}
+    {enabled && !canManage && <p className="text-xs text-amber-700 dark:text-amber-300">Akses modul Keuangan diperlukan untuk menerbitkan tagihan.</p>}
+    {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
+    {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice}</p>}
+  </section>;
 }

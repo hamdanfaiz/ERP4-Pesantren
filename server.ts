@@ -171,7 +171,7 @@ import {
   upsertSupabaseCbtQuestion,
 } from "./src/server/supabaseCbt";
 import { applySupabaseLegacyCbtImport, getSupabaseCbtLegacyImportContext, previewSupabaseLegacyCbt } from "./src/server/supabaseCbtImport";
-import { listSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate } from "./src/server/supabasePpdb";
+import { createSupabasePpdbCandidateBill, listSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate } from "./src/server/supabasePpdb";
 import {
   applySupabaseLegacyPpdbImport,
   getSupabasePpdbLegacyImportContext,
@@ -733,6 +733,8 @@ async function startServer() {
   const boardingFacilityOpsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingFacilityOpsImportEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbRuntimeEnabled = String(process.env.SUPABASE_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const ppdbFinanceBillsEnabled = String(process.env.SUPABASE_PPDB_FINANCE_BILLS_ENABLED || "").trim().toLowerCase() === "true";
+  const financeRuntimeEnabled = String(process.env.SUPABASE_FINANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbLegacyImportEnabled = String(process.env.SUPABASE_PPDB_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbOnboardingRuntimeEnabled = String(process.env.SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const academicRuntimeEnabled = String(process.env.SUPABASE_ACADEMIC_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -1038,6 +1040,30 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadPpdbActor(uid);
       return res.json(await updateSupabasePpdbCandidate(actor.tenantId, actor.uid, req.params.candidateId, req.body));
+    } catch (error) { return ppdbRouteError(res, error); }
+  });
+
+  app.post("/api/ppdb/candidates/:candidateId/bills", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadPpdbActor(uid);
+      const moduleAccess = resolveUserModulePermissions(actor.role, actor.modulePermissions);
+      if (!moduleAccess.ppdb || !moduleAccess.finance) {
+        throw new SupabasePpdbError(403, "Akses modul PPDB dan Keuangan diperlukan untuk menerbitkan tagihan.");
+      }
+      if (!ppdbRuntimeEnabled || !ppdbFinanceBillsEnabled || !financeRuntimeEnabled) {
+        return res.status(503).json({ error: "Penerbitan tagihan PPDB menunggu migration Finance dan flag runtime PPDB–Keuangan." });
+      }
+      const result = await createSupabasePpdbCandidateBill(
+        actor.tenantId,
+        actor.uid,
+        actor.role,
+        req.params.candidateId,
+        req.body?.bill,
+      );
+      return res.status(Number(result.created) > 0 ? 201 : 200).json(result);
     } catch (error) { return ppdbRouteError(res, error); }
   });
 
@@ -1999,7 +2025,6 @@ async function startServer() {
     console.error("Supabase laundry endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan Laundry Supabase belum dapat diproses." });
   };
-  const financeRuntimeEnabled = String(process.env.SUPABASE_FINANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const dashboardRuntimeEnabled = String(process.env.SUPABASE_DASHBOARD_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const dashboardRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
