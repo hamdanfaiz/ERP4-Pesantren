@@ -1,5 +1,3 @@
-import * as XLSX from "xlsx";
-
 export type PpdbCsvCandidate = {
   registrationId: string; name: string; gender: "L" | "P"; grade: string; previousSchool: string;
   phone: string; whatsappPhone: string; email: string; nik: string; nisn: string; pob: string; dob: string;
@@ -40,10 +38,59 @@ function normalizeHeader(value: unknown) {
   return String(value || "").trim().toLocaleLowerCase("id-ID").replace(/[\s._/-]+/g, "");
 }
 
-function cellText(value: unknown) {
-  if (value == null) return "";
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
-  return String(value).trim();
+function parseCsvRows(csv: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  let closedQuote = false;
+
+  for (let index = 0; index < csv.length; index += 1) {
+    const character = csv[index];
+    if (quoted) {
+      if (character === '"') {
+        if (csv[index + 1] === '"') {
+          cell += '"';
+          index += 1;
+        } else {
+          quoted = false;
+          closedQuote = true;
+        }
+      } else {
+        cell += character;
+      }
+      continue;
+    }
+
+    if (closedQuote && character !== "," && character !== "\r" && character !== "\n") {
+      throw new Error("Format CSV tidak valid setelah tanda kutip.");
+    }
+    if (character === '"') {
+      if (cell.length > 0 || closedQuote) throw new Error("Format CSV tidak valid: tanda kutip tidak berpasangan.");
+      quoted = true;
+    } else if (character === ",") {
+      if (row.length >= 63) throw new Error("Berkas CSV memiliki terlalu banyak kolom.");
+      row.push(cell.trim());
+      cell = "";
+      closedQuote = false;
+    } else if (character === "\r" || character === "\n") {
+      row.push(cell.trim());
+      if (row.some((value) => value.length > 0)) rows.push(row);
+      if (character === "\r" && csv[index + 1] === "\n") index += 1;
+      row = [];
+      cell = "";
+      closedQuote = false;
+      if (rows.length > 101) throw new Error("Impor dibatasi maksimal 100 pendaftar per berkas. Pisahkan CSV menjadi beberapa bagian.");
+    } else {
+      cell += character;
+    }
+  }
+
+  if (quoted) throw new Error("Format CSV tidak valid: tanda kutip tidak berpasangan.");
+  row.push(cell.trim());
+  if (row.some((value) => value.length > 0)) rows.push(row);
+  if (rows.length > 101) throw new Error("Impor dibatasi maksimal 100 pendaftar per berkas. Pisahkan CSV menjadi beberapa bagian.");
+  return rows;
 }
 
 export async function parsePpdbCsv(file: File): Promise<PpdbCsvCandidate[]> {
@@ -54,17 +101,13 @@ export async function parsePpdbCsv(file: File): Promise<PpdbCsvCandidate[]> {
     throw new Error("Ukuran berkas CSV harus lebih kecil dari 1 MB.");
   }
 
-  let workbook: XLSX.WorkBook;
+  let text: string;
   try {
-    workbook = XLSX.read(await file.arrayBuffer(), { type: "array", codepage: 65001, raw: true });
+    text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
   } catch {
     throw new Error("Berkas CSV tidak dapat dibaca. Simpan sebagai CSV UTF-8 lalu coba kembali.");
   }
-  const sheetName = workbook.SheetNames[0];
-  const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
-  if (!sheet) throw new Error("Berkas CSV tidak memiliki data.");
-
-  const records = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: false, blankrows: false });
+  const records = parseCsvRows(text.replace(/^\uFEFF/, ""));
   const headerRow = records[0];
   if (!Array.isArray(headerRow) || headerRow.length === 0) throw new Error("Baris judul kolom CSV tidak ditemukan.");
 
@@ -91,9 +134,9 @@ export async function parsePpdbCsv(file: File): Promise<PpdbCsvCandidate[]> {
 
   const candidates: PpdbCsvCandidate[] = [];
   for (const cells of records.slice(1)) {
-    if (!Array.isArray(cells) || cells.every((cell) => !cellText(cell))) continue;
+    if (!Array.isArray(cells) || cells.every((cell) => !String(cell || "").trim())) continue;
     const candidate = Object.fromEntries((Object.keys(HEADER_ALIASES) as Array<keyof PpdbCsvCandidate>)
-      .map((field) => [field, columnByField.has(field) ? cellText(cells[columnByField.get(field)!]) : ""])) as PpdbCsvCandidate;
+      .map((field) => [field, columnByField.has(field) ? String(cells[columnByField.get(field)!] || "").trim() : ""])) as PpdbCsvCandidate;
     const gender = candidate.gender.trim().toLocaleLowerCase("id-ID");
     candidate.gender = gender === "p" || gender === "perempuan" || gender === "wanita" ? "P" : gender === "l" || gender === "laki-laki" || gender === "laki laki" || gender === "pria" ? "L" : candidate.gender as "L" | "P";
     candidate.email = candidate.email.toLocaleLowerCase("id-ID");

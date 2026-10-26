@@ -27,9 +27,15 @@ assert.equal(parsed[0].email, "contoh@email.id");
 assert.equal(parsed[0].fatherJob, "Guru");
 assert.equal(parsed[0].motherEducation, "SMA");
 
+const multilineValues = [...values];
+multilineValues[12] = "Jalan Blok A,\r\nNomor 2";
+const parsedMultiline = await parsePpdbCsv(makeFile("\uFEFF" + csv([headers, multilineValues])));
+assert.equal(parsedMultiline[0].address, "Jalan Blok A,\r\nNomor 2", "Quoted newlines and a UTF-8 BOM must be preserved.");
+
 await assert.rejects(() => parsePpdbCsv(makeFile(csv([["Nama lengkap"], ["Nama"]]))), /Kolom wajib belum tersedia/);
 await assert.rejects(() => parsePpdbCsv(makeFile(csv([[...headers, "registrationid"], [...values, "Lain"]]))), /muncul lebih dari sekali/);
 await assert.rejects(() => parsePpdbCsv(makeFile(csv([headers, ...Array.from({ length: 101 }, (_, index) => [...values.slice(0, 1), `Nama ${index}`, ...values.slice(2)])]))), /maksimal 100/);
+await assert.rejects(() => parsePpdbCsv(makeFile(csv([headers]) + '"baris tidak selesai')), /tanda kutip tidak berpasangan/);
 await assert.rejects(() => parsePpdbCsv(makeFile(csv([headers, values]), "ppdb.xlsx")), /berkas CSV/);
 
 console.log("PPDB CSV parsing and privacy-safe input checks passed.");
