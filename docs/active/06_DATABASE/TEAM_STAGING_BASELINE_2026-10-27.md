@@ -16,7 +16,7 @@ Pemeriksaan ini memakai Supabase MCP staging yang dibatasi untuk baca-saja dan F
 - Tidak ada grant tabel `public` kepada `anon`. Role `authenticated` hanya memiliki akses SELECT pada lima tabel yang dipagari policy; tidak memiliki akses tulis langsung. Pola ini sesuai dengan arsitektur server-mediated, tetapi tetap perlu dibuktikan lewat login dan UAT.
 - Tenant sumber terpetakan ke satu tenant staging aktif. Verifikasi membandingkan fingerprint hash registry Firestore dengan `legacy_tenant_key` staging dan hanya menghasilkan jumlah kecocokan, bukan nilai aslinya.
 - Firestore mempunyai 18 koleksi root dengan 561 dokumen. Semua 453 dokumen `master_data` dan 50 `candidates` tidak memiliki `tenantId` maupun `tenant_id` top-level. Seluruh 559 dokumen pada 16 koleksi operasional lain juga tidak memiliki kedua field itu; satu dokumen `users` memiliki `tenantId`. Dokumen root `tenants` memang tidak memerlukan `tenantId` sendiri.
-- Hitungan agregat staging: satu tenant aktif, satu profil Admin aktif, 50 kandidat (semuanya ditandai `legacy_firestore` dan memiliki `source_record_id`), 50 santri, serta 95 record Master Data. Pencocokan hash ID lokal membuktikan 50/50 ID kandidat sumber ada di staging, tanpa menampilkan atau menyimpan ID mentah. Hitungan Master Data berbeda 358 record; selisih tersebut harus direkonsiliasi memakai ID sumber/fingerprint sebelum import lanjutan.
+- Hitungan staging: satu tenant aktif, satu profil Admin aktif, 50 kandidat, 50 santri, 50 wali, 95 struktur Master Data, dan 40 halaqah. Rekonsiliasi hash ID membuktikan semua 50 kandidat, 50 santri, 50 wali, 40 halaqah, serta 95 struktur Gedung/Kamar/Kelas cocok satu per satu dengan sumber. Angka 453 dokumen `master_data` tidak dapat dibandingkan langsung dengan 95 record struktur karena koleksi sumber juga memuat data yang dipetakan ke tabel domain lain atau belum diimpor.
 
 ## Inventaris koleksi Firestore
 
@@ -77,18 +77,21 @@ Supabase menjadwalkan perubahan agar tabel baru `public` tidak otomatis terekspo
 
 | Domain | Firestore | Supabase staging | Status pemeriksaan |
 |---|---:|---:|---|
-| PPDB kandidat | 50 | 50 kandidat bertanda sumber legacy | Hash ID sumber cocok 50/50; 0 hilang dan 0 ekstra. Isi record dan kelengkapan field belum direkonsiliasi. |
-| Santri | Tidak dihitung terpisah pada koleksi root | 50 | Jumlah saja tidak memvalidasi relasi kandidat→santri. |
-| Master Data | 453 | 95 | Belum lengkap; selisih agregat 358 perlu direkonsiliasi sebelum impor. |
-| Koleksi lain | 56 dokumen pada 14 koleksi root selain Master Data/kandidat/tenant/user | Beragam/tidak dipetakan di sini | Perlu preview/import per modul setelah migration prasyarat tersedia. |
+| PPDB kandidat | 50 | 50 | Hash ID cocok 50/50; 0 hilang dan 0 ekstra. Isi record dan kelengkapan field belum direkonsiliasi. |
+| Struktur Master Data: Gedung/Kamar/Kelas | 15 / 50 / 30 | 15 / 50 / 30 | Hash business ID cocok 95/95; 0 hilang dan 0 ekstra. Keterkaitan Gedung↔Kamar dan batasan asrama tetap perlu verifikasi. |
+| Santri | 50 dari `master_data` | 50 | Hash ID dokumen sumber cocok 50/50. Semua 50 belum memiliki NIS; tetapkan melalui alur NIS transaksional setelah kebijakan nomor disepakati. |
+| Wali Santri | 50 dari `master_data` | 50 | Hash ID dokumen sumber cocok 50/50; 50 relasi wali→santri tersimpan dan mencakup 50 wali serta 50 santri. Isi dan validitas field belum direkonsiliasi. |
+| Halaqah | 40 dari `master_data` | 40 | Hash ID dokumen sumber cocok 40/40. Sumber tidak memiliki field/daftar anggota pada semua 40 dokumen; target memiliki 0 keanggotaan, sehingga penempatan santri harus dikonfigurasi setelah data valid tersedia. |
+| Kategori `master_data` yang belum diimpor | 218: Alumni 50, Asatidz 50, Guru 50, Kampus 5, Pegawai 50, Staff 2, System 1, Unit 10 | Belum dipetakan penuh | Perlu review dan rekonsiliasi per domain sebelum impor; kategori dengan importer/preview tersendiri tetap mengikuti gate pada inventory migrasi. |
+| Koleksi root lain | 56 dokumen pada 14 koleksi selain `master_data`, kandidat, tenant, dan user | Beragam/tidak dipetakan di sini | Perlu preview per modul setelah migration prasyarat tersedia. |
 
-Registry Firestore satu pengguna menyediakan kunci tenant sumber; hash kunci tersebut cocok dengan `legacy_tenant_key` milik satu tenant aktif slug `pesantren-digital` pada staging. **Kunci asli tidak dicatat.** Pencocokan ID kandidat memakai hash sementara di sisi klien dan agregasi hash pada query staging; nilai hash maupun ID mentah tidak disimpan dalam laporan. Kecocokan ini hanya memastikan keberadaan ID, bukan validitas isi atau relasi. Importer tetap harus menolak snapshot berubah, duplikasi NIS/identitas, foreign key lintas tenant, dan relasi yang tidak cocok.
+Registry Firestore satu pengguna menyediakan kunci tenant sumber; hash kunci tersebut cocok dengan `legacy_tenant_key` milik satu tenant aktif slug `pesantren-digital` pada staging. **Kunci asli tidak dicatat.** Pencocokan ID memakai hash sementara di sisi klien dan agregasi hash pada query staging; nilai hash maupun ID mentah tidak disimpan dalam laporan. Field kategori Master Data dihitung lokal tanpa menyalin payload. Hasil pencocokan hanya memastikan keberadaan ID dan sebagian relasi, bukan validitas seluruh isi/field. Importer tetap harus menolak snapshot berubah, duplikasi NIS/identitas, foreign key lintas tenant, dan relasi yang tidak cocok.
 
 ## Gerbang pekerjaan berikutnya
 
 1. Backend menyiapkan salinan staging yang dapat dibuang dan membuktikan backup/restore. Konektor yang digunakan sekarang hanya baca-saja, sehingga belum bisa menerapkan migration ke project ini.
 2. Tinjau 44 migration pending satu per satu, cocokkan schema/RLS/grant, constraint, seed/backfill, urutan, indeks/lock, dan explicit grant service role. Rehearsal pada salinan dapat dipulihkan; jangan menjalankan batch ke target sekarang.
-3. Jalankan preview per koleksi memakai fingerprint dan ID sumber; rekonsiliasi kandidat 50/50, Master Data 453/95, wallet/transaksi, relasi wali, dan lampiran tanpa menyalin data sebelum konflik diselesaikan.
+3. Jalankan preview per koleksi memakai fingerprint dan ID sumber; validasi isi/field kandidat, seluruh 218 kategori Master Data yang tersisa, transaksi/wallet, relasi asrama/kelas, dan lampiran. Tetapkan NIS lewat transaksi resmi; jangan mengarang anggota halaqah karena daftar sumber tidak tersedia.
 4. Setelah hasil preview disetujui tim data, gunakan kredensial migrasi yang dikelola backend di environment lokal/staging. Jangan mengirim secret/password di chat dan jangan menaikkan akses MCP read-only secara diam-diam.
 5. Uji autentikasi Admin, matriks role/tenant, route server, Storage bertanda tangan, transaksi, restore, dan instalasi VPS/on-premise. Project ref ini tetap staging dan bukan endpoint production.
 
