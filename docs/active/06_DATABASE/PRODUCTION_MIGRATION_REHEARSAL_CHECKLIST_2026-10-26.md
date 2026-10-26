@@ -140,3 +140,36 @@ Migration memasukkan satu snapshot bagi setiap Santri yang kini mempunyai `room_
 ## Keputusan rilis
 
 Rehearsal sukses hanya membuktikan upgrade pada snapshot dan ukuran data yang diuji. Sebelum Production, pemilik operasi tetap harus menyetujui jendela pemeliharaan, backup/restore, rencana pemulihan, rekonsiliasi data, versi source, serta hasil UAT. Dokumen ini tidak mengotorisasi penerapan Production.
+
+
+## Inventaris metadata Firestore — 26 Oktober 2026
+
+Pemeriksaan baca-saja pada project Firestore `graphite-ship-q5xj8`, database `ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8` (ID yang tercantum pada URL konsol yang diberikan). Database ini dipilih secara eksplisit; project memiliki beberapa database Firestore lain dan tidak dicampur dalam hitungan ini.
+
+Jumlah dokumen tingkat atas dihitung dengan agregasi `COUNT(*)`; query tidak mengembalikan isi dokumen.
+
+| Koleksi | Dokumen |
+| --- | ---: |
+| `candidates` | 50 |
+| `cbt_config` | 1 |
+| `cooperative_inventory` | 6 |
+| `cooperative_suppliers` | 3 |
+| `cooperative_transactions` | 3 |
+| `cooperative_wallets` | 3 |
+| `entityRecords` | 14 |
+| `library_books` | 4 |
+| `library_circulations` | 1 |
+| `library_digital_assets` | 4 |
+| `lms_assessments` | 1 |
+| `lms_categories` | 1 |
+| `lms_courses` | 2 |
+| `marketplace_orders` | 5 |
+| `marketplace_products` | 8 |
+| `master_data` | 453 |
+| `tenants` | 1 |
+| `users` | 1 |
+| **Jumlah** | **561** |
+
+Batas inventaris: hitungan ini mencakup 18 koleksi tingkat atas; subkoleksi dan objek Firebase Storage belum dihitung. Pemeriksaan skema metadata pada satu-satunya dokumen `users` menemukan field `email`, `role`, `status`, dan `tenantId`; tidak ada field `password` pada dokumen tersebut. Ini tidak memeriksa kredensial Firebase Authentication. Jangan migrasikan password atau hash autentikasi; buat akun Supabase melalui undangan/reset yang tepercaya.
+
+Hitungan bukan persetujuan untuk import. Belum ada dokumen atau objek yang dipindahkan ke Supabase, dan tidak ada perubahan pada Firebase maupun Supabase Production. Tim backend tetap perlu memetakan setiap koleksi ke tenant dan tabel target, menjalankan preview/dry-run, merekonsiliasi selisih, serta memeriksa subkoleksi dan berkas sebelum import staging. Ulangi inventaris bila sumber berubah.
