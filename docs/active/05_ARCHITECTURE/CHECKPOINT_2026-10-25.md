@@ -548,4 +548,4 @@ Audit silang source dan inventaris menemukan beberapa ringkasan lama yang masih 
 - Inventaris kini menunjukkan bahwa `POST /api/ppdb/legacy/import`, `/api/library/legacy/import`, `/api/library/circulations/legacy/import`, dan `/api/cbt/legacy/settings-import` tersedia dengan flag dan pemeriksaan yang spesifik.
 - Jalur yang masih terbuka tetap mencakup pemetaan profil ke akun Supabase Auth, pemindahan byte aset digital, rekonsiliasi transaksi Koperasi, database sumber CBT yang memuat soal, serta rehearsal staging yang bisa dipulihkan.
 - Perubahan ini hanya dokumentasi. Tidak ada data Firebase yang diekspor, tidak ada data Supabase yang ditulis, dan feature flag produksi tidak diubah.
-- Perubahan dokumentasi menunggu CI commit baru pada PR #13; run sebelumnya tetap hijau di head sebelumnya dan bukan verifikasi untuk perubahan ini.
+- GitHub Actions run [40260536432](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40260536432) pada commit `9754b9cb2f4c4771ee126b7752fe07f9b8c4c808` selesai sukses pada dua job. Pemeriksaan mencakup build/typecheck, migrasi/pgTAP, API tenant/auth, Storage, backup/restore sintetis, dan Docker customer-managed.

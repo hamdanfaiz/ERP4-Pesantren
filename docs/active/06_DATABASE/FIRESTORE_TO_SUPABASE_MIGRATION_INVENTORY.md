@@ -198,7 +198,7 @@ Hitungan arsip tetap snapshot 23 Oktober: 561 dokumen root pada sumber. Implemen
 
 ## Rekonsiliasi status importer — 26 Oktober 2026
 
-Bagian ini memperbarui status **source code** setelah pemeriksaan endpoint pada head PR #13 `91fe846d22550a402c30cb2c16fb2ab06d0e1903`. Ini tidak mengubah hasil inventaris sumber 23 Oktober dan tidak membuktikan ada data yang sudah dipindahkan.
+Bagian ini memperbarui status **source code** setelah pemeriksaan endpoint pada head kode PR #13 `94daa10850d67dea54935bbeafd4083791926306`. Koreksi dokumentasi terbaru tercatat pada commit `9754b9cb2f4c4771ee126b7752fe07f9b8c4c808`. Ini tidak mengubah hasil inventaris sumber 23 Oktober dan tidak membuktikan ada data yang sudah dipindahkan.
 
 | Data sumber | Status implementasi terbaru | Syarat dan bukti yang masih diperlukan |
 | --- | --- | --- |
