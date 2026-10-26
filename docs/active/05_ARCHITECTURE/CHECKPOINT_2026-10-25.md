@@ -576,3 +576,18 @@ Audit silang source dan inventaris menemukan beberapa ringkasan lama yang masih 
 - Tes CSV lokal terhenti karena paket `xlsx` tidak tersedia dalam cache dependency bersama. Tidak ada database, data, Storage, feature flag, atau secret Supabase live yang diubah; migration baru hanya ada di source.
 - Source berisi 87 migration. Jika dibandingkan dengan snapshot ledger historis 47 versi sampai `20261206000000`, ada 40 versi yang perlu diperhitungkan; ledger target tetap harus dibaca ulang sebelum rehearsal. Angka tersebut bukan status Production terkini.
 - PR #13 tetap Open/Draft. Progress tetap 78/100 sampai staging yang dapat dipulihkan, migrasi/rekonsiliasi, login/UAT, dan simulasi environment pelanggan memiliki bukti.
+
+## Hasil CI pencarian Admin PPDB — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+Status “menunggu CI” pada checkpoint pencarian PPDB di atas sudah kedaluwarsa. Commit `c1755c6c943d94e42a3b349ca01776ae63105d1e` pada PR #13 lulus pada kedua job CI di run [40264878721](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40264878721).
+
+- Supabase lokal terisolasi berhasil menerapkan 87 migration. Seluruh 39 file pgTAP lulus dengan 803 assertion, termasuk `ppdb_admin_search_keyset.test.sql`; hasil `All tests successful` dan `Result: PASS`.
+- Job frontend lulus typecheck, pemeriksaan RBAC/tenant, guard Firebase runtime, build client/server, smoke test runtime production, build Docker, validasi Compose, dan smoke test image customer-managed.
+- Uji API auth/tenant, PPDB/Finance Storage privat, konkurensi NIS dan slot pengajar Tahfidz, importer sintetis, serta backup/restore sintetis juga lulus.
+- Supabase Preview berstatus skipped karena branch PR tidak terhubung ke Supabase Branch; CI tetap menjalankan database lokal terisolasi. Ada peringatan pemeliharaan GitHub Actions tentang `actions/checkout@v4` yang beralih dari Node.js 20 ke Node.js 24; peringatan ini tidak menggagalkan run.
+- Tidak ada migration, data, Storage, feature flag, secret, atau konfigurasi Supabase Production yang diubah. Pembacaan ledger Production terakhir yang terdokumentasi tetap 47 versi sampai `20261206000000`; dibanding 87 migration source, 40 versi perlu diperhitungkan setelah ledger dibaca ulang pada target.
+- PR #13 tetap Open/Draft. Skor tidak berubah karena CI lokal tidak menggantikan backup dan rehearsal migration staging, rekonsiliasi data/identitas, login/UAT, serta simulasi environment pelanggan.
+
+Checkpoint berikutnya: selesaikan rekonsiliasi perubahan dari worktree lama tanpa mengembalikan snapshot usang, lalu siapkan staging yang bisa dipulihkan untuk rehearsal. Jangan menerapkan 40 migration tersebut ke Production berdasarkan hitungan historis ini.
