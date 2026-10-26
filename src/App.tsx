@@ -27,6 +27,7 @@ const AcademicManager = React.lazy(() => import('./pages/AcademicManager').then(
 const HealthcareManager = React.lazy(() => import('./pages/HealthcareManager').then((module) => ({ default: module.HealthcareManager })));
 const CooperativeManager = React.lazy(() => import('./pages/CooperativeManager').then((module) => ({ default: module.CooperativeManager })));
 const SupabaseHrisManager = React.lazy(() => import('./pages/SupabaseHrisManager').then((module) => ({ default: module.SupabaseHrisManager })));
+const SupabaseDocumentManager = React.lazy(() => import('./pages/SupabaseDocumentManager').then((module) => ({ default: module.SupabaseDocumentManager })));
 const DocumentManager = React.lazy(() => import('./pages/DocumentManager').then((module) => ({ default: module.DocumentManager })));
 const LibraryManager = React.lazy(() => import('./pages/LibraryManager').then((module) => ({ default: module.LibraryManager })));
 const DonationManager = React.lazy(() => import('./pages/DonationManager').then((module) => ({ default: module.DonationManager })));
@@ -161,7 +162,7 @@ export default function App() {
         return <SupabaseHrisManager />;
       case 'document':
         return SUPABASE_ONLY_RUNTIME
-          ? <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />
+          ? <SupabaseDocumentManager />
           : <DocumentManager />;
       case 'library':
         return <LibraryManager />;

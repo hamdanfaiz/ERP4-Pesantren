@@ -7,6 +7,8 @@ This package runs the ERP web application and API in a hardened container. It co
 - Docker Engine with Docker Compose v2 on a VPS or on-premise Linux host.
 - A Supabase API endpoint and database controlled by the customer or their hosting provider.
 - Applied and verified database migrations before enabling any `SUPABASE_*_RUNTIME_ENABLED` feature flag.
+- The Document Digital workflow requires `20270117000000_document_center_core.sql` and a reviewed private Storage bucket before setting `SUPABASE_DOCUMENT_RUNTIME_ENABLED=true`.
+- Document attachments are PDF-only and limited to 25 MiB; OCR and digital-signature workflows are not included in this runtime slice.
 - A TLS reverse proxy and a DNS name for production access. Keep port 3000 private to that proxy or the trusted network.
 
 ## Configure

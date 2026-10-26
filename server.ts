@@ -105,6 +105,15 @@ import {
   SupabaseLibraryAssetError,
 } from "./src/server/supabaseLibraryAssets";
 import {
+  createSupabaseDocumentAttachmentDownloadUrl,
+  createSupabaseDocumentRecord,
+  finalizeSupabaseDocumentAttachmentUpload,
+  listSupabaseDocumentRecords,
+  reserveSupabaseDocumentAttachmentUpload,
+  SupabaseDocumentError,
+  transitionSupabaseDocument,
+} from "./src/server/supabaseDocuments";
+import {
   applySupabaseLegacyLibraryCirculations,
   previewSupabaseLegacyLibraryCirculations,
   type LegacyLibraryStudentMappings,
@@ -692,6 +701,27 @@ async function startServer() {
       throw new SupabaseHrisError(403, "Pengelolaan HRIS saat ini hanya tersedia untuk Admin tenant.");
     }
     return { ...profile, uid, tenantId };
+  };
+  const loadDocumentActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseDocumentError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).document) {
+      throw new SupabaseDocumentError(403, "Akses Dokumen Digital tidak diberikan kepada akun ini.");
+    }
+    if (profile.role !== "Admin" && profile.role !== "SuperAdmin") {
+      throw new SupabaseDocumentError(403, "Pengelolaan Dokumen Digital saat ini hanya tersedia untuk Admin tenant.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const documentRuntimeEnabled = String(process.env.SUPABASE_DOCUMENT_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const documentRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseDocumentError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase Document endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan Dokumen Digital Supabase belum dapat diproses." });
   };
   const hrisRuntimeEnabled = String(process.env.SUPABASE_HRIS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const cooperativeRuntimeEnabled = String(process.env.SUPABASE_COOPERATIVE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -2301,6 +2331,82 @@ async function startServer() {
       const result = await returnSupabaseLibraryBook(actor.tenantId, actor.uid, actor.role, req.body?.return);
       return res.status(result?.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return libraryRouteError(res, error); }
+  });
+
+  app.get("/api/documents", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDocumentActor(uid);
+      return res.json(await listSupabaseDocumentRecords(actor.tenantId, req.query.cursor));
+    } catch (error) { return documentRouteError(res, error); }
+  });
+
+  app.post("/api/documents", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDocumentActor(uid);
+      const result = await createSupabaseDocumentRecord(actor.tenantId, actor.uid, actor.role, req.body?.document || {});
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return documentRouteError(res, error); }
+  });
+
+  app.patch("/api/documents/:documentId/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDocumentActor(uid);
+      const result = await transitionSupabaseDocument(
+        actor.tenantId, actor.uid, actor.role, req.params.documentId,
+        String(req.body?.status || ""), req.body?.note,
+      );
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return documentRouteError(res, error); }
+  });
+
+  app.post("/api/documents/:documentId/attachments/upload-url", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDocumentActor(uid);
+      const attachment = { ...(req.body?.attachment || {}), documentId: req.params.documentId };
+      const result = await reserveSupabaseDocumentAttachmentUpload(actor.tenantId, actor.uid, actor.role, attachment);
+      return res.status(result.alreadyCompleted ? 200 : 201).json(result);
+    } catch (error) { return documentRouteError(res, error); }
+  });
+
+  app.post("/api/documents/attachments/finalize", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDocumentActor(uid);
+      const result = await finalizeSupabaseDocumentAttachmentUpload(
+        actor.tenantId, actor.uid, actor.role, String(req.body?.clientRequestId || "").trim(),
+      );
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return documentRouteError(res, error); }
+  });
+
+  app.get("/api/documents/attachments/:attachmentId/download-url", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadDocumentActor(uid);
+      return res.json(await createSupabaseDocumentAttachmentDownloadUrl(actor.tenantId, req.params.attachmentId));
+    } catch (error) { return documentRouteError(res, error); }
   });
 
   app.get("/api/library/assets", requireAuth, async (req, res) => {
