@@ -620,22 +620,8 @@ export async function uploadSupabasePpdbCandidateDocument(
   await requireActiveTenant(tenantId);
 
   const candidateParams = new URLSearchParams({ select: "id", tenant_id: `eq.${tenantId}`, id: `eq.${candidateId}`, limit: "2" });
-  const documentColumn = PPDB_DOCUMENT_PATH_COLUMNS[documentKey as keyof typeof PPDB_DOCUMENT_PATH_COLUMNS];
-  const documentParams = new URLSearchParams({
-    select: `candidate_id,${documentColumn}`,
-    tenant_id: `eq.${tenantId}`,
-    candidate_id: `eq.${candidateId}`,
-    limit: "2",
-  });
-  const [candidateRows, documentRows] = await Promise.all([
-    request(`/rest/v1/candidates?${candidateParams.toString()}`),
-    request(`/rest/v1/candidate_documents?${documentParams.toString()}`),
-  ]);
+  const candidateRows = await request(`/rest/v1/candidates?${candidateParams.toString()}`);
   if (!Array.isArray(candidateRows) || candidateRows.length !== 1) throw new SupabasePpdbError(404, "Calon santri tidak ditemukan pada tenant ini.");
-  if (!Array.isArray(documentRows) || documentRows.length > 1) throw new SupabasePpdbError(503, "Status lampiran PPDB belum dapat diverifikasi.");
-  if (typeof documentRows[0]?.[documentColumn] === "string" && documentRows[0][documentColumn]) {
-    throw new SupabasePpdbError(409, "Lampiran jenis ini sudah tersedia. Hubungi Admin sistem jika perlu menggantinya.");
-  }
 
   const contentSha256 = createHash("sha256").update(bytes).digest("hex");
   const extension = contentType === "application/pdf" ? "pdf" : contentType === "image/png" ? "png" : "jpg";
