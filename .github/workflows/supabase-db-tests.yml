@@ -51,6 +51,9 @@ jobs:
       - name: Verify Tahfidz session cursor pagination and role scope
         run: npm run test:tahfidz-session-pagination
 
+      - name: Verify PPDB CSV import parsing and identity preservation
+        run: bun run test:ppdb-csv-import
+
       - name: Verify guardian invitation before password activation
         run: npm run test:guardian-invitation-verification
 

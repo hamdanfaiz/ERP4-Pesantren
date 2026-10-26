@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
 
@@ -84,6 +84,8 @@ async function main() {
   const fixtureSuffix = randomUUID().slice(0, 12);
   const tenantIds = [randomUUID(), randomUUID(), randomUUID()];
   const users = [];
+  const piiEncryptionKey = randomBytes(32).toString('hex');
+  const piiFingerprintKey = randomBytes(32).toString('hex');
   let serverProcess;
 
   try {
@@ -130,6 +132,8 @@ async function main() {
         SUPABASE_URL: url,
         SUPABASE_SECRET_KEY: serviceKey,
         SUPABASE_SERVICE_ROLE_KEY: '',
+        PII_ENCRYPTION_KEY: piiEncryptionKey,
+        PII_FINGERPRINT_KEY: piiFingerprintKey,
         SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED: 'false',
         SUPABASE_PPDB_RUNTIME_ENABLED: 'true',
         SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED: 'false',
@@ -273,6 +277,72 @@ async function main() {
       body: JSON.stringify({ clientRequestId: randomUUID(), candidates: [{}] }),
     });
     assert.equal(waliPpdbCandidate.status, 403, 'Wali accounts cannot create PPDB candidates even with PPDB module flags.');
+
+    const noPpdbPreview = await fetch(`${apiBase}/api/ppdb/candidates/preview`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidates: [{}] }),
+    });
+    assert.equal(noPpdbPreview.status, 403, 'CSV preview must require the PPDB module permission.');
+
+    const waliPpdbPreview = await fetch(`${apiBase}/api/ppdb/candidates/preview`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${waliToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidates: [{}] }),
+    });
+    assert.equal(waliPpdbPreview.status, 403, 'Wali accounts cannot preview PPDB imports.');
+
+    const validCsvCandidate = {
+      registrationId: `CSV-${fixtureSuffix}-001`,
+      name: 'Calon Uji Pratinjau',
+      gender: 'L',
+      grade: 'VII',
+      previousSchool: 'Sekolah Uji',
+      phone: '081234567890',
+      whatsappPhone: '081234567890',
+      email: '',
+      nik: '1234567890123456',
+      nisn: '1234567890',
+      pob: 'Jakarta',
+      dob: '2012-01-02',
+      address: 'Alamat sintetis untuk pengujian',
+      fatherName: 'Ayah Uji',
+      motherName: 'Ibu Uji',
+      fatherJob: '',
+      motherJob: '',
+      fatherEducation: '',
+      motherEducation: '',
+      familyIncome: '',
+    };
+    const candidatesBeforePreview = await admin.from('candidates').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]);
+    assert.equal(candidatesBeforePreview.error, null, 'Candidate row count must be readable before dry-run preview.');
+    const claimsBeforePreview = await admin.from('identity_claims').select('tenant_id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]);
+    assert.equal(claimsBeforePreview.error, null, 'Identity-claim row count must be readable before dry-run preview.');
+    const csvPreviewResponse = await fetch(`${apiBase}/api/ppdb/candidates/preview`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidates: [validCsvCandidate, { ...validCsvCandidate, registrationId: `csv-${fixtureSuffix}-001` }] }),
+    });
+    assert.equal(csvPreviewResponse.status, 200, 'Admin CSV preview must validate records against tenant data.');
+    const csvPreviewText = await csvPreviewResponse.text();
+    assert.ok(!csvPreviewText.includes(validCsvCandidate.nik) && !csvPreviewText.includes(validCsvCandidate.nisn), 'CSV preview must never return applicant NIK/NISN.');
+    const csvPreview = JSON.parse(csvPreviewText);
+    assert.deepEqual(csvPreview.rows.map((row) => row.status), ['conflict', 'conflict'], 'Repeated IDs in one CSV batch must be flagged before import.');
+    assert.ok(csvPreview.rows.every((row) => row.issues.some((issue) => issue.includes('baris'))), 'CSV preview must identify the other repeated row.');
+    const candidatesAfterPreview = await admin.from('candidates').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]);
+    assert.equal(candidatesAfterPreview.error, null, 'Candidate row count must remain readable after dry-run preview.');
+    assert.equal(candidatesAfterPreview.count, candidatesBeforePreview.count, 'CSV preview must not create candidate rows.');
+    const claimsAfterPreview = await admin.from('identity_claims').select('tenant_id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]);
+    assert.equal(claimsAfterPreview.error, null, 'Identity-claim row count must remain readable after dry-run preview.');
+    assert.equal(claimsAfterPreview.count, claimsBeforePreview.count, 'CSV preview must not create identity claims.');
+
+    const invalidCsvPreview = await fetch(`${apiBase}/api/ppdb/candidates/preview`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidates: [{ ...validCsvCandidate, nik: '123' }] }),
+    });
+    assert.equal(invalidCsvPreview.status, 200, 'CSV preview should report row-level validation errors instead of aborting the batch.');
+    assert.equal((await invalidCsvPreview.json()).rows[0].status, 'conflict');
 
     const updateWaliPermissions = async (modulePermissions) => {
       const { data, error } = await admin.from('profiles')

@@ -30,6 +30,7 @@
     "test:alumni-workflow": "tsx scripts/test-alumni-workflow.ts",
     "test:cooperative-legacy-import": "tsx scripts/test-cooperative-legacy-import.ts",
     "test:pending-mutation-id": "tsx scripts/test-pending-mutation-id.ts",
+    "test:ppdb-csv-import": "bun scripts/test-ppdb-csv-import.ts",
     "test:library-circulation-import": "tsx scripts/test-library-circulation-import.ts",
     "test:master-data-pagination": "tsx scripts/test-master-data-pagination.ts",
     "test:supabase-runtime-no-firebase": "node scripts/test-supabase-runtime-no-firebase.mjs",

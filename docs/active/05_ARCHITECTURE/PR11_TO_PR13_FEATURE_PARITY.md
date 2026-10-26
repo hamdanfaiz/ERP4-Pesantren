@@ -68,4 +68,14 @@ Pembuatan pendaftar Admin untuk satu record per pengiriman sudah lolos CI pada S
 - Jumlah migration pada source bertambah menjadi 84; dibanding ledger Production yang sebelumnya terbaca 47 migration sampai `20261206000000`, ada 37 migration pending. Angka ini tetap perlu dibaca ulang sebelum rehearsal.
 - Belum ada migration/data/flag yang diterapkan ke Supabase Production. CLI dan dependensi proyek tidak tersedia di workspace ini; bukti build dan database berasal dari CI PR #13, bukan mesin lokal.
 
-Tindak lanjut: lengkapi impor CSV dengan pratinjau dan laporan duplikasi, serta rancang upload lampiran privat untuk kandidat Admin. Pertahankan PR #13 Draft dan jangan jalankan migration ke Production pada tahap ini.
+Tindak lanjut: lengkapi upload lampiran privat untuk kandidat Admin. Pertahankan PR #13 Draft dan jangan jalankan migration ke Production pada tahap ini.
+
+## Checkpoint pratinjau impor PPDB CSV — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+- Admin dapat memilih CSV UTF-8 maksimal 1 MB/100 pendaftar, mengunduh templat, lalu melihat pratinjau tanpa menulis data.
+- Pratinjau memvalidasi kolom dan format di server, mendeteksi nomor pendaftaran, NIK, dan NISN yang berulang di berkas atau sudah dipakai tenant ini, serta hanya mengembalikan status dan nomor baris tanpa mengirim NIK/NISN kembali ke browser.
+- Penyimpanan batch hanya tersedia setelah semua baris lolos pratinjau. Jalur akhir memakai RPC tenant-aware, actor-attributed, idempoten, dan atomik yang sudah ada; constraint unik database memeriksa ulang kondisi yang berubah bersamaan. Jika satu baris berbenturan, seluruh batch ditolak.
+- Tes baru mencakup parser/angka identitas berawalan nol, akses role PPDB, penolakan Wali, privasi respons, duplikasi batch, dan tidak adanya penulisan saat preview. Build serta CI checkpoint ini belum dijalankan karena toolchain tidak terpasang di workspace; CI akan dijalankan setelah commit dikirim ke PR #13.
+- Tidak ada migration, penulisan data, feature flag, merge, atau deploy ke Supabase Production. PR #13 tetap Draft. Upload lampiran privat untuk kandidat Admin masih menjadi langkah lanjutan sebelum rehearsal staging dan UAT.

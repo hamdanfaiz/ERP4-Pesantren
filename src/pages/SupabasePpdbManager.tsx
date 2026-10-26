@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Plus, RefreshCw, Search, ShieldAlert, UserCheck, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileSpreadsheet, Loader2, Plus, RefreshCw, Search, ShieldAlert, UserCheck, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { listSupabaseMasterDataStructures, type SupabaseStructureRecord } from "../services/masterDataApi";
+import { parsePpdbCsv, type PpdbCsvCandidate } from "../utils/ppdbCsvImport";
 import { pendingMutationIds } from "../utils/pendingMutationId";
 
 type Stage = "Registered" | "Document Review" | "Entry Exam" | "Interview" | "Accepted" | "Rejected";
@@ -31,12 +32,8 @@ type CandidateDraft = {
   religiousScores: Record<string, string>;
 };
 type OnboardingDraft = { nis: string; classId: string; roomId: string; guardianName: string; guardianPhone: string };
-type NewCandidateDraft = {
-  registrationId: string; name: string; gender: "L" | "P"; grade: string; previousSchool: string;
-  phone: string; whatsappPhone: string; email: string; nik: string; nisn: string; pob: string; dob: string;
-  address: string; fatherName: string; motherName: string; fatherJob: string; motherJob: string;
-  fatherEducation: string; motherEducation: string; familyIncome: string;
-};
+type NewCandidateDraft = PpdbCsvCandidate;
+type CsvPreviewRow = { row: number; registrationId: string; status: "ready" | "conflict"; issues: string[] };
 
 const EMPTY_NEW_CANDIDATE: NewCandidateDraft = {
   registrationId: "", name: "", gender: "L", grade: "", previousSchool: "", phone: "", whatsappPhone: "",
@@ -63,6 +60,11 @@ const RELIGIOUS_FIELDS = [
   { key: "tajweedMastery", label: "Tajwid" },
   { key: "worshipPractice", label: "Praktik ibadah" },
 ] as const;
+const PPDB_CSV_TEMPLATE = [
+  "Nomor pendaftaran", "Nama lengkap", "Jenis kelamin", "Jenjang/kelas", "Asal sekolah", "Telepon",
+  "WhatsApp", "Email", "NIK", "NISN", "Tempat lahir", "Tanggal lahir", "Alamat", "Nama ayah",
+  "Pekerjaan ayah", "Pendidikan ayah", "Nama ibu", "Pekerjaan ibu", "Pendidikan ibu", "Penghasilan keluarga",
+].join(",") + "\r\n";
 
 async function requestPpdb(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -105,6 +107,7 @@ async function downloadPpdbDocument(candidate: Candidate, key: CandidateDocument
 export function SupabasePpdbManager() {
   const { user, role } = useAuth();
   const isAdmin = ["Admin", "SuperAdmin"].includes(role);
+  const canManagePpdb = isAdmin && (role === "SuperAdmin" || user?.modulePermissions?.ppdb !== false);
   const canManageCandidateBills = isAdmin && user?.modulePermissions?.finance !== false;
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [drafts, setDrafts] = useState<Record<string, CandidateDraft>>({});
@@ -122,6 +125,13 @@ export function SupabasePpdbManager() {
   const [createSaving, setCreateSaving] = useState(false);
   const [createError, setCreateError] = useState("");
   const [newCandidate, setNewCandidate] = useState<NewCandidateDraft>({ ...EMPTY_NEW_CANDIDATE });
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvCandidates, setCsvCandidates] = useState<NewCandidateDraft[]>([]);
+  const [csvPreview, setCsvPreview] = useState<CsvPreviewRow[] | null>(null);
+  const [csvError, setCsvError] = useState("");
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvSaving, setCsvSaving] = useState(false);
   const [onboardingCandidate, setOnboardingCandidate] = useState<Candidate | null>(null);
   const [onboardingStructures, setOnboardingStructures] = useState<SupabaseStructureRecord[]>([]);
   const [onboardingDraft, setOnboardingDraft] = useState<OnboardingDraft>({ nis: "", classId: "", roomId: "", guardianName: "", guardianPhone: "" });
@@ -275,6 +285,69 @@ export function SupabasePpdbManager() {
     } finally { setCreateSaving(false); }
   };
 
+  const handleCsvFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    setCsvError(""); setCsvPreview(null); setCsvCandidates([]); setCsvFileName(file?.name || "");
+    if (!file) return;
+    setCsvLoading(true);
+    try { setCsvCandidates(await parsePpdbCsv(file)); }
+    catch (parseError: any) { setCsvFileName(""); setCsvError(parseError?.message || "Berkas CSV belum dapat dibaca."); }
+    finally { setCsvLoading(false); }
+  };
+
+  const previewCsv = async () => {
+    if (!csvCandidates.length) { setCsvError("Pilih berkas CSV yang memiliki data pendaftar."); return; }
+    setCsvLoading(true); setCsvError(""); setCsvPreview(null);
+    try {
+      const result = await requestPpdb("/api/ppdb/candidates/preview", {
+        method: "POST",
+        body: JSON.stringify({ candidates: csvCandidates }),
+      });
+      if (!Array.isArray(result.rows) || result.rows.length !== csvCandidates.length) {
+        throw new Error("Backend belum memberikan hasil pemeriksaan untuk seluruh baris.");
+      }
+      setCsvPreview(result.rows as CsvPreviewRow[]);
+    } catch (previewError: any) { setCsvError(previewError?.message || "Pratinjau CSV belum dapat diselesaikan."); }
+    finally { setCsvLoading(false); }
+  };
+
+  const applyCsvImport = async () => {
+    if (!user?.tenantId || !user.uid) { setCsvError("Profil Admin dan tenant aktif diperlukan."); return; }
+    if (!csvPreview?.length || csvPreview.some((row) => row.status !== "ready")) {
+      setCsvError("Perbaiki semua baris yang ditandai duplikat atau tidak valid, lalu buat pratinjau kembali."); return;
+    }
+    setCsvSaving(true); setCsvError(""); setError(""); setNotice("");
+    let lease: Awaited<ReturnType<typeof pendingMutationIds.acquire>> | null = null;
+    try {
+      lease = await pendingMutationIds.acquire(`ppdb-candidate-csv:${user.tenantId}:${user.uid}`, csvCandidates);
+      const result = await requestPpdb("/api/ppdb/candidates", {
+        method: "POST",
+        body: JSON.stringify({ clientRequestId: lease.requestId, candidates: csvCandidates }),
+      });
+      lease.clear();
+      const count = Array.isArray(result.candidates) ? result.candidates.length : csvCandidates.length;
+      setNotice(result.alreadyApplied ? `Permintaan impor sebelumnya sudah tersimpan (${count} pendaftar).` : `${count} pendaftar berhasil diimpor.`);
+      setCsvImportOpen(false); setCsvFileName(""); setCsvCandidates([]); setCsvPreview(null);
+      await refresh();
+    } catch (saveError: any) {
+      setCsvError(saveError?.message || "Impor belum dapat disimpan. Tidak ada baris yang disimpan jika pemeriksaan transaksi menemukan duplikasi.");
+    } finally { setCsvSaving(false); }
+  };
+
+  const downloadCsvTemplate = () => {
+    const blob = new Blob(["\uFEFF", PPDB_CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = "templat-impor-ppdb.csv"; link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const closeCsvImport = () => {
+    if (csvSaving || csvLoading) return;
+    setCsvImportOpen(false); setCsvError(""); setCsvFileName(""); setCsvCandidates([]); setCsvPreview(null);
+  };
+
   const openOnboarding = async (candidate: Candidate) => {
     setOnboardingCandidate(candidate);
     setOnboardingDraft({ nis: candidate.nis || "", classId: "", roomId: "", guardianName: "", guardianPhone: candidate.phone || "" });
@@ -324,13 +397,14 @@ export function SupabasePpdbManager() {
     } finally { setOnboardingSaving(false); }
   };
 
-  if (!isAdmin) return <div className="mx-auto max-w-3xl p-6"><div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"><ShieldAlert className="mb-2 h-5 w-5" />Akses PPDB hanya tersedia untuk Admin tenant.</div></div>;
+  if (!canManagePpdb) return <div className="mx-auto max-w-3xl p-6"><div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"><ShieldAlert className="mb-2 h-5 w-5" />Akses PPDB hanya tersedia untuk Admin tenant dengan izin modul PPDB.</div></div>;
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 p-4 md:p-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Penerimaan Santri Baru</h1><p className="mt-1 text-sm text-slate-500">Data calon santri tenant dibaca dari Supabase. Perubahan status, nilai, dan catatan divalidasi di database.</p></div>
         <div className="flex flex-wrap gap-2">
+          {PPDB_RUNTIME_ENABLED && <button type="button" onClick={() => { setCsvImportOpen(true); setCsvError(""); }} className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-200 dark:hover:bg-emerald-950/30"><FileSpreadsheet className="h-4 w-4" />Impor CSV</button>}
           {PPDB_RUNTIME_ENABLED && <button type="button" onClick={() => { setError(""); setCreateError(""); setCreateOpen(true); }} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"><Plus className="h-4 w-4" />Tambah pendaftar</button>}
           <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
         </div>
@@ -356,12 +430,23 @@ export function SupabasePpdbManager() {
         {hasMore && <div className="mt-4 flex justify-center border-t border-slate-100 pt-4 dark:border-white/5"><button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}Muat 250 pendaftar berikutnya</button></div>}
       </section>
       {expandedId && candidates.some((candidate) => candidate.id === expandedId) && <CandidateDocumentDownloads candidate={candidates.find((candidate) => candidate.id === expandedId)!} enabled={PPDB_DOCUMENTS_ENABLED} />}
+      {csvImportOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-5"><section role="dialog" aria-modal="true" aria-labelledby="ppdb-csv-title" className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div><h2 id="ppdb-csv-title" className="text-lg font-bold text-slate-900 dark:text-white">Impor pendaftar dari CSV</h2><p className="mt-1 text-sm text-slate-500">Pratinjau memeriksa kelengkapan dan duplikasi pada tenant ini. Tidak ada data yang disimpan sebelum Anda menekan “Impor pendaftar”.</p></div><button type="button" aria-label="Tutup impor CSV" onClick={closeCsvImport} disabled={csvSaving || csvLoading} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
+        <div className="space-y-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200"><p>Gunakan CSV UTF-8, maksimal 100 pendaftar dan 1 MB per berkas. Tanggal lahir harus berformat YYYY-MM-DD. NIK/NISN dikirim langsung ke server untuk pemeriksaan dan tidak ditampilkan dalam hasil.</p><button type="button" onClick={downloadCsvTemplate} className="shrink-0 rounded-lg border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-800 hover:bg-sky-100 dark:border-sky-700 dark:bg-slate-900 dark:text-sky-200">Unduh templat</button></div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Berkas CSV<input type="file" accept=".csv,text/csv" onChange={(event) => void handleCsvFile(event)} disabled={csvLoading || csvSaving} className="mt-1.5 block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-emerald-800 hover:file:bg-emerald-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200" /></label>
+          {csvFileName && <div className="text-xs text-slate-500">{csvFileName} · {csvCandidates.length} baris pendaftar siap diperiksa.</div>}
+          {csvLoading && <div role="status" className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memeriksa data CSV…</div>}
+          {csvError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">{csvError}</div>}
+          {csvPreview && <div className="space-y-3"><div role="status" className={`rounded-xl border p-3 text-sm ${csvPreview.every((row) => row.status === "ready") ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200" : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"}`}>{csvPreview.filter((row) => row.status === "ready").length} baris siap · {csvPreview.filter((row) => row.status !== "ready").length} baris perlu diperbaiki. Penyimpanan akan mengulang pemeriksaan duplikasi secara transaksional.</div><div className="max-h-72 overflow-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[620px] text-left text-sm"><thead className="sticky top-0 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950"><tr><th className="px-3 py-2">Baris</th><th className="px-3 py-2">Nomor pendaftaran</th><th className="px-3 py-2">Hasil pemeriksaan</th></tr></thead><tbody>{csvPreview.map((row) => <tr key={row.row} className="border-t border-slate-100 align-top dark:border-white/5"><td className="px-3 py-2">{row.row}</td><td className="px-3 py-2">{row.registrationId || "—"}</td><td className={`px-3 py-2 text-xs ${row.status === "ready" ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}`}>{row.status === "ready" ? "Siap diimpor" : row.issues.join(" · ")}</td></tr>)}</tbody></table></div></div>}
+        </div><footer className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><button type="button" onClick={closeCsvImport} disabled={csvSaving || csvLoading} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Tutup</button><button type="button" onClick={() => void previewCsv()} disabled={csvLoading || csvSaving || !csvCandidates.length} className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-950/30">{csvLoading && <Loader2 className="h-4 w-4 animate-spin" />}Buat pratinjau</button><button type="button" onClick={() => void applyCsvImport()} disabled={csvSaving || csvLoading || !csvPreview?.length || csvPreview.some((row) => row.status !== "ready")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{csvSaving && <Loader2 className="h-4 w-4 animate-spin" />}{csvSaving ? "Menyimpan batch…" : `Impor ${csvCandidates.length || ""} pendaftar`}</button></footer>
+      </section></div>}
       {createOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-5"><form onSubmit={(event) => void createCandidate(event)} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Tambah pendaftar</h2><p className="mt-1 text-sm text-slate-500">Untuk pendaftaran yang dicatat oleh Admin. Nomor pendaftaran harus unik di pesantren ini.</p></div><button type="button" aria-label="Tutup formulir" onClick={() => setCreateOpen(false)} disabled={createSaving} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
         <div className="space-y-5 p-5"><p role="note" className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200">NIK dan NISN dienkripsi di server sebelum disimpan. Formulir ini belum mengunggah lampiran; dokumen pendaftar tetap berstatus belum diterima.</p>
           {createError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">{createError}</div>}
           <section className="space-y-3"><h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Data pendaftar</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nomor pendaftaran<input required maxLength={50} value={newCandidate.registrationId} onChange={(event) => setNewCandidate({ ...newCandidate, registrationId: event.target.value })} className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nomor pendaftaran<input required pattern="[A-Za-z0-9][A-Za-z0-9./-]{0,49}" title="Gunakan huruf, angka, titik, garis miring, atau tanda hubung." maxLength={50} value={newCandidate.registrationId} onChange={(event) => setNewCandidate({ ...newCandidate, registrationId: event.target.value })} className={FORM_CONTROL} /></label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nama lengkap<input required maxLength={120} value={newCandidate.name} onChange={(event) => setNewCandidate({ ...newCandidate, name: event.target.value })} className={FORM_CONTROL} /></label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Jenis kelamin<select value={newCandidate.gender} onChange={(event) => setNewCandidate({ ...newCandidate, gender: event.target.value as "L" | "P" })} className={FORM_CONTROL}><option value="L">Laki-laki</option><option value="P">Perempuan</option></select></label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Jenjang/kelas tujuan<input required maxLength={40} value={newCandidate.grade} onChange={(event) => setNewCandidate({ ...newCandidate, grade: event.target.value })} placeholder="Contoh: VII" className={FORM_CONTROL} /></label>
