@@ -2,9 +2,12 @@
 
 **Tanggal:** 26 Oktober 2026  
 **Project Supabase target:** `ptsasgdvgrbdtgyqieie` — ERP4-Pesantren  
+**Environment:** staging terpisah, dikonfirmasi 27 Oktober 2026. Project ref ini bukan Production.
 **Project Firestore sumber:** `graphite-ship-q5xj8`  
 **Database Firestore kanonis:** `ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8`  
 **Batas:** panduan ini memulihkan akses dan menyiapkan verifikasi/rehearsal. Panduan ini tidak mengizinkan perubahan production.
+
+> **Baseline terkini:** pemeriksaan baca-saja Supabase/Firestore pada 27 Oktober dan tindakan berikutnya tercatat di [TEAM_STAGING_BASELINE_2026-10-27.md](./TEAM_STAGING_BASELINE_2026-10-27.md). Konektor MCP staging hanya-baca; gunakan runner kredensial backend terpisah untuk rehearsal yang memerlukan write.
 
 ## Ringkasan yang perlu diketahui tim
 
@@ -258,3 +261,4 @@ Repository saat ini menyediakan container untuk **aplikasi web dan API ERP**. Do
 | Offline atau tanpa konektivitas ke Supabase | Tidak didukung oleh runtime saat ini. | Jangan menawarkan sebagai mode offline sebelum rancangan sinkronisasi, antrean transaksi, dan konflik multi-user dibuat serta diuji. |
 
 Jangan memasarkan “full on-premise” atau “offline-ready” hanya berdasarkan keberhasilan Docker build. Supabase lokal CI menggunakan versi yang ditetapkan di `supabase/config.toml`; rehearsal pelanggan harus memakai versi major PostgreSQL/Supabase yang cocok dengan environment target. Uji fitur Auth dan Storage juga harus dilakukan pada stack yang benar-benar akan dipakai, bukan hanya pada mock atau container aplikasi.
+

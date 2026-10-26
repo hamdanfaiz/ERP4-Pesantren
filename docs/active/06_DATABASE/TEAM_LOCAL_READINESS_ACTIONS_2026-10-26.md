@@ -6,6 +6,8 @@
 **Sumber arsip:** Firestore project `graphite-ship-q5xj8`, database `ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8`  
 **Panduan detail terkait:** [Petunjuk Teknis Akses dan Rehearsal Migrasi](./TEAM_TECHNICAL_ACCESS_AND_REHEARSAL_RUNBOOK_2026-10-26.md)
 
+> **Pembaruan 27 Oktober 2026:** project ref `ptsasgdvgrbdtgyqieie` dikonfirmasi sebagai **staging**. Baseline baca-saja terbaru—termasuk RLS/grant, bucket Storage, 47/91 versi migration, inventaris Firestore, dan pemetaan tenant—ada di [TEAM_STAGING_BASELINE_2026-10-27.md](./TEAM_STAGING_BASELINE_2026-10-27.md). Jangan menyebut project ref ini sebagai Production.
+
 Dokumen ini adalah daftar kerja untuk tim teknis yang memiliki akses lokal ke repository dan project. Semua pemeriksaan live di bawah dimulai dengan akses baca-saja. Jangan menerapkan migration atau mengimpor data ke Production sebelum gerbang rilis pada dokumen ini terpenuhi.
 
 ## Ringkasan kondisi dan hambatan
@@ -433,3 +435,4 @@ Berikutnya: minta tim menyiapkan project staging berisi data sintetis dan `proje
 2. Jalankan pemeriksaan baca-saja pada ledger migration, schema, grants/RLS, Storage, dan profil tenant staging; simpan hasil rekonsiliasi tanpa mengubah database.
 3. Rehearsal migration dan pemulihan backup hanya setelah snapshot staging dapat dipulihkan dan selisih source/ledger telah dikaji.
 4. Lanjutkan uji login/matriks role-tenant, UAT lintas modul, dan pemeriksaan deployment mandiri. Jangan menerapkan perubahan Production sebelum gate tersebut disetujui.
+
