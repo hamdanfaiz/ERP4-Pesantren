@@ -303,6 +303,27 @@ async function main() {
     });
     assert.equal(waliPpdbCandidate.status, 403, 'Wali accounts cannot create PPDB candidates even with PPDB module flags.');
 
+    const noPpdbCandidateSearch = await fetch(`${apiBase}/api/ppdb/candidates/search`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 250, search: '', stage: null }),
+    });
+    assert.equal(noPpdbCandidateSearch.status, 403, 'Candidate search must require the PPDB module permission.');
+
+    const waliPpdbCandidateSearch = await fetch(`${apiBase}/api/ppdb/candidates/search`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${waliToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 250, search: '', stage: null }),
+    });
+    assert.equal(waliPpdbCandidateSearch.status, 403, 'Wali accounts cannot search the Admin PPDB candidate directory.');
+
+    const shortPpdbCandidateSearch = await fetch(`${apiBase}/api/ppdb/candidates/search`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 250, search: 'ab', stage: null }),
+    });
+    assert.equal(shortPpdbCandidateSearch.status, 400, 'Candidate directory search must enforce a three-character minimum.');
+
     const noPpdbPreview = await fetch(`${apiBase}/api/ppdb/candidates/preview`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },

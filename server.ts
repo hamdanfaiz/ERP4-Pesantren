@@ -983,16 +983,28 @@ async function startServer() {
     } catch (error) { return alumniRouteError(res, error); }
   });
 
-  app.get("/api/ppdb/candidates", requireAuth, async (req, res) => {
+  app.post("/api/ppdb/candidates/search", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!ppdbRuntimeEnabled) return res.status(503).json({ error: "Runtime PPDB Supabase belum diaktifkan operator." });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadPpdbActor(uid);
-      const limit = Math.max(1, Math.min(250, Number.parseInt(String(req.query.limit || "250"), 10) || 250));
-      const offset = Math.max(0, Math.min(50000, Number.parseInt(String(req.query.offset || "0"), 10) || 0));
-      return res.json(await listSupabasePpdbCandidates(actor.tenantId, limit, offset));
+      const input = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+      const limit = input.limit === undefined ? 250 : Number(input.limit);
+      const search = typeof input.search === "string" ? input.search.trim() : "";
+      const stage = typeof input.stage === "string" && input.stage !== "All" ? input.stage.trim() : null;
+      const rawCursor = input.cursor;
+      if (rawCursor != null && (typeof rawCursor !== "object" || Array.isArray(rawCursor)
+          || typeof rawCursor.createdAt !== "string" || typeof rawCursor.id !== "string")) {
+        throw new SupabasePpdbError(400, "Kursor halaman PPDB tidak valid.");
+      }
+      return res.json(await listSupabasePpdbCandidates(actor.tenantId, {
+        limit,
+        search,
+        stage,
+        cursor: rawCursor || null,
+      }));
     } catch (error) { return ppdbRouteError(res, error); }
   });
 

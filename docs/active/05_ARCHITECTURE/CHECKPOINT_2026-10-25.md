@@ -559,5 +559,20 @@ Audit silang source dan inventaris menemukan beberapa ringkasan lama yang masih 
 - Portal hanya membaca penilaian milik santri terpilih, memakai filter tenant/student di PostgREST dan keyset pagination 50 record. Respons memakai allowlist bidang dan tidak memuat jurnal, roster kelas, identitas pengajar, komentar, atau data record mentah.
 - Tampilan Indonesia memuat pemilih santri tertaut bagi Wali, loading/error/kosong, nilai per penilaian, dan muat-lanjutan. UI menyatakan bahwa daftar ini bukan rapor resmi atau nilai rata-rata.
 - Tes fokus tenant/role/ID relasi/kursor dan minimisasi bidang respons lulus. RBAC (11 kasus), pemilihan santri Wali (6 assertion), serta esbuild bundle server dan layar Akademik juga lulus secara lokal.
-- `npm run lint` belum dapat dibuktikan lokal: checkout bersih tidak memiliki `node_modules`, dan TypeScript dari cache worktree berbeda tidak menemukan beberapa paket/tipe. Build dan typecheck CI PR #13 menjadi verifikasi akhir kode ini. `git diff --check` bersih.
+- Tes lokal untuk isolasi, RBAC, dan relasi Wali lulus; esbuild server/halaman Akademik lulus. `npm run lint` tidak dapat dibuktikan dengan dependency lokal lengkap karena checkout tidak memiliki `node_modules`. GitHub Actions CI pada commit `8e222e4422b15b8c854128138cc66842bf382f5b`, run [`40263398556`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40263398556), kemudian lulus pada job frontend/typecheck/build dan database/migrasi/API/pgTAP. Supabase Preview dilewati karena PR belum terkait Supabase Branch.
+- Banner modul PPDB diperbaiki agar menyatakan kondisi fitur lampiran sesuai konfigurasi Vite yang dilihat UI; statusnya tidak lagi selalu mengklaim unduh Admin masih menunggu flag meskipun konfigurasi tampilan menyatakannya aktif. API tetap menjadi pengendali akses dan bucket tidak dibuka ke browser.
 - Perubahan hanya pada source dan tes lokal; tidak ada database, data, Storage, feature flag, atau kredensial Supabase yang disentuh. Progress tetap 78/100 karena rehearsal migration pada staging yang dapat dipulihkan, migrasi/rekonsiliasi operasional, login/UAT, rotasi secret, dan simulasi environment pelanggan masih menjadi gerbang release.
+
+
+## Pencarian dan paginasi tenant PPDB — 26 Oktober 2026
+
+### Progres menuju go-live: tetap 78/100
+
+- Pencarian Admin PPDB sekarang dijalankan di backend dan dibatasi tenant dari profil sesi. Filter tahap juga diterapkan di database, bukan hanya pada 250 baris yang kebetulan sudah dimuat.
+- Paginasi offset diganti kursor stabil `created_at + id`. SQL memvalidasi panjang pencarian, batas halaman, tahap, dan pasangan kursor; `%` dan `_` diperlakukan sebagai karakter pencarian biasa. Hak RPC hanya diberikan ke `service_role`; endpoint tetap memeriksa sesi, role Admin, tenant aktif, dan izin PPDB.
+- Pencarian dikirim melalui badan permintaan agar nilai seperti nama atau telepon tidak ikut URL. UI menunggu 3 karakter sebelum mencari seluruh tenant dan memakai label tahap berbahasa Indonesia.
+- Ditambahkan migration `20270115000000_ppdb_admin_search_keyset.sql`, 16 assertion pgTAP sintetis, serta pemeriksaan API untuk penolakan akun tanpa izin PPDB, Wali, dan pencarian yang terlalu pendek.
+- Verifikasi lokal yang lulus: bundle esbuild server, bundle layar PPDB, `node --check` untuk tes API, tes logika migration preflight, dan `git diff --check`. SQL pgTAP dan uji API yang memerlukan Supabase Emulator belum berjalan lokal karena Docker tidak tersedia; menunggu CI terisolasi.
+- Tes CSV lokal terhenti karena paket `xlsx` tidak tersedia dalam cache dependency bersama. Tidak ada database, data, Storage, feature flag, atau secret Supabase live yang diubah; migration baru hanya ada di source.
+- Source berisi 87 migration. Jika dibandingkan dengan snapshot ledger historis 47 versi sampai `20261206000000`, ada 40 versi yang perlu diperhitungkan; ledger target tetap harus dibaca ulang sebelum rehearsal. Angka tersebut bukan status Production terkini.
+- PR #13 tetap Open/Draft. Progress tetap 78/100 sampai staging yang dapat dipulihkan, migrasi/rekonsiliasi, login/UAT, dan simulasi environment pelanggan memiliki bukti.

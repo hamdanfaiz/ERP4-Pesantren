@@ -319,12 +319,6 @@ async function requireActiveTenant(tenantId: string) {
   if (!Array.isArray(rows) || rows.length !== 1) throw new SupabasePpdbError(403, "Tenant PPDB tidak aktif atau tidak tersedia.");
 }
 
-const CANDIDATE_SELECT = [
-  "id", "registration_id", "name", "previous_school", "grade", "phone", "email", "gender",
-  "stage", "score", "date_applied", "exam_slot", "interviewer", "interview_slot",
-  "interview_notified", "notes", "onboarding_status", "sync_to_master_data", "workflow_data",
-].join(",");
-
 function safeScoreMap(value: unknown, allowedFields: readonly string[], min: number, max: number) {
   const input = value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
   const result: Record<string, number> = {};
@@ -405,20 +399,52 @@ function toCandidate(row: JsonObject, documents: JsonObject = {}, bills: JsonObj
   };
 }
 
-export async function listSupabasePpdbCandidates(tenantIdentifier: string, requestedLimit = 250, requestedOffset = 0) {
+export type SupabasePpdbCandidateCursor = { createdAt: string; id: string };
+
+export type SupabasePpdbCandidatePageInput = {
+  limit?: number;
+  search?: string;
+  stage?: string | null;
+  cursor?: SupabasePpdbCandidateCursor | null;
+};
+
+export async function listSupabasePpdbCandidates(
+  tenantIdentifier: string,
+  input: SupabasePpdbCandidatePageInput = {},
+) {
   const tenantId = requireUuid(tenantIdentifier);
   await requireActiveTenant(tenantId);
-  const limit = Math.max(1, Math.min(250, Math.floor(Number(requestedLimit) || 250)));
-  const offset = Math.max(0, Math.min(50000, Math.floor(Number(requestedOffset) || 0)));
-  const params = new URLSearchParams({
-    select: CANDIDATE_SELECT,
-    tenant_id: `eq.${tenantId}`,
-    order: "date_applied.desc,id.desc",
-    limit: String(limit),
-    offset: String(offset),
+  const limit = input.limit ?? 250;
+  const search = typeof input.search === "string" ? input.search.trim() : "";
+  const stage = typeof input.stage === "string" ? input.stage.trim() : "";
+  const validStages = ["Registered", "Document Review", "Entry Exam", "Interview", "Accepted", "Rejected"];
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 250) {
+    throw new SupabasePpdbError(400, "Jumlah pendaftar per halaman harus antara 1 dan 250.");
+  }
+  if (search.length > 100 || (search.length > 0 && search.length < 3)) {
+    throw new SupabasePpdbError(400, "Pencarian PPDB harus kosong atau berisi 3 sampai 100 karakter.");
+  }
+  if (stage && !validStages.includes(stage)) throw new SupabasePpdbError(400, "Tahap PPDB tidak valid.");
+  const cursor = input.cursor || null;
+  if (cursor && (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cursor.id)
+      || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/i.test(cursor.createdAt))) {
+    throw new SupabasePpdbError(400, "Kursor halaman PPDB tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/list_admin_ppdb_candidates_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_search: search || null,
+      p_stage: stage || null,
+      p_after_created_at: cursor?.createdAt || null,
+      p_after_id: cursor?.id || null,
+      p_page_size: limit,
+    }),
   });
-  const rows = await request(`/rest/v1/candidates?${params.toString()}`);
-  if (!Array.isArray(rows)) throw new SupabasePpdbError(503, "Daftar PPDB belum dapat dimuat.");
+  if (!result || typeof result !== "object" || !Array.isArray(result.candidates)) {
+    throw new SupabasePpdbError(503, "Daftar PPDB belum dapat dimuat.");
+  }
+  const rows = result.candidates as JsonObject[];
   const ids = rows.map((row: JsonObject) => String(row.id)).filter((id: string) => /^[0-9a-f-]{36}$/i.test(id));
   let documentByCandidate = new Map<string, JsonObject>();
   let billsByCandidate = new Map<string, JsonObject>();
@@ -469,8 +495,11 @@ export async function listSupabasePpdbCandidates(tenantIdentifier: string, reque
       documentByCandidate.get(String(row.id)),
       billsByCandidate.get(String(row.id)),
     )),
-    hasMore: rows.length === limit,
-    nextOffset: rows.length === limit ? offset + rows.length : null,
+    hasMore: result.hasMore === true,
+    nextCursor: result.nextCursor && typeof result.nextCursor === "object"
+      && typeof result.nextCursor.createdAt === "string" && typeof result.nextCursor.id === "string"
+      ? { createdAt: result.nextCursor.createdAt, id: result.nextCursor.id }
+      : null,
   };
 }
 
