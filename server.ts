@@ -114,6 +114,13 @@ import {
   transitionSupabaseDocument,
 } from "./src/server/supabaseDocuments";
 import {
+  listSupabaseCrmContactsPage,
+  listSupabaseCrmInteractionsPage,
+  recordSupabaseCrmInteraction,
+  saveSupabaseCrmContact,
+  SupabaseCrmError,
+} from "./src/server/supabaseCrm";
+import {
   applySupabaseLegacyLibraryCirculations,
   previewSupabaseLegacyLibraryCirculations,
   type LegacyLibraryStudentMappings,
@@ -715,6 +722,27 @@ async function startServer() {
       throw new SupabaseDocumentError(403, "Pengelolaan Dokumen Digital saat ini hanya tersedia untuk Admin tenant.");
     }
     return { ...profile, uid, tenantId };
+  };
+  const loadCrmActor = async (uid: string) => {
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseCrmError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).crm) {
+      throw new SupabaseCrmError(403, "Akses modul CRM tidak diberikan kepada akun ini.");
+    }
+    if (profile.role !== "Admin" && profile.role !== "SuperAdmin") {
+      throw new SupabaseCrmError(403, "Pengelolaan CRM saat ini hanya tersedia untuk Admin tenant.");
+    }
+    return { ...profile, uid, tenantId };
+  };
+  const crmRuntimeEnabled = String(process.env.SUPABASE_CRM_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const crmRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseCrmError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase CRM endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan CRM Supabase belum dapat diproses." });
   };
   const documentRuntimeEnabled = String(process.env.SUPABASE_DOCUMENT_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const documentRouteError = (res: express.Response, error: unknown) => {
@@ -2342,6 +2370,66 @@ async function startServer() {
       const actor = await loadDocumentActor(uid);
       return res.json(await listSupabaseDocumentRecords(actor.tenantId, req.query.cursor));
     } catch (error) { return documentRouteError(res, error); }
+  });
+
+  app.get("/api/crm/contacts", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCrmActor(uid);
+      return res.json(await listSupabaseCrmContactsPage(actor.tenantId, actor.uid, actor.role, req.query));
+    } catch (error) { return crmRouteError(res, error); }
+  });
+
+  app.get("/api/crm/contacts/:contactId/interactions", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCrmActor(uid);
+      return res.json(await listSupabaseCrmInteractionsPage(actor.tenantId, actor.uid, actor.role, req.params.contactId, req.query.cursor));
+    } catch (error) { return crmRouteError(res, error); }
+  });
+
+  app.post("/api/crm/contacts", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCrmActor(uid);
+      const result = await saveSupabaseCrmContact(actor.tenantId, actor.uid, actor.role, req.body?.contact || {});
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return crmRouteError(res, error); }
+  });
+
+  app.put("/api/crm/contacts/:contactId", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCrmActor(uid);
+      const result = await saveSupabaseCrmContact(actor.tenantId, actor.uid, actor.role, {
+        ...(req.body?.contact || {}), contactId: req.params.contactId,
+      });
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return crmRouteError(res, error); }
+  });
+
+  app.post("/api/crm/interactions", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCrmActor(uid);
+      const result = await recordSupabaseCrmInteraction(actor.tenantId, actor.uid, actor.role, req.body?.interaction || {});
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return crmRouteError(res, error); }
   });
 
   app.post("/api/documents", requireAuth, async (req, res) => {
