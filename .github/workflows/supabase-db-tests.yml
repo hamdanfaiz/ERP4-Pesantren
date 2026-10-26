@@ -18,11 +18,11 @@ concurrency:
 jobs:
   frontend:
     name: Frontend build and Firebase bundle guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install pinned Bun
         uses: oven-sh/setup-bun@v2
@@ -124,11 +124,11 @@ jobs:
 
   database:
     name: Migrations, API auth, and pgTAP
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install pinned Bun
         uses: oven-sh/setup-bun@v2
