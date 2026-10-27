@@ -118,3 +118,23 @@ Preview dijalankan terhadap 50 kandidat Firestore dan konteks tenant/data kandid
 - Target memiliki 50 record dengan `source_record_id` yang cocok satu-per-satu. Fingerprint NIK dan NISN cocok 50/50, dan preview tidak menemukan duplikasi registrasi, NIK, atau NISN pada source.
 - Perbandingan payload ternormalisasi menunjukkan semua kolom kandidat yang dipetakan cocok 50/50 kecuali `registration_id` (0/50 cocok). `source_fingerprint` berbeda pada 50/50 record; preview melaporkan 50 `changedImportedSource`. Ini konsisten dengan perubahan atau provenance berbeda pada ID registrasi; penyebab historis tepatnya belum dibuktikan.
 - `canApply` tetap `false`: fingerprint sumber berubah dan konfirmasi operator untuk tenant/format tanggal tidak diberikan. **Tidak ada apply atau penulisan data.** Jangan mengubah ID target atau melewati pemeriksaan fingerprint otomatis. Tim harus memutuskan berdasarkan snapshot/provenance apakah ID Supabase saat ini dipertahankan dan dibuatkan alias audit, atau sumber dipulihkan ke snapshot saat import.
+
+## Matriks jumlah data source-to-target — baca-saja 27 Oktober 2026
+
+Hitungan sumber diambil dari agregasi Firestore root; hitungan target dari agregasi per tenant Supabase. Tidak ada payload PII atau data transaksi yang dicetak. Keduanya hanya menunjukkan jumlah, bukan kesetaraan isi atau relasi.
+
+| Domain / koleksi sumber | Source | Target staging saat dibaca | Kesimpulan |
+| --- | ---: | ---: | --- |
+| candidates | 50 | 50 kandidat | Padanan source ID 50/50, tetapi registration_id dan fingerprint sumber berubah; tahan apply sampai kebijakan alias/ID diputuskan. |
+| master_data | 453 | 95 master_data_records, 50 santri, 50 wali, 40 halaqah | Hanya sebagian domain terwakili. 218 record kategori lain masih belum direkonsiliasi atau diterapkan; cocok jumlah bukan bukti isi. |
+| entityRecords | 14 | Tidak ada padanan source ID yang terverifikasi | 7 santri/7 wali berpotensi duplikat dengan master_data; jangan gabungkan berdasarkan nama. |
+| Data koperasi | 6 katalog, 3 pemasok, 3 transaksi, 3 dompet | 0 produk, 0 pemasok, 0 penjualan, 0 ledger; 15 dompet tanpa ID sumber | Katalog/transaksi belum direkonsiliasi; 15 dompet target tidak boleh dianggap cocok dengan 3 sumber. |
+| Marketplace | 8 produk, 5 order | 0 produk, 0 order | Belum diterapkan; detail baris order sumber memang tidak tersedia. |
+| Perpustakaan | 4 buku, 1 sirkulasi, 4 metadata aset digital | 0 buku, 0 sirkulasi, tidak ada tabel aset digital | Belum diterapkan; keberadaan metadata tidak membuktikan byte file tersedia. |
+| LMS | 1 kategori, 2 kursus, 1 asesmen | 0 kategori, 0 kursus, 0 penugasan | Belum diterapkan; modul/materi bertingkat perlu preview relasi. |
+| CBT | 1 cbt_config | cbt_tenant_settings belum ada | Migration sumber terkait belum tercatat di ledger target; jangan memasukkan konfigurasi sebelum schema dan preview tersedia. |
+| Tahfidz | 40 halaqah pada master_data; tidak ada koleksi root setoran | 40 halaqah, 0 keanggotaan, 0 setoran | Halaqah saja belum membuat modul operasional siap; riwayat setoran tidak tersedia pada snapshot root. |
+
+Target tenant juga memiliki **50 santri tanpa NIS**, **0 reservasi NIS**, serta **0 baris finance ledger, tagihan, dan biaya**. Firestore tidak menyediakan NIS pada snapshot yang direkonsiliasi, sehingga NIS harus dibuat melalui kebijakan penomoran dan transaksi reservasi, bukan diimpor dengan tebakan. Dua bucket Storage tetap privat dan belum memiliki policy storage.objects; akses runtime masih harus melalui backend yang tervalidasi.
+
+Hasil ini menegaskan bahwa staging berisi sebagian Master Data, PPDB, dan halaqah, bukan migrasi operasional lengkap. Semua angka adalah read-only dan tidak mengubah staging maupun Production.
