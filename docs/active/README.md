@@ -4,6 +4,9 @@ This folder is intended for documentation related to tasks, features, or archite
 
 Once a feature is fully implemented and merged, its documentation should be moved to the `completed` folder (or integrated into main guides if applicable).
 
+## Product readiness
+- [Kesiapan Komersial dan Go-Live](00_PRODUCT/COMMERCIAL_READINESS.md) — kontrak produk self-hosted, bukti teknis, dan gerbang pilot/deploy.
+
 ## Active references
 - [PR dependency audit — 25 Oct 2026](05_ARCHITECTURE/PR_DEPENDENCY_AUDIT_2026-10-25.md) — base, stack, CI, review, and merge-readiness findings for PRs #1–#13.
 - [PR #11 → #13 feature parity](05_ARCHITECTURE/PR11_TO_PR13_FEATURE_PARITY.md) — feature-by-feature mapping, intentional auth replacement, and remaining PPDB finance/document gaps.
