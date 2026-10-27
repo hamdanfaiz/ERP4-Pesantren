@@ -103,3 +103,10 @@ Rincian kategori dan jalur impor lain tercatat pada [checkpoint Master Data](MAS
 - Pada checkout Windows pemeriksaan ini, `psql` belum tersedia. Jalankan preflight langsung dari PC hanya setelah memasang PostgreSQL client; `.env` saja belum cukup untuk menjalankan query. CI telah memasang client tersebut.
 - CI memakai Supabase lokal sintetis. Ia tidak memperbaiki atau mengisi metadata dua migration live dan tidak menerapkan migration apa pun ke Supabase target.
 
+## Revalidasi read-only — 27 Oktober 2026
+
+- Firestore REST dengan ADC menghitung ulang koleksi root memakai `listCollectionIds` dan agregasi `count()` saja. Hasil tetap **18 koleksi / 561 dokumen**, sama dengan tabel hitungan di inventaris ini. Payload dokumen tidak diambil; hasil ini mengonfirmasi jumlah, bukan kesamaan setiap record dengan target.
+- Query baca-saja Supabase pada **05:00 UTC** mengonfirmasi ledger tetap memiliki **47 versi** hingga `20261206000000`; 119/119 tabel publik memakai RLS dan FORCE RLS dengan lima policy publik; dua bucket Storage privat dan nol policy pada `storage.objects`. Tidak ada migration, data, policy, bucket, atau feature flag yang diubah.
+- GitHub Actions [run 40452393890](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40452393890) lulus pada kedua job di head dokumen `b48c2be238e7fbf313eea3f2227cccdc4106bb70`. Job database menjalankan migration/pgTAP dan pemeriksaan API pada Supabase lokal sintetis; ini tidak menerapkan migration ke staging atau Production dan tidak membuktikan rekonsiliasi data live.
+- Selisih **44 migration source** dan metadata kosong pada dua versi terakhir tetap menunggu rekonsiliasi/provenance serta rehearsal backup staging yang dapat dipulihkan. Hasil ledger dan jumlah tabel sendiri bukan izin untuk menerapkan migration.
+
