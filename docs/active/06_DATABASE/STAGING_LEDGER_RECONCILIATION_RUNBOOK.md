@@ -14,9 +14,9 @@ Runbook ini menyelesaikan ketidakcocokan migration ledger sebelum migration baru
 
 - Ledger staging memiliki 47 versi. Source PR memiliki 93 migration; ada 46 migration source setelah versi terakhir yang tercatat.
 - Versi `20261205000000` dan `20261206000000` ada di ledger, tetapi kolom `name` dan `statements` keduanya kosong. Preflight sengaja berhenti karena tidak dapat membuktikan isi migration yang dianggap sudah diterapkan.
-- Katalog staging memiliki 119 tabel publik; 118 memakai `tenant_id`, seluruhnya mengaktifkan RLS dan FORCE RLS. Foreign key antar-tabel tenant yang diperiksa memasangkan `tenant_id`. `user_profiles` adalah pengecualian berupa jembatan kompatibilitas.
+- Audit katalog baca-saja terbaru menemukan 119 tabel publik: seluruhnya mengaktifkan RLS dan FORCE RLS; 118 memiliki kolom `tenant_id`, dan `tenants` adalah satu-satunya tabel root tanpa kolom itu. Dari 335 foreign key publik, 243 menghubungkan dua tabel ber-tenant; seluruh 243 memasangkan `tenant_id` pada foreign key komposit dan tidak ditemukan relasi tenant yang tidak berpasangan. Query hanya membaca katalog, bukan isi record.
 - Snapshot agregat menemukan satu tenant dan satu profil Admin aktif; profil tersebut memiliki tenant dan akun Auth yang cocok. Pemeriksaan tidak menampilkan PII.
-- Efek utama kedua migration yang metadata-nya kosong tampak pada katalog: default ACL migration `20261205` membatasi default privilege kepada pemilik; migration `20261206` memiliki kolom/constraint/index provenance kandidat PPDB, tabel batch ber-RLS/Force RLS, dan RPC import dengan akses `service_role` saja. Ini mengonfirmasi efek katalog utama, tetapi tidak membuktikan seluruh isi/urutan SQL persis sama dengan file source.
+- Rekonsiliasi katalog untuk migration tersebut cocok dengan source: `20261205` meninggalkan default privilege tabel/sekuens/fungsi hanya pada pemilik dan mencabut EXECUTE empat helper dari PUBLIC/anon/authenticated/service_role; trigger yang memakai helper tetap terpasang. Untuk `20261206`, kolom, check tervalidasi, indeks unik valid, struktur batch, dua FK tenant, RLS+FORCE RLS, tanpa policy, akses tabel hanya untuk `service_role`, grant RPC, `SECURITY INVOKER`, `search_path`, komentar, serta body RPC 5.165 karakter cocok; body fungsi staging sama persis dengan source. Ini membuktikan keadaan katalog yang diperiksa saat ini, bukan histori urutan/pernyataan SQL yang tidak tersimpan di ledger.
 - Koneksi MCP staging saat audit memiliki `transaction_read_only=on` dan role `supabase_read_only_user`. Konektor Supabase berhak tulis hanya mencantumkan project `vqemuyzveuirlkvdggjd`; permintaan baca project target `ptsasgdvgrbdtgyqieie` ditolak.
 
 ## Tindakan yang diperlukan tim backend
@@ -38,7 +38,7 @@ Runbook ini menyelesaikan ketidakcocokan migration ledger sebelum migration baru
 
 ## Bukti dan batas saat ini
 
-GitHub Actions [run #40468682776](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40468682776) lulus pada kedua job, termasuk build/Docker, migration/pgTAP pada Supabase lokal, auth/isolasi tenant, transaksi NIS dan Tahfidz, Storage, serta backup/restore sintetis. CI tidak menulis ke Supabase staging.
+GitHub Actions [run #40469695672](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40469695672) lulus pada kedua job. Run merehearsal upgrade dari ledger staging pada Supabase lokal terisolasi, lalu menjalankan migration/pgTAP, transaksi NIS/Tahfidz, import preview sintetis, auth/isolasi tenant, Storage, backup/restore, Firebase runtime guard, build, dan Docker/Compose. CI tidak menulis ke Supabase staging.
 
 Belum ada migration, data Firestore, atau fixture yang ditulis ke staging oleh Codex. Penerapan staging, login/UAT, rotasi credential, dan uji pemulihan pada target tetap menjadi release gate.
 
