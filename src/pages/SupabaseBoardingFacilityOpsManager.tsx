@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ClipboardCheck, LoaderCircle, RotateCcw, Wrench } from "lucide-react";
@@ -12,7 +13,7 @@ import {
   type FacilityOpsSnapshot,
 } from "../services/boardingFacilityOpsApi";
 
-const FACILITY_OPS_IMPORT_ENABLED = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED === "true";
+const FACILITY_OPS_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED") === "true";
 
 const today = () => {
   const now = new Date();

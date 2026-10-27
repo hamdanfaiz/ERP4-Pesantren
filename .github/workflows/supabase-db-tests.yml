@@ -104,14 +104,11 @@ jobs:
       - name: Smoke-test production runtime without Firebase packages
         run: node scripts/test-production-runtime.mjs
 
+      - name: Verify customer runtime configuration endpoint
+        run: npm run test:runtime-config-http
+
       - name: Build customer-managed Docker image
-        run: >-
-          docker build
-          --build-arg VITE_SUPABASE_URL=https://supabase.example.invalid
-          --build-arg VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder
-          --build-arg VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED=true
-          --build-arg VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=true
-          --tag erp4-pesantren:ci .
+        run: docker build --tag erp4-pesantren:ci .
 
       - name: Validate customer-managed Compose configuration
         env:
@@ -127,10 +124,12 @@ jobs:
           node -e '
             const config = JSON.parse(require("node:fs").readFileSync("/tmp/erp4-compose.json", "utf8"));
             const service = config.services["erp4-pesantren"];
-            if (service.build.args.VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED !== "true") throw new Error("Vite feature flag did not reach the image build");
+            if (service.environment.VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED !== "true") throw new Error("Browser feature flag did not reach the container runtime");
             if (service.environment.SUPABASE_MASTER_DATA_RUNTIME_ENABLED !== "true") throw new Error("Server feature flag did not reach the container");
+            if (service.build) throw new Error("Customer deployment must use the same prebuilt image across environments");
+            if (service.environment.VITE_SUPABASE_URL !== "https://supabase.example.invalid") throw new Error("Supabase URL did not reach the container runtime");
             for (const name of ["SUPABASE_SECRET_KEY", "PII_ENCRYPTION_KEY", "PII_FINGERPRINT_KEY"]) {
-              if (Object.hasOwn(service.build.args, name)) throw new Error(`${name} leaked into Docker build args`);
+              if (!Object.hasOwn(service.environment, name)) throw new Error(name + " is absent from server environment configuration");
             }
           '
 
@@ -139,6 +138,9 @@ jobs:
           docker run -d --name erp4-pesantren-image-smoke -p 127.0.0.1:38123:3000 \
             -e SUPABASE_URL=http://127.0.0.1:1 \
             -e SUPABASE_SECRET_KEY=sb_secret_ci_placeholder \
+            -e VITE_SUPABASE_URL=https://supabase.example.invalid \
+            -e VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder \
+            -e VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=true \
             -e LEGACY_FIREBASE_ADMIN_ENABLED=true \
             erp4-pesantren:ci
           trap 'docker rm -f erp4-pesantren-image-smoke >/dev/null 2>&1 || true' EXIT
@@ -147,6 +149,18 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:38123/ >/dev/null
+          curl -fsS http://127.0.0.1:38123/runtime-config.json | node -e '
+            let response = "";
+            process.stdin.setEncoding("utf8");
+            process.stdin.on("data", (chunk) => response += chunk);
+            process.stdin.on("end", () => {
+              const config = JSON.parse(response);
+              if (config.VITE_SUPABASE_URL !== "https://supabase.example.invalid") throw new Error("Runtime Supabase URL was not emitted");
+              if (config.VITE_SUPABASE_PUBLISHABLE_KEY !== "sb_publishable_ci_placeholder") throw new Error("Runtime publishable key was not emitted");
+              if (config.VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED !== "true") throw new Error("Runtime browser feature flag was not emitted");
+              if (response.includes("sb_secret_ci_placeholder")) throw new Error("Server secret leaked into browser runtime config");
+            });
+          '
           status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:38123/api/users)
           test "$status" = "401"
           docker exec erp4-pesantren-image-smoke node -e "for (const name of ['firebase', 'firebase-admin/app', 'firebase-admin/firestore']) { try { require.resolve(name); process.exit(1); } catch (error) { if (error.code !== 'MODULE_NOT_FOUND') throw error; } }"

@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, 
@@ -40,8 +41,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import { supabaseRuntimeEnabled } from '../runtimeBackend';
 
-const SUPABASE_SYSTEM_SETTINGS = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_SYSTEM_SETTINGS);
-const SUPABASE_SYSTEM_SETTINGS_IMPORT = import.meta.env.VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED === 'true';
+const SUPABASE_SYSTEM_SETTINGS = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS"));
+const SUPABASE_SYSTEM_SETTINGS_IMPORT = publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED") === 'true';
 
 export function SettingsManager() {
   const { role, user, refreshProfile } = useAuth();

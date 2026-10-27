@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, LoaderCircle, RotateCcw, Users } from "lucide-react";
@@ -10,7 +11,7 @@ import {
   type BoardingAttendanceSnapshot,
 } from "../services/boardingAttendanceApi";
 
-const IMPORT_ENABLED = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_BOARDING_ATTENDANCE_IMPORT_ENABLED === "true";
+const IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ATTENDANCE_IMPORT_ENABLED") === "true";
 function localDate() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;

@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowRight, CheckCircle2, ClipboardList, LoaderCircle, Plus, RotateCcw, X } from "lucide-react";
@@ -14,7 +15,7 @@ import {
 } from "../services/boardingPermitsApi";
 
 const PERMIT_TYPES = ["Pulang", "Keluar Area", "Kegiatan Eksternal", "Izin Walisantri (Parental Leave)"];
-const SUPABASE_BOARDING_PERMITS_IMPORT = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED === "true";
+const SUPABASE_BOARDING_PERMITS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED") === "true";
 
 function localDateInputValue() {
   const date = new Date();

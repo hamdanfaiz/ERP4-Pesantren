@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
+import { PUBLIC_CLIENT_RUNTIME_CONFIG_KEYS } from "./src/publicRuntimeConfigKeys";
 import type { App } from "firebase-admin/app";
 import type { Firestore } from "firebase-admin/firestore";
 import { createHash, randomUUID } from "node:crypto";
@@ -586,6 +587,17 @@ async function startServer() {
     next();
   });
   app.use(express.json({ limit: "5mb" }));
+
+  app.get("/runtime-config.json", (_req, res) => {
+    const config = Object.fromEntries(
+      PUBLIC_CLIENT_RUNTIME_CONFIG_KEYS.map((key) => [key, String(process.env[key] || "")]),
+    );
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    return res.json(config);
+  });
 
   let lastReadinessCheckedAt = 0;
   let lastReadinessResult = false;

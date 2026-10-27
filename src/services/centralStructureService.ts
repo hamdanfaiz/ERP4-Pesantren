@@ -1,11 +1,12 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import {
   assignSupabaseStudentRoom,
   listSupabaseBoardingSnapshot,
 } from "./masterDataApi";
 import { supabaseRuntimeEnabled } from "../runtimeBackend";
 
-const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED);
-const SUPABASE_BOARDING_RUNTIME = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_BOARDING_RUNTIME_ENABLED);
+const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED"));
+const SUPABASE_BOARDING_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_RUNTIME_ENABLED"));
 
 export interface CentralStructureItem {
   id: string;

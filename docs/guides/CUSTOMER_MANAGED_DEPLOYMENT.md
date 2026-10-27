@@ -40,7 +40,7 @@ SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false
 VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false
 ```
 
-`VITE_SUPABASE_URL` must be reachable from each user's browser. `SUPABASE_URL` must be reachable from the container and may use a private address. The publishable key is embedded in the browser build; the secret key is passed only to the server container. Never put a secret key in a `VITE_` variable or commit `.env`.
+`VITE_SUPABASE_URL` must be reachable from each user's browser. `SUPABASE_URL` must be reachable from the container and may use a private address. The browser bootstrap fetches an allowlisted `/runtime-config.json` before loading the application. The Supabase URL, publishable key, and public feature flags are read when the container starts, not baked into the image. The publishable key is public by design; the secret key is passed only to the server container. Never put a secret key in a `VITE_` variable or commit `.env`.
 
 ## Provision the first tenant and Admin
 
@@ -60,17 +60,29 @@ After the Admin can sign in, create synthetic operational records manually in Ma
 
 If the database transaction fails after Auth sends the invitation, the script attempts to remove that pending Auth user. If Auth cleanup also fails, stop and reconcile that account before retrying. Do not enable module flags just because tenant bootstrap succeeded; each module still needs its own migration, RLS, and workflow verification.
 
-The Compose file uses an explicit allowlist for browser build flags and server runtime flags; all feature and import gates default to `false`. Browser `VITE_` flags are compiled into the static frontend, so rebuild the image after changing one. Server `SUPABASE_` flags take effect after recreating the service. Enable both sides of a module only after its migrations, tenant data, Auth/profile setup, RLS, and any Storage policies are verified in that deployment. Keep every import/apply flag off during normal operation; use it only for a reviewed, time-bounded migration procedure. Public PPDB is an externally reachable intake route and requires its own abuse, privacy, and tenant configuration review before activation. PII and legacy fingerprint keys are server-only; do not prefix them with `VITE_`.
+The Compose file passes an explicit allowlist of browser settings and server runtime flags when the container starts; all feature and import gates default to `false`. The same image can be configured for different customer environments by changing `.env` and recreating the service; no image rebuild is needed for a Supabase endpoint, publishable key, or feature-flag change. Enable both sides of a module only after its migrations, tenant setup, Auth/profile setup, RLS, and any Storage policies are verified in that deployment. Keep every import/apply flag off during normal operation; use it only for a reviewed, time-bounded maintenance procedure. This installation does not import Firestore data; create synthetic or operational records through the application after the tenant and Admin are provisioned. Public PPDB is an externally reachable intake route and requires its own abuse, privacy, and tenant configuration review before activation. PII and legacy fingerprint keys are server-only; do not prefix them with `VITE_`.
 
 ## Build and run
 
 From the repository root:
 
 ```sh
-docker compose -f docker-compose.yml up --build -d
+docker build -t erp4-pesantren:local .
+docker compose -f docker-compose.yml up -d
 docker compose -f docker-compose.yml ps
 docker compose -f docker-compose.yml logs --tail=100 erp4-pesantren
 ```
+
+To move the exact same image to another Docker host, export it on the build host and load it at the destination:
+
+```sh
+docker save erp4-pesantren:local | gzip > erp4-pesantren-image.tar.gz
+# copy the archive through your approved channel, then on the destination host:
+gunzip -c erp4-pesantren-image.tar.gz | docker load
+docker compose -f docker-compose.yml up -d
+```
+
+Keep a separate ignored `.env` and secret store on every host. The image archive contains application code, not customer credentials or data.
 
 Compose sets `NODE_ENV=production` and disables the legacy Firebase Admin and settings-cleanup gates. The container runs as the unprivileged `node` user, has a read-only root filesystem, and drops Linux capabilities. `/health/live` confirms the process is running; `/health/ready` confirms the Supabase profile store responds and is used by the container health check. Health responses disclose no credentials or database error details.
 

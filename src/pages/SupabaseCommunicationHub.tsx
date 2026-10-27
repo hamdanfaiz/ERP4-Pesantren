@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useState } from "react";
 import { AlertCircle, CalendarDays, CheckCircle2, Loader2, Megaphone, Plus, RefreshCw, Send, X } from "lucide-react";
@@ -18,7 +19,7 @@ type Announcement = {
   isUrgent?: boolean;
 };
 
-const SUPABASE_COMMUNICATION_IMPORT = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED === "true";
+const SUPABASE_COMMUNICATION_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED") === "true";
 
 async function requestCommunication(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();

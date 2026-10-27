@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { useAuth } from '../contexts/AuthContext';
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -65,9 +66,9 @@ import {
   upsertSupabaseMasterDataStructure,
 } from "../services/masterDataApi";
 
-const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED);
+const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED"));
 // Import is a separate migration-only capability; Supabase-only runtime must never unlock it.
-const SUPABASE_MASTER_DATA_IMPORT = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED === "true";
+const SUPABASE_MASTER_DATA_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED") === "true";
 const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "Kelas"]);
 
 const TABS = [

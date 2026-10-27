@@ -47,7 +47,8 @@
     "test:tahfidz-session-pagination": "tsx scripts/test-tahfidz-session-pagination.ts",
     "test:academic-portal": "tsx scripts/test-academic-portal.ts",
     "test:public-ppdb-validation": "tsx scripts/test-public-ppdb-validation.ts",
-    "test:trusted-proxy-hops": "tsx scripts/test-trusted-proxy-hops.ts"
+    "test:trusted-proxy-hops": "tsx scripts/test-trusted-proxy-hops.ts",
+    "test:runtime-config-http": "node scripts/test-runtime-config-http.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

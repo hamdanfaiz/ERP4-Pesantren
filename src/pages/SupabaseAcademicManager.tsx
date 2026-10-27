@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, BookOpen, CalendarDays, Check, ClipboardList, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
@@ -12,7 +13,7 @@ type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: Re
 type Tab = "schedule" | "journal" | "assessment";
 
 const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], students: [], teachers: [], classes: [] };
-const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_ACADEMIC_IMPORT_ENABLED === "true";
+const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_ACADEMIC_IMPORT_ENABLED") === "true";
 type AcademicImportPreview = {
   snapshotFingerprint: string;
   counts: { schedules: number; journals: number; assessments: number; source: number; ready: number; alreadyImported: number };

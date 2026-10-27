@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import React, { useState, useEffect, useRef } from "react";
@@ -63,8 +64,8 @@ import {
   Tooltip,
 } from "recharts";
 
-const SUPABASE_TAHFIDZ_RUNTIME = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED);
-const SUPABASE_TAHFIDZ_IMPORT = import.meta.env.VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED === 'true';
+const SUPABASE_TAHFIDZ_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED"));
+const SUPABASE_TAHFIDZ_IMPORT = publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED") === 'true';
 
 async function requestSupabaseTahfidzApi(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();

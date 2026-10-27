@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, FileSpreadsheet, Loader2, Plus, RefreshCw, Search, ShieldAlert, UserCheck, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -43,11 +44,11 @@ const EMPTY_NEW_CANDIDATE: NewCandidateDraft = {
   fatherJob: "", motherJob: "", fatherEducation: "", motherEducation: "", familyIncome: "",
 };
 
-const PPDB_ONBOARDING_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED === "true";
-const PPDB_RUNTIME_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_RUNTIME_ENABLED === "true";
+const PPDB_ONBOARDING_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED") === "true";
+const PPDB_RUNTIME_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_PPDB_RUNTIME_ENABLED") === "true";
 const PPDB_DOCUMENTS_ENABLED = PPDB_RUNTIME_ENABLED
-  && import.meta.env.VITE_SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED === "true";
-const PPDB_FINANCE_BILLS_ENABLED = import.meta.env.VITE_SUPABASE_PPDB_FINANCE_BILLS_ENABLED === "true";
+  && publicRuntimeConfigValue("VITE_SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED") === "true";
+const PPDB_FINANCE_BILLS_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_PPDB_FINANCE_BILLS_ENABLED") === "true";
 const FORM_CONTROL = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white";
 
 const STAGES: Stage[] = ["Registered", "Document Review", "Entry Exam", "Interview", "Accepted", "Rejected"];

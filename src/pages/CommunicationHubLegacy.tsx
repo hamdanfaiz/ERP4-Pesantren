@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import React, { useEffect, useState } from 'react';
 import {
   Megaphone, MessageSquare, Send, Search, Filter, Plus,
@@ -10,8 +11,8 @@ import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useTenantOperationalCollection } from '../firebaseUtils';
 import { getAccessToken } from '../authSession';
 
-const SUPABASE_COMMUNICATION_ANNOUNCEMENTS = import.meta.env.VITE_SUPABASE_COMMUNICATION_ANNOUNCEMENTS === 'true';
-const SUPABASE_COMMUNICATION_IMPORT = import.meta.env.VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED === 'true';
+const SUPABASE_COMMUNICATION_ANNOUNCEMENTS = publicRuntimeConfigValue("VITE_SUPABASE_COMMUNICATION_ANNOUNCEMENTS") === 'true';
+const SUPABASE_COMMUNICATION_IMPORT = publicRuntimeConfigValue("VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED") === 'true';
 
 async function requestSupabaseAnnouncementApi(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();

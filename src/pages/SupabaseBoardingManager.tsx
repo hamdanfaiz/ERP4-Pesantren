@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import React, { useState } from "react";
 import { CalendarCheck, ClipboardList, ShieldAlert, UserRoundCog, Wrench } from "lucide-react";
 import { SupabaseBoardingDisciplineManager } from "./SupabaseBoardingDisciplineManager";
@@ -7,11 +8,11 @@ import { SupabaseBoardingAssignmentsManager } from "./SupabaseBoardingAssignment
 import { SupabaseBoardingFacilityOpsManager } from "./SupabaseBoardingFacilityOpsManager";
 import { supabaseRuntimeEnabled } from "../runtimeBackend";
 
-const PERMITS_ENABLED = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED);
-const DISCIPLINE_ENABLED = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED);
-const ATTENDANCE_ENABLED = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED);
-const ASSIGNMENTS_ENABLED = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED);
-const FACILITY_OPS_ENABLED = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED);
+const PERMITS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED"));
+const DISCIPLINE_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED"));
+const ATTENDANCE_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED"));
+const ASSIGNMENTS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED"));
+const FACILITY_OPS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED"));
 type Section = "permits" | "discipline" | "attendance" | "assignments" | "facility-ops";
 
 export function SupabaseBoardingManager() {
