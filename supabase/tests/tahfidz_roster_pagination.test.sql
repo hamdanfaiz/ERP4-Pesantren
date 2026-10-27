@@ -234,12 +234,16 @@ SELECT ok(
   NOT EXISTS (
     SELECT 1
     FROM (
-      SELECT page_number, min(student_id) AS first_id, max(student_id) AS last_id
+      SELECT page_number,
+        (array_agg(student_id ORDER BY student_id))[1] AS first_id,
+        (array_agg(student_id ORDER BY student_id DESC))[1] AS last_id
       FROM tahfidz_scale_page_ids
       GROUP BY page_number
     ) AS current_page
     JOIN (
-      SELECT page_number, min(student_id) AS first_id, max(student_id) AS last_id
+      SELECT page_number,
+        (array_agg(student_id ORDER BY student_id))[1] AS first_id,
+        (array_agg(student_id ORDER BY student_id DESC))[1] AS last_id
       FROM tahfidz_scale_page_ids
       GROUP BY page_number
     ) AS next_page
