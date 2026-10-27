@@ -262,7 +262,7 @@ SELECT ok((SELECT sync_to_master_data AND nis='2026020001' AND class_id='RH-C1'
   'candidate compatibility fields match the canonical enrollment and placement');
 SELECT is((SELECT occupied FROM public.master_data_records
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND category='Kamar' AND id='RH-R1'),
-  2,'onboarding increments the selected room occupancy in the same transaction');
+  1,'onboarding increments the selected empty room occupancy in the same transaction');
 SELECT is(public.onboard_accepted_ppdb_candidate_with_room_history_actor(
   'd4600000-0000-4000-8000-000000000001','d4600000-0000-4000-8000-000000000011',
   'd4600000-0000-4000-8000-000000000102','2026020001','RH-C1','RH-R1','RH-G1',
@@ -287,7 +287,7 @@ SELECT is((SELECT count(*)::INTEGER FROM public.nis_reservations
   1,'onboarding retry does not duplicate the NIS reservation');
 SELECT is((SELECT occupied FROM public.master_data_records
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND category='Kamar' AND id='RH-R1'),
-  2,'onboarding retry does not increment room occupancy twice');
+  1,'onboarding retry does not increment room occupancy twice');
 SELECT is((SELECT event_type FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
     AND student_id=(SELECT id FROM public.students WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
