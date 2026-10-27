@@ -240,3 +240,16 @@ Dua versi pada staging sudah memiliki row berdasarkan `version`; masalahnya kolo
 4. Setelah metode disetujui dan diuji pada klon yang dapat dipulihkan, verifikasi ulang ledger baca-saja serta jalankan preflight. Hanya setelah preflight dan rehearsal upgrade seluruh 44 migration pending lulus, tim dapat menilai langkah berikutnya.
 
 PR #13 tetap Draft. Semua pemeriksaan di sini hanya baca; tidak ada perubahan pada staging atau Production.
+
+## Revalidasi setelah checkpoint awal — 27 Oktober 2026
+
+Pembacaan ini memperbarui **status ledger, beberapa kontrol katalog, serta keberadaan RPC Komunikasi saja**. Inventaris Firestore dan hitungan domain di atas berasal dari pemeriksaan terdahulu; sesi ini tidak membaca ulang payload Firestore atau mengubah data.
+
+- **Source terbaru:** PR #13 head `6badbd7f2f9a1e228a2124dbc75b010f626f1ce7`. Repository memuat 92 migration. Ledger staging mencantumkan 47 versi sampai `20261206000000`; 45 versi `20261207000000`–`20270120000000` belum tercatat. Dua baris `20261205000000` dan `20261206000000` sebelumnya ditemukan tanpa `name` maupun `statements`; masalah lineage ini belum dianggap selesai.
+- **Katalog `public`:** 119/119 tabel mengaktifkan RLS dan FORCE RLS; ada 5 policy pada 5 tabel. Hak efektif `anon`: SELECT pada 0 tabel, tulis pada 0 tabel. Hak efektif `authenticated`: SELECT pada 5 tabel, tulis pada 0 tabel. Hasil ini tidak membuktikan jalur API server atau sesi Auth.
+- **Komunikasi:** `communication_announcement_recipient_user_ids(uuid,text)` belum ada pada staging karena migration yang menambahnya masih pending. Fungsi import baru di source `20270120000000_communication_import_canonical_audience.sql` mengikat receipt historis ke penerima yang sama dengan resolver canonical dan hanya menerima Wali aktif. Jangan mengaktifkan import Komunikasi sebelum migration `20270105000000` dan `20270120000000` direhearsal pada database disposable.
+- Review statis terarah pada 45 file tertunda menghitung 40 `CREATE INDEX` biasa, tanpa indeks concurrent; tidak ada `DROP TABLE/COLUMN/SCHEMA` atau `TRUNCATE`; 7 pernyataan `DROP INDEX/CONSTRAINT` tetap perlu ditinjau. Ini hanya pencarian source, bukan bukti waktu lock atau kompatibilitas data.
+- CI [run 40435015043](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40435015043) sukses pada 2/2 job untuk head tersebut. CI terisolasi tidak menggantikan rehearsal database staging.
+- **Tidak ada migration, data, konfigurasi, atau feature flag staging/Production yang diubah.** Pertahankan staging dan Production tanpa perubahan sampai isu lineage dua row, backup/restore, review semua migration, dan rehearsal pada salinan terpulihkan selesai.
+
+Progress estimasi tetap **73% kematangan fitur / 46% kesiapan go-live**; login/UAT, rekonsiliasi seluruh data, rehearsal skala, rotasi secret, dan validasi environment pelanggan tetap terbuka.
