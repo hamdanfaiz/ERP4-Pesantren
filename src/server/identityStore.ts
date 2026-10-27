@@ -362,14 +362,14 @@ export async function createAuthUserWithProfile(input: {
     SuperAdmin: "super_admin", Admin: "admin", Ustadz: "ustadz", Santri: "santri", Walisantri: "wali_santri",
   };
   const databaseRole = roleByUiValue[input.role];
-  if (!email || email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new IdentityConflictError("Alamat email tidak valid.");
   }
-  if (name.length < 2 || name.length > 120 || /[\\u0000-\\u001f\\u007f]/.test(name)) {
+  if (name.length < 2 || name.length > 120 || /[\u0000-\u001f\u007f]/.test(name)) {
     throw new IdentityConflictError("Nama harus berisi 2–120 karakter dan tidak boleh berisi karakter kontrol.");
   }
   if (input.password.length < 12 || input.password.length > 128
-    || /[\\u0000-\\u001f\\u007f]/.test(input.password)) {
+    || /[\u0000-\u001f\u007f]/.test(input.password)) {
     throw new IdentityConflictError("Kata sandi sementara harus 12–128 karakter dan tidak boleh berisi karakter kontrol.");
   }
   if (!databaseRole) {
