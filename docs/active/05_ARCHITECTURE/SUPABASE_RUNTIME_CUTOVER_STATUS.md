@@ -436,6 +436,18 @@ Koneksi Supabase yang tersedia melalui plugin tidak mencantumkan ref target ini 
 
 Dengan gap deployment tersebut terverifikasi, estimasi fitur tetap sekitar **73%** dan estimasi kesiapan go-live direvisi menjadi **46%**. Persentase adalah perkiraan release gate, bukan metrik otomatis. PR #13 tetap Draft; database live dan konfigurasi deployment tidak berubah.
 
+## Checkpoint: scope tenant bersih tanpa impor data dummy — 27 Oktober 2026
+
+Pemilik produk mengonfirmasi bahwa dokumen Firestore yang tersisa adalah data dummy dan tidak perlu disalin. Jalur ke depan adalah menyiapkan skema, aturan tenant, dan relasi operasional agar valid pada database kosong; data uji/dummy dapat dibuat manual setelah tenant Admin siap. Tidak ada data Firestore, Supabase staging, atau production yang disalin atau diubah pada checkpoint ini.
+
+Untuk membuat instalasi baru bisa dimulai tanpa endpoint pendaftaran Admin publik, branch ini menambahkan `20270121000000_tenant_admin_bootstrap.sql`: RPC `SECURITY INVOKER` yang membuat tenant aktif dan profil Admin pertama dalam satu transaksi. Eksekusinya dicabut dari `anon` dan `authenticated`, lalu diberikan hanya kepada `service_role`. RPC menolak slug dengan konfigurasi berbeda, pengulangan yang tidak identik, tenant yang sudah berisi profil lain, serta user yang sudah ditautkan ke tenant lain. Pemanggilan yang identik bersifat idempoten.
+
+Skrip operator `npm run provision:tenant-admin` menggunakan Supabase Auth untuk mengirim undangan—tidak pernah meminta atau menyimpan password—kemudian memanggil RPC. Bila transaksi gagal, skrip mencoba menghapus user Auth sementara. Pembuatan akun pengguna biasa juga sekarang melaporkan dengan jelas bila kompensasi penghapusan Auth gagal setelah profil gagal tersimpan; login tanpa profil tetap ditolak.
+
+pgTAP baru memeriksa hak eksekusi, relasi tenant/profil, role Admin, konfigurasi izin default, retry idempoten, dan penolakan Admin kedua. Migration dan pengujian masih menunggu verifikasi lokal/CI pada commit ini. Feature flags tetap mati; undangan/login, data relasi manual antarmodul, seluruh matriks role/tenant, deployment VPS/on-premise, dan backup/restore target tetap release gate.
+
+Estimasi checkpoint tidak dinaikkan sebelum CI: sekitar **73% kematangan fitur / 46% kesiapan go-live**. Persentase adalah penilaian release gate, bukan metrik otomatis. PR #13 tetap Draft; tidak ada migrasi yang diterapkan ke proyek Supabase jarak jauh.
+
 ## Pencarian roster Master Data — 26 Oktober 2026
 
 Daftar Santri kini menolak pencarian substring di bawah tiga karakter sebelum mengirim query, memberi petunjuk Bahasa Indonesia, memakai indeks komposit tenant/nama/ID untuk urutan halaman, serta indeks trigram untuk nama, NIS, dan ID sumber. Indeks nama tenant dua kolom yang tercakup indeks komposit dihapus. Migration `20270119000000_master_data_student_search_indexes.sql` dan pgTAP memeriksa kontrak indeks.

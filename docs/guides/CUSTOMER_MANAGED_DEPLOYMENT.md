@@ -35,6 +35,24 @@ VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false
 
 `VITE_SUPABASE_URL` must be reachable from each user's browser. `SUPABASE_URL` must be reachable from the container and may use a private address. The publishable key is embedded in the browser build; the secret key is passed only to the server container. Never put a secret key in a `VITE_` variable or commit `.env`.
 
+## Provision the first tenant and Admin
+
+For a fresh database, apply and verify the reviewed migrations first. Migration `20270121000000_tenant_admin_bootstrap.sql` adds a server-only RPC; it does not import Firestore records, create sample operational data, or enable runtime flags.
+
+The trusted operator needs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the ignored `.env` file or the host's secret manager. Configure Supabase Auth email delivery and allowlist the application's invite redirect URL before sending an invitation. Optionally set `SUPABASE_AUTH_REDIRECT_URL`, `BOOTSTRAP_TENANT_TYPE`, and `BOOTSTRAP_TENANT_TIME_ZONE` in that operator environment. The default time zone is `Asia/Jakarta`.
+
+Run once from the repository root:
+
+```sh
+npm run provision:tenant-admin -- pesantren-digital "Pesantren Digital" admin@example.org "Nama Admin"
+```
+
+The script invites the Admin through Supabase Auth, then atomically creates the tenant and its first `profiles` row. It never accepts or stores a password. The Admin sets a password through the Auth invitation. Repeating the same command is a no-op after it verifies the existing active tenant/Admin profile. The bootstrap RPC is denied to `anon` and `authenticated`; it is not a public tenant-signup endpoint.
+
+After the Admin can sign in, create synthetic operational records manually in Master Data. Application writes must use the tenant UUID from the authenticated profile and database relationships must refer to records within that same tenant. Wali access is provisioned through the tenant's verified guardian invitation flow; do not create a Wali-to-Santri link from browser-supplied IDs.
+
+If the database transaction fails after Auth sends the invitation, the script attempts to remove that pending Auth user. If Auth cleanup also fails, stop and reconcile that account before retrying. Do not enable module flags just because tenant bootstrap succeeded; each module still needs its own migration, RLS, and workflow verification.
+
 The Compose file uses an explicit allowlist for browser build flags and server runtime flags; all feature and import gates default to `false`. Browser `VITE_` flags are compiled into the static frontend, so rebuild the image after changing one. Server `SUPABASE_` flags take effect after recreating the service. Enable both sides of a module only after its migrations, tenant data, Auth/profile setup, RLS, and any Storage policies are verified in that deployment. Keep every import/apply flag off during normal operation; use it only for a reviewed, time-bounded migration procedure. Public PPDB is an externally reachable intake route and requires its own abuse, privacy, and tenant configuration review before activation. PII and legacy fingerprint keys are server-only; do not prefix them with `VITE_`.
 
 ## Build and run

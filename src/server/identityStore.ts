@@ -439,7 +439,12 @@ export async function createAuthUserWithProfile(input: {
     updated_at: now,
   });
   if (inserted.error) {
-    try { await supabase.auth.admin.deleteUser(data.user.id); } catch { /* Keep auth and profile in step. */ }
+    const { error: cleanupError } = await supabase.auth.admin.deleteUser(data.user.id);
+    if (cleanupError) {
+      throw new IdentityUnavailableError(
+        "Profil gagal disimpan dan akun Auth sementara tidak berhasil dibersihkan. Akun ditolak saat login karena tidak memiliki profil; minta operator merekonsiliasi akun yatim.",
+      );
+    }
     throw new IdentityUnavailableError("Gagal menyimpan profil pengguna.");
   }
   return mapCanonicalProfile(row);
