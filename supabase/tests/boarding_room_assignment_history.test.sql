@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(52);
+SELECT plan(68);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -212,6 +212,82 @@ SELECT is(public.onboard_accepted_ppdb_candidate_with_room_history_actor(
   'd4600000-0000-4000-8000-000000000102','2026020001','RH-C1','RH-R1','RH-G1',
   'Wali Uji','0812345678','d4600000-0000-4000-8000-000000000099'
 )->>'success','true','Admin can onboard an accepted PPDB candidate through the audited wrapper');
+SELECT is((SELECT master_student_id FROM public.candidates
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND id='d4600000-0000-4000-8000-000000000102'),
+  (SELECT id FROM public.students WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND source_candidate_id='d4600000-0000-4000-8000-000000000102'),
+  'PPDB candidate points to the canonical student created by onboarding');
+SELECT is((SELECT source_candidate_id FROM public.students
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND source_candidate_id='d4600000-0000-4000-8000-000000000102'),
+  'd4600000-0000-4000-8000-000000000102'::UUID,
+  'canonical student retains the source candidate relationship');
+SELECT is((SELECT master_guardian_id FROM public.candidates
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND id='d4600000-0000-4000-8000-000000000102'),
+  (SELECT id FROM public.guardians WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND source_candidate_id='d4600000-0000-4000-8000-000000000102'),
+  'PPDB candidate points to the canonical guardian created by onboarding');
+SELECT is((SELECT source_candidate_id FROM public.guardians
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND source_candidate_id='d4600000-0000-4000-8000-000000000102'),
+  'd4600000-0000-4000-8000-000000000102'::UUID,
+  'canonical guardian retains the source candidate relationship');
+SELECT is((SELECT count(*)::INTEGER FROM public.guardian_students gs
+  JOIN public.students s ON s.tenant_id=gs.tenant_id AND s.id=gs.student_id
+  JOIN public.guardians g ON g.tenant_id=gs.tenant_id AND g.id=gs.guardian_id
+  WHERE gs.tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND s.source_candidate_id='d4600000-0000-4000-8000-000000000102'
+    AND g.source_candidate_id='d4600000-0000-4000-8000-000000000102'),
+  1,'onboarding creates one tenant-consistent guardian-to-student relationship');
+SELECT is((SELECT count(*)::INTEGER FROM public.nis_reservations n
+  JOIN public.students s ON s.tenant_id=n.tenant_id AND s.id=n.student_id
+  WHERE n.tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND n.nis='2026020001' AND n.candidate_id='d4600000-0000-4000-8000-000000000102'
+    AND s.source_candidate_id=n.candidate_id AND n.source='ppdb_onboarding'),
+  1,'NIS reservation, candidate and canonical student commit as one relation');
+SELECT is((SELECT count(*)::INTEGER FROM public.identity_claims
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND identity_type='nik' AND fingerprint=decode(repeat('56',32),'hex')
+    AND entity_type='santri'
+    AND entity_id=(SELECT id FROM public.students WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+      AND source_candidate_id='d4600000-0000-4000-8000-000000000102')),
+  1,'NIK uniqueness claim moves atomically from candidate to canonical student');
+SELECT is((SELECT onboarding_status FROM public.candidates
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND id='d4600000-0000-4000-8000-000000000102'),
+  'Completed','candidate status is completed after onboarding');
+SELECT ok((SELECT sync_to_master_data AND nis='2026020001' AND class_id='RH-C1'
+    AND room_id='RH-R1' AND dormitory_id='RH-G1'
+  FROM public.candidates WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND id='d4600000-0000-4000-8000-000000000102'),
+  'candidate compatibility fields match the canonical enrollment and placement');
+SELECT is((SELECT occupied FROM public.master_data_records
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND category='Kamar' AND id='RH-R1'),
+  2,'onboarding increments the selected room occupancy in the same transaction');
+SELECT is(public.onboard_accepted_ppdb_candidate_with_room_history_actor(
+  'd4600000-0000-4000-8000-000000000001','d4600000-0000-4000-8000-000000000011',
+  'd4600000-0000-4000-8000-000000000102','2026020001','RH-C1','RH-R1','RH-G1',
+  'Wali Uji','0812345678','d4600000-0000-4000-8000-000000000099'
+)->>'alreadyOnboarded','true','retry with the same onboarding request returns the committed result');
+SELECT is(public.onboard_accepted_ppdb_candidate_with_room_history_actor(
+  'd4600000-0000-4000-8000-000000000001','d4600000-0000-4000-8000-000000000011',
+  'd4600000-0000-4000-8000-000000000102','2026020001','RH-C1','RH-R1','RH-G1',
+  'Wali Uji','0812345678','d4600000-0000-4000-8000-000000000099'
+)->>'replayed','true','same request ID is recognized as an idempotent replay');
+SELECT is((SELECT count(*)::INTEGER FROM public.students
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND source_candidate_id='d4600000-0000-4000-8000-000000000102'),
+  1,'onboarding retry does not create a duplicate student');
+SELECT is((SELECT count(*)::INTEGER FROM public.guardians
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND source_candidate_id='d4600000-0000-4000-8000-000000000102'),
+  1,'onboarding retry does not create a duplicate guardian');
+SELECT is((SELECT count(*)::INTEGER FROM public.nis_reservations
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
+    AND nis='2026020001' AND candidate_id='d4600000-0000-4000-8000-000000000102'),
+  1,'onboarding retry does not duplicate the NIS reservation');
+SELECT is((SELECT occupied FROM public.master_data_records
+  WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND category='Kamar' AND id='RH-R1'),
+  2,'onboarding retry does not increment room occupancy twice');
 SELECT is((SELECT event_type FROM public.student_room_assignment_history
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
     AND student_id=(SELECT id FROM public.students WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
