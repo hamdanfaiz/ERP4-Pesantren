@@ -27,6 +27,8 @@ Privilege efektif yang diperiksa: `anon` tidak punya akses tabel; `authenticated
 
 Bukti ini adalah snapshot katalog staging, bukan uji runtime lengkap, bukan audit setiap endpoint, dan bukan bukti bahwa migration yang belum tercatat aman diterapkan. Query bersifat baca-saja; tidak ada row, policy, schema, atau feature flag yang diubah.
 
+Pada sesi ini, konektor Supabase penuh hanya menampilkan project `vqemuyzveuirlkvdggjd`, bukan target staging `ptsasgdvgrbdtgyqieie`; query ke ref target melalui konektor penuh gagal validasi project (`INVALID_ARGUMENT`). Konektor staging khusus masih dapat membaca katalog dan ledger, tetapi tidak menyediakan jalur tulis. Tim backend perlu menghubungkan akses yang benar ke staging atau menjalankan rehearsal dari runner mereka setelah mendapat kewenangan. Tidak ada kredensial yang dimasukkan ke repo, dan tidak ada perubahan database yang dilakukan.
+
 ## Kriteria penerimaan logic dan relasi
 
 1. **Tenant terikat di database:** semua tabel operasional ber-`tenant_id NOT NULL` kecuali katalog global yang didokumentasikan; relasi antartabel memakai kunci komposit tenant agar child tidak dapat menunjuk parent tenant lain.
