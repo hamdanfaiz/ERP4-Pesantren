@@ -5,6 +5,7 @@ import {
   canonicalizeMigrationStatements,
   canonicalizeSqlStatement,
   databaseUrlFromSupabaseStatus,
+  databaseUrlFromEnvironment,
   formatReport,
   listLocalMigrations,
   parseAppliedMigrationsOutput,
@@ -12,6 +13,16 @@ import {
   READ_ONLY_LEDGER_QUERY,
   splitSqlStatements,
 } from './preflight-supabase-migrations.mjs';
+
+assert.equal(databaseUrlFromEnvironment({
+  SUPABASE_DB_URL: 'postgresql://direct.example.invalid/postgres',
+  SUPABASE_DB_POOLER_URL: 'postgresql://pooler.example.invalid/postgres',
+}), 'postgresql://pooler.example.invalid/postgres');
+assert.equal(
+  databaseUrlFromEnvironment({ SUPABASE_DB_URL: 'postgresql://direct.example.invalid/postgres' }),
+  'postgresql://direct.example.invalid/postgres'
+);
+assert.equal(databaseUrlFromEnvironment({}), '');
 
 const local = listLocalMigrations([
   '20270102000000_guardians.sql',
