@@ -17,7 +17,7 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 ## Status teknis berdasarkan bukti
 
 - Kode aktif PR #13 mengarahkan modul operasional ke API Supabase. Firebase Admin dinonaktifkan pada semua environment; paket Firebase tidak masuk ke dependensi production. Impor arsip Firestore dinonaktifkan lewat kebijakan global, dan data contoh akan dibuat manual.
-- CI [run 40499494800](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40499494800) lulus pada dua job: typecheck/build/container serta Supabase lokal, pgTAP, API auth/tenant, transaksi serentak, Storage, dan backup/restore sintetis. Bukti ini berasal dari CI lokal, bukan UAT pelanggan.
+- CI [run 40509563661](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40509563661) lulus pada dua job untuk head `8a727916ac14c3f0d524b26ba6c657ea08b0a533`: typecheck/build/container serta Supabase lokal, upgrade rehearsal, pgTAP, API auth/tenant, transaksi serentak, Storage, dan backup/restore sintetis. Suite onboarding PPDB juga memeriksa relasi santri/wali/NIS dan retry. Bukti ini berasal dari CI lokal, bukan UAT pelanggan.
 - Source PR #13 memiliki 96 migration. Staging mencatat 47 versi hingga `20261206000000`, sehingga 49 versi belum tercatat. Pemeriksaan staging yang tersedia bersifat baca-saja; tidak ada migration yang diterapkan.
 - Katalog staging menunjukkan 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antartabel tenant memasangkan `tenant_id`; tabel `anon` tanpa SELECT dan `authenticated` tanpa hak tulis langsung.
 - Runtime feature flags sengaja mati secara default sampai migration, provisioning tenant, Auth, role/permission, dan UAT masing-masing modul lulus.

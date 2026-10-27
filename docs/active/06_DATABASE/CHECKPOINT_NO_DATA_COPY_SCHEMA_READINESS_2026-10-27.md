@@ -72,6 +72,15 @@ Hasil ini adalah inventaris kode statis, bukan pengujian penetrasi atau bukti ba
 
 **Kesimpulan:** lanjutkan cutover dengan membuktikan logic dan relasi Supabase memakai schema dan fixture sintetis. Tidak ada pekerjaan penyalinan Firestore yang diperlukan.
 
+## Pembaruan checkpoint — 27 Oktober 2026
+
+- Pemilik produk menegaskan data Firestore adalah dummy dan akan membuat data contoh manual. Tidak ada hitungan atau kesamaan jumlah Firestore→Supabase yang menjadi release gate.
+- Commit terbaru PR #13: `8a727916ac14c3f0d524b26ba6c657ea08b0a533`. GitHub Actions [run 40509563661](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40509563661) lulus pada dua job: frontend/typecheck/build/container dan database/API.
+- Suite database memakai Supabase lokal dengan fixture sintetis sementara; menguji rehearsal migration, pgTAP, NIS/Tahfidz serentak, auth/tenant, Storage, dan backup/restore. Uji onboarding mencakup keterkaitan kandidat→santri/wali→jembatan wali-santri→reservasi NIS→klaim identitas, perubahan okupansi kamar, serta retry tanpa duplikasi.
+- UI ringkasan, Keuangan, Akademik, Alumni, CBT, Asrama, dan Laundry kini memakai pesan kosong/cakupan yang sesuai tenant Supabase; pengguna tidak diarahkan ke tab impor yang dinonaktifkan.
+- Ledger staging tetap terbaca 47 versi sampai `20261206000000` dari 96 migration source; 49 versi belum tercatat dan metadata dua versi terakhir kosong. Konektor yang tersedia masih baca-saja untuk target tersebut. Tidak ada schema, migration, flag, atau record staging yang diubah.
+- PR #13 tetap **Open / Draft**. Estimasi belum berubah: **73% kematangan fitur / 46% kesiapan go-live**. CI lokal membuktikan kontrak source dengan fixture, bukan UAT atau penerapan pada staging.
+
 
 ## Checkpoint tanpa salin data: tutup akses impor arsip pada UI — 27 Oktober 2026
 
