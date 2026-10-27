@@ -30,7 +30,7 @@ Pemeriksaan baca-saja pada database Firestore kanonis menemukan **18 koleksi tin
 
 Di antara 561 dokumen root, hanya **1 dokumen** (di koleksi users) yang memiliki tenantId atau tenant_id; **560 dokumen tidak memilikinya**. Pemeriksaan menemukan satu nilai tenant unik dari field yang tersedia, tanpa mencatat nilainya. Tidak ditemukan field tenant malformed atau alias yang bertentangan.
 
-Temuan ini tidak membuktikan bahwa seluruh record milik tenant tersebut. Dokumen tenants, kepemilikan record tenantless, dan relasi siswa–wali–kelas–kamar perlu dipetakan secara eksplisit saat pratinjau impor. Jangan menambahkan tenant secara massal hanya berdasarkan keberadaan satu tenant/user. Pemetaan dan keputusan apply harus tercatat per domain serta dapat direkonsiliasi dengan jumlah sumber.
+Temuan ini tidak membuktikan bahwa seluruh record milik tenant tersebut. Dokumen tenants, kepemilikan record tenantless, dan relasi siswa–wali–kelas–kamar perlu dipetakan secara eksplisit saat pratinjau impor. Jangan menambahkan tenant secara massal hanya berdasarkan keberadaan satu tenant/user. Pemetaan dan keputusan apply harus tercatat per domain serta dapat direkonsiliasi dengan jumlah sumber. Pemeriksaan baca-saja pada Supabase staging menemukan satu tenant aktif dengan nama Pesantren Digital dan slug pesantren-digital. Ini mengonfirmasi tujuan yang disiapkan, tetapi belum membuktikan bahwa document ID/legacy key di Firestore cocok dengan legacy_tenant_key target; pencocokan itu masih wajib.
 
 Audit ini hanya mencakup koleksi root dan alias field tersebut. Tidak ada isi PII, nilai bisnis, atau objek Firebase Storage yang dibaca. Snapshot inventaris terdahulu mencatat nol subkoleksi; keberadaan subkoleksi tidak dihitung ulang dalam pemeriksaan 27 Oktober.
 
@@ -41,7 +41,7 @@ Kode server mengharuskan kedua nilai berupa **kunci acak independen, masing-masi
 - PII_ENCRYPTION_KEY: kunci AES-256-GCM untuk NIK/NISN terenkripsi.
 - PII_FINGERPRINT_KEY: kunci HMAC untuk pencocokan duplikasi dan klaim identitas.
 
-Pemeriksaan baca-saja pada Supabase staging ptsasgdvgrbdtgyqieie menemukan masing-masing **50 baris** pada candidates, guardians, dan students yang memiliki ciphertext identitas. Karena nilai kunci lokal di .env masih kosong, **jangan membuat/memasang kunci acak baru ke lingkungan yang membaca baris-baris tersebut**: ciphertext lama tidak dapat didekripsi dengan kunci lain, dan fingerprint lama tidak akan cocok dengan fingerprint baru.
+Pemeriksaan baca-saja pada Supabase staging ptsasgdvgrbdtgyqieie menemukan masing-masing **50 baris** pada candidates, guardians, dan students yang memiliki ciphertext identitas. Hitungan agregat per kolom menunjukkan semua 50 baris di tiap tabel memiliki seluruh ciphertext dan fingerprint yang relevan: NIK/NISN untuk candidates dan students, serta NIK untuk guardians. Karena nilai kunci lokal di .env masih kosong, **jangan membuat/memasang kunci acak baru ke lingkungan yang membaca baris-baris tersebut**: ciphertext lama tidak dapat didekripsi dengan kunci lain, dan fingerprint lama tidak akan cocok dengan fingerprint baru.
 
 Sebelum mengisi .env, tim backend harus memilih salah satu jalur:
 
