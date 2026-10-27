@@ -177,3 +177,25 @@ Pemeriksaan katalog read-only atas efek utama file lokal menemukan:
 Ini merupakan bukti postcondition yang lebih kuat daripada kecocokan versi saja, tetapi belum membuktikan bahwa setiap statement/efek historis identik dengan file lokal: dua row tidak menyimpan SQL statement untuk fingerprint, dan pemeriksaan katalog ini bukan perbandingan definisi semua objek atau audit saat migrasi dahulu dijalankan. Karena itu status lineage tetap **belum direkonsiliasi** dan preflight tetap wajib menolak kedua row bernama `NULL`.
 
 **Langkah backend berikutnya:** DBA membandingkan definisi lengkap objek staging dengan hasil replay migration lokal pada database terisolasi, menyimpan bukti diff dan backup yang dapat dipulihkan, lalu menentukan mekanisme koreksi riwayat yang didukung. Jangan menambah, menghapus, atau memperbarui row ledger berdasarkan hasil postcondition parsial ini. Tidak ada perubahan staging/Production dalam pemeriksaan ini.
+
+
+### Kelayakan data untuk rehearsal migration tertunda — 27 Oktober 2026
+
+Pemeriksaan hanya-baca atas kondisi data saat ini menunjukkan bahwa staging masih terlalu kosong untuk menjadi bukti kompatibilitas pada skala besar:
+
+| Pemeriksaan kondisi awal | Hasil staging | Arti untuk rehearsal |
+|---|---:|---|
+| `library_books` | 0 baris; 0 ISBN aktif nonkosong; 0 kelompok ISBN kanonis duplikat | Tidak menguji risiko pembangunan ulang indeks unik pada katalog berisi. Migration `20261207000000` menjatuhkan indeks ISBN lama lalu membuat indeks unik dengan ISBN dinormalisasi; perlu uji konflik dan durasi pada salinan berisi. |
+| `tahfidz_sessions` | 0 ujian selesai; 0 pelanggaran constraint | Migration `20261216000000` menambahkan lalu memvalidasi constraint hasil ujian. Ketiadaan data melanggar di staging tidak membuktikan kebersihan data historis pada tenant berisi. |
+| `finance_bills` | 0 baris; 0 tagihan kandidat; 0 grup kandidat/pembayaran duplikat | Tidak menguji pengaitan tagihan PPDB atau indeks unik tipe pembayaran pada migration `20270110000000`. |
+| `cooperative_wallet_ledger` | 0 baris; 0 tipe tidak dikenal; 0 pelanggaran tanda nominal/jenis | Tidak menguji penggantian constraint dan indeks sequence pada `20261230000000`. |
+| Penempatan santri | 50 santri; 0 mempunyai `room_id` atau `building_id`; 0 referensi kamar/gedung tak cocok | Pemanggilan backfill di `20270109000000` akan menghasilkan 0 snapshot baseline pada data saat ini. Uji migrasi pada salinan representatif perlu menghitung jumlah snapshot, integritas label, dan waktu/lock. |
+
+#### Risiko operasional yang harus masuk rehearsal
+
+- Migration `20270109000000_boarding_room_history_baseline.sql` menjalankan fungsi backfill langsung di dalam migration. Efek yang dimaksud adalah satu snapshot kondisi cutover per santri yang sudah memiliki penempatan, bukan rekonstruksi perpindahan historis. Pada lingkungan berisi, ukur jumlah baris yang ditambahkan dan durasinya sebelum Production.
+- Migration `20270119000000_master_data_student_search_indexes.sql` secara eksplisit membangun indeks trigram dan mengganti indeks roster lama. Jadwalkan pada jendela tulis rendah; uji waktu, penggunaan disk, dan dampak lock di salinan dengan volume mendekati tenant terbesar.
+- Migration katalog buku `20261207000000` menormalkan ISBN aktif sebelum indeks unik dibuat. Pastikan konflik duplikat ISBN kanonis dibersihkan melalui rencana data yang disetujui, bukan dengan menghapus record otomatis.
+- Importer legacy yang didefinisikan sebagai fungsi database tidak semuanya berjalan otomatis saat migration. Untuk setiap impor, lakukan preview, rekonsiliasi jumlah/fingerprint, uji replay idempotent, dan validasi actor/tenant pada staging berisi sebelum mengaktifkan endpoint.
+
+Hasil di atas adalah hitungan agregat tanpa nilai record. Tidak ada data atau migration yang ditulis. CI menguji skema dan data sintetis terisolasi; staging saat ini belum dapat membuktikan behavior pada volume atau variasi data pesantren besar. Rehearsal skala dan rekonsiliasi payload tetap menjadi gate go-live.
