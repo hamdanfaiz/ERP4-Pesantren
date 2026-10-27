@@ -225,3 +225,18 @@ Untuk `20261206000000_ppdb_legacy_candidate_import`, katalog menunjukkan kolom m
 Agregat yang dibaca tanpa menampilkan record: terdapat 50 kandidat bertanda `legacy_firestore`, metadata kandidat invalid 0; satu batch mencatat source 50, imported 50, skipped 0 dan jumlahnya cocok dengan kandidat legacy. Tidak ada data atau isi identitas yang dicantumkan.
 
 **Batas kesimpulan:** postcondition live yang diperiksa konsisten dengan kedua migration, termasuk body fungsi PPDB yang sama. Ini belum membuktikan kapan atau melalui jalur apa objek dibuat, bahwa tidak ada efek historis lain di luar daftar yang diperiksa, atau bahwa kedua row ledger memiliki lineage SQL yang benar. Karena itu preflight tetap berhenti dan status metadata tetap harus diselesaikan DBA setelah backup serta rehearsal/replay pada clone disposable. Jangan memperbarui ledger manual atau menerapkan ulang DDL ke staging berdasarkan bukti parsial ini. Semua query pada pemeriksaan ini memakai transaksi `READ ONLY`.
+
+### Batasan pemulihan metadata dengan Supabase CLI — 27 Oktober 2026
+
+Dokumentasi resmi [Supabase CLI `migration repair`](https://supabase.com/docs/reference/cli/supabase-migration-repair) menjelaskan bahwa status `applied` **menambahkan** record riwayat, sedangkan `reverted` **menghapus** record yang ada. Dokumentasi [Database Migrations](https://supabase.com/docs/guides/deployment/database-migrations) juga menegaskan bahwa repair hanya mengubah tracking table, bukan menjalankan atau membatalkan SQL.
+
+Dua versi pada staging sudah memiliki row berdasarkan `version`; masalahnya kolom `name` dan `statements` kosong. Karena dokumentasi CLI tidak menjanjikan pembaruan metadata pada row yang sudah ada, jangan jalankan `migration repair --status applied` atau `--status reverted` pada staging/Production untuk mencoba mengisi kolom tersebut. Operasi itu dapat berbenturan dengan versi yang sudah ada atau menghapus record history dan belum tentu menghasilkan metadata yang dibutuhkan preflight.
+
+#### Eksperimen yang aman untuk tim backend/DBA
+
+1. Gunakan klon disposable yang berasal dari backup terverifikasi; catat versi Supabase CLI yang dipatok dan output `supabase migration repair --help`.
+2. Reproduksi satu kasus row dengan metadata kosong hanya pada klon, lalu amati persis kolom `version`, `name`, dan `statements` setelah setiap operasi repair. Jangan meneruskan eksperimen ke staging jika operasi menimbulkan konflik, menghapus versi, atau tetap menghasilkan metadata kosong.
+3. Bandingkan seluruh objek/ACL/RLS dan fungsi terhadap replay source pada klon. Jika repair CLI tidak dapat memperbaiki bentuk row ini, minta DBA memilih mekanisme rekonsiliasi yang didukung dan terdokumentasi; jangan menjalankan `UPDATE` manual atau mengarang statement SQL untuk ledger.
+4. Setelah metode disetujui dan diuji pada klon yang dapat dipulihkan, verifikasi ulang ledger baca-saja serta jalankan preflight. Hanya setelah preflight dan rehearsal upgrade seluruh 44 migration pending lulus, tim dapat menilai langkah berikutnya.
+
+PR #13 tetap Draft. Semua pemeriksaan di sini hanya baca; tidak ada perubahan pada staging atau Production.
