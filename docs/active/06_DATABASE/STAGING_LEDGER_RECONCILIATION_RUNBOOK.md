@@ -20,6 +20,12 @@ Runbook ini menyelesaikan ketidakcocokan migration ledger sebelum migration baru
 - Rekonsiliasi katalog untuk migration tersebut cocok dengan source: `20261205` meninggalkan default privilege tabel/sekuens/fungsi hanya pada pemilik dan mencabut EXECUTE empat helper dari PUBLIC/anon/authenticated/service_role; trigger yang memakai helper tetap terpasang. Untuk `20261206`, kolom, check tervalidasi, indeks unik valid, struktur batch, dua FK tenant, RLS+FORCE RLS, tanpa policy, akses tabel hanya untuk `service_role`, grant RPC, `SECURITY INVOKER`, `search_path`, komentar, serta body RPC 5.165 karakter cocok; body fungsi staging sama persis dengan source. Ini membuktikan keadaan katalog yang diperiksa saat ini, bukan histori urutan/pernyataan SQL yang tidak tersimpan di ledger.
 - Koneksi MCP staging saat audit memiliki `transaction_read_only=on` dan role `supabase_read_only_user`. Konektor Supabase berhak tulis hanya mencantumkan project `vqemuyzveuirlkvdggjd`; permintaan baca project target `ptsasgdvgrbdtgyqieie` ditolak.
 
+## Koreksi foreign key tenant LMS — 27 Oktober 2026
+
+CI pada head sebelum perbaikan mendeteksi dua foreign key pada ledger LMS yang hanya mereferensikan ID catatan/komentar, sehingga pasangan tenant tidak ditegakkan. Migration `20270122000000_lms_learning_record_tenant_fk.sql` kini memeriksa relasi silang-tenant sebelum perubahan, menghentikan proses bila ada ketidakcocokan, lalu memasang foreign key komposit `(tenant_id, note_id/comment_id)` dan indeks pendukung. Dua pemeriksaan pgTAP memastikan kolom tenant berpasangan pada kedua sisi relasi. Tidak ada record Firestore yang disalin.
+
+Commit kode `9cfe2733a79a823db58103c9465e327e38bf3ea1` lulus pada [GitHub Actions run #40472342967](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40472342967), kedua job sukses. Rehearsal dilakukan pada Supabase lokal dengan fixture sintetis; run ini tidak menulis ke staging. Migration baru masih pending untuk staging karena ledger target berakhir pada `20261206000000`.
+
 ## Tindakan yang diperlukan tim backend
 
 1. Pastikan target adalah project staging `ptsasgdvgrbdtgyqieie`. Siapkan backup yang bisa dipulihkan sebelum mengubah schema atau migration history. Jangan menjalankan `db reset --linked`, menghapus tenant, menghapus tabel, atau menimpa data.
