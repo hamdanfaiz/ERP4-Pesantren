@@ -11,6 +11,12 @@ This package runs the ERP web application and API in a hardened container. It co
 - Document attachments are PDF-only and limited to 25 MiB; OCR and digital-signature workflows are not included in this runtime slice.
 - A TLS reverse proxy and a DNS name for production access. Keep port 3000 private to that proxy or the trusted network.
 
+### Kepercayaan reverse proxy
+
+Server tidak mempercayai header IP terusan dari klien secara bawaan pada instalasi mandiri. Docker Compose memakai `TRUST_PROXY_HOPS=0`; biarkan 0 jika koneksi mencapai aplikasi langsung. Jika satu reverse proxy yang dikelola operator (misalnya Nginx) meneruskan koneksi, set nilai `1`; gunakan jumlah yang tepat untuk rantai proxy yang benar-benar dipercaya. Jangan memakai nilai `true` atau mempercayai proxy yang tidak dikelola operator.
+
+Pada Cloud Run, aplikasi memakai satu hop secara otomatis saat `TRUST_PROXY_HOPS` tidak diisi dan `K_SERVICE` tersedia. Operator dapat mengatur `TRUST_PROXY_HOPS` secara eksplisit bila topologi mereka berbeda. Nilai harus berupa bilangan bulat 0–10; nilai invalid menghentikan startup agar pembatasan IP tidak diam-diam memakai konfigurasi yang keliru.
+
 ## Configure
 
 Create an ignored `.env` file in the repository root (it is excluded from the Docker build context) with these values:

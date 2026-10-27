@@ -40,6 +40,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
       SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL to the Supabase API URL reachable from this container}
       SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:?Set SUPABASE_SECRET_KEY in the host environment or ignored .env file}
       APP_URL: ${APP_URL:-}

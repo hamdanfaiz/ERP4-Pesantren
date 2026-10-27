@@ -37,6 +37,11 @@ const serverFlags = [...new Set(collectMatches(serverSource, /process\.env\.(SUP
 const compose = read("docker-compose.yml");
 const dockerfile = read("Dockerfile");
 const envExample = read(".env.example");
+assert.match(
+  read("docker-compose.yml"),
+  /^      TRUST_PROXY_HOPS: \$\{TRUST_PROXY_HOPS:-0\}$/m,
+  "Docker Compose must default to trusting no forwarded proxies",
+);
 const buildBlock = compose.match(/^    build:\r?\n([\s\S]*?)^    image:/m)?.[1];
 const environmentBlock = compose.match(/^    environment:\r?\n([\s\S]*?)^    ports:/m)?.[1];
 assert.ok(buildBlock, "docker-compose.yml must define the application build block");

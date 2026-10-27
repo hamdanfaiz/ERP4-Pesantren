@@ -72,6 +72,9 @@ jobs:
       - name: Verify customer deployment feature flag wiring
         run: npm run test:customer-deployment-flags
 
+      - name: Verify trusted reverse proxy hop configuration
+        run: npm run test:trusted-proxy-hops
+
       - name: Verify legacy Firestore tenant scoping
         run: npm run test:legacy-firestore-tenant-scope
 

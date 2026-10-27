@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import type { App } from "firebase-admin/app";
 import type { Firestore } from "firebase-admin/firestore";
 import { createHash, randomUUID } from "node:crypto";
+import { resolveTrustedProxyHops } from "./src/server/trustedProxyHops";
 import { Buffer } from "node:buffer";
 import {
   IdentityConflictError,
@@ -596,8 +597,9 @@ async function startServer() {
     ? configuredPort
     : 3000;
 
-  // Cloud Run terminates TLS at one trusted proxy hop.
-  app.set("trust proxy", 1);
+  // Never trust client-supplied forwarding headers by default. Cloud Run is detected
+  // through its platform environment; self-managed operators can set the exact trusted hop count.
+  app.set("trust proxy", resolveTrustedProxyHops(process.env));
   app.use((_req, res, next) => {
     res.setHeader("Referrer-Policy", "no-referrer");
     next();
