@@ -29,6 +29,12 @@ Bukti ini adalah snapshot katalog staging, bukan uji runtime lengkap, bukan audi
 
 Pada sesi ini, konektor Supabase penuh hanya menampilkan project `vqemuyzveuirlkvdggjd`, bukan target staging `ptsasgdvgrbdtgyqieie`; query ke ref target melalui konektor penuh gagal validasi project (`INVALID_ARGUMENT`). Konektor staging khusus masih dapat membaca katalog dan ledger, tetapi tidak menyediakan jalur tulis. Tim backend perlu menghubungkan akses yang benar ke staging atau menjalankan rehearsal dari runner mereka setelah mendapat kewenangan. Tidak ada kredensial yang dimasukkan ke repo, dan tidak ada perubahan database yang dilakukan.
 
+## Pemeriksaan batas API pada source terbaru
+
+Pemeriksaan statis pada `server.ts` head kode `44d8e317873ee0da2fd25c338807d59d69915388` menemukan 181 deklarasi route: 167 menyertakan middleware `requireAuth`. Route tanpa middleware autentikasi adalah dua health check; tiga endpoint AI/OCR yang langsung menolak dengan `503`; dua endpoint PPDB publik yang dikunci oleh flag server dan memakai rate-limit; enam endpoint referensi wilayah/Al-Qur'an; dan fallback SPA. Tidak ditemukan route bisnis tenant lain tanpa autentikasi pada scan tersebut.
+
+Hasil ini adalah inventaris kode statis, bukan pengujian penetrasi atau bukti bahwa setiap middleware/handler benar di runtime. Uji API auth/tenant pada CI tetap diperlukan dan sudah lulus pada run terakhir untuk head kode tersebut. Endpoint AI/OCR saat ini memang belum tersedia; sebelum dipakai, implementasikan autentikasi, tenant scope, batas penggunaan, dan uji, atau pertahankan dalam keadaan fail-closed.
+
 ## Kriteria penerimaan logic dan relasi
 
 1. **Tenant terikat di database:** semua tabel operasional ber-`tenant_id NOT NULL` kecuali katalog global yang didokumentasikan; relasi antartabel memakai kunci komposit tenant agar child tidak dapat menunjuk parent tenant lain.
