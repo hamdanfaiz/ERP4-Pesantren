@@ -57,7 +57,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 91);
+assert.equal(sourceMigrationsWithSql.length, 92);
 assert(sourceMigrationsWithSql.every(({ statements }) => Array.isArray(statements) && statements.length > 0));
 
 const sqlLocal = listLocalMigrations(
@@ -117,13 +117,13 @@ const observedStagingMigrations = sourceMigrationsWithSql
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
 assert.equal(observedStagingMigrations.length, 47);
-assert.equal(sourceMigrationsWithSql.length, 91);
+assert.equal(sourceMigrationsWithSql.length, 92);
 const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
 assert.equal(stagingBaseline.appliedCount, 47);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(stagingBaseline.pending.length, 44);
+assert.equal(stagingBaseline.pending.length, 45);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
-assert.equal(stagingBaseline.pending.at(-1).version, '20270119000000');
+assert.equal(stagingBaseline.pending.at(-1).version, '20270120000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
 assert.equal(stagingBaseline.unknownApplied.length, 0);
 assert.deepEqual(stagingBaseline.nameMismatches.map(({ version }) => version), [...missingStagingMetadataVersions]);
