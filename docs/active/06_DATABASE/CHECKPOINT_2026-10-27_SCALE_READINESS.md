@@ -6,7 +6,7 @@
 - PR #13: [Supabase-only runtime cutover and customer-managed baseline](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13)
 - Branch: `codex/supabase-runtime-cutover-20261022`
 - Head dokumen awal sebelum pembaruan uji skala: `7d6c09e814b54ed8c10918abfaacc3dba1c2f8e3`
-- Head PR terbaru yang diverifikasi: `592cf43dbbc3e3c79ff64714581fe942bc5facc0`
+- Head source terakhir yang diverifikasi: `592cf43dbbc3e3c79ff64714581fe942bc5facc0`; PR head saat pembacaan staging: `2d0ae92b72b54ed9fb191c30bbde93d5b4d16053`
 - Status tetap **Open/Draft**, belum merge.
 - Estimasi proyek tetap **73% kematangan fitur / 46% kesiapan go-live**. Angka ini estimasi, bukan hasil metrik otomatis.
 
@@ -35,6 +35,13 @@ Commit `7d6c09e` memperbaiki fixture preflight agar merepresentasikan baseline s
 - Preflight harus berhenti: `canContinueToStagingReview = false`.
 
 Fixture ini sepenuhnya sintetis dan tidak terhubung ke database remote. Pembandingan sebelumnya menemukan 45/45 array statement yang tersedia cocok dengan source setelah normalisasi aman. Postcondition dua versi kosong konsisten dengan objek utama yang diperiksa, tetapi tidak membuktikan seluruh efek historis; jangan mengubah ledger, menjalankan repair, atau menerapkan migration remote untuk melewati gate ini.
+
+## Kondisi Supabase staging — baca-saja, 27 Oktober 2026
+
+- Ledger memuat 47 migration sampai `20261206000000`; `20261205000000` dan `20261206000000` tidak memiliki `name` maupun `statements`. Dibanding 92 migration source, 45 migration masih belum tercatat. Tidak ada migration/data yang diterapkan.
+- Katalog schema `public` menampilkan 119 tabel; 119/119 RLS aktif dan FORCE. Tidak ada grant SELECT/INSERT/UPDATE/DELETE untuk `anon`; tidak ada grant tulis langsung untuk `authenticated`. Lima tabel memberikan SELECT ke `authenticated` dan masing-masing memiliki satu policy: `candidate_documents`, `candidates`, `profiles`, `tenants`, `user_profiles`. Sebanyak 114 tabel tidak memiliki policy dan tetap tidak memberikan SELECT ke `authenticated`; ini sesuai pola akses server-mediated yang harus tetap diverifikasi bersama API. Ringkasan grant/RLS tidak membuktikan sendiri isi setiap policy, konfigurasi Data API, atau perilaku token.
+- Tabel komunikasi ada dan RLS aktif. RPC `import_communication_announcements` ada, tetapi RPC `communication_announcement_recipient_user_ids(uuid,text)` belum ada di staging. Migration source `20270105000000_communication_guardian_audience.sql` dan perbaikan `20270120000000_communication_import_canonical_audience.sql` termasuk migration pending. Jangan aktifkan fitur komunikasi Supabase atau menerapkan migration sebelum rekonsiliasi ledger dan rehearsal backup selesai.
+- Semua pemeriksaan di atas SELECT/katalog baca-saja melalui connector staging. Tidak ada DDL, perubahan data, atau pengubahan policy.
 
 ## Kapasitas pesantren besar — pekerjaan backend yang masih terbuka
 
