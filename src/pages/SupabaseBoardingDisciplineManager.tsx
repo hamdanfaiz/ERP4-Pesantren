@@ -120,7 +120,7 @@ export function SupabaseBoardingDisciplineManager() {
 
     {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
-    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><span className="font-semibold">Tahap migrasi:</span> pelanggaran dan penyelesaian sudah memiliki jalur Supabase. Kehadiran, staf, audit operasional, dan tiket fasilitas belum dipotong dari Firestore.</div>
+    <div role="note" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"><span className="font-semibold">Cakupan layar:</span> Pencatatan pelanggaran dan penyelesaiannya tersimpan di Supabase. Kehadiran, penugasan staf, audit asrama, dan tiket fasilitas dikelola melalui layar masing-masing.</div>
 
     {canImport && <section className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-indigo-950">Impor histori kedisiplinan dari Firebase</h2><p className="mt-1 text-sm text-indigo-800">Pratinjau harus bersih sebelum diterapkan. Identitas ambigu dan foto lokal/non-HTTPS perlu direkonsiliasi lebih dulu.</p></div>

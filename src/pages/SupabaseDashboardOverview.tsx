@@ -98,7 +98,7 @@ export function SupabaseDashboardOverview() {
       </div>
     </header>
 
-    <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">Ringkasan ini hanya menghitung data yang sudah berada di Supabase. Data Firebase lama belum dihitung sampai proses impor dan rekonsiliasinya selesai.</div>
+    <div role="note" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Ringkasan dihitung dari catatan Supabase pada tenant ini. Tenant baru dimulai tanpa data contoh; tambahkan data melalui modul terkait untuk mengisi indikator.</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Indikator utama">

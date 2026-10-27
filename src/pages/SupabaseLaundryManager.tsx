@@ -136,7 +136,7 @@ export function SupabaseLaundryManager() {
       <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading || busy} className={outlineClass}><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
 
-    <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Catatan migrasi:</strong> pesanan lama yang ditampilkan pada layar sebelumnya adalah data contoh dan tidak diimpor. Kelebihan kuota hanya menjadi estimasi berdasarkan pesanan bulan ini; belum membuat tagihan atau jurnal Finance.</div>
+    <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"><strong>Catatan operasional:</strong> pesanan laundry baru dicatat di Supabase. Kelebihan kuota dihitung sebagai estimasi berdasarkan pesanan bulan ini; sistem belum membuat tagihan atau jurnal Keuangan otomatis.</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
