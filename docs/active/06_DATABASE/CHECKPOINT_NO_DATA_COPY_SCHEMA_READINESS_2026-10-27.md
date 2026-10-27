@@ -23,7 +23,7 @@ Yang harus dibuktikan adalah skema, relasi tenant, izin, dan logic transaksi di 
 
 ## Bukti baca-saja schema dan akses staging — 27 Oktober 2026
 
-Audit katalog staging menunjukkan 119 tabel pada schema `public`; seluruh 119 mengaktifkan RLS dan FORCE RLS. Sebanyak 118 tabel memiliki `tenant_id NOT NULL`; satu pengecualian adalah tabel root `tenants`. Dari 335 foreign key di `public`, 243 relasi antartabel ber-tenant memasangkan `tenant_id` pada kedua sisi; query tidak menemukan FK tenant-ke-tenant yang melewatkan pasangan tenant.
+Audit katalog staging menunjukkan 119 tabel pada schema `public`; seluruh 119 mengaktifkan RLS dan FORCE RLS. Sebanyak 118 tabel memiliki `tenant_id NOT NULL`; satu pengecualian adalah tabel root `tenants`. Dari 337 foreign key di `public`, 243 menghubungkan dua tabel ber-tenant; seluruh 243 memasangkan `tenant_id` pada kedua sisi. Query terbaru tidak menemukan FK tenant-ke-tenant yang melewatkan pasangan tenant.
 
 Privilege efektif yang diperiksa: `anon` tidak punya akses tabel; `authenticated` hanya dapat membaca lima tabel dan tidak memiliki hak tulis. Ada 114 tabel tanpa policy, tetapi tidak diberikan akses langsung kepada dua role klien tersebut pada baseline yang diperiksa. Backend memakai `service_role` yang berprivilege tinggi; route server tetap wajib memverifikasi token, profil aktif, tenant, role, dan permission. Empat RPC onboarding/HRIS yang ditinjau hanya dapat dieksekusi `service_role`, bukan `anon` atau `authenticated`.
 
@@ -68,7 +68,7 @@ Hasil ini adalah inventaris kode statis, bukan pengujian penetrasi atau bukti ba
 - [GitHub Actions run 40480854534](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40480854534)
 - Laporan hitungan dan preview lama dipertahankan sebagai arsip teknis; hasilnya bukan target import atau release gate.
 
-**Pembaruan verifikasi baca-saja — 27 Oktober 2026:** pemeriksaan ulang mempertahankan hasil 119/119 tabel dengan RLS + FORCE, 118/118 tabel ber-tenant dengan `tenant_id NOT NULL`, dan 243/243 FK tenant-ke-tenant memasangkan `tenant_id`. Jumlah seluruh FK publik pada hasil query terbaru adalah 335. Tidak ada perubahan schema, row, policy, grant, atau feature flag yang dilakukan.
+**Pembaruan verifikasi baca-saja — 27 Oktober 2026:** pemeriksaan ulang mempertahankan hasil 119/119 tabel dengan RLS + FORCE, 118/118 tabel ber-tenant dengan `tenant_id NOT NULL`, dan 243/243 FK tenant-ke-tenant memasangkan `tenant_id`. Jumlah seluruh FK publik pada hasil query terbaru adalah 337. Tidak ada perubahan schema, row, policy, grant, atau feature flag yang dilakukan.
 
 **Kesimpulan:** lanjutkan cutover dengan membuktikan logic dan relasi Supabase memakai schema dan fixture sintetis. Tidak ada pekerjaan penyalinan Firestore yang diperlukan.
 
