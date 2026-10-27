@@ -176,9 +176,19 @@ jobs:
         run: supabase start
 
       - name: Rehearse upgrade from the staging ledger boundary
+        run: supabase db reset --local --version 20261206000000 --no-seed
+
+      - name: Seed synthetic legacy Laundry events before pending migrations
         run: |
-          supabase db reset --local --version 20261206000000 --no-seed
-          supabase migration up --local
+          db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
+          if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\\.0\\.0\\.1:[0-9]+/postgres$ ]]; then
+            echo "Refusing to seed anything except the isolated local Supabase database." >&2
+            exit 1
+          fi
+          psql "$db_url" --set ON_ERROR_STOP=1 --file scripts/fixtures/laundry-mutation-backfill.sql
+
+      - name: Apply pending migrations after synthetic legacy data
+        run: supabase migration up --local
 
       - name: Verify local migration ledger against repository (read-only)
         run: npm run preflight:db-migrations:local
