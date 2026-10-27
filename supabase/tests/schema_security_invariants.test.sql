@@ -6,7 +6,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(7);
+SELECT plan(8);
 
 WITH app_tables AS (
   SELECT c.oid, c.relname, c.relrowsecurity, c.relforcerowsecurity
@@ -195,6 +195,50 @@ SELECT is(
   ),
   0,
   'application policies cannot allow unconditional row access'
+);
+
+WITH tenant_tables AS (
+  SELECT c.oid, a.attnum AS tenant_attnum
+  FROM pg_class AS c
+  JOIN pg_namespace AS n ON n.oid = c.relnamespace
+  JOIN pg_attribute AS a ON a.attrelid = c.oid
+  WHERE n.nspname = 'public'
+    AND c.relkind IN ('r', 'p')
+    AND a.attname = 'tenant_id'
+    AND a.attnum > 0
+    AND NOT a.attisdropped
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_depend AS d
+      WHERE d.classid = 'pg_class'::regclass
+        AND d.objid = c.oid
+        AND d.deptype = 'e'
+    )
+),
+tenant_foreign_keys AS (
+  SELECT f.conrelid, f.confrelid, f.conkey, f.confkey
+  FROM pg_constraint AS f
+  JOIN tenant_tables AS child ON child.oid = f.conrelid
+  JOIN tenant_tables AS parent ON parent.oid = f.confrelid
+  WHERE f.contype = 'f'
+)
+SELECT is(
+  (
+    SELECT count(*)::int
+    FROM tenant_foreign_keys AS f
+    JOIN tenant_tables AS child ON child.oid = f.conrelid
+    JOIN tenant_tables AS parent ON parent.oid = f.confrelid
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM unnest(f.conkey) WITH ORDINALITY AS child_key(attnum, key_position)
+      JOIN unnest(f.confkey) WITH ORDINALITY AS parent_key(attnum, key_position)
+        USING (key_position)
+      WHERE child_key.attnum = child.tenant_attnum
+        AND parent_key.attnum = parent.tenant_attnum
+    )
+  ),
+  0,
+  'foreign keys between tenant-owned tables pair tenant_id at the same ordinal position'
 );
 
 SELECT * FROM finish();
