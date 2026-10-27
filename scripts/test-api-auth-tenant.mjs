@@ -21,10 +21,15 @@ function localSupabaseEnvironment() {
   const url = values.API_URL || values.SUPABASE_URL;
   const anonKey = values.ANON_KEY || values.SUPABASE_ANON_KEY;
   const serviceKey = values.SERVICE_ROLE_KEY || values.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !anonKey || !serviceKey) {
-    throw new Error('Supabase local status did not expose the local API URL and test keys.');
+  const databaseUrl = values.DB_URL || values.DATABASE_URL;
+  if (!url || !anonKey || !serviceKey || !databaseUrl) {
+    throw new Error('Supabase local status did not expose the local API URL, database URL, and test keys.');
   }
-  return { url, anonKey, serviceKey };
+  const databaseHost = new URL(databaseUrl).hostname.toLowerCase();
+  if (!['127.0.0.1', 'localhost', '::1'].includes(databaseHost)) {
+    throw new Error('Synthetic API fixture cleanup is restricted to the local Supabase database.');
+  }
+  return { url, anonKey, serviceKey, databaseUrl };
 }
 
 async function availablePort() {
@@ -78,7 +83,7 @@ async function signIn(anon, user) {
 }
 
 async function main() {
-  const { url, anonKey, serviceKey } = localSupabaseEnvironment();
+  const { url, anonKey, serviceKey, databaseUrl } = localSupabaseEnvironment();
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const anon = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const fixtureSuffix = randomUUID().slice(0, 12);
@@ -624,20 +629,29 @@ async function main() {
       if (serverProcess.exitCode === null) serverProcess.kill('SIGKILL');
     }
 
-    for (const table of [
-      'marketplace_mutation_requests',
-      'marketplace_order_events',
-      'marketplace_stock_movements',
-      'marketplace_order_items',
-      'marketplace_orders',
-      'marketplace_products',
-      'marketplace_legacy_import_batches',
-    ]) {
-      const { error } = await admin.from(table).delete().in('tenant_id', tenantIds);
-      if (error) {
-        console.error(`Unable to clean synthetic Marketplace rows from ${table}.`);
-        process.exitCode = 1;
-      }
+    // The mutation receipt ledger is intentionally not DELETE-granted to service_role.
+    // Clean only generated UUID tenants through the local Supabase superuser connection.
+    try {
+      const tenantArray = `ARRAY[${tenantIds.map((id) => `'${id}'::uuid`).join(',')}]`;
+      const cleanupSql = [
+        'BEGIN;',
+        `DELETE FROM public.marketplace_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.marketplace_order_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.marketplace_stock_movements WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.marketplace_order_items WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.marketplace_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.marketplace_orders WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.marketplace_products WHERE tenant_id = ANY(${tenantArray});`,
+        'COMMIT;',
+      ].join(' ');
+      execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', cleanupSql], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 1024 * 1024,
+      });
+    } catch {
+      console.error('Unable to clean synthetic Marketplace rows through local Supabase.');
+      process.exitCode = 1;
     }
     for (const user of users) {
       const { error } = await admin.auth.admin.deleteUser(user.uid);
@@ -646,8 +660,14 @@ async function main() {
         process.exitCode = 1;
       }
     }
-    const { error: tenantCleanupError } = await admin.from('tenants').delete().in('id', tenantIds);
-    if (tenantCleanupError) {
+    try {
+      const tenantArray = `ARRAY[${tenantIds.map((id) => `'${id}'::uuid`).join(',')}]`;
+      execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', `DELETE FROM public.tenants WHERE id = ANY(${tenantArray})`], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 1024 * 1024,
+      });
+    } catch {
       console.error('Unable to clean synthetic tenant fixtures.');
       process.exitCode = 1;
     }
