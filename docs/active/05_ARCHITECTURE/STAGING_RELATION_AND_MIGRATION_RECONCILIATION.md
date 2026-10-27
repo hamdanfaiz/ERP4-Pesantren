@@ -10,7 +10,7 @@ Cakupan: pemeriksaan katalog dan agregat baca-saja. Tidak ada record Firestore y
 - Query `pg_catalog` menemukan 337 foreign-key constraints tervalidasi. Sebanyak 243 constraints menghubungkan tabel yang sama-sama memiliki `tenant_id`; seluruh 243 memasangkan kolom `tenant_id`, dan tidak ada pasangan tenant yang hilang.
 - Peran `anon` tidak punya SELECT/INSERT/UPDATE/DELETE langsung pada tabel `public`. `authenticated` hanya punya SELECT pada lima tabel dan tidak memiliki hak tulis langsung. Lima policy SELECT membatasi kandidat/dokumen ke Admin PPDB dalam tenant, profil ke pemilik atau Admin Users tenant, tenant ke tenant aktif, dan jembatan `user_profiles` ke pemilik.
 - Ada 42 fungsi `SECURITY DEFINER` di schema `public`; semuanya menetapkan `search_path`. Tidak ada yang dapat dipanggil `anon`; empat helper konteks akses (`current_app_role`, `current_tenant_id`, `has_module_access`, `is_tenant_admin`) dapat dipanggil `authenticated` dan dipakai oleh policy baca.
-- Dua belas pemeriksaan agregat relasi terhadap record yang sudah ada menghasilkan 0 pelanggaran: relasi wali-santri, dokumen-kandidat, referensi onboarding bila terisi, pemilik reservasi NIS, serta dompet-kartu santri.
+- Enam belas pemeriksaan agregat relasi/identitas terhadap record yang sudah ada menghasilkan 0 pelanggaran: Auth↔profil, profil↔tenant aktif, wali-santri, dokumen-kandidat, referensi onboarding bila terisi, pemilik reservasi NIS, serta dompet-kartu santri.
 - Hasil 0 pelanggaran **bukan bukti seluruh alur teruji**. Sampel staging belum menghubungkan kandidat PPDB dengan santri/wali dan belum memiliki transaksi operasional pada beberapa modul.
 - Migration ledger tidak cocok dengan direktori source. Jangan menjalankan `migration repair` atau `db push` sebelum kondisi schema dan dua entri ledger kosong direkonsiliasi serta backup staging dipastikan.
 
@@ -32,6 +32,7 @@ Query hanya mengembalikan jumlah, status agregat, dan hasil pemeriksaan; tidak m
 
 - Seluruh 50 relasi `guardian_students` menunjuk wali dan santri pada tenant yang sama.
 - Seluruh 50 checklist dokumen menunjuk kandidat pada tenant yang sama.
+- Profil yang ada memiliki pengguna Auth dan tenant; tidak ada profil aktif pada tenant nonaktif maupun jembatan `user_profiles` tanpa pengguna Auth.
 - Tidak ditemukan referensi lintas tenant atau referensi hilang pada `nis_reservations` dan `cooperative_wallets`; hasil tersebut terbatas karena reservasi NIS masih 0.
 - Tidak ditemukan saldo dompet negatif atau lebih dari satu dompet untuk santri yang sama.
 - Terdapat 50 kandidat, termasuk 8 berstatus tahap `Accepted`, tetapi 0 kandidat memiliki `master_student_id`/`master_guardian_id` dan 0 berstatus onboarding selesai. Sebanyak 50 santri dan 50 wali pada staging belum memiliki `source_candidate_id`. Karena itu, data staging saat ini tidak membuktikan transisi PPDB → Master Data.
