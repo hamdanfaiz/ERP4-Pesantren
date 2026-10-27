@@ -253,3 +253,14 @@ Pembacaan ini memperbarui **status ledger, beberapa kontrol katalog, serta keber
 - **Tidak ada migration, data, konfigurasi, atau feature flag staging/Production yang diubah.** Pertahankan staging dan Production tanpa perubahan sampai isu lineage dua row, backup/restore, review semua migration, dan rehearsal pada salinan terpulihkan selesai.
 
 Progress estimasi tetap **73% kematangan fitur / 46% kesiapan go-live**; login/UAT, rekonsiliasi seluruh data, rehearsal skala, rotasi secret, dan validasi environment pelanggan tetap terbuka.
+
+### Revalidasi CI, Firestore, dan Supabase staging — 27 Oktober 2026
+
+- Source PR #13 pada checkpoint ini adalah commit [`0c045bc`](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/0c045bc608942bf2dcde830b741029451fea8225). GitHub Actions [run 40440218410](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40440218410) sukses pada kedua job: build/runtime guard/Docker dan migration/API/pgTAP/Storage/backup-restore lokal.
+- Rehearsal lokal berangkat dari batas ledger staging `20261206000000`, menanam fixture sintetis sebelum migration tertunda, lalu memeriksa dan membersihkannya. Pemeriksaan backfill mencakup Laundry, receipt idempotensi Donasi, pemasok Koperasi, pemetaan akun Wali lama, serta snapshot penempatan kamar. Bukti juga memastikan fingerprint payload historis yang tidak tersedia tetap `NULL`, aktor/tanggal lama dipertahankan, dan snapshot kamar tidak mengarang riwayat.
+- Revalidasi baca-saja mengonfirmasi ledger staging masih memiliki 47 versi hingga `20261206000000`. Katalog menampilkan 119 tabel publik dan seluruhnya melaporkan RLS aktif; pemeriksaan terarah mengonfirmasi RLS + FORCE RLS pada tabel inti yang diperiksa. Empat objek backfill tertunda (`donation_mutation_requests`, `cooperative_supplier_mutation_requests`, `guardian_user_accounts`, dan `student_room_assignment_history`) belum ada di staging.
+- Firestore project memuat sembilan database. Hanya database kanonis yang ditunjuk konfigurasi ERP yang diperiksa; daftar koleksi root tetap 18 koleksi dengan total 561 dokumen. Hitungan agregat yang dibaca ulang mencakup 50 `candidates` dan 453 `master_data`. Nilai dokumen dan kredensial tidak dicantumkan. Database Firestore lain tidak ikut dibaca atau dimigrasikan.
+- Tidak ada migration, record, Storage object, flag, atau konfigurasi remote yang diubah pada Firebase maupun Supabase. Akses Firestore sesi ini hanya untuk inventaris baca-saja; staging Supabase tetap baca-saja.
+
+**Progress checkpoint tetap 73% kematangan fitur / 46% kesiapan go-live.** Persentase tidak dinaikkan karena uji sintetis dan inventaris baca-saja tidak menyelesaikan lineage dua versi ledger tanpa metadata, rekonsiliasi payload seluruh domain, rehearsal pada salinan staging berisi yang dapat dipulihkan, login/UAT, rotasi secret, atau simulasi instalasi pelanggan. PR #13 tetap Draft.
+

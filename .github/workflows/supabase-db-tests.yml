@@ -190,7 +190,7 @@ jobs:
       - name: Apply pending migrations after synthetic legacy data
         run: supabase migration up --local
 
-      - name: Verify and clean synthetic Laundry backfill rows
+      - name: Verify and clean synthetic migration backfill rows
         run: |
           db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
           if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then
