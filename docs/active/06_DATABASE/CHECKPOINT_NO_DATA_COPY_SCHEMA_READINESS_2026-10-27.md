@@ -12,16 +12,16 @@ Yang harus dibuktikan adalah skema, relasi tenant, izin, dan logic transaksi di 
 
 ## Status terverifikasi
 
-- PR #13 masih **Open / Draft**. Head kode yang dipakai CI terakhir: `d5467b52f129bf11b782845819586ff64634011f`.
+- PR #13 masih **Open / Draft**. Head kode terbaru: `44d8e317873ee0da2fd25c338807d59d69915388`.
 - Source head tersebut berisi **95 file migration**, sampai `20270123000000_public_ppdb_idempotency.sql`.
 - Pembacaan staging hanya menampilkan **47 versi ledger**, terakhir `20261206000000`. Sebanyak **48 versi source belum tercatat** pada ledger. Metadata `name` untuk versi `20261205000000` dan `20261206000000` kosong.
-- GitHub Actions [run 40480854534](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40480854534) lulus pada commit kode tersebut dengan Supabase lokal dan fixture sintetis. Ini bukan rehearsal pada staging dan bukan persetujuan untuk menerapkan migration.
+- GitHub Actions [run 40493469094](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40493469094) lulus pada head terbaru: build/typecheck, guard Firebase runtime, Supabase lokal/pgTAP/API tenant, transaksi NIS dan slot Tahfidz serentak, Storage, serta backup/restore sintetis. Ini bukan rehearsal pada staging dan bukan persetujuan untuk menerapkan migration.
 - Tidak ada data Firestore disalin dan tidak ada migration/data yang ditulis ke Supabase staging atau Production pada checkpoint ini.
 - PR mengestimasi kematangan fitur **73%** dan kesiapan go-live **46%**. Itu estimasi, bukan hasil UAT/telemetri.
 
 ## Bukti baca-saja schema dan akses staging — 27 Oktober 2026
 
-Audit katalog staging menunjukkan 119 tabel pada schema `public`; seluruh 119 mengaktifkan RLS dan FORCE RLS. Sebanyak 118 tabel memiliki `tenant_id NOT NULL`; satu pengecualian adalah tabel root `tenants`. Dari 337 foreign key, 243 relasi yang melibatkan tabel ber-tenant memasangkan `tenant_id` pada kedua sisi, dan tidak ditemukan FK antartabel ber-tenant yang melewatkan pasangan tenant.
+Audit katalog staging menunjukkan 119 tabel pada schema `public`; seluruh 119 mengaktifkan RLS dan FORCE RLS. Sebanyak 118 tabel memiliki `tenant_id NOT NULL`; satu pengecualian adalah tabel root `tenants`. Dari 335 foreign key di `public`, 243 relasi antartabel ber-tenant memasangkan `tenant_id` pada kedua sisi; query tidak menemukan FK tenant-ke-tenant yang melewatkan pasangan tenant.
 
 Privilege efektif yang diperiksa: `anon` tidak punya akses tabel; `authenticated` hanya dapat membaca lima tabel dan tidak memiliki hak tulis. Ada 114 tabel tanpa policy, tetapi tidak diberikan akses langsung kepada dua role klien tersebut pada baseline yang diperiksa. Backend memakai `service_role` yang berprivilege tinggi; route server tetap wajib memverifikasi token, profil aktif, tenant, role, dan permission. Empat RPC onboarding/HRIS yang ditinjau hanya dapat dieksekusi `service_role`, bukan `anon` atau `authenticated`.
 
@@ -57,5 +57,7 @@ Bukti ini adalah snapshot katalog staging, bukan uji runtime lengkap, bukan audi
 - [PR #13](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13)
 - [GitHub Actions run 40480854534](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40480854534)
 - Laporan hitungan dan preview lama dipertahankan sebagai arsip teknis; hasilnya bukan target import atau release gate.
+
+**Pembaruan verifikasi baca-saja — 27 Oktober 2026:** pemeriksaan ulang mempertahankan hasil 119/119 tabel dengan RLS + FORCE, 118/118 tabel ber-tenant dengan `tenant_id NOT NULL`, dan 243/243 FK tenant-ke-tenant memasangkan `tenant_id`. Jumlah seluruh FK publik pada hasil query terbaru adalah 335. Tidak ada perubahan schema, row, policy, grant, atau feature flag yang dilakukan.
 
 **Kesimpulan:** lanjutkan cutover dengan membuktikan logic dan relasi Supabase memakai schema dan fixture sintetis. Tidak ada pekerjaan penyalinan Firestore yang diperlukan.
