@@ -5,7 +5,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(29);
+SELECT plan(31);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES ('c7100000-0000-4000-8000-000000000007', 'communication-audience-test', 'Communication Audience Test', 'active');
@@ -87,6 +87,19 @@ SELECT ok(NOT (SELECT array_agg(user_id) @> ARRAY['c7100000-0000-4000-8000-00000
 SELECT is((SELECT count(*)::int FROM public.communication_announcement_recipient_user_ids('c7100000-0000-4000-8000-000000000007', 'Semua Wali Santri')), 2, 'all-Wali audience contains only active canonical accounts');
 
 SET LOCAL ROLE service_role;
+
+SELECT is((SELECT count(*)::int FROM public.communication_announcement_import_state
+  WHERE tenant_id = 'c7100000-0000-4000-8000-000000000007'), 0,
+  'a new tenant has no legacy announcement import state');
+INSERT INTO public.communication_announcements (
+  tenant_id, title, body, target_audience, status, created_by_user_id
+) VALUES (
+  'c7100000-0000-4000-8000-000000000007', 'Pengumuman pertama', 'Isi pengumuman manual',
+  'Semua Wali Santri', 'sent', 'c7100000-0000-4000-8000-000000000011'
+);
+SELECT is((SELECT count(*)::int FROM public.communication_announcements
+  WHERE tenant_id = 'c7100000-0000-4000-8000-000000000007' AND title = 'Pengumuman pertama'), 1,
+  'manual announcements work before a legacy import is performed');
 
 SELECT is((public.import_communication_announcements(
   'c7100000-0000-4000-8000-000000000007', 'c7100000-0000-4000-8000-000000000011',
