@@ -138,7 +138,7 @@ for (const moduleId of unavailableRoutes) {
   assert.match(clause.getText(app), /supabaseRuntimeUnavailable/, `Route ${moduleId} must fail closed until its Supabase module exists.`);
 }
 const masterDataSource = fs.readFileSync(path.join(root, 'src', 'pages', 'MasterDataManager.tsx'), 'utf8');
-assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*import\.meta\.env\.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED\s*===\s*["']true["']/,
+assert.match(masterDataSource, //const SUPABASE_MASTER_DATA_IMPORT\\s\*=\\s\*legacyArchiveImportEnabled\\s*&&\\s*import\\.meta\\.env\\.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED\\s*===\\s*["']true["']//,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
 const archiveImportPolicy = fs.readFileSync(path.join(root, 'src', 'runtimeBackend.ts'), 'utf8');
 assert.match(archiveImportPolicy, /export const legacyArchiveImportEnabled = false/,
