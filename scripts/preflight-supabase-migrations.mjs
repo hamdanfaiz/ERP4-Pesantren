@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const READ_ONLY_LEDGER_QUERY = `
 BEGIN READ ONLY;
 SELECT COALESCE(
-  json_agg(json_build_object('version', version::text, 'name', name) ORDER BY version),
+  json_agg(json_build_object('version', version::text, 'name', name, 'statements', statements) ORDER BY version),
   '[]'::json
 )::text
 FROM supabase_migrations.schema_migrations;
@@ -18,12 +18,265 @@ const SUPABASE_STATUS_DB_URL_PATTERN = /^\s*(?:export\s+)?DB_URL=/;
 const VERSION_PATTERN = /^\d{14}$/;
 const MIGRATION_FILE_PATTERN = /^(\d{14})_(.+)\.sql$/;
 
-export function listLocalMigrations(fileNames) {
+function hasEscapeStringPrefix(value) {
+  return /(?:^|[^A-Za-z0-9_$])[Ee]$/.test(value);
+}
+
+export function splitSqlStatements(sql) {
+  const source = String(sql ?? '').replace(/\r\n/g, '\n');
+  const statements = [];
+  let buffer = '';
+  let index = 0;
+  let state = 'normal';
+  let blockDepth = 0;
+  let dollarDelimiter = '';
+  let escapeString = false;
+
+  while (index < source.length) {
+    const character = source[index];
+    const next = source[index + 1];
+    if (state === 'normal') {
+      if (character === "'") {
+        escapeString = hasEscapeStringPrefix(buffer);
+        state = 'single-quoted';
+        buffer += character;
+        index += 1;
+        continue;
+      }
+      if (character === '"') {
+        state = 'double-quoted';
+        buffer += character;
+        index += 1;
+        continue;
+      }
+      if (character === '-' && next === '-') {
+        state = 'line-comment';
+        buffer += character + next;
+        index += 2;
+        continue;
+      }
+      if (character === '/' && next === '*') {
+        state = 'block-comment';
+        blockDepth = 1;
+        buffer += character + next;
+        index += 2;
+        continue;
+      }
+      if (character === '$') {
+        const match = source.slice(index).match(/^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/);
+        if (match) {
+          dollarDelimiter = match[0];
+          state = 'dollar-quoted';
+          buffer += dollarDelimiter;
+          index += dollarDelimiter.length;
+          continue;
+        }
+      }
+      if (character === ';') {
+        if (buffer.trim()) statements.push(buffer.trim());
+        buffer = '';
+        index += 1;
+        continue;
+      }
+      buffer += character;
+      index += 1;
+      continue;
+    }
+    if (state === 'single-quoted') {
+      buffer += character;
+      index += 1;
+      if (escapeString && character === '\\' && index < source.length) {
+        buffer += source[index];
+        index += 1;
+      } else if (character === "'" && next === "'") {
+        buffer += next;
+        index += 1;
+      } else if (character === "'") {
+        state = 'normal';
+      }
+      continue;
+    }
+    if (state === 'double-quoted') {
+      buffer += character;
+      index += 1;
+      if (character === '"' && next === '"') {
+        buffer += next;
+        index += 1;
+      } else if (character === '"') {
+        state = 'normal';
+      }
+      continue;
+    }
+    if (state === 'line-comment') {
+      buffer += character;
+      index += 1;
+      if (character === '\n') state = 'normal';
+      continue;
+    }
+    if (state === 'block-comment') {
+      if (character === '/' && next === '*') {
+        blockDepth += 1;
+        buffer += character + next;
+        index += 2;
+      } else if (character === '*' && next === '/') {
+        blockDepth -= 1;
+        buffer += character + next;
+        index += 2;
+        if (blockDepth === 0) state = 'normal';
+      } else {
+        buffer += character;
+        index += 1;
+      }
+      continue;
+    }
+    if (state === 'dollar-quoted') {
+      if (source.startsWith(dollarDelimiter, index)) {
+        buffer += dollarDelimiter;
+        index += dollarDelimiter.length;
+        state = 'normal';
+      } else {
+        buffer += character;
+        index += 1;
+      }
+    }
+  }
+
+  if (['single-quoted', 'double-quoted', 'block-comment', 'dollar-quoted'].includes(state)) {
+    throw new Error('SQL migration memiliki quote atau komentar yang tidak ditutup.');
+  }
+  if (buffer.trim()) statements.push(buffer.trim());
+  return statements;
+}
+
+export function canonicalizeSqlStatement(sql) {
+  const source = String(sql ?? '').replace(/\r\n/g, '\n');
+  let output = '';
+  let index = 0;
+  let state = 'normal';
+  let pendingSpace = false;
+  let blockDepth = 0;
+  let escapeString = false;
+
+  const append = (value) => {
+    if (pendingSpace && output && !output.endsWith(' ')) output += ' ';
+    output += value;
+    pendingSpace = false;
+  };
+
+  while (index < source.length) {
+    const character = source[index];
+    const next = source[index + 1];
+    if (state === 'normal') {
+      if (/\s/.test(character)) {
+        pendingSpace = true;
+        index += 1;
+        continue;
+      }
+      if (character === '-' && next === '-') {
+        state = 'line-comment';
+        pendingSpace = true;
+        index += 2;
+        continue;
+      }
+      if (character === '/' && next === '*') {
+        state = 'block-comment';
+        blockDepth = 1;
+        pendingSpace = true;
+        index += 2;
+        continue;
+      }
+      if (character === '$') {
+        const match = source.slice(index).match(/^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/);
+        if (match) {
+          const delimiter = match[0];
+          const closingIndex = source.indexOf(delimiter, index + delimiter.length);
+          if (closingIndex < 0) throw new Error('SQL migration memiliki dollar-quote yang tidak ditutup.');
+          append(source.slice(index, closingIndex + delimiter.length));
+          index = closingIndex + delimiter.length;
+          continue;
+        }
+      }
+      if (character === "'") {
+        escapeString = hasEscapeStringPrefix(output);
+        state = 'single-quoted';
+        append(character);
+        index += 1;
+        continue;
+      }
+      if (character === '"') {
+        state = 'double-quoted';
+        append(character);
+        index += 1;
+        continue;
+      }
+      append(character);
+      index += 1;
+      continue;
+    }
+    if (state === 'single-quoted') {
+      output += character;
+      index += 1;
+      if (escapeString && character === '\\' && index < source.length) {
+        output += source[index];
+        index += 1;
+      } else if (character === "'" && next === "'") {
+        output += next;
+        index += 1;
+      } else if (character === "'") {
+        state = 'normal';
+      }
+      continue;
+    }
+    if (state === 'double-quoted') {
+      output += character;
+      index += 1;
+      if (character === '"' && next === '"') {
+        output += next;
+        index += 1;
+      } else if (character === '"') {
+        state = 'normal';
+      }
+      continue;
+    }
+    if (state === 'line-comment') {
+      index += 1;
+      if (character === '\n') state = 'normal';
+      continue;
+    }
+    if (state === 'block-comment') {
+      if (character === '/' && next === '*') {
+        blockDepth += 1;
+        index += 2;
+      } else if (character === '*' && next === '/') {
+        blockDepth -= 1;
+        index += 2;
+        if (blockDepth === 0) state = 'normal';
+      } else {
+        index += 1;
+      }
+    }
+  }
+
+  if (['single-quoted', 'double-quoted', 'block-comment'].includes(state)) {
+    throw new Error('SQL migration memiliki quote atau komentar yang tidak ditutup.');
+  }
+  return output.trim();
+}
+
+export function canonicalizeMigrationStatements(sql) {
+  return splitSqlStatements(sql).map(canonicalizeSqlStatement).filter(Boolean);
+}
+
+export function listLocalMigrations(fileNames, readMigrationSql = null) {
   const sqlFiles = fileNames.filter((fileName) => fileName.toLowerCase().endsWith('.sql'));
   const migrations = sqlFiles.map((fileName) => {
     const match = MIGRATION_FILE_PATTERN.exec(fileName);
     if (!match) throw new Error(`Nama migration tidak mengikuti format Supabase: ${fileName}`);
-    return { version: match[1], fileName };
+    const migration = { version: match[1], fileName };
+    if (typeof readMigrationSql === 'function') {
+      migration.statements = canonicalizeMigrationStatements(readMigrationSql(fileName));
+    }
+    return migration;
   }).sort((left, right) => left.version.localeCompare(right.version));
 
   const seen = new Set();
@@ -49,15 +302,21 @@ export function parseAppliedMigrationsOutput(output) {
   return rows.map((row) => ({
     version: typeof row?.version === 'string' ? row.version.trim() : '',
     name: typeof row?.name === 'string' ? row.name.trim() : null,
+    statements: Array.isArray(row?.statements)
+      ? row.statements.map((statement) => typeof statement === 'string' ? canonicalizeSqlStatement(statement) : null)
+      : null,
   }));
 }
 
 export function compareMigrationVersions(migrations, appliedMigrations) {
   const applied = appliedMigrations.map((row) => typeof row === 'string'
-    ? { version: row.trim(), name: null }
+    ? { version: row.trim(), name: null, statements: null }
     : {
       version: typeof row?.version === 'string' ? row.version.trim() : '',
       name: typeof row?.name === 'string' ? row.name.trim() : null,
+      statements: Array.isArray(row?.statements)
+        ? row.statements.map((statement) => typeof statement === 'string' ? canonicalizeSqlStatement(statement) : null)
+        : null,
     });
   const appliedVersions = applied.map(({ version }) => version);
   const invalidApplied = appliedVersions.filter((version) => !VERSION_PATTERN.test(version));
@@ -77,6 +336,23 @@ export function compareMigrationVersions(migrations, appliedMigrations) {
     if (row.name === expectedName) return [];
     return [{ version: row.version, appliedName: row.name, expectedName, fileName: local.fileName }];
   });
+  const statementMismatches = applied.flatMap((row) => {
+    const local = localByVersion.get(row.version);
+    if (!local || !Array.isArray(local.statements)) return [];
+    const actual = row.statements;
+    if (!Array.isArray(actual) || actual.some((statement) => typeof statement !== 'string' || statement.length === 0)) {
+      return [{ version: row.version, reason: 'missing', expectedCount: local.statements.length }];
+    }
+    const firstMismatch = local.statements.findIndex((statement, index) => statement !== actual[index]);
+    if (firstMismatch < 0 && local.statements.length === actual.length) return [];
+    return [{
+      version: row.version,
+      reason: 'different',
+      expectedCount: local.statements.length,
+      appliedCount: actual.length,
+      firstMismatch: firstMismatch >= 0 ? firstMismatch + 1 : null,
+    }];
+  });
   const latestAppliedVersion = [...appliedVersions].sort().at(-1) || null;
   const pending = migrations.filter((migration) => !appliedSet.has(migration.version));
   const outOfOrderPending = latestAppliedVersion
@@ -92,9 +368,11 @@ export function compareMigrationVersions(migrations, appliedMigrations) {
     unknownApplied,
     outOfOrderPending,
     nameMismatches,
+    statementMismatches,
     canContinueToStagingReview: unknownApplied.length === 0
       && outOfOrderPending.length === 0
-      && nameMismatches.length === 0,
+      && nameMismatches.length === 0
+      && statementMismatches.length === 0,
   };
 }
 
@@ -173,7 +451,7 @@ function readAppliedMigrations(databaseUrl) {
   ], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 4 * 1024 * 1024,
+    maxBuffer: 16 * 1024 * 1024,
     env: { ...process.env, ...psqlEnvironmentFromDatabaseUrl(databaseUrl) },
   });
   return parseAppliedMigrationsOutput(result);
@@ -203,9 +481,19 @@ export function formatReport(report) {
       lines.push(`  ${mismatch.version}  ledger=${mismatch.appliedName ?? '(kosong)'}  repository=${mismatch.expectedName}`);
     }
   }
+  if (report.statementMismatches.length > 0) {
+    lines.push('HENTIKAN: statement SQL pada ledger kosong atau berbeda dari file migration repository:');
+    for (const mismatch of report.statementMismatches) {
+      if (mismatch.reason === 'missing') {
+        lines.push(`  ${mismatch.version}  ledger=(metadata statements kosong)  repository=${mismatch.expectedCount} statements`);
+      } else {
+        lines.push(`  ${mismatch.version}  repository=${mismatch.expectedCount} statements  ledger=${mismatch.appliedCount} statements  statement pertama berbeda=${mismatch.firstMismatch ?? '(jumlah berbeda)'}`);
+      }
+    }
+  }
 
   if (!report.canContinueToStagingReview) {
-    lines.push('Rekonsiliasi jejak versi dan nama migration sebelum membuat rencana staging.');
+    lines.push('Rekonsiliasi versi, nama, dan isi SQL migration sebelum membuat rencana staging.');
   } else if (report.pending.length === 0) {
     lines.push('Ledger dan repository selaras; tetap lakukan staging/backup review sebelum rilis.');
   } else {
@@ -230,7 +518,11 @@ export function main({ env = process.env, repoRoot = getRepoRoot(), useLocalStac
       return 2;
     }
 
-    const migrations = listLocalMigrations(readdirSync(path.join(repoRoot, 'supabase', 'migrations')));
+    const migrationDirectory = path.join(repoRoot, 'supabase', 'migrations');
+    const migrations = listLocalMigrations(
+      readdirSync(migrationDirectory),
+      (fileName) => readFileSync(path.join(migrationDirectory, fileName), 'utf8'),
+    );
     const appliedMigrations = readAppliedMigrations(databaseUrl);
     const report = compareMigrationVersions(migrations, appliedMigrations);
     printReport(report);
