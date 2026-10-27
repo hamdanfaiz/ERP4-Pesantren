@@ -6,25 +6,31 @@
 - PR #13: [Supabase-only runtime cutover and customer-managed baseline](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13)
 - Branch: `codex/supabase-runtime-cutover-20261022`
 - Head dokumen awal sebelum pembaruan uji skala: `7d6c09e814b54ed8c10918abfaacc3dba1c2f8e3`
-- Head PR terbaru yang diverifikasi: `411d02ef9521ca86bc041c7849afc0a4253934fe`
+- Head PR terbaru yang diverifikasi: `592cf43dbbc3e3c79ff64714581fe942bc5facc0`
 - Status tetap **Open/Draft**, belum merge.
 - Estimasi proyek tetap **73% kematangan fitur / 46% kesiapan go-live**. Angka ini estimasi, bukan hasil metrik otomatis.
 
 ## Bukti CI terbaru
 
-Head kode terbaru yang diverifikasi: `411d02ef9521ca86bc041c7849afc0a4253934fe`. GitHub Actions [run 40431792914](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40431792914) selesai sukses pada kedua job:
+Head kode terbaru yang diverifikasi: `592cf43dbbc3e3c79ff64714581fe942bc5facc0`. GitHub Actions [run 40433848989](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40433848989) selesai sukses pada kedua job:
 
 - **Frontend build dan Firebase bundle guard:** typecheck, pemeriksaan runtime Supabase tanpa Firebase, feature flag, minimisasi PII, pagination, build produksi, Docker dan Compose.
 - **Migrations, API auth, dan pgTAP:** Supabase lokal terisolasi, ledger preflight, role/tenant, transaksi NIS dan Tahfidz serentak, importer sintetis, Storage HTTP, backup/restore, dan uji pagination volume Tahfidz.
 
 CI memakai data sintetis dan Supabase lokal. Hasilnya tidak membuktikan login/UAT pada endpoint pelanggan, kesetaraan migrasi dengan database staging, atau latensi/throughput pada infrastruktur produksi.
 
+## Perbaikan integritas audiens pengumuman
+
+Migration baru `20270120000000_communication_import_canonical_audience.sql` menyelaraskan validasi tanda baca impor dengan resolver penerima kanonis yang sudah dipakai saat pengumuman dikirim. Validasi tidak lagi memakai `profiles.linked_santri_class` yang dapat kosong atau usang; keanggotaan kelas Wali diperiksa melalui relasi tenant, akun Wali aktif, wali, santri, dan kelas. Kontrak aplikasi tetap Wali-only untuk konfirmasi baca; guru/santri tetap dapat menerima pengumuman, tetapi tidak dapat menulis tanda baca.
+
+Uji pgTAP baru memuat 29 assertion untuk akses tabel/RPC, kelas benar dan snapshot usang, akun Wali tersuspensi, penerimaan tanda baca Wali, batas role, retry/idempotensi, dan penghitung baca. Fixture di-rollback. Semuanya lulus dalam run CI di atas. Migration belum diterapkan ke Supabase staging/Production.
+
 ## Penguatan migration preflight
 
 Commit `7d6c09e` memperbaiki fixture preflight agar merepresentasikan baseline staging yang dibaca saja:
 
-- 47 versi tercatat dari 91 migration source.
-- 44 migration berikutnya berstatus pending.
+- 47 versi tercatat dari 92 migration source.
+- 45 migration berikutnya berstatus pending.
 - Versi `20261205000000` dan `20261206000000` tidak memiliki `name` maupun `statements`.
 - Preflight harus berhenti: `canContinueToStagingReview = false`.
 
@@ -51,7 +57,7 @@ Jika benchmark menemukan sequential scan atau lock panjang pada indeks migration
 
 1. Tim backend/DBA menyediakan backup terverifikasi dan klon disposable.
 2. Rekonsiliasi lineage dua row ledger kosong serta schema/grant/RLS pada klon; preflight saat ini sengaja fail-closed.
-3. Rehearsal seluruh 44 migration pending dan benchmark skala representatif.
+3. Rehearsal seluruh 45 migration pending dan benchmark skala representatif.
 4. Uji login Admin, matriks role/tenant, rekonsiliasi data, Storage, restore, serta VPS/on-premise.
 5. Rotasi secret yang pernah dibagikan sebelum go-live.
 
