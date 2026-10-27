@@ -110,7 +110,7 @@ SELECT throws_ok(
       'acknowledged_user_ids', jsonb_build_array('c7100000-0000-4000-8000-000000000013')
     )), repeat('b', 64)
   )$$,
-  '23514', 'Konfirmasi baca legacy tidak cocok dengan penerima aktif pada audiens ini',
+  '23514', 'Konfirmasi baca legacy tidak cocok dengan wali aktif pada audiens ini',
   'import rejects stale class snapshots when the linked child is in another class'
 );
 SELECT is((SELECT count(*)::int FROM public.communication_announcements WHERE legacy_source_id = 'communication-stale-class-ack'), 0, 'rejected imports do not leave a partial announcement');
@@ -125,7 +125,7 @@ SELECT throws_ok(
       'acknowledged_user_ids', jsonb_build_array('c7100000-0000-4000-8000-000000000014')
     )), repeat('c', 64)
   )$$,
-  '23514', 'Konfirmasi baca legacy tidak cocok dengan penerima aktif pada audiens ini',
+  '23514', 'Konfirmasi baca legacy tidak cocok dengan wali aktif pada audiens ini',
   'import rejects suspended guardian account acknowledgements'
 );
 SELECT is((SELECT count(*)::int FROM public.communication_announcements WHERE legacy_source_id = 'communication-suspended-wali-ack'), 0, 'suspended acknowledgement import leaves no announcement');
@@ -143,28 +143,36 @@ SELECT is((SELECT count(*)::int FROM public.communication_announcement_reads rea
 SELECT is((SELECT read_count FROM public.communication_announcements WHERE legacy_source_id = 'communication-valid-class-ack'), 1, 'retry does not increment read count again');
 
 SELECT is((SELECT count(*)::int FROM public.communication_announcement_recipient_user_ids('c7100000-0000-4000-8000-000000000007', 'Guru & Musyrif')), 1, 'Guru & Musyrif resolver includes the active Ustadz');
-SELECT is((public.import_communication_announcements(
-  'c7100000-0000-4000-8000-000000000007', 'c7100000-0000-4000-8000-000000000011',
-  jsonb_build_array(jsonb_build_object(
-    'legacy_source_id', 'communication-valid-ustadz-ack', 'title', 'Pengumuman pengajar',
-    'body', 'Isi pengumuman uji', 'target_audience', 'Guru & Musyrif',
-    'status', 'sent', 'is_urgent', false, 'legacy_read_count', 0,
-    'acknowledged_user_ids', jsonb_build_array('c7100000-0000-4000-8000-000000000015')
-  )), repeat('e', 64)
-)->>'imported')::int, 1, 'import accepts acknowledgements from the resolved Ustadz audience');
-SELECT is((SELECT count(*)::int FROM public.communication_announcement_reads reads JOIN public.communication_announcements announcements ON announcements.id = reads.announcement_id WHERE announcements.legacy_source_id = 'communication-valid-ustadz-ack'), 1, 'Ustadz acknowledgement is persisted');
+SELECT throws_ok(
+  $$SELECT public.import_communication_announcements(
+    'c7100000-0000-4000-8000-000000000007', 'c7100000-0000-4000-8000-000000000011',
+    jsonb_build_array(jsonb_build_object(
+      'legacy_source_id', 'communication-invalid-ustadz-ack', 'title', 'Pengumuman pengajar',
+      'body', 'Isi pengumuman uji', 'target_audience', 'Guru & Musyrif',
+      'status', 'sent', 'is_urgent', false, 'legacy_read_count', 0,
+      'acknowledged_user_ids', jsonb_build_array('c7100000-0000-4000-8000-000000000015')
+    )), repeat('e', 64)
+  )$$,
+  '23514', 'Konfirmasi baca legacy tidak cocok dengan wali aktif pada audiens ini',
+  'the resolved teacher audience cannot acknowledge while the product contract is Wali-only'
+);
+SELECT is((SELECT count(*)::int FROM public.communication_announcements WHERE legacy_source_id = 'communication-invalid-ustadz-ack'), 0, 'rejected Ustadz acknowledgement leaves no partial announcement');
 
 SELECT is((SELECT count(*)::int FROM public.communication_announcement_recipient_user_ids('c7100000-0000-4000-8000-000000000007', 'Semua Santri')), 1, 'Semua Santri resolver includes the active Santri');
-SELECT is((public.import_communication_announcements(
-  'c7100000-0000-4000-8000-000000000007', 'c7100000-0000-4000-8000-000000000011',
-  jsonb_build_array(jsonb_build_object(
-    'legacy_source_id', 'communication-valid-santri-ack', 'title', 'Pengumuman santri',
-    'body', 'Isi pengumuman uji', 'target_audience', 'Semua Santri',
-    'status', 'sent', 'is_urgent', false, 'legacy_read_count', 0,
-    'acknowledged_user_ids', jsonb_build_array('c7100000-0000-4000-8000-000000000016')
-  )), repeat('f', 64)
-)->>'imported')::int, 1, 'import accepts acknowledgements from the resolved Santri audience');
-SELECT is((SELECT count(*)::int FROM public.communication_announcement_reads reads JOIN public.communication_announcements announcements ON announcements.id = reads.announcement_id WHERE announcements.legacy_source_id = 'communication-valid-santri-ack'), 1, 'Santri acknowledgement is persisted');
+SELECT throws_ok(
+  $$SELECT public.import_communication_announcements(
+    'c7100000-0000-4000-8000-000000000007', 'c7100000-0000-4000-8000-000000000011',
+    jsonb_build_array(jsonb_build_object(
+      'legacy_source_id', 'communication-invalid-santri-ack', 'title', 'Pengumuman santri',
+      'body', 'Isi pengumuman uji', 'target_audience', 'Semua Santri',
+      'status', 'sent', 'is_urgent', false, 'legacy_read_count', 0,
+      'acknowledged_user_ids', jsonb_build_array('c7100000-0000-4000-8000-000000000016')
+    )), repeat('f', 64)
+  )$$,
+  '23514', 'Konfirmasi baca legacy tidak cocok dengan wali aktif pada audiens ini',
+  'the resolved Santri audience cannot acknowledge while the product contract is Wali-only'
+);
+SELECT is((SELECT count(*)::int FROM public.communication_announcements WHERE legacy_source_id = 'communication-invalid-santri-ack'), 0, 'rejected Santri acknowledgement leaves no partial announcement');
 
 SELECT * FROM finish();
 ROLLBACK;

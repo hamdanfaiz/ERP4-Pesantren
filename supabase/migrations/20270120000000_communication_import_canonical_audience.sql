@@ -89,10 +89,18 @@ BEGIN
     LOOP
       IF NOT EXISTS (
         SELECT 1
-        FROM public.communication_announcement_recipient_user_ids(p_tenant_id, v_target) AS recipient
-        WHERE recipient.user_id = v_ack_user_id
+        FROM public.profiles AS profile
+        WHERE profile.tenant_id = p_tenant_id
+          AND profile.user_id = v_ack_user_id
+          AND profile.status = 'active'
+          AND profile.role = 'wali_santri'
+          AND EXISTS (
+            SELECT 1
+            FROM public.communication_announcement_recipient_user_ids(p_tenant_id, v_target) AS recipient
+            WHERE recipient.user_id = profile.user_id
+          )
       ) THEN
-        RAISE EXCEPTION 'Konfirmasi baca legacy tidak cocok dengan penerima aktif pada audiens ini' USING ERRCODE = '23514';
+        RAISE EXCEPTION 'Konfirmasi baca legacy tidak cocok dengan wali aktif pada audiens ini' USING ERRCODE = '23514';
       END IF;
       INSERT INTO public.communication_announcement_reads (tenant_id, announcement_id, user_id)
       VALUES (p_tenant_id, v_announcement_id, v_ack_user_id)
