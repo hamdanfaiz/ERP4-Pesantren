@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
 
 export const READ_ONLY_LEDGER_QUERY = `
 BEGIN READ ONLY;
@@ -445,6 +446,11 @@ function getRepoRoot() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 }
 
+export function databaseUrlFromEnvironment(env = process.env) {
+  // Prefer the configured pooler for local IPv4 networks; direct database hosts may be IPv6-only.
+  return env.SUPABASE_DB_POOLER_URL || env.SUPABASE_DB_URL || '';
+}
+
 function readAppliedMigrations(databaseUrl) {
   const result = execFileSync('psql', [
     '-X', '-A', '-t', '-q', '-v', 'ON_ERROR_STOP=1', '-c', READ_ONLY_LEDGER_QUERY,
@@ -512,9 +518,9 @@ function printReport(report) {
 
 export function main({ env = process.env, repoRoot = getRepoRoot(), useLocalStack = process.argv.includes('--local') } = {}) {
   try {
-    const databaseUrl = useLocalStack ? localDatabaseUrl() : env.SUPABASE_DB_URL;
+    const databaseUrl = useLocalStack ? localDatabaseUrl() : databaseUrlFromEnvironment(env);
     if (!databaseUrl) {
-      console.error('Atur SUPABASE_DB_URL pada environment untuk database target. Nilainya tidak akan dicetak.');
+      console.error('Atur SUPABASE_DB_POOLER_URL atau SUPABASE_DB_URL pada environment untuk database target. Nilainya tidak akan dicetak.');
       return 2;
     }
 
@@ -535,5 +541,6 @@ export function main({ env = process.env, repoRoot = getRepoRoot(), useLocalStac
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  dotenv.config({ path: path.join(getRepoRoot(), '.env') });
   process.exitCode = main();
 }
