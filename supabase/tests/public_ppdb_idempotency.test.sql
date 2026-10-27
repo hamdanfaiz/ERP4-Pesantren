@@ -43,7 +43,9 @@ SELECT
     'e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000101/photo-first.jpg'
   ) AS expected_previous_paths;
 GRANT SELECT ON ppdb_idempotency_fixture TO service_role;
+CREATE TEMP TABLE ppdb_first_result (result JSONB);
 CREATE TEMP TABLE ppdb_replay_result (result JSONB);
+GRANT SELECT, INSERT ON ppdb_first_result TO service_role;
 GRANT SELECT, INSERT ON ppdb_replay_result TO service_role;
 
 SELECT ok(
@@ -80,29 +82,42 @@ SELECT throws_ok(
   'a candidate cannot bind storage objects from another tenant'
 );
 
-SELECT is(
-  (SELECT (public.submit_public_ppdb_idempotent(
-    tenant_id, candidate_id, admission_year, candidate, first_paths, fingerprint
-  )->>'registrationId') FROM ppdb_idempotency_fixture),
-  'PPDB-2027-000001',
-  'the first submission creates one registration'
-);
-SELECT is(
-  (SELECT (public.submit_public_ppdb_idempotent(
-    tenant_id, candidate_id, admission_year, candidate, first_paths, fingerprint
-  )->>'alreadyApplied') FROM ppdb_idempotency_fixture),
-  'false',
-  'the initial response identifies a newly applied submission'
-);
-
+INSERT INTO ppdb_first_result (result)
+SELECT public.submit_public_ppdb_idempotent(
+  tenant_id, candidate_id, admission_year, candidate, first_paths, fingerprint
+)
+FROM ppdb_idempotency_fixture;
 INSERT INTO ppdb_replay_result (result)
 SELECT public.submit_public_ppdb_idempotent(
   tenant_id, candidate_id, admission_year, candidate, retry_paths, fingerprint
 )
 FROM ppdb_idempotency_fixture;
 
+SELECT throws_ok(
+  $$SELECT public.submit_public_ppdb_idempotent(
+    'e5000000-0000-4000-8000-000000000005',
+    'e5000000-0000-4000-8000-000000000101',
+    2027::SMALLINT,
+    jsonb_build_object('name', 'Data Berubah'),
+    jsonb_build_object(
+      'kk', 'e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000101/kk-conflict.pdf',
+      'birthCertificate', 'e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000101/birth-conflict.pdf',
+      'reportCards', 'e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000101/reports-conflict.pdf',
+      'pasPhoto', 'e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000101/photo-conflict.jpg'
+    ),
+    repeat('b2', 32)
+  )$$,
+  'P0001',
+  'PPDB idempotency key was reused with different data',
+  'the same request UUID cannot silently overwrite a different payload'
+);
+
 RESET ROLE;
 
+SELECT is((SELECT result->>'registrationId' FROM ppdb_first_result), 'PPDB-2027-000001',
+  'the first submission creates one registration');
+SELECT is((SELECT result->>'alreadyApplied' FROM ppdb_first_result), 'false',
+  'the first response identifies a newly applied submission');
 SELECT is((SELECT result->>'alreadyApplied' FROM ppdb_replay_result), 'true',
   'a same-payload retry returns the existing submission');
 SELECT is((SELECT result->>'registrationId' FROM ppdb_replay_result), 'PPDB-2027-000001',
@@ -130,24 +145,6 @@ SELECT is((SELECT last_value FROM public.registration_counters
     AND admission_year = 2027),
   1,
   'a retry does not consume another registration number');
-SELECT throws_ok(
-  $$SELECT public.submit_public_ppdb_idempotent(
-    'e5000000-0000-4000-8000-000000000005',
-    'e5000000-0000-4000-8000-000000000101',
-    2027::SMALLINT,
-    jsonb_build_object('name', 'Data Berubah'),
-    jsonb_build_object(
-      'kk', 'e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000101/kk-conflict.pdf',
-      'birthCertificate', 'e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000101/birth-conflict.pdf',
-      'reportCards', 'e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000101/reports-conflict.pdf',
-      'pasPhoto', 'e5000000-0000-4000-8000-000000000005/e5000000-0000-4000-8000-000000000101/photo-conflict.jpg'
-    ),
-    repeat('b2', 32)
-  )$$,
-  'P0001',
-  'PPDB idempotency key was reused with different data',
-  'the same request UUID cannot silently overwrite a different payload'
-);
 
 SELECT * FROM finish();
 ROLLBACK;
