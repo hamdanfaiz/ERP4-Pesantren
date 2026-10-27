@@ -83,6 +83,9 @@ DELETE FROM public.laundry_events
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.laundry_orders
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.cooperative_wallets
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009'
+  AND student_id='e1500000-0000-4000-8000-000000000201';
 DELETE FROM public.students
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.candidates
