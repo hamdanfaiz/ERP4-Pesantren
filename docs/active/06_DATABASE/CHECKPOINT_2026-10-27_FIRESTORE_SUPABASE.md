@@ -2,11 +2,13 @@
 
 Dokumen ini mencatat pemeriksaan baca-saja terbaru atas sumber Firestore kanonis dan target Supabase staging. Tidak ada payload identitas atau kredensial yang dicatat.
 
+> **Keputusan ruang lingkup 27 Oktober:** seluruh data Firestore ini dummy dan tidak perlu dipindahkan. Tabel hitungan/coverage berikut bersifat historis, bukan target migrasi atau release gate. Fokusnya adalah relasi dan perilaku aplikasi Supabase menggunakan database lokal serta fixture sintetis; pemilik dapat memasukkan data contoh manual nanti. Tidak ada impor atau penghapusan data staging yang diminta.
+
 ## Status cutover
 
 - Firestore kanonis `graphite-ship-q5xj8 / ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8` masih menyimpan 18 koleksi root dan 561 dokumen.
-- Supabase target `ptsasgdvgrbdtgyqieie` memiliki 47 versi migration pada ledger, terakhir `20261206000000`. Branch sumber PR #13 memiliki 91 file migration sampai `20270119000000`; 44 versi belum tercatat pada target.
-- PR #13 masih Open/Draft pada head `360c22ef1e020881d7bb9836a774aed33de8f857`. `main` belum berpindah dari runtime Firebase.
+- Supabase target `ptsasgdvgrbdtgyqieie` memiliki 47 versi migration pada ledger, terakhir `20261206000000`. Head PR #13 yang diverifikasi saat ini (`540bf7d45e36b4f6cda09ef026c7bd4ae080f74e`) memiliki 92 file migration sampai `20270120000000`; 45 versi belum tercatat pada target.
+- PR #13 masih Open/Draft pada head `540bf7d45e36b4f6cda09ef026c7bd4ae080f74e`; GitHub Actions run [40454742884](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40454742884) lulus di database lokal sintetis. `main` belum berpindah dari runtime Firebase.
 - Koneksi MCP Supabase dengan izin tulis belum terautentikasi. Pemeriksaan target dalam checkpoint ini menggunakan konektor baca-saja. Tidak ada migration, data, atau feature flag yang ditulis.
 
 ## Rekonsiliasi jumlah data
@@ -46,7 +48,7 @@ Target staging memiliki row pada tabel berikut:
 
 ID registry Firestore `tenants` yang dibaca adalah `pesantren-digital`. Query baca-saja Supabase membuktikan `public.tenants.legacy_tenant_key` sama dengan ID tersebut untuk tenant slug yang sama. Ini menutup mismatch mapping yang tercatat pada checkpoint sebelumnya, tetapi belum membuktikan setiap record legacy aman untuk diterapkan.
 
-## Pekerjaan data yang masih tertahan
+## Catatan arsip historis — bukan gerbang kelengkapan produk
 
 - 218 dokumen `master_data` di luar struktur, santri, wali, dan halaqah yang sudah memiliki row target masih memerlukan pemetaan per kategori. Relasi Alumni tidak boleh dicocokkan dari email saja.
 - Koleksi `entityRecords` berisi record Santri/Wali yang dapat tumpang tindih dengan `master_data`; jangan menggandakan tanpa ID relasi yang tervalidasi.
@@ -56,14 +58,14 @@ ID registry Firestore `tenants` yang dibaca adalah `pesantren-digital`. Query ba
 - `cbt_config` memiliki importer bertahap; bank soal `cbt_questions` tidak terlihat pada database kanonis. Database Firestore lain yang memuatnya belum disetujui sebagai sumber.
 - Kredensial dan sesi Firebase tidak dimigrasikan. Akun harus diprovisikan kembali melalui Supabase Auth; profil saja bukan bukti akun login aktif.
 
-Record yang belum dapat dipetakan harus masuk karantina/arsip tenant-scoped atau ditahan dengan alasan yang tercatat; jangan membuat nilai pengganti untuk menyatakan semua 561 record berhasil.
+Catatan konflik dan record yang belum dapat dipetakan tetap berguna sebagai jejak audit, tetapi tidak perlu dimasukkan ke Supabase karena pemilik produk memutuskan tidak menyalin data dummy.
 
 ## Urutan tindakan berikutnya
 
 1. Selesaikan autentikasi MCP Supabase project-scoped agar pemeriksaan dan tindakan tulis dapat dilakukan pada target yang benar.
 2. Ambil backup target staging yang dapat dipulihkan sebelum perubahan DDL/data. Paket Free tidak menyediakan backup project terjadwal menurut pemeriksaan dashboard sebelumnya.
 3. Tinjau dan jalankan migration tertinggal secara bertahap pada staging; jangan melakukan `migration repair` atau `db push` tanpa preflight lineage dan hasil pemulihan.
-4. Jalankan preview aktual setiap importer, tinjau jumlah, fingerprint, konflik, identitas dan relasi; apply hanya batch yang lolos.
-5. Reconcile semua kategori sumber, audit RLS/tenant, uji login dan modul, lalu cutover runtime. Pertahankan Firestore sampai rollback dan rekonsiliasi selesai; setelah itu pensiunkan jalur Firebase.
+4. Validasi relasi dan transaksi dengan fixture sintetis yang dapat diulang; jangan jalankan importer pada Firestore untuk menyalin data.
+5. Audit RLS/tenant, uji login serta modul dengan role yang sesuai, dan pastikan runtime tidak memakai Firebase. Data dummy dapat dibuat manual setelah fungsi stabil.
 
-**Kesimpulan checkpoint:** sumber Firestore belum dipensiunkan dan migrasi belum lengkap. Tidak ada data yang dihapus.
+**Kesimpulan checkpoint:** perpindahan runtime ke Supabase tetap menjadi sasaran; salinan data Firestore tidak diperlukan. Skema Supabase, migrasi yang belum tercatat, login/UAT, dan penghentian ketergantungan runtime Firebase tetap harus diverifikasi. Tidak ada data yang dihapus.

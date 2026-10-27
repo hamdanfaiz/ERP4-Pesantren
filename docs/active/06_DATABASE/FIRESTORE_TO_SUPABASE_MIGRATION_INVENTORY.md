@@ -3,6 +3,8 @@
 **Tanggal pemeriksaan:** 23 Oktober 2026  
 **Status:** inventaris sumber; belum ada ekspor, dry-run terhadap data live, atau penulisan ke Supabase.
 
+> **Keputusan pemilik produk — 27 Oktober 2026:** data Firestore yang tercantum di sini adalah data dummy dan tidak perlu disalin ke Supabase. Inventaris dan importer di bawah disimpan untuk referensi historis serta uji sintetis; keduanya bukan gerbang kelengkapan maupun deploy. Prioritas pengembangan adalah logika aplikasi, relasi/constraint database, transaksi, serta isolasi tenant dan role. Data contoh boleh dibuat ulang manual setelah fungsi stabil. Jangan mengimpor arsip hanya untuk menyamakan jumlah atau menghapus baris staging.
+
 > Catatan pembaruan: hitungan dan struktur sumber di bawah adalah snapshot 23 Oktober. Status source code pada tabel pemetaan diperbarui mengikuti implementasi terbaru; rekonsiliasi dan syarat data per jalur dicatat pada bagian **Rekonsiliasi status importer — 26 Oktober 2026** di bagian akhir dokumen. Ketersediaan importer tidak berarti data sudah diterapkan.
 
 ## Sumber yang ditetapkan

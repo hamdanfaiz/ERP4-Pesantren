@@ -1,5 +1,7 @@
 # Matriks Paritas Fitur PR #11 → PR #13
 
+> **Perubahan ruang lingkup 27 Oktober 2026:** Firestore yang tersedia berisi data dummy dan tidak perlu disalin. Pemetaan/impor arsip yang tercatat di matriks ini bukan release gate. Nilai paritas perilaku melalui test Supabase lokal/CI dan UAT; data contoh dapat diisi manual kemudian.
+
 ## Status branch
 
 Pemeriksaan GitHub pada 26 Oktober 2026: PR #11 masih Open/Draft pada `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, berbasis `backend/supabase-finance-ui` (`127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`). PR #12 merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`. PR #13 Open/Draft pada `028a93a1a52439cc463209bc9b6ec2aa47500414`, berbasis commit main hasil merge PR #12 tersebut. Perbandingan saat ini tetap diverged (merge-base `f7f8bb098d3a6032eef5a101ad29e9d2086f111b4`): PR #13 memiliki 461 commit yang tidak ada di #11, sedangkan #11 memiliki 235 commit yang tidak ada di #13. Jangan gabungkan seluruh branch #11; petakan paritas per fitur.

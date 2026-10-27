@@ -1,5 +1,7 @@
 # Checklist rehearsal migrasi Supabase Production — 26 Oktober 2026
 
+> **Keputusan ruang lingkup 27 Oktober 2026:** impor data Firestore tidak diperlukan karena sumber yang tersedia hanya data dummy. Checklist tetap berlaku untuk migrasi **schema**, backup/restore, uji API/tenant/role, dan rollback; jangan jalankan bagian import/rekonsiliasi arsip sebagai gerbang rilis.
+
 ## Tujuan dan batas
 
 Pembacaan baca-saja pada halaman Database → Migrations dashboard project `ptsasgdvgrbdtgyqieie` (branch `main / PRODUCTION`, 26 Oktober 2026) menampilkan **47 versi migration terpasang**, dari `20260603000000` hingga `20261206000000`. Perbandingan set ID dengan 91 file source PR #13 hingga `20270119000000` cocok untuk seluruh 47 versi; 44 file source belum tercatat di ledger, dari `20261207000000_library_legacy_catalog_import.sql` sampai `20270119000000_master_data_student_search_indexes.sql`. Tidak ada versi terpasang yang tidak dikenal atau migration lama yang tertinggal. Angka 44 adalah kandidat belum tercatat, bukan izin atau bukti bahwa migration aman diterapkan. Kartu ringkasan dashboard masih menampilkan “Last Migration: Unknown”, sedangkan tabel migration terperinci menampilkan 47 versi tersebut.

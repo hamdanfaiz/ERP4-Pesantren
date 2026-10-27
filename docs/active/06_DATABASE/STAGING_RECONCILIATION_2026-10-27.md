@@ -1,5 +1,11 @@
 # Rekonsiliasi staging Supabase dan data legacy — 27 Oktober 2026
 
+## Keputusan ruang lingkup produk — 27 Oktober 2026
+
+Pemilik produk menegaskan bahwa data Firestore pada inventaris ini adalah data dummy dan **tidak perlu disalin**. Sasaran sekarang adalah memastikan skema, relasi, aturan tenant/role, transaksi, dan API Supabase benar. Data sintetis untuk pengujian boleh dibuat ulang; data contoh operasional dapat dimasukkan manual kemudian. Jangan menjalankan impor arsip hanya untuk mengejar hitungan dan jangan menghapus data staging yang sudah ada.
+
+Bagian perbandingan jumlah dan preview di bawah merupakan bukti historis/teknis, bukan syarat kelengkapan produk atau rilis. Pemeriksaan migrasi schema tetap relevan: head PR #13 yang diperiksa (`540bf7d45e36b4f6cda09ef026c7bd4ae080f74e`) memiliki 92 file migration sampai `20270120000000`; ledger staging masih memuat 47 versi sampai `20261206000000`, sehingga 45 versi source belum tercatat. GitHub Actions run [40454742884](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40454742884) lulus pada kedua job dengan database lokal dan data sintetis; ini belum merupakan rehearsal terhadap staging.
+
 ## Cakupan dan batas pemeriksaan
 
 Pemeriksaan ini menggunakan konektor Supabase staging dengan query baca-saja. Tidak ada migration, data, policy, bucket, atau feature flag yang diubah. Tidak ada isi PII atau nilai secret yang dicatat.
@@ -13,13 +19,13 @@ Pemeriksaan ini menggunakan konektor Supabase staging dengan query baca-saja. Ti
 
 | Ukuran | Hasil baca-saja |
 | --- | ---: |
-| File migration di checkout | 91 |
+| File migration pada checkout audit sebelumnya | 91 |
 | Versi pada ledger staging | 47 |
 | Versi terakhir pada ledger staging | `20261206000000` |
-| Versi terakhir di checkout | `20270119000000` |
-| Versi lokal yang belum tercatat di ledger | 44 |
+| Versi terakhir pada head PR #13 terbaru | `20270120000000` |
+| Versi pada head PR terbaru yang belum tercatat di ledger | 45 |
 
-44 versi yang belum tercatat berada setelah `20261206000000`, dimulai `20261207000000` dan berakhir `20270119000000`. Daftar ini **bukan instruksi untuk menerapkan migration**. Ledger tidak membuktikan keadaan lengkap schema, grant, policy, trigger, atau data. Rekonsiliasi schema dan rehearsal pada backup yang dapat dipulihkan tetap wajib sebelum apply.
+Pada head PR terbaru, 45 versi yang belum tercatat berada setelah `20261206000000`, dimulai `20261207000000` dan berakhir `20270120000000`. Daftar ini **bukan instruksi untuk menerapkan migration**. Ledger tidak membuktikan keadaan lengkap schema, grant, policy, trigger, atau data. Rekonsiliasi schema dan rehearsal pada backup yang dapat dipulihkan tetap wajib sebelum apply.
 
 ### Dua versi terdaftar tanpa metadata SQL
 

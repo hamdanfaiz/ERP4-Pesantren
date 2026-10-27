@@ -1,5 +1,7 @@
 # Status Cutover Runtime Firebase ke Supabase
 
+> **Perubahan ruang lingkup 27 Oktober 2026:** data Firestore proyek ini dummy dan tidak perlu disalin. Pernyataan historis yang menjadikan impor/rekonsiliasi seluruh arsip sebagai gerbang rilis tidak lagi berlaku. Gunakan fixture sintetis untuk membuktikan logika, relasi, transaksi, serta isolasi tenant/role; data contoh dapat dimasukkan manual kemudian. Syarat migrasi schema, runtime Supabase-only, login/UAT, backup/restore, rotasi secret, dan kesiapan environment pelanggan tetap berlaku.
+
 **Checkpoint:** 22 Oktober 2026
 **Source branch:** `codex/supabase-runtime-cutover-20261022`; kode runtime yang diuji pada commit `21140c3`
 **Supabase target:** project `ptsasgdvgrbdtgyqieie`

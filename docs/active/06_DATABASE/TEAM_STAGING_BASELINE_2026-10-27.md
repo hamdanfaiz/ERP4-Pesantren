@@ -1,5 +1,7 @@
 # Baseline Baca-Saja Supabase Staging — ERP4 Pesantren
 
+> **Keputusan produk 27 Oktober 2026:** data Firestore pada audit ini dummy dan tidak perlu dipindahkan. Hitungan, hash, dan pencocokan sumber di bawah dipertahankan sebagai jejak historis saja, bukan release gate. Fokus penerimaan beralih ke skema, relasi, transaksi, otorisasi tenant/role, dan alur API dengan fixture sintetis; data operasional contoh dapat dibuat manual kemudian.
+
 **Tanggal pemeriksaan:** 27 Oktober 2026 (WIB)
 **Project ref:** `ptsasgdvgrbdtgyqieie` — **staging**, bukan production
 **Sumber arsip:** Firestore `graphite-ship-q5xj8`, database `ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8`
