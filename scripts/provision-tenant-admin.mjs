@@ -16,6 +16,29 @@ async function findExistingProfile(supabase, email) {
   return data;
 }
 
+async function assertTenantCanReceiveInitialAdmin(supabase, input) {
+  const { data: tenant, error } = await supabase
+    .from('tenants')
+    .select('id,name,tenant_type,time_zone,status')
+    .eq('slug', input.slug)
+    .maybeSingle();
+  if (error) throw new Error('Status tenant tidak dapat diverifikasi di Supabase.');
+  if (!tenant) return;
+  if (tenant.name !== input.name || (tenant.tenant_type ?? null) !== input.tenantType
+    || tenant.time_zone !== input.timeZone || tenant.status !== 'active') {
+    throw new Error('Slug tenant sudah digunakan dengan konfigurasi berbeda atau tenant tidak aktif.');
+  }
+
+  const { count, error: profileError } = await supabase
+    .from('profiles')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('tenant_id', tenant.id);
+  if (profileError) throw new Error('Isi tenant tidak dapat diverifikasi di Supabase.');
+  if ((count || 0) > 0) {
+    throw new Error('Tenant sudah memiliki profil; bootstrap Admin pertama sudah ditutup.');
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   if (args.length !== 4) {
@@ -66,7 +89,7 @@ async function main() {
     if (tenantError) throw new Error('Tenant profil Admin tidak dapat diverifikasi di Supabase.');
     const expectedUsername = adminEmail.split('@')[0].slice(0, 100);
     if (tenant?.slug !== tenantSlug || tenant.name !== tenantName
-      || (tenant.tenant_type || null) !== tenantType || tenant.time_zone !== timeZone || tenant.status !== 'active'
+      || (tenant.tenant_type ?? null) !== tenantType || tenant.time_zone !== timeZone || tenant.status !== 'active'
       || existingProfile.role !== 'admin' || existingProfile.status !== 'active'
       || existingProfile.display_name !== adminName || existingProfile.username !== expectedUsername) {
       throw new Error('Email sudah memiliki profil ERP yang berbeda; bootstrap dihentikan agar tenant/role tidak berubah.');
@@ -74,6 +97,13 @@ async function main() {
     console.log(`Tenant ${tenantSlug} dan profil Admin sudah terprovisi; tidak ada undangan atau perubahan yang dibuat.`);
     return;
   }
+
+  await assertTenantCanReceiveInitialAdmin(supabase, {
+    slug: tenantSlug,
+    name: tenantName,
+    tenantType,
+    timeZone,
+  });
 
   const inviteOptions = {
     data: { name: adminName, display_name: adminName },

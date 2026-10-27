@@ -4,7 +4,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(11);
+SELECT plan(12);
 
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password,
@@ -12,7 +12,11 @@ INSERT INTO auth.users (
 )
 VALUES
   ('ac100000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bootstrap-admin@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{"name":"Bootstrap Admin"}', now(), now()),
-  ('ac100000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bootstrap-admin-two@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{"name":"Second Admin"}', now(), now());
+  ('ac100000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bootstrap-admin-two@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{"name":"Second Admin"}', now(), now()),
+  ('ac100000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bootstrap-admin-suspended@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{"name":"Suspended Tenant Admin"}', now(), now());
+
+INSERT INTO public.tenants (slug, name, tenant_type, time_zone, status)
+VALUES ('bootstrap-suspended-test', 'Bootstrap Suspended Test', 'pesantren', 'Asia/Jakarta', 'suspended');
 
 SELECT ok(
   NOT has_function_privilege(
@@ -94,6 +98,16 @@ SELECT throws_ok(
   '23514',
   'Tenant already contains a profile; initial Admin bootstrap is closed.',
   'bootstrap refuses to add a second initial Admin to an existing tenant'
+);
+SELECT throws_ok(
+  $$SELECT * FROM public.provision_tenant_with_initial_admin(
+    'bootstrap-suspended-test', 'Bootstrap Suspended Test', 'pesantren', 'Asia/Jakarta',
+    'ac100000-0000-4000-8000-000000000003', 'bootstrap-admin-suspended@test.invalid',
+    'Suspended Tenant Admin', 'bootstrap-admin-suspended'
+  )$$,
+  '23514',
+  'Tenant is not active; initial Admin bootstrap is closed.',
+  'bootstrap refuses to provision an Admin into a suspended tenant'
 );
 
 SELECT * FROM finish();

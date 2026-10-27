@@ -32,6 +32,7 @@ DECLARE
   v_tenant_name TEXT;
   v_existing_tenant_type TEXT;
   v_existing_time_zone TEXT;
+  v_existing_status TEXT;
   v_existing_profile public.profiles%ROWTYPE;
 BEGIN
   IF v_slug !~ '^[a-z0-9-]{1,63}$' THEN
@@ -68,8 +69,8 @@ BEGIN
   RETURNING id INTO v_tenant_id;
 
   IF v_tenant_id IS NULL THEN
-    SELECT tenant.id, tenant.name, tenant.tenant_type, tenant.time_zone
-    INTO v_tenant_id, v_tenant_name, v_existing_tenant_type, v_existing_time_zone
+    SELECT tenant.id, tenant.name, tenant.tenant_type, tenant.time_zone, tenant.status
+    INTO v_tenant_id, v_tenant_name, v_existing_tenant_type, v_existing_time_zone, v_existing_status
     FROM public.tenants AS tenant
     WHERE tenant.slug = v_slug
     FOR UPDATE;
@@ -83,6 +84,10 @@ BEGIN
        OR v_existing_time_zone IS DISTINCT FROM v_time_zone THEN
       RAISE EXCEPTION 'Tenant slug already exists with different settings.'
         USING ERRCODE = '23505';
+    END IF;
+    IF v_existing_status IS DISTINCT FROM 'active' THEN
+      RAISE EXCEPTION 'Tenant is not active; initial Admin bootstrap is closed.'
+        USING ERRCODE = '23514';
     END IF;
 
     SELECT profile.* INTO v_existing_profile

@@ -47,7 +47,7 @@ Run once from the repository root:
 npm run provision:tenant-admin -- pesantren-digital "Pesantren Digital" admin@example.org "Nama Admin"
 ```
 
-The script invites the Admin through Supabase Auth, then atomically creates the tenant and its first `profiles` row. It never accepts or stores a password. The Admin sets a password through the Auth invitation. Repeating the same command is a no-op after it verifies the existing active tenant/Admin profile. The bootstrap RPC is denied to `anon` and `authenticated`; it is not a public tenant-signup endpoint.
+The script first checks the tenant slug, status, settings, and profile count so it does not send an invitation for an occupied or suspended tenant. It then invites the Admin through Supabase Auth and atomically creates the tenant and its first `profiles` row. It never accepts or stores a password. The Admin sets a password through the Auth invitation. Repeating the same command is a no-op after it verifies the existing active tenant/Admin profile. The bootstrap RPC is denied to `anon` and `authenticated`; it is not a public tenant-signup endpoint.
 
 After the Admin can sign in, create synthetic operational records manually in Master Data. Application writes must use the tenant UUID from the authenticated profile and database relationships must refer to records within that same tenant. Wali access is provisioned through the tenant's verified guardian invitation flow; do not create a Wali-to-Santri link from browser-supplied IDs.
 
