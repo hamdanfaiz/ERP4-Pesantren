@@ -140,5 +140,21 @@ for (const moduleId of unavailableRoutes) {
 const masterDataSource = fs.readFileSync(path.join(root, 'src', 'pages', 'MasterDataManager.tsx'), 'utf8');
 assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*import\.meta\.env\.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED\s*===\s*["']true["']/,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
+const archiveImportPolicy = fs.readFileSync(path.join(root, 'src', 'runtimeBackend.ts'), 'utf8');
+assert.match(archiveImportPolicy, /export const legacyArchiveImportEnabled = false/,
+  'Firestore archive imports must remain disabled after the no-copy decision.');
+const archiveImportScreens = [
+  'src/pages/MasterDataManager.tsx', 'src/pages/SupabaseAcademicManager.tsx',
+  'src/pages/SupabaseBoardingAttendanceManager.tsx', 'src/pages/SupabaseBoardingDisciplineManager.tsx',
+  'src/pages/SupabaseBoardingFacilityOpsManager.tsx', 'src/pages/SupabaseBoardingPermitsManager.tsx',
+  'src/pages/SupabaseCommunicationHub.tsx', 'src/pages/SupabaseHealthcareManager.tsx',
+  'src/pages/SupabaseLMSManager.tsx', 'src/pages/SupabaseGeneralAffairsAssets.tsx',
+  'src/pages/SupabaseMarketplaceManager.tsx', 'src/pages/SupabaseCBTManager.tsx',
+  'src/pages/SupabaseCooperativeManager.tsx', 'src/pages/SupabaseLibraryManager.tsx',
+];
+for (const relativePath of archiveImportScreens) {
+  const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
+  assert.match(source, /legacyArchiveImportEnabled/, `${relativePath} must respect the global no-copy policy.`);
+}
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes and ${unavailableRoutes.length} fail-closed routes).`);
 

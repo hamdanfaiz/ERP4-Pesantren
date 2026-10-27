@@ -1,3 +1,4 @@
+import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Archive, BookOpen, Check, Clock3, Download, FileText, Loader2, Music, Plus, RefreshCw, Search, UploadCloud, Users, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -86,7 +87,7 @@ export function SupabaseLibraryManager() {
   const [bookForm, setBookForm] = useState({ title: "", author: "", category: "Kajian Islam", isbn: "", totalCopies: 1, shelf: "" });
   const [checkoutForm, setCheckoutForm] = useState({ studentId: "", bookId: "", borrowedOn: emptySnapshot.businessDate, dueOn: addCalendarDays(emptySnapshot.businessDate, 14) });
   const canManage = ["Admin", "SuperAdmin", "Ustadz"].includes(role) && user?.modulePermissions?.library !== false;
-  const canImportLegacy = ["Admin", "SuperAdmin"].includes(role) && user?.modulePermissions?.library !== false;
+  const canImportLegacy = legacyArchiveImportEnabled && ["Admin", "SuperAdmin"].includes(role) && user?.modulePermissions?.library !== false;
   const mappingKey = JSON.stringify(Object.entries(circulationStudentMappings).sort(([left], [right]) => left.localeCompare(right)));
 
   const refresh = useCallback(async (): Promise<Snapshot> => {

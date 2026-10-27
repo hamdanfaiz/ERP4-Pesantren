@@ -1,3 +1,4 @@
+import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, BookOpen, CalendarClock, Check, ClipboardList, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -258,7 +259,7 @@ export function SupabaseCBTManager() {
     </div>
 
     <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-slate-900" aria-label="Modul CBT">
-      {([{ id: "questions", label: "Bank Soal", icon: BookOpen }, { id: "exams", label: "Ujian & Peserta", icon: CalendarClock }, { id: "results", label: "Hasil", icon: ClipboardList }, { id: "import", label: "Impor Data Lama", icon: RefreshCw }] as Array<{ id: Tab; label: string; icon: React.ElementType }>).map((item) => <button key={item.id} type="button" onClick={() => { setTab(item.id); setError(""); setNotice(""); }} className={"inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold " + (tab === item.id ? "bg-indigo-700 text-white" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5")}><item.icon className="h-4 w-4" />{item.label}</button>)}
+      {([{ id: "questions", label: "Bank Soal", icon: BookOpen }, { id: "exams", label: "Ujian & Peserta", icon: CalendarClock }, { id: "results", label: "Hasil", icon: ClipboardList }, ...(legacyArchiveImportEnabled ? [{ id: "import", label: "Impor Data Lama", icon: RefreshCw }] : [])] as Array<{ id: Tab; label: string; icon: React.ElementType }>).map((item) => <button key={item.id} type="button" onClick={() => { setTab(item.id); setError(""); setNotice(""); }} className={"inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold " + (tab === item.id ? "bg-indigo-700 text-white" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5")}><item.icon className="h-4 w-4" />{item.label}</button>)}
     </nav>
 
     {tab === "questions" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
@@ -306,7 +307,7 @@ export function SupabaseCBTManager() {
       {snapshot.results.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th><th className="p-3">Nilai</th><th className="p-3">Keputusan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.results.map((result) => <tr key={result.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{result.studentName}</td><td className="p-3">{result.examTitle}</td><td className="p-3">{result.className || "—"}</td><td className="p-3">{cbtStatusLabel(result.status)}</td><td className="p-3">{result.score == null ? "—" : result.score}</td><td className="p-3">{result.passed == null ? "—" : result.passed ? "Lulus" : "Belum lulus"}</td></tr>)}</tbody></table></div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada peserta ujian.</div>}
     </section>}
 
-    {tab === "import" && <div className="grid gap-5 xl:grid-cols-2">
+    {legacyArchiveImportEnabled && tab === "import" && <div className="grid gap-5 xl:grid-cols-2">
       <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div><h2 className="font-semibold text-slate-900 dark:text-white">Impor bank soal Firestore</h2><p className="mt-1 text-sm text-slate-500">Backend memindai maksimal 3.000 soal dengan tenant key yang cocok. Pratinjau hanya menampilkan ringkasan dan referensi tersamar.</p></div>
         <div className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={() => void runLegacyImport("preview")} className={BUTTON}><RefreshCw className={saving ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Buat pratinjau</button><button type="button" disabled={saving || !importPreview?.canApply} onClick={() => void runLegacyImport("apply")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Check className="h-4 w-4" />Terapkan pratinjau</button></div>

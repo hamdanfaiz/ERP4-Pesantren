@@ -1,3 +1,4 @@
+import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ClipboardCheck, LoaderCircle, Plus, RotateCcw, ShieldAlert } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -10,7 +11,7 @@ import {
   type BoardingDisciplineSnapshot,
 } from "../services/boardingDisciplineApi";
 
-const IMPORT_ENABLED = import.meta.env.VITE_SUPABASE_BOARDING_DISCIPLINE_IMPORT_ENABLED === "true";
+const IMPORT_ENABLED = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_BOARDING_DISCIPLINE_IMPORT_ENABLED === "true";
 const CATEGORY_OPTIONS = ["Ringan", "Sedang", "Berat"];
 const today = () => new Date().toISOString().slice(0, 10);
 

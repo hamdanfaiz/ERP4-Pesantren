@@ -1,3 +1,4 @@
+import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, BookOpen, CheckCircle2, CircleCheck, ClipboardList, FilePlus2, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -17,7 +18,7 @@ const EMPTY: Snapshot = { courses: [], categories: [], instructors: [], students
 const INPUT = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100";
 const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
 const PRIMARY = "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50";
-const LEGACY_LMS_IMPORT_ENABLED = import.meta.env.VITE_SUPABASE_LMS_IMPORT_ENABLED === "true";
+const LEGACY_LMS_IMPORT_ENABLED = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_LMS_IMPORT_ENABLED === "true";
 
 async function requestLms(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();

@@ -1,3 +1,4 @@
+import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, CheckCircle2, Clock3, FileText, Loader2, Package, Plus, RefreshCw, Search, ShoppingBag, ShoppingCart, Store, Truck, X } from "lucide-react";
 import { ERPTabs } from "../components/ERPDesignSystem";
@@ -17,7 +18,7 @@ const FIELD = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2
 const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
 const BUTTON = "inline-flex items-center justify-center gap-2 rounded-xl bg-pink-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pink-800 disabled:cursor-not-allowed disabled:opacity-50";
 const OUTLINE = "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-white/5";
-const IMPORT_ENABLED = import.meta.env.VITE_SUPABASE_MARKETPLACE_IMPORT_ENABLED === "true";
+const IMPORT_ENABLED = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_MARKETPLACE_IMPORT_ENABLED === "true";
 const TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "storefront", label: "Etalase", icon: <Store className="h-4 w-4" /> },
   { id: "orders", label: "Pesanan", icon: <ShoppingBag className="h-4 w-4" /> },

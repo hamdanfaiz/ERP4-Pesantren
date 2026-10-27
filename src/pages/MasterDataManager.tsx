@@ -42,7 +42,7 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import { cn, generateUniqueId } from "../lib/utils";
 import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
-import { supabaseRuntimeEnabled } from "../runtimeBackend";
+import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import {
   COUNTRIES,
   PROVINCES,
@@ -67,7 +67,7 @@ import {
 
 const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(import.meta.env.VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED);
 // Import is a separate migration-only capability; Supabase-only runtime must never unlock it.
-const SUPABASE_MASTER_DATA_IMPORT = import.meta.env.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED === "true";
+const SUPABASE_MASTER_DATA_IMPORT = legacyArchiveImportEnabled && import.meta.env.VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED === "true";
 const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "Kelas"]);
 
 const TABS = [

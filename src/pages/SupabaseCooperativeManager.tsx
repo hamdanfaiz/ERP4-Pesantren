@@ -1,3 +1,4 @@
+import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, BarChart3, Check, Loader2, Package, Plus, RefreshCw, ShoppingCart, Truck, Wallet, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -302,7 +303,7 @@ export function SupabaseCooperativeManager() {
     { id: "wallets", label: "Dompet Santri", icon: Wallet },
     { id: "suppliers", label: "Pemasok", icon: Truck },
     { id: "transactions", label: "Transaksi", icon: BarChart3 },
-    { id: "migration", label: "Impor Arsip", icon: RefreshCw },
+    ...(legacyArchiveImportEnabled ? [{ id: "migration", label: "Impor Arsip", icon: RefreshCw }] : []),
   ];
 
   return <main className="mx-auto max-w-7xl space-y-6 pb-10">
@@ -343,7 +344,7 @@ export function SupabaseCooperativeManager() {
 
         {activeTab === "transactions" && <div className="space-y-3"><h2 className="font-semibold text-slate-900 dark:text-white">Riwayat Transaksi & Buku Besar Dompet</h2>{snapshot.sales.length ? <div className="space-y-3">{snapshot.sales.map((sale) => <article key={sale.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold text-slate-900 dark:text-white">{sale.studentName} <span className="text-xs font-normal text-slate-500">{sale.grade}</span></div><div className="mt-1 font-mono text-xs text-slate-500">{sale.id} · {new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short", timeZone: snapshot.timeZone }).format(new Date(sale.date))}</div></div><div className="font-semibold text-slate-900 dark:text-white">{money(sale.total)}</div></div><div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm dark:border-slate-800">{sale.items.map((item) => <div key={item.id} className="flex justify-between gap-4 text-slate-600 dark:text-slate-300"><span>{item.name} × {item.quantity}</span><span>{money(item.lineTotal)}</span></div>)}</div></article>)}</div> : <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada transaksi pada tenant ini.</div>}
           <div className="mt-6"><h3 className="font-semibold text-slate-900 dark:text-white">Mutasi saldo terbaru</h3><div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Waktu</th><th className="p-3">Jenis / Referensi</th><th className="p-3 text-right">Perubahan</th><th className="p-3 text-right">Saldo akhir</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.walletLedger.map((entry) => <tr key={entry.id}><td className="p-3 text-xs">{new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short", timeZone: snapshot.timeZone }).format(new Date(entry.createdAt))}</td><td className="p-3">{entry.type} · {entry.reference}</td><td className="p-3 text-right">{money(entry.amount)}</td><td className="p-3 text-right">{money(entry.balanceAfter)}</td></tr>)}</tbody></table></div></div></div>}
-        {activeTab === "migration" && <div className="space-y-5">
+        {legacyArchiveImportEnabled && activeTab === "migration" && <div className="space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div><h2 className="font-semibold text-slate-900 dark:text-white">Pratinjau migrasi saldo dan transaksi</h2><p className="mt-1 max-w-3xl text-sm text-slate-500">Cocokkan dompet arsip dengan dompet santri dan produk tujuan. Saldo pembuka harus dapat direkonsiliasi dengan saldo akhir arsip setelah dikurangi seluruh penjualan yang ditemukan.</p></div>
             <button type="button" onClick={() => void runFinancialPreview()} disabled={financialBusy || busy} className={outlineClass}><RefreshCw className={financialBusy ? "h-4 w-4 animate-spin" : "h-4 w-4"} />{financialBusy ? "Menghitung…" : financialPreview ? "Hitung ulang pratinjau" : "Muat arsip dan pratinjau"}</button>
