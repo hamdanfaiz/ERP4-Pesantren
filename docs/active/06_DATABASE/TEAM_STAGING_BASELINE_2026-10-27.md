@@ -135,3 +135,12 @@ Angka tersebut estimasi proyek, bukan metrik otomatis. Audit staging dan inventa
 - Perbedaan ledger hanya menunjukkan status pencatatan versi; belum membuktikan bahwa isi skema target sama dengan definisi SQL lokal. Jangan menganggap 44 migration sebagai batch yang siap dijalankan. Rehearsal pada database staging yang dapat dipulihkan tetap menjadi gerbang berikutnya.
 
 Estimasi checkpoint tetap **73% kematangan fitur** dan **46% kesiapan go-live**. Angka tidak dinaikkan: hasil CI sintetis belum menggantikan rehearsal migrasi target, rekonsiliasi payload, login/UAT, rotasi secret, dan simulasi instalasi di VPS/on-premise.
+
+### Guardrail lineage dan dependency — 27 Oktober 2026
+
+- Migration preflight kini membandingkan nomor versi dan nama file migration terhadap kolom `name` pada ledger. Query metadata memakai transaksi `READ ONLY`; nama `NULL` atau berbeda menghentikan rencana staging. Tes `npm run test:migration-preflight` mencakup dua nama kosong yang terlihat pada ledger staging.
+- Query baca-saja ulang mengonfirmasi 47 versi tercatat; `20261205000000` dan `20261206000000` masih bernama kosong. Belum ada migration atau data staging/Production yang diubah.
+- Lockfile npm dan Bun diperbarui untuk temuan dependency **production**. `npm audit --omit=dev --audit-level=low` melaporkan 0 temuan, dan `bun install --frozen-lockfile --lockfile-only` lulus. Audit semua dependency masih memiliki temuan development/legacy, termasuk `xlsx` tanpa perbaikan upstream; importer tersebut hanya berada di halaman CBT legacy yang tidak dirutekan aplikasi aktif.
+- `npm ci` belum lolos pada lockfile npm karena pemeriksaan paket bundled opsional Tailwind meminta `@emnapi/wasi-threads@1.2.3` yang tidak tercatat; archive Tailwind yang diperiksa membundel `1.2.1`. CI repository menggunakan Bun frozen-lockfile dan jalur itu lulus. Tim yang memilih npm untuk instalasi pelanggan perlu menyelesaikan ketidakcocokan ini sebelum memakai `npm ci`.
+- Lint/typecheck, build frontend/server, tes parser CSV PPDB, tes preflight, audit dependency production, dan validasi frozen lockfile lokal lulus. Build masih memperingatkan chunk PDF sekitar 1,46 MB.
+- Progress tidak berubah: **73% kematangan fitur / 46% kesiapan go-live**. PR tetap Draft sampai lineage ledger, rehearsal migrasi, UAT/login, dan environment pelanggan memenuhi gate.
