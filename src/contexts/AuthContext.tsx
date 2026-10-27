@@ -34,7 +34,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  clearMustChangePassword: () => Promise<void>;
+  changeInitialPassword: (password: string) => Promise<void>;
   completeGuardianInvitation: () => void;
 }
 
@@ -46,7 +46,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => { throw new Error('Layanan autentikasi belum siap.'); },
   logout: async () => {},
   refreshProfile: async () => {},
-  clearMustChangePassword: async () => {},
+  changeInitialPassword: async () => {},
   completeGuardianInvitation: () => {},
 });
 
@@ -264,20 +264,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const completeGuardianInvitation = () => { guardianInvitationRoute.current = false; };
 
-  const clearMustChangePassword = async () => {
+  const changeInitialPassword = async (password: string) => {
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) throw new Error('Pengguna belum terautentikasi.');
     const token = data.session.access_token;
-    const res = await fetch('/api/users/clear-must-change-password', {
+    const res = await fetch('/api/users/change-initial-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
-      }
+      },
+      body: JSON.stringify({ password }),
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || 'Gagal menghapus status kewajiban ganti password.');
+      throw new Error(errData.error || 'Gagal memperbarui kata sandi.');
     }
     setUser((prev) => (prev ? { ...prev, mustChangePassword: false } : null));
   };
@@ -291,7 +292,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       login,
       logout,
       refreshProfile,
-      clearMustChangePassword,
+      changeInitialPassword,
       completeGuardianInvitation,
     }}>
       {children}

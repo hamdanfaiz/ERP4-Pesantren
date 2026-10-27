@@ -115,6 +115,11 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
     users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
+    const { error: forcePasswordError } = await admin.from('profiles')
+      .update({ must_change_password: true })
+      .eq('user_id', users[12].uid);
+    if (forcePasswordError) throw new Error('Unable to configure the synthetic forced-password-change fixture.');
 
     const adminToken = await signIn(anon, users[0]);
     const santriToken = await signIn(anon, users[1]);
@@ -127,6 +132,7 @@ async function main() {
     const noPpdbAdminToken = await signIn(anon, users[9]);
     const noFinanceAdminToken = await signIn(anon, users[10]);
     const otherTenantMarketplaceAdminToken = await signIn(anon, users[11]);
+    const forcedPasswordToken = await signIn(anon, users[12]);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
 
@@ -178,6 +184,50 @@ async function main() {
     assert.equal(readyResponse.status, 200, 'Readiness must verify the local Supabase profile store.');
     assert.equal((await readyResponse.json()).status, 'ready');
     assert.equal(readyResponse.headers.get('cache-control'), 'no-store');
+
+    await fetch(`${apiBase}/api/users/clear-must-change-password`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${forcedPasswordToken}` },
+    });
+    const { data: profileAfterLegacyClear, error: legacyClearReadError } = await admin.from('profiles')
+      .select('must_change_password')
+      .eq('user_id', users[12].uid)
+      .maybeSingle();
+    assert.equal(legacyClearReadError, null, 'The forced-password-change fixture must remain readable after the legacy request.');
+    assert.equal(profileAfterLegacyClear?.must_change_password, true, 'The retired clear-only endpoint must not clear the forced-change flag.');
+
+    const clearOnlyPasswordFlag = await fetch(`${apiBase}/api/users/change-initial-password`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${forcedPasswordToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assert.equal(clearOnlyPasswordFlag.status, 400, 'An authenticated user cannot clear the forced-change flag without a new password.');
+
+    const shortInitialPassword = await fetch(`${apiBase}/api/users/change-initial-password`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${forcedPasswordToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'short' }),
+    });
+    assert.equal(shortInitialPassword.status, 400, 'Initial password change must enforce the server-side minimum length.');
+
+    const updatedPassword = `New-Password-${randomUUID()}-Aa1!`;
+    const initialPasswordChange = await fetch(`${apiBase}/api/users/change-initial-password`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${forcedPasswordToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: updatedPassword }),
+    });
+    assert.equal(initialPasswordChange.status, 200, 'The authenticated user can update their temporary password through the server-owned flow.');
+    const { data: changedProfile, error: changedProfileError } = await admin.from('profiles')
+      .select('must_change_password')
+      .eq('user_id', users[12].uid)
+      .maybeSingle();
+    assert.equal(changedProfileError, null, 'Forced-password-change profile state must remain readable in the local fixture.');
+    assert.equal(changedProfile?.must_change_password, false, 'The forced-change flag clears only after Auth accepts the new password.');
+    const oldPasswordSignIn = await anon.auth.signInWithPassword({ email: users[12].email, password: users[12].password });
+    assert.ok(oldPasswordSignIn.error, 'The temporary password must stop authenticating after the change.');
+    const newPasswordSignIn = await anon.auth.signInWithPassword({ email: users[12].email, password: updatedPassword });
+    assert.equal(newPasswordSignIn.error, null, 'The changed password must authenticate successfully.');
+    if (newPasswordSignIn.data.session) await anon.auth.signOut();
 
     const { data: marketplaceBatches, error: marketplaceBatchError } = await admin
       .from('marketplace_legacy_import_batches')

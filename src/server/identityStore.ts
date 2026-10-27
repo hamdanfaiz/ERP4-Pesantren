@@ -858,11 +858,28 @@ export async function guardianCanAccessStudent(tenantId: string, userId: string,
   if (result.error) throw new IdentityUnavailableError("Akses santri Wali tidak dapat diverifikasi.");
   return result.data === true;
 }
-export async function clearPasswordChangeRequired(uid: string): Promise<void> {
+export async function changeInitialPassword(uid: string, password: string): Promise<void> {
   const supabase = supabaseAdmin();
-  const { error } = await supabase
+  const authUpdate = await supabase.auth.admin.updateUserById(uid, { password });
+  if (authUpdate.error) {
+    throw new IdentityConflictError("Kata sandi baru tidak dapat diterapkan. Periksa persyaratan kata sandi, lalu coba kembali.");
+  }
+
+  const { data, error } = await supabase
     .from("profiles")
     .update({ must_change_password: false, updated_at: new Date().toISOString() })
-    .eq("user_id", uid);
-  if (error) throw new IdentityUnavailableError("Gagal memperbarui status kata sandi pengguna.");
+    .eq("user_id", uid)
+    .eq("must_change_password", true)
+    .select("user_id")
+    .maybeSingle();
+  if (error) {
+    throw new IdentityUnavailableError("Kata sandi sudah diperbarui, tetapi status wajib ganti belum tersimpan. Pilih kata sandi baru dan ulangi proses.");
+  }
+  if (!data) {
+    const profile = await getUserProfile(uid);
+    if (!profile) throw new IdentityUnavailableError("Profil pengguna tidak ditemukan setelah kata sandi diperbarui.");
+    if (profile.mustChangePassword) {
+      throw new IdentityUnavailableError("Kata sandi sudah diperbarui, tetapi status wajib ganti belum tersimpan. Pilih kata sandi baru dan ulangi proses.");
+    }
+  }
 }

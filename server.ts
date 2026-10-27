@@ -11,7 +11,7 @@ import {
   IdentityConflictError,
   IdentityUnavailableError,
   checkIdentityStoreReady,
-  clearPasswordChangeRequired,
+  changeInitialPassword,
   createAuthUserWithProfile,
   guardianCanAccessStudent,
   listGuardianStudents,
@@ -4453,23 +4453,33 @@ async function startServer() {
     }
   });
 
-  // 5. Clear mustChangePassword (Self-Authenticated endpoint)
-  app.post("/api/users/clear-must-change-password", requireAuth, async (req, res) => {
+  // 5. Change the authenticated user's temporary password and clear the flag together.
+  app.post("/api/users/change-initial-password", requireAuth, async (req, res) => {
     const uid = (req as any).user?.uid;
+    const password = req.body?.password;
+    if (typeof password !== "string" || password.length < 12 || password.length > 128) {
+      return res.status(400).json({
+        code: "INVALID_PASSWORD",
+        error: "Kata sandi baru harus terdiri dari 12–128 karakter.",
+      });
+    }
 
     try {
       const profile = await getUserProfile(uid);
       if (!profile) {
         return res.status(404).json({ code: "NOT_FOUND", error: "Profil pengguna tidak ditemukan." });
       }
+      if (!profile.mustChangePassword) {
+        return res.status(409).json({ code: "PASSWORD_CHANGE_NOT_REQUIRED", error: "Akun ini tidak sedang diwajibkan mengganti kata sandi." });
+      }
 
-      await clearPasswordChangeRequired(uid);
+      await changeInitialPassword(uid, password);
 
-      return res.json({ success: true, message: "Status mustChangePassword berhasil dihapus." });
+      return res.json({ success: true, message: "Kata sandi diperbarui dan kewajiban penggantian telah diselesaikan." });
     } catch (err: any) {
       const unavailable = identityFailure(res, err);
       if (unavailable) return unavailable;
-      return res.status(500).json({ code: "CLEAR_FAILED", error: "Gagal memperbarui status kata sandi pengguna." });
+      return res.status(500).json({ code: "PASSWORD_CHANGE_FAILED", error: "Gagal memperbarui kata sandi pengguna." });
     }
   });
 
