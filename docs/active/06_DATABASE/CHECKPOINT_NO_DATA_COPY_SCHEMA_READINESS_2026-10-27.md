@@ -19,6 +19,14 @@ Yang harus dibuktikan adalah skema, relasi tenant, izin, dan logic transaksi di 
 - Tidak ada data Firestore disalin dan tidak ada migration/data yang ditulis ke Supabase staging atau Production pada checkpoint ini.
 - PR mengestimasi kematangan fitur **73%** dan kesiapan go-live **46%**. Itu estimasi, bukan hasil UAT/telemetri.
 
+## Bukti baca-saja schema dan akses staging — 27 Oktober 2026
+
+Audit katalog staging menunjukkan 119 tabel pada schema `public`; seluruh 119 mengaktifkan RLS dan FORCE RLS. Sebanyak 118 tabel memiliki `tenant_id NOT NULL`; satu pengecualian adalah tabel root `tenants`. Dari 337 foreign key, 243 relasi yang melibatkan tabel ber-tenant memasangkan `tenant_id` pada kedua sisi, dan tidak ditemukan FK antartabel ber-tenant yang melewatkan pasangan tenant.
+
+Privilege efektif yang diperiksa: `anon` tidak punya akses tabel; `authenticated` hanya dapat membaca lima tabel dan tidak memiliki hak tulis. Ada 114 tabel tanpa policy, tetapi tidak diberikan akses langsung kepada dua role klien tersebut pada baseline yang diperiksa. Backend memakai `service_role` yang berprivilege tinggi; route server tetap wajib memverifikasi token, profil aktif, tenant, role, dan permission. Empat RPC onboarding/HRIS yang ditinjau hanya dapat dieksekusi `service_role`, bukan `anon` atau `authenticated`.
+
+Bukti ini adalah snapshot katalog staging, bukan uji runtime lengkap, bukan audit setiap endpoint, dan bukan bukti bahwa migration yang belum tercatat aman diterapkan. Query bersifat baca-saja; tidak ada row, policy, schema, atau feature flag yang diubah.
+
 ## Kriteria penerimaan logic dan relasi
 
 1. **Tenant terikat di database:** semua tabel operasional ber-`tenant_id NOT NULL` kecuali katalog global yang didokumentasikan; relasi antartabel memakai kunci komposit tenant agar child tidak dapat menunjuk parent tenant lain.
