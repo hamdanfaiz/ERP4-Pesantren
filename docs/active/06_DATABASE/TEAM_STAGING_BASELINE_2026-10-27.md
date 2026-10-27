@@ -199,3 +199,17 @@ Pemeriksaan hanya-baca atas kondisi data saat ini menunjukkan bahwa staging masi
 - Importer legacy yang didefinisikan sebagai fungsi database tidak semuanya berjalan otomatis saat migration. Untuk setiap impor, lakukan preview, rekonsiliasi jumlah/fingerprint, uji replay idempotent, dan validasi actor/tenant pada staging berisi sebelum mengaktifkan endpoint.
 
 Hasil di atas adalah hitungan agregat tanpa nilai record. Tidak ada data atau migration yang ditulis. CI menguji skema dan data sintetis terisolasi; staging saat ini belum dapat membuktikan behavior pada volume atau variasi data pesantren besar. Rehearsal skala dan rekonsiliasi payload tetap menjadi gate go-live.
+
+### Verifikasi source SQL ledger dan preflight lengkap — 27 Oktober 2026
+
+Pembacaan ulang baca-saja pada staging mengonfirmasi **47 baris ledger**, dengan **45 baris berisi `statements`**. Hanya versi `20261205000000` dan `20261206000000` yang masih memiliki `name = NULL` sekaligus `statements = NULL`.
+
+Semua 45 array SQL yang tersedia dibandingkan dengan file migration sumber pada urutan statement. Perbandingan mengabaikan perbedaan CRLF, komentar SQL di luar literal, dan spasi di luar literal; isi string serta body dollar-quoted dipertahankan. Hasilnya **45/45 cocok** setelah normalisasi tersebut. Ini membuktikan kesesuaian metadata SQL untuk 45 row, bukan kesetaraan schema/data secara menyeluruh. Dua row kosong tetap tidak dapat dibuktikan lewat ledger.
+
+Commit `89a0773249f0ea918021b284f31d1f9c483f13cb` pada PR #13 menambahkan perbandingan SQL ini ke `scripts/preflight-supabase-migrations.mjs`. Preflight membaca `version`, `name`, dan `statements` di transaksi `READ ONLY`; ia menghentikan rencana staging bila ada versi tak dikenal/di luar urutan, nama tidak cocok, metadata SQL kosong, atau statement berbeda. Laporan hanya menampilkan versi, jumlah statement, dan posisi mismatch—tidak mencetak isi SQL. Tes lokal `node scripts/test-migration-preflight.mjs` lulus, termasuk parsing 91 file migration dan kasus metadata kosong.
+
+GitHub Actions [run 40428532956](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40428532956) lulus pada kedua job: frontend/build/Firebase bundle guard serta migrasi, API auth/tenant, dan pgTAP. CI memakai Supabase lokal terisolasi; pemeriksaan ulang staging tetap hanya baca. Tidak ada migration atau data yang diterapkan.
+
+**Status lineage:** 45 migration memiliki bukti metadata SQL yang cocok; dua versi tanpa metadata masih harus direkonsiliasi oleh tim backend/DBA lewat perbandingan objek lengkap pada klon disposable yang dipulihkan dari backup. Jangan mengubah row ledger atau membuka guard preflight berdasarkan postcondition parsial. Setelah rekonsiliasi dua versi itu, jalankan ulang preflight sebelum menyusun rehearsal batch pending.
+
+Estimasi proyek tidak berubah: **73% kematangan fitur / 46% kesiapan go-live**. Rehearsal di clone berisi, rekonsiliasi payload lintas domain, login/UAT, rotasi secret, dan simulasi environment pelanggan tetap menjadi release gate.
