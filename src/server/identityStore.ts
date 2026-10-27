@@ -356,6 +356,32 @@ export async function createAuthUserWithProfile(input: {
   linkedSantriClass?: string;
   linkedSantriRoom?: string;
 }): Promise<StoredUserProfile> {
+  const email = input.email.trim().toLowerCase();
+  const name = input.name.trim();
+  const roleByUiValue: Record<string, string> = {
+    SuperAdmin: "super_admin", Admin: "admin", Ustadz: "ustadz", Santri: "santri", Walisantri: "wali_santri",
+  };
+  const databaseRole = roleByUiValue[input.role];
+  if (!email || email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    throw new IdentityConflictError("Alamat email tidak valid.");
+  }
+  if (name.length < 2 || name.length > 120 || /[\\u0000-\\u001f\\u007f]/.test(name)) {
+    throw new IdentityConflictError("Nama harus berisi 2–120 karakter dan tidak boleh berisi karakter kontrol.");
+  }
+  if (input.password.length < 12 || input.password.length > 128
+    || /[\\u0000-\\u001f\\u007f]/.test(input.password)) {
+    throw new IdentityConflictError("Kata sandi sementara harus 12–128 karakter dan tidak boleh berisi karakter kontrol.");
+  }
+  if (!databaseRole) {
+    throw new IdentityConflictError("Role yang diminta tidak dapat diberikan.");
+  }
+  if (!input.modulePermissions || typeof input.modulePermissions !== "object"
+    || Array.isArray(input.modulePermissions)
+    || Object.keys(input.modulePermissions).length > 64
+    || Object.values(input.modulePermissions).some((allowed) => typeof allowed !== "boolean")) {
+    throw new IdentityConflictError("Permission modul tidak valid.");
+  }
+
   const supabase = supabaseAdmin();
   const tenantResult = await supabase.from("tenants")
     .select("id,name,tenant_type,status,time_zone")
@@ -375,10 +401,10 @@ export async function createAuthUserWithProfile(input: {
   });
 
   const { data, error } = await supabase.auth.admin.createUser({
-    email: input.email,
+    email,
     password: input.password,
     email_confirm: true,
-    user_metadata: { name: input.name },
+    user_metadata: { name },
   });
   if (error || !data.user) {
     const message = String(error?.message || "");
@@ -389,15 +415,12 @@ export async function createAuthUserWithProfile(input: {
   }
 
   const now = new Date().toISOString();
-  const roleByUiValue: Record<string, string> = {
-    SuperAdmin: "super_admin", Admin: "admin", Ustadz: "ustadz", Santri: "santri", Walisantri: "wali_santri",
-  };
   const row: CanonicalProfileRow = {
     user_id: data.user.id,
-    email: input.email,
-    display_name: input.name,
+    email,
+    display_name: name,
     username: input.username,
-    role: roleByUiValue[input.role],
+    role: databaseRole,
     tenant_id: input.tenantId,
     status: "active",
     must_change_password: true,
