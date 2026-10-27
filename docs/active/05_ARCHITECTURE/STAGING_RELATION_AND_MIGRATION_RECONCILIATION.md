@@ -39,7 +39,12 @@ Query hanya mengembalikan jumlah, status agregat, dan hasil pemeriksaan; tidak m
 
 `supabase_migrations.schema_migrations` memiliki kolom `version`, `name`, dan `statements`. Ledger yang dibaca berisi 47 versi sampai `20261206000000`. Source PR #13 saat pemeriksaan berisi 96 berkas migration. Sebanyak 49 versi source mulai `20261207000000_library_legacy_catalog_import.sql` sampai `20270124000000_finance_proof_upload_rate_limit.sql` tidak tercatat pada ledger staging.
 
-Dua versi terakhir yang tercatat, `20261205000000` dan `20261206000000`, memiliki `name = NULL` dan `statements` kosong. Ini adalah kondisi sejarah yang tidak lengkap, tetapi **tidak membuktikan** SQL-nya belum berjalan. Sebagai contoh, tabel `ppdb_legacy_import_batches` ada di katalog staging, namun pemeriksaan katalog saja tidak membuktikan semua efek migration `20261206000000` telah benar. Jangan tandai versi sebagai applied hanya berdasarkan nama tabel atau agar daftar terlihat sinkron.
+Dua versi terakhir yang tercatat, `20261205000000` dan `20261206000000`, memiliki `name = NULL` dan `statements` kosong. Efek penting keduanya kini diverifikasi dengan query baca-saja dan cocok dengan source:
+
+- `20261205000000`: default ACL tabel/sequences/fungsi hanya memberi hak kepada owner `postgres`; empat helper trigger tidak dapat dipanggil oleh `anon`, `authenticated`, atau `service_role`.
+- `20261206000000`: kolom metadata sumber, dua CHECK constraint, indeks unik parsial kandidat, tabel batch dengan FK/constraint tenant, RLS + FORCE RLS, dan grants server-only ditemukan. Function impor ada sebagai `SECURITY INVOKER`, menggunakan `search_path=pg_catalog, public`, membatasi tenant/Admin/permission, mengunci retry, menolak fingerprint berubah, memanggil RPC pembuatan kandidat, dan mencatat batch idempotensi. `anon`/`authenticated` tidak dapat membaca tabel atau menjalankan function; `service_role` memiliki grant yang diharapkan.
+
+Verifikasi ini mengonfirmasi efek penting yang diperiksa, bukan mengembalikan isi asli `statements` atau membuktikan byte-for-byte kesamaan SQL. Jangan jalankan `migration repair` hanya untuk mengisi metadata kosong: versi tersebut sudah tercatat dan `repair` hanya mengubah tracking. Jangan jalankan ulang kedua SQL tersebut tanpa dry-run/review.
 
 Supabase menjelaskan bahwa `db push` membandingkan source lokal dengan `supabase_migrations.schema_migrations` dan hanya menjalankan versi yang belum tercatat. `migration repair` hanya memperbarui tracking, bukan menjalankan SQL. Rujukan: [Database Migrations — Supabase](https://supabase.com/docs/guides/deployment/database-migrations) dan [supabase db push](https://supabase.com/docs/reference/cli/supabase-db-push).
 
@@ -47,8 +52,8 @@ Supabase menjelaskan bahwa `db push` membandingkan source lokal dengan `supabase
 
 1. Gunakan commit source PR #13 yang telah ditinjau; pastikan target CLI hanya project staging `ptsasgdvgrbdtgyqieie`.
 2. Dari jaringan dan mesin yang memiliki Supabase CLI serta kredensial project, jalankan `supabase migration list` dan `supabase db push --dry-run`. Jangan memasukkan access token, secret key, atau password ke chat/repository.
-3. Bandingkan schema staging dengan hasil database lokal bersih yang dibangun dari semua migration source. Periksa khusus seluruh efek `20261205000000` dan `20261206000000`, lalu catat tiap perbedaan schema, function, trigger, grant, policy, dan storage.
-4. Ambil/konfirmasi backup staging yang dapat dipulihkan. Jika histori perlu dikoreksi, lakukan `migration repair` **hanya** untuk versi yang efek SQL-nya telah diverifikasi; jangan mengubah status 49 versi pending menjadi applied.
+3. Bandingkan schema staging dengan hasil database lokal bersih yang dibangun dari semua migration source. Efek penting versi `20261205000000` dan `20261206000000` sudah diperiksa; lanjutkan dengan migration source yang belum tercatat dan cari perbedaan schema, function, trigger, grant, policy, dan storage.
+4. Ambil/konfirmasi backup staging yang dapat dipulihkan. Pertahankan dua versi ber-metadata kosong sebagai applied; jangan jalankan `migration repair` untuk menebak atau mengisi SQL historis, dan jangan mengubah status 49 versi pending menjadi applied.
 5. Terapkan migration satu per satu di staging setelah diff dan rencana pemulihan ditinjau. Tidak ada impor Firestore atau seed otomatis dalam langkah ini.
 6. Setelah migration, ulangi pemeriksaan RLS/FK, lalu buat record uji sintetis melalui alur aplikasi: PPDB diterima → onboarding transaksional → relasi wali-santri dan identitas → reservasi NIS → alur Tahfidz/Finance. Verifikasi retry idempoten, penolakan duplikasi, role, dan tenant.
 
