@@ -175,6 +175,11 @@ jobs:
       - name: Start isolated local Supabase
         run: supabase start
 
+      - name: Rehearse upgrade from the staging ledger boundary
+        run: |
+          supabase db reset --local --version 20261206000000 --no-seed
+          supabase migration up --local
+
       - name: Verify local migration ledger against repository (read-only)
         run: npm run preflight:db-migrations:local
 
