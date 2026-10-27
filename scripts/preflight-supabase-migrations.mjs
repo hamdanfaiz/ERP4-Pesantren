@@ -5,9 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 export const READ_ONLY_LEDGER_QUERY = `
 BEGIN READ ONLY;
-SELECT version::text
-FROM supabase_migrations.schema_migrations
-ORDER BY version;
+SELECT COALESCE(
+  json_agg(json_build_object('version', version::text, 'name', name) ORDER BY version),
+  '[]'::json
+)::text
+FROM supabase_migrations.schema_migrations;
 COMMIT;
 `;
 
@@ -36,19 +38,46 @@ export function listLocalMigrations(fileNames) {
   return migrations;
 }
 
-export function compareMigrationVersions(migrations, appliedVersions) {
-  const applied = appliedVersions.map((version) => String(version).trim()).filter(Boolean);
-  const invalidApplied = applied.filter((version) => !VERSION_PATTERN.test(version));
+export function parseAppliedMigrationsOutput(output) {
+  let rows;
+  try {
+    rows = JSON.parse(String(output || '').trim());
+  } catch {
+    throw new Error('Respons ledger migrasi Supabase bukan JSON yang valid.');
+  }
+  if (!Array.isArray(rows)) throw new Error('Respons ledger migrasi Supabase harus berupa daftar.');
+  return rows.map((row) => ({
+    version: typeof row?.version === 'string' ? row.version.trim() : '',
+    name: typeof row?.name === 'string' ? row.name.trim() : null,
+  }));
+}
+
+export function compareMigrationVersions(migrations, appliedMigrations) {
+  const applied = appliedMigrations.map((row) => typeof row === 'string'
+    ? { version: row.trim(), name: null }
+    : {
+      version: typeof row?.version === 'string' ? row.version.trim() : '',
+      name: typeof row?.name === 'string' ? row.name.trim() : null,
+    });
+  const appliedVersions = applied.map(({ version }) => version);
+  const invalidApplied = appliedVersions.filter((version) => !VERSION_PATTERN.test(version));
   if (invalidApplied.length > 0) {
     throw new Error(`Ledger berisi versi migration yang tidak valid: ${invalidApplied.join(', ')}`);
   }
 
-  const appliedSet = new Set(applied);
-  if (appliedSet.size !== applied.length) throw new Error('Ledger berisi versi migration duplikat.');
+  const appliedSet = new Set(appliedVersions);
+  if (appliedSet.size !== appliedVersions.length) throw new Error('Ledger berisi versi migration duplikat.');
 
-  const localSet = new Set(migrations.map((migration) => migration.version));
-  const unknownApplied = applied.filter((version) => !localSet.has(version)).sort();
-  const latestAppliedVersion = [...applied].sort().at(-1) || null;
+  const localByVersion = new Map(migrations.map((migration) => [migration.version, migration]));
+  const unknownApplied = appliedVersions.filter((version) => !localByVersion.has(version)).sort();
+  const nameMismatches = applied.flatMap((row) => {
+    const local = localByVersion.get(row.version);
+    if (!local) return [];
+    const expectedName = local.fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, '');
+    if (row.name === expectedName) return [];
+    return [{ version: row.version, appliedName: row.name, expectedName, fileName: local.fileName }];
+  });
+  const latestAppliedVersion = [...appliedVersions].sort().at(-1) || null;
   const pending = migrations.filter((migration) => !appliedSet.has(migration.version));
   const outOfOrderPending = latestAppliedVersion
     ? pending.filter((migration) => migration.version < latestAppliedVersion)
@@ -62,7 +91,10 @@ export function compareMigrationVersions(migrations, appliedVersions) {
     pending,
     unknownApplied,
     outOfOrderPending,
-    canContinueToStagingReview: unknownApplied.length === 0 && outOfOrderPending.length === 0,
+    nameMismatches,
+    canContinueToStagingReview: unknownApplied.length === 0
+      && outOfOrderPending.length === 0
+      && nameMismatches.length === 0,
   };
 }
 
@@ -135,7 +167,7 @@ function getRepoRoot() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 }
 
-function readAppliedVersions(databaseUrl) {
+function readAppliedMigrations(databaseUrl) {
   const result = execFileSync('psql', [
     '-X', '-A', '-t', '-q', '-v', 'ON_ERROR_STOP=1', '-c', READ_ONLY_LEDGER_QUERY,
   ], {
@@ -144,7 +176,7 @@ function readAppliedVersions(databaseUrl) {
     maxBuffer: 4 * 1024 * 1024,
     env: { ...process.env, ...psqlEnvironmentFromDatabaseUrl(databaseUrl) },
   });
-  return result.split(/\r?\n/).map((version) => version.trim()).filter(Boolean);
+  return parseAppliedMigrationsOutput(result);
 }
 
 export function formatReport(report) {
@@ -165,9 +197,15 @@ export function formatReport(report) {
       lines.push(`  ${migration.version}  ${migration.fileName}`);
     }
   }
+  if (report.nameMismatches.length > 0) {
+    lines.push('HENTIKAN: nama migration pada ledger kosong atau berbeda dari nama file repository:');
+    for (const mismatch of report.nameMismatches) {
+      lines.push(`  ${mismatch.version}  ledger=${mismatch.appliedName ?? '(kosong)'}  repository=${mismatch.expectedName}`);
+    }
+  }
 
   if (!report.canContinueToStagingReview) {
-    lines.push('Rekonsiliasi lineage sebelum membuat rencana staging.');
+    lines.push('Rekonsiliasi jejak versi dan nama migration sebelum membuat rencana staging.');
   } else if (report.pending.length === 0) {
     lines.push('Ledger dan repository selaras; tetap lakukan staging/backup review sebelum rilis.');
   } else {
@@ -193,8 +231,8 @@ export function main({ env = process.env, repoRoot = getRepoRoot(), useLocalStac
     }
 
     const migrations = listLocalMigrations(readdirSync(path.join(repoRoot, 'supabase', 'migrations')));
-    const appliedVersions = readAppliedVersions(databaseUrl);
-    const report = compareMigrationVersions(migrations, appliedVersions);
+    const appliedMigrations = readAppliedMigrations(databaseUrl);
+    const report = compareMigrationVersions(migrations, appliedMigrations);
     printReport(report);
     return report.canContinueToStagingReview ? 0 : 2;
   } catch (error) {

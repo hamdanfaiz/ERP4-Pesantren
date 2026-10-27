@@ -5,6 +5,7 @@ import {
   databaseUrlFromSupabaseStatus,
   formatReport,
   listLocalMigrations,
+  parseAppliedMigrationsOutput,
   psqlEnvironmentFromDatabaseUrl,
   READ_ONLY_LEDGER_QUERY,
 } from './preflight-supabase-migrations.mjs';
@@ -22,45 +23,65 @@ assert.throws(
 );
 assert.throws(() => listLocalMigrations(['bad-name.sql']), /format Supabase/);
 
-const normal = compareMigrationVersions(local, ['20270101000000']);
+const normal = compareMigrationVersions(local, [{ version: '20270101000000', name: 'profiles' }]);
 assert.equal(normal.appliedCount, 1);
 assert.equal(normal.pending.length, 1);
 assert.equal(normal.pending[0].version, '20270102000000');
 assert.equal(normal.canContinueToStagingReview, true);
 assert.match(formatReport(normal), /Migration yang belum tercatat \(1\)/);
 
-const unknownRemote = compareMigrationVersions(local, ['20261231000000']);
+const unknownRemote = compareMigrationVersions(local, [{ version: '20261231000000', name: 'not_in_repository' }]);
 assert.deepEqual(unknownRemote.unknownApplied, ['20261231000000']);
 assert.equal(unknownRemote.canContinueToStagingReview, false);
 assert.match(formatReport(unknownRemote), /HENTIKAN/);
 assert.doesNotMatch(formatReport(unknownRemote), /selaras/);
 
-const outOfOrder = compareMigrationVersions(local, ['20270102000000']);
+const outOfOrder = compareMigrationVersions(local, [{ version: '20270102000000', name: 'guardians' }]);
 assert.deepEqual(outOfOrder.outOfOrderPending.map(({ version }) => version), ['20270101000000']);
 assert.equal(outOfOrder.canContinueToStagingReview, false);
 
-// Regression fixture from the read-only Production ledger observed on 2026-10-26.
-// This validates planning output only; it does not connect to or change Production.
+// Regression fixture from the read-only staging ledger observed on 2026-10-27.
+// This validates planning output only; it does not connect to or change staging.
 const repositoryMigrations = listLocalMigrations(
   readdirSync(new URL('../supabase/migrations/', import.meta.url))
 );
-const observedProductionVersions = repositoryMigrations
+const observedStagingMigrations = repositoryMigrations
   .filter(({ version }) => version <= '20261206000000')
-  .map(({ version }) => version);
-assert.equal(observedProductionVersions.length, 47);
+  .map(({ version, fileName }) => ({
+    version,
+    name: fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, ''),
+  }));
+assert.equal(observedStagingMigrations.length, 47);
 assert.equal(repositoryMigrations.length, 91);
-const productionBaseline = compareMigrationVersions(repositoryMigrations, observedProductionVersions);
-assert.equal(productionBaseline.appliedCount, 47);
-assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 44);
-assert.equal(productionBaseline.pending[0].version, '20261207000000');
-assert.equal(productionBaseline.pending.at(-1).version, '20270119000000');
-assert.equal(productionBaseline.outOfOrderPending.length, 0);
-assert.equal(productionBaseline.unknownApplied.length, 0);
-assert.equal(productionBaseline.canContinueToStagingReview, true);
+const stagingBaseline = compareMigrationVersions(repositoryMigrations, observedStagingMigrations);
+assert.equal(stagingBaseline.appliedCount, 47);
+assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
+assert.equal(stagingBaseline.pending.length, 44);
+assert.equal(stagingBaseline.pending[0].version, '20261207000000');
+assert.equal(stagingBaseline.pending.at(-1).version, '20270119000000');
+assert.equal(stagingBaseline.outOfOrderPending.length, 0);
+assert.equal(stagingBaseline.unknownApplied.length, 0);
+assert.equal(stagingBaseline.nameMismatches.length, 0);
+assert.equal(stagingBaseline.canContinueToStagingReview, true);
+
+const missingLedgerNames = compareMigrationVersions(repositoryMigrations, [
+  { version: '20261205000000', name: null },
+  { version: '20261206000000', name: null },
+]);
+assert.deepEqual(missingLedgerNames.nameMismatches.map(({ version }) => version), ['20261205000000', '20261206000000']);
+assert.equal(missingLedgerNames.canContinueToStagingReview, false);
+assert.match(formatReport(missingLedgerNames), /nama migration pada ledger kosong/);
+
+const wrongLedgerName = compareMigrationVersions(local, [{ version: '20270101000000', name: 'different_name' }]);
+assert.equal(wrongLedgerName.nameMismatches.length, 1);
+assert.equal(wrongLedgerName.canContinueToStagingReview, false);
 
 assert.throws(() => compareMigrationVersions(local, ['invalid-version']), /tidak valid/);
 assert.throws(() => compareMigrationVersions(local, ['20270101000000', '20270101000000']), /duplikat/);
+assert.deepEqual(parseAppliedMigrationsOutput('[{"version":"20270101000000","name":null}]'), [
+  { version: '20270101000000', name: null },
+]);
+assert.throws(() => parseAppliedMigrationsOutput('not-json'), /bukan JSON/);
 
 const localPsqlEnv = psqlEnvironmentFromDatabaseUrl('postgresql://postgres:p%40ss@localhost:54322/postgres');
 assert.equal(localPsqlEnv.PGPASSWORD, 'p@ss');
@@ -90,7 +111,9 @@ assert.equal(
 assert.throws(() => databaseUrlFromSupabaseStatus('API_URL=http://127.0.0.1:54321'), /DB_URL/);
 
 assert.match(READ_ONLY_LEDGER_QUERY, /BEGIN READ ONLY/);
-assert.match(READ_ONLY_LEDGER_QUERY, /SELECT version::text/);
+assert.match(READ_ONLY_LEDGER_QUERY, /SELECT COALESCE/);
+assert.match(READ_ONLY_LEDGER_QUERY, /version::text/);
+assert.match(READ_ONLY_LEDGER_QUERY, /'name', name/);
 assert.match(READ_ONLY_LEDGER_QUERY, /COMMIT/);
 assert.doesNotMatch(READ_ONLY_LEDGER_QUERY, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE)\b/i);
 
