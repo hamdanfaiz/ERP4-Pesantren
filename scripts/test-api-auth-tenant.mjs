@@ -408,7 +408,7 @@ async function main() {
     assert.equal(oversizedPasswordResponse.status, 400, "Provisioning must reject passwords longer than 128 characters.");
     const controlCharacterPasswordResponse = await rejectInvalidProvisioningPassword(
       controlCharacterPasswordEmail,
-      "Valid-Password-1\\n",
+      "Valid-Password-1\n",
     );
     assert.equal(controlCharacterPasswordResponse.status, 400, "Provisioning must reject control characters in passwords.");
 
