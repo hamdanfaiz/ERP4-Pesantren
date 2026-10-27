@@ -1,3 +1,5 @@
+> **STATUS TERKINI — 27 Oktober 2026:** Dokumen ini memuat pemeriksaan historis dan telah disupersede untuk tindakan saat ini. Pemilik memutuskan data Firestore dummy **tidak perlu disalin**; jangan jalankan importer, rekonsiliasi jumlah, atau penghapusan data staging sebagai release gate. Ikuti [checkpoint schema dan logic tanpa salin data](./CHECKPOINT_NO_DATA_COPY_SCHEMA_READINESS_2026-10-27.md) untuk status PR/head, angka migration terbaru, kriteria relasi tenant, dan langkah berikutnya.
+
 # Checkpoint Migrasi Firestore → Supabase — 27 Oktober 2026
 
 Dokumen ini mencatat pemeriksaan baca-saja terbaru atas sumber Firestore kanonis dan target Supabase staging. Tidak ada payload identitas atau kredensial yang dicatat.
