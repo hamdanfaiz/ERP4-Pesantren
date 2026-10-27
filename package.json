@@ -45,7 +45,8 @@
     "test:tahfidz-membership-date": "tsx scripts/test-tahfidz-membership-date.ts",
     "test:tahfidz-record-pagination": "tsx scripts/test-tahfidz-record-pagination.ts",
     "test:tahfidz-session-pagination": "tsx scripts/test-tahfidz-session-pagination.ts",
-    "test:academic-portal": "tsx scripts/test-academic-portal.ts"
+    "test:academic-portal": "tsx scripts/test-academic-portal.ts",
+    "test:public-ppdb-body-limit": "tsx scripts/test-public-ppdb-body-limit.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -95,4 +96,3 @@
     "xlsx": "^0.18.5"
   }
 }
-

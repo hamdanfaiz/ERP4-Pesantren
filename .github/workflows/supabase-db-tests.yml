@@ -86,6 +86,8 @@ jobs:
 
       - name: Verify Academic portal tenant and student scoping
         run: npm run test:academic-portal
+      - name: Verify public PPDB maximum document payload size
+        run: npm run test:public-ppdb-body-limit
 
       - name: Build client and server
         run: bun run build
