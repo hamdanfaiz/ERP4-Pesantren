@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { protectPpdbIdentityValues, SupabaseOnboardingError } from "./supabaseOnboarding";
 
@@ -9,8 +9,10 @@ type DocumentKey = typeof DOCUMENT_KEYS[number];
 
 export class SupabasePublicPpdbError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  outcomeUnknown: boolean;
+  constructor(status: number, message: string, outcomeUnknown = false) {
     super(message);
+    this.outcomeUnknown = outcomeUnknown;
     this.name = "SupabasePublicPpdbError";
     this.status = status;
   }
@@ -37,6 +39,11 @@ async function request(path: string, init: RequestInit = {}) {
   if (raw) { try { body = JSON.parse(raw); } catch { body = null; } }
   if (!response.ok) {
     const code = String(body?.code || "");
+    const isDatabaseError = /^[0-9A-Z]{5}$/.test(code);
+    const outcomeUnknown = response.status >= 500 && !isDatabaseError;
+    if (code === "P0001") {
+      throw new SupabasePublicPpdbError(409, "Kunci permintaan PPDB sudah digunakan untuk data yang berbeda. Periksa status pendaftaran atau buka kembali formulir sebelum mencoba lagi.");
+    }
     if (["23505", "23503"].includes(code) || response.status === 409) {
       throw new SupabasePublicPpdbError(409, "NIK/NISN atau nomor pendaftaran sudah tercatat. Periksa kembali data calon santri.");
     }
@@ -44,7 +51,11 @@ async function request(path: string, init: RequestInit = {}) {
       throw new SupabasePublicPpdbError(400, body?.message || "Data pendaftaran atau berkas tidak valid.");
     }
     if (code === "42501" || response.status === 403) throw new SupabasePublicPpdbError(503, "Pendaftaran untuk pesantren ini belum tersedia.");
-    throw new SupabasePublicPpdbError(503, "Layanan pendaftaran Supabase belum dapat diproses.");
+    throw new SupabasePublicPpdbError(
+      503,
+      "Layanan pendaftaran Supabase belum dapat diproses.",
+      outcomeUnknown,
+    );
   }
   return body;
 }
@@ -131,6 +142,43 @@ function decodeDocument(raw: unknown, required: boolean): { bytes: Buffer; mimeT
   return { bytes, mimeType: detectedMime };
 }
 
+const MAX_TOTAL_DOCUMENT_BYTES = 3 * 1024 * 1024;
+
+export function assertPublicPpdbTotalDocumentSize(files: Iterable<{ bytes: Uint8Array }>): void {
+  let totalBytes = 0;
+  for (const file of files) {
+    totalBytes += file.bytes.byteLength;
+    if (totalBytes > MAX_TOTAL_DOCUMENT_BYTES) {
+      throw new SupabasePublicPpdbError(400, "Total seluruh berkas maksimal 3 MB.");
+    }
+  }
+}
+
+function fingerprintPublicPpdbSubmission(
+  tenantId: string,
+  admissionYear: number,
+  candidate: JsonObject,
+  files: Map<DocumentKey, { bytes: Buffer; mimeType: string }>,
+) {
+  const key = String(process.env.PII_FINGERPRINT_KEY || "").trim();
+  if (!/^[0-9a-fA-F]{64}$/.test(key)) {
+    throw new SupabasePublicPpdbError(503, "Kunci fingerprint PPDB backend belum dikonfigurasi.");
+  }
+  const documents = [...files.entries()]
+    .map(([documentKey, file]) => ({
+      documentKey,
+      mimeType: file.mimeType,
+      byteLength: file.bytes.length,
+      sha256: createHash("sha256").update(file.bytes).digest("hex"),
+    }))
+    .sort((left, right) => left.documentKey.localeCompare(right.documentKey));
+  const canonicalPayload = JSON.stringify({ tenantId, admissionYear, candidate, documents });
+  return createHmac("sha256", Buffer.from(key, "hex"))
+    .update("public-ppdb-submission:v1:")
+    .update(canonicalPayload)
+    .digest("hex");
+}
+
 function storageObjectPath(tenantId: string, candidateId: string, key: DocumentKey, mimeType: string) {
   const ext = mimeType === "application/pdf" ? "pdf" : mimeType === "image/png" ? "png" : "jpg";
   return `${tenantId}/${candidateId}/${key}-${randomUUID()}.${ext}`;
@@ -161,6 +209,8 @@ export async function submitSupabasePublicPpdbRegistration(tenantIdentifier: str
   const payload = input && typeof input === "object" && !Array.isArray(input) ? input as JsonObject : {};
   const raw = payload.candidate && typeof payload.candidate === "object" && !Array.isArray(payload.candidate) ? payload.candidate as JsonObject : null;
   if (!raw) throw new SupabasePublicPpdbError(400, "Data pendaftaran tidak valid.");
+  const clientRequestId = cleanText(payload.clientRequestId, "ID permintaan", 36, true);
+  if (!isUuid(clientRequestId)) throw new SupabasePublicPpdbError(400, "ID permintaan pendaftaran tidak valid.");
   const name = cleanText(raw.name, "nama", 120, true);
   const gender = cleanText(raw.gender, "jenis kelamin", 1, true);
   const grade = cleanText(raw.grade, "jenjang", 40, true);
@@ -205,6 +255,7 @@ export async function submitSupabasePublicPpdbRegistration(tenantIdentifier: str
     const decoded = decodeDocument(inputFiles[key], required);
     if (decoded) files.set(key, decoded);
   }
+  assertPublicPpdbTotalDocumentSize(files.values());
 
   const yearMatch = config.academicYear.match(/^(\d{4})/);
   const admissionYear = yearMatch ? Number(yearMatch[1]) : 0;
@@ -215,46 +266,70 @@ export async function submitSupabasePublicPpdbRegistration(tenantIdentifier: str
     if (error instanceof SupabaseOnboardingError) throw new SupabasePublicPpdbError(error.status, error.message);
     throw error;
   }
-  const candidateId = randomUUID();
+  const candidateId = clientRequestId;
+  const requestFingerprintHex = fingerprintPublicPpdbSubmission(config.tenantId, admissionYear, {
+    name, gender, grade, previousSchool, phone, whatsappPhone, email, pob, dob, address,
+    province, regency, district, village, fatherName, motherName, fatherJob, motherJob,
+    fatherEducation, motherEducation, familyIncome,
+    nikFingerprint: protectedIdentity.nikFingerprintHex,
+    nisnFingerprint: protectedIdentity.nisnFingerprintHex,
+  }, files);
   const paths: Partial<Record<DocumentKey, string>> = {};
+  let rpcOutcomeUnknown = false;
+  let rpcCommitted = false;
   try {
     for (const [key, file] of files) {
       const path = storageObjectPath(config.tenantId, candidateId, key, file.mimeType);
       await uploadPrivateDocument(path, file.bytes, file.mimeType);
       paths[key] = path;
     }
-    const result = await request("/rest/v1/rpc/submit_public_ppdb", {
-      method: "POST",
-      body: JSON.stringify({
-        p_tenant_id: config.tenantId,
-        p_candidate_id: candidateId,
-        p_admission_year: admissionYear,
-        p_candidate: {
-          name, gender, grade, previousSchool, phone, whatsappPhone, email, pob, dob, address,
-          province, regency, district, village, fatherName, motherName, fatherJob, motherJob,
-          fatherEducation, motherEducation, familyIncome,
-          nikCiphertext: protectedIdentity.nikCiphertextHex,
-          nikFingerprint: protectedIdentity.nikFingerprintHex,
-          nisnCiphertext: protectedIdentity.nisnCiphertextHex,
-          nisnFingerprint: protectedIdentity.nisnFingerprintHex,
-        },
-        p_document_paths: paths,
-      }),
-    });
+    rpcOutcomeUnknown = true;
+    let result: any;
+    try {
+      result = await request("/rest/v1/rpc/submit_public_ppdb_idempotent", {
+        method: "POST",
+        body: JSON.stringify({
+          p_tenant_id: config.tenantId,
+          p_candidate_id: candidateId,
+          p_admission_year: admissionYear,
+          p_candidate: {
+            name, gender, grade, previousSchool, phone, whatsappPhone, email, pob, dob, address,
+            province, regency, district, village, fatherName, motherName, fatherJob, motherJob,
+            fatherEducation, motherEducation, familyIncome,
+            nikCiphertext: protectedIdentity.nikCiphertextHex,
+            nikFingerprint: protectedIdentity.nikFingerprintHex,
+            nisnCiphertext: protectedIdentity.nisnCiphertextHex,
+            nisnFingerprint: protectedIdentity.nisnFingerprintHex,
+          },
+          p_document_paths: paths,
+          p_request_fingerprint_hex: requestFingerprintHex,
+        }),
+      });
+      rpcOutcomeUnknown = false;
+      rpcCommitted = true;
+    } catch (error) {
+      if (error instanceof SupabasePublicPpdbError && !error.outcomeUnknown) rpcOutcomeUnknown = false;
+      throw error;
+    }
     const registrationId = String(result?.registrationId || "");
     if (String(result?.id || "") !== candidateId || !registrationId) throw new SupabasePublicPpdbError(503, "Nomor pendaftaran PPDB belum dapat dikonfirmasi.");
+    if (result?.alreadyApplied === true && Array.isArray(result?.previousDocumentPaths)) {
+      await removePrivateDocuments(result.previousDocumentPaths.filter((value: unknown): value is string => typeof value === "string"));
+    }
     return {
       candidate: {
         id: candidateId, registrationId,
         name, gender, grade, previousSchool, phone, whatsappPhone, email, nik, nisn, pob, dob, address,
         province, regency, district, village, fatherName, motherName, fatherJob, motherJob,
         fatherEducation, motherEducation, familyIncome, stage: "Registered", score: 0,
-        dateApplied: new Date().toISOString().slice(0, 10), syncToMasterData: false, onboardingStatus: "Pending",
+        dateApplied: String(result?.dateApplied || new Date().toISOString().slice(0, 10)), syncToMasterData: false, onboardingStatus: "Pending",
         documents: Object.fromEntries(DOCUMENT_KEYS.map((key) => [key, files.has(key)])),
       },
     };
   } catch (error) {
-    await removePrivateDocuments(Object.values(paths).filter((value): value is string => Boolean(value)));
+    if (!rpcOutcomeUnknown && !rpcCommitted) {
+      await removePrivateDocuments(Object.values(paths).filter((value): value is string => Boolean(value)));
+    }
     throw error;
   }
 }

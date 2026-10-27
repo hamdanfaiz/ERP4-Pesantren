@@ -1,5 +1,4 @@
 import express from "express";
-import { configureRequestBodyParsing } from "./src/server/httpRequestBody";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
@@ -604,7 +603,7 @@ async function startServer() {
     res.setHeader("Referrer-Policy", "no-referrer");
     next();
   });
-  configureRequestBodyParsing(app);
+  app.use(express.json({ limit: "5mb" }));
 
   let lastReadinessCheckedAt = 0;
   let lastReadinessResult = false;

@@ -1,4 +1,4 @@
-import React, { lazy, useState, useEffect } from "react";
+import React, { lazy, useRef, useState, useEffect } from "react";
 import {
   Sparkles,
   Upload,
@@ -24,6 +24,11 @@ const CandidatePDFDownload = lazy(() => import("./CandidatePDFDownload").then((m
 interface PublicRegistrationFormProps {
   onClose: () => void;
   onSubmit?: (data: Candidate) => void;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function fileAsBase64(file: File): Promise<string> {
@@ -68,6 +73,7 @@ export function PublicRegistrationForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedCandidate, setSubmittedCandidate] = useState<Candidate | null>(null);
   const [copiedId, setCopiedId] = useState(false);
+  const submissionRequestRef = useRef<{ fingerprint: string; id: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -160,15 +166,22 @@ export function PublicRegistrationForm({
           files[key] = { name: file.name, mimeType: file.type, base64: await fileAsBase64(file) };
         }));
       }
+      const requestBody = JSON.stringify({ candidate, files });
+      const requestFingerprint = await sha256Hex(requestBody);
+      if (!submissionRequestRef.current || submissionRequestRef.current.fingerprint !== requestFingerprint) {
+        submissionRequestRef.current = { fingerprint: requestFingerprint, id: globalThis.crypto.randomUUID() };
+      }
+      const clientRequestId = submissionRequestRef.current.id;
       const response = await fetch("/api/public/ppdb/registrations", {
         method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ candidate, files }),
+        body: JSON.stringify({ candidate, files, clientRequestId }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Gagal menyimpan data pendaftaran. Silakan coba kembali.");
       if (!payload.candidate?.id || !payload.candidate?.registrationId) throw new Error("Server tidak mengembalikan nomor pendaftaran yang valid.");
       const fullCandidate = payload.candidate as Candidate;
       setSubmittedCandidate(fullCandidate);
+      submissionRequestRef.current = null;
       setStep(5);
       onSubmit?.(fullCandidate);
     } catch (error: any) {
