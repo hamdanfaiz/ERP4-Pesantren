@@ -71,3 +71,15 @@ Hasil ini adalah inventaris kode statis, bukan pengujian penetrasi atau bukti ba
 **Pembaruan verifikasi baca-saja — 27 Oktober 2026:** pemeriksaan ulang mempertahankan hasil 119/119 tabel dengan RLS + FORCE, 118/118 tabel ber-tenant dengan `tenant_id NOT NULL`, dan 243/243 FK tenant-ke-tenant memasangkan `tenant_id`. Jumlah seluruh FK publik pada hasil query terbaru adalah 335. Tidak ada perubahan schema, row, policy, grant, atau feature flag yang dilakukan.
 
 **Kesimpulan:** lanjutkan cutover dengan membuktikan logic dan relasi Supabase memakai schema dan fixture sintetis. Tidak ada pekerjaan penyalinan Firestore yang diperlukan.
+
+
+## Checkpoint tanpa salin data: tutup akses impor arsip pada UI — 27 Oktober 2026
+
+- Commit kode pembatasan: [b046106](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/b046106c56c17a1641e60e6442fddf0612b7fddd); pemeriksaan regresi: [c941289](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/c94128915fe1c9576e5c90a10139b26fa21fb479).
+- Kebijakan global `legacyArchiveImportEnabled = false` membuat impor arsip Firestore tidak aktif walaupun flag build lama disetel. Tombol dan panel impor di Master Data, Akademik, Asrama, Komunikasi, UKS, LMS, Sarana & Prasarana, Marketplace, CBT, Koperasi, dan Perpustakaan mengikuti kebijakan tersebut. API legacy tetap fail-closed karena gerbang Firebase Admin server selalu `false`.
+- GitHub Actions [run 40499494800](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40499494800) lulus pada kedua job untuk head PR #13 `c941289`: build/typecheck dan Docker, serta migrasi/upgrade rehearsal pada Supabase lokal, pgTAP, API auth/tenant, transaksi serentak, Storage, dan backup/restore sintetis. Tidak ada data Firestore yang digunakan sebagai fixture.
+- Pembacaan staging terbaru mengonfirmasi 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antar tabel tenant memasangkan `tenant_id`; grant SELECT untuk `anon` = 0 dan akses tulis tabel untuk `authenticated` = 0.
+- Source tetap 96 migration, sedangkan ledger staging 47 versi sampai `20261206000000`; 49 migration belum tercatat. Karena konektor staging hanya baca-saja, tidak ada migrasi yang diterapkan. Konektor Supabase penuh yang tersedia hanya menampilkan project `vqemuyzveuirlkvdggjd`, bukan target staging `ptsasgdvgrbdtgyqieie`.
+- Data operasional contoh akan dibuat manual. CI di atas membuktikan alur terhadap database lokal dan fixture sintetis, bukan UAT live atau penerapan skema staging.
+- PR #13 masih **Open / Draft**. Estimasi checkpoint tetap **73% kematangan fitur / 46% kesiapan go-live**; angka ini adalah estimasi, bukan bukti UAT.
+
