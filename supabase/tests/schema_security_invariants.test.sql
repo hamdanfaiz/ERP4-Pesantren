@@ -197,6 +197,7 @@ SELECT is(
   'application policies cannot allow unconditional row access'
 );
 
+CREATE TEMP TABLE tenant_fk_pair_violations ON COMMIT DROP AS
 WITH tenant_tables AS (
   SELECT c.oid, a.attnum AS tenant_attnum
   FROM pg_class AS c
@@ -216,27 +217,44 @@ WITH tenant_tables AS (
     )
 ),
 tenant_foreign_keys AS (
-  SELECT f.conrelid, f.confrelid, f.conkey, f.confkey
+  SELECT f.oid, f.conrelid, f.confrelid, f.conname, f.conkey, f.confkey
   FROM pg_constraint AS f
   JOIN tenant_tables AS child ON child.oid = f.conrelid
   JOIN tenant_tables AS parent ON parent.oid = f.confrelid
   WHERE f.contype = 'f'
 )
-SELECT is(
-  (
-    SELECT count(*)::int
-    FROM tenant_foreign_keys AS f
-    JOIN tenant_tables AS child ON child.oid = f.conrelid
-    JOIN tenant_tables AS parent ON parent.oid = f.confrelid
-    WHERE NOT EXISTS (
-      SELECT 1
-      FROM unnest(f.conkey) WITH ORDINALITY AS child_key(attnum, key_position)
-      JOIN unnest(f.confkey) WITH ORDINALITY AS parent_key(attnum, key_position)
-        USING (key_position)
-      WHERE child_key.attnum = child.tenant_attnum
-        AND parent_key.attnum = parent.tenant_attnum
+SELECT f.oid AS constraint_oid, f.conrelid, f.confrelid, f.conname
+FROM tenant_foreign_keys AS f
+JOIN tenant_tables AS child ON child.oid = f.conrelid
+JOIN tenant_tables AS parent ON parent.oid = f.confrelid
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM unnest(f.conkey) WITH ORDINALITY AS child_key(attnum, key_position)
+  JOIN unnest(f.confkey) WITH ORDINALITY AS parent_key(attnum, key_position)
+    USING (key_position)
+  WHERE child_key.attnum = child.tenant_attnum
+    AND parent_key.attnum = parent.tenant_attnum
+);
+
+SELECT diag(
+  'tenant foreign keys missing paired tenant_id: ' ||
+  coalesce((
+    SELECT string_agg(
+      format(
+        '%s.%I -> %s (%s)',
+        v.conrelid::regclass,
+        v.conname,
+        v.confrelid::regclass,
+        pg_get_constraintdef(v.constraint_oid, true)
+      ),
+      '; ' ORDER BY v.conrelid, v.conname
     )
-  ),
+    FROM pg_temp.tenant_fk_pair_violations AS v
+  ), 'none')
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM pg_temp.tenant_fk_pair_violations),
   0,
   'foreign keys between tenant-owned tables pair tenant_id at the same ordinal position'
 );
