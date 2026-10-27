@@ -235,7 +235,7 @@ import {
   transitionSupabaseMarketplaceOrder,
 } from "./src/server/supabaseMarketplace";
 import { applySupabaseLegacyMarketplace, previewSupabaseLegacyMarketplace } from "./src/server/supabaseMarketplaceImport";
-import { assertSupabaseFacilityBookingsReady, getSupabaseFacilityBookings, getSupabaseFacilityBookingImportContext, manageSupabaseFacilityBooking, SupabaseFacilityBookingError } from "./src/server/supabaseFacilityBookings";
+import { getSupabaseFacilityBookings, getSupabaseFacilityBookingImportContext, manageSupabaseFacilityBooking, SupabaseFacilityBookingError } from "./src/server/supabaseFacilityBookings";
 import { applySupabaseLegacyFacilityBookings as applyFacilityBookingImport, previewSupabaseLegacyFacilityBookings } from "./src/server/supabaseFacilityBookingsImport";
 import {
   getSupabaseDonationSnapshot,
@@ -1972,7 +1972,6 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadFacilityBookingActor(uid);
-      await assertSupabaseFacilityBookingsReady(actor.tenantId);
       return res.status(201).json(await manageSupabaseFacilityBooking(actor.tenantId, actor.uid, req.body));
     } catch (error) { return facilityBookingRouteError(res, error); }
   });
