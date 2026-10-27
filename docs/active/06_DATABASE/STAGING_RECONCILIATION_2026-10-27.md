@@ -56,6 +56,18 @@ Hitungan berikut berasal dari tabel tenant `pesantren-digital`; query hanya meng
 | Keanggotaan halaqah hasil impor legacy | 0 |
 | Kandidat PPDB dengan ID sumber | 50 |
 
+### Rekonsiliasi dan preview struktur Master Data — 27 Oktober 2026
+
+Pembacaan baca-saja mengambil field `id`, `category`, `tenantId`, dan `tenant_id` dari 453 dokumen `master_data`; ownership cocok pada 453/453 record tanpa tenant invalid, unresolved, atau tenant lain. Registry Firestore berisi satu tenant yang ID dokumennya sama dengan `legacy_tenant_key` target. Normalisasi ID mengikuti route importer: gunakan `raw.id` bila string non-kosong, jika tidak hapus prefiks kategori dari document ID, lalu gunakan document ID utuh sebagai fallback.
+
+| Kategori | ID unik sumber | ID target | Cocok | Duplikat | ID hanya di satu sisi |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Gedung | 15 | 15 | 15 | 0 | 0 |
+| Kamar | 50 | 50 | 50 | 0 | 0 |
+| Kelas | 30 | 30 | 30 | 0 | 0 |
+
+Preview `migrateSupabaseMasterDataStructures(..., false)` pada head PR menghasilkan 95 sumber, 95 terencana, 0 error, 0 calon insert, dan 95 sudah ada. Tidak ada data yang ditulis. Ada 50 peringatan Kamar karena gender belum eksplisit pada Kamar maupun Gedung induk; tujuh Santri sumber juga belum dapat dipetakan ke kamar secara tidak ambigu. ID cocok tidak menjadikan penempatan asrama siap.
+
 Pasangan `PII_ENCRYPTION_KEY` dan `PII_FINGERPRINT_KEY` pada `.env` lokal yang diabaikan Git telah diuji terhadap ciphertext dan fingerprint satu record staging tanpa menampilkan nilai identitas atau kunci. Kedua kunci sekarang tersedia pada `.env` checkout aktif. Simpan salinannya hanya pada secret manager backend untuk environment yang memakai data tersebut; jangan commit atau menaruhnya di variabel frontend.
 
 ## Status source-to-target berdasarkan inventaris terakhir
@@ -65,7 +77,7 @@ Inventaris source yang tercatat menghitung 453 dokumen `master_data`, 50 kandida
 Temuan yang memerlukan keputusan data, bukan tebakan importer:
 
 1. Sumber Santri tidak menyediakan NIS. Jangan membuat NIS atau reservasi secara otomatis; tetapkan kebijakan penomoran lalu jalankan alur reservasi transaksional.
-2. Kamar/Gedung belum memiliki relasi induk dan pembatasan gender yang terverifikasi; penempatan asrama harus ditahan sampai Admin merekonsiliasi struktur.
+2. ID 15 Gedung, 50 Kamar, dan 30 Kelas cocok penuh dengan target. Namun preview memberi 50 peringatan gender Kamar dan 7 Santri belum memiliki pemetaan kamar yang tidak ambigu; penempatan asrama tetap ditahan sampai Admin memverifikasi gender, relasi induk, dan pemetaan kamar.
 3. Halaqah belum memiliki ustadz, jadwal, target yang disahkan, atau keanggotaan santri; 40 data saat ini masih data legacy provisional.
 4. Data Alumni tidak aman dipasangkan ke Santri melalui email saja. Minta pemetaan dan tanggal kelulusan yang diverifikasi.
 5. Kandidat PPDB sudah memiliki 50 ID sumber dan PII terlindungi, tetapi pemeriksaan ini hanya mengonfirmasi agregat, bukan rekonsiliasi isi per baris.
@@ -77,7 +89,7 @@ Rincian kategori dan jalur impor lain tercatat pada [checkpoint Master Data](MAS
 
 1. Tim backend merekonsiliasi metadata kosong untuk migration `20261205000000` dan `20261206000000`, lalu membandingkan keseluruhan schema, indeks, constraint, fungsi, grant, RLS, Storage, dan ledger pada target dengan source migration.
 2. Siapkan baseline staging yang dapat dipulihkan dari backup dan jalankan rehearsal upgrade di environment non-production. Project target berada pada paket Free; jangan menganggap backup terjadwal tersedia.
-3. Hitung ulang Firestore, buat fingerprint snapshot, dan jalankan preview per domain. Cocokkan setiap relasi dan data sensitif; pertahankan seed/fixture, akun Auth, transaksi, dan byte file sebagai kategori terpisah.
+3. Hitung ulang seluruh Firestore, buat fingerprint snapshot, dan jalankan preview per domain. Preview struktur Master Data sudah selesai tanpa menulis; lanjutkan rekonsiliasi atribut/relasi dan domain lain. Cocokkan data sensitif; pertahankan seed/fixture, akun Auth, transaksi, dan byte file sebagai kategori terpisah.
 4. Terapkan hanya domain yang lolos preview, dengan batch atomik dan hitungan sebelum/sesudah. Rekonsiliasi duplikasi, tenant, status, serta total keuangan.
 5. Uji end-to-end Supabase Auth, matriks role/tenant, API server, PPDB publik, upload/download berkas, NIS serentak, laporan, backup/restore, dan responsif pada staging representatif.
 6. Rotasi secret key/password database yang pernah dibagikan sebelum go-live. Siapkan secret manager, observabilitas, prosedur rollback, dan dokumentasi instalasi pelanggan.
