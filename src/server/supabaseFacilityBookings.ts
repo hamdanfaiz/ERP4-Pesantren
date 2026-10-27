@@ -49,15 +49,8 @@ async function boundedRows(table: string, tenantId: string, select: string, orde
   }
   return result;
 }
-async function assertImportReviewed(tenantId: string) {
-  const batches = await request("/rest/v1/facility_booking_import_batches?" + new URLSearchParams({ select: "snapshot_fingerprint", tenant_id: "eq." + tenantId, limit: "1" }).toString());
-  if (!Array.isArray(batches) || batches.length === 0) throw new SupabaseFacilityBookingError(409, "Jadwal fasilitas belum siap. Admin perlu meninjau dan menyelesaikan pratinjau arsip sebelum runtime dibuka.");
-}
-export async function assertSupabaseFacilityBookingsReady(tenantIdentifier: string) {
-  const tenantId = await activeTenant(tenantIdentifier); await assertImportReviewed(tenantId);
-}
 export async function getSupabaseFacilityBookings(tenantIdentifier: string) {
-  const tenantId = await activeTenant(tenantIdentifier); await assertImportReviewed(tenantId);
+  const tenantId = await activeTenant(tenantIdentifier);
   const bookings = await boundedRows("facility_bookings", tenantId, "id,room_name,booking_date,start_time,end_time,purpose,booker_name,status,source_system,source_record_id,created_at,updated_at", "booking_date.desc,start_time.desc,id.desc", 6000);
   return { bookings: bookings.map((row) => ({ ...row, room: row.room_name, date: row.booking_date, startTime: String(row.start_time).slice(0, 5), endTime: String(row.end_time).slice(0, 5), purpose: row.purpose, booker: row.booker_name, status: row.status === "confirmed" ? "Confirmed" : "Cancelled" })) };
 }
