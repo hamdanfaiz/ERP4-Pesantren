@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(28);
+SELECT plan(30);
 
 INSERT INTO public.tenants(id, slug, name, status)
 VALUES ('e2600000-0000-4000-8000-000000000009', 'lms-learning-record-test', 'LMS Learning Record Test', 'active');
@@ -223,6 +223,55 @@ SELECT ok(NOT EXISTS (
   WHERE table_schema='public' AND table_name='lms_learning_record_requests'
     AND column_name IN ('text', 'note', 'comment')
 ), 'ledger schema contains no raw note or comment field');
+
+
+SELECT ok(EXISTS (
+  SELECT 1
+  FROM pg_constraint AS fk
+  WHERE fk.conrelid = 'public.lms_learning_record_requests'::regclass
+    AND fk.confrelid = 'public.lms_student_notes'::regclass
+    AND fk.contype = 'f'
+    AND ARRAY(
+      SELECT child_column.attname::text
+      FROM unnest(fk.conkey) WITH ORDINALITY AS child_key(attnum, key_position)
+      JOIN pg_attribute AS child_column
+        ON child_column.attrelid = fk.conrelid
+       AND child_column.attnum = child_key.attnum
+      ORDER BY child_key.key_position
+    ) = ARRAY['tenant_id', 'note_id']::text[]
+    AND ARRAY(
+      SELECT parent_column.attname::text
+      FROM unnest(fk.confkey) WITH ORDINALITY AS parent_key(attnum, key_position)
+      JOIN pg_attribute AS parent_column
+        ON parent_column.attrelid = fk.confrelid
+       AND parent_column.attnum = parent_key.attnum
+      ORDER BY parent_key.key_position
+    ) = ARRAY['tenant_id', 'id']::text[]
+), 'learning request note foreign key pairs the same tenant');
+
+SELECT ok(EXISTS (
+  SELECT 1
+  FROM pg_constraint AS fk
+  WHERE fk.conrelid = 'public.lms_learning_record_requests'::regclass
+    AND fk.confrelid = 'public.lms_material_comments'::regclass
+    AND fk.contype = 'f'
+    AND ARRAY(
+      SELECT child_column.attname::text
+      FROM unnest(fk.conkey) WITH ORDINALITY AS child_key(attnum, key_position)
+      JOIN pg_attribute AS child_column
+        ON child_column.attrelid = fk.conrelid
+       AND child_column.attnum = child_key.attnum
+      ORDER BY child_key.key_position
+    ) = ARRAY['tenant_id', 'comment_id']::text[]
+    AND ARRAY(
+      SELECT parent_column.attname::text
+      FROM unnest(fk.confkey) WITH ORDINALITY AS parent_key(attnum, key_position)
+      JOIN pg_attribute AS parent_column
+        ON parent_column.attrelid = fk.confrelid
+       AND parent_column.attnum = parent_key.attnum
+      ORDER BY parent_key.key_position
+    ) = ARRAY['tenant_id', 'id']::text[]
+), 'learning request comment foreign key pairs the same tenant');
 
 RESET ROLE;
 

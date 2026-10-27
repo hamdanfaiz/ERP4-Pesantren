@@ -2,7 +2,7 @@
 
 **Tanggal audit:** 27 Oktober 2026  
 **Project staging:** `ptsasgdvgrbdtgyqieie`  
-**Source PR:** [PR #13](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13), head `e3f4ebe119362ac638afa35171214cd583a67df2`
+**Source PR:** [PR #13](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13), branch `codex/supabase-runtime-cutover-20261022` (SHA terkini tercantum pada PR)
 
 ## Ruang lingkup
 
@@ -12,7 +12,7 @@ Runbook ini menyelesaikan ketidakcocokan migration ledger sebelum migration baru
 
 ## Snapshot baca-saja
 
-- Ledger staging memiliki 47 versi. Source PR memiliki 93 migration; ada 46 migration source setelah versi terakhir yang tercatat.
+- Ledger staging memiliki 47 versi. Source PR memiliki 94 migration; ada 47 migration source setelah versi terakhir yang tercatat.
 - Versi `20261205000000` dan `20261206000000` ada di ledger, tetapi kolom `name` dan `statements` keduanya kosong. Preflight sengaja berhenti karena tidak dapat membuktikan isi migration yang dianggap sudah diterapkan.
 - Audit katalog baca-saja terbaru menemukan 119 tabel publik: seluruhnya mengaktifkan RLS dan FORCE RLS; 118 memiliki kolom `tenant_id`, dan `tenants` adalah satu-satunya tabel root tanpa kolom itu. Dari 335 foreign key publik, 243 menghubungkan dua tabel ber-tenant; seluruh 243 memasangkan `tenant_id` pada foreign key komposit dan tidak ditemukan relasi tenant yang tidak berpasangan. Query hanya membaca katalog, bukan isi record.
 - Audit policy/grant baca-saja menemukan 5 policy, semuanya `SELECT` untuk `authenticated`: kandidat dan dokumen PPDB dibatasi Admin tenant dengan izin PPDB; profil dibatasi pengguna sendiri atau Admin tenant berizin users; tenant dibatasi tenant aktif pengguna; profil kompatibilitas dibatasi `auth.uid()`. Tidak ada policy `PUBLIC`/`anon`, akses `anon`/`PUBLIC` ke tabel adalah 0, dan authenticated tidak memiliki privilege INSERT/UPDATE/DELETE. `service_role` memiliki grant tulis luas (112 tabel INSERT; 109 UPDATE/DELETE dari 119), sehingga endpoint server yang memakai service role wajib menjadi batas autentikasi/otorisasi dan tidak boleh diekspos ke klien.
