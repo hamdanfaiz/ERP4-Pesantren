@@ -27,7 +27,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_replace_me
 SUPABASE_URL=https://supabase.example.org
 SUPABASE_SECRET_KEY=sb_secret_replace_me
 ERP4_HTTP_PORT=3000
-# Optional server-side PII keys: generate independent random values before enabling workflows that require them.
+# Server-side PII keys: generate independent random values before enabling workflows that require them.
+# PII_FINGERPRINT_KEY is also required for durable server-side Finance/PPDB abuse limits.
 PII_ENCRYPTION_KEY=
 PII_FINGERPRINT_KEY=
 SUPABASE_LEGACY_FINGERPRINT_KEY=

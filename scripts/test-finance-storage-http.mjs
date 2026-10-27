@@ -117,6 +117,8 @@ async function main() {
 
     const financeAdmin = await createUser(admin, tenantId, 'admin', 'finance-admin');
     users.push(financeAdmin);
+    const rateLimitAdmin = await createUser(admin, tenantId, 'admin', 'finance-rate-limit');
+    users.push(rateLimitAdmin);
     const { error: structuresError } = await admin.from('master_data_records').insert([
       { tenant_id: tenantId, category: 'Kelas', id: classId, name: 'Kelas storage test' },
       { tenant_id: tenantId, category: 'Kamar', id: roomId, name: 'Kamar storage test', capacity: 10 },
@@ -244,6 +246,7 @@ async function main() {
     const guardianToken = await signIn(anon, guardian);
     const otherGuardianToken = await signIn(anon, otherGuardian);
     const financeAdminToken = await signIn(anon, financeAdmin);
+    const rateLimitToken = await signIn(anon, rateLimitAdmin);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
     serverProcess = spawn('bun', ['run', 'dev'], {
@@ -259,6 +262,7 @@ async function main() {
         SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED: 'true',
         SUPABASE_PPDB_RUNTIME_ENABLED: 'true',
         SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED: 'true',
+        PII_FINGERPRINT_KEY: Buffer.alloc(32, 0x5a).toString('hex'),
         LEGACY_FIREBASE_ADMIN_ENABLED: 'false',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
@@ -277,6 +281,22 @@ async function main() {
       await sleep(250);
     }
     assert.ok(ready, 'API server did not become ready on its configured test port.');
+
+    for (let attempt = 1; attempt <= 12; attempt += 1) {
+      const limitedAttempt = await fetch(`${apiBase}/api/finance/payment-proofs`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${rateLimitToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      assert.equal(limitedAttempt.status, 400, `Rate limit should allow attempt ${attempt} before payload validation.`);
+    }
+    const blockedAttempt = await fetch(`${apiBase}/api/finance/payment-proofs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${rateLimitToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assert.equal(blockedAttempt.status, 429, 'Finance proof upload limit must reject the 13th request across API calls.');
+    assert.equal(blockedAttempt.headers.get('retry-after'), '900');
 
     const ppdbDownload = await fetch(`${apiBase}/api/ppdb/candidates/${candidateId}/documents/kk`, {
       headers: { Authorization: `Bearer ${financeAdminToken}` },
@@ -496,7 +516,7 @@ async function main() {
     assertNoError({ error: listError }, 'Unable to inspect the synthetic private proof directory.');
     assert.equal(storedObjects.length, 1, 'The idempotent retry must not leave an orphan duplicate object.');
 
-    console.log('Storage HTTP tests passed: Finance proof upload/download and PPDB Admin document download, private-bucket isolation, tenant/RBAC boundaries, audit logging, idempotency, and cleanup.');
+    console.log('Storage HTTP tests passed: shared finance upload rate limit, Finance proof upload/download, PPDB Admin document download, private-bucket isolation, tenant/RBAC boundaries, audit logging, idempotency, and cleanup.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');

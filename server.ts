@@ -65,6 +65,7 @@ import {
   FinanceProofStorageError,
   uploadSupabaseFinanceProof,
 } from "./src/server/financeProofStorage";
+import { consumeFinanceProofUploadRateLimit } from "./src/server/financeProofRateLimit";
 import {
   archiveSupabaseMasterDataStudent,
   assignSupabaseStudentRoom,
@@ -569,26 +570,6 @@ function detectPaymentProofMime(bytes: Buffer): string | null {
   if (bytes.subarray(0, 5).toString("ascii") === "%PDF-") return "application/pdf";
   return null;
 }
-
-const paymentProofUploadBuckets = new Map<string, { startedAt: number; count: number }>();
-function consumePaymentProofUploadLimit(uid: string): boolean {
-  const now = Date.now();
-  const windowMs = 15 * 60 * 1000;
-  const bucket = paymentProofUploadBuckets.get(uid);
-  if (!bucket || now - bucket.startedAt >= windowMs) {
-    if (!bucket && paymentProofUploadBuckets.size >= 5000) {
-      for (const [key, value] of paymentProofUploadBuckets) {
-        if (now - value.startedAt >= windowMs) paymentProofUploadBuckets.delete(key);
-      }
-    }
-    paymentProofUploadBuckets.set(uid, { startedAt: now, count: 1 });
-    return true;
-  }
-  if (bucket.count >= 12) return false;
-  bucket.count += 1;
-  return true;
-}
-
 
 async function startServer() {
   const app = express();
@@ -3906,6 +3887,10 @@ async function startServer() {
     let uploadedPath = "";
     try {
         const actor = await loadFinanceProofActor(uid);
+        if (!(await consumeFinanceProofUploadRateLimit(actor.tenantId, actor.uid))) {
+          res.setHeader("Retry-After", "900");
+          return res.status(429).json({ error: "Batas unggahan bukti pembayaran sementara tercapai." });
+        }
         const billingId = typeof req.body?.billingId === "string" ? req.body.billingId.trim() : "";
         if (!billingId || billingId.length > 150) return res.status(400).json({ error: "ID tagihan tidak valid." });
         const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType : "";
@@ -3922,10 +3907,6 @@ async function startServer() {
         if (actor.role === "Walisantri" && !(await guardianCanAccessStudent(actor.tenantId, actor.uid, String(billing.student_id)))) return res.status(404).json({ error: "Tagihan tidak ditemukan pada tenant ini." });
         const requestId = typeof req.body?.clientRequestId === "string" ? req.body.clientRequestId : "";
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) return res.status(400).json({ error: "Kunci unggahan pembayaran tidak valid." });
-        if (!consumePaymentProofUploadLimit(uid)) {
-          res.setHeader("Retry-After", "900");
-          return res.status(429).json({ error: "Batas unggahan bukti pembayaran sementara tercapai." });
-        }
         const safeName = safePaymentProofName(req.body?.fileName);
         const safeSantriId = String(billing.student_id || "unlinked");
         uploadedPath = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(safeSantriId) + "/" + encodeURIComponent(billingId) + "/" + uid + "-" + Date.now() + "-" + randomUUID() + "-" + safeName;
