@@ -5,18 +5,19 @@
 - Repository: `hamdanfaiz/ERP4-Pesantren`
 - PR #13: [Supabase-only runtime cutover and customer-managed baseline](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13)
 - Branch: `codex/supabase-runtime-cutover-20261022`
-- Head sebelum checkpoint: `7d6c09e814b54ed8c10918abfaacc3dba1c2f8e3`
+- Head dokumen awal sebelum pembaruan uji skala: `7d6c09e814b54ed8c10918abfaacc3dba1c2f8e3`
+- Head PR terbaru yang diverifikasi: `411d02ef9521ca86bc041c7849afc0a4253934fe`
 - Status tetap **Open/Draft**, belum merge.
 - Estimasi proyek tetap **73% kematangan fitur / 46% kesiapan go-live**. Angka ini estimasi, bukan hasil metrik otomatis.
 
 ## Bukti CI terbaru
 
-GitHub Actions [run 40430205659](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40430205659) selesai sukses pada kedua job:
+Head kode terbaru yang diverifikasi: `411d02ef9521ca86bc041c7849afc0a4253934fe`. GitHub Actions [run 40431792914](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40431792914) selesai sukses pada kedua job:
 
 - **Frontend build dan Firebase bundle guard:** typecheck, pemeriksaan runtime Supabase tanpa Firebase, feature flag, minimisasi PII, pagination, build produksi, Docker dan Compose.
-- **Migrations, API auth, dan pgTAP:** Supabase lokal terisolasi, ledger preflight, role/tenant, transaksi NIS dan Tahfidz serentak, importer sintetis, Storage HTTP, backup/restore.
+- **Migrations, API auth, dan pgTAP:** Supabase lokal terisolasi, ledger preflight, role/tenant, transaksi NIS dan Tahfidz serentak, importer sintetis, Storage HTTP, backup/restore, dan uji pagination volume Tahfidz.
 
-Hasil tersebut membuktikan suite CI pada environment sintetis/lokal. Hasil ini tidak membuktikan kinerja pada database pesantren besar, login/UAT endpoint yang dipakai pelanggan, atau keberhasilan migrasi pada database staging.
+CI memakai data sintetis dan Supabase lokal. Hasilnya tidak membuktikan login/UAT pada endpoint pelanggan, kesetaraan migrasi dengan database staging, atau latensi/throughput pada infrastruktur produksi.
 
 ## Penguatan migration preflight
 
@@ -31,7 +32,9 @@ Fixture ini sepenuhnya sintetis dan tidak terhubung ke database remote. Pembandi
 
 ## Kapasitas pesantren besar — pekerjaan backend yang masih terbuka
 
-Uji CI saat ini menekankan kebenaran, tenant isolation, pagination, dan konkurensi dengan fixture sintetis kecil. Ia belum menjadi benchmark kapasitas. Staging yang terbaca hanya mempunyai sekitar 50 santri sehingga belum mewakili tenant besar.
+CI sekarang menambahkan volume-smoke pgTAP dengan 10.000 santri sintetis untuk tenant yang sama. Fungsi Tahfidz mengembalikan 10.008 santri aktif (termasuk delapan fixture awal) melalui 101 halaman berukuran paling banyak 100; assertion memeriksa jumlah/keunikan, jumlah halaman, urutan ketat tanpa overlap, dan batas ukuran. Seluruh insert berada dalam transaksi test yang di-rollback.
+
+Uji ini membuktikan kebenaran keyset pagination pada volume 10.000, bukan benchmark latensi/throughput atau bukti kapasitas produksi. Staging yang terbaca hanya mempunyai sekitar 50 santri sehingga belum mewakili tenant besar.
 
 Lakukan pada **klon disposable yang dipulihkan dari backup**, bukan staging/Production:
 
