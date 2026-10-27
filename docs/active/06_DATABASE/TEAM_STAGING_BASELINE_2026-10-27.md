@@ -161,3 +161,19 @@ Pemeriksaan katalog staging hanya-baca menemukan struktur ledger `supabase_migra
 5. Setelah riwayat dan skema staging selaras, jalankan ulang migration preflight dan rehearsal seluruh migrasi yang tertunda secara bertahap. Pertahankan pemisahan staging/Production dan UAT sebelum keputusan cutover.
 
 Rujukan resmi: [Supabase CLI — repair migration history](https://supabase.com/docs/reference/cli/supabase-migration-repair) dan [Database migrations — diagnosing sync errors](https://supabase.com/docs/guides/deployment/database-migrations). Pemeriksaan ini hanya membaca metadata; tidak ada perubahan pada staging atau Production.
+
+
+### Rekonsiliasi postcondition dua versi ledger kosong — 27 Oktober 2026
+
+Distribusi seluruh ledger mengonfirmasi 47 baris: 45 baris memiliki `name` dan `statements`; tepat dua baris tanpa keduanya adalah `20261205000000` dan `20261206000000`. Ini membatasi investigasi pada dua versi tersebut, tetapi tidak mengungkap penyebab metadata kosong.
+
+Pemeriksaan katalog read-only atas efek utama file lokal menemukan:
+
+| Versi | Postcondition lokal yang diperiksa di staging | Hasil |
+|---|---|---|
+| `20261205000000_data_api_default_privilege_hardening` | Default ACL untuk tabel, sequence, dan fungsi global/schema `public` hanya mencantumkan owner `postgres`; empat helper trigger tidak dapat dieksekusi oleh `anon`, `authenticated`, atau `service_role`. | Cocok dengan postcondition yang diharapkan dari migration lokal. |
+| `20261206000000_ppdb_legacy_candidate_import` | Tiga kolom dan dua constraint metadata sumber kandidat ada; indeks unik legacy ada; tabel batch ada dengan RLS dan FORCE RLS; fungsi import memakai `SECURITY INVOKER`, `search_path = pg_catalog, public`, tanpa EXECUTE bagi `anon`/`authenticated`, dan EXECUTE untuk `service_role`. | Cocok dengan objek dan kontrol utama yang didefinisikan migration lokal. |
+
+Ini merupakan bukti postcondition yang lebih kuat daripada kecocokan versi saja, tetapi belum membuktikan bahwa setiap statement/efek historis identik dengan file lokal: dua row tidak menyimpan SQL statement untuk fingerprint, dan pemeriksaan katalog ini bukan perbandingan definisi semua objek atau audit saat migrasi dahulu dijalankan. Karena itu status lineage tetap **belum direkonsiliasi** dan preflight tetap wajib menolak kedua row bernama `NULL`.
+
+**Langkah backend berikutnya:** DBA membandingkan definisi lengkap objek staging dengan hasil replay migration lokal pada database terisolasi, menyimpan bukti diff dan backup yang dapat dipulihkan, lalu menentukan mekanisme koreksi riwayat yang didukung. Jangan menambah, menghapus, atau memperbarui row ledger berdasarkan hasil postcondition parsial ini. Tidak ada perubahan staging/Production dalam pemeriksaan ini.
