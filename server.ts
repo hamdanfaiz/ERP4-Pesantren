@@ -226,7 +226,6 @@ import {
 import { applySupabaseLegacyGeneralAffairsImport, previewSupabaseLegacyGeneralAffairs } from "./src/server/supabaseGeneralAffairsImport";
 import {
   adjustSupabaseMarketplaceStock,
-  assertSupabaseMarketplaceReady,
   createSupabaseMarketplaceOrder,
   getSupabaseMarketplaceImportContext,
   getSupabaseMarketplaceSnapshot,
@@ -1847,7 +1846,6 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMarketplaceActor(uid);
-      await assertSupabaseMarketplaceReady(actor.tenantId);
       return res.status(201).json(await manageSupabaseMarketplaceProduct(actor.tenantId, actor.uid, req.body));
     } catch (error) { return marketplaceRouteError(res, error); }
   });
@@ -1858,7 +1856,6 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMarketplaceActor(uid);
-      await assertSupabaseMarketplaceReady(actor.tenantId);
       return res.status(201).json(await adjustSupabaseMarketplaceStock(actor.tenantId, actor.uid, req.body));
     } catch (error) { return marketplaceRouteError(res, error); }
   });
@@ -1869,7 +1866,6 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMarketplaceActor(uid);
-      await assertSupabaseMarketplaceReady(actor.tenantId);
       return res.status(201).json(await createSupabaseMarketplaceOrder(actor.tenantId, actor.uid, req.body));
     } catch (error) { return marketplaceRouteError(res, error); }
   });
@@ -1880,7 +1876,6 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMarketplaceActor(uid);
-      await assertSupabaseMarketplaceReady(actor.tenantId);
       return res.json(await transitionSupabaseMarketplaceOrder(actor.tenantId, actor.uid, req.params.orderId, String(req.body?.status || ""), String(req.body?.clientRequestId || "")));
     } catch (error) { return marketplaceRouteError(res, error); }
   });

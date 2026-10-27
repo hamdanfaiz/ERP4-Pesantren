@@ -98,7 +98,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a'));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a'));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a'));
@@ -139,6 +139,7 @@ async function main() {
         SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED: 'false',
         SUPABASE_PPDB_FINANCE_BILLS_ENABLED: 'false',
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
+        SUPABASE_MARKETPLACE_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'false',
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
@@ -170,6 +171,49 @@ async function main() {
     assert.equal(readyResponse.status, 200, 'Readiness must verify the local Supabase profile store.');
     assert.equal((await readyResponse.json()).status, 'ready');
     assert.equal(readyResponse.headers.get('cache-control'), 'no-store');
+
+    const { data: marketplaceBatches, error: marketplaceBatchError } = await admin
+      .from('marketplace_legacy_import_batches')
+      .select('snapshot_fingerprint')
+      .eq('tenant_id', tenantIds[0])
+      .limit(1);
+    assert.equal(marketplaceBatchError, null, 'A fresh tenant can inspect the optional Marketplace import ledger.');
+    assert.equal(marketplaceBatches.length, 0, 'The Marketplace fixture starts without any imported Firestore snapshot.');
+
+    const emptyMarketplaceResponse = await fetch(`${apiBase}/api/marketplace/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(emptyMarketplaceResponse.status, 200, 'Marketplace runtime must open for a tenant with no legacy import batch.');
+    const emptyMarketplace = await emptyMarketplaceResponse.json();
+    assert.deepEqual(emptyMarketplace.products, [], 'A new tenant starts with an empty product catalog.');
+    assert.deepEqual(emptyMarketplace.orders, [], 'A new tenant starts with no orders.');
+    assert.deepEqual(emptyMarketplace.movements, [], 'A new tenant starts with no stock movements.');
+
+    const productResponse = await fetch(`${apiBase}/api/marketplace/products`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create',
+        sku: `MKT-${fixtureSuffix}`,
+        name: 'Produk Uji Tanpa Impor',
+        category: 'Perlengkapan',
+        unitPrice: 12500,
+        initialStock: 8,
+        seller: 'Koperasi',
+        imageLabel: '📦',
+        clientRequestId: randomUUID(),
+      }),
+    });
+    assert.equal(productResponse.status, 201, 'An authorized admin can create the first product without a legacy import batch.');
+    const createdProduct = await productResponse.json();
+    assert.ok(createdProduct?.id, 'The first tenant product is persisted by the Supabase transaction.');
+
+    const marketplaceAfterCreateResponse = await fetch(`${apiBase}/api/marketplace/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(marketplaceAfterCreateResponse.status, 200, 'Marketplace continues to read after the first product is created.');
+    const marketplaceAfterCreate = await marketplaceAfterCreateResponse.json();
+    assert.equal(marketplaceAfterCreate.products.length, 1, 'The first manually created product appears in the tenant catalog.');
 
     const anonymousRoomHistory = await fetch(apiBase + "/api/master-data/students/" + randomUUID() + "/room-history");
     assert.equal(anonymousRoomHistory.status, 401, "Room history must reject anonymous callers.");

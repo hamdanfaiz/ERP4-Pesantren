@@ -50,18 +50,8 @@ async function rows(table: string, tenantId: string, select: string, order: stri
   }
   return result;
 }
-async function assertMarketplaceTenantReady(tenantId: string) {
-  const readiness = await request("/rest/v1/marketplace_legacy_import_batches?" + new URLSearchParams({ select: "snapshot_fingerprint", tenant_id: "eq." + tenantId, limit: "1" }).toString());
-  if (!Array.isArray(readiness) || readiness.length === 0) throw new SupabaseMarketplaceError(409, "Marketplace belum siap: Admin perlu meninjau dan mengonfirmasi snapshot impor lama sebelum runtime dibuka.");
-}
-export async function assertSupabaseMarketplaceReady(tenantIdentifier: string) {
-  const tenantId = await tenantIdFrom(tenantIdentifier);
-  await assertMarketplaceTenantReady(tenantId);
-}
-
 export async function getSupabaseMarketplaceSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
-  await assertMarketplaceTenantReady(tenantId);
   const [products, orders, items, movements] = await Promise.all([
     rows("marketplace_products", tenantId, "id,sku,name,category,unit_price,stock_quantity,seller,image_label,status,created_at,updated_at", "status.asc,name.asc,id.asc", 3000),
     rows("marketplace_orders", tenantId, "id,customer_name,customer_type,status,item_count,total_amount,created_at,updated_at,source_system,legacy_date_known", "created_at.desc,id.desc", 5000),

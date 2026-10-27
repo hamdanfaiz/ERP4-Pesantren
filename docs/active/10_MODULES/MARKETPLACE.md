@@ -1,4 +1,4 @@
-# Modul DPesantren Marketplace
+# Modul Marketplace ERP4 Pesantren
 
 ## Tujuan
 Menyediakan portal e-commerce mutakhir yang menghubungkan entitas wali santri, jejaring alumni, maupun masyarakat publik (Public) menuju produk-produk kewirausahaan santri (Student Biz), penjualan seragam, hingga merchandise resmi institusi asrama. Modul ini bertujuan menanamkan kemandirian ekonomi pesantren lewat otomatisasi pemesanan (Order Tracking).
@@ -19,5 +19,13 @@ Menyediakan portal e-commerce mutakhir yang menghubungkan entitas wali santri, j
    - Rangkuman `Total Revenue`, performansi komparasi harian (*Orders Today*), dan kalkulasi `Avg. Order Value / Conversion Rate`.
    - Modul ini mengunggah grafik visual **Area Chart** ber-ekstensi **Recharts** untuk memetakan Weekly Sales Category Trend dengan format bertumpuk (*stacked areas*) membedakan kontribusi omzet antara buku, seragam, dan kewirausahaan santri.
 
-4. **Inventory Synching (Mockup)**
-   - Placeholder dashboard yang diproyeksikan mengijinkan pihak penjual (Student Entrepreneurs / Koperasi) meregistrasi produk terbarunya via klik `Add New Product`.
+4. **Inventory dan pencatatan stok**
+   - Admin dengan izin Marketplace mendaftarkan produk dan mencatat penyesuaian stok. Setiap perubahan dicatat ke ledger stok tenant melalui transaksi server.
+
+
+## Runtime dan kondisi awal
+
+- Runtime Marketplace membaca dan menulis data dari Supabase per tenant. Tenant baru boleh memulai dengan katalog kosong; ketiadaan batch impor arsip tidak memblokir tampilan maupun transaksi.
+- Admin mengisi produk pertama secara manual melalui tab Persediaan. Pesanan dan perubahan stok menggunakan RPC tenant-scoped dengan idempotensi dan transaksi stok.
+- Impor katalog/riwayat lama merupakan jalur opsional yang terpisah, berada di balik feature flag khusus, dan tidak wajib untuk mengaktifkan runtime.
+- Data Firestore tidak disalin. Pengujian memakai tenant dan produk sintetis, lalu membersihkan fixture setelah pengujian.
