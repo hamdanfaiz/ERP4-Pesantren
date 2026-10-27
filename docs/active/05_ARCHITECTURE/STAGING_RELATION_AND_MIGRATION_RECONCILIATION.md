@@ -6,8 +6,10 @@ Cakupan: pemeriksaan katalog dan agregat baca-saja. Tidak ada record Firestore y
 
 ## Ringkasan
 
-- Katalog staging berisi 119 tabel `public`, semuanya mengaktifkan RLS. Sebanyak 118 tabel memiliki `tenant_id`; `tenants` adalah root tenant.
-- Pemeriksaan struktur sebelumnya menemukan 485 foreign key antar-tabel tenant dan seluruh pasangan FK mencakup `tenant_id` pada kedua sisi.
+- Katalog staging berisi 119 tabel `public`; seluruh 119 mengaktifkan **RLS dan FORCE RLS**. Sebanyak 118 tabel memiliki `tenant_id`; `tenants` adalah root tenant.
+- Query `pg_catalog` menemukan 337 foreign-key constraints tervalidasi. Sebanyak 243 constraints menghubungkan tabel yang sama-sama memiliki `tenant_id`; seluruh 243 memasangkan kolom `tenant_id`, dan tidak ada pasangan tenant yang hilang.
+- Peran `anon` tidak punya SELECT/INSERT/UPDATE/DELETE langsung pada tabel `public`. `authenticated` hanya punya SELECT pada lima tabel dan tidak memiliki hak tulis langsung. Lima policy SELECT membatasi kandidat/dokumen ke Admin PPDB dalam tenant, profil ke pemilik atau Admin Users tenant, tenant ke tenant aktif, dan jembatan `user_profiles` ke pemilik.
+- Ada 42 fungsi `SECURITY DEFINER` di schema `public`; semuanya menetapkan `search_path`. Tidak ada yang dapat dipanggil `anon`; empat helper konteks akses (`current_app_role`, `current_tenant_id`, `has_module_access`, `is_tenant_admin`) dapat dipanggil `authenticated` dan dipakai oleh policy baca.
 - Dua belas pemeriksaan agregat relasi terhadap record yang sudah ada menghasilkan 0 pelanggaran: relasi wali-santri, dokumen-kandidat, referensi onboarding bila terisi, pemilik reservasi NIS, serta dompet-kartu santri.
 - Hasil 0 pelanggaran **bukan bukti seluruh alur teruji**. Sampel staging belum menghubungkan kandidat PPDB dengan santri/wali dan belum memiliki transaksi operasional pada beberapa modul.
 - Migration ledger tidak cocok dengan direktori source. Jangan menjalankan `migration repair` atau `db push` sebelum kondisi schema dan dua entri ledger kosong direkonsiliasi serta backup staging dipastikan.
