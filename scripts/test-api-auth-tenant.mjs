@@ -388,9 +388,38 @@ async function main() {
     });
     assert.equal(unrecognizedWaliNis.status, 400, "A Wali account with an unknown NIS must be rejected.");
     assert.equal((await unrecognizedWaliNis.json()).code, "WALI_INVITATION_REQUIRED");
+    const oversizedPasswordEmail = "oversized-password-" + randomUUID() + "@example.test";
+    const controlCharacterPasswordEmail = "control-password-" + randomUUID() + "@example.test";
+    const rejectInvalidProvisioningPassword = async (email, tempPassword) => fetch(apiBase + "/api/users", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + adminToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        name: "Ustadz Validasi",
+        role: "Ustadz",
+        tempPassword,
+        modulePermissions: {},
+      }),
+    });
+    const oversizedPasswordResponse = await rejectInvalidProvisioningPassword(
+      oversizedPasswordEmail,
+      "P".repeat(129),
+    );
+    assert.equal(oversizedPasswordResponse.status, 400, "Provisioning must reject passwords longer than 128 characters.");
+    const controlCharacterPasswordResponse = await rejectInvalidProvisioningPassword(
+      controlCharacterPasswordEmail,
+      "Valid-Password-1\\n",
+    );
+    assert.equal(controlCharacterPasswordResponse.status, 400, "Provisioning must reject control characters in passwords.");
+
     const authDirectory = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     assert.equal(authDirectory.error, null, "The synthetic Auth directory must remain readable for the assertion.");
-    assert.ok(!authDirectory.data.users.some((user) => [missingWaliLinkEmail, unrecognizedWaliEmail].includes(user.email)), "Rejected Wali registrations must not leave Auth accounts behind.");
+    assert.ok(!authDirectory.data.users.some((user) => [
+      missingWaliLinkEmail,
+      unrecognizedWaliEmail,
+      oversizedPasswordEmail,
+      controlCharacterPasswordEmail,
+    ].includes(user.email)), "Rejected registrations and invalid provisioning passwords must not leave Auth accounts behind.");
     const unauthenticated = await fetch(`${apiBase}/api/users`);
     assert.equal(unauthenticated.status, 401, 'Requests without a session must be rejected.');
 
