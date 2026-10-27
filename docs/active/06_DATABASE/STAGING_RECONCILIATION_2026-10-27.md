@@ -21,11 +21,23 @@ Pemeriksaan ini menggunakan konektor Supabase staging dengan query baca-saja. Ti
 
 44 versi yang belum tercatat berada setelah `20261206000000`, dimulai `20261207000000` dan berakhir `20270119000000`. Daftar ini **bukan instruksi untuk menerapkan migration**. Ledger tidak membuktikan keadaan lengkap schema, grant, policy, trigger, atau data. Rekonsiliasi schema dan rehearsal pada backup yang dapat dipulihkan tetap wajib sebelum apply.
 
+### Dua versi terdaftar tanpa metadata SQL
+
+Query ledger baca-saja menunjukkan `20261205000000` dan `20261206000000` tidak memiliki `name` maupun `statements`. Karena itu preflight pencocokan isi SQL harus berhenti pada dua versi tersebut sampai tim merekonsiliasi efek dan provenance-nya secara manual. Jangan mengisi ledger atau menandai ulang migration hanya berdasarkan nomor versi.
+
+Pemeriksaan efek schema yang relevan menemukan:
+
+- `20261205000000_data_api_default_privilege_hardening.sql`: default privilege objek `public` untuk role `postgres` hanya memberi hak ke `postgres`; empat helper trigger yang disebut dalam migration tidak bisa dieksekusi oleh `anon`, `authenticated`, atau `service_role`.
+- `20261206000000_ppdb_legacy_candidate_import.sql`: tabel `ppdb_legacy_import_batches` ada, RLS dan `FORCE RLS` aktif, serta hak tabel hanya tersedia untuk `service_role`; fungsi impor PPDB legacy ada dengan `SECURITY INVOKER`, `search_path` terbatas, dan hak `EXECUTE` hanya untuk `service_role`. Satu batch impor tercatat.
+
+Temuan tersebut konsisten dengan efek utama kedua migration, tetapi tidak membuktikan bahwa setiap statement pada ledger sama dengan source file. PR preflight sekarang memang membandingkan nama dan statement migration; hasilnya perlu menampilkan dua baris ini sebagai selisih metadata untuk diselesaikan secara eksplisit.
+
 ## Baseline keamanan staging
 
 - Ada 119 tabel `public`; seluruh 119 mengaktifkan RLS dan `FORCE ROW LEVEL SECURITY`.
 - Ada lima policy `SELECT`: `candidate_documents` dan `candidates` dibatasi tenant aktif, Admin, serta izin PPDB; `profiles` membatasi profil sendiri atau Admin tenant dengan izin pengguna; `tenants` membatasi tenant aktif; `user_profiles` membatasi UID sendiri.
 - Pemeriksaan privilege pada empat tabel perwakilan menunjukkan `anon` tidak punya hak baca/tulis; `authenticated` hanya punya hak `SELECT` pada tabel yang dipakai policy dan tidak punya hak tulis; `service_role` punya CRUD. Karena backend memakai role istimewa, setiap endpoint tetap harus memverifikasi token, status profil, tenant, role, dan permission sebelum query.
+- Default ACL untuk objek aplikasi yang dibuat sebagai `postgres` sudah dibatasi. Ada ACL terpisah untuk role platform `supabase_admin` yang masih memberi hak default kepada role API; semua tabel dan fungsi aplikasi saat ini dimiliki `postgres`. Tim harus memastikan migrasi pada setiap jenis deployment selalu berjalan sebagai `postgres`, lalu meninjau kebijakan role platform tersebut tanpa mengubah ACL bawaan managed service secara membabi buta.
 - Ada dua bucket Storage (`ppdb-documents`, `erp4-private-finance-proofs`); keduanya privat dan saat diperiksa belum memiliki policy pada `storage.objects`. Akses file harus melalui route backend yang terotorisasi sampai policy Storage teruji.
 
 ## Data legacy yang terverifikasi pada staging
@@ -63,7 +75,7 @@ Rincian kategori dan jalur impor lain tercatat pada [checkpoint Master Data](MAS
 
 ## Gerbang yang masih terbuka
 
-1. Tim backend membandingkan keseluruhan schema, indeks, constraint, fungsi, grant, RLS, Storage, dan ledger pada target dengan source migration.
+1. Tim backend merekonsiliasi metadata kosong untuk migration `20261205000000` dan `20261206000000`, lalu membandingkan keseluruhan schema, indeks, constraint, fungsi, grant, RLS, Storage, dan ledger pada target dengan source migration.
 2. Siapkan baseline staging yang dapat dipulihkan dari backup dan jalankan rehearsal upgrade di environment non-production. Project target berada pada paket Free; jangan menganggap backup terjadwal tersedia.
 3. Hitung ulang Firestore, buat fingerprint snapshot, dan jalankan preview per domain. Cocokkan setiap relasi dan data sensitif; pertahankan seed/fixture, akun Auth, transaksi, dan byte file sebagai kategori terpisah.
 4. Terapkan hanya domain yang lolos preview, dengan batch atomik dan hitungan sebelum/sesudah. Rekonsiliasi duplikasi, tenant, status, serta total keuangan.
@@ -71,4 +83,11 @@ Rincian kategori dan jalur impor lain tercatat pada [checkpoint Master Data](MAS
 6. Rotasi secret key/password database yang pernah dibagikan sebelum go-live. Siapkan secret manager, observabilitas, prosedur rollback, dan dokumentasi instalasi pelanggan.
 
 **Keputusan saat ini:** staging memiliki pondasi schema dengan RLS ketat dan sebagian data legacy sudah terimpor. ERP belum terbukti sepenuhnya lepas dari Firebase, belum seluruh 561 dokumen direkonsiliasi, dan belum siap go-live. Jangan menerapkan 44 migration hanya berdasarkan selisih ledger.
+
+## Preflight lokal dan CI — 27 Oktober 2026
+
+- Perbaikan PR #13 membuat `preflight:db-migrations` memuat `.env` dari akar repo dan memilih `SUPABASE_DB_POOLER_URL` sebelum `SUPABASE_DB_URL`, tanpa menampilkan kredensial. Uji unit meliputi pilihan pooler dan fallback URL langsung.
+- GitHub Actions [run 40448719287](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40448719287) sukses pada kedua job untuk commit `0ea6ea8d8e49ab57f0f81c80e6241d8bc9137df3`. Ini mencakup preflight baca-saja, build, uji migrasi/API/pgTAP, runtime tanpa Firebase, Docker/Compose, Storage, dan backup/restore sintetis.
+- Pada checkout Windows pemeriksaan ini, `psql` belum tersedia. Jalankan preflight langsung dari PC hanya setelah memasang PostgreSQL client; `.env` saja belum cukup untuk menjalankan query. CI telah memasang client tersebut.
+- CI memakai Supabase lokal sintetis. Ia tidak memperbaiki atau mengisi metadata dua migration live dan tidak menerapkan migration apa pun ke Supabase target.
 
