@@ -110,3 +110,11 @@ Rincian kategori dan jalur impor lain tercatat pada [checkpoint Master Data](MAS
 - GitHub Actions [run 40452393890](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40452393890) lulus pada kedua job di head dokumen `b48c2be238e7fbf313eea3f2227cccdc4106bb70`. Job database menjalankan migration/pgTAP dan pemeriksaan API pada Supabase lokal sintetis; ini tidak menerapkan migration ke staging atau Production dan tidak membuktikan rekonsiliasi data live.
 - Selisih **44 migration source** dan metadata kosong pada dua versi terakhir tetap menunggu rekonsiliasi/provenance serta rehearsal backup staging yang dapat dipulihkan. Hasil ledger dan jumlah tabel sendiri bukan izin untuk menerapkan migration.
 
+### Rekonsiliasi PPDB kandidat — preview baca-saja 27 Oktober 2026
+
+Preview dijalankan terhadap 50 kandidat Firestore dan konteks tenant/data kandidat Supabase staging. Pemeriksaan hanya mencatat agregat; nilai identitas, ID registrasi, ciphertext, dan fingerprint tidak dicetak atau disimpan.
+
+- Source scope menyertakan 50/50 kandidat tenantless karena registry Firestore hanya memiliki satu tenant dengan key yang sama dengan mapping target. Tidak ada tenant invalid, unresolved, atau record yang dikeluarkan.
+- Target memiliki 50 record dengan `source_record_id` yang cocok satu-per-satu. Fingerprint NIK dan NISN cocok 50/50, dan preview tidak menemukan duplikasi registrasi, NIK, atau NISN pada source.
+- Perbandingan payload ternormalisasi menunjukkan semua kolom kandidat yang dipetakan cocok 50/50 kecuali `registration_id` (0/50 cocok). `source_fingerprint` berbeda pada 50/50 record; preview melaporkan 50 `changedImportedSource`. Ini konsisten dengan perubahan atau provenance berbeda pada ID registrasi; penyebab historis tepatnya belum dibuktikan.
+- `canApply` tetap `false`: fingerprint sumber berubah dan konfirmasi operator untuk tenant/format tanggal tidak diberikan. **Tidak ada apply atau penulisan data.** Jangan mengubah ID target atau melewati pemeriksaan fingerprint otomatis. Tim harus memutuskan berdasarkan snapshot/provenance apakah ID Supabase saat ini dipertahankan dan dibuatkan alias audit, atau sumber dipulihkan ke snapshot saat import.
