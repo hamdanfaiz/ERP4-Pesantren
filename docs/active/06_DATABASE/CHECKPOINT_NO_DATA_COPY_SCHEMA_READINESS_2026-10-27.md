@@ -92,3 +92,12 @@ Hasil ini adalah inventaris kode statis, bukan pengujian penetrasi atau bukti ba
 - Data operasional contoh akan dibuat manual. CI di atas membuktikan alur terhadap database lokal dan fixture sintetis, bukan UAT live atau penerapan skema staging.
 - PR #13 masih **Open / Draft**. Estimasi checkpoint tetap **73% kematangan fitur / 46% kesiapan go-live**; angka ini adalah estimasi, bukan bukti UAT.
 
+## Checkpoint jeda — audit konsistensi no-copy UI — 27 Oktober 2026
+
+- Source aman pada commit `a8a913d47d0c99af5a56029599ed3770511dac92` di branch kerja `codex/runtime-config-portability-20261027`, sudah didorong ke branch PR `codex/supabase-runtime-cutover-20261022`. Working tree bersih; tidak ada perubahan kode setengah jadi.
+- Perubahan terakhir memperjelas `.env.example`: tenant baru tidak membutuhkan impor Firestore, konfigurasi awal dilakukan di Supabase, dan semua flag runtime tetap mati sampai migration, Auth/tenant, izin, dan uji alur non-production lulus. Pemeriksaan `node scripts/test-customer-deployment-flags.mjs` lulus.
+- Temuan yang belum diperbaiki: pencarian source menemukan `SettingsManager`, `TahfidzManager`, dan `SupabaseFacilityBooking` menampilkan panel impor berdasarkan flag `VITE_*_IMPORT_ENABLED` tanpa memeriksa `legacyArchiveImportEnabled`. `CommunicationHubLegacy` juga belum memakai gerbang global; konfirmasi dahulu bahwa layar legacy itu tidak dapat dijangkau dari route aktif. API importer server tetap fail-closed karena Firebase Admin tidak dapat diaktifkan.
+- Tindak lanjut saat dilanjutkan: pasang gerbang no-copy global pada semua tampilan impor yang tersisa, perluas `scripts/test-supabase-runtime-no-firebase.mjs` agar memeriksa empat surface tersebut, lalu jalankan tes terkait, `git diff --check`, commit, push ke PR #13, dan periksa hasil CI.
+- Staging Supabase hanya diperiksa baca-saja. Tidak ada data Firestore yang disalin, migration/schema/row staging diubah, atau feature flag runtime yang diaktifkan.
+- PR #13 tetap Open / Draft. Kesiapan belum berubah dari estimasi **73% kematangan fitur / 46% kesiapan go-live**. Gerbang besar berikutnya tetap rekonsiliasi 49 migration yang belum tercatat di staging, backup/restore staging, dan UAT Auth/role/tenant lintas modul.
+
