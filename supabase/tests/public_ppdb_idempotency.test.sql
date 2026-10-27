@@ -143,7 +143,7 @@ SELECT is((SELECT public_submission_fingerprint FROM public.candidates
 SELECT is((SELECT last_value FROM public.registration_counters
   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
     AND admission_year = 2027),
-  1,
+  1::BIGINT,
   'a retry does not consume another registration number');
 
 SELECT * FROM finish();
