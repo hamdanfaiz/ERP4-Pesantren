@@ -1,5 +1,30 @@
 # Audit dependensi Pull Request — 26 Oktober 2026
 
+## Inventaris GitHub terkini — 27 Oktober 2026
+
+GitHub saat ini menunjukkan **12 PR terbuka**: #1–#11 dan #13; semuanya berstatus **Open / Draft**. PR #12 sudah **Closed / Merged** ke main. Pemeriksaan ini hanya membaca metadata dan nama file; tidak ada PR yang diubah statusnya.
+
+| PR | Status dan jalur | Disposisi sementara terhadap cutover #13 |
+|---|---|---|
+| #1 | Draft; tenant foundation → main lama | Fondasi tenant/profile/PPDB memiliki padanan baru di migration #13. Dokumen fondasi lama perlu dipertahankan hanya bila berisi kontrak yang belum tercatat di ERD/runbook terbaru. |
+| #2 | Draft; commercial readiness → main lama | Dokumen model komersial/self-hosted memiliki path unik. #13 sudah punya panduan deployment dan gate go-live, tetapi lisensi, support, dan asumsi produk tetap perlu ditinjau sebelum PR ini ditutup. |
+| #3 | Draft; user provisioning → tenant foundation lama | Edge Functions provisioning/password di branch lama harus dibandingkan dengan endpoint Node server dan identity store Supabase #13. Jangan gabungkan Edge Functions lama tanpa review; CI status head #3 tidak terverifikasi. |
+| #4 | Draft; container Firebase lama → main lama | Artefak container lama membutuhkan konfigurasi Firebase. PR #13 menyediakan Docker/Compose yang menggunakan Supabase; jangan merge image/config Firebase lama. index.html bersama kini memakai bahasa dokumen Indonesia. |
+| #5 | Draft; public PPDB → foundation lama | Alur PPDB publik tersedia pada implementasi baru #13 dengan endpoint, migrasi, Storage privat, dan pengujian sintetis; verifikasi staging tetap terbuka. |
+| #6 | Draft; roadmap migrasi → main lama | Rencana lama digantikan panduan migrasi dan checkpoint terbaru. Keputusan pemilik: Firestore dummy tidak disalin; instruksi ETL lama bukan release gate. |
+| #7 | Draft; PPDB Admin → public PPDB lama | UI/API PPDB Admin memiliki implementasi Supabase-native pada #13; uji lokal/CI ada, UAT staging belum. |
+| #8 | Draft; Master Data dan onboarding → stack PPDB lama | Master Data, reservasi NIS, onboarding, dan relasi asrama tersedia pada #13; jangan merge migration versi lama ke dalam urutan baru. |
+| #9 | Draft; Finance foundation → stack onboarding lama | Finance tenant-scoped dan ledger tersedia pada #13; kontrak baru serta migrasi #13 adalah jalur yang ditinjau. |
+| #10 | Draft; Finance/PPDB UI → finance foundation lama | Alur tagihan PPDB dan bukti Finance tersedia pada #13; pastikan tidak ada komponen UI atau status workflow unik yang belum terwakili sebelum menutup. |
+| #11 | Draft; Master Data/asrama/Tahfidz → Finance UI lama | Paritas source dirinci pada matriks PR #11 → #13. Branch divergen; jangan merge utuh. |
+| #12 | Merged ke main | Sudah menjadi basis #13; bukan bukti seluruh cutover selesai. |
+| #13 | Draft; Supabase-only cutover berbasis main pasca-#12 | Jalur cutover utama. Head terbaru 0e31bbde2b141d9c9076e2d711452dd146dc7dba; CI untuk perubahan bahasa dokumen sedang berjalan pada run 40495707113. |
+
+PR #1–#11 merupakan jalur lama bertingkat dan PR #13 tidak mewarisi seluruh commit stack tersebut. Nama file yang berbeda bukan bukti fitur hilang maupun bukti paritas. Sebelum menutup PR lama, lakukan review khusus untuk tiga aset yang paling mungkin unik: isi komersial PR #2, kontrak user provisioning PR #3, serta elemen UI/instalasi yang tidak khusus Firebase dari PR #4. Perbandingan file pada #3/#4/#2 dilakukan per kontrak, bukan dengan menggabungkan branch.
+
+Tidak ada alasan untuk merge PR draft lama secara utuh ke #13. Jika review membuktikan kemampuan dan dokumentasi yang dibutuhkan telah tercakup, tutup PR lama sebagai superseded tanpa merge; pertahankan #13 sebagai satu-satunya jalur implementasi. PR #11 tidak ditutup sebagai merged. Jangan mengubah status PR hanya untuk mengurangi jumlah PR terbuka sebelum review unik selesai.
+
+
 ## Ringkasan eksekutif
 
 - PR #12 sudah digabung ke `main` pada commit `c8738185ff6e5080ae427ef0021ee25681036c40`.
