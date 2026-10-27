@@ -193,7 +193,7 @@ jobs:
       - name: Verify and clean synthetic Laundry backfill rows
         run: |
           db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
-          if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\\.0\\.0\\.1:[0-9]+/postgres$ ]]; then
+          if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then
             echo "Refusing to verify or clean anything except the isolated local Supabase database." >&2
             exit 1
           fi
