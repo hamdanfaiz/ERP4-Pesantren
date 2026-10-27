@@ -1,6 +1,7 @@
 export interface TrustedProxyEnvironment {
   TRUST_PROXY_HOPS?: string;
   K_SERVICE?: string;
+  NODE_ENV?: string;
 }
 
 const MAX_TRUSTED_PROXY_HOPS = 10;
