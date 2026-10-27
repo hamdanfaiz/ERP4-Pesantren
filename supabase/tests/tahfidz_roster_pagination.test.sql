@@ -3,7 +3,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(29);
+SELECT plan(35);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -120,6 +120,142 @@ SELECT is((public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009
 SELECT throws_ok(
   $$SELECT public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000015','admin',CURRENT_DATE,NULL,NULL,100,false)$$,
   '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'explicitly disabled module permission is denied'
+);
+
+
+-- A volume smoke test keeps tenant keyset pagination stable on a large synthetic roster.
+-- Every generated row is isolated to this transaction and rolled back below.
+INSERT INTO public.candidates (
+  id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint
+)
+SELECT
+  md5('tahfidz-scale-candidate:' || generated.number)::uuid,
+  'd1900000-0000-4000-8000-000000000009'::uuid,
+  'TR-SCALE-' || lpad(generated.number::text, 5, '0'),
+  'Skala Pesantren ' || lpad(generated.number::text, 5, '0'),
+  decode(
+    md5('candidate-cipher-a:' || generated.number)
+      || md5('candidate-cipher-b:' || generated.number)
+      || substr(md5('candidate-cipher-c:' || generated.number), 1, 24),
+    'hex'
+  ),
+  decode(
+    md5('candidate-fingerprint-a:' || generated.number)
+      || md5('candidate-fingerprint-b:' || generated.number),
+    'hex'
+  )
+FROM generate_series(1, 10000) AS generated(number);
+
+INSERT INTO public.students (
+  id, tenant_id, source_candidate_id, nis, name, gender, grade,
+  nik_ciphertext, nik_fingerprint, status
+)
+SELECT
+  md5('tahfidz-scale-student:' || generated.number)::uuid,
+  'd1900000-0000-4000-8000-000000000009'::uuid,
+  md5('tahfidz-scale-candidate:' || generated.number)::uuid,
+  lpad((8000000000 + generated.number)::text, 10, '0'),
+  'Skala Pesantren ' || lpad(generated.number::text, 5, '0'),
+  CASE WHEN generated.number % 2 = 0 THEN 'L'::public.gender_type ELSE 'P'::public.gender_type END,
+  'VII',
+  decode(
+    md5('student-cipher-a:' || generated.number)
+      || md5('student-cipher-b:' || generated.number)
+      || substr(md5('student-cipher-c:' || generated.number), 1, 24),
+    'hex'
+  ),
+  decode(
+    md5('student-fingerprint-a:' || generated.number)
+      || md5('student-fingerprint-b:' || generated.number),
+    'hex'
+  ),
+  'Active'
+FROM generate_series(1, 10000) AS generated(number);
+
+CREATE TEMP TABLE tahfidz_scale_page_ids (
+  page_number INTEGER NOT NULL,
+  student_id UUID NOT NULL
+) ON COMMIT DROP;
+
+DO $scale_roster$
+DECLARE
+  v_cursor UUID;
+  v_page JSONB;
+  v_page_number INTEGER := 0;
+BEGIN
+  LOOP
+    v_page := public.list_tahfidz_roster_page(
+      'd1900000-0000-4000-8000-000000000009',
+      'd1900000-0000-4000-8000-000000000011',
+      'admin',
+      CURRENT_DATE,
+      v_cursor,
+      NULL,
+      100,
+      FALSE
+    );
+    v_page_number := v_page_number + 1;
+    INSERT INTO tahfidz_scale_page_ids (page_number, student_id)
+    SELECT v_page_number, (roster_item.value->>'id')::uuid
+    FROM jsonb_array_elements(v_page->'roster') AS roster_item(value);
+
+    EXIT WHEN COALESCE((v_page->>'hasMore')::boolean, FALSE) IS FALSE;
+    v_cursor := NULLIF(v_page->>'nextCursor', '')::uuid;
+    IF v_cursor IS NULL OR v_page_number > 110 THEN
+      RAISE EXCEPTION 'Tahfidz roster pagination did not advance safely';
+    END IF;
+  END LOOP;
+END;
+$scale_roster$;
+
+SELECT is(
+  (SELECT count(*) FROM public.students
+   WHERE tenant_id = 'd1900000-0000-4000-8000-000000000009'
+     AND name LIKE 'Skala Pesantren %'),
+  10000::BIGINT,
+  'synthetic scale fixture contains 10000 students in one tenant'
+);
+SELECT is(
+  (SELECT count(*) FROM tahfidz_scale_page_ids),
+  10008::BIGINT,
+  'keyset traversal returns all active tenant students across 101 pages'
+);
+SELECT is(
+  (SELECT count(DISTINCT student_id) FROM tahfidz_scale_page_ids),
+  10008::BIGINT,
+  'keyset traversal has no duplicate student across page boundaries'
+);
+SELECT is(
+  (SELECT count(DISTINCT page_number) FROM tahfidz_scale_page_ids),
+  101::BIGINT,
+  'keyset traversal terminates after the expected number of bounded pages'
+);
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM (
+      SELECT page_number, min(student_id) AS first_id, max(student_id) AS last_id
+      FROM tahfidz_scale_page_ids
+      GROUP BY page_number
+    ) AS current_page
+    JOIN (
+      SELECT page_number, min(student_id) AS first_id, max(student_id) AS last_id
+      FROM tahfidz_scale_page_ids
+      GROUP BY page_number
+    ) AS next_page
+      ON next_page.page_number = current_page.page_number + 1
+    WHERE current_page.last_id >= next_page.first_id
+  ),
+  'keyset pages stay strictly ordered without overlap'
+);
+SELECT ok(
+  (SELECT max(page_size) <= 100
+   FROM (
+     SELECT count(*)::INTEGER AS page_size
+     FROM tahfidz_scale_page_ids
+     GROUP BY page_number
+   ) AS pages),
+  'no generated roster page exceeds the configured limit of 100'
 );
 
 SELECT * FROM finish();
