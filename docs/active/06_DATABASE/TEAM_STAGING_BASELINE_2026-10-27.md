@@ -213,3 +213,15 @@ GitHub Actions [run 40428532956](https://github.com/hamdanfaiz/ERP4-Pesantren/ac
 **Status lineage:** 45 migration memiliki bukti metadata SQL yang cocok; dua versi tanpa metadata masih harus direkonsiliasi oleh tim backend/DBA lewat perbandingan objek lengkap pada klon disposable yang dipulihkan dari backup. Jangan mengubah row ledger atau membuka guard preflight berdasarkan postcondition parsial. Setelah rekonsiliasi dua versi itu, jalankan ulang preflight sebelum menyusun rehearsal batch pending.
 
 Estimasi proyek tidak berubah: **73% kematangan fitur / 46% kesiapan go-live**. Rehearsal di clone berisi, rekonsiliasi payload lintas domain, login/UAT, rotasi secret, dan simulasi environment pelanggan tetap menjadi release gate.
+
+### Rekonsiliasi postcondition katalog untuk dua versi tanpa metadata — 27 Oktober 2026
+
+Pemeriksaan katalog baca-saja diperluas pada objek yang disentuh dua file migration. Ledger saat ini tetap 47 row, 45 memiliki `statements`; `20261205000000` dan `20261206000000` tetap `name = NULL` dan `statements = NULL`.
+
+Untuk `20261205000000_data_api_default_privilege_hardening`, ACL default global dan schema `public` untuk tabel, sequence, dan fungsi hanya menunjukkan owner `postgres`; fungsi global dan schema `public` tidak memberi `EXECUTE` ke `PUBLIC`, `anon`, `authenticated`, atau `service_role`. Empat helper trigger yang ditargetkan migration juga tidak dapat dieksekusi langsung oleh ketiga role Data API/server tersebut.
+
+Untuk `20261206000000_ppdb_legacy_candidate_import`, katalog menunjukkan kolom metadata sumber, constraint ter-validate, partial unique index, seluruh kolom/constraint/foreign key batch, dan RLS + FORCE RLS pada tabel batch. Role `anon` dan `authenticated` tidak memiliki CRUD pada tabel batch; `service_role` memiliki CRUD sesuai migration. Komentar tabel dan kolom fingerprint cocok dengan source. Definisi parameter, `SECURITY INVOKER`, `search_path`, owner, dan EXECUTE ACL fungsi cocok; body fungsi database sebanyak 5.165 karakter sama dengan body file repository setelah normalisasi line ending.
+
+Agregat yang dibaca tanpa menampilkan record: terdapat 50 kandidat bertanda `legacy_firestore`, metadata kandidat invalid 0; satu batch mencatat source 50, imported 50, skipped 0 dan jumlahnya cocok dengan kandidat legacy. Tidak ada data atau isi identitas yang dicantumkan.
+
+**Batas kesimpulan:** postcondition live yang diperiksa konsisten dengan kedua migration, termasuk body fungsi PPDB yang sama. Ini belum membuktikan kapan atau melalui jalur apa objek dibuat, bahwa tidak ada efek historis lain di luar daftar yang diperiksa, atau bahwa kedua row ledger memiliki lineage SQL yang benar. Karena itu preflight tetap berhenti dan status metadata tetap harus diselesaikan DBA setelah backup serta rehearsal/replay pada clone disposable. Jangan memperbarui ledger manual atau menerapkan ulang DDL ke staging berdasarkan bukti parsial ini. Semua query pada pemeriksaan ini memakai transaksi `READ ONLY`.
