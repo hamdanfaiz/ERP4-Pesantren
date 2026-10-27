@@ -28,6 +28,9 @@ VALUES (
   'hris-admin@test.invalid', 'HRIS Import Admin', 'admin', 'active', '{"hris":true}'
 );
 
+CREATE TEMP TABLE hris_auth_users_before_import ON COMMIT DROP AS
+SELECT count(*)::INTEGER AS user_count FROM auth.users;
+
 SELECT ok(to_regclass('public.hris_employee_import_batches') IS NOT NULL, 'HRIS import batches are recorded');
 SELECT ok(EXISTS (
   SELECT 1 FROM information_schema.columns
@@ -75,7 +78,11 @@ SELECT is((
   SELECT count(*)::INTEGER FROM public.hris_employee_events
   WHERE tenant_id = 'd4000000-0000-4000-8000-000000000001' AND employee_id = 'd4000000-0000-4000-8000-000000000101'
 ), 1, 'import action is written to the HRIS audit event stream');
-SELECT is((SELECT count(*)::INTEGER FROM auth.users), 1, 'employee import does not create Supabase Auth accounts');
+SELECT is(
+  (SELECT count(*)::INTEGER FROM auth.users),
+  (SELECT user_count FROM hris_auth_users_before_import),
+  'employee import does not create Supabase Auth accounts'
+);
 SELECT is(
   public.import_legacy_hris_employees(
     'd4000000-0000-4000-8000-000000000001',
