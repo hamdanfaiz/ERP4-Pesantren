@@ -109,6 +109,7 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-users', { users: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true }));
 
     const adminToken = await signIn(anon, users[0]);
     const santriToken = await signIn(anon, users[1]);
@@ -120,6 +121,7 @@ async function main() {
     const suspendedTenantAdminToken = await signIn(anon, users[5]);
     const noPpdbAdminToken = await signIn(anon, users[9]);
     const noFinanceAdminToken = await signIn(anon, users[10]);
+    const otherTenantMarketplaceAdminToken = await signIn(anon, users[11]);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
 
@@ -214,6 +216,71 @@ async function main() {
     assert.equal(marketplaceAfterCreateResponse.status, 200, 'Marketplace continues to read after the first product is created.');
     const marketplaceAfterCreate = await marketplaceAfterCreateResponse.json();
     assert.equal(marketplaceAfterCreate.products.length, 1, 'The first manually created product appears in the tenant catalog.');
+    assert.equal(marketplaceAfterCreate.products[0].stock, 8, 'Initial product stock is visible in the tenant snapshot.');
+
+    const crossTenantOrderResponse = await fetch(`${apiBase}/api/marketplace/orders`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerName: 'Pelanggan Tenant Lain',
+        customerType: 'Parent',
+        items: [{ productId: createdProduct.id, quantity: 1 }],
+        clientRequestId: randomUUID(),
+      }),
+    });
+    assert.notEqual(crossTenantOrderResponse.status, 201, 'A tenant B Admin cannot create an order from a tenant A product.');
+
+    const otherTenantMarketplaceResponse = await fetch(`${apiBase}/api/marketplace/snapshot`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(otherTenantMarketplaceResponse.status, 200, 'An authorized second-tenant Admin can read their own Marketplace snapshot.');
+    const otherTenantMarketplace = await otherTenantMarketplaceResponse.json();
+    assert.deepEqual(otherTenantMarketplace.products, [], 'Tenant B cannot see tenant A products.');
+    assert.deepEqual(otherTenantMarketplace.orders, [], 'Tenant B cannot see tenant A orders.');
+    assert.deepEqual(otherTenantMarketplace.movements, [], 'Tenant B cannot see tenant A stock movements.');
+
+    const orderResponse = await fetch(`${apiBase}/api/marketplace/orders`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerName: 'Wali Uji Integrasi',
+        customerType: 'Parent',
+        items: [{ productId: createdProduct.id, quantity: 2 }],
+        clientRequestId: randomUUID(),
+      }),
+    });
+    assert.equal(orderResponse.status, 201, 'An authorized tenant Admin can place an order for a tenant product.');
+    const createdOrder = await orderResponse.json();
+    assert.ok(createdOrder?.id, 'The order is persisted through the transactional Supabase RPC.');
+
+    const marketplaceAfterOrderResponse = await fetch(`${apiBase}/api/marketplace/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(marketplaceAfterOrderResponse.status, 200);
+    const marketplaceAfterOrder = await marketplaceAfterOrderResponse.json();
+    const linkedOrder = marketplaceAfterOrder.orders.find((order) => order.id === createdOrder.id);
+    assert.ok(linkedOrder, 'The tenant snapshot returns the newly created order.');
+    assert.equal(linkedOrder.lines.length, 1, 'The order snapshot includes its relational order item.');
+    assert.equal(linkedOrder.lines[0].product_id, createdProduct.id, 'The order item references its same-tenant product.');
+    assert.equal(linkedOrder.lines[0].product_name_snapshot, 'Produk Uji Tanpa Impor');
+    assert.equal(linkedOrder.lines[0].quantity, 2);
+    assert.equal(marketplaceAfterOrder.products[0].stock, 6, 'Transactional checkout reserves stock exactly once.');
+    assert.ok(marketplaceAfterOrder.movements.some((movement) => movement.order_id === createdOrder.id && movement.product_id === createdProduct.id && movement.quantity_delta === -2), 'The stock ledger links its reservation to the order and product.');
+
+    const cancelResponse = await fetch(`${apiBase}/api/marketplace/orders/${encodeURIComponent(createdOrder.id)}/status`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'cancelled', clientRequestId: randomUUID() }),
+    });
+    assert.equal(cancelResponse.status, 200, 'An authorized tenant Admin can cancel an order.');
+    const marketplaceAfterCancelResponse = await fetch(`${apiBase}/api/marketplace/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(marketplaceAfterCancelResponse.status, 200);
+    const marketplaceAfterCancel = await marketplaceAfterCancelResponse.json();
+    assert.equal(marketplaceAfterCancel.orders.find((order) => order.id === createdOrder.id)?.status, 'cancelled');
+    assert.equal(marketplaceAfterCancel.products[0].stock, 8, 'Cancelling an order restores the reserved stock exactly once.');
+    assert.ok(marketplaceAfterCancel.movements.some((movement) => movement.order_id === createdOrder.id && movement.product_id === createdProduct.id && movement.quantity_delta === 2), 'The stock ledger links the cancellation reversal to the order and product.');
 
     const anonymousRoomHistory = await fetch(apiBase + "/api/master-data/students/" + randomUUID() + "/room-history");
     assert.equal(anonymousRoomHistory.status, 401, "Room history must reject anonymous callers.");
@@ -557,12 +624,33 @@ async function main() {
       if (serverProcess.exitCode === null) serverProcess.kill('SIGKILL');
     }
 
-    for (const user of users) {
-      try { await admin.auth.admin.deleteUser(user.uid); } catch {}
+    for (const table of [
+      'marketplace_mutation_requests',
+      'marketplace_order_events',
+      'marketplace_stock_movements',
+      'marketplace_order_items',
+      'marketplace_orders',
+      'marketplace_products',
+      'marketplace_legacy_import_batches',
+    ]) {
+      const { error } = await admin.from(table).delete().in('tenant_id', tenantIds);
+      if (error) {
+        console.error(`Unable to clean synthetic Marketplace rows from ${table}.`);
+        process.exitCode = 1;
+      }
     }
-    try {
-      await admin.from('tenants').delete().in('id', tenantIds);
-    } catch {}
+    for (const user of users) {
+      const { error } = await admin.auth.admin.deleteUser(user.uid);
+      if (error) {
+        console.error('Unable to clean a synthetic Auth/profile fixture.');
+        process.exitCode = 1;
+      }
+    }
+    const { error: tenantCleanupError } = await admin.from('tenants').delete().in('id', tenantIds);
+    if (tenantCleanupError) {
+      console.error('Unable to clean synthetic tenant fixtures.');
+      process.exitCode = 1;
+    }
   }
 }
 
