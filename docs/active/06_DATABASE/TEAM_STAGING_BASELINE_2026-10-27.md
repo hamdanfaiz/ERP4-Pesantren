@@ -144,3 +144,20 @@ Estimasi checkpoint tetap **73% kematangan fitur** dan **46% kesiapan go-live**.
 - `npm ci` belum lolos pada lockfile npm karena pemeriksaan paket bundled opsional Tailwind meminta `@emnapi/wasi-threads@1.2.3` yang tidak tercatat; archive Tailwind yang diperiksa membundel `1.2.1`. CI repository menggunakan Bun frozen-lockfile dan jalur itu lulus. Tim yang memilih npm untuk instalasi pelanggan perlu menyelesaikan ketidakcocokan ini sebelum memakai `npm ci`.
 - Lint/typecheck, build frontend/server, tes parser CSV PPDB, tes preflight, audit dependency production, dan validasi frozen lockfile lokal lulus. Build masih memperingatkan chunk PDF sekitar 1,46 MB.
 - Progress tidak berubah: **73% kematangan fitur / 46% kesiapan go-live**. PR tetap Draft sampai lineage ledger, rehearsal migrasi, UAT/login, dan environment pelanggan memenuhi gate.
+
+
+### Pemeriksaan kolom statements — 27 Oktober 2026
+
+Pemeriksaan katalog staging hanya-baca menemukan struktur ledger `supabase_migrations.schema_migrations`: `version text NOT NULL`, `name text NULL`, dan `statements text[] NULL`. Untuk versi `20261205000000` dan `20261206000000`, `name` serta `statements` bernilai `NULL`; jumlah elemen, ukuran, dan hash atas `statements` juga tidak tersedia. Dengan demikian, metadata target tidak menyediakan isi SQL atau fingerprint yang dapat dicocokkan ke dua file migrasi lokal.
+
+**Kesimpulan lineage:** kesamaan nomor versi saja belum membuktikan file SQL mana yang diterapkan atau bahwa efeknya cocok dengan definisi lokal. Snapshot skema saat ini juga tidak cukup untuk membuktikan seluruh efek migrasi data historis. Preflight lokal sengaja berhenti pada nama `NULL`; jangan melonggarkan guard agar batch migrasi dapat lewat.
+
+#### Tindakan aman untuk tim backend/DBA
+
+1. Pertahankan staging tanpa perubahan skema/data sampai rekonsiliasi selesai. Jangan jalankan `db push`, migration repair, `UPDATE/DELETE/INSERT` pada ledger, atau mengulang SQL untuk kedua versi tersebut.
+2. Buat backup yang dapat dipulihkan dan rehearsal pada database lokal/klon staging yang terisolasi. Simpan schema-only snapshot awal sebagai artefak kerja tim; jangan menaruh row aplikasi atau kredensial dalam laporan.
+3. Pada database terisolasi, jalankan urutan file migrasi dari repo pada versi yang diketahui bersih. Bandingkan hasilnya dengan staging menggunakan schema diff dan pemeriksaan objek spesifik: tabel/kolom/constraint, function dan trigger, RLS/policy, grants/default privileges, serta efek data migrasi PPDB yang hanya dihitung atau dicocokkan dengan fingerprint sementara.
+4. Untuk setiap versi kosong, dokumentasikan bukti apakah efek migrasi sudah ada dan lengkap. Minta DBA memilih jalur rekonsiliasi yang didukung Supabase setelah backup; CLI `migration repair` mengubah catatan riwayat, bukan menguji atau menjalankan ulang efek SQL. Jangan memakai status `applied`/ `reverted` secara membabi buta pada versi yang sudah memiliki row, dan jangan mengubah row dengan SQL manual sebelum mekanisme serta bukti disetujui.
+5. Setelah riwayat dan skema staging selaras, jalankan ulang migration preflight dan rehearsal seluruh migrasi yang tertunda secara bertahap. Pertahankan pemisahan staging/Production dan UAT sebelum keputusan cutover.
+
+Rujukan resmi: [Supabase CLI — repair migration history](https://supabase.com/docs/reference/cli/supabase-migration-repair) dan [Database migrations — diagnosing sync errors](https://supabase.com/docs/guides/deployment/database-migrations). Pemeriksaan ini hanya membaca metadata; tidak ada perubahan pada staging atau Production.
