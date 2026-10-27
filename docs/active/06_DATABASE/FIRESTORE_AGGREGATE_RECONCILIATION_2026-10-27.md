@@ -69,7 +69,7 @@ Dokumen ini menambah bukti agregat pada [inventaris migrasi Firestore](FIRESTORE
 
 ## Rekonsiliasi ID sumber-target — 27 Oktober 2026
 
-Perbandingan baca-saja mengambil ID dokumen Firestore dan kategori Master Data, lalu membandingkannya di memori dengan `source_record_id` atau ID target pada tenant `pesantren-digital`. Hanya jumlah dan hasil cocok/tidak cocok dicatat; nilai ID, field bisnis, PII, dan secret tidak disimpan. Pemeriksaan ini tidak menulis ke Firestore atau Supabase.
+Perbandingan baca-saja memakai scope tenant yang sama dengan importer (`legacy_tenant_key` target cocok dengan satu-satunya ID dokumen registry Firestore), lalu menormalkan ID struktur persis seperti route: gunakan `raw.id` yang dipangkas bila berupa string non-kosong; jika tidak, hapus prefiks `<kategori>_` dari document ID; selain itu gunakan document ID utuh. Hanya jumlah dan hasil kecocokan dicatat; nilai ID, field bisnis, PII, dan secret tidak disimpan. Pemeriksaan ini tidak menulis ke Firestore atau Supabase.
 
 | Sumber | Target | Jumlah sumber/target | ID sumber cocok | Kesimpulan |
 |---|---|---:|---:|---|
@@ -77,11 +77,11 @@ Perbandingan baca-saja mengambil ID dokumen Firestore dan kategori Master Data, 
 | `master_data` kategori Santri | `students.source_record_id` | 50 / 50 | 50 | ID cocok seluruhnya. |
 | `master_data` kategori Wali Santri | `guardians.source_record_id` | 50 / 50 | 50 | ID cocok seluruhnya; 50 relasi wali–santri memiliki referensi valid di tenant. |
 | `master_data` kategori Halaqah | `tahfidz_halaqahs.source_record_id` | 40 / 40 | 40 | ID cocok seluruhnya; keanggotaan halaqah target masih 0. |
-| `master_data` kategori Gedung | `master_data_records.id` kategori Gedung | 15 / 15 | 0 | Hitungan sama, tetapi ID sumber tidak cocok dengan ID target; rekonsiliasi identitas/relasi tetap perlu. |
-| `master_data` kategori Kamar | `master_data_records.id` kategori Kamar | 50 / 50 | 0 | Hitungan sama, tetapi ID sumber tidak cocok dengan ID target. |
-| `master_data` kategori Kelas | `master_data_records.id` kategori Kelas | 30 / 30 | 0 | Hitungan sama, tetapi ID sumber tidak cocok dengan ID target. |
+| `master_data` kategori Gedung | `master_data_records.id` kategori Gedung | 15 / 15 | 15 | ID cocok seluruhnya setelah normalisasi ID importer. |
+| `master_data` kategori Kamar | `master_data_records.id` kategori Kamar | 50 / 50 | 50 | ID cocok seluruhnya setelah normalisasi ID importer. |
+| `master_data` kategori Kelas | `master_data_records.id` kategori Kelas | 30 / 30 | 30 | ID cocok seluruhnya setelah normalisasi ID importer. |
 
-Jadi, 140 record Master Data memiliki kecocokan ID sumber langsung; 95 record Gedung/Kamar/Kelas hanya cocok pada jumlah, bukan identitas. Sebanyak 50 kandidat PPDB juga cocok ID-nya. Kesamaan jumlah bukan bukti bahwa nilai field, relasi, tenant mapping, atau riwayatnya identik.
+Jadi, 235 record Master Data cocok ID sumber setelah normalisasi yang dipakai importer: 50 Santri, 50 Wali Santri, 40 Halaqah, dan 95 struktur Gedung/Kamar/Kelas. Sebanyak 50 kandidat PPDB juga cocok ID-nya. Kecocokan ID tidak membuktikan semua nilai field, relasi, atau riwayatnya identik.
 
 Koleksi `entityRecords` berisi 14 ID yang tidak cocok dengan ID sumber pada tabel santri maupun wali target. Ini tidak membuktikan apakah record tersebut duplikat orang yang sama; jangan menggabungkannya tanpa pencocokan identitas yang aman. Dari 453 record `master_data`, kategori Active Role (3), Active Unit (10), Alumni (50), Asatidz (50), Guru (50), Kampus (5), dan Pegawai (50) berjumlah 218 dan belum memiliki rekonsiliasi target pada pemetaan ini. Hitungan target baca-saja menunjukkan `alumni_profiles` dan `hris_employees` masing-masing 0.
 
