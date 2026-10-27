@@ -467,4 +467,3 @@ Commit `028a93a1a52439cc463209bc9b6ec2aa47500414` menutup celah packaging: Docke
 Verifikasi lokal: `npm run lint`, `npm run build`, pemeriksaan flag, dan `git diff --check` lulus. CI [run 40304425791](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40304425791) sukses 2/2 job, termasuk Compose config dan smoke test Docker serta suite database sintetis. Peringatan chunk CandidatePDFDownload sekitar 1,24 MB masih muncul saat build.
 
 PR #13 tetap Draft; PR #11 masih Open/Draft dan PR #12 telah merged. Estimasi keseluruhan tetap **73% kematangan fitur / 46% kesiapan go-live**. Konektor Supabase belum memberi akses ke project target; ledger 47 versi dan 91 source migration (44 kandidat pending) tetap baseline historis. Backup/restore target, staging dan rehearsal, rekonsiliasi arsip, login/UAT, rotasi credential, serta simulasi environment pelanggan belum terverifikasi. Tidak ada migration, data, atau flag yang diubah di Production.
-
