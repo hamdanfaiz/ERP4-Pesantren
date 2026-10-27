@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { isLegacyFirebaseAdminEnabled } from "../src/server/legacyFirebaseGate";
 
-assert.equal(isLegacyFirebaseAdminEnabled({ NODE_ENV: "development", LEGACY_FIREBASE_ADMIN_ENABLED: "true" }), true);
-assert.equal(isLegacyFirebaseAdminEnabled({ NODE_ENV: "development", LEGACY_FIREBASE_ADMIN_ENABLED: "false" }), false);
-assert.equal(isLegacyFirebaseAdminEnabled({ NODE_ENV: "production", LEGACY_FIREBASE_ADMIN_ENABLED: "true" }), false);
-assert.equal(isLegacyFirebaseAdminEnabled({ NODE_ENV: "test", LEGACY_FIREBASE_ADMIN_ENABLED: "true" }), false);
-assert.equal(isLegacyFirebaseAdminEnabled({ LEGACY_FIREBASE_ADMIN_ENABLED: "true" }), false);
+for (const environment of [
+  { NODE_ENV: "development", LEGACY_FIREBASE_ADMIN_ENABLED: "true" },
+  { NODE_ENV: "development", LEGACY_FIREBASE_ADMIN_ENABLED: "false" },
+  { NODE_ENV: "production", LEGACY_FIREBASE_ADMIN_ENABLED: "true" },
+  { NODE_ENV: "test", LEGACY_FIREBASE_ADMIN_ENABLED: "true" },
+  { LEGACY_FIREBASE_ADMIN_ENABLED: "true" },
+  {},
+]) {
+  assert.equal(isLegacyFirebaseAdminEnabled(environment), false);
+}
 
-console.log("Legacy Firebase gate passed: only explicitly enabled local development can initialize Firestore Admin.");
+console.log("Legacy Firebase gate passed: Firestore access stays disabled in every environment.");
