@@ -68,16 +68,6 @@ async function resolveTenantUuid(tenantIdentifier: string): Promise<string> {
   return String(rows[0].id);
 }
 
-async function assertAnnouncementImportReady(tenantUuid: string): Promise<void> {
-  const { data, error } = await getServiceClient()
-    .from('communication_announcement_import_state')
-    .select('tenant_id')
-    .eq('tenant_id', tenantUuid)
-    .maybeSingle();
-  if (error) throw new CommunicationStoreError(503, 'Status migrasi pengumuman belum dapat diverifikasi.');
-  if (!data) throw new CommunicationStoreError(503, 'Admin harus meninjau dan menyelesaikan snapshot pengumuman lama sebelum modul diaktifkan.');
-}
-
 const ALLOWED_ANNOUNCEMENT_TARGETS = [
   'Semua Wali Santri', 'Guru & Musyrif', 'Semua Santri', 'Wali Santri Kelas VII - A',
 ];
@@ -135,7 +125,6 @@ function mapAnnouncement(row: AnnouncementRow, readCount: number, totalTarget: n
 export async function listCommunicationAnnouncements(tenantId: string, actor: StoredUserProfile) {
   const client = getServiceClient();
   const tenantUuid = await resolveTenantUuid(tenantId);
-  await assertAnnouncementImportReady(tenantUuid);
   const rowsResult = await client.from('communication_announcements')
     .select('id,tenant_id,title,body,target_audience,status,is_urgent,read_count,legacy_read_count,created_by_user_id,created_at,scheduled_at')
     .eq('tenant_id', tenantUuid)
@@ -188,7 +177,6 @@ export async function createCommunicationAnnouncement(
     throw new CommunicationStoreError(409, 'Belum ada akun aktif dan tertaut pada audiens ini; pengumuman belum diterbitkan.');
   }
   const client = getServiceClient();
-  await assertAnnouncementImportReady(tenantUuid);
   const { data, error } = await client.from('communication_announcements').insert({
     tenant_id: tenantUuid,
     title,
@@ -210,7 +198,6 @@ export async function acknowledgeCommunicationAnnouncement(tenantId: string, act
   }
   const client = getServiceClient();
   const tenantUuid = await resolveTenantUuid(tenantId);
-  await assertAnnouncementImportReady(tenantUuid);
   const { data: announcement, error: announcementError } = await client.from('communication_announcements')
     .select('id,target_audience,status')
     .eq('tenant_id', tenantUuid)
@@ -383,3 +370,4 @@ export async function applyLegacyCommunicationAnnouncements(preview: LegacyAnnou
   }
   return data as { imported: number; alreadyImported: number; rowsScanned: number };
 }
+
