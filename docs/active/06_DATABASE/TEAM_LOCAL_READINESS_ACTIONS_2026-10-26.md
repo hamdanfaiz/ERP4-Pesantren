@@ -1,12 +1,12 @@
 # Handoff Hambatan Teknis — Supabase Cutover ERP4 Pesantren
 
-**Checkpoint:** 26 Oktober 2026  
+**Checkpoint:** 27 Oktober 2026  
 **PR cutover:** [#13 — Supabase-only runtime cutover](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13)  
 **Target Supabase:** project ref `ptsasgdvgrbdtgyqieie`  
 **Sumber arsip:** Firestore project `graphite-ship-q5xj8`, database `ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8`  
 **Panduan detail terkait:** [Petunjuk Teknis Akses dan Rehearsal Migrasi](./TEAM_TECHNICAL_ACCESS_AND_REHEARSAL_RUNBOOK_2026-10-26.md)
 
-> **Pembaruan 27 Oktober 2026:** project ref `ptsasgdvgrbdtgyqieie` dikonfirmasi sebagai **staging**. Baseline baca-saja terbaru—termasuk RLS/grant, bucket Storage, 47/91 versi migration, inventaris Firestore, dan pemetaan tenant—ada di [TEAM_STAGING_BASELINE_2026-10-27.md](./TEAM_STAGING_BASELINE_2026-10-27.md). Jangan menyebut project ref ini sebagai Production.
+> **Pembaruan 27 Oktober 2026:** project ref `ptsasgdvgrbdtgyqieie` adalah **staging**, bukan Production. Revalidasi baca-saja saat head PR #13 `6badbd7f2f9a1e228a2124dbc75b010f626f1ce7` menunjukkan 47 versi ledger sampai `20261206000000`, sedangkan source berisi 92 migration; 45 versi `20261207000000`–`20270120000000` belum tercatat. Katalog `public` menunjukkan 119/119 tabel dengan RLS aktif dan FORCE, akses SELECT efektif `anon` pada 0 tabel dan `authenticated` pada 5 tabel, serta tidak ada hak tulis efektif bagi kedua role tersebut. RPC audiens komunikasi kanonis belum ada di staging. Detail hasil dan batas pemeriksaan ada di [TEAM_STAGING_BASELINE_2026-10-27.md](./TEAM_STAGING_BASELINE_2026-10-27.md). Jangan menerapkan batch migration sebelum lineage, backup/restore, dan rehearsal pada staging yang dapat dipulihkan selesai.
 
 Dokumen ini adalah daftar kerja untuk tim teknis yang memiliki akses lokal ke repository dan project. Semua pemeriksaan live di bawah dimulai dengan akses baca-saja. Jangan menerapkan migration atau mengimpor data ke Production sebelum gerbang rilis pada dokumen ini terpenuhi.
 
@@ -146,7 +146,7 @@ Untuk tiap file tertunda catat:
 
 Kalau migration bergantung pada bentuk schema/data yang berbeda dari target, hentikan rehearsal dan kirimkan diff yang disanitasi. Jangan “memperbaiki” ledger menggunakan repair agar daftar terlihat cocok.
 
-## Hasil pemeriksaan statis 44 migration yang tertunda
+## Hasil pemeriksaan statis awal 44 migration yang tertunda (baseline terdahulu)
 
 **Source diperiksa:** head PR #13 `59578f7fd2a7f95cd39335b74bbc4b1695e233fc`, 44 file dengan versi setelah `20261206000000`. Pemeriksaan ini membaca SQL source saja; tidak terkoneksi ke database target dan tidak mengubah data.
 
@@ -435,4 +435,14 @@ Berikutnya: minta tim menyiapkan project staging berisi data sintetis dan `proje
 2. Jalankan pemeriksaan baca-saja pada ledger migration, schema, grants/RLS, Storage, dan profil tenant staging; simpan hasil rekonsiliasi tanpa mengubah database.
 3. Rehearsal migration dan pemulihan backup hanya setelah snapshot staging dapat dipulihkan dan selisih source/ledger telah dikaji.
 4. Lanjutkan uji login/matriks role-tenant, UAT lintas modul, dan pemeriksaan deployment mandiri. Jangan menerapkan perubahan Production sebelum gate tersebut disetujui.
+
+## Revalidasi staging dan source PR #13 — 27 Oktober 2026
+
+- **Target:** staging `ptsasgdvgrbdtgyqieie`. Pembacaan ledger mencantumkan 47 versi sampai `20261206000000`; source pada head PR #13 `6badbd7f2f9a1e228a2124dbc75b010f626f1ce7` memuat 92 file migration. Jadi ada 45 versi source setelah batas ledger, dari `20261207000000` sampai `20270120000000`, yang belum tercatat. Perhitungan versi bukan persetujuan apply dan bukan bukti kesetaraan schema.
+- **Katalog keamanan yang dibaca ulang:** 119/119 tabel `public` mengaktifkan RLS dan FORCE RLS. Pemeriksaan hak efektif `has_table_privilege` menunjukkan `anon` SELECT pada 0 tabel dan hak tulis pada 0 tabel; `authenticated` SELECT pada 5 tabel dan hak tulis pada 0 tabel. Katalog memuat 5 policy pada 5 tabel. Ini pemeriksaan hak database, bukan uji perilaku login atau seluruh jalur server.
+- **Integrasi Komunikasi:** RPC `public.communication_announcement_recipient_user_ids(uuid,text)` belum ada pada staging. Migration `20270105000000_communication_guardian_audience.sql` dan `20270120000000_communication_import_canonical_audience.sql` belum tercatat; import bukti baca harus tetap ditahan sampai keduanya direhearsal dan dipastikan sesuai dengan audience canonical. Migration terbaru mengganti fungsi import secara transaksional, memakai resolver yang sama dengan pengiriman, dan menolak receipt historis yang bukan milik Wali aktif dalam audience tersebut.
+- **Review statis terarah atas 45 migration tertunda:** 40 pernyataan `CREATE INDEX` biasa, 0 `CREATE INDEX CONCURRENTLY`, tidak ditemukan `DROP TABLE/COLUMN/SCHEMA` atau `TRUNCATE`, dan ada 7 `DROP INDEX/CONSTRAINT` yang perlu ditinjau dalam konteks per file. Migration komunikasi terbaru tidak menambah index atau operasi destruktif. Hitungan statis tidak memprediksi durasi lock, kompatibilitas data, atau keberhasilan pada target.
+- GitHub Actions [run 40435015043](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40435015043) lulus 2/2 job pada head di atas. Ini CI dengan database/test sintetis terisolasi; bukan rehearsal pada staging. PR #13 tetap **Open/Draft**.
+- Pemeriksaan database yang dirujuk di atas hanya SELECT katalog/metadata. **Tidak ada migration, data, flag, atau konfigurasi staging/Production yang ditulis.** Dua row ledger `20261205000000` dan `20261206000000` dengan metadata kosong tetap menjadi isu lineage dari checkpoint terdahulu; hasil postcondition parsial tidak mengesahkan metadata tersebut.
+- Data inventaris Firestore pada baseline merupakan bukti checkpoint sebelumnya; pemeriksaan kali ini tidak membaca ulang payload Firestore. Tetap perlakukan pemetaan tenant dan rekonsiliasi domain sebagai gate sebelum import. Progress proyek tidak berubah: sekitar **73% kematangan fitur / 46% kesiapan go-live**.
 
