@@ -12,10 +12,11 @@ Yang harus dibuktikan adalah skema, relasi tenant, izin, dan logic transaksi di 
 
 ## Status terverifikasi
 
-- PR #13 masih **Open / Draft**. Head kode terbaru: `44d8e317873ee0da2fd25c338807d59d69915388`.
+- PR #13 masih **Open / Draft**. Commit kode yang telah divalidasi: `222d495606e49d6baaf54569df0b42453c0443f4`.
 - Source head tersebut berisi **95 file migration**, sampai `20270123000000_public_ppdb_idempotency.sql`.
 - Pembacaan staging hanya menampilkan **47 versi ledger**, terakhir `20261206000000`. Sebanyak **48 versi source belum tercatat** pada ledger. Metadata `name` untuk versi `20261205000000` dan `20261206000000` kosong.
-- GitHub Actions [run 40493469094](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40493469094) lulus pada head terbaru: build/typecheck, guard Firebase runtime, Supabase lokal/pgTAP/API tenant, transaksi NIS dan slot Tahfidz serentak, Storage, serta backup/restore sintetis. Ini bukan rehearsal pada staging dan bukan persetujuan untuk menerapkan migration.
+- GitHub Actions [run 40493469094](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40493469094) lulus pada commit kode sebelumnya `44d8e317873ee0da2fd25c338807d59d69915388`: build/typecheck, guard Firebase runtime, Supabase lokal/pgTAP/API tenant, transaksi NIS dan slot Tahfidz serentak, Storage, serta backup/restore sintetis.
+- GitHub Actions [run 40496694011](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40496694011) lulus pada commit kode `222d495606e49d6baaf54569df0b42453c0443f4`: frontend build dan guard Firebase; upgrade schema-only dari batas ledger staging, migrations/pgTAP, API auth/tenant, transaksi serentak, Storage, dan backup/restore sintetis. Uji provisioning tambahan memastikan kata sandi sementara >128 karakter atau berisi karakter kontrol ditolak sebelum akun Auth dibuat. Tetap bukan rehearsal atau perubahan database staging.
 - Tidak ada data Firestore disalin dan tidak ada migration/data yang ditulis ke Supabase staging atau Production pada checkpoint ini.
 - PR mengestimasi kematangan fitur **73%** dan kesiapan go-live **46%**. Itu estimasi, bukan hasil UAT/telemetri.
 
