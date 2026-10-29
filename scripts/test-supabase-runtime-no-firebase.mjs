@@ -144,7 +144,9 @@ const archiveImportPolicy = fs.readFileSync(path.join(root, 'src', 'runtimeBacke
 assert.match(archiveImportPolicy, /export const legacyArchiveImportEnabled = false/,
   'Firestore archive imports must remain disabled after the no-copy decision.');
 const archiveImportScreens = [
-  'src/pages/MasterDataManager.tsx', 'src/pages/SupabaseAcademicManager.tsx',
+  'src/pages/MasterDataManager.tsx', 'src/pages/SettingsManager.tsx', 'src/pages/TahfidzManager.tsx',
+  'src/components/SupabaseFacilityBooking.tsx', 'src/pages/CommunicationHubLegacy.tsx',
+  'src/pages/SupabaseAcademicManager.tsx',
   'src/pages/SupabaseBoardingAttendanceManager.tsx', 'src/pages/SupabaseBoardingDisciplineManager.tsx',
   'src/pages/SupabaseBoardingFacilityOpsManager.tsx', 'src/pages/SupabaseBoardingPermitsManager.tsx',
   'src/pages/SupabaseCommunicationHub.tsx', 'src/pages/SupabaseHealthcareManager.tsx',
@@ -156,5 +158,28 @@ for (const relativePath of archiveImportScreens) {
   const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
   assert.match(source, /legacyArchiveImportEnabled/, `${relativePath} must respect the global no-copy policy.`);
 }
+const importGateScreens = [
+  { path: 'src/pages/SettingsManager.tsx', constant: 'SUPABASE_SYSTEM_SETTINGS_IMPORT', flag: 'VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED' },
+  { path: 'src/pages/TahfidzManager.tsx', constant: 'SUPABASE_TAHFIDZ_IMPORT', flag: 'VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED' },
+  { path: 'src/components/SupabaseFacilityBooking.tsx', constant: 'SUPABASE_FACILITY_BOOKINGS_IMPORT', flag: 'VITE_SUPABASE_FACILITY_BOOKINGS_IMPORT_ENABLED' },
+  { path: 'src/pages/CommunicationHubLegacy.tsx', constant: 'SUPABASE_COMMUNICATION_IMPORT', flag: 'VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED' },
+];
+for (const { path: relativePath, constant, flag } of importGateScreens) {
+  const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
+  const gate = new RegExp("const " + constant + "\\s*=\\s*legacyArchiveImportEnabled\\s*&&\\s*publicRuntimeConfigValue\\([\"']" + flag + "[\"']\\)\\s*===\\s*[\"']true[\"']");
+  assert.match(source, gate, relativePath + ' must require the global no-copy policy and its local import flag.');
+}
+
+const settingsImportSource = fs.readFileSync(path.join(root, 'src/pages/SettingsManager.tsx'), 'utf8');
+assert.match(settingsImportSource, /const runSettingsMigration = async \(apply: boolean\) => \{\s*if \(!SUPABASE_SYSTEM_SETTINGS \|\| !SUPABASE_SYSTEM_SETTINGS_IMPORT\) return;/,
+  'Settings migration action must fail closed when archive import is disabled.');
+const tahfidzImportSource = fs.readFileSync(path.join(root, 'src/pages/TahfidzManager.tsx'), 'utf8');
+assert.match(tahfidzImportSource, /const handleTahfidzImport = async \(apply = false\) => \{\s*if \(!SUPABASE_TAHFIDZ_RUNTIME \|\| !SUPABASE_TAHFIDZ_IMPORT\) return;/,
+  'Tahfidz migration action must fail closed when archive import is disabled.');
+const facilityBookingSource = fs.readFileSync(path.join(root, 'src/components/SupabaseFacilityBooking.tsx'), 'utf8');
+assert.match(facilityBookingSource, /const previewImport = async \(\) => \{\s*if \(!SUPABASE_FACILITY_BOOKINGS_IMPORT\) return;/,
+  'Facility booking preview action must fail closed when archive import is disabled.');
+assert.match(facilityBookingSource, /const applyImport = async \(\) => \{\s*if \(!SUPABASE_FACILITY_BOOKINGS_IMPORT\) return;/,
+  'Facility booking apply action must fail closed when archive import is disabled.');
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes and ${unavailableRoutes.length} fail-closed routes).`);
 
