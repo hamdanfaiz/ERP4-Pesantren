@@ -101,3 +101,14 @@ Hasil ini adalah inventaris kode statis, bukan pengujian penetrasi atau bukti ba
 - Staging Supabase hanya diperiksa baca-saja. Tidak ada data Firestore yang disalin, migration/schema/row staging diubah, atau feature flag runtime yang diaktifkan.
 - PR #13 tetap Open / Draft. Kesiapan belum berubah dari estimasi **73% kematangan fitur / 46% kesiapan go-live**. Gerbang besar berikutnya tetap rekonsiliasi 49 migration yang belum tercatat di staging, backup/restore staging, dan UAT Auth/role/tenant lintas modul.
 
+
+
+## Checkpoint impor arsip tetap tertutup — 29 Oktober 2026
+
+- Kebijakan no-copy kini diterapkan pada layar Pengaturan, Tahfidz, Pemesanan Fasilitas, serta layar Komunikasi legacy. Flag Vite saja tidak dapat membuka panel impor; aksi preview/terapkan yang aktif juga memeriksa gate global.
+- Uji regresi `scripts/test-supabase-runtime-no-firebase.mjs` diperluas untuk memeriksa keempat gate, guard aksi, dan kebijakan `legacyArchiveImportEnabled = false`.
+- CI GitHub Actions [run 40813461473](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40813461473) sukses pada kedua job. Typecheck/build dan guard runtime lulus; suite Supabase lokal, migration/pgTAP, API tenant, transaksi serentak NIS/Tahfidz, Storage, dan backup/restore sintetis juga lulus.
+- Perubahan kode berada pada PR #13, branch `codex/supabase-runtime-cutover-20261022`, head kode teruji `0f1b9ded36b34c10c05707271553b7cfafff0c2e`. PR masih **Open / Draft**.
+- Tidak ada data Firestore yang disalin dan tidak ada perubahan pada Supabase staging/Production.
+- Estimasi tetap **73% kematangan fitur / 46% kesiapan go-live**; perubahan ini menutup kebocoran UI impor, tetapi tidak menyelesaikan rehearsal migration staging, UAT login/role/tenant, atau validasi environment pelanggan.
+- Untuk melanjutkan, audit ulang seluruh permukaan impor UI/server terhadap kebijakan no-copy, lalu teruskan perbaikan logic domain dan release gate. Terminal lokal pada sesi ini tidak merespons; perubahan telah disimpan langsung ke branch GitHub, jadi sinkronkan checkout dari branch tersebut sebelum mengedit secara lokal.
