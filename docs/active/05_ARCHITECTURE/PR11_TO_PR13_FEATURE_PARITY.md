@@ -1,5 +1,16 @@
 # Matriks Paritas Fitur PR #11 → PR #13
 
+# Status PR terkini — 30 Oktober 2026
+
+- PR #11 `feat(supabase): extend tenant-scoped cutover foundations` masih **Open / Draft**, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, base branch `backend/supabase-finance-ui`.
+- PR #12 sudah **Merged** ke `main` pada 21 Oktober 2026; merge commit `c8738185ff6e5080ae427ef0021ee25681036c40`.
+- PR #13 `Supabase-only runtime cutover` masih **Open / Draft**, head dokumentasi terkini `7d6585398b925010132e62598ea89d6e14850c05`, base `main`. Commit kode `7eb3848e7ce8f560818db640959210da46491b6e` lulus kedua job CI sintetis: frontend/Firebase guard dan migration/API auth/pgTAP.
+- Perbandingan GitHub menunjukkan branch PR #11 dan #13 **diverged**. PR #11 tidak otomatis menjadi bagian dari PR #13; jangan merge seluruh branch atau mengubah base branch secara massal. Tabel paritas di bawah membantu meninjau pengganti Supabase-native per area, tetapi tidak menggantikan pemeriksaan perilaku dan UAT.
+- Keputusan: pertahankan PR #11 terbuka sampai setiap fitur unik diputuskan (dipertahankan, diganti oleh implementasi #13, atau ditunda sebagai keputusan produk). Jangan tutup PR hanya karena #13 berhasil build. Jangan merge PR #13 ke `main` sebelum gate staging, rekonsiliasi ledger, restore, dan UAT selesai.
+
+---
+
+
 > **Perubahan ruang lingkup 27 Oktober 2026:** Firestore yang tersedia berisi data dummy dan tidak perlu disalin. Pemetaan/impor arsip yang tercatat di matriks ini bukan release gate. Nilai paritas perilaku melalui test Supabase lokal/CI dan UAT; data contoh dapat diisi manual kemudian.
 
 ## Status branch
