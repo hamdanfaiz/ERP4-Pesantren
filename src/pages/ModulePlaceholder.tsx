@@ -48,7 +48,7 @@ export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }
         </div>
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{title} belum tersedia pada aplikasi Supabase</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Modul ini belum memiliki alur operasional Supabase yang lengkap. Akses ke data lama tidak dibuka dari runtime aplikasi; modul akan tersedia setelah skema, API tenant, migrasi data, dan hak aksesnya selesai.
+          Modul ini belum memiliki alur operasional Supabase yang lengkap. Akses ke data lama tetap tertutup; data dummy Firestore tidak perlu disalin. Modul akan dibuka setelah skema dan relasi Supabase, API tenant, hak akses role, dan pengujian integrasinya selesai. Data contoh dapat ditambahkan langsung setelah modul siap.
         </p>
       </div>
     );
