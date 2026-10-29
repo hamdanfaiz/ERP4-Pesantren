@@ -6,7 +6,7 @@
 - `supabase/config.toml` pada PR #13 menunjuk ke project tersebut dan menetapkan `db.major_version = 17`, selaras dengan PostgreSQL 17.11 yang dilaporkan target.
 - Dashboard menampilkan branch `main / PRODUCTION`. Organisasi memakai Free plan; branch preview tidak tersedia di integrasi saat ini.
 - Repo `hamdanfaiz/ERP4-Pesantren` terhubung pada halaman Integrations project ini. Toggle `Deploy to production` terverifikasi **off**. Merge tidak akan menerapkan migrasi secara otomatis.
-- Halaman project sebelumnya menunjukkan belum ada backup. Karena itu, perlakukan target sebagai Production dan jangan gunakan untuk rehearsal migrasi.
+- Halaman **Database → Backups** saat ini menyatakan Free plan tidak menyertakan backup project. Belum ada backup yang dapat dipulihkan; upgrade berbayar memerlukan keputusan pemilik, jadi perlakukan target sebagai Production dan jangan gunakan untuk rehearsal migrasi.
 
 Data dummy Firestore tidak akan disalin. Target Supabase tidak diubah selama pemeriksaan ini.
 
