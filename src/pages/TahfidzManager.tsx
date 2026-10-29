@@ -49,7 +49,7 @@ import {
 } from "lucide-react";
 import { GamificationProfile } from "../components/GamificationManager";
 import { SupabaseTahfidzSessions } from "./SupabaseTahfidzSessions";
-import { supabaseRuntimeEnabled } from "../runtimeBackend";
+import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTime } from "../lib/tenantTimeZone";
 import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
 import { cn, generateUniqueId } from "../lib/utils";
@@ -65,7 +65,7 @@ import {
 } from "recharts";
 
 const SUPABASE_TAHFIDZ_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED"));
-const SUPABASE_TAHFIDZ_IMPORT = publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED") === 'true';
+const SUPABASE_TAHFIDZ_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED") === 'true';
 
 async function requestSupabaseTahfidzApi(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
