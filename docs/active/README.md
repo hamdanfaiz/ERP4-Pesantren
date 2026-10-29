@@ -6,6 +6,7 @@ Once a feature is fully implemented and merged, its documentation should be move
 
 ## Product readiness
 - [Kesiapan Komersial dan Go-Live](00_PRODUCT/COMMERCIAL_READINESS.md) — kontrak produk self-hosted, bukti teknis, dan gerbang pilot/deploy.
+- [Progres penyelesaian pengembangan — 30 Okt 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — estimasi progres pengembangan sekitar 73%, tidak termasuk pelaksanaan deployment dan UAT oleh tim penerapan.
 
 ## Active references
 - [PR dependency audit — 25 Oct 2026](05_ARCHITECTURE/PR_DEPENDENCY_AUDIT_2026-10-25.md) — base, stack, CI, review, and merge-readiness findings for PRs #1–#13.
@@ -18,5 +19,4 @@ Once a feature is fully implemented and merged, its documentation should be move
 - [Petunjuk Teknis Akses dan Rehearsal Migrasi](06_DATABASE/TEAM_TECHNICAL_ACCESS_AND_REHEARSAL_RUNBOOK_2026-10-26.md) — langkah connector Supabase, ADC Firestore, migration preflight, dry-run, dan checklist bukti untuk tim teknis.
 
 - [ERD target Supabase](06_DATABASE/SUPABASE_ERD.md) — relasi tenant, domain utama, dan inventaris tabel berdasarkan migrasi pada checkout.
-- [Checkpoint rilis dan progres — diperbarui 26 Okt 2026](05_ARCHITECTURE/CHECKPOINT_2026-10-25.md) — estimasi kematangan fitur dan kesiapan go-live, bukti, dan release gate berikutnya.
-
+- [Checkpoint rilis — arsip estimasi 26 Okt 2026](05_ARCHITECTURE/CHECKPOINT_2026-10-25.md) — snapshot historis metrik kematangan fitur dan kesiapan go-live; gunakan dokumen progres pengembangan terbaru untuk pelaporan persentase.
