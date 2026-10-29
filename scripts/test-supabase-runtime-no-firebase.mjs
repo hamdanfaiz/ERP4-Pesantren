@@ -151,6 +151,8 @@ const serverArchiveImportFlags = [...serverSource.matchAll(/const \w+Import\w*En
 assert.ok(serverArchiveImportFlags.length >= 21, 'All server archive-import feature flags must use the global fail-closed gate.');
 const serverArchiveImportBypasses = [...serverSource.matchAll(/const \w+Import\w*Enabled\s*=\s*String\(process\.env\.SUPABASE_[A-Z0-9_]*IMPORT[A-Z0-9_]*/g)];
 assert.deepEqual(serverArchiveImportBypasses, [], 'No server importer may read a SUPABASE_*_IMPORT flag without the global no-copy gate.');
+assert.match(serverSource, /app\\.post\\(['\"]\\/api\\/data-migrations\\/local-storage['\"], requireAuth,[\\s\\S]*?return res\\.status\\(410\\)\\.json\\(\\{ error: ['\"]Migrasi penyimpanan browser lama telah dihentikan\\. Buat data awal langsung melalui formulir pada modul ERP\\.['\"] \\}\\);/,
+  'Retired browser storage migration endpoint must direct tenants to manual data entry, not archive imports.');
 const archiveImportScreens = [
   'src/pages/MasterDataManager.tsx', 'src/pages/SettingsManager.tsx', 'src/pages/TahfidzManager.tsx',
   'src/components/SupabaseFacilityBooking.tsx', 'src/pages/CommunicationHubLegacy.tsx',
