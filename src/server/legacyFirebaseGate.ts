@@ -8,3 +8,11 @@ type LegacyFirebaseEnvironment = Partial<Pick<NodeJS.ProcessEnv, "NODE_ENV" | "L
 export function isLegacyFirebaseAdminEnabled(_environment: LegacyFirebaseEnvironment): false {
   return false;
 }
+/**
+ * Legacy Firestore archive records are intentionally not imported. Environment
+ * flags cannot reopen the archive import API; tenants create their initial
+ * operational data directly in Supabase.
+ */
+export function isLegacyArchiveImportEnabled(_environmentValue: unknown): false {
+  return false;
+}
