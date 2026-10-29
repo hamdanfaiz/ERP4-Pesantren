@@ -147,7 +147,7 @@ const legacyServerGate = fs.readFileSync(path.join(root, 'src/server/legacyFireb
 assert.match(legacyServerGate, /export function isLegacyArchiveImportEnabled\(_environmentValue: unknown\): false \{\s*return false;\s*\}/,
   'Server-side archive imports must remain disabled regardless of environment flags.');
 const serverSource = fs.readFileSync(path.join(root, 'server.ts'), 'utf8');
-const serverArchiveImportFlags = [...serverSource.matchAll(/const (\w+Import\w*Enabled\s*=\s*isLegacyArchiveImportEnabled\(process\.env\.SUPABASE_[A-Z0-9_]*IMPORT[A-Z0-9_]*\);/g)];
+const serverArchiveImportFlags = [...serverSource.matchAll(/const (\w+Import\w*Enabled)\s*=\s*isLegacyArchiveImportEnabled\(process\.env\.SUPABASE_[A-Z0-9_]*IMPORT[A-Z0-9_]*\);/g)];
 assert.ok(serverArchiveImportFlags.length >= 21, 'All server archive-import feature flags must use the global fail-closed gate.');
 const serverArchiveImportBypasses = [...serverSource.matchAll(/const \w+Import\w*Enabled\s*=\s*String\(process\.env\.SUPABASE_[A-Z0-9_]*IMPORT[A-Z0-9_]*/g)];
 assert.deepEqual(serverArchiveImportBypasses, [], 'No server importer may read a SUPABASE_*_IMPORT flag without the global no-copy gate.');
