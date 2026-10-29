@@ -153,6 +153,21 @@ const serverArchiveImportBypasses = [...serverSource.matchAll(/const \w+Import\w
 assert.deepEqual(serverArchiveImportBypasses, [], 'No server importer may read a SUPABASE_*_IMPORT flag without the global no-copy gate.');
 assert.match(serverSource, /app\.post\(['"]\/api\/data-migrations\/local-storage['"], requireAuth,[\s\S]*?return res\.status\(410\)\.json\(\{ error: ['"]Migrasi penyimpanan browser lama telah dihentikan\. Buat data awal langsung melalui formulir pada modul ERP\.['"] \}\);/,
   'Retired browser storage migration endpoint must direct tenants to manual data entry, not archive imports.');
+const serverImportEndpointPattern = /^\s*app\.post\(["']([^"']+)["'], requireAuth, async \(req, res\) => \{([\s\S]*?)^\s{2}\}\);/gm;
+const serverImportEndpoints = [...serverSource.matchAll(serverImportEndpointPattern)]
+  .filter(([, route]) => /import|migration|migrate/i.test(route));
+assert.ok(serverImportEndpoints.length >= 25, 'Expected to inspect every authenticated server import/migration endpoint.');
+const gatedServerImportFlagNames = new Set(serverArchiveImportFlags.map(([, name]) => name));
+for (const [, route, handler] of serverImportEndpoints) {
+  if (route === '/api/data-migrations/local-storage') {
+    assert.match(handler, /return res\.status\(410\)/, 'Retired browser-storage migration endpoint must remain closed.');
+    continue;
+  }
+  const gate = handler.match(/if\s*\(([^\n]*)\)/);
+  const referencedFlags = [...(gate?.[1] || '').matchAll(/\b(\w+Import\w*Enabled)\b/g)].map(([, name]) => name);
+  assert.ok(referencedFlags.some((name) => gatedServerImportFlagNames.has(name)),
+    route + ' must be protected by a server-side fail-closed archive-import flag.');
+}
 const archiveImportScreens = [
   'src/pages/MasterDataManager.tsx', 'src/pages/SettingsManager.tsx', 'src/pages/TahfidzManager.tsx',
   'src/components/SupabaseFacilityBooking.tsx', 'src/pages/CommunicationHubLegacy.tsx',
