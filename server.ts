@@ -43,7 +43,7 @@ import {
   SystemSettingsStoreError,
 } from "./src/server/systemSettingsStore";
 import { recordTenantSearchFeedback, SearchFeedbackStoreError } from "./src/server/searchFeedbackStore";
-import { isLegacyFirebaseAdminEnabled } from "./src/server/legacyFirebaseGate";
+import { isLegacyArchiveImportEnabled, isLegacyFirebaseAdminEnabled } from "./src/server/legacyFirebaseGate";
 import { ALL_SYSTEM_MODULE_IDS as ALL_SYSTEM_MODULES, PLATFORM_ONLY_MODULES, isModuleAccessible, isValidModulePermissions, type UserRole } from "./src/rbac";
 import { LegacyFirestoreTenantScopeError, legacyTenantPathRecordMatches, readLegacyFirestoreTenantRows, scopeLegacyTenantRecords } from "./src/server/legacyFirestoreTenantScope";
 import {
@@ -644,7 +644,7 @@ async function startServer() {
     return res.status(503).json({ error: "Layanan Komunikasi Supabase belum dapat diproses." });
   };
   const communicationRuntimeEnabled = String(process.env.SUPABASE_COMMUNICATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const communicationImportEnabled = String(process.env.SUPABASE_COMMUNICATION_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const communicationImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_COMMUNICATION_IMPORT_ENABLED);
   const supabasePublicPpdbRuntimeEnabled = String(process.env.SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const publicPpdbEnabled = String(process.env.PUBLIC_PPDB_ENABLED || "").trim().toLowerCase() === "true";
 
@@ -663,7 +663,7 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const tahfidzRuntimeEnabled = String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const tahfidzImportEnabled = String(process.env.SUPABASE_TAHFIDZ_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const tahfidzImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_TAHFIDZ_IMPORT_ENABLED);
   const tahfidzRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
@@ -746,8 +746,8 @@ async function startServer() {
   };
   const hrisRuntimeEnabled = String(process.env.SUPABASE_HRIS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const cooperativeRuntimeEnabled = String(process.env.SUPABASE_COOPERATIVE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const cooperativeImportEnabled = String(process.env.SUPABASE_COOPERATIVE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
-  const cooperativeFinancialImportApplyEnabled = String(process.env.SUPABASE_COOPERATIVE_FINANCIAL_IMPORT_APPLY_ENABLED || "").trim().toLowerCase() === "true";
+  const cooperativeImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_COOPERATIVE_IMPORT_ENABLED);
+  const cooperativeFinancialImportApplyEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_COOPERATIVE_FINANCIAL_IMPORT_APPLY_ENABLED);
   const loadCooperativeActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
     const tenantId = String(profile?.tenantId || "").trim();
@@ -777,44 +777,44 @@ async function startServer() {
     return res.status(503).json({ error: "Layanan HRIS Supabase belum dapat diproses." });
   };
   const masterDataRuntimeEnabled = String(process.env.SUPABASE_MASTER_DATA_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const masterDataImportEnabled = String(process.env.SUPABASE_MASTER_DATA_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const masterDataImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_MASTER_DATA_IMPORT_ENABLED);
   const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryRuntimeEnabled = String(process.env.SUPABASE_LIBRARY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryDigitalAssetsEnabled = String(process.env.SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED || "").trim().toLowerCase() === "true";
-  const libraryImportEnabled = String(process.env.SUPABASE_LIBRARY_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
-  const libraryCirculationImportEnabled = String(process.env.SUPABASE_LIBRARY_CIRCULATIONS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
-  const hrisImportEnabled = String(process.env.SUPABASE_HRIS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const libraryImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_LIBRARY_IMPORT_ENABLED);
+  const libraryCirculationImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_LIBRARY_CIRCULATIONS_IMPORT_ENABLED);
+  const hrisImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_HRIS_IMPORT_ENABLED);
   const boardingRuntimeEnabled = String(process.env.SUPABASE_BOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingPermitsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const boardingPermitsImportEnabled = String(process.env.SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingPermitsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED);
   const boardingDisciplineRuntimeEnabled = String(process.env.SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const boardingDisciplineImportEnabled = String(process.env.SUPABASE_BOARDING_DISCIPLINE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingDisciplineImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_BOARDING_DISCIPLINE_IMPORT_ENABLED);
   const boardingAttendanceRuntimeEnabled = String(process.env.SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const boardingAttendanceImportEnabled = String(process.env.SUPABASE_BOARDING_ATTENDANCE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingAttendanceImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_BOARDING_ATTENDANCE_IMPORT_ENABLED);
   const boardingAssignmentsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingFacilityOpsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const boardingFacilityOpsImportEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const boardingFacilityOpsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED);
   const ppdbRuntimeEnabled = String(process.env.SUPABASE_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbDocumentsRuntimeEnabled = String(process.env.SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbFinanceBillsEnabled = String(process.env.SUPABASE_PPDB_FINANCE_BILLS_ENABLED || "").trim().toLowerCase() === "true";
   const financeRuntimeEnabled = String(process.env.SUPABASE_FINANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const ppdbLegacyImportEnabled = String(process.env.SUPABASE_PPDB_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const ppdbLegacyImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_PPDB_IMPORT_ENABLED);
   const ppdbOnboardingRuntimeEnabled = String(process.env.SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const academicRuntimeEnabled = String(process.env.SUPABASE_ACADEMIC_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const academicImportEnabled = String(process.env.SUPABASE_ACADEMIC_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const academicImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_ACADEMIC_IMPORT_ENABLED);
   const cbtRuntimeEnabled = String(process.env.SUPABASE_CBT_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const cbtImportEnabled = String(process.env.SUPABASE_CBT_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const cbtImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_CBT_IMPORT_ENABLED);
   const lmsRuntimeEnabled = String(process.env.SUPABASE_LMS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const lmsImportEnabled = String(process.env.SUPABASE_LMS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const lmsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_LMS_IMPORT_ENABLED);
   const healthcareRuntimeEnabled = String(process.env.SUPABASE_HEALTHCARE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const healthcareImportEnabled = String(process.env.SUPABASE_HEALTHCARE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const healthcareImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_HEALTHCARE_IMPORT_ENABLED);
   const generalAffairsRuntimeEnabled = String(process.env.SUPABASE_GA_ASSETS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const generalAffairsImportEnabled = String(process.env.SUPABASE_GA_ASSETS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const generalAffairsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_GA_ASSETS_IMPORT_ENABLED);
   const marketplaceRuntimeEnabled = String(process.env.SUPABASE_MARKETPLACE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const marketplaceImportEnabled = String(process.env.SUPABASE_MARKETPLACE_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const marketplaceImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_MARKETPLACE_IMPORT_ENABLED);
   const donationRuntimeEnabled = String(process.env.SUPABASE_DONATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const facilityBookingsRuntimeEnabled = String(process.env.SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const facilityBookingsImportEnabled = String(process.env.SUPABASE_FACILITY_BOOKINGS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const facilityBookingsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_FACILITY_BOOKINGS_IMPORT_ENABLED);
   const masterDataRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
@@ -3674,7 +3674,7 @@ async function startServer() {
   app.post("/api/ocr", unavailableUntilAuth);
 
   const systemSettingsRuntimeEnabled = String(process.env.SUPABASE_SYSTEM_SETTINGS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const systemSettingsImportEnabled = String(process.env.SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED || "").trim().toLowerCase() === "true";
+  const systemSettingsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED);
   const loadSettingsActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
     if (!profile) return null;
