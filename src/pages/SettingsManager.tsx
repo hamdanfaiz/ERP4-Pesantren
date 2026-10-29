@@ -39,10 +39,10 @@ import { UserRole } from '../rbac';
 import { ModuleId } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
-import { supabaseRuntimeEnabled } from '../runtimeBackend';
+import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from '../runtimeBackend';
 
 const SUPABASE_SYSTEM_SETTINGS = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS"));
-const SUPABASE_SYSTEM_SETTINGS_IMPORT = publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED") === 'true';
+const SUPABASE_SYSTEM_SETTINGS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED") === 'true';
 
 export function SettingsManager() {
   const { role, user, refreshProfile } = useAuth();
@@ -68,6 +68,7 @@ export function SettingsManager() {
   const [settingsMigrationReport, setSettingsMigrationReport] = useState<any>(null);
   const [settingsMigrationError, setSettingsMigrationError] = useState<string | null>(null);
   const runSettingsMigration = async (apply: boolean) => {
+    if (!SUPABASE_SYSTEM_SETTINGS || !SUPABASE_SYSTEM_SETTINGS_IMPORT) return;
     setSettingsMigrationBusy(true);
     setSettingsMigrationError(null);
     try {
