@@ -163,8 +163,8 @@ for (const [, route, handler] of serverImportEndpoints) {
     assert.match(handler, /return res\.status\(410\)/, 'Retired browser-storage migration endpoint must remain closed.');
     continue;
   }
-  const gate = handler.match(/if\s*\(([^\n]*)\)/);
-  const referencedFlags = [...(gate?.[1] || '').matchAll(/\b(\w+Import\w*Enabled)\b/g)].map(([, name]) => name);
+  const referencedFlags = [...handler.matchAll(/if\s*\(([^\n]*)\)/g)]
+    .flatMap(([, condition]) => [...condition.matchAll(/\b(\w+Import\w*Enabled)\b/g)].map(([, name]) => name));
   assert.ok(referencedFlags.some((name) => gatedServerImportFlagNames.has(name)),
     route + ' must be protected by a server-side fail-closed archive-import flag.');
 }
