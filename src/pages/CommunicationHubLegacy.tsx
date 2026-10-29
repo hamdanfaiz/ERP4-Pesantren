@@ -10,9 +10,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useTenantOperationalCollection } from '../firebaseUtils';
 import { getAccessToken } from '../authSession';
+import { legacyArchiveImportEnabled } from '../runtimeBackend';
 
 const SUPABASE_COMMUNICATION_ANNOUNCEMENTS = publicRuntimeConfigValue("VITE_SUPABASE_COMMUNICATION_ANNOUNCEMENTS") === 'true';
-const SUPABASE_COMMUNICATION_IMPORT = publicRuntimeConfigValue("VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED") === 'true';
+const SUPABASE_COMMUNICATION_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED") === 'true';
 
 async function requestSupabaseAnnouncementApi(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
