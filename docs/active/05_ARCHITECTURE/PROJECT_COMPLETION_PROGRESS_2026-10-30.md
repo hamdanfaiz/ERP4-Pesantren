@@ -28,10 +28,15 @@ Skrip migration, konfigurasi yang portabel, dan dokumentasi deployment tetap bag
 ## Pekerjaan pengembangan yang masih terbuka
 
 1. **Lengkapi atau sepakati penurunan cakupan empat modul yang masih ditahan (fail-closed):** Manajemen Multi-Unit, Keuangan dan Anggaran, Analitik AI, serta PPOB dan Layanan. Masing-masing memerlukan keputusan cakupan, alur Supabase, pemeriksaan tenant/role, UI operasional, dan tes sebelum dapat dibuka.
-2. **Tuntaskan cutover runtime Firebase ke Supabase.** Audit semua dependency dan jalur Firebase yang masih ada; hapus jalur runtime lama yang tidak dibutuhkan setelah memastikan tidak dipakai, lalu buktikan build aplikasi berjalan tanpa Firebase. Data Firestore yang telah dinyatakan dummy tidak perlu disalin.
+2. **Bersihkan sisa source legacy Firebase.** Cutover runtime Supabase-only sudah terverifikasi di CI run 40973057285: grafik frontend aktif tidak mengimpor Firebase, paket Firebase dikecualikan dari runtime production, dan smoke test production lulus tanpa paket tersebut. Kode legacy/import Firebase masih ada dalam source tree tetapi gate-nya selalu tertutup; hapus atau arsipkan jalur ini setelah memeriksa dependensi/tsconfig. Tidak ada data Firestore yang perlu disalin.
 3. **Tutup integrasi lintas modul.** Verifikasi referensi data, aturan tenant dan permission, transaksi idempoten, validasi status, serta jejak audit pada alur yang saling terhubung.
 4. **Lengkapi verifikasi pengembangan untuk paket self-hosted.** Pastikan konfigurasi, startup, health check, upgrade schema, pencadangan/pemulihan, dan panduan VPS/on-premise konsisten dan dapat direproduksi.
 5. **Selesaikan suite kode/CI atas perubahan terakhir.** Hasil CI sintetis adalah bukti untuk source dan fixture uji; hasilnya tidak dianggap sebagai UAT atau verifikasi database pelanggan.
+
+
+### Status cutover Firebase → Supabase
+
+CI run [40973057285](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40973057285) pada commit `20ce0fbe262e5ba6b76944544ef5dab06599865f` lulus 2/2 job. Pemeriksaan mencakup Supabase-only active frontend import graph, eksklusi Firebase dari production dependencies, gate Firebase Admin, dan production smoke test tanpa paket Firebase. Karena itu runtime production telah dibuktikan Supabase-only pada source tersebut. Referensi/komponen legacy masih tersimpan sebagai kode nonaktif di repository; audit dan penghapusannya tetap pekerjaan kebersihan source, bukan bukti bahwa production masih terhubung ke Firestore. Tidak ada data atau migration yang ditulis ke Supabase live.
 
 ## Kriteria penyelesaian pengembangan (100%)
 
