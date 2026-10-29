@@ -3849,7 +3849,7 @@ async function startServer() {
   // Local data is migrated only after an authenticated tenant admin explicitly submits a reviewed dataset.
   app.post('/api/data-migrations/local-storage', requireAuth, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(410).json({ error: 'Impor browser lama ke Firestore telah dinonaktifkan. Gunakan alur impor tenant Supabase yang memiliki preview dan rekonsiliasi.' });
+    return res.status(410).json({ error: 'Migrasi penyimpanan browser lama telah dihentikan. Buat data awal langsung melalui formulir pada modul ERP.' });
   });
 
   // Public PPDB is served only by this trusted server. Tenant identity is fixed in server configuration.
