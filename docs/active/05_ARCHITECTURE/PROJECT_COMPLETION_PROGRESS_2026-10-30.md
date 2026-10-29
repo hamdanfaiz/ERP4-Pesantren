@@ -45,3 +45,10 @@ Angka 100% **tidak menyatakan deployment produksi atau UAT telah dilakukan**. Ti
 - PR #13 masih Open/Draft saat pemeriksaan. Dokumen ini tidak mengubah kode runtime, database Supabase, status PR, deployment, ataupun data.
 - Tim backend dapat meninjau daftar pekerjaan di atas pada branch PR #13. Persentase diperbarui pada checkpoint berikutnya hanya jika ada bukti implementasi atau tes baru; deployment/UAT dicatat terpisah oleh tim penerapan.
 
+
+## Verifikasi CI untuk checkpoint — 30 Oktober 2026
+
+- GitHub Actions [run 40973057285](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40973057285) selesai **sukses, 2/2 job**, pada commit dokumentasi `20ce0fbe262e5ba6b76944544ef5dab06599865f`.
+- Job frontend lulus typecheck, guard import Firebase pada frontend aktif, smoke test runtime production tanpa paket Firebase, konfigurasi runtime pelanggan, serta build dan smoke test Docker/Compose.
+- Job database lulus rehearsal migration pada Supabase lokal sintetis, pgTAP/database tests, reservasi NIS/Tahfidz serentak, preview importer sintetis, API auth/isolasi tenant, unggah Storage Finance/PPDB/Perpustakaan, serta backup/restore lokal.
+- Ini bukti source dan fixture sintetis pada CI saja. Tidak ada migration/data yang diterapkan ke Supabase live; hasil ini bukan deployment atau UAT pelanggan. Estimasi penyelesaian pengembangan tetap sekitar **73%** karena commit ini hanya memperbarui dokumentasi.
