@@ -12,6 +12,17 @@
 - Data Firestore adalah dummy dan tidak perlu dipindahkan. Fokus migrasi adalah membangun/menyelaraskan skema, relasi, kebijakan tenant, dan logic pada Supabase; data contoh dapat dibuat manual setelah alur stabil.
 - Secret Supabase dan password database yang pernah ditempel di percakapan dianggap terekspos. Rotasi dan pembaruan melalui secret manager/environment deployment tetap menjadi syarat sebelum go-live.
 
+## Review statis tambahan: empat migration terakhir
+
+Empat migration yang ditambahkan sesudah snapshot statis sebelumnya (source saja, belum dijalankan terhadap staging/Production):
+
+- `20270121000000_tenant_admin_bootstrap.sql`: RPC bootstrap tenant/Admin pertama dibuat idempoten dan hak EXECUTE hanya diberikan kepada `service_role`; pengulangan dengan konfigurasi atau profil yang berbeda ditolak.
+- `20270122000000_lms_learning_record_tenant_fk.sql`: memakai `lock_timeout = '5s'`, memeriksa asosiasi tenant sebelum mengganti FK LMS menjadi FK komposit tenant, lalu membuat empat indeks. Rehearsal harus memeriksa hubungan existing dan dampak lock; migration akan berhenti bila mendeteksi pasangan lintas tenant.
+- `20270123000000_public_ppdb_idempotency.sql`: menambah fingerprint HMAC untuk retry PPDB, menyerialkan submit kandidat yang sama dengan advisory transaction lock, hanya mengizinkan RPC bagi `service_role`, dan mengembalikan path dokumen lama untuk proses cleanup terpisah.
+- `20270124000000_finance_proof_upload_rate_limit.sql`: mengganti constraint endpoint dengan pemeriksaan bahwa tepat satu constraint lama cocok, mengunci rate-limit table dari role klien, dan membatasi unggah bukti melalui counter Postgres bersama per tenant/pengguna dalam jendela 15 menit; RPC hanya untuk `service_role`.
+
+Tidak ditemukan penghapusan tabel/kolom pada keempat file tersebut. Ini hanya review source statis: tidak membuktikan lock duration, kondisi data yang ada, urutan/aplikabilitas pada target, atau perilaku runtime. CI lokal sintetis tetap perlu selesai; rehearsal staging dan postcondition tetap wajib.
+
 ## Tindakan tim backend sebelum migrasi
 
 1. Pastikan secara tertulis apakah `ptsasgdvgrbdtgyqieie` benar-benar staging atau Production. Jika Production, sediakan project staging terpisah dengan data sintetis. Jangan gunakan Production untuk rehearsal atau membuat branch jika project plan/backup tidak mendukung pemulihan.
