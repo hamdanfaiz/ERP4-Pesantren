@@ -10,6 +10,13 @@
 
 Data dummy Firestore tidak akan disalin. Target Supabase tidak diubah selama pemeriksaan ini.
 
+## Status runtime pada source PR
+
+- `src/runtimeBackend.ts` menetapkan `SUPABASE_ONLY_RUNTIME = true`. Router aplikasi memilih layar operasional Supabase, tanpa fallback ke layar Firebase.
+- `isLegacyFirebaseAdminEnabled()` dan `isLegacyArchiveImportEnabled()` selalu `false`; flag environment tidak dapat mengaktifkan kembali Firebase atau impor arsip.
+- Guard CI menelusuri import graph dari `src/main.tsx`, menolak paket Firebase maupun adapter Firebase, memeriksa route operasional Supabase, dan memaksa empat route yang belum ada untuk fail-closed: Enterprise, ERP umum, Intelligence, dan Ecosystem. File uji: [test-supabase-runtime-no-firebase.mjs](https://github.com/hamdanfaiz/ERP4-Pesantren/blob/codex/supabase-runtime-cutover-20261022/scripts/test-supabase-runtime-no-firebase.mjs).
+- Ini membuktikan konfigurasi source cutover, bukan bahwa perubahan sudah berjalan di Production. PR #13 belum merge. Empat route fail-closed juga perlu diperlakukan sebagai fitur yang belum tersedia jika masuk cakupan penawaran awal.
+
 ## Rekonsiliasi ledger baca-saja
 
 Query `SELECT` pada SQL Editor dashboard project target membaca `version`, `name`, dan jumlah statement pada `supabase_migrations.schema_migrations`.
