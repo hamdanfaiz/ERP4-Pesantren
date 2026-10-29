@@ -29,6 +29,17 @@ Query `SELECT` pada SQL Editor dashboard project target membaca `version`, `name
 
 Target saat diperiksa melaporkan 119 tabel publik dan PostgreSQL 17.11. Hitungan ini tidak membuktikan kesesuaian seluruh schema, grant, RLS, data, atau fungsi dengan source.
 
+## Snapshot keamanan database baca-saja — 30 Oktober 2026
+
+Snapshot berikut dibaca melalui SQL Editor Dashboard dalam transaksi/query `SELECT` saja; tidak ada data aplikasi yang dibaca atau diubah.
+
+- Ada 119 tabel di schema `public`; seluruh 119 mengaktifkan RLS dan `FORCE ROW LEVEL SECURITY`. Sebanyak 118 tabel memiliki `tenant_id NOT NULL`; satu-satunya tabel tanpa `tenant_id` adalah root `tenants`.
+- Hak tabel efektif: role `anon` tidak memiliki SELECT atau hak tulis pada tabel `public`; `authenticated` memiliki SELECT pada lima tabel dan hak tulis pada nol tabel.
+- Lima policy publik bersifat SELECT-only: kandidat dan dokumen PPDB dibatasi ke tenant aktif, Admin tenant, dan modul PPDB; profil dapat dibaca sendiri atau Admin tenant berizin Users; tenant aktif saat ini dan `user_profiles` sendiri dapat dibaca melalui policy masing-masing.
+- Ada 42 fungsi `SECURITY DEFINER` dalam schema `public`; semuanya menetapkan `search_path`. Tidak ada yang dapat dipanggil oleh `anon`; empat helper dapat dipanggil `authenticated`: `current_app_role`, `current_tenant_id`, `has_module_access`, dan `is_tenant_admin`. Source definisi yang dibaca mensyaratkan `auth.uid()`, profil aktif, serta tenant aktif; daftar modul mengikuti role dan boolean override profil.
+- Ada dua bucket Storage dan keduanya privat: `erp4-private-finance-proofs` serta `ppdb-documents`. `storage.objects` mengaktifkan RLS tetapi tidak FORCE; tidak ditemukan policy `storage.objects`. Katalog juga memberi `anon` dan `authenticated` hak SQL SELECT/INSERT/UPDATE/DELETE atas tabel tersebut, tetapi tanpa policy RLS keduanya tidak memperoleh baris yang dapat dibaca/diubah. Pertahankan pemeriksaan deny melalui API Storage pada UAT; jangan menambah policy klien umum. Endpoint server memakai secret Supabase dan harus terus memvalidasi aktor, tenant, dan path sebelum akses.
+- Pemeriksaan metadata ini tidak membuktikan request HTTP Auth/Storage, konfigurasi edge/API, backup/restore, atau perilaku semua endpoint. Uji HTTP sintetis pada CI bukan pengganti UAT project target.
+
 ## Verifikasi kode dan batas uji
 
 Pada commit `7eb3848e7ce8f560818db640959210da46491b6e`, GitHub Actions [run 40969933315](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40969933315) lulus pada kedua job:
