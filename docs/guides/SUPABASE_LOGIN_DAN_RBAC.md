@@ -1,70 +1,107 @@
-# Supabase untuk login dan RBAC
+# Login, Profil, dan RBAC Supabase
 
-Catatan ini menjelaskan perubahan yang sudah diterapkan pada repo ERP4-Pesantren. Aturan peran, tampilan, proses pembuatan akun, dan data operasional Firestore tidak diubah.
+**Status:** panduan mengikuti source main setelah PR #13, bukan bukti bahwa Auth atau database Production telah diuji.
+**Diperbarui:** 30 Oktober 2026
+**Model rilis:** satu instalasi ERP untuk satu pesantren; tabel tetap memiliki tenant_id sebagai batas otorisasi.
 
-## Kredensial tidak ikut Git
+> Panduan transisi lama yang menyebut modul operasional masih memakai Firestore sudah tidak berlaku. Runtime aplikasi memakai Supabase. Tabel public.user_profiles dipertahankan untuk kompatibilitas/backfill; sumber profil kanonis runtime adalah public.profiles.
 
-File `.env` di root repo berisi URL project, publishable key, secret key, dan password database. File itu diabaikan `.gitignore` lewat pola `.env*`. Jangan menghapus pola itu dan jangan menyalin isi `.env` ke file yang di-commit.
+## Komponen identitas
 
-Partner yang menarik repo ini tidak otomatis menerima kunci tersebut. Salin file `.env` lewat saluran pribadi, lalu letakkan di root repo dengan nama yang sama. Nama variabel yang diperlukan ada di `.env.example`.
+- Supabase Auth menyimpan identitas dan kredensial pada auth.users.
+- public.profiles menyimpan profil ERP, role, status, tenant, unit, izin modul, dan relasi Wali–Santri.
+- public.tenants menyimpan tenant, termasuk status dan zona waktu.
+- Password tidak disimpan di tabel profil. Login browser menggunakan Supabase Auth dan hanya membaca profil milik pengguna melalui RLS.
+- Kunci SUPABASE_SECRET_KEY hanya dipakai proses server/operator. Jangan pernah mengirimkannya ke browser, variabel VITE_*, Git, log, atau dokumen.
 
-Project Supabase yang dipakai:
+## Alur login
 
-- Ref: `ptsasgdvgrbdtgyqieie`
-- URL: `https://ptsasgdvgrbdtgyqieie.supabase.co`
+1. Browser mengirim email dan kata sandi ke supabase.auth.signInWithPassword().
+2. Sesi disimpan pada sessionStorage, sehingga hanya bertahan dalam sesi tab browser; fitur “ingat saya” berbasis penyimpanan lokal tidak digunakan.
+3. Aplikasi membaca baris profiles dengan user_id yang sama dengan UID Supabase Auth. RLS membatasi pembacaan profil; role yang tidak dikenal, profil tidak ditemukan, tenant kosong, profil tidak aktif, atau tenant tidak aktif membuat login ditolak.
+4. Permintaan ke API ERP membawa access token sebagai Authorization: Bearer …. Server memverifikasi token menggunakan Supabase Auth, lalu membaca profil kanonis lagi sebelum menjalankan operasi.
+5. Logout mengakhiri sesi Supabase dan membersihkan identitas sesi aplikasi.
 
-Host database langsung (`db.ptsasgdvgrbdtgyqieie.supabase.co`) hanya punya alamat IPv6. Dari jaringan IPv4, pakai pooler yang tercatat di `.env` sebagai `SUPABASE_DB_POOLER_URL` (region `aws-0-ap-southeast-2`).
+Akun Auth tanpa profil ERP aktif tidak mendapat akses ke sistem.
 
-`SUPABASE_SECRET_KEY` dan `SUPABASE_DB_PASSWORD` hanya untuk server. Jangan memberi awalan `VITE_` pada secret key.
+## Role dan izin modul
 
-Konektor Supabase di Cursor bisa tertaut ke project lain. Sebelum query, cocokkan URL-nya dengan URL di atas. Jika berbeda, baca kredensial dari `.env` project ini.
+Daftar role dalam source:
 
-## Yang sudah dipindah
-
-Login, sesi, peran, dan setup akun memakai Supabase. Data modul operasional tetap di Firestore.
-
-- Paket `@supabase/supabase-js` ditambahkan.
-- Tabel `public.user_profiles` sudah dibuat di project Supabase lewat `supabase/migrations/20261022000000_user_profiles.sql`.
-- Row Level Security aktif. Pengguna yang sudah masuk hanya boleh membaca profilnya sendiri. Pembuatan dan perubahan akun tetap lewat server dengan secret key.
-- Tabel profil saat ini masih kosong. Belum ada akun yang bisa masuk sampai administrator membuat akun pertama.
-
-Peran yang dipakai login tetap: `SuperAdmin`, `Admin`, `Ustadz`, `Santri`, `Walisantri`, dan `Public` untuk pengunjung. Batas modul di `src/rbac.ts` tidak diubah.
-
-Alur akun tetap sama:
-
-1. Halaman masuk meminta email dan kata sandi.
-2. Sesi diterima hanya jika profil aktif, perannya valid, dan punya `tenantId`.
-3. Administrator membuat akun lewat modul pengguna, dengan kata sandi sementara minimal 12 karakter.
-4. Pengguna baru wajib mengganti kata sandi sebelum memakai sistem.
-5. Admin tidak dapat mengangkat Admin atau SuperAdmin, dan tidak dapat membuka modul pengaturan platform.
-
-## File yang berubah
-
-| File | Peran |
+| Role | Batas akses awal |
 |---|---|
-| `src/utils/supabase.ts` | Klien Supabase di browser. Sesi disimpan di `sessionStorage`. |
-| `src/authSession.ts` | Identitas sesi untuk modul yang masih menyimpan data ke Firestore. |
-| `src/contexts/AuthContext.tsx` | Login, logout, dan pemuatan profil dari `user_profiles`. |
-| `src/components/ForcePasswordChangeModal.tsx` | Ganti kata sandi lewat Supabase Auth. |
-| `src/server/identityStore.ts` | Verifikasi token dan penulisan profil di server. |
-| `server.ts` | Endpoint pengguna, bukti bayar, dan pemeriksaan admin membaca profil Supabase. |
-| `src/pages/UserManagementView.tsx` | Token sesi Supabase untuk API pengguna. |
-| `src/pages/FinanceManager.tsx` | Token sesi Supabase untuk bukti pembayaran. |
-| `src/firebaseUtils.ts` | Penulisan data tenant tetap ke Firestore, dengan uid dari sesi Supabase. |
-| `src/services/systemSettingsService.ts` | Pembersihan pengaturan tetap memakai token sesi yang baru. |
-| `src/services/ppdbIntegrationService.ts` | Pencatat pembayaran memakai uid sesi yang baru. |
-| `src/components/Header.tsx` | Log pencarian memakai uid sesi yang baru. |
+| SuperAdmin | Akses modul sistem menurut RBAC aplikasi. |
+| Admin | Semua modul dalam lingkup tenant secara bawaan. |
+| Ustadz | Dashboard, Akademik, Tahfidz, Asrama, LMS, CBT, Komunikasi, dan Perpustakaan. |
+| Santri | Dashboard, Akademik, Tahfidz, Asrama, Keuangan, LMS, CBT, dan Perpustakaan. |
+| Walisantri | Dashboard, Akademik, Tahfidz, Asrama, Keuangan, Komunikasi, dan Donasi. |
+| Public | Tidak mendapat akses modul ERP terautentikasi. |
 
-`.cursor/rules/supabase-project.mdc` mengingatkan agent agar membaca `.env` dan tidak memakai project Supabase yang lain. Aturan itu tidak berisi nilai kunci.
+Pengaturan hanya untuk SuperAdmin. module_permissions dapat menolak akses bawaan dengan nilai false atau memberi izin dalam lingkup tenant dengan true; kunci modul tidak dikenal ditolak. Modul PPOB/payment gateway tidak termasuk rilis awal dan tidak boleh diaktifkan melalui izin lama.
 
-## Yang sengaja belum dipindah
+RBAC di menu browser hanya mengatur tampilan. Batas keamanan ditegakkan kembali oleh API server dan kebijakan database. Tabel profiles memakai RLS/FORCE RLS; pengguna terautentikasi tidak diberi hak tulis langsung untuk profil. Endpoint Admin memeriksa token, status aktif, role, izin modul users, dan tenant aktor. Operasi tenant memakai identitas tenant dari profil terverifikasi, bukan nilai yang dipercaya dari payload browser.
 
-Modul PPDB, keuangan, akademik, asrama, LMS, master data, donasi, marketplace, pengaturan tenant, dan berkas Firebase Storage masih membaca serta menulis Firestore. Data itu tidak disalin dan tidak dihapus.
+## Siklus akun
 
-Firebase Authentication tidak lagi dipakai untuk masuk ke aplikasi. Dokumen pengguna yang mungkin masih ada di Firestore tidak dihapus, tetapi login baru tidak membaca koleksi itu.
+### Admin pertama pada tenant baru
 
-## Menjalankan setelah pull
+Perintah operator:
 
-1. Letakkan `.env` di root repo.
-2. Pasang dependensi dengan `npm install`.
-3. Jalankan ulang server. Server yang sudah menyala sebelum perubahan ini masih memakai alur login yang lama sampai dimulai kembali.
+<pre><code>bun run provision:tenant-admin -- slug "Nama Pesantren" admin@example.com "Nama Admin"</code></pre>
+
+Proses ini bukan halaman pendaftaran publik. Script memakai SUPABASE_URL dan SUPABASE_SECRET_KEY, mengundang alamat email lewat Supabase Auth, lalu memanggil RPC bootstrap tenant/Admin. Admin menetapkan password melalui tautan undangan; jangan memasukkan password ke command line atau mengirimkannya lewat chat.
+
+Script menghentikan proses jika email/tenant sudah memiliki profil yang tidak cocok. Jika pembuatan profil gagal, akun undangan sementara dibersihkan; bila pembersihan gagal, operator harus merekonsiliasi akun sebelum mencoba ulang. Jalankan hanya setelah migration bootstrap direkonsiliasi dan pada target yang telah dipastikan benar.
+
+### Akun staf dan santri
+
+Admin tenant membuat akun melalui modul Pengguna. Server memeriksa tenant aktif, role, unit organisasi, izin modul, dan relasi Santri yang diminta. Kata sandi awal 12–128 karakter dipakai untuk membuat akun Auth; profil ditandai must_change_password=true. Pengguna harus menggantinya saat pertama kali masuk. Jika penulisan profil gagal, server mencoba menghapus akun Auth yang baru dibuat.
+
+### Akun Wali
+
+Wali dapat memakai undangan Admin atau pendaftaran mandiri. Pendaftaran mandiri meminta email yang tercatat pada data Wali, kata sandi minimal 12 karakter, konfirmasi email Supabase, lalu pencocokan dan pengaitan ke data Wali–Santri aktif. Akses tidak diberikan hanya karena seseorang memiliki akun Auth.
+
+Pendaftaran Wali menggunakan tenant yang dikonfigurasi server dan URL aplikasi yang diizinkan pada Supabase Auth. Ini terpisah dari pembukaan formulir PPDB publik: PUBLIC_PPDB_ENABLED mengatur penerimaan kandidat PPDB, bukan pendaftaran akun Wali. SMTP, redirect URL, dan konfirmasi email harus diuji pada environment non-production.
+
+### Reset dan perubahan kata sandi
+
+Pengguna dengan password sementara menggantinya melalui alur perubahan pertama. Admin dapat membuat tautan recovery untuk akun dalam tenantnya; aplikasi menampilkan tautan tersebut untuk disampaikan kepada pengguna melalui kanal yang aman. Alur ini tidak mengirim password baru dan tidak menyimpan password plaintext. Jangan menyalin tautan reset ke log atau kanal publik.
+
+## Environment dan instalasi
+
+Gunakan .env lokal yang diabaikan Git, atau secret manager pada server. Nilai contoh tersedia pada .env.example; jangan menaruh kredensial nyata di sana.
+
+- Server: SUPABASE_URL, SUPABASE_SECRET_KEY.
+- Browser: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY saja.
+- Bootstrap/Admin pertama: SUPABASE_AUTH_REDIRECT_URL, BOOTSTRAP_TENANT_TYPE, BOOTSTRAP_TENANT_TIME_ZONE.
+- Pendaftaran Wali: PUBLIC_APP_URL (atau origin aplikasi yang disetujui), PUBLIC_PPDB_TENANT_ID, dan konfigurasi Auth/SMTP. Pastikan URL redirect diizinkan pada Supabase.
+- SUPABASE_DB_URL dan SUPABASE_DB_POOLER_URL untuk pekerjaan database operator; keduanya bukan konfigurasi login aplikasi.
+
+Repo mengunci Bun melalui .bun-version. Instal dependensi dari root repo dengan bun install --frozen-lockfile; jangan memakai npm ci pada lockfile NPM yang saat ini tidak sinkron. Jalankan aplikasi pengembangan dengan bun run dev.
+
+## Source of truth
+
+- [Klien Supabase dan penyimpanan sesi browser](../../src/utils/supabase.ts)
+- [Login, pemuatan profil, dan alur perubahan password](../../src/contexts/AuthContext.tsx)
+- [Role dan izin modul](../../src/rbac.ts)
+- [Verifikasi token, pembacaan profil, dan manajemen akun](../../src/server/identityStore.ts)
+- [Middleware serta endpoint API server](../../server.ts)
+- [Skema tenant, profil, RLS, dan grant](../../supabase/migrations/20261023000000_tenant_profile_foundation.sql)
+- [Bootstrap tenant/Admin pertama](../../scripts/provision-tenant-admin.mjs)
+- [Nama environment variable dan default feature flag](../../.env.example)
+
+## Status verifikasi dan batas keselamatan
+
+GitHub Actions run 41051400486 lulus 2/2 job pada source PR #13 yang kemudian merged ke main. CI mencakup build, guard runtime Firebase, RBAC, API/tenant, dan tes database sintetis. Hasil ini bukan bukti login terhadap Supabase live.
+
+Project ptsasgdvgrbdtgyqieie terlihat sebagai main / PRODUCTION. Snapshot read-only mencatat 47 versi migration pada ledger dan 109 file migration pada source; metadata dua versi ledger kosong. Konektor Supabase Codex menolak akses baca. Jangan menjalankan db push, migration repair, bootstrap tenant/Admin, atau mengaktifkan runtime flag pada target tersebut untuk mengatasi selisih itu.
+
+Sebelum login pertama dan aktivasi runtime:
+
+1. Tim backend menyediakan Supabase staging terisolasi yang dapat di-backup dan dipulihkan.
+2. Jalankan preflight migration dari checkout main yang hendak dirilis; rekonsiliasi provenance dua baris ledger kosong dan perbedaan versi melalui proses yang ditinjau.
+3. Rehearsalkan migration dan restore pada staging; verifikasi RLS, grant, Auth redirect/SMTP, dan profil tenant.
+4. Provision tenant/Admin di staging, lalu uji login, perubahan password pertama, role × tenant, reset, undangan Wali, pencocokan relasi Wali–Santri, dan penolakan akun nonaktif.
+5. Simpan hanya hasil yang disanitasi. Rotasi secret Supabase dan password database yang pernah dibagikan sebelum go-live.
+
+Lihat [kesiapan komersial](../active/00_PRODUCT/COMMERCIAL_READINESS.md), [checkpoint target Supabase](../active/06_DATABASE/CHECKPOINT_SUPABASE_TARGET_2026-10-30.md), dan [tindakan lokal tim backend](../active/06_DATABASE/TEAM_LOCAL_READINESS_ACTIONS_2026-10-26.md) untuk status serta runbook terkini.
