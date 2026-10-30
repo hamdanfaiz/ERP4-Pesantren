@@ -4,11 +4,11 @@
 
 ## Verifikasi terbaru — 30 Oktober 2026
 
-- Head PR #13 `b038d5858ae275adb15fb21cff44d39d615c2b1f`; GitHub Actions [run 41007214721](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41007214721) lulus **2/2 job**.
-- Build/typecheck, guard runtime Supabase-only, Docker/Compose, rehearsal 105 migration dari baseline sintetis, 55 berkas pgTAP dengan 1.229 assertion, API/tenant, NIS/Tahfidz serentak, Storage, dan backup/restore sintetis lulus.
+- Head PR #13 `c6e48e22fb6caedae6e6b1e7a8ac53b3e0ebae4f`; GitHub Actions [run 41010491068](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41010491068) lulus **2/2 job**.
+- Build/typecheck, guard runtime Supabase-only, Docker/Compose, rehearsal migrasi sintetis, pgTAP, API/tenant, NIS/Tahfidz serentak, Storage, dan backup/restore sintetis lulus. Tidak ada migrasi atau data yang diterapkan ke Supabase live.
 - UI Admin untuk memetakan kelas lama ke unit kini tersedia. RPC menolak pemetaan dan daftar kelas bila izin Akademik tidak bernilai `true`; pgTAP menguji izin kosong, tenant, role, replay idempoten, unit nonaktif, pemetaan ulang, dan benturan nama. CI sebelumnya menemukan kegagalan izin dan tes; perbaikannya diuji ulang hingga lulus pada run terbaru.
-- Finance memiliki unit pada pengeluaran/ledger baru, RKAT baru, dan tagihan yang mewarisi unit kandidat/santri tertaut; pemetaan historis tetap eksplisit. Catatan inti Akademik (jadwal, jurnal, penilaian, dan pemetaan unit kelas) memiliki cakupan tenant-aware. Asrama dan data operasional lain masih memerlukan cakupan atau rekonsiliasi unit; integrasi lintas modul, Analitik AI/PPOB yang fail-closed, dan audit paritas PR #1–#11 masih perlu diselesaikan atau ditetapkan batas rilisnya.
-- PR #1–#11 masih Open/Draft, PR #12 Merged, PR #13 Open/Draft. Tidak ada migration atau data yang ditulis ke Supabase live. Supabase Preview dilewati karena branch tidak ditautkan ke Supabase Branch. Estimasi pengembangan tetap sekitar **73%** dan belum memakai WBS berbobot.
+- Finance memiliki unit pada pengeluaran/ledger baru, RKAT baru, dan tagihan yang mewarisi unit kandidat/santri tertaut; pemetaan historis tetap eksplisit. Catatan inti Akademik memiliki cakupan tenant-aware dan UI Admin untuk pemetaan kelas lama. Asrama kini membatasi Ustadz pada unit serta lokasi yang ditugaskan dan menyediakan pemetaan historis Gedung/Kamar untuk Admin; data yang belum dipetakan tetap tersembunyi dari Ustadz. Data unit operasional lain dan rekonsiliasi tenant nyata masih perlu ditinjau. Integrasi lintas modul, Analitik AI/PPOB yang fail-closed, dan audit paritas PR #1–#11 masih perlu diselesaikan atau ditetapkan batas rilisnya.
+- PR #1–#11 masih Open/Draft, PR #12 Merged, PR #13 Open/Draft. Hanya PR #12 yang sudah masuk ke `main`. Tidak ada migration atau data yang ditulis ke Supabase live. Supabase Preview dilewati karena branch tidak ditautkan ke Supabase Branch. Estimasi pengembangan tetap sekitar **73%** dan belum memakai WBS berbobot.
 
 ## Perubahan definisi progres
 
