@@ -241,7 +241,8 @@ BEGIN
   IF FOUND THEN
     IF v_existing.actor_user_id = p_actor_user_id
       AND v_existing.action = p_action
-      AND v_existing.unit_id IS NOT DISTINCT FROM p_unit_id
+      -- Create requests persist the generated unit ID, while the retry correctly sends no unit ID.
+      AND (p_action = 'create' OR v_existing.unit_id IS NOT DISTINCT FROM p_unit_id)
       AND v_existing.request_payload = p_payload THEN
       RETURN v_existing.result || jsonb_build_object('alreadyApplied', true);
     END IF;
