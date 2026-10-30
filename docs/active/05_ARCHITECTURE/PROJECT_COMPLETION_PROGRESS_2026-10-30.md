@@ -5,8 +5,8 @@
 **Perkiraan penyelesaian pengembangan: sekitar 73% (rentang 70–75%).** Ini angka kerja kasar tanpa WBS berbobot; deployment hosting dan UAT yang dikerjakan tim lain tidak dihitung. Saya belum menaikkan angka karena cakupan yang tersisa belum ditimbang dengan metode yang disepakati.
 
 - Sumber yang sedang disiapkan untuk ditinjau: PR #13, branch `codex/supabase-runtime-cutover-20261022`.
-- Commit PR #13 yang baru diuji: `e33de842bdff555d229c6d314eb127c8f0e2bc08`. GitHub Actions [run 41033358731](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41033358731) lulus **2/2 job** setelah penambahan tes izin Asrama dan kedisiplinan.
-- Run tersebut mencakup typecheck/build, guard runtime Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP (termasuk dua tes Asrama baru), API/isolasi tenant, transaksi serentak, Storage, serta backup/pemulihan lokal.
+- Commit PR #13 terbaru yang diverifikasi: `7613d3a2414ad40ab41d80001511be58e17886dd`. GitHub Actions [run 41035209749](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41035209749) lulus **2/2 job**.
+- Run terbaru mencakup typecheck/build, guard runtime Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP, reservasi NIS dan slot Tahfidz serentak, import-preview, otorisasi API/isolasi tenant, pemulihan provisioning Auth saat pembuatan profil gagal, alur Storage, serta backup/pemulihan lokal.
 - Skor sekitar 73% tetap perkiraan kasar, bukan ukuran kontrak kerja atau klaim semua fitur lulus. Audit lintas-modul sudah didokumentasikan; paritas semua perilaku historis dan target Supabase masih belum terbukti.
 - CI tidak menguji database Supabase target, login pelanggan, deployment hosting atau UAT.
 
@@ -43,9 +43,9 @@ Angka penyelesaian pengembangan di atas tidak mengklaim tiga pekerjaan ini telah
 |---|---|---|
 | #1–#11 | Open / Draft | Branch lama bertingkat; jangan merge terpisah karena sebagian bergantung pada PR lain atau membawa arsitektur transisi Firebase. |
 | #12 | Closed / Merged | Sudah masuk ke `main`. |
-| #13 | Open / Draft | Head pada snapshot ini `e33de842bdff555d229c6d314eb127c8f0e2bc08`; CI run `41033358731` lulus 2/2, tetapi source belum merged. Lulus CI tidak berarti seluruh cakupan produk sudah selesai. |
+| #13 | Open / Draft | Head `7613d3a2414ad40ab41d80001511be58e17886dd`; CI run `41035209749` lulus 2/2, tetapi source belum merged. Lulus CI tidak berarti seluruh cakupan produk sudah selesai. |
 
-**Keputusan saat ini:** jangan menutup atau menggabungkan PR #13 sampai gerbang engineering di atas selesai atau secara eksplisit dikeluarkan dari cakupan rilis. Setelah pengganti resmi masuk ke `main`, tutup PR lama yang benar-benar superseded; penutupan dan merge adalah status berbeda.
+**Keputusan saat ini:** PR #13 masih **Open / Draft**; run terbaru lulus, tetapi jangan menandainya selesai, menutupnya, atau menggabungkannya sampai gerbang engineering di atas selesai atau cakupan rilis disetujui secara jelas. Setelah pengganti resmi masuk ke `main`, tutup PR lama yang benar-benar superseded; penutupan dan merge adalah status berbeda.
 
 ## Kriteria 100% penyelesaian pengembangan
 

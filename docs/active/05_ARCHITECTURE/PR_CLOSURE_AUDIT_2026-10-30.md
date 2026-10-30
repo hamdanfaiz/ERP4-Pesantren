@@ -10,7 +10,7 @@ Pemeriksaan terbaru pada repository `hamdanfaiz/ERP4-Pesantren` menunjukkan:
 | #12 | Closed / Merged | Sudah menjadi bagian `main`. |
 | #13 | Open / Draft | Belum merged dan belum siap ditutup. Tetap menjadi PR utama untuk sumber Supabase/self-hosted yang sedang diselesaikan. |
 
-Commit PR #13 yang diuji terakhir pada snapshot ini adalah `e33de842bdff555d229c6d314eb127c8f0e2bc08`. GitHub Actions [run 41033358731](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41033358731) lulus **2/2 job**, termasuk tes workflow izin dan kedisiplinan Asrama yang baru ditambahkan. Run itu mencakup build/typecheck, runtime, Docker/Compose, rehearsal migration Supabase lokal sintetis, pgTAP, API/tenant, transaksi bersamaan, Storage dan backup/restore.
+Commit PR #13 yang terverifikasi saat pembaruan ini adalah `7613d3a2414ad40ab41d80001511be58e17886dd`. GitHub Actions [run 41035209749](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41035209749) lulus **2/2 job**, termasuk build/typecheck, runtime, Docker/Compose, rehearsal migration Supabase lokal sintetis, pgTAP, API/tenant, transaksi bersamaan, Storage dan backup/restore. Run itu juga menguji kompensasi provisioning Auth: bila pembuatan profil gagal, akun Auth sementara dibersihkan.
 
 PR #13 tetap Draft karena source audit lintas-modul belum sama dengan bukti paritas semua perilaku; Peer Review Tahfidz belum memiliki backend tersimpan; PPOB belum memiliki provider nyata; source arsip Firebase masih perlu diklasifikasi; dan target Supabase belum dapat dibaca untuk rekonsiliasi migration. Tes lokal sintetis lulus, tetapi deployment hosting serta UAT dilakukan tim penerapan dan tidak termasuk bukti CI. Rincian serta daftar tindakan ada di [progres penyelesaian pengembangan](PROJECT_COMPLETION_PROGRESS_2026-10-30.md), [audit integrasi lintas-modul](CROSS_MODULE_INTEGRATION_AUDIT_2026-10-30.md), dan [audit paritas PR #1–#11](PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
 
@@ -31,4 +31,4 @@ PR #13 hanya dapat ditandai siap review/merge setelah:
 5. CI hijau pada head final yang sama dengan source PR.
 6. Dokumentasi tim backend menyebut batas migrasi, environment dan cara deploy secara konsisten.
 
-**Status keputusan:** PR #13 belum dinyatakan selesai, tetap Draft dan tidak digabung. PR #1–#11 juga masih Open/Draft dan tidak ditutup. PR #12 saja yang Closed/Merged. Tes tambahan Asrama sudah lulus CI, tetapi itu belum menghilangkan gap paritas dan akses target. Tidak ada PR yang ditutup atau digabung dalam checkpoint ini.
+**Status keputusan:** PR #13 belum dinyatakan selesai, tetap Draft dan tidak digabung. PR #1–#11 juga masih Open/Draft dan tidak ditutup. PR #12 saja yang Closed/Merged. CI terbaru hijau, tetapi itu belum menghilangkan gap paritas dan akses target. Tidak ada PR yang ditutup atau digabung dalam checkpoint ini.
