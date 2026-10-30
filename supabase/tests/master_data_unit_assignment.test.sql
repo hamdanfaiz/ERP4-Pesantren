@@ -150,7 +150,7 @@ SELECT throws_ok(
   '42501', 'Unit aktif tidak ditemukan pada tenant ini', 'a candidate cannot be assigned to another tenant unit'
 );
 SELECT throws_ok(
-  $$SELECT public.assign_tenant_master_data_unit('e3000000-0000-4000-8000-000000000001', 'e3000000-0000-4000-8000-000000000012', 'ustadz', 'student', 'e3000000-0000-4000-8000-000000000302', 'e3000000-0000-4000-8000-000000000101', 'e3000000-0000-4000-8000-000000000404')$$,
+  $$SELECT public.assign_tenant_master_data_unit('e3000000-0000-4000-8000-000000000001', 'e3000000-0000-4000-8000-000000000012', 'admin', 'student', 'e3000000-0000-4000-8000-000000000302', 'e3000000-0000-4000-8000-000000000101', 'e3000000-0000-4000-8000-000000000404')$$,
   '42501', 'Profil Admin tidak aktif pada tenant', 'non-admin roles cannot map candidate or student units'
 );
 SELECT throws_ok(
