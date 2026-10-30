@@ -57,29 +57,29 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
 };
 
 export const DEFAULT_ORG_INFO: OrgInfo = {
-  schoolName: "Pesantren Modern AI Studio",
-  address: "Jl. AI Studio No. 1, Jakarta Selatan",
-  phone: "+62 812 3456 7890",
-  email: "info@pesantrenaistudio.edu",
-  principalName: "Dr. Fulan bin Fulan",
-  website: "https://pesantrenaistudio.edu",
+  schoolName: "Pesantren",
+  address: "",
+  phone: "",
+  email: "",
+  principalName: "",
+  website: "",
   logoUrl: "",
   faviconUrl: "",
-  pageTitleFormat: "Pesantren OS | {schoolName}",
+  pageTitleFormat: "ERP4 Pesantren | {schoolName}",
 };
 
 export const DEFAULT_INTEGRATIONS: IntegrationsConfig = {
-  waGatewayEndpoint: "https://api.wagw.example.com/v1/send",
-  smtpHost: "smtp.gmail.com",
-  smtpPort: "587",
-  smtpUser: "noreply@pesantrenaistudio.edu",
+  waGatewayEndpoint: "",
+  smtpHost: "",
+  smtpPort: "",
+  smtpUser: "",
 };
 
 export const DEFAULT_MOBILE_CONFIG: MobileConfig = {
   showDetailedGrades: true,
   allowLeaveRequests: true,
   pushNotifications: true,
-  supportWhatsapp: "+62 812 3456 7890",
+  supportWhatsapp: "",
 };
 
 export const SYSTEM_ROLES: UserRole[] = ["SuperAdmin", "Admin", "Ustadz", "Santri", "Walisantri"];
