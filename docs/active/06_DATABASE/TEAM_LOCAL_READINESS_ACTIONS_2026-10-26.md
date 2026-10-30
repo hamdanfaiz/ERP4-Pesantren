@@ -2,15 +2,15 @@
 
 ## Kondisi terverifikasi
 
-- PR #13 masih **Open / Draft**. Head sebelum catatan ini: `2387fe8a4547595335e2c71c19f1f1b03c61401e`; base `main`: `c8738185ff6e5080ae427ef0021ee25681036c40`. Jangan anggap merge atau deploy sudah dilakukan.
-- Ref Supabase `ptsasgdvgrbdtgyqieie` sebelumnya disebut staging, tetapi Dashboard yang ditinjau menampilkan branch `main / PRODUCTION`. Sampai pemilik dan tim mengonfirmasi sebaliknya, perlakukan ref ini sebagai Production. Project berada pada Free plan, halaman Backups menyatakan backup project tidak termasuk, dan tidak tersedia development branch untuk rehearsal.
-- GitHub repo `hamdanfaiz/ERP4-Pesantren` terhubung ke project tersebut. Toggle auto-deploy ke Production saat diperiksa dalam keadaan **mati**. Jangan aktifkan sebelum lineage diselesaikan; merge PR tidak boleh menjadi pengganti persetujuan perubahan database.
-- Snapshot ledger yang diperiksa sebelumnya memuat 47 versi sampai `20261206000000`; source PR #13 memuat 96 migration, jadi ada 49 versi source yang belum tercatat. Metadata `name` dan `statements` kosong pada dua versi terakhir ledger (`20261205000000`, `20261206000000`). Preflight ketat berhenti pada kondisi ini. Ini bukan alasan untuk mengubah ledger secara manual atau menjalankan `migration repair`.
-- MCP/konektor Supabase di sesi ini masih menolak operasi baca untuk ref tersebut dengan `MCP -32600: You do not have permission to perform this action`. Tidak ada migration, data, atau perubahan konfigurasi database yang diterapkan.
-- CI pada head dokumentasi `2387fe8a4547595335e2c71c19f1f1b03c61401e` sedang berjalan ketika catatan ini dibuat: job frontend/Firebase guard dan job migration/API/pgTAP berstatus `in_progress`; check Supabase Preview dilewati karena tidak ada Supabase Branch terkait. Kode pada commit `7eb3848e7ce8f560818db640959210da46491b6e` sebelumnya lulus suite sintetis; hasil lokal/CI sintetis bukan bukti target live.
-- Runtime source PR #13 memakai Supabase-only gate; Firebase runtime dan importer arsip tetap tertutup, dengan empat route placeholder fail-closed. Belum ada bukti UAT autentikasi, role/tenant, atau alur operasional terhadap project target.
-- Data Firestore adalah dummy dan tidak perlu dipindahkan. Fokus migrasi adalah membangun/menyelaraskan skema, relasi, kebijakan tenant, dan logic pada Supabase; data contoh dapat dibuat manual setelah alur stabil.
-- Secret Supabase dan password database yang pernah ditempel di percakapan dianggap terekspos. Rotasi dan pembaruan melalui secret manager/environment deployment tetap menjadi syarat sebelum go-live.
+- PR #13 sudah merged ke `main` pada merge commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`; source head `e449c234c253eb7a65795af18c5794fa45e6e9cb` lulus CI 2/2 pada run `41051400486`. Merge source tidak menerapkan migration database.
+- Dashboard Supabase menampilkan ref `ptsasgdvgrbdtgyqieie` sebagai branch `main / PRODUCTION`. Project berada pada Free plan, Backups menyatakan backup project tidak termasuk, dan tidak tersedia development branch untuk rehearsal; tim perlu staging terisolasi yang dapat dipulihkan.
+- Repo `hamdanfaiz/ERP4-Pesantren` terhubung ke project tersebut. Toggle auto-deploy Production saat diperiksa **mati**. Jangan aktifkan sebelum lineage direkonsiliasi.
+- Pembacaan SQL Editor `READ ONLY` mengonfirmasi 47 versi ledger sampai `20261206000000`. Perbandingan dengan 109 source migration menemukan 47 prefix cocok, nol versi ledger yang tidak ada di source, dan 62 versi source yang tidak tercatat. Metadata `name` dan `statements` untuk `20261205000000` serta `20261206000000` kosong. Manifest 62 versi ada di [checkpoint target Supabase](./CHECKPOINT_SUPABASE_TARGET_2026-10-30.md); daftar itu bukan instruksi penerapan.
+- Konektor Supabase menolak akses ke ref target, tetapi SQL Editor dashboard berhasil membaca versi dan metadata secara read-only. Tidak ada migration, data, atau konfigurasi database yang diubah.
+- CI run `41051400486` selesai lulus 2/2 job; Supabase Preview dilewati karena tidak ada Supabase Branch terkait. Hasil source/CI sintetis bukan bukti target live.
+- Runtime source memetakan 26 route ke layar Supabase dan satu route (`ecosystem`) fail-closed. API Enterprise Multi-Unit dan ERP Anggaran dikunci feature flag server default `false`. Belum ada UAT login, role/tenant, atau alur terhadap staging.
+- Keputusan rilis awal: PPOB dan payment gateway dikeluarkan; Finance tetap mendukung pencatatan dan verifikasi pembayaran manual.
+- Data Firestore bersifat dummy dan tidak perlu dipindahkan. Secret Supabase dan password database yang pernah ditempel di percakapan dianggap terekspos; rotasi melalui secret manager/environment deployment menjadi syarat sebelum go-live.
 
 ## Review statis tambahan: empat migration terakhir
 
@@ -21,24 +21,25 @@ Empat migration yang ditambahkan sesudah snapshot statis sebelumnya (source saja
 - `20270123000000_public_ppdb_idempotency.sql`: menambah fingerprint HMAC untuk retry PPDB, menyerialkan submit kandidat yang sama dengan advisory transaction lock, hanya mengizinkan RPC bagi `service_role`, dan mengembalikan path dokumen lama untuk proses cleanup terpisah.
 - `20270124000000_finance_proof_upload_rate_limit.sql`: mengganti constraint endpoint dengan pemeriksaan bahwa tepat satu constraint lama cocok, mengunci rate-limit table dari role klien, dan membatasi unggah bukti melalui counter Postgres bersama per tenant/pengguna dalam jendela 15 menit; RPC hanya untuk `service_role`.
 
-Tidak ditemukan penghapusan tabel/kolom pada keempat file tersebut. Ini hanya review source statis: tidak membuktikan lock duration, kondisi data yang ada, urutan/aplikabilitas pada target, atau perilaku runtime. CI lokal sintetis tetap perlu selesai; rehearsal staging dan postcondition tetap wajib.
+Tidak ditemukan penghapusan tabel/kolom pada keempat file tersebut. Ini hanya review source statis: tidak membuktikan lock duration, kondisi data yang ada, urutan/aplikabilitas pada target, atau perilaku runtime. CI sintetis lulus pada run 41051400486; rehearsal staging dan postcondition tetap wajib.
 
 ## Tindakan tim backend sebelum migrasi
 
-1. Pastikan secara tertulis apakah `ptsasgdvgrbdtgyqieie` benar-benar staging atau Production. Jika Production, sediakan project staging terpisah dengan data sintetis. Jangan gunakan Production untuk rehearsal atau membuat branch jika project plan/backup tidak mendukung pemulihan.
-2. Dari checkout persis PR #13, jalankan `node scripts/preflight-supabase-migrations.mjs` dengan akses metadata baca-saja, lalu arsipkan output versi saja. Bandingkan seluruh 96 file migration dengan ledger dan catat schema/grant/RLS/Storage baseline.
+1. Dashboard menandai `ptsasgdvgrbdtgyqieie` sebagai Production. Sediakan project staging terpisah yang dapat dipulihkan dengan data sintetis; jangan gunakan Production untuk rehearsal.
+2. Dari checkout `main` yang tepat, jalankan `npm run preflight:db-migrations` dengan koneksi metadata read-only. Bandingkan 109 file migration dengan ledger; preflight akan menghentikan proses pada dua metadata kosong sampai provenance direkonsiliasi.
 3. Tinjau dua versi ledger tanpa metadata terhadap file source dan bukti postcondition. Rekonsiliasi lineage harus melalui prosedur yang ditinjau pemilik database; jangan menyisipkan atau mengedit baris ledger manual dan jangan menandai versi berhasil hanya agar preflight lolos.
 4. Pada staging yang dapat dibuang/dipulihkan, bangun baseline yang disetujui, rehearsal migration pending secara berurutan, ukur lock/waktu, periksa postcondition, RLS/grant, Storage privat, dan ulangi restore dari backup. Simpan log dan hasil versi; tidak perlu menyalin data dummy Firestore.
 5. Setelah staging lulus, jalankan UAT login/matriks role-tenant, PPDB, transaksi NIS/Tahfidz/keuangan, komunikasi, unggah Storage, backup/restore, dan deployment customer-managed. Rotasi secret, siapkan rollback/monitoring, dan minta sign-off pemilik sebelum perubahan Production.
 
 ## Progress checkpoint
 
-- **Kematangan fitur: sekitar 73% (estimasi sebelumnya, belum dihitung ulang dari UAT).**
-- **Kesiapan go-live: sekitar 40% (estimasi, turun dari 46% checkpoint sebelumnya)** karena target yang terlihat berlabel Production, tidak ada backup project/branch untuk rehearsal, 49 migration belum tercatat, dan dua metadata ledger kosong. Ini bukan metrik otomatis; angka baru harus direvisi setelah bukti staging/restore dan UAT tersedia.
+- **Penyelesaian pengembangan fitur: sekitar 73%** (estimasi kerja; belum dihitung dengan WBS berbobot).
+- Deploy dan UAT dilakukan tim penerapan, sehingga tidak dimasukkan ke persentase fitur. Pekerjaan pengembangan yang tersisa mencakup audit lintas modul, penguncian/perapian modul yang belum siap, serta rekonsiliasi migration pada staging.
+
 
 ---
 
-> **STATUS TERKINI — 27 Oktober 2026:** Dokumen ini memuat pemeriksaan historis dan telah disupersede untuk tindakan saat ini. Pemilik memutuskan data Firestore dummy **tidak perlu disalin**; jangan jalankan importer, rekonsiliasi jumlah, atau penghapusan data staging sebagai release gate. Ikuti [checkpoint schema dan logic tanpa salin data](./CHECKPOINT_NO_DATA_COPY_SCHEMA_READINESS_2026-10-27.md) untuk status PR/head, angka migration terbaru, kriteria relasi tenant, dan langkah berikutnya.
+> **RIWAYAT — 27 Oktober 2026:** Bagian setelah ini adalah snapshot lama; gunakan bagian “Checkpoint terkini” di atas untuk status saat ini. Data Firestore dummy tidak perlu disalin, dan penghapusan data bukan gerbang rilis.
 
 # Handoff Hambatan Teknis — Supabase Cutover ERP4 Pesantren
 

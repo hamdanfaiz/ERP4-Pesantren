@@ -22,8 +22,8 @@ Data dummy Firestore tidak akan disalin. Target Supabase tidak diubah selama pem
 
 - `src/runtimeBackend.ts` menetapkan `SUPABASE_ONLY_RUNTIME = true`. Router aplikasi memilih layar operasional Supabase, tanpa fallback ke layar Firebase.
 - `isLegacyFirebaseAdminEnabled()` dan `isLegacyArchiveImportEnabled()` selalu `false`; flag environment tidak dapat mengaktifkan kembali Firebase atau impor arsip.
-- Guard CI menelusuri import graph dari `src/main.tsx`, menolak paket Firebase maupun adapter Firebase, memeriksa route operasional Supabase, dan memaksa empat route yang belum ada untuk fail-closed: Enterprise, ERP umum, Intelligence, dan Ecosystem. File uji: [test-supabase-runtime-no-firebase.mjs](https://github.com/hamdanfaiz/ERP4-Pesantren/blob/codex/supabase-runtime-cutover-20261022/scripts/test-supabase-runtime-no-firebase.mjs).
-- Ini membuktikan konfigurasi source cutover, bukan bahwa perubahan sudah berjalan di Production. Ketika pemeriksaan ini dicatat, PR #13 belum merge; source kemudian merged seperti dinyatakan di status terbaru di atas. Empat route fail-closed juga perlu diperlakukan sebagai fitur yang belum tersedia jika masuk cakupan penawaran awal.
+- Guard CI menelusuri import graph dari `src/main.tsx`, menolak paket Firebase maupun adapter Firebase, dan memeriksa 26 route Supabase serta satu route fail-closed (`ecosystem`). `enterprise` dan `erp` memiliki layar Supabase, tetapi API Multi-Unit dan Anggaran dikunci feature flag server yang default-nya `false`; `intelligence` memakai ringkasan Supabase berbasis aturan, bukan prediksi AI. File uji: [test-supabase-runtime-no-firebase.mjs](https://github.com/hamdanfaiz/ERP4-Pesantren/blob/main/scripts/test-supabase-runtime-no-firebase.mjs).
+- Ini membuktikan pemetaan source, bukan fungsi runtime pada Production. Multi-Unit dan Anggaran tetap tidak siap diaktifkan sebelum migration, tenant, role, dan alur diuji di staging. Ecosystem/PPOB dikeluarkan dari rilis awal dan fail-closed. PR #13 sudah merged seperti tercatat di status terbaru di atas.
 
 ## Rekonsiliasi ledger baca-saja — 30 Oktober 2026
 
