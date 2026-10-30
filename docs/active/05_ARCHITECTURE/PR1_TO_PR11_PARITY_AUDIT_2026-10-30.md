@@ -2,7 +2,7 @@
 
 Tanggal audit: 30 Oktober 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Checkpoint audit paritas awal: `430929f15f36ba3b238c5809d6252d60c0055c41`. **Revalidasi terkini 30 Oktober 2026:** PR #13 head `04ab209f5fbd716fd8f78047eaac8d259be64934`; GitHub Actions [run 41047481907](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41047481907) lulus 2/2 job. Run tersebut menguji Peer Review teks, typecheck/build, guard runtime, rehearsal migrasi sintetis, pgTAP, API/tenant, transaksi serentak, Storage, serta backup/restore. Tidak ada migration live yang diterapkan.
+Checkpoint audit paritas awal: `430929f15f36ba3b238c5809d6252d60c0055c41`. **Revalidasi terkini 30 Oktober 2026:** PR #13 head `af9460e7fbdcbf788ee01c53d3bd31ae3089c5be`; GitHub Actions [run 41049963343](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41049963343) lulus 2/2 job. Run menguji pengecualian permission PPOB, typecheck/build, guard runtime, rehearsal migration sintetis, pgTAP, API/tenant, transaksi serentak, Storage, serta backup/restore. Tidak ada migration live yang diterapkan.
 
 ## Tujuan dan batas bukti
 
@@ -12,7 +12,7 @@ PR #1–#11 bercabang bertingkat dan divergen dari PR #13. Membandingkan jumlah 
 
 ## Matriks pengganti
 
-| PR lama | Cakupan pada PR lama | Pengganti yang ditemukan di PR #13 | Status source | Syarat sebelum PR lama ditutup |
+| PR lama | Cakupan pada PR lama | Pengganti yang ditemukan di PR #13 | Status source | Verifikasi lanjutan oleh tim penerapan |
 |---|---|---|---|---|
 | #1 | Fondasi tenant, profil, kandidat PPDB, klaim identitas, RLS | Migration tenant/profil dan fondasi PPDB, termasuk `20261023000000_tenant_profile_foundation.sql`, `20261028000000_public_ppdb_runtime.sql`, serta tes `tenant_isolation.test.sql` dan `public_ppdb_runtime.test.sql` | Ada pengganti; migration/ledger target belum direkonsiliasi | Rehearsal lineage pada staging yang berwenang, dapat dipulihkan; review batas perubahan schema |
 | #2 | Model komersial self-hosted dan kriteria go-live | `docs/active/00_PRODUCT/COMMERCIAL_READINESS.md`, `docs/guides/CUSTOMER_MANAGED_DEPLOYMENT.md`, serta dokumentasi install/migrasi | Ada pengganti dokumentasi | Review tim atas asumsi lisensi, dukungan, dan tanggung jawab Supabase per pelanggan |
@@ -30,19 +30,19 @@ PR #1–#11 bercabang bertingkat dan divergen dari PR #13. Membandingkan jumlah 
 
 Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub Actions [run 41029985020](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41029985020) lulus 2/2 job. Job frontend membuktikan graph runtime tanpa paket Firebase, build, Docker/Compose, dan smoke test image; job database menjalankan Supabase lokal sintetis, rehearsal migrasi, pgTAP, API/tenant termasuk izin Analitik, transaksi bersamaan, Storage, serta backup/restore. Guard runtime Firebase termasuk dalam suite yang lulus. Kode import legacy masih tersimpan sebagai source nonaktif; tidak ada data Firestore yang perlu disalin. Tidak ada query maupun perubahan migration/data pada Supabase live dalam run ini.
 
-## Gap yang tetap menghalangi kesiapan pengembangan
+## Batas produk dan rilis yang masih tersisa
 
 1. **Tahfidz memiliki padanan backend untuk cakupan rilis yang dipilih.** Tab `badges` menghitung enam capaian progres dari data Supabase dengan tes role/tenant/paginasi. Peer Review memakai teks, dibatasi pada halaqah aktif, dan menunggu moderasi Ustadz; 33 tes pgTAP lulus. Audio dan akses Wali sengaja tidak termasuk dalam cakupan ini. UAT login/role tetap belum dilakukan.
-2. **Analitik Operasional kini memakai snapshot Supabase dan izin modul `intelligence` yang terpisah.** Indikatornya berupa aturan transparan atas antrian PPDB, verifikasi/tagihan, dan arus kas; tidak ada klaim prediksi AI. Model AI prediktif dikeluarkan dari cakupan rilis awal sampai ada data dan validasi yang memadai. Pemilik produk juga mengeluarkan modul PPOB/payment gateway dari rilis awal; navigasi dan pemberian izin dinonaktifkan, sementara integrasi provider menjadi pekerjaan fase lanjutan.
-3. **Audit integrasi antar-modul belum menyeluruh.** Perlu bukti relasi ID, tenant, unit, status, transaksi/retry, audit dan kegagalan parsial pada alur lintas modul.
+2. **Analitik Operasional kini memakai snapshot Supabase dan izin modul `intelligence` yang terpisah.** Indikatornya berupa aturan transparan atas antrian PPDB, verifikasi/tagihan, dan arus kas; tidak ada klaim prediksi AI. Model AI prediktif dikeluarkan dari cakupan rilis awal sampai ada data dan validasi yang memadai. Pemilik produk mengeluarkan modul PPOB/payment gateway dari rilis awal; menu dan pengaturan provider dihapus, dan permission lama ditolak oleh RBAC. Integrasi provider menjadi pekerjaan fase lanjutan.
+3. **Bukti pembayaran mandiri Wali sebelum onboarding belum tersedia.** Admin dapat mencatat pelunasan tagihan kandidat secara manual; Wali baru dapat mengunggah bukti setelah relasi akun–santri aktif. Jika dibutuhkan, tambahkan pada roadmap berikutnya.
 4. **Ledger proyek Supabase target `ptsasgdvgrbdtgyqieie` tidak dapat dibaca oleh konektor pada sesi ini.** Tidak ada migration live yang diterapkan. Tim perlu merekonsiliasi ledger dan melakukan rehearsal pada environment staging yang dapat dipulihkan sebelum cutover.
 5. **Pengujian database lokal sintetis bukan pengganti staging/UAT.** Deployment hosting dan UAT tetap dilakukan tim penerapan; sebelum itu source, konfigurasi dan migration perlu direview terhadap environment tujuan.
 
 ## Keputusan PR
 
-- PR #13 tetap Open/Draft sampai gap pengembangan di atas ditutup atau ada keputusan rilis yang eksplisit serta terdokumentasi.
+- PR #13 dapat digabung sebagai baseline source yang teruji. Gap rilis yang masih tersisa telah didokumentasikan dan tidak mengaktifkan PPOB/provider.
 - Jangan merge PR #1–#11 ke `main` satu per satu: PR tersebut adalah jalur historis bertingkat, sebagian memakai desain runtime lama, dan sebagian implementasinya sudah diganti pada PR #13.
-- Setelah PR #13 disetujui dan benar-benar masuk ke `main`, audit ulang setiap baris tabel terhadap source hasil merge. Tutup PR lama yang seluruh cakupannya terbukti sudah digantikan dengan alasan **superseded**. Jangan menandainya Merged bila tidak pernah digabung.
+- Setelah PR #13 benar-benar masuk ke `main`, verifikasi commit merge lalu tutup PR lama #1–#11 sebagai **superseded**. Jangan menandainya Merged bila tidak pernah digabung.
 - PR #12 sudah Merged. Pada pemeriksaan ini PR #1–#11 dan #13 masih Open/Draft; tidak ada perubahan status yang dilakukan oleh audit ini.
 
 ## Verifikasi yang tersedia
@@ -51,7 +51,7 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 
 - Head PR #13 `04ab209f5fbd716fd8f78047eaac8d259be64934`; GitHub Actions [run 41047481907](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41047481907) lulus **2/2 job**.
 - Tes pgTAP memverifikasi izin tabel/RPC, isolasi tenant, halaqah dan rentang tanggal keanggotaan, pengiriman idempoten, penolakan penilaian sendiri/lintas halaqah, serta moderasi final oleh Ustadz pengampu. Build, Docker/Compose, API tenant, Storage dan backup/restore juga lulus.
-- PR #13 tetap Draft selama audit paritas lintas-modul PR #1–#11 berlangsung. Cakupan PPOB/payment gateway telah diputuskan untuk dikeluarkan dari rilis awal. Rekonsiliasi ledger Supabase target belum dapat dilakukan dari sesi ini; tidak ada perubahan pada Supabase live.
+- Source PR #1–#11 sudah dipetakan ke implementasi pengganti PR #13 untuk tinjauan integrasi; CI terbaru lulus 2/2 job. PPOB/payment gateway telah diputuskan untuk dikeluarkan dari rilis awal. Rekonsiliasi ledger Supabase target tetap tugas sebelum deployment migration; tidak ada perubahan pada Supabase live.
 
 - Run GitHub Actions 41041688664 pada head `0cf670ba9097b7002322173adb92568f9ed8a054` adalah hasil historis. Untuk head terkini, lihat revalidasi pada run 41047481907 di atas.
 - Job mencakup typecheck/build, pemeriksaan runtime Supabase tanpa Firebase, Docker/Compose dan smoke test image, rehearsal migrasi sintetis, pgTAP, API/isolasi tenant, transaksi serentak, Storage, serta backup/restore.

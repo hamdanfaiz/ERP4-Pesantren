@@ -19,10 +19,11 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 ## Status teknis berdasarkan bukti
 
 - Kode aktif PR #13 mengarahkan modul operasional ke API Supabase. Firebase Admin dinonaktifkan pada semua environment; paket Firebase tidak masuk ke dependensi production. Impor arsip Firestore dinonaktifkan lewat kebijakan global, dan data contoh akan dibuat manual.
-- CI [run 41048190155](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41048190155) lulus 2/2 job pada head dokumentasi `7dea9918195c81894f96ee37ba1a64cb0e57ad5a`: typecheck/build/container serta Supabase lokal, rehearsal migration, pgTAP, API auth/tenant, transaksi serentak, Storage, dan backup/restore sintetis. Perubahan cakupan PPOB setelah run tersebut menunggu CI baru. Bukti CI berasal dari lingkungan lokal sintetis, bukan UAT pelanggan.
+- GitHub Actions [run 41049963343](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41049963343) lulus **2/2 job** pada head source `af9460e7fbdcbf788ee01c53d3bd31ae3089c5be`. Cakupan meliputi typecheck/build, penguncian PPOB di RBAC, Docker/Compose, Supabase lokal sintetis, rehearsal migration, pgTAP, API/tenant, transaksi serentak, Storage, dan backup/restore. Ini bukan UAT pelanggan atau bukti perubahan database live.
 - Source PR #13 saat ini memiliki 109 file migration. Snapshot baca-saja staging terakhir yang tercatat (27 Oktober) menunjukkan 47 versi hingga `20261206000000`; 62 versi source belum tercatat pada snapshot tersebut. Konektor gagal memberikan inventaris terbaru pada 30 Oktober, sehingga snapshot ini bukan daftar migration yang boleh langsung diterapkan. Tidak ada migration yang diterapkan.
 - Snapshot katalog staging terdahulu menunjukkan 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antartabel tenant memasangkan `tenant_id`; tabel `anon` tanpa SELECT dan `authenticated` tanpa hak tulis langsung. Baseline perlu dibaca ulang sebelum rehearsal.
 - Runtime feature flags sengaja mati secara default sampai migration, provisioning tenant, Auth, role/permission, dan UAT masing-masing modul lulus.
+- Tagihan PPDB dapat dibuat Admin pada record calon santri dan ditautkan ke santri saat onboarding. Admin dapat mencatat pelunasan manual sebelum onboarding; unggah bukti mandiri oleh Wali baru tersedia setelah akun Wali terhubung dengan santri aktif. Jika pembayaran mandiri Wali sebelum onboarding dibutuhkan, itu masih perlu dirancang dan diuji.
 - Docker/Compose dan smoke test tersedia pada branch cutover. Belum ada bukti instalasi baru dari server kosong milik pelanggan, upgrade/restore di VPS/on-premise, atau uji beban berskala pesantren besar.
 
 Snapshot teknis ini bukan pengganti audit endpoint, pemeriksaan definisi seluruh function di staging, uji lintas tenant secara live, dan penerimaan pengguna.
@@ -87,7 +88,7 @@ Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika 
 3. Jalankan UAT Auth, role/tenant, modul kritis, Storage, dan error recovery pada staging.
 4. Lakukan clean install, upgrade, dan pemindahan host pada VPS Linux serta VM on-premise representatif.
 5. Selesaikan rotasi secret, operasi/support, lisensi, pilot, dan sizing beban.
-6. Baru setelah gate tersebut lulus, ubah PR #13 dari Draft, minta review tim, merge, dan tetapkan versi release.
+6. PR #13 dapat digabung sebagai baseline source setelah CI dan review source selesai. Setelah merge, tim penerapan menjalankan rehearsal target, deployment, dan UAT; versi rilis/penjualan tetap menunggu seluruh gerbang di atas lulus.
 
 ## Perkiraan checkpoint
 

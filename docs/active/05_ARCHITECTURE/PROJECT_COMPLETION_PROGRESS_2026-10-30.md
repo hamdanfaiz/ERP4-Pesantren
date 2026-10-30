@@ -4,10 +4,10 @@
 
 **Perkiraan penyelesaian pengembangan: sekitar 73% (rentang 70–75%).** Ini angka kerja kasar tanpa WBS berbobot; deployment hosting dan UAT yang dikerjakan tim lain tidak dihitung. Saya belum menaikkan angka karena cakupan yang tersisa belum ditimbang dengan metode yang disepakati.
 
-- Sumber yang sedang disiapkan untuk ditinjau: PR #13, branch `codex/supabase-runtime-cutover-20261022`.
-- Implementasi Peer Review Tahfidz teks dan aturan aksesnya lulus pada head `04ab209f5fbd716fd8f78047eaac8d259be64934`, run [41047481907](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41047481907), 2/2 job. Dokumentasi PR berikutnya lulus frontend build; perubahan baru untuk mengecualikan PPOB dari permission dan navigasi sedang menunggu CI final.
+- Sumber PR #13: branch `codex/supabase-runtime-cutover-20261022`, head `af9460e7fbdcbf788ee01c53d3bd31ae3089c5be`.
+- GitHub Actions [run 41049963343](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41049963343) lulus **2/2 job**, termasuk TypeScript/build, RBAC yang menolak permission PPOB, Docker/Compose, rehearsal migration, pgTAP, API/tenant, transaksi bersamaan, Storage, dan backup/restore lokal sintetis.
 - CI mencakup typecheck/build, guard runtime Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP, reservasi NIS dan slot Tahfidz serentak, import-preview, otorisasi API/isolasi tenant, pendaftaran mandiri Wali, alur Storage, serta backup/pemulihan lokal.
-- Skor sekitar 73% tetap perkiraan kasar, bukan ukuran kontrak kerja atau klaim semua fitur lulus. Audit lintas-modul sudah didokumentasikan; paritas semua perilaku historis dan target Supabase masih belum terbukti.
+- Skor sekitar 73% tetap perkiraan kasar, bukan ukuran kontrak kerja atau klaim semua fitur lulus. Matriks source parity PR #1–#11 sudah dipetakan ke penggantinya di PR #13; hasil CI tidak membuktikan login nyata, migration target, deployment atau UAT.
 - CI tidak menguji database Supabase target, login pelanggan, deployment hosting atau UAT.
 
 ## Cakupan yang sudah ada pada source PR #13
@@ -21,14 +21,13 @@
 - Peer Review Tahfidz mencakup teks antaranggota halaqah yang sama dengan moderasi Ustadz. Audio dan akses Wali tidak disertakan. PPOB/payment gateway dikeluarkan dari rilis awal: menu dan izin modul dimatikan, termasuk jika ada permission lama yang tersimpan.
 - Data dummy Firestore tidak perlu disalin sesuai keputusan pemilik proyek. Tidak ada import atau perubahan database live pada checkpoint ini.
 
-## Pekerjaan pengembangan yang masih harus ditutup
+## Sisa pekerjaan sebelum rilis komersial
 
-1. **Lengkapi bukti paritas integrasi.** Audit source alur PPDB → Santri/Wali → Akademik/Asrama/Tahfidz/Finance tercatat di [audit integrasi lintas-modul](CROSS_MODULE_INTEGRATION_AUDIT_2026-10-30.md). Tes CI terbaru membuktikan izin/kedisiplinan Asrama, tenant/role, state transition, dan retry; perilaku historis unik PR #1–#11 serta setiap jalur kegagalan lintas-modul masih perlu dicocokkan sebelum PR lama ditutup.
-2. **Peer Review Tahfidz dan PPOB sudah memiliki keputusan rilis.** Peer Review teks masuk sesuai batas yang disepakati; audio/Wali tidak masuk. PPOB/payment gateway dikeluarkan dari rilis awal dan tidak dapat dibuka lewat permission.
-3. **Klasifikasi source legacy Firebase sudah didokumentasikan.** Source lama tetap disimpan untuk referensi/import arsip, tetapi guard membuktikan tidak masuk runtime atau dependency image produksi. Rincian batas dan syarat penghapusan ada di [klasifikasi source Firebase](LEGACY_FIREBASE_SOURCE_CLASSIFICATION_2026-10-30.md).
-4. **Rapikan dokumentasi rilis dan portabilitas.** Source sudah memiliki Docker/Compose dan smoke test CI. Instruksi install/upgrade/backup/pemulihan perlu tetap sesuai dengan satu image, skema migration dan konfigurasi Supabase pada profil VPS/on-premise sasaran.
-5. **Rekonsiliasi migration target sebelum penerapan.** Konektor belum berhasil membaca project Supabase `ptsasgdvgrbdtgyqieie`; koneksi PostgreSQL baca-saja terhenti pada validasi TLS. Tidak ada ledger target yang dapat diverifikasi dan tidak ada perubahan live yang dijalankan. Panduan bagi tim backend ada di [checkpoint akses staging](../06_DATABASE/CHECKPOINT_SUPABASE_STAGING_ACCESS_2026-10-30.md).
-6. **Source parity PR lama.** Audit awal tersedia, tetapi setiap perilaku unik PR #1–#11 perlu dipastikan tercakup di source baru atau dinyatakan di luar cakupan, sebelum PR lama ditutup.
+1. **Merekonsiliasi migration Supabase target sebelum penerapan.** Konektor belum berhasil membaca project `ptsasgdvgrbdtgyqieie`; snapshot terdahulu mencatat 47 migration, sementara source terbaru memiliki 109. Tim harus memeriksa ledger dan schema aktual, menyiapkan backup yang dapat dipulihkan, lalu rehearsalkan migration pada target staging yang disetujui. Tidak ada migration live yang diterapkan.
+2. **Menjalankan login dan UAT.** Uji Auth, role/tenant, modul penting, Storage, pemulihan kegagalan, dan pengalaman responsif pada environment uji milik tim penerapan.
+3. **Membuktikan portabilitas di host pelanggan.** Lakukan clean install, upgrade, backup, dan restore pada VPS Linux serta on-premise yang mewakili sasaran.
+4. **Menutup operasi dan komersialisasi.** Tetapkan secret/kunci enkripsi per instalasi, SMTP/notifikasi, backup/retensi, lisensi, SLA/support, pilot, dan sizing beban sebelum penawaran.
+5. **Menetapkan roadmap fase berikutnya.** PPOB/payment gateway dikecualikan dari rilis awal; Peer Review Tahfidz hanya teks dengan moderasi Ustadz. Fitur di luar batas ini perlu spesifikasi dan validasi sebelum diiklankan.
 
 ## Yang dilakukan tim penerapan setelah source siap
 
@@ -38,15 +37,15 @@
 
 Angka penyelesaian pengembangan di atas tidak mengklaim tiga pekerjaan ini telah dilakukan.
 
-## Status PR GitHub saat diverifikasi
+## Status PR GitHub sebelum integrasi source
 
 | PR | Status | Makna |
 |---|---|---|
 | #1–#11 | Open / Draft | Branch lama bertingkat; jangan merge terpisah karena sebagian bergantung pada PR lain atau membawa arsitektur transisi Firebase. |
 | #12 | Closed / Merged | Sudah masuk ke `main`. |
-| #13 | Open / Draft | Head `7613d3a2414ad40ab41d80001511be58e17886dd`; CI run `41035209749` lulus 2/2, tetapi source belum merged. Lulus CI tidak berarti seluruh cakupan produk sudah selesai. |
+| #13 | Open / Draft | Head `af9460e7fbdcbf788ee01c53d3bd31ae3089c5be`; CI run `41049963343` lulus 2/2. PR siap menjadi baseline source, bukan bukti produk siap komersial. |
 
-**Keputusan saat ini:** PR #13 masih **Open / Draft**; run terbaru lulus, tetapi jangan menandainya selesai, menutupnya, atau menggabungkannya sampai gerbang engineering di atas selesai atau cakupan rilis disetujui secara jelas. Setelah pengganti resmi masuk ke `main`, tutup PR lama yang benar-benar superseded; penutupan dan merge adalah status berbeda.
+**Keputusan saat checkpoint:** PR #13 masih **Open / Draft** dan siap digabung sebagai source baseline setelah update metadata PR. Setelah merge terverifikasi, tutup PR #1–#11 sebagai superseded. Status ini tidak menaikkan perkiraan kematangan fitur dari 73% dan tidak menyatakan deployment/UAT selesai.
 
 ## Kriteria 100% penyelesaian pengembangan
 
