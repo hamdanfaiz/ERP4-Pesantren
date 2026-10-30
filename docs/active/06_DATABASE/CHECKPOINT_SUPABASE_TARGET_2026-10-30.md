@@ -35,6 +35,15 @@ Query ringkasan `SELECT` di SQL Editor dashboard project target dijalankan di tr
 - Query detail memastikan metadata kosong pada `20261205000000` dan `20261206000000`: kedua baris memiliki `name = NULL`, `statements = NULL`, dan jumlah statement nol. Kesetaraan SQL/provenance deployment untuk keduanya belum terbukti; preflight tidak dapat menyatakan ledger cocok sepenuhnya.
 - Ada 62 lebih banyak file migration di source daripada jumlah versi pada ledger. Ini perbedaan hitungan untuk ditelusuri, bukan izin atau rencana untuk menerapkan migration. Jangan menjalankan `migration repair` atau `db push` ke Production untuk menutupi metadata kosong.
 
+### Pemeriksaan postcondition versi 20261205 dan 20261206 — 30 Oktober 2026
+
+Pemeriksaan katalog hanya-baca dijalankan dari SQL Editor pada branch `main / PRODUCTION`. Query tidak membaca record operasional dan tidak menjalankan DDL/DML. Hasil membuktikan keadaan katalog yang terlihat sekarang, **bukan** bahwa isi statement yang dulu dijalankan sama dengan file source atau bahwa seluruh migration telah direkonsiliasi.
+
+- Default privilege yang tidak diharapkan untuk tabel/sekuens public dan EXECUTE fungsi: **0**. Keempat helper trigger ditemukan dan tidak memiliki grant EXECUTE langsung maupun melalui PUBLIC kepada `anon`, `authenticated`, atau `service_role`.
+- Kandidat memiliki tiga kolom metadata sumber; tabel `ppdb_legacy_import_batches` serta unique index valid tersedia. RLS dan FORCE RLS aktif pada tabel batch.
+- RPC `import_legacy_ppdb_candidates` ditemukan dan berstatus `SECURITY INVOKER`. EXECUTE ditolak untuk `anon` dan `authenticated`, tersedia untuk `service_role`; ACL juga mencantumkan owner `postgres`. Tabel batch tidak dapat dibaca oleh `anon`/`authenticated`, sementara `service_role` memiliki akses tabel.
+- Verifikasi ini tidak mengimpor dummy Firestore, tidak mengubah data atau schema, dan tidak membuka feature flag impor. Meskipun postcondition saat ini sesuai, metadata kosong di ledger tetap harus direkonsiliasi dari provenance deployment atau dibandingkan dengan staging yang dapat dipulihkan.
+
 ### Manifest 62 versi source yang belum tercatat pada ledger
 
 Daftar ini hanya menunjukkan prefix versi source yang tidak ditemukan pada daftar ledger. **Jangan menganggap migration belum pernah berjalan atau menjalankannya ke Production hanya berdasarkan daftar ini.** Rekonsiliasi definisi schema dan provenance di staging terisolasi yang dapat dipulihkan terlebih dahulu.
