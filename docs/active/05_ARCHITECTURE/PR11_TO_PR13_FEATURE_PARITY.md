@@ -2,12 +2,12 @@
 
 # Status PR dan hasil verifikasi terbaru — 30 Oktober 2026
 
-- Status GitHub terverifikasi setelah merge: PR #1–#11 **Closed / tidak merged** sebagai superseded; PR #12 dan #13 **Closed / Merged**. PR #13 masuk ke `main` pada `cea0ed481950c4e40a1035ff9d971cf3a43929bc`.
+- Status GitHub terverifikasi setelah merge PR #15: PR #1–#11 **Closed / tidak merged** sebagai superseded; PR #12–#15 **Closed / Merged**. PR #13 membawa paritas utama cutover; PR #14 memperbarui panduan Auth/RBAC; PR #15 menghapus mock PPOB dari rilis awal. Tidak ada PR terbuka pada pemeriksaan 30 Oktober.
 - Source head PR #13 `e449c234c253eb7a65795af18c5794fa45e6e9cb` lulus GitHub Actions [run 41051400486](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41051400486), **2/2 job**. CI mencakup typecheck/build, guard runtime tanpa Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP, API dan isolasi tenant, transaksi serentak, Storage, serta backup/restore. Uji berjalan pada Supabase lokal sintetis; bukan database Supabase live.
 - Tab capaian Tahfidz memakai hitungan catatan Supabase yang tenant-scoped. Peer Review teks kini memakai backend Supabase dan moderasi Ustadz sesuai batas rilis yang disepakati; audio dan akses Wali tidak disertakan.
 - PR #1, #2, #4, dan #6 berbasis `main`. PR #3 dan #5 berbasis PR #1, #7 berbasis #5, #8 berbasis #7, #9 berbasis #8, #10 berbasis #9, dan #11 berbasis #10. PR #13 memiliki riwayat berbeda; merge PR lama secara berurutan atau berdasarkan nama file saja berisiko membawa ulang implementasi lama.
 - Matriks di bawah memetakan cakupan tiap PR #1–#11 ke API, migration, dokumentasi, atau UI pengganti di PR #13. CI memverifikasi jalur backend sintetis; login nyata dan UAT tetap tugas tim penerapan.
-- PR #13 sudah menjadi baseline source di `main`. PR #1–#11 ditutup sebagai superseded setelah penggantinya masuk; PR lama tidak ditandai merged.
+- PR #13 tetap menjadi baseline cutover di `main`. PR #1–#11 ditutup sebagai superseded setelah fitur penggantinya dipetakan; PR lama tidak ditandai merged karena tidak pernah digabung langsung.
 - Estimasi kematangan pengembangan sekitar **73%** masih perkiraan kasar; deploy hosting dan UAT oleh tim penerapan tidak termasuk.
 ---
 
