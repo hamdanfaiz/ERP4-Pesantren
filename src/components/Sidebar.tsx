@@ -157,7 +157,7 @@ export function Sidebar({ activeModule, onNavigate, branding }: SidebarProps) {
         {allowedModules.includes('intelligence') && (
           <>
             <div className="mt-2 px-3 pb-2 text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
-              Analitik AI
+              Analitik
             </div>
             <button 
               onClick={() => onNavigate('intelligence')}

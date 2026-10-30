@@ -33,7 +33,7 @@ export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }
     'alumni': 'Data Alumni',
     'crm': 'Relasi Wali dan Donatur',
     'lms': 'LMS Pembelajaran',
-    'intelligence': 'Analitik AI',
+    'intelligence': 'Analitik Operasional',
     'marketplace': 'Marketplace',
     'ecosystem': 'PPOB dan Layanan'
   };

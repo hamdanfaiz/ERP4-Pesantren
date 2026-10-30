@@ -21,10 +21,11 @@ function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
-async function loadDashboard(period: DashboardPeriod, signal?: AbortSignal) {
+async function loadDashboard(period: DashboardPeriod, surface: "dashboard" | "intelligence", signal?: AbortSignal) {
   const token = await getAccessToken();
   if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
-  const response = await fetch(`/api/dashboard/snapshot?period=${encodeURIComponent(period)}`, {
+  const query = new URLSearchParams({ period, surface });
+  const response = await fetch(`/api/dashboard/snapshot?${query.toString()}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
     cache: "no-store",
     signal,
@@ -49,7 +50,7 @@ function MetricCard({ title, value, caption, icon: Icon, accent = "emerald" }: {
   </article>;
 }
 
-export function SupabaseDashboardOverview() {
+export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?: "dashboard" | "intelligence" }) {
   const { role, user } = useAuth();
   const [period, setPeriod] = useState<DashboardPeriod>("year");
   const [snapshot, setSnapshot] = useState<DashboardSnapshot>(emptySnapshot);
@@ -66,20 +67,54 @@ export function SupabaseDashboardOverview() {
       return () => controller.abort();
     }
     setLoading(true);
-    loadDashboard(period, controller.signal)
+    loadDashboard(period, surface, controller.signal)
       .then((result) => { if (!controller.signal.aborted) setSnapshot(result); })
       .catch((loadError: any) => { if (!controller.signal.aborted) setError(loadError?.message || "Ringkasan dashboard belum dapat dimuat."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [period, reloadVersion, role, user?.tenantId, user?.uid]);
+  }, [period, reloadVersion, role, surface, user?.tenantId, user?.uid]);
 
   const finance = snapshot.finance;
   const netCashflow = calculateDashboardNetCashflow(finance);
+  const isIntelligence = surface === "intelligence";
   const periodLabel: Record<DashboardPeriod, string> = { today: "Hari ini", week: "7 hari terakhir", month: "30 hari terakhir", year: "365 hari terakhir" };
   const stageRows = useMemo(() => (snapshot.ppdb.stages || []).map((entry) => ({
     stage: ({ Registered: "Terdaftar", "Document Review": "Verifikasi", "Entry Exam": "Ujian", Interview: "Wawancara", Accepted: "Diterima", Rejected: "Ditolak", Withdrawn: "Mengundurkan diri" } as Record<string, string>)[entry.stage] || entry.stage,
     jumlah: Number(entry.count || 0),
   })), [snapshot.ppdb.stages]);
+  const operationalSignals = useMemo(() => {
+    const signals: Array<{ title: string; detail: string; tone: "amber" | "rose" | "blue" }> = [];
+    if (snapshot.ppdb.enabled && Number(snapshot.ppdb.pending || 0) > 0) {
+      signals.push({
+        title: "Tindak lanjut pendaftar",
+        detail: `${Number(snapshot.ppdb.pending)} calon santri masih berada dalam proses seleksi.`,
+        tone: "blue",
+      });
+    }
+    if (finance.enabled && Number(finance.verificationCount || 0) > 0) {
+      signals.push({
+        title: "Verifikasi pembayaran",
+        detail: `${Number(finance.verificationCount)} pembayaran menunggu pemeriksaan petugas.`,
+        tone: "amber",
+      });
+    }
+    const outstandingBills = Number(finance.unpaidCount || 0) + Number(finance.partialCount || 0);
+    if (finance.enabled && outstandingBills > 0) {
+      signals.push({
+        title: "Tagihan perlu ditindaklanjuti",
+        detail: `${outstandingBills} tagihan belum lunas atau baru dibayar sebagian; nilai tercatat ${rupiah(finance.outstandingAmount || 0)}.`,
+        tone: "amber",
+      });
+    }
+    if (finance.enabled && netCashflow < 0) {
+      signals.push({
+        title: "Arus kas bersih negatif",
+        detail: `Pengeluaran bersih tercatat sebesar ${rupiah(Math.abs(netCashflow))} pada rentang yang dipilih.`,
+        tone: "rose",
+      });
+    }
+    return signals;
+  }, [finance, netCashflow, snapshot.ppdb.enabled, snapshot.ppdb.pending]);
 
   if (!(["Admin", "SuperAdmin"].includes(role || ""))) {
     return <main className="mx-auto max-w-4xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
@@ -89,7 +124,7 @@ export function SupabaseDashboardOverview() {
 
   return <main className="mx-auto max-w-7xl space-y-6 pb-10">
     <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between dark:border-slate-800">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">Ringkasan tenant · Supabase</p><h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Ringkasan eksekutif pesantren</h1><p className="mt-1 text-sm text-slate-500">Indikator PPDB, santri aktif, tagihan, dan arus kas tenant.</p></div>
+      <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">{isIntelligence ? "Analitik operasional · Supabase" : "Ringkasan tenant · Supabase"}</p><h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{isIntelligence ? "Analitik operasional pesantren" : "Ringkasan eksekutif pesantren"}</h1><p className="mt-1 text-sm text-slate-500">Indikator PPDB, santri aktif, tagihan, dan arus kas tenant.</p></div>
       <div className="flex flex-wrap gap-2">
         <label className="sr-only" htmlFor="dashboard-period">Rentang arus kas</label>
         <select id="dashboard-period" value={period} onChange={(event) => setPeriod(event.target.value as DashboardPeriod)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
@@ -99,8 +134,13 @@ export function SupabaseDashboardOverview() {
       </div>
     </header>
 
-    <div role="note" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Ringkasan dihitung dari catatan Supabase pada tenant ini. Tenant baru dimulai tanpa data contoh; tambahkan data melalui modul terkait untuk mengisi indikator.</div>
+    <div role="note" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">{isIntelligence ? "Indikator ini dihitung dengan aturan transparan dari catatan Supabase; halaman ini tidak membuat prediksi AI. Data tiap modul hanya ditampilkan bila akun memiliki izinnya." : "Ringkasan dihitung dari catatan Supabase pada tenant ini. Tenant baru dimulai tanpa data contoh; tambahkan data melalui modul terkait untuk mengisi indikator."}</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
+
+    {isIntelligence && <section aria-labelledby="operational-signals-heading" className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-start justify-between gap-3"><div><h2 id="operational-signals-heading" className="font-semibold text-slate-900 dark:text-white">Hal yang perlu diperhatikan</h2><p className="mt-1 text-xs text-slate-500">Antrian dan tagihan menunjukkan kondisi saat ini; arus kas mengikuti rentang yang dipilih.</p></div><Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-300" /></div>
+      {loading ? <p className="mt-5 text-sm text-slate-500">Menghitung indikator…</p> : operationalSignals.length > 0 ? <ul className="mt-4 grid gap-3 md:grid-cols-2">{operationalSignals.map((signal) => <li key={signal.title} className={`rounded-lg border p-4 ${signal.tone === "rose" ? "border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/20" : signal.tone === "amber" ? "border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/20" : "border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/20"}`}><p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{signal.title}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{signal.detail}</p></li>)}</ul> : <p className="mt-5 text-sm text-slate-600 dark:text-slate-300">Belum ada hal yang memerlukan tindak lanjut pada data dan modul yang dapat Anda lihat.</p>}
+    </section>}
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Indikator utama">
       <MetricCard title="Total pendaftar PPDB" value={loading ? "—" : snapshot.ppdb.enabled ? String(snapshot.ppdb.total || 0) : "—"} caption={loading ? "Memuat ringkasan tenant…" : snapshot.ppdb.enabled ? `${snapshot.ppdb.accepted || 0} diterima · ${snapshot.ppdb.pending || 0} masih dalam proses` : error ? "Data PPDB belum dapat dimuat dari Supabase." : "Izin modul PPDB tidak diberikan"} icon={Users} accent="blue" />

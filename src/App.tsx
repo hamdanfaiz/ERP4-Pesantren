@@ -192,7 +192,7 @@ export default function App() {
       case 'lms':
         return <SupabaseLMSManager />;
       case 'intelligence':
-        return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
+        return <SupabaseDashboardOverview surface="intelligence" />;
       case 'marketplace':
         return <SupabaseMarketplaceManager />;
       case 'ecosystem':

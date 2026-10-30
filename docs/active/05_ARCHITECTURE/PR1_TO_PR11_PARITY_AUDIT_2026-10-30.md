@@ -34,7 +34,7 @@ Pada checkpoint kode PR #13 `6678e7337431b74be70ba69d48b80341ba19af69`, GitHub A
 ## Gap yang tetap menghalangi kesiapan pengembangan
 
 1. **Tahfidz belum paritas penuh.** Tab `badges` kini menampilkan enam capaian progres yang dihitung dari data tersimpan Supabase dengan tes role/tenant/paginasi. Tab `peer-review` tetap placeholder saat runtime Supabase aktif; fitur itu belum boleh dilaporkan selesai.
-2. **Analitik AI dan PPOB/Layanan masih fail-closed.** Keputusan cakupan rilis dan pengembangan fitur belum tuntas.
+2. **Analitik Operasional kini memakai snapshot Supabase dan izin modul `intelligence` yang terpisah.** Indikatornya berupa aturan transparan atas antrian PPDB, verifikasi/tagihan, dan arus kas; tidak ada klaim prediksi AI. Model AI prediktif dikeluarkan dari cakupan rilis awal sampai ada data dan validasi yang memadai. PPOB/Layanan masih fail-closed dan memerlukan keputusan cakupan serta integrasi provider yang nyata.
 3. **Audit integrasi antar-modul belum menyeluruh.** Perlu bukti relasi ID, tenant, unit, status, transaksi/retry, audit dan kegagalan parsial pada alur lintas modul.
 4. **Ledger proyek Supabase target `ptsasgdvgrbdtgyqieie` tidak dapat dibaca oleh konektor pada sesi ini.** Tidak ada migration live yang diterapkan. Tim perlu memberi akses baca terbatas atau memberikan ekspor ledger yang sudah disanitasi agar urutan dapat direkonsiliasi dan rehearsal dilakukan.
 5. **Pengujian database lokal sintetis bukan pengganti staging/UAT.** Deployment hosting dan UAT tetap dilakukan tim penerapan; sebelum itu source, konfigurasi dan migration perlu direview terhadap environment tujuan.

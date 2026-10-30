@@ -2311,7 +2311,7 @@ async function startServer() {
     console.error("Supabase dashboard endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Ringkasan dashboard Supabase belum dapat dimuat." });
   };
-  const loadDashboardActor = async (uid: string) => {
+  const loadDashboardActor = async (uid: string, surface: "dashboard" | "intelligence") => {
     const profile = await getUserProfile(uid);
     const tenantId = String(profile?.tenantId || "").trim();
     if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
@@ -2321,7 +2321,12 @@ async function startServer() {
       throw new SupabaseDashboardError(403, "Dashboard eksekutif hanya tersedia untuk Admin pesantren.");
     }
     const modulePermissions = resolveUserModulePermissions(profile.role, profile.modulePermissions);
-    if (!modulePermissions.dashboard) throw new SupabaseDashboardError(403, "Akses dashboard tidak diberikan kepada akun ini.");
+    const requiredModule = surface === "intelligence" ? "intelligence" : "dashboard";
+    if (!modulePermissions[requiredModule]) {
+      throw new SupabaseDashboardError(403, surface === "intelligence"
+        ? "Akses analitik tidak diberikan kepada akun ini."
+        : "Akses dashboard tidak diberikan kepada akun ini.");
+    }
     return {
       uid,
       tenantId,
@@ -2339,7 +2344,12 @@ async function startServer() {
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadDashboardActor(uid);
+      const surfaceValue = String(req.query.surface || "dashboard").trim();
+      if (surfaceValue !== "dashboard" && surfaceValue !== "intelligence") {
+        return res.status(400).json({ error: "Jenis ringkasan tidak valid." });
+      }
+      const surface = surfaceValue as "dashboard" | "intelligence";
+      const actor = await loadDashboardActor(uid, surface);
       return res.json(await getSupabaseDashboardSnapshot(actor.tenantId, actor.uid, actor.permissions, req.query.period));
     } catch (error) { return dashboardRouteError(res, error); }
   });

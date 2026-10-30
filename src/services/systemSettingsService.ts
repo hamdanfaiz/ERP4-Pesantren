@@ -113,7 +113,7 @@ export const ALL_MODULE_LIST: { id: ModuleId; name: string; category: string }[]
   { id: "donation", name: "Wakaf & Infaq Donation", category: "Ecosystem" },
   { id: "marketplace", name: "Marketplace Santri", category: "Ecosystem" },
   { id: "ecosystem", name: "PPOB & Layanan Ekosistem", category: "Ecosystem" },
-  { id: "intelligence", name: "AI Analytics & Intelligence", category: "Core" },
+  { id: "intelligence", name: "Analitik Operasional", category: "Core" },
 ];
 
 class SettingsRequestError extends Error {

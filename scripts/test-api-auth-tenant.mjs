@@ -116,6 +116,13 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
     users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-intelligence-only', {
+      dashboard: false,
+      intelligence: true,
+      ppdb: false,
+      'master-data': false,
+      finance: false,
+    }));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
       .eq('user_id', users[12].uid);
@@ -133,6 +140,7 @@ async function main() {
     const noFinanceAdminToken = await signIn(anon, users[10]);
     const otherTenantMarketplaceAdminToken = await signIn(anon, users[11]);
     const forcedPasswordToken = await signIn(anon, users[12]);
+    const intelligenceOnlyToken = await signIn(anon, users[13]);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
 
@@ -153,6 +161,7 @@ async function main() {
         SUPABASE_PPDB_FINANCE_BILLS_ENABLED: 'false',
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_MARKETPLACE_RUNTIME_ENABLED: 'true',
+        SUPABASE_DASHBOARD_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'false',
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
@@ -184,6 +193,38 @@ async function main() {
     assert.equal(readyResponse.status, 200, 'Readiness must verify the local Supabase profile store.');
     assert.equal((await readyResponse.json()).status, 'ready');
     assert.equal(readyResponse.headers.get('cache-control'), 'no-store');
+
+    const dashboardSnapshot = await fetch(`${apiBase}/api/dashboard/snapshot?surface=dashboard&period=month`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(dashboardSnapshot.status, 200, 'Dashboard access must use the dashboard permission and tenant snapshot.');
+    assert.equal(dashboardSnapshot.headers.get('cache-control'), 'no-store');
+    const dashboardPayload = await dashboardSnapshot.json();
+    assert.equal(dashboardPayload.ppdb.enabled, true, 'Dashboard submodule data must reflect the actor permission.');
+
+    const dashboardDenied = await fetch(`${apiBase}/api/dashboard/snapshot?surface=dashboard`, {
+      headers: { Authorization: `Bearer ${intelligenceOnlyToken}` },
+    });
+    assert.equal(dashboardDenied.status, 403, 'An intelligence-only user must not inherit dashboard access.');
+
+    const intelligenceSnapshot = await fetch(`${apiBase}/api/dashboard/snapshot?surface=intelligence&period=month`, {
+      headers: { Authorization: `Bearer ${intelligenceOnlyToken}` },
+    });
+    assert.equal(intelligenceSnapshot.status, 200, 'Intelligence access must be independently granted.');
+    const intelligencePayload = await intelligenceSnapshot.json();
+    assert.equal(intelligencePayload.ppdb.enabled, false, 'Analytic data must remain hidden when the PPDB permission is denied.');
+    assert.equal(intelligencePayload.masterData.enabled, false, 'Analytic data must remain hidden when the Master Data permission is denied.');
+    assert.equal(intelligencePayload.finance.enabled, false, 'Analytic data must remain hidden when the Finance permission is denied.');
+
+    const intelligenceDenied = await fetch(`${apiBase}/api/dashboard/snapshot?surface=intelligence`, {
+      headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(intelligenceDenied.status, 403, 'Non-administrator roles must not access tenant-wide analytic snapshots.');
+
+    const invalidDashboardSurface = await fetch(`${apiBase}/api/dashboard/snapshot?surface=all`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(invalidDashboardSurface.status, 400, 'Dashboard surface must reject unknown permission scopes.');
 
     await fetch(`${apiBase}/api/users/clear-must-change-password`, {
       method: 'POST',
