@@ -55,12 +55,15 @@ import {
   listSupabaseTahfidzSessions,
   listSupabaseTahfidzRosterPage,
   listSupabaseTahfidzSnapshot,
+  listSupabaseTahfidzPeerReviews,
   listSupabaseTahfidzRecordPage,
+  moderateSupabaseTahfidzPeerReview,
   migrateSupabaseTahfidzConfiguration,
   mutateSupabaseTahfidzSession,
   recordSupabaseTahfidzSetoran,
   recordSupabaseTahfidzTarget,
   saveSupabaseTahfidzHalaqah,
+  submitSupabaseTahfidzPeerReview,
   SupabaseTahfidzError,
 } from "./src/server/supabaseTahfidz";
 import {
@@ -3613,6 +3616,41 @@ async function startServer() {
       }
       const actor = await loadTahfidzActor(uid);
       return res.json(await listSupabaseTahfidzSessions(actor.tenantId, actor.uid, actor.role, kind, req.query.cursor));
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.get("/api/tahfidz/peer-reviews", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      return res.json(await listSupabaseTahfidzPeerReviews(actor.tenantId, actor.uid, actor.role));
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/peer-reviews", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      const result = await submitSupabaseTahfidzPeerReview(actor.tenantId, actor.uid, actor.role, req.body?.review);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/peer-reviews/:reviewId/moderation", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      const result = await moderateSupabaseTahfidzPeerReview(actor.tenantId, actor.uid, actor.role, req.params.reviewId, req.body);
+      return res.json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 

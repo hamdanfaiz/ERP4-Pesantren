@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { GamificationProfile } from "../components/GamificationManager";
 import { SupabaseTahfidzSessions } from "./SupabaseTahfidzSessions";
+import { SupabaseTahfidzPeerReview } from "../components/SupabaseTahfidzPeerReview";
 import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTime } from "../lib/tenantTimeZone";
 import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
@@ -3732,7 +3733,7 @@ export function TahfidzManager() {
               : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
           )}
         >
-          Peer Review
+          Penilaian Antar-Santri
         </button>
         <button
           onClick={() => setActiveTab("quran")}
@@ -3786,12 +3787,7 @@ export function TahfidzManager() {
           <QuranViewer />
         </div>
       )}
-      {SUPABASE_TAHFIDZ_RUNTIME && activeTab === "peer-review" && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-100">
-          <h2 className="font-semibold">Peer review belum tersedia</h2>
-          <p className="mt-2 max-w-3xl text-sm">Fitur ini belum memiliki penyimpanan audio, persetujuan wali, moderasi, dan aturan akses tenant. Konten contoh dari mode lama disembunyikan.</p>
-        </div>
-      )}
+      {SUPABASE_TAHFIDZ_RUNTIME && activeTab === "peer-review" && <SupabaseTahfidzPeerReview />}
 
       {/* Target Harian Modal */}
       {isTargetModalOpen && (

@@ -70,6 +70,8 @@ function legacySupabaseRole(value: string): string {
     Admin: "admin",
     SuperAdmin: "super_admin",
     Ustadz: "ustadz",
+    Santri: "santri",
+    Walisantri: "wali_santri",
   };
   return roles[String(value || "").trim()] || "";
 }
@@ -843,6 +845,114 @@ export async function recordSupabaseTahfidzSetoran(
   });
   if (!result || typeof result !== "object" || result.success !== true) {
     throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi pencatatan setoran.");
+  }
+  return result as JsonObject;
+}
+
+export async function listSupabaseTahfidzPeerReviews(
+  tenantIdentifier: string,
+  actorSupabaseUid: string,
+  legacyRole: string,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(legacyRole);
+  if (!["santri", "ustadz"].includes(expectedRole)) {
+    throw new SupabaseTahfidzError(403, "Penilaian antar-santri hanya tersedia bagi Santri dan Ustadz.");
+  }
+  const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  const result = await supabaseRequest("/rest/v1/rpc/get_tenant_tahfidz_peer_review_snapshot", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+    }),
+  });
+  if (!result || typeof result !== "object" || Array.isArray(result)
+    || !Array.isArray(result.reviews) || !Array.isArray(result.reviewableRecords)) {
+    throw new SupabaseTahfidzError(503, "Ringkasan penilaian Tahfidz belum dapat dimuat.");
+  }
+  return result as JsonObject;
+}
+
+export async function submitSupabaseTahfidzPeerReview(
+  tenantIdentifier: string,
+  actorSupabaseUid: string,
+  legacyRole: string,
+  payloadValue: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(legacyRole);
+  if (expectedRole !== "santri") {
+    throw new SupabaseTahfidzError(403, "Hanya Santri yang dapat mengirim penilaian setoran.");
+  }
+  if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
+    throw new SupabaseTahfidzError(400, "Data penilaian tidak valid.");
+  }
+  const payload = payloadValue as JsonObject;
+  const recordId = String(payload.recordId || "").trim();
+  const clientRequestId = String(payload.clientRequestId || "").trim();
+  const reviewText = boundedText(payload.reviewText, 1200, "Isi penilaian", true);
+  if (!isUuid(recordId) || !isUuid(clientRequestId) || reviewText.length < 10) {
+    throw new SupabaseTahfidzError(400, "Isi penilaian atau kunci permintaan tidak valid.");
+  }
+  const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  const result = await supabaseRequest("/rest/v1/rpc/submit_tenant_tahfidz_peer_review", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_record_id: recordId,
+      p_review_text: reviewText,
+      p_client_request_id: clientRequestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true || !isUuid(String(result.reviewId || ""))) {
+    throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi penyimpanan penilaian.");
+  }
+  return result as JsonObject;
+}
+
+export async function moderateSupabaseTahfidzPeerReview(
+  tenantIdentifier: string,
+  actorSupabaseUid: string,
+  legacyRole: string,
+  reviewIdValue: unknown,
+  payloadValue: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(legacyRole);
+  if (expectedRole !== "ustadz") {
+    throw new SupabaseTahfidzError(403, "Hanya Ustadz pengampu yang dapat memoderasi penilaian.");
+  }
+  const reviewId = String(reviewIdValue || "").trim();
+  if (!isUuid(reviewId) || !payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
+    throw new SupabaseTahfidzError(400, "Data moderasi tidak valid.");
+  }
+  const payload = payloadValue as JsonObject;
+  const decision = String(payload.decision || "").trim().toLowerCase();
+  if (!["approved", "rejected"].includes(decision)) {
+    throw new SupabaseTahfidzError(400, "Pilih setujui atau tolak penilaian.");
+  }
+  const moderationNote = boundedText(payload.moderationNote, 500, "Catatan moderasi", decision === "rejected");
+  if (decision === "rejected" && moderationNote.length < 5) {
+    throw new SupabaseTahfidzError(400, "Catatan penolakan minimal 5 karakter.");
+  }
+  const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  const result = await supabaseRequest("/rest/v1/rpc/moderate_tenant_tahfidz_peer_review", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_review_id: reviewId,
+      p_decision: decision,
+      p_moderation_note: moderationNote || null,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true || !isUuid(String(result.reviewId || ""))) {
+    throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi keputusan moderasi.");
   }
   return result as JsonObject;
 }
