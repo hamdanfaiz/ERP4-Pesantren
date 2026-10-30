@@ -4,9 +4,9 @@
 
 ## Verifikasi terbaru — 30 Oktober 2026
 
-- PR #13 head `2b93f96da3571a828fd63e70d0fe765ebaa154f8`; GitHub Actions [run 41001191872](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001191872) lulus **2/2 job**.
-- Build/typecheck, guard runtime Supabase-only, Docker/Compose, rehearsal migration Supabase lokal, **53 file pgTAP / 1.195 assertion**, API/tenant, tes filter unit Finance, Storage, dan backup/restore sintetis lulus.
-- Finance memiliki unit pada pengeluaran/ledger baru, RKAT baru, dan tagihan yang mewarisi unit kandidat/santri tertaut; pemetaan historis tetap eksplisit. Filter laporan Admin per unit sudah ditambahkan untuk tagihan, pengeluaran, buku besar, ringkasan, dan ekspor CSV serta lulus CI. Akademik, Asrama, dan data operasional lama masih memerlukan cakupan atau rekonsiliasi unit; integrasi lintas modul dan Analitik AI/PPOB yang fail-closed juga masih perlu diselesaikan atau ditetapkan batas rilisnya.
+- PR #13 head `d20c378081fff9a46c2ccc9057b7e442e8844db4`; GitHub Actions [run 41005427549](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41005427549) lulus **2/2 job**.
+- Build/typecheck, guard runtime Supabase-only, Docker/Compose, rehearsal 104 migration pada Supabase lokal sintetis, pgTAP (termasuk 12 assertion Akademik), API/tenant, NIS/Tahfidz serentak, Storage, dan backup/restore sintetis lulus.
+- Finance memiliki unit pada pengeluaran/ledger baru, RKAT baru, dan tagihan yang mewarisi unit kandidat/santri tertaut; pemetaan historis tetap eksplisit. Filter laporan Admin per unit sudah ditambahkan untuk tagihan, pengeluaran, buku besar, ringkasan, dan ekspor CSV serta lulus CI. Pada 30 Oktober, catatan inti Akademik (jadwal, jurnal, penilaian) memperoleh cakupan unit tenant-aware dan lulus CI; pemetaan kelas dan arsip historis masih terbuka. Asrama dan data operasional lain masih memerlukan cakupan atau rekonsiliasi unit; integrasi lintas modul dan Analitik AI/PPOB yang fail-closed juga masih perlu diselesaikan atau ditetapkan batas rilisnya.
 - PR #1–#11 masih Open/Draft, PR #12 merged, PR #13 Open/Draft. Tidak ada migration atau data yang ditulis ke Supabase live. Estimasi tetap sekitar **73%**.
 
 ## Perubahan definisi progres
@@ -34,7 +34,7 @@ Skrip migration, konfigurasi yang portabel, dan dokumentasi deployment tetap bag
 
 ## Pekerjaan pengembangan yang masih terbuka
 
-1. **Selesaikan cakupan area produk yang masih memiliki gap:** Manajemen Multi-Unit memiliki registri tenant; unit tersedia untuk pengeluaran/ledger dan RKAT baru serta diwariskan pada tagihan terkait kandidat/santri. Filter Finance Admin tersedia, tetapi tagihan lama yang belum terkait dan transaksi lama memerlukan pemetaan eksplisit; Akademik, Asrama, serta data operasional lain masih butuh cakupan unit. Analitik AI dan PPOB/Layanan masih fail-closed. Rincian ada di [checkpoint Multi-Unit 30 Oktober](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
+1. **Selesaikan cakupan area produk yang masih memiliki gap:** Manajemen Multi-Unit memiliki registri tenant; unit tersedia untuk pengeluaran/ledger dan RKAT baru, tagihan terkait kandidat/santri, dan catatan inti Akademik. Filter Finance Admin tersedia, tetapi tagihan/transaksi lama dan arsip Akademik memerlukan pemetaan eksplisit. UI pemetaan unit untuk kelas Akademik dan cakupan unit Asrama serta data operasional lain masih terbuka. Analitik AI dan PPOB/Layanan masih fail-closed. Rincian ada di [checkpoint Multi-Unit 30 Oktober](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
 2. **Bersihkan sisa source legacy Firebase.** Cutover runtime Supabase-only sudah terverifikasi di CI run 40973057285: grafik frontend aktif tidak mengimpor Firebase, paket Firebase dikecualikan dari runtime production, dan smoke test production lulus tanpa paket tersebut. Kode legacy/import Firebase masih ada dalam source tree tetapi gate-nya selalu tertutup; hapus atau arsipkan jalur ini setelah memeriksa dependensi/tsconfig. Tidak ada data Firestore yang perlu disalin.
 3. **Tutup integrasi lintas modul.** Verifikasi referensi data, aturan tenant dan permission, transaksi idempoten, validasi status, serta jejak audit pada alur yang saling terhubung.
 4. **Lengkapi verifikasi pengembangan untuk paket self-hosted.** Pastikan konfigurasi, startup, health check, upgrade schema, pencadangan/pemulihan, dan panduan VPS/on-premise konsisten dan dapat direproduksi.
@@ -67,8 +67,16 @@ Angka 100% **tidak menyatakan deployment produksi atau UAT telah dilakukan**. Ti
 ## Implementasi registri unit — 30 Oktober 2026
 
 - Kode Manajemen Multi-Unit kini disiapkan pada branch PR #13; checkpoint rinci: [CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
-- Source berisi 103 migration setelah penambahan Finance expense unit-scope `20270128000000`, RKAT unit-scope `20270129000000`, dan pemetaan eksplisit pengeluaran Finance lama `20270131000000`. CI merehearsal migration dan pgTAP di Supabase lokal sintetis. Migration belum diterapkan ke Supabase live; flag runtime tetap mati secara bawaan.
-- Estimasi pengembangan tetap **73%**. Perubahan ini belum menerapkan isolasi tingkat unit pada transaksi akademik, keuangan, asrama, atau modul lainnya.
+- Source berisi 104 migration setelah penambahan Finance expense unit-scope `20270128000000`, RKAT unit-scope `20270129000000`, pemetaan pengeluaran Finance lama `20270131000000`, dan Akademik `20270201000000`. CI merehearsal migration dan pgTAP di Supabase lokal sintetis. Migration belum diterapkan ke Supabase live; flag runtime tetap mati secara bawaan.
+- Estimasi pengembangan tetap **73%**. Catatan Akademik baru memiliki isolasi unit; pemetaan kelas/histori, Asrama, dan domain operasional lain belum lengkap.
+
+## Checkpoint cakupan unit Akademik — 30 Oktober 2026
+
+- Commit `d20c378081fff9a46c2ccc9057b7e442e8844db4` pada PR #13 menambah `academic_records.organization_unit_id`, relasi tenant-unit untuk catatan Akademik dan metadata kelas, indeks pencarian, serta aturan transaksi untuk jadwal, jurnal, dan penilaian.
+- Admin dapat menyaring catatan menurut unit atau meninjau catatan lama yang belum dipetakan. Unit untuk jadwal/jurnal wajib aktif; pilihan pengajar mengikuti unit. Penilaian mengambil unit santri dari database. Ustadz dibatasi ke unit profilnya. Kelas lama tanpa unit tetap dapat dipakai sebagai kelas bersama tenant; antarmuka pemetaan kelas ke unit dan rekonsiliasi histori belum tersedia.
+- Tes pgTAP baru memiliki 12 assertion untuk konflik jadwal dalam/antar-unit, pengajar lintas unit, penilaian terhadap unit santri, jurnal Ustadz, serta marker internal. Supabase Preview dilewati karena branch tidak ditautkan ke Supabase Branch.
+- GitHub Actions [run 41005427549](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41005427549) lulus **2/2 job** pada commit tersebut. Job frontend/typecheck/build/Docker dan job database/rehearsal/pgTAP/API/Storage/backup-restore sintetis seluruhnya lulus.
+- Migration ini belum diterapkan ke staging atau production. Estimasi penyelesaian pengembangan tetap **sekitar 73%**; Asrama, pemetaan kelas dan histori Akademik, domain operasional lain, paritas PR lama, dan pilihan fitur yang fail-closed masih terbuka. PR #13 tetap Open/Draft dan belum siap merge.
 
 
 ## Verifikasi CI untuk checkpoint — 30 Oktober 2026
