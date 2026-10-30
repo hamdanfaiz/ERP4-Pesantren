@@ -105,4 +105,3 @@ Sebelum login pertama dan aktivasi runtime:
 5. Simpan hanya hasil yang disanitasi. Rotasi secret Supabase dan password database yang pernah dibagikan sebelum go-live.
 
 Lihat [kesiapan komersial](../active/00_PRODUCT/COMMERCIAL_READINESS.md), [checkpoint target Supabase](../active/06_DATABASE/CHECKPOINT_SUPABASE_TARGET_2026-10-30.md), dan [tindakan lokal tim backend](../active/06_DATABASE/TEAM_LOCAL_READINESS_ACTIONS_2026-10-26.md) untuk status serta runbook terkini.
-
