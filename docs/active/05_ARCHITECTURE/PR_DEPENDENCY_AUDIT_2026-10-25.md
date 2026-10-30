@@ -400,3 +400,10 @@ Langkah berikutnya setelah akses target pulih: baca ulang ledger dan tabel targe
 - Perbandingan commit untuk setiap head PR #1–#10 dengan `main` pada merge PR #12 (`c8738185ff6e5080ae427ef0021ee25681036c40`) menunjukkan riwayat divergen dari merge-base lama `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Tip branch lama bukan leluhur `main`; masing-masing memiliki 1–84 commit yang tidak ada dalam sejarah `main`. Perubahan yang setara mungkin sudah ditulis ulang pada PR #13, tetapi harus dibuktikan lewat pemeriksaan fitur/file.
 - **Disposisi:** perlakukan #1–#10 sebagai PR lama yang ditutup tanpa merge, bukan pekerjaan yang otomatis selesai. Jangan hapus branch atau menganggap seluruh isi sudah tersedia. Gunakan matriks paritas di dokumen ini dan `PR11_TO_PR13_FEATURE_PARITY.md` untuk memeriksa komponen unik—terutama dokumentasi komersial #2, provisioning #3, dan bagian deployment non-Firebase #4—lalu port yang masih dibutuhkan ke jalur cutover #13.
 - Saat revalidasi ini, #11 dan #13 tetap Open/Draft; #12 Closed/Merged. PR #13 tetap jalur integrasi utama, belum dinyatakan selesai.
+
+
+## Koreksi status PR lama setelah klarifikasi — 30 Oktober 2026
+
+- Penutupan PR #1–#10 yang dicatat pada bagian sebelumnya ternyata tidak sesuai dengan instruksi pemilik: tutup hanya PR yang terbukti selesai. Saya salah menyimpulkan status draft lama sebagai layak ditutup tanpa merge atau pemeriksaan paritas yang tuntas.
+- Pada 30 Oktober 2026 sekitar 02:22 UTC, PR #1–#10 dibuka kembali. Status terkini setelah tindakan tersebut sudah diverifikasi: semuanya Open/Draft dan `merged=false`. PR #12 tetap Closed/Merged; PR #11 dan #13 tetap Open/Draft.
+- Catatan penutupan pada bagian sebelumnya adalah snapshot historis, bukan status saat ini. PR #1–#10 belum dianggap selesai. Jangan menutup atau menggabungkan stack lama sampai perubahan yang dibutuhkan dibandingkan dengan jalur #13 dan keputusan integrasi ditinjau.
