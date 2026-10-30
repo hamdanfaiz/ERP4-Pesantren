@@ -1,7 +1,7 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
 **Status:** dokumen penerimaan internal. Dokumen ini tidak menyatakan produk siap dijual atau siap produksi.
-**Diperbarui:** 27 Oktober 2026
+**Diperbarui:** 30 Oktober 2026
 **Jalur rilis utama:** PR #13, self-hosted, satu instalasi per pesantren.
 
 ## Kontrak produk
@@ -17,9 +17,9 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 ## Status teknis berdasarkan bukti
 
 - Kode aktif PR #13 mengarahkan modul operasional ke API Supabase. Firebase Admin dinonaktifkan pada semua environment; paket Firebase tidak masuk ke dependensi production. Impor arsip Firestore dinonaktifkan lewat kebijakan global, dan data contoh akan dibuat manual.
-- CI [run 40509563661](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40509563661) lulus pada dua job untuk head `8a727916ac14c3f0d524b26ba6c657ea08b0a533`: typecheck/build/container serta Supabase lokal, upgrade rehearsal, pgTAP, API auth/tenant, transaksi serentak, Storage, dan backup/restore sintetis. Suite onboarding PPDB juga memeriksa relasi santri/wali/NIS dan retry. Bukti ini berasal dari CI lokal, bukan UAT pelanggan.
-- Source PR #13 memiliki 96 migration. Staging mencatat 47 versi hingga `20261206000000`, sehingga 49 versi belum tercatat. Pemeriksaan staging yang tersedia bersifat baca-saja; tidak ada migration yang diterapkan.
-- Katalog staging menunjukkan 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antartabel tenant memasangkan `tenant_id`; tabel `anon` tanpa SELECT dan `authenticated` tanpa hak tulis langsung.
+- CI terbaru [run 40999619996](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40999619996) lulus 2/2 job pada head `ecccee36359d79ea748e7fbaa461672518de227d`: typecheck/build/container serta Supabase lokal, upgrade rehearsal, **53 file pgTAP / 1.195 assertion**, API auth/tenant, transaksi serentak, Storage, dan backup/restore sintetis. Bukti ini berasal dari CI lokal dan data sintetis, bukan UAT pelanggan.
+- Source PR #13 saat ini memiliki 103 file migration. Snapshot baca-saja staging terakhir yang tercatat (27 Oktober) menunjukkan 47 versi hingga `20261206000000`; 56 versi source belum tercatat pada snapshot tersebut. Konektor gagal memberikan inventaris terbaru pada 30 Oktober (`INVALID_ARGUMENT`), sehingga angka ini bukan daftar migration yang boleh langsung diterapkan. Tidak ada migration yang diterapkan.
+- Snapshot katalog staging terdahulu menunjukkan 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antartabel tenant memasangkan `tenant_id`; tabel `anon` tanpa SELECT dan `authenticated` tanpa hak tulis langsung. Baseline perlu dibaca ulang sebelum rehearsal.
 - Runtime feature flags sengaja mati secara default sampai migration, provisioning tenant, Auth, role/permission, dan UAT masing-masing modul lulus.
 - Docker/Compose dan smoke test tersedia pada branch cutover. Belum ada bukti instalasi baru dari server kosong milik pelanggan, upgrade/restore di VPS/on-premise, atau uji beban berskala pesantren besar.
 
@@ -29,7 +29,7 @@ Snapshot teknis ini bukan pengganti audit endpoint, pemeriksaan definisi seluruh
 
 ### 1. Skema, relasi, dan transaksi
 
-- Tim backend merekonsiliasi 49 migration yang belum tercatat tanpa menandai semuanya sebagai applied secara manual.
+- Baca ulang ledger staging, lalu rekonsiliasi selisih dengan 103 file migration source. Snapshot 27 Oktober menunjukkan selisih 56 versi; jangan tandai versi sebagai applied tanpa bukti schema dan jangan anggap semua versi itu siap diterapkan.
 - Sebelum penerapan, simpan backup yang dapat dipulihkan dan rehearsalkan seluruh urutan migration pada salinan/environment staging.
 - Verifikasi signature dan definisi function, constraint, index, RLS, Storage policy, dan Data API grant terhadap source commit yang akan dirilis.
 - Uji transaksi kritis: NIS unik bersamaan, onboarding PPDB-ke-santri, assignment kamar, pembayaran/jurnal, stok/dompet koperasi, buku dan peminjaman, sesi/setoran Tahfidz, serta idempotensi retry.
@@ -81,7 +81,7 @@ Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika 
 ## Urutan kerja yang disarankan
 
 1. Tim backend menghubungkan akses tulis yang tepat ke **staging** dan menyiapkan backup/restore drill. Konektor yang tersedia pada Codex saat ini hanya memberi baca ke staging; jangan gunakan project Supabase lain sebagai pengganti.
-2. Review dan rehearsalkan 49 migration tersisa pada lingkungan yang dapat dipulihkan; tidak ada importer Firestore yang perlu dijalankan.
+2. Baca ulang ledger, review, dan rehearsalkan urutan migration yang benar-benar belum diterapkan pada lingkungan yang dapat dipulihkan; tidak ada importer Firestore yang perlu dijalankan.
 3. Jalankan UAT Auth, role/tenant, modul kritis, Storage, dan error recovery pada staging.
 4. Lakukan clean install, upgrade, dan pemindahan host pada VPS Linux serta VM on-premise representatif.
 5. Selesaikan rotasi secret, operasi/support, lisensi, pilot, dan sizing beban.
@@ -89,5 +89,5 @@ Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika 
 
 ## Perkiraan checkpoint
 
-Estimasi terakhir adalah **73% kematangan fitur** dan **46% kesiapan go-live**. Angka ini perkiraan internal, bukan metrik terukur. CI, ERD, atau snapshot RLS yang lulus tidak menaikkan status go-live tanpa staging migration, UAT, dan simulasi environment pelanggan.
+Estimasi terakhir adalah **73% penyelesaian pengembangan**. Angka **46% kesiapan go-live** adalah catatan historis; angka itu tidak dipakai untuk melaporkan progres project. Deployment dan UAT dikerjakan tim penerapan. CI, ERD, atau snapshot RLS yang lulus tidak menggantikan migration staging, UAT, dan simulasi environment pelanggan.
 

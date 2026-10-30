@@ -4,9 +4,9 @@
 
 ## Verifikasi terbaru — 30 Oktober 2026
 
-- PR #13 head `6ba1fdb8bfcfcd5834c9063c4cd7d37953c08c56`; GitHub Actions [run 40994025913](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40994025913) lulus **2/2 job**.
-- Build/typecheck, guard runtime Supabase-only, Docker/Compose, migration rehearsal Supabase lokal, **1.130 pgTAP assertion**, API/tenant, Storage, dan backup/restore sintetis lulus.
-- Finance unit scope kini mencakup pengeluaran/ledger baru dan RKAT baru. Tagihan, Akademik, Asrama, data lama, integrasi penuh lintas modul, serta Analitik AI dan PPOB/Layanan yang fail-closed masih merupakan pekerjaan pengembangan.
+- PR #13 head `ecccee36359d79ea748e7fbaa461672518de227d`; GitHub Actions [run 40999619996](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40999619996) lulus **2/2 job**.
+- Build/typecheck, guard runtime Supabase-only, Docker/Compose, rehearsal migration Supabase lokal, **53 file pgTAP / 1.195 assertion**, API/tenant, Storage, dan backup/restore sintetis lulus.
+- Finance unit scope mencakup pengeluaran/ledger baru, RKAT, dan antrean pemetaan eksplisit pengeluaran lama. Tagihan, Akademik, Asrama, serta data operasional lama masih memerlukan cakupan unit; integrasi lintas modul dan Analitik AI/PPOB yang fail-closed juga masih perlu diselesaikan atau ditetapkan batas rilisnya.
 - PR #1–#11 masih Open/Draft, PR #12 merged, PR #13 Open/Draft. Tidak ada migration atau data yang ditulis ke Supabase live. Estimasi tetap sekitar **73%**.
 
 ## Perubahan definisi progres
@@ -67,7 +67,7 @@ Angka 100% **tidak menyatakan deployment produksi atau UAT telah dilakukan**. Ti
 ## Implementasi registri unit — 30 Oktober 2026
 
 - Kode Manajemen Multi-Unit kini disiapkan pada branch PR #13; checkpoint rinci: [CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
-- Source berisi 101 migration setelah penambahan Finance expense unit-scope `20270128000000` dan RKAT unit-scope `20270129000000`. CI merehearsal migration dan pgTAP di Supabase lokal sintetis. Migration belum diterapkan ke Supabase live; flag runtime tetap mati secara bawaan.
+- Source berisi 103 migration setelah penambahan Finance expense unit-scope `20270128000000`, RKAT unit-scope `20270129000000`, dan pemetaan eksplisit pengeluaran Finance lama `20270131000000`. CI merehearsal migration dan pgTAP di Supabase lokal sintetis. Migration belum diterapkan ke Supabase live; flag runtime tetap mati secara bawaan.
 - Estimasi pengembangan tetap **73%**. Perubahan ini belum menerapkan isolasi tingkat unit pada transaksi akademik, keuangan, asrama, atau modul lainnya.
 
 
