@@ -10,9 +10,9 @@ Pemeriksaan terbaru pada repository `hamdanfaiz/ERP4-Pesantren` menunjukkan:
 | #12 | Closed / Merged | Sudah menjadi bagian `main`. |
 | #13 | Open / Draft | Belum merged dan belum siap ditutup. Tetap menjadi PR utama untuk sumber Supabase/self-hosted yang sedang diselesaikan. |
 
-Head PR #13 adalah `0fb46e41351b2d8486e0d5802dc475a285b103dd`; head kode terakhir yang diuji adalah `430929f15f36ba3b238c5809d6252d60c0055c41`. GitHub Actions [run 41030673093](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41030673093) lulus **2/2 job** pada head terakhir. Ini mencakup build/typecheck, pemeriksaan runtime, Docker/Compose, rehearsal migration Supabase lokal sintetis, pgTAP, API/tenant, transaksi bersamaan, Storage dan backup/restore.
+Commit PR #13 yang diuji terakhir pada snapshot ini adalah `e33de842bdff555d229c6d314eb127c8f0e2bc08`. GitHub Actions [run 41033358731](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41033358731) lulus **2/2 job**, termasuk tes workflow izin dan kedisiplinan Asrama yang baru ditambahkan. Run itu mencakup build/typecheck, runtime, Docker/Compose, rehearsal migration Supabase lokal sintetis, pgTAP, API/tenant, transaksi bersamaan, Storage dan backup/restore.
 
-PR #13 tetap Draft karena audit integrasi lintas-modul belum tuntas, fitur Peer Review Tahfidz belum punya backend tersimpan, PPOB belum memiliki provider nyata, source legacy Firebase masih perlu dirapikan, dan target Supabase belum dapat dibaca untuk rekonsiliasi migration. Deployment hosting serta UAT dilakukan tim penerapan; tidak termasuk klaim yang telah diuji. Rincian dan daftar tindakan ada di [progres penyelesaian pengembangan](PROJECT_COMPLETION_PROGRESS_2026-10-30.md) dan [audit paritas PR #1–#11](PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
+PR #13 tetap Draft karena source audit lintas-modul belum sama dengan bukti paritas semua perilaku; Peer Review Tahfidz belum memiliki backend tersimpan; PPOB belum memiliki provider nyata; source arsip Firebase masih perlu diklasifikasi; dan target Supabase belum dapat dibaca untuk rekonsiliasi migration. Tes lokal sintetis lulus, tetapi deployment hosting serta UAT dilakukan tim penerapan dan tidak termasuk bukti CI. Rincian serta daftar tindakan ada di [progres penyelesaian pengembangan](PROJECT_COMPLETION_PROGRESS_2026-10-30.md), [audit integrasi lintas-modul](CROSS_MODULE_INTEGRATION_AUDIT_2026-10-30.md), dan [audit paritas PR #1–#11](PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
 
 ## Mengapa PR lama tidak ditutup sekarang
 
@@ -31,4 +31,4 @@ PR #13 hanya dapat ditandai siap review/merge setelah:
 5. CI hijau pada head final yang sama dengan source PR.
 6. Dokumentasi tim backend menyebut batas migrasi, environment dan cara deploy secara konsisten.
 
-**Status keputusan:** PR #13 belum selesai, tidak ditutup, dan tidak digabung. PR #1–#11 juga masih Open/Draft dan tidak ditutup pada checkpoint ini. PR #12 saja yang Closed/Merged. Tidak ada perubahan status GitHub yang dilakukan oleh audit ini.
+**Status keputusan:** PR #13 belum dinyatakan selesai, tetap Draft dan tidak digabung. PR #1–#11 juga masih Open/Draft dan tidak ditutup. PR #12 saja yang Closed/Merged. Tes tambahan Asrama sudah lulus CI, tetapi itu belum menghilangkan gap paritas dan akses target. Tidak ada PR yang ditutup atau digabung dalam checkpoint ini.

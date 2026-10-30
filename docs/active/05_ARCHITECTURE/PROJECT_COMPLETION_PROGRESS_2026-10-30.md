@@ -5,8 +5,9 @@
 **Perkiraan penyelesaian pengembangan: sekitar 73% (rentang 70–75%).** Ini angka kerja kasar tanpa WBS berbobot; deployment hosting dan UAT yang dikerjakan tim lain tidak dihitung. Saya belum menaikkan angka karena cakupan yang tersisa belum ditimbang dengan metode yang disepakati.
 
 - Sumber yang sedang disiapkan untuk ditinjau: PR #13, branch `codex/supabase-runtime-cutover-20261022`.
-- Head GitHub PR #13: `0fb46e41351b2d8486e0d5802dc475a285b103dd` (pembaruan dokumentasi terakhir); head kode yang diuji `430929f15f36ba3b238c5809d6252d60c0055c41`.
-- GitHub Actions [run 41030673093](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41030673093) lulus **2/2 job**. Bukti mencakup typecheck/build, guard runtime Firebase, Docker/Compose, rehearsal migrasi pada Supabase lokal sintetis, pgTAP, API/isolasi tenant, transaksi serentak, Storage, serta backup/pemulihan lokal.
+- Commit PR #13 yang baru diuji: `e33de842bdff555d229c6d314eb127c8f0e2bc08`. GitHub Actions [run 41033358731](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41033358731) lulus **2/2 job** setelah penambahan tes izin Asrama dan kedisiplinan.
+- Run tersebut mencakup typecheck/build, guard runtime Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP (termasuk dua tes Asrama baru), API/isolasi tenant, transaksi serentak, Storage, serta backup/pemulihan lokal.
+- Skor sekitar 73% tetap perkiraan kasar, bukan ukuran kontrak kerja atau klaim semua fitur lulus. Audit lintas-modul sudah didokumentasikan; paritas semua perilaku historis dan target Supabase masih belum terbukti.
 - CI tidak menguji database Supabase target, login pelanggan, deployment hosting atau UAT.
 
 ## Cakupan yang sudah ada pada source PR #13
@@ -20,7 +21,7 @@
 
 ## Pekerjaan pengembangan yang masih harus ditutup
 
-1. **Audit integrasi lintas-modul.** Buktikan kontrak tenant/role, relasi ID, transisi status, idempotensi/retry, audit dan kegagalan parsial untuk alur PPDB → Santri/Wali → Akademik/Asrama/Tahfidz/Finance.
+1. **Lengkapi bukti paritas integrasi.** Audit source alur PPDB → Santri/Wali → Akademik/Asrama/Tahfidz/Finance tercatat di [audit integrasi lintas-modul](CROSS_MODULE_INTEGRATION_AUDIT_2026-10-30.md). Tes CI terbaru membuktikan izin/kedisiplinan Asrama, tenant/role, state transition, dan retry; perilaku historis unik PR #1–#11 serta setiap jalur kegagalan lintas-modul masih perlu dicocokkan sebelum PR lama ditutup.
 2. **Tentukan cakupan Tahfidz Peer Review.** Belum memiliki backend tersimpan di Supabase. Jika masuk rilis awal, perlu rancangan izin wali/minor, berkas audio privat, moderasi, retensi, role dan tenant, lalu API/UI serta tes. Jika ditunda, label dan promosi fiturnya harus jelas.
 3. **Tetapkan status PPOB/Layanan.** Saat ini fail-closed. Aktivasi memerlukan provider dan kontrak API nyata, pengelolaan kredensial server, idempotensi, rekonsiliasi pembayaran, serta penanganan kegagalan/refund.
 4. **Rapikan source legacy Firebase.** Firebase tidak menjadi dependency jalur frontend/runtime yang diuji, namun sejumlah file archive/import masih berada di source. Audit referensi, tsconfig, script dan fungsi migrasi sebelum dibuang atau disimpan sebagai tooling yang jelas non-runtime.
@@ -42,7 +43,7 @@ Angka penyelesaian pengembangan di atas tidak mengklaim tiga pekerjaan ini telah
 |---|---|---|
 | #1–#11 | Open / Draft | Branch lama bertingkat; jangan merge terpisah karena sebagian bergantung pada PR lain atau membawa arsitektur transisi Firebase. |
 | #12 | Closed / Merged | Sudah masuk ke `main`. |
-| #13 | Open / Draft | Head `0fb46e41351b2d8486e0d5802dc475a285b103dd`; belum merged. `mergeable: true` hanya berarti tidak ada konflik Git, bukan bukti PR selesai atau disetujui. |
+| #13 | Open / Draft | Head pada snapshot ini `e33de842bdff555d229c6d314eb127c8f0e2bc08`; CI run `41033358731` lulus 2/2, tetapi source belum merged. Lulus CI tidak berarti seluruh cakupan produk sudah selesai. |
 
 **Keputusan saat ini:** jangan menutup atau menggabungkan PR #13 sampai gerbang engineering di atas selesai atau secara eksplisit dikeluarkan dari cakupan rilis. Setelah pengganti resmi masuk ke `main`, tutup PR lama yang benar-benar superseded; penutupan dan merge adalah status berbeda.
 
