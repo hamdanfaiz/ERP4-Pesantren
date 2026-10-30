@@ -68,7 +68,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 108);
+assert.equal(sourceMigrationsWithSql.length, 109);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -131,7 +131,7 @@ const observedStagingMigrations = sourceMigrationsWithSql
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
 assert.equal(observedStagingMigrations.length, 47);
-assert.equal(sourceMigrationsWithSql.length, 108);
+assert.equal(sourceMigrationsWithSql.length, 109);
 const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
 assert.equal(stagingBaseline.appliedCount, 47);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
