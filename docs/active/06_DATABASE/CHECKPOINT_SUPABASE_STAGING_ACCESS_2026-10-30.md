@@ -43,3 +43,11 @@ Jika query pertama menyatakan skema atau tabel tidak ditemukan, kirim pesan erro
 
 **Gerbang saat ini:** pemeriksaan ledger staging belum dapat dilakukan karena izin baca project belum tersedia. PR #13 tetap Open/Draft.
 
+## Pemeriksaan koneksi TLS lokal — 30 Oktober 2026
+
+- Uji koneksi menggunakan driver PostgreSQL dengan transaksi `READ ONLY` dan verifikasi sertifikat aktif. Ref project serta hostname pooler lebih dulu dicocokkan dengan target.
+- Uji berhenti sebelum query ledger dengan galat `SELF_SIGNED_CERT_IN_CHAIN`, termasuk setelah Node diminta menggunakan CA yang dipercaya Windows. **Tidak ada query ledger yang berhasil, dan tidak ada data atau skema yang diubah.**
+- Jangan mematikan validasi sertifikat (`rejectUnauthorized: false` atau `NODE_TLS_REJECT_UNAUTHORIZED=0`). Itu akan menghilangkan pemeriksaan identitas server.
+- Jalur yang disarankan: unduh root certificate dari **Database Settings → SSL Configuration** pada project target, lalu gunakan mode `verify-full` agar CA dan hostname diperiksa. Panduan resmi Supabase menjelaskan pengaturan sertifikat ini di [Connect to your database](https://supabase.com/docs/guides/database/connecting-to-postgres).
+- Alternatif tanpa kredensial lokal: jalankan dua query baca-saja pada bagian “Tindakan yang diperlukan” melalui SQL Editor project target, lalu berikan hanya hasil versi migrasi dan nama tabel. Jangan kirim secret, password, access token, atau data santri.
+- Setelah CA/akses baca diperbaiki, ulangi preflight dan rekonsiliasi seluruh versi terhadap file `supabase/migrations`. Sampai bukti ini tersedia, ledger staging tetap belum terverifikasi dan PR #13 harus tetap Draft.
