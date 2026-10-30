@@ -27,14 +27,17 @@ PR #1–#11 bercabang bertingkat dan divergen dari PR #13. Membandingkan jumlah 
 | #10 | UI Finance, bukti pembayaran dan Storage | `src/pages/SupabaseFinanceManager.tsx`, `src/server/financeProofStorage.ts`, API bukti, bucket privat dan tes upload/download | Ada pengganti source dan tes sintetis | Uji hak akses, batas unggahan dan bukti pembayaran pada staging dengan akun sintetis |
 | #11 | Master Data, Asrama, Tahfidz dan UI Supabase | Master Data/Onboarding, API dan UI Asrama, `src/server/supabaseTahfidz.ts`, `src/pages/TahfidzManager.tsx`, `src/pages/SupabaseTahfidzSessions.tsx`, migration dan tes tiap alur | Alur inti punya pengganti; **capaian/badges kini dihitung dari catatan Supabase dengan cakupan roster tenant**; peer review belum memakai Supabase | Lengkapi atau keluarkan secara eksplisit peer review dari cakupan rilis; tutup gap unit/integrasi; verifikasi fitur pada matriks Tahfidz |
 
+## Kontrol runtime Firebase yang sudah diverifikasi
+
+Pada head PR #13 `1895006c74573ae1d5d09f773eba524607631cb6`, jalur runtime Firebase telah diaudit dan fail-closed: `SUPABASE_ONLY_RUNTIME` menonaktifkan graph Firebase browser; `legacyArchiveImportEnabled` dan `isLegacyFirebaseAdminEnabled` selalu `false`; endpoint impor server memakai gate tersebut. CI run [41019492332](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41019492332) lulus pemeriksaan graph frontend, dependensi production tanpa paket Firebase, gate Firebase Admin, serta smoke test image production tanpa paket Firebase—termasuk saat environment `LEGACY_FIREBASE_ADMIN_ENABLED=true`. Kode import legacy masih tersimpan untuk kompatibilitas source, tetapi bukan runtime dan tidak dapat diaktifkan oleh konfigurasi. Tidak ada record Firestore yang perlu disalin.
+
 ## Gap yang tetap menghalangi kesiapan pengembangan
 
 1. **Tahfidz belum paritas penuh.** Tab `badges` kini menampilkan enam capaian progres yang dihitung dari data tersimpan Supabase dengan tes role/tenant/paginasi. Tab `peer-review` tetap placeholder saat runtime Supabase aktif; fitur itu belum boleh dilaporkan selesai.
 2. **Analitik AI dan PPOB/Layanan masih fail-closed.** Keputusan cakupan rilis dan pengembangan fitur belum tuntas.
 3. **Audit integrasi antar-modul belum menyeluruh.** Perlu bukti relasi ID, tenant, unit, status, transaksi/retry, audit dan kegagalan parsial pada alur lintas modul.
-4. **Kode legacy Firebase masih ada sebagai source arsip/import yang dinonaktifkan.** CI membuktikan bundle/runtime aktif tidak memakai Firebase; audit akhir harus memastikan jalur arsip tetap tidak dapat menjadi runtime secara tidak sengaja.
-5. **Ledger proyek Supabase target `ptsasgdvgrbdtgyqieie` tidak dapat dibaca oleh konektor pada sesi ini.** Tidak ada migration live yang diterapkan. Tim perlu memberi akses baca terbatas atau memberikan ekspor ledger yang sudah disanitasi agar urutan dapat direkonsiliasi dan rehearsal dilakukan.
-6. **Pengujian database lokal sintetis bukan pengganti staging/UAT.** Deployment hosting dan UAT tetap dilakukan tim penerapan; sebelum itu source, konfigurasi dan migration perlu direview terhadap environment tujuan.
+4. **Ledger proyek Supabase target `ptsasgdvgrbdtgyqieie` tidak dapat dibaca oleh konektor pada sesi ini.** Tidak ada migration live yang diterapkan. Tim perlu memberi akses baca terbatas atau memberikan ekspor ledger yang sudah disanitasi agar urutan dapat direkonsiliasi dan rehearsal dilakukan.
+5. **Pengujian database lokal sintetis bukan pengganti staging/UAT.** Deployment hosting dan UAT tetap dilakukan tim penerapan; sebelum itu source, konfigurasi dan migration perlu direview terhadap environment tujuan.
 
 ## Keputusan PR
 
