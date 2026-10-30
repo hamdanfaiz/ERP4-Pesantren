@@ -4,9 +4,9 @@
 
 ## Verifikasi terbaru — 30 Oktober 2026
 
-- Head kode PR #13 yang diuji adalah `6678e7337431b74be70ba69d48b80341ba19af69`. GitHub Actions [run 41024972207](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41024972207) lulus **2/2 job wajib**.
-- CI mencakup typecheck/build, guard runtime Supabase-only, Docker/Compose dan smoke test image, rehearsal migrasi serta pgTAP lokal sintetis, API/isolasi tenant, transaksi serentak, Storage, dan backup/pemulihan. Tidak ada migration/data Supabase live yang diterapkan. Supabase Preview tidak berjalan karena branch tidak terhubung.
-- Perbaikan terakhir menyembunyikan tombol/modal contoh AI Audio Assessment saat runtime Supabase aktif. Analitik Operasional mulai membaca snapshot Supabase dengan izin modul terpisah dan indikator berbasis aturan; tidak mengklaim prediksi AI. Peer Review Tahfidz belum tersedia, PPOB/Layanan tetap fail-closed, dan audit integrasi lintas modul serta kesetaraan perilaku PR lama belum tuntas.
+- Head kode PR #13 yang diuji adalah `430929f15f36ba3b238c5809d6252d60c0055c41`. GitHub Actions [run 41029985020](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41029985020) lulus **2/2 job wajib**.
+- CI mencakup typecheck/build, guard runtime Supabase-only, Docker/Compose dan smoke test image, rehearsal migrasi serta pgTAP lokal sintetis, API/isolasi tenant termasuk izin Analitik, transaksi serentak, Storage, dan backup/pemulihan. Tidak ada migration/data Supabase live yang diterapkan. Supabase Preview dilewati karena branch tidak terhubung.
+- Analitik Operasional membaca snapshot Supabase, memakai izin modul terpisah, menyaring data menurut izin sumber, dan menyajikan indikator berbasis aturan tanpa klaim prediksi AI. Peer Review Tahfidz belum tersedia, PPOB/Layanan tetap fail-closed, dan audit integrasi lintas modul serta kesetaraan perilaku PR lama belum tuntas.
 - Status GitHub: PR #1–#11 Open/Draft, #12 Closed/Merged, #13 Open/Draft. Target Supabase `ptsasgdvgrbdtgyqieie` belum dapat diverifikasi: konektor menolak akses dan koneksi baca-saja berhenti pada validasi TLS `SELF_SIGNED_CERT_IN_CHAIN`. Tidak ada query ledger yang berhasil.
 - Estimasi pengembangan sekitar **73%** tetap perkiraan kasar tanpa WBS berbobot, bukan pernyataan siap deploy. Gerbang pengembangan terbuka tercatat di bagian berikut.
 
