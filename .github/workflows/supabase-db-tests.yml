@@ -81,6 +81,9 @@ jobs:
       - name: Verify tenant business-day calculations
         run: npm run test:business-date
 
+      - name: Verify dashboard cash-flow accounting
+        run: npm run test:dashboard-cashflow
+
       - name: Verify Master Data pagination and nested PII minimization
         run: npm run test:master-data-pagination
 
