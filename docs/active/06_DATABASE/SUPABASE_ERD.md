@@ -6,7 +6,7 @@ Dokumen ini menjelaskan **target relasional Supabase/PostgreSQL**, sebagai penda
 
 Sumber skema adalah berkas SQL di `supabase/migrations/` pada checkout ini. ERD ini merangkum relasi utama; definisi kolom, constraint, fungsi, trigger, indeks, RLS, dan grants tetap mengikuti migrasi SQL.
 
-> **Batas versi:** checkout berada pada commit PR #13 `8d9dc4c3555b69b223aa9f36c78c2e7e4cf7858b`. Worktree ini juga memuat tiga migrasi Wali yang belum di-commit/masuk ke head remote PR #13: `20270102000000_guardian_accounts_and_invitations.sql`, `20270103000000_guardian_finance_access.sql`, dan `20270104000000_guardian_boarding_access.sql`. Diagram menampilkan skema worktree saat ini. Migrasi tersebut belum diterapkan ke Supabase Production.
+> **Batas versi:** diagram ini adalah ringkasan yang dapat berubah, bukan bukti migrasi telah diterapkan. Sumber skema adalah berkas `supabase/migrations/` pada commit aplikasi yang sedang diuji atau dirilis. Sebelum rehearsal atau penerapan, cocokkan seluruh migration dengan ledger database staging, tinjau perbedaan, dan siapkan backup yang dapat dipulihkan.
 
 ## Prinsip model data
 
