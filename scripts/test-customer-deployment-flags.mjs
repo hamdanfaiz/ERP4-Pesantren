@@ -36,6 +36,8 @@ const serverFlags = [...new Set(collectMatches(serverSource, /process\.env\.(SUP
 const compose = read("docker-compose.yml");
 const dockerfile = read("Dockerfile");
 const envExample = read(".env.example");
+const settingsService = read("src/services/systemSettingsService.ts");
+const settingsUi = read("src/pages/SettingsManager.tsx");
 const indexHtml = read("index.html");
 const runtimeKeys = read("src/publicRuntimeConfigKeys.ts");
 const runtimeConfig = read("src/runtimeConfig.ts");
@@ -73,6 +75,23 @@ for (const name of serverFlags) {
 assert.match(indexHtml, /src="\/src\/bootstrap\.ts"/, "index.html must load the runtime bootstrap");
 const bootstrap = read("src/bootstrap.ts");
 assert.ok(bootstrap.indexOf('fetch("/runtime-config.json"') < bootstrap.indexOf('import("./main")'), "Runtime settings must load before the browser app");
+const blockBetween = (source, startMarker, endMarker) => {
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start + startMarker.length);
+  assert.ok(start >= 0 && end > start, `Missing source block: ${startMarker}`);
+  return source.slice(start, end);
+};
+const orgDefaults = blockBetween(settingsService, "export const DEFAULT_ORG_INFO", "export const DEFAULT_INTEGRATIONS");
+const integrationDefaults = blockBetween(settingsService, "export const DEFAULT_INTEGRATIONS", "export const DEFAULT_MOBILE_CONFIG");
+const mobileDefaults = blockBetween(settingsService, "export const DEFAULT_MOBILE_CONFIG", "export const SYSTEM_ROLES");
+assert.ok(orgDefaults.includes('schoolName: "Pesantren"'), "Default organization name must be generic, not a fake customer identity");
+assert.ok(orgDefaults.includes('pageTitleFormat: "ERP4 Pesantren | {schoolName}"'), "Default page title must use the product brand");
+assert.ok(integrationDefaults.includes('waGatewayEndpoint: ""') && integrationDefaults.includes('smtpHost: ""') && integrationDefaults.includes('smtpUser: ""') && integrationDefaults.includes('smtpPort: ""'), "New tenant integrations must start unconfigured");
+assert.ok(mobileDefaults.includes('supportWhatsapp: ""'), "New tenant support contact must start unconfigured");
+for (const placeholder of ["AI Studio", "pesantrenaistudio.edu", "+62 812 3456 7890", "wagw.example.com"]) assert.ok(!settingsService.includes(placeholder), `Demo value remains in tenant defaults: ${placeholder}`);
+for (const stale of ["AI Studio automatically", "Secrets panel in the AI Studio", "Cloud Run Secret Manager", "MY_GEMINI_API_KEY", "MY_APP_URL"]) assert.ok(!envExample.includes(stale), `.env.example still contains obsolete setup text: ${stale}`);
+assert.ok(settingsUi.includes("penyimpanan rahasia milik environment deployment"), "Settings UI must explain generic customer secret storage");
+
 const routeStart = server.indexOf('app.get("/runtime-config.json"');
 assert.ok(routeStart >= 0, "Server must expose a runtime config endpoint");
 const route = server.slice(routeStart, server.indexOf("\n  });", routeStart) + 6);
