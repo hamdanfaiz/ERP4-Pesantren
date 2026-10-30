@@ -135,7 +135,7 @@ SELECT throws_ok(
     '{"unitId":"e7000000-0000-4000-8000-000000000031","periodLabel":"Overlap","periodStart":"2027-01-01","periodEnd":"2027-12-31","lines":[{"department":"Operasional","category":"Listrik","allocatedAmount":1}]}'::jsonb,
     'e7000000-0000-4000-8000-000000000102'
   )$$,
-  '23P01', 'Rentang periode bertabrakan dengan rencana anggaran tenant lain', 'overlapping budget periods are rejected'
+  '23P01', 'Rentang periode bertabrakan dengan rencana anggaran pada unit ini', 'overlapping budget periods are rejected'
 );
 SELECT throws_ok(
   $$SELECT public.manage_tenant_finance_budget(
@@ -189,7 +189,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT public.manage_tenant_finance_budget(
     'f8000000-0000-4000-8000-000000000006', 'f8000000-0000-4000-8000-000000000021', 'admin',
-    'save_draft', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005'),
+    'save_draft', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005' AND unit_id = 'e7000000-0000-4000-8000-000000000031' AND period_label = 'TA 2026/2027'),
     '{"unitId":"f8000000-0000-4000-8000-000000000031","periodLabel":"Cross-tenant","periodStart":"2028-01-01","periodEnd":"2028-12-31","lines":[{"department":"Operasional","category":"Listrik","allocatedAmount":1}]}'::jsonb,
     'f8000000-0000-4000-8000-000000000102'
   )$$,
@@ -199,14 +199,14 @@ SELECT throws_ok(
 SELECT is(
   public.manage_tenant_finance_budget(
     'e7000000-0000-4000-8000-000000000005', 'e7000000-0000-4000-8000-000000000011', 'admin',
-    'approve', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005'), '{}'::jsonb,
+    'approve', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005' AND unit_id = 'e7000000-0000-4000-8000-000000000031' AND period_label = 'TA 2026/2027'), '{}'::jsonb,
     'e7000000-0000-4000-8000-000000000201'
   )->>'status', 'approved', 'Admin can approve a complete draft'
 );
 SELECT is(
   public.manage_tenant_finance_budget(
     'e7000000-0000-4000-8000-000000000005', 'e7000000-0000-4000-8000-000000000011', 'admin',
-    'approve', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005'), '{}'::jsonb,
+    'approve', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005' AND unit_id = 'e7000000-0000-4000-8000-000000000031' AND period_label = 'TA 2026/2027'), '{}'::jsonb,
     'e7000000-0000-4000-8000-000000000201'
   )->>'alreadyApplied', 'true', 'approval retry returns the original result'
 );
@@ -217,7 +217,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT public.manage_tenant_finance_budget(
     'e7000000-0000-4000-8000-000000000005', 'e7000000-0000-4000-8000-000000000011', 'admin',
-    'save_draft', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005'),
+    'save_draft', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005' AND unit_id = 'e7000000-0000-4000-8000-000000000031' AND period_label = 'TA 2026/2027'),
     '{"unitId":"e7000000-0000-4000-8000-000000000031","periodLabel":"Perubahan dilarang","periodStart":"2026-07-01","periodEnd":"2027-06-30","lines":[{"department":"Operasional","category":"Listrik","allocatedAmount":500000}]}'::jsonb,
     'e7000000-0000-4000-8000-000000000202'
   )$$,
@@ -226,14 +226,14 @@ SELECT throws_ok(
 SELECT is(
   public.manage_tenant_finance_budget(
     'e7000000-0000-4000-8000-000000000005', 'e7000000-0000-4000-8000-000000000011', 'admin',
-    'close', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005'), '{}'::jsonb,
+    'close', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005' AND unit_id = 'e7000000-0000-4000-8000-000000000031' AND period_label = 'TA 2026/2027'), '{}'::jsonb,
     'e7000000-0000-4000-8000-000000000203'
   )->>'status', 'closed', 'approved plan can be closed and retained for audit'
 );
 SELECT is(
   public.manage_tenant_finance_budget(
     'e7000000-0000-4000-8000-000000000005', 'e7000000-0000-4000-8000-000000000011', 'admin',
-    'close', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005'), '{}'::jsonb,
+    'close', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005' AND unit_id = 'e7000000-0000-4000-8000-000000000031' AND period_label = 'TA 2026/2027'), '{}'::jsonb,
     'e7000000-0000-4000-8000-000000000203'
   )->>'alreadyApplied', 'true', 'close retry returns the original result'
 );
@@ -248,7 +248,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT public.manage_tenant_finance_budget(
     'e7000000-0000-4000-8000-000000000005', 'e7000000-0000-4000-8000-000000000011', 'admin',
-    'approve', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005'), '{}'::jsonb,
+    'approve', (SELECT id FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005' AND unit_id = 'e7000000-0000-4000-8000-000000000031' AND period_label = 'TA 2026/2027'), '{}'::jsonb,
     'e7000000-0000-4000-8000-000000000204'
   )$$,
   '55000', 'Hanya rancangan yang dapat disetujui', 'closed plans cannot be reopened through the approval action'
