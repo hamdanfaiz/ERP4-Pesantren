@@ -3,11 +3,14 @@
 -- must moderate every review before it becomes visible to other students.
 BEGIN;
 
+ALTER TABLE public.tahfidz_records
+  ADD CONSTRAINT tahfidz_records_tenant_id_id_key UNIQUE (tenant_id, id);
+
 CREATE TABLE public.tahfidz_peer_reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE RESTRICT,
   halaqah_id UUID NOT NULL,
-  record_id UUID NOT NULL REFERENCES public.tahfidz_records(id) ON DELETE RESTRICT,
+  record_id UUID NOT NULL,
   reviewer_user_id UUID NOT NULL,
   reviewer_student_id UUID NOT NULL,
   review_text TEXT NOT NULL CHECK (length(btrim(review_text)) BETWEEN 10 AND 1200),
@@ -22,6 +25,8 @@ CREATE TABLE public.tahfidz_peer_reviews (
   UNIQUE (tenant_id, record_id, reviewer_student_id),
   FOREIGN KEY (tenant_id, halaqah_id)
     REFERENCES public.tahfidz_halaqahs (tenant_id, id) ON DELETE RESTRICT,
+  FOREIGN KEY (tenant_id, record_id)
+    REFERENCES public.tahfidz_records (tenant_id, id) ON DELETE RESTRICT,
   FOREIGN KEY (tenant_id, reviewer_user_id)
     REFERENCES public.profiles (tenant_id, user_id) ON DELETE RESTRICT,
   FOREIGN KEY (tenant_id, reviewer_student_id)

@@ -30,12 +30,15 @@ VALUES
   ('d3800000-0000-4000-8000-000000000015', 'd3800000-0000-4000-8000-000000000009', 'peer-ustadz-b@test.invalid', 'Ustadz B', 'ustadz', 'active', '{}', NULL),
   ('d3800000-0000-4000-8000-000000000016', 'd3800000-0000-4000-8000-000000000009', 'peer-denied@test.invalid', 'Santri Ditolak', 'santri', 'active', '{"tahfidz":false}', 'd3800000-0000-4000-8000-000000000104');
 
-INSERT INTO public.students (id, tenant_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status)
+INSERT INTO public.students (
+  id, tenant_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status,
+  source_system, source_record_id
+)
 VALUES
-  ('d3800000-0000-4000-8000-000000000101', 'd3800000-0000-4000-8000-000000000009', '9380000001', 'Santri A', 'L', 'VII', decode(repeat('11', 44), 'hex'), decode(repeat('21', 32), 'hex'), 'active'),
-  ('d3800000-0000-4000-8000-000000000102', 'd3800000-0000-4000-8000-000000000009', '9380000002', 'Santri B', 'L', 'VII', decode(repeat('12', 44), 'hex'), decode(repeat('22', 32), 'hex'), 'active'),
-  ('d3800000-0000-4000-8000-000000000103', 'd3800000-0000-4000-8000-000000000009', '9380000003', 'Santri C', 'L', 'VII', decode(repeat('13', 44), 'hex'), decode(repeat('23', 32), 'hex'), 'active'),
-  ('d3800000-0000-4000-8000-000000000104', 'd3800000-0000-4000-8000-000000000009', '9380000004', 'Santri Ditolak', 'L', 'VII', decode(repeat('14', 44), 'hex'), decode(repeat('24', 32), 'hex'), 'active');
+  ('d3800000-0000-4000-8000-000000000101', 'd3800000-0000-4000-8000-000000000009', '9380000001', 'Santri A', 'L', 'VII', decode(repeat('11', 44), 'hex'), decode(repeat('21', 32), 'hex'), 'active', 'master_data', 'peer-review-student-a'),
+  ('d3800000-0000-4000-8000-000000000102', 'd3800000-0000-4000-8000-000000000009', '9380000002', 'Santri B', 'L', 'VII', decode(repeat('12', 44), 'hex'), decode(repeat('22', 32), 'hex'), 'active', 'master_data', 'peer-review-student-b'),
+  ('d3800000-0000-4000-8000-000000000103', 'd3800000-0000-4000-8000-000000000009', '9380000003', 'Santri C', 'L', 'VII', decode(repeat('13', 44), 'hex'), decode(repeat('23', 32), 'hex'), 'active', 'master_data', 'peer-review-student-c'),
+  ('d3800000-0000-4000-8000-000000000104', 'd3800000-0000-4000-8000-000000000009', '9380000004', 'Santri Ditolak', 'L', 'VII', decode(repeat('14', 44), 'hex'), decode(repeat('24', 32), 'hex'), 'active', 'master_data', 'peer-review-student-denied');
 
 INSERT INTO public.tahfidz_halaqahs (id, tenant_id, name, ustadz_user_id, ustadz_name, status)
 VALUES
