@@ -4,7 +4,7 @@
 
 ## Verifikasi terbaru — 30 Oktober 2026
 
-- Head PR #13 saat ini `dca32240cb9c0191a0bf6fb78e58721579cc139a`. Commit terbaru hanya dokumentasi; head kode yang diuji tetap `43455c8b8f91eae108fd89fa09ff9f1e7ed6667b`.
+- Head kode PR #13 yang diuji tetap `43455c8b8f91eae108fd89fa09ff9f1e7ed6667b`; sesudahnya cabang hanya menerima pembaruan dokumentasi. PR tetap Open/Draft.
 - GitHub Actions [run 41022011815](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41022011815) lulus **2/2 job wajib** pada head kode tersebut. Cakupan CI: typecheck/build, guard runtime Supabase-only, Docker/Compose, rehearsal migrasi dan pgTAP lokal sintetis, API/isolasi tenant, transaksi serentak, Storage, serta backup/pemulihan. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch.
 - Perubahan kode terbaru mencakup pembatasan unit Asrama dan ringkasan enam capaian Tahfidz dari catatan tersimpan. Peer Review Tahfidz belum tersedia; Analitik AI dan PPOB/Layanan tetap fail-closed. Audit integrasi lintas modul dan kesetaraan perilaku PR lama belum tuntas.
 - Status GitHub terkini: PR #1–#11 Open/Draft, #12 Closed/Merged, #13 Open/Draft. Tidak ada migrasi atau data yang diterapkan ke Supabase live. Konektor menolak pembacaan target `ptsasgdvgrbdtgyqieie`; upaya PostgreSQL baca-saja juga berhenti pada validasi TLS `SELF_SIGNED_CERT_IN_CHAIN`. Rincian dan langkah pemulihan ada di [checkpoint akses staging](../06_DATABASE/CHECKPOINT_SUPABASE_STAGING_ACCESS_2026-10-30.md).
