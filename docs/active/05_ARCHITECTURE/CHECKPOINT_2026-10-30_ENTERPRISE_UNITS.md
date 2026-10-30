@@ -25,9 +25,9 @@
 ## Validasi dan handoff
 
 - Lulus lokal: `npm run test:supabase-runtime-no-firebase` (87 modul import frontend, 25 route Supabase dan 2 route fail-closed).
-- GitHub Actions [run 40994025913](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40994025913) lulus 2/2 job pada head RKAT terkini `6ba1fdb8bfcfcd5834c9063c4cd7d37953c08c56`. CI menjalankan typecheck/build/Docker, rehearsal migrasi lokal, 1.130 assertion pgTAP termasuk tes pengeluaran dan RKAT per unit, API auth/tenant, Storage, serta backup/restore sintetis.
+- GitHub Actions [run 41001191872](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001191872) lulus 2/2 job pada head Finance `2b93f96da3571a828fd63e70d0fe765ebaa154f8`. CI menjalankan typecheck/build/Docker, rehearsal migrasi lokal, 53 file pgTAP / 1.195 assertion, API auth/tenant, filter unit Finance, Storage, serta backup/restore sintetis.
 - Tool Supabase CLI lokal gagal sebelum menjalankan perintah karena tidak dapat membuat `C:\Users\VICTUS\.supabase\telemetry.json.tmp...` pada sandbox. Migration tidak dijalankan terhadap database live.
-- Source berada pada branch PR #13 `codex/supabase-runtime-cutover-20261022`; head saat checkpoint `6ba1fdb8bfcfcd5834c9063c4cd7d37953c08c56`. PR #13 tetap Open/Draft.
+- Source berada pada branch PR #13 `codex/supabase-runtime-cutover-20261022`; head saat checkpoint `2b93f96da3571a828fd63e70d0fe765ebaa154f8`. PR #13 tetap Open/Draft.
 - Status PR: #1–#11 Open/Draft; #12 merged; #13 Open/Draft. PR #1, #2, #4, dan #6 berbasis `main`; #3 serta #5–#11 masih memakai cabang fitur bertingkat. Tidak ada PR #1–#11 yang sudah merged atau closed pada saat audit ini.
 
 ## Langkah tim backend
@@ -42,5 +42,5 @@
 
 - Migration `20270130000000_master_data_unit_assignment.sql` sudah menambahkan `organization_unit_id` pada `finance_bills`, FK tenant/unit, pewarisan unit dari kandidat/santri saat pembuatan atau penautan, dan pemeriksaan agar unit tagihan konsisten. Tes `master_data_unit_assignment.test.sql` mencakup pewarisan pada tagihan terkait kandidat/santri.
 - Tagihan lama tidak diisi dengan tebakan. Saat Admin memetakan kandidat/santri, trigger menyelaraskan unit ke tagihan terkait; tagihan yang tidak punya hubungan terpetakan tetap perlu rekonsiliasi eksplisit.
-- Perbaikan UI Admin menambahkan filter unit pada daftar tagihan, pengeluaran, buku besar, kartu total, dan ekspor CSV. Data tanpa unit tetap dapat dipilih melalui filter “Belum dipetakan”; kode yang sedang dikerjakan belum dihitung terverifikasi sampai CI di head terbaru lulus.
+- Perbaikan UI Admin menambahkan filter unit pada daftar tagihan, pengeluaran, buku besar, kartu total, dan ekspor CSV. Data tanpa unit tetap dapat dipilih melalui filter “Belum dipetakan”; unit yang tidak lagi aktif tetap tampil dengan penanda, agar transaksi lama tidak tersembunyi. Pemeriksaan helper filter ada di workflow CI terbaru pada head PR #13.
 - Pengeluaran/ledger lama memiliki alur pemetaan Finance eksplisit; RKAT lama memiliki alur pemetaan tersendiri. Ini bukan bukti bahwa data staging telah dimigrasikan atau semua unit sudah terisi.

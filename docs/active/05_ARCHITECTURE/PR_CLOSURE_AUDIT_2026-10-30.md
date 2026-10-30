@@ -4,7 +4,7 @@
 
 PR #13 masih **Open / Draft** dan belum memenuhi syarat untuk digabung. PR #1–#11 juga masih **Open / Draft**; PR #12 sudah **Merged**. Tidak ada PR yang saya tutup pada audit ini. Menutup PR hanya mengubah status; perubahan baru masuk ke main setelah merge.
 
-Jalur kerja saat ini adalah PR #13, head ecccee36359d79ea748e7fbaa461672518de227d. GitHub Actions [run 40999619996](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40999619996) lulus 2/2 job: 53 berkas pgTAP dengan 1.195 assertion, typecheck/build, pemeriksaan API/tenant, alur serentak, Storage, backup/restore sintetis, Docker/Compose, dan smoke test image. CI hijau memverifikasi commit tersebut; CI tidak menyatakan semua cakupan produk selesai.
+Jalur kerja saat ini adalah PR #13, head `2b93f96da3571a828fd63e70d0fe765ebaa154f8`. GitHub Actions [run 41001191872](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001191872) lulus 2/2 job: 53 berkas pgTAP dengan 1.195 assertion, typecheck/build, pemeriksaan API/tenant, alur serentak, tes filter unit Finance, Storage, backup/restore sintetis, Docker/Compose, dan smoke test image. CI hijau memverifikasi commit tersebut; CI tidak menyatakan semua cakupan produk selesai.
 
 ## Status PR yang diperiksa di GitHub
 
@@ -22,15 +22,15 @@ Jalur kerja saat ini adalah PR #13, head ecccee36359d79ea748e7fbaa461672518de227
 | #10 | Open / Draft | #9 | backend/supabase-finance-ui (127c67e) | UI Finance/PPDB lama. |
 | #11 | Open / Draft | #10 | backend/supabase-masterdata-structures-ui (88f2686) | Master Data, asrama, dan Tahfidz; matriks perilaku ada pada dokumen paritas #11 → #13. |
 | #12 | Closed / Merged | — | — | Sudah menjadi bagian main. |
-| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (ecccee3) | Kandidat jalur cutover, belum siap merge. |
+| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (2b93f96) | Kandidat jalur cutover, CI hijau; pekerjaan pengembangan dan audit paritas masih terbuka, belum siap merge. |
 
 ## Hasil perbandingan awal #1–#11 terhadap #13
 
 ### Koreksi cakupan Finance
 
-Migration `20270130000000_master_data_unit_assignment.sql` memberi `finance_bills.organization_unit_id`, mewariskan unit dari kandidat/santri terkait, serta menjaga konsistensi saat pengaitan. Karena itu, **kontrak unit pada tagihan baru sudah ada**. Gap yang tersisa adalah pemetaan historis dan laporan/daftar Admin per unit; filter UI untuk tagihan, pengeluaran, buku besar, total, dan CSV sedang dikerjakan di branch cutover. Akademik, asrama, dan domain operasional lainnya tetap perlu audit unit tersendiri.
+Migration `20270130000000_master_data_unit_assignment.sql` memberi `finance_bills.organization_unit_id`, mewariskan unit dari kandidat/santri terkait, serta menjaga konsistensi saat pengaitan. Karena itu, **kontrak unit pada tagihan baru sudah ada**. UI Admin sekarang dapat memfilter daftar tagihan, pengeluaran, buku besar, kartu total, dan ekspor CSV per unit, serta menampilkan unit lama yang tidak aktif dan record belum dipetakan. Tes filter baru dan seluruh workflow CI lulus pada head PR #13 `2b93f96`. Pemetaan historis tetap perlu dikerjakan. Akademik, asrama, dan domain operasional lainnya tetap perlu audit unit tersendiri.
 
-Perubahan di atas belum menjadi bukti sampai head terbaru lulus CI. Tidak ada alasan untuk menutup PR lama sebelum perubahan utama digabung ke `main`.
+Perubahan di atas diuji pada head tersebut melalui CI lokal sintetis; ini bukan UAT atau verifikasi staging. Tidak ada alasan untuk menutup PR lama sebelum perubahan utama digabung ke `main`.
 
 Perbandingan GitHub menemukan 430 berkas berubah pada PR #13. Daftar berkas yang sama atau berbeda hanya menunjukkan lokasi perubahan, bukan bukti bahwa alur bisnis setara. Ringkasan di bawah menandai tempat verifikasi yang diperlukan sebelum PR lama boleh ditutup.
 
