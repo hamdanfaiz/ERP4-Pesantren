@@ -393,3 +393,10 @@ Pembacaan baca-saja dashboard Supabase target `ptsasgdvgrbdtgyqieie` menunjukkan
 - Estimasi proyek pada checkpoint PR adalah sekitar **73% kematangan fitur / 46% kesiapan go-live**. Ini estimasi, bukan hasil UAT atau ukuran otomatis.
 
 Langkah berikutnya setelah akses target pulih: baca ulang ledger dan tabel target secara baca-saja, jalankan preview setiap importer dengan pemetaan tenant yang disetujui, lalu lakukan rehearsal terisolasi sebelum menerapkan data atau schema ke Production.
+## Revalidasi status penutupan PR #1–#10 — 30 Oktober 2026
+
+- GitHub mencatat PR #1–#10 ditutup oleh akun pemilik repositori `hamdanfaiz` pada 30 Oktober 2026 pukul 00:16:29–00:16:43 UTC. Semuanya berstatus Draft, `merged=false`, tanpa komentar, dan event penutup tidak memuat `state_reason`.
+- Metadata GitHub **tidak menjelaskan alasan pasti** penutupan. Polanya konsisten dengan penutupan administratif beberapa PR lama secara berurutan, tetapi ini hanya inferensi; status tersebut tidak membuktikan perubahan sudah diintegrasikan.
+- Perbandingan commit untuk setiap head PR #1–#10 dengan `main` pada merge PR #12 (`c8738185ff6e5080ae427ef0021ee25681036c40`) menunjukkan riwayat divergen dari merge-base lama `f7f8bb098d3a6032eef5a101ad29ae13bc2bf5c8`. Tip branch lama bukan leluhur `main`; masing-masing memiliki 1–84 commit yang tidak ada dalam sejarah `main`. Perubahan yang setara mungkin sudah ditulis ulang pada PR #13, tetapi harus dibuktikan lewat pemeriksaan fitur/file.
+- **Disposisi:** perlakukan #1–#10 sebagai PR lama yang ditutup tanpa merge, bukan pekerjaan yang otomatis selesai. Jangan hapus branch atau menganggap seluruh isi sudah tersedia. Gunakan matriks paritas di dokumen ini dan `PR11_TO_PR13_FEATURE_PARITY.md` untuk memeriksa komponen unik—terutama dokumentasi komersial #2, provisioning #3, dan bagian deployment non-Firebase #4—lalu port yang masih dibutuhkan ke jalur cutover #13.
+- Saat revalidasi ini, #11 dan #13 tetap Open/Draft; #12 Closed/Merged. PR #13 tetap jalur integrasi utama, belum dinyatakan selesai.
