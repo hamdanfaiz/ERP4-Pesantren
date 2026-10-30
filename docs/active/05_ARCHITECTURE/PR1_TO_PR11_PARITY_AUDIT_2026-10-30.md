@@ -3,7 +3,7 @@
 Tanggal audit: 30 Oktober 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
 Checkpoint kode PR #13 yang diperiksa: `15deecd9d16668b11109643ff6d65bfa642a2658`  
-Checkpoint dokumentasi yang diuji: `06ad8d1e9c5ccc6889541147ff3b04b93f3fd060`
+Head audit paritas dan dokumentasi yang diuji: `4188de236c9080a0af11d896dc463b0c23d17be9`
 
 ## Tujuan dan batas bukti
 
@@ -45,7 +45,7 @@ PR #1–#11 bercabang bertingkat dan divergen dari PR #13. Membandingkan jumlah 
 
 ## Verifikasi yang tersedia
 
-- GitHub Actions PR #13 pada commit kode `15deecd` lulus **2/2 job** (run `41017481319`); dokumentasi checkpoint `06ad8d1` juga lulus **2/2 job** (run `41017953175`). Job mencakup typecheck/build, guard runtime, container, rehearsal migration dan 1.268 assertion pgTAP lokal, API/tenant, transaksi serentak, Storage, serta backup/restore sintetis.
+- GitHub Actions PR #13 pada commit kode `15deecd` lulus **2/2 job** (run `41017481319`); head audit ini `4188de2` juga lulus **2/2 job** (run `41018920840`). Job mencakup typecheck/build, guard runtime, container, rehearsal migration dan 1.268 assertion pgTAP lokal, API/tenant, transaksi serentak, Storage, serta backup/restore sintetis.
 - Tidak ada review submission atau inline review thread pada PR #13 saat diperiksa.
 - `mergeable: true` hanya berarti GitHub tidak menemukan konflik merge saat itu; bukan persetujuan atau bukti kelengkapan fitur.
 - Tidak ada migration/data yang diterapkan ke Supabase live oleh audit ini. Tidak ada login/UAT pelanggan yang diklaim.
