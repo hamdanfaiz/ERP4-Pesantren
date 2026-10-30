@@ -91,6 +91,8 @@ assert.ok(mobileDefaults.includes('supportWhatsapp: ""'), "New tenant support co
 for (const placeholder of ["AI Studio", "pesantrenaistudio.edu", "+62 812 3456 7890", "wagw.example.com"]) assert.ok(!settingsService.includes(placeholder), `Demo value remains in tenant defaults: ${placeholder}`);
 for (const stale of ["AI Studio automatically", "Secrets panel in the AI Studio", "Cloud Run Secret Manager", "MY_GEMINI_API_KEY", "MY_APP_URL"]) assert.ok(!envExample.includes(stale), `.env.example still contains obsolete setup text: ${stale}`);
 assert.ok(settingsUi.includes("penyimpanan rahasia milik environment deployment"), "Settings UI must explain generic customer secret storage");
+assert.ok(settingsUi.includes('placeholder="ERP4 Pesantren | {schoolName}"'), "Settings UI page-title example must match the product brand");
+assert.ok(!settingsUi.includes('placeholder="Pesantren OS | {schoolName}"') && !settingsUi.includes('placeholder="e.g.'), "Settings UI must not show obsolete product naming or English examples");
 
 const routeStart = server.indexOf('app.get("/runtime-config.json"');
 assert.ok(routeStart >= 0, "Server must expose a runtime config endpoint");

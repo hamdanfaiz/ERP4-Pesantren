@@ -397,7 +397,7 @@ export function SettingsManager() {
                       value={generalSettings.academicYear}
                       onChange={e => setGeneralSettings({...generalSettings, academicYear: e.target.value})}
                       className="w-full glass-card rounded-lg px-4 py-2.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 transition-colors"
-                      placeholder="e.g. 2026/2027"
+                      placeholder="Contoh: 2026/2027"
                     />
                     <p className="text-[11px] text-slate-500 mt-1">Acuan tahun ajaran pada leger rapor, CBT, dan tagihan SPP.</p>
                   </div>
@@ -612,12 +612,12 @@ export function SettingsManager() {
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Format Judul Tab Browser (Window Title)</label>
+                        <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Format Judul Tab Browser</label>
                         <input 
                           type="text" 
                           value={orgInfo.pageTitleFormat}
                           onChange={e => setOrgInfo({...orgInfo, pageTitleFormat: e.target.value})}
-                          placeholder="Pesantren OS | {schoolName}"
+                          placeholder="ERP4 Pesantren | {schoolName}"
                           className="w-full glass-card rounded-lg px-4 py-2 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 transition-colors"
                         />
                         <p className="text-xs text-slate-500 mt-1">Gunakan tag {'{schoolName}'} sebagai placeholder nama institusi.</p>
@@ -854,7 +854,7 @@ export function SettingsManager() {
                       value={mobileConfig.supportWhatsapp}
                       onChange={e => setMobileConfig({...mobileConfig, supportWhatsapp: e.target.value})}
                       className="w-full max-w-md glass-card rounded-lg px-4 py-2 text-slate-700 dark:text-slate-300 focus:outline-none"
-                      placeholder="e.g. +62 812 3456 7890"
+                      placeholder="Contoh: +62 812 3456 7890"
                     />
                     <p className="text-xs text-slate-500 mt-1">Nomor ini menjadi tautan otomatis tombol "Bantuan & CS" di portal wali santri.</p>
                   </div>
