@@ -6,6 +6,10 @@ PR #13 masih **Open / Draft** dan belum memenuhi syarat untuk digabung. PR #1–
 
 Pemeriksaan ulang GitHub pada 30 Oktober 2026 mengonfirmasi PR #1–#11 masih Open/Draft, #12 Closed/Merged, dan #13 Open/Draft. Head PR #13 adalah `7c369ff13c74eb3f2a66f3e3e07bb24b4e1e9175`. GitHub Actions [run 41001647218](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001647218) pada head tersebut lulus kedua job aplikasi/database; pemeriksaan Supabase Preview berstatus skipped karena branch belum terkait ke Supabase Branch. Suite lokal sebelumnya pada [run 41001191872](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001191872) mencatat 53 berkas pgTAP dengan 1.195 assertion, typecheck/build, pemeriksaan API/tenant, alur serentak, tes filter unit Finance, Storage, backup/restore sintetis, Docker/Compose, dan smoke test image. CI hijau memverifikasi rangkaian pemeriksaan kode, tetapi tidak menyatakan seluruh cakupan produk selesai.
 
+## Kendala pemeriksaan database staging
+
+Konektor Supabase hanya menampilkan project `vqemuyzveuirlkvdggjd`; pembacaan migrasi dan tabel untuk staging `ptsasgdvgrbdtgyqieie` ditolak karena izin. Langkah teknis baca-saja bagi tim backend tercatat di [checkpoint akses staging](docs/active/06_DATABASE/CHECKPOINT_SUPABASE_STAGING_ACCESS_2026-10-30.md). Tidak ada migrasi atau data yang ditulis ke Supabase. Pemeriksaan ledger staging tetap menjadi gerbang sebelum rehearsal.
+
 ## Status PR yang diperiksa di GitHub
 
 | PR | Status | Base | Head | Catatan |
