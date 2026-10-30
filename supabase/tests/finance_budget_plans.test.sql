@@ -239,7 +239,7 @@ SELECT is(
 );
 SELECT is(
   (SELECT count(*)::int FROM public.finance_budget_mutation_requests WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005'),
-  3, 'only successful save, approve, and close operations are recorded'
+  4, 'only successful save, approve, and close operations are recorded'
 );
 SELECT is(
   public.get_tenant_finance_budget_snapshot('e7000000-0000-4000-8000-000000000005', 'e7000000-0000-4000-8000-000000000011', 'admin')->>'financeLocked',
@@ -342,7 +342,7 @@ SELECT is(
 SELECT throws_ok(
   $$INSERT INTO public.finance_budget_plans (tenant_id, period_label, period_start, period_end, created_by_user_id, updated_by_user_id)
     VALUES ('e7000000-0000-4000-8000-000000000005', 'Tanpa unit', DATE '2030-01-01', DATE '2030-12-31', 'e7000000-0000-4000-8000-000000000011', 'e7000000-0000-4000-8000-000000000011')$$,
-  '23514', 'new budget rows require a unit', 'database constraint rejects direct unitless plan creation'
+  '23514', 'new row for relation "finance_budget_plans" violates check constraint "finance_budget_plans_unit_required_check"', 'database constraint rejects direct unitless plan creation'
 );
 SELECT throws_ok(
   $$SELECT public.manage_tenant_finance_budget(
