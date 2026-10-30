@@ -12,7 +12,7 @@ Perubahan Asrama pada head ini membatasi Ustadz ke unit/lokasi penugasan dan san
 
 ## Revalidasi terbaru — 30 Oktober 2026
 
-- GitHub REST mengonfirmasi PR #1–#11 Open/Draft, PR #12 Closed/Merged, dan PR #13 Open/Draft. `main` tetap pada `c8738185ff6e5080ae427ef0021ee25681036c40`. Head PR #13 saat ini `dca32240cb9c0191a0bf6fb78e58721579cc139a`; commit terakhir hanya dokumentasi.
+- GitHub REST mengonfirmasi PR #1–#11 Open/Draft, PR #12 Closed/Merged, dan PR #13 Open/Draft. `main` tetap pada `c8738185ff6e5080ae427ef0021ee25681036c40`. Head kode PR #13 yang diuji tetap `43455c8b8f91eae108fd89fa09ff9f1e7ed6667b`; sesudahnya cabang hanya menerima pembaruan dokumentasi.
 - GitHub Actions [run 41022011815](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41022011815) lulus **2/2 job wajib** pada head kode `43455c8b8f91eae108fd89fa09ff9f1e7ed6667b`. Build dan pemeriksaan sintetis tersebut lulus. Tidak ada review GitHub pada PR #13; status `mergeable: clean` hanya berarti tidak ada konflik berkas.
 - Akses Supabase target belum terverifikasi: konektor menolak project `ptsasgdvgrbdtgyqieie`, dan koneksi langsung baca-saja berhenti pada validasi TLS `SELF_SIGNED_CERT_IN_CHAIN`. Tidak ada query ledger berhasil, perubahan migration, atau perubahan data.
 - Peer Review Tahfidz, keputusan cakupan fitur yang masih fail-closed, integrasi lintas modul, cakupan multi-unit/histori, dan paritas perilaku PR lama masih terbuka.
