@@ -1329,7 +1329,10 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadAcademicActor(uid);
-      return res.json(await getSupabaseAcademicSnapshot(actor.tenantId, actor.uid, actor.role));
+      return res.json(await getSupabaseAcademicSnapshot(
+        actor.tenantId, actor.uid, actor.role, enterpriseUnitsRuntimeEnabled,
+        actor.organizationUnitId, req.query.unitId,
+      ));
     } catch (error) { return academicRouteError(res, error); }
   });
 
@@ -1340,7 +1343,10 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadAcademicActor(uid);
-      const result = await saveSupabaseAcademicRecord(actor.tenantId, actor.uid, actor.role, req.params.kind, req.body?.record);
+      const result = await saveSupabaseAcademicRecord(
+        actor.tenantId, actor.uid, actor.role, req.params.kind, req.body?.record,
+        enterpriseUnitsRuntimeEnabled, actor.organizationUnitId,
+      );
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return academicRouteError(res, error); }
   });
@@ -1348,6 +1354,7 @@ async function startServer() {
   app.post("/api/academic/legacy/import", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!academicImportEnabled) return res.status(503).json({ error: "Impor historis Akademik Supabase belum diaktifkan operator." });
+    if (enterpriseUnitsRuntimeEnabled) return res.status(503).json({ error: "Impor arsip Akademik dinonaktifkan sampai pemetaan unit arsip tersedia." });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
