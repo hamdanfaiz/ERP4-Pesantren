@@ -1,5 +1,7 @@
 # Product Requirements Document (PRD) - PesantrenOS Enterprise
 
+> **Dokumen historis—bukan sumber ruang lingkup rilis atau materi penawaran.** Naskah ini memuat aspirasi awal seperti SaaS, aplikasi seluler, AI, dan fitur yang belum tentu tersedia. Untuk kontrak produk, batas rilis, serta kemampuan berdasarkan bukti, gunakan [Kesiapan Komersial](../00_PRODUCT/COMMERCIAL_READINESS.md). Untuk urutan kerja tim backend, gunakan [Titik Mulai Tim Backend](../00_PRODUCT/BACKEND_TEAM_START_HERE.md).
+
 ## 1. Product Vision
 
 Mewujudkan ekosistem digital cerdas terpadu untuk lingkungan pesantren, sekolah berasrama, dan yayasan Islam di Indonesia (dan global), di mana orang tua, guru, musyrif/musyrifah, asatidz, dan manajemen saling terkoneksi dalam sebuah arsitektur SaaS (Software as a Service) yang transparan, modern, terintegrasi AI, dan scalable.
