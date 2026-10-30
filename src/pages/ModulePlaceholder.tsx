@@ -34,8 +34,7 @@ export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }
     'crm': 'Relasi Wali dan Donatur',
     'lms': 'LMS Pembelajaran',
     'intelligence': 'Analitik Operasional',
-    'marketplace': 'Marketplace',
-    'ecosystem': 'PPOB dan Layanan'
+    'marketplace': 'Marketplace'
   };
 
   const title = titles[module] || module.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());

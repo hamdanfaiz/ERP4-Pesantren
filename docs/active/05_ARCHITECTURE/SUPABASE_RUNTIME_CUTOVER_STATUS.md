@@ -5,7 +5,7 @@
 ## Ringkasan terbaru — 30 Oktober 2026
 
 - PR #13 sudah merged ke `main` pada merge commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`; CI run `41051400486` lulus 2/2 job.
-- Guard source memeriksa 26 route Supabase dan satu route fail-closed (`ecosystem`). Layar Multi-Unit dan Anggaran tersedia, tetapi API-nya terkunci feature flag server yang default-nya `false`; Analitik memakai ringkasan Supabase berbasis aturan, bukan prediksi AI.
+- Guard source memeriksa 26 route Supabase. PPOB/Layanan Ekosistem tidak memiliki tipe modul atau route pada rilis awal, dan layar simulasi lamanya sudah dihapus; permission lama untuk modul itu tetap ditolak oleh RBAC. Layar Multi-Unit dan Anggaran tersedia, tetapi API-nya terkunci feature flag server yang default-nya `false`; Analitik memakai ringkasan Supabase berbasis aturan, bukan prediksi AI.
 - Ref target `ptsasgdvgrbdtgyqieie` saat ini terlihat sebagai branch `main / PRODUCTION`. Jangan gunakan untuk rehearsal. Target belum menerima migration dari pekerjaan ini.
 - Pembacaan SQL Editor `READ ONLY` mengonfirmasi 47 versi ledger; semua prefix cocok dengan source 109 migration, tetapi 62 versi source tidak tercatat. Metadata `name` dan `statements` pada `20261205000000` dan `20261206000000` kosong. Lihat [checkpoint target 30 Oktober](../06_DATABASE/CHECKPOINT_SUPABASE_TARGET_2026-10-30.md) untuk manifest.
 - Estimasi penyelesaian fitur tetap sekitar **73%**; deploy dan UAT oleh tim penerapan tidak termasuk. Catatan bertanggal di bawah adalah riwayat, bukan status saat ini.

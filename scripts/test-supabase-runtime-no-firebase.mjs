@@ -91,7 +91,6 @@ const expectedRoutes = new Map([
   ['settings', ['SettingsManager']],
   ['erp', ['SupabaseFinanceBudgetManager']],
 ]);
-const unavailableRoutes = ['ecosystem'];
 const legacyRuntimeScreens = [
   './pages/Dashboard', './pages/CBTManager', './pages/CBTStudentDashboard', './pages/BoardingManager',
   './pages/FinanceManager', './pages/CommunicationHub', './pages/AcademicManager', './pages/HealthcareManager',
@@ -135,11 +134,9 @@ for (const [moduleId, components] of expectedRoutes) {
   const names = jsxComponentNames(clause);
   for (const component of components) assert.ok(names.has(component), `Route ${moduleId} must render ${component} in the Supabase-only runtime.`);
 }
-for (const moduleId of unavailableRoutes) {
-  const clause = routeClauses.get(moduleId);
-  assert.ok(clause, `Missing fail-closed App route for ${moduleId}.`);
-  assert.match(clause.getText(app), /supabaseRuntimeUnavailable/, `Route ${moduleId} must fail closed until its Supabase module exists.`);
-}
+assert.ok(!routeClauses.has('ecosystem'), 'PPOB/ecosystem must not have an application route in the initial release.');
+assert.ok(!fs.existsSync(path.join(root, 'src', 'pages', 'EcosystemManager.tsx')),
+  'The retired mock PPOB/ecosystem screen must not ship in the initial release source.');
 const tahfidzSource = fs.readFileSync(path.join(root, 'src', 'pages', 'TahfidzManager.tsx'), 'utf8');
 assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && <button[\s\S]*?title="AI Audio Assessment"/,
   'Mock AI audio actions must remain hidden outside the Supabase Tahfidz runtime.');
@@ -237,5 +234,5 @@ assert.match(facilityBookingSource, /const previewImport = async \(\) => \{\s*if
   'Facility booking preview action must fail closed when archive import is disabled.');
 assert.match(facilityBookingSource, /const applyImport = async \(\) => \{\s*if \(!SUPABASE_FACILITY_BOOKINGS_IMPORT\) return;/,
   'Facility booking apply action must fail closed when archive import is disabled.');
-console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes and ${unavailableRoutes.length} fail-closed routes).`);
+console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded).`);
 

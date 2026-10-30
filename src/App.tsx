@@ -197,8 +197,6 @@ export default function App() {
         return <SupabaseDashboardOverview surface="intelligence" />;
       case 'marketplace':
         return <SupabaseMarketplaceManager />;
-      case 'ecosystem':
-        return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
       default:
         return <ModulePlaceholder module={activeModule} />;
     }

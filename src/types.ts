@@ -197,6 +197,5 @@ export type ModuleId =
   | 'lms'
   | 'intelligence'
   | 'marketplace'
-  | 'ecosystem'
   | 'cbt'
   | 'users';
