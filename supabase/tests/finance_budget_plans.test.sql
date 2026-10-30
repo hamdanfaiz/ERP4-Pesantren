@@ -211,7 +211,7 @@ SELECT is(
   )->>'alreadyApplied', 'true', 'approval retry returns the original result'
 );
 SELECT is(
-  (SELECT approved_by_user_id::text FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005'),
+  (SELECT approved_by_user_id::text FROM public.finance_budget_plans WHERE tenant_id = 'e7000000-0000-4000-8000-000000000005' AND unit_id = 'e7000000-0000-4000-8000-000000000031' AND period_label = 'TA 2026/2027'),
   'e7000000-0000-4000-8000-000000000011', 'approval records the responsible Admin'
 );
 SELECT throws_ok(
