@@ -38,7 +38,7 @@ async function request(path: string, init: RequestInit = {}) {
   if (raw) { try { body = JSON.parse(raw); } catch { body = null; } }
   if (!response.ok) {
     const code = String(body?.code || "");
-    if (["23505", "23503", "23514", "23P01"].includes(code) || response.status === 409) throw new SupabaseAcademicError(409, body?.message || "Data akademik bertentangan dengan record tenant.");
+    if (["23505", "23503", "23514", "23P01", "40001"].includes(code) || response.status === 409) throw new SupabaseAcademicError(409, body?.message || "Data akademik bertentangan dengan record tenant.");
     if (code === "P0002" || response.status === 404) throw new SupabaseAcademicError(404, body?.message || "Data akademik tidak ditemukan pada tenant.");
     if (code === "42501" || response.status === 403) throw new SupabaseAcademicError(403, "Operasi akademik ditolak oleh kebijakan tenant.");
     if (code === "22023" || response.status === 400) throw new SupabaseAcademicError(400, body?.message || "Data akademik tidak valid.");
@@ -221,6 +221,72 @@ export async function getSupabaseAcademicSnapshot(
   return { schedules, journals, assessments, students, teachers, classes,
     units: (unitRows as Row[]).map((row) => ({ id: String(row.id), name: String(row.name || ""), code: String(row.code || ""), status: String(row.status || ""), unitType: String(row.unit_type || "") })),
     unitsEnabled, unitFilter: filter.mode === "unit" ? filter.unitId : filter.mode };
+}
+
+export async function getSupabaseUnmappedAcademicClasses(
+  tenantIdentifier: string,
+  actorId: string,
+  role: string,
+  offsetValue: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = role === "Admin" ? "admin" : role === "SuperAdmin" ? "super_admin" : "";
+  const offsetText = offsetValue == null ? "0" : typeof offsetValue === "string" ? offsetValue.trim() : "";
+  if (!expectedRole || !isUuid(actorId) || !/^(0|[1-9]\d{0,6})$/.test(offsetText) || Number(offsetText) > 1000000) {
+    throw new SupabaseAcademicError(400, "Posisi daftar kelas tanpa unit tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/get_tenant_unmapped_academic_classes", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_limit: 100,
+      p_offset: Number(offsetText),
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabaseAcademicError(503, "Daftar kelas yang belum memiliki unit belum dapat dimuat.");
+  }
+  return result as Row;
+}
+
+export async function assignSupabaseAcademicClassUnit(
+  tenantIdentifier: string,
+  actorId: string,
+  role: string,
+  value: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = role === "Admin" ? "admin" : role === "SuperAdmin" ? "super_admin" : "";
+  if (!expectedRole || !isUuid(actorId) || !value || typeof value !== "object" || Array.isArray(value)) {
+    throw new SupabaseAcademicError(403, "Pemetaan kelas hanya tersedia untuk Admin tenant.");
+  }
+  const input = value as Row;
+  const allowedKeys = new Set(["classId", "unitId", "clientRequestId"]);
+  const classId = typeof input.classId === "string" ? input.classId.trim() : "";
+  if (Object.keys(input).length !== allowedKeys.size
+    || Object.keys(input).some((key) => !allowedKeys.has(key))
+    || !classId || classId.length > 160 || /[\u0000-\u001f\u007f]/.test(classId)
+    || !isUuid(String(input.unitId || ""))
+    || !isUuid(String(input.clientRequestId || ""))) {
+    throw new SupabaseAcademicError(400, "ID kelas, unit, atau kunci permintaan tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/assign_tenant_academic_class_unit", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_class_id: classId,
+      p_unit_id: input.unitId,
+      p_client_request_id: input.clientRequestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabaseAcademicError(503, "Backend belum mengonfirmasi pemetaan kelas.");
+  }
+  return result as Row;
 }
 
 export async function getSupabaseAcademicPortalStudent(tenantIdentifier: string, studentId: string) {

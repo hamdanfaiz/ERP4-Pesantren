@@ -167,7 +167,15 @@ import {
   SupabaseEnterpriseUnitsError,
 } from "./src/server/supabaseEnterpriseUnits";
 import { getSupabaseDashboardSnapshot, SupabaseDashboardError } from "./src/server/supabaseDashboard";
-import { getSupabaseAcademicPortalPage, getSupabaseAcademicPortalStudent, getSupabaseAcademicSnapshot, saveSupabaseAcademicRecord, SupabaseAcademicError } from "./src/server/supabaseAcademic";
+import {
+  assignSupabaseAcademicClassUnit,
+  getSupabaseAcademicPortalPage,
+  getSupabaseAcademicPortalStudent,
+  getSupabaseAcademicSnapshot,
+  getSupabaseUnmappedAcademicClasses,
+  saveSupabaseAcademicRecord,
+  SupabaseAcademicError,
+} from "./src/server/supabaseAcademic";
 import { resolveAcademicPortalStudentId } from "./src/lib/academicPortalPagination";
 import {
   adjustSupabaseCooperativeStock,
@@ -1333,6 +1341,35 @@ async function startServer() {
         actor.tenantId, actor.uid, actor.role, enterpriseUnitsRuntimeEnabled,
         actor.organizationUnitId, req.query.unitId,
       ));
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.get("/api/academic/classes/unit-assignment/unmapped", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled || !enterpriseUnitsRuntimeEnabled) {
+      return res.status(503).json({ error: "Pemetaan unit kelas Akademik belum diaktifkan operator." });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Pemetaan kelas hanya tersedia untuk Admin tenant." });
+      return res.json(await getSupabaseUnmappedAcademicClasses(actor.tenantId, actor.uid, actor.role, req.query.offset));
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.post("/api/academic/classes/unit-assignment", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled || !enterpriseUnitsRuntimeEnabled) {
+      return res.status(503).json({ error: "Pemetaan unit kelas Akademik belum diaktifkan operator." });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicActor(uid);
+      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Pemetaan kelas hanya tersedia untuk Admin tenant." });
+      const result = await assignSupabaseAcademicClassUnit(actor.tenantId, actor.uid, actor.role, req.body);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return academicRouteError(res, error); }
   });
 

@@ -349,6 +349,8 @@ async function main() {
       "/api/enterprise/master-data/unit-assignment",
       "/api/enterprise/finance/unit-assignment/unmapped",
       "/api/enterprise/finance/unit-assignment",
+      "/api/academic/classes/unit-assignment/unmapped",
+      "/api/academic/classes/unit-assignment",
     ]) {
       const method = path.endsWith("/unmapped") ? "GET" : "POST";
       const anonymous = await fetch(apiBase + path, {
@@ -362,7 +364,7 @@ async function main() {
         headers: { Authorization: "Bearer " + adminToken, ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
         body: method === "POST" ? JSON.stringify({}) : undefined,
       });
-      assert.equal(gated.status, 503, path + " must remain closed until the operator enables both required runtimes.");
+      assert.equal(gated.status, 503, path + " must remain closed until the operator enables the required runtimes.");
     }
 
     for (const path of ["/api/master-data/structures/migrate", "/api/master-data/students/migrate"]) {

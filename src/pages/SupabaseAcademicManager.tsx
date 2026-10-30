@@ -11,10 +11,13 @@ type Student = { id: string; name: string; nis: string; className: string; organ
 type Teacher = { id: string; name: string; organizationUnitId?: string | null; organizationUnitName?: string | null };
 type Unit = { id: string; name: string; code: string; status: string; unitType: string };
 type AcademicClass = { id: string; name: string; organizationUnitId?: string | null };
+type UnmappedAcademicClass = { id: string; name: string; status: string };
+type UnmappedAcademicClassSnapshot = { classes: UnmappedAcademicClass[]; classCount: number; limit: number; offset: number };
 type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; students: Student[]; teachers: Teacher[]; classes: AcademicClass[]; units: Unit[]; unitsEnabled: boolean };
 type Tab = "schedule" | "journal" | "assessment";
 
 const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], students: [], teachers: [], classes: [], units: [], unitsEnabled: false };
+const EMPTY_UNMAPPED_CLASSES: UnmappedAcademicClassSnapshot = { classes: [], classCount: 0, limit: 100, offset: 0 };
 const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_ACADEMIC_IMPORT_ENABLED") === "true";
 type AcademicImportPreview = {
   snapshotFingerprint: string;
@@ -62,6 +65,12 @@ export function SupabaseAcademicManager() {
   const [migrationError, setMigrationError] = useState("");
   const [migrationNotice, setMigrationNotice] = useState("");
   const [migrationPreview, setMigrationPreview] = useState<AcademicImportPreview | null>(null);
+  const [unmappedClasses, setUnmappedClasses] = useState<UnmappedAcademicClassSnapshot>(EMPTY_UNMAPPED_CLASSES);
+  const [classMappingLoading, setClassMappingLoading] = useState(false);
+  const [classMappingError, setClassMappingError] = useState("");
+  const [classMappingNotice, setClassMappingNotice] = useState("");
+  const [classMappingRequest, setClassMappingRequest] = useState("");
+  const [classMappingSelections, setClassMappingSelections] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState({ day: "Senin", time: "07:30 - 09:00", subject: "", teacherUserId: "", teacherName: "", className: "", room: "", curriculum: "Formal", organizationUnitId: "" });
   const [journal, setJournal] = useState({ date: today(), className: "", subject: "", topic: "", competency: "", attendancePresent: "", attendanceAbsent: "", attendanceExcused: "", teacherUserId: "", teacherName: "", organizationUnitId: "" });
   const [assessment, setAssessment] = useState({ studentId: "", studentName: "", className: "", teacherUserId: "", subject: "", assessmentType: "Tugas Harian", category: "Formative", score: "" });
@@ -78,6 +87,22 @@ export function SupabaseAcademicManager() {
   const isAdmin = role === "Admin" || role === "SuperAdmin";
   const canManage = isAdmin || role === "Ustadz";
   const activeUnits = useMemo(() => snapshot.units.filter((unit) => unit.status === "active"), [snapshot.units]);
+  const refreshUnmappedClasses = useCallback(async (offset = 0) => {
+    setClassMappingLoading(true);
+    setClassMappingError("");
+    try {
+      const result = await requestAcademic(`/api/academic/classes/unit-assignment/unmapped?offset=${offset}`);
+      setUnmappedClasses({
+        classes: Array.isArray(result.classes) ? result.classes : [],
+        classCount: Number(result.classCount || 0),
+        limit: Number(result.limit || 100),
+        offset: Number(result.offset || 0),
+      });
+    } catch (loadError: any) {
+      setUnmappedClasses(EMPTY_UNMAPPED_CLASSES);
+      setClassMappingError(loadError?.message || "Daftar kelas tanpa unit belum dapat dimuat.");
+    } finally { setClassMappingLoading(false); }
+  }, []);
   const scheduleUnitId = schedule.organizationUnitId || activeUnits[0]?.id || "";
   const journalUnitId = journal.organizationUnitId || activeUnits[0]?.id || "";
   const classesForUnit = useCallback((unitId: string) => {
@@ -116,9 +141,11 @@ export function SupabaseAcademicManager() {
         units: Array.isArray(payload.units) ? payload.units : [],
         unitsEnabled: payload.unitsEnabled === true,
       });
+      if (payload.unitsEnabled === true && isAdmin) await refreshUnmappedClasses();
+      else setUnmappedClasses(EMPTY_UNMAPPED_CLASSES);
     } catch (loadError: any) { setSnapshot(EMPTY); setError(loadError?.message || "Data Akademik Supabase belum dapat dimuat."); }
     finally { setLoading(false); }
-  }, [canManage, user?.tenantId, user?.uid, unitFilter]);
+  }, [canManage, isAdmin, refreshUnmappedClasses, user?.tenantId, user?.uid, unitFilter]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -166,6 +193,23 @@ export function SupabaseAcademicManager() {
   };
   const setAssessmentTeacher = (teacherId: string) => setAssessment((current) => ({ ...current, teacherUserId: teacherId }));
 
+  const assignClassUnit = async (classId: string, unitId: string) => {
+    setClassMappingRequest(classId);
+    setClassMappingError("");
+    setClassMappingNotice("");
+    try {
+      const result = await requestAcademic("/api/academic/classes/unit-assignment", {
+        method: "POST",
+        body: JSON.stringify({ classId, unitId, clientRequestId: crypto.randomUUID() }),
+      });
+      setClassMappingNotice(result.alreadyApplied ? "Pemetaan kelas ini sudah tercatat." : "Kelas berhasil dipetakan ke unit.");
+      setClassMappingSelections((current) => { const next = { ...current }; delete next[classId]; return next; });
+      await refresh();
+    } catch (cause: any) {
+      setClassMappingError(cause?.message || "Kelas belum dapat dipetakan ke unit.");
+    } finally { setClassMappingRequest(""); }
+  };
+
   const previewLegacyImport = async () => {
     setMigrationLoading(true); setMigrationError(""); setMigrationNotice(""); setMigrationPreview(null);
     try {
@@ -212,6 +256,21 @@ export function SupabaseAcademicManager() {
     </div>}
     {snapshot.unitsEnabled && role === "Ustadz" && <p className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">Cakupan data dibatasi ke unit {activeUnits[0]?.name || "akun Anda"}.</p>}
     {snapshot.unitsEnabled && unitFilter === "unassigned" && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Mode ini hanya untuk meninjau arsip yang belum dipetakan. Pencatatan baru dinonaktifkan sampai unit dipilih.</p>}
+
+    {snapshot.unitsEnabled && isAdmin && <section className="overflow-hidden rounded-2xl border border-amber-200 bg-white dark:border-amber-400/20 dark:bg-slate-900">
+      <div className="flex flex-col gap-3 border-b border-amber-100 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Pemetaan kelas lama ke unit</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Pilih unit berdasarkan data pesantren. Setiap pemetaan dicatat dan tidak dapat dipindahkan lewat tindakan biasa.</p></div>
+        <div className="flex items-center gap-2"><span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">{unmappedClasses.classCount} belum dipetakan</span><button type="button" onClick={() => void refreshUnmappedClasses(unmappedClasses.offset)} disabled={classMappingLoading || Boolean(classMappingRequest)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5" aria-label="Muat ulang kelas tanpa unit"><RefreshCw className={`h-4 w-4 ${classMappingLoading ? "animate-spin" : ""}`} /></button></div>
+      </div>
+      {classMappingError && <p role="alert" className="mx-4 mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">{classMappingError}</p>}
+      {classMappingNotice && <p role="status" className="mx-4 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">{classMappingNotice}</p>}
+      {classMappingLoading && unmappedClasses.classes.length === 0 ? <div role="status" className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat kelas lama…</div>
+        : classMappingError ? <div className="p-8 text-center text-sm text-slate-500">Daftar kelas tanpa unit belum dapat diverifikasi.</div>
+          : unmappedClasses.classCount === 0 ? <div className="p-8 text-center text-sm text-slate-500">Semua kelas tenant sudah memiliki unit.</div>
+          : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><caption className="sr-only">Kelas tenant yang belum dipetakan ke unit organisasi</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Kelas</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmappedClasses.classes.map((item) => { const selectedUnit = classMappingSelections[item.id] || ""; const pending = classMappingRequest === item.id; return <tr key={item.id}><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{item.name}</p><p className="mt-1 font-mono text-xs text-slate-500">{item.id}</p></td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.status || "—"}</td><td className="px-4 py-3"><select aria-label={`Unit untuk kelas ${item.name}`} className={fieldClass} disabled={Boolean(classMappingRequest) || classMappingLoading || activeUnits.length === 0} value={selectedUnit} onChange={(event) => setClassMappingSelections((current) => ({ ...current, [item.id]: event.target.value }))}><option value="">Pilih unit</option>{activeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={buttonClass} disabled={!selectedUnit || Boolean(classMappingRequest) || activeUnits.length === 0} onClick={() => void assignClassUnit(item.id, selectedUnit)}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}{pending ? "Menyimpan…" : "Tetapkan"}</button></td></tr>; })}</tbody></table></div>}
+      {unmappedClasses.classCount > unmappedClasses.limit && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 p-4 text-xs text-slate-500 dark:border-slate-800"><span>Menampilkan kelas {unmappedClasses.offset + 1}–{Math.min(unmappedClasses.offset + unmappedClasses.limit, unmappedClasses.classCount)} dari {unmappedClasses.classCount}.</span><div className="flex gap-2"><button type="button" className="rounded-lg border border-slate-300 px-3 py-2 font-medium disabled:opacity-50 dark:border-slate-700" disabled={unmappedClasses.offset === 0 || classMappingLoading || Boolean(classMappingRequest)} onClick={() => void refreshUnmappedClasses(Math.max(0, unmappedClasses.offset - unmappedClasses.limit))}>Sebelumnya</button><button type="button" className="rounded-lg border border-slate-300 px-3 py-2 font-medium disabled:opacity-50 dark:border-slate-700" disabled={unmappedClasses.offset + unmappedClasses.limit >= unmappedClasses.classCount || classMappingLoading || Boolean(classMappingRequest)} onClick={() => void refreshUnmappedClasses(unmappedClasses.offset + unmappedClasses.limit)}>Berikutnya</button></div></div>}
+      {activeUnits.length === 0 && <p className="border-t border-amber-100 p-4 text-sm text-amber-800 dark:border-amber-400/20 dark:text-amber-200">Buat unit aktif terlebih dahulu sebelum memetakan kelas.</p>}
+    </section>}
 
     <div className="grid gap-3 sm:grid-cols-3">
       {[{ label: "Jadwal aktif", value: snapshot.schedules.length, icon: CalendarDays }, { label: "Jurnal KBM", value: snapshot.journals.length, icon: ClipboardList }, { label: "Penilaian", value: snapshot.assessments.length, icon: BookOpen }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-emerald-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
