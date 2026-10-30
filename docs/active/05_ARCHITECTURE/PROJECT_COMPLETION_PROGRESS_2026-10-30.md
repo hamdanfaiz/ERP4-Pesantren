@@ -6,7 +6,7 @@
 
 - PR #13 head `ecccee36359d79ea748e7fbaa461672518de227d`; GitHub Actions [run 40999619996](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40999619996) lulus **2/2 job**.
 - Build/typecheck, guard runtime Supabase-only, Docker/Compose, rehearsal migration Supabase lokal, **53 file pgTAP / 1.195 assertion**, API/tenant, Storage, dan backup/restore sintetis lulus.
-- Finance unit scope mencakup pengeluaran/ledger baru, RKAT, dan antrean pemetaan eksplisit pengeluaran lama. Tagihan, Akademik, Asrama, serta data operasional lama masih memerlukan cakupan unit; integrasi lintas modul dan Analitik AI/PPOB yang fail-closed juga masih perlu diselesaikan atau ditetapkan batas rilisnya.
+- Finance memiliki unit pada pengeluaran/ledger baru, RKAT baru, dan tagihan yang mewarisi unit kandidat/santri tertaut; pemetaan historis tetap eksplisit. Filter laporan Finance Admin per unit sedang ditambahkan. Akademik, Asrama, dan data operasional lama masih memerlukan cakupan atau rekonsiliasi unit; integrasi lintas modul dan Analitik AI/PPOB yang fail-closed juga masih perlu diselesaikan atau ditetapkan batas rilisnya.
 - PR #1–#11 masih Open/Draft, PR #12 merged, PR #13 Open/Draft. Tidak ada migration atau data yang ditulis ke Supabase live. Estimasi tetap sekitar **73%**.
 
 ## Perubahan definisi progres
@@ -34,7 +34,7 @@ Skrip migration, konfigurasi yang portabel, dan dokumentasi deployment tetap bag
 
 ## Pekerjaan pengembangan yang masih terbuka
 
-1. **Selesaikan cakupan area produk yang masih memiliki gap:** Manajemen Multi-Unit memiliki registri tenant; unit scoping tersedia untuk pengeluaran/ledger dan RKAT baru, tetapi belum untuk tagihan, Akademik, Asrama, dan record operasional lama. RKAT UI/API/migration sudah diuji per unit, dengan feature flag tetap tertutup sampai migration dijalankan pada environment deployment. Analitik AI dan PPOB/Layanan masih fail-closed. Rincian ada di [checkpoint Multi-Unit 30 Oktober](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
+1. **Selesaikan cakupan area produk yang masih memiliki gap:** Manajemen Multi-Unit memiliki registri tenant; unit tersedia untuk pengeluaran/ledger dan RKAT baru serta diwariskan pada tagihan terkait kandidat/santri. Tagihan lama yang belum terkait dan transaksi lama memerlukan pemetaan eksplisit; Akademik, Asrama, serta data operasional lain masih butuh cakupan unit. Filter Finance Admin per unit sedang dikerjakan. Analitik AI dan PPOB/Layanan masih fail-closed. Rincian ada di [checkpoint Multi-Unit 30 Oktober](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
 2. **Bersihkan sisa source legacy Firebase.** Cutover runtime Supabase-only sudah terverifikasi di CI run 40973057285: grafik frontend aktif tidak mengimpor Firebase, paket Firebase dikecualikan dari runtime production, dan smoke test production lulus tanpa paket tersebut. Kode legacy/import Firebase masih ada dalam source tree tetapi gate-nya selalu tertutup; hapus atau arsipkan jalur ini setelah memeriksa dependensi/tsconfig. Tidak ada data Firestore yang perlu disalin.
 3. **Tutup integrasi lintas modul.** Verifikasi referensi data, aturan tenant dan permission, transaksi idempoten, validasi status, serta jejak audit pada alur yang saling terhubung.
 4. **Lengkapi verifikasi pengembangan untuk paket self-hosted.** Pastikan konfigurasi, startup, health check, upgrade schema, pencadangan/pemulihan, dan panduan VPS/on-premise konsisten dan dapat direproduksi.

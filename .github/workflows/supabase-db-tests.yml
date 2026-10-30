@@ -276,6 +276,9 @@ jobs:
       - name: Verify Finance expenses use tenant-owned organization units
         run: npm run test:supabase-finance-unit-scope
 
+      - name: Verify Finance unit filter keeps legacy records visible
+        run: npm run test:finance-unit-filter
+
       - name: Verify Finance proof and PPDB document Storage HTTP flows
         run: npm run test:api:finance-storage
 

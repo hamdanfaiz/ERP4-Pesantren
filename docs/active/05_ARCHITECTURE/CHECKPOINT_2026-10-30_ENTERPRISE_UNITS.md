@@ -2,7 +2,7 @@
 
 ## Progres pengembangan
 
-**Estimasi penyelesaian pengembangan tetap sekitar 73% (rentang kerja 70–75%).** Deployment hosting dan UAT tidak dihitung dalam angka ini. Unit scoping kini tersedia pada pengeluaran/ledger baru serta RKAT baru; tagihan, Akademik, Asrama, domain lain, dan record lama masih membutuhkan isolasi atau pemetaan unit.
+**Estimasi penyelesaian pengembangan tetap sekitar 73% (rentang kerja 70–75%).** Deployment hosting dan UAT tidak dihitung dalam angka ini. Kolom dan pewarisan unit untuk tagihan kandidat/santri sudah ada; perbaikan saat ini menambahkan filter laporan Finance Admin per unit. Akademik, Asrama, domain operasional lain, serta record lama tertentu masih memerlukan cakupan atau pemetaan unit.
 
 ## Yang ditambahkan
 
@@ -17,7 +17,7 @@
 
 ## Batas fitur dan cara aktivasi
 
-- Fitur ini menggabungkan **registri organisasi**, unit scoping untuk pengeluaran Finance baru dan ledger hasil persetujuan, serta RKAT baru per unit. Tagihan, Akademik, Asrama, dan domain lain belum dipisahkan per unit. Baris pengeluaran/ledger lama tetap tanpa unit (`NULL`) sampai rekonsiliasi; rencana RKAT lama juga memerlukan pemetaan eksplisit. Unit tidak ditebak dari nama atau departemen.
+- Fitur ini menggabungkan **registri organisasi**, unit pada pengeluaran/ledger baru, RKAT baru per unit, dan unit pada tagihan yang diwarisi dari kandidat/santri tertaut. Tagihan lama tetap tanpa unit sampai kandidat/santri dipetakan; pengeluaran/ledger lama dan rencana RKAT lama memerlukan pemetaan eksplisit. Unit tidak ditebak dari nama atau departemen. Akademik, Asrama, dan domain operasional lain masih belum memiliki cakupan unit menyeluruh.
 - Runtime tetap mati secara bawaan. Jangan mengaktifkan flag sebelum migration direview dan diterapkan pada environment uji, lalu seluruh pemeriksaan serta tes lolos.
 - Migration hanya ditambahkan pada source code; tidak ada migration atau data yang diterapkan ke Supabase staging/Production.
 - Data dummy Firestore tidak disalin. Unit contoh dapat dibuat manual setelah fitur tersedia pada environment uji.
@@ -36,4 +36,11 @@
 2. Petakan pemilik unit untuk akun Ustadz dan data operasional; baris Finance lama tetap tidak dipetakan otomatis.
 3. Rehearsal migration pada staging yang dapat dipulihkan; runtime flag tetap mati selama pemeriksaan.
 4. Uji Admin/Ustadz lintas unit, retry, persetujuan, dan laporan pada environment uji.
-5. Lanjutkan unit scoping ke tagihan, Akademik, Asrama, serta record lama sebelum mengandalkan isolasi operasional penuh.
+5. Lanjutkan unit scoping ke Akademik, Asrama, serta domain operasional lain; rekonsiliasi tagihan, pengeluaran, ledger, dan RKAT lama yang belum terpetakan sebelum mengandalkan laporan per unit secara penuh.
+
+## Koreksi cakupan Finance — 30 Oktober 2026
+
+- Migration `20270130000000_master_data_unit_assignment.sql` sudah menambahkan `organization_unit_id` pada `finance_bills`, FK tenant/unit, pewarisan unit dari kandidat/santri saat pembuatan atau penautan, dan pemeriksaan agar unit tagihan konsisten. Tes `master_data_unit_assignment.test.sql` mencakup pewarisan pada tagihan terkait kandidat/santri.
+- Tagihan lama tidak diisi dengan tebakan. Saat Admin memetakan kandidat/santri, trigger menyelaraskan unit ke tagihan terkait; tagihan yang tidak punya hubungan terpetakan tetap perlu rekonsiliasi eksplisit.
+- Perbaikan UI Admin menambahkan filter unit pada daftar tagihan, pengeluaran, buku besar, kartu total, dan ekspor CSV. Data tanpa unit tetap dapat dipilih melalui filter “Belum dipetakan”; kode yang sedang dikerjakan belum dihitung terverifikasi sampai CI di head terbaru lulus.
+- Pengeluaran/ledger lama memiliki alur pemetaan Finance eksplisit; RKAT lama memiliki alur pemetaan tersendiri. Ini bukan bukti bahwa data staging telah dimigrasikan atau semua unit sudah terisi.

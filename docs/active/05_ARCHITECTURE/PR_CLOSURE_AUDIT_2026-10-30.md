@@ -26,6 +26,12 @@ Jalur kerja saat ini adalah PR #13, head ecccee36359d79ea748e7fbaa461672518de227
 
 ## Hasil perbandingan awal #1–#11 terhadap #13
 
+### Koreksi cakupan Finance
+
+Migration `20270130000000_master_data_unit_assignment.sql` memberi `finance_bills.organization_unit_id`, mewariskan unit dari kandidat/santri terkait, serta menjaga konsistensi saat pengaitan. Karena itu, **kontrak unit pada tagihan baru sudah ada**. Gap yang tersisa adalah pemetaan historis dan laporan/daftar Admin per unit; filter UI untuk tagihan, pengeluaran, buku besar, total, dan CSV sedang dikerjakan di branch cutover. Akademik, asrama, dan domain operasional lainnya tetap perlu audit unit tersendiri.
+
+Perubahan di atas belum menjadi bukti sampai head terbaru lulus CI. Tidak ada alasan untuk menutup PR lama sebelum perubahan utama digabung ke `main`.
+
 Perbandingan GitHub menemukan 430 berkas berubah pada PR #13. Daftar berkas yang sama atau berbeda hanya menunjukkan lokasi perubahan, bukan bukti bahwa alur bisnis setara. Ringkasan di bawah menandai tempat verifikasi yang diperlukan sebelum PR lama boleh ditutup.
 
 | PR | Perubahan lama yang diperiksa | Padanan atau catatan pada PR #13 | Tindakan sebelum penutupan |

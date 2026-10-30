@@ -145,7 +145,7 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
     bills: normalizedBills,
     units: financeUnits.map((unit) => ({ id: String(unit.id), code: String(unit.code), name: String(unit.name), unitType: String(unit.unit_type) })),
     expenses: normalizedExpenses,
-    ledger: ledgerRows.map((row) => ({ id: String(row.id), type: String(row.entry_type), sourceType: String(row.source_type), sourceId: String(row.source_id), description: String(row.description), amount: Number(row.amount), paymentMethod: row.payment_method || null, receiptNo: row.receipt_no || null, unitId: row.unit_id ? String(row.unit_id) : null, unitName: row.unit_id ? unitNames.get(String(row.unit_id)) || "Unit tidak aktif / belum dipetakan" : null, date: String(row.posted_at) })),
+    ledger: ledgerRows.map((row) => ({ id: String(row.id), type: String(row.entry_type), sourceType: String(row.source_type), sourceId: String(row.source_id), description: String(row.description), amount: Number(row.amount), paymentMethod: row.payment_method || null, receiptNo: row.receipt_no || null, unitId: row.unit_id ? String(row.unit_id) : null, unitName: row.unit_id ? unitNames.get(String(row.unit_id)) || "Unit tidak aktif / belum dipetakan" : "Unit lama / belum dipetakan", date: String(row.posted_at) })),
     students: students
       .filter((row) => !["archived", "archive", "arsip", "inactive", "nonaktif", "tidak aktif", "alumni", "graduated", "lulus", "dikeluarkan"].includes(String(row.status || "").trim().toLowerCase()))
       .map((row) => ({ id: String(row.id), name: String(row.name || ""), grade: String(row.grade || "") })),
