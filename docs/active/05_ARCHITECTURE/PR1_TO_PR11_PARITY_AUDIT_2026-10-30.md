@@ -2,7 +2,7 @@
 
 Tanggal audit: 30 Oktober 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Checkpoint audit paritas awal: `430929f15f36ba3b238c5809d6252d60c0055c41`. **Revalidasi terkini 30 Oktober 2026:** PR #13 head `af9460e7fbdcbf788ee01c53d3bd31ae3089c5be`; GitHub Actions [run 41049963343](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41049963343) lulus 2/2 job. Run menguji pengecualian permission PPOB, typecheck/build, guard runtime, rehearsal migration sintetis, pgTAP, API/tenant, transaksi serentak, Storage, serta backup/restore. Tidak ada migration live yang diterapkan.
+Checkpoint audit paritas awal: `430929f15f36ba3b238c5809d6252d60c0055c41`. **Status setelah integrasi source — 30 Oktober 2026:** PR #13 head `e449c234c253eb7a65795af18c5794fa45e6e9cb` merged ke `main` pada `cea0ed481950c4e40a1035ff9d971cf3a43929bc`; GitHub Actions [run 41051400486](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41051400486) lulus 2/2 job. PR #1–#11 ditutup sebagai superseded dan tidak merged. CI menguji pengecualian permission PPOB, typecheck/build, guard runtime, rehearsal migration sintetis, pgTAP, API/tenant, transaksi serentak, Storage, serta backup/restore. Tidak ada migration live yang diterapkan.
 
 ## Tujuan dan batas bukti
 
@@ -40,10 +40,10 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 
 ## Keputusan PR
 
-- PR #13 dapat digabung sebagai baseline source yang teruji. Gap rilis yang masih tersisa telah didokumentasikan dan tidak mengaktifkan PPOB/provider.
+- PR #13 sudah merged sebagai baseline source yang teruji. Gap rilis yang masih tersisa telah didokumentasikan dan PPOB/provider tetap nonaktif.
 - Jangan merge PR #1–#11 ke `main` satu per satu: PR tersebut adalah jalur historis bertingkat, sebagian memakai desain runtime lama, dan sebagian implementasinya sudah diganti pada PR #13.
 - Setelah PR #13 benar-benar masuk ke `main`, verifikasi commit merge lalu tutup PR lama #1–#11 sebagai **superseded**. Jangan menandainya Merged bila tidak pernah digabung.
-- PR #12 sudah Merged. Pada pemeriksaan ini PR #1–#11 dan #13 masih Open/Draft; tidak ada perubahan status yang dilakukan oleh audit ini.
+- PR #12 dan #13 sudah Merged. PR #1–#11 ditutup sebagai superseded, tanpa mengklaim branch tersebut merged.
 
 ## Verifikasi yang tersedia
 

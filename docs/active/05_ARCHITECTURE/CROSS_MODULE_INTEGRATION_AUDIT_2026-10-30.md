@@ -33,4 +33,4 @@ LMS/CBT, Perpustakaan, Koperasi, CRM, Donasi, Inventaris, Laundry, layanan keseh
 
 ## Kesimpulan
 
-Hubungan terpenting PPDB → onboarding → Santri/Wali/NIS/kamar dan Finance memiliki implementasi transaksional serta coverage CI sintetis. Batas rilis PPOB telah ditetapkan; fitur bukti Wali sebelum onboarding dan provider notifikasi masih perlu keputusan/konfigurasi pada roadmap rilis. PR #13 dapat digabung sebagai baseline source yang diuji; merge tidak berarti database live sudah dimigrasikan atau ERP siap dijual. Deployment hosting, ledger target, login, dan UAT tetap dikerjakan tim penerapan.
+Hubungan terpenting PPDB → onboarding → Santri/Wali/NIS/kamar dan Finance memiliki implementasi transaksional serta coverage CI sintetis. Batas rilis PPOB telah ditetapkan; fitur bukti Wali sebelum onboarding dan provider notifikasi masih perlu keputusan/konfigurasi pada roadmap rilis. PR #13 telah merged ke `main` sebagai baseline source yang diuji; merge tidak berarti database live sudah dimigrasikan atau ERP siap dijual. Deployment hosting, ledger target, login, dan UAT tetap dikerjakan tim penerapan.

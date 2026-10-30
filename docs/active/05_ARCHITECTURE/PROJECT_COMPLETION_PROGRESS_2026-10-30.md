@@ -10,6 +10,12 @@
 - Skor sekitar 73% tetap perkiraan kasar, bukan ukuran kontrak kerja atau klaim semua fitur lulus. Matriks source parity PR #1–#11 sudah dipetakan ke penggantinya di PR #13; hasil CI tidak membuktikan login nyata, migration target, deployment atau UAT.
 - CI tidak menguji database Supabase target, login pelanggan, deployment hosting atau UAT.
 
+## Status PR GitHub setelah integrasi source
+
+- PR #13 merged ke `main` pada commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`; source head yang digabung adalah `e449c234c253eb7a65795af18c5794fa45e6e9cb`.
+- PR #1–#11 ditutup sebagai superseded dan **tidak merged**. PR #12 dan #13 merged.
+- Skor penyelesaian fitur tetap sekitar **73%**. Merge memasukkan baseline source ke `main`, tetapi tidak menuntaskan migration target, deployment, login, UAT atau persiapan penjualan.
+
 ## Cakupan yang sudah ada pada source PR #13
 
 - Jalur runtime aktif menggunakan Supabase Auth, PostgreSQL/RLS, Storage dan API server. CI memeriksa graph frontend aktif tanpa Firebase dan image runtime production tanpa paket Firebase.
@@ -37,7 +43,7 @@
 
 Angka penyelesaian pengembangan di atas tidak mengklaim tiga pekerjaan ini telah dilakukan.
 
-## Status PR GitHub sebelum integrasi source
+## Snapshot status PR sebelum integrasi source
 
 | PR | Status | Makna |
 |---|---|---|
@@ -45,7 +51,7 @@ Angka penyelesaian pengembangan di atas tidak mengklaim tiga pekerjaan ini telah
 | #12 | Closed / Merged | Sudah masuk ke `main`. |
 | #13 | Open / Draft | Head `af9460e7fbdcbf788ee01c53d3bd31ae3089c5be`; CI run `41049963343` lulus 2/2. PR siap menjadi baseline source, bukan bukti produk siap komersial. |
 
-**Keputusan saat checkpoint:** PR #13 masih **Open / Draft** dan siap digabung sebagai source baseline setelah update metadata PR. Setelah merge terverifikasi, tutup PR #1–#11 sebagai superseded. Status ini tidak menaikkan perkiraan kematangan fitur dari 73% dan tidak menyatakan deployment/UAT selesai.
+Catatan pada tabel ini menggambarkan status sebelum integrasi. Status terbaru setelah merge tercatat di bagian atas dokumen. Perkiraan kematangan fitur tetap 73% dan deployment/UAT belum dinyatakan selesai.
 
 ## Kriteria 100% penyelesaian pengembangan
 
