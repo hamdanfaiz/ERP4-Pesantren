@@ -1,7 +1,7 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
 **Status:** dokumen penerimaan internal. Dokumen ini tidak menyatakan produk siap dijual atau siap produksi.
-**Diperbarui:** 30 Oktober 2026
+**Diperbarui:** 31 Oktober 2026
 **Jalur rilis utama:** PR #13, self-hosted, satu instalasi per pesantren.
 
 ## Kontrak produk
@@ -18,7 +18,8 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 
 ## Status teknis berdasarkan bukti
 
-- Source cutover PR #13 sudah merged ke `main` (merge commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`). Source mengarahkan modul operasional ke API Supabase. Firebase Admin dinonaktifkan pada semua environment; paket Firebase tidak masuk ke dependensi production. Impor arsip Firestore dinonaktifkan lewat kebijakan global, dan data contoh akan dibuat manual.
+- Source cutover PR #13 tetap menjadi baseline. PR #17 kini juga merged ke `main` pada merge commit `3e752f8d6c1961130b9baa108736c51ffc702eb7`. Jalur Firestore server dan Firebase Admin sudah dihapus; Firebase client SDK masih ada untuk source lama yang tidak aktif, tetapi guard CI memastikan runtime frontend aktif tidak memuat Firebase.
+- CI PR #17 lulus pada [run 41136728382](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41136728382), 2/2 job, pada Supabase lokal sintetis. Tidak ada migration/schema/record yang diterapkan ke Supabase Production atau data dummy Firestore yang disalin; PPOB/payment gateway dikecualikan dari rilis awal.
 - GitHub Actions [run 41051400486](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41051400486) lulus **2/2 job** pada head source PR #13 `e449c234c253eb7a65795af18c5794fa45e6e9cb`. Cakupan meliputi typecheck/build, penguncian PPOB di RBAC, Docker/Compose, Supabase lokal sintetis, rehearsal migration, pgTAP, API/tenant, transaksi serentak, Storage, dan backup/restore. Ini bukan UAT pelanggan atau bukti perubahan database live.
 - Source `main` memiliki 109 file migration. SQL Editor dashboard read-only mengonfirmasi 47 versi ledger; semua prefix versi cocok dengan source. Ledger tidak mencatat 62 versi source sesudah `20261206000000`. Metadata `name` dan `statements` untuk versi `20261205000000` serta `20261206000000` kosong, jadi parity isi/provenance tetap belum terbukti. Dashboard menandai ref `ptsasgdvgrbdtgyqieie` sebagai `main / PRODUCTION`, berbeda dari jawaban terdahulu bahwa itu staging. Belum ada migration yang diterapkan; daftar 62 versi adalah inventaris rekonsiliasi, bukan instruksi menjalankannya.
 - Snapshot katalog target terdahulu menunjukkan 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antartabel tenant memasangkan `tenant_id`; tabel `anon` tanpa SELECT dan `authenticated` tanpa hak tulis langsung. Katalog dan baseline ini belum dibaca ulang; rehearsal harus dilakukan pada staging terisolasi.
