@@ -12,11 +12,12 @@ Perubahan Asrama pada head ini membatasi Ustadz ke unit/lokasi penugasan dan san
 
 ## Revalidasi terbaru — 30 Oktober 2026
 
-- GitHub REST mengonfirmasi PR #1–#11 Open/Draft, PR #12 Closed/Merged, dan PR #13 Open/Draft. `main` tetap pada `c8738185ff6e5080ae427ef0021ee25681036c40`. Head kode PR #13 yang diuji tetap `43455c8b8f91eae108fd89fa09ff9f1e7ed6667b`; sesudahnya cabang hanya menerima pembaruan dokumentasi.
-- GitHub Actions [run 41022011815](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41022011815) lulus **2/2 job wajib** pada head kode `43455c8b8f91eae108fd89fa09ff9f1e7ed6667b`. Build dan pemeriksaan sintetis tersebut lulus. Tidak ada review GitHub pada PR #13; status `mergeable: clean` hanya berarti tidak ada konflik berkas.
-- Akses Supabase target belum terverifikasi: konektor menolak project `ptsasgdvgrbdtgyqieie`, dan koneksi langsung baca-saja berhenti pada validasi TLS `SELF_SIGNED_CERT_IN_CHAIN`. Tidak ada query ledger berhasil, perubahan migration, atau perubahan data.
-- Peer Review Tahfidz, keputusan cakupan fitur yang masih fail-closed, integrasi lintas modul, cakupan multi-unit/histori, dan paritas perilaku PR lama masih terbuka.
-- **Keputusan:** PR #13 tetap Draft dan belum siap merge. Jangan tutup PR #1–#11 sebelum pengganti masuk `main` dan paritasnya terbukti. Deployment dan UAT tetap berada di luar metrik pengembangan.
+- GitHub REST mengonfirmasi PR #1–#11 Open/Draft, PR #12 Closed/Merged, dan PR #13 Open/Draft. `main` tetap pada `c8738185ff6e5080ae427ef0021ee25681036c40`. Head kode PR #13 yang diuji adalah `6678e7337431b74be70ba69d48b80341ba19af69`; GitHub Actions [run 41024972207](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41024972207) lulus **2/2 job**.
+- CI mencakup typecheck/build, guard runtime Firebase, Docker/Compose dan smoke test image, rehearsal migrasi sintetis, pgTAP, API/tenant, transaksi serentak, Storage, serta backup/restore. Ini bukti pada lingkungan lokal sintetis, bukan bukti ledger Supabase target atau akun pelanggan.
+- Tidak ada review submission atau inline review thread pada PR #13. `mergeable: true` hanya menunjukkan tidak ada konflik Git; bukan approval atau kesiapan merge.
+- Akses Supabase target belum terverifikasi: konektor menolak project `ptsasgdvgrbdtgyqieie`, dan koneksi PostgreSQL baca-saja berhenti pada validasi TLS `SELF_SIGNED_CERT_IN_CHAIN`. Tidak ada query ledger atau perubahan migration/data live.
+- Peer Review Tahfidz, keputusan fitur fail-closed, audit integrasi lintas modul dan unit, serta keputusan penutupan PR lama setelah pengganti masuk `main` tetap terbuka.
+- **Keputusan:** PR #13 tetap Draft dan belum siap merge. Jangan tutup PR #1–#11 sebelum implementasi pengganti masuk `main` dan paritas tiap cakupan dibuktikan.
 
 ## Kendala pemeriksaan database staging
 
@@ -38,7 +39,7 @@ Konektor Supabase hanya menampilkan project `vqemuyzveuirlkvdggjd`; pembacaan mi
 | #10 | Open / Draft | #9 | backend/supabase-finance-ui (127c67e) | UI Finance/PPDB lama. |
 | #11 | Open / Draft | #10 | backend/supabase-masterdata-structures-ui (88f2686) | Master Data, asrama, dan Tahfidz; matriks perilaku ada pada dokumen paritas #11 → #13. |
 | #12 | Closed / Merged | — | — | Sudah menjadi bagian main. |
-| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (head kode uji `43455c8`) | CI lulus 2/2 job pada head kode tersebut; PR kini memiliki pembaruan dokumentasi saja. Peer Review, gap integrasi/cakupan rilis, dan verifikasi ledger tetap terbuka; belum siap merge. |
+| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (head kode uji `6678e733`) | CI lulus 2/2 job pada head kode tersebut; PR kini memiliki pembaruan dokumentasi saja. Peer Review, gap integrasi/cakupan rilis, dan verifikasi ledger tetap terbuka; belum siap merge. |
 
 ## Hasil perbandingan awal #1–#11 terhadap #13
 
