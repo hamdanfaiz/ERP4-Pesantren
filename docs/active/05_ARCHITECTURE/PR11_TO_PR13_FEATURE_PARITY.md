@@ -3,10 +3,10 @@
 # Status PR dan hasil verifikasi terbaru — 30 Oktober 2026
 
 - PR #1–#11 semuanya **Open / Draft**; #12 **Closed / Merged** ke `main` pada 21 Oktober 2026 di commit `c8738185ff6e5080ae427ef0021ee25681036c40`; PR #13 **Open / Draft**.
-- Head PR #13 saat pemeriksaan `6ba1fdb8bfcfcd5834c9063c4cd7d37953c08c56`; GitHub Actions [run 40994025913](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40994025913) lulus 2/2 job, termasuk build/Docker, Supabase lokal, migration rehearsal, 1.130 pgTAP assertions, API/tenant, Storage, dan backup/restore sintetis.
+- Revalidasi 30 Oktober: head PR #13 `7c369ff13c74eb3f2a66f3e3e07bb24b4e1e9175`; GitHub Actions [run 41001647218](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001647218) lulus kedua job aplikasi/database. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch. Rangkaian pada head kode sebelumnya [run 41001191872](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001191872) mencatat 53 berkas pgTAP / 1.195 assertion, build/Docker, API/tenant, migrasi lokal, Storage, serta backup/restore sintetis.
 - PR #1, #2, #4, dan #6 berbasis `main`. PR #3 dan #5 berbasis PR #1, #7 berbasis #5, #8 berbasis #7, #9 berbasis #8, #10 berbasis #9, dan #11 berbasis #10. PR #13 memiliki commit history berbeda; pekerjaan pada #1–#11 tidak otomatis masuk ke `main` atau PR #13.
 - Perbandingan path menunjukkan implementasi lama dan baru memakai sebagian path yang sama serta path unik. Matriks di bawah mencakup paritas #11 saja; audit #1–#10 masih perlu dipastikan sebelum PR lama ditutup. Tutup PR lama hanya setelah fitur unik masuk ke `main` atau sudah terbukti digantikan oleh implementasi yang telah di-merge.
-- Jangan merge PR #13 sekarang: skor pengembangan masih sekitar 73%, dan cakupan multi-unit, integrasi lintas modul, sisa legacy Firebase, serta area fail-closed masih perlu dituntaskan.
+- Jangan merge PR #13 sekarang: skor pengembangan masih sekitar 73%, dan cakupan multi-unit, integrasi lintas modul, sisa legacy Firebase, serta area fail-closed masih perlu dituntaskan. Status Open/Draft dikonfirmasi langsung di GitHub pada head di atas.
 ---
 
 
