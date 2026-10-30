@@ -1504,7 +1504,7 @@ export function TahfidzManager() {
                             >
                               <MessageSquare className="w-4 h-4" />
                             </button>
-                            <button
+                            {!SUPABASE_TAHFIDZ_RUNTIME && <button
                               onClick={() => {
                                 setSelectedSantri(santri);
                                 setIsAssessmentOpen(true);
@@ -1513,7 +1513,7 @@ export function TahfidzManager() {
                               title="AI Audio Assessment"
                             >
                               <Mic className="w-4 h-4" />
-                            </button>
+                            </button>}
                             <button
                               className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border border-transparent hover:border-emerald-200 dark:hover:border-emerald-500/30 transition-colors shadow-sm"
                               title="Listen to last setoran"
@@ -5236,7 +5236,7 @@ export function TahfidzManager() {
       )}
 
       {/* AI Assessment Modal */}
-      {isAssessmentOpen && selectedSantri && (
+      {!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && selectedSantri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
