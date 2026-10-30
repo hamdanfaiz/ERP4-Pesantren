@@ -88,10 +88,12 @@ async function main() {
   const anon = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const fixtureSuffix = randomUUID().slice(0, 12);
   const tenantIds = [randomUUID(), randomUUID(), randomUUID()];
+  const profileFailureEmail = `provision-failure-${fixtureSuffix}@example.test`;
   const users = [];
   const piiEncryptionKey = randomBytes(32).toString('hex');
   const piiFingerprintKey = randomBytes(32).toString('hex');
   let serverProcess;
+  let profileFailureTriggerInstalled = false;
 
   try {
     const tenantRows = tenantIds.map((id, index) => ({
@@ -760,7 +762,52 @@ async function main() {
     assert.ok(superAdminPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'SuperAdmin results must remain tenant-scoped.');
     assert.ok(!superAdminPayload.users.some((profile) => profile.email === users[2].email), 'SuperAdmin must not receive a foreign-tenant profile through query spoofing.');
 
-    console.log('API auth and tenant isolation passed: role/tenant denial, module denial, suspended accounts, cross-tenant query spoofing, and Wali link validation.');
+    // Simulate a database failure after Auth has accepted the account. The application must
+    // remove that Auth user before reporting provisioning failure, avoiding an orphan login.
+    const triggerSql = `
+      CREATE OR REPLACE FUNCTION public.test_fail_provision_profile_insert()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.email = '${profileFailureEmail}' THEN
+          RAISE EXCEPTION 'synthetic profile insert failure' USING ERRCODE = '23505';
+        END IF;
+        RETURN NEW;
+      END;
+      $$;
+      CREATE TRIGGER test_fail_provision_profile_insert
+      BEFORE INSERT ON public.profiles
+      FOR EACH ROW EXECUTE FUNCTION public.test_fail_provision_profile_insert();
+    `;
+    profileFailureTriggerInstalled = true;
+    execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', triggerSql], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 1024 * 1024,
+    });
+    const failedProvisioning = await fetch(`${apiBase}/api/users`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${superAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: profileFailureEmail,
+        name: 'Uji Pemulihan Provisioning',
+        role: 'Admin',
+        tempPassword: `Temporary-${randomUUID()}-Aa1!`,
+        username: `provision-failure-${fixtureSuffix}`,
+      }),
+    });
+    assert.equal(failedProvisioning.status, 503, 'Profile write failure must be reported as a backend provisioning failure.');
+    assert.equal((await failedProvisioning.json()).code, 'SUPABASE_IDENTITY_UNAVAILABLE');
+
+    const { data: authUsersAfterFailure, error: authUsersReadError } = await admin.auth.admin.listUsers({ page: 1, perPage: 100 });
+    assert.equal(authUsersReadError, null, 'Auth users must remain inspectable in the local fixture.');
+    assert.ok(!authUsersAfterFailure.users.some((user) => user.email === profileFailureEmail),
+      'Auth account must be compensated when the profile transaction fails.');
+    const { data: profileAfterFailure, error: profileReadError } = await admin.from('profiles')
+      .select('user_id').eq('email', profileFailureEmail).maybeSingle();
+    assert.equal(profileReadError, null, 'Profile query for the failed synthetic account must succeed.');
+    assert.equal(profileAfterFailure, null, 'A failed provisioning attempt must not leave a profile behind.');
+
+    console.log('API auth and tenant isolation passed: role/tenant denial, module denial, suspended accounts, cross-tenant query spoofing, Wali link validation, and Auth cleanup after profile failure.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -769,6 +816,22 @@ async function main() {
         sleep(5000),
       ]);
       if (serverProcess.exitCode === null) serverProcess.kill('SIGKILL');
+    }
+
+    if (profileFailureTriggerInstalled) {
+      try {
+        execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', [
+          'DROP TRIGGER IF EXISTS test_fail_provision_profile_insert ON public.profiles;',
+          'DROP FUNCTION IF EXISTS public.test_fail_provision_profile_insert();',
+        ].join(' ')], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          maxBuffer: 1024 * 1024,
+        });
+      } catch {
+        console.error('Unable to clean the synthetic profile failure trigger.');
+        process.exitCode = 1;
+      }
     }
 
     // The mutation receipt ledger is intentionally not DELETE-granted to service_role.
