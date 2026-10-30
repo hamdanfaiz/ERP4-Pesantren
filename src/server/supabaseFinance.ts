@@ -94,16 +94,17 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
   const profiles = await request("/rest/v1/profiles?" + profileParams.toString());
   if (!Array.isArray(profiles) || profiles.length !== 1 || String(profiles[0]?.role || "").toLowerCase() !== expected) throw new SupabaseFinanceError(403, "Profil Finance Supabase tidak cocok dengan tenant aktif.");
   const isAdmin = role === "Admin" || role === "SuperAdmin";
-  const activeUnits = isAdmin || role === "Ustadz"
-    ? await tenantRows("organization_units", tenantId, "id,code,name,unit_type", "name.asc,code.asc,id.asc", { status: "eq.active" })
+  const unitRows = isAdmin || role === "Ustadz"
+    ? await tenantRows("organization_units", tenantId, "id,code,name,unit_type,status", "name.asc,code.asc,id.asc")
     : [];
+  const activeUnits = unitRows.filter((unit) => String(unit.status || "").toLowerCase() === "active");
   const actorUnitKey = String(profiles[0]?.organization_unit_id || "").trim();
   const financeUnits = isAdmin
     ? activeUnits
     : role === "Ustadz" && actorUnitKey
       ? activeUnits.filter((unit) => String(unit.id) === actorUnitKey)
       : [];
-  const unitNames = new Map(financeUnits.map((unit) => [String(unit.id), String(unit.name || unit.code)]));
+  const unitNames = new Map(unitRows.map((unit) => [String(unit.id), String(unit.name || unit.code)]));
   let guardianStudentIds: string[] = [];
   if (role === "Walisantri") {
     try { guardianStudentIds = await listGuardianStudentIds(tenantId, actorUserId); }
@@ -111,8 +112,8 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
   }
   const [billRows, expenseRows, ledgerRows, students, controls] = await Promise.all([
     role === "Walisantri" && guardianStudentIds.length > 0
-      ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type", "bill_date.desc,id.desc", { student_id: "in.(" + guardianStudentIds.join(",") + ")" })
-      : isAdmin ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type", "bill_date.desc,id.desc") : Promise.resolve([]),
+      ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type,organization_unit_id", "bill_date.desc,id.desc", { student_id: "in.(" + guardianStudentIds.join(",") + ")" })
+      : isAdmin ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type,organization_unit_id", "bill_date.desc,id.desc") : Promise.resolve([]),
     isAdmin
       ? tenantRows("finance_expenses", tenantId, "id,unit_id,category,description,amount,expense_date,status,department,requester_user_id,requester_name,reviewed_by_user_id,reviewed_at,rejection_reason,created_at", "expense_date.desc,id.desc")
       : role === "Ustadz" && financeUnits.length === 1
@@ -137,7 +138,8 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
     status: String(row.status), date: String(row.bill_date), paymentMethod: row.payment_method || null,
     proofFile: row.proof_file || null, proofStoragePath: row.proof_storage_path || null, uploadedAt: row.uploaded_at || null,
     rejectionReason: row.rejection_reason || "", receiptNo: row.receipt_no || null, paidAt: row.paid_at || null,
-    paymentType: row.payment_type || null,
+    paymentType: row.payment_type || null, unitId: row.organization_unit_id ? String(row.organization_unit_id) : null,
+    unitName: row.organization_unit_id ? unitNames.get(String(row.organization_unit_id)) || "Unit tidak aktif" : "Belum dipetakan",
   }));
   return {
     bills: normalizedBills,

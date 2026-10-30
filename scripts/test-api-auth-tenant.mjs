@@ -344,6 +344,25 @@ async function main() {
     });
     assert.equal(gatedRoomHistory.status, 503, "Room history must remain closed while the Master Data runtime is disabled.");
 
+    for (const path of [
+      "/api/enterprise/master-data/unit-assignment/unmapped",
+      "/api/enterprise/master-data/unit-assignment",
+    ]) {
+      const method = path.endsWith("/unmapped") ? "GET" : "POST";
+      const anonymous = await fetch(apiBase + path, {
+        method,
+        headers: method === "POST" ? { "Content-Type": "application/json" } : {},
+        body: method === "POST" ? JSON.stringify({}) : undefined,
+      });
+      assert.equal(anonymous.status, 401, path + " must reject anonymous callers.");
+      const gated = await fetch(apiBase + path, {
+        method,
+        headers: { Authorization: "Bearer " + adminToken, ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
+        body: method === "POST" ? JSON.stringify({}) : undefined,
+      });
+      assert.equal(gated.status, 503, path + " must remain closed until the operator enables both required runtimes.");
+    }
+
     for (const path of ["/api/master-data/structures/migrate", "/api/master-data/students/migrate"]) {
       const anonymousImport = await fetch(apiBase + path, {
         method: "POST",

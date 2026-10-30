@@ -26,9 +26,13 @@ type UnitEvent = {
   createdAt: string;
 };
 type Snapshot = { units: Unit[]; events: UnitEvent[] };
+type UnmappedCandidate = { id: string; name: string; registrationId: string; stage: string | null; createdAt: string | null; hasLinkedStudent: boolean };
+type UnmappedStudent = { id: string; name: string; nis: string; grade: string | null };
+type UnmappedSnapshot = { candidates: UnmappedCandidate[]; candidateCount: number; students: UnmappedStudent[]; studentCount: number; limit: number; offset: number };
 type Draft = { code: string; name: string; unitType: UnitType; location: string };
 
 const EMPTY: Snapshot = { units: [], events: [] };
+const EMPTY_UNMAPPED: UnmappedSnapshot = { candidates: [], candidateCount: 0, students: [], studentCount: 0, limit: 100, offset: 0 };
 const EMPTY_DRAFT: Draft = { code: "", name: "", unitType: "pesantren", location: "" };
 const FIELD = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
 const PRIMARY = "inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50";
@@ -69,10 +73,16 @@ function actionLabel(value: UnitEvent["action"]) {
 export function SupabaseEnterpriseUnitsManager() {
   const { user } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
+  const [unmapped, setUnmapped] = useState<UnmappedSnapshot>(EMPTY_UNMAPPED);
   const [loading, setLoading] = useState(true);
+  const [mappingLoading, setMappingLoading] = useState(true);
   const [backendReady, setBackendReady] = useState(false);
+  const [mappingReady, setMappingReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [mappingRequest, setMappingRequest] = useState("");
+  const [mappingSelections, setMappingSelections] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
+  const [mappingError, setMappingError] = useState("");
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -90,6 +100,26 @@ export function SupabaseEnterpriseUnitsManager() {
     }
   }, []);
 
+  const refreshUnmapped = useCallback(async (offset = 0) => {
+    setMappingLoading(true);
+    setMappingError("");
+    try {
+      const result = await requestUnits(`/api/enterprise/master-data/unit-assignment/unmapped?offset=${offset}`);
+      setUnmapped({
+        candidates: Array.isArray(result.candidates) ? result.candidates : [],
+        candidateCount: Number(result.candidateCount || 0),
+        students: Array.isArray(result.students) ? result.students : [],
+        studentCount: Number(result.studentCount || 0),
+        limit: Number(result.limit || 100),
+        offset: Number(result.offset || 0),
+      });
+      setMappingReady(true);
+    } catch (loadError: unknown) {
+      setMappingReady(false);
+      setMappingError(loadError instanceof Error ? loadError.message : "Daftar data yang belum memiliki unit tidak dapat dimuat.");
+    } finally { setMappingLoading(false); }
+  }, []);
+
   useEffect(() => {
     let current = true;
     setLoading(true);
@@ -104,8 +134,9 @@ export function SupabaseEnterpriseUnitsManager() {
       })
       .catch((loadError: unknown) => { if (current) { setBackendReady(false); setError(loadError instanceof Error ? loadError.message : "Data unit belum dapat dimuat."); } })
       .finally(() => { if (current) setLoading(false); });
+    void refreshUnmapped();
     return () => { current = false; };
-  }, [refresh, user?.tenantId, user?.uid]);
+  }, [refresh, refreshUnmapped, user?.tenantId, user?.uid]);
 
   const filteredUnits = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("id-ID");
@@ -159,6 +190,34 @@ export function SupabaseEnterpriseUnitsManager() {
     } finally { setSaving(false); }
   };
 
+  const assignUnit = async (entityType: "candidate" | "student", entityId: string, unitId: string) => {
+    if (!mappingReady || !user?.tenantId || !user.uid || !unitId) return;
+    const record = entityType === "candidate"
+      ? unmapped.candidates.find((item) => item.id === entityId)
+      : unmapped.students.find((item) => item.id === entityId);
+    const label = record?.name || "data ini";
+    const selectedUnit = snapshot.units.find((item) => item.id === unitId);
+    if (!selectedUnit || !window.confirm(`Tetapkan ${label} ke unit ${selectedUnit.name}? Pemetaan data operasional ini tidak dapat dibatalkan.`)) return;
+    const key = `${entityType}:${entityId}`;
+    setMappingRequest(key); setMappingError(""); setNotice("");
+    try {
+      const lease = await pendingMutationIds.acquire("erp:master-data-unit-assignment", {
+        tenantId: user.tenantId, actorId: user.uid, entityType, entityId, unitId,
+      });
+      await requestUnits("/api/enterprise/master-data/unit-assignment", {
+        method: "POST",
+        body: JSON.stringify({ entityType, entityId, unitId, clientRequestId: lease.requestId }),
+      });
+      lease.clear();
+      setNotice(`${label} berhasil dipetakan ke unit ${selectedUnit.name}.`);
+      await refreshUnmapped(unmapped.offset);
+    } catch (mappingSaveError: unknown) {
+      setMappingError(mappingSaveError instanceof Error ? mappingSaveError.message : "Pemetaan unit belum berhasil disimpan.");
+    } finally { setMappingRequest(""); }
+  };
+
+  const changeMappingPage = (offset: number) => { void refreshUnmapped(offset); };
+
   const startEdit = (unit: Unit) => {
     setEditingId(unit.id);
     setDraft({ code: unit.code, name: unit.name, unitType: unit.unitType, location: unit.location });
@@ -167,6 +226,8 @@ export function SupabaseEnterpriseUnitsManager() {
   };
 
   const activeCount = snapshot.units.filter((unit) => unit.status === "active").length;
+  const canMapMasterData = user?.role === "SuperAdmin"
+    || (user?.role === "Admin" && user.modulePermissions?.["master-data"] !== false);
 
   return (
     <section className="mx-auto max-w-7xl space-y-6" aria-labelledby="enterprise-units-title">
@@ -191,8 +252,24 @@ export function SupabaseEnterpriseUnitsManager() {
       </div>
 
       <aside className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
-        Data operasional tiap modul belum otomatis dibatasi berdasarkan unit. Isolasi tenant tetap berlaku; gunakan unit sebagai data organisasi sampai kontrak unit pada modul terkait tersedia.
+        Data tagihan, Akademik, Asrama, dan data operasional lain masih memerlukan pemetaan unit dan penyelesaian isolasi per modul. Record lama tidak ditebak unitnya; Admin harus menetapkan unit yang benar secara eksplisit.
       </aside>
+
+      {canMapMasterData && <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900" aria-labelledby="unit-assignment-title">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 id="unit-assignment-title" className="font-semibold text-slate-900 dark:text-white">Pemetaan calon santri dan santri</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Pemetaan tersimpan sekali. Jika calon santri sudah menjadi santri, keduanya dipetakan dalam satu transaksi.</p></div>
+          <div className="flex items-center gap-2"><span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">{unmapped.candidateCount + unmapped.studentCount} belum dipetakan</span><button type="button" className={OUTLINE} onClick={() => changeMappingPage(unmapped.offset)} disabled={mappingLoading || Boolean(mappingRequest)} aria-label="Muat ulang data yang belum memiliki unit"><RefreshCw className={`h-4 w-4 ${mappingLoading ? "animate-spin" : ""}`} /></button></div>
+        </div>
+        {mappingError && <div role="alert" className="m-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{mappingError}</span></div>}
+        {mappingLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat data yang belum dipetakan…</div>
+          : !mappingReady ? <div className="p-8 text-center text-sm text-slate-500">Pemetaan belum tersedia pada konfigurasi runtime ini.</div>
+          : unmapped.candidateCount + unmapped.studentCount === 0 ? <div className="p-8 text-center text-sm text-slate-500">Semua calon santri dan santri telah memiliki unit.</div>
+          : <>
+            {unmapped.candidates.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><caption className="px-4 pb-2 pt-4 text-left font-semibold text-slate-800 dark:text-slate-200">Calon santri tanpa unit ({unmapped.candidateCount})</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Calon santri</th><th className="px-4 py-3">Pendaftaran</th><th className="px-4 py-3">Tahap</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmapped.candidates.map((candidate) => { const selectionKey = `candidate:${candidate.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; return <tr key={selectionKey}><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{candidate.name}</p>{candidate.hasLinkedStudent && <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Sudah menjadi santri; unit akan tersinkron</p>}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{candidate.registrationId}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{candidate.stage || "—"}</td><td className="px-4 py-3"><select aria-label={`Unit untuk calon santri ${candidate.name}`} className={FIELD} disabled={Boolean(mappingRequest)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest)} onClick={() => void assignUnit("candidate", candidate.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>}
+            {unmapped.students.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><caption className="px-4 pb-2 pt-5 text-left font-semibold text-slate-800 dark:text-slate-200">Santri tanpa calon pendaftaran tertaut ({unmapped.studentCount})</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Santri</th><th className="px-4 py-3">NIS</th><th className="px-4 py-3">Kelas</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmapped.students.map((student) => { const selectionKey = `student:${student.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; return <tr key={selectionKey}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{student.name}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{student.nis}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{student.grade || "—"}</td><td className="px-4 py-3"><select aria-label={`Unit untuk santri ${student.name}`} className={FIELD} disabled={Boolean(mappingRequest)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest)} onClick={() => void assignUnit("student", student.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 p-4 text-xs text-slate-500 dark:border-slate-800"><span>Menampilkan baris {unmapped.offset + 1}–{Math.min(unmapped.offset + unmapped.limit, Math.max(unmapped.candidateCount, unmapped.studentCount))} dari {Math.max(unmapped.candidateCount, unmapped.studentCount)} per jenis data.</span><div className="flex gap-2"><button type="button" className={OUTLINE} disabled={unmapped.offset === 0 || mappingLoading || Boolean(mappingRequest)} onClick={() => changeMappingPage(Math.max(0, unmapped.offset - unmapped.limit))}>Sebelumnya</button><button type="button" className={OUTLINE} disabled={unmapped.offset + unmapped.limit >= Math.max(unmapped.candidateCount, unmapped.studentCount) || mappingLoading || Boolean(mappingRequest)} onClick={() => changeMappingPage(unmapped.offset + unmapped.limit)}>Berikutnya</button></div></div>
+          </>}
+      </section>}
 
       {formOpen && <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-slate-900 dark:text-white">{editingId ? "Ubah data unit" : "Tambah unit"}</h2><button type="button" className={OUTLINE} onClick={resetForm} disabled={saving} aria-label="Tutup formulir"><X className="h-4 w-4" /></button></div>

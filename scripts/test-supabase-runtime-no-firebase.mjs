@@ -161,6 +161,10 @@ assert.match(serverSource, /app\.get\(["']\/api\/enterprise\/units\/snapshot["']
   'Enterprise unit reads must require authentication and the runtime gate.');
 assert.match(serverSource, /app\.post\(["']\/api\/enterprise\/units\/mutations["'],\s*requireAuth,[\s\S]*?if\s*\(!enterpriseUnitsRuntimeEnabled\)/,
   'Enterprise unit writes must require authentication and the runtime gate.');
+assert.match(serverSource, /app\.get\(["']\/api\/enterprise\/master-data\/unit-assignment\/unmapped["'],\s*requireAuth,[\s\S]*?if\s*\(!enterpriseUnitsRuntimeEnabled\s*\|\|\s*!masterDataRuntimeEnabled\)/,
+  'Unit assignment queue reads must require authentication and both enterprise and Master Data runtime gates.');
+assert.match(serverSource, /app\.post\(["']\/api\/enterprise\/master-data\/unit-assignment["'],\s*requireAuth,[\s\S]*?if\s*\(!enterpriseUnitsRuntimeEnabled\s*\|\|\s*!masterDataRuntimeEnabled\)/,
+  'Unit assignment writes must require authentication and both enterprise and Master Data runtime gates.');
 const serverArchiveImportFlags = [...serverSource.matchAll(/const (\w+Import\w*Enabled)\s*=\s*isLegacyArchiveImportEnabled\(process\.env\.SUPABASE_[A-Z0-9_]*IMPORT[A-Z0-9_]*\);/g)];
 assert.ok(serverArchiveImportFlags.length >= 21, 'All server archive-import feature flags must use the global fail-closed gate.');
 const serverArchiveImportBypasses = [...serverSource.matchAll(/const \w+Import\w*Enabled\s*=\s*String\(process\.env\.SUPABASE_[A-Z0-9_]*IMPORT[A-Z0-9_]*/g)];

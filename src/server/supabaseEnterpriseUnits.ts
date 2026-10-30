@@ -30,7 +30,7 @@ async function request(path: string, init: RequestInit = {}) {
   if (raw) { try { body = JSON.parse(raw); } catch { body = null; } }
   if (!response.ok) {
     const code = String(body?.code || "");
-    if (["23505", "23503", "23514"].includes(code) || response.status === 409) {
+    if (["23505", "23503", "23514", "40001"].includes(code) || response.status === 409) {
       const message = String(body?.message || "");
       throw new SupabaseEnterpriseUnitsError(409, code === "23505"
         ? message.includes("Kunci permintaan unit")
@@ -109,6 +109,73 @@ export async function getSupabaseEnterpriseUnitsSnapshot(
     p_actor_user_id: actorUserId,
     p_expected_role: expected,
   });
+}
+
+export async function getSupabaseUnmappedMasterDataUnits(
+  tenantIdentifier: string,
+  actorUserId: string,
+  role: string,
+  offsetValue: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expected = expectedRole(role);
+  const offset = Number(offsetValue ?? 0);
+  if (!expected || !isUuid(actorUserId) || !Number.isSafeInteger(offset) || offset < 0 || offset > 1000000) {
+    throw new SupabaseEnterpriseUnitsError(400, "Posisi daftar data tanpa unit tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/get_tenant_unmapped_master_data_units", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorUserId,
+      p_expected_role: expected,
+      p_limit: 100,
+      p_offset: offset,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabaseEnterpriseUnitsError(503, "Daftar data tanpa unit belum dapat dimuat.");
+  }
+  return result as Row;
+}
+
+export async function assignSupabaseMasterDataUnit(
+  tenantIdentifier: string,
+  actorUserId: string,
+  role: string,
+  value: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expected = expectedRole(role);
+  if (!expected || !isUuid(actorUserId) || !value || typeof value !== "object" || Array.isArray(value)) {
+    throw new SupabaseEnterpriseUnitsError(403, "Pemetaan data hanya tersedia untuk Admin tenant.");
+  }
+  const input = value as Row;
+  const allowedKeys = new Set(["entityType", "entityId", "unitId", "clientRequestId"]);
+  if (Object.keys(input).some((key) => !allowedKeys.has(key))
+    || Object.keys(input).length !== allowedKeys.size
+    || !["candidate", "student"].includes(String(input.entityType || ""))
+    || !isUuid(String(input.entityId || ""))
+    || !isUuid(String(input.unitId || ""))
+    || !isUuid(String(input.clientRequestId || ""))) {
+    throw new SupabaseEnterpriseUnitsError(400, "Jenis data, ID, unit, atau kunci permintaan tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/assign_tenant_master_data_unit", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorUserId,
+      p_expected_role: expected,
+      p_entity_type: input.entityType,
+      p_entity_id: input.entityId,
+      p_unit_id: input.unitId,
+      p_client_request_id: input.clientRequestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabaseEnterpriseUnitsError(503, "Backend belum mengonfirmasi pemetaan unit.");
+  }
+  return result as Row;
 }
 
 export async function mutateSupabaseEnterpriseUnit(
