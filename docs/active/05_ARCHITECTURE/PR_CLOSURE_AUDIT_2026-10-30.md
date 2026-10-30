@@ -4,7 +4,7 @@
 
 PR #13 masih **Open / Draft** dan belum memenuhi syarat untuk digabung. PR #1–#11 juga masih **Open / Draft**; PR #12 sudah **Merged**. Tidak ada PR yang saya tutup pada audit ini. Menutup PR hanya mengubah status; perubahan baru masuk ke main setelah merge.
 
-Pemeriksaan ulang GitHub pada 30 Oktober 2026 mengonfirmasi PR #1–#11 masih Open/Draft, #12 Closed/Merged, dan #13 Open/Draft. Head PR #13 adalah `7c369ff13c74eb3f2a66f3e3e07bb24b4e1e9175`. GitHub Actions [run 41001647218](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001647218) pada head tersebut lulus kedua job aplikasi/database; pemeriksaan Supabase Preview berstatus skipped karena branch belum terkait ke Supabase Branch. Suite lokal sebelumnya pada [run 41001191872](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001191872) mencatat 53 berkas pgTAP dengan 1.195 assertion, typecheck/build, pemeriksaan API/tenant, alur serentak, tes filter unit Finance, Storage, backup/restore sintetis, Docker/Compose, dan smoke test image. CI hijau memverifikasi rangkaian pemeriksaan kode, tetapi tidak menyatakan seluruh cakupan produk selesai.
+Pemeriksaan GitHub terbaru pada 30 Oktober 2026 mengonfirmasi PR #1–#11 masih Open/Draft, #12 Closed/Merged, dan #13 Open/Draft. Head PR #13 adalah `b038d5858ae275adb15fb21cff44d39d615c2b1f`. GitHub Actions [run 41007214721](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41007214721) lulus **2/2 job**: typecheck/build, guard runtime, Docker/Compose, rehearsal 105 migration pada Supabase lokal sintetis, 55 berkas pgTAP dengan 1.229 assertion, API/tenant, alur serentak, Storage, serta backup/restore sintetis. Run sebelumnya [41006705006](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41006705006) menemukan hak pemetaan kelas belum menolak profil Admin yang kehilangan izin Akademik; perbaikan eksplisit sudah diterapkan dan dites ulang pada run yang lulus. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch. CI hijau memverifikasi suite otomatis pada data sintetis, bukan seluruh kelengkapan produk, ledger staging/production, migrasi live, deployment, atau UAT.
 
 ## Kendala pemeriksaan database staging
 
@@ -26,7 +26,7 @@ Konektor Supabase hanya menampilkan project `vqemuyzveuirlkvdggjd`; pembacaan mi
 | #10 | Open / Draft | #9 | backend/supabase-finance-ui (127c67e) | UI Finance/PPDB lama. |
 | #11 | Open / Draft | #10 | backend/supabase-masterdata-structures-ui (88f2686) | Master Data, asrama, dan Tahfidz; matriks perilaku ada pada dokumen paritas #11 → #13. |
 | #12 | Closed / Merged | — | — | Sudah menjadi bagian main. |
-| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (7c369ff) | Kandidat jalur cutover, dua job CI pada head lulus; pekerjaan pengembangan dan audit paritas masih terbuka, belum siap merge. |
+| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (b038d58) | Head terakhir lulus 2/2 job CI; pekerjaan pengembangan dan audit paritas masih terbuka, belum siap merge. |
 
 ## Hasil perbandingan awal #1–#11 terhadap #13
 
