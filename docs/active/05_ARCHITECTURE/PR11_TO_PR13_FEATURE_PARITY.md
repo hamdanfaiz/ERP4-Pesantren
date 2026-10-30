@@ -16,7 +16,7 @@
 
 ## Revalidasi source terbaru — 30 Oktober 2026
 
-- Head PR #13 `0cf670ba9097b7002322173adb92568f9ed8a054` lulus GitHub Actions [run 41041688664](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41041688664), 2/2 job.
+- Checkpoint historis pada head PR #13 `0cf670ba9097b7002322173adb92568f9ed8a054` lulus GitHub Actions run 41041688664, 2/2 job. Revalidasi terbaru ada pada bagian pembaruan Peer Review Tahfidz di bawah.
 - Pendaftaran mandiri Wali kini menggunakan email kontak yang tercatat pada data PPDB. RPC server-only mengharuskan email Auth terverifikasi, menetapkan tenant dari konfigurasi server, memberi role `wali_santri` tanpa permission tambahan, dan hanya menautkan relasi Wali aktif dengan email yang sama. pgTAP menguji 19 kondisi alur tersebut.
 - PR #1–#11 tetap Open/Draft dan PR #12 Closed/Merged. Nama/path yang tidak sama pada diff lama tidak langsung berarti fiturnya hilang; beberapa implementasi telah dipindah ke API server atau migration baru. Paritas fungsional tetap perlu dipastikan di matriks dan setelah source merge.
 - PR #13 tetap Open/Draft sampai audit paritas, keputusan cakupan Peer Review/PPOB, dan rekonsiliasi migration target tuntas atau dinyatakan sebagai pengecualian rilis secara eksplisit.
@@ -163,3 +163,11 @@ Jangan merge branch PR #11 secara utuh ke #13 karena riwayatnya divergen dan imp
 - Head PR #13: `82936497f12ff27e33964c3f25a73460f951b959`. GitHub Actions [run 41002893214](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41002893214) lulus **2/2 job** pada head ini: build/typecheck, guard runtime Firebase, Docker/Compose dan smoke test image, serta migration rehearsal, pgTAP, auth/tenant, Storage dan backup/restore lokal sintetis.
 - Perubahan setelah head kode `2b93f96da3571a828fd63e70d0fe765ebaa154f8` hanya dokumentasi; tidak ada migration atau data yang diterapkan ke Supabase live. Supabase Preview tidak berjalan karena branch tidak terhubung ke Supabase Branch, dan pembacaan proyek staging `ptsasgdvgrbdtgyqieie` tetap ditolak konektor.
 - **Keputusan:** PR #13 belum siap ditandai siap review/merge. Multi-unit Akademik/Asrama, analitik AI dan PPOB/Layanan yang fail-closed, audit integrasi penuh, audit sisa source legacy, paritas fitur #1–#11 dan rekonsiliasi ledger staging masih terbuka. Persentase pengembangan 73% tetap estimasi.
+
+## Pembaruan implementasi Peer Review Tahfidz — 30 Oktober 2026
+
+- Sesuai keputusan pemilik produk, cakupan rilis adalah penilaian teks antarsantri dalam halaqah yang sama, dengan moderasi oleh Ustadz pengampu. Audio dan akses Wali tidak diaktifkan.
+- PR #13 menambah `tahfidz_peer_reviews` dan API backend Supabase. Tabel dipagari RLS, tidak dapat dibaca/ditulis langsung oleh `anon` atau `authenticated`, foreign key catatan memasangkan `tenant_id`, pengiriman idempoten, dan keputusan Ustadz tidak dapat diubah setelah final.
+- Pemeriksaan keanggotaan menggunakan tanggal bisnis tenant: santri harus berada pada rentang `starts_on`/`ends_on`; catatan dari santri nonaktif atau arsip tidak dapat dinilai. Perubahan keanggotaan dikunci selama pengiriman.
+- GitHub Actions [run 41047481907](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41047481907) lulus **2/2 job** pada head `04ab209f5fbd716fd8f78047eaac8d259be64934`, termasuk 33 pemeriksaan pgTAP untuk Peer Review, build, rehearsal migrasi, API/tenant, Storage dan backup/restore sintetis.
+- Status PR terverifikasi: PR #1–#11 Open/Draft, PR #12 Closed/Merged, PR #13 Open/Draft. Tidak ada status yang diubah dan tidak ada migration/data Supabase live yang diterapkan. PR #13 tetap Draft selama audit paritas historis, keputusan cakupan PPOB/Layanan dan rekonsiliasi ledger target belum selesai.

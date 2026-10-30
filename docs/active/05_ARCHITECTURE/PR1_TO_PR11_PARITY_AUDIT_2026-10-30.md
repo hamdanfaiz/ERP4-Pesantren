@@ -2,7 +2,7 @@
 
 Tanggal audit: 30 Oktober 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Checkpoint audit paritas awal: `430929f15f36ba3b238c5809d6252d60c0055c41`. **Revalidasi terkini 30 Oktober 2026:** PR #13 head `0cf670ba9097b7002322173adb92568f9ed8a054`; GitHub Actions [run 41041688664](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41041688664) lulus 2/2 job. Run tersebut menguji perubahan Wali, typecheck/build, rehearsal migrasi sintetis, pgTAP, API/tenant, transaksi serentak, Storage, dan backup/restore. Tidak ada migration live yang diterapkan.
+Checkpoint audit paritas awal: `430929f15f36ba3b238c5809d6252d60c0055c41`. **Revalidasi terkini 30 Oktober 2026:** PR #13 head `04ab209f5fbd716fd8f78047eaac8d259be64934`; GitHub Actions [run 41047481907](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41047481907) lulus 2/2 job. Run tersebut menguji Peer Review teks, typecheck/build, guard runtime, rehearsal migrasi sintetis, pgTAP, API/tenant, transaksi serentak, Storage, serta backup/restore. Tidak ada migration live yang diterapkan.
 
 ## Tujuan dan batas bukti
 
@@ -24,7 +24,7 @@ PR #1–#11 bercabang bertingkat dan divergen dari PR #13. Membandingkan jumlah 
 | #8 | Master Data, onboarding santri, reservasi NIS, penempatan kamar | `src/server/supabaseOnboarding.ts`, `supabase/migrations/20261030000000_master_data_onboarding.sql`, `20261101000000_student_room_assignment.sql`, migration runtime Master Data serta tes onboarding/NIS | Ada pengganti source dan tes transaksi sintetis | Rehearsal schema; uji kapasitas kamar, NIS dan relasi santri/wali pada target terisolasi |
 | #9 | Fondasi Finance tenant-scoped dan RPC transaksi | `src/server/supabaseFinance.ts`, `20261117000000_finance_runtime.sql`, Finance budget/ledger migrations dan tes transaksi | Ada pengganti source; catatan Finance historis tetap memerlukan pemetaan eksplisit | Rehearsal ledger, idempotensi pembayaran, pembukuan dan pemulihan pada staging |
 | #10 | UI Finance, bukti pembayaran dan Storage | `src/pages/SupabaseFinanceManager.tsx`, `src/server/financeProofStorage.ts`, API bukti, bucket privat dan tes upload/download | Ada pengganti source dan tes sintetis | Uji hak akses, batas unggahan dan bukti pembayaran pada staging dengan akun sintetis |
-| #11 | Master Data, Asrama, Tahfidz dan UI Supabase | Master Data/Onboarding, API dan UI Asrama, `src/server/supabaseTahfidz.ts`, `src/pages/TahfidzManager.tsx`, `src/pages/SupabaseTahfidzSessions.tsx`, migration dan tes tiap alur | Alur inti punya pengganti; **capaian/badges kini dihitung dari catatan Supabase dengan cakupan roster tenant**; peer review belum memakai Supabase | Lengkapi atau keluarkan secara eksplisit peer review dari cakupan rilis; tutup gap unit/integrasi; verifikasi fitur pada matriks Tahfidz |
+| #11 | Master Data, Asrama, Tahfidz dan UI Supabase | Master Data/Onboarding, API dan UI Asrama, `src/server/supabaseTahfidz.ts`, `src/pages/TahfidzManager.tsx`, `src/pages/SupabaseTahfidzSessions.tsx`, `src/components/SupabaseTahfidzPeerReview.tsx`, migration dan tes tiap alur | Alur inti dan capaian/badges memakai Supabase; peer review teks pada halaqah aktif memakai backend dan moderasi Ustadz, 33 pgTAP checks lulus di CI. Audio dan akses Wali tidak termasuk cakupan yang dipilih | Audit perilaku modul lain dan periksa matriks Tahfidz; uji login/role tenant pada environment UAT oleh tim penerapan |
 
 ## Kontrol runtime Firebase yang sudah diverifikasi
 
@@ -32,7 +32,7 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 
 ## Gap yang tetap menghalangi kesiapan pengembangan
 
-1. **Tahfidz belum paritas penuh.** Tab `badges` kini menampilkan enam capaian progres yang dihitung dari data tersimpan Supabase dengan tes role/tenant/paginasi. Tab `peer-review` tetap placeholder saat runtime Supabase aktif; fitur itu belum boleh dilaporkan selesai.
+1. **Tahfidz memiliki padanan backend untuk cakupan rilis yang dipilih.** Tab `badges` menghitung enam capaian progres dari data Supabase dengan tes role/tenant/paginasi. Peer Review memakai teks, dibatasi pada halaqah aktif, dan menunggu moderasi Ustadz; 33 tes pgTAP lulus. Audio dan akses Wali sengaja tidak termasuk dalam cakupan ini. UAT login/role tetap belum dilakukan.
 2. **Analitik Operasional kini memakai snapshot Supabase dan izin modul `intelligence` yang terpisah.** Indikatornya berupa aturan transparan atas antrian PPDB, verifikasi/tagihan, dan arus kas; tidak ada klaim prediksi AI. Model AI prediktif dikeluarkan dari cakupan rilis awal sampai ada data dan validasi yang memadai. PPOB/Layanan masih fail-closed dan memerlukan keputusan cakupan serta integrasi provider yang nyata.
 3. **Audit integrasi antar-modul belum menyeluruh.** Perlu bukti relasi ID, tenant, unit, status, transaksi/retry, audit dan kegagalan parsial pada alur lintas modul.
 4. **Ledger proyek Supabase target `ptsasgdvgrbdtgyqieie` tidak dapat dibaca oleh konektor pada sesi ini.** Tidak ada migration live yang diterapkan. Tim perlu merekonsiliasi ledger dan melakukan rehearsal pada environment staging yang dapat dipulihkan sebelum cutover.
@@ -47,7 +47,13 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 
 ## Verifikasi yang tersedia
 
-- GitHub Actions PR #13 [run 41041688664](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41041688664) lulus **2/2 job** pada head `0cf670ba9097b7002322173adb92568f9ed8a054`; hasil ini menggantikan run lama untuk menilai head terkini.
+### Revalidasi 30 Oktober 2026 — Peer Review Tahfidz
+
+- Head PR #13 `04ab209f5fbd716fd8f78047eaac8d259be64934`; GitHub Actions [run 41047481907](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41047481907) lulus **2/2 job**.
+- Tes pgTAP memverifikasi izin tabel/RPC, isolasi tenant, halaqah dan rentang tanggal keanggotaan, pengiriman idempoten, penolakan penilaian sendiri/lintas halaqah, serta moderasi final oleh Ustadz pengampu. Build, Docker/Compose, API tenant, Storage dan backup/restore juga lulus.
+- PR #13 tetap Draft: parity lintas-modul PR #1–#11, keputusan cakupan PPOB/Layanan dan rekonsiliasi ledger Supabase target belum selesai. Tidak ada perubahan pada Supabase live.
+
+- Run GitHub Actions 41041688664 pada head `0cf670ba9097b7002322173adb92568f9ed8a054` adalah hasil historis. Untuk head terkini, lihat revalidasi pada run 41047481907 di atas.
 - Job mencakup typecheck/build, pemeriksaan runtime Supabase tanpa Firebase, Docker/Compose dan smoke test image, rehearsal migrasi sintetis, pgTAP, API/isolasi tenant, transaksi serentak, Storage, serta backup/restore.
 - Pemeriksaan memakai Supabase lokal dan data sintetis. Supabase Preview tidak berjalan karena branch preview tidak terhubung. Tidak ada migration/data yang diterapkan ke Supabase live, login pelanggan, deployment, atau UAT yang diklaim.
 - Tidak ada review submission atau inline review thread pada PR #13 saat diperiksa.
