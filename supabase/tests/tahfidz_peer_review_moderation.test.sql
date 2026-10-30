@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SET LOCAL TIME ZONE 'UTC';
-SELECT plan(27);
+SELECT plan(33);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -66,6 +66,32 @@ SELECT ok(NOT has_function_privilege('authenticated', 'public.submit_tenant_tahf
 
 SET LOCAL ROLE service_role;
 
+UPDATE public.tahfidz_memberships SET starts_on = CURRENT_DATE + 1
+WHERE tenant_id = 'd3800000-0000-4000-8000-000000000009'
+  AND student_id = 'd3800000-0000-4000-8000-000000000101' AND status = 'active';
+SELECT is((public.get_tenant_tahfidz_peer_review_snapshot(
+  'd3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000011', 'santri'
+)->>'canSubmit'), 'false', 'future-dated reviewer membership does not grant peer-review access');
+SELECT is(jsonb_array_length(public.get_tenant_tahfidz_peer_review_snapshot(
+  'd3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000011', 'santri'
+)->'reviewableRecords'), 0, 'future-dated reviewer membership exposes no reviewable records');
+UPDATE public.tahfidz_memberships SET starts_on = CURRENT_DATE - 2
+WHERE tenant_id = 'd3800000-0000-4000-8000-000000000009'
+  AND student_id = 'd3800000-0000-4000-8000-000000000101' AND status = 'active';
+
+UPDATE public.tahfidz_memberships SET ends_on = CURRENT_DATE - 1
+WHERE tenant_id = 'd3800000-0000-4000-8000-000000000009'
+  AND student_id = 'd3800000-0000-4000-8000-000000000101' AND status = 'active';
+SELECT is((public.get_tenant_tahfidz_peer_review_snapshot(
+  'd3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000011', 'santri'
+)->>'canSubmit'), 'false', 'ended reviewer membership does not grant peer-review access');
+SELECT is(jsonb_array_length(public.get_tenant_tahfidz_peer_review_snapshot(
+  'd3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000011', 'santri'
+)->'reviewableRecords'), 0, 'ended reviewer membership exposes no reviewable records');
+UPDATE public.tahfidz_memberships SET ends_on = NULL
+WHERE tenant_id = 'd3800000-0000-4000-8000-000000000009'
+  AND student_id = 'd3800000-0000-4000-8000-000000000101' AND status = 'active';
+
 SELECT is(public.get_tenant_tahfidz_peer_review_snapshot(
   'd3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000011', 'santri'
 )->>'canSubmit', 'true', 'active Santri in a halaqah may submit');
@@ -75,6 +101,26 @@ SELECT throws_ok($$SELECT public.get_tenant_tahfidz_peer_review_snapshot(
 SELECT is(jsonb_array_length(public.get_tenant_tahfidz_peer_review_snapshot(
   'd3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000011', 'santri'
 )->'reviewableRecords'), 2, 'reviewer sees only other students records in the same halaqah');
+UPDATE public.tahfidz_memberships SET starts_on = CURRENT_DATE + 1
+WHERE tenant_id = 'd3800000-0000-4000-8000-000000000009'
+  AND student_id = 'd3800000-0000-4000-8000-000000000102' AND status = 'active';
+SELECT throws_ok($$SELECT public.submit_tenant_tahfidz_peer_review(
+  'd3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000011', 'santri',
+  'd3800000-0000-4000-8000-000000000401', 'Setoran ini belum punya anggota aktif.', 'd3800000-0000-4000-8000-000000000606'
+)$$, '42501', 'Penilaian hanya dapat dikirim dalam halaqah aktif yang sama', 'a future-dated target membership cannot receive reviews');
+UPDATE public.tahfidz_memberships SET starts_on = CURRENT_DATE - 2
+WHERE tenant_id = 'd3800000-0000-4000-8000-000000000009'
+  AND student_id = 'd3800000-0000-4000-8000-000000000102' AND status = 'active';
+UPDATE public.tahfidz_memberships SET ends_on = CURRENT_DATE - 1
+WHERE tenant_id = 'd3800000-0000-4000-8000-000000000009'
+  AND student_id = 'd3800000-0000-4000-8000-000000000102' AND status = 'active';
+SELECT throws_ok($$SELECT public.submit_tenant_tahfidz_peer_review(
+  'd3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000011', 'santri',
+  'd3800000-0000-4000-8000-000000000401', 'Setoran ini sudah tidak aktif.', 'd3800000-0000-4000-8000-000000000607'
+)$$, '42501', 'Penilaian hanya dapat dikirim dalam halaqah aktif yang sama', 'an ended target membership cannot receive reviews');
+UPDATE public.tahfidz_memberships SET ends_on = NULL
+WHERE tenant_id = 'd3800000-0000-4000-8000-000000000009'
+  AND student_id = 'd3800000-0000-4000-8000-000000000102' AND status = 'active';
 SELECT is((public.submit_tenant_tahfidz_peer_review(
   'd3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000011', 'santri',
   'd3800000-0000-4000-8000-000000000401', 'Bacaan sudah jelas dan rapi.', 'd3800000-0000-4000-8000-000000000601'

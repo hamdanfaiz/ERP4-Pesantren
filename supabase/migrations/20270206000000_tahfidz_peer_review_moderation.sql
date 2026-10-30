@@ -42,7 +42,7 @@ CREATE INDEX tahfidz_peer_reviews_reviewer_created_idx
 
 ALTER TABLE public.tahfidz_peer_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tahfidz_peer_reviews FORCE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.tahfidz_peer_reviews FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.tahfidz_peer_reviews FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.tahfidz_peer_reviews TO service_role;
 
 CREATE OR REPLACE FUNCTION public.get_tenant_tahfidz_peer_review_snapshot(
@@ -57,6 +57,8 @@ SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_profile public.profiles%ROWTYPE;
+  v_tenant_time_zone TEXT;
+  v_tenant_date DATE;
   v_role TEXT;
   v_student_id UUID;
   v_halaqah_ids UUID[] := ARRAY[]::UUID[];
@@ -68,9 +70,16 @@ BEGIN
     OR lower(COALESCE(p_expected_role, '')) NOT IN ('santri', 'ustadz') THEN
     RAISE EXCEPTION 'Role atau konteks penilaian tidak valid' USING ERRCODE = '22023';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.tenants WHERE id = p_tenant_id AND status = 'active') THEN
+  SELECT time_zone INTO v_tenant_time_zone
+  FROM public.tenants WHERE id = p_tenant_id AND status = 'active';
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'Tenant tidak aktif' USING ERRCODE = '42501';
   END IF;
+  BEGIN
+    v_tenant_date := (now() AT TIME ZONE v_tenant_time_zone)::DATE;
+  EXCEPTION WHEN invalid_parameter_value THEN
+    RAISE EXCEPTION 'Zona waktu tenant tidak valid' USING ERRCODE = '22023';
+  END;
 
   SELECT * INTO v_profile FROM public.profiles
   WHERE tenant_id = p_tenant_id AND user_id = p_actor_user_id AND status = 'active';
@@ -90,7 +99,7 @@ BEGIN
     INTO v_student_count, v_student_id
     FROM public.students s
     WHERE s.tenant_id = p_tenant_id
-      AND lower(COALESCE(s.status, '')) NOT IN ('archived', 'arsip')
+      AND lower(COALESCE(s.status, '')) NOT IN ('archived', 'arsip', 'inactive', 'nonaktif', 'alumni', 'dikeluarkan')
       AND (s.id::TEXT = v_profile.linked_santri_id OR s.source_record_id = v_profile.linked_santri_id);
     IF v_student_count <> 1 THEN
       RAISE EXCEPTION 'Profil santri belum tertaut ke satu data santri yang aktif' USING ERRCODE = '42501';
@@ -100,7 +109,8 @@ BEGIN
     FROM public.tahfidz_memberships m
     JOIN public.tahfidz_halaqahs h ON h.tenant_id = m.tenant_id AND h.id = m.halaqah_id
     WHERE m.tenant_id = p_tenant_id AND m.student_id = v_student_id
-      AND m.status = 'active' AND h.status = 'active';
+      AND m.status = 'active' AND m.starts_on <= v_tenant_date
+      AND (m.ends_on IS NULL OR m.ends_on >= v_tenant_date) AND h.status = 'active';
 
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
       'recordId', q.record_id, 'studentName', q.student_name,
@@ -118,9 +128,11 @@ BEGIN
       JOIN public.tahfidz_memberships target_membership
         ON target_membership.tenant_id = r.tenant_id AND target_membership.student_id = r.student_id
         AND target_membership.halaqah_id = r.halaqah_id AND target_membership.status = 'active'
+        AND target_membership.starts_on <= v_tenant_date
+        AND (target_membership.ends_on IS NULL OR target_membership.ends_on >= v_tenant_date)
       WHERE r.tenant_id = p_tenant_id AND r.halaqah_id = ANY(v_halaqah_ids)
         AND r.student_id <> v_student_id AND h.status = 'active'
-        AND lower(COALESCE(s.status, '')) NOT IN ('archived', 'arsip')
+        AND lower(COALESCE(s.status, '')) NOT IN ('archived', 'arsip', 'inactive', 'nonaktif', 'alumni', 'dikeluarkan')
         AND NOT EXISTS (
           SELECT 1 FROM public.tahfidz_peer_reviews existing
           WHERE existing.tenant_id = p_tenant_id AND existing.record_id = r.id
@@ -197,8 +209,11 @@ SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_profile public.profiles%ROWTYPE;
+  v_tenant_time_zone TEXT;
+  v_tenant_date DATE;
   v_student_id UUID;
   v_student_count INTEGER;
+  v_membership_count INTEGER;
   v_target_student_id UUID;
   v_halaqah_id UUID;
   v_text TEXT;
@@ -211,9 +226,16 @@ BEGIN
     OR length(v_text) < 10 OR length(v_text) > 1200 THEN
     RAISE EXCEPTION 'Isi penilaian tidak valid' USING ERRCODE = '22023';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.tenants WHERE id = p_tenant_id AND status = 'active') THEN
+  SELECT time_zone INTO v_tenant_time_zone
+  FROM public.tenants WHERE id = p_tenant_id AND status = 'active';
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'Tenant tidak aktif' USING ERRCODE = '42501';
   END IF;
+  BEGIN
+    v_tenant_date := (now() AT TIME ZONE v_tenant_time_zone)::DATE;
+  EXCEPTION WHEN invalid_parameter_value THEN
+    RAISE EXCEPTION 'Zona waktu tenant tidak valid' USING ERRCODE = '22023';
+  END;
 
   SELECT * INTO v_profile FROM public.profiles
   WHERE tenant_id = p_tenant_id AND user_id = p_actor_user_id AND status = 'active';
@@ -229,7 +251,7 @@ BEGIN
   INTO v_student_count, v_student_id
   FROM public.students s
   WHERE s.tenant_id = p_tenant_id
-    AND lower(COALESCE(s.status, '')) NOT IN ('archived', 'arsip')
+    AND lower(COALESCE(s.status, '')) NOT IN ('archived', 'arsip', 'inactive', 'nonaktif', 'alumni', 'dikeluarkan')
     AND (s.id::TEXT = v_profile.linked_santri_id OR s.source_record_id = v_profile.linked_santri_id);
   IF v_student_count <> 1 THEN
     RAISE EXCEPTION 'Profil santri belum tertaut ke satu data santri yang aktif' USING ERRCODE = '42501';
@@ -240,20 +262,23 @@ BEGIN
   FROM public.tahfidz_records record
   JOIN public.tahfidz_halaqahs h
     ON h.tenant_id = record.tenant_id AND h.id = record.halaqah_id AND h.status = 'active'
+  JOIN public.students target
+    ON target.tenant_id = record.tenant_id AND target.id = record.student_id
+    AND lower(COALESCE(target.status, '')) NOT IN ('archived', 'arsip', 'inactive', 'nonaktif', 'alumni', 'dikeluarkan')
   WHERE record.tenant_id = p_tenant_id AND record.id = p_record_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Setoran tidak ditemukan pada tenant ini' USING ERRCODE = 'P0002'; END IF;
   IF v_target_student_id = v_student_id THEN
     RAISE EXCEPTION 'Santri tidak dapat menilai setoran sendiri' USING ERRCODE = '42501';
   END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM public.tahfidz_memberships m
-    WHERE m.tenant_id = p_tenant_id AND m.halaqah_id = v_halaqah_id
-      AND m.student_id = v_student_id AND m.status = 'active'
-  ) OR NOT EXISTS (
-    SELECT 1 FROM public.tahfidz_memberships m
-    WHERE m.tenant_id = p_tenant_id AND m.halaqah_id = v_halaqah_id
-      AND m.student_id = v_target_student_id AND m.status = 'active'
-  ) THEN
+  PERFORM m.id FROM public.tahfidz_memberships m
+  WHERE m.tenant_id = p_tenant_id AND m.halaqah_id = v_halaqah_id
+    AND m.student_id IN (v_student_id, v_target_student_id) AND m.status = 'active'
+    AND m.starts_on <= v_tenant_date
+    AND (m.ends_on IS NULL OR m.ends_on >= v_tenant_date)
+  ORDER BY m.student_id
+  FOR SHARE OF m;
+  GET DIAGNOSTICS v_membership_count = ROW_COUNT;
+  IF v_membership_count <> 2 THEN
     RAISE EXCEPTION 'Penilaian hanya dapat dikirim dalam halaqah aktif yang sama' USING ERRCODE = '42501';
   END IF;
 
