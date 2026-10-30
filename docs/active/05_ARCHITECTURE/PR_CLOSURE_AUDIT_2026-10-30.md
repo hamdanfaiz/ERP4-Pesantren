@@ -38,7 +38,7 @@ Konektor Supabase hanya menampilkan project `vqemuyzveuirlkvdggjd`; pembacaan mi
 | #10 | Open / Draft | #9 | backend/supabase-finance-ui (127c67e) | UI Finance/PPDB lama. |
 | #11 | Open / Draft | #10 | backend/supabase-masterdata-structures-ui (88f2686) | Master Data, asrama, dan Tahfidz; matriks perilaku ada pada dokumen paritas #11 → #13. |
 | #12 | Closed / Merged | — | — | Sudah menjadi bagian main. |
-| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (`3f60d3b`) | Head terakhir lulus run 41020730492 (2/2 job wajib); Peer Review, gap integrasi/cakupan rilis, dan verifikasi ledger tetap terbuka; belum siap merge. |
+| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (head kode uji `43455c8`) | CI lulus 2/2 job pada head kode tersebut; PR kini memiliki pembaruan dokumentasi saja. Peer Review, gap integrasi/cakupan rilis, dan verifikasi ledger tetap terbuka; belum siap merge. |
 
 ## Hasil perbandingan awal #1–#11 terhadap #13
 
@@ -48,7 +48,7 @@ Migration `20270130000000_master_data_unit_assignment.sql` memberi `finance_bill
 
 Perubahan di atas diuji pada head tersebut melalui CI lokal sintetis; ini bukan UAT atau verifikasi staging. Tidak ada alasan untuk menutup PR lama sebelum perubahan utama digabung ke `main`.
 
-Metadata GitHub saat ini melaporkan 443 berkas berubah pada PR #13. Endpoint perbandingan GitHub mengembalikan paling banyak 300 path; daftar berkas maupun jumlah commit hanya menunjukkan lokasi/riwayat perubahan, bukan bukti bahwa alur bisnis setara. Audit sumber per PR yang lebih terstruktur ada di [PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md](docs/active/05_ARCHITECTURE/PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md). Ringkasan di bawah menandai tempat verifikasi yang diperlukan sebelum PR lama boleh ditutup.
+Metadata GitHub pada pemeriksaan terbaru melaporkan 446 berkas berubah pada PR #13. Endpoint perbandingan GitHub mengembalikan paling banyak 300 path; daftar berkas maupun jumlah commit hanya menunjukkan lokasi/riwayat perubahan, bukan bukti bahwa alur bisnis setara. Audit sumber per PR yang lebih terstruktur ada di [PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md](docs/active/05_ARCHITECTURE/PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md). Ringkasan di bawah menandai tempat verifikasi yang diperlukan sebelum PR lama boleh ditutup.
 
 | PR | Perubahan lama yang diperiksa | Padanan atau catatan pada PR #13 | Tindakan sebelum penutupan |
 |---|---|---|---|
