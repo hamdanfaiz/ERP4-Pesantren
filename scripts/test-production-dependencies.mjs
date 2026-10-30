@@ -15,6 +15,6 @@ assert.deepEqual(
 );
 assert.ok(runtimeDependencies.includes('@supabase/supabase-js'), 'Supabase client must remain available at runtime.');
 assert.ok(devDependencies.includes('firebase'), 'Legacy Firebase client types remain available only for development builds.');
-assert.ok(devDependencies.includes('firebase-admin'), 'The archived Firebase importer remains available only in local development.');
+assert.ok(!devDependencies.includes('firebase-admin'), 'Firebase Admin must be removed; the server no longer reads Firestore.');
 
-console.log('Production dependency boundary passed: Firebase packages are development-only and Supabase remains a runtime dependency.');
+console.log('Production dependency boundary passed: Firebase Admin is absent and Supabase remains a runtime dependency.');

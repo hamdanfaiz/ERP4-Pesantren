@@ -65,9 +65,6 @@ jobs:
       - name: Verify Firebase packages are excluded from production dependencies
         run: node scripts/test-production-dependencies.mjs
 
-      - name: Verify Firebase Admin is disabled outside local development
-        run: npm run test:legacy-firebase-gate
-
       - name: Verify the active frontend graph contains no Firebase runtime
         run: npm run test:supabase-runtime-no-firebase
 
@@ -76,9 +73,6 @@ jobs:
 
       - name: Verify trusted reverse proxy hop configuration
         run: npm run test:trusted-proxy-hops
-
-      - name: Verify legacy Firestore tenant scoping
-        run: npm run test:legacy-firestore-tenant-scope
 
       - name: Verify tenant business-day calculations
         run: npm run test:business-date
@@ -146,7 +140,6 @@ jobs:
             -e VITE_SUPABASE_URL=https://supabase.example.invalid \
             -e VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder \
             -e VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=true \
-            -e LEGACY_FIREBASE_ADMIN_ENABLED=true \
             erp4-pesantren:ci
           trap 'docker rm -f erp4-pesantren-image-smoke >/dev/null 2>&1 || true' EXIT
           for attempt in $(seq 1 30); do

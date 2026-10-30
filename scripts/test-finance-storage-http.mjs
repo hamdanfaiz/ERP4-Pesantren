@@ -263,7 +263,6 @@ async function main() {
         SUPABASE_PPDB_RUNTIME_ENABLED: 'true',
         SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED: 'true',
         PII_FINGERPRINT_KEY: Buffer.alloc(32, 0x5a).toString('hex'),
-        LEGACY_FIREBASE_ADMIN_ENABLED: 'false',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
