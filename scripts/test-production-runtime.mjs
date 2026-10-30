@@ -33,7 +33,6 @@ const child = spawn(process.execPath, ['dist/server.cjs'], {
     ...inheritedRuntimeEnvironment,
     NODE_ENV: 'production',
     PORT: String(port),
-    LEGACY_FIREBASE_ADMIN_ENABLED: 'true',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });

@@ -126,7 +126,6 @@ async function main() {
         SUPABASE_SERVICE_ROLE_KEY: '',
         SUPABASE_LIBRARY_RUNTIME_ENABLED: 'true',
         SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED: 'true',
-        LEGACY_FIREBASE_ADMIN_ENABLED: 'false',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });

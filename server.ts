@@ -1,10 +1,7 @@
 import express from "express";
 import path from "path";
-import fs from "fs";
 import dotenv from "dotenv";
 import { PUBLIC_CLIENT_RUNTIME_CONFIG_KEYS } from "./src/publicRuntimeConfigKeys";
-import type { App } from "firebase-admin/app";
-import type { Firestore } from "firebase-admin/firestore";
 import { createHash, randomUUID } from "node:crypto";
 import { resolveTrustedProxyHops } from "./src/server/trustedProxyHops";
 import { Buffer } from "node:buffer";
@@ -31,26 +28,25 @@ import {
 } from "./src/server/identityStore";
 import {
   acknowledgeCommunicationAnnouncement,
-  applyLegacyCommunicationAnnouncements,
   CommunicationStoreError,
   createCommunicationAnnouncement,
   listCommunicationAnnouncements,
-  previewLegacyCommunicationAnnouncements,
 } from "./src/server/communicationAnnouncements";
 import {
   getTenantSystemSettings,
-  importLegacyTenantSystemSettings,
-  sanitizeTenantSettings,
   saveTenantSystemSettings,
   SystemSettingsStoreError,
 } from "./src/server/systemSettingsStore";
 import { recordTenantSearchFeedback, SearchFeedbackStoreError } from "./src/server/searchFeedbackStore";
-import { isLegacyArchiveImportEnabled, isLegacyFirebaseAdminEnabled } from "./src/server/legacyFirebaseGate";
-import { ALL_SYSTEM_MODULE_IDS as ALL_SYSTEM_MODULES, PLATFORM_ONLY_MODULES, isModuleAccessible, isValidModulePermissions, type UserRole } from "./src/rbac";
-import { LegacyFirestoreTenantScopeError, legacyTenantPathRecordMatches, readLegacyFirestoreTenantRows, scopeLegacyTenantRecords } from "./src/server/legacyFirestoreTenantScope";
+import {
+  ALL_SYSTEM_MODULE_IDS as ALL_SYSTEM_MODULES,
+  PLATFORM_ONLY_MODULES,
+  isModuleAccessible,
+  isValidModulePermissions,
+  type UserRole,
+} from "./src/rbac";
 import {
   assignSupabaseTahfidzMembership,
-  getSupabaseTahfidzLegacyTenantKey,
   listSupabaseTahfidzAchievementPage,
   listSupabaseTahfidzSessions,
   listSupabaseTahfidzRosterPage,
@@ -58,7 +54,6 @@ import {
   listSupabaseTahfidzPeerReviews,
   listSupabaseTahfidzRecordPage,
   moderateSupabaseTahfidzPeerReview,
-  migrateSupabaseTahfidzConfiguration,
   mutateSupabaseTahfidzSession,
   recordSupabaseTahfidzSetoran,
   recordSupabaseTahfidzTarget,
@@ -83,8 +78,6 @@ import {
   getSupabaseMasterDataStudent,
   listSupabaseMasterDataStudentsPage,
   listSupabaseMasterDataStructures,
-  migrateSupabaseLegacyMasterDataStudents,
-  migrateSupabaseMasterDataStructures,
   onboardSupabaseAcceptedCandidate,
   SupabaseOnboardingError,
   upsertSupabaseMasterDataStudent,
@@ -97,14 +90,11 @@ import {
 } from "./src/server/supabaseAlumni";
 import {
   checkoutSupabaseLibraryBook,
-  getSupabaseLibraryCirculationImportContext,
-  getSupabaseLibraryLegacyImportContext,
   listSupabaseLibrarySnapshot,
   returnSupabaseLibraryBook,
   SupabaseLibraryError,
   upsertSupabaseLibraryBook,
 } from "./src/server/supabaseLibrary";
-import { applySupabaseLegacyLibraryBooks, previewSupabaseLegacyLibraryBooks } from "./src/server/supabaseLibraryImport";
 import {
   createSupabaseLibraryDigitalAssetDownloadUrl,
   finalizeSupabaseLibraryDigitalAssetUpload,
@@ -128,11 +118,7 @@ import {
   saveSupabaseCrmContact,
   SupabaseCrmError,
 } from "./src/server/supabaseCrm";
-import {
-  applySupabaseLegacyLibraryCirculations,
-  previewSupabaseLegacyLibraryCirculations,
-  type LegacyLibraryStudentMappings,
-} from "./src/server/supabaseLibraryCirculationImport";
+
 import {
   createSupabaseLaundryOrder,
   getSupabaseLaundrySnapshot,
@@ -142,7 +128,6 @@ import {
 } from "./src/server/supabaseLaundry";
 import {
   listSupabaseBoardingPermits,
-  migrateSupabaseLegacyBoardingPermits,
   requestSupabaseBoardingPermit,
   transitionSupabaseBoardingPermit,
 } from "./src/server/supabaseBoardingPermits";
@@ -185,8 +170,6 @@ import { resolveAcademicPortalStudentId } from "./src/lib/academicPortalPaginati
 import {
   adjustSupabaseCooperativeStock,
   checkoutSupabaseCooperativeSale,
-  getSupabaseCooperativeLegacyImportContext,
-  getSupabaseCooperativeFinancialImportContext,
   getSupabaseCooperativeSnapshot,
   manageSupabaseCooperativeProduct,
   manageSupabaseCooperativeSupplier,
@@ -195,18 +178,6 @@ import {
   topUpSupabaseCooperativeWallet,
 } from "./src/server/supabaseCooperative";
 import {
-  applySupabaseLegacyCooperativeCatalog,
-  applySupabaseLegacyCooperativeFinancialHistory,
-  previewSupabaseLegacyCooperativeCatalog,
-  previewSupabaseLegacyCooperativeFinancialHistory,
-  type LegacyCooperativeFinancialMappings,
-} from "./src/server/supabaseCooperativeImport";
-import {
-  applySupabaseLegacyHrisEmployeeImport,
-  previewSupabaseLegacyHrisEmployees,
-} from "./src/server/supabaseHrisImport";
-import {
-  getSupabaseHrisLegacyImportContext,
   listSupabaseHrisSnapshot,
   recordSupabaseHrisAttendance,
   requestSupabaseHrisLeave,
@@ -214,7 +185,6 @@ import {
   SupabaseHrisError,
   upsertSupabaseHrisEmployee,
 } from "./src/server/supabaseHris";
-import { getSupabaseAcademicLegacyTenantKey, importSupabaseLegacyAcademic, previewSupabaseLegacyAcademic } from "./src/server/supabaseAcademicImport";
 import {
   createSupabaseCbtExam,
   getSupabaseCbtStudentSnapshot,
@@ -225,48 +195,55 @@ import {
   SupabaseCbtError,
   upsertSupabaseCbtQuestion,
 } from "./src/server/supabaseCbt";
-import { applySupabaseLegacyCbtImport, getSupabaseCbtLegacyImportContext, previewSupabaseLegacyCbt } from "./src/server/supabaseCbtImport";
-import { applySupabaseLegacyCbtSettingsImport, getSupabaseCbtLegacySettingsImportContext, previewSupabaseLegacyCbtSettings } from "./src/server/supabaseCbtSettingsImport";
-import { createSupabasePpdbCandidateBill, createSupabasePpdbCandidates, downloadSupabasePpdbCandidateDocument, listSupabasePpdbCandidates, previewSupabasePpdbCandidates, SupabasePpdbError, updateSupabasePpdbCandidate, uploadSupabasePpdbCandidateDocument } from "./src/server/supabasePpdb";
+
+
 import {
-  applySupabaseLegacyPpdbImport,
-  getSupabasePpdbLegacyImportContext,
-  LEGACY_PPDB_DATE_FORMAT,
-  previewSupabaseLegacyPpdb,
-} from "./src/server/supabasePpdbLegacyImport";
-import { addSupabaseLmsLearningRecord, getSupabaseLmsLegacyImportContext, getSupabaseLmsSnapshot, gradeSupabaseLmsSubmission, manageSupabaseLmsCatalog, saveSupabaseLmsProgress, submitSupabaseLmsAssignment, SupabaseLmsError } from "./src/server/supabaseLms";
-import { applySupabaseLegacyLmsImport, previewSupabaseLegacyLms } from "./src/server/supabaseLmsImport";
+  createSupabasePpdbCandidateBill,
+  createSupabasePpdbCandidates,
+  downloadSupabasePpdbCandidateDocument,
+  listSupabasePpdbCandidates,
+  previewSupabasePpdbCandidates,
+  SupabasePpdbError,
+  updateSupabasePpdbCandidate,
+  uploadSupabasePpdbCandidateDocument,
+} from "./src/server/supabasePpdb";
+import {
+  addSupabaseLmsLearningRecord,
+  getSupabaseLmsSnapshot,
+  gradeSupabaseLmsSubmission,
+  manageSupabaseLmsCatalog,
+  saveSupabaseLmsProgress,
+  submitSupabaseLmsAssignment,
+  SupabaseLmsError,
+} from "./src/server/supabaseLms";
 import {
   adjustSupabaseHealthcareStock,
   createSupabaseHealthcareMedicine,
   createSupabaseHealthcareVisit,
-  getSupabaseHealthcareLegacyImportContext,
   getSupabaseHealthcareSnapshot,
   saveSupabaseHealthcareRecord,
   SupabaseHealthcareError,
 } from "./src/server/supabaseHealthcare";
-import { applySupabaseLegacyHealthcareImport, previewSupabaseLegacyHealthcare } from "./src/server/supabaseHealthcareImport";
 import {
   adjustSupabaseGeneralAffairsStock,
-  getSupabaseGeneralAffairsImportContext,
   getSupabaseGeneralAffairsSnapshot,
   manageSupabaseGeneralAffairsFacility,
   manageSupabaseGeneralAffairsInventory,
   SupabaseGeneralAffairsError,
 } from "./src/server/supabaseGeneralAffairs";
-import { applySupabaseLegacyGeneralAffairsImport, previewSupabaseLegacyGeneralAffairs } from "./src/server/supabaseGeneralAffairsImport";
 import {
   adjustSupabaseMarketplaceStock,
   createSupabaseMarketplaceOrder,
-  getSupabaseMarketplaceImportContext,
   getSupabaseMarketplaceSnapshot,
   manageSupabaseMarketplaceProduct,
   SupabaseMarketplaceError,
   transitionSupabaseMarketplaceOrder,
 } from "./src/server/supabaseMarketplace";
-import { applySupabaseLegacyMarketplace, previewSupabaseLegacyMarketplace } from "./src/server/supabaseMarketplaceImport";
-import { getSupabaseFacilityBookings, getSupabaseFacilityBookingImportContext, manageSupabaseFacilityBooking, SupabaseFacilityBookingError } from "./src/server/supabaseFacilityBookings";
-import { applySupabaseLegacyFacilityBookings as applyFacilityBookingImport, previewSupabaseLegacyFacilityBookings } from "./src/server/supabaseFacilityBookingsImport";
+import {
+  getSupabaseFacilityBookings,
+  manageSupabaseFacilityBooking,
+  SupabaseFacilityBookingError,
+} from "./src/server/supabaseFacilityBookings";
 import {
   getSupabaseDonationSnapshot,
   manageSupabaseDonationCampaign,
@@ -276,16 +253,18 @@ import {
   SupabaseDonationError,
   voidSupabaseDonation,
 } from "./src/server/supabaseDonation";
-import { getSupabasePublicGuardianRegistrationConfig, getSupabasePublicPpdbConfig, submitSupabasePublicPpdbRegistration } from "./src/server/supabasePublicPpdb";
+import {
+  getSupabasePublicGuardianRegistrationConfig,
+  getSupabasePublicPpdbConfig,
+  submitSupabasePublicPpdbRegistration,
+} from "./src/server/supabasePublicPpdb";
 import {
   createSupabaseBoardingDiscipline,
   listSupabaseBoardingDiscipline,
-  migrateSupabaseLegacyBoardingDiscipline,
   resolveSupabaseBoardingDiscipline,
 } from "./src/server/supabaseBoardingDiscipline";
 import {
   getSupabaseBoardingAttendance,
-  migrateSupabaseLegacyBoardingAttendance,
   setSupabaseBoardingAttendance,
 } from "./src/server/supabaseBoardingAttendance";
 import {
@@ -297,131 +276,10 @@ import {
   createSupabaseBoardingCleanlinessAudit,
   createSupabaseBoardingFacilityTicket,
   listSupabaseBoardingFacilityOps,
-  migrateSupabaseLegacyBoardingFacilityOps,
   resolveSupabaseBoardingFacilityTicket,
 } from "./src/server/supabaseBoardingFacilityOps";
 
 dotenv.config();
-
-let firebaseConfig: any | null = null;
-function getFirebaseConfig(): any {
-  if (firebaseConfig) return firebaseConfig;
-  try {
-    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-    firebaseConfig = fs.existsSync(configPath)
-      ? JSON.parse(fs.readFileSync(configPath, "utf8"))
-      : {};
-  } catch {
-    firebaseConfig = {};
-  }
-  return firebaseConfig;
-}
-
-export type AdminServicesResult =
-  | { ok: true; db: Firestore }
-  | { ok: false; error: string };
-
-let adminApp: App | null = null;
-let adminDb: Firestore | null = null;
-let adminInitError: string | null = null;
-let adminInitPromise: Promise<AdminServicesResult> | null = null;
-const legacyFirebaseAdminEnabled = isLegacyFirebaseAdminEnabled(process.env);
-
-function isCredentialError(err: any): boolean {
-  if (!err) return false;
-  const msg = String(err.message || "").toLowerCase();
-  const code = String(err.code || "").toLowerCase();
-  return (
-    code === "16" ||
-    code.includes("credential") ||
-    code.includes("auth/configuration-not-found") ||
-    code.includes("could-not-load-credentials") ||
-    code.includes("unauthenticated") ||
-    msg.includes("default credentials") ||
-    msg.includes("could not load the default credentials") ||
-    msg.includes("credentials are unavailable") ||
-    msg.includes("application default credentials") ||
-    msg.includes("authentication failed") ||
-    msg.includes("metadata server") ||
-    msg.includes("failed to get default credentials") ||
-    msg.includes("unauthenticated")
-  );
-}
-
-function isFirestoreStoreError(err: any): boolean {
-  if (!err) return false;
-  const msg = String(err.message || "").toLowerCase();
-  const code = String(err.code || "").toLowerCase();
-  const details = String(err.details || "").toLowerCase();
-  return (
-    code === "7" || // PERMISSION_DENIED
-    code === "5" || // NOT_FOUND
-    code === "14" || // UNAVAILABLE
-    code === "4" || // DEADLINE_EXCEEDED
-    code === "3" || // INVALID_ARGUMENT
-    code.includes("permission_denied") ||
-    code.includes("not_found") ||
-    code.includes("unavailable") ||
-    msg.includes("permission_denied") ||
-    msg.includes("missing or insufficient permissions") ||
-    msg.includes("permission denied") ||
-    msg.includes("not found") ||
-    msg.includes("not_found") ||
-    msg.includes("database") ||
-    msg.includes("datastore") ||
-    msg.includes("project") ||
-    msg.includes("unavailable") ||
-    msg.includes("transport error") ||
-    msg.includes("deadline exceeded") ||
-    details.includes("missing or insufficient permissions")
-  );
-}
-
-async function getAdminServices(): Promise<AdminServicesResult> {
-  if (!legacyFirebaseAdminEnabled) {
-    return { ok: false, error: "Legacy Firebase Admin access is disabled. Enable it only for an approved archive migration window." };
-  }
-  if (adminInitError) {
-    return { ok: false, error: adminInitError };
-  }
-  if (adminApp && adminDb) return { ok: true, db: adminDb };
-  if (!adminInitPromise) {
-    adminInitPromise = (async (): Promise<AdminServicesResult> => {
-      try {
-        const [{ initializeApp, applicationDefault }, { getFirestore }] = await Promise.all([
-          import("firebase-admin/app"),
-          import("firebase-admin/firestore"),
-        ]);
-        const config = getFirebaseConfig();
-        const projectId =
-          process.env.FIREBASE_PROJECT_ID ||
-          process.env.GOOGLE_CLOUD_PROJECT ||
-          config.projectId;
-
-        // Use Application Default Credentials only (no private keys or secrets in source)
-        const app = initializeApp({
-          credential: applicationDefault(),
-          projectId: projectId || undefined,
-          storageBucket: process.env.FIREBASE_STORAGE_BUCKET || config.storageBucket || undefined,
-        });
-        adminApp = app;
-        adminDb = config.firestoreDatabaseId
-          ? getFirestore(app, config.firestoreDatabaseId)
-          : getFirestore(app);
-        return { ok: true, db: adminDb! };
-      } catch (err: any) {
-        adminInitError = err.message || "Failed to initialize Firebase Admin SDK with Application Default Credentials";
-        return { ok: false, error: adminInitError };
-      }
-    })();
-  }
-  return adminInitPromise!;
-}
-
-async function loadFirestoreFieldValue() {
-  const { FieldValue } = await import("firebase-admin/firestore");
-  return FieldValue;
-}
 
 function resolveUserModulePermissions(role: string, perms?: Record<string, boolean> | null): Record<string, boolean> {
   const result: Record<string, boolean> = {};
@@ -662,7 +520,6 @@ async function startServer() {
     return profile;
   };
   const communicationRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) {
       return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     }
@@ -673,7 +530,6 @@ async function startServer() {
     return res.status(503).json({ error: "Layanan Komunikasi Supabase belum dapat diproses." });
   };
   const communicationRuntimeEnabled = String(process.env.SUPABASE_COMMUNICATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const communicationImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_COMMUNICATION_IMPORT_ENABLED);
   const supabasePublicPpdbRuntimeEnabled = String(process.env.SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const publicPpdbEnabled = String(process.env.PUBLIC_PPDB_ENABLED || "").trim().toLowerCase() === "true";
 
@@ -692,9 +548,7 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const tahfidzRuntimeEnabled = String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const tahfidzImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_TAHFIDZ_IMPORT_ENABLED);
   const tahfidzRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Tahfidz endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -775,8 +629,6 @@ async function startServer() {
   };
   const hrisRuntimeEnabled = String(process.env.SUPABASE_HRIS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const cooperativeRuntimeEnabled = String(process.env.SUPABASE_COOPERATIVE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const cooperativeImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_COOPERATIVE_IMPORT_ENABLED);
-  const cooperativeFinancialImportApplyEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_COOPERATIVE_FINANCIAL_IMPORT_APPLY_ENABLED);
   const loadCooperativeActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
     const tenantId = String(profile?.tenantId || "").trim();
@@ -793,61 +645,42 @@ async function startServer() {
   };
   const cooperativeRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseCooperativeError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase cooperative endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan Koperasi Supabase belum dapat diproses." });
   };
   const hrisRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseHrisError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase HRIS endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan HRIS Supabase belum dapat diproses." });
   };
   const masterDataRuntimeEnabled = String(process.env.SUPABASE_MASTER_DATA_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const masterDataImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_MASTER_DATA_IMPORT_ENABLED);
   const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryRuntimeEnabled = String(process.env.SUPABASE_LIBRARY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryDigitalAssetsEnabled = String(process.env.SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED || "").trim().toLowerCase() === "true";
-  const libraryImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_LIBRARY_IMPORT_ENABLED);
-  const libraryCirculationImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_LIBRARY_CIRCULATIONS_IMPORT_ENABLED);
-  const hrisImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_HRIS_IMPORT_ENABLED);
   const boardingRuntimeEnabled = String(process.env.SUPABASE_BOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingPermitsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const boardingPermitsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED);
   const boardingDisciplineRuntimeEnabled = String(process.env.SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const boardingDisciplineImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_BOARDING_DISCIPLINE_IMPORT_ENABLED);
   const boardingAttendanceRuntimeEnabled = String(process.env.SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const boardingAttendanceImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_BOARDING_ATTENDANCE_IMPORT_ENABLED);
   const boardingAssignmentsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const boardingFacilityOpsRuntimeEnabled = String(process.env.SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const boardingFacilityOpsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED);
   const ppdbRuntimeEnabled = String(process.env.SUPABASE_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbDocumentsRuntimeEnabled = String(process.env.SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbFinanceBillsEnabled = String(process.env.SUPABASE_PPDB_FINANCE_BILLS_ENABLED || "").trim().toLowerCase() === "true";
   const financeRuntimeEnabled = String(process.env.SUPABASE_FINANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const financeBudgetRuntimeEnabled = String(process.env.SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const enterpriseUnitsRuntimeEnabled = String(process.env.SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const ppdbLegacyImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_PPDB_IMPORT_ENABLED);
   const ppdbOnboardingRuntimeEnabled = String(process.env.SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const academicRuntimeEnabled = String(process.env.SUPABASE_ACADEMIC_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const academicImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_ACADEMIC_IMPORT_ENABLED);
   const cbtRuntimeEnabled = String(process.env.SUPABASE_CBT_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const cbtImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_CBT_IMPORT_ENABLED);
   const lmsRuntimeEnabled = String(process.env.SUPABASE_LMS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const lmsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_LMS_IMPORT_ENABLED);
   const healthcareRuntimeEnabled = String(process.env.SUPABASE_HEALTHCARE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const healthcareImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_HEALTHCARE_IMPORT_ENABLED);
   const generalAffairsRuntimeEnabled = String(process.env.SUPABASE_GA_ASSETS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const generalAffairsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_GA_ASSETS_IMPORT_ENABLED);
   const marketplaceRuntimeEnabled = String(process.env.SUPABASE_MARKETPLACE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const marketplaceImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_MARKETPLACE_IMPORT_ENABLED);
   const donationRuntimeEnabled = String(process.env.SUPABASE_DONATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const facilityBookingsRuntimeEnabled = String(process.env.SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const facilityBookingsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_FACILITY_BOOKINGS_IMPORT_ENABLED);
   const masterDataRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
@@ -898,7 +731,6 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const academicRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof IdentityConflictError) return res.status(403).json({ error: error.message });
     if (error instanceof SupabaseAcademicError) return res.status(error.status).json({ error: error.message });
@@ -922,7 +754,6 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const cbtRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseCbtError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase CBT endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -938,7 +769,6 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const lmsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseLmsError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase LMS endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -953,7 +783,6 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const healthcareRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseHealthcareError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase healthcare endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -968,7 +797,6 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const generalAffairsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseGeneralAffairsError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase General Affairs endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -983,7 +811,6 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const marketplaceRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseMarketplaceError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Marketplace endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -1013,14 +840,12 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const facilityBookingRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseFacilityBookingError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase facility booking endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan pemesanan fasilitas Supabase belum dapat diproses." });
   };
   const ppdbRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabasePpdbError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
@@ -1121,59 +946,11 @@ async function startServer() {
     } catch (error) { return ppdbRouteError(res, error); }
   });
 
-  app.post("/api/ppdb/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!ppdbLegacyImportEnabled) return res.status(503).json({ error: "Impor arsip PPDB belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadPpdbActor(uid);
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor PPDB tidak valid." });
-
-      const [context, services] = await Promise.all([
-        getSupabasePpdbLegacyImportContext(actor.tenantId),
-        getAdminServices(),
-      ]);
-      if (!services.ok) throw new SupabasePpdbError(503, "Arsip Firestore PPDB belum dapat dibaca backend migrasi lokal.");
-      const [candidateRows, userSnapshot] = await Promise.all([
-        readLegacyFirestoreTenantRows(services.db, {
-          collectionName: "candidates", tenantKey: context.legacyTenantKey, limit: 500,
-        }),
-        services.db.collection("users").limit(5001).get(),
-      ]);
-      const sourceTenantKeys = [...new Set(userSnapshot.docs.map((document) => {
-        const data = document.data() as Record<string, any>;
-        const camel = String(data.tenantId || "").trim();
-        const snake = String(data.tenant_id || "").trim();
-        if (camel && snake && camel !== snake) return "__source_tenant_registry_conflict__";
-        return camel || snake || "__source_tenant_registry_missing__";
-      }))];
-      if (userSnapshot.size > 5000) sourceTenantKeys.push("__source_tenant_registry_truncated__");
-      const sourceRows = candidateRows.map(({ id, data }) => ({ id, data }));
-      const preview = previewSupabaseLegacyPpdb(sourceRows, context.existingRows, {
-        targetLegacyTenantKey: context.legacyTenantKey,
-        sourceTenantKeys,
-        sourceTenantConfirmation: String(req.body?.sourceTenantConfirmation || ""),
-        dateFormatConfirmation: String(req.body?.dateFormatConfirmation || ""),
-      });
-      const { items, ...summary } = preview;
-      if (action === "preview") return res.json(summary);
-      if (String(req.body?.expectedFingerprint || "") !== preview.snapshotFingerprint) {
-        return res.status(409).json({ error: "Snapshot PPDB berubah setelah pratinjau; jalankan pratinjau ulang.", preview: summary });
-      }
-      if (!preview.canApply) {
-        return res.status(409).json({ error: "Impor PPDB belum lolos pemeriksaan tenant, kualitas, duplikasi, atau konfirmasi format tanggal.", preview: summary });
-      }
-      const result = await applySupabaseLegacyPpdbImport(
-        context.tenantId,
-        actor.uid,
-        preview.snapshotFingerprint,
-        context.legacyTenantKey,
-        items,
-      );
-      return res.status(result?.alreadyApplied ? 200 : 201).json(result);
-    } catch (error) { return ppdbRouteError(res, error); }
+  app.post("/api/ppdb/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.patch("/api/ppdb/candidates/:candidateId", requireAuth, async (req, res) => {
@@ -1394,32 +1171,11 @@ async function startServer() {
     } catch (error) { return academicRouteError(res, error); }
   });
 
-  app.post("/api/academic/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!academicImportEnabled) return res.status(503).json({ error: "Impor historis Akademik Supabase belum diaktifkan operator." });
-    if (enterpriseUnitsRuntimeEnabled) return res.status(503).json({ error: "Impor arsip Akademik dinonaktifkan sampai pemetaan unit arsip tersedia." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadAcademicActor(uid);
-      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Impor historis hanya tersedia untuk Admin tenant." });
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor Akademik tidak valid." });
-      const { legacyTenantKey } = await getSupabaseAcademicLegacyTenantKey(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseAcademicError(503, "Sumber arsip Firebase belum dapat dibaca oleh backend migrasi.");
-      const collections = ["academic_schedules", "academic_journals", "academic_assessments"];
-      const snapshots = await Promise.all(collections.map((name) => readLegacyFirestoreTenantRows(services.db, {
-        collectionName: name, tenantKey: legacyTenantKey, limit: 3000,
-      })));
-      const sourceRows = snapshots.flatMap((rows, index) => rows.map((row) => ({
-        collection: collections[index], id: row.id, data: row.data,
-      })));
-      if (action === "preview") return res.json(await previewSupabaseLegacyAcademic(actor.tenantId, sourceRows));
-      const expectedFingerprint = String(req.body?.expectedFingerprint || "");
-      const result = await importSupabaseLegacyAcademic(actor.tenantId, actor.uid, sourceRows, expectedFingerprint);
-      return res.status(201).json(result);
-    } catch (error) { return academicRouteError(res, error); }
+  app.post("/api/academic/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/cbt/admin", requireAuth, async (req, res) => {
@@ -1433,57 +1189,18 @@ async function startServer() {
     } catch (error) { return cbtRouteError(res, error); }
   });
 
-  app.post("/api/cbt/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!cbtImportEnabled) return res.status(503).json({ error: "Impor bank soal CBT lama belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadCbtAdminActor(uid);
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor CBT tidak valid." });
-      const { legacyTenantKey, existingRows } = await getSupabaseCbtLegacyImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseCbtError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
-      const sourceRows = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "cbt_questions", tenantKey: legacyTenantKey, limit: 3000,
-      });
-      if (action === "preview") {
-        const preview = await previewSupabaseLegacyCbt(sourceRows, existingRows);
-        const { items: _items, ...summary } = preview;
-        return res.json(summary);
-      }
-      const result = await applySupabaseLegacyCbtImport(actor.tenantId, actor.uid, sourceRows, existingRows, String(req.body?.expectedFingerprint || ""));
-      return res.status(201).json(result);
-    } catch (error) { return cbtRouteError(res, error); }
+  app.post("/api/cbt/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
-  app.post("/api/cbt/legacy/settings-import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!cbtImportEnabled) return res.status(503).json({ error: "Impor konfigurasi CBT lama belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadCbtAdminActor(uid);
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor konfigurasi CBT tidak valid." });
-      const { tenantId, legacyTenantKey, existingSettingsRows } = await getSupabaseCbtLegacySettingsImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseCbtError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
-      const sourceRows = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "cbt_config", tenantKey: legacyTenantKey, limit: 10,
-      });
-      if (action === "preview") {
-        const preview = previewSupabaseLegacyCbtSettings(sourceRows, existingSettingsRows, legacyTenantKey);
-        const { items: _items, ...summary } = preview;
-        return res.json(summary);
-      }
-      const result = await applySupabaseLegacyCbtSettingsImport(
-        tenantId, actor.uid, sourceRows, existingSettingsRows, legacyTenantKey,
-        String(req.body?.expectedFingerprint || ""),
-      );
-      return res.status(result.alreadyImported ? 200 : 201).json(result);
-    } catch (error) { return cbtRouteError(res, error); }
+  app.post("/api/cbt/legacy/settings-import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.post("/api/cbt/questions", requireAuth, async (req, res) => {
@@ -1609,33 +1326,11 @@ async function startServer() {
     } catch (error) { return healthcareRouteError(res, error); }
   });
 
-  app.post("/api/healthcare/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!healthcareImportEnabled) return res.status(503).json({ error: "Impor data UKS lama belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadHealthcareActor(uid);
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor UKS tidak valid." });
-      const context = await getSupabaseHealthcareLegacyImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseHealthcareError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
-      const readLegacyRows = (collectionName: string) => readLegacyFirestoreTenantRows(services.db, {
-        collectionName, tenantKey: context.legacyTenantKey, limit: 3000,
-      });
-      const [records, visits, medicines] = await Promise.all([
-        readLegacyRows("healthcare_records"), readLegacyRows("healthcare_visits"), readLegacyRows("healthcare_inventory"),
-      ]);
-      const sources = { records, visits, medicines };
-      if (action === "preview") {
-        const preview = previewSupabaseLegacyHealthcare(sources, context.existingRows, context.students);
-        const { items: _items, ...summary } = preview;
-        return res.json(summary);
-      }
-      const result = await applySupabaseLegacyHealthcareImport(actor.tenantId, actor.uid, sources, context.existingRows, context.students, String(req.body?.expectedFingerprint || ""));
-      return res.status(201).json(result);
-    } catch (error) { return healthcareRouteError(res, error); }
+  app.post("/api/healthcare/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/ga/assets-snapshot", requireAuth, async (req, res) => {
@@ -1682,31 +1377,11 @@ async function startServer() {
     } catch (error) { return generalAffairsRouteError(res, error); }
   });
 
-  app.post("/api/ga/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!generalAffairsImportEnabled) return res.status(503).json({ error: "Impor aset dan inventaris GA lama belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadGeneralAffairsActor(uid);
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor GA tidak valid." });
-      const context = await getSupabaseGeneralAffairsImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseGeneralAffairsError(503, "Arsip Firestore lama belum dapat dibaca oleh backend migrasi.");
-      const readLegacyRows = (collectionName: string) => readLegacyFirestoreTenantRows(services.db, {
-        collectionName, tenantKey: context.legacyTenantKey, limit: 6000,
-      });
-      const [facilities, inventory] = await Promise.all([readLegacyRows("ga_facilities"), readLegacyRows("ga_inventory")]);
-      const sources = { facilities, inventory };
-      if (action === "preview") {
-        const preview = previewSupabaseLegacyGeneralAffairs(sources, context.existingRows, context.assetCodes, context.inventoryCodes);
-        const { items: _items, ...summary } = preview;
-        return res.json(summary);
-      }
-      const result = await applySupabaseLegacyGeneralAffairsImport(actor.tenantId, actor.uid, sources, context.existingRows, context.assetCodes, context.inventoryCodes, String(req.body?.expectedFingerprint || ""));
-      return res.status(201).json(result);
-    } catch (error) { return generalAffairsRouteError(res, error); }
+  app.post("/api/ga/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/cooperative/snapshot", requireAuth, async (req, res) => {
@@ -1719,116 +1394,23 @@ async function startServer() {
       return res.json(await getSupabaseCooperativeSnapshot(actor.tenantId));
     } catch (error) { return cooperativeRouteError(res, error); }
   });
-  app.post("/api/cooperative/legacy/catalog-import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeImportEnabled) return res.status(503).json({ error: "Impor arsip Koperasi belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadCooperativeActor(uid);
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor Koperasi tidak valid." });
-      const [context, services] = await Promise.all([getSupabaseCooperativeLegacyImportContext(actor.tenantId), getAdminServices()]);
-      if (!services.ok) throw new SupabaseCooperativeError(503, "Arsip Firestore Koperasi belum dapat dibaca backend migrasi lokal.");
-      const [products, suppliers, wallets, transactions] = await Promise.all([
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_inventory", tenantKey: context.legacyTenantKey, limit: 1000 }),
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_suppliers", tenantKey: context.legacyTenantKey, limit: 1000 }),
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_wallets", tenantKey: context.legacyTenantKey, limit: 1000 }),
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_transactions", tenantKey: context.legacyTenantKey, limit: 1000 }),
-      ]);
-      const sources = { products, suppliers, wallets, transactions };
-      const preview = previewSupabaseLegacyCooperativeCatalog(actor.tenantId, sources, context.existingProducts, context.existingSuppliers);
-      const { items: _items, ...summary } = preview;
-      if (action === "preview") return res.json(summary);
-      if (String(req.body?.expectedFingerprint || "") !== preview.snapshotFingerprint) {
-        return res.status(409).json({ error: "Snapshot Koperasi berubah setelah pratinjau; jalankan pratinjau ulang.", preview: summary });
-      }
-      if (!preview.canApply) return res.status(409).json({ error: "Impor katalog Koperasi memiliki konflik atau data yang perlu ditinjau.", preview: summary });
-      const result = await applySupabaseLegacyCooperativeCatalog(actor.tenantId, actor.uid, sources, context.existingProducts, context.existingSuppliers, preview.snapshotFingerprint);
-      return res.status(result.alreadyApplied ? 200 : 201).json(result);
-    } catch (error) { return cooperativeRouteError(res, error); }
+  app.post("/api/cooperative/legacy/catalog-import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
-  app.post("/api/cooperative/legacy/financial-import/preview", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeImportEnabled) return res.status(503).json({ error: "Pratinjau impor finansial Koperasi belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadCooperativeActor(uid);
-      const [context, services] = await Promise.all([getSupabaseCooperativeFinancialImportContext(actor.tenantId), getAdminServices()]);
-      if (!services.ok) throw new SupabaseCooperativeError(503, "Arsip Firestore Koperasi belum dapat dibaca backend migrasi lokal.");
-      const [wallets, transactions] = await Promise.all([
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_wallets", tenantKey: context.legacyTenantKey, limit: 1000 }),
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_transactions", tenantKey: context.legacyTenantKey, limit: 1000 }),
-      ]);
-      const rawMappings = req.body?.mappings;
-      const mappings: LegacyCooperativeFinancialMappings = rawMappings && typeof rawMappings === "object" && !Array.isArray(rawMappings)
-        ? rawMappings
-        : {};
-      const preview = previewSupabaseLegacyCooperativeFinancialHistory(
-        actor.tenantId,
-        { wallets, transactions },
-        context.targetWallets,
-        context.targetStudents,
-        context.targetProducts,
-        context.usedWalletIds,
-        mappings,
-        context.timeZone,
-      );
-      if (!context.historyScanIncomplete) return res.json({ ...preview, applyEnabled: cooperativeFinancialImportApplyEnabled });
-      const scanIssue = { code: "target_financial_history_scan_incomplete", recordRef: "", severity: "blocking" as const };
-      return res.json({
-        ...preview,
-        applyEnabled: cooperativeFinancialImportApplyEnabled,
-        canApply: false,
-        issueCount: preview.issueCount + 1,
-        blockingCount: preview.blockingCount + 1,
-        issues: [...preview.issues, scanIssue].slice(0, 100),
-      });
-    } catch (error) { return cooperativeRouteError(res, error); }
+  app.post("/api/cooperative/legacy/financial-import/preview", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
-  app.post("/api/cooperative/legacy/financial-import/apply", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeImportEnabled || !cooperativeFinancialImportApplyEnabled) {
-      return res.status(503).json({ error: "Penerapan impor finansial Koperasi belum diaktifkan operator." });
-    }
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadCooperativeActor(uid);
-      const [context, services] = await Promise.all([
-        getSupabaseCooperativeFinancialImportContext(actor.tenantId),
-        getAdminServices(),
-      ]);
-      if (!services.ok) throw new SupabaseCooperativeError(503, "Arsip Firestore Koperasi belum dapat dibaca backend migrasi lokal.");
-      if (context.historyScanIncomplete) {
-        return res.status(409).json({ error: "Pemindaian riwayat tenant belum lengkap; impor tidak dapat diterapkan." });
-      }
-      const [wallets, transactions] = await Promise.all([
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_wallets", tenantKey: context.legacyTenantKey, limit: 1000 }),
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "cooperative_transactions", tenantKey: context.legacyTenantKey, limit: 1000 }),
-      ]);
-      const rawMappings = req.body?.mappings;
-      const mappings: LegacyCooperativeFinancialMappings = rawMappings && typeof rawMappings === "object" && !Array.isArray(rawMappings)
-        ? rawMappings
-        : {};
-      if (mappings.confirmCompleteHistory !== true) {
-        return res.status(409).json({ error: "Konfirmasi kelengkapan arsip dan rekonsiliasi saldo wajib diberikan." });
-      }
-      const result = await applySupabaseLegacyCooperativeFinancialHistory(
-        actor.tenantId,
-        actor.uid,
-        { wallets, transactions },
-        context.targetWallets,
-        context.targetStudents,
-        context.targetProducts,
-        context.usedWalletIds,
-        mappings,
-        context.timeZone,
-        String(req.body?.expectedFingerprint || ""),
-      );
-      return res.status(result.alreadyApplied ? 200 : 201).json(result);
-    } catch (error) { return cooperativeRouteError(res, error); }
+  app.post("/api/cooperative/legacy/financial-import/apply", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
   app.post("/api/cooperative/products", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -1941,75 +1523,11 @@ async function startServer() {
       return res.json(await transitionSupabaseMarketplaceOrder(actor.tenantId, actor.uid, req.params.orderId, String(req.body?.status || ""), String(req.body?.clientRequestId || "")));
     } catch (error) { return marketplaceRouteError(res, error); }
   });
-  app.post("/api/marketplace/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceImportEnabled) return res.status(503).json({ error: "Impor Marketplace lama belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadMarketplaceActor(uid);
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor Marketplace tidak valid." });
-      const context = await getSupabaseMarketplaceImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseMarketplaceError(503, "Arsip Firestore lama belum dapat dibaca oleh backend migrasi.");
-      const targetLegacyMappingConfigured = Boolean(context.legacyTenantKey);
-      if (action === "apply" && !targetLegacyMappingConfigured) {
-        return res.status(409).json({ code: "LEGACY_TENANT_MAPPING_REQUIRED", error: "Konfigurasikan legacy_tenant_key tenant tujuan sebelum menerapkan impor." });
-      }
-      const sourceTenantRegistry = await services.db.collection("tenants").limit(2).get();
-      const sourceTenantIds = sourceTenantRegistry.docs.map((document) => document.id);
-      const sourceTenantKey = targetLegacyMappingConfigured
-        ? context.legacyTenantKey
-        : sourceTenantIds.length === 1 ? sourceTenantIds[0] : "";
-      if (!sourceTenantKey) {
-        return res.status(409).json({
-          code: "LEGACY_TENANT_MAPPING_REQUIRED",
-          error: "Pratinjau memerlukan legacy_tenant_key tujuan atau tepat satu tenant pada registry sumber.",
-          sourceTenantRegistryCount: sourceTenantIds.length,
-        });
-      }
-      const readLegacyRows = async (collectionName: string) => {
-        const result = await services.db.collection(collectionName).limit(6001).get();
-        if (result.size > 6000) throw new SupabaseMarketplaceError(413, "Snapshot Marketplace dibatasi maksimal 6.000 record per koleksi.");
-        return scopeLegacyTenantRecords(
-          result.docs.map((document) => ({ id: document.id, record: document.data() as Record<string, unknown> })),
-          sourceTenantIds,
-          sourceTenantKey,
-        );
-      };
-      const [productScope, orderScope] = await Promise.all([readLegacyRows("marketplace_products"), readLegacyRows("marketplace_orders")]);
-      const collectionOwnership = { products: productScope.audit, orders: orderScope.audit };
-      const sourceOwnership = {
-        targetLegacyMappingConfigured,
-        sourceTenantRegistryCount: sourceTenantIds.length,
-        collections: collectionOwnership,
-      };
-      const ownershipUnresolved = Object.values(collectionOwnership).some((audit) =>
-        audit.unresolvedTenantlessCount > 0 || audit.invalidTenantIdCount > 0
-      );
-      if (ownershipUnresolved) {
-        return res.status(409).json({
-          code: "LEGACY_TENANT_OWNERSHIP_UNRESOLVED",
-          error: "Ada record Marketplace yang ownership tenant-nya belum dapat diverifikasi.",
-          sourceOwnership,
-        });
-      }
-      const sources = {
-        products: productScope.records.map(({ id, record }) => ({ id, data: record as Record<string, any> })),
-        orders: orderScope.records.map(({ id, record }) => ({ id, data: record as Record<string, any> })),
-      };
-      if (action === "preview") {
-        const preview = previewSupabaseLegacyMarketplace(sources, context.existingRows, context.skus);
-        const { items: _items, ...summary } = preview;
-        return res.json({ ...summary, canApply: targetLegacyMappingConfigured && summary.canApply, sourceOwnership });
-      }
-      const tenantlessRowsMapped = Object.values(collectionOwnership).some((audit) => audit.assignedBySingleTenantMappingCount > 0);
-      if (tenantlessRowsMapped && String(req.body?.sourceTenantConfirmation || "") !== sourceTenantKey) {
-        return res.status(400).json({ error: "Konfirmasi kunci tenant sumber diperlukan untuk menerapkan record tenantless." });
-      }
-      return res.status(201).json(await applySupabaseLegacyMarketplace(actor.tenantId, actor.uid, sources, context.existingRows, context.skus, String(req.body?.expectedFingerprint || "")));
-    } catch (error) { return marketplaceRouteError(res, error); }
+  app.post("/api/marketplace/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/facility-bookings", requireAuth, async (req, res) => {
@@ -2032,28 +1550,11 @@ async function startServer() {
       return res.status(201).json(await manageSupabaseFacilityBooking(actor.tenantId, actor.uid, req.body));
     } catch (error) { return facilityBookingRouteError(res, error); }
   });
-  app.post("/api/facility-bookings/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!facilityBookingsImportEnabled) return res.status(503).json({ error: "Impor arsip pemesanan fasilitas belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadFacilityBookingActor(uid);
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor pemesanan fasilitas tidak valid." });
-      const context = await getSupabaseFacilityBookingImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseFacilityBookingError(503, "Arsip Firestore lama belum dapat dibaca backend migrasi.");
-      const sources = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "facility_bookings", tenantKey: context.legacyTenantKey, limit: 6000,
-      });
-      if (action === "preview") {
-        const preview = previewSupabaseLegacyFacilityBookings(sources, context.existingRows);
-        const { items: _items, ...summary } = preview;
-        return res.json(summary);
-      }
-      return res.status(201).json(await applyFacilityBookingImport(actor.tenantId, actor.uid, sources, context.existingRows, String(req.body?.expectedFingerprint || "")));
-    } catch (error) { return facilityBookingRouteError(res, error); }
+  app.post("/api/facility-bookings/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/donation/snapshot", requireAuth, async (req, res) => {
@@ -2128,84 +1629,11 @@ async function startServer() {
     } catch (error) { return lmsRouteError(res, error); }
   });
 
-  app.post("/api/lms/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!lmsImportEnabled) return res.status(503).json({ error: "Impor katalog LMS lama belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadLmsActor(uid);
-      if (!['Admin', 'SuperAdmin'].includes(actor.role)) return res.status(403).json({ error: "Pratinjau dan impor katalog LMS hanya tersedia untuk Admin tenant." });
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor LMS tidak valid." });
-      const context = await getSupabaseLmsLegacyImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseLmsError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
-      const targetLegacyMappingConfigured = Boolean(context.legacyTenantKey);
-      if (action === "apply" && !targetLegacyMappingConfigured) {
-        return res.status(409).json({ code: "LEGACY_TENANT_MAPPING_REQUIRED", error: "Konfigurasikan legacy_tenant_key tenant tujuan sebelum menerapkan impor." });
-      }
-      const sourceTenantRegistry = await services.db.collection("tenants").limit(2).get();
-      const sourceTenantIds = sourceTenantRegistry.docs.map((document) => document.id);
-      const sourceTenantKey = targetLegacyMappingConfigured
-        ? context.legacyTenantKey
-        : sourceTenantIds.length === 1 ? sourceTenantIds[0] : "";
-      if (!sourceTenantKey) {
-        return res.status(409).json({
-          code: "LEGACY_TENANT_MAPPING_REQUIRED",
-          error: "Pratinjau memerlukan legacy_tenant_key tujuan atau tepat satu tenant pada registry sumber.",
-          sourceTenantRegistryCount: sourceTenantIds.length,
-        });
-      }
-      const fetchTenantRows = async (collectionName: string) => {
-        const result = await services.db.collection(collectionName).limit(3001).get();
-        if (result.size > 3000) throw new SupabaseLmsError(413, "Snapshot katalog LMS dibatasi maksimal 3.000 record per koleksi.");
-        return scopeLegacyTenantRecords(
-          result.docs.map((document) => ({ id: document.id, record: document.data() as Record<string, unknown> })),
-          sourceTenantIds,
-          sourceTenantKey,
-        );
-      };
-      const [categoryScope, courseScope, assessmentScope] = await Promise.all([
-        fetchTenantRows("lms_categories"), fetchTenantRows("lms_courses"), fetchTenantRows("lms_assessments"),
-      ]);
-      const collectionOwnership = {
-        categories: categoryScope.audit,
-        courses: courseScope.audit,
-        assessments: assessmentScope.audit,
-      };
-      const sourceOwnership = {
-        targetLegacyMappingConfigured,
-        sourceTenantRegistryCount: sourceTenantIds.length,
-        collections: collectionOwnership,
-      };
-      const ownershipUnresolved = Object.values(collectionOwnership).some((audit) =>
-        audit.unresolvedTenantlessCount > 0 || audit.invalidTenantIdCount > 0
-      );
-      if (ownershipUnresolved) {
-        return res.status(409).json({
-          code: "LEGACY_TENANT_OWNERSHIP_UNRESOLVED",
-          error: "Ada record katalog LMS yang ownership tenant-nya belum dapat diverifikasi.",
-          sourceOwnership,
-        });
-      }
-      const collections = {
-        categories: categoryScope.records.map(({ id, record }) => ({ id, data: record as Record<string, any> })),
-        courses: courseScope.records.map(({ id, record }) => ({ id, data: record as Record<string, any> })),
-        assessments: assessmentScope.records.map(({ id, record }) => ({ id, data: record as Record<string, any> })),
-      };
-      if (action === "preview") {
-        const preview = previewSupabaseLegacyLms(collections, context.existingRows, context.teachers);
-        const { items: _items, ...summary } = preview;
-        return res.json({ ...summary, canApply: targetLegacyMappingConfigured && summary.canApply, sourceOwnership });
-      }
-      const tenantlessRowsMapped = Object.values(collectionOwnership).some((audit) => audit.assignedBySingleTenantMappingCount > 0);
-      if (tenantlessRowsMapped && String(req.body?.sourceTenantConfirmation || "") !== sourceTenantKey) {
-        return res.status(400).json({ error: "Konfirmasi kunci tenant sumber diperlukan untuk menerapkan record tenantless." });
-      }
-      const result = await applySupabaseLegacyLmsImport(actor.tenantId, actor.uid, collections, context.existingRows, context.teachers, String(req.body?.expectedFingerprint || ""));
-      return res.status(201).json(result);
-    } catch (error) { return lmsRouteError(res, error); }
+  app.post("/api/lms/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.post("/api/lms/catalog/:action", requireAuth, async (req, res) => {
@@ -2281,7 +1709,6 @@ async function startServer() {
   };
   const libraryRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof LegacyFirestoreTenantScopeError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseLibraryError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseLibraryAssetError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase library endpoint failed:", error instanceof Error ? error.message : "unknown error");
@@ -2667,70 +2094,18 @@ async function startServer() {
     } catch (error) { return libraryRouteError(res, error); }
   });
 
-  app.post("/api/library/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!libraryImportEnabled) return res.status(503).json({ error: "Impor katalog arsip perpustakaan belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadLibraryActor(uid);
-      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Pratinjau dan impor katalog hanya tersedia untuk Admin tenant." });
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor katalog tidak valid." });
-      const context = await getSupabaseLibraryLegacyImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseLibraryError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
-      const sources = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "library_books", tenantKey: context.legacyTenantKey, limit: 1000,
-      });
-      if (action === "preview") {
-        const preview = previewSupabaseLegacyLibraryBooks(sources, context.existingRows);
-        const { items: _items, ...summary } = preview;
-        return res.json(summary);
-      }
-      const result = await applySupabaseLegacyLibraryBooks(
-        actor.tenantId, actor.uid, sources, context.existingRows, String(req.body?.expectedFingerprint || ""),
-      );
-      return res.status(201).json(result);
-    } catch (error) { return libraryRouteError(res, error); }
+  app.post("/api/library/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
-  app.post("/api/library/circulations/legacy/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!libraryCirculationImportEnabled) return res.status(503).json({ error: "Impor riwayat peminjaman perpustakaan belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadLibraryActor(uid);
-      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Pratinjau dan impor riwayat sirkulasi hanya tersedia untuk Admin tenant." });
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor sirkulasi tidak valid." });
-      const rawMappings = req.body?.studentMappings;
-      if (rawMappings != null && (typeof rawMappings !== "object" || Array.isArray(rawMappings) || Object.keys(rawMappings).length > 1000)) {
-        return res.status(400).json({ error: "Pemetaan santri tidak valid." });
-      }
-      const studentMappings = (rawMappings || {}) as LegacyLibraryStudentMappings;
-      const context = await getSupabaseLibraryCirculationImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseLibraryError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
-      const sources = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "library_circulations", tenantKey: context.legacyTenantKey, limit: 1000,
-      });
-      if (action === "preview") {
-        const preview = previewSupabaseLegacyLibraryCirculations(sources, context, studentMappings);
-        const { items: _items, ...summary } = preview;
-        return res.json({
-          ...summary,
-          studentOptions: context.students.map((student) => ({
-            id: String(student.id), name: String(student.name || ""), nis: String(student.nis || ""), status: String(student.status || ""),
-          })),
-        });
-      }
-      const result = await applySupabaseLegacyLibraryCirculations(
-        actor.tenantId, actor.uid, sources, context, studentMappings, String(req.body?.expectedFingerprint || ""),
-      );
-      return res.status(result.alreadyApplied ? 200 : 201).json(result);
-    } catch (error) { return libraryRouteError(res, error); }
+  app.post("/api/library/circulations/legacy/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/laundry/snapshot", requireAuth, async (req, res) => {
@@ -2978,94 +2353,11 @@ async function startServer() {
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
-  app.post("/api/master-data/structures/migrate", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled || !masterDataImportEnabled) {
-      return res.status(503).json({ error: "Impor Master Data belum diaktifkan operator setelah skema, tenant, dan jendela migrasi disiapkan." });
-    }
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadMasterDataActor(uid, "master-data");
-      requireMasterDataAdmin(actor);
-      const apply = req.body?.apply === true;
-      if (apply && req.body?.confirm !== "IMPORT_MASTER_DATA_STRUCTURES") {
-        return res.status(400).json({ error: "Konfirmasi impor struktur belum valid. Jalankan pratinjau terlebih dahulu." });
-      }
-      const services = await getAdminServices();
-      if (!services.ok) return res.status(503).json({ error: "Sumber arsip Firestore belum dapat diakses untuk migrasi." });
-      const legacyTenantKey = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const [structureRows, studentRows] = await Promise.all([
-        readLegacyFirestoreTenantRows(services.db, {
-          collectionName: "master_data", tenantKey: legacyTenantKey, limit: 5000,
-        }),
-        readLegacyFirestoreTenantRows(services.db, {
-          collectionName: "entityRecords", tenantKey: legacyTenantKey, limit: 5000,
-          filters: [{ field: "type", value: "Santri" }],
-        }),
-      ]);
-      const allowedCategories = new Set(["Gedung", "Kamar", "Kelas"]);
-      const legacyStructures: Array<{
-        id: string;
-        category: "Gedung" | "Kamar" | "Kelas";
-        record: Record<string, unknown>;
-      }> = [];
-      for (const document of structureRows) {
-        const raw = document.data || {};
-        const category = typeof raw.category === "string" ? raw.category : "";
-        if (!allowedCategories.has(category)) continue;
-        const prefix = category + "_";
-        const id = typeof raw.id === "string" && raw.id.trim()
-          ? raw.id.trim()
-          : document.id.startsWith(prefix) ? document.id.slice(prefix.length) : document.id;
-        const safeRecord = JSON.parse(JSON.stringify(raw, (key, value) => {
-          if (["tenantId", "tenant_id", "_firestoreId", "createdByUid"].includes(key)) return undefined;
-          if (/password|secret|api.?key|smtp|token/i.test(key)) return undefined;
-          return value;
-        })) as Record<string, unknown>;
-        legacyStructures.push({
-          id,
-          category: category as "Gedung" | "Kamar" | "Kelas",
-          record: { ...safeRecord, id, category },
-        });
-      }
-      const roomsById = new Map<string, { id: string; record: Record<string, unknown> }>();
-      const roomIdsByName = new Map<string, string[]>();
-      for (const item of legacyStructures) {
-        if (item.category !== "Kamar") continue;
-        roomsById.set(item.id, item);
-        const roomName = String(item.record.name || "").trim().toLowerCase();
-        if (roomName) roomIdsByName.set(roomName, [...(roomIdsByName.get(roomName) || []), item.id]);
-      }
-      const roomOccupancy = new Map<string, number>();
-      let studentsWithoutUnambiguousRoom = 0;
-      for (const student of studentRows) {
-        const roomId = typeof student.data.roomId === "string" ? student.data.roomId.trim() : "";
-        const roomName = typeof student.data.room === "string" ? student.data.room.trim().toLowerCase() : "";
-        let matchedId = roomId && roomsById.has(roomId) ? roomId : "";
-        if (!matchedId && roomName) {
-          const matches = roomIdsByName.get(roomName) || [];
-          if (matches.length === 1) matchedId = matches[0];
-        }
-        if (!matchedId) {
-          studentsWithoutUnambiguousRoom += 1;
-          continue;
-        }
-        roomOccupancy.set(matchedId, (roomOccupancy.get(matchedId) || 0) + 1);
-      }
-      const records = legacyStructures.map((item) => ({
-        ...item,
-        occupied: item.category === "Kamar" ? roomOccupancy.get(item.id) || 0 : 0,
-      }));
-      const result = await migrateSupabaseMasterDataStructures(actor.tenantId, records, apply);
-      return res.json({
-        ...result,
-        legacyStructureCount: legacyStructures.length,
-        legacyStudentCount: studentRows.length,
-        studentsWithoutUnambiguousRoom,
-        mode: apply ? "apply" : "preview",
-      });
-    } catch (error) { return masterDataRouteError(res, error); }
+  app.post("/api/master-data/structures/migrate", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
   app.put("/api/master-data/structures/:category/:recordId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -3154,70 +2446,11 @@ async function startServer() {
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
-  app.post("/api/master-data/students/migrate", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled || !masterDataImportEnabled) {
-      return res.status(503).json({ error: "Impor data santri belum diaktifkan operator setelah skema, tenant, dan jendela migrasi disiapkan." });
-    }
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadMasterDataActor(uid, "master-data");
-      requireMasterDataAdmin(actor);
-      const apply = req.body?.apply === true;
-      if (apply && req.body?.confirm !== "IMPORT_LEGACY_MASTER_DATA_STUDENTS") {
-        return res.status(400).json({ error: "Konfirmasi impor santri belum valid. Jalankan pratinjau terlebih dahulu." });
-      }
-      const services = await getAdminServices();
-      if (!services.ok) return res.status(503).json({ error: "Sumber arsip Firestore belum dapat diakses untuk migrasi." });
-      const legacyTenantKey = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const [studentRows, guardianRows] = await Promise.all([
-        readLegacyFirestoreTenantRows(services.db, {
-          collectionName: "entityRecords", tenantKey: legacyTenantKey, limit: 5000,
-          filters: [{ field: "type", value: "Santri" }],
-        }),
-        readLegacyFirestoreTenantRows(services.db, {
-          collectionName: "entityRecords", tenantKey: legacyTenantKey, limit: 5000,
-          filters: [{ field: "type", value: "Wali Santri" }],
-        }),
-      ]);
-      const guardiansById = new Map<string, { id: string; record: Record<string, any> }>();
-      const guardiansByStudent = new Map<string, Array<{ id: string; record: Record<string, any> }>>();
-      for (const document of guardianRows) {
-        const record = document.data || {};
-        const guardian = { id: document.id, record };
-        guardiansById.set(document.id, guardian);
-        if (typeof record.id === "string" && record.id.trim()) guardiansById.set(record.id.trim(), guardian);
-        const studentIds = Array.isArray(record.santriIds) ? record.santriIds : [];
-        for (const studentId of studentIds) {
-          if (typeof studentId !== "string" || !studentId.trim()) continue;
-          const key = studentId.trim();
-          guardiansByStudent.set(key, [...(guardiansByStudent.get(key) || []), guardian]);
-        }
-      }
-      const source = studentRows.map((document) => {
-        const record = document.data || {};
-        const recordId = typeof record.id === "string" && record.id.trim() ? record.id.trim() : document.id;
-        const linkedIds = [record.waliSantriId, record.guardianId, record.parentId]
-          .filter((value) => typeof value === "string" && value.trim())
-          .map((value) => String(value).trim());
-        const directMatches = Array.from(new Map(linkedIds
-          .map((id) => guardiansById.get(id))
-          .filter((guardian): guardian is { id: string; record: Record<string, any> } => Boolean(guardian))
-          .map((guardian) => [guardian.id, guardian])).values());
-        const studentMatches = Array.from(new Map([
-          ...(guardiansByStudent.get(document.id) || []),
-          ...(guardiansByStudent.get(recordId) || []),
-        ].map((guardian) => [guardian.id, guardian])).values());
-        const candidates = directMatches.length ? directMatches : studentMatches;
-        const sourceWarnings: string[] = [];
-        const guardian = candidates.length === 1 ? candidates[0] : null;
-        if (candidates.length > 1) sourceWarnings.push("Relasi wali ambigu pada sumber; perlu dipetakan manual.");
-        return { id: document.id, record, guardian, sourceWarnings };
-      });
-      const result = await migrateSupabaseLegacyMasterDataStudents(actor.tenantId, source, apply);
-      return res.json({ ...result, legacyGuardianCount: guardianRows.length, mode: apply ? "apply" : "preview" });
-    } catch (error) { return masterDataRouteError(res, error); }
+  app.post("/api/master-data/students/migrate", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
   app.get("/api/boarding/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -3293,34 +2526,11 @@ async function startServer() {
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
-  app.post("/api/boarding/permits/migrate", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!boardingPermitsImportEnabled) return res.status(503).json({ error: "Impor izin asrama belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
-      const services = await getAdminServices();
-      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore izin lama belum dapat diakses." });
-      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const rows = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "boarding_permits", tenantKey: legacyTenantId, limit: 1000,
-      });
-      const sourceRows = rows.map((row) => ({ sourceId: row.id, value: row.data }));
-      const apply = req.body?.apply === true;
-      if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_PERMITS") {
-        return res.status(400).json({ error: "Konfirmasi impor izin tidak cocok." });
-      }
-      const report = await migrateSupabaseLegacyBoardingPermits(
-        actor,
-        sourceRows,
-        apply,
-        String(req.body?.previewFingerprint || ""),
-      );
-      if (apply && !report.canApply) return res.status(409).json(report);
-      return res.json(report);
-    } catch (error) { return masterDataRouteError(res, error); }
+  app.post("/api/boarding/permits/migrate", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/boarding/discipline", requireAuth, async (req, res) => {
@@ -3357,29 +2567,11 @@ async function startServer() {
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
-  app.post("/api/boarding/discipline/migrate", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!boardingDisciplineImportEnabled) return res.status(503).json({ error: "Impor kedisiplinan asrama belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
-      const services = await getAdminServices();
-      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore kedisiplinan lama belum dapat diakses." });
-      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const rows = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "boarding_discipline", tenantKey: legacyTenantId, limit: 1000,
-      });
-      const sourceRows = rows.map((row) => ({ sourceId: row.id, value: row.data }));
-      const apply = req.body?.apply === true;
-      if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_DISCIPLINE") {
-        return res.status(400).json({ error: "Konfirmasi impor kedisiplinan tidak cocok." });
-      }
-      const report = await migrateSupabaseLegacyBoardingDiscipline(actor, sourceRows, apply, String(req.body?.previewFingerprint || ""));
-      if (apply && !report.canApply) return res.status(409).json(report);
-      return res.json(report);
-    } catch (error) { return masterDataRouteError(res, error); }
+  app.post("/api/boarding/discipline/migrate", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/boarding/attendance", requireAuth, async (req, res) => {
@@ -3404,29 +2596,11 @@ async function startServer() {
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
-  app.post("/api/boarding/attendance/migrate", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!boardingAttendanceImportEnabled) return res.status(503).json({ error: "Impor kehadiran asrama belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
-      const services = await getAdminServices();
-      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore kehadiran lama belum dapat diakses." });
-      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const rows = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "boarding_attendance", tenantKey: legacyTenantId, limit: 1000,
-      });
-      const sourceRows = rows.map((row) => ({ sourceId: row.id, value: row.data }));
-      const apply = req.body?.apply === true;
-      if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_ATTENDANCE") {
-        return res.status(400).json({ error: "Konfirmasi impor kehadiran tidak cocok." });
-      }
-      const report = await migrateSupabaseLegacyBoardingAttendance(actor, req.body?.attendanceDate, sourceRows, apply, String(req.body?.previewFingerprint || ""));
-      if (apply && !report.canApply) return res.status(409).json(report);
-      return res.json(report);
-    } catch (error) { return masterDataRouteError(res, error); }
+  app.post("/api/boarding/attendance/migrate", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/boarding/staff-assignments", requireAuth, async (req, res) => {
@@ -3514,33 +2688,11 @@ async function startServer() {
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
-  app.post("/api/boarding/facility-ops/migrate", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!boardingFacilityOpsImportEnabled) return res.status(503).json({ error: "Impor audit dan tiket fasilitas belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
-      const services = await getAdminServices();
-      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore asrama lama belum dapat diakses." });
-      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const [auditRows, ticketRows] = await Promise.all([
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "boarding_audits", tenantKey: legacyTenantId, limit: 1000 }),
-        readLegacyFirestoreTenantRows(services.db, { collectionName: "boarding_tickets", tenantKey: legacyTenantId, limit: 1000 }),
-      ]);
-      const audits = auditRows.map(({ id, data: value }) => ({ ...value, sourceRecordId: String(value.id || id) }));
-      const tickets = ticketRows.map(({ id, data: value }) => ({ ...value, sourceRecordId: String(value.id || id) }));
-      const apply = req.body?.apply === true;
-      if (apply && String(req.body?.confirmation || "") !== "IMPORT_BOARDING_FACILITY_OPS") {
-        return res.status(400).json({ error: "Konfirmasi impor audit dan tiket tidak cocok." });
-      }
-      const report = await migrateSupabaseLegacyBoardingFacilityOps(
-        actor, audits, tickets, apply, String(req.body?.previewFingerprint || ""),
-      );
-      if (apply && !report.canApply) return res.status(409).json(report);
-      return res.json(report);
-    } catch (error) { return masterDataRouteError(res, error); }
+  app.post("/api/boarding/facility-ops/migrate", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/tahfidz/snapshot", requireAuth, async (req, res) => {
@@ -3718,163 +2870,11 @@ async function startServer() {
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 
-  app.post("/api/tahfidz/migration", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzImportEnabled) return res.status(503).json({ error: "Impor Tahfidz Supabase belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadTahfidzActor(uid);
-      if (!["Admin", "SuperAdmin"].includes(actor.role)) {
-        return res.status(403).json({ error: "Hanya Admin tenant yang dapat memindahkan konfigurasi Tahfidz." });
-      }
-      const services = await getAdminServices();
-      if (services.ok === false) return res.status(503).json({ error: "Sumber legacy Firestore untuk preview belum tersedia." });
-      const apply = req.body?.apply === true;
-      if (apply && String(req.body?.confirmation || "") !== "IMPORT_TAHFIDZ_CONFIGURATION") {
-        return res.status(400).json({ error: "Konfirmasi impor Tahfidz tidak cocok." });
-      }
-
-      const [tenantRegistrySnapshot, masterDataSnapshot, entityRecordsSnapshot] = await Promise.all([
-        services.db.collection("tenants").limit(2).get(),
-        services.db.collection("master_data").limit(2001).get(),
-        services.db.collection("entityRecords").limit(5001).get(),
-      ]);
-      if (masterDataSnapshot.size > 2000 || entityRecordsSnapshot.size > 5000) {
-        return res.status(413).json({ error: "Snapshot Tahfidz dibatasi maksimal 2.000 halaqah dan 5.000 santri." });
-      }
-
-      const sourceTenantIds = tenantRegistrySnapshot.docs.map((doc) => doc.id);
-      const halaqahCandidates = masterDataSnapshot.docs.flatMap((doc) => {
-        const record = doc.data() as Record<string, unknown>;
-        return record.category === "Halaqah" ? [{ id: doc.id, record }] : [];
-      });
-      const studentCandidates = entityRecordsSnapshot.docs.flatMap((doc) => {
-        const record = doc.data() as Record<string, unknown>;
-        return record.type === "Santri" ? [{ id: doc.id, record }] : [];
-      });
-
-      let legacyTenantId = "";
-      let targetLegacyMappingConfigured = true;
-      try {
-        legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      } catch (error) {
-        if (!(error instanceof SupabaseTahfidzError) || error.status !== 409 || apply) throw error;
-        const uniqueSourceTenantIds = Array.from(new Set(sourceTenantIds.map((id) => id.trim()).filter(Boolean)));
-        if (uniqueSourceTenantIds.length !== 1) {
-          return res.status(409).json({
-            code: "LEGACY_TENANT_MAPPING_REQUIRED",
-            error: "Isi legacy_tenant_key tenant tujuan di Supabase; sumber tidak memiliki satu tenant yang dapat diverifikasi untuk pratinjau.",
-            sourceTenantRegistryHasSingleRecord: false,
-          });
-        }
-        legacyTenantId = uniqueSourceTenantIds[0];
-        targetLegacyMappingConfigured = false;
-      }
-
-      const halaqahScope = scopeLegacyTenantRecords(halaqahCandidates, sourceTenantIds, legacyTenantId);
-      const studentScope = scopeLegacyTenantRecords(studentCandidates, sourceTenantIds, legacyTenantId);
-      const halaqahRows = halaqahScope.records.map(({ id, record }) => ({
-        id, record: record as Record<string, any>,
-      }));
-      const studentRows = studentScope.records.map(({ id, record }) => ({
-        id, record: record as Record<string, any>,
-      }));
-      const sourceOwnership = {
-        sourceTenantKey: legacyTenantId,
-        targetLegacyMappingConfigured,
-        singleSourceTenantVerified:
-          halaqahScope.audit.singleSourceTenantVerified && studentScope.audit.singleSourceTenantVerified,
-        halaqahs: halaqahScope.audit,
-        students: studentScope.audit,
-      };
-
-      const importPreview = await migrateSupabaseTahfidzConfiguration(
-        actor.tenantId,
-        halaqahRows,
-        studentRows,
-        false,
-      );
-      const previewFingerprint = createHash("sha256")
-        .update(JSON.stringify({
-          tenantId: actor.tenantId,
-          sourceOwnership,
-          importerFingerprint: importPreview.previewFingerprint,
-        }))
-        .digest("hex");
-      const unresolvedOwnershipCount =
-        halaqahScope.audit.unresolvedTenantlessCount + halaqahScope.audit.invalidTenantIdCount
-        + studentScope.audit.unresolvedTenantlessCount + studentScope.audit.invalidTenantIdCount;
-      const tenantlessAssignedCount =
-        halaqahScope.audit.assignedBySingleTenantMappingCount
-        + studentScope.audit.assignedBySingleTenantMappingCount;
-      const warnings = [...(Array.isArray(importPreview.warnings) ? importPreview.warnings : [])];
-      if (!targetLegacyMappingConfigured) {
-        warnings.push({
-          id: "legacy-tenant-mapping",
-          category: "Tenant",
-          message: "Pratinjau memakai satu-satunya tenant sumber; simpan legacy_tenant_key di Supabase lalu jalankan pratinjau ulang sebelum apply.",
-        });
-      }
-      if (tenantlessAssignedCount > 0) {
-        warnings.push({
-          id: "tenantless-source-records",
-          category: "Tenant",
-          message: String(tenantlessAssignedCount) + " record tanpa tenantId dipetakan dalam memori berdasarkan registry tenant sumber tunggal. Apply memerlukan konfirmasi tenant eksplisit.",
-        });
-      }
-      if (unresolvedOwnershipCount > 0) {
-        warnings.push({
-          id: "unresolved-source-ownership",
-          category: "Tenant",
-          message: String(unresolvedOwnershipCount) + " record belum memiliki pemetaan tenant yang dapat diverifikasi dan memblokir apply.",
-        });
-      }
-      const canApply =
-        importPreview.canApply
-        && targetLegacyMappingConfigured
-        && unresolvedOwnershipCount === 0;
-      const report = {
-        ...importPreview,
-        previewFingerprint,
-        sourceOwnership,
-        canApply,
-        warnings,
-      };
-
-      if (!apply) return res.json(report);
-      if (!canApply) return res.status(409).json(report);
-      if (tenantlessAssignedCount > 0
-        && String(req.body?.tenantlessOwnershipConfirmation || "") !== legacyTenantId) {
-        return res.status(400).json({
-          code: "TENANTLESS_OWNERSHIP_CONFIRMATION_REQUIRED",
-          error: "Konfirmasikan bahwa record tanpa tenantId berasal dari tenant sumber yang ditampilkan pada pratinjau.",
-          sourceTenantKey: legacyTenantId,
-          previewFingerprint,
-        });
-      }
-      if (String(req.body?.previewFingerprint || "") !== previewFingerprint) {
-        return res.status(409).json({
-          ...report,
-          error: "Sumber, tenant mapping, atau konflik berubah sejak pratinjau. Jalankan pratinjau ulang.",
-        });
-      }
-
-      const appliedReport = await migrateSupabaseTahfidzConfiguration(
-        actor.tenantId,
-        halaqahRows,
-        studentRows,
-        true,
-        importPreview.previewFingerprint,
-      );
-      return res.json({
-        ...appliedReport,
-        previewFingerprint,
-        sourceOwnership,
-        canApply: true,
-        warnings,
-      });
-    } catch (error) { return tahfidzRouteError(res, error); }
+  app.post("/api/tahfidz/migration", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.get("/api/communication/announcements", requireAuth, async (req, res) => {
@@ -3919,48 +2919,11 @@ async function startServer() {
     }
   });
 
-  app.post("/api/communication/announcements/migrate", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!communicationImportEnabled) return res.status(503).json({ error: "Impor pengumuman Supabase belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadCommunicationActor(uid);
-      if (!['Admin', 'SuperAdmin'].includes(String(actor.role))) {
-        return res.status(403).json({ error: "Hanya Admin tenant yang dapat mengimpor pengumuman." });
-      }
-      const services = await getAdminServices();
-      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore untuk preview migrasi belum tersedia." });
-      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const rows = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "communication_announcements", tenantKey: legacyTenantId, limit: 500,
-      });
-      const sourceRows = rows.map((row) => ({ sourceId: row.id, value: row.data }));
-      const preview = await previewLegacyCommunicationAnnouncements(actor.tenantId, actor, sourceRows);
-      const summary = {
-        previewFingerprint: preview.fingerprint,
-        scanned: sourceRows.length,
-        ready: preview.rows.length,
-        blockingIssues: preview.issues,
-        warnings: preview.warnings,
-        canApply: preview.issues.length === 0,
-      };
-
-      if (req.body?.apply !== true) return res.json(summary);
-      if (String(req.body?.confirmation || '') !== 'IMPORT_COMMUNICATION_ANNOUNCEMENTS') {
-        return res.status(400).json({ error: "Konfirmasi impor pengumuman tidak cocok." });
-      }
-      if (String(req.body?.previewFingerprint || '') !== preview.fingerprint) {
-        return res.status(409).json({ error: "Snapshot atau pemetaan akun berubah sejak preview. Jalankan preview baru." });
-      }
-      if (preview.issues.length) {
-        return res.status(409).json({ error: "Preview memiliki record yang perlu direkonsiliasi sebelum impor." });
-      }
-      const result = await applyLegacyCommunicationAnnouncements(preview, actor);
-      return res.json({ ok: true, scanned: sourceRows.length, ...result, warnings: preview.warnings });
-    } catch (error) {
-      return communicationRouteError(res, error);
-    }
+  app.post("/api/communication/announcements/migrate", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   // AI/OCR routes remain closed until auth, tenant scope, and rate limits are enforced.
@@ -3977,7 +2940,6 @@ async function startServer() {
   app.post("/api/ocr", unavailableUntilAuth);
 
   const systemSettingsRuntimeEnabled = String(process.env.SUPABASE_SYSTEM_SETTINGS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
-  const systemSettingsImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED);
   const loadSettingsActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
     if (!profile) return null;
@@ -4042,89 +3004,19 @@ async function startServer() {
     }
   });
 
-  app.post("/api/system/settings/migrate", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!systemSettingsImportEnabled) return res.status(503).json({ error: "Impor pengaturan Supabase belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadSettingsActor(uid);
-      if (!actor || actor.role !== "SuperAdmin") return res.status(403).json({ error: "Hanya SuperAdmin tenant yang dapat mengimpor pengaturan." });
-      const services = await getAdminServices();
-      if (services.ok === false) return res.status(503).json({ error: "Sumber Firestore pengaturan lama belum dapat diakses." });
-      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(actor.tenantId);
-      const legacySnapshot = await services.db.collection("tenants").doc(legacyTenantId)
-        .collection("settings").doc("global").get();
-      const legacySource = legacySnapshot.exists ? legacySnapshot.data() || {} : {};
-      if (!legacyTenantPathRecordMatches(legacySource, legacyTenantId, actor.tenantId)) {
-        return res.status(409).json({ error: "Tenant pada pengaturan sumber tidak cocok dengan mapping tenant." });
-      }
-      const sanitizedSettings = sanitizeTenantSettings(legacySource);
-      const sourceFingerprint = createHash("sha256")
-        .update(JSON.stringify({ tenantId: actor.tenantId, legacyTenantId, exists: legacySnapshot.exists, settings: sanitizedSettings }))
-        .digest("hex");
-      const preview = {
-        sourceExists: legacySnapshot.exists,
-        previewFingerprint: sourceFingerprint,
-        settings: sanitizedSettings,
-        canApply: true,
-      };
-      if (req.body?.apply !== true) return res.json(preview);
-      if (String(req.body?.confirmation || "") !== "IMPORT_TENANT_SYSTEM_SETTINGS") {
-        return res.status(400).json({ error: "Konfirmasi impor pengaturan tidak cocok." });
-      }
-      if (String(req.body?.previewFingerprint || "") !== sourceFingerprint) {
-        return res.status(409).json({ error: "Sumber atau pengaturan berubah sejak preview. Jalankan preview ulang." });
-      }
-      const result = await importLegacyTenantSystemSettings(actor.tenantId, actor.uid, sourceFingerprint, sanitizedSettings);
-      return res.json({ ...preview, ...result, importedAt: new Date().toISOString() });
-    } catch (error) {
-      return systemSettingsRouteError(res, error);
-    }
+  app.post("/api/system/settings/migrate", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
-  // Remove legacy browser-visible secrets before a client may subscribe to tenant settings.
-  app.post("/api/system/settings/prepare", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (String(process.env.LEGACY_FIREBASE_SETTINGS_CLEANUP_ENABLED || "").trim().toLowerCase() !== "true") {
-      return res.status(410).json({ error: "Pembersihan settings Firebase legacy dinonaktifkan dari runtime. Gunakan prosedur migrasi terkontrol." });
-    }
-    const services = await getAdminServices();
-    if (services.ok === false) return res.status(503).json({ error: "Backend pengamanan settings belum tersedia." });
-    try {
-      const uid = (req as any).user?.uid;
-      const profile = await getUserProfile(uid);
-      const tenantId = typeof profile?.tenantId === "string" ? profile.tenantId.trim() : "";
-      if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
-        return res.status(403).json({ error: "Profil aktif dengan tenant valid diperlukan." });
-      }
-      if (profile.role !== "SuperAdmin") {
-        return res.status(403).json({ error: "Pembersihan settings legacy hanya dapat dijalankan oleh SuperAdmin." });
-      }
-      const legacyTenantId = await getSupabaseTahfidzLegacyTenantKey(tenantId);
-      const settingsRef = services.db.collection("tenants").doc(legacyTenantId).collection("settings").doc("global");
-      const settingsSnapshot = await settingsRef.get();
-      if (settingsSnapshot.exists) {
-        const settings = settingsSnapshot.data() || {};
-        if (!legacyTenantPathRecordMatches(settings, legacyTenantId, tenantId)) {
-          return res.status(409).json({ error: "Tenant pada settings tidak cocok." });
-        }
-        const integrations = settings.integrations && typeof settings.integrations === "object" ? settings.integrations : {};
-        const patch: Record<string, any> = {};
-        const FieldValue = await loadFirestoreFieldValue();
-        ["waGatewayKey", "paymentGatewayKey", "smtpPassword", "smtpPass"].forEach((field) => {
-          if (Object.prototype.hasOwnProperty.call(integrations, field)) patch["integrations." + field] = FieldValue.delete();
-        });
-        if (Object.keys(patch).length) {
-          patch.updatedAt = new Date().toISOString();
-          await settingsRef.update(patch);
-        }
-      }
-      return res.json({ ok: true });
-    } catch (error: any) {
-      console.error("Legacy integration secret cleanup failed:", error?.code || "internal");
-      return res.status(503).json({ error: "Server belum dapat membersihkan secret integrasi lama." });
-    }
+  // Retired endpoint kept temporarily so older clients receive an explicit response.
+  app.post("/api/system/settings/prepare", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Pembersihan pengaturan lama telah dihentikan. Kelola pengaturan tenant pada Supabase.",
+    });
   });
 
   const searchFeedbackRuntimeEnabled = String(process.env.SUPABASE_SEARCH_FEEDBACK_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -4149,10 +3041,12 @@ async function startServer() {
   });
 
 
-  // Local data is migrated only after an authenticated tenant admin explicitly submits a reviewed dataset.
-  app.post('/api/data-migrations/local-storage', requireAuth, async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(410).json({ error: 'Migrasi penyimpanan browser lama telah dihentikan. Buat data awal langsung melalui formulir pada modul ERP.' });
+  // Local browser-storage migration was retired; initial data is entered in the ERP modules.
+  app.post('/api/data-migrations/local-storage', requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Migrasi penyimpanan browser lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   // Public PPDB is served only by this trusted server. Tenant identity is fixed in server configuration.
@@ -4328,34 +3222,11 @@ async function startServer() {
     } catch (error) { return hrisRouteError(res, error); }
   });
 
-  app.post("/api/hris/legacy/employees/import", requireAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!hrisImportEnabled) return res.status(503).json({ error: "Impor Pegawai arsip belum diaktifkan operator." });
-    try {
-      const uid = String((req as any).user?.uid || "");
-      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadHrisActor(uid);
-      const action = String(req.body?.action || "");
-      if (action !== "preview" && action !== "apply") return res.status(400).json({ error: "Aksi impor Pegawai tidak valid." });
-      const context = await getSupabaseHrisLegacyImportContext(actor.tenantId);
-      const services = await getAdminServices();
-      if (!services.ok) throw new SupabaseHrisError(503, "Arsip Firebase belum dapat dibaca backend migrasi.");
-      const sources = await readLegacyFirestoreTenantRows(services.db, {
-        collectionName: "master_data",
-        tenantKey: context.legacyTenantKey,
-        limit: 1000,
-        filters: [{ field: "type", value: "Pegawai" }],
-      });
-      if (action === "preview") {
-        const preview = previewSupabaseLegacyHrisEmployees(sources, context.existingRows);
-        const { items: _items, ...summary } = preview;
-        return res.json(summary);
-      }
-      const result = await applySupabaseLegacyHrisEmployeeImport(
-        actor.tenantId, actor.uid, sources, context.existingRows, String(req.body?.expectedFingerprint || ""),
-      );
-      return res.status(201).json(result);
-    } catch (error) { return hrisRouteError(res, error); }
+  app.post("/api/hris/legacy/employees/import", requireAuth, (_req, res) => {
+    return res.status(410).json({
+      code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
+      error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
+    });
   });
 
   app.post("/api/hris/attendance", requireAuth, async (req, res) => {
@@ -4609,7 +3480,7 @@ async function startServer() {
       return res.status(400).json({ code: "INVALID_NAME", error: "Nama pengguna minimal 2 karakter." });
     }
 
-    // Validate temporary password (min 12 chars, never write to logs or firestore)
+    // Validate the temporary password (minimum 12 characters; never log it).
     if (typeof tempPassword !== "string" || tempPassword.length < 12) {
       return res.status(400).json({
         code: "INVALID_PASSWORD",

@@ -2,6 +2,15 @@
 
 > **Perubahan ruang lingkup 27 Oktober 2026:** data Firestore proyek ini dummy dan tidak perlu disalin. Pernyataan historis yang menjadikan impor/rekonsiliasi seluruh arsip sebagai gerbang rilis tidak lagi berlaku. Gunakan fixture sintetis untuk membuktikan logika, relasi, transaksi, serta isolasi tenant/role; data contoh dapat dimasukkan manual kemudian. Syarat migrasi schema, runtime Supabase-only, login/UAT, backup/restore, rotasi secret, dan kesiapan environment pelanggan tetap berlaku.
 
+## Perubahan terbaru pada branch remediation — 31 Oktober 2026
+
+- `main` saat branch ini dibuat berada pada `9a9a23eb4d7ec36f0cf698bf44781cbf58ae2907`. Perubahan di bawah masih berupa kandidat PR pada branch remediation; belum dipush atau digabung.
+- Koneksi Firebase Admin, pembacaan Firestore server, jalur pembersihan settings Firebase, serta implementasi import/migrasi arsip pada `server.ts` telah dihapus. Sebanyak 26 endpoint lama dipertahankan hanya sebagai tombstone terautentikasi yang mengembalikan HTTP `410` dengan kode `LEGACY_ARCHIVE_IMPORT_REMOVED`.
+- Dependency `firebase-admin` dihapus dari `package.json`, `package-lock.json`, dan `bun.lock`. Helper tenant Firestore serta tes gate/import Firestore yang sudah tidak relevan ikut dihapus. Firebase client SDK masih menjadi dependency pengembangan karena source layar/adapter lama belum dibersihkan; guard CI tetap memastikan jalur aplikasi aktif tidak mencapainya.
+- File contoh environment dan Compose tidak lagi memuat flag yang dapat mengaktifkan Firebase Admin atau pembersihan Firestore. Database Production tidak diubah, tidak ada migrasi Supabase yang diterapkan, dan data dummy tidak disalin.
+- PPOB/payment gateway tetap dikecualikan dari rilis awal. Rute modul simulasi PPOB tidak dikembalikan.
+- Build/test suite penuh masih perlu dijalankan pada CI setelah kandidat perubahan ditinjau. Status source dan ledger Production pada catatan 30 Oktober tetap memerlukan rekonsiliasi tim backend sebelum deployment.
+
 ## Ringkasan terbaru — 30 Oktober 2026
 
 - Status GitHub terkini: PR #12–#15 sudah merged ke `main`; PR #1–#11 ditutup tanpa merge langsung karena implementasinya digantikan dan dipetakan dalam PR #13. PR #15 masuk pada merge commit `956646da2fa2b238cbbf38b3dd12b36c4e6b33c5`.
@@ -30,7 +39,7 @@ Commit `21140c3` lulus pada [GitHub Actions run #39778292353](https://github.com
 
 ## Keputusan arsitektur
 
-Supabase menjadi tujuan autentikasi, database operasional, dan penyimpanan berkas. Setiap instalasi pelanggan menggunakan proyek Supabase yang dikelola pelanggan atau stack Supabase mandiri. Runtime frontend kini Supabase-only. Backend masih menyimpan kode importer Firebase lama, tetapi gate server permanen menolak pemakaiannya; data dummy tidak perlu disalin. Penghapusan kode dan dependensi legacy tetap menjadi pekerjaan cutover.
+Supabase menjadi tujuan autentikasi, database operasional, dan penyimpanan berkas. Setiap instalasi pelanggan menggunakan proyek Supabase yang dikelola pelanggan atau stack Supabase mandiri. Runtime frontend aktif dan API backend menggunakan Supabase. Pada branch remediation 31 Oktober, koneksi Firebase Admin dan implementasi importer server dihapus; endpoint lama hanya menolak permintaan dengan HTTP 410. Source layar Firebase lama yang tidak aktif dan Firebase client dependency pengembangan masih menunggu pembersihan terpisah. Data Firestore pemilik yang dummy tidak perlu disalin.
 
 ## Kondisi yang telah diverifikasi
 
