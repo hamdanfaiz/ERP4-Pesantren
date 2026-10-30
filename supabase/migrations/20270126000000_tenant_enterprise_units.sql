@@ -268,7 +268,7 @@ BEGIN
     END IF;
     v_payload := jsonb_build_object('code', v_code, 'name', v_name, 'unitType', v_type, 'location', v_location);
   ELSE
-    IF NOT (p_payload ? 'status') OR jsonb_object_length(p_payload) <> 1 THEN
+    IF NOT (p_payload ? 'status') OR (p_payload - 'status') <> '{}'::jsonb THEN
       RAISE EXCEPTION 'Status unit tidak valid' USING ERRCODE = '22023';
     END IF;
     v_status := lower(btrim(p_payload ->> 'status'));

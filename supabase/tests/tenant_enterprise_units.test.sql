@@ -122,6 +122,15 @@ SELECT is(
   )->'unit'->>'status',
   'active', 'Admin can reactivate a unit'
 );
+SELECT throws_ok(
+  $$SELECT public.manage_tenant_enterprise_unit(
+    'e1000000-0000-4000-8000-000000000001', 'e1000000-0000-4000-8000-000000000011', 'admin', 'set_status',
+    (SELECT id FROM public.organization_units WHERE tenant_id = 'e1000000-0000-4000-8000-000000000001' AND code = 'PUSAT'),
+    '{"status":"active","tenantId":"e2000000-0000-4000-8000-000000000002"}'::jsonb,
+    'e1000000-0000-4000-8000-000000000108'
+  )$$,
+  '22023', NULL, 'status updates reject tenant ownership overrides'
+);
 SELECT is((SELECT count(*)::int FROM public.organization_unit_events WHERE tenant_id = 'e1000000-0000-4000-8000-000000000001'), 4, 'create, update, and two status changes produce four audit events');
 SELECT is(
   (public.get_tenant_enterprise_units_snapshot('e2000000-0000-4000-8000-000000000002', 'e2000000-0000-4000-8000-000000000021', 'admin')->'units'),
