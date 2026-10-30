@@ -150,7 +150,9 @@ SELECT ok(NOT has_function_privilege('authenticated', 'public.list_tahfidz_achie
 SELECT ok(has_function_privilege('service_role', 'public.list_tahfidz_achievement_page(uuid,uuid,text,date,uuid,integer)', 'EXECUTE'), 'the trusted server can execute the achievement RPC');
 SELECT is(jsonb_array_length(public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',CURRENT_DATE,NULL,100)->'students'), 8, 'Admin achievement page follows the tenant roster scope');
 SELECT is(
-  (SELECT student.value->'metrics' FROM jsonb_array_elements(public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',CURRENT_DATE,NULL,100)->'students') AS student(value) WHERE student.value->>'id' = 'd1900000-0000-4000-8000-000000000201'),
+  (SELECT student.value - 'id' - 'name' - 'grade' - 'halaqah'
+   FROM jsonb_array_elements(public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',CURRENT_DATE,NULL,100)->'students') AS student(value)
+   WHERE student.value->>'id' = 'd1900000-0000-4000-8000-000000000201'),
   '{"totalRecords":100,"ziyadahRecords":25,"murojaahRecords":25,"studyDays":10}'::JSONB,
   'achievement counts use persisted records and tenant-local calendar dates'
 );
