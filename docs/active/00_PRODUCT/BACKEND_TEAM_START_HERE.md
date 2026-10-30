@@ -9,8 +9,8 @@ Mulai dari **Fase 1: menyiapkan staging dan membaca keadaan database**. Tim tida
 
 ## Baseline yang harus dipakai
 
-- Baseline kode aplikasi yang diverifikasi untuk panduan ini berasal dari commit `8f64c4b729bf6548ef6bb441c609a1382e66b91d`; PR #20 hanya memperbarui dokumentasi. Saat mulai bekerja, checkout branch `main` terbaru dan catat SHA aktual yang digunakan.
-- PR #13 adalah baseline cutover Supabase; PR #17 menghapus Firebase Admin dan jalur Firestore server; PR #18 memperbarui status kesiapan; PR #19 menambahkan panduan kickoff tim backend dan PR #20 menyelaraskan acuan checkpoint. Semuanya sudah merged.
+- Sumber kode resmi saat pembaruan panduan ini adalah `main` pada commit `888420a994e779a77779dc4378229cc4c7245957` (PR #23). PR #22 menetralkan konfigurasi awal untuk instalasi pelanggan; PR #23 menyelaraskan contoh pengaturan dan identitas aplikasi dalam Bahasa Indonesia. Saat mulai bekerja, checkout `main` terbaru dan catat SHA aktual yang digunakan.
+- PR #13 adalah baseline cutover Supabase; PR #17 menghapus Firebase Admin dan jalur Firestore server; PR #18 memperbarui status kesiapan; PR #19 menambahkan panduan kickoff tim backend; PR #20 menyelaraskan acuan checkpoint. PR #22 dan #23 menyempurnakan konfigurasi awal pelanggan dan contoh pengaturan. Semuanya sudah merged.
 - PR #1–#11 ditutup tanpa merge langsung karena implementasinya digantikan/dipetakan ke baseline cutover. Jangan cherry-pick atau memakai branch tersebut sebagai dasar deployment.
 - Data Firestore pemilik adalah dummy dan tidak perlu disalin. Gunakan fixture sintetis untuk staging.
 - Project Supabase `ptsasgdvgrbdtgyqieie` tercatat sebagai `main / PRODUCTION`. Jangan gunakan project itu untuk rehearsal.
@@ -23,7 +23,7 @@ Mulai dari **Fase 1: menyiapkan staging dan membaca keadaan database**. Tim tida
 4. Jalankan `npm run preflight:db-migrations` dari root repo hanya setelah URL menunjuk ke staging yang benar. Simpan ringkasan hasilnya tanpa URL atau credential.
 5. Pastikan ada backup staging dan bukti pemulihan sebelum rehearsal.
 
-**Hambatan akses yang perlu ditangani:** pada percobaan terakhir, konektor MCP menolak permintaan baca ke target (`You do not have permission`), sedangkan koneksi langsung hanya berhasil mencapai pemeriksaan TLS lalu gagal memvalidasi rantai sertifikat (`SELF_SIGNED_CERT_IN_CHAIN`). Jangan mematikan verifikasi sertifikat. Tim dapat memakai jaringan/sertifikat tepercaya atau mengambil ledger dan katalog lewat SQL Editor dengan query baca-saja.
+**Hambatan akses terkini (31 Oktober 2026):** konektor Supabase yang tersedia di Codex hanya menampilkan project `vqemuyzveuirlkvdggjd`; ref target `ptsasgdvgrbdtgyqieie` tidak muncul. Snapshot sebelumnya mencatat `ptsasgdvgrbdtgyqieie` sebagai `main / PRODUCTION`. Jangan menganggap project yang terlihat sebagai staging tanpa konfirmasi tim, dan jangan memakai Production untuk rehearsal. Tim yang memiliki akses Supabase dapat memberikan ref staging terpisah dan mengambil ledger/katalog dengan query baca-saja. Jangan mematikan verifikasi TLS atau mengirim secret melalui chat.
 
 **Keluaran Fase 1:** ref staging yang terkonfirmasi, commit source, ringkasan ledger-vs-source, inventaris skema/RLS/Storage, dan bukti backup/restore staging.
 
