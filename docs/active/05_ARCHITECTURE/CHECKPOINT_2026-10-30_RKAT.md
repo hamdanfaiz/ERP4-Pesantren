@@ -1,34 +1,26 @@
-# Checkpoint pengembangan RKAT — 30 Oktober 2026
+# Checkpoint pengembangan RKAT per unit — 30 Oktober 2026
 
-## Progres proyek
+## Progres
 
-**Penyelesaian pengembangan: sekitar 73% (rentang 70–75%).** Persentase ini tidak memasukkan deployment atau UAT oleh tim penerapan. Angka proyek belum dinaikkan untuk satu fitur RKAT karena beberapa gap fungsional lintas modul dan isolasi operasional per unit tetap terbuka; CI hijau untuk RKAT saja tidak menutup cakupan pengembangan yang lebih luas.
+**Penyelesaian pengembangan proyek: sekitar 73% (rentang kerja 70–75%).** Persentase ini tidak memasukkan deployment hosting atau UAT. Implementasi RKAT per unit merupakan satu bagian dari pekerjaan; integrasi lintas modul dan isolasi unit lain masih terbuka.
 
-## Perubahan untuk ditinjau
+## Perubahan pada branch PR #13
 
-- Menambahkan rencana dan alokasi anggaran RKAT dengan `tenant_id` wajib, audit pembuat/pemeriksa, status rancangan/disetujui/ditutup, serta jejak permintaan idempoten.
-- Menambahkan RPC Supabase untuk snapshot dan mutasi. RPC memeriksa tenant dan profil Admin aktif, mengunci mutasi per tenant, menolak rentang periode bertabrakan, menolak perubahan setelah persetujuan, dan membatasi perubahan anggaran hanya melalui backend tepercaya.
-- Realisasi anggaran hanya menjumlahkan pengeluaran berstatus disetujui yang memiliki entri pada `finance_ledger`; pengeluaran yang belum diposting tidak dihitung.
-- Menambahkan halaman Keuangan & Anggaran untuk membuat dan mengubah rancangan, mengesahkan atau menutup anggaran, serta membandingkan alokasi dengan realisasi.
-- Runtime RKAT dan Finance tetap nonaktif secara bawaan. Pengaktifan membutuhkan dua flag server; tidak ada data contoh atau perubahan Supabase live.
-- Memperbarui tes guard runtime agar mengizinkan halaman RKAT hanya ketika endpoint API tetap tertutup kecuali kedua flag aktif. Memperbarui preflight agar menghitung migration baru.
+- Menambahkan rencana dan alokasi RKAT tenant-scoped dengan status rancangan, disetujui, dan ditutup; audit pembuat/pemeriksa serta kunci permintaan idempoten.
+- Setiap rencana baru memerlukan unit aktif milik tenant yang sama. Periode anggaran boleh sama pada unit berbeda, tetapi tumpang tindih ditolak dalam satu unit.
+- Rencana lama tanpa unit tetap dapat dibaca dan tidak dipetakan otomatis. Admin dapat memetakan secara eksplisit ke unit yang sama tenant, dengan validasi periode dan pencatatan audit; rencana harus dipetakan sebelum disetujui.
+- Realisasi hanya menghitung pengeluaran disetujui yang memiliki posting ledger dengan tenant dan unit yang sama, dalam periode serta dimensi anggaran yang sama. Realisasi rencana lama yang belum dipetakan ditampilkan kosong.
+- Halaman Keuangan & Anggaran memilih unit, membatasi daftar dan ringkasan ke unit tersebut, dan menyediakan alur pemetaan rencana lama.
+- Feature flag Finance/RKAT tetap mati secara bawaan. Migration belum diterapkan ke Supabase live.
 
-## Verifikasi terarah dan CI
+## Migration dan pengujian
 
-- Lulus: `test:supabase-runtime-no-firebase`.
-- Lulus: `test:customer-deployment-flags`.
-- Lulus: `test-migration-preflight`.
-- Lulus: typecheck terarah untuk `SupabaseFinanceBudgetManager.tsx` dan `supabaseFinanceBudget.ts`.
-- Lulus pada GitHub Actions [run 40977767772](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40977767772), **2/2 job** pada commit `048eff1dade1b8c7b588774c86b65c16226a9731`: typecheck, build client/server, smoke test production tanpa Firebase, Docker/Compose, rehearsal migration pada Supabase lokal sintetis, pgTAP, API auth/tenant, Storage, dan backup/restore. Hasil ini memvalidasi source dan fixture sintetis untuk checkpoint RKAT, bukan schema/data Supabase live atau UAT.
-- Hasil tersebut tidak menjalankan migration/data ke Supabase live dan bukan UAT pelanggan.
+- 20270125000000_finance_budget_plans.sql menyediakan lifecycle dasar RKAT.
+- 20270129000000_finance_budget_unit_scope.sql menambah relasi unit, constraint untuk record baru, keunikan periode per unit, dan pemetaan eksplisit untuk record lama.
+- supabase/tests/finance_budget_plans.test.sql mencakup 53 assertion: role/tenant, unit aktif/nonaktif, periode lintas-unit, realisasi yang tidak bocor antarunit, pemetaan legacy, idempotensi, dan lifecycle.
+- GitHub Actions run 40994025913 lulus **2/2 job** pada commit 6ba1fdb8bfcfcd5834c9063c4cd7d37953c08c56. Hasil database: **51 file uji, 1.130 assertion, PASS**; job frontend juga lulus typecheck, build, smoke test runtime tanpa Firebase, Docker/Compose, dan konfigurasi deployment.
+- Semua uji menggunakan Supabase lokal dan data sintetis. Tidak ada migration/data Supabase live yang ditulis.
 
-## Tinjauan tim backend
+## Pekerjaan lanjutan
 
-- Migration baru: `supabase/migrations/20270125000000_finance_budget_plans.sql`.
-- Tes database baru: `supabase/tests/finance_budget_plans.test.sql`.
-- API dan halaman: `src/server/supabaseFinanceBudget.ts`, `server.ts`, `src/pages/SupabaseFinanceBudgetManager.tsx`, dan routing di `src/App.tsx`.
-- Commit kode `048eff1` sudah berada di branch `codex/supabase-runtime-cutover-20261022`; backend team dapat meninjaunya pada [PR #13](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13). Semua job CI untuk commit tersebut lulus. Jangan mengaktifkan flag atau menerapkan migration ke Production sebelum rehearsal dan tinjauan database.
-
-## Status PR
-
-PR #13 masih Open/Draft. Perubahan RKAT ini sudah lolos CI, tetapi PR tersebut juga mencakup cutover dan baseline deployment yang lebih luas serta masih menunggu tinjauan tim backend. Status PR baru ditutup setelah cakupan PR ditinjau dan diterima; keberhasilan CI untuk commit ini saja belum menutup pekerjaan project. Tidak ada merge, deployment, atau operasi tulis ke Supabase yang dilakukan pada checkpoint ini.
+RKAT baru kini memiliki batas unit pada source dan CI; feature flag sengaja tetap tertutup sampai deployment menjalankan migration pada environment yang sesuai. Unit scoping tagihan, Akademik, Asrama, dan rekonsiliasi record lama masih menjadi pekerjaan pengembangan. PR #13 masih **Open / Draft** dan belum siap merge; skor proyek tetap 73%.

@@ -1,19 +1,18 @@
 # Matriks Paritas Fitur PR #11 → PR #13
 
-# Status PR terkini — 30 Oktober 2026
+# Status PR dan hasil verifikasi terbaru — 30 Oktober 2026
 
-- PR #11 `feat(supabase): extend tenant-scoped cutover foundations` masih **Open / Draft**, head `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, base branch `backend/supabase-finance-ui`.
-- PR #12 sudah **Merged** ke `main` pada 21 Oktober 2026; merge commit `c8738185ff6e5080ae427ef0021ee25681036c40`.
-- PR #13 `Supabase-only runtime cutover` masih **Open / Draft**, base `main`. Head `7d6585398b925010132e62598ea89d6e14850c05` adalah checkpoint sebelum rangkaian pembaruan dokumentasi 30 Oktober; perbandingan GitHub membuktikan pembaruan setelahnya hanya menyentuh tiga dokumen, tanpa perubahan kode. Commit kode `7eb3848e7ce8f560818db640959210da46491b6e` lulus kedua job CI sintetis: frontend/Firebase guard dan migration/API auth/pgTAP.
-- Perbandingan GitHub menunjukkan branch PR #11 dan #13 **diverged**. PR #11 tidak otomatis menjadi bagian dari PR #13; jangan merge seluruh branch atau mengubah base branch secara massal. Tabel paritas di bawah membantu meninjau pengganti Supabase-native per area, tetapi tidak menggantikan pemeriksaan perilaku dan UAT.
-- Keputusan: pertahankan PR #11 terbuka sampai setiap fitur unik diputuskan (dipertahankan, diganti oleh implementasi #13, atau ditunda sebagai keputusan produk). Jangan tutup PR hanya karena #13 berhasil build. Jangan merge PR #13 ke `main` sebelum gate staging, rekonsiliasi ledger, restore, dan UAT selesai.
-
+- PR #1–#11 semuanya **Open / Draft**; #12 **Closed / Merged** ke `main` pada 21 Oktober 2026 di commit `c8738185ff6e5080ae427ef0021ee25681036c40`; PR #13 **Open / Draft**.
+- Head PR #13 saat pemeriksaan `6ba1fdb8bfcfcd5834c9063c4cd7d37953c08c56`; GitHub Actions [run 40994025913](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40994025913) lulus 2/2 job, termasuk build/Docker, Supabase lokal, migration rehearsal, 1.130 pgTAP assertions, API/tenant, Storage, dan backup/restore sintetis.
+- PR #1, #2, #4, dan #6 berbasis `main`. PR #3 dan #5 berbasis PR #1, #7 berbasis #5, #8 berbasis #7, #9 berbasis #8, #10 berbasis #9, dan #11 berbasis #10. PR #13 memiliki commit history berbeda; pekerjaan pada #1–#11 tidak otomatis masuk ke `main` atau PR #13.
+- Perbandingan path menunjukkan implementasi lama dan baru memakai sebagian path yang sama serta path unik. Matriks di bawah mencakup paritas #11 saja; audit #1–#10 masih perlu dipastikan sebelum PR lama ditutup. Tutup PR lama hanya setelah fitur unik masuk ke `main` atau sudah terbukti digantikan oleh implementasi yang telah di-merge.
+- Jangan merge PR #13 sekarang: skor pengembangan masih sekitar 73%, dan cakupan multi-unit, integrasi lintas modul, sisa legacy Firebase, serta area fail-closed masih perlu dituntaskan.
 ---
 
 
 > **Perubahan ruang lingkup 27 Oktober 2026:** Firestore yang tersedia berisi data dummy dan tidak perlu disalin. Pemetaan/impor arsip yang tercatat di matriks ini bukan release gate. Nilai paritas perilaku melalui test Supabase lokal/CI dan UAT; data contoh dapat diisi manual kemudian.
 
-## Status branch
+## Status branch historis (snapshot 26 Oktober 2026; status terkini ada di atas)
 
 Pemeriksaan GitHub pada 26 Oktober 2026: PR #11 masih Open/Draft pada `88f2686d34bbffb1aa1c7997b55cd015c424f85c`, berbasis `backend/supabase-finance-ui` (`127c67ef2373eb8d5a654ae10f58c4b0fd1c304b`). PR #12 merged ke `main` pada `c8738185ff6e5080ae427ef0021ee25681036c40`. PR #13 Open/Draft pada `028a93a1a52439cc463209bc9b6ec2aa47500414`, berbasis commit main hasil merge PR #12 tersebut. Perbandingan saat ini tetap diverged (merge-base `f7f8bb098d3a6032eef5a101ad29e9d2086f111b4`): PR #13 memiliki 461 commit yang tidak ada di #11, sedangkan #11 memiliki 235 commit yang tidak ada di #13. Jangan gabungkan seluruh branch #11; petakan paritas per fitur.
 

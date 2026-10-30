@@ -2,6 +2,13 @@
 
 > **Estimasi penyelesaian pengembangan: sekitar 73%** (rentang kerja 70–75%). Angka ini **tidak memasukkan pelaksanaan deployment dan UAT**, yang akan dilakukan tim backend/penerapan Anda. Angka ini bukan bukti produk sudah siap produksi.
 
+## Verifikasi terbaru — 30 Oktober 2026
+
+- PR #13 head `6ba1fdb8bfcfcd5834c9063c4cd7d37953c08c56`; GitHub Actions [run 40994025913](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40994025913) lulus **2/2 job**.
+- Build/typecheck, guard runtime Supabase-only, Docker/Compose, migration rehearsal Supabase lokal, **1.130 pgTAP assertion**, API/tenant, Storage, dan backup/restore sintetis lulus.
+- Finance unit scope kini mencakup pengeluaran/ledger baru dan RKAT baru. Tagihan, Akademik, Asrama, data lama, integrasi penuh lintas modul, serta Analitik AI dan PPOB/Layanan yang fail-closed masih merupakan pekerjaan pengembangan.
+- PR #1–#11 masih Open/Draft, PR #12 merged, PR #13 Open/Draft. Tidak ada migration atau data yang ditulis ke Supabase live. Estimasi tetap sekitar **73%**.
+
 ## Perubahan definisi progres
 
 Sebelumnya ada dua angka: kematangan fitur sekitar 73% dan kesiapan go-live sekitar 46%. Angka go-live menggabungkan pekerjaan pengembangan dengan gerbang rilis eksternal seperti rehearsal database, deployment, validasi environment pelanggan, dan UAT. Karena deployment dan UAT dikerjakan tim lain, **46% tidak lagi dipakai untuk melaporkan progres penyelesaian project**. Angka tersebut hanya dipertahankan sebagai catatan historis kesiapan rilis.
@@ -27,7 +34,7 @@ Skrip migration, konfigurasi yang portabel, dan dokumentasi deployment tetap bag
 
 ## Pekerjaan pengembangan yang masih terbuka
 
-1. **Selesaikan cakupan area produk yang masih memiliki gap:** Manajemen Multi-Unit memiliki registri tenant; unit scoping kini mencakup pengeluaran Finance baru dan ledger pengeluaran, tetapi belum mencakup tagihan, anggaran, Akademik, Asrama, atau baris lama. RKAT memiliki UI/API/migration namun runtime masih bergate. Analitik AI dan PPOB/Layanan masih fail-closed. Rincian dan batas Finance ada di [checkpoint Multi-Unit 30 Oktober](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
+1. **Selesaikan cakupan area produk yang masih memiliki gap:** Manajemen Multi-Unit memiliki registri tenant; unit scoping tersedia untuk pengeluaran/ledger dan RKAT baru, tetapi belum untuk tagihan, Akademik, Asrama, dan record operasional lama. RKAT UI/API/migration sudah diuji per unit, dengan feature flag tetap tertutup sampai migration dijalankan pada environment deployment. Analitik AI dan PPOB/Layanan masih fail-closed. Rincian ada di [checkpoint Multi-Unit 30 Oktober](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
 2. **Bersihkan sisa source legacy Firebase.** Cutover runtime Supabase-only sudah terverifikasi di CI run 40973057285: grafik frontend aktif tidak mengimpor Firebase, paket Firebase dikecualikan dari runtime production, dan smoke test production lulus tanpa paket tersebut. Kode legacy/import Firebase masih ada dalam source tree tetapi gate-nya selalu tertutup; hapus atau arsipkan jalur ini setelah memeriksa dependensi/tsconfig. Tidak ada data Firestore yang perlu disalin.
 3. **Tutup integrasi lintas modul.** Verifikasi referensi data, aturan tenant dan permission, transaksi idempoten, validasi status, serta jejak audit pada alur yang saling terhubung.
 4. **Lengkapi verifikasi pengembangan untuk paket self-hosted.** Pastikan konfigurasi, startup, health check, upgrade schema, pencadangan/pemulihan, dan panduan VPS/on-premise konsisten dan dapat direproduksi.
@@ -41,7 +48,7 @@ CI run [40973057285](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/4
 ## Finance unit-scope checkpoint — 30 Oktober 2026
 
 - Pengeluaran Finance baru wajib terhubung ke organisasi aktif milik tenant. Akun Ustadz menggunakan unit pada profil tepercaya; Admin memilih unit aktif. Persetujuan menyalin unit ke ledger dan RPC lama tanpa unit dicabut.
-- Baris Finance lama tidak diisi otomatis; `unit_id` tetap `NULL` sampai rekonsiliasi eksplisit. Tagihan, anggaran, Akademik, Asrama, dan modul lain belum mendapat isolasi unit.
+- Baris pengeluaran/ledger Finance lama tidak diisi otomatis; `unit_id` tetap `NULL` sampai rekonsiliasi eksplisit. RKAT baru sudah dibatasi per unit, sementara tagihan, Akademik, Asrama, dan modul lain belum mendapat isolasi unit.
 - GitHub Actions [run 40990151916](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40990151916) lulus 2/2 job di commit `7e9149283c8c1b843880b4b9db7bd56ef41636b1`; cakupannya termasuk typecheck/build, rehearsal migrasi lokal, pgTAP, API tenant, Storage, dan backup/restore sintetis.
 - Tidak ada data/migration yang ditulis ke Supabase live. Feature flag Finance tetap mati secara bawaan; PR #13 tetap Open/Draft menunggu review dan tindak lanjut cakupan multi-unit.
 
@@ -60,7 +67,7 @@ Angka 100% **tidak menyatakan deployment produksi atau UAT telah dilakukan**. Ti
 ## Implementasi registri unit — 30 Oktober 2026
 
 - Kode Manajemen Multi-Unit kini disiapkan pada branch PR #13; checkpoint rinci: [CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
-- Source berisi 100 migration setelah penambahan Finance unit-scope `20270128000000`. CI merehearsal migration dan pgTAP di Supabase lokal sintetis. Migration belum diterapkan ke staging atau Production; flag runtime tetap mati secara bawaan.
+- Source berisi 101 migration setelah penambahan Finance expense unit-scope `20270128000000` dan RKAT unit-scope `20270129000000`. CI merehearsal migration dan pgTAP di Supabase lokal sintetis. Migration belum diterapkan ke Supabase live; flag runtime tetap mati secara bawaan.
 - Estimasi pengembangan tetap **73%**. Perubahan ini belum menerapkan isolasi tingkat unit pada transaksi akademik, keuangan, asrama, atau modul lainnya.
 
 
