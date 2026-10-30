@@ -2,18 +2,17 @@
 
 > **Perubahan ruang lingkup 27 Oktober 2026:** data Firestore proyek ini dummy dan tidak perlu disalin. Pernyataan historis yang menjadikan impor/rekonsiliasi seluruh arsip sebagai gerbang rilis tidak lagi berlaku. Gunakan fixture sintetis untuk membuktikan logika, relasi, transaksi, serta isolasi tenant/role; data contoh dapat dimasukkan manual kemudian. Syarat migrasi schema, runtime Supabase-only, login/UAT, backup/restore, rotasi secret, dan kesiapan environment pelanggan tetap berlaku.
 
-## Perubahan terbaru pada branch remediation — 31 Oktober 2026
+## Status diverifikasi setelah PR #17 — 31 Oktober 2026
 
-- `main` saat branch ini dibuat berada pada `9a9a23eb4d7ec36f0cf698bf44781cbf58ae2907`. Perubahan di bawah masih berupa kandidat PR pada branch remediation; belum dipush atau digabung.
-- Koneksi Firebase Admin, pembacaan Firestore server, jalur pembersihan settings Firebase, serta implementasi import/migrasi arsip pada `server.ts` telah dihapus. Sebanyak 26 endpoint lama dipertahankan hanya sebagai tombstone terautentikasi yang mengembalikan HTTP `410` dengan kode `LEGACY_ARCHIVE_IMPORT_REMOVED`.
-- Dependency `firebase-admin` dihapus dari `package.json`, `package-lock.json`, dan `bun.lock`. Helper tenant Firestore serta tes gate/import Firestore yang sudah tidak relevan ikut dihapus. Firebase client SDK masih menjadi dependency pengembangan karena source layar/adapter lama belum dibersihkan; guard CI tetap memastikan jalur aplikasi aktif tidak mencapainya.
-- File contoh environment dan Compose tidak lagi memuat flag yang dapat mengaktifkan Firebase Admin atau pembersihan Firestore. Database Production tidak diubah, tidak ada migrasi Supabase yang diterapkan, dan data dummy tidak disalin.
-- PPOB/payment gateway tetap dikecualikan dari rilis awal. Rute modul simulasi PPOB tidak dikembalikan.
-- Build/test suite penuh masih perlu dijalankan pada CI setelah kandidat perubahan ditinjau. Status source dan ledger Production pada catatan 30 Oktober tetap memerlukan rekonsiliasi tim backend sebelum deployment.
+- Branch `main` kini memuat merge commit PR #17 `3e752f8d6c1961130b9baa108736c51ffc702eb7`. Perubahan menghapus Firebase Admin dan jalur Firestore server, mempertahankan 26 endpoint impor arsip sebagai tombstone HTTP `410`, serta mengeluarkan PPOB/payment gateway dari rilis awal.
+- GitHub Actions run [41136728382](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41136728382) lulus **2/2 job** pada head PR `2db27071d3e84ec1cc55c10fff3e3912d8a34c00`: typecheck/build/Docker smoke test dan migrasi, pgTAP, autentikasi/isolasi tenant, Storage, backup/restore pada Supabase lokal sintetis. Supabase Preview dilewati karena branch tidak terkait ke Supabase Branch.
+- Firebase client SDK masih tercantum untuk source lama yang tidak aktif; guard CI membuktikan runtime frontend aktif tidak menarik Firebase. Firebase Admin dan pembacaan/import Firestore sisi server sudah dihapus.
+- Tidak ada migration/schema/record yang diterapkan ke Supabase Production dan tidak ada data Firestore dummy yang disalin. Target Production, ledger, dan gate rilis di bawah tidak berubah.
+- Perubahan ini tidak menaikkan estimasi kematangan fitur: sekitar **73%**. Estimasi kesiapan go-live tetap sekitar **46%** sampai gate staging, rekonsiliasi ledger, Auth/UAT, secret rotation, backup/restore target, dan instalasi customer-managed lulus.
 
-## Ringkasan terbaru — 30 Oktober 2026
+## Snapshot release gate — 30 Oktober 2026 (historis; status 31 Oktober ada di atas)
 
-- Status GitHub terkini: PR #12–#15 sudah merged ke `main`; PR #1–#11 ditutup tanpa merge langsung karena implementasinya digantikan dan dipetakan dalam PR #13. PR #15 masuk pada merge commit `956646da2fa2b238cbbf38b3dd12b36c4e6b33c5`.
+- Pada snapshot 30 Oktober, PR #12–#15 sudah merged ke `main`; PR #1–#11 ditutup tanpa merge langsung karena implementasinya digantikan dan dipetakan dalam PR #13. PR #15 masuk pada merge commit `956646da2fa2b238cbbf38b3dd12b36c4e6b33c5`.
 - CI PR #15 pada head `8dbcc7d5e53605b41ddf1252742cd4ea35575e47` lulus untuk **Frontend build and Firebase bundle guard** dan **Migrations, API auth, and pgTAP**. Supabase Preview dilewati karena preview branch belum tersedia.
 - Guard source memeriksa 26 route Supabase. PPOB/Layanan Ekosistem tidak memiliki tipe modul atau route pada rilis awal, dan layar simulasi lamanya sudah dihapus; permission lama untuk modul itu tetap ditolak oleh RBAC. Layar Multi-Unit dan Anggaran tersedia, tetapi API-nya terkunci feature flag server yang default-nya `false`; Analitik memakai ringkasan Supabase berbasis aturan, bukan prediksi AI.
 - Ref target `ptsasgdvgrbdtgyqieie` saat ini terlihat sebagai branch `main / PRODUCTION`. Jangan gunakan untuk rehearsal. Target belum menerima migration dari pekerjaan ini.
