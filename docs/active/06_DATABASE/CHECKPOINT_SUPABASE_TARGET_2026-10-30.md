@@ -37,6 +37,19 @@ Query `SELECT` pada SQL Editor dashboard project target membaca `version`, `name
 
 Target saat diperiksa melaporkan 119 tabel publik dan PostgreSQL 17.11. Hitungan ini tidak membuktikan kesesuaian seluruh schema, grant, RLS, data, atau fungsi dengan source.
 
+## Preflight yang bisa dijalankan tim backend sekarang
+
+Source `main` menyediakan `npm run preflight:db-migrations`. Script ini membaca ledger dan metadata statement dalam transaksi PostgreSQL read-only, lalu membandingkan versi, nama, dan isi SQL dengan file lokal pada `supabase/migrations`. Script tidak menerapkan migrasi dan tidak membaca record operasional.
+
+Sebelum menjalankan perintah:
+
+1. Pastikan tim telah memastikan apakah `ptsasgdvgrbdtgyqieie` adalah staging terisolasi atau Production. Sampai terkonfirmasi, perlakukan sebagai Production.
+2. Di mesin operator, gunakan checkout `main` yang hendak dirilis dan `.env` lokal yang sudah diisi aman. Konfirmasi hostname koneksi pada dashboard sebelum mengeksekusi; target harus benar-benar project/ref `ptsasgdvgrbdtgyqieie`, bukan project lain. Jangan mencetak atau mengirim URL database, password, atau key.
+3. Jalankan dari root repository: `npm run preflight:db-migrations`. Script memilih `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL`, meminta `psql`, mengaktifkan `default_transaction_read_only=on`, dan tidak menampilkan nilai kredensial.
+4. Kirim hanya laporan terminal yang sudah disanitasi. Jika hasil memuat `HENTIKAN`, mismatch metadata, atau error SSL, hentikan proses dan kirim pesan error/laporan tanpa kredensial. Jangan menjalankan `migration repair`, `db push`, atau migrasi manual untuk menghilangkan temuan.
+
+Daftar versi yang dilaporkan sebagai belum tercatat hanya menjadi bahan review. Rehearsal tetap harus dilakukan pada lingkungan terisolasi yang dapat dipulihkan; output preflight tidak membuktikan migration aman diterapkan ke Production.
+
 ## Snapshot keamanan database baca-saja — 30 Oktober 2026
 
 Snapshot berikut dibaca melalui SQL Editor Dashboard dalam transaksi/query `SELECT` saja; tidak ada data aplikasi yang dibaca atau diubah.

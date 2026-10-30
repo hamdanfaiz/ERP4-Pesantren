@@ -32,7 +32,8 @@ Snapshot teknis ini bukan pengganti audit endpoint, pemeriksaan definisi seluruh
 
 ### 1. Skema, relasi, dan transaksi
 
-- Baca ulang ledger target, lalu rekonsiliasi dengan 109 file migration di source `main`. Snapshot lama menunjukkan 47 versi sampai `20261206000000`; selisih 62 hanya berlaku jika ledger tidak berubah. Jangan tandai versi sebagai applied tanpa bukti schema dan jangan anggap selisih potensial itu siap diterapkan.
+- Tim backend dapat menjalankan `npm run preflight:db-migrations` dari root source `main` untuk membandingkan versi, nama, dan statement migration dengan koneksi PostgreSQL read-only. Pastikan hostname menunjuk ke project target; jangan membagikan URL atau secret. Jika ada `HENTIKAN` atau mismatch, selesaikan rekonsiliasi sebelum rehearsal.
+- Baca ulang ledger target dan rekonsiliasi dengan 109 file migration di source `main`. Snapshot lama menunjukkan 47 versi sampai `20261206000000`; selisih 62 hanya berlaku jika ledger tidak berubah. Jangan tandai versi sebagai applied tanpa bukti schema dan jangan anggap selisih potensial itu siap diterapkan.
 - Sebelum penerapan, simpan backup yang dapat dipulihkan dan rehearsalkan seluruh urutan migration pada salinan/environment staging.
 - Verifikasi signature dan definisi function, constraint, index, RLS, Storage policy, dan Data API grant terhadap source commit yang akan dirilis.
 - Uji transaksi kritis: NIS unik bersamaan, onboarding PPDB-ke-santri, assignment kamar, pembayaran/jurnal, stok/dompet koperasi, buku dan peminjaman, sesi/setoran Tahfidz, serta idempotensi retry.
