@@ -151,6 +151,11 @@ import {
   setSupabaseFinanceLock,
   SupabaseFinanceError,
 } from "./src/server/supabaseFinance";
+import {
+  getSupabaseFinanceBudgetSnapshot,
+  mutateSupabaseFinanceBudget,
+  SupabaseFinanceBudgetError,
+} from "./src/server/supabaseFinanceBudget";
 import { getSupabaseDashboardSnapshot, SupabaseDashboardError } from "./src/server/supabaseDashboard";
 import { getSupabaseAcademicPortalPage, getSupabaseAcademicPortalStudent, getSupabaseAcademicSnapshot, saveSupabaseAcademicRecord, SupabaseAcademicError } from "./src/server/supabaseAcademic";
 import { resolveAcademicPortalStudentId } from "./src/lib/academicPortalPagination";
@@ -798,6 +803,7 @@ async function startServer() {
   const ppdbDocumentsRuntimeEnabled = String(process.env.SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbFinanceBillsEnabled = String(process.env.SUPABASE_PPDB_FINANCE_BILLS_ENABLED || "").trim().toLowerCase() === "true";
   const financeRuntimeEnabled = String(process.env.SUPABASE_FINANCE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const financeBudgetRuntimeEnabled = String(process.env.SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const ppdbLegacyImportEnabled = isLegacyArchiveImportEnabled(process.env.SUPABASE_PPDB_IMPORT_ENABLED);
   const ppdbOnboardingRuntimeEnabled = String(process.env.SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const academicRuntimeEnabled = String(process.env.SUPABASE_ACADEMIC_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -2295,6 +2301,23 @@ async function startServer() {
     }
     return { ...profile, uid, tenantId };
   };
+  const loadFinanceBudgetActor = async (uid: string) => {
+    const actor = await loadFinanceActor(uid);
+    if (!["Admin", "SuperAdmin"].includes(actor.role)) {
+      throw new SupabaseFinanceBudgetError(403, "Anggaran hanya dapat dikelola Admin tenant.");
+    }
+    const modulePermissions = resolveUserModulePermissions(actor.role, actor.modulePermissions);
+    if (!modulePermissions.erp || !modulePermissions.finance) {
+      throw new SupabaseFinanceBudgetError(403, "Akses modul Keuangan dan Anggaran tidak diberikan kepada akun ini.");
+    }
+    return actor;
+  };
+  const financeBudgetRouteError = (res: express.Response, error: unknown) => {
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof SupabaseFinanceBudgetError) return res.status(error.status).json({ error: error.message });
+    console.error("Supabase Finance budget endpoint failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ error: "Layanan anggaran Supabase belum dapat diproses." });
+  };
   const financeRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseFinanceError) return res.status(error.status).json({ error: error.message });
@@ -2658,6 +2681,33 @@ async function startServer() {
       const actor = await loadFinanceActor(uid);
       return res.json(await listSupabaseFinanceSnapshot(actor.tenantId, actor.uid, actor.role));
     } catch (error) { return financeRouteError(res, error); }
+  });
+
+  app.get("/api/erp/budget/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!financeRuntimeEnabled || !financeBudgetRuntimeEnabled) {
+      return res.status(503).json({ error: "Runtime Keuangan dan Anggaran Supabase belum diaktifkan operator." });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceBudgetActor(uid);
+      return res.json(await getSupabaseFinanceBudgetSnapshot(actor.tenantId, actor.uid, actor.role));
+    } catch (error) { return financeBudgetRouteError(res, error); }
+  });
+
+  app.post("/api/erp/budget/mutations", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!financeRuntimeEnabled || !financeBudgetRuntimeEnabled) {
+      return res.status(503).json({ error: "Runtime Keuangan dan Anggaran Supabase belum diaktifkan operator." });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadFinanceBudgetActor(uid);
+      const result = await mutateSupabaseFinanceBudget(actor.tenantId, actor.uid, actor.role, req.body);
+      return res.status(result?.alreadyApplied ? 200 : result?.status === "draft" ? 201 : 200).json(result);
+    } catch (error) { return financeBudgetRouteError(res, error); }
   });
 
   app.post("/api/finance/bills", requireAuth, async (req, res) => {

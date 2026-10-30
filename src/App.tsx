@@ -21,6 +21,7 @@ const SupabaseCBTManager = React.lazy(() => import('./pages/SupabaseCBTManager')
 const SupabaseCBTStudentDashboard = React.lazy(() => import('./pages/SupabaseCBTStudentDashboard').then((module) => ({ default: module.SupabaseCBTStudentDashboard })));
 const SupabaseBoardingManager = React.lazy(() => import('./pages/SupabaseBoardingManager').then((module) => ({ default: module.SupabaseBoardingManager })));
 const SupabaseFinanceManager = React.lazy(() => import('./pages/SupabaseFinanceManager').then((module) => ({ default: module.SupabaseFinanceManager })));
+const SupabaseFinanceBudgetManager = React.lazy(() => import('./pages/SupabaseFinanceBudgetManager').then((module) => ({ default: module.SupabaseFinanceBudgetManager })));
 const SupabaseCommunicationHub = React.lazy(() => import('./pages/SupabaseCommunicationHub').then((module) => ({ default: module.SupabaseCommunicationHub })));
 const SupabaseAcademicManager = React.lazy(() => import('./pages/SupabaseAcademicManager').then((module) => ({ default: module.SupabaseAcademicManager })));
 const SupabaseHealthcareManager = React.lazy(() => import('./pages/SupabaseHealthcareManager').then((module) => ({ default: module.SupabaseHealthcareManager })));
@@ -180,7 +181,7 @@ export default function App() {
       case 'enterprise':
         return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
       case 'erp':
-        return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
+        return <SupabaseFinanceBudgetManager />;
       case 'ga':
         return <SupabaseGeneralAffairManager />;
       case 'alumni':

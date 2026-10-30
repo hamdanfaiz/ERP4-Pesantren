@@ -38,6 +38,8 @@ SUPABASE_MASTER_DATA_RUNTIME_ENABLED=false
 VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED=false
 SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false
 VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false
+SUPABASE_FINANCE_RUNTIME_ENABLED=false
+SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED=false
 ```
 
 `VITE_SUPABASE_URL` must be reachable from each user's browser. `SUPABASE_URL` must be reachable from the container and may use a private address. The browser bootstrap fetches an allowlisted `/runtime-config.json` before loading the application. The Supabase URL, publishable key, and public feature flags are read when the container starts, not baked into the image. The publishable key is public by design; the secret key is passed only to the server container. Never put a secret key in a `VITE_` variable or commit `.env`.
@@ -61,6 +63,8 @@ After the Admin can sign in, create synthetic operational records manually in Ma
 If the database transaction fails after Auth sends the invitation, the script attempts to remove that pending Auth user. If Auth cleanup also fails, stop and reconcile that account before retrying. Do not enable module flags just because tenant bootstrap succeeded; each module still needs its own migration, RLS, and workflow verification.
 
 The Compose file passes an explicit allowlist of browser settings and server runtime flags when the container starts; all feature and import gates default to `false`. The same image can be configured for different customer environments by changing `.env` and recreating the service; no image rebuild is needed for a Supabase endpoint, publishable key, or feature-flag change. Enable both sides of a module only after its migrations, tenant setup, Auth/profile setup, RLS, and any Storage policies are verified in that deployment. Keep every import/apply flag off during normal operation; use it only for a reviewed, time-bounded maintenance procedure. This installation does not import Firestore data; create synthetic or operational records through the application after the tenant and Admin are provisioned. Public PPDB is an externally reachable intake route and requires its own abuse, privacy, and tenant configuration review before activation. PII and legacy fingerprint keys are server-only; do not prefix them with `VITE_`.
+
+Modul RKAT bergantung pada tabel Keuangan yang sama. Aktifkan `SUPABASE_FINANCE_RUNTIME_ENABLED` dan `SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED` hanya setelah migration `20270125000000_finance_budget_plans.sql`, uji RLS/tenant, dan persetujuan alur anggaran lolos di environment nonproduksi. Data anggaran tidak dibuat otomatis; Admin harus mengisi alokasi. Realisasi dihitung dari pengeluaran yang sudah disetujui dan tercatat di buku Keuangan.
 
 ## Build and run
 
