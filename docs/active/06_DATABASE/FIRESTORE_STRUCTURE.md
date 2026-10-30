@@ -1,5 +1,7 @@
 # Firestore Database Schema (ERD mapping)
 
+> **Referensi arsip yang belum diverifikasi, bukan skema operasional aktif.** Dokumen ini adalah rancangan awal dan hanya mencakup sebagian koleksi. Nama field, jumlah record, relasi, dan kelengkapan tenant harus diverifikasi dari Firestore kanonis sebelum dipakai sebagai pemetaan. Supabase adalah target runtime; lihat [panduan migrasi](../../guides/MIGRATION_GUIDE.md) serta [status cutover](../05_ARCHITECTURE/SUPABASE_RUNTIME_CUTOVER_STATUS.md). Jangan memakai rancangan ini untuk membuat aturan Firebase baru atau menganggap semua record mengikuti skema di bawah.
+
 Desain struktur Cloud Firestore (NoSQL) menggunakan pendekatan hierarki Collection / Document, dipadukan strategi normalisasi maupun de-normalisasi sesuai efisiensi _read_ untuk UI PesantrenOS.
 
 ## Aturan Utama SaaS Multi-Tenant:

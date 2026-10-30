@@ -1,5 +1,6 @@
--- Profil RBAC. Identitas ada di Supabase Auth; baris ini menyimpan peran dan tenant.
--- Klien hanya boleh membaca profilnya sendiri. Perubahan akun tetap lewat server.
+-- Compatibility profile table retained for the tenant-foundation backfill/bridge.
+-- Runtime profile reads and writes use public.profiles after migration 20261023000000.
+-- Identity remains in Supabase Auth; browser access to this legacy table is self-read only.
 
 create table if not exists public.user_profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -38,5 +39,8 @@ create policy user_profiles_select_own
   to authenticated
   using (auth.uid() = id);
 
-revoke all on public.user_profiles from anon;
+-- Browser clients may read their own profile only. Writes are performed by the
+-- trusted server using the Supabase secret key; RLS remains enabled as defense in depth.
+revoke all on public.user_profiles from public, anon, authenticated;
 grant select on public.user_profiles to authenticated;
+grant all on public.user_profiles to service_role;

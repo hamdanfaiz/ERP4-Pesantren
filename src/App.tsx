@@ -1,12 +1,11 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from './firebase';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { useAuth } from './contexts/AuthContext';
-import { centralStructureService } from './services/centralStructureService';
 import { FrontendOverview } from './pages/FrontendOverview';
 import { LoginView } from './pages/LoginView';
+import { GuardianInvitationActivationView } from './pages/GuardianInvitationActivationView';
+import { GuardianSelfRegistrationView } from './pages/GuardianSelfRegistrationView';
 
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
@@ -15,54 +14,48 @@ import { ROLE_MODULES } from './rbac';
 import { useSystemSettings } from './hooks/useSystemSettings';
 
 // Module pages are loaded on demand to keep the initial bundle small.
-const DashboardOverview = React.lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.DashboardOverview })));
+const SupabaseDashboardOverview = React.lazy(() => import('./pages/SupabaseDashboardOverview').then((module) => ({ default: module.SupabaseDashboardOverview })));
 const TahfidzManager = React.lazy(() => import('./pages/TahfidzManager').then((module) => ({ default: module.TahfidzManager })));
 const MasterDataManager = React.lazy(() => import('./pages/MasterDataManager').then((module) => ({ default: module.MasterDataManager })));
-const PPDBManager = React.lazy(() => import('./pages/PPDBManager').then((module) => ({ default: module.PPDBManager })));
-const CBTManager = React.lazy(() => import('./pages/CBTManager').then((module) => ({ default: module.CBTManager })));
-const CBTStudentDashboard = React.lazy(() => import('./pages/CBTStudentDashboard').then((module) => ({ default: module.CBTStudentDashboard })));
-const BoardingManager = React.lazy(() => import('./pages/BoardingManager').then((module) => ({ default: module.BoardingManager })));
-const FinanceManager = React.lazy(() => import('./pages/FinanceManager').then((module) => ({ default: module.FinanceManager })));
-const CommunicationHub = React.lazy(() => import('./pages/CommunicationHub').then((module) => ({ default: module.CommunicationHub })));
-const AcademicManager = React.lazy(() => import('./pages/AcademicManager').then((module) => ({ default: module.AcademicManager })));
-const HealthcareManager = React.lazy(() => import('./pages/HealthcareManager').then((module) => ({ default: module.HealthcareManager })));
-const CooperativeManager = React.lazy(() => import('./pages/CooperativeManager').then((module) => ({ default: module.CooperativeManager })));
-const HRISManager = React.lazy(() => import('./pages/HRISManager').then((module) => ({ default: module.HRISManager })));
-const DocumentManager = React.lazy(() => import('./pages/DocumentManager').then((module) => ({ default: module.DocumentManager })));
-const LibraryManager = React.lazy(() => import('./pages/LibraryManager').then((module) => ({ default: module.LibraryManager })));
-const DonationManager = React.lazy(() => import('./pages/DonationManager').then((module) => ({ default: module.DonationManager })));
-const LaundryManager = React.lazy(() => import('./pages/LaundryManager').then((module) => ({ default: module.LaundryManager })));
+const SupabasePpdbManager = React.lazy(() => import('./pages/SupabasePpdbManager').then((module) => ({ default: module.SupabasePpdbManager })));
+const SupabaseCBTManager = React.lazy(() => import('./pages/SupabaseCBTManager').then((module) => ({ default: module.SupabaseCBTManager })));
+const SupabaseCBTStudentDashboard = React.lazy(() => import('./pages/SupabaseCBTStudentDashboard').then((module) => ({ default: module.SupabaseCBTStudentDashboard })));
+const SupabaseBoardingManager = React.lazy(() => import('./pages/SupabaseBoardingManager').then((module) => ({ default: module.SupabaseBoardingManager })));
+const SupabaseFinanceManager = React.lazy(() => import('./pages/SupabaseFinanceManager').then((module) => ({ default: module.SupabaseFinanceManager })));
+const SupabaseFinanceBudgetManager = React.lazy(() => import('./pages/SupabaseFinanceBudgetManager').then((module) => ({ default: module.SupabaseFinanceBudgetManager })));
+const SupabaseCommunicationHub = React.lazy(() => import('./pages/SupabaseCommunicationHub').then((module) => ({ default: module.SupabaseCommunicationHub })));
+const SupabaseAcademicManager = React.lazy(() => import('./pages/SupabaseAcademicManager').then((module) => ({ default: module.SupabaseAcademicManager })));
+const SupabaseHealthcareManager = React.lazy(() => import('./pages/SupabaseHealthcareManager').then((module) => ({ default: module.SupabaseHealthcareManager })));
+const SupabaseCooperativeManager = React.lazy(() => import('./pages/SupabaseCooperativeManager').then((module) => ({ default: module.SupabaseCooperativeManager })));
+const SupabaseHrisManager = React.lazy(() => import('./pages/SupabaseHrisManager').then((module) => ({ default: module.SupabaseHrisManager })));
+const SupabaseDocumentManager = React.lazy(() => import('./pages/SupabaseDocumentManager').then((module) => ({ default: module.SupabaseDocumentManager })));
+const SupabaseCrmManager = React.lazy(() => import('./pages/SupabaseCrmManager').then((module) => ({ default: module.SupabaseCrmManager })));
+const SupabaseLibraryManager = React.lazy(() => import('./pages/SupabaseLibraryManager').then((module) => ({ default: module.SupabaseLibraryManager })));
+const SupabaseDonationManager = React.lazy(() => import('./pages/SupabaseDonationManager').then((module) => ({ default: module.SupabaseDonationManager })));
+const SupabaseLaundryManager = React.lazy(() => import('./pages/SupabaseLaundryManager').then((module) => ({ default: module.SupabaseLaundryManager })));
 const SettingsManager = React.lazy(() => import('./pages/SettingsManager').then((module) => ({ default: module.SettingsManager })));
-const EnterpriseManager = React.lazy(() => import('./pages/EnterpriseManager').then((module) => ({ default: module.EnterpriseManager })));
-const ERPManager = React.lazy(() => import('./pages/ERPManager').then((module) => ({ default: module.ERPManager })));
-const GeneralAffairManager = React.lazy(() => import('./pages/GeneralAffairManager').then((module) => ({ default: module.GeneralAffairManager })));
-const AlumniManager = React.lazy(() => import('./pages/AlumniManager').then((module) => ({ default: module.AlumniManager })));
-const CRMManager = React.lazy(() => import('./pages/CRMManager').then((module) => ({ default: module.CRMManager })));
-const LMSManager = React.lazy(() => import('./pages/LMSManager').then((module) => ({ default: module.LMSManager })));
-const IntelligenceManager = React.lazy(() => import('./pages/IntelligenceManager').then((module) => ({ default: module.IntelligenceManager })));
-const MarketplaceManager = React.lazy(() => import('./pages/MarketplaceManager').then((module) => ({ default: module.MarketplaceManager })));
-const EcosystemManager = React.lazy(() => import('./pages/EcosystemManager').then((module) => ({ default: module.EcosystemManager })));
+const SupabaseGeneralAffairManager = React.lazy(() => import('./pages/SupabaseGeneralAffairManager').then((module) => ({ default: module.SupabaseGeneralAffairManager })));
+const SupabaseAlumniManager = React.lazy(() => import('./pages/SupabaseAlumniManager').then((module) => ({ default: module.SupabaseAlumniManager })));
+const SupabaseLMSManager = React.lazy(() => import('./pages/SupabaseLMSManager').then((module) => ({ default: module.SupabaseLMSManager })));
+const SupabaseMarketplaceManager = React.lazy(() => import('./pages/SupabaseMarketplaceManager').then((module) => ({ default: module.SupabaseMarketplaceManager })));
+const SupabaseEnterpriseUnitsManager = React.lazy(() => import('./pages/SupabaseEnterpriseUnitsManager').then((module) => ({ default: module.SupabaseEnterpriseUnitsManager })));
 const UserManagementView = React.lazy(() => import('./pages/UserManagementView').then((module) => ({ default: module.UserManagementView })));
-
 export default function App() {
-  const { role, user } = useAuth();
+  const { role, user, completeGuardianInvitation, completeGuardianRegistration } = useAuth();
+  const [guardianInviteToken, setGuardianInviteToken] = useState(() => new URLSearchParams(window.location.search).get('guardianInvite') || '');
+  const [guardianRegistrationRoute, setGuardianRegistrationRoute] = useState(() => new URLSearchParams(window.location.search).has('guardianRegistration'));
   const currentTenant: Tenant = {
     id: user?.tenantId || '',
     name: user?.tenantName || 'Pesantren',
     type: user?.tenantType || 'Pesantren',
   };
-  const { getUserAllowedModules, canAccessModule } = useSystemSettings();
+  const { getUserAllowedModules, canAccessModule, general, orgInfo } = useSystemSettings();
   const [showLogin, setShowLogin] = useState(false);
   const [activeModule, setActiveModule] = useState<ModuleId>('dashboard');
   const [branding, setBranding] = useState({
     logoUrl: '',
     schoolName: 'Pesantren OS'
   });
-
-  useEffect(() => {
-    centralStructureService.setTenant(user?.tenantId || null);
-    return () => centralStructureService.setTenant(null);
-  }, [user?.tenantId]);
 
   useEffect(() => {
     if (role !== 'Public') {
@@ -88,70 +81,35 @@ export default function App() {
       }
     };
 
-    const unsub = onSnapshot(doc(db, 'tenants', user.tenantId, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        
-        if (data.generalSettings) {
-           const theme = data.generalSettings.theme || 'dark';
-           
-           if (mediaQuery) {
-              mediaQuery.removeEventListener('change', handleSystemThemeChange);
-           }
-           
-           if (theme === 'system') {
-               mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-               mediaQuery.addEventListener('change', handleSystemThemeChange);
-               if (mediaQuery.matches) {
-                  document.documentElement.classList.add('dark');
-               } else {
-                  document.documentElement.classList.remove('dark');
-               }
-           } else if (theme === 'light') {
-               document.documentElement.classList.remove('dark');
-           } else {
-               document.documentElement.classList.add('dark');
-           }
-        } else {
-           document.documentElement.classList.add('dark');
-        }
+    const theme = general.theme || 'dark';
+    if (theme === 'system') {
+      mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener('change', handleSystemThemeChange);
+      document.documentElement.classList.toggle('dark', mediaQuery.matches);
+    } else {
+      document.documentElement.classList.toggle('dark', theme !== 'light');
+    }
 
-        if (data.orgInfo) {
-          const { schoolName, pageTitleFormat, faviconUrl, logoUrl } = data.orgInfo;
-          
-          setBranding({
-            logoUrl: logoUrl || '',
-            schoolName: schoolName || 'Pesantren OS'
-          });
+    const schoolName = orgInfo.schoolName || 'Pesantren OS';
+    setBranding({ logoUrl: orgInfo.logoUrl || '', schoolName });
+    document.title = orgInfo.pageTitleFormat
+      ? orgInfo.pageTitleFormat.replace('{schoolName}', schoolName)
+      : `Pesantren OS | ${schoolName}`;
 
-          // Update Document Title
-          if (pageTitleFormat) {
-            document.title = pageTitleFormat.replace('{schoolName}', schoolName || 'Pesantren');
-          } else if (schoolName) {
-            document.title = `Pesantren OS | ${schoolName}`;
-          }
-
-          // Update Favicon
-          if (faviconUrl) {
-            let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-            if (!link) {
-              link = document.createElement('link');
-              link.rel = 'icon';
-              document.head.appendChild(link);
-            }
-            link.href = faviconUrl;
-          }
-        }
-      } else {
-        document.documentElement.classList.add('dark');
+    if (orgInfo.faviconUrl) {
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
       }
-    });
+      link.href = orgInfo.faviconUrl;
+    }
 
     return () => {
-       unsub();
        if (mediaQuery) mediaQuery.removeEventListener('change', handleSystemThemeChange);
     };
-  }, [user?.tenantId]);
+  }, [user?.tenantId, general.theme, orgInfo.schoolName, orgInfo.pageTitleFormat, orgInfo.logoUrl, orgInfo.faviconUrl]);
 
   const renderModule = () => {
     // Route guard: verify module permission for current user
@@ -171,7 +129,7 @@ export default function App() {
 
     switch (activeModule) {
       case 'dashboard':
-        return <DashboardOverview />;
+        return <SupabaseDashboardOverview />;
       case 'tahfidz':
         return <TahfidzManager />;
       case 'master-data':
@@ -182,32 +140,32 @@ export default function App() {
         }
         return <UserManagementView />;
       case 'ppdb':
-        return <PPDBManager />;
+        return <SupabasePpdbManager />;
       case 'cbt':
-        if (role === 'Santri') return <CBTStudentDashboard />;
-        return <CBTManager />;
+        if (role === 'Santri') return <SupabaseCBTStudentDashboard />;
+        return <SupabaseCBTManager />;
       case 'boarding':
-        return <BoardingManager />;
+        return <SupabaseBoardingManager />;
       case 'finance':
-        return <FinanceManager />;
+        return <SupabaseFinanceManager />;
       case 'communication':
-        return <CommunicationHub />;
+        return <SupabaseCommunicationHub />;
       case 'academic':
-        return <AcademicManager />;
+        return <SupabaseAcademicManager />;
       case 'healthcare':
-        return <HealthcareManager />;
+        return <SupabaseHealthcareManager />;
       case 'cooperative':
-        return <CooperativeManager />;
+        return <SupabaseCooperativeManager />;
       case 'hris':
-        return <HRISManager />;
+        return <SupabaseHrisManager />;
       case 'document':
-        return <DocumentManager />;
+        return <SupabaseDocumentManager />;
       case 'library':
-        return <LibraryManager />;
+        return <SupabaseLibraryManager />;
       case 'donation':
-        return <DonationManager />;
+        return <SupabaseDonationManager />;
       case 'laundry':
-        return <LaundryManager />;
+        return <SupabaseLaundryManager />;
       case 'settings':
         if (role !== 'SuperAdmin') {
           return (
@@ -224,27 +182,44 @@ export default function App() {
         }
         return <SettingsManager />;
       case 'enterprise':
-        return <EnterpriseManager />;
+        return <SupabaseEnterpriseUnitsManager />;
       case 'erp':
-        return <ERPManager />;
+        return <SupabaseFinanceBudgetManager />;
       case 'ga':
-        return <GeneralAffairManager />;
+        return <SupabaseGeneralAffairManager />;
       case 'alumni':
-        return <AlumniManager />;
+        return <SupabaseAlumniManager />;
       case 'crm':
-        return <CRMManager />;
+        return <SupabaseCrmManager />;
       case 'lms':
-        return <LMSManager />;
+        return <SupabaseLMSManager />;
       case 'intelligence':
-        return <IntelligenceManager />;
+        return <SupabaseDashboardOverview surface="intelligence" />;
       case 'marketplace':
-        return <MarketplaceManager />;
+        return <SupabaseMarketplaceManager />;
       case 'ecosystem':
-        return <EcosystemManager />;
+        return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
       default:
         return <ModulePlaceholder module={activeModule} />;
     }
   };
+
+  if (guardianInviteToken) {
+    return <GuardianInvitationActivationView token={guardianInviteToken} onActivated={() => { completeGuardianInvitation(); setGuardianInviteToken(''); }} />;
+  }
+
+  if (guardianRegistrationRoute) {
+    return <GuardianSelfRegistrationView callback onActivated={() => {
+      completeGuardianRegistration();
+      window.history.replaceState(null, '', window.location.pathname);
+      setGuardianRegistrationRoute(false);
+    }} onBack={() => {
+      completeGuardianRegistration();
+      window.history.replaceState(null, '', window.location.pathname);
+      setGuardianRegistrationRoute(false);
+      setShowLogin(true);
+    }} />;
+  }
 
   if (role === 'Public') {
     if (showLogin) {

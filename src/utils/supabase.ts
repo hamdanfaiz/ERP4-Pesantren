@@ -1,21 +1,30 @@
 import { createClient } from '@supabase/supabase-js';
+import { publicRuntimeConfigValue } from '../runtimeConfig';
 
-const env = (import.meta as unknown as {
-  env?: { VITE_SUPABASE_URL?: string; VITE_SUPABASE_PUBLISHABLE_KEY?: string };
-}).env || {};
+const supabaseUrl = publicRuntimeConfigValue('VITE_SUPABASE_URL');
+const supabaseKey = publicRuntimeConfigValue('VITE_SUPABASE_PUBLISHABLE_KEY');
+const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
+const unavailableSupabaseUrl = 'http://127.0.0.1:54321';
+const rejectUnconfiguredRequest: typeof fetch = async () => {
+  throw new Error('Konfigurasi Supabase belum lengkap. Atur VITE_SUPABASE_URL dan VITE_SUPABASE_PUBLISHABLE_KEY pada lingkungan runtime aplikasi.');
+};
 
-const supabaseUrl = env.VITE_SUPABASE_URL || '';
-const supabaseKey = env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
-
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: true,
-    storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
+export const supabase = createClient(
+  isSupabaseConfigured ? supabaseUrl : unavailableSupabaseUrl,
+  isSupabaseConfigured ? supabaseKey : 'missing-supabase-publishable-key',
+  {
+    global: {
+      fetch: isSupabaseConfigured ? fetch : rejectUnconfiguredRequest,
+    },
+    auth: {
+      persistSession: isSupabaseConfigured,
+      storage: isSupabaseConfigured && typeof window !== 'undefined' ? window.sessionStorage : undefined,
+      autoRefreshToken: isSupabaseConfigured,
+      detectSessionInUrl: false,
+    },
   },
-});
+);
 
 export function supabaseClientConfigured(): boolean {
-  return Boolean(supabaseUrl && supabaseKey);
+  return isSupabaseConfigured;
 }

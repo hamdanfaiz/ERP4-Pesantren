@@ -1,5 +1,12 @@
-import { db } from "../firebase";
-import { collection, query, where, onSnapshot, doc, runTransaction } from "firebase/firestore";
+import { publicRuntimeConfigValue } from "../runtimeConfig";
+import {
+  assignSupabaseStudentRoom,
+  listSupabaseBoardingSnapshot,
+} from "./masterDataApi";
+import { supabaseRuntimeEnabled } from "../runtimeBackend";
+
+const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED"));
+const SUPABASE_BOARDING_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_RUNTIME_ENABLED"));
 
 export interface CentralStructureItem {
   id: string;
@@ -27,6 +34,7 @@ export interface CentralStructureItem {
 
 export interface CentralEntityItem {
   id: string;
+  supabaseId?: string;
   name: string;
   type?: string;
   status?: string;
@@ -110,70 +118,15 @@ class CentralStructureService {
     }));
   }
 
-  private initRealtimeListeners(tenantId: string) {
-    try {
-      const structureQuery = query(
-        collection(db, 'master_data'),
-        where('tenantId', '==', tenantId)
-      );
-      this.unsubscribeListeners.push(onSnapshot(structureQuery, (snapshot) => {
-        if (this.tenantId !== tenantId) return;
-        const items = snapshot.docs.map((document) => ({ id: document.id, ...document.data() } as any));
-        const buildings = items.filter((item) => item.category === 'Gedung') as CentralStructureItem[];
-        const rooms = items.filter((item) => item.category === 'Kamar') as CentralStructureItem[];
-        this.buildings = buildings;
-        this.rooms = rooms.map((room) => {
-          const parent = this.buildings.find((building) => building.id === room.parentCode);
-          const capacity = Number(room.capacity);
-          return {
-            ...room,
-            building: room.building || parent?.name || '',
-            capacity: Number.isFinite(capacity) && capacity >= 0 ? capacity : 0,
-          };
-        });
-        this.classes = items.filter((item) => item.category === 'Kelas') as CentralStructureItem[];
-        this.halaqahs = items.filter((item) => item.category === 'Halaqah') as CentralStructureItem[];
-        this.subjects = items.filter((item) => item.category === 'Mata Pelajaran') as CentralStructureItem[];
-        this.curricula = items.filter((item) => item.category === 'Kurikulum') as CentralStructureItem[];
-        this.recalculateOccupancies();
-        this.lastSynced = new Date();
-        this.notify();
-      }, (error) => console.warn('Tenant master data listener failed:', error)));
-
-      const santriQuery = query(
-        collection(db, 'entityRecords'),
-        where('tenantId', '==', tenantId),
-        where('type', '==', 'Santri')
-      );
-      this.unsubscribeListeners.push(onSnapshot(santriQuery, (snapshot) => {
-        if (this.tenantId !== tenantId) return;
-        this.santriList = snapshot.docs.map((document) => ({ id: document.id, ...document.data() } as any));
-        this.recalculateOccupancies();
-        this.lastSynced = new Date();
-        this.notify();
-      }, (error) => console.warn('Tenant santri listener failed:', error)));
-
-      const teacherQuery = query(
-        collection(db, 'entityRecords'),
-        where('tenantId', '==', tenantId),
-        where('type', 'in', ['Guru', 'Asatidz'])
-      );
-      this.unsubscribeListeners.push(onSnapshot(teacherQuery, (snapshot) => {
-        if (this.tenantId !== tenantId) return;
-        this.teachers = snapshot.docs.map((document) => ({ id: document.id, ...document.data() } as any));
-        this.notify();
-      }, (error) => console.warn('Tenant teacher listener failed:', error)));
-    } catch (error) {
-      console.warn('Could not attach tenant-scoped listeners:', error);
-    }
-  }
-
   public setTenant(tenantId: string | null) {
     const normalizedTenantId = tenantId?.trim() || null;
-    if (this.tenantId === normalizedTenantId) return;
+    if (this.tenantId === normalizedTenantId) {
+      if (normalizedTenantId && SUPABASE_MASTER_DATA_RUNTIME && SUPABASE_BOARDING_RUNTIME) {
+        void this.refreshSupabaseTenant(normalizedTenantId);
+      }
+      return;
+    }
 
-    this.unsubscribeListeners.forEach((unsubscribe) => unsubscribe());
-    this.unsubscribeListeners = [];
     this.tenantId = normalizedTenantId;
     this.buildings = [];
     this.rooms = [];
@@ -186,8 +139,8 @@ class CentralStructureService {
     this.lastSynced = null;
     this.isSyncing = false;
 
-    if (normalizedTenantId) {
-      this.initRealtimeListeners(normalizedTenantId);
+    if (normalizedTenantId && SUPABASE_MASTER_DATA_RUNTIME && SUPABASE_BOARDING_RUNTIME) {
+      void this.refreshSupabaseTenant(normalizedTenantId);
     }
     this.notify();
   }
@@ -204,8 +157,63 @@ class CentralStructureService {
   }
 
   public notifyExternalUpdate() {
+    if (SUPABASE_MASTER_DATA_RUNTIME && SUPABASE_BOARDING_RUNTIME && this.tenantId) {
+      void this.refreshSupabaseTenant(this.tenantId);
+      return;
+    }
     this.recalculateOccupancies();
     this.notify();
+  }
+
+  private async refreshSupabaseTenant(tenantId: string) {
+    const requestTenantId = tenantId;
+    this.isSyncing = true;
+    this.notify();
+    try {
+      const snapshot = await listSupabaseBoardingSnapshot();
+      if (this.tenantId !== requestTenantId) return;
+      this.buildings = snapshot.structures.filter((item) => item.category === "Gedung");
+      this.rooms = snapshot.structures.filter((item) => item.category === "Kamar").map((room) => {
+        const building = this.buildings.find((candidate) => candidate.id === room.parentId || candidate.id === room.parentCode);
+        const capacity = Number(room.capacity);
+        return { ...room, building: room.building || building?.name || "", capacity: Number.isFinite(capacity) ? capacity : 0 };
+      });
+      this.classes = snapshot.structures.filter((item) => item.category === "Kelas");
+      this.halaqahs = [];
+      this.subjects = [];
+      this.curricula = [];
+      this.teachers = [];
+      this.santriList = snapshot.students.map((student) => ({
+        id: student.id,
+        supabaseId: student.supabaseId,
+        type: "Santri",
+        name: student.name,
+        gender: student.gender || undefined,
+        grade: student.grade || undefined,
+        classId: student.classId || undefined,
+        dormitoryId: student.dormitoryId || undefined,
+        dormitory: student.dormitory || undefined,
+        roomId: student.roomId || undefined,
+        room: student.room || undefined,
+        nis: student.nis || undefined,
+        status: student.status,
+      }));
+      this.recalculateOccupancies();
+      this.lastSynced = new Date();
+    } catch (error) {
+      if (this.tenantId === requestTenantId) {
+        this.buildings = [];
+        this.rooms = [];
+        this.classes = [];
+        this.santriList = [];
+        console.warn("Supabase tenant structure snapshot failed:", error);
+      }
+    } finally {
+      if (this.tenantId === requestTenantId) {
+        this.isSyncing = false;
+        this.notify();
+      }
+    }
   }
 
   // --- GETTERS ---
@@ -277,118 +285,42 @@ class CentralStructureService {
     const targetRoom = this.rooms.find((room) => room.id === roomId || room.name === roomId);
     if (!tenantId) return { success: false, message: 'Tenant belum aktif.' };
     if (!targetRoom) return { success: false, message: 'Kamar tidak ditemukan.' };
-    const santriRef = doc(db, 'entityRecords', santriId);
-    const roomRef = doc(db, 'master_data', targetRoom.id);
-    const linkedBuildingId = buildingId || targetRoom.parentId || targetRoom.parentCode || '';
-    const buildingRef = linkedBuildingId ? doc(db, 'master_data', linkedBuildingId) : null;
+    if (!SUPABASE_MASTER_DATA_RUNTIME) {
+      return { success: false, message: 'Runtime Master Data Supabase belum diaktifkan.' };
+    }
+    if (!SUPABASE_BOARDING_RUNTIME) {
+      return { success: false, message: 'Runtime asrama Supabase belum diaktifkan.' };
+    }
+
+    const santri = this.santriList.find((item) => item.id === santriId || item.supabaseId === santriId);
+    if (!santri) return { success: false, message: 'Santri tidak ditemukan pada snapshot tenant.' };
 
     try {
-      const result = await runTransaction(db, async (transaction) => {
-        const [roomSnapshot, santriSnapshot] = await Promise.all([
-          transaction.get(roomRef),
-          transaction.get(santriRef),
-        ]);
-        if (!roomSnapshot.exists() || !santriSnapshot.exists()) throw new Error('Kamar atau data santri tidak ditemukan.');
-        const roomData = roomSnapshot.data();
-        const santriData = santriSnapshot.data();
-        if (roomData.tenantId !== tenantId || santriData.tenantId !== tenantId) throw new Error('Data kamar atau santri berasal dari tenant lain.');
-        if (String(roomData.category || '').toLowerCase() !== 'kamar') throw new Error('Data tujuan bukan kamar asrama.');
-
-        let buildingData: any = null;
-        if (buildingRef) {
-          const buildingSnapshot = await transaction.get(buildingRef);
-          if (buildingSnapshot.exists()) {
-            buildingData = buildingSnapshot.data();
-            if (buildingData.tenantId !== tenantId || String(buildingData.category || '').toLowerCase() !== 'gedung') {
-              throw new Error('Gedung kamar tidak valid atau berasal dari tenant lain.');
-            }
-          } else if (buildingId) {
-            throw new Error('Data gedung asrama tidak ditemukan.');
-          }
-        }
-        if (['inactive', 'nonaktif', 'disabled'].includes(String(roomData.status || '').toLowerCase())) throw new Error('Kamar sedang tidak aktif.');
-        const roomGender = getConfiguredRoomGender(roomData, buildingData);
-        if (!roomGender) throw new Error('Gender kamar belum dikonfigurasi pada data kamar atau gedung.');
-        if (santriData.gender !== 'L' && santriData.gender !== 'P') throw new Error('Gender santri belum valid.');
-        if (roomGender !== santriData.gender) throw new Error('Gender santri tidak sesuai dengan kamar.');
-
-        const capacity = Number(roomData.capacity);
-        if (!Number.isInteger(capacity) || capacity < 1) throw new Error('Kapasitas kamar belum dikonfigurasi dengan benar.');
-        const alreadyInRoom = santriData.roomId === targetRoom.id || (!santriData.roomId && santriData.room === roomData.name);
-        const observedOccupancy = this.getStudentsByRoom(targetRoom.id).length;
-        const storedOccupancy = Number(roomData.occupied);
-        const currentOccupancy = Math.max(Number.isInteger(storedOccupancy) && storedOccupancy >= 0 ? storedOccupancy : 0, observedOccupancy);
-        if (!alreadyInRoom && currentOccupancy >= capacity) throw new Error('Kamar sudah penuh (' + currentOccupancy + '/' + capacity + ').');
-
-        const previousRoomId = santriData.roomId && santriData.roomId !== targetRoom.id ? String(santriData.roomId) : '';
-        const previousRoomRef = previousRoomId ? doc(db, 'master_data', previousRoomId) : null;
-        let previousRoomSnapshot: any = null;
-        if (previousRoomRef) previousRoomSnapshot = await transaction.get(previousRoomRef);
-
-        const buildingName = buildingData?.name || roomData.building || targetRoom.building || '';
-        const parentRoomId = linkedBuildingId || String(roomData.parentCode || '');
-        transaction.update(santriRef, {
-          roomId: targetRoom.id, room: roomData.name || targetRoom.name,
-          dormitoryId: parentRoomId, dormitory: buildingName, updatedAt: new Date().toISOString(),
-        });
-        if (!alreadyInRoom) transaction.update(roomRef, { occupied: currentOccupancy + 1, updatedAt: new Date().toISOString() });
-        if (previousRoomRef && previousRoomSnapshot?.exists()) {
-          const previousData = previousRoomSnapshot.data();
-          if (previousData.tenantId !== tenantId) throw new Error('Kamar sebelumnya berasal dari tenant lain.');
-          const previousStored = Number(previousData.occupied);
-          const previousObserved = this.getStudentsByRoom(previousRoomId).length;
-          const previousOccupancy = Math.max(Number.isInteger(previousStored) && previousStored >= 0 ? previousStored : 0, previousObserved);
-          transaction.update(previousRoomRef, { occupied: Math.max(0, previousOccupancy - 1), updatedAt: new Date().toISOString() });
-        }
-        return { roomId: targetRoom.id, roomName: roomData.name || targetRoom.name, buildingName, parentRoomId };
-      });
-
-      this.santriList = this.santriList.map((santri) => santri.id === santriId ? {
-        ...santri, roomId: result.roomId, room: result.roomName, dormitoryId: result.parentRoomId, dormitory: result.buildingName,
-      } : santri);
-      this.recalculateOccupancies();
-      this.notify();
-      return { success: true, message: 'Santri berhasil dialokasikan ke ' + result.roomName + '.' };
+      await assignSupabaseStudentRoom(
+        santri.supabaseId || santri.id,
+        targetRoom.id,
+        buildingId || targetRoom.parentId || targetRoom.parentCode || null,
+      );
+      await this.refreshSupabaseTenant(tenantId);
+      return { success: true, message: 'Santri berhasil dialokasikan ke ' + targetRoom.name + '.' };
     } catch (error: any) {
-      return { success: false, message: error?.message || 'Alokasi kamar gagal dan tidak disimpan.' };
+      return { success: false, message: error?.message || 'Alokasi kamar Supabase gagal.' };
     }
   }
 
   public async removeSantriFromRoom(santriId: string): Promise<boolean> {
     const tenantId = this.tenantId;
-    if (!tenantId) return false;
-    const localSantri = this.santriList.find((santri) => santri.id === santriId);
-    if (!localSantri) return false;
-    const santriRef = doc(db, 'entityRecords', santriId);
-    const room = this.rooms.find((item) => item.id === localSantri.roomId || (!localSantri.roomId && item.name === localSantri.room));
-    const assignedRoomId = localSantri.roomId || room?.id || '';
-    const roomRef = assignedRoomId ? doc(db, 'master_data', assignedRoomId) : null;
+    if (!tenantId || !SUPABASE_MASTER_DATA_RUNTIME || !SUPABASE_BOARDING_RUNTIME) return false;
+
+    const santri = this.santriList.find((item) => item.id === santriId || item.supabaseId === santriId);
+    if (!santri) return false;
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const santriSnapshot = await transaction.get(santriRef);
-        if (!santriSnapshot.exists() || santriSnapshot.data().tenantId !== tenantId) throw new Error('Santri tidak ditemukan pada tenant aktif.');
-        const roomSnapshot = roomRef ? await transaction.get(roomRef) : null;
-        if (roomSnapshot?.exists()) {
-          const roomData = roomSnapshot.data();
-          if (roomData.tenantId !== tenantId) throw new Error('Kamar berasal dari tenant lain.');
-          const stored = Number(roomData.occupied);
-          const observed = this.getStudentsByRoom(assignedRoomId).length;
-          const occupancy = Math.max(Number.isInteger(stored) && stored >= 0 ? stored : 0, observed);
-          transaction.update(roomRef!, { occupied: Math.max(0, occupancy - 1), updatedAt: new Date().toISOString() });
-        }
-        transaction.update(santriRef, { roomId: null, room: null, dormitoryId: null, dormitory: null, updatedAt: new Date().toISOString() });
-      });
-      this.santriList = this.santriList.map((santri) => {
-        if (santri.id !== santriId) return santri;
-        const { roomId, room: roomName, dormitoryId, dormitory, ...rest } = santri;
-        return rest as CentralEntityItem;
-      });
-      this.recalculateOccupancies();
-      this.notify();
+      await assignSupabaseStudentRoom(santri.supabaseId || santri.id, null, null);
+      await this.refreshSupabaseTenant(tenantId);
       return true;
     } catch (error) {
-      console.warn('Could not remove room assignment in Firestore:', error);
+      console.warn('Could not remove Supabase room assignment:', error);
       return false;
     }
   }

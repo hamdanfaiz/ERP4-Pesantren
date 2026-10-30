@@ -11,7 +11,7 @@ export const ALL_SYSTEM_MODULE_IDS: readonly ModuleId[] = [
   'dashboard', 'master-data', 'users', 'ppdb', 'tahfidz', 'boarding', 'finance', 'communication',
   'academic', 'healthcare', 'cooperative', 'hris', 'document', 'library', 'donation',
   'laundry', 'settings', 'enterprise', 'erp', 'ga', 'alumni', 'crm',
-  'lms', 'intelligence', 'marketplace', 'ecosystem', 'cbt'
+  'lms', 'intelligence', 'marketplace', 'cbt'
 ] as const;
 
 // All tenant-scoped ERP modules available to Pesantren Admin by default
@@ -35,6 +35,16 @@ export const ROLE_MODULES: Record<UserRole, ModuleId[]> = {
 };
 
 /**
+ * Reject malformed or unknown permission keys at API boundaries.
+ */
+export function isValidModulePermissions(value: unknown): value is Record<string, boolean> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.entries(value).every(([moduleId, enabled]) =>
+    ALL_SYSTEM_MODULE_IDS.includes(moduleId as ModuleId) && typeof enabled === "boolean"
+  );
+}
+
+/**
  * Evaluates whether a user with a given role and per-user modulePermissions map can access a module.
  *
  * Rules:
@@ -51,6 +61,8 @@ export function isModuleAccessible(
   moduleId: ModuleId,
   userPermissions?: Record<string, boolean> | null
 ): boolean {
+  // Modules outside the initial release cannot be re-enabled by stale or custom grants.
+  if (!ALL_SYSTEM_MODULE_IDS.includes(moduleId)) return false;
   if (role === 'Public') return false;
   if (role === 'SuperAdmin') return true;
 
@@ -61,7 +73,7 @@ export function isModuleAccessible(
 
   // Explicit per-user override: true grants within tenant scope, false denies
   if (userPermissions && typeof userPermissions === 'object' && moduleId in userPermissions) {
-    return Boolean(userPermissions[moduleId]);
+    return userPermissions[moduleId] === true;
   }
 
   // Fallback to role baseline:

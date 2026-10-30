@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   Bell,
   Search,
-  ChevronDown,
   User,
   Sparkles,
   Loader2,
@@ -13,16 +12,19 @@ import {
   ThumbsDown,
 } from "lucide-react";
 import { Tenant } from "../types";
-import Markdown from "react-markdown";
 import { cn } from "../lib/utils";
-import { getAllMasterDataRecords } from "../data/mockRecords";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from "recharts";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import html2canvas from "html2canvas";
-import { collection, addDoc } from "firebase/firestore";
-import { getAuthSession } from "../authSession";
-import { db } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
+import { getAccessToken } from "../authSession";
+
+const HeaderSearchInsight = React.lazy(() => import("./HeaderSearchInsight").then((module) => ({ default: module.HeaderSearchInsight })));
+
+function createFeedbackRequestId() {
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 interface HeaderProps {
   currentTenant: Tenant;
@@ -33,6 +35,7 @@ interface HeaderProps {
 }
 
 export function Header({ currentTenant, branding }: HeaderProps) {
+  const { user, role } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<{
@@ -43,6 +46,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
       data: { name: string; value: number }[];
     };
     sources: any[];
+    isError?: boolean;
   } | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -52,6 +56,11 @@ export function Header({ currentTenant, branding }: HeaderProps) {
     if (!searchResult?.chartData) return;
     setIsExporting(true);
     try {
+      const [{ default: jsPDF }, { default: autoTable }, { default: html2canvas }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+        import("html2canvas"),
+      ]);
       const doc = new jsPDF();
       doc.setFontSize(16);
       doc.text(searchResult.chartData.title, 14, 15);
@@ -73,14 +82,14 @@ export function Header({ currentTenant, branding }: HeaderProps) {
         
         autoTable(doc, {
           startY,
-          head: [["Name / Category", "Value"]],
+          head: [["Nama / Kategori", "Nilai"]],
           body: tableBody,
           theme: "striped",
           headStyles: { fillColor: [16, 185, 129] },
         });
       }
       
-      doc.save("Data_Summary.pdf");
+      doc.save("Ringkasan_Data.pdf");
     } catch (e) {
       console.error(e);
     } finally {
@@ -109,20 +118,35 @@ export function Header({ currentTenant, branding }: HeaderProps) {
     setIsSearchOpen(true);
     setSearchResult(null);
     setFeedbackGiven(null);
+    feedbackRequestIdRef.current = createFeedbackRequestId();
     try {
-      const records = getAllMasterDataRecords();
       const response = await fetch("/api/header-ai-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery, records }),
+        cache: "no-store",
+        body: JSON.stringify({ query: searchQuery }),
       });
-      const data = await response.json();
-      setSearchResult(data);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setSearchResult({
+          answer: typeof data.error === "string" ? data.error : "Pencarian AI belum tersedia.",
+          sources: [],
+          isError: true,
+        });
+        return;
+      }
+
+      setSearchResult({
+        answer: typeof data.answer === "string" ? data.answer : "Pencarian tidak mengembalikan jawaban yang valid.",
+        chartData: data.chartData,
+        sources: Array.isArray(data.sources) ? data.sources : [],
+      });
     } catch (e) {
       console.error(e);
       setSearchResult({
-        answer: "An error occurred while searching.",
+        answer: "Terjadi kesalahan saat mencari.",
         sources: [],
+        isError: true,
       });
     } finally {
       setIsSearching(false);
@@ -130,17 +154,21 @@ export function Header({ currentTenant, branding }: HeaderProps) {
   };
 
   const [feedbackGiven, setFeedbackGiven] = useState<"up" | "down" | null>(null);
+  const feedbackRequestIdRef = useRef(createFeedbackRequestId());
 
   const handleRating = async (rating: "up" | "down") => {
     if (feedbackGiven) return;
-    setFeedbackGiven(rating);
     try {
-      await addDoc(collection(db, "SearchLogs"), {
-        query: searchQuery,
-        rating,
-        createdAt: new Date().toISOString(),
-        userId: getAuthSession()?.uid || "anonymous",
+      const token = await getAccessToken();
+      const response = await fetch("/api/search/feedback", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ requestId: feedbackRequestIdRef.current, rating }),
       });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Feedback belum dapat disimpan.");
+      setFeedbackGiven(rating);
     } catch (error) {
       console.error("Failed to save search log:", error);
     }
@@ -151,7 +179,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
       <div className="flex justify-between items-center w-full">
         <div className="flex items-center gap-4">
           {/* Multi-Tenant Selector Mockup */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg  hover:bg-slate-200 dark:bg-white/10 cursor-pointer transition-colors bg-slate-100 dark:bg-white/5">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/5">
             {branding?.logoUrl ? (
                <img src={branding.logoUrl} alt="Logo" className="w-6 h-6 object-contain rounded bg-slate-100 dark:bg-white/5" />
             ) : (
@@ -167,7 +195,6 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                 {currentTenant.type}
               </span>
             </div>
-            <ChevronDown className="w-4 h-4 text-slate-500 ml-2" />
           </div>
         </div>
 
@@ -182,11 +209,11 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                 onFocus={() => {
                   if (searchResult || isSearching) setIsSearchOpen(true);
                 }}
-                placeholder="Ask AI about santri, master data..."
+                placeholder="Tanya AI tentang santri atau data utama..."
                 className="pl-9 pr-10 py-2  rounded-lg text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-80 bg-slate-50 dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-300 transition-all hover:glass-panel"
               />
               <button
-                type="submit"
+                type="submit" aria-label="Cari dengan AI"
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10 rounded"
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -200,7 +227,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                   <div className="p-3 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-black/40 sticky top-0 z-10">
                     <div className="flex items-center gap-2 text-sm font-medium text-emerald-400">
                       <Sparkles className="w-4 h-4" />
-                      AI Search Results
+                      Hasil Pencarian AI
                     </div>
                     <button
                       onClick={() => setIsSearchOpen(false)}
@@ -215,76 +242,25 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                       <div className="flex flex-col items-center justify-center py-8 gap-3 text-emerald-500/80">
                         <Loader2 className="w-8 h-8 animate-spin" />
                         <span className="text-xs font-medium tracking-wide">
-                          Searching master data & web...
+                          Menelusuri data utama dan web...
                         </span>
                       </div>
                     ) : searchResult ? (
                       <div className="space-y-4">
-                        <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline">
-                          <Markdown>{searchResult.answer}</Markdown>
-                        </div>
-
-                        {searchResult.chartData && searchResult.chartData.data && searchResult.chartData.data.length > 0 && (
-                          <div className="mt-4 p-4 border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f0f0f] rounded-xl shadow-sm">
-                            <div className="flex justify-between items-center mb-4">
-                              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                                {searchResult.chartData.title}
-                              </h4>
-                              <button 
-                                onClick={exportChartToPDF}
-                                disabled={isExporting}
-                                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
-                              >
-                                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                                Export PDF
-                              </button>
-                            </div>
-                            <div id="search-chart-container" className="h-64 w-full bg-white dark:bg-[#0f0f0f]">
-                              <ResponsiveContainer width="100%" height="100%">
-                                {searchResult.chartData.type === 'pie' ? (
-                                  <PieChart>
-                                    <Pie
-                                      data={searchResult.chartData.data}
-                                      cx="50%"
-                                      cy="50%"
-                                      innerRadius={60}
-                                      outerRadius={80}
-                                      paddingAngle={5}
-                                      dataKey="value"
-                                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                    >
-                                      {searchResult.chartData.data.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]} />
-                                      ))}
-                                    </Pie>
-                                    <Tooltip
-                                      contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#333', color: '#fff' }}
-                                      itemStyle={{ color: '#10b981' }}
-                                    />
-                                  </PieChart>
-                                ) : (
-                                  <BarChart data={searchResult.chartData.data}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" opacity={0.2} />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                                    <Tooltip
-                                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                      contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#333', color: '#fff' }}
-                                      itemStyle={{ color: '#10b981' }}
-                                    />
-                                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                  </BarChart>
-                                )}
-                              </ResponsiveContainer>
-                            </div>
-                          </div>
-                        )}
+                        <React.Suspense fallback={<div role="status" className="py-6 text-center text-xs text-slate-500">Menyiapkan jawaban...</div>}>
+                          <HeaderSearchInsight
+                            answer={searchResult.answer}
+                            chartData={searchResult.chartData}
+                            isExporting={isExporting}
+                            onExport={exportChartToPDF}
+                          />
+                        </React.Suspense>
 
                         {searchResult.sources &&
                           searchResult.sources.length > 0 && (
                             <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4">
                               <h4 className="text-xs font-semibold tracking-wider text-slate-500 uppercase mb-3">
-                                Sources
+                                Sumber
                               </h4>
                               <div className="flex flex-col gap-2">
                                 {searchResult.sources.map(
@@ -316,11 +292,12 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                             </div>
                           )}
 
-                        <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4 flex items-center justify-between">
-                          <span className="text-xs text-slate-500">Was this answer helpful?</span>
+                        {!searchResult.isError && <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4 flex items-center justify-between">
+                          <span className="text-xs text-slate-500">Apakah jawaban ini membantu?</span>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleRating("up")}
+                              aria-label="Jawaban ini membantu"
                               disabled={feedbackGiven !== null}
                               className={cn(
                                 "p-1.5 rounded-md border transition-colors",
@@ -329,10 +306,11 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                                   : "border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
                               )}
                             >
-                              <ThumbsUp className="w-4 h-4" />
+                              <ThumbsUp className="w-4 h-4" aria-hidden="true" />
                             </button>
                             <button
                               onClick={() => handleRating("down")}
+                              aria-label="Jawaban ini tidak membantu"
                               disabled={feedbackGiven !== null}
                               className={cn(
                                 "p-1.5 rounded-md border transition-colors",
@@ -341,10 +319,10 @@ export function Header({ currentTenant, branding }: HeaderProps) {
                                   : "border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
                               )}
                             >
-                              <ThumbsDown className="w-4 h-4" />
+                              <ThumbsDown className="w-4 h-4" aria-hidden="true" />
                             </button>
                           </div>
-                        </div>
+                        </div>}
 
                       </div>
                     ) : null}
@@ -353,9 +331,14 @@ export function Header({ currentTenant, branding }: HeaderProps) {
               )}
           </div>
 
-          <button className="relative p-2 rounded-full hover:bg-slate-200 dark:bg-white/10 transition-colors text-slate-500 dark:text-slate-400">
+          <button
+            type="button"
+            disabled
+            aria-label="Notifikasi belum tersedia"
+            title="Notifikasi belum tersedia"
+            className="relative cursor-not-allowed rounded-full p-2 text-slate-400 opacity-50"
+          >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-2 w-2 h-2 bg-emerald-500 rounded-full border-2 border-[#0a0a0a]"></span>
           </button>
 
           <div className="h-8 w-px bg-slate-200 dark:bg-white/10 mx-2"></div>
@@ -363,9 +346,9 @@ export function Header({ currentTenant, branding }: HeaderProps) {
           <div className="flex items-center gap-3 cursor-pointer group">
             <div className="text-right hidden md:block">
               <div className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-emerald-400 transition-colors">
-                Ahmad Fauzi
+                {user?.name || user?.email || "Pengguna"}
               </div>
-              <div className="text-xs text-slate-500">Super Admin Yayasan</div>
+              <div className="text-xs text-slate-500">{({ SuperAdmin: "Superadmin Yayasan", Admin: "Administrator", Ustadz: "Ustadz", Santri: "Santri", Walisantri: "Wali Santri", Public: "Pengunjung" } as Record<string, string>)[role] || role}</div>
             </div>
             <div className="w-9 h-9 rounded-full bg-emerald-900/30 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
               <User className="w-5 h-5" />

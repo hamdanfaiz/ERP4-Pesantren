@@ -1,4 +1,4 @@
-import { tenantScopedQuery, tenantRecord } from '../firebaseUtils';
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { useAuth } from '../contexts/AuthContext';
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -18,9 +18,6 @@ import {
   HeartPulse,
   GraduationCap,
   Download,
-  Sparkles,
-  Loader2,
-  Upload,
   Activity,
   Clock,
   Printer,
@@ -35,7 +32,6 @@ import {
   ArrowRight,
   UserCheck,
   ShieldCheck,
-  ArrowRightLeft,
   SlidersHorizontal,
   FileSpreadsheet,
   Layers,
@@ -46,11 +42,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { cn, generateUniqueId } from "../lib/utils";
 import { CVReport } from "../components/CVReport";
-import { ImportPreviewModal } from "../components/ImportPreviewModal";
 import { ExportModal } from "../components/ExportModal";
-import { BulkOperationsModal } from "../components/BulkOperationsModal";
-import { CentralSyncBadge } from "../components/CentralSyncBadge";
-import { centralStructureService } from "../services/centralStructureService";
+import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import {
   COUNTRIES,
   PROVINCES,
@@ -59,21 +52,24 @@ import {
   DESA,
 } from "../data/geography";
 import { MOCK_SANTRI, MOCK_WALISANTRI } from "../data/mockRecords";
-import { generateMockData } from "../data/mockDataFactory";
-import { db } from "../firebase";
-import { collection, writeBatch, doc, setDoc, runTransaction, query, where, getDocs } from "firebase/firestore";
-import { StructureHierarchyD3 } from "../components/StructureHierarchyD3";
+import {
+  archiveSupabaseMasterDataStudent,
+  deleteSupabaseMasterDataStructure,
+  getSupabaseMasterDataStudentDetails,
+  listSupabaseMasterDataStudentsPage,
+  listSupabaseMasterDataStructures,
+  migrateLegacySupabaseMasterDataStructures,
+  migrateLegacySupabaseStudents,
+  listSupabaseStudentRoomAssignmentHistory,
+  type SupabaseStudentRoomAssignmentHistoryEntry,
+  upsertSupabaseMasterDataStudent,
+  upsertSupabaseMasterDataStructure,
+} from "../services/masterDataApi";
 
-const normalizeReservationValue = (value: unknown) => {
-  const normalized = typeof value === "string" ? value.trim().toUpperCase() : "";
-  return normalized && !["-", "N/A", "NA"].includes(normalized) ? normalized : "";
-};
-
-const identityReservationRef = (tenantId: string, kind: string, value: string) =>
-  doc(db, "identityReservations", `${encodeURIComponent(tenantId)}_${kind}_${encodeURIComponent(value)}`);
-
-const normalizeIdentityReservationValue = (value: unknown) =>
-  value === null || value === undefined ? "" : String(value).replace(/\D/g, "");
+const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED"));
+// Import is a separate migration-only capability; Supabase-only runtime must never unlock it.
+const SUPABASE_MASTER_DATA_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED") === "true";
+const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "Kelas"]);
 
 const TABS = [
   { id: "entities", label: "Entities", icon: Users },
@@ -157,10 +153,8 @@ const getStatusColor = (status: string) => {
   }
 };
 
-import { UnitRegistrationForm } from "../components/UnitRegistrationForm";
 import { EntityRegistrationForm } from "../components/EntityRegistrationForm";
 import { StructureRegistrationForm } from "../components/StructureRegistrationForm";
-import { UnitHierarchyTree } from "../components/UnitHierarchyTree";
 import { 
   validateMasterData, 
   checkIdentityConflicts, 
@@ -169,22 +163,38 @@ import {
   NISN_REGEX, 
   NUPTK_REGEX 
 } from "../schema/masterDataSchema";
-import { FacilityBooking } from "../components/FacilityBooking";
+const LazyStructureHierarchyD3 = React.lazy(async () => ({ default: (await import("../components/StructureHierarchyD3")).StructureHierarchyD3 }));
+const LazyFacilityBooking = React.lazy(async () => ({ default: (await import("../components/FacilityBooking")).FacilityBooking }));
+
+function masterDataFieldLabel(key: string) {
+  const labels: Record<string, string> = { id: "ID", name: "Nama", gender: "Jenis Kelamin", grade: "Jenjang", className: "Kelas", nis: "NIS", nisn: "NISN", nik: "NIK", phone: "Nomor Telepon", email: "Email", parentName: "Nama Wali", parentPhone: "Telepon Wali", whatsappPhone: "Nomor WhatsApp", address: "Alamat", dateOfBirth: "Tanggal Lahir", birthDate: "Tanggal Lahir", placeOfBirth: "Tempat Lahir", religion: "Agama", bloodType: "Golongan Darah", medical: "Riwayat Kesehatan", status: "Status", qrcode: "Kode QR", currentActivity: "Kegiatan Saat Ini", institution: "Instansi", employmentType: "Jenis Kepegawaian", gradeOrDepartment: "Jenjang/Unit", graduationYear: "Tahun Lulus", occupation: "Pekerjaan", income: "Penghasilan", relation: "Hubungan", nuptk: "NUPTK", npwp: "NPWP", createdAt: "Dibuat pada", updatedAt: "Diperbarui pada" };
+  return labels[key] || key.replace(/([A-Z])/g, " $1").trim();
+}
+
+function masterAuditActionLabel(action: string) {
+  const labels: Record<string, string> = { CREATE: "Ditambahkan", UPDATE: "Diperbarui", DELETE: "Dihapus", IMPORT: "Diimpor" };
+  return labels[action] || action;
+}
 
 export function MasterDataManager() {
   const { user } = useAuth();
+  const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME ? TABS.filter((tab) => ["entities", "structure"].includes(tab.id)) : TABS;
   const [activeTab, setActiveTab] = useState<
     "entities" | "structure" | "academic" | "booking" | "audit"
   >("entities");
   const [activeSubTab, setActiveSubTab] = useState("Santri");
+  const visibleSubTabs = SUPABASE_MASTER_DATA_RUNTIME
+    ? activeTab === "entities" ? ["Santri"] : activeTab === "structure" ? ["Gedung", "Kamar", "Kelas"] : []
+    : SUB_TABS[activeTab];
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
-  const [dataSources, setDataSources] = useState<Record<string, any[]>>({
-    Santri: MOCK_SANTRI,
-    "Wali Santri": MOCK_WALISANTRI,
-    ...DEFAULT_STRUCTURE,
-  });
+  const [roomHistory, setRoomHistory] = useState<SupabaseStudentRoomAssignmentHistoryEntry[]>([]);
+  const [roomHistoryStudentId, setRoomHistoryStudentId] = useState("");
+  const [roomHistoryLoading, setRoomHistoryLoading] = useState(false);
+  const [roomHistoryError, setRoomHistoryError] = useState("");
+  const [dataSources, setDataSources] = useState<Record<string, any[]>>(() => SUPABASE_MASTER_DATA_RUNTIME
+    ? { Santri: [], "Wali Santri": [], Gedung: [], Kamar: [], Kelas: [] }
+    : { Santri: MOCK_SANTRI, "Wali Santri": MOCK_WALISANTRI, ...DEFAULT_STRUCTURE });
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isInjecting, setIsInjecting] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>({});
@@ -194,12 +204,7 @@ export function MasterDataManager() {
   );
 
   // Rekomendasi 4: Advanced Import, Multi-Format Export, & Bulk Operations State
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [bulkModal, setBulkModal] = useState<{
-    isOpen: boolean;
-    mode: 'delete' | 'reassign';
-  }>({ isOpen: false, mode: 'delete' });
 
   // Rekomendasi 4: Multi-Facet Advanced Filter States
   const [genderFilter, setGenderFilter] = useState<'ALL' | 'L' | 'P'>('ALL');
@@ -245,14 +250,7 @@ export function MasterDataManager() {
   };
 
   const [userRole, setUserRole] = useState<"Admin" | "Super Administrator">("Super Administrator");
-  const [units, setUnits] = useState<any[]>([
-    { id: 'hq', name: 'Yayasan Bina Nusantara (HQ)', parentUnitId: '' },
-    { id: 'pesantren1', name: 'Pondok Modern Kampus 1', parentUnitId: 'hq' },
-    { id: 'pesantren2', name: 'Pondok Modern Kampus 2', parentUnitId: 'hq' },
-    { id: 'smait', name: 'SMA IT Bina Nusantara', parentUnitId: 'hq' },
-    { id: 'smpit', name: 'SMP IT Bina Nusantara', parentUnitId: 'hq' },
-    { id: 'smait-ipa', name: 'Jurusan IPA', parentUnitId: 'smait' },
-  ]);
+  const [units] = useState<any[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<string>('hq');
 
   const getHierarchicalUnits = React.useCallback(() => {
@@ -286,40 +284,98 @@ export function MasterDataManager() {
     return flatList;
   }, [units]);
 
-  useEffect(() => {
-    import("firebase/firestore").then(({ collection, onSnapshot }) => {
-      const unsubscribe = onSnapshot(tenantScopedQuery(collection(db, "units"), user?.tenantId), (snapshot) => {
-        const fetchedUnits = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
-        if (fetchedUnits.length > 0) {
-           setUnits(fetchedUnits);
-           if (!fetchedUnits.some(u => u.id === selectedUnit)) {
-             setSelectedUnit(fetchedUnits[0].id);
-           }
-        }
-      });
-      return () => unsubscribe();
-    });
-  }, [user?.tenantId, user?.uid]);
   const [notification, setNotification] = useState<{message: string, type: 'success'|'error'} | null>(null);
+  const [legacyMigrationPreviews, setLegacyMigrationPreviews] = useState<Record<string, any>>({});
+  const [legacyMigrationBusy, setLegacyMigrationBusy] = useState<string | null>(null);
+  const [legacyMigrationRefreshKey, setLegacyMigrationRefreshKey] = useState(0);
+  const runLegacyMasterDataMigration = async (kind: "structures" | "students", apply: boolean) => {
+    const preview = legacyMigrationPreviews[kind];
+    if (apply) {
+      if (!preview || preview.dryRun !== true || (preview.errors || []).length > 0) {
+        showToast("Jalankan pratinjau yang valid dan selesaikan konflik sebelum menerapkan impor.", "error");
+        return;
+      }
+      const label = kind === "structures" ? "struktur Gedung, Kamar, dan Kelas" : "data Santri dan relasi Wali";
+      if (!window.confirm("Impor " + (preview.planned || 0) + " record " + label + " ke tenant aktif? Data yang ada tidak akan dihapus. Pastikan backup dan pratinjau sudah ditinjau.")) return;
+    }
+
+    setLegacyMigrationPreviews((current) => ({ ...current, [kind]: null }));
+    const actionKey = kind + "-" + (apply ? "apply" : "preview");
+    setLegacyMigrationBusy(actionKey);
+    try {
+      const result = kind === "structures"
+        ? (apply
+          ? await migrateLegacySupabaseMasterDataStructures(true)
+          : await migrateLegacySupabaseMasterDataStructures(false))
+        : (apply
+          ? await migrateLegacySupabaseStudents(true)
+          : await migrateLegacySupabaseStudents(false));
+      if (apply) {
+        setLegacyMigrationPreviews((current) => ({ ...current, [kind]: null }));
+        setLegacyMigrationRefreshKey((value) => value + 1);
+        showToast("Impor selesai: " + (result.imported || 0) + " ditambahkan, " + (result.skipped || 0) + " dilewati, " + (result.errors?.length || 0) + " konflik.", result.errors?.length ? "error" : "success");
+      } else {
+        setLegacyMigrationPreviews((current) => ({ ...current, [kind]: result }));
+        showToast(result.errors?.length
+          ? "Pratinjau selesai dengan " + result.errors.length + " konflik yang perlu diselesaikan."
+          : "Pratinjau selesai: " + (result.planned || 0) + " record siap ditinjau.",
+        result.errors?.length ? "error" : "success");
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Impor arsip Master Data belum dapat diproses.", "error");
+    } finally {
+      setLegacyMigrationBusy(null);
+    }
+  };
   const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
-  const [draftToRestore, setDraftToRestore] = useState<{ mode: "add" | "edit"; draft: any; record?: any } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 5000);
   };
 
+  const handleLoadRoomHistory = async (studentId: unknown) => {
+    const id = typeof studentId === "string" ? studentId.trim() : "";
+    if (!id) return;
+    setRoomHistory([]);
+    setRoomHistoryStudentId("");
+    setRoomHistoryLoading(true);
+    setRoomHistoryError("");
+    try {
+      const records = await listSupabaseStudentRoomAssignmentHistory(id);
+      setRoomHistory(records);
+      setRoomHistoryStudentId(id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Riwayat penempatan kamar belum dapat dimuat.";
+      setRoomHistoryError(message);
+      setRoomHistoryStudentId(id);
+    } finally {
+      setRoomHistoryLoading(false);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<string[] | null>(null);
   const [isHierarchyView, setIsHierarchyView] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const normalizedStudentSearch = searchQuery.normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s._-]/gu, " ").trim().replace(/\s+/g, " ").slice(0, 80);
+  const studentSearchTooShort = SUPABASE_MASTER_DATA_RUNTIME
+    && activeTab === "entities" && activeSubTab === "Santri"
+    && normalizedStudentSearch.length > 0 && Array.from(normalizedStudentSearch).length < 3;
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [serverStudentHasMore, setServerStudentHasMore] = useState(false);
+  const serverStudentCursorHistory = useRef<Record<number, string | null>>({ 1: null });
   const recordsPerPage = 10;
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    serverStudentCursorHistory.current = { 1: null };
+    setSearchResults(null);
+  }, [searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, user?.tenantId, user?.uid]);
 
   const toggleStatusFilter = (status: string) => {
     setStatusFilter((prev) =>
@@ -365,230 +421,92 @@ export function MasterDataManager() {
     showToast(`Template CSV untuk ${activeSubTab} berhasil diunduh.`, 'success');
   };
 
-  const handleBulkImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split("\n").filter((line) => line.trim());
-      if (lines.length < 2) {
-        showToast("File CSV harus memiliki baris judul kolom dan minimal satu baris data.", "error");
-        return;
-      }
-
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-      const rawRecords = lines.slice(1).map((line) => {
-        const values = line.split(",");
-        const record: any = {
-          enrolled: new Date().toISOString().split("T")[0],
-          status: "Active",
-        };
-
-        headers.forEach((h, i) => {
-          if (values[i] !== undefined) {
-            const val = values[i].replace(/^"|"$/g, "").trim();
-            if (h === "name") record.name = val;
-            else if (h === "id") record.id = val;
-            else if (h === "gender") record.gender = val;
-            else if (h === "grade" || h === "class") record.grade = val;
-            else if (h === "phone") record.phone = val;
-            else if (h === "email") record.email = val;
-            else if (h === "address") record.address = val;
-            else if (h === "nik") record.nik = val;
-            else if (h === "nisn") record.nisn = val;
-            else if (h === "nuptk") record.nuptk = val;
-            else record[h] = val;
+  useEffect(() => {
+    let cancelled = false;
+    const loadSupabase = async () => {
+      try {
+        if (activeTab === "entities" && activeSubTab === "Santri") {
+          if (studentSearchTooShort) {
+            if (!cancelled) {
+              setDataSources((prev) => ({ ...prev, Santri: [] }));
+              setServerStudentHasMore(false);
+            }
+            return;
           }
-        });
-
-        if (!record.id)
-          record.id = generateUniqueId(activeSubTab, []);
-        if (!record.name) record.name = `Imported Record`;
-        return record;
-      });
-
-      // Recommendation 3: Pre-import validation and conflict prevention
-      const currentList = dataSources[activeSubTab] || [];
-      const validRecords: any[] = [];
-      let duplicateCount = 0;
-
-      rawRecords.forEach((item) => {
-        const rowConflicts = checkIdentityConflicts(item, [...currentList, ...validRecords]);
-        if (rowConflicts.length > 0) {
-          duplicateCount++;
-        } else {
-          validRecords.push(item);
+          const cursor = currentPage === 1 ? null : serverStudentCursorHistory.current[currentPage];
+          if (currentPage > 1 && !cursor) {
+            if (!cancelled) setCurrentPage(1);
+            return;
+          }
+          const page = await listSupabaseMasterDataStudentsPage({
+            page: currentPage,
+            pageSize: recordsPerPage,
+            cursor,
+            search: searchQuery,
+            statuses: statusFilter,
+            gender: genderFilter,
+            grade: gradeFilter,
+            dormitory: dormitoryFilter,
+            completeness: completenessFilter,
+          });
+          if (!cancelled) {
+            serverStudentCursorHistory.current[currentPage + 1] = page.nextCursor;
+            setDataSources((prev) => ({ ...prev, Santri: page.records }));
+            setServerStudentHasMore(page.hasMore);
+          }
+          return;
         }
-      });
-
-      if (validRecords.length > 0) {
-        setDataSources((prev) => ({
-          ...prev,
-          [activeSubTab]: [...validRecords, ...(prev[activeSubTab] || [])],
-        }));
-        addAuditLog("IMPORT", "", `${validRecords.length} records imported`, validRecords.length);
-        showToast(
-          `Berhasil mengimpor ${validRecords.length} data ke ${activeSubTab}${duplicateCount > 0 ? ` (${duplicateCount} baris duplikat dilewati)` : ''}!`,
-          "success"
-        );
-      } else {
-        showToast(`Gagal mengimpor: Semua baris (${duplicateCount}) terdeteksi memiliki duplikasi identitas!`, "error");
+        if (activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab)) {
+          const items = await listSupabaseMasterDataStructures();
+          if (!cancelled) setDataSources((prev) => ({
+            ...prev,
+            [activeSubTab]: items.filter((item) => item.category === activeSubTab),
+          }));
+          return;
+        }
+        if (!cancelled) setDataSources((prev) => ({ ...prev, [activeSubTab]: [] }));
+      } catch (error) {
+        if (cancelled) return;
+        console.error(`Supabase Master Data ${activeSubTab} failed:`, error);
+        setDataSources((prev) => ({ ...prev, [activeSubTab]: [] }));
+        if (activeTab === "entities" && activeSubTab === "Santri") {
+          setServerStudentHasMore(false);
+          showToast(error instanceof Error ? error.message : "Daftar santri belum dapat dimuat.", "error");
+        }
       }
     };
-    reader.readAsText(file);
-    e.target.value = "";
-  };
 
-  const handleInjectDatabase = async () => {
-    setIsInjecting(true);
-    setNotification(null);
-    try {
-      const mockDataMaps = generateMockData();
-      let batch = writeBatch(db);
-      let count = 0;
-
-      for (const [category, records] of Object.entries(mockDataMaps)) {
-        for (const record of records) {
-          let docRef;
-          if (category === 'candidates') {
-            docRef = doc(db, "candidates", record.id);
-            batch.set(docRef, tenantRecord(user?.tenantId, { ...record }) as any);
-          } else {
-            docRef = doc(db, "master_data", `${category.replace(/\s+/g, "_")}_${record.id}`);
-            batch.set(docRef, tenantRecord(user?.tenantId, { ...record, category }) as any);
-          }
-          count++;
-
-          // Firestore batch limits to 500.
-          if (count % 450 === 0) {
-             await batch.commit();
-             batch = writeBatch(db);
-          }
-        }
-      }
-      if (count % 450 !== 0) {
-        await batch.commit();
-      }
-      setNotification({ message: "Mock databases successfully injected into Firestore!", type: 'success' });
-      setTimeout(() => setNotification(null), 5000);
-    } catch (error) {
-      console.error("Failed to inject database:", error);
-      setNotification({ message: "Failed to inject database.", type: 'error' });
-      setTimeout(() => setNotification(null), 5000);
-    } finally {
-      setIsInjecting(false);
-    }
-  };
-
-  useEffect(() => {
-    import("firebase/firestore").then(({ onSnapshot, query, where, collection }) => {
-      let q;
-      if (activeTab === "entities") {
-        q = tenantScopedQuery(collection(db, "entityRecords"), user?.tenantId, where("type", "==", activeSubTab));
-      } else {
-        q = tenantScopedQuery(collection(db, "master_data"), user?.tenantId, where("category", "==", activeSubTab));
-      }
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        if (!snapshot.empty) {
-          const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
-          setDataSources(prev => ({ ...prev, [activeSubTab]: items }));
-        } else {
-          // fallback to mock data if empty
-          setDataSources(prev => {
-            if (prev[activeSubTab]) return prev;
-            return { ...prev, [activeSubTab]: getMockData(activeSubTab) };
-          });
-        }
-      }, (error) => {
-        console.error(`Error fetching ${activeSubTab}:`, error);
-      });
-      return () => unsubscribe();
-    });
-  }, [activeTab, activeSubTab]);
-
-  useEffect(() => {
-    // We intentionally removed the auto-pop-up on mount for drafts,
-    // as it interrupts the user on every visit to Master Data.
-    // Drafts are still optionally restored when they click Add or Edit.
-  }, [user?.tenantId, user?.uid]);
-
-  useEffect(() => {
-    if (isModalOpen) {
-      localStorage.setItem(
-        "mdm-form-autosave",
-        JSON.stringify({
-          isDraft: true,
-          modalMode,
-          editingId,
-          formData,
-          activeSubTab,
-        }),
-      );
-    }
-  }, [isModalOpen, formData, modalMode, editingId, activeSubTab]);
+    void loadSupabase();
+    return () => { cancelled = true; };
+  }, [activeTab, activeSubTab, user?.tenantId, user?.uid, currentPage, searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, legacyMigrationRefreshKey]);
 
   const handleTabChange = (
     tabId: string,
   ) => {
     setActiveTab(tabId as "entities" | "structure" | "academic" | "booking" | "audit");
-    setActiveSubTab(SUB_TABS[tabId][0]);
+    const nextSubTabs = SUPABASE_MASTER_DATA_RUNTIME
+      ? tabId === "entities" ? ["Santri"] : tabId === "structure" ? ["Gedung", "Kamar", "Kelas"] : []
+      : SUB_TABS[tabId];
+    setActiveSubTab(nextSubTabs[0] || "Santri");
     setSelectedRecord(null);
     setSearchQuery("");
     setSearchResults(null);
     setCurrentPage(1);
+    serverStudentCursorHistory.current = { 1: null };
     setIsFilterOpen(false);
     setSelectedRows([]);
   };
 
-  const performAISearch = async (e?: React.FormEvent) => {
+  const submitSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!searchQuery.trim()) {
-      setSearchResults(null);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const records = dataSources[activeSubTab] || getMockData(activeSubTab);
-      const response = await fetch("/api/ai-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery, records }),
-      });
-      const data = await response.json();
-      if (data.matchedIds) {
-        setSearchResults(data.matchedIds);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSearching(false);
-    }
+    setSearchResults(null);
+    setCurrentPage(1);
+    serverStudentCursorHistory.current = { 1: null };
   };
 
   const handleAddClick = () => {
     setFormErrors({});
     setTouchedFields({});
-
-    const savedDraft = localStorage.getItem("mdm-form-autosave");
-    if (savedDraft) {
-      try {
-        const parsed = JSON.parse(savedDraft);
-        if (parsed.isDraft && parsed.modalMode === "add") {
-          setDraftToRestore({ mode: "add", draft: parsed });
-          return;
-        }
-      } catch (e) {
-        console.error("Failed to restore draft:", e);
-      }
-    }
 
     setModalMode("add");
     const currentData = dataSources[activeSubTab] || [];
@@ -676,25 +594,17 @@ export function MasterDataManager() {
     }
   };
 
-  const handleEditClick = (record: any, e?: React.MouseEvent) => {
+  const handleEditClick = async (record: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setFormErrors({});
     setTouchedFields({});
 
-    const savedDraft = localStorage.getItem("mdm-form-autosave");
-    if (savedDraft) {
+    if (SUPABASE_MASTER_DATA_RUNTIME && activeTab === "entities" && activeSubTab === "Santri") {
       try {
-        const parsed = JSON.parse(savedDraft);
-        if (
-          parsed.isDraft &&
-          parsed.modalMode === "edit" &&
-          parsed.editingId === record.id
-        ) {
-          setDraftToRestore({ mode: "edit", draft: parsed, record });
-          return;
-        }
-      } catch (e) {
-        console.error("Failed to restore draft:", e);
+        record = await getSupabaseMasterDataStudentDetails(String(record.id || ""));
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Rincian santri belum dapat dibuka.", "error");
+        return;
       }
     }
 
@@ -712,25 +622,23 @@ export function MasterDataManager() {
   const confirmDelete = async () => {
     if (!recordToDelete) return;
     const record = recordToDelete;
-    const collectionName = activeTab === "entities" ? "entityRecords" : "master_data";
-    const docId = collectionName === "master_data" ? `${activeSubTab}_${record.id}` : record.id;
-    
     try {
-      const { doc, deleteDoc } = await import("firebase/firestore");
-      await deleteDoc(doc(db, collectionName, docId));
+      if (activeTab === "entities" && activeSubTab === "Santri") {
+        await archiveSupabaseMasterDataStudent({ id: String(record.id), supabaseId: String(record.supabaseId || "") });
+      } else if (activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab)) {
+        await deleteSupabaseMasterDataStructure(activeSubTab as "Gedung" | "Kamar" | "Kelas", String(record.id));
+      } else {
+        throw new Error("Kategori ini belum tersedia pada runtime Supabase.");
+      }
       setDataSources((prev) => ({
         ...prev,
-        [activeSubTab]: (prev[activeSubTab] || []).filter((r) => r.id !== record.id),
+        [activeSubTab]: (prev[activeSubTab] || []).filter((item) => item.id !== record.id),
       }));
       addAuditLog("DELETE", record.id, record.name);
-      if (selectedRecord?.id === record.id) {
-        setSelectedRecord(null);
-      }
-      centralStructureService.notifyExternalUpdate();
-      showToast(`Data "${record.name}" berhasil dihapus.`, "success");
-    } catch (err) {
-      console.error("Failed to delete record:", err);
-      showToast("Gagal menghapus data dari database. Periksa izin akses.", "error");
+      if (selectedRecord?.id === record.id) setSelectedRecord(null);
+      showToast(`Data "${record.name}" berhasil diarsipkan atau dihapus.`, "success");
+    } catch (error: any) {
+      showToast(error?.message || "Perubahan data Supabase gagal.", "error");
     } finally {
       setRecordToDelete(null);
     }
@@ -796,7 +704,6 @@ export function MasterDataManager() {
         });
       }
     }
-    centralStructureService.notifyExternalUpdate();
   };
 
   const validateField = (key: string, value: string): string => {
@@ -924,96 +831,26 @@ export function MasterDataManager() {
     }
 
     setFormErrors({});
-    localStorage.removeItem("mdm-form-autosave");
-
     const validatedData = result.data;
-    const collectionName = activeTab === "entities" ? "entityRecords" : "master_data";
-    const getDocId = (id: string) => collectionName === "master_data" ? `${activeSubTab}_${id}` : id;
     const recordId = modalMode === "edit" ? String(editingId || "") : String(validatedData.id);
-    const docId = getDocId(recordId);
-    const recordRef = doc(db, collectionName, docId);
-    const isSantri = collectionName === "entityRecords" && activeSubTab === "Santri";
-    const identityFields = ["nik", "nisn", "nuptk"] as const;
-    const identityValues = identityFields
-      .map((kind) => ({ kind, value: normalizeIdentityReservationValue((validatedData as any)[kind]) }))
-      .filter((item) => item.value);
-    const legacyQueries = identityValues.map(({ kind, value }) => {
-      const filters = [where("tenantId", "==", user.tenantId), where(kind, "==", value)];
-      if (collectionName === "entityRecords") filters.push(where("type", "==", activeSubTab) as any);
-      else filters.push(where("category", "==", activeSubTab) as any);
-      return query(collection(db, collectionName), ...filters);
-    });
-    const nis = isSantri ? normalizeReservationValue(validatedData.nis) : "";
-    const nisReservationRef = nis ? doc(db, "nisReservations", `${encodeURIComponent(user.tenantId)}_${nis}`) : null;
-    const existingLocalRecord = currentList.find((record) => record.id === editingId);
-
     try {
-      const legacySnapshots = await Promise.all(legacyQueries.map((identityQuery) => getDocs(identityQuery)));
-      const savedRecord = await runTransaction(db, async (transaction) => {
-        const existingSnapshot = await transaction.get(recordRef);
-        if (modalMode === "add" && existingSnapshot.exists()) {
-          throw new Error(`ID ${recordId} sudah digunakan pada ${activeSubTab}.`);
-        }
-        if (modalMode === "edit" && (!existingSnapshot.exists() || existingSnapshot.data().tenantId !== user.tenantId)) {
-          throw new Error("Record tidak ditemukan pada tenant aktif atau sudah berubah. Muat ulang data lalu coba lagi.");
-        }
-
-        const existingData = existingSnapshot.exists() ? existingSnapshot.data() : {};
-        const identityOwnerId = String((validatedData as any).sourceCandidateId || existingData.sourceCandidateId || existingLocalRecord?.sourceCandidateId || docId);
-        const [identitySnapshots, nisSnapshot] = await Promise.all([
-          Promise.all(identityValues.map(({ kind, value }) => transaction.get(identityReservationRef(user.tenantId, kind, value)))),
-          nisReservationRef ? transaction.get(nisReservationRef) : Promise.resolve(null),
-        ]);
-
-        identityValues.forEach((item, index) => {
-          const reservation = identitySnapshots[index];
-          if (reservation.exists() && reservation.data().ownerId !== identityOwnerId) {
-            throw new Error(`${item.kind.toUpperCase()} ${item.value} sudah terdaftar pada data lain di tenant ini.`);
-          }
-          const duplicate = legacySnapshots[index].docs.find((candidate) => {
-            const data = candidate.data();
-            const owner = String(data.sourceCandidateId || candidate.id);
-            return candidate.id !== docId && owner !== identityOwnerId;
-          });
-          if (duplicate) throw new Error(`${item.kind.toUpperCase()} ${item.value} sudah digunakan pada data master lain.`);
-        });
-
-        if (nis && nisSnapshot?.exists()) {
-          const reservation = nisSnapshot.data();
-          const sameRecord = reservation.santriId === docId || reservation.candidateId === identityOwnerId;
-          if (reservation.tenantId !== user.tenantId || !sameRecord) {
-            throw new Error(`NIS ${nis} sudah digunakan oleh santri lain.`);
-          }
-        }
-
-        const baseRecord = {
-          ...(modalMode === "edit" ? existingData : {}),
+      let savedRecord: any;
+      if (activeTab === "entities" && activeSubTab === "Santri") {
+        savedRecord = await upsertSupabaseMasterDataStudent({
           ...validatedData,
           id: recordId,
-          ...(activeTab !== "entities" ? { category: activeSubTab } : {}),
-          type: activeTab === "entities" ? activeSubTab : validatedData.type,
-          status: validatedData.status || existingData.status || "Active",
-        };
-        const recordToSave = tenantRecord(user.tenantId, baseRecord);
-        transaction.set(recordRef, recordToSave, { merge: modalMode === "edit" });
-
-        identityValues.forEach((item, index) => {
-          if (!identitySnapshots[index].exists()) {
-            transaction.set(identityReservationRef(user.tenantId, item.kind, item.value), {
-              tenantId: user.tenantId, kind: item.kind, value: item.value, ownerId: identityOwnerId,
-              recordId: docId, source: "master_data", createdAt: new Date().toISOString(),
-            });
-          }
+          type: "Santri",
+          tenantId: user.tenantId,
         });
-        if (nis && nisReservationRef && !nisSnapshot?.exists()) {
-          transaction.set(nisReservationRef, {
-            tenantId: user.tenantId, nis, candidateId: identityOwnerId, santriId: docId,
-            source: "master_data", createdAt: new Date().toISOString(),
-          });
-        }
-        return recordToSave;
-      });
-
+      } else if (activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab)) {
+        savedRecord = await upsertSupabaseMasterDataStructure(activeSubTab as "Gedung" | "Kamar" | "Kelas", {
+          ...validatedData,
+          id: recordId,
+          category: activeSubTab,
+        });
+      } else {
+        throw new Error("Kategori ini belum tersedia pada runtime Supabase.");
+      }
       setDataSources((prev) => ({
         ...prev,
         [activeSubTab]: modalMode === "add"
@@ -1022,20 +859,20 @@ export function MasterDataManager() {
       }));
       if (modalMode === "add") addAuditLog("CREATE", recordId, String(savedRecord.name || ""));
       else addAuditLog("UPDATE", recordId, String(savedRecord.name || ""));
-      handleEntitySavedRelationalSync(savedRecord);
       if (selectedRecord?.id === editingId) setSelectedRecord({ ...selectedRecord, ...savedRecord });
       setIsModalOpen(false);
       showToast(`Data "${savedRecord.name}" berhasil ${modalMode === "add" ? "disimpan" : "diperbarui"}.`, "success");
-    } catch (err: any) {
-      console.error(err);
-      showToast(err?.message || "Gagal menyimpan data secara aman. Silakan muat ulang dan coba lagi.", "error");
+    } catch (error: any) {
+      showToast(error?.message || "Gagal menyimpan data ke Supabase.", "error");
     }
   };
 
+  const isServerPaginatedSantri = SUPABASE_MASTER_DATA_RUNTIME && activeTab === "entities" && activeSubTab === "Santri";
   const baseData = dataSources[activeSubTab] || [];
   
   // Instant search query fallback if AI search is not triggered
   const searchFiltered = React.useMemo(() => {
+    if (isServerPaginatedSantri) return baseData;
     let list = baseData;
     if (searchResults) {
       list = list.filter((r) => searchResults.includes(r.id));
@@ -1060,10 +897,11 @@ export function MasterDataManager() {
       });
     }
     return list;
-  }, [baseData, searchResults, searchQuery]);
+  }, [baseData, searchResults, searchQuery, isServerPaginatedSantri]);
 
   // Multi-facet filtering (Status, Gender, Grade, Dormitory, Completeness)
   const filteredData = React.useMemo(() => {
+    if (isServerPaginatedSantri) return searchFiltered;
     return searchFiltered.filter((r) => {
       // 1. Status Filter
       if (statusFilter.length > 0 && !statusFilter.includes(r.status)) {
@@ -1094,7 +932,7 @@ export function MasterDataManager() {
 
       return true;
     });
-  }, [searchFiltered, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter]);
+  }, [searchFiltered, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, isServerPaginatedSantri]);
 
   const resetAllFilters = () => {
     setStatusFilter([]);
@@ -1105,6 +943,7 @@ export function MasterDataManager() {
     setSearchQuery('');
     setSearchResults(null);
     setCurrentPage(1);
+    serverStudentCursorHistory.current = { 1: null };
   };
 
   const hasActiveFilters =
@@ -1116,10 +955,9 @@ export function MasterDataManager() {
     Boolean(searchQuery.trim());
 
   const totalPages = Math.ceil(filteredData.length / recordsPerPage) || 1;
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * recordsPerPage,
-    currentPage * recordsPerPage,
-  );
+  const paginatedData = isServerPaginatedSantri
+    ? filteredData
+    : filteredData.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   const allSelected =
     paginatedData.length > 0 &&
@@ -1137,116 +975,8 @@ export function MasterDataManager() {
     );
   };
 
-  const handleBulkStatusUpdate = (newStatus: string) => {
-    if (selectedRows.length === 0) return;
-    setDataSources((prev) => ({
-      ...prev,
-      [activeSubTab]: (prev[activeSubTab] || []).map((r) =>
-        selectedRows.includes(r.id) ? { ...r, status: newStatus } : r,
-      ),
-    }));
-    // Add audit log for bulk update
-    selectedRows.forEach((id) => {
-      const record = baseData.find((r) => r.id === id);
-      if (record) {
-        addAuditLog("UPDATE", id, record.name);
-      }
-    });
-    setSelectedRows([]);
-    showToast(`Status ${selectedRows.length} data berhasil diperbarui menjadi ${newStatus}.`, "success");
-  };
-
-  // Rekomendasi 4: Multi-format Import Success Callback
-  const handleImportSuccess = async (importedRecords: any[], strategy: 'skip' | 'overwrite') => {
-    const currentList = dataSources[activeSubTab] || [];
-    const existingIds = new Set(currentList.map((r) => (r.id || '').toLowerCase()));
-
-    let updatedList: any[] = [];
-    if (strategy === 'overwrite') {
-      const importMap = new Map(importedRecords.map((r) => [(r.id || '').toLowerCase(), r]));
-      updatedList = currentList.map((r) => {
-        const idLower = (r.id || '').toLowerCase();
-        if (importMap.has(idLower)) {
-          const res = { ...r, ...importMap.get(idLower) };
-          importMap.delete(idLower);
-          return res;
-        }
-        return r;
-      });
-      updatedList = [...Array.from(importMap.values()), ...updatedList];
-    } else {
-      const newItems = importedRecords.filter(
-        (r) => !existingIds.has((r.id || '').toLowerCase())
-      );
-      updatedList = [...newItems, ...currentList];
-    }
-
-    try {
-      const collectionName = activeTab === "entities" ? "entityRecords" : "master_data";
-
-      const batch = writeBatch(db);
-      importedRecords.slice(0, 500).forEach((rec) => {
-        const docId = activeTab === "entities" ? rec.id : `${activeSubTab.replace(/\s+/g, "_")}_${rec.id}`;
-        const docRef = doc(db, collectionName, docId);
-        batch.set(docRef, tenantRecord(user?.tenantId, {
-          ...rec,
-          ...(activeTab !== "entities" ? { category: activeSubTab } : {}),
-          type: activeTab === "entities" ? activeSubTab : rec.type,
-          updatedAt: new Date().toISOString(),
-        }), { merge: true });
-      });
-      await batch.commit();
-    } catch (err) {
-      console.warn("Firestore batch write warning:", err);
-      showToast("Impor gagal disimpan. Periksa tenant aktif dan izin modul.", "error");
-      return;
-    }
-
-    setDataSources((prev) => ({
-      ...prev,
-      [activeSubTab]: updatedList,
-    }));
-
-    addAuditLog("IMPORT", "", `${importedRecords.length} records imported (${strategy})`, importedRecords.length);
-    centralStructureService.notifyExternalUpdate();
-    showToast(`Berhasil mengimpor ${importedRecords.length} data ke ${activeSubTab}!`, "success");
-  };
-
   const handleExportSuccess = (format: string, count: number) => {
     showToast(`Berhasil mengekspor ${count} data ${activeSubTab} ke format ${format.toUpperCase()}.`, "success");
-  };
-
-  const handleBulkSuccess = (updatedRecords: any[], message: string) => {
-    if (bulkModal.mode === 'delete') {
-      if (updatedRecords.length > 0) {
-        const updateMap = new Map(updatedRecords.map((r) => [r.id, r]));
-        setDataSources((prev) => ({
-          ...prev,
-          [activeSubTab]: (prev[activeSubTab] || []).map((r) =>
-            updateMap.has(r.id) ? updateMap.get(r.id) : r
-          ),
-        }));
-      } else {
-        setDataSources((prev) => ({
-          ...prev,
-          [activeSubTab]: (prev[activeSubTab] || []).filter(
-            (r) => !selectedRows.includes(r.id)
-          ),
-        }));
-      }
-    } else {
-      const updateMap = new Map(updatedRecords.map((r) => [r.id, r]));
-      setDataSources((prev) => ({
-        ...prev,
-        [activeSubTab]: (prev[activeSubTab] || []).map((r) =>
-          updateMap.has(r.id) ? { ...r, ...updateMap.get(r.id) } : r
-        ),
-      }));
-    }
-
-    setSelectedRows([]);
-    centralStructureService.notifyExternalUpdate();
-    showToast(message, "success");
   };
 
   const handleExportCSV = () => {
@@ -1318,7 +1048,7 @@ export function MasterDataManager() {
             />
           </th>
           <th className="px-6 py-4">ID</th>
-          <th className="px-6 py-4">Name</th>
+          <th className="px-6 py-4">Nama</th>
           <th className="px-6 py-4">Type</th>
           <th className="px-6 py-4">Capacity/Size</th>
           <th className="px-6 py-4">Status</th>
@@ -1360,11 +1090,11 @@ export function MasterDataManager() {
             />
           </th>
           <th className="px-6 py-4">ID</th>
-          <th className="px-6 py-4">Name</th>
+          <th className="px-6 py-4">Nama</th>
           <th className="px-6 py-4">NIK</th>
-          <th className="px-6 py-4">Student Name</th>
+          <th className="px-6 py-4">Nama Santri</th>
           <th className="px-6 py-4">Status</th>
-          <th className="px-6 py-4">Phone</th>
+          <th className="px-6 py-4">Telepon</th>
           <th className="px-6 py-4 text-right">Actions</th>
         </tr>
       );
@@ -1381,9 +1111,9 @@ export function MasterDataManager() {
           />
         </th>
         <th className="px-6 py-4">ID</th>
-        <th className="px-6 py-4">Name</th>
-        <th className="px-6 py-4">Gender</th>
-        <th className="px-6 py-4">Grade/Class</th>
+        <th className="px-6 py-4">Nama</th>
+        <th className="px-6 py-4">Jenis Kelamin</th>
+        <th className="px-6 py-4">Jenjang/Kelas</th>
         <th className="px-6 py-4">Status</th>
         <th className="px-6 py-4">Enrolled/Date</th>
         <th className="px-6 py-4 text-right">Actions</th>
@@ -1438,7 +1168,7 @@ export function MasterDataManager() {
             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm"
-                title="Edit"
+                title="Ubah"
                 onClick={(e) => handleEditClick(row, e)}
               >
                 <Edit className="w-4 h-4" />
@@ -1448,8 +1178,8 @@ export function MasterDataManager() {
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-red-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm disabled:opacity-30 disabled:hover:text-slate-500 dark:text-slate-400 disabled:cursor-not-allowed"
                 title={
                   userRole !== "Super Administrator"
-                    ? "Requires Super Administrator access"
-                    : "Delete"
+                    ? "Memerlukan akses Super Administrator"
+                    : "Hapus"
                 }
                 onClick={(e) => handleDeleteClick(row, e)}
               >
@@ -1525,7 +1255,7 @@ export function MasterDataManager() {
             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 transition-colors shadow-sm"
-                title="Edit"
+                title="Ubah"
                 onClick={(e) => handleEditClick(row, e)}
               >
                 <Edit className="w-4 h-4" />
@@ -1533,7 +1263,7 @@ export function MasterDataManager() {
               <button
                 disabled={userRole !== "Super Administrator"}
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-red-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 transition-colors shadow-sm disabled:opacity-30 disabled:hover:text-slate-500 dark:text-slate-400 disabled:cursor-not-allowed"
-                title="Delete"
+                title="Hapus"
                 onClick={(e) => handleDeleteClick(row, e)}
               >
                 <Trash2 className="w-4 h-4" />
@@ -1593,7 +1323,7 @@ export function MasterDataManager() {
             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm"
-                title="Edit"
+                title="Ubah"
                 onClick={(e) => handleEditClick(row, e)}
               >
                 <Edit className="w-4 h-4" />
@@ -1603,8 +1333,8 @@ export function MasterDataManager() {
                 className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-red-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm disabled:opacity-30 disabled:hover:text-slate-500 dark:text-slate-400 disabled:cursor-not-allowed"
                 title={
                   userRole !== "Super Administrator"
-                    ? "Requires Super Administrator access"
-                    : "Delete"
+                    ? "Memerlukan akses Super Administrator"
+                    : "Hapus"
                 }
                 onClick={(e) => handleDeleteClick(row, e)}
               >
@@ -1670,7 +1400,7 @@ export function MasterDataManager() {
           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm"
-              title="Edit"
+              title="Ubah"
               onClick={(e) => handleEditClick(row, e)}
             >
               <Edit className="w-4 h-4" />
@@ -1680,8 +1410,8 @@ export function MasterDataManager() {
               className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-red-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10  transition-colors shadow-sm disabled:opacity-30 disabled:hover:text-slate-500 dark:text-slate-400 disabled:cursor-not-allowed"
               title={
                 userRole !== "Super Administrator"
-                  ? "Requires Super Administrator access"
-                  : "Delete"
+                  ? "Memerlukan akses Super Administrator"
+                  : "Hapus"
               }
               onClick={(e) => handleDeleteClick(row, e)}
             >
@@ -1718,20 +1448,91 @@ export function MasterDataManager() {
           </button>
         </div>
       )}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+      {SUPABASE_MASTER_DATA_RUNTIME && (
+        <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
+          Mode Supabase aktif. Sumber data tenant untuk Santri, Gedung, Kamar, dan Kelas berasal dari backend. Modul Master Data lain belum dipindahkan dan disembunyikan pada mode ini.
+        </div>
+      )}
+      {SUPABASE_MASTER_DATA_RUNTIME && SUPABASE_MASTER_DATA_IMPORT && user && ["Admin", "SuperAdmin"].includes(user.role) && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Migrasi arsip Master Data</h2>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500 dark:text-slate-400">
+                Pratinjau membaca arsip Firestore tenant aktif tanpa menulis data. Terapkan impor hanya setelah konflik, relasi, dan backup ditinjau. Selesaikan impor struktur sebelum impor santri.
+              </p>
+            </div>
+            <span className="inline-flex w-fit items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              Admin · Perlu tinjauan
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            {([
+              { kind: "structures", title: "Gedung, Kamar, dan Kelas" },
+              { kind: "students", title: "Santri dan relasi Wali" },
+            ] as const).map(({ kind, title }) => {
+              const preview = legacyMigrationPreviews[kind];
+              const isBusy = legacyMigrationBusy?.startsWith(kind) || false;
+              const canApply = Boolean(preview?.dryRun === true && !(preview.errors || []).length && Number(preview.planned || 0) > 0);
+              return (
+                <div key={kind} className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
+                  <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">{title}</h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={Boolean(legacyMigrationBusy)}
+                      onClick={() => void runLegacyMasterDataMigration(kind, false)}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
+                    >
+                      {legacyMigrationBusy === kind + "-preview" ? "Memuat pratinjau…" : "Pratinjau"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(legacyMigrationBusy) || !canApply || isBusy}
+                      onClick={() => void runLegacyMasterDataMigration(kind, true)}
+                      className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {legacyMigrationBusy === kind + "-apply" ? "Mengimpor…" : "Terapkan impor"}
+                    </button>
+                  </div>
+                  {preview && (
+                    <div className="mt-3 space-y-2 text-xs text-slate-600 dark:text-slate-300" aria-live="polite">
+                      <p>
+                        Sumber {preview.sourceCount || 0} · Siap {preview.planned || 0} · Dilewati {preview.skipped || 0}
+                        {typeof preview.imported === "number" ? " · Diimpor " + preview.imported : ""}
+                      </p>
+                      {typeof preview.legacyStructureCount === "number" && (
+                        <p>Struktur {preview.legacyStructureCount} · Santri sumber {preview.legacyStudentCount || 0} · Penempatan kamar belum cocok unik {preview.studentsWithoutUnambiguousRoom || 0}</p>
+                      )}
+                      {typeof preview.legacyGuardianCount === "number" && <p>Record Wali sumber {preview.legacyGuardianCount}</p>}
+                      {(preview.errors || []).slice(0, 4).map((item: any, index: number) => (
+                        <p key={"error-" + index} className="rounded-md bg-rose-50 px-2 py-1.5 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200">{item.category || "Konflik"} · {item.message}</p>
+                      ))}
+                      {(preview.warnings || []).slice(0, 3).map((item: any, index: number) => (
+                        <p key={"warning-" + index} className="rounded-md bg-amber-50 px-2 py-1.5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{item.category || "Catatan"} · {item.message}</p>
+                      ))}
+                      {(preview.errors || []).length > 4 && <p>Dan {(preview.errors || []).length - 4} konflik lainnya.</p>}
+                      {(preview.warnings || []).length > 3 && <p>Dan {(preview.warnings || []).length - 3} catatan lainnya.</p>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-4">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-medium text-slate-700 dark:text-slate-300 border-b border-emerald-500 pb-1 inline-block">
                 Master Data Management
               </h1>
-              <CentralSyncBadge moduleName="Master Data" />
             </div>
             <p className="text-slate-500 text-sm mt-2">
               Centralized single source of truth for all foundational data &mdash; Terkoneksi ke Asrama & Akademik
             </p>
           </div>
-          <div className="flex flex-col gap-1 ml-4 py-1 border-l border-slate-200 dark:border-white/10 pl-6">
+          {!SUPABASE_MASTER_DATA_RUNTIME && <div className="flex flex-col gap-1 ml-4 py-1 border-l border-slate-200 dark:border-white/10 pl-6">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
               Active Unit / Entity
             </span>
@@ -1748,10 +1549,10 @@ export function MasterDataManager() {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1 ml-2 py-1 border-l border-slate-200 dark:border-white/10 pl-6">
+          </div>}
+          {!SUPABASE_MASTER_DATA_RUNTIME && <div className="flex flex-col gap-1 ml-2 py-1 border-l border-slate-200 dark:border-white/10 pl-6">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-              Active Role
+              Peran Aktif
             </span>
             <select
               value={userRole}
@@ -1761,27 +1562,10 @@ export function MasterDataManager() {
               <option value="Admin">Admin</option>
               <option value="Super Administrator">Super Admin</option>
             </select>
-          </div>
+          </div>}
         </div>
 
         <div className="flex items-center gap-3">
-          <input
-            type="file"
-            accept=".csv"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileUpload}
-          />
-          {userRole === "Super Administrator" && (
-            <button
-              onClick={handleInjectDatabase}
-              disabled={isInjecting}
-              className="flex items-center gap-2 bg-indigo-950/40 text-indigo-400 border border-indigo-500/30 px-3 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-indigo-900/40 disabled:opacity-50"
-            >
-              {isInjecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Inject Demo Data
-            </button>
-          )}
           <button
             onClick={handleDownloadTemplate}
             className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-3.5 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-slate-200 dark:bg-white/10"
@@ -1791,20 +1575,12 @@ export function MasterDataManager() {
             Template CSV
           </button>
           <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-2 bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-emerald-900/40"
-            title="Wizard Impor dengan Preview dan Validasi Skema / Konflik"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Import Wizard</span>
-          </button>
-          <button
             onClick={() => setIsExportModalOpen(true)}
             className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-3.5 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-slate-200 dark:bg-white/10"
             title="Ekspor Data ke Excel (.xlsx/.csv), CSV, atau JSON"
           >
             <Download className="w-4 h-4" />
-            <span>Export Data</span>
+            <span>Ekspor Data</span>
           </button>
           <button
             onClick={() => setShowScanner(true)}
@@ -1826,7 +1602,7 @@ export function MasterDataManager() {
       </div>
 
       <div className="flex gap-2 text-sm bg-black/20 border border-slate-200 dark:border-white/5 rounded-lg p-1 w-fit mb-6 print:hidden">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -1853,7 +1629,7 @@ export function MasterDataManager() {
             Categories
           </div>
           <div className="space-y-1">
-            {SUB_TABS[activeTab].map((sub) => {
+            {visibleSubTabs.map((sub) => {
               const isActive = activeSubTab === sub;
               return (
                 <button
@@ -1862,6 +1638,7 @@ export function MasterDataManager() {
                     setActiveSubTab(sub);
                     setSelectedRecord(null);
                     setCurrentPage(1);
+                    serverStudentCursorHistory.current = { 1: null };
                   }}
                   className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                     isActive
@@ -1904,10 +1681,10 @@ export function MasterDataManager() {
                   <button
                     onClick={handleExportAuditLogs}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-medium transition-colors"
-                    title="Export Log Audit ke CSV"
+                    title="Ekspor Log Audit ke CSV"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Export Logs</span>
+                    <span>Ekspor Log</span>
                   </button>
                 </div>
               </div>
@@ -1942,7 +1719,7 @@ export function MasterDataManager() {
                   )}
                 >
                   <div className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider mb-1">
-                    Create
+                    Tambah
                   </div>
                   <div className="text-xl font-mono font-medium text-emerald-300">
                     {auditLogs.filter((log) => log.action === "CREATE").length}
@@ -1959,7 +1736,7 @@ export function MasterDataManager() {
                   )}
                 >
                   <div className="text-[10px] uppercase font-bold text-blue-400 tracking-wider mb-1">
-                    Update
+                    Perbarui
                   </div>
                   <div className="text-xl font-mono font-medium text-blue-300">
                     {auditLogs.filter((log) => log.action === "UPDATE").length}
@@ -1976,7 +1753,7 @@ export function MasterDataManager() {
                   )}
                 >
                   <div className="text-[10px] uppercase font-bold text-red-400 tracking-wider mb-1">
-                    Delete
+                    Hapus
                   </div>
                   <div className="text-xl font-mono font-medium text-red-300">
                     {auditLogs.filter((log) => log.action === "DELETE").length}
@@ -1993,7 +1770,7 @@ export function MasterDataManager() {
                   )}
                 >
                   <div className="text-[10px] uppercase font-bold text-amber-400 tracking-wider mb-1">
-                    Import
+                    Impor
                   </div>
                   <div className="text-xl font-mono font-medium text-amber-300">
                     {auditLogs.filter((log) => log.action === "IMPORT").length}
@@ -2046,7 +1823,7 @@ export function MasterDataManager() {
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
-                              {log.action}
+                              {masterAuditActionLabel(log.action)}
                             </span>
                             <span className="text-[10px] bg-slate-200 dark:bg-white/10 px-2 py-0.5 rounded uppercase font-mono tracking-wider text-slate-400">
                               {log.entity}
@@ -2063,7 +1840,7 @@ export function MasterDataManager() {
                           </span>{" "}
                           menjalankan aksi{" "}
                           <span className="uppercase text-[10px] bg-slate-200 dark:bg-white/10 px-1 py-0.5 rounded tracking-wide font-medium">
-                            {log.action}
+                            {masterAuditActionLabel(log.action)}
                           </span>{" "}
                           pada entitas{" "}
                           <span className="text-emerald-400 font-medium">
@@ -2091,13 +1868,13 @@ export function MasterDataManager() {
               </div>
             </div>
           ) : activeTab === "booking" ? (
-            <FacilityBooking />
+            <React.Suspense fallback={<div className="p-6 text-sm text-slate-400">Memuat pemesanan fasilitas…</div>}><LazyFacilityBooking /></React.Suspense>
           ) : (
             <div className="flex-1 flex flex-col h-full print:block">
               <div className="p-4 border-b border-slate-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-black/10 print:hidden">
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                   <form
-                    onSubmit={performAISearch}
+                    onSubmit={submitSearch}
                     className="relative w-full sm:w-80 group"
                   >
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
@@ -2105,20 +1882,21 @@ export function MasterDataManager() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder={`AI Search ${activeSubTab}... (e.g. "enrolled in 2022")`}
+                      placeholder={isServerPaginatedSantri ? "Cari nama, NIS, atau ID santri…" : "Cari nama, ID, kelas, atau lokasi…"}
                       className="pl-9 pr-10 py-2  rounded-md text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 w-full bg-slate-50 dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-300 transition-all placeholder:text-slate-600"
                     />
                     <button
                       type="submit"
-                      disabled={isSearching}
+
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-emerald-500/70 hover:text-emerald-400 disabled:opacity-50 transition-colors"
                     >
-                      {isSearching ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="w-4 h-4" />
-                      )}
+                      <Search className="w-4 h-4" />
                     </button>
+                    {studentSearchTooShort && (
+                      <span role="status" className="absolute left-0 top-full z-10 mt-1 rounded bg-slate-950 px-2 py-1 text-[11px] text-slate-300 shadow-lg">
+                        Masukkan minimal 3 karakter untuk mencari santri.
+                      </span>
+                    )}
                   </form>
                   <div className="relative">
                     <button
@@ -2253,10 +2031,11 @@ export function MasterDataManager() {
                     <span>Relasi Terintegrasi (ID-Normalized)</span>
                   </div>
                   <span>
-                    Total records:{" "}
-                    <span className="font-mono text-emerald-400 text-sm font-bold">
-                      {filteredData.length}
-                    </span>
+                    {isServerPaginatedSantri ? (
+                      <span className="font-medium">Halaman {currentPage} · {serverStudentHasMore ? "ada data berikutnya" : "halaman terakhir"}</span>
+                    ) : <>Total records:{" "}
+                      <span className="font-mono text-emerald-400 text-sm font-bold">{filteredData.length}</span>
+                    </>}
                   </span>
                 </div>
               </div>
@@ -2327,7 +2106,7 @@ export function MasterDataManager() {
 
               <div className="flex-1 overflow-x-auto relative print:hidden">
                 {activeSubTab === "Map View" ? (
-                  <StructureHierarchyD3 />
+                  <React.Suspense fallback={<div className="p-6 text-sm text-slate-400">Memuat struktur…</div>}><LazyStructureHierarchyD3 /></React.Suspense>
                 ) : (
                 <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-slate-50 dark:bg-[#0a0a0a] border-b border-slate-200 dark:border-white/5 text-[10px] text-slate-500 uppercase font-semibold">
@@ -2342,7 +2121,9 @@ export function MasterDataManager() {
                           colSpan={7}
                           className="px-6 py-12 text-center text-slate-500"
                         >
-                          No records found for {activeSubTab}.
+                          {studentSearchTooShort
+                            ? "Masukkan minimal 3 karakter untuk mencari santri."
+                            : `Tidak ada data ${activeSubTab} yang sesuai.`}
                         </td>
                       </tr>
                     )}
@@ -2598,6 +2379,67 @@ export function MasterDataManager() {
                                 </span>
                               </div>
                             </div>
+                            {SUPABASE_MASTER_DATA_RUNTIME && selectedRecord.supabaseId && (
+                              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <h5 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Riwayat penempatan kamar</h5>
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Riwayat mulai dicatat sejak fitur ini diaktifkan; perubahan sebelum itu mungkin tidak tersedia.</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    disabled={roomHistoryLoading}
+                                    onClick={() => void handleLoadRoomHistory(selectedRecord.supabaseId)}
+                                    className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-60 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10"
+                                  >
+                                    {roomHistoryLoading ? "Memuat…" : roomHistoryStudentId === selectedRecord.supabaseId ? "Segarkan" : "Lihat"}
+                                  </button>
+                                </div>
+                                {roomHistoryStudentId === selectedRecord.supabaseId && (
+                                  <div className="mt-3 space-y-2">
+                                    {roomHistoryError && <p role="alert" className="text-xs text-rose-600 dark:text-rose-300">{roomHistoryError}</p>}
+                                    {!roomHistoryError && roomHistory.length === 0 && !roomHistoryLoading && (
+                                      <p className="text-xs text-slate-500 dark:text-slate-400">Belum ada riwayat penempatan kamar.</p>
+                                    )}
+                                    {roomHistory.map((entry) => (
+                                      <div key={entry.id} className="rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-white/10 dark:bg-slate-900/60">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <span className="font-semibold text-slate-800 dark:text-slate-100">
+                                            {{
+                                              baseline_snapshot: "Kondisi saat cutover",
+                                              initial_assignment: "Penempatan awal",
+                                              assigned: "Penempatan kamar",
+                                              moved: "Perpindahan kamar",
+                                              unassigned: "Pengakhiran penempatan",
+                                              building_changed: "Perubahan gedung",
+                                            }[entry.eventType] || "Perubahan penempatan"}
+                                          </span>
+                                          <time className="text-slate-500 dark:text-slate-400" dateTime={entry.changedAt}>
+                                            {new Date(entry.changedAt).toLocaleString("id-ID")}
+                                          </time>
+                                        </div>
+                                        <p className="mt-1 text-slate-700 dark:text-slate-300">
+                                          {entry.previousRoomName || "Belum ditempatkan"} → {entry.roomName || "Tidak ditempatkan"}
+                                        </p>
+                                        {(entry.previousBuildingName || entry.buildingName) && (
+                                          <p className="mt-1 text-slate-500 dark:text-slate-400">
+                                            Gedung: {entry.previousBuildingName || "—"} → {entry.buildingName || "—"}
+                                          </p>
+                                        )}
+                                        <p className="mt-1 text-slate-500 dark:text-slate-400">
+                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : entry.changeSource === "migration_baseline" ? "Snapshot cutover" : "Sistem"}
+                                        </p>
+                                        {entry.eventType === "baseline_snapshot" && (
+                                          <p className="mt-2 text-amber-700 dark:text-amber-300">
+                                            Kondisi ini dicatat saat migrasi; riwayat sebelum tanggal tersebut tidak tersedia.
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* Keuangan */}
@@ -2648,7 +2490,7 @@ export function MasterDataManager() {
                                     {selectedRecord.phone || "-"}
                                   </div>
                                   <div className="text-[10px] text-slate-500 uppercase mt-0.5">
-                                    Mobile Phone
+                                    Nomor Ponsel
                                   </div>
                                 </div>
                               </div>
@@ -3005,7 +2847,7 @@ export function MasterDataManager() {
                                     {selectedRecord.phone || "-"}
                                   </div>
                                   <div className="text-[10px] text-slate-500 uppercase mt-0.5">
-                                    Mobile Phone / WhatsApp
+                                    Nomor Ponsel / WhatsApp
                                   </div>
                                 </div>
                               </div>
@@ -3107,7 +2949,7 @@ export function MasterDataManager() {
 
                           {selectedRecord.educations && Array.isArray(selectedRecord.educations) && selectedRecord.educations.length > 0 && (
                             <div className="mt-4">
-                               <div className="text-[10px] uppercase text-slate-500 font-semibold mb-2">Education History</div>
+                               <div className="text-[10px] uppercase text-slate-500 font-semibold mb-2">Riwayat Pendidikan</div>
                                <div className="space-y-2">
                                   {selectedRecord.educations.map((edu: any, i: number) => (
                                      <div key={i} className="bg-slate-50 dark:bg-black/20 p-2 rounded border border-slate-200 dark:border-white/10 text-xs">
@@ -3254,24 +3096,24 @@ export function MasterDataManager() {
                         onClick={() => handleEditClick(selectedRecord)}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-medium transition-colors"
                       >
-                        Edit Profile
+                        Ubah Profil
                       </button>
                       <button
                         onClick={handlePrintClick}
                         className="px-4 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300  rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                        title="Print Record"
+                        title="Cetak Data"
                       >
                         <Printer className="w-4 h-4" />
-                        <span>Print</span>
+                        <span>Cetak</span>
                       </button>
                       {activeTab === 'entities' && ['Guru', 'Asatidz', 'Pegawai'].includes(activeSubTab) && (
                         <button
                           onClick={() => setShowCVModal(true)}
                           className="px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                          title="Generate CV"
+                          title="Buat CV"
                         >
                           <FileText className="w-4 h-4" />
-                          <span>Generate CV</span>
+                          <span>Buat CV</span>
                         </button>
                       )}
                     </div>
@@ -3281,8 +3123,9 @@ export function MasterDataManager() {
 
               <div className="p-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-500 bg-black/40 uppercase tracking-widest mt-auto print:hidden">
                 <div>
-                  Showing {paginatedData.length} of {filteredData.length}{" "}
-                  records
+                  {isServerPaginatedSantri
+                    ? `Menampilkan ${paginatedData.length} santri · halaman ${currentPage}${serverStudentHasMore ? " · masih ada halaman berikutnya" : " · halaman terakhir"}`
+                    : `Showing ${paginatedData.length} of ${filteredData.length} records`}
                 </div>
                 <div className="flex items-center gap-2 font-mono">
                   <button
@@ -3294,7 +3137,7 @@ export function MasterDataManager() {
                   >
                     Prev
                   </button>
-                  {Array.from({ length: totalPages }).map((_, i) => (
+                  {!isServerPaginatedSantri && Array.from({ length: totalPages }).map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setCurrentPage(i + 1)}
@@ -3309,10 +3152,8 @@ export function MasterDataManager() {
                     </button>
                   ))}
                   <button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                    }
-                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                    disabled={isServerPaginatedSantri ? !serverStudentHasMore : currentPage === totalPages}
                     className="px-3 py-1  rounded bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 disabled:opacity-50 transition-colors"
                   >
                     Next
@@ -3323,71 +3164,16 @@ export function MasterDataManager() {
           )}
         </div>
       </div>
-      {/* Floating Bulk Action Banner */}
       {selectedRows.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 glass-panel rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] p-2 md:p-3 flex items-center gap-3 animate-in slide-in-from-bottom-8 duration-300 print:hidden bg-slate-900/95 border border-slate-700">
-          <div className="bg-emerald-900/40 text-emerald-300 px-3 py-1 flex items-center gap-1.5 rounded-lg font-medium text-xs border border-emerald-500/30">
-            <span className="font-mono font-bold">{selectedRows.length}</span>
-            <span>terpilih</span>
-          </div>
-          <div className="h-6 w-px bg-slate-700 hidden md:block"></div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs text-slate-400 hidden sm:inline mr-1">Status:</span>
-            <button
-              onClick={() => handleBulkStatusUpdate("Active")}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-950/50 text-emerald-400 hover:bg-emerald-900/60 border border-emerald-500/30 transition-colors"
-            >
-              Active
-            </button>
-            <button
-              onClick={() => handleBulkStatusUpdate("Inactive")}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-rose-950/50 text-rose-400 hover:bg-rose-900/60 border border-rose-500/30 transition-colors"
-            >
-              Inactive
-            </button>
-            <button
-              onClick={() => handleBulkStatusUpdate("Alumni")}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-950/50 text-indigo-400 hover:bg-indigo-900/60 border border-indigo-500/30 transition-colors"
-            >
-              Alumni
-            </button>
-          </div>
-          <div className="h-6 w-px bg-slate-700 hidden md:block"></div>
-          <div className="flex items-center gap-2">
-            {activeTab === "entities" && activeSubTab === "Santri" && (
-              <button
-                onClick={() => setBulkModal({ isOpen: true, mode: 'reassign' })}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50 border border-indigo-500/40 transition-colors flex items-center gap-1.5"
-                title="Pindahkan semua santri terpilih ke kelas/kamar/halaqah baru"
-              >
-                <ArrowRightLeft className="w-3.5 h-3.5" />
-                <span>Pindah Massal</span>
-              </button>
-            )}
-            <button
-              onClick={() => setBulkModal({ isOpen: true, mode: 'delete' })}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-600/30 text-rose-300 hover:bg-rose-600/50 border border-rose-500/40 transition-colors flex items-center gap-1.5"
-              title="Hapus atau arsipkan massal"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Hapus Massal</span>
-            </button>
-            <button
-              onClick={() => setIsExportModalOpen(true)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 border border-blue-500/40 transition-colors flex items-center gap-1.5"
-              title="Ekspor baris yang dicentang saja"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Ekspor</span>
-            </button>
-          </div>
-          <div className="h-6 w-px bg-slate-700 hidden md:block"></div>
-          <button
-            onClick={() => setSelectedRows([])}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-            title="Batal pilih"
-          >
-            <X className="w-4 h-4" />
+        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/95 p-2 shadow-xl print:hidden">
+          <span className="rounded-lg border border-emerald-500/30 bg-emerald-900/40 px-3 py-1 text-xs font-medium text-emerald-300">
+            {selectedRows.length} terpilih
+          </span>
+          <button type="button" onClick={() => setIsExportModalOpen(true)} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
+            Ekspor pilihan
+          </button>
+          <button type="button" onClick={() => setSelectedRows([])} aria-label="Batal pilih" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -3424,7 +3210,7 @@ export function MasterDataManager() {
                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors text-sm font-medium"
                 >
                   <Printer className="w-4 h-4" />
-                  Print CV
+                  Cetak CV
                 </button>
                 <button
                   onClick={() => setShowCVModal(false)}
@@ -3443,14 +3229,14 @@ export function MasterDataManager() {
         </>
       )}
 
-      {/* Print Configuration Modal */}
+      {/* Pengaturan Cetak Modal */}
       {showPrintModal && selectedRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 print:hidden animate-in fade-in duration-200">
           <div className="glass-panel  rounded-xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-black/40">
               <h3 className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <Printer className="w-4 h-4 text-emerald-400" />
-                Print Configuration
+                Pengaturan Cetak
               </h3>
               <button
                 onClick={() => setShowPrintModal(false)}
@@ -3461,8 +3247,8 @@ export function MasterDataManager() {
             </div>
             <div className="p-4 max-h-[60vh] overflow-y-auto">
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 tracking-wide">
-                Select the fields you want to include in the printed report.
-                Name and ID are always included.
+                Pilih kolom yang ingin disertakan dalam laporan cetak.
+                Nama dan ID selalu disertakan.
               </p>
               <div className="space-y-1 mt-2">
                 <label className="flex items-center gap-3 p-2 rounded hover:bg-slate-100 dark:bg-white/5 cursor-pointer border border-transparent hover:border-slate-200 dark:border-white/5 transition-colors">
@@ -3478,9 +3264,9 @@ export function MasterDataManager() {
                     className="accent-emerald-500 rounded border-slate-200 dark:border-white/10 bg-black/20"
                   />
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-700 dark:text-slate-300">QR Code</span>
+                    <span className="text-sm text-slate-700 dark:text-slate-300">Kode QR</span>
                     <span className="text-[10px] text-emerald-400 uppercase font-semibold bg-emerald-900/40 px-1.5 py-0.5 rounded">
-                      Scan
+                      Pindai
                     </span>
                   </div>
                 </label>
@@ -3503,7 +3289,7 @@ export function MasterDataManager() {
                         className="accent-emerald-500 rounded border-slate-200 dark:border-white/10 bg-black/20"
                       />
                       <span className="text-sm text-slate-700 dark:text-slate-300 capitalize">
-                        {key.replace(/([A-Z])/g, " $1").trim()}
+                        {masterDataFieldLabel(key)}
                       </span>
                     </label>
                   ))}
@@ -3514,7 +3300,7 @@ export function MasterDataManager() {
                 onClick={() => setShowPrintModal(false)}
                 className="px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:bg-white/5 rounded-lg transition-colors border border-transparent"
               >
-                Cancel
+                Batal
               </button>
               <button
                 onClick={() => {
@@ -3524,7 +3310,7 @@ export function MasterDataManager() {
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors shadow-lg shadow-emerald-900/20"
               >
                 <Printer className="w-4 h-4" />
-                Generate Print
+                Cetak Sekarang
               </button>
             </div>
           </div>
@@ -3539,11 +3325,18 @@ export function MasterDataManager() {
               <EntityRegistrationForm 
                 onCancel={() => setIsModalOpen(false)} 
                 onSuccess={(savedData) => {
-                  if (savedData) {
+                  if (SUPABASE_MASTER_DATA_RUNTIME && savedData) {
+                    setDataSources((prev) => ({
+                      ...prev,
+                      Santri: modalMode === "add"
+                        ? [savedData, ...(prev.Santri || [])]
+                        : (prev.Santri || []).map((record) => record.id === savedData.id ? { ...record, ...savedData } : record),
+                    }));
+                  } else if (savedData) {
                     handleEntitySavedRelationalSync(savedData);
                   }
                   setIsModalOpen(false);
-                }} 
+                }}
                 initialData={modalMode === "edit" ? formData : { type: activeSubTab }}
                 isEdit={modalMode === "edit"}
                 availableWali={dataSources["Wali Santri"] || MOCK_WALISANTRI}
@@ -3555,10 +3348,21 @@ export function MasterDataManager() {
             <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <StructureRegistrationForm 
                 onCancel={() => setIsModalOpen(false)} 
-                onSuccess={() => setIsModalOpen(false)} 
+                onSuccess={(savedData) => {
+                  if (SUPABASE_MASTER_DATA_RUNTIME && savedData) {
+                    setDataSources((prev) => ({
+                      ...prev,
+                      [activeSubTab]: modalMode === "add"
+                        ? [savedData, ...(prev[activeSubTab] || [])]
+                        : (prev[activeSubTab] || []).map((record) => record.id === savedData.id ? { ...record, ...savedData } : record),
+                    }));
+                  }
+                  setIsModalOpen(false);
+                }}
                 initialData={modalMode === "edit" ? formData : undefined}
                 isEdit={modalMode === "edit"}
                 type={activeSubTab}
+                availableBuildings={dataSources["Gedung"] || []}
               />
             </div>
           )}
@@ -3714,84 +3518,6 @@ export function MasterDataManager() {
         </div>
       )}
 
-      {/* Restore Draft Modal */}
-      {draftToRestore && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-amber-500/30 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-amber-500/20 text-amber-400 rounded-xl">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Pulihkan Draf Tersimpan?</h3>
-                <p className="text-xs text-slate-400">Autosave Form Terdeteksi</p>
-              </div>
-            </div>
-            <p className="text-sm text-slate-300">
-              Sistem mendeteksi draf pengisian formulir yang belum sempat tersimpan. Apakah Anda ingin melanjutkan pengisian dari draf tersebut?
-            </p>
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.removeItem("mdm-form-autosave");
-                  const mode = draftToRestore.mode;
-                  const rec = draftToRestore.record;
-                  setDraftToRestore(null);
-                  if (mode === "add") {
-                    setModalMode("add");
-                    const currentData = dataSources[activeSubTab] || [];
-                    setFormData({
-                      enrolled: new Date().toISOString().split("T")[0],
-                      id: generateUniqueId(activeSubTab, currentData),
-                    });
-                    setIsModalOpen(true);
-                  } else if (mode === "edit" && rec) {
-                    setModalMode("edit");
-                    setEditingId(rec.id);
-                    setFormData(rec);
-                    setIsModalOpen(true);
-                  }
-                }}
-                className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors border border-slate-700"
-              >
-                Buang & Mulai Baru
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const draftData = draftToRestore.draft;
-                  const mode = draftToRestore.mode;
-                  const rec = draftToRestore.record;
-                  setDraftToRestore(null);
-                  setModalMode(mode);
-                  setEditingId(mode === "edit" ? (rec?.id || draftData.editingId || null) : null);
-                  setFormData(draftData.formData);
-                  if (draftData.activeSubTab) setActiveSubTab(draftData.activeSubTab);
-                  setIsModalOpen(true);
-                  showToast("Draf berhasil dipulihkan.", "success");
-                }}
-                className="px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors shadow-lg shadow-amber-900/30 flex items-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Pulihkan Draf
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rekomendasi 4: Interactive Pre-Import Preview & Validation Wizard */}
-      <ImportPreviewModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        activeTab={activeTab}
-        activeSubTab={activeSubTab}
-        existingRecords={dataSources[activeSubTab] || []}
-        onImportSuccess={handleImportSuccess}
-        onDownloadTemplate={handleDownloadTemplate}
-      />
-
       {/* Rekomendasi 4: Advanced Multi-Format Export Engine */}
       <ExportModal
         isOpen={isExportModalOpen}
@@ -3804,23 +3530,6 @@ export function MasterDataManager() {
         onExportSuccess={handleExportSuccess}
       />
 
-      {/* Rekomendasi 4: Comprehensive Bulk Operations (Delete & Reassignment) */}
-      <BulkOperationsModal
-        isOpen={bulkModal.isOpen}
-        mode={bulkModal.mode}
-        onClose={() => setBulkModal({ ...bulkModal, isOpen: false })}
-        activeTab={activeTab}
-        activeSubTab={activeSubTab}
-        selectedRecords={(dataSources[activeSubTab] || []).filter((r: any) =>
-          selectedRows.includes(r.id)
-        )}
-        allClasses={dataSources["Kelas"] || DEFAULT_STRUCTURE["Kelas"] || []}
-        allDormitories={dataSources["Gedung"] || DEFAULT_STRUCTURE["Gedung"] || []}
-        allRooms={dataSources["Kamar"] || DEFAULT_STRUCTURE["Kamar"] || []}
-        allHalaqahs={dataSources["Halaqah"] || DEFAULT_STRUCTURE["Halaqah"] || []}
-        onSuccess={handleBulkSuccess}
-        onAuditLog={(action, id, name) => addAuditLog(action, id, name)}
-      />
     </div>
   );
 }

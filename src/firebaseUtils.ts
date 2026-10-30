@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getAccessToken, getAuthSession, useAuthSessionUid } from './authSession';
+import { getAuthSession, useAuthSessionUid } from './authSession';
 import { db } from './firebase';
 import { collection, doc, onSnapshot, query, setDoc, where, writeBatch } from 'firebase/firestore';
 
@@ -165,67 +165,4 @@ export function useTenantOperationalCollection<T extends TenantOperationalRecord
     });
   }, [collectionName, tenantId, sessionUid]);
   return { records, setRecords: updateRecords, loading, error };
-}
-export const LEGACY_OPERATIONAL_DATASETS = [
-  { key: 'academics_schedules', label: 'Jadwal akademik', module: 'academic', collection: 'academic_schedules', kind: 'array' },
-  { key: 'academics_jurnals', label: 'Jurnal pembelajaran', module: 'academic', collection: 'academic_journals', kind: 'array' },
-  { key: 'academics_assessments', label: 'Penilaian akademik', module: 'academic', collection: 'academic_assessments', kind: 'array' },
-  { key: 'academics_kktp_threshold', label: 'Ambang ketuntasan KKTP', module: 'academic', collection: 'academic_settings', settingId: 'kktpThreshold', kind: 'value' },
-  { key: 'academics_formative_weight', label: 'Bobot penilaian formatif', module: 'academic', collection: 'academic_settings', settingId: 'formativeWeight', kind: 'value' },
-  { key: 'academics_walikelas_comments', label: 'Catatan wali kelas', module: 'academic', collection: 'academic_settings', settingId: 'waliKelasComments', kind: 'value' },
-  { key: 'academics_rapor_locked', label: 'Status kunci rapor', module: 'academic', collection: 'academic_settings', settingId: 'raporLocked', kind: 'value' },
-  { key: 'asrama_musyrifs', label: 'Data musyrif', module: 'boarding', collection: 'boarding_musyrifs', kind: 'array' },
-  { key: 'asrama_attendance', label: 'Kehadiran asrama', module: 'boarding', collection: 'boarding_attendance', kind: 'array' },
-  { key: 'asrama_audits', label: 'Audit kamar', module: 'boarding', collection: 'boarding_audits', kind: 'array' },
-  { key: 'asrama_tickets', label: 'Tiket fasilitas asrama', module: 'boarding', collection: 'boarding_tickets', kind: 'array' },
-  { key: 'asrama_rooms', label: 'Data kamar lama', module: 'boarding', collection: 'boarding_rooms', kind: 'array' },
-  { key: 'asrama_permits', label: 'Izin santri', module: 'boarding', collection: 'boarding_permits', kind: 'array' },
-  { key: 'asrama_discipline', label: 'Catatan kedisiplinan', module: 'boarding', collection: 'boarding_discipline', kind: 'array' },
-  { key: 'asrama_unassignedSantri', label: 'Santri belum teralokasi', module: 'master-data', collection: 'entityRecords', kind: 'manual' },
-  { key: 'hub_announcements', label: 'Pengumuman lama', module: 'communication', collection: 'communication_announcements', kind: 'array' },
-  { key: 'hub_messages', label: 'Pesan lama', module: 'communication', collection: 'communication_messages', kind: 'array' },
-] as const;
-export function getLegacyOperationalDataSummary() {
-  return LEGACY_OPERATIONAL_DATASETS.map(dataset => {
-    try {
-      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(dataset.key) : null;
-      const parsed = raw ? JSON.parse(raw) : null;
-      const valid = dataset.kind === 'manual' ? true : dataset.kind === 'array' ? Array.isArray(parsed) : raw !== null;
-      const count = !raw ? 0 : dataset.kind === 'array' ? (Array.isArray(parsed) ? parsed.length : 0) : 1;
-      return { ...dataset, count, valid };
-    } catch {
-      return { ...dataset, count: 0, valid: false };
-    }
-  });
-}
-export async function migrateLegacyOperationalDataset(key: string) {
-  const dataset = LEGACY_OPERATIONAL_DATASETS.find(item => item.key === key);
-  const currentUser = getAuthSession();
-  if (!dataset || !currentUser) throw new Error('Admin yang sudah login diperlukan untuk migrasi.');
-  if (dataset.kind === 'manual') throw new Error('Data ini perlu direkonsiliasi melalui Master Data dan tidak dapat diimpor otomatis.');
-  const raw = window.localStorage.getItem(dataset.key);
-  if (!raw) return { imported: 0, skipped: 0, alreadyCompleted: false };
-  let parsed: unknown;
-  try { parsed = JSON.parse(raw); } catch { throw new Error('Data lokal tidak dapat dibaca sebagai JSON.'); }
-  const items = dataset.kind === 'array' ? parsed : [{ id: (dataset as any).settingId, value: parsed }];
-  if (!Array.isArray(items)) throw new Error('Data lokal bukan daftar record yang valid.');
-  const chunks: unknown[][] = [];
-  for (let offset = 0; offset < items.length; offset += 300) chunks.push(items.slice(offset, offset + 300));
-  if (chunks.length === 0) return { imported: 0, skipped: 0, alreadyCompleted: false };
-  const token = await getAccessToken();
-  let imported = 0;
-  let skipped = 0;
-  let allAlreadyCompleted = true;
-  for (let batchIndex = 0; batchIndex < chunks.length; batchIndex += 1) {
-    const response = await fetch('/api/data-migrations/local-storage', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ datasetKey: dataset.key, items: chunks[batchIndex], batchIndex, batchCount: chunks.length }),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || 'Migrasi data gagal.');
-    imported += Number(result.imported || 0);
-    skipped += Number(result.skipped || 0);
-    allAlreadyCompleted = allAlreadyCompleted && result.alreadyCompleted === true;
-  }
-  return { imported, skipped, alreadyCompleted: allAlreadyCompleted };
 }

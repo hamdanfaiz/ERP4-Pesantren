@@ -1,5 +1,5 @@
 # Supabase project configuration
-project_id = "your-project-id"
+project_id = "ptsasgdvgrbdtgyqieie"
 
 [api]
 port = 54321
@@ -10,14 +10,14 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+# Keep the local CLI database aligned with the target project's PostgreSQL 17 major version.
+major_version = 17
 
 [studio]
 port = 54323
 
 [edge_runtime]
 enabled = true
-port = 54324
 
 [analytics]
 enabled = false

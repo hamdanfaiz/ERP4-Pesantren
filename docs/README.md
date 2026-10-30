@@ -1,57 +1,20 @@
-# PesantrenOS Documentation Repository
+# ERP4 Pesantren — Dokumentasi
 
-Struktur dokumentasi untuk PesantrenOS (SaaS Enterprise). Desain dan dokumentasi mengikuti Domain Driven Design (DDD).
+ERP modular untuk operasional pesantren. Model rilis awal yang sedang disiapkan adalah **instalasi mandiri per pesantren** pada VPS atau infrastruktur on-premise. Produk ini bukan SaaS multi-pelanggan yang dioperasikan vendor.
 
-## Struktur Direktori
+Dokumentasi memisahkan kontrak produk, rancangan backend, skema Supabase, panduan deployment, dan checkpoint validasi. Data Firestore pada snapshot development merupakan data dummy dan tidak menjadi prasyarat migrasi; data contoh dapat dibuat manual setelah instalasi stabil.
 
-```text
-/docs
-│
-├── active
-│   ├── 01_BUSINESS
-│   ├── 02_PRODUCT
-│   ├── 03_ANALYSIS
-│   ├── 04_DOMAIN_MODEL
-│   ├── 05_ARCHITECTURE
-│   ├── 06_DATABASE
-│   ├── 07_API
-│   ├── 08_SECURITY
-│   ├── 09_AI
-│   ├── 10_MODULES
-│   ├── 11_UI_UX
-│   ├── 12_DEVOPS
-│   └── 13_TESTING
-│
-├── completed
-│   ├── sprint-01
-│   ├── sprint-02
-│   ├── sprint-03
-│   └── release-notes
-│
-└── guides
-    ├── GOOGLE_AI_STUDIO_GUIDE.md
-    ├── FIREBASE_GUIDE.md
-    ├── FLUTTER_GUIDE.md
-    ├── BIGQUERY_GUIDE.md
-    └── DEPLOYMENT_GUIDE.md
-```
+## Dokumen utama
 
-## Bounded Contexts (DDD)
+- [Kesiapan Komersial dan Go-Live](active/00_PRODUCT/COMMERCIAL_READINESS.md) — status bukti, gerbang keamanan/staging, portabilitas, pilot, lisensi, dan dukungan.
+- [ERD target Supabase](active/06_DATABASE/SUPABASE_ERD.md) — tabel dan relasi berdasarkan source migration Supabase.
+- [Design System](active/11_UI_UX/DESIGN_SYSTEM.md) — token visual, pola komponen, aksesibilitas, dan responsivitas.
+- [Deployment pelanggan](guides/CUSTOMER_MANAGED_DEPLOYMENT.md) — konfigurasi Docker dan provisioning tenant/Admin.
+- [Panduan migrasi dan upgrade](guides/MIGRATION_GUIDE.md) — prosedur tim teknis untuk perubahan schema dan deployment.
+- [Checkpoint tanpa salin data](active/06_DATABASE/CHECKPOINT_NO_DATA_COPY_SCHEMA_READINESS_2026-10-27.md) — bukti CI dan status akses/migration staging saat ini.
+- [Struktur Firestore historis](active/06_DATABASE/FIRESTORE_STRUCTURE.md) — inventaris legacy untuk konteks saja; bukan sumber data yang harus disalin.
 
-Sistem informasi PesantrenOS terbagi dari sub-domain / Bounded Contexts sebagai berikut:
+## Batas klaim
 
-1. Identity & Access Domain
-2. Student Lifecycle Domain
-3. Tahfidz Domain
-4. Academic & LMS Domain
-5. Boarding & Operations Domain (Asset, HRIS, Procurement)
-6. Finance Domain
-7. Commerce & Marketplace Domain
-8. Healthcare Domain
-9. CRM & Ecosystem Domain (Ziswaf, PPOB)
-10. AI Intelligence & Executive Domain
+Status fitur dan deployment harus mengikuti bukti di checkpoint komersial terbaru. CI lokal dengan fixture sintetis tidak sama dengan migrasi staging, UAT login, instalasi pelanggan, atau kesiapan produksi.
 
-Lihat dokumentasi utama sebelum menyelami sistem teknis:
-- **[Product Requirements Document (PRD)](active/02_PRODUCT/PRD.md)** - Daftar produk, visi, dan fitur.
-- **[Database ERD & Structure](active/06_DATABASE/ERD.md)** - Schema spesifik Firestore dan multi-tenancy.
-- **[Firestore Legacy Index Info](active/06_DATABASE/FIRESTORE_STRUCTURE.md)** - Struktur Firestore lawas.

@@ -1,0 +1,295 @@
+name: Supabase database tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-db-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend build and Firebase bundle guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install pinned Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run lint
+
+      - name: Verify read-only Supabase migration preflight
+        run: npm run test:migration-preflight
+
+      - name: Verify strict shared RBAC permissions
+        run: npm run test:rbac-permissions
+
+      - name: Verify Wali santri selection stays within linked children
+        run: npm run test:guardian-student-selection
+
+      - name: Verify Tahfidz membership uses tenant business date
+        run: npm run test:tahfidz-membership-date
+      - name: Verify Tahfidz record cursor pagination and role scope
+        run: npm run test:tahfidz-record-pagination
+      - name: Verify Tahfidz session cursor pagination and role scope
+        run: npm run test:tahfidz-session-pagination
+      - name: Verify Tahfidz achievement thresholds
+        run: npm run test:tahfidz-achievements
+
+      - name: Verify PPDB CSV import parsing and identity preservation
+        run: bun run test:ppdb-csv-import
+
+      - name: Verify PPDB onboarding room eligibility
+        run: npm run test:ppdb-onboarding-rooms
+
+      - name: Verify guardian invitation before password activation
+        run: npm run test:guardian-invitation-verification
+
+      - name: Verify Firebase packages are excluded from production dependencies
+        run: node scripts/test-production-dependencies.mjs
+
+      - name: Verify Firebase Admin is disabled outside local development
+        run: npm run test:legacy-firebase-gate
+
+      - name: Verify the active frontend graph contains no Firebase runtime
+        run: npm run test:supabase-runtime-no-firebase
+
+      - name: Verify customer deployment feature flag wiring
+        run: npm run test:customer-deployment-flags
+
+      - name: Verify trusted reverse proxy hop configuration
+        run: npm run test:trusted-proxy-hops
+
+      - name: Verify legacy Firestore tenant scoping
+        run: npm run test:legacy-firestore-tenant-scope
+
+      - name: Verify tenant business-day calculations
+        run: npm run test:business-date
+
+      - name: Verify dashboard cash-flow accounting
+        run: npm run test:dashboard-cashflow
+
+      - name: Verify Master Data pagination and nested PII minimization
+        run: npm run test:master-data-pagination
+
+      - name: Verify Master Data PII is not persisted in browser storage
+        run: npm run test:master-data-no-browser-drafts
+
+      - name: Verify Academic portal tenant and student scoping
+        run: npm run test:academic-portal
+      - name: Verify public PPDB document total-size validation
+        run: npm run test:public-ppdb-validation
+
+      - name: Build client and server
+        run: bun run build
+
+      - name: Remove development dependency installation
+        run: rm -rf node_modules
+
+      - name: Install production dependencies only
+        run: bun install --production --frozen-lockfile
+
+      - name: Smoke-test production runtime without Firebase packages
+        run: node scripts/test-production-runtime.mjs
+
+      - name: Verify customer runtime configuration endpoint
+        run: npm run test:runtime-config-http
+
+      - name: Build customer-managed Docker image
+        run: docker build --tag erp4-pesantren:ci .
+
+      - name: Validate customer-managed Compose configuration
+        env:
+          VITE_SUPABASE_URL: https://supabase.example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+          SUPABASE_URL: https://supabase.example.invalid
+          SUPABASE_SECRET_KEY: sb_secret_ci_placeholder
+          SUPABASE_MASTER_DATA_RUNTIME_ENABLED: "true"
+          VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED: "true"
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml config --format json > /tmp/erp4-compose.json
+          node -e '
+            const config = JSON.parse(require("node:fs").readFileSync("/tmp/erp4-compose.json", "utf8"));
+            const service = config.services["erp4-pesantren"];
+            if (service.environment.VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED !== "true") throw new Error("Browser feature flag did not reach the container runtime");
+            if (service.environment.SUPABASE_MASTER_DATA_RUNTIME_ENABLED !== "true") throw new Error("Server feature flag did not reach the container");
+            if (service.build) throw new Error("Customer deployment must use the same prebuilt image across environments");
+            if (service.environment.VITE_SUPABASE_URL !== "https://supabase.example.invalid") throw new Error("Supabase URL did not reach the container runtime");
+            for (const name of ["SUPABASE_SECRET_KEY", "PII_ENCRYPTION_KEY", "PII_FINGERPRINT_KEY"]) {
+              if (!Object.hasOwn(service.environment, name)) throw new Error(name + " is absent from server environment configuration");
+            }
+          '
+
+      - name: Smoke-test customer-managed Docker image
+        run: |
+          docker run -d --name erp4-pesantren-image-smoke -p 127.0.0.1:38123:3000 \
+            -e SUPABASE_URL=http://127.0.0.1:1 \
+            -e SUPABASE_SECRET_KEY=sb_secret_ci_placeholder \
+            -e VITE_SUPABASE_URL=https://supabase.example.invalid \
+            -e VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder \
+            -e VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=true \
+            -e LEGACY_FIREBASE_ADMIN_ENABLED=true \
+            erp4-pesantren:ci
+          trap 'docker rm -f erp4-pesantren-image-smoke >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:38123/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:38123/ >/dev/null
+          curl -fsS http://127.0.0.1:38123/runtime-config.json | node -e '
+            let response = "";
+            process.stdin.setEncoding("utf8");
+            process.stdin.on("data", (chunk) => response += chunk);
+            process.stdin.on("end", () => {
+              const config = JSON.parse(response);
+              if (config.VITE_SUPABASE_URL !== "https://supabase.example.invalid") throw new Error("Runtime Supabase URL was not emitted");
+              if (config.VITE_SUPABASE_PUBLISHABLE_KEY !== "sb_publishable_ci_placeholder") throw new Error("Runtime publishable key was not emitted");
+              if (config.VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED !== "true") throw new Error("Runtime browser feature flag was not emitted");
+              if (response.includes("sb_secret_ci_placeholder")) throw new Error("Server secret leaked into browser runtime config");
+            });
+          '
+          status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:38123/api/users)
+          test "$status" = "401"
+          docker exec erp4-pesantren-image-smoke node -e "for (const name of ['firebase', 'firebase-admin/app', 'firebase-admin/firestore']) { try { require.resolve(name); process.exit(1); } catch (error) { if (error.code !== 'MODULE_NOT_FOUND') throw error; } }"
+
+  database:
+    name: Migrations, API auth, and pgTAP
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install pinned Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install application dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ca-certificates curl
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          arch="$(dpkg --print-architecture)"
+          printf 'Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: %s-pgdg\nArchitectures: %s\nComponents: main\nSigned-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc\n' "$VERSION_CODENAME" "$arch" | sudo tee /etc/apt/sources.list.d/pgdg.sources > /dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          pg_dump --version
+          pg_restore --version
+          [[ "$(pg_dump --version)" == *" 17."* ]]
+          [[ "$(pg_restore --version)" == *" 17."* ]]
+
+      - name: Start isolated local Supabase
+        run: supabase start
+
+      - name: Rehearse upgrade from the staging ledger boundary
+        run: supabase db reset --local --version 20261206000000 --no-seed
+
+      - name: Seed synthetic legacy Laundry events before pending migrations
+        run: |
+          db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
+          if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then
+            echo "Refusing to seed anything except the isolated local Supabase database." >&2
+            exit 1
+          fi
+          psql "$db_url" --set ON_ERROR_STOP=1 --file scripts/fixtures/laundry-mutation-backfill.sql
+
+      - name: Apply pending migrations after synthetic legacy data
+        run: supabase migration up --local
+
+      - name: Verify and clean synthetic migration backfill rows
+        run: |
+          db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
+          if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then
+            echo "Refusing to verify or clean anything except the isolated local Supabase database." >&2
+            exit 1
+          fi
+          psql "$db_url" --set ON_ERROR_STOP=1 --file scripts/assertions/laundry-mutation-backfill-and-cleanup.sql
+
+      - name: Verify local migration ledger against repository (read-only)
+        run: npm run preflight:db-migrations:local
+
+      - name: Run database tests
+        run: npm run test:db
+
+      - name: Verify concurrent NIS reservation
+        run: npm run test:db:nis-race
+
+      - name: Verify concurrent Tahfidz teacher slot reservation
+        run: npm run test:db:tahfidz-session-race
+
+      - name: Verify legacy library catalog import preview logic
+        run: npm run test:library-legacy-import
+
+      - name: Verify legacy library circulation import and explicit mappings
+        run: npm run test:library-circulation-import
+
+      - name: Verify cooperative catalog import preview logic
+        run: npm run test:cooperative-legacy-import
+
+      - name: Verify legacy CBT settings import preview logic
+        run: npm run test:cbt-settings-import
+
+      - name: Verify stable idempotency keys for retried mutations
+        run: npm run test:pending-mutation-id
+
+      - name: Verify legacy HRIS employee import preview logic
+        run: npm run test:hris-legacy-import
+
+      - name: Verify Alumni graduation workflow logic
+        run: npm run test:alumni-workflow
+
+      - name: Verify legacy PPDB import preview logic
+        run: npm run test:ppdb-legacy-import
+
+      - name: Verify API auth and tenant isolation
+        run: npm run test:api:auth-tenant
+
+      - name: Verify Finance expenses use tenant-owned organization units
+        run: npm run test:supabase-finance-unit-scope
+
+      - name: Verify Finance unit filter keeps legacy records visible
+        run: npm run test:finance-unit-filter
+
+      - name: Verify Finance proof and PPDB document Storage HTTP flows
+        run: npm run test:api:finance-storage
+
+      - name: Verify private digital library Storage HTTP flows
+        run: npm run test:api:library-storage
+
+      - name: Verify local database backup and restore
+        run: npm run test:db:backup-restore
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
+

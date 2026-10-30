@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { lazy, useRef, useState, useEffect } from "react";
 import {
   Sparkles,
   Upload,
@@ -9,7 +9,6 @@ import {
   GraduationCap,
   X,
   Building,
-  Download,
   Copy,
   Check,
   AlertCircle,
@@ -20,12 +19,30 @@ import { cn } from "../lib/utils";
 import { Candidate } from "../types";
 import { RegionSelector } from "./RegionSelector";
 import { systemSettingsService, SystemSettings } from "../services/systemSettingsService";
-import { PDFDownloadLink } from "@react-pdf/renderer";
-import { CandidatePDFDocument } from "./CandidatePDFCard";
+const CandidatePDFDownload = lazy(() => import("./CandidatePDFDownload").then((module) => ({ default: module.CandidatePDFDownload })));
 
 interface PublicRegistrationFormProps {
   onClose: () => void;
   onSubmit?: (data: Candidate) => void;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function fileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const separator = result.indexOf(",");
+      if (separator < 0) { reject(new Error("Berkas tidak dapat dibaca.")); return; }
+      resolve(result.slice(separator + 1));
+    };
+    reader.onerror = () => reject(new Error("Berkas tidak dapat dibaca."));
+    reader.readAsDataURL(file);
+  });
 }
 
 export function PublicRegistrationForm({
@@ -49,12 +66,14 @@ export function PublicRegistrationForm({
     },
   });
 
-  const [uploadedFiles, setUploadedFiles] = useState<Record<string, string>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPublicRegistrationAvailable, setIsPublicRegistrationAvailable] = useState(false);
+  const [isServerDocumentUploadEnabled, setIsServerDocumentUploadEnabled] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedCandidate, setSubmittedCandidate] = useState<Candidate | null>(null);
   const [copiedId, setCopiedId] = useState(false);
+  const submissionRequestRef = useRef<{ fingerprint: string; id: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -71,6 +90,7 @@ export function PublicRegistrationForm({
           generalSettings: { ...current.generalSettings, academicYear: config.academicYear || current.generalSettings.academicYear },
           orgInfo: { ...current.orgInfo, ...(config.orgInfo || {}) },
         }));
+        setIsServerDocumentUploadEnabled(config.documentUploadEnabled === true);
         setIsPublicRegistrationAvailable(true);
       })
       .catch((error) => {
@@ -87,7 +107,22 @@ export function PublicRegistrationForm({
     file: File | null
   ) => {
     if (!file) return;
-    setUploadedFiles((prev) => ({ ...prev, [key]: file.name }));
+    if (!["application/pdf", "image/jpeg", "image/png"].includes(file.type)) {
+      setSubmitError("Format berkas harus PDF, JPG, atau PNG.");
+      return;
+    }
+    const perFileLimit = isServerDocumentUploadEnabled ? 1024 * 1024 : 2 * 1024 * 1024;
+    if (file.size > perFileLimit) {
+      setSubmitError(`Ukuran setiap berkas maksimal ${isServerDocumentUploadEnabled ? "1" : "2"} MB.`);
+      return;
+    }
+    const nextFiles = { ...uploadedFiles, [key]: file };
+    if (isServerDocumentUploadEnabled && Object.values(nextFiles).reduce((sum, item) => sum + item.size, 0) > 3 * 1024 * 1024) {
+      setSubmitError("Total seluruh berkas maksimal 3 MB.");
+      return;
+    }
+    setSubmitError(null);
+    setUploadedFiles(nextFiles);
     setFormData((prev) => ({
       ...prev,
       documents: {
@@ -116,19 +151,37 @@ export function PublicRegistrationForm({
       fatherName: formData.fatherName?.trim() || "", motherName: formData.motherName?.trim() || "",
       fatherJob: formData.fatherJob?.trim() || "", motherJob: formData.motherJob?.trim() || "",
       fatherEducation: formData.fatherEducation?.trim() || "", motherEducation: formData.motherEducation?.trim() || "",
-      familyIncome: formData.familyIncome?.trim() || "", documents: formData.documents || {},
+      familyIncome: formData.familyIncome?.trim() || "",
+      documents: Object.fromEntries(["kk", "birthCertificate", "reportCards", "ijazah", "skhun", "pasPhoto"].map((key) => [key, Boolean(uploadedFiles[key])])),
     };
 
     try {
+      const requiredFiles = ["kk", "birthCertificate", "reportCards", "pasPhoto"];
+      if (isServerDocumentUploadEnabled && requiredFiles.some((key) => !uploadedFiles[key])) {
+        throw new Error("Unggah Kartu Keluarga, Akta Kelahiran, Rapor Terakhir, dan Pas Foto sebelum mengirim pendaftaran.");
+      }
+      const files: Record<string, { name: string; mimeType: string; base64: string }> = {};
+      if (isServerDocumentUploadEnabled) {
+        await Promise.all(Object.entries(uploadedFiles).map(async ([key, file]) => {
+          files[key] = { name: file.name, mimeType: file.type, base64: await fileAsBase64(file) };
+        }));
+      }
+      const requestBody = JSON.stringify({ candidate, files });
+      const requestFingerprint = await sha256Hex(requestBody);
+      if (!submissionRequestRef.current || submissionRequestRef.current.fingerprint !== requestFingerprint) {
+        submissionRequestRef.current = { fingerprint: requestFingerprint, id: globalThis.crypto.randomUUID() };
+      }
+      const clientRequestId = submissionRequestRef.current.id;
       const response = await fetch("/api/public/ppdb/registrations", {
         method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ candidate }),
+        body: JSON.stringify({ candidate, files, clientRequestId }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Gagal menyimpan data pendaftaran. Silakan coba kembali.");
       if (!payload.candidate?.id || !payload.candidate?.registrationId) throw new Error("Server tidak mengembalikan nomor pendaftaran yang valid.");
       const fullCandidate = payload.candidate as Candidate;
       setSubmittedCandidate(fullCandidate);
+      submissionRequestRef.current = null;
       setStep(5);
       onSubmit?.(fullCandidate);
     } catch (error: any) {
@@ -505,6 +558,24 @@ export function PublicRegistrationForm({
                         placeholder="08xxxxxxxxxx (Krusial: Digunakan untuk notifikasi jadwal ujian & kelulusan)"
                       />
                     </div>
+                    <div className="col-span-1 md:col-span-2">
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Email Wali untuk Portal Wali Santri <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        maxLength={254}
+                        autoComplete="email"
+                        value={formData.email || ""}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value.trimStart() })}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        placeholder="email wali yang dapat dibuka untuk konfirmasi"
+                      />
+                      <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                        Gunakan email aktif milik wali. Wali akan mendaftar sendiri dan harus mengonfirmasi email ini sebelum mendapat akses portal.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -549,7 +620,7 @@ export function PublicRegistrationForm({
                                 {doc.label} {doc.req && <span className="text-red-500">*</span>}
                               </h4>
                               <p className="text-xs text-slate-500 mt-1">
-                                Format: PDF, JPG, PNG (Maks 2MB)
+                                Format: PDF, JPG, PNG (Maks {isServerDocumentUploadEnabled ? "1 MB/file, total 3 MB" : "2 MB/file"})
                               </p>
                             </div>
                             {isUploaded && (
@@ -560,7 +631,7 @@ export function PublicRegistrationForm({
                           <div className="relative">
                             <input
                               type="file"
-                              accept=".pdf,image/*"
+                              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                               onChange={(e) =>
                                 handleFileUpload(key, e.target.files?.[0] || null)
                               }
@@ -579,7 +650,7 @@ export function PublicRegistrationForm({
                             </div>
                             {isUploaded && (
                               <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2 truncate w-full">
-                                File terpilih: {uploadedFiles[key]}
+                                File terpilih: {uploadedFiles[key].name}
                               </p>
                             )}
                           </div>
@@ -700,25 +771,7 @@ export function PublicRegistrationForm({
               )}
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                {submittedCandidate && (
-                  <PDFDownloadLink
-                    document={
-                      <CandidatePDFDocument
-                        candidate={submittedCandidate}
-                        settings={systemSettings}
-                      />
-                    }
-                    fileName={`Kartu_PPDB_${submittedCandidate.registrationId}.pdf`}
-                    className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
-                  >
-                    {({ loading }) => (
-                      <>
-                        <Download className="w-4 h-4" />
-                        <span>{loading ? "Menyiapkan Berkas PDF..." : "Unduh Kartu Pendaftaran (PDF)"}</span>
-                      </>
-                    )}
-                  </PDFDownloadLink>
-                )}
+                {submittedCandidate && <CandidatePDFDownload candidate={submittedCandidate} settings={systemSettings} />}
 
                 <button
                   type="button"

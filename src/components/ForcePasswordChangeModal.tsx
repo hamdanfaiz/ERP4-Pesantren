@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { getAuthSession } from '../authSession';
-import { supabase } from '../utils/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { KeyRound, ShieldCheck, AlertCircle, Eye, EyeOff, LogOut, CheckCircle2 } from 'lucide-react';
 
 export function ForcePasswordChangeModal() {
-  const { user, clearMustChangePassword, refreshProfile, logout } = useAuth();
+  const { user, changeInitialPassword, refreshProfile, logout } = useAuth();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,23 +29,10 @@ export function ForcePasswordChangeModal() {
       return;
     }
 
-    if (!getAuthSession()) {
-      setError('Sesi autentikasi tidak ditemukan. Silakan login kembali.');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      const { error: passwordError } = await supabase.auth.updateUser({ password: newPassword });
-      if (passwordError) {
-        const expired = /session|reauth|recent/i.test(passwordError.message);
-        throw new Error(expired
-          ? 'Sesi autentikasi telah kedaluwarsa. Silakan keluar dan login kembali.'
-          : passwordError.message);
-      }
-
-      // 2. Clear mustChangePassword flag via self-authenticated backend endpoint
-      await clearMustChangePassword();
+      // Password update and server-owned requirement flag are handled in one authenticated API flow.
+      await changeInitialPassword(newPassword);
 
       // 3. Refresh user profile in AuthContext
       await refreshProfile();
@@ -114,6 +99,7 @@ export function ForcePasswordChangeModal() {
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     minLength={12}
+                    maxLength={128}
                     placeholder="Minimal 12 karakter aman..."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10"
                   />

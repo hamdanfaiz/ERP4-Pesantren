@@ -1,6 +1,4 @@
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { getAccessToken, getAuthSession } from "../authSession";
-import { db } from "../firebase";
+import { getAccessToken } from "../authSession";
 import { ModuleId } from "../types";
 import { UserRole, ROLE_MODULES, isModuleAccessible, getAllowedModulesForUser } from "../rbac";
 
@@ -27,7 +25,6 @@ export interface OrgInfo {
 
 export interface IntegrationsConfig {
   waGatewayEndpoint?: string;
-  paymentGatewayProvider?: "midtrans" | "xendit";
   smtpHost: string;
   smtpPort: string;
   smtpUser?: string;
@@ -73,7 +70,6 @@ export const DEFAULT_ORG_INFO: OrgInfo = {
 
 export const DEFAULT_INTEGRATIONS: IntegrationsConfig = {
   waGatewayEndpoint: "https://api.wagw.example.com/v1/send",
-  paymentGatewayProvider: "midtrans",
   smtpHost: "smtp.gmail.com",
   smtpPort: "587",
   smtpUser: "noreply@pesantrenaistudio.edu",
@@ -114,14 +110,25 @@ export const ALL_MODULE_LIST: { id: ModuleId; name: string; category: string }[]
   { id: "crm", name: "Parent CRM & Donatur", category: "Ecosystem" },
   { id: "donation", name: "Wakaf & Infaq Donation", category: "Ecosystem" },
   { id: "marketplace", name: "Marketplace Santri", category: "Ecosystem" },
-  { id: "ecosystem", name: "PPOB & Layanan Ekosistem", category: "Ecosystem" },
-  { id: "intelligence", name: "AI Analytics & Intelligence", category: "Core" },
+  { id: "intelligence", name: "Analitik Operasional", category: "Core" },
 ];
 
-const CACHE_KEY = "pesantren_system_settings_cache";
+class SettingsRequestError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = "SettingsRequestError";
+  }
+}
 
-function settingsCacheKey(tenantId: string): string {
-  return `${CACHE_KEY}:${encodeURIComponent(tenantId)}`;
+async function requestSupabaseSettingsApi(path: string, init: RequestInit = {}) {
+  const token = await getAccessToken();
+  const headers = new Headers(init.headers || {});
+  headers.set("Authorization", "Bearer " + token);
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const response = await fetch(path, { ...init, headers, cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new SettingsRequestError(response.status, payload.error || "Pengaturan tenant belum dapat diproses.");
+  return payload;
 }
 
 function sanitizeIntegrations(value: unknown): IntegrationsConfig {
@@ -133,27 +140,12 @@ function sanitizeIntegrations(value: unknown): IntegrationsConfig {
   return { ...DEFAULT_INTEGRATIONS, ...safe };
 }
 
-function scrubLegacySettingsCache(): void {
+function clearLegacySettingsCache(): void {
   try {
     for (let index = localStorage.length - 1; index >= 0; index -= 1) {
       const key = localStorage.key(index);
-      if (!key || !key.startsWith(CACHE_KEY)) continue;
-      try {
-        const parsed = JSON.parse(localStorage.getItem(key) || "{}");
-        if (!parsed || typeof parsed !== "object") { localStorage.removeItem(key); continue; }
-        const sanitized = { ...parsed, integrations: sanitizeIntegrations(parsed.integrations) };
-        localStorage.setItem(key, JSON.stringify(sanitized));
-      } catch {
-        localStorage.removeItem(key);
-      }
+      if (key?.startsWith("pesantren_system_settings_cache")) localStorage.removeItem(key);
     }
-  } catch { /* Browser storage is optional. */ }
-}
-
-function persistSettingsCache(tenantId: string, settings: SystemSettings): void {
-  try {
-    const safeSettings = { ...settings, integrations: sanitizeIntegrations(settings.integrations) };
-    localStorage.setItem(settingsCacheKey(tenantId), JSON.stringify(safeSettings));
   } catch { /* Browser storage is optional. */ }
 }
 
@@ -162,9 +154,13 @@ class SystemSettingsService {
   private settings: SystemSettings;
   private unsubscribeSnapshot: (() => void) | null = null;
   private activeTenantId: string | null = null;
+  private settingsReady = false;
+  private settingsLoadError: string | null = null;
+  private retrySupabaseRefresh: (() => void) | null = null;
 
   constructor() {
     this.settings = this.defaultSettings();
+    clearLegacySettingsCache();
   }
 
   private defaultSettings(): SystemSettings {
@@ -189,29 +185,6 @@ class SystemSettingsService {
     return perm;
   }
 
-  private loadFromCache(tenantId: string): SystemSettings {
-    try {
-      scrubLegacySettingsCache();
-      const cached = localStorage.getItem(settingsCacheKey(tenantId));
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        return {
-          tenantId,
-          generalSettings: { ...DEFAULT_GENERAL_SETTINGS, ...parsed.generalSettings },
-          orgInfo: { ...DEFAULT_ORG_INFO, ...parsed.orgInfo },
-          integrations: sanitizeIntegrations(parsed.integrations),
-          mobileConfig: { ...DEFAULT_MOBILE_CONFIG, ...parsed.mobileConfig },
-          permissions: parsed.permissions || this.getDefaultPermissions(),
-          updatedAt: parsed.updatedAt,
-        };
-      }
-    } catch (e) {
-      console.warn("Failed to read settings cache", e);
-    }
-
-    return this.defaultSettings();
-  }
-
   public setTenantId(tenantId: string | null | undefined): void {
     const normalizedTenantId = typeof tenantId === "string" ? tenantId.trim() : "";
     const nextTenantId = normalizedTenantId || null;
@@ -219,67 +192,69 @@ class SystemSettingsService {
 
     this.unsubscribeSnapshot?.();
     this.unsubscribeSnapshot = null;
+    this.retrySupabaseRefresh = null;
     this.activeTenantId = nextTenantId;
-    this.settings = nextTenantId ? this.loadFromCache(nextTenantId) : this.defaultSettings();
+    this.settingsReady = false;
+    this.settingsLoadError = null;
+    this.settings = nextTenantId
+      ? { ...this.defaultSettings(), tenantId: nextTenantId }
+      : this.defaultSettings();
     this.notify();
     if (nextTenantId) this.initRealtimeSync(nextTenantId);
   }
 
   private initRealtimeSync(tenantId: string) {
-    void this.startRealtimeSyncAfterSanitizing(tenantId);
+    this.initSupabaseSync(tenantId);
   }
 
-  private async startRealtimeSyncAfterSanitizing(tenantId: string): Promise<void> {
-    try {
-      const currentUser = getAuthSession();
-      if (!currentUser) return;
-      const token = await getAccessToken();
-      const response = await fetch("/api/system/settings/prepare", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + token },
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("Server belum dapat mengamankan field integrasi lama.");
-      if (this.activeTenantId !== tenantId) return;
-      this.subscribeRealtimeSettings(tenantId);
-    } catch (error) {
-      console.warn("Realtime settings sync ditunda sampai secret legacy dibersihkan backend.", error);
-    }
-  }
-
-  private subscribeRealtimeSettings(tenantId: string) {
-    try {
-      const docRef = doc(db, "tenants", tenantId, "settings", "global");
-      this.unsubscribeSnapshot = onSnapshot(
-        docRef,
-        (snap) => {
-          if (snap.exists()) {
-            const data = snap.data();
-            if (data.tenantId !== tenantId || this.activeTenantId !== tenantId) return;
-            this.settings = {
-              tenantId,
-              generalSettings: { ...DEFAULT_GENERAL_SETTINGS, ...data.generalSettings },
-              orgInfo: { ...DEFAULT_ORG_INFO, ...data.orgInfo },
-              integrations: sanitizeIntegrations(data.integrations),
-              mobileConfig: { ...DEFAULT_MOBILE_CONFIG, ...data.mobileConfig },
-              permissions: data.permissions || this.getDefaultPermissions(),
-              updatedAt: data.updatedAt,
-            };
-            this.settings.permissions["SuperAdmin"] = ALL_MODULE_LIST.reduce(
-              (acc, m) => ({ ...acc, [m.id]: true }),
-              {}
-            );
-            persistSettingsCache(tenantId, this.settings);
-            this.notify();
-          }
-        },
-        (err) => {
-          console.warn("Realtime settings sync error:", err);
+  private initSupabaseSync(tenantId: string) {
+    let active = true;
+    let loading = false;
+    const refresh = async () => {
+      if (!active || loading || this.activeTenantId !== tenantId) return;
+      loading = true;
+      try {
+        const payload = await requestSupabaseSettingsApi("/api/system/settings");
+        if (!active || this.activeTenantId !== tenantId) return;
+        const remoteVersion = payload?.updatedAt || null;
+        if (this.settingsReady && (this.settings.updatedAt || null) === remoteVersion) return;
+        const data = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
+        this.settings = {
+          tenantId,
+          generalSettings: { ...DEFAULT_GENERAL_SETTINGS, ...(data.generalSettings || {}) },
+          orgInfo: { ...DEFAULT_ORG_INFO, ...(data.orgInfo || {}) },
+          integrations: sanitizeIntegrations(data.integrations),
+          mobileConfig: { ...DEFAULT_MOBILE_CONFIG, ...(data.mobileConfig || {}) },
+          permissions: data.permissions || this.getDefaultPermissions(),
+          updatedAt: payload.updatedAt || undefined,
+        };
+        this.settings.permissions["SuperAdmin"] = ALL_MODULE_LIST.reduce(
+          (acc, module) => ({ ...acc, [module.id]: true }), {}
+        );
+        this.settingsReady = true;
+        this.settingsLoadError = null;
+        this.notify();
+      } catch (error) {
+        if (active && this.activeTenantId === tenantId && !this.settingsReady) {
+          this.settingsLoadError = "Pengaturan tenant belum dapat dimuat dari Supabase. Periksa koneksi lalu coba lagi.";
+          this.notify();
         }
-      );
-    } catch (e) {
-      console.warn("Failed to subscribe to settings document:", e);
-    }
+        console.warn("Supabase settings sync failed:", error instanceof Error ? error.message : "unknown error");
+      } finally {
+        loading = false;
+      }
+    };
+    this.retrySupabaseRefresh = () => { void refresh(); };
+    void refresh();
+    const interval = window.setInterval(() => { void refresh(); }, 60000);
+    const onVisibility = () => { if (document.visibilityState === "visible") void refresh(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    this.unsubscribeSnapshot = () => {
+      active = false;
+      if (this.activeTenantId === tenantId) this.retrySupabaseRefresh = null;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }
 
   public subscribe(listener: (settings: SystemSettings) => void): () => void {
@@ -295,6 +270,18 @@ class SystemSettingsService {
 
   public getSettings(): SystemSettings {
     return this.settings;
+  }
+
+  public isSettingsReady(): boolean {
+    return Boolean(this.activeTenantId) && this.settingsReady;
+  }
+
+  public getSettingsLoadError(): string | null {
+    return this.settingsLoadError;
+  }
+
+  public retrySettingsLoad(): void {
+    this.retrySupabaseRefresh?.();
   }
 
   public getGeneral(): GeneralSettings {
@@ -328,9 +315,17 @@ class SystemSettingsService {
   public async saveSettings(partial: Partial<SystemSettings>): Promise<void> {
     const tenantId = this.activeTenantId;
     if (!tenantId) throw new Error("Tenant aktif wajib tersedia sebelum pengaturan disimpan.");
+    if (!this.settingsReady) {
+      throw new Error("Pengaturan tenant belum selesai dimuat; penyimpanan ditolak untuk mencegah menimpa data dengan nilai awal.");
+    }
+    const permissionSource = partial.permissions ?? this.settings.permissions;
+    const permissions = Object.fromEntries(
+      Object.entries(permissionSource).map(([role, modules]) => [role, { ...modules }])
+    );
     const updated: SystemSettings = {
       ...this.settings,
       ...partial,
+      permissions,
       integrations: sanitizeIntegrations(partial.integrations ?? this.settings.integrations),
       tenantId,
       updatedAt: new Date().toISOString(),
@@ -349,14 +344,27 @@ class SystemSettingsService {
       });
     }
 
-    const docRef = doc(db, "tenants", tenantId, "settings", "global");
-    await setDoc(docRef, updated, { merge: true });
-    this.settings = updated;
-    try {
-      persistSettingsCache(tenantId, updated);
-    } catch (e) {
-      // Ignore cache write error
-    }
+    const payload = await requestSupabaseSettingsApi("/api/system/settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: updated,
+        expectedUpdatedAt: this.settings.updatedAt || null,
+      }),
+    });
+    const saved = payload?.settings && typeof payload.settings === "object" ? payload.settings : updated;
+    this.settings = {
+      ...updated,
+      ...saved,
+      tenantId,
+      generalSettings: { ...DEFAULT_GENERAL_SETTINGS, ...(saved.generalSettings || {}) },
+      orgInfo: { ...DEFAULT_ORG_INFO, ...(saved.orgInfo || {}) },
+      integrations: sanitizeIntegrations(saved.integrations),
+      mobileConfig: { ...DEFAULT_MOBILE_CONFIG, ...(saved.mobileConfig || {}) },
+      permissions: saved.permissions || this.getDefaultPermissions(),
+      updatedAt: payload.updatedAt || updated.updatedAt,
+    };
+    this.settingsReady = true;
+    this.settingsLoadError = null;
     this.notify();
   }
 

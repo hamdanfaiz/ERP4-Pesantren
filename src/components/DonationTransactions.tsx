@@ -43,7 +43,7 @@ export function DonationTransactions() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
       <div className="flex justify-between items-center">
          <div>
-           <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200">Transaction History</h2>
+           <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200">Riwayat Transaksi</h2>
            <p className="text-sm text-slate-500 dark:text-slate-400">Track incoming waqf and donation payments</p>
          </div>
          <button className="bg-slate-50 dark:bg-[#0a0a0a]  hover:bg-slate-100 dark:bg-white/5 text-slate-800 dark:text-slate-200 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
@@ -55,7 +55,7 @@ export function DonationTransactions() {
         <table className="w-full text-left">
           <thead className="bg-black/40 text-xs uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
             <tr>
-              <th className="px-6 py-4 font-medium">Transaction ID</th>
+              <th className="px-6 py-4 font-medium">ID Transaksi</th>
               <th className="px-6 py-4 font-medium">Donor & Campaign</th>
               <th className="px-6 py-4 font-medium">Date</th>
               <th className="px-6 py-4 font-medium">Method</th>

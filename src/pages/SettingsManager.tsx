@@ -1,3 +1,4 @@
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, 
@@ -18,7 +19,6 @@ import {
   AlertTriangle,
   RefreshCw,
   Send,
-  CreditCard,
   Layers,
   Sparkles
 } from 'lucide-react';
@@ -37,10 +37,14 @@ import {
 import { UserRole } from '../rbac';
 import { ModuleId } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { getLegacyOperationalDataSummary, migrateLegacyOperationalDataset } from '../firebaseUtils';
+import { getAccessToken } from '../authSession';
+import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from '../runtimeBackend';
+
+const SUPABASE_SYSTEM_SETTINGS = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS"));
+const SUPABASE_SYSTEM_SETTINGS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED") === 'true';
 
 export function SettingsManager() {
-  const { role, user } = useAuth();
+  const { role, user, refreshProfile } = useAuth();
   const { 
     settings, 
     general, 
@@ -49,30 +53,46 @@ export function SettingsManager() {
     mobileConfig: currentMobileConfig,
     permissions: currentPermissions,
     updateSettings,
+    settingsReady,
+    settingsLoadError,
+    retrySettingsLoad,
     exportBackup
   } = useSystemSettings();
 
   const [activeTab, setActiveTab] = useState<'general' | 'organization' | 'security' | 'integrations' | 'mobile' | 'backup'>('general');
   const [isSaving, setIsSaving] = useState(false);
+  const [settingsConflict, setSettingsConflict] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [legacyDataSummary, setLegacyDataSummary] = useState<any[]>(() => getLegacyOperationalDataSummary());
-  const [migrationBusyKey, setMigrationBusyKey] = useState<string | null>(null);
-  const [migrationResults, setMigrationResults] = useState<Record<string, string>>({});
-  const [migrationError, setMigrationError] = useState<string | null>(null);
-  const canMigrateLocalData = role === 'Admin' || role === 'SuperAdmin';
-  const handleMigrateLegacyDataset = async (key: string) => {
-    setMigrationBusyKey(key); setMigrationError(null);
+  const [settingsMigrationBusy, setSettingsMigrationBusy] = useState(false);
+  const [settingsMigrationReport, setSettingsMigrationReport] = useState<any>(null);
+  const [settingsMigrationError, setSettingsMigrationError] = useState<string | null>(null);
+  const runSettingsMigration = async (apply: boolean) => {
+    if (!SUPABASE_SYSTEM_SETTINGS || !SUPABASE_SYSTEM_SETTINGS_IMPORT) return;
+    setSettingsMigrationBusy(true);
+    setSettingsMigrationError(null);
     try {
-      const result = await migrateLegacyOperationalDataset(key);
-      setMigrationResults(previous => ({ ...previous, [key]: result.alreadyCompleted ? 'Dataset ini sudah pernah diproses; tidak ada duplikasi.' : `Masuk: ${result.imported}; dilewati karena ID sudah ada: ${result.skipped}.` }));
+      const token = await getAccessToken();
+      const response = await fetch('/api/system/settings/migrate', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({
+          apply,
+          ...(apply ? {
+            confirmation: 'IMPORT_TENANT_SYSTEM_SETTINGS',
+            previewFingerprint: settingsMigrationReport?.previewFingerprint,
+          } : {}),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Migrasi pengaturan tenant gagal.');
+      setSettingsMigrationReport(payload);
     } catch (error: any) {
-      setMigrationError(error?.message || 'Migrasi gagal. Data lokal tetap dipertahankan.');
+      setSettingsMigrationError(error?.message || 'Migrasi pengaturan tenant gagal.');
     } finally {
-      setMigrationBusyKey(null);
-      setLegacyDataSummary(getLegacyOperationalDataSummary());
+      setSettingsMigrationBusy(false);
     }
   };
-  const refreshLegacyDataSummary = () => { setMigrationError(null); setLegacyDataSummary(getLegacyOperationalDataSummary()); };
 
   // Local form states initialized from store
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
@@ -88,6 +108,7 @@ export function SettingsManager() {
     setIntegrations(currentIntegrations);
     setMobileConfig(currentMobileConfig);
     setPermissions(currentPermissions);
+    setSettingsConflict(false);
   }, [settings]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -107,9 +128,18 @@ export function SettingsManager() {
         mobileConfig,
         permissions,
       });
+      if (SUPABASE_SYSTEM_SETTINGS && generalSettings.timezone !== user?.tenantTimeZone) {
+        try {
+          await refreshProfile();
+        } catch {
+          showToast('Pengaturan tersimpan. Muat ulang sesi agar zona waktu Tahfidz diperbarui.', 'info');
+          return;
+        }
+      }
       showToast('Konfigurasi sistem berhasil disimpan dan disinkronkan secara realtime!', 'success');
     } catch (err: any) {
       console.error(err);
+      if (err?.status === 409) setSettingsConflict(true);
       showToast(err.message || 'Gagal menyimpan pengaturan ke database.', 'error');
     } finally {
       setIsSaving(false);
@@ -235,26 +265,43 @@ export function SettingsManager() {
         </div>
       )}
 
+      {SUPABASE_SYSTEM_SETTINGS && !settingsReady && (
+        <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+              {settingsLoadError ? <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" /> : <RefreshCw className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-indigo-500" />}
+              <div>
+                <h2 className="font-semibold text-slate-900 dark:text-white">{settingsLoadError ? "Pengaturan belum dapat dimuat" : "Memuat pengaturan tenant"}</h2>
+                <p role={settingsLoadError ? "alert" : "status"} className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                  {settingsLoadError || "Pengaturan dari Supabase sedang dimuat. Form dikunci sampai data tenant diterima agar nilai awal tidak menimpa konfigurasi tersimpan."}
+                </p>
+                {settingsLoadError && <button type="button" onClick={retrySettingsLoad} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Coba lagi</button>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-medium text-slate-700 dark:text-slate-300 border-b border-indigo-500 pb-1 inline-block">
-              Settings & Central Configuration
+              Pengaturan & Konfigurasi Pusat
             </h1>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Live Sync Active
+              Sinkronisasi Langsung Aktif
             </span>
           </div>
           <p className="text-slate-500 text-sm mt-2">
-            Kelola identitas institusi, kalender akademik, hak akses dinamis (RBAC), gateway, dan konfigurasi portal
+            Kelola identitas institusi, kalender akademik, hak akses dinamis (RBAC), integrasi layanan, dan konfigurasi portal
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={handleSaveAll}
-            disabled={isSaving}
+            disabled={isSaving || !settingsReady || settingsConflict}
             className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-indigo-500 transition-colors shadow-sm disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
@@ -263,17 +310,24 @@ export function SettingsManager() {
         </div>
       </div>
 
+      {settingsConflict && (
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/25 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm">Pengaturan sudah diubah oleh Admin lain. Perubahan Anda belum disimpan; muat ulang data terbaru sebelum mengedit kembali.</p>
+          <button type="button" onClick={retrySettingsLoad} className="shrink-0 rounded-lg border border-amber-400/60 px-3 py-2 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900/30">Muat ulang pengaturan</button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Navigation Sidebar */}
         <div className="md:col-span-1 border-r border-slate-200 dark:border-white/5 pr-4">
           <div className="flex flex-col gap-1.5">
             {[
-              { id: 'general', label: 'General & Kalender', icon: <Globe className="w-4 h-4" /> },
+              { id: 'general', label: 'Umum & Kalender', icon: <Globe className="w-4 h-4" /> },
               { id: 'organization', label: 'Profil Institusi', icon: <Building className="w-4 h-4" /> },
-              { id: 'security', label: 'Role & Matriks RBAC', icon: <Shield className="w-4 h-4" /> },
-              { id: 'integrations', label: 'Integrasi API & Gateway', icon: <Database className="w-4 h-4" /> },
+              { id: 'security', label: 'Peran & Matriks RBAC', icon: <Shield className="w-4 h-4" /> },
+              { id: 'integrations', label: 'Integrasi API & Layanan', icon: <Database className="w-4 h-4" /> },
               { id: 'mobile', label: 'Portal Wali & Santri', icon: <Smartphone className="w-4 h-4" /> },
-              { id: 'backup', label: 'Backup & Database Utility', icon: <Download className="w-4 h-4" /> },
+              { id: 'backup', label: 'Cadangan & Utilitas Basis Data', icon: <Download className="w-4 h-4" /> },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -311,44 +365,11 @@ export function SettingsManager() {
               <div className="p-6 space-y-6">
                 <div>
                   <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-indigo-400" /> General Settings & Kalender Akademik
+                    <Globe className="w-5 h-5 text-indigo-400" /> Pengaturan Umum & Kalender Akademik
                   </h2>
                   <p className="text-xs text-slate-500">
                     Parameter umum sistem yang menjadi acuan default untuk seluruh modul aplikasi.
                   </p>
-                </div>
-
-                <div className="p-5 rounded-xl border border-indigo-500/25 bg-indigo-500/[0.04] space-y-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Migrasi data operasional dari browser</h3>
-                      <p className="text-xs text-slate-500 mt-1">Pindai dataset lama pada browser ini. Data hanya dikirim setelah Admin memilih tombol migrasi; tenant ditentukan ulang dari profil server. Data lokal tidak dihapus, dan record dengan ID yang sudah ada akan dilewati.</p>
-                    </div>
-                    <button type="button" onClick={refreshLegacyDataSummary} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300">Pindai ulang</button>
-                  </div>
-                  {!canMigrateLocalData && <p className="text-xs text-amber-600">Hanya Admin tenant yang dapat memigrasikan data.</p>}
-                  {!user?.tenantId && <p className="text-xs text-rose-500">Profil aktif belum memuat tenant; migrasi dinonaktifkan.</p>}
-                  {migrationError && <p role="alert" className="text-xs text-rose-500">{migrationError}</p>}
-                  <div className="divide-y divide-slate-200 dark:divide-white/10">
-                    {legacyDataSummary.filter(dataset => dataset.count > 0 || !dataset.valid).map(dataset => (
-                      <div key={dataset.key} className="py-3 flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <div className="text-sm text-slate-700 dark:text-slate-200">{dataset.label}</div>
-                          <div className="text-[11px] text-slate-500">{dataset.count} {dataset.kind === 'array' ? 'record' : 'item'} · tujuan: {dataset.collection}</div>
-                          {migrationResults[dataset.key] && <div className="text-[11px] text-emerald-600 mt-1">{migrationResults[dataset.key]}</div>}
-                          {!dataset.valid && <div className="text-[11px] text-rose-500 mt-1">Format lokal tidak valid; periksa sebelum migrasi.</div>}
-                          {dataset.kind === 'manual' && <div className="text-[11px] text-amber-600 mt-1">Perlu rekonsiliasi dengan Master Data agar tidak membuat santri ganda.</div>}
-                                </div>
-                        {dataset.kind !== 'manual' && dataset.valid && dataset.count > 0 && (
-                          <button type="button" onClick={() => handleMigrateLegacyDataset(dataset.key)} disabled={!canMigrateLocalData || !user?.tenantId || migrationBusyKey !== null} className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium disabled:opacity-40">
-                            {migrationBusyKey === dataset.key ? 'Memindahkan…' : 'Migrasikan dataset'}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    {legacyDataSummary.every(dataset => dataset.count === 0 && dataset.valid) && <p className="py-3 text-xs text-slate-500">Tidak ada dataset operasional legacy yang terdeteksi pada browser ini.</p>}
-                  </div>
-                  <p className="text-[11px] text-slate-500">Draf formulir Master Data dan identitas lokal tidak diimpor otomatis. Draf harus diselesaikan melalui form; identitas santri/wali harus cocok dengan Master Data.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -363,7 +384,7 @@ export function SettingsManager() {
                     >
                       <option value="dark">Dark Mode (Default)</option>
                       <option value="light">Light Mode</option>
-                      <option value="system">Ikuti Sistem Perangkat (Auto Sync)</option>
+                      <option value="system">Ikuti Pengaturan Perangkat (Sinkronisasi Otomatis)</option>
                     </select>
                   </div>
 
@@ -412,7 +433,7 @@ export function SettingsManager() {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
-                      Zona Waktu Server & Presensi
+                      Zona Waktu Pesantren (Tahfidz & Operasional)
                     </label>
                     <select 
                       value={generalSettings.timezone}
@@ -551,12 +572,12 @@ export function SettingsManager() {
                               type="text" 
                               value={orgInfo.logoUrl}
                               onChange={e => setOrgInfo({...orgInfo, logoUrl: e.target.value})}
-                              placeholder="URL atau pilih upload..."
+                              placeholder="URL atau pilih berkas..."
                               className="flex-1 glass-card rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
                             />
                             <label className="flex items-center justify-center bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-indigo-500/20 transition-colors text-xs font-medium">
                               <Upload className="w-3.5 h-3.5 mr-1" />
-                              <span>Upload</span>
+                              <span>Unggah</span>
                               <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUrl')} className="hidden" />
                             </label>
                           </div>
@@ -578,12 +599,12 @@ export function SettingsManager() {
                               type="text" 
                               value={orgInfo.faviconUrl}
                               onChange={e => setOrgInfo({...orgInfo, faviconUrl: e.target.value})}
-                              placeholder="URL atau pilih upload..."
+                              placeholder="URL atau pilih berkas..."
                               className="flex-1 glass-card rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
                             />
                             <label className="flex items-center justify-center bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-indigo-500/20 transition-colors text-xs font-medium">
                               <Upload className="w-3.5 h-3.5 mr-1" />
-                              <span>Upload</span>
+                              <span>Unggah</span>
                               <input type="file" accept="image/x-icon,image/png" onChange={(e) => handleFileUpload(e, 'faviconUrl')} className="hidden" />
                             </label>
                           </div>
@@ -701,10 +722,10 @@ export function SettingsManager() {
               <div className="p-6 space-y-6">
                 <div>
                   <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-2">
-                    <Database className="w-5 h-5 text-indigo-400" /> Integrasi Gateway & Komunikasi Otomatis
+                    <Database className="w-5 h-5 text-indigo-400" /> Integrasi Komunikasi Otomatis
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Konfigurasi kunci API untuk pengiriman pesan WhatsApp massal, payment gateway SPP, dan server email.
+                    Konfigurasi alamat gateway WhatsApp dan server email. Gerbang pembayaran tidak termasuk dalam rilis awal.
                   </p>
                 </div>
 
@@ -713,13 +734,13 @@ export function SettingsManager() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <Send className="w-5 h-5 text-emerald-400" />
-                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">WhatsApp Gateway (Notifikasi Wali & Pengajar)</h3>
+                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Integrasi WhatsApp (Notifikasi Wali & Pengajar)</h3>
                     </div>
                     <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Rahasia server-side</span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Token WhatsApp tidak lagi dimasukkan atau disimpan di browser maupun Firestore. Simpan sebagai secret server bernama <code>WA_GATEWAY_API_KEY</code> pada Cloud Run Secret Manager.</p>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">API Endpoint URL</label>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat URL API</label>
                     <input
                       type="url"
                       value={integrations.waGatewayEndpoint || ''}
@@ -730,32 +751,6 @@ export function SettingsManager() {
                   </div>
                   <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-3 text-xs text-slate-500 dark:text-slate-400">
                     Pengiriman dan uji koneksi WhatsApp belum aktif sampai backend gateway dikonfigurasi. Status tidak disimulasikan sebagai koneksi berhasil.
-                  </div>
-                </div>
-
-                {/* Payment Gateway Card */}
-                <div className="p-5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/[0.02] space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-indigo-400" />
-                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Payment Gateway (VA, QRIS, & Kartu Pembayaran)</h3>
-                    </div>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Belum terhubung</span>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Penyedia Layanan (Provider)</label>
-                    <select
-                      value={integrations.paymentGatewayProvider || 'midtrans'}
-                      onChange={e => setIntegrations({...integrations, paymentGatewayProvider: e.target.value as any})}
-                      className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                    >
-                      <option value="midtrans">Midtrans Payment (Snap & Core API)</option>
-                      <option value="xendit">Xendit Invoice & XenPlatform</option>
-                    </select>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-3 space-y-1 text-xs text-slate-500 dark:text-slate-400">
-                    <p>Jangan masukkan Server Key di sini. Simpan sebagai secret server bernama <code>PAYMENT_GATEWAY_SECRET_KEY</code> di Cloud Run Secret Manager.</p>
-                    <p>Pembuatan transaksi gateway dan uji koneksi belum tersedia di backend; pilihan provider hanya konfigurasi, bukan bukti koneksi.</p>
                   </div>
                 </div>
 
@@ -801,7 +796,7 @@ export function SettingsManager() {
               <div className="p-6 space-y-6">
                 <div>
                   <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-2">
-                    <Smartphone className="w-5 h-5 text-indigo-400" /> Konfigurasi Portal Wali Santri & Mobile App
+                    <Smartphone className="w-5 h-5 text-indigo-400" /> Konfigurasi Portal Wali Santri & Aplikasi Seluler
                   </h2>
                   <p className="text-xs text-slate-500">
                     Atur transparansi nilai dan fitur mandiri yang dapat diakses oleh Wali Santri.
@@ -845,7 +840,7 @@ export function SettingsManager() {
                       className="w-5 h-5 rounded border-slate-600 bg-black/20 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0"
                     />
                     <div>
-                      <div className="font-medium text-slate-800 dark:text-slate-200">Push Notification Otomatis ke Smartphone Wali</div>
+                      <div className="font-medium text-slate-800 dark:text-slate-200">Notifikasi Otomatis ke Ponsel Wali</div>
                       <div className="text-xs text-slate-500">Kirim notifikasi instan saat setoran hafalan baru dicatat atau perizinan disetujui musyrif.</div>
                     </div>
                   </label>
@@ -893,7 +888,7 @@ export function SettingsManager() {
                       className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors"
                     >
                       <Download className="w-4 h-4" />
-                      <span>Download JSON Backup</span>
+                      <span>Unduh Cadangan JSON</span>
                     </button>
                   </div>
 
@@ -903,15 +898,15 @@ export function SettingsManager() {
                     </h3>
                     <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
                       <div className="flex justify-between py-1 border-b border-white/5">
-                        <span>Database Target:</span>
-                        <span className="font-mono text-emerald-400">Firestore (settings/global)</span>
+                        <span>Basis Data Tujuan:</span>
+                        <span className="font-mono text-emerald-400">{SUPABASE_SYSTEM_SETTINGS ? 'Supabase (tenant_settings)' : 'Firestore (settings/global)'}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-white/5">
                         <span>Modul Terdaftar:</span>
                         <span className="font-medium text-slate-300">{ALL_MODULE_LIST.length} Modul</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-white/5">
-                        <span>Role Sistem:</span>
+                        <span>Peran Sistem:</span>
                         <span className="font-medium text-slate-300">{SYSTEM_ROLES.length} Peran Pengguna</span>
                       </div>
                       <div className="flex justify-between py-1">
@@ -921,6 +916,33 @@ export function SettingsManager() {
                     </div>
                   </div>
                 </div>
+
+                {role === 'SuperAdmin' && SUPABASE_SYSTEM_SETTINGS_IMPORT && (
+                  <section className="p-5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3" aria-labelledby="settings-import-title">
+                    <div>
+                      <h3 id="settings-import-title" className="font-semibold text-sm text-slate-800 dark:text-slate-200">Migrasi Pengaturan Tenant dari Firestore</h3>
+                      <p className="text-xs text-slate-500 mt-1">Pratinjau membaca data sumber pesantren aktif dan mengabaikan kolom kredensial. Terapkan hanya setelah memeriksa nama pesantren dan tahun ajaran.</p>
+                    </div>
+                    {settingsMigrationError && <p role="alert" className="text-xs text-rose-500">{settingsMigrationError}</p>}
+                    {settingsMigrationReport && (
+                      <div className="rounded-lg bg-slate-100 dark:bg-black/20 p-3 text-xs space-y-1">
+                        <p>Sumber ditemukan: <strong>{settingsMigrationReport.sourceExists ? 'Ya' : 'Tidak; snapshot kosong'}</strong></p>
+                        <p>Pesantren: <strong>{settingsMigrationReport.settings?.orgInfo?.schoolName || '—'}</strong></p>
+                        <p>Tahun ajaran: <strong>{settingsMigrationReport.settings?.generalSettings?.academicYear || '—'}</strong></p>
+                        <p className="break-all text-slate-500">Sidik digital: {settingsMigrationReport.previewFingerprint}</p>
+                        {settingsMigrationReport.alreadyImported && <p className="text-emerald-600">Data sumber ini sudah pernah diimpor.</p>}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => void runSettingsMigration(false)} disabled={settingsMigrationBusy} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-xs font-medium disabled:opacity-50">
+                        {settingsMigrationBusy ? 'Memeriksa…' : 'Pratinjau data sumber'}
+                      </button>
+                      <button type="button" onClick={() => void runSettingsMigration(true)} disabled={settingsMigrationBusy || !settingsMigrationReport?.previewFingerprint || settingsMigrationReport?.alreadyImported} className="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium disabled:opacity-50">
+                        {settingsMigrationBusy ? 'Memproses…' : 'Terapkan snapshot yang ditinjau'}
+                      </button>
+                    </div>
+                  </section>
+                )}
               </div>
             )}
 

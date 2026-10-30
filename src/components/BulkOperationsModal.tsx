@@ -97,7 +97,7 @@ export function BulkOperationsModal({
             status: 'Inactive',
             archivedAt: new Date().toISOString(),
           });
-          onAuditLog('UPDATE', rec.id, `${rec.name} (Soft Deleted)`);
+          onAuditLog('UPDATE', rec.id, `${rec.name} (Diarsipkan)`);
         });
 
         await batch.commit();
@@ -109,14 +109,14 @@ export function BulkOperationsModal({
 
         onSuccess(
           updated,
-          `Berhasil menonaktifkan (soft delete) ${selectedRecords.length} data ${activeSubTab}.`
+          `Berhasil mengarsipkan ${selectedRecords.length} data ${activeSubTab}.`
         );
       } else {
         // Hard Delete: Permanent delete from Firestore
         selectedRecords.forEach((rec) => {
           const docRef = doc(db, collectionName, getDocId(rec.id));
           batch.delete(docRef);
-          onAuditLog('DELETE', rec.id, `${rec.name} (Hard Deleted)`);
+          onAuditLog('DELETE', rec.id, `${rec.name} (Dihapus Permanen)`);
         });
 
         await batch.commit();
@@ -269,7 +269,7 @@ export function BulkOperationsModal({
                   Peringatan Integritas Relasi Basis Data:
                 </div>
                 <p className="leading-relaxed text-amber-200/90">
-                  Menghapus entitas master dapat mempengaruhi riwayat akademik, koneksi wali santri, penempatan kamar asrama, dan absensi halaqah. Disarankan memilih opsi <b>Arsipkan (Soft Delete)</b> agar histori audit tetap terjaga.
+                  Menghapus entitas master dapat mempengaruhi riwayat akademik, koneksi wali santri, penempatan kamar asrama, dan absensi halaqah. Disarankan memilih opsi <b>Arsipkan (hapus nonpermanen)</b> agar histori audit tetap terjaga.
                 </p>
               </div>
 
@@ -294,7 +294,7 @@ export function BulkOperationsModal({
                         onChange={() => setDeleteType('soft')}
                         className="accent-amber-500"
                       />
-                      <span>Soft Delete (Direkomendasikan)</span>
+                      <span>Arsipkan (Direkomendasikan)</span>
                     </div>
                     <span className="text-[11px] text-slate-400 mt-1">
                       Ubah status menjadi <b>Inactive</b>. Data disembunyikan dari operasional aktif tanpa menghapus riwayat dokumen.
@@ -316,7 +316,7 @@ export function BulkOperationsModal({
                         onChange={() => setDeleteType('hard')}
                         className="accent-rose-500"
                       />
-                      <span>Hard Delete (Permanen)</span>
+                      <span>Hapus Permanen</span>
                     </div>
                     <span className="text-[11px] text-slate-400 mt-1">
                       Hapus dokumen secara permanen dari Cloud Firestore. Tindakan ini tidak dapat dibatalkan.

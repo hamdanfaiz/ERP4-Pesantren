@@ -40,7 +40,7 @@ export function DonationCampaigns() {
       <div className="flex justify-between items-center">
          <div>
            <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200">Active Campaigns</h2>
-           <p className="text-sm text-slate-500 dark:text-slate-400">Manage and track your fundraising goals</p>
+           <p className="text-sm text-slate-500 dark:text-slate-400">Kelola kampanye dan pantau target penggalangan dana</p>
          </div>
          <button className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
            <Plus className="w-4 h-4" /> New Campaign

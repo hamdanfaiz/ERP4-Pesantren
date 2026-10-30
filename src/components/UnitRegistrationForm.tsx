@@ -109,7 +109,7 @@ export const UnitRegistrationForm: React.FC<UnitRegistrationFormProps> = ({ onSu
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="mb-4">
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Unit Category</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kategori Unit</label>
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input 
@@ -138,7 +138,7 @@ export const UnitRegistrationForm: React.FC<UnitRegistrationFormProps> = ({ onSu
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Unit Name *</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nama Unit *</label>
               <input
                 type="text"
                 value={formData.name}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import { 
@@ -46,6 +46,7 @@ interface UserRecord {
   status: 'active' | 'disabled' | 'inactive';
   tenantId: string;
   tenantName: string;
+  organizationUnitId?: string | null;
   mustChangePassword?: boolean;
   modulePermissions?: Record<string, boolean>;
   createdAt?: string;
@@ -55,16 +56,32 @@ interface UserRecord {
   linkedSantriNis?: string;
 }
 
+interface OrganizationUnitOption {
+  id: string;
+  code: string;
+  name: string;
+  unitType: string;
+}
+
+const USER_DIRECTORY_PAGE_SIZE = 50;
+
 export function UserManagementView() {
   const { user: currentActor, role: currentRole } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [organizationUnits, setOrganizationUnits] = useState<OrganizationUnitOption[]>([]);
+  const [isLoadingOrganizationUnits, setIsLoadingOrganizationUnits] = useState(true);
+  const [unitLoadError, setUnitLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const userListRequestId = useRef(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchQueryForFetch, setSearchQueryForFetch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [backendErrorCode, setBackendErrorCode] = useState<string | null>(null);
-  const [isSdkUnavailable, setIsSdkUnavailable] = useState(false);
+  const [isIdentityUnavailable, setIsIdentityUnavailable] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
   // Modals state
@@ -76,16 +93,23 @@ export function UserManagementView() {
   const [createEmail, setCreateEmail] = useState('');
   const [createUsername, setCreateUsername] = useState('');
   const [createRole, setCreateRole] = useState<UserRole>('Ustadz');
+  const [createOrganizationUnitId, setCreateOrganizationUnitId] = useState('');
   const [createTempPassword, setCreateTempPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [createPermissions, setCreatePermissions] = useState<Record<string, boolean>>({});
   const [createLinkedName, setCreateLinkedName] = useState('');
   const [createLinkedNis, setCreateLinkedNis] = useState('');
+  const [guardianCandidates, setGuardianCandidates] = useState<Array<{ id: string; name: string; students: Array<{ id: string; nis: string; name: string; grade: string }> }>>([]);
+  const [selectedGuardianId, setSelectedGuardianId] = useState('');
+  const [isLoadingGuardians, setIsLoadingGuardians] = useState(false);
+  const [guardianInviteLink, setGuardianInviteLink] = useState('');
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   // Form states for editing
   const [editRole, setEditRole] = useState<UserRole>('Ustadz');
+  const [editOrganizationUnitId, setEditOrganizationUnitId] = useState('');
   const [editStatus, setEditStatus] = useState<'active' | 'disabled'>('active');
   const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
   const [isUpdating, setIsUpdating] = useState(false);
@@ -112,56 +136,139 @@ export function UserManagementView() {
     setCreateTempPassword(result);
   };
 
-  const fetchUsers = useCallback(async () => {
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setSearchQueryForFetch(searchQuery), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
+
+  const fetchUsers = useCallback(async (pageIndex = page) => {
     if (!currentActor) return;
-    setIsLoading(true);
+    const requestId = ++userListRequestId.current;
+    const normalizedSearchQuery = searchQueryForFetch.trim();
     setErrorBanner(null);
     setBackendErrorCode(null);
-    setIsSdkUnavailable(false);
+    setIsIdentityUnavailable(false);
 
+    if (normalizedSearchQuery && normalizedSearchQuery.length < 3) {
+      setIsLoading(false);
+      setUsers([]);
+      setTotalUsers(0);
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const token = await getAccessToken();
-
       const params = new URLSearchParams();
-      if (searchQuery.trim()) params.append('q', searchQuery.trim());
+      if (normalizedSearchQuery) params.append('q', normalizedSearchQuery);
       if (roleFilter !== 'ALL') params.append('role', roleFilter);
       if (statusFilter !== 'ALL') params.append('status', statusFilter);
+      params.append('limit', String(USER_DIRECTORY_PAGE_SIZE));
+      params.append('offset', String(pageIndex * USER_DIRECTORY_PAGE_SIZE));
 
-      const res = await fetch(`/api/users?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const res = await fetch('/api/users?' + params.toString(), {
+        headers: { 'Authorization': 'Bearer ' + token }
       });
+      if (requestId !== userListRequestId.current) return;
 
       if (res.status === 503) {
         const data = await res.json().catch(() => ({}));
-        setIsSdkUnavailable(true);
-        setBackendErrorCode(data.code || 'ADMIN_SDK_UNAVAILABLE');
-        setErrorBanner(data.error || 'Layanan Firebase Admin SDK / Firestore Store tidak tersedia.');
+        if (requestId !== userListRequestId.current) return;
+        setIsIdentityUnavailable(true);
+        setBackendErrorCode(data.code || 'SUPABASE_IDENTITY_UNAVAILABLE');
+        setErrorBanner(data.error || 'Layanan identitas Supabase tidak tersedia.');
         setUsers([]);
+        setTotalUsers(0);
         return;
       }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setIsSdkUnavailable(false);
+        if (requestId !== userListRequestId.current) return;
+        setIsIdentityUnavailable(false);
         setBackendErrorCode(data.code || 'REQUEST_FAILED');
         throw new Error(data.error || 'Gagal memuat daftar pengguna tenant.');
       }
 
       const data = await res.json();
-      setUsers(data.users || []);
+      if (requestId !== userListRequestId.current) return;
+      const nextTotal = Math.max(0, Number(data.total) || 0);
+      setTotalUsers(nextTotal);
+      if (pageIndex > 0 && pageIndex * USER_DIRECTORY_PAGE_SIZE >= nextTotal) {
+        setUsers([]);
+        setPage(Math.max(0, Math.ceil(nextTotal / USER_DIRECTORY_PAGE_SIZE) - 1));
+        return;
+      }
+      setUsers(Array.isArray(data.users) ? data.users : []);
     } catch (err: any) {
+      if (requestId !== userListRequestId.current) return;
+      setUsers([]);
+      setTotalUsers(0);
       setErrorBanner(err.message || 'Gagal menghubungi server untuk memuat pengguna.');
     } finally {
-      setIsLoading(false);
+      if (requestId === userListRequestId.current) setIsLoading(false);
     }
-  }, [currentActor, searchQuery, roleFilter, statusFilter]);
+  }, [currentActor, searchQueryForFetch, roleFilter, statusFilter, page]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
+  useEffect(() => {
+    if (!currentActor || !['Admin', 'SuperAdmin'].includes(currentRole)) {
+      setIsLoadingOrganizationUnits(false);
+      return;
+    }
+    let active = true;
+    void (async () => {
+      setIsLoadingOrganizationUnits(true);
+      setUnitLoadError(null);
+      try {
+        const token = await getAccessToken();
+        const response = await fetch('/api/users/organization-units', {
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Unit organisasi tidak dapat dimuat.');
+        if (active) setOrganizationUnits(Array.isArray(payload.units) ? payload.units : []);
+      } catch (loadError) {
+        if (active) {
+          setOrganizationUnits([]);
+          setUnitLoadError(loadError instanceof Error ? loadError.message : 'Unit organisasi tidak dapat dimuat.');
+        }
+      } finally {
+        if (active) setIsLoadingOrganizationUnits(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [currentActor, currentRole]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen || createRole !== "Walisantri") return;
+    let cancelled = false;
+    setIsLoadingGuardians(true);
+    setCreateError(null);
+    void (async () => {
+      try {
+        const token = await getAccessToken();
+        const response = await fetch("/api/users/guardian-candidates", {
+          headers: { Authorization: "Bearer " + token },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Data Wali tidak dapat dimuat.");
+        if (!cancelled) {
+          setGuardianCandidates(Array.isArray(payload.guardians) ? payload.guardians : []);
+          setSelectedGuardianId("");
+        }
+      } catch (error) {
+        if (!cancelled) setCreateError(error instanceof Error ? error.message : "Data Wali tidak dapat dimuat.");
+      } finally {
+        if (!cancelled) setIsLoadingGuardians(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isCreateModalOpen, createRole]);
   // Open Create Modal
   const handleOpenCreateModal = () => {
     setCreateName('');
@@ -169,9 +276,14 @@ export function UserManagementView() {
     setCreateUsername('');
     // If actor is Admin, default role is Ustadz (Admin cannot create Admin/SuperAdmin)
     setCreateRole('Ustadz');
+    setCreateOrganizationUnitId('');
     setCreateTempPassword('');
     setCreateLinkedName('');
     setCreateLinkedNis('');
+    setSelectedGuardianId('');
+    setGuardianCandidates([]);
+    setGuardianInviteLink('');
+    setInviteLinkCopied(false);
     setCreateError(null);
     generateRandomPassword();
     setIsCreateModalOpen(true);
@@ -182,7 +294,19 @@ export function UserManagementView() {
     e.preventDefault();
     setCreateError(null);
 
-    if (createTempPassword.length < 12) {
+    if (createRole === 'Walisantri' && !selectedGuardianId) {
+      setCreateError('Pilih data Wali yang telah terhubung ke santri aktif.');
+      return;
+    }
+    if (createRole === 'Ustadz' && isLoadingOrganizationUnits) {
+      setCreateError('Tunggu sampai daftar unit organisasi selesai dimuat.');
+      return;
+    }
+    if (createRole === 'Ustadz' && (unitLoadError || !createOrganizationUnitId)) {
+      setCreateError(unitLoadError || 'Pilih unit organisasi aktif untuk akun Ustadz.');
+      return;
+    }
+    if (createRole !== 'Walisantri' && createTempPassword.length < 12) {
       setCreateError('Kata sandi sementara harus minimal 12 karakter.');
       return;
     }
@@ -200,8 +324,34 @@ export function UserManagementView() {
       const finalPerms = createRole === 'SuperAdmin'
         ? ALL_MODULE_LIST.reduce((acc, m) => ({ ...acc, [m.id]: true }), {})
         : { ...createPermissions };
-      if (currentRole === 'Admin') {
+      if (currentRole === 'Admin' || createRole === 'Walisantri') {
         finalPerms['settings'] = false;
+      }
+
+      if (createRole === 'Walisantri') {
+        const res = await fetch('/api/users/guardian-invitations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({
+            email: createEmail.trim().toLowerCase(),
+            guardianId: selectedGuardianId,
+            modulePermissions: finalPerms,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Gagal membuat undangan Wali.');
+        if (data.linkedExistingAccount === true) {
+          setIsCreateModalOpen(false);
+          setActionSuccessMessage('Akun Wali terverifikasi berhasil ditautkan ke data Master Data.');
+          setTimeout(() => setActionSuccessMessage(null), 6000);
+          setPage(0);
+          return;
+        }
+        setGuardianInviteLink(String(data.inviteUrl || ''));
+        setActionSuccessMessage('Undangan Wali telah dibuat. Bagikan tautan aktivasi hanya ke email yang didaftarkan.');
+        setTimeout(() => setActionSuccessMessage(null), 6000);
+        setPage(0);
+        return;
       }
 
       const payload = {
@@ -211,6 +361,7 @@ export function UserManagementView() {
         role: createRole,
         tempPassword: createTempPassword,
         modulePermissions: finalPerms,
+        organizationUnitId: createRole === 'Ustadz' ? createOrganizationUnitId : undefined,
         linkedSantriName: createLinkedName.trim() || undefined,
         linkedSantriNis: createLinkedNis.trim() || undefined,
       };
@@ -227,8 +378,8 @@ export function UserManagementView() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 503) {
-        setIsSdkUnavailable(true);
-        throw new Error(data.error || 'Firebase Admin SDK credentials are not configured in preview.');
+        setIsIdentityUnavailable(true);
+        throw new Error(data.error || 'Layanan Supabase Auth belum tersedia pada backend.');
       }
 
       if (!res.ok) {
@@ -238,7 +389,8 @@ export function UserManagementView() {
       setIsCreateModalOpen(false);
       setActionSuccessMessage(`Pengguna "${createName}" berhasil dibuat dengan status mustChangePassword=true.`);
       setTimeout(() => setActionSuccessMessage(null), 5000);
-      fetchUsers();
+      setPage(0);
+      void fetchUsers(0);
     } catch (err: any) {
       setCreateError(err.message || 'Terjadi kesalahan saat membuat pengguna.');
     } finally {
@@ -250,6 +402,7 @@ export function UserManagementView() {
   const handleOpenEditModal = (targetUser: UserRecord) => {
     setEditingUser(targetUser);
     setEditRole(targetUser.role);
+    setEditOrganizationUnitId(targetUser.organizationUnitId || '');
     setEditStatus(targetUser.status === 'active' ? 'active' : 'disabled');
     
     // Set existing permissions or default
@@ -267,6 +420,15 @@ export function UserManagementView() {
     if (!editingUser) return;
     setEditError(null);
 
+    if (editRole === 'Ustadz' && isLoadingOrganizationUnits) {
+      setEditError('Tunggu sampai daftar unit organisasi selesai dimuat.');
+      return;
+    }
+    if (editRole === 'Ustadz' && (unitLoadError || !editOrganizationUnitId)) {
+      setEditError(unitLoadError || 'Pilih unit organisasi aktif untuk akun Ustadz.');
+      return;
+    }
+
     // Self demote & disable checks
     if (editingUser.uid === currentActor?.uid) {
       if (editStatus !== 'active') {
@@ -274,7 +436,7 @@ export function UserManagementView() {
         return;
       }
       if (editRole !== currentRole) {
-        setEditError('Anda tidak dapat mengubah role akun Anda sendiri.');
+        setEditError('Anda tidak dapat mengubah peran akun Anda sendiri.');
         return;
       }
     }
@@ -306,6 +468,7 @@ export function UserManagementView() {
         role: editRole,
         status: editStatus,
         modulePermissions: finalPerms,
+        organizationUnitId: editRole === 'Ustadz' ? editOrganizationUnitId : null,
       };
 
       const res = await fetch(`/api/users/${editingUser.uid}`, {
@@ -320,7 +483,7 @@ export function UserManagementView() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 503) {
-        throw new Error(data.error || 'Firebase Admin SDK credentials are not configured in preview.');
+        throw new Error(data.error || 'Layanan Supabase Auth belum tersedia pada backend.');
       }
 
       if (!res.ok) {
@@ -357,7 +520,7 @@ export function UserManagementView() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 503) {
-        alert(data.error || 'Firebase Admin SDK credentials unavailable in this preview environment.');
+        alert(data.error || 'Layanan Supabase Auth belum tersedia pada backend.');
         return;
       }
 
@@ -488,29 +651,26 @@ export function UserManagementView() {
       )}
 
       {/* Error / SDK Warning Banner */}
-      {isSdkUnavailable && (
+      {isIdentityUnavailable && (
         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs space-y-2">
           <div className="flex items-center gap-2 font-bold text-sm">
             <ServerOff className="w-4 h-4 text-amber-500 shrink-0" />
             <span>
-              {backendErrorCode === 'ADMIN_PROFILE_STORE_UNAVAILABLE'
-                ? 'Layanan Penyimpanan Profil Admin (Firestore) Belum Tersedia'
-                : 'Kredensial Firebase Admin SDK Belum Terpasang di Server'}
+              Layanan identitas Supabase belum tersedia
             </span>
           </div>
           <p className="leading-relaxed">
             {errorBanner}
           </p>
           <div className="p-3 bg-black/10 dark:bg-black/30 rounded-lg font-mono text-[11px] leading-relaxed space-y-1">
-            <div className="font-semibold text-slate-800 dark:text-slate-200">Panduan Konfigurasi IAM Backend (Google Cloud Console):</div>
-            <div>1. Berikan IAM Role <strong>Cloud Datastore User</strong> (<code>roles/datastore.user</code>) dan <strong>Firebase Authentication Admin</strong> pada Service Account backend Cloud Run.</div>
-            <div>2. Pastikan target database Firestore (<code>ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8</code>) aktif pada GCP project <code>graphite-ship-q5xj8</code>.</div>
-            <div>3. Untuk lingkungan runtime lokal: pasang variabel <code>GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json</code>.</div>
+            <div className="font-semibold text-slate-800 dark:text-slate-200">Periksa konfigurasi backend Supabase:</div>
+            <div>Pastikan <code>SUPABASE_URL</code> dan <code>SUPABASE_SECRET_KEY</code> tersedia hanya pada server, serta migrasi profil tenant telah diterapkan.</div>
+            <div>Jangan menaruh secret key di variabel frontend atau mengirimkannya ke browser.</div>
           </div>
         </div>
       )}
 
-      {errorBanner && !isSdkUnavailable && (
+      {errorBanner && !isIdentityUnavailable && (
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-sm flex items-center gap-3">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <div className="space-y-0.5">
@@ -529,19 +689,32 @@ export function UserManagementView() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              userListRequestId.current += 1;
+              setIsLoading(false);
+              setUsers([]);
+              setTotalUsers(0);
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
             placeholder="Cari nama, email, atau username pengguna..."
+            aria-describedby="user-directory-search-help"
             className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
+          <p id="user-directory-search-help" aria-live="polite" className="mt-1.5 px-1 text-[11px] text-slate-500 dark:text-slate-400">
+            {searchQuery.trim().length > 0 && searchQuery.trim().length < 3
+              ? 'Ketik minimal 3 karakter untuk mencari.'
+              : 'Pencarian mulai setelah Anda berhenti mengetik.'}
+          </p>
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto">
           <select
             value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
+            onChange={(e) => { setRoleFilter(e.target.value); setPage(0); }}
             className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            <option value="ALL">Semua Role</option>
+            <option value="ALL">Semua Peran</option>
             <option value="SuperAdmin">Super Admin</option>
             <option value="Admin">Admin</option>
             <option value="Ustadz">Ustadz/Staff</option>
@@ -551,7 +724,7 @@ export function UserManagementView() {
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
             className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="ALL">Semua Status</option>
@@ -568,7 +741,7 @@ export function UserManagementView() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 <th className="py-3 px-4">Pengguna</th>
-                <th className="py-3 px-4">Role & Hak Akses</th>
+                <th className="py-3 px-4">Peran & Hak Akses</th>
                 <th className="py-3 px-4">Status & Keamanan</th>
                 <th className="py-3 px-4">Modul Aktif</th>
                 <th className="py-3 px-4 text-right">Aksi</th>
@@ -589,9 +762,9 @@ export function UserManagementView() {
                   <td colSpan={5} className="py-12 text-center text-slate-400">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     <div>Tidak ada pengguna ditemukan.</div>
-                    {isSdkUnavailable && (
+                    {isIdentityUnavailable && (
                       <p className="text-[11px] text-amber-500/80 mt-1">
-                        Backend memerlukan konfigurasi Application Default Credentials (ADC) dan IAM role Cloud Datastore User untuk membaca data Firestore.
+                        Pastikan backend Supabase dan tabel profil tenant tersedia.
                       </p>
                     )}
                   </td>
@@ -640,6 +813,11 @@ export function UserManagementView() {
                           <div className="text-[10px] text-slate-400 mt-1">
                             Tenant: <span className="font-mono">{item.tenantName || item.tenantId}</span>
                           </div>
+                          {item.role === 'Ustadz' && (
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              Unit: {organizationUnits.find((unit) => unit.id === item.organizationUnitId)?.name || (item.organizationUnitId ? 'Unit tidak aktif / tidak dimuat' : 'Belum ditugaskan')}
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -698,7 +876,7 @@ export function UserManagementView() {
                             title={
                               currentRole === 'Admin' && (item.role === 'SuperAdmin' || (item.role === 'Admin' && !isCurrentActor))
                                 ? 'Admin tidak berwenang mengedit akun SuperAdmin atau Admin lainnya'
-                                : 'Edit Role & Hak Akses Modul'
+                                : 'Ubah Peran & Hak Akses Modul'
                             }
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -754,6 +932,33 @@ export function UserManagementView() {
         </div>
       </div>
 
+      <div className="glass-panel px-4 py-3 rounded-2xl border border-slate-200/80 dark:border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+        <p className="text-slate-500 dark:text-slate-400" aria-live="polite">
+          Menampilkan {totalUsers === 0 ? 0 : page * USER_DIRECTORY_PAGE_SIZE + 1}–{Math.min(page * USER_DIRECTORY_PAGE_SIZE + users.length, totalUsers)} dari {totalUsers} pengguna
+        </p>
+        <div className="flex items-center justify-between sm:justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.max(0, current - 1))}
+            disabled={isLoading || page === 0}
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Sebelumnya
+          </button>
+          <span className="min-w-24 text-center text-slate-500 dark:text-slate-400">
+            Halaman {page + 1} dari {Math.max(1, Math.ceil(totalUsers / USER_DIRECTORY_PAGE_SIZE))}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((current) => current + 1)}
+            disabled={isLoading || (page + 1) * USER_DIRECTORY_PAGE_SIZE >= totalUsers}
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Berikutnya
+          </button>
+        </div>
+      </div>
+
       {/* CREATE USER MODAL */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
@@ -787,6 +992,7 @@ export function UserManagementView() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {createRole !== 'Walisantri' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
                     Nama Lengkap <span className="text-red-500">*</span>
@@ -801,6 +1007,7 @@ export function UserManagementView() {
                   />
                 </div>
 
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
                     Email Pengguna <span className="text-red-500">*</span>
@@ -823,7 +1030,7 @@ export function UserManagementView() {
                   </label>
                   <select
                     value={createRole}
-                    onChange={(e) => setCreateRole(e.target.value as UserRole)}
+                    onChange={(e) => { setCreateRole(e.target.value as UserRole); setGuardianInviteLink(''); setCreateError(null); }}
                     className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="Ustadz">Ustadz / Tenaga Pengajar</option>
@@ -850,6 +1057,7 @@ export function UserManagementView() {
                   )}
                 </div>
 
+                {createRole !== 'Walisantri' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
                     Username (Opsional)
@@ -862,9 +1070,42 @@ export function UserManagementView() {
                     className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+                )}
               </div>
 
-              {/* Temporary Password Field */}
+              {createRole === 'Ustadz' && (
+                <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-2">
+                  <label htmlFor="create-user-organization-unit" className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Unit organisasi penugasan <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="create-user-organization-unit"
+                    value={createOrganizationUnitId}
+                    onChange={(event) => { setCreateOrganizationUnitId(event.target.value); setCreateError(null); }}
+                    required
+                    disabled={isCreating || isLoadingOrganizationUnits || Boolean(unitLoadError) || organizationUnits.length === 0}
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white disabled:opacity-60"
+                  >
+                    <option value="">{isLoadingOrganizationUnits ? 'Memuat unit organisasi…' : 'Pilih unit organisasi aktif'}</option>
+                    {organizationUnits.map((unit) => (
+                      <option key={unit.id} value={unit.id}>{unit.name} · {unit.code}</option>
+                    ))}
+                  </select>
+                  {unitLoadError ? (
+                    <p role="alert" className="text-[10px] text-red-600 dark:text-red-400">{unitLoadError}</p>
+                  ) : isLoadingOrganizationUnits ? (
+                    <p role="status" className="text-[10px] text-slate-500 dark:text-slate-400">Memuat unit aktif pada tenant ini…</p>
+                  ) : organizationUnits.length === 0 ? (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">Belum ada unit aktif. Buat unit organisasi tenant terlebih dahulu sebelum membuat akun Ustadz.</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Akun Ustadz hanya dapat mengajukan pengeluaran untuk unit yang ditugaskan di sini.</p>
+                  )}
+                </div>
+              )}
+
+              {createRole !== 'Walisantri' && (
+                <>
+                  {/* Temporary Password Field */}
               <div className="p-3.5 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
@@ -901,12 +1142,14 @@ export function UserManagementView() {
                 </div>
 
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  🛡️ <strong>Prinsip Keamanan Zero-Knowledge:</strong> Kata sandi sementara hanya digunakan untuk aktivasi pertama kali. Pengguna akan diwajibkan mengubah kata sandi saat pertama kali login (<code>mustChangePassword=true</code>). Kata sandi tidak disimpan di Firestore, log, ataupun respon server.
+                  🛡️ <strong>Perlindungan kredensial:</strong> Kata sandi sementara hanya digunakan untuk aktivasi pertama kali. Pengguna diwajibkan mengubah kata sandi saat pertama kali login (<code>mustChangePassword=true</code>). Kata sandi tidak disimpan sebagai plaintext di tabel profil, log, atau respons server.
                 </p>
               </div>
+                </>
+              )}
 
-              {/* Santri Linkage (if Walisantri or Santri) */}
-              {(createRole === 'Walisantri' || createRole === 'Santri') && (
+                            {/* Student accounts link to one verified student; guardian accounts use the canonical guardian relation below. */}
+              {createRole === 'Santri' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
@@ -922,25 +1165,93 @@ export function UserManagementView() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                      NIS Santri Terhubung
+                      NIS Santri Terhubung <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
+                      inputMode="numeric"
                       value={createLinkedNis}
-                      onChange={(e) => setCreateLinkedNis(e.target.value)}
-                      placeholder="Contoh: 202607001"
+                      onChange={(e) => setCreateLinkedNis(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      required
+                      placeholder="Masukkan NIS yang terdaftar"
                       className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white"
                     />
+                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                      NIS diverifikasi ke data santri aktif pada tenant ini. Akun Wali hanya dapat ditautkan jika relasi Wali sudah tercatat di Master Data.
+                    </p>
                   </div>
                 </div>
               )}
 
+              {createRole === 'Walisantri' && (
+                <div className="p-3.5 bg-cyan-500/5 border border-cyan-500/20 rounded-xl space-y-2">
+                  <label htmlFor="guardian-account-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Data Wali pada Master Data <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="guardian-account-select"
+                    value={selectedGuardianId}
+                    onChange={(event) => setSelectedGuardianId(event.target.value)}
+                    required
+                    disabled={isLoadingGuardians || guardianCandidates.length === 0}
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white"
+                  >
+                    <option value="">{isLoadingGuardians ? 'Memuat data Wali…' : 'Pilih Wali yang terhubung ke santri aktif'}</option>
+                    {guardianCandidates.map((guardian) => (
+                      <option key={guardian.id} value={guardian.id}>
+                        {guardian.name} — {guardian.students.map((student) => student.name + ' (' + student.nis + ')').join(', ')}
+                      </option>
+                    ))}
+                  </select>
+                  {guardianCandidates.length === 0 && !isLoadingGuardians ? (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                      Tidak ada Wali aktif tanpa akun. Periksa Master Data dan relasi Wali–santri.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Hak akses santri mengikuti seluruh relasi aktif Wali pada tenant. Wali membuat kata sandi sendiri melalui tautan aktivasi.
+                    </p>
+                  )}
+                  {guardianInviteLink && (
+                    <div className="space-y-2 pt-2 border-t border-cyan-500/20">
+                      <label htmlFor="guardian-invite-link" className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        Tautan aktivasi Wali
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="guardian-invite-link"
+                          readOnly
+                          value={guardianInviteLink}
+                          className="min-w-0 flex-1 px-3 py-2 rounded-lg text-[11px] bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(guardianInviteLink);
+                              setInviteLinkCopied(true);
+                            } catch {
+                              setCreateError('Tautan tidak dapat disalin otomatis. Salin dari kolom tautan.');
+                            }
+                          }}
+                          className="px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-semibold"
+                        >
+                          {inviteLinkCopied ? 'Tersalin' : 'Salin'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                        Tautan bersifat rahasia dan kedaluwarsa dalam 24 jam. Kirim hanya kepada pemilik email yang didaftarkan.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Module Permissions Checklist */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span>Izin Akses Modul Sistem (Per-User Module Permissions)</span>
+                    <span>Izin akses modul sistem khusus pengguna</span>
                   </label>
                   {createRole !== 'SuperAdmin' && (
                     <div className="flex items-center gap-2 text-[11px]">
@@ -1042,7 +1353,7 @@ export function UserManagementView() {
                   ) : (
                     <>
                       <UserPlus className="w-4 h-4" />
-                      <span>Simpan & Buat Pengguna</span>
+                      <span>{createRole === 'Walisantri' ? (guardianInviteLink ? 'Buat Ulang Undangan' : 'Buat Tautan Aktivasi') : 'Simpan & Buat Pengguna'}</span>
                     </>
                   )}
                 </button>
@@ -1062,7 +1373,7 @@ export function UserManagementView() {
                   <Edit3 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base">Edit Pengguna & Hak Akses Modul</h3>
+                  <h3 className="font-bold text-base">Ubah Pengguna & Hak Akses Modul</h3>
                   <p className="text-xs text-slate-300">
                     {editingUser.name} ({editingUser.email})
                   </p>
@@ -1111,7 +1422,7 @@ export function UserManagementView() {
                     )}
                   </select>
                   {editingUser.uid === currentActor?.uid && (
-                    <p className="text-[10px] text-amber-500 mt-1">Anda tidak dapat mengubah role akun Anda sendiri.</p>
+                    <p className="text-[10px] text-amber-500 mt-1">Anda tidak dapat mengubah peran akun Anda sendiri.</p>
                   )}
                 </div>
 
@@ -1133,6 +1444,36 @@ export function UserManagementView() {
                   )}
                 </div>
               </div>
+
+              {editRole === 'Ustadz' && (
+                <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-2">
+                  <label htmlFor="edit-user-organization-unit" className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Unit organisasi penugasan <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="edit-user-organization-unit"
+                    value={editOrganizationUnitId}
+                    onChange={(event) => { setEditOrganizationUnitId(event.target.value); setEditError(null); }}
+                    required
+                    disabled={isUpdating || isLoadingOrganizationUnits || Boolean(unitLoadError) || organizationUnits.length === 0}
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white disabled:opacity-60"
+                  >
+                    <option value="">{isLoadingOrganizationUnits ? 'Memuat unit organisasi…' : 'Pilih unit organisasi aktif'}</option>
+                    {organizationUnits.map((unit) => (
+                      <option key={unit.id} value={unit.id}>{unit.name} · {unit.code}</option>
+                    ))}
+                  </select>
+                  {unitLoadError ? (
+                    <p role="alert" className="text-[10px] text-red-600 dark:text-red-400">{unitLoadError}</p>
+                  ) : isLoadingOrganizationUnits ? (
+                    <p role="status" className="text-[10px] text-slate-500 dark:text-slate-400">Memuat unit aktif pada tenant ini…</p>
+                  ) : organizationUnits.length === 0 ? (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">Belum ada unit aktif. Buat unit organisasi tenant terlebih dahulu sebelum menetapkan akun Ustadz.</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Finance memakai unit aktif ini untuk membatasi pengajuan dan pembacaan pengeluaran Ustadz.</p>
+                  )}
+                </div>
+              )}
 
               {/* Module Permissions Grid */}
               <div>
