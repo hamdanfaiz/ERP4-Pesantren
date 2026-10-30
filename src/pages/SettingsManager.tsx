@@ -738,7 +738,7 @@ export function SettingsManager() {
                     </div>
                     <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Rahasia server-side</span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Token WhatsApp tidak lagi dimasukkan atau disimpan di browser maupun Firestore. Simpan sebagai secret server bernama <code>WA_GATEWAY_API_KEY</code> pada Cloud Run Secret Manager.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Token WhatsApp tidak boleh dimasukkan atau disimpan di browser maupun pengaturan ERP. Simpan sebagai rahasia server bernama <code>WA_GATEWAY_API_KEY</code> di penyimpanan rahasia milik environment deployment.</p>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat URL API</label>
                     <input
