@@ -61,3 +61,11 @@ Perbandingan GitHub menemukan 430 berkas berubah pada PR #13. Daftar berkas yang
 5. Setelah kriteria pengembangan terpenuhi, tandai PR #13 siap ditinjau dan gabungkan ke main. Sesudah merge, tutup PR lama yang telah terbukti superseded dengan tautan ke PR pengganti. Jangan menandai PR lama sebagai merged jika GitHub tidak menggabungkannya.
 
 **Status audit:** PR #13 dapat ditinjau tim backend sebagai draft dengan CI hijau; belum merupakan kandidat deploy/merge. Tidak ada perubahan status PR, migrasi Supabase live, ataupun penulisan data pada audit ini.
+
+
+## Revalidasi langsung — 30 Oktober 2026, 11:34 WIB
+
+- Status GitHub terverifikasi ulang: PR #1–#11 **Open / Draft**, PR #12 **Closed / Merged**, PR #13 **Open / Draft**. Tidak ada status PR yang diubah.
+- Head PR #13: `82936497f12ff27e33964c3f25a73460f951b959`. GitHub Actions [run 41002893214](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41002893214) lulus **2/2 job** pada head ini: build/typecheck, guard runtime Firebase, Docker/Compose dan smoke test image, serta migration rehearsal, pgTAP, auth/tenant, Storage dan backup/restore lokal sintetis.
+- Perubahan setelah head kode `2b93f96da3571a828fd63e70d0fe765ebaa154f8` hanya dokumentasi; tidak ada migration atau data yang diterapkan ke Supabase live. Supabase Preview tidak berjalan karena branch tidak terhubung ke Supabase Branch, dan pembacaan proyek staging `ptsasgdvgrbdtgyqieie` tetap ditolak konektor.
+- **Keputusan:** PR #13 belum siap ditandai siap review/merge. Multi-unit Akademik/Asrama, analitik AI dan PPOB/Layanan yang fail-closed, audit integrasi penuh, audit sisa source legacy, paritas fitur #1–#11 dan rekonsiliasi ledger staging masih terbuka. Persentase pengembangan 73% tetap estimasi.
