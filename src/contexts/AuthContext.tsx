@@ -36,6 +36,8 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   changeInitialPassword: (password: string) => Promise<void>;
   completeGuardianInvitation: () => void;
+  beginGuardianRegistration: () => void;
+  completeGuardianRegistration: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -48,6 +50,8 @@ const AuthContext = createContext<AuthContextType>({
   refreshProfile: async () => {},
   changeInitialPassword: async () => {},
   completeGuardianInvitation: () => {},
+  beginGuardianRegistration: () => {},
+  completeGuardianRegistration: () => {},
 });
 
 const ALLOWED_ROLES: UserRole[] = ['SuperAdmin', 'Admin', 'Ustadz', 'Santri', 'Walisantri'];
@@ -138,7 +142,10 @@ async function loadUserProfile(authUser: SupabaseAuthUser): Promise<{ user: Auth
 }
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const guardianInvitationRoute = useRef(typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('guardianInvite'));
+  const guardianInvitationRoute = useRef(typeof window !== 'undefined' && (
+    new URLSearchParams(window.location.search).has('guardianInvite')
+    || new URLSearchParams(window.location.search).has('guardianRegistration')
+  ));
   const [role, setRole] = useState<UserRole>('Public');
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -263,6 +270,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const completeGuardianInvitation = () => { guardianInvitationRoute.current = false; };
+  const beginGuardianRegistration = () => { guardianInvitationRoute.current = true; };
+  const completeGuardianRegistration = () => { guardianInvitationRoute.current = false; };
 
   const changeInitialPassword = async (password: string) => {
     const { data } = await supabase.auth.getSession();
@@ -294,6 +303,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       refreshProfile,
       changeInitialPassword,
       completeGuardianInvitation,
+      beginGuardianRegistration,
+      completeGuardianRegistration,
     }}>
       {children}
     </AuthContext.Provider>

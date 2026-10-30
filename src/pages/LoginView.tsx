@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { AlertCircle, LogIn, ShieldCheck, UserCheck } from 'lucide-react';
+import { GuardianSelfRegistrationView } from './GuardianSelfRegistrationView';
 
 export function LoginView({ onBack }: { onBack: () => void }) {
   const { login, isLoading } = useAuth();
+  const [showGuardianRegistration, setShowGuardianRegistration] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (showGuardianRegistration) {
+    return <GuardianSelfRegistrationView onBack={() => setShowGuardianRegistration(false)} />;
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -80,7 +86,13 @@ export function LoginView({ onBack }: { onBack: () => void }) {
 
         <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 flex gap-2">
           <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
-          <p>Akun harus diaktifkan oleh administrator dan terhubung ke tenant pesantren. Jika akun wali belum diprovisikan, hubungi sekretariat.</p>
+          <p>Akun staf dibuat oleh administrator pesantren. Wali santri dapat mendaftar sendiri menggunakan email yang tercatat pada data PPDB.</p>
+        </div>
+
+        <div className="text-center">
+          <button type="button" onClick={() => setShowGuardianRegistration(true)} className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">
+            Wali santri? Daftar akun sendiri
+          </button>
         </div>
 
         <div className="pt-4 border-t border-slate-800 text-center">

@@ -104,6 +104,32 @@ export async function getSupabasePublicPpdbConfig(tenantIdentifier: string) {
   };
 }
 
+export async function getSupabasePublicGuardianRegistrationConfig(tenantIdentifier: string) {
+  const identifier = String(tenantIdentifier || "").trim();
+  if (!identifier) throw new SupabasePublicPpdbError(503, "Konfigurasi tenant portal wali belum tersedia.");
+  const lookupColumn = isUuid(identifier) ? "id" : "legacy_tenant_key";
+  const params = new URLSearchParams({ select: "id,name,status", [lookupColumn]: `eq.${identifier}`, limit: "2" });
+  const tenants = await request(`/rest/v1/tenants?${params.toString()}`);
+  if (!Array.isArray(tenants) || tenants.length !== 1 || String(tenants[0]?.status || "") !== "active") {
+    throw new SupabasePublicPpdbError(503, "Tenant portal wali belum aktif atau belum dipetakan ke Supabase.");
+  }
+  let appUrl: URL;
+  try { appUrl = new URL(String(process.env.PUBLIC_APP_URL || process.env.APP_URL || "").trim()); } catch {
+    throw new SupabasePublicPpdbError(503, "Alamat aplikasi belum disiapkan untuk konfirmasi email.");
+  }
+  if (!["https:", "http:"].includes(appUrl.protocol)
+      || (appUrl.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(appUrl.hostname))
+      || appUrl.username || appUrl.password || appUrl.search || appUrl.hash) {
+    throw new SupabasePublicPpdbError(503, "Alamat aplikasi untuk konfirmasi email tidak aman.");
+  }
+  appUrl.searchParams.set("guardianRegistration", "1");
+  return {
+    tenantId: String(tenants[0].id),
+    tenantName: cleanText(tenants[0].name, "nama pesantren", 180) || "Pesantren",
+    registrationRedirectUrl: appUrl.toString(),
+  };
+}
+
 function fingerprintClient(clientKey: string) {
   const key = String(process.env.PII_FINGERPRINT_KEY || "").trim();
   if (!/^[0-9a-fA-F]{64}$/.test(key)) throw new SupabasePublicPpdbError(503, "Kunci rate limit PPDB backend belum dikonfigurasi.");
@@ -219,7 +245,7 @@ export async function submitSupabasePublicPpdbRegistration(tenantIdentifier: str
   const nisn = cleanText(raw.nisn, "NISN", 10).replace(/\D/g, "");
   const phone = cleanText(raw.phone, "nomor telepon", 24, true);
   const whatsappPhone = cleanText(raw.whatsappPhone, "nomor WhatsApp", 24, true);
-  const email = cleanText(raw.email, "email", 254).toLowerCase();
+  const email = cleanText(raw.email, "email wali", 254, true).toLowerCase();
   const pob = cleanText(raw.pob, "tempat lahir", 100, true);
   const dob = cleanText(raw.dob, "tanggal lahir", 10, true);
   const address = cleanText(raw.address, "alamat", 500, true);

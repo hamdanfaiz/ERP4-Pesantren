@@ -558,6 +558,24 @@ export function PublicRegistrationForm({
                         placeholder="08xxxxxxxxxx (Krusial: Digunakan untuk notifikasi jadwal ujian & kelulusan)"
                       />
                     </div>
+                    <div className="col-span-1 md:col-span-2">
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Email Wali untuk Portal Wali Santri <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        maxLength={254}
+                        autoComplete="email"
+                        value={formData.email || ""}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value.trimStart() })}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        placeholder="email wali yang dapat dibuka untuk konfirmasi"
+                      />
+                      <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                        Gunakan email aktif milik wali. Wali akan mendaftar sendiri dan harus mengonfirmasi email ini sebelum mendapat akses portal.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

@@ -5,6 +5,7 @@ import { useAuth } from './contexts/AuthContext';
 import { FrontendOverview } from './pages/FrontendOverview';
 import { LoginView } from './pages/LoginView';
 import { GuardianInvitationActivationView } from './pages/GuardianInvitationActivationView';
+import { GuardianSelfRegistrationView } from './pages/GuardianSelfRegistrationView';
 
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
@@ -40,8 +41,9 @@ const SupabaseMarketplaceManager = React.lazy(() => import('./pages/SupabaseMark
 const SupabaseEnterpriseUnitsManager = React.lazy(() => import('./pages/SupabaseEnterpriseUnitsManager').then((module) => ({ default: module.SupabaseEnterpriseUnitsManager })));
 const UserManagementView = React.lazy(() => import('./pages/UserManagementView').then((module) => ({ default: module.UserManagementView })));
 export default function App() {
-  const { role, user, completeGuardianInvitation } = useAuth();
+  const { role, user, completeGuardianInvitation, completeGuardianRegistration } = useAuth();
   const [guardianInviteToken, setGuardianInviteToken] = useState(() => new URLSearchParams(window.location.search).get('guardianInvite') || '');
+  const [guardianRegistrationRoute, setGuardianRegistrationRoute] = useState(() => new URLSearchParams(window.location.search).has('guardianRegistration'));
   const currentTenant: Tenant = {
     id: user?.tenantId || '',
     name: user?.tenantName || 'Pesantren',
@@ -204,6 +206,19 @@ export default function App() {
 
   if (guardianInviteToken) {
     return <GuardianInvitationActivationView token={guardianInviteToken} onActivated={() => { completeGuardianInvitation(); setGuardianInviteToken(''); }} />;
+  }
+
+  if (guardianRegistrationRoute) {
+    return <GuardianSelfRegistrationView callback onActivated={() => {
+      completeGuardianRegistration();
+      window.history.replaceState(null, '', window.location.pathname);
+      setGuardianRegistrationRoute(false);
+    }} onBack={() => {
+      completeGuardianRegistration();
+      window.history.replaceState(null, '', window.location.pathname);
+      setGuardianRegistrationRoute(false);
+      setShowLogin(true);
+    }} />;
   }
 
   if (role === 'Public') {

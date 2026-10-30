@@ -20,6 +20,7 @@ import {
   listGuardianAccountCandidates,
   verifyGuardianAccountInvitation,
   claimGuardianAccountInvitation,
+  claimGuardianAccountByVerifiedEmail,
   createRecoveryLink,
   getUserProfile,
   listAssignableOrganizationUnits,
@@ -272,7 +273,7 @@ import {
   SupabaseDonationError,
   voidSupabaseDonation,
 } from "./src/server/supabaseDonation";
-import { getSupabasePublicPpdbConfig, submitSupabasePublicPpdbRegistration } from "./src/server/supabasePublicPpdb";
+import { getSupabasePublicGuardianRegistrationConfig, getSupabasePublicPpdbConfig, submitSupabasePublicPpdbRegistration } from "./src/server/supabasePublicPpdb";
 import {
   createSupabaseBoardingDiscipline,
   listSupabaseBoardingDiscipline,
@@ -4117,6 +4118,39 @@ async function startServer() {
   });
 
   // Public PPDB is served only by this trusted server. Tenant identity is fixed in server configuration.
+  app.get("/api/public/guardian-registration/config", async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran Portal Wali belum disiapkan." });
+    try {
+      const config = await getSupabasePublicGuardianRegistrationConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
+      return res.json({ tenantName: config.tenantName, registrationRedirectUrl: config.registrationRedirectUrl });
+    } catch (err: any) {
+      const status = Number(err?.status) || 503;
+      return res.status(status).json({ error: "Pendaftaran Portal Wali belum tersedia untuk tenant ini." });
+    }
+  });
+
+  app.post("/api/guardian-registration/claim", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const configuredTenant = await getSupabasePublicGuardianRegistrationConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
+      const linked = await claimGuardianAccountByVerifiedEmail(configuredTenant.tenantId, String((req as any).user?.uid || ""));
+      if (!linked) {
+        return res.status(200).json({
+          success: false,
+          code: "LINK_NOT_AVAILABLE",
+          message: "Email telah diverifikasi, tetapi akun belum dapat ditautkan ke data wali santri yang aktif. Akun belum memperoleh akses ERP.",
+        });
+      }
+      return res.json({ success: true });
+    } catch (err: any) {
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
+      console.error("Guardian self-registration claim failed:", err?.name || "error");
+      return res.status(503).json({ error: "Pendaftaran Portal Wali belum dapat diselesaikan. Akun belum memperoleh akses ERP." });
+    }
+  });
+
   app.get("/api/public/ppdb/config", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran PPDB Supabase belum disiapkan; pendaftaran belum dapat dibuka." });
