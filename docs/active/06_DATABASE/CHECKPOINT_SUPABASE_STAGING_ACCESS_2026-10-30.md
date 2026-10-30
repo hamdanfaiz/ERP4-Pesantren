@@ -3,7 +3,7 @@
 ## Pembaruan setelah PR #13 merged — 30 Oktober 2026
 
 - Source cutover PR #13 kini sudah merged ke `main` pada commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`; catatan PR Open/Draft di bawah adalah riwayat sebelum merge.
-- Pemeriksaan konektor Supabase terbaru hanya mencantumkan project `vqemuyzveuirlkvdggjd`. Target `ptsasgdvgrbdtgyqieie` tidak muncul; pemanggilan `get_project`, `list_migrations`, `list_tables`, dan security/performance advisors ke ref itu menghasilkan `INVALID_ARGUMENT`. Tidak ada query SQL atau operasi tulis yang berhasil.
+- Pemeriksaan konektor Supabase terbaru hanya mencantumkan project `vqemuyzveuirlkvdggjd`. Target `ptsasgdvgrbdtgyqieie` tidak muncul; pemanggilan `get_project`, `list_migrations`, `list_tables`, dan security/performance advisors ke ref itu menghasilkan `INVALID_ARGUMENT`. Query SQL read-only via konektor dan uji koneksi driver lokal tidak berhasil; ringkasan ledger kemudian berhasil dibaca melalui SQL Editor dashboard. Tidak ada operasi tulis.
 - SQL Editor dashboard pada 30 Oktober menampilkan project `ERP4-Pesantren`, ref `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`. Ini bertentangan dengan jawaban sebelumnya yang menyebut staging; perlakukan target sebagai Production hingga tim backend mengonfirmasi staging terpisah.
 - Konektor Supabase Codex masih tidak dapat membaca target, tetapi ringkasan ledger berhasil dibaca read-only melalui SQL Editor: 47 versi, dari `20260603000000` sampai `20261206000000`; dua baris tidak memiliki `name` dan `statements`. Source `main` berisi 109 migration. Perbedaan hitungan bukan daftar aman untuk diterapkan, dan parity SQL belum terbukti.
 - Perkiraan penyelesaian fitur tetap sekitar **73%**. Tidak ada migration live yang diterapkan.
@@ -59,3 +59,4 @@ Jika query pertama menyatakan skema atau tabel tidak ditemukan, kirim pesan erro
 - Jalur yang disarankan: unduh root certificate dari **Database Settings → SSL Configuration** pada project target, lalu gunakan mode `verify-full` agar CA dan hostname diperiksa. Panduan resmi Supabase menjelaskan pengaturan sertifikat ini di [Connect to your database](https://supabase.com/docs/guides/database/connecting-to-postgres).
 - Alternatif tanpa kredensial lokal: jalankan dua query baca-saja pada bagian “Tindakan yang diperlukan” melalui SQL Editor project target, lalu berikan hanya hasil versi migrasi dan nama tabel. Jangan kirim secret, password, access token, atau data santri.
 - Setelah CA/akses baca diperbaiki, ulangi preflight dan rekonsiliasi seluruh versi terhadap file `supabase/migrations`. Ringkasan versi sudah dibaca melalui dashboard, tetapi kesetaraan statement dan provenance dua baris tanpa metadata tetap belum terverifikasi. PR #13 sudah merged; gerbang migrasi tetap terbuka.
+
