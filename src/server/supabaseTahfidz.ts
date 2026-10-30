@@ -338,6 +338,64 @@ export async function listSupabaseTahfidzRosterPage(
   return requestTahfidzRosterPage(tenantId, actorId, role, businessDate, cursor, search, false);
 }
 
+export async function listSupabaseTahfidzAchievementPage(
+  tenantIdentifier: string,
+  actorSupabaseUid: string,
+  role: string,
+  cursorValue?: unknown
+) {
+  if (!( ["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"] as string[]).includes(role)) {
+    throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca pencapaian Tahfidz.");
+  }
+  let cursor: string | null;
+  try {
+    cursor = normalizeTahfidzRosterCursor(cursorValue);
+  } catch {
+    throw new SupabaseTahfidzError(400, "Kursor halaman pencapaian Tahfidz tidak valid.");
+  }
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
+  const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  const businessDate = await getTahfidzBusinessDate(tenantId);
+  const result = await supabaseRequest("/rest/v1/rpc/list_tahfidz_achievement_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_business_date: businessDate,
+      p_after_student_id: cursor,
+      p_page_size: 50,
+    }),
+  });
+  if (!result || typeof result !== "object" || !Array.isArray(result.students) || result.students.length > 50) {
+    throw new SupabaseTahfidzError(503, "Halaman pencapaian Tahfidz belum dapat dimuat.");
+  }
+  const students = result.students.map((student: JsonObject) => ({
+    id: String(student.id || ""),
+    name: String(student.name || ""),
+    grade: String(student.grade || ""),
+    halaqah: String(student.halaqah || ""),
+    metrics: {
+      totalRecords: Number(student.totalRecords),
+      ziyadahRecords: Number(student.ziyadahRecords),
+      murojaahRecords: Number(student.murojaahRecords),
+      studyDays: Number(student.studyDays),
+    },
+  }));
+  if (students.some((student) => !isUuid(student.id)
+    || Object.values(student.metrics).some((value) => typeof value !== "number"
+      || !Number.isSafeInteger(value) || value < 0))) {
+    throw new SupabaseTahfidzError(503, "Data pencapaian Tahfidz tidak valid.");
+  }
+  const hasMore = result.hasMore === true;
+  const nextCursor = result.nextCursor == null ? null : String(result.nextCursor);
+  if ((hasMore && (!nextCursor || !isUuid(nextCursor))) || (!hasMore && nextCursor)) {
+    throw new SupabaseTahfidzError(503, "Kursor pencapaian Tahfidz tidak konsisten.");
+  }
+  return { students, hasMore, nextCursor };
+}
+
 export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, actorSupabaseUid: string, role: string, includeRecords = true) {
   if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca data operasional Tahfidz.");

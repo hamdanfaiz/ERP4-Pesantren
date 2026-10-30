@@ -50,6 +50,8 @@ jobs:
         run: npm run test:tahfidz-record-pagination
       - name: Verify Tahfidz session cursor pagination and role scope
         run: npm run test:tahfidz-session-pagination
+      - name: Verify Tahfidz achievement thresholds
+        run: npm run test:tahfidz-achievements
 
       - name: Verify PPDB CSV import parsing and identity preservation
         run: bun run test:ppdb-csv-import

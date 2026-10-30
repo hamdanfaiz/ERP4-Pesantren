@@ -52,6 +52,7 @@ import { SupabaseTahfidzSessions } from "./SupabaseTahfidzSessions";
 import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTime } from "../lib/tenantTimeZone";
 import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
+import { getTahfidzAchievementProgress } from "../lib/tahfidzAchievements";
 import { cn, generateUniqueId } from "../lib/utils";
 import {
   AreaChart,
@@ -513,6 +514,12 @@ export function TahfidzManager() {
   const [recordsNextCursor, setRecordsNextCursor] = useState("");
   const [recordsOldestDate, setRecordsOldestDate] = useState("");
   const [recordsLoadingMore, setRecordsLoadingMore] = useState(false);
+  const [achievementRows, setAchievementRows] = useState<any[]>([]);
+  const [achievementHasMore, setAchievementHasMore] = useState(false);
+  const [achievementNextCursor, setAchievementNextCursor] = useState("");
+  const [achievementLoading, setAchievementLoading] = useState(false);
+  const [achievementError, setAchievementError] = useState("");
+  const achievementRequestSequence = useRef(0);
 
   useEffect(() => {
     if (role !== "Walisantri") {
@@ -617,6 +624,43 @@ export function TahfidzManager() {
       setRosterLoadingMore(false);
     }
   };
+
+  const loadSupabaseTahfidzAchievements = async (cursor = "", append = false) => {
+    const requestSequence = ++achievementRequestSequence.current;
+    setAchievementLoading(true);
+    setAchievementError("");
+    if (!append) {
+      setAchievementRows([]);
+      setAchievementHasMore(false);
+      setAchievementNextCursor("");
+    }
+    try {
+      const params = new URLSearchParams();
+      if (cursor) params.set("cursor", cursor);
+      const page = await requestSupabaseTahfidzApi(`/api/tahfidz/achievements?${params.toString()}`);
+      if (requestSequence !== achievementRequestSequence.current) return;
+      const incoming = Array.isArray(page.students) ? page.students : [];
+      setAchievementRows((current) => {
+        const existing = append ? current : [];
+        const knownIds = new Set(existing.map((student) => String(student.id)));
+        return [...existing, ...incoming.filter((student: any) => !knownIds.has(String(student.id)))];
+      });
+      setAchievementHasMore(page.hasMore === true);
+      setAchievementNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
+    } catch (error: any) {
+      if (requestSequence === achievementRequestSequence.current) {
+        setAchievementError(error?.message || "Pencapaian Tahfidz belum dapat dimuat.");
+      }
+    } finally {
+      if (requestSequence === achievementRequestSequence.current) setAchievementLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!SUPABASE_TAHFIDZ_RUNTIME || activeTab !== "badges") return;
+    void loadSupabaseTahfidzAchievements();
+    return () => { achievementRequestSequence.current += 1; };
+  }, [activeTab, user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz]);
 
   const loadMoreTahfidzSearch = async () => {
     if (!rosterSearchHasMore || !rosterSearchCursor || rosterSearchLoading || !searchQuery.trim()) return;
@@ -2999,10 +3043,10 @@ export function TahfidzManager() {
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-200">
-            Badges & Achievements
+            Lencana dan Pencapaian
           </h2>
           <p className="text-slate-500 dark:text-slate-400">
-            Penghargaan dan pencapaian santri atas target hafalan.
+            Apresiasi atas proses belajar dan target hafalan santri.
           </p>
         </div>
       </div>
@@ -3029,7 +3073,7 @@ export function TahfidzManager() {
       <div className="bg-white dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden shadow-sm">
         <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]">
           <h3 className="font-semibold text-slate-800 dark:text-slate-200">
-            Leaderboard Pencapaian Santri
+            Papan Pencapaian Santri
           </h3>
         </div>
         <div className="divide-y divide-slate-200 dark:divide-white/5">
@@ -3079,6 +3123,104 @@ export function TahfidzManager() {
       </div>
     </div>
   );
+
+  const renderSupabaseAchievements = () => {
+    const icons: Record<string, any> = {
+      "first-record": CheckCircle2,
+      "ten-records": BookOpen,
+      "seven-study-days": Calendar,
+      "ziyadah-25": Layers,
+      "murojaah-25": RotateCcw,
+      "hundred-records": Trophy,
+    };
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-200">Pencapaian Tahfidz</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Ringkasan dihitung dari catatan setoran tersimpan. Hari belajar berarti tanggal kalender berbeda, bukan rentetan hari.</p>
+        </div>
+
+        {achievementError && (
+          <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-200">
+            <div className="flex items-center justify-between gap-3">
+              <span>{achievementError}</span>
+              <button type="button" onClick={() => void loadSupabaseTahfidzAchievements()} className="shrink-0 font-semibold underline underline-offset-2">Coba lagi</button>
+            </div>
+          </div>
+        )}
+
+        {achievementLoading && achievementRows.length === 0 && (
+          <div role="status" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-white/10 dark:bg-black/20 dark:text-slate-400">Memuat pencapaian…</div>
+        )}
+
+        {!achievementLoading && !achievementError && achievementRows.length === 0 && (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/10 dark:bg-black/20">
+            <Award className="mx-auto h-8 w-8 text-slate-400" />
+            <p className="mt-3 font-medium text-slate-700 dark:text-slate-200">Belum ada santri pada cakupan akun ini.</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Data akan muncul setelah penempatan halaqah atau tautan akun tersedia.</p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {achievementRows.map((student) => {
+            const achievements = getTahfidzAchievementProgress(student.metrics || {
+              totalRecords: 0, ziyadahRecords: 0, murojaahRecords: 0, studyDays: 0,
+            });
+            const earnedCount = achievements.filter((item) => item.earned).length;
+            return (
+              <section key={student.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black/20">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">{student.name || "Santri"}</h3>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{student.grade || "Kelas belum diatur"}{student.halaqah ? ` · Halaqah ${student.halaqah}` : " · Belum ditempatkan pada halaqah"}</p>
+                  </div>
+                  <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">{earnedCount} dari {achievements.length} pencapaian</div>
+                </div>
+                <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                  {student.metrics.totalRecords} catatan · {student.metrics.ziyadahRecords} Ziyadah · {student.metrics.murojaahRecords} Murojaah · {student.metrics.studyDays} hari belajar
+                </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {achievements.map((achievement) => {
+                    const Icon = icons[achievement.id] || Award;
+                    const progressPercent = achievement.threshold > 0
+                      ? Math.round((achievement.progress / achievement.threshold) * 100)
+                      : 0;
+                    return (
+                      <div key={achievement.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-white/5 dark:bg-white/[0.03]">
+                        <div className="flex items-start gap-3">
+                          <span className={`rounded-lg p-2 ${achievement.earned ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" : "bg-slate-200/70 text-slate-500 dark:bg-white/5 dark:text-slate-400"}`}>
+                            <Icon className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{achievement.name}</p>
+                            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{achievement.description}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10" role="progressbar" aria-label={`Progres ${achievement.name}`} aria-valuemin={0} aria-valuemax={achievement.threshold} aria-valuenow={achievement.progress}>
+                            <div className={`h-full rounded-full ${achievement.earned ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${progressPercent}%` }} />
+                          </div>
+                          <span className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">{achievement.progress}/{achievement.threshold}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+
+        {achievementHasMore && (
+          <div className="flex justify-center">
+            <button type="button" onClick={() => void loadSupabaseTahfidzAchievements(achievementNextCursor, true)} disabled={achievementLoading} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-white/5">
+              {achievementLoading ? "Memuat…" : "Muat pencapaian berikutnya"}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderParentDashboard = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -3612,7 +3754,7 @@ export function TahfidzManager() {
               : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
           )}
         >
-          Badges & Achievements
+          Pencapaian Tahfidz
         </button>
         <button
           onClick={() => setActiveTab("halaqah")}
@@ -3638,15 +3780,16 @@ export function TahfidzManager() {
       {activeTab === "parent" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseParentDashboard() : renderParentDashboard())}
       {activeTab === "peer-review" && !SUPABASE_TAHFIDZ_RUNTIME && renderPeerReview()}
       {activeTab === "badges" && !SUPABASE_TAHFIDZ_RUNTIME && renderBadges()}
+      {activeTab === "badges" && SUPABASE_TAHFIDZ_RUNTIME && renderSupabaseAchievements()}
       {activeTab === "quran" && (
         <div className="flex-1 min-h-0">
           <QuranViewer />
         </div>
       )}
-      {SUPABASE_TAHFIDZ_RUNTIME && ["peer-review", "badges"].includes(activeTab) && (
+      {SUPABASE_TAHFIDZ_RUNTIME && activeTab === "peer-review" && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-100">
-          <h2 className="font-semibold">Fitur ini belum memakai sumber data Supabase</h2>
-          <p className="mt-2 max-w-3xl text-sm">Peer review dan pencapaian belum tersedia pada mode Supabase karena belum memiliki skema tenant, aturan akses, serta API tersimpan. Data contoh dari mode lama disembunyikan.</p>
+          <h2 className="font-semibold">Peer review belum tersedia</h2>
+          <p className="mt-2 max-w-3xl text-sm">Fitur ini belum memiliki penyimpanan audio, persetujuan wali, moderasi, dan aturan akses tenant. Konten contoh dari mode lama disembunyikan.</p>
         </div>
       )}
 

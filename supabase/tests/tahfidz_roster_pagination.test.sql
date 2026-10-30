@@ -3,7 +3,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(35);
+SELECT plan(51);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -73,6 +73,28 @@ VALUES
   ('d1900000-0000-4000-8000-000000000602', 'd1900000-0000-4000-8000-000000000009', 'd1900000-0000-4000-8000-000000000202', 'd1900000-0000-4000-8000-000000000401', 'Ziyadah', 'Al-Fatihah', 1, 2, 'B', 'B', CURRENT_DATE::TIMESTAMPTZ + INTERVAL '09 hours', 'd1900000-0000-4000-8000-000000000011', 'd1900000-0000-4000-8000-000000000702'),
   ('d1900000-0000-4000-8000-000000000603', 'd1900000-0000-4000-8000-000000000009', 'd1900000-0000-4000-8000-000000000203', 'd1900000-0000-4000-8000-000000000401', 'Ziyadah', 'Al-Baqarah', 1, 2, 'D', 'D', CURRENT_DATE::TIMESTAMPTZ + INTERVAL '11 hours', 'd1900000-0000-4000-8000-000000000011', 'd1900000-0000-4000-8000-000000000703');
 
+UPDATE public.tenants SET time_zone = 'Asia/Jakarta'
+WHERE id = 'd1900000-0000-4000-8000-000000000009';
+INSERT INTO public.tahfidz_records (
+  id, tenant_id, student_id, halaqah_id, activity_type, surah_name, ayah_start, ayah_end,
+  performed_at, recorded_by_user_id, client_request_id
+)
+SELECT
+  md5('achievement-record:' || generated.number)::UUID,
+  'd1900000-0000-4000-8000-000000000009',
+  'd1900000-0000-4000-8000-000000000201',
+  'd1900000-0000-4000-8000-000000000401',
+  CASE
+    WHEN generated.number <= 25 THEN 'Ziyadah'
+    WHEN generated.number <= 50 THEN 'Muroja''ah'
+    ELSE 'Tasmik'
+  END,
+  'Al-Baqarah', 1, 2,
+  ((DATE '2026-01-01' + ((generated.number - 1) / 10)) + TIME '16:30') AT TIME ZONE 'UTC',
+  'd1900000-0000-4000-8000-000000000011',
+  md5('achievement-request:' || generated.number)::UUID
+FROM generate_series(1, 100) AS generated(number);
+
 INSERT INTO public.guardians (id, tenant_id, source_candidate_id, name, phone, status)
 VALUES ('d1900000-0000-4000-8000-000000000501', 'd1900000-0000-4000-8000-000000000009', 'd1900000-0000-4000-8000-000000000104', 'Wali Santri', '081200000000', 'Active');
 INSERT INTO public.guardian_students (tenant_id, guardian_id, student_id, relationship)
@@ -120,6 +142,36 @@ SELECT is((public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009
 SELECT throws_ok(
   $$SELECT public.list_tahfidz_roster_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000015','admin',CURRENT_DATE,NULL,NULL,100,false)$$,
   '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'explicitly disabled module permission is denied'
+);
+
+SELECT has_function('public', 'list_tahfidz_achievement_page', ARRAY['uuid','uuid','text','date','uuid','integer'], 'the persisted Tahfidz achievement RPC exists');
+SELECT ok(NOT has_function_privilege('anon', 'public.list_tahfidz_achievement_page(uuid,uuid,text,date,uuid,integer)', 'EXECUTE'), 'anonymous users cannot execute the achievement RPC');
+SELECT ok(NOT has_function_privilege('authenticated', 'public.list_tahfidz_achievement_page(uuid,uuid,text,date,uuid,integer)', 'EXECUTE'), 'browser users cannot bypass the trusted achievement API');
+SELECT ok(has_function_privilege('service_role', 'public.list_tahfidz_achievement_page(uuid,uuid,text,date,uuid,integer)', 'EXECUTE'), 'the trusted server can execute the achievement RPC');
+SELECT is(jsonb_array_length(public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',CURRENT_DATE,NULL,100)->'students'), 8, 'Admin achievement page follows the tenant roster scope');
+SELECT is(
+  (SELECT student.value->'metrics' FROM jsonb_array_elements(public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',CURRENT_DATE,NULL,100)->'students') AS student(value) WHERE student.value->>'id' = 'd1900000-0000-4000-8000-000000000201'),
+  '{"totalRecords":100,"ziyadahRecords":25,"murojaahRecords":25,"studyDays":10}'::JSONB,
+  'achievement counts use persisted records and tenant-local calendar dates'
+);
+SELECT ok(NOT ((public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',CURRENT_DATE,NULL,100)->'students'->0) ? 'nis'), 'achievement output excludes student NIS');
+SELECT is(jsonb_array_length(public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','ustadz',CURRENT_DATE,NULL,100)->'students'), 2, 'Ustadz achievement page is limited to assigned halaqah students');
+SELECT is(jsonb_array_length(public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000013','santri',CURRENT_DATE,NULL,100)->'students'), 1, 'Santri achievement page contains only the linked student');
+SELECT is(jsonb_array_length(public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000014','wali_santri',CURRENT_DATE,NULL,100)->'students'), 1, 'Wali achievement page contains only the linked child');
+SELECT is(jsonb_array_length(public.list_tahfidz_achievement_page('d2900000-0000-4000-8000-000000000009','d2900000-0000-4000-8000-000000000021','admin',CURRENT_DATE,NULL,100)->'students'), 1, 'another tenant receives only its own achievement page');
+SELECT is(public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',CURRENT_DATE,NULL,1)->>'hasMore', 'true', 'achievement roster pages are keyset paginated');
+SELECT is((public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',CURRENT_DATE,'d1900000-0000-4000-8000-000000000201',1)->'students'->0->>'id'), 'd1900000-0000-4000-8000-000000000202', 'achievement cursor advances to the next student');
+SELECT throws_ok(
+  $$SELECT public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',CURRENT_DATE,NULL,101)$$,
+  '22023', 'Parameter ringkasan pencapaian Tahfidz tidak valid', 'achievement page size above the bounded maximum is rejected'
+);
+SELECT throws_ok(
+  $$SELECT public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000015','admin',CURRENT_DATE,NULL,100)$$,
+  '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'achievement RPC rejects a profile without Tahfidz permission'
+);
+SELECT throws_ok(
+  $$SELECT public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','admin',CURRENT_DATE,NULL,100)$$,
+  '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'achievement RPC rejects an actor-role mismatch'
 );
 
 
