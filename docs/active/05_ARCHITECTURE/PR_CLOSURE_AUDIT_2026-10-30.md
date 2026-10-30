@@ -12,11 +12,11 @@ Perubahan Asrama pada head ini membatasi Ustadz ke unit/lokasi penugasan dan san
 
 ## Revalidasi terbaru — 30 Oktober 2026
 
-- GitHub REST mengonfirmasi PR #1–#11 masih Open/Draft, PR #12 Merged, dan PR #13 Open/Draft. Head PR #13 adalah `3f60d3b8fa35393454ff50be539e0f50dc1080fe`; `main` tetap pada `c8738185ff6e5080ae427ef0021ee25681036c40`.
-- GitHub Actions [run 41020730492](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41020730492) lulus **2/2 job wajib**. CI menguji typecheck/build, Docker/Compose dan runtime tanpa Firebase; rehearsal migration pada Supabase lokal sintetis, pgTAP, API/tenant, reservasi NIS dan Tahfidz serentak, Storage, serta backup/restore.
-- Supabase Preview dilewati karena branch tidak ditautkan ke Supabase Branch. Tidak ada migration/data yang diterapkan ke database live. Tidak ada review GitHub pada PR #13; status `mergeable: clean` hanya menandakan tidak ada konflik berkas.
-- Perubahan kode terakhir pada rangkaian ini menambah pembatasan unit Asrama dan ringkasan capaian Tahfidz berbasis catatan tersimpan. Peer Review Tahfidz, keputusan cakupan fitur yang masih fail-closed, integrasi lintas modul, serta rekonsiliasi ledger target Supabase masih terbuka.
-- **Keputusan:** PR #13 tetap Draft dan belum siap merge. PR #1–#11 juga tetap terbuka; tutup sebagai superseded hanya setelah penggantinya masuk `main` dan paritasnya dibuktikan. Deployment dan UAT tetap di luar metrik pengembangan dan ditangani tim penerapan.
+- GitHub REST mengonfirmasi PR #1–#11 Open/Draft, PR #12 Closed/Merged, dan PR #13 Open/Draft. `main` tetap pada `c8738185ff6e5080ae427ef0021ee25681036c40`. Head PR #13 saat ini `dca32240cb9c0191a0bf6fb78e58721579cc139a`; commit terakhir hanya dokumentasi.
+- GitHub Actions [run 41022011815](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41022011815) lulus **2/2 job wajib** pada head kode `43455c8b8f91eae108fd89fa09ff9f1e7ed6667b`. Build dan pemeriksaan sintetis tersebut lulus. Tidak ada review GitHub pada PR #13; status `mergeable: clean` hanya berarti tidak ada konflik berkas.
+- Akses Supabase target belum terverifikasi: konektor menolak project `ptsasgdvgrbdtgyqieie`, dan koneksi langsung baca-saja berhenti pada validasi TLS `SELF_SIGNED_CERT_IN_CHAIN`. Tidak ada query ledger berhasil, perubahan migration, atau perubahan data.
+- Peer Review Tahfidz, keputusan cakupan fitur yang masih fail-closed, integrasi lintas modul, cakupan multi-unit/histori, dan paritas perilaku PR lama masih terbuka.
+- **Keputusan:** PR #13 tetap Draft dan belum siap merge. Jangan tutup PR #1–#11 sebelum pengganti masuk `main` dan paritasnya terbukti. Deployment dan UAT tetap berada di luar metrik pengembangan.
 
 ## Kendala pemeriksaan database staging
 
