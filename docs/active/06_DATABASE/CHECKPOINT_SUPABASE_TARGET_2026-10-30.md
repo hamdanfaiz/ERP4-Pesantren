@@ -31,9 +31,78 @@ Query ringkasan `SELECT` di SQL Editor dashboard project target dijalankan di tr
 
 - Ledger target berisi 47 versi: versi pertama `20260603000000` dan versi terakhir `20261206000000`.
 - Source `main` memiliki 109 file migrasi, terakhir `20270206000000_tahfidz_peer_review_moderation.sql`.
-- Semua 47 versi ledger memiliki pasangan versi di repository. Ada 62 file source sesudah `20261206000000` yang belum tercatat pada hitungan ledger, mulai `20261207000000_library_legacy_catalog_import.sql` sampai `20270206000000_tahfidz_peer_review_moderation.sql`.
-- Ringkasan terbaru menunjukkan 45 baris berisi metadata dan dua baris memiliki `name` serta `statements` kosong. Kesetaraan statement dan provenance deployment untuk dua baris itu belum terbukti; preflight tidak dapat menyatakan ledger cocok sepenuhnya.
+- Perbandingan prefix versi pada 47 baris ledger dengan 109 file source menemukan 47 kecocokan, nol versi ledger yang tidak ada di source, nol duplikasi prefix source, dan 62 versi source yang tidak tercatat pada ledger.
+- Query detail memastikan metadata kosong pada `20261205000000` dan `20261206000000`: kedua baris memiliki `name = NULL`, `statements = NULL`, dan jumlah statement nol. Kesetaraan SQL/provenance deployment untuk keduanya belum terbukti; preflight tidak dapat menyatakan ledger cocok sepenuhnya.
 - Ada 62 lebih banyak file migration di source daripada jumlah versi pada ledger. Ini perbedaan hitungan untuk ditelusuri, bukan izin atau rencana untuk menerapkan migration. Jangan menjalankan `migration repair` atau `db push` ke Production untuk menutupi metadata kosong.
+
+### Manifest 62 versi source yang belum tercatat pada ledger
+
+Daftar ini hanya menunjukkan prefix versi source yang tidak ditemukan pada daftar ledger. **Jangan menganggap migration belum pernah berjalan atau menjalankannya ke Production hanya berdasarkan daftar ini.** Rekonsiliasi definisi schema dan provenance di staging terisolasi yang dapat dipulihkan terlebih dahulu.
+
+```text
+20261207000000_library_legacy_catalog_import.sql
+20261208000000_hris_legacy_employees_import.sql
+20261209000000_cooperative_tenant_business_day.sql
+20261210000000_cooperative_supplier_import_status.sql
+20261211000000_library_circulation_legacy_import.sql
+20261212000000_cooperative_sale_idempotency_wallet.sql
+20261213000000_marketplace_mutation_payload_guard.sql
+20261214000000_donation_mutation_payload_guard.sql
+20261215000000_laundry_mutation_payload_guard.sql
+20261216000000_tahfidz_session_result_integrity.sql
+20261217000000_tahfidz_target_tenant_business_date.sql
+20261218000000_cbt_server_authoritative_deadline.sql
+20261219000000_academic_request_idempotency_guard.sql
+20261220000000_inventory_adjustment_payload_guard.sql
+20261221000000_healthcare_request_idempotency_guard.sql
+20261222000000_ga_inventory_event_payload_guard.sql
+20261223000000_cbt_request_payload_guard.sql
+20261224000000_lms_request_payload_guard.sql
+20261225000000_lms_submission_grade_integrity.sql
+20261226000000_lms_learning_record_integrity.sql
+20261227000000_lms_progress_integrity.sql
+20261228000000_boarding_attendance_active_students.sql
+20261229000000_boarding_attendance_retry_after_status_change.sql
+20261230000000_cooperative_financial_legacy_import.sql
+20261231000000_cooperative_supplier_payload_idempotency.sql
+20270101000000_profiles_user_directory_indexes.sql
+20270102000000_guardian_accounts_and_invitations.sql
+20270103000000_guardian_finance_access.sql
+20270104000000_guardian_boarding_access.sql
+20270105000000_communication_guardian_audience.sql
+20270106000000_boarding_room_assignment_history.sql
+20270107000000_tahfidz_roster_keyset_pagination.sql
+20270108000000_tahfidz_dashboard_follow_up_summary.sql
+20270109000000_boarding_room_history_baseline.sql
+20270110000000_ppdb_candidate_finance_bills.sql
+20270111000000_ppdb_document_access_audit.sql
+20270112000000_admin_ppdb_candidate_create.sql
+20270113000000_admin_ppdb_document_upload.sql
+20270114000000_cbt_tenant_settings_import.sql
+20270115000000_ppdb_admin_search_keyset.sql
+20270116000000_private_library_digital_assets.sql
+20270117000000_document_center_core.sql
+20270118000000_crm_contact_management.sql
+20270119000000_master_data_student_search_indexes.sql
+20270120000000_communication_import_canonical_audience.sql
+20270121000000_tenant_admin_bootstrap.sql
+20270122000000_lms_learning_record_tenant_fk.sql
+20270123000000_public_ppdb_idempotency.sql
+20270124000000_finance_proof_upload_rate_limit.sql
+20270125000000_finance_budget_plans.sql
+20270126000000_tenant_enterprise_units.sql
+20270127000000_fix_cbt_answer_object_limit.sql
+20270128000000_finance_expense_unit_scope.sql
+20270129000000_finance_budget_unit_scope.sql
+20270130000000_master_data_unit_assignment.sql
+20270131000000_finance_legacy_unit_assignment.sql
+20270201000000_academic_unit_scope.sql
+20270202000000_academic_class_unit_mapping.sql
+20270203000000_boarding_unit_scope.sql
+20270204000000_tahfidz_achievement_summary.sql
+20270205000000_guardian_self_registration.sql
+20270206000000_tahfidz_peer_review_moderation.sql
+```
 
 Snapshot katalog terdahulu melaporkan 119 tabel publik dan PostgreSQL 17.11. Hitungan ini belum dibaca ulang dan tidak membuktikan kesesuaian seluruh schema, grant, RLS, data, atau fungsi dengan source.
 
