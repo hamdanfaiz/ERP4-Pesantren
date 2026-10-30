@@ -24,6 +24,7 @@
     "test:legacy-firestore-tenant-scope": "tsx scripts/test-legacy-firestore-tenant-scope.ts",
     "test:cbt-settings-import": "tsx scripts/test-cbt-settings-import.ts",
     "test:ppdb-legacy-import": "tsx scripts/test-supabase-ppdb-import.ts",
+    "test:dashboard-cashflow": "node scripts/test-dashboard-cashflow.mjs",
     "test:library-legacy-import": "tsx scripts/test-library-legacy-import.ts",
     "test:business-date": "tsx scripts/test-business-date.ts",
     "test:rbac-permissions": "tsx scripts/test-rbac-permissions.ts",
