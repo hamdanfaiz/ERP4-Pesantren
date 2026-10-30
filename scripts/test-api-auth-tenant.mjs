@@ -347,6 +347,8 @@ async function main() {
     for (const path of [
       "/api/enterprise/master-data/unit-assignment/unmapped",
       "/api/enterprise/master-data/unit-assignment",
+      "/api/enterprise/finance/unit-assignment/unmapped",
+      "/api/enterprise/finance/unit-assignment",
     ]) {
       const method = path.endsWith("/unmapped") ? "GET" : "POST";
       const anonymous = await fetch(apiBase + path, {

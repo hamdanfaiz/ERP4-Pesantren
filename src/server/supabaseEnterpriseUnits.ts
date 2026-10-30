@@ -140,6 +140,71 @@ export async function getSupabaseUnmappedMasterDataUnits(
   return result as Row;
 }
 
+export async function getSupabaseUnmappedFinanceExpenses(
+  tenantIdentifier: string,
+  actorUserId: string,
+  role: string,
+  offsetValue: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expected = expectedRole(role);
+  const offsetText = offsetValue == null ? "0" : typeof offsetValue === "string" ? offsetValue.trim() : "";
+  if (!expected || !isUuid(actorUserId) || !/^(0|[1-9]\d{0,6})$/.test(offsetText) || Number(offsetText) > 1000000) {
+    throw new SupabaseEnterpriseUnitsError(400, "Posisi daftar pengeluaran tanpa unit tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/get_tenant_unmapped_finance_expenses", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorUserId,
+      p_expected_role: expected,
+      p_limit: 100,
+      p_offset: Number(offsetText),
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabaseEnterpriseUnitsError(503, "Daftar pengeluaran tanpa unit belum dapat dimuat.");
+  }
+  return result as Row;
+}
+
+export async function assignSupabaseLegacyFinanceExpenseUnit(
+  tenantIdentifier: string,
+  actorUserId: string,
+  role: string,
+  value: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expected = expectedRole(role);
+  if (!expected || !isUuid(actorUserId) || !value || typeof value !== "object" || Array.isArray(value)) {
+    throw new SupabaseEnterpriseUnitsError(403, "Pemetaan keuangan hanya tersedia untuk Admin tenant.");
+  }
+  const input = value as Row;
+  const allowedKeys = new Set(["expenseId", "unitId", "clientRequestId"]);
+  if (Object.keys(input).some((key) => !allowedKeys.has(key))
+    || Object.keys(input).length !== allowedKeys.size
+    || !isUuid(String(input.expenseId || ""))
+    || !isUuid(String(input.unitId || ""))
+    || !isUuid(String(input.clientRequestId || ""))) {
+    throw new SupabaseEnterpriseUnitsError(400, "ID pengeluaran, unit, atau kunci permintaan tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/assign_tenant_finance_expense_unit", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorUserId,
+      p_expected_role: expected,
+      p_expense_id: input.expenseId,
+      p_unit_id: input.unitId,
+      p_client_request_id: input.clientRequestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabaseEnterpriseUnitsError(503, "Backend belum mengonfirmasi pemetaan pengeluaran.");
+  }
+  return result as Row;
+}
+
 export async function assignSupabaseMasterDataUnit(
   tenantIdentifier: string,
   actorUserId: string,

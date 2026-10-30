@@ -158,8 +158,10 @@ import {
   SupabaseFinanceBudgetError,
 } from "./src/server/supabaseFinanceBudget";
 import {
+  assignSupabaseLegacyFinanceExpenseUnit,
   assignSupabaseMasterDataUnit,
   getSupabaseEnterpriseUnitsSnapshot,
+  getSupabaseUnmappedFinanceExpenses,
   getSupabaseUnmappedMasterDataUnits,
   mutateSupabaseEnterpriseUnit,
   SupabaseEnterpriseUnitsError,
@@ -2351,6 +2353,13 @@ async function startServer() {
     }
     return actor;
   };
+  const loadEnterpriseUnitsFinanceActor = async (uid: string) => {
+    const actor = await loadEnterpriseUnitsActor(uid);
+    if (!resolveUserModulePermissions(actor.role, actor.modulePermissions).finance) {
+      throw new SupabaseEnterpriseUnitsError(403, "Akses modul Keuangan tidak diberikan kepada akun ini.");
+    }
+    return actor;
+  };
   const enterpriseUnitsRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseEnterpriseUnitsError) return res.status(error.status).json({ error: error.message });
@@ -2799,6 +2808,33 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadEnterpriseUnitsMasterDataActor(uid);
       const result = await assignSupabaseMasterDataUnit(actor.tenantId, actor.uid, actor.role, req.body);
+      return res.json(result);
+    } catch (error) { return enterpriseUnitsRouteError(res, error); }
+  });
+
+  app.get("/api/enterprise/finance/unit-assignment/unmapped", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!enterpriseUnitsRuntimeEnabled || !financeRuntimeEnabled) {
+      return res.status(503).json({ error: "Runtime Manajemen Multi-Unit dan Keuangan Supabase belum diaktifkan operator." });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadEnterpriseUnitsFinanceActor(uid);
+      return res.json(await getSupabaseUnmappedFinanceExpenses(actor.tenantId, actor.uid, actor.role, req.query.offset));
+    } catch (error) { return enterpriseUnitsRouteError(res, error); }
+  });
+
+  app.post("/api/enterprise/finance/unit-assignment", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!enterpriseUnitsRuntimeEnabled || !financeRuntimeEnabled) {
+      return res.status(503).json({ error: "Runtime Manajemen Multi-Unit dan Keuangan Supabase belum diaktifkan operator." });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadEnterpriseUnitsFinanceActor(uid);
+      const result = await assignSupabaseLegacyFinanceExpenseUnit(actor.tenantId, actor.uid, actor.role, req.body);
       return res.json(result);
     } catch (error) { return enterpriseUnitsRouteError(res, error); }
   });
