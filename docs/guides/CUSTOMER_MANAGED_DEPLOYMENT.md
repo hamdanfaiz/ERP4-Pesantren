@@ -40,6 +40,7 @@ SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false
 VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED=false
 SUPABASE_FINANCE_RUNTIME_ENABLED=false
 SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED=false
+SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED=false
 ```
 
 `VITE_SUPABASE_URL` must be reachable from each user's browser. `SUPABASE_URL` must be reachable from the container and may use a private address. The browser bootstrap fetches an allowlisted `/runtime-config.json` before loading the application. The Supabase URL, publishable key, and public feature flags are read when the container starts, not baked into the image. The publishable key is public by design; the secret key is passed only to the server container. Never put a secret key in a `VITE_` variable or commit `.env`.
@@ -65,6 +66,8 @@ If the database transaction fails after Auth sends the invitation, the script at
 The Compose file passes an explicit allowlist of browser settings and server runtime flags when the container starts; all feature and import gates default to `false`. The same image can be configured for different customer environments by changing `.env` and recreating the service; no image rebuild is needed for a Supabase endpoint, publishable key, or feature-flag change. Enable both sides of a module only after its migrations, tenant setup, Auth/profile setup, RLS, and any Storage policies are verified in that deployment. Keep every import/apply flag off during normal operation; use it only for a reviewed, time-bounded maintenance procedure. This installation does not import Firestore data; create synthetic or operational records through the application after the tenant and Admin are provisioned. Public PPDB is an externally reachable intake route and requires its own abuse, privacy, and tenant configuration review before activation. PII and legacy fingerprint keys are server-only; do not prefix them with `VITE_`.
 
 Modul RKAT bergantung pada tabel Keuangan yang sama. Aktifkan `SUPABASE_FINANCE_RUNTIME_ENABLED` dan `SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED` hanya setelah migration `20270125000000_finance_budget_plans.sql`, uji RLS/tenant, dan persetujuan alur anggaran lolos di environment nonproduksi. Data anggaran tidak dibuat otomatis; Admin harus mengisi alokasi. Realisasi dihitung dari pengeluaran yang sudah disetujui dan tercatat di buku Keuangan.
+
+Registri Manajemen Multi-Unit membutuhkan migration `20270126000000_tenant_enterprise_units.sql`. `SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED` tetap `false` hingga migration, hak Admin/permission, tenant scope, dan operasi buat/ubah/status diuji pada environment nonproduksi. Registri hanya mengelola unit organisasi; data operasional modul lain belum dipisahkan berdasarkan unit.
 
 ## Build and run
 

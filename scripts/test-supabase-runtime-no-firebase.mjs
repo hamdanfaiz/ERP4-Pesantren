@@ -86,10 +86,11 @@ const expectedRoutes = new Map([
   ['donation', ['SupabaseDonationManager']], ['laundry', ['SupabaseLaundryManager']],
   ['ga', ['SupabaseGeneralAffairManager']], ['alumni', ['SupabaseAlumniManager']],
   ['crm', ['SupabaseCrmManager']], ['marketplace', ['SupabaseMarketplaceManager']],
+  ['enterprise', ['SupabaseEnterpriseUnitsManager']],
   ['settings', ['SettingsManager']],
   ['erp', ['SupabaseFinanceBudgetManager']],
 ]);
-const unavailableRoutes = ['enterprise', 'intelligence', 'ecosystem'];
+const unavailableRoutes = ['intelligence', 'ecosystem'];
 const legacyRuntimeScreens = [
   './pages/Dashboard', './pages/CBTManager', './pages/CBTStudentDashboard', './pages/BoardingManager',
   './pages/FinanceManager', './pages/CommunicationHub', './pages/AcademicManager', './pages/HealthcareManager',
@@ -154,6 +155,12 @@ assert.match(serverSource, /app\.get\(["']\/api\/erp\/budget\/snapshot["'],\s*re
   'RKAT reads must require authentication and both Finance and budget runtime flags.');
 assert.match(serverSource, /app\.post\(["']\/api\/erp\/budget\/mutations["'],\s*requireAuth,[\s\S]*?if\s*\(!financeRuntimeEnabled\s*\|\|\s*!financeBudgetRuntimeEnabled\)/,
   'RKAT writes must require authentication and both Finance and budget runtime flags.');
+assert.match(serverSource, /const enterpriseUnitsRuntimeEnabled\s*=\s*String\(process\.env\.SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED\s*\|\|\s*["']{2}\)\.trim\(\)\.toLowerCase\(\)\s*===\s*["']true["']/,
+  'Enterprise units runtime must remain disabled unless its explicit server-side flag is true.');
+assert.match(serverSource, /app\.get\(["']\/api\/enterprise\/units\/snapshot["'],\s*requireAuth,[\s\S]*?if\s*\(!enterpriseUnitsRuntimeEnabled\)/,
+  'Enterprise unit reads must require authentication and the runtime gate.');
+assert.match(serverSource, /app\.post\(["']\/api\/enterprise\/units\/mutations["'],\s*requireAuth,[\s\S]*?if\s*\(!enterpriseUnitsRuntimeEnabled\)/,
+  'Enterprise unit writes must require authentication and the runtime gate.');
 const serverArchiveImportFlags = [...serverSource.matchAll(/const (\w+Import\w*Enabled)\s*=\s*isLegacyArchiveImportEnabled\(process\.env\.SUPABASE_[A-Z0-9_]*IMPORT[A-Z0-9_]*\);/g)];
 assert.ok(serverArchiveImportFlags.length >= 21, 'All server archive-import feature flags must use the global fail-closed gate.');
 const serverArchiveImportBypasses = [...serverSource.matchAll(/const \w+Import\w*Enabled\s*=\s*String\(process\.env\.SUPABASE_[A-Z0-9_]*IMPORT[A-Z0-9_]*/g)];

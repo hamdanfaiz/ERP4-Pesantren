@@ -37,6 +37,7 @@ const SupabaseGeneralAffairManager = React.lazy(() => import('./pages/SupabaseGe
 const SupabaseAlumniManager = React.lazy(() => import('./pages/SupabaseAlumniManager').then((module) => ({ default: module.SupabaseAlumniManager })));
 const SupabaseLMSManager = React.lazy(() => import('./pages/SupabaseLMSManager').then((module) => ({ default: module.SupabaseLMSManager })));
 const SupabaseMarketplaceManager = React.lazy(() => import('./pages/SupabaseMarketplaceManager').then((module) => ({ default: module.SupabaseMarketplaceManager })));
+const SupabaseEnterpriseUnitsManager = React.lazy(() => import('./pages/SupabaseEnterpriseUnitsManager').then((module) => ({ default: module.SupabaseEnterpriseUnitsManager })));
 const UserManagementView = React.lazy(() => import('./pages/UserManagementView').then((module) => ({ default: module.UserManagementView })));
 export default function App() {
   const { role, user, completeGuardianInvitation } = useAuth();
@@ -179,7 +180,7 @@ export default function App() {
         }
         return <SettingsManager />;
       case 'enterprise':
-        return <ModulePlaceholder module={activeModule} supabaseRuntimeUnavailable />;
+        return <SupabaseEnterpriseUnitsManager />;
       case 'erp':
         return <SupabaseFinanceBudgetManager />;
       case 'ga':

@@ -27,11 +27,11 @@ Skrip migration, konfigurasi yang portabel, dan dokumentasi deployment tetap bag
 
 ## Pekerjaan pengembangan yang masih terbuka
 
-1. **Lengkapi atau sepakati penurunan cakupan empat modul yang masih ditahan (fail-closed):** Manajemen Multi-Unit, Keuangan dan Anggaran, Analitik AI, serta PPOB dan Layanan. Masing-masing memerlukan keputusan cakupan, alur Supabase, pemeriksaan tenant/role, UI operasional, dan tes sebelum dapat dibuka.
+1. **Selesaikan cakupan empat area produk yang masih memiliki gap:** Manajemen Multi-Unit kini mempunyai registri unit tenant, UI, API, audit, retry idempoten, dan pgTAP, tetapi data operasional belum terikat ke unit; RKAT mempunyai rancangan anggaran tetapi runtime masih bergate; Analitik AI dan PPOB/Layanan masih fail-closed. Rincian slice Multi-Unit ada di [checkpoint 30 Oktober](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
 2. **Bersihkan sisa source legacy Firebase.** Cutover runtime Supabase-only sudah terverifikasi di CI run 40973057285: grafik frontend aktif tidak mengimpor Firebase, paket Firebase dikecualikan dari runtime production, dan smoke test production lulus tanpa paket tersebut. Kode legacy/import Firebase masih ada dalam source tree tetapi gate-nya selalu tertutup; hapus atau arsipkan jalur ini setelah memeriksa dependensi/tsconfig. Tidak ada data Firestore yang perlu disalin.
 3. **Tutup integrasi lintas modul.** Verifikasi referensi data, aturan tenant dan permission, transaksi idempoten, validasi status, serta jejak audit pada alur yang saling terhubung.
 4. **Lengkapi verifikasi pengembangan untuk paket self-hosted.** Pastikan konfigurasi, startup, health check, upgrade schema, pencadangan/pemulihan, dan panduan VPS/on-premise konsisten dan dapat direproduksi.
-5. **Selesaikan suite kode/CI atas perubahan terakhir.** Hasil CI sintetis adalah bukti untuk source dan fixture uji; hasilnya tidak dianggap sebagai UAT atau verifikasi database pelanggan.
+5. **Selesaikan suite kode/CI atas perubahan terakhir.** Runtime guard lokal lulus untuk slice Multi-Unit. Typecheck, build, dan pgTAP pada branch ini masih menunggu workflow CI; hasil CI sintetis adalah bukti untuk source dan fixture uji, bukan UAT atau verifikasi database pelanggan.
 
 
 ### Status cutover Firebase → Supabase
@@ -49,6 +49,12 @@ Angka 100% **tidak menyatakan deployment produksi atau UAT telah dilakukan**. Ti
 - Basis kode yang ditinjau untuk checkpoint ini: PR #13, branch `codex/supabase-runtime-cutover-20261022`, head sebelum commit dokumen ini `6169668230b9afb0e11c9db6d37847bc1fd55a7f`.
 - PR #13 masih Open/Draft saat pemeriksaan. Dokumen ini tidak mengubah kode runtime, database Supabase, status PR, deployment, ataupun data.
 - Tim backend dapat meninjau daftar pekerjaan di atas pada branch PR #13. Persentase diperbarui pada checkpoint berikutnya hanya jika ada bukti implementasi atau tes baru; deployment/UAT dicatat terpisah oleh tim penerapan.
+
+## Implementasi registri unit — 30 Oktober 2026
+
+- Kode Manajemen Multi-Unit kini disiapkan pada branch PR #13; checkpoint rinci: [CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
+- Source berisi 98 migration setelah penambahan registri unit. Migration baru belum dijalankan di staging atau Production; flag runtime tetap mati secara bawaan.
+- Estimasi pengembangan tetap **73%**. Perubahan ini belum menerapkan isolasi tingkat unit pada transaksi akademik, keuangan, asrama, atau modul lainnya.
 
 
 ## Verifikasi CI untuk checkpoint — 30 Oktober 2026
