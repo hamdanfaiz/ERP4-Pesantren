@@ -53,7 +53,7 @@ Angka 100% **tidak menyatakan deployment produksi atau UAT telah dilakukan**. Ti
 ## Implementasi registri unit — 30 Oktober 2026
 
 - Kode Manajemen Multi-Unit kini disiapkan pada branch PR #13; checkpoint rinci: [CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
-- Source berisi 98 migration setelah penambahan registri unit. Migration baru belum dijalankan di staging atau Production; flag runtime tetap mati secara bawaan.
+- Source berisi 99 migration setelah penambahan registri unit dan koreksi CBT `20270127000000`. Migration baru belum dijalankan di staging atau Production; flag runtime tetap mati secara bawaan.
 - Estimasi pengembangan tetap **73%**. Perubahan ini belum menerapkan isolasi tingkat unit pada transaksi akademik, keuangan, asrama, atau modul lainnya.
 
 
@@ -63,3 +63,10 @@ Angka 100% **tidak menyatakan deployment produksi atau UAT telah dilakukan**. Ti
 - Job frontend lulus typecheck, guard import Firebase pada frontend aktif, smoke test runtime production tanpa paket Firebase, konfigurasi runtime pelanggan, serta build dan smoke test Docker/Compose.
 - Job database lulus rehearsal migration pada Supabase lokal sintetis, pgTAP/database tests, reservasi NIS/Tahfidz serentak, preview importer sintetis, API auth/isolasi tenant, unggah Storage Finance/PPDB/Perpustakaan, serta backup/restore lokal.
 - Ini bukti source dan fixture sintetis pada CI saja. Tidak ada migration/data yang diterapkan ke Supabase live; hasil ini bukan deployment atau UAT pelanggan. Estimasi penyelesaian pengembangan tetap sekitar **73%** karena commit ini hanya memperbarui dokumentasi.
+
+## Koreksi batas jawaban CBT — 30 Oktober 2026
+
+- Migration `20270127000000_fix_cbt_answer_object_limit.sql` memperbaiki `save_cbt_attempt_answers`: penghitungan jumlah jawaban kini memakai `jsonb_object_keys`, sementara pemeriksaan tenant/santri aktif, batas maksimum 500, `SECURITY INVOKER`, `search_path`, dan hak eksekusi server tetap dijaga.
+- pgTAP menambahkan regresi untuk 500 jawaban (melewati batas dan mencapai validasi percobaan) serta 501 jawaban (ditolak dengan SQLSTATE validasi).
+- GitHub Actions [run 40983747307](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40983747307) lulus **2/2 job** pada commit kode `4a366723fd0fd9b17d93593c501e603fd181fb24`: build/typecheck frontend serta rehearsal migration Supabase lokal, pgTAP, API/tenant, Storage, dan backup/restore sintetis. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch.
+- Estimasi penyelesaian pengembangan tetap sekitar **73%**; koreksi ini menutup satu cacat pada CBT, tetapi tidak menyelesaikan empat area produk yang masih bergate atau release gate lainnya. Tidak ada migration yang diterapkan ke Supabase live. PR #13 tetap Open/Draft.
