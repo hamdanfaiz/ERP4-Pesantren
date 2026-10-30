@@ -10,7 +10,7 @@ ERP4 Pesantren ditujukan sebagai software yang dipasang dan dioperasikan untuk p
 
 Kolom `tenant_id` tetap menjadi batas data dan otorisasi di dalam instalasi. Keberadaannya tidak berarti semua pesantren akan ditempatkan pada satu database vendor. Dukungan beberapa pesantren dalam satu instalasi harus menjadi keputusan produk tersendiri.
 
-**Batas rilis awal:** modul PPOB & Layanan ekosistem dan integrasi payment gateway tidak disertakan. Modul disembunyikan dari navigasi dan tidak bisa dibuka melalui permission yang tersimpan sebelumnya. Finance tetap mendukung pencatatan serta verifikasi pembayaran manual; sistem tidak mengklaim settlement otomatis atau koneksi provider.
+**Batas rilis awal:** atas keputusan pemilik, PPOB, Layanan ekosistem, dan integrasi payment gateway dikeluarkan sementara. Provider belum dipilih dan tidak ada koneksi provider yang ditawarkan pada rilis awal. Modul disembunyikan dari navigasi dan tidak bisa dibuka melalui permission yang tersimpan sebelumnya. Finance tetap mendukung pencatatan serta verifikasi pembayaran manual; settlement otomatis belum termasuk.
 
 Paket Docker ERP berkomunikasi dengan endpoint Supabase yang disediakan operator. Paket ini **belum membundel atau mengoperasikan seluruh layanan Supabase**. VPS dan on-premise berarti jalur deployment yang dituju, bukan bukti bahwa clean install di semua jenis server telah berhasil.
 
@@ -18,10 +18,10 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 
 ## Status teknis berdasarkan bukti
 
-- Kode aktif PR #13 mengarahkan modul operasional ke API Supabase. Firebase Admin dinonaktifkan pada semua environment; paket Firebase tidak masuk ke dependensi production. Impor arsip Firestore dinonaktifkan lewat kebijakan global, dan data contoh akan dibuat manual.
-- GitHub Actions [run 41049963343](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41049963343) lulus **2/2 job** pada head source `af9460e7fbdcbf788ee01c53d3bd31ae3089c5be`. Cakupan meliputi typecheck/build, penguncian PPOB di RBAC, Docker/Compose, Supabase lokal sintetis, rehearsal migration, pgTAP, API/tenant, transaksi serentak, Storage, dan backup/restore. Ini bukan UAT pelanggan atau bukti perubahan database live.
-- Source PR #13 saat ini memiliki 109 file migration. Snapshot baca-saja staging terakhir yang tercatat (27 Oktober) menunjukkan 47 versi hingga `20261206000000`; 62 versi source belum tercatat pada snapshot tersebut. Konektor gagal memberikan inventaris terbaru pada 30 Oktober, sehingga snapshot ini bukan daftar migration yang boleh langsung diterapkan. Tidak ada migration yang diterapkan.
-- Snapshot katalog staging terdahulu menunjukkan 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antartabel tenant memasangkan `tenant_id`; tabel `anon` tanpa SELECT dan `authenticated` tanpa hak tulis langsung. Baseline perlu dibaca ulang sebelum rehearsal.
+- Source cutover PR #13 sudah merged ke `main` (merge commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`). Source mengarahkan modul operasional ke API Supabase. Firebase Admin dinonaktifkan pada semua environment; paket Firebase tidak masuk ke dependensi production. Impor arsip Firestore dinonaktifkan lewat kebijakan global, dan data contoh akan dibuat manual.
+- GitHub Actions [run 41051400486](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41051400486) lulus **2/2 job** pada head source PR #13 `e449c234c253eb7a65795af18c5794fa45e6e9cb`. Cakupan meliputi typecheck/build, penguncian PPOB di RBAC, Docker/Compose, Supabase lokal sintetis, rehearsal migration, pgTAP, API/tenant, transaksi serentak, Storage, dan backup/restore. Ini bukan UAT pelanggan atau bukti perubahan database live.
+- Source `main` saat ini memiliki 109 file migration. Snapshot ledger lama menunjukkan 47 versi hingga `20261206000000`; 62 adalah selisih potensial hanya jika ledger belum berubah. Dokumen lama menyebut project sebagai `main / PRODUCTION`, sementara pemilik pernah menyebut ref ini staging; konektor saat ini tidak dapat memeriksa target. Pastikan environment dan baca ulang ledger/schema sebelum rehearsal. Snapshot lama bukan daftar migration yang boleh diterapkan. Tidak ada migration yang diterapkan.
+- Snapshot katalog target terdahulu menunjukkan 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antartabel tenant memasangkan `tenant_id`; tabel `anon` tanpa SELECT dan `authenticated` tanpa hak tulis langsung. Label staging/production belum konsisten dan baseline perlu dibaca ulang sebelum rehearsal.
 - Runtime feature flags sengaja mati secara default sampai migration, provisioning tenant, Auth, role/permission, dan UAT masing-masing modul lulus.
 - Tagihan PPDB dapat dibuat Admin pada record calon santri dan ditautkan ke santri saat onboarding. Admin dapat mencatat pelunasan manual sebelum onboarding; unggah bukti mandiri oleh Wali baru tersedia setelah akun Wali terhubung dengan santri aktif. Jika pembayaran mandiri Wali sebelum onboarding dibutuhkan, itu masih perlu dirancang dan diuji.
 - Docker/Compose dan smoke test tersedia pada branch cutover. Belum ada bukti instalasi baru dari server kosong milik pelanggan, upgrade/restore di VPS/on-premise, atau uji beban berskala pesantren besar.
@@ -32,7 +32,7 @@ Snapshot teknis ini bukan pengganti audit endpoint, pemeriksaan definisi seluruh
 
 ### 1. Skema, relasi, dan transaksi
 
-- Baca ulang ledger staging, lalu rekonsiliasi selisih dengan 109 file migration source. Snapshot 27 Oktober menunjukkan 62 versi source belum tercatat; jangan tandai versi sebagai applied tanpa bukti schema dan jangan anggap semua versi itu siap diterapkan.
+- Baca ulang ledger target, lalu rekonsiliasi dengan 109 file migration di source `main`. Snapshot lama menunjukkan 47 versi sampai `20261206000000`; selisih 62 hanya berlaku jika ledger tidak berubah. Jangan tandai versi sebagai applied tanpa bukti schema dan jangan anggap selisih potensial itu siap diterapkan.
 - Sebelum penerapan, simpan backup yang dapat dipulihkan dan rehearsalkan seluruh urutan migration pada salinan/environment staging.
 - Verifikasi signature dan definisi function, constraint, index, RLS, Storage policy, dan Data API grant terhadap source commit yang akan dirilis.
 - Uji transaksi kritis: NIS unik bersamaan, onboarding PPDB-ke-santri, assignment kamar, pembayaran/jurnal, stok/dompet koperasi, buku dan peminjaman, sesi/setoran Tahfidz, serta idempotensi retry.
@@ -83,7 +83,7 @@ Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika 
 
 ## Urutan kerja yang disarankan
 
-1. Tim backend menghubungkan akses tulis yang tepat ke **staging** dan menyiapkan backup/restore drill. Konektor yang tersedia pada Codex saat ini hanya memberi baca ke staging; jangan gunakan project Supabase lain sebagai pengganti.
+1. Tim backend memastikan target yang benar dan menyediakan environment staging terisolasi yang dapat dipulihkan. Konektor Supabase yang tersedia pada Codex saat ini tidak menampilkan ref target `ptsasgdvgrbdtgyqieie`; jangan gunakan project Supabase lain sebagai pengganti.
 2. Baca ulang ledger, review, dan rehearsalkan urutan migration yang benar-benar belum diterapkan pada lingkungan yang dapat dipulihkan; tidak ada importer Firestore yang perlu dijalankan.
 3. Jalankan UAT Auth, role/tenant, modul kritis, Storage, dan error recovery pada staging.
 4. Lakukan clean install, upgrade, dan pemindahan host pada VPS Linux serta VM on-premise representatif.

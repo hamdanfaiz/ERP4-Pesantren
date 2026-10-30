@@ -1,5 +1,15 @@
 # Checkpoint Manajemen Multi-Unit — 30 Oktober 2026
 
+## Status terbaru setelah merge PR #13
+
+- PR #13 sudah merged ke `main` pada merge commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`; source head `e449c234c253eb7a65795af18c5794fa45e6e9cb` lulus CI 2/2 pada run `41051400486`.
+- PR #1–#11 ditutup sebagai superseded dan tidak merged; PR #12 dan #13 merged. Rincian dan audit paritas ada di [progres penyelesaian](PROJECT_COMPLETION_PROGRESS_2026-10-30.md) dan [audit paritas](PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
+- Estimasi penyelesaian pengembangan tetap sekitar **73%**; deployment hosting dan UAT oleh tim penerapan tidak termasuk.
+- Keputusan rilis awal: PPOB/payment gateway tidak disertakan. Peer Review Tahfidz memakai teks pada halaqah yang sama dan dimoderasi Ustadz pengampu; audio serta akses Wali tidak termasuk.
+- Rekonsiliasi migration, backup/restore target, login dan UAT, serta uji instalasi customer-hosted masih terbuka. Target Supabase belum dapat dibaca melalui konektor dan label staging/production perlu dipastikan.
+
+Catatan status dan checklist PR di bawah ini berasal dari snapshot sebelum merge. Gunakan pembaruan ini untuk status terkini; status database dan lingkungan pelanggan belum berubah.
+
 ## Status saat ini
 
 Pada source PR #13, cakupan unit organisasi sudah ada untuk beberapa alur penting: pengeluaran dan ledger Finance, rencana anggaran, tagihan terkait kandidat/santri, catatan dan kelas Akademik, serta lokasi, penempatan dan akses operasional Asrama. Registri organisasi/unit, pemetaan historis secara eksplisit, API, UI, dan tes database sintetis juga tersedia.
@@ -32,16 +42,15 @@ Cakupan di atas **bukan** pernyataan bahwa semua tabel operasional memakai unit 
 ## Pekerjaan pengembangan yang masih terbuka
 
 1. Audit akhir integrasi lintas-modul: tenant/permission, relasi ID, transisi status, retry, audit dan kegagalan parsial pada alur PPDB → Santri/Wali → Akademik/Asrama/Tahfidz/Finance.
-2. Tutup atau tetapkan sebagai di luar rilis awal fitur yang belum memiliki backend Supabase, terutama Peer Review Tahfidz. Desainnya perlu mencakup izin wali/minor, audio privat, moderasi, retensi dan akses tenant.
+2. Audit sisa paritas modul lama. Peer Review Tahfidz sudah memiliki backend Supabase untuk teks dengan moderasi Ustadz dalam halaqah yang sama; audio dan akses Wali dikeluarkan dari rilis awal.
 3. PPOB/payment gateway dikeluarkan dari rilis awal; menu dan permission dinonaktifkan. Analitik yang tersedia berbasis aturan; prediksi AI bukan klaim rilis awal.
 4. Tinjau dan rapikan source legacy Firebase yang sudah tidak masuk jalur runtime aktif. CI membuktikan graph frontend aktif dan image runtime tidak memakai Firebase, tetapi file legacy/import tetap ada di source.
 5. Lengkapi verifikasi pengembangan instalasi/upgrade/pemulihan yang dapat dijalankan ulang oleh tim backend. CI sudah menguji Docker/Compose dan smoke test; simulasi hosting/VPS/on-premise serta UAT tetap dilakukan tim penerapan.
 6. Tim penerapan harus merekonsiliasi ledger migration project target sebelum menerapkan migration; akses database live tidak diverifikasi di checkpoint ini.
 
-## Status Pull Request
+## Status Pull Request (snapshot sebelum merge; sudah superseded)
 
-- PR #1–#11: Open/Draft, belum merged.
-- PR #12: Closed/Merged ke `main`.
-- PR #13: Open/Draft, belum merged. GitHub melaporkan `mergeable: true`, yang hanya berarti tidak ada konflik Git; PR masih memiliki gerbang engineering di atas.
+- Pada snapshot sebelum merge, PR #1–#11 dan #13 masih Open/Draft, sementara PR #12 telah merged.
+- Status terbaru: PR #1–#11 Closed / tidak merged sebagai superseded; PR #12 dan #13 Closed / Merged.
 
-PR lama #1–#11 bertingkat dan sebagian memakai arsitektur Firebase/transisi lama. Jangan merge satu per satu. Setelah PR #13 selesai, direview, dan benar-benar masuk ke `main`, tutup PR lama yang penggantinya terbukti lengkap dengan alasan superseded; jangan menyebutnya merged jika tidak digabung.
+PR lama #1–#11 bertingkat dan sebagian memakai arsitektur Firebase/transisi lama. Jangan merge ulang satu per satu. Audit paritas pada source `main` mencatat fitur pengganti serta pekerjaan yang masih tertunda.

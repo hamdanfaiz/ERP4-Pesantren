@@ -1,5 +1,13 @@
 # Checkpoint target Supabase ERP4-Pesantren — 30 Oktober 2026
 
+## Status akses dan source terbaru setelah merge
+
+- PR #13 sudah merged ke `main` pada source commit `e449c234c253eb7a65795af18c5794fa45e6e9cb`, merge commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`. CI run `41051400486` lulus 2/2 job pada source head tersebut.
+- Konektor Supabase yang tersedia saat ini hanya menampilkan `vqemuyzveuirlkvdggjd`; target `ptsasgdvgrbdtgyqieie` tidak terdaftar dan permintaan read-only terbaru ditolak. Angka schema/ledger di bawah berasal dari snapshot dashboard sebelumnya dan belum dibaca ulang.
+- Satu jawaban pemilik menyebut `ptsasgdvgrbdtgyqieie` staging, sedangkan snapshot dashboard yang tersimpan menyatakan branch `main / PRODUCTION`. Sampai tim backend memeriksa project aktif, perlakukan target sebagai Production dan jangan rehearse atau menerapkan migration di sana.
+- Snapshot ledger yang tercatat berisi 47 versi sampai `20261206000000`; source `main` kini berisi 109 migration. Selisih potensial 62 bukan daftar migration yang boleh diterapkan—ledger terbaru harus dibaca ulang terlebih dahulu.
+- Tidak ada migration live yang diterapkan setelah merge. Penyelesaian fitur tetap diperkirakan sekitar **73%**; target belum dinyatakan siap deploy atau dijual.
+
 ## Target aplikasi dan deployment
 
 - Project Supabase yang dituju adalah `ptsasgdvgrbdtgyqieie` (`https://ptsasgdvgrbdtgyqieie.supabase.co`).
@@ -15,9 +23,9 @@ Data dummy Firestore tidak akan disalin. Target Supabase tidak diubah selama pem
 - `src/runtimeBackend.ts` menetapkan `SUPABASE_ONLY_RUNTIME = true`. Router aplikasi memilih layar operasional Supabase, tanpa fallback ke layar Firebase.
 - `isLegacyFirebaseAdminEnabled()` dan `isLegacyArchiveImportEnabled()` selalu `false`; flag environment tidak dapat mengaktifkan kembali Firebase atau impor arsip.
 - Guard CI menelusuri import graph dari `src/main.tsx`, menolak paket Firebase maupun adapter Firebase, memeriksa route operasional Supabase, dan memaksa empat route yang belum ada untuk fail-closed: Enterprise, ERP umum, Intelligence, dan Ecosystem. File uji: [test-supabase-runtime-no-firebase.mjs](https://github.com/hamdanfaiz/ERP4-Pesantren/blob/codex/supabase-runtime-cutover-20261022/scripts/test-supabase-runtime-no-firebase.mjs).
-- Ini membuktikan konfigurasi source cutover, bukan bahwa perubahan sudah berjalan di Production. PR #13 belum merge. Empat route fail-closed juga perlu diperlakukan sebagai fitur yang belum tersedia jika masuk cakupan penawaran awal.
+- Ini membuktikan konfigurasi source cutover, bukan bahwa perubahan sudah berjalan di Production. Ketika pemeriksaan ini dicatat, PR #13 belum merge; source kemudian merged seperti dinyatakan di status terbaru di atas. Empat route fail-closed juga perlu diperlakukan sebagai fitur yang belum tersedia jika masuk cakupan penawaran awal.
 
-## Rekonsiliasi ledger baca-saja
+## Rekonsiliasi ledger baca-saja (snapshot dashboard lama)
 
 Query `SELECT` pada SQL Editor dashboard project target membaca `version`, `name`, dan jumlah statement pada `supabase_migrations.schema_migrations`.
 
@@ -51,13 +59,13 @@ Job database memakai Supabase lokal sintetis dan memulai reset dari versi `20261
 
 Job `Supabase Preview` dilewati karena branch belum terhubung ke Supabase Branch. URL yang ditampilkan job tersebut masih mengarah ke project lama `vqemuyzveuirlkvdggjd`.
 
-PR #13 tetap **Open / Draft**, belum merge. Tidak ada migrasi, perubahan schema, record, feature flag, atau data yang diterapkan pada project target.
+Pada saat snapshot ini ditulis, PR #13 masih **Open / Draft**. Status tersebut kemudian berubah: source telah merged sesuai pembaruan di atas. Tidak ada migrasi, perubahan schema, record, feature flag, atau data yang diterapkan pada project target.
 
 ## Gerbang sebelum cutover
 
 1. Sediakan staging terpisah atau backup Production yang dapat dipulihkan. Uji pemulihan pada environment terisolasi; project target saat ini branch `main / PRODUCTION`, Free plan, dan tidak menyediakan branch preview.
 2. Minta pemilik backend menelusuri provenance versi `20261205000000` dan `20261206000000`, termasuk mengapa nama dan array statement kosong. Rekonsiliasi metadata dan schema tanpa mengubah ledger Production.
-3. Lakukan rehearsal atas 49 migrasi terhadap baseline yang sedekat mungkin dengan target. Periksa perubahan tabel, constraint, indeks dan lock, RLS/grant, function/RPC, Storage, serta kompatibilitas versi API. CI sintetis saja belum cukup.
+3. Setelah rekonsiliasi, lakukan rehearsal atas set migration yang benar-benar belum diterapkan terhadap baseline yang sedekat mungkin dengan target. Snapshot historis di atas menyebut 49 file source sesudah versi terakhir pada ledger yang dibaca saat itu, tetapi jumlah source sudah berubah menjadi 109 dan ledger terbaru belum terbaca ulang. Periksa tabel, constraint, indeks dan lock, RLS/grant, function/RPC, Storage, serta kompatibilitas versi API. CI sintetis saja belum cukup.
 4. Perbarui integrasi Supabase Preview agar menggunakan project/ref yang benar jika preview branch tersedia. Jangan biarkan pemeriksaan PR menunjuk ke project lama.
 5. Jalankan UAT login, role/tenant, alur setiap modul, unggah/akses Storage privat, backup/restore, dan deployment customer-managed sebelum rilis.
 6. Rotasi secret key Supabase dan password database yang pernah dibagikan sebelum go-live.
