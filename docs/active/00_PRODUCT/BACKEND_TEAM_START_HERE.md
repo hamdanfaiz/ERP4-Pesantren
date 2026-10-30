@@ -1,5 +1,7 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
+> **Status database terbaru (31 Oktober 2026):** target yang benar adalah `ptsasgdvgrbdtgyqieie`; dashboard menunjukkan branch `main / PRODUCTION`. Snapshot SQL Editor memperlihatkan 47 versi ledger, sementara source `main` memiliki 109 file migration. Dua baris ledger terakhir tidak memiliki nama dan metadata statement. Perpindahan schema belum dapat dinyatakan selesai; data Firestore dummy tidak perlu disalin. Verifikasi dan rehearsal tetap wajib dilakukan di staging terpisah sebelum Production.
+
 **Diperbarui:** 31 Oktober 2026  
 **Status:** siap dipakai sebagai urutan kerja; tidak menyatakan aplikasi siap produksi.
 
@@ -9,8 +11,8 @@ Mulai dari **Fase 1: menyiapkan staging dan membaca keadaan database**. Tim tida
 
 ## Baseline yang harus dipakai
 
-- Sumber kode resmi saat pembaruan panduan ini adalah `main` pada commit `888420a994e779a77779dc4378229cc4c7245957` (PR #23). PR #22 menetralkan konfigurasi awal untuk instalasi pelanggan; PR #23 menyelaraskan contoh pengaturan dan identitas aplikasi dalam Bahasa Indonesia. Saat mulai bekerja, checkout `main` terbaru dan catat SHA aktual yang digunakan.
-- PR #13 adalah baseline cutover Supabase; PR #17 menghapus Firebase Admin dan jalur Firestore server; PR #18 memperbarui status kesiapan; PR #19 menambahkan panduan kickoff tim backend; PR #20 menyelaraskan acuan checkpoint. PR #22 dan #23 menyempurnakan konfigurasi awal pelanggan dan contoh pengaturan. Semuanya sudah merged.
+- Sumber kode resmi saat pembaruan panduan ini adalah `main` pada commit `23e7fd061759e06e9a31aa7a2f10501e859a4329` (PR #25). PR #24 melokalkan katalog izin modul; PR #25 menyelaraskan merek aplikasi dan menandai dokumen Firebase lama sebagai historis. Saat mulai bekerja, checkout `main` terbaru dan catat SHA aktual yang digunakan.
+- PR #13 adalah baseline cutover Supabase; PR #17 menghapus Firebase Admin dan jalur Firestore server; PR #18–#25 menyempurnakan readiness, panduan backend, konfigurasi pelanggan, katalog izin, serta konsistensi merek/dokumen. PR #24 dan #25 sudah merged.
 - PR #1–#11 ditutup tanpa merge langsung karena implementasinya digantikan/dipetakan ke baseline cutover. Jangan cherry-pick atau memakai branch tersebut sebagai dasar deployment.
 - Data Firestore pemilik adalah dummy dan tidak perlu disalin. Gunakan fixture sintetis untuk staging.
 - Project Supabase `ptsasgdvgrbdtgyqieie` tercatat sebagai `main / PRODUCTION`. Jangan gunakan project itu untuk rehearsal.
@@ -23,7 +25,7 @@ Mulai dari **Fase 1: menyiapkan staging dan membaca keadaan database**. Tim tida
 4. Jalankan `npm run preflight:db-migrations` dari root repo hanya setelah URL menunjuk ke staging yang benar. Simpan ringkasan hasilnya tanpa URL atau credential.
 5. Pastikan ada backup staging dan bukti pemulihan sebelum rehearsal.
 
-**Hambatan akses terkini (31 Oktober 2026):** konektor Supabase yang tersedia di Codex hanya menampilkan project `vqemuyzveuirlkvdggjd`; ref target `ptsasgdvgrbdtgyqieie` tidak muncul. Snapshot sebelumnya mencatat `ptsasgdvgrbdtgyqieie` sebagai `main / PRODUCTION`. Jangan menganggap project yang terlihat sebagai staging tanpa konfirmasi tim, dan jangan memakai Production untuk rehearsal. Tim yang memiliki akses Supabase dapat memberikan ref staging terpisah dan mengambil ledger/katalog dengan query baca-saja. Jangan mematikan verifikasi TLS atau mengirim secret melalui chat.
+**Koreksi status akses dan target (31 Oktober 2026):** dashboard Supabase yang telah masuk menunjukkan project `ptsasgdvgrbdtgyqieie` (`ERP4-Pesantren`) pada branch `main / PRODUCTION`. Konektor MCP Codex masih hanya menampilkan project `vqemuyzveuirlkvdggjd` dan menolak ref `ptsas`; keterbatasan MCP tidak berarti dashboard target tidak dapat diakses. Snapshot hasil query yang sedang tampil di SQL Editor target menunjukkan 47 versi pada `supabase_migrations.schema_migrations` (`20260603000000`–`20261206000000`), dengan `name` dan metadata `statements` kosong pada dua versi terakhir `20261205000000` dan `20261206000000`. Ini menunjukkan ledger Production berisi riwayat parsial; bukan bukti skema dan semua 109 migration source sudah selaras. Halaman Tables yang diperiksa tidak menampilkan daftar tabel dalam snapshot aksesibilitas, sehingga jumlah tabel harus dipastikan dengan inventaris SQL baca-saja baru. Project `vqem...` bukan pengganti target dan hasilnya tidak boleh dipakai untuk menyimpulkan keadaan `ptsas`. Jangan menjalankan migration pada Production. Tim backend harus menyiapkan staging yang terpisah, menjalankan ulang inventaris ledger/katalog/RLS/Storage pada target dan staging, merekonsiliasi setiap migration (terutama dua baris metadata kosong), lalu melakukan rehearsal pada staging dengan backup/restore yang terbukti. Tidak ada perubahan database dilakukan pada pemeriksaan ini.
 
 **Keluaran Fase 1:** ref staging yang terkonfirmasi, commit source, ringkasan ledger-vs-source, inventaris skema/RLS/Storage, dan bukti backup/restore staging.
 
