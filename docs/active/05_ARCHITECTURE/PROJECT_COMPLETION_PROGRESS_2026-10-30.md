@@ -27,16 +27,23 @@ Skrip migration, konfigurasi yang portabel, dan dokumentasi deployment tetap bag
 
 ## Pekerjaan pengembangan yang masih terbuka
 
-1. **Selesaikan cakupan empat area produk yang masih memiliki gap:** Manajemen Multi-Unit kini mempunyai registri unit tenant, UI, API, audit, retry idempoten, dan pgTAP, tetapi data operasional belum terikat ke unit; RKAT mempunyai rancangan anggaran tetapi runtime masih bergate; Analitik AI dan PPOB/Layanan masih fail-closed. Rincian slice Multi-Unit ada di [checkpoint 30 Oktober](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
+1. **Selesaikan cakupan area produk yang masih memiliki gap:** Manajemen Multi-Unit memiliki registri tenant; unit scoping kini mencakup pengeluaran Finance baru dan ledger pengeluaran, tetapi belum mencakup tagihan, anggaran, Akademik, Asrama, atau baris lama. RKAT memiliki UI/API/migration namun runtime masih bergate. Analitik AI dan PPOB/Layanan masih fail-closed. Rincian dan batas Finance ada di [checkpoint Multi-Unit 30 Oktober](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
 2. **Bersihkan sisa source legacy Firebase.** Cutover runtime Supabase-only sudah terverifikasi di CI run 40973057285: grafik frontend aktif tidak mengimpor Firebase, paket Firebase dikecualikan dari runtime production, dan smoke test production lulus tanpa paket tersebut. Kode legacy/import Firebase masih ada dalam source tree tetapi gate-nya selalu tertutup; hapus atau arsipkan jalur ini setelah memeriksa dependensi/tsconfig. Tidak ada data Firestore yang perlu disalin.
 3. **Tutup integrasi lintas modul.** Verifikasi referensi data, aturan tenant dan permission, transaksi idempoten, validasi status, serta jejak audit pada alur yang saling terhubung.
 4. **Lengkapi verifikasi pengembangan untuk paket self-hosted.** Pastikan konfigurasi, startup, health check, upgrade schema, pencadangan/pemulihan, dan panduan VPS/on-premise konsisten dan dapat direproduksi.
-5. **Selesaikan suite kode/CI atas perubahan terakhir.** Runtime guard lokal lulus untuk slice Multi-Unit. Typecheck, build, dan pgTAP pada branch ini masih menunggu workflow CI; hasil CI sintetis adalah bukti untuk source dan fixture uji, bukan UAT atau verifikasi database pelanggan.
+5. **Pertahankan CI hijau untuk perubahan berikutnya.** Head PR #13 saat checkpoint ini lulus typecheck/build, rehearsal migrasi lokal, pgTAP, API/tenant, Storage, dan backup/restore sintetis. CI tersebut tidak menggantikan UAT atau verifikasi database pelanggan.
 
 
 ### Status cutover Firebase → Supabase
 
 CI run [40973057285](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40973057285) pada commit `20ce0fbe262e5ba6b76944544ef5dab06599865f` lulus 2/2 job. Pemeriksaan mencakup Supabase-only active frontend import graph, eksklusi Firebase dari production dependencies, gate Firebase Admin, dan production smoke test tanpa paket Firebase. Karena itu runtime production telah dibuktikan Supabase-only pada source tersebut. Referensi/komponen legacy masih tersimpan sebagai kode nonaktif di repository; audit dan penghapusannya tetap pekerjaan kebersihan source, bukan bukti bahwa production masih terhubung ke Firestore. Tidak ada data atau migration yang ditulis ke Supabase live.
+
+## Finance unit-scope checkpoint — 30 Oktober 2026
+
+- Pengeluaran Finance baru wajib terhubung ke organisasi aktif milik tenant. Akun Ustadz menggunakan unit pada profil tepercaya; Admin memilih unit aktif. Persetujuan menyalin unit ke ledger dan RPC lama tanpa unit dicabut.
+- Baris Finance lama tidak diisi otomatis; `unit_id` tetap `NULL` sampai rekonsiliasi eksplisit. Tagihan, anggaran, Akademik, Asrama, dan modul lain belum mendapat isolasi unit.
+- GitHub Actions [run 40990151916](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40990151916) lulus 2/2 job di commit `7e9149283c8c1b843880b4b9db7bd56ef41636b1`; cakupannya termasuk typecheck/build, rehearsal migrasi lokal, pgTAP, API tenant, Storage, dan backup/restore sintetis.
+- Tidak ada data/migration yang ditulis ke Supabase live. Feature flag Finance tetap mati secara bawaan; PR #13 tetap Open/Draft menunggu review dan tindak lanjut cakupan multi-unit.
 
 ## Kriteria penyelesaian pengembangan (100%)
 
@@ -46,14 +53,14 @@ Angka 100% **tidak menyatakan deployment produksi atau UAT telah dilakukan**. Ti
 
 ## Checkpoint dan handoff
 
-- Basis kode yang ditinjau untuk checkpoint ini: PR #13, branch `codex/supabase-runtime-cutover-20261022`, head sebelum commit dokumen ini `6169668230b9afb0e11c9db6d37847bc1fd55a7f`.
+- Basis kode yang diverifikasi: PR #13, branch `codex/supabase-runtime-cutover-20261022`, commit Finance `7e9149283c8c1b843880b4b9db7bd56ef41636b1`; GitHub Actions run `40990151916` lulus 2/2 job.
 - PR #13 masih Open/Draft saat pemeriksaan. Dokumen ini tidak mengubah kode runtime, database Supabase, status PR, deployment, ataupun data.
 - Tim backend dapat meninjau daftar pekerjaan di atas pada branch PR #13. Persentase diperbarui pada checkpoint berikutnya hanya jika ada bukti implementasi atau tes baru; deployment/UAT dicatat terpisah oleh tim penerapan.
 
 ## Implementasi registri unit — 30 Oktober 2026
 
 - Kode Manajemen Multi-Unit kini disiapkan pada branch PR #13; checkpoint rinci: [CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md](CHECKPOINT_2026-10-30_ENTERPRISE_UNITS.md).
-- Source berisi 99 migration setelah penambahan registri unit dan koreksi CBT `20270127000000`. Migration baru belum dijalankan di staging atau Production; flag runtime tetap mati secara bawaan.
+- Source berisi 100 migration setelah penambahan Finance unit-scope `20270128000000`. CI merehearsal migration dan pgTAP di Supabase lokal sintetis. Migration belum diterapkan ke staging atau Production; flag runtime tetap mati secara bawaan.
 - Estimasi pengembangan tetap **73%**. Perubahan ini belum menerapkan isolasi tingkat unit pada transaksi akademik, keuangan, asrama, atau modul lainnya.
 
 
