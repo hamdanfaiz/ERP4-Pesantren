@@ -5,8 +5,8 @@
 **Perkiraan penyelesaian pengembangan: sekitar 73% (rentang 70–75%).** Ini angka kerja kasar tanpa WBS berbobot; deployment hosting dan UAT yang dikerjakan tim lain tidak dihitung. Saya belum menaikkan angka karena cakupan yang tersisa belum ditimbang dengan metode yang disepakati.
 
 - Sumber yang sedang disiapkan untuk ditinjau: PR #13, branch `codex/supabase-runtime-cutover-20261022`.
-- Commit PR #13 terbaru yang diverifikasi: `7613d3a2414ad40ab41d80001511be58e17886dd`. GitHub Actions [run 41035209749](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41035209749) lulus **2/2 job**.
-- Run terbaru mencakup typecheck/build, guard runtime Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP, reservasi NIS dan slot Tahfidz serentak, import-preview, otorisasi API/isolasi tenant, pemulihan provisioning Auth saat pembuatan profil gagal, alur Storage, serta backup/pemulihan lokal.
+- Commit PR #13 terbaru yang diverifikasi: `0cf670ba9097b7002322173adb92568f9ed8a054`. GitHub Actions [run 41041688664](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41041688664) lulus **2/2 job**.
+- Run terbaru mencakup typecheck/build, guard runtime Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP, reservasi NIS dan slot Tahfidz serentak, import-preview, otorisasi API/isolasi tenant, pendaftaran mandiri Wali dengan 19 assertion khusus, alur Storage, serta backup/pemulihan lokal.
 - Skor sekitar 73% tetap perkiraan kasar, bukan ukuran kontrak kerja atau klaim semua fitur lulus. Audit lintas-modul sudah didokumentasikan; paritas semua perilaku historis dan target Supabase masih belum terbukti.
 - CI tidak menguji database Supabase target, login pelanggan, deployment hosting atau UAT.
 
@@ -14,6 +14,7 @@
 
 - Jalur runtime aktif menggunakan Supabase Auth, PostgreSQL/RLS, Storage dan API server. CI memeriksa graph frontend aktif tanpa Firebase dan image runtime production tanpa paket Firebase.
 - Fondasi tenant, role/permission, pembuatan/pengelolaan akun, PPDB publik dan Admin, master data, onboarding, reservasi NIS, tagihan/pembayaran, bukti privat, serta transaksi Finance memiliki source dan pengujian sintetis.
+- Pendaftaran mandiri Wali kini tersedia pada branch PR: aktivasi mensyaratkan email yang sudah dikonfirmasi dan cocok dengan kontak Wali tenant. Klien tidak mengirim tenant, role, atau ID santri; akses ditetapkan oleh fungsi tepercaya di backend.
 - Source juga berisi API/halaman Supabase untuk Akademik, Asrama, Tahfidz, komunikasi dan beberapa modul operasional lain; tidak semua modul lama memiliki paritas fitur penuh. Matriks cakupan rinci berada pada [audit paritas PR #1–#11](PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md) dan [audit fitur PR #11 → #13](PR11_TO_PR13_FEATURE_PARITY.md).
 - Cakupan multi-unit sudah tersedia untuk Finance, Akademik, dan Asrama pada alur yang dipetakan. Record lama yang belum diketahui unitnya tidak diisi dengan tebakan. Domain lain perlu diklasifikasikan berdasarkan kebutuhan.
 - Dashboard Analitik Operasional memakai snapshot Supabase dan permission tersendiri. Indikatornya berbasis aturan transparan; tidak dipasarkan sebagai prediksi AI.

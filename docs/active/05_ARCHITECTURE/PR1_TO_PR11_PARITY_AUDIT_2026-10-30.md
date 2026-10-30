@@ -2,8 +2,7 @@
 
 Tanggal audit: 30 Oktober 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Checkpoint kode PR #13 yang diperiksa: `430929f15f36ba3b238c5809d6252d60c0055c41`
-CI untuk checkpoint kode tersebut: run `41029985020`, lulus 2/2 job; Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch.
+Checkpoint audit paritas awal: `430929f15f36ba3b238c5809d6252d60c0055c41`. **Revalidasi terkini 30 Oktober 2026:** PR #13 head `0cf670ba9097b7002322173adb92568f9ed8a054`; GitHub Actions [run 41041688664](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41041688664) lulus 2/2 job. Run tersebut menguji perubahan Wali, typecheck/build, rehearsal migrasi sintetis, pgTAP, API/tenant, transaksi serentak, Storage, dan backup/restore. Tidak ada migration live yang diterapkan.
 
 ## Tujuan dan batas bukti
 
@@ -36,7 +35,7 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 1. **Tahfidz belum paritas penuh.** Tab `badges` kini menampilkan enam capaian progres yang dihitung dari data tersimpan Supabase dengan tes role/tenant/paginasi. Tab `peer-review` tetap placeholder saat runtime Supabase aktif; fitur itu belum boleh dilaporkan selesai.
 2. **Analitik Operasional kini memakai snapshot Supabase dan izin modul `intelligence` yang terpisah.** Indikatornya berupa aturan transparan atas antrian PPDB, verifikasi/tagihan, dan arus kas; tidak ada klaim prediksi AI. Model AI prediktif dikeluarkan dari cakupan rilis awal sampai ada data dan validasi yang memadai. PPOB/Layanan masih fail-closed dan memerlukan keputusan cakupan serta integrasi provider yang nyata.
 3. **Audit integrasi antar-modul belum menyeluruh.** Perlu bukti relasi ID, tenant, unit, status, transaksi/retry, audit dan kegagalan parsial pada alur lintas modul.
-4. **Ledger proyek Supabase target `ptsasgdvgrbdtgyqieie` tidak dapat dibaca oleh konektor pada sesi ini.** Tidak ada migration live yang diterapkan. Tim perlu memberi akses baca terbatas atau memberikan ekspor ledger yang sudah disanitasi agar urutan dapat direkonsiliasi dan rehearsal dilakukan.
+4. **Ledger proyek Supabase target `ptsasgdvgrbdtgyqieie` tidak dapat dibaca oleh konektor pada sesi ini.** Tidak ada migration live yang diterapkan. Tim perlu merekonsiliasi ledger dan melakukan rehearsal pada environment staging yang dapat dipulihkan sebelum cutover.
 5. **Pengujian database lokal sintetis bukan pengganti staging/UAT.** Deployment hosting dan UAT tetap dilakukan tim penerapan; sebelum itu source, konfigurasi dan migration perlu direview terhadap environment tujuan.
 
 ## Keputusan PR
@@ -48,7 +47,7 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 
 ## Verifikasi yang tersedia
 
-- GitHub Actions PR #13 [run 41029985020](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41029985020) lulus **2/2 job** pada checkpoint kode `430929f15f36ba3b238c5809d6252d60c0055c41`.
+- GitHub Actions PR #13 [run 41041688664](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41041688664) lulus **2/2 job** pada head `0cf670ba9097b7002322173adb92568f9ed8a054`; hasil ini menggantikan run lama untuk menilai head terkini.
 - Job mencakup typecheck/build, pemeriksaan runtime Supabase tanpa Firebase, Docker/Compose dan smoke test image, rehearsal migrasi sintetis, pgTAP, API/isolasi tenant, transaksi serentak, Storage, serta backup/restore.
 - Pemeriksaan memakai Supabase lokal dan data sintetis. Supabase Preview tidak berjalan karena branch preview tidak terhubung. Tidak ada migration/data yang diterapkan ke Supabase live, login pelanggan, deployment, atau UAT yang diklaim.
 - Tidak ada review submission atau inline review thread pada PR #13 saat diperiksa.
