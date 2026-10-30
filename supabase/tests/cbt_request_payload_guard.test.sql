@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path=public,extensions;
-SELECT plan(13);
+SELECT plan(15);
 
 INSERT INTO public.tenants(id,slug,name,status)
 VALUES ('e2300000-0000-4000-8000-000000000009','cbt-idempotency-test','CBT Idempotency Test','active');
@@ -13,13 +13,18 @@ INSERT INTO auth.users (
   ('e2300000-0000-4000-8000-000000000011','00000000-0000-0000-0000-000000000000','authenticated','authenticated',
    'cbt-idempotency-one@test.invalid','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now()),
   ('e2300000-0000-4000-8000-000000000012','00000000-0000-0000-0000-000000000000','authenticated','authenticated',
-   'cbt-idempotency-two@test.invalid','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now());
-INSERT INTO public.profiles(user_id,tenant_id,email,display_name,role,status,module_permissions)
+   'cbt-idempotency-two@test.invalid','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now()),
+  ('e2300000-0000-4000-8000-000000000013','00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+   'cbt-answer-limit-student@test.invalid','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now());
+INSERT INTO public.profiles(user_id,tenant_id,email,display_name,role,status,module_permissions,linked_santri_id)
 VALUES
   ('e2300000-0000-4000-8000-000000000011','e2300000-0000-4000-8000-000000000009',
-   'cbt-idempotency-one@test.invalid','CBT Admin One','admin','active','{"cbt":true}'),
+   'cbt-idempotency-one@test.invalid','CBT Admin One','admin','active','{"cbt":true}',NULL),
   ('e2300000-0000-4000-8000-000000000012','e2300000-0000-4000-8000-000000000009',
-   'cbt-idempotency-two@test.invalid','CBT Admin Two','admin','active','{"cbt":true}');
+   'cbt-idempotency-two@test.invalid','CBT Admin Two','admin','active','{"cbt":true}',NULL),
+  ('e2300000-0000-4000-8000-000000000013','e2300000-0000-4000-8000-000000000009',
+   'cbt-answer-limit-student@test.invalid','CBT Answer Limit Student','santri','active','{"cbt":true}',
+   'e2300000-0000-4000-8000-000000000201');
 INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint)
 VALUES ('e2300000-0000-4000-8000-000000000101','e2300000-0000-4000-8000-000000000009',
   'CID001','CBT Test Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'));
@@ -124,6 +129,29 @@ SELECT throws_ok(
   )$$,
   '23505','CBT exam request ID was already used for a different actor or payload',
   'another administrator cannot replay the exam request ID'
+);
+
+SELECT throws_ok(
+  $$SELECT public.save_cbt_attempt_answers(
+    'e2300000-0000-4000-8000-000000000009','e2300000-0000-4000-8000-000000000013',
+    'e2300000-0000-4000-8000-000000000501',
+    (SELECT jsonb_object_agg(
+      'e2300000-0000-4000-8000-' || lpad(to_hex(answer_index),12,'0'), '0'::jsonb
+    ) FROM generate_series(1,500) AS answers(answer_index))
+  )$$,
+  'P0002','Exam attempt not found',
+  '500 CBT answers pass the payload limit and reach attempt lookup'
+);
+SELECT throws_ok(
+  $$SELECT public.save_cbt_attempt_answers(
+    'e2300000-0000-4000-8000-000000000009','e2300000-0000-4000-8000-000000000013',
+    'e2300000-0000-4000-8000-000000000501',
+    (SELECT jsonb_object_agg(
+      'e2300000-0000-4000-8000-' || lpad(to_hex(answer_index),12,'0'), '0'::jsonb
+    ) FROM generate_series(1,501) AS answers(answer_index))
+  )$$,
+  '22023','Too many CBT answers',
+  'more than 500 CBT answers are rejected with a validation error'
 );
 
 UPDATE public.cbt_questions SET status='archived'
