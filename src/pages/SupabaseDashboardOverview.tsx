@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { calculateDashboardNetCashflow } from "../utils/dashboardCashflow";
 
 type DashboardPeriod = "today" | "week" | "month" | "year";
 type DashboardSnapshot = {
@@ -73,7 +74,7 @@ export function SupabaseDashboardOverview() {
   }, [period, reloadVersion, role, user?.tenantId, user?.uid]);
 
   const finance = snapshot.finance;
-  const netCashflow = Number(finance.periodIncome || 0) + Number(finance.periodWalletDeposits || 0) - Number(finance.periodExpense || 0);
+  const netCashflow = calculateDashboardNetCashflow(finance);
   const periodLabel: Record<DashboardPeriod, string> = { today: "Hari ini", week: "7 hari terakhir", month: "30 hari terakhir", year: "365 hari terakhir" };
   const stageRows = useMemo(() => (snapshot.ppdb.stages || []).map((entry) => ({
     stage: ({ Registered: "Terdaftar", "Document Review": "Verifikasi", "Entry Exam": "Ujian", Interview: "Wawancara", Accepted: "Diterima", Rejected: "Ditolak", Withdrawn: "Mengundurkan diri" } as Record<string, string>)[entry.stage] || entry.stage,
@@ -106,7 +107,7 @@ export function SupabaseDashboardOverview() {
       <MetricCard title="Santri aktif" value={loading ? "—" : snapshot.masterData.enabled ? String(snapshot.masterData.activeStudents || 0) : "—"} caption={loading ? "Memuat ringkasan tenant…" : snapshot.masterData.enabled ? `${snapshot.masterData.maleStudents || 0} putra · ${snapshot.masterData.femaleStudents || 0} putri` : error ? "Data Induk belum dapat dimuat dari Supabase." : "Izin Data Induk tidak diberikan"} icon={BookOpen} />
       <MetricCard title="Sisa tagihan" value={loading ? "—" : finance.enabled ? rupiah(finance.outstandingAmount || 0) : "—"} caption={loading ? "Memuat ringkasan tenant…" : finance.enabled ? `${finance.openBillCount || 0} tagihan terbuka` : error ? "Data keuangan belum dapat dimuat dari Supabase." : "Izin modul keuangan tidak diberikan"} icon={Wallet} accent="amber" />
       <MetricCard title="Saldo titipan santri" value={loading ? "—" : finance.enabled ? rupiah(finance.walletLiability || 0) : "—"} caption={loading ? "Memuat ringkasan tenant…" : finance.enabled ? "Kewajiban dompet santri yang masih tersisa" : error ? "Data keuangan belum dapat dimuat dari Supabase." : "Izin modul keuangan tidak diberikan"} icon={Wallet} accent="blue" />
-      <MetricCard title={`Arus kas · ${periodLabel[period]}`} value={loading ? "—" : finance.enabled ? rupiah(netCashflow) : "—"} caption={loading ? "Memuat ringkasan tenant…" : finance.enabled ? `${rupiah(finance.periodIncome || 0)} pendapatan · ${rupiah(finance.periodWalletDeposits || 0)} titipan masuk · ${rupiah(finance.periodWalletRedemptions || 0)} titipan digunakan · ${rupiah(finance.periodExpense || 0)} pengeluaran; bukan saldo bank` : error ? "Data keuangan belum dapat dimuat dari Supabase." : "Izin modul keuangan tidak diberikan"} icon={TrendingUp} accent={netCashflow < 0 ? "rose" : "emerald"} />
+      <MetricCard title={`Arus kas · ${periodLabel[period]}`} value={loading ? "—" : finance.enabled ? rupiah(netCashflow) : "—"} caption={loading ? "Memuat ringkasan tenant…" : finance.enabled ? `${rupiah(finance.periodIncome || 0)} pendapatan + ${rupiah(finance.periodWalletDeposits || 0)} titipan masuk − ${rupiah(finance.periodExpense || 0)} pengeluaran; belanja dari saldo titipan tidak dihitung lagi sebagai arus keluar kas. Bukan saldo bank.` : error ? "Data keuangan belum dapat dimuat dari Supabase." : "Izin modul keuangan tidak diberikan"} icon={TrendingUp} accent={netCashflow < 0 ? "rose" : "emerald"} />
     </section>
 
     <section className="grid gap-6 xl:grid-cols-2">
