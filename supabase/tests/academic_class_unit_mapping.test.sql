@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(20);
+SELECT plan(22);
 
 INSERT INTO public.tenants(id, slug, name, status)
 VALUES
@@ -51,8 +51,14 @@ SELECT throws_ok($$SELECT public.assign_tenant_academic_class_unit('e2800000-000
 SELECT throws_ok($$SELECT public.assign_tenant_academic_class_unit('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','CLASS-C','e2800000-0000-4000-8000-000000000102','e2800000-0000-4000-8000-000000000502')$$,'23514','Unit kelas sudah ditetapkan dan tidak dapat dipindahkan melalui pemetaan biasa','an assigned class cannot be silently reassigned');
 SELECT throws_ok($$SELECT public.assign_tenant_academic_class_unit('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','FOREIGN-CLASS','e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000503')$$,'P0002','Kelas tidak ditemukan pada tenant ini','class id from a different tenant is not accessible');
 SELECT throws_ok($$SELECT public.assign_tenant_academic_class_unit('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','CLASS-D','e2800000-0000-4000-8000-000000000103','e2800000-0000-4000-8000-000000000504')$$,'42501','Unit aktif tidak ditemukan pada tenant ini','inactive units cannot be used for class mapping');
-SELECT throws_ok($$SELECT public.assign_tenant_academic_class_unit('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','ustadz','CLASS-D','e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000505')$$,'42501','Profil Admin tidak aktif pada tenant','Ustadz cannot map tenant classes');
-SELECT throws_ok($$SELECT public.assign_tenant_academic_class_unit('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','CLASS-E','e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000506')$$,'23505','duplicate class names in one unit remain rejected');
+SELECT throws_ok($$SELECT public.assign_tenant_academic_class_unit('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','admin','CLASS-D','e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000505')$$,'42501','Profil Admin tidak aktif pada tenant','Ustadz cannot impersonate an Admin');
+UPDATE public.profiles SET module_permissions = '{}'::jsonb
+WHERE tenant_id='e2800000-0000-4000-8000-000000000001' AND user_id='e2800000-0000-4000-8000-000000000011';
+SELECT throws_ok($$SELECT public.assign_tenant_academic_class_unit('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','CLASS-D','e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000507')$$,'42501','Profil Admin tidak memiliki akses Akademik pada tenant ini','Admin without Academic permission cannot assign a class');
+SELECT throws_ok($$SELECT public.get_tenant_unmapped_academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin',100,0)$$,'42501','Profil Admin tidak memiliki akses Akademik pada tenant ini','Admin without Academic permission cannot list classes');
+UPDATE public.profiles SET module_permissions = '{"academic":true}'::jsonb
+WHERE tenant_id='e2800000-0000-4000-8000-000000000001' AND user_id='e2800000-0000-4000-8000-000000000011';
+SELECT throws_ok($$SELECT public.assign_tenant_academic_class_unit('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','CLASS-E','e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000506')$$,'23505','duplicate key value violates unique constraint "master_data_records_tenant_unit_class_name_uq"','duplicate class names in one unit remain rejected');
 SELECT is((SELECT organization_unit_id::text FROM public.master_data_records WHERE tenant_id='e2800000-0000-4000-8000-000000000001' AND category='Kelas' AND id='CLASS-E'),NULL,'conflicting class mapping remains unapplied');
 
 SELECT * FROM finish();

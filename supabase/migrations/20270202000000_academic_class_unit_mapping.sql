@@ -76,9 +76,8 @@ BEGIN
      OR v_role IS DISTINCT FROM p_expected_role OR v_role NOT IN ('admin', 'super_admin') THEN
     RAISE EXCEPTION 'Profil Admin tidak aktif pada tenant' USING ERRCODE = '42501';
   END IF;
-  IF v_role <> 'super_admin' AND v_permissions ? 'academic'
-     AND NOT (jsonb_typeof(v_permissions -> 'academic') = 'boolean'
-       AND v_permissions ->> 'academic' = 'true') THEN
+  IF v_role <> 'super_admin'
+     AND (v_permissions -> 'academic') IS DISTINCT FROM 'true'::jsonb THEN
     RAISE EXCEPTION 'Profil Admin tidak memiliki akses Akademik pada tenant ini' USING ERRCODE = '42501';
   END IF;
 
@@ -182,9 +181,8 @@ BEGIN
      OR v_role IS DISTINCT FROM p_expected_role OR v_role NOT IN ('admin', 'super_admin') THEN
     RAISE EXCEPTION 'Profil Admin tidak aktif pada tenant' USING ERRCODE = '42501';
   END IF;
-  IF v_role <> 'super_admin' AND v_permissions ? 'academic'
-     AND NOT (jsonb_typeof(v_permissions -> 'academic') = 'boolean'
-       AND v_permissions ->> 'academic' = 'true') THEN
+  IF v_role <> 'super_admin'
+     AND (v_permissions -> 'academic') IS DISTINCT FROM 'true'::jsonb THEN
     RAISE EXCEPTION 'Profil Admin tidak memiliki akses Akademik pada tenant ini' USING ERRCODE = '42501';
   END IF;
 
