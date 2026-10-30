@@ -6,7 +6,7 @@
 - PR #1–#11 ditutup sebagai superseded dan tidak merged; PR #12 dan #13 merged. Rincian dan audit paritas ada di [progres penyelesaian](PROJECT_COMPLETION_PROGRESS_2026-10-30.md) dan [audit paritas](PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
 - Estimasi penyelesaian pengembangan tetap sekitar **73%**; deployment hosting dan UAT oleh tim penerapan tidak termasuk.
 - Keputusan rilis awal: PPOB/payment gateway tidak disertakan. Peer Review Tahfidz memakai teks pada halaqah yang sama dan dimoderasi Ustadz pengampu; audio serta akses Wali tidak termasuk.
-- Rekonsiliasi migration, backup/restore target, login dan UAT, serta uji instalasi customer-hosted masih terbuka. Target Supabase belum dapat dibaca melalui konektor dan label staging/production perlu dipastikan.
+- Rekonsiliasi migration, backup/restore target, login dan UAT, serta uji instalasi customer-hosted masih terbuka. Konektor Codex tidak dapat membaca target; ringkasan ledger read-only via SQL Editor menunjukkan 47 versi dengan dua baris metadata kosong. Dashboard menandai ref target `ptsasgdvgrbdtgyqieie` sebagai `main / PRODUCTION`, jadi jangan gunakan untuk rehearsal.
 
 Catatan status dan checklist PR di bawah ini berasal dari snapshot sebelum merge. Gunakan pembaruan ini untuk status terkini; status database dan lingkungan pelanggan belum berubah.
 
@@ -36,7 +36,7 @@ Cakupan di atas **bukan** pernyataan bahwa semua tabel operasional memakai unit 
 
 - Feature flag runtime unit tetap nonaktif secara bawaan sampai migration dan identitas unit disiapkan pada environment sasaran.
 - Sesuai keputusan pemilik proyek, data dummy Firestore tidak perlu disalin. Sistem dapat dimulai dengan data baru; migrasi arsip hanya diperlukan jika pemilik pesantren kemudian menghendakinya.
-- Tidak ada migration atau data yang diterapkan ke Supabase live pada checkpoint ini. Akses baca ke ledger project `ptsasgdvgrbdtgyqieie` belum berhasil; run CI memakai Supabase lokal sintetis dan tidak membuktikan keadaan project tersebut.
+- Tidak ada migration atau data yang diterapkan ke Supabase live pada checkpoint ini. Ringkasan ledger project `ptsasgdvgrbdtgyqieie` berhasil dibaca via SQL Editor dalam mode read-only, tetapi metadata dua baris dan parity skema belum tuntas; run CI memakai Supabase lokal sintetis dan tidak membuktikan seluruh keadaan project tersebut.
 - Penerapan migration ke database, konfigurasi server pelanggan, deployment dan UAT dilakukan oleh tim penerapan. Source PR harus tetap menyertakan migration, uji, serta instruksi yang dapat direproduksi.
 
 ## Pekerjaan pengembangan yang masih terbuka
@@ -46,7 +46,7 @@ Cakupan di atas **bukan** pernyataan bahwa semua tabel operasional memakai unit 
 3. PPOB/payment gateway dikeluarkan dari rilis awal; menu dan permission dinonaktifkan. Analitik yang tersedia berbasis aturan; prediksi AI bukan klaim rilis awal.
 4. Tinjau dan rapikan source legacy Firebase yang sudah tidak masuk jalur runtime aktif. CI membuktikan graph frontend aktif dan image runtime tidak memakai Firebase, tetapi file legacy/import tetap ada di source.
 5. Lengkapi verifikasi pengembangan instalasi/upgrade/pemulihan yang dapat dijalankan ulang oleh tim backend. CI sudah menguji Docker/Compose dan smoke test; simulasi hosting/VPS/on-premise serta UAT tetap dilakukan tim penerapan.
-6. Tim penerapan harus merekonsiliasi ledger migration project target sebelum menerapkan migration; akses database live tidak diverifikasi di checkpoint ini.
+6. Tim penerapan harus merekonsiliasi ledger 47 versi dengan dua metadata kosong terhadap 109 file migration di source dan menjalankan rehearsal pada staging terisolasi. Tidak ada migration yang diterapkan ke target Production.
 
 ## Status Pull Request (snapshot sebelum merge; sudah superseded)
 

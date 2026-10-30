@@ -4,8 +4,8 @@
 
 - Source cutover PR #13 kini sudah merged ke `main` pada commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`; catatan PR Open/Draft di bawah adalah riwayat sebelum merge.
 - Pemeriksaan konektor Supabase terbaru hanya mencantumkan project `vqemuyzveuirlkvdggjd`. Target `ptsasgdvgrbdtgyqieie` tidak muncul; pemanggilan `get_project`, `list_migrations`, `list_tables`, dan security/performance advisors ke ref itu menghasilkan `INVALID_ARGUMENT`. Tidak ada query SQL atau operasi tulis yang berhasil.
-- Label environment belum konsisten: pemilik pernah menyebut target ini staging, sedangkan snapshot dashboard tersimpan menunjukkan branch `main / PRODUCTION`. Sampai tim backend memastikan keadaan terbaru dan ada salinan terisolasi yang dapat dipulihkan, perlakukan target sebagai Production.
-- Bukti ledger terakhir yang tercatat adalah 47 versi sampai `20261206000000`. Itu snapshot lama, bukan hasil baca saat ini. Source `main` berisi 109 file migration; 62 merupakan selisih potensial hanya jika ledger belum berubah sejak snapshot.
+- SQL Editor dashboard pada 30 Oktober menampilkan project `ERP4-Pesantren`, ref `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`. Ini bertentangan dengan jawaban sebelumnya yang menyebut staging; perlakukan target sebagai Production hingga tim backend mengonfirmasi staging terpisah.
+- Konektor Supabase Codex masih tidak dapat membaca target, tetapi ringkasan ledger berhasil dibaca read-only melalui SQL Editor: 47 versi, dari `20260603000000` sampai `20261206000000`; dua baris tidak memiliki `name` dan `statements`. Source `main` berisi 109 migration. Perbedaan hitungan bukan daftar aman untuk diterapkan, dan parity SQL belum terbukti.
 - Perkiraan penyelesaian fitur tetap sekitar **73%**. Tidak ada migration live yang diterapkan.
 
 ## Tujuan
@@ -14,10 +14,10 @@ Mencatat prasyarat untuk memeriksa ledger migrasi dan struktur target sebelum ri
 
 ## Temuan
 
-- Ref Supabase target yang ditetapkan pemilik proyek: `ptsasgdvgrbdtgyqieie`. Status environment-nya belum terkonfirmasi.
+- Ref Supabase target yang ditetapkan pemilik proyek: `ptsasgdvgrbdtgyqieie`. Dashboard saat ini menandainya `main / PRODUCTION`; meskipun sebelumnya disebut staging, gunakan sebagai Production sampai staging terpisah dikonfirmasi.
 - Konektor Supabase pada sesi Codex hanya mengembalikan project `vqemuyzveuirlkvdggjd` pada `list_projects`.
 - Permintaan baca `list_migrations` dan `list_tables` ke `ptsasgdvgrbdtgyqieie` ditolak dengan `You do not have permission to perform this action` (`INVALID_ARGUMENT`).
-- Belum dapat diverifikasi apakah ledger, tabel, atau skema staging sesuai dengan source migration. Tidak ada operasi tulis, perubahan skema, atau perubahan data yang dijalankan pada project mana pun.
+- Ringkasan ledger sudah terbaca melalui SQL Editor, tetapi kesetaraan SQL, katalog tabel, dan skema target belum diverifikasi terhadap source. Tidak ada operasi tulis, perubahan skema, atau perubahan data yang dijalankan pada project mana pun.
 
 ## Tindakan yang diperlukan dari pemilik project / tim backend
 
@@ -49,13 +49,13 @@ Jika query pertama menyatakan skema atau tabel tidak ditemukan, kirim pesan erro
 3. Jalankan preflight dan rehearsal pada branch staging/lingkungan terisolasi yang dapat dipulihkan. Jangan mengubah Production sebagai bagian dari pemeriksaan ini.
 4. Simpan hasil pemeriksaan pada checkpoint migrasi dan jalankan rehearsal serta CI terhadap commit `main` yang akan dirilis. PR #13 sudah merged; gerbang database tetap terbuka terpisah dari status merge source.
 
-**Gerbang saat ini:** ledger/schema target belum dapat diperiksa lewat konektor Codex. Tim backend perlu memperbaiki akses baca target atau mengirim hasil query baca-saja di atas, serta memastikan apakah target Production atau staging sebelum rehearsal.
+**Gerbang saat ini:** konektor Codex tetap tidak memiliki akses ke target. Dashboard memberi bukti ringkasan ledger terbatas dan menandai target Production; tim backend perlu merekonsiliasi metadata/statement serta menyediakan staging terisolasi yang dapat dipulihkan sebelum rehearsal.
 
 ## Pemeriksaan koneksi TLS lokal — 30 Oktober 2026
 
 - Uji koneksi menggunakan driver PostgreSQL dengan transaksi `READ ONLY` dan verifikasi sertifikat aktif. Ref project serta hostname pooler lebih dulu dicocokkan dengan target.
-- Uji berhenti sebelum query ledger dengan galat `SELF_SIGNED_CERT_IN_CHAIN`, termasuk setelah Node diminta menggunakan CA yang dipercaya Windows. **Tidak ada query ledger yang berhasil, dan tidak ada data atau skema yang diubah.**
+- Uji koneksi driver berhenti sebelum query ledger dengan galat `SELF_SIGNED_CERT_IN_CHAIN`, termasuk setelah Node diminta menggunakan CA yang dipercaya Windows. Setelah itu, ringkasan ledger berhasil dibaca melalui SQL Editor dashboard dengan query read-only; tidak ada data operasional atau skema yang diubah.
 - Jangan mematikan validasi sertifikat (`rejectUnauthorized: false` atau `NODE_TLS_REJECT_UNAUTHORIZED=0`). Itu akan menghilangkan pemeriksaan identitas server.
 - Jalur yang disarankan: unduh root certificate dari **Database Settings → SSL Configuration** pada project target, lalu gunakan mode `verify-full` agar CA dan hostname diperiksa. Panduan resmi Supabase menjelaskan pengaturan sertifikat ini di [Connect to your database](https://supabase.com/docs/guides/database/connecting-to-postgres).
 - Alternatif tanpa kredensial lokal: jalankan dua query baca-saja pada bagian “Tindakan yang diperlukan” melalui SQL Editor project target, lalu berikan hanya hasil versi migrasi dan nama tabel. Jangan kirim secret, password, access token, atau data santri.
-- Setelah CA/akses baca diperbaiki, ulangi preflight dan rekonsiliasi seluruh versi terhadap file `supabase/migrations`. Sampai bukti ini tersedia, ledger target tetap belum terverifikasi. PR #13 sudah merged; gerbang migrasi tetap terbuka.
+- Setelah CA/akses baca diperbaiki, ulangi preflight dan rekonsiliasi seluruh versi terhadap file `supabase/migrations`. Ringkasan versi sudah dibaca melalui dashboard, tetapi kesetaraan statement dan provenance dua baris tanpa metadata tetap belum terverifikasi. PR #13 sudah merged; gerbang migrasi tetap terbuka.

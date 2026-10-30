@@ -3,9 +3,9 @@
 ## Status akses dan source terbaru setelah merge
 
 - PR #13 sudah merged ke `main` pada source commit `e449c234c253eb7a65795af18c5794fa45e6e9cb`, merge commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`. CI run `41051400486` lulus 2/2 job pada source head tersebut.
-- Konektor Supabase yang tersedia saat ini hanya menampilkan `vqemuyzveuirlkvdggjd`; target `ptsasgdvgrbdtgyqieie` tidak terdaftar dan permintaan read-only terbaru ditolak. Angka schema/ledger di bawah berasal dari snapshot dashboard sebelumnya dan belum dibaca ulang.
-- Satu jawaban pemilik menyebut `ptsasgdvgrbdtgyqieie` staging, sedangkan snapshot dashboard yang tersimpan menyatakan branch `main / PRODUCTION`. Sampai tim backend memeriksa project aktif, perlakukan target sebagai Production dan jangan rehearse atau menerapkan migration di sana.
-- Snapshot ledger yang tercatat berisi 47 versi sampai `20261206000000`; source `main` kini berisi 109 migration. Selisih potensial 62 bukan daftar migration yang boleh diterapkan—ledger terbaru harus dibaca ulang terlebih dahulu.
+- Konektor Supabase Codex hanya menampilkan `vqemuyzveuirlkvdggjd`; target `ptsasgdvgrbdtgyqieie` tidak terdaftar dan permintaan konektor read-only ditolak. Sebagai jalur terpisah, pada 30 Oktober SQL Editor dashboard berhasil membaca ringkasan ledger dengan transaksi `READ ONLY`.
+- SQL Editor target menampilkan project `ERP4-Pesantren`, ref `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`. Ini berbeda dari jawaban sebelumnya yang menyebut staging; perlakukan target sebagai Production sampai tim backend memastikan lingkungan staging terisolasi. Jangan rehearsal atau menerapkan migration di target ini.
+- Pembacaan terbaru mengonfirmasi 47 versi ledger, dari `20260603000000` sampai `20261206000000`. Dua baris mempunyai metadata `name` dan `statements` kosong. Source `main` berisi 109 migration; selisih hitungan potensial 62 bukan daftar migration yang boleh diterapkan dan belum membuktikan kesesuaian statement.
 - Tidak ada migration live yang diterapkan setelah merge. Penyelesaian fitur tetap diperkirakan sekitar **73%**; target belum dinyatakan siap deploy atau dijual.
 
 ## Target aplikasi dan deployment
@@ -25,17 +25,17 @@ Data dummy Firestore tidak akan disalin. Target Supabase tidak diubah selama pem
 - Guard CI menelusuri import graph dari `src/main.tsx`, menolak paket Firebase maupun adapter Firebase, memeriksa route operasional Supabase, dan memaksa empat route yang belum ada untuk fail-closed: Enterprise, ERP umum, Intelligence, dan Ecosystem. File uji: [test-supabase-runtime-no-firebase.mjs](https://github.com/hamdanfaiz/ERP4-Pesantren/blob/codex/supabase-runtime-cutover-20261022/scripts/test-supabase-runtime-no-firebase.mjs).
 - Ini membuktikan konfigurasi source cutover, bukan bahwa perubahan sudah berjalan di Production. Ketika pemeriksaan ini dicatat, PR #13 belum merge; source kemudian merged seperti dinyatakan di status terbaru di atas. Empat route fail-closed juga perlu diperlakukan sebagai fitur yang belum tersedia jika masuk cakupan penawaran awal.
 
-## Rekonsiliasi ledger baca-saja (snapshot dashboard lama)
+## Rekonsiliasi ledger baca-saja — 30 Oktober 2026
 
-Query `SELECT` pada SQL Editor dashboard project target membaca `version`, `name`, dan jumlah statement pada `supabase_migrations.schema_migrations`.
+Query ringkasan `SELECT` di SQL Editor dashboard project target dijalankan di transaksi `READ ONLY`. Query membaca versi dan kelengkapan metadata `supabase_migrations.schema_migrations`; tidak membaca record operasional dan tidak mengubah database.
 
-- Ledger target berisi 47 versi: `20260603000000` dan rangkaian `20261022000000` sampai `20261206000000`.
-- Repository PR #13 memiliki 96 file migrasi, terakhir `20270124000000_finance_proof_upload_rate_limit.sql`.
-- Semua 47 versi ledger memiliki pasangan versi di repository. Ada 49 file repository sesudah `20261206000000` yang belum tercatat di ledger, mulai `20261207000000_library_legacy_catalog_import.sql` sampai `20270124000000_finance_proof_upload_rate_limit.sql`.
-- Metadata untuk 45 baris ledger terisi. Dua baris terakhir, `20261205000000` dan `20261206000000`, mempunyai `name = NULL` dan `statements = NULL`. Nama dan isi SQL yang seharusnya untuk versi tersebut hanya dapat diinferensikan dari file repository; provenance penerapan live belum terbukti.
-- Ini bukti perbedaan ledger, bukan izin atau rencana untuk menerapkan 49 migrasi. Jangan menjalankan `migration repair` atau `db push` ke Production untuk menutupi metadata kosong.
+- Ledger target berisi 47 versi: versi pertama `20260603000000` dan versi terakhir `20261206000000`.
+- Source `main` memiliki 109 file migrasi, terakhir `20270206000000_tahfidz_peer_review_moderation.sql`.
+- Semua 47 versi ledger memiliki pasangan versi di repository. Ada 62 file source sesudah `20261206000000` yang belum tercatat pada hitungan ledger, mulai `20261207000000_library_legacy_catalog_import.sql` sampai `20270206000000_tahfidz_peer_review_moderation.sql`.
+- Ringkasan terbaru menunjukkan 45 baris berisi metadata dan dua baris memiliki `name` serta `statements` kosong. Kesetaraan statement dan provenance deployment untuk dua baris itu belum terbukti; preflight tidak dapat menyatakan ledger cocok sepenuhnya.
+- Ada 62 lebih banyak file migration di source daripada jumlah versi pada ledger. Ini perbedaan hitungan untuk ditelusuri, bukan izin atau rencana untuk menerapkan migration. Jangan menjalankan `migration repair` atau `db push` ke Production untuk menutupi metadata kosong.
 
-Target saat diperiksa melaporkan 119 tabel publik dan PostgreSQL 17.11. Hitungan ini tidak membuktikan kesesuaian seluruh schema, grant, RLS, data, atau fungsi dengan source.
+Snapshot katalog terdahulu melaporkan 119 tabel publik dan PostgreSQL 17.11. Hitungan ini belum dibaca ulang dan tidak membuktikan kesesuaian seluruh schema, grant, RLS, data, atau fungsi dengan source.
 
 ## Preflight yang bisa dijalankan tim backend sekarang
 
@@ -43,7 +43,7 @@ Source `main` menyediakan `npm run preflight:db-migrations`. Script ini membaca 
 
 Sebelum menjalankan perintah:
 
-1. Pastikan tim telah memastikan apakah `ptsasgdvgrbdtgyqieie` adalah staging terisolasi atau Production. Sampai terkonfirmasi, perlakukan sebagai Production.
+1. Dashboard saat ini menandai `ptsasgdvgrbdtgyqieie` sebagai Production. Pastikan tim backend menyediakan staging terisolasi yang dapat dipulihkan; jangan gunakan target Production untuk rehearsal.
 2. Di mesin operator, gunakan checkout `main` yang hendak dirilis dan `.env` lokal yang sudah diisi aman. Konfirmasi hostname koneksi pada dashboard sebelum mengeksekusi; target harus benar-benar project/ref `ptsasgdvgrbdtgyqieie`, bukan project lain. Jangan mencetak atau mengirim URL database, password, atau key.
 3. Jalankan dari root repository: `npm run preflight:db-migrations`. Script memilih `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL`, meminta `psql`, mengaktifkan `default_transaction_read_only=on`, dan tidak menampilkan nilai kredensial.
 4. Kirim hanya laporan terminal yang sudah disanitasi. Jika hasil memuat `HENTIKAN`, mismatch metadata, atau error SSL, hentikan proses dan kirim pesan error/laporan tanpa kredensial. Jangan menjalankan `migration repair`, `db push`, atau migrasi manual untuk menghilangkan temuan.
@@ -78,7 +78,7 @@ Pada saat snapshot ini ditulis, PR #13 masih **Open / Draft**. Status tersebut k
 
 1. Sediakan staging terpisah atau backup Production yang dapat dipulihkan. Uji pemulihan pada environment terisolasi; project target saat ini branch `main / PRODUCTION`, Free plan, dan tidak menyediakan branch preview.
 2. Minta pemilik backend menelusuri provenance versi `20261205000000` dan `20261206000000`, termasuk mengapa nama dan array statement kosong. Rekonsiliasi metadata dan schema tanpa mengubah ledger Production.
-3. Setelah rekonsiliasi, lakukan rehearsal atas set migration yang benar-benar belum diterapkan terhadap baseline yang sedekat mungkin dengan target. Snapshot historis di atas menyebut 49 file source sesudah versi terakhir pada ledger yang dibaca saat itu, tetapi jumlah source sudah berubah menjadi 109 dan ledger terbaru belum terbaca ulang. Periksa tabel, constraint, indeks dan lock, RLS/grant, function/RPC, Storage, serta kompatibilitas versi API. CI sintetis saja belum cukup.
+3. Setelah metadata ledger direkonsiliasi, lakukan rehearsal atas set migration yang benar-benar belum diterapkan pada staging terisolasi. Ringkasan saat ini menunjukkan 109 migration di source dan 47 versi pada ledger, tetapi dua baris tidak memiliki metadata `name`/`statements`; jangan menyimpulkan isi set yang aman hanya dari selisih hitungan. Periksa tabel, constraint, indeks dan lock, RLS/grant, function/RPC, Storage, serta kompatibilitas versi API. CI sintetis saja belum cukup.
 4. Perbarui integrasi Supabase Preview agar menggunakan project/ref yang benar jika preview branch tersedia. Jangan biarkan pemeriksaan PR menunjuk ke project lama.
 5. Jalankan UAT login, role/tenant, alur setiap modul, unggah/akses Storage privat, backup/restore, dan deployment customer-managed sebelum rilis.
 6. Rotasi secret key Supabase dan password database yang pernah dibagikan sebelum go-live.
