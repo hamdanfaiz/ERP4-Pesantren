@@ -1,46 +1,47 @@
 # Checkpoint Manajemen Multi-Unit — 30 Oktober 2026
 
-## Progres pengembangan
+## Status saat ini
 
-**Estimasi penyelesaian pengembangan tetap sekitar 73% (rentang kerja 70–75%).** Deployment hosting dan UAT tidak dihitung dalam angka ini. Kolom dan pewarisan unit untuk tagihan kandidat/santri sudah ada; perbaikan saat ini menambahkan filter laporan Finance Admin per unit. Akademik, Asrama, domain operasional lain, serta record lama tertentu masih memerlukan cakupan atau pemetaan unit.
+Pada source PR #13, cakupan unit organisasi sudah ada untuk beberapa alur penting: pengeluaran dan ledger Finance, rencana anggaran, tagihan terkait kandidat/santri, catatan dan kelas Akademik, serta lokasi, penempatan dan akses operasional Asrama. Registri organisasi/unit, pemetaan historis secara eksplisit, API, UI, dan tes database sintetis juga tersedia.
 
-## Yang ditambahkan
+**Estimasi penyelesaian pengembangan proyek tetap sekitar 73%** (rentang kerja 70–75%; perkiraan kasar, belum dihitung dari WBS berbobot). Deployment hosting dan UAT tidak masuk angka ini.
 
-- Migration `20270126000000_tenant_enterprise_units.sql` menambahkan registri unit dengan `tenant_id` wajib, kode unik per tenant, batas panjang/karakter, FK komposit ke profil tenant, dan status nonaktif alih-alih penghapusan.
-- Semua tabel unit, audit, dan kunci retry memakai RLS + FORCE RLS. Tidak ada hak akses tabel langsung bagi `anon` atau `authenticated`; server memanggil RPC dengan kredensial rahasia.
-- RPC memeriksa tenant aktif, profil Admin aktif, role yang sesuai, dan izin `enterprise`. Mutasi memiliki kunci idempotensi, penguncian transaksi, dan event audit append-only. Kode unit duplikat dan ID unit lintas tenant ditolak.
-- API `GET /api/enterprise/units/snapshot` dan `POST /api/enterprise/units/mutations` meminta autentikasi Supabase, mengambil tenant dari profil tepercaya, dan memerlukan `SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED=true` pada server.
-- Halaman Manajemen Multi-Unit mendukung buat, ubah, aktif/nonaktifkan, pencarian, metrik ringkas, dan riwayat audit. Formulir tidak dapat diubah sebelum snapshot API berhasil.
-- pgTAP menguji grant/RLS, role dan permission, tenant silang, create/update/status, kode unik, retry, serta penolakan payload tidak dikenal.
-- Migration `20270128000000_finance_expense_unit_scope.sql` menambah `profiles.organization_unit_id` serta `unit_id` pada pengeluaran dan ledger dengan FK komposit tenant/unit dan indeks pencarian.
-- Pengelola dapat menetapkan Ustadz ke unit aktif milik tenant; Finance mengambil unit Ustadz dari profil tepercaya, sedangkan Admin memilih unit aktif. Persetujuan pengeluaran menyalin unit ke ledger; RPC pengeluaran lama tanpa unit dicabut.
+- Branch PR: `codex/supabase-runtime-cutover-20261022`
+- Head PR #13: `0fb46e41351b2d8486e0d5802dc475a285b103dd`
+- Head kode terakhir: `430929f15f36ba3b238c5809d6252d60c0055c41`
+- GitHub Actions [run 41030673093](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41030673093): **2/2 job lulus**. Job database mencakup rehearsal migrasi lokal sintetis, pgTAP, API/tenant, transaksi serentak, Storage dan backup/pemulihan; job frontend mencakup typecheck/build, guard Firebase dan Docker.
 
-## Batas fitur dan cara aktivasi
+## Cakupan unit yang sudah tersedia di source
 
-- Fitur ini menggabungkan **registri organisasi**, unit pada pengeluaran/ledger baru, RKAT baru per unit, dan unit pada tagihan yang diwarisi dari kandidat/santri tertaut. Tagihan lama tetap tanpa unit sampai kandidat/santri dipetakan; pengeluaran/ledger lama dan rencana RKAT lama memerlukan pemetaan eksplisit. Unit tidak ditebak dari nama atau departemen. Akademik, Asrama, dan domain operasional lain masih belum memiliki cakupan unit menyeluruh.
-- Runtime tetap mati secara bawaan. Jangan mengaktifkan flag sebelum migration direview dan diterapkan pada environment uji, lalu seluruh pemeriksaan serta tes lolos.
-- Migration hanya ditambahkan pada source code; tidak ada migration atau data yang diterapkan ke Supabase staging/Production.
-- Data dummy Firestore tidak disalin. Unit contoh dapat dibuat manual setelah fitur tersedia pada environment uji.
+- **Registri unit:** tenant-scoped, kode unik per tenant, status aktif/nonaktif, mutasi idempoten, audit, RLS/FORCE RLS, API dan UI Admin.
+- **Finance:** unit pada pengeluaran/ledger dan RKAT baru; tagihan terkait kandidat/santri mewarisi unit; laporan Admin dapat difilter per unit dan record lama tanpa unit tetap terlihat.
+- **Akademik:** jadwal, jurnal dan penilaian membawa cakupan unit; pilihan kelas lama yang belum dipetakan ditangani melalui daftar dan alur pemetaan Admin. Ustadz dibatasi menurut unit tepercaya.
+- **Asrama:** lokasi dan santri operasional difilter menurut unit serta penugasan Ustadz; Admin memiliki alur pemetaan lokasi lama. Data yang belum dipetakan tetap Admin-only.
 
-## Validasi dan handoff
+Migrations dan tes yang menjadi bukti antara lain `20270128000000_finance_expense_unit_scope.sql`, `20270129000000_finance_budget_unit_scope.sql`, `20270130000000_master_data_unit_assignment.sql`, `20270201000000_academic_unit_scope.sql`, `20270202000000_academic_class_unit_mapping.sql`, dan `20270203000000_boarding_unit_scope.sql`, beserta tes pgTAP terkait.
 
-- Lulus lokal: `npm run test:supabase-runtime-no-firebase` (87 modul import frontend, 25 route Supabase dan 2 route fail-closed).
-- GitHub Actions [run 41001191872](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001191872) lulus 2/2 job pada head Finance `2b93f96da3571a828fd63e70d0fe765ebaa154f8`. CI menjalankan typecheck/build/Docker, rehearsal migrasi lokal, 53 file pgTAP / 1.195 assertion, API auth/tenant, filter unit Finance, Storage, serta backup/restore sintetis.
-- Tool Supabase CLI lokal gagal sebelum menjalankan perintah karena tidak dapat membuat `C:\Users\VICTUS\.supabase\telemetry.json.tmp...` pada sandbox. Migration tidak dijalankan terhadap database live.
-- Source berada pada branch PR #13 `codex/supabase-runtime-cutover-20261022`; head saat checkpoint `2b93f96da3571a828fd63e70d0fe765ebaa154f8`. PR #13 tetap Open/Draft.
-- Status PR: #1–#11 Open/Draft; #12 merged; #13 Open/Draft. PR #1, #2, #4, dan #6 berbasis `main`; #3 serta #5–#11 masih memakai cabang fitur bertingkat. Tidak ada PR #1–#11 yang sudah merged atau closed pada saat audit ini.
+Cakupan di atas **bukan** pernyataan bahwa semua tabel operasional memakai unit organisasi. Setiap domain lain masih perlu diklasifikasikan: apakah cukup tenant-scoped atau memang perlu unit-scoped. Perubahan pada data historis hanya boleh melalui pemetaan yang diketahui; sistem tidak menebak unit dari nama, departemen, atau isi yang ambigu.
 
-## Langkah tim backend
+## Batas dan rollout
 
-1. Tinjau migration `20270128000000_finance_expense_unit_scope.sql` dan `20270129000000_finance_budget_unit_scope.sql`, RPC, serta tes pgTAP pada PR #13.
-2. Petakan pemilik unit untuk akun Ustadz dan data operasional; baris Finance lama tetap tidak dipetakan otomatis.
-3. Rehearsal migration pada staging yang dapat dipulihkan; runtime flag tetap mati selama pemeriksaan.
-4. Uji Admin/Ustadz lintas unit, retry, persetujuan, dan laporan pada environment uji.
-5. Lanjutkan unit scoping ke Akademik, Asrama, serta domain operasional lain; rekonsiliasi tagihan, pengeluaran, ledger, dan RKAT lama yang belum terpetakan sebelum mengandalkan laporan per unit secara penuh.
+- Feature flag runtime unit tetap nonaktif secara bawaan sampai migration dan identitas unit disiapkan pada environment sasaran.
+- Sesuai keputusan pemilik proyek, data dummy Firestore tidak perlu disalin. Sistem dapat dimulai dengan data baru; migrasi arsip hanya diperlukan jika pemilik pesantren kemudian menghendakinya.
+- Tidak ada migration atau data yang diterapkan ke Supabase live pada checkpoint ini. Akses baca ke ledger project `ptsasgdvgrbdtgyqieie` belum berhasil; run CI memakai Supabase lokal sintetis dan tidak membuktikan keadaan project tersebut.
+- Penerapan migration ke database, konfigurasi server pelanggan, deployment dan UAT dilakukan oleh tim penerapan. Source PR harus tetap menyertakan migration, uji, serta instruksi yang dapat direproduksi.
 
-## Koreksi cakupan Finance — 30 Oktober 2026
+## Pekerjaan pengembangan yang masih terbuka
 
-- Migration `20270130000000_master_data_unit_assignment.sql` sudah menambahkan `organization_unit_id` pada `finance_bills`, FK tenant/unit, pewarisan unit dari kandidat/santri saat pembuatan atau penautan, dan pemeriksaan agar unit tagihan konsisten. Tes `master_data_unit_assignment.test.sql` mencakup pewarisan pada tagihan terkait kandidat/santri.
-- Tagihan lama tidak diisi dengan tebakan. Saat Admin memetakan kandidat/santri, trigger menyelaraskan unit ke tagihan terkait; tagihan yang tidak punya hubungan terpetakan tetap perlu rekonsiliasi eksplisit.
-- Perbaikan UI Admin menambahkan filter unit pada daftar tagihan, pengeluaran, buku besar, kartu total, dan ekspor CSV. Data tanpa unit tetap dapat dipilih melalui filter “Belum dipetakan”; unit yang tidak lagi aktif tetap tampil dengan penanda, agar transaksi lama tidak tersembunyi. Pemeriksaan helper filter ada di workflow CI terbaru pada head PR #13.
-- Pengeluaran/ledger lama memiliki alur pemetaan Finance eksplisit; RKAT lama memiliki alur pemetaan tersendiri. Ini bukan bukti bahwa data staging telah dimigrasikan atau semua unit sudah terisi.
+1. Audit akhir integrasi lintas-modul: tenant/permission, relasi ID, transisi status, retry, audit dan kegagalan parsial pada alur PPDB → Santri/Wali → Akademik/Asrama/Tahfidz/Finance.
+2. Tutup atau tetapkan sebagai di luar rilis awal fitur yang belum memiliki backend Supabase, terutama Peer Review Tahfidz. Desainnya perlu mencakup izin wali/minor, audio privat, moderasi, retensi dan akses tenant.
+3. PPOB/Layanan tetap fail-closed sampai ada spesifikasi provider, kredensial server dan rekonsiliasi transaksi yang nyata. Analitik yang tersedia berbasis aturan; prediksi AI bukan klaim rilis awal.
+4. Tinjau dan rapikan source legacy Firebase yang sudah tidak masuk jalur runtime aktif. CI membuktikan graph frontend aktif dan image runtime tidak memakai Firebase, tetapi file legacy/import tetap ada di source.
+5. Lengkapi verifikasi pengembangan instalasi/upgrade/pemulihan yang dapat dijalankan ulang oleh tim backend. CI sudah menguji Docker/Compose dan smoke test; simulasi hosting/VPS/on-premise serta UAT tetap dilakukan tim penerapan.
+6. Tim penerapan harus merekonsiliasi ledger migration project target sebelum menerapkan migration; akses database live tidak diverifikasi di checkpoint ini.
+
+## Status Pull Request
+
+- PR #1–#11: Open/Draft, belum merged.
+- PR #12: Closed/Merged ke `main`.
+- PR #13: Open/Draft, belum merged. GitHub melaporkan `mergeable: true`, yang hanya berarti tidak ada konflik Git; PR masih memiliki gerbang engineering di atas.
+
+PR lama #1–#11 bertingkat dan sebagian memakai arsitektur Firebase/transisi lama. Jangan merge satu per satu. Setelah PR #13 selesai, direview, dan benar-benar masuk ke `main`, tutup PR lama yang penggantinya terbukti lengkap dengan alasan superseded; jangan menyebutnya merged jika tidak digabung.
