@@ -165,7 +165,7 @@ SELECT throws_ok(
     'e5000000-0000-4000-8000-000000000102'
   )$$,
   '42501',
-  'Profil aktif tidak sesuai dengan pengaju',
+  'Profil aktif tidak sesuai dengan pengaju atau tenant',
   'RPC rejects a role that does not match the active profile'
 );
 
@@ -318,7 +318,7 @@ SELECT throws_ok(
     'e5000000-0000-4000-8000-000000000106'
   )$$,
   '42501',
-  'Profil aktif tidak sesuai dengan pengaju',
+  'Profil aktif tidak sesuai dengan pengaju atau tenant',
   'an actor from tenant A cannot write Finance data to tenant B'
 );
 SELECT is(
