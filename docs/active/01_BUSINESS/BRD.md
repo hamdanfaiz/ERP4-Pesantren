@@ -1,5 +1,7 @@
 # Business Requirement Document (BRD) - PesantrenOS Enterprise
 
+> **Dokumen historis—bukan kontrak produk saat ini.** Naskah ini mendeskripsikan rencana lama berbasis Firebase/Google Cloud dan SaaS; itu bukan arsitektur maupun klaim kemampuan ERP4 Pesantren sekarang. Gunakan [Kesiapan Komersial](../00_PRODUCT/COMMERCIAL_READINESS.md) dan [Titik Mulai Tim Backend](../00_PRODUCT/BACKEND_TEAM_START_HERE.md) sebagai acuan terkini.
+
 ## 1. Executive Summary
 
 PesantrenOS (sebelumnya ERP4 Pesantren) adalah transformasi digital sistem informasi manajemen terpadu yang dirancang khusus untuk memenuhi kebutuhan pesantren modern, sekolah berasrama, dan yayasan Islam. PesantrenOS akan mengadopsi arsitektur microservices-oriented / modular monolith dan dirancang sebagai platform SaaS (Software as a Service) Multi-Tenant.

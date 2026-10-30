@@ -1,5 +1,7 @@
 # Firebase & Cloud Run Solution Architecture
 
+> **Dokumen arsitektur historis—sudah digantikan.** Rancangan berikut mendeskripsikan Firebase/Cloud Run, SaaS, aplikasi Flutter, dan integrasi yang bukan baseline runtime atau kontrak rilis saat ini. Runtime aplikasi beralih ke Supabase dan paket deployment dikelola per instalasi. Gunakan [status cutover Supabase](SUPABASE_RUNTIME_CUTOVER_STATUS.md), [panduan deployment pelanggan](../../guides/CUSTOMER_MANAGED_DEPLOYMENT.md), dan [kesiapan komersial](../00_PRODUCT/COMMERCIAL_READINESS.md) sebagai acuan terkini.
+
 Sistem PesantrenOS Enterprise menggunakan pendekatan Serverless Cloud-Native dengan memanfaatkan ekosistem Google (Firebase dan Google Cloud) karena memiliki kelebihan pada skalabilitas, penghematan operasional, dan real-time synchronization.
 
 ## 1. Logical Architecture

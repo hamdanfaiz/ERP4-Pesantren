@@ -54,7 +54,7 @@ export default function App() {
   const [activeModule, setActiveModule] = useState<ModuleId>('dashboard');
   const [branding, setBranding] = useState({
     logoUrl: '',
-    schoolName: 'Pesantren OS'
+    schoolName: 'ERP4 Pesantren'
   });
 
   useEffect(() => {
@@ -90,11 +90,11 @@ export default function App() {
       document.documentElement.classList.toggle('dark', theme !== 'light');
     }
 
-    const schoolName = orgInfo.schoolName || 'Pesantren OS';
+    const schoolName = orgInfo.schoolName || 'ERP4 Pesantren';
     setBranding({ logoUrl: orgInfo.logoUrl || '', schoolName });
     document.title = orgInfo.pageTitleFormat
       ? orgInfo.pageTitleFormat.replace('{schoolName}', schoolName)
-      : `Pesantren OS | ${schoolName}`;
+      : `ERP4 Pesantren | ${schoolName}`;
 
     if (orgInfo.faviconUrl) {
       let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;

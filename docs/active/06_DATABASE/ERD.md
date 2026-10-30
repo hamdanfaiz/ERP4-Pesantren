@@ -1,5 +1,7 @@
 # Entity Relationship Diagram (ERD) & Database Structure
 
+> **ERD arsip Firestore—bukan skema operasional aktif.** Diagram ini hanya membantu memahami rancangan lama dan tidak boleh dipakai untuk membuat database, aturan akses, atau migrasi baru. Skema runtime saat ini menggunakan Supabase/PostgreSQL; lihat [ERD Supabase](SUPABASE_ERD.md) dan migrasi pada `supabase/migrations/` di commit yang sedang diuji.
+
 Sistem SaaS PesantrenOS menggunakan pendekatan **NoSQL Document-Based Database (Firebase Firestore)**.
 Alur ini mendefinisikan koleksi-koleksi (_collections_), struktur dokumen, dan relasi logis antar entitas yang tergabung. Desain ini menggunakan **Multi-Tenancy** (dengan `tenantId` pada _root collections_) untuk mengisolasi setiap lembaga pesantren.
 

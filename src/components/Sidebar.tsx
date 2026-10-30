@@ -111,7 +111,7 @@ export function Sidebar({ activeModule, onNavigate, branding }: SidebarProps) {
               P
             </div>
           )}
-          <h1 className="text-xl font-serif italic text-emerald-500 tracking-tight line-clamp-1">{branding?.schoolName ? branding.schoolName.substring(0, 15) : 'Pesantren OS'}</h1>
+          <h1 className="text-xl font-serif italic text-emerald-500 tracking-tight line-clamp-1">{branding?.schoolName ? branding.schoolName.substring(0, 15) : 'ERP4 Pesantren'}</h1>
         </div>
         <p className="text-[10px] uppercase tracking-[0.2em] opacity-40">Sistem Terpadu v4.0</p>
       </div>
