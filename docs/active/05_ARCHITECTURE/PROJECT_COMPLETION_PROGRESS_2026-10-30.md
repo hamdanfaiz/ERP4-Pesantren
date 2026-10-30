@@ -4,11 +4,11 @@
 
 ## Verifikasi terbaru — 30 Oktober 2026
 
-- Head kode PR #13 yang diuji tetap `43455c8b8f91eae108fd89fa09ff9f1e7ed6667b`; sesudahnya cabang hanya menerima pembaruan dokumentasi. PR tetap Open/Draft.
-- GitHub Actions [run 41022011815](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41022011815) lulus **2/2 job wajib** pada head kode tersebut. Cakupan CI: typecheck/build, guard runtime Supabase-only, Docker/Compose, rehearsal migrasi dan pgTAP lokal sintetis, API/isolasi tenant, transaksi serentak, Storage, serta backup/pemulihan. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch.
-- Perubahan kode terbaru mencakup pembatasan unit Asrama dan ringkasan enam capaian Tahfidz dari catatan tersimpan. Peer Review Tahfidz belum tersedia; Analitik AI dan PPOB/Layanan tetap fail-closed. Audit integrasi lintas modul dan kesetaraan perilaku PR lama belum tuntas.
-- Status GitHub terkini: PR #1–#11 Open/Draft, #12 Closed/Merged, #13 Open/Draft. Tidak ada migrasi atau data yang diterapkan ke Supabase live. Konektor menolak pembacaan target `ptsasgdvgrbdtgyqieie`; upaya PostgreSQL baca-saja juga berhenti pada validasi TLS `SELF_SIGNED_CERT_IN_CHAIN`. Rincian dan langkah pemulihan ada di [checkpoint akses staging](../06_DATABASE/CHECKPOINT_SUPABASE_STAGING_ACCESS_2026-10-30.md).
-- Estimasi 73% tetap perkiraan kasar tanpa WBS berbobot, bukan pernyataan kesiapan deploy. Rincian gerbang pengembangan terbuka tercatat di bagian berikut.
+- Head kode PR #13 yang diuji adalah `6678e7337431b74be70ba69d48b80341ba19af69`. GitHub Actions [run 41024972207](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41024972207) lulus **2/2 job wajib**.
+- CI mencakup typecheck/build, guard runtime Supabase-only, Docker/Compose dan smoke test image, rehearsal migrasi serta pgTAP lokal sintetis, API/isolasi tenant, transaksi serentak, Storage, dan backup/pemulihan. Tidak ada migration/data Supabase live yang diterapkan. Supabase Preview tidak berjalan karena branch tidak terhubung.
+- Perbaikan terakhir menyembunyikan tombol/modal contoh AI Audio Assessment saat runtime Supabase aktif. Peer Review Tahfidz belum tersedia; Analitik AI dan PPOB/Layanan tetap fail-closed. Audit integrasi lintas modul dan kesetaraan perilaku PR lama belum tuntas.
+- Status GitHub: PR #1–#11 Open/Draft, #12 Closed/Merged, #13 Open/Draft. Target Supabase `ptsasgdvgrbdtgyqieie` belum dapat diverifikasi: konektor menolak akses dan koneksi baca-saja berhenti pada validasi TLS `SELF_SIGNED_CERT_IN_CHAIN`. Tidak ada query ledger yang berhasil.
+- Estimasi pengembangan sekitar **73%** tetap perkiraan kasar tanpa WBS berbobot, bukan pernyataan siap deploy. Gerbang pengembangan terbuka tercatat di bagian berikut.
 
 ## Perubahan definisi progres
 
