@@ -139,6 +139,12 @@ for (const moduleId of unavailableRoutes) {
   assert.ok(clause, `Missing fail-closed App route for ${moduleId}.`);
   assert.match(clause.getText(app), /supabaseRuntimeUnavailable/, `Route ${moduleId} must fail closed until its Supabase module exists.`);
 }
+const tahfidzSource = fs.readFileSync(path.join(root, 'src', 'pages', 'TahfidzManager.tsx'), 'utf8');
+assert.match(tahfidzSource, /\\{!SUPABASE_TAHFIDZ_RUNTIME && <button[\\s\\S]*?title="AI Audio Assessment"/,
+  'Mock AI audio actions must remain hidden outside the Supabase Tahfidz runtime.');
+assert.match(tahfidzSource, /\\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && selectedSantri && \\(/,
+  'The mock AI assessment modal must not render in the Supabase Tahfidz runtime.');
+
 const masterDataSource = fs.readFileSync(path.join(root, 'src', 'pages', 'MasterDataManager.tsx'), 'utf8');
 assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
