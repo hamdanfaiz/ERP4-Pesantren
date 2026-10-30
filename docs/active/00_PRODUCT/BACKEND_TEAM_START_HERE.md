@@ -9,8 +9,8 @@ Mulai dari **Fase 1: menyiapkan staging dan membaca keadaan database**. Tim tida
 
 ## Baseline yang harus dipakai
 
-- `main` pada checkpoint ini berada di commit `8f64c4b729bf6548ef6bb441c609a1382e66b91d`.
-- PR #13 adalah baseline cutover Supabase; PR #17 menghapus Firebase Admin dan jalur Firestore server; PR #18 memperbarui status kesiapan; PR #19 menambahkan panduan kickoff tim backend. Semuanya sudah merged.
+- Baseline kode aplikasi yang diverifikasi untuk panduan ini berasal dari commit `8f64c4b729bf6548ef6bb441c609a1382e66b91d`; PR #20 hanya memperbarui dokumentasi. Saat mulai bekerja, checkout branch `main` terbaru dan catat SHA aktual yang digunakan.
+- PR #13 adalah baseline cutover Supabase; PR #17 menghapus Firebase Admin dan jalur Firestore server; PR #18 memperbarui status kesiapan; PR #19 menambahkan panduan kickoff tim backend dan PR #20 menyelaraskan acuan checkpoint. Semuanya sudah merged.
 - PR #1–#11 ditutup tanpa merge langsung karena implementasinya digantikan/dipetakan ke baseline cutover. Jangan cherry-pick atau memakai branch tersebut sebagai dasar deployment.
 - Data Firestore pemilik adalah dummy dan tidak perlu disalin. Gunakan fixture sintetis untuk staging.
 - Project Supabase `ptsasgdvgrbdtgyqieie` tercatat sebagai `main / PRODUCTION`. Jangan gunakan project itu untuk rehearsal.
