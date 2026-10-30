@@ -415,12 +415,13 @@ async function main() {
         body: JSON.stringify({ apply: false }),
       });
       assert.equal(anonymousImport.status, 401, path + " must reject anonymous callers.");
-      const gatedImport = await fetch(apiBase + path, {
+      const retiredImport = await fetch(apiBase + path, {
         method: "POST",
         headers: { Authorization: "Bearer " + adminToken, "Content-Type": "application/json" },
         body: JSON.stringify({ apply: false }),
       });
-      assert.equal(gatedImport.status, 503, path + " must remain closed until the operator enables migration.");
+      assert.equal(retiredImport.status, 410, path + " must remain retired after legacy archive import removal.");
+      assert.equal((await retiredImport.json()).code, "LEGACY_ARCHIVE_IMPORT_REMOVED", path + " must return a stable retirement code.");
     }
     const missingWaliLinkEmail = "wali-missing-link-" + randomUUID() + "@example.test";
     const missingWaliLink = await fetch(apiBase + "/api/users", {
@@ -885,3 +886,4 @@ main().catch((error) => {
   console.error(`API auth and tenant integration test failed (${detail}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
+
