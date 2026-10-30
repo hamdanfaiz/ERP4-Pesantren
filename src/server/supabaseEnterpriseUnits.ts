@@ -119,10 +119,11 @@ export async function getSupabaseUnmappedMasterDataUnits(
 ) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   const expected = expectedRole(role);
-  const offset = Number(offsetValue ?? 0);
-  if (!expected || !isUuid(actorUserId) || !Number.isSafeInteger(offset) || offset < 0 || offset > 1000000) {
+  const offsetText = offsetValue == null ? "0" : typeof offsetValue === "string" ? offsetValue.trim() : "";
+  if (!expected || !isUuid(actorUserId) || !/^(0|[1-9]\d{0,6})$/.test(offsetText) || Number(offsetText) > 1000000) {
     throw new SupabaseEnterpriseUnitsError(400, "Posisi daftar data tanpa unit tidak valid.");
   }
+  const offset = Number(offsetText);
   const result = await request("/rest/v1/rpc/get_tenant_unmapped_master_data_units", {
     method: "POST",
     body: JSON.stringify({

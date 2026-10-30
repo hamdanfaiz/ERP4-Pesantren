@@ -47,12 +47,12 @@ VALUES
 
 INSERT INTO public.students (
   id, tenant_id, source_candidate_id, nis, name, gender, grade,
-  nik_ciphertext, nik_fingerprint, class_id, room_id
+  nik_ciphertext, nik_fingerprint, class_id, room_id, source_system, source_record_id
 )
 VALUES
-  ('e3000000-0000-4000-8000-000000000301', 'e3000000-0000-4000-8000-000000000001', 'e3000000-0000-4000-8000-000000000201', '1234500001', 'Santri Satu', 'L', 'VII', decode(repeat('cd', 44), 'hex'), decode(repeat('21', 32), 'hex'), 'unit-map-class', 'unit-map-room'),
-  ('e3000000-0000-4000-8000-000000000302', 'e3000000-0000-4000-8000-000000000001', 'e3000000-0000-4000-8000-000000000202', '1234500002', 'Santri Dua', 'P', 'VII', decode(repeat('ce', 44), 'hex'), decode(repeat('22', 32), 'hex'), 'unit-map-class', 'unit-map-room'),
-  ('e3000000-0000-4000-8000-000000000304', 'e3000000-0000-4000-8000-000000000001', NULL, '1234500004', 'Santri Mandiri', 'L', 'VIII', decode(repeat('d0', 44), 'hex'), decode(repeat('24', 32), 'hex'), 'unit-map-class', 'unit-map-room');
+  ('e3000000-0000-4000-8000-000000000301', 'e3000000-0000-4000-8000-000000000001', 'e3000000-0000-4000-8000-000000000201', '1234500001', 'Santri Satu', 'L', 'VII', decode(repeat('cd', 44), 'hex'), decode(repeat('21', 32), 'hex'), 'unit-map-class', 'unit-map-room', 'ppdb', NULL),
+  ('e3000000-0000-4000-8000-000000000302', 'e3000000-0000-4000-8000-000000000001', 'e3000000-0000-4000-8000-000000000202', '1234500002', 'Santri Dua', 'P', 'VII', decode(repeat('ce', 44), 'hex'), decode(repeat('22', 32), 'hex'), 'unit-map-class', 'unit-map-room', 'ppdb', NULL),
+  ('e3000000-0000-4000-8000-000000000304', 'e3000000-0000-4000-8000-000000000001', NULL, '1234500004', 'Santri Mandiri', 'L', 'VIII', decode(repeat('d0', 44), 'hex'), decode(repeat('24', 32), 'hex'), 'unit-map-class', 'unit-map-room', 'master_data', 'UNIT-MAP-STANDALONE');
 
 INSERT INTO public.finance_bills (
   id, tenant_id, student_id, candidate_id, student_name, grade, fee_type, period, amount, payment_type, created_by_user_id
