@@ -76,6 +76,7 @@ const appText = fs.readFileSync(appPath, 'utf8');
 const app = ts.createSourceFile(appPath, appText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const expectedRoutes = new Map([
   ['dashboard', ['SupabaseDashboardOverview']], ['master-data', ['MasterDataManager']],
+  ['intelligence', ['SupabaseDashboardOverview']],
   ['users', ['UserManagementView']], ['ppdb', ['SupabasePpdbManager']],
   ['cbt', ['SupabaseCBTStudentDashboard', 'SupabaseCBTManager']], ['tahfidz', ['TahfidzManager']],
   ['boarding', ['SupabaseBoardingManager']], ['academic', ['SupabaseAcademicManager']],
@@ -90,7 +91,7 @@ const expectedRoutes = new Map([
   ['settings', ['SettingsManager']],
   ['erp', ['SupabaseFinanceBudgetManager']],
 ]);
-const unavailableRoutes = ['intelligence', 'ecosystem'];
+const unavailableRoutes = ['ecosystem'];
 const legacyRuntimeScreens = [
   './pages/Dashboard', './pages/CBTManager', './pages/CBTStudentDashboard', './pages/BoardingManager',
   './pages/FinanceManager', './pages/CommunicationHub', './pages/AcademicManager', './pages/HealthcareManager',

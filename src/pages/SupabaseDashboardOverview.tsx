@@ -98,18 +98,18 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
         tone: "amber",
       });
     }
-    const outstandingBills = Number(finance.unpaidCount || 0) + Number(finance.partialCount || 0);
-    if (finance.enabled && outstandingBills > 0) {
+    const openBills = Number(finance.openBillCount || 0);
+    if (finance.enabled && openBills > 0) {
       signals.push({
-        title: "Tagihan perlu ditindaklanjuti",
-        detail: `${outstandingBills} tagihan belum lunas atau baru dibayar sebagian; nilai tercatat ${rupiah(finance.outstandingAmount || 0)}.`,
+        title: "Tagihan belum berstatus lunas",
+        detail: `${openBills} tagihan masih terbuka dengan sisa tercatat ${rupiah(finance.outstandingAmount || 0)}.`,
         tone: "amber",
       });
     }
     if (finance.enabled && netCashflow < 0) {
       signals.push({
         title: "Arus kas bersih negatif",
-        detail: `Pengeluaran bersih tercatat sebesar ${rupiah(Math.abs(netCashflow))} pada rentang yang dipilih.`,
+        detail: `Arus kas bersih tercatat negatif sebesar ${rupiah(Math.abs(netCashflow))} pada rentang yang dipilih.`,
         tone: "rose",
       });
     }
