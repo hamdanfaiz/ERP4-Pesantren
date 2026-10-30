@@ -2,7 +2,7 @@
 
 ## Progres proyek
 
-**Penyelesaian pengembangan: sekitar 73% (rentang 70–75%).** Persentase ini tidak memasukkan deployment atau UAT oleh tim penerapan. Angka belum dinaikkan untuk RKAT karena build penuh dan tes database masih menunggu CI.
+**Penyelesaian pengembangan: sekitar 73% (rentang 70–75%).** Persentase ini tidak memasukkan deployment atau UAT oleh tim penerapan. Angka proyek belum dinaikkan untuk satu fitur RKAT karena beberapa gap fungsional lintas modul dan isolasi operasional per unit tetap terbuka; CI hijau untuk RKAT saja tidak menutup cakupan pengembangan yang lebih luas.
 
 ## Perubahan untuk ditinjau
 
@@ -13,13 +13,13 @@
 - Runtime RKAT dan Finance tetap nonaktif secara bawaan. Pengaktifan membutuhkan dua flag server; tidak ada data contoh atau perubahan Supabase live.
 - Memperbarui tes guard runtime agar mengizinkan halaman RKAT hanya ketika endpoint API tetap tertutup kecuali kedua flag aktif. Memperbarui preflight agar menghitung migration baru.
 
-## Bukti validasi lokal
+## Verifikasi terarah dan CI
 
 - Lulus: `test:supabase-runtime-no-firebase`.
 - Lulus: `test:customer-deployment-flags`.
 - Lulus: `test-migration-preflight`.
 - Lulus: typecheck terarah untuk `SupabaseFinanceBudgetManager.tsx` dan `supabaseFinanceBudget.ts`.
-- Lulus pada GitHub Actions [run 40977767772](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40977767772), **2/2 job** pada commit `048eff1dade1b8c7b588774c86b65c16226a9731`: typecheck, build client/server, smoke test production tanpa Firebase, Docker/Compose, rehearsal migration pada Supabase lokal sintetis, pgTAP, API auth/tenant, Storage, dan backup/restore.
+- Lulus pada GitHub Actions [run 40977767772](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40977767772), **2/2 job** pada commit `048eff1dade1b8c7b588774c86b65c16226a9731`: typecheck, build client/server, smoke test production tanpa Firebase, Docker/Compose, rehearsal migration pada Supabase lokal sintetis, pgTAP, API auth/tenant, Storage, dan backup/restore. Hasil ini memvalidasi source dan fixture sintetis untuk checkpoint RKAT, bukan schema/data Supabase live atau UAT.
 - Hasil tersebut tidak menjalankan migration/data ke Supabase live dan bukan UAT pelanggan.
 
 ## Tinjauan tim backend
