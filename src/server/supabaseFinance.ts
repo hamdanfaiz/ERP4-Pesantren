@@ -90,10 +90,20 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
   const expected = expectedRole(role);
   if (!expected || !isUuid(actorUserId)) throw new SupabaseFinanceError(403, "Akun ini tidak dapat membaca keuangan tenant.");
   if (!["Admin", "SuperAdmin", "Ustadz", "Walisantri"].includes(role)) throw new SupabaseFinanceError(403, "Role ini belum memiliki akses Finance Supabase.");
-  const profileParams = new URLSearchParams({ select: "user_id,role,status", tenant_id: "eq." + tenantId, user_id: "eq." + actorUserId, status: "eq.active", limit: "2" });
+  const profileParams = new URLSearchParams({ select: "user_id,role,status,organization_unit_id", tenant_id: "eq." + tenantId, user_id: "eq." + actorUserId, status: "eq.active", limit: "2" });
   const profiles = await request("/rest/v1/profiles?" + profileParams.toString());
   if (!Array.isArray(profiles) || profiles.length !== 1 || String(profiles[0]?.role || "").toLowerCase() !== expected) throw new SupabaseFinanceError(403, "Profil Finance Supabase tidak cocok dengan tenant aktif.");
   const isAdmin = role === "Admin" || role === "SuperAdmin";
+  const activeUnits = isAdmin || role === "Ustadz"
+    ? await tenantRows("organization_units", tenantId, "id,code,name,unit_type", "name.asc,code.asc,id.asc", { status: "eq.active" })
+    : [];
+  const actorUnitKey = String(profiles[0]?.organization_unit_id || "").trim();
+  const financeUnits = isAdmin
+    ? activeUnits
+    : role === "Ustadz" && actorUnitKey
+      ? activeUnits.filter((unit) => String(unit.id) === actorUnitKey)
+      : [];
+  const unitNames = new Map(financeUnits.map((unit) => [String(unit.id), String(unit.name || unit.code)]));
   let guardianStudentIds: string[] = [];
   if (role === "Walisantri") {
     try { guardianStudentIds = await listGuardianStudentIds(tenantId, actorUserId); }
@@ -104,16 +114,20 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
       ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type", "bill_date.desc,id.desc", { student_id: "in.(" + guardianStudentIds.join(",") + ")" })
       : isAdmin ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type", "bill_date.desc,id.desc") : Promise.resolve([]),
     isAdmin
-      ? tenantRows("finance_expenses", tenantId, "id,category,description,amount,expense_date,status,department,requester_user_id,requester_name,reviewed_by_user_id,reviewed_at,rejection_reason,created_at", "expense_date.desc,id.desc")
-      : role === "Ustadz" ? tenantRows("finance_expenses", tenantId, "id,category,description,amount,expense_date,status,department,requester_user_id,requester_name,reviewed_by_user_id,reviewed_at,rejection_reason,created_at", "expense_date.desc,id.desc", { requester_user_id: "eq." + actorUserId })
+      ? tenantRows("finance_expenses", tenantId, "id,unit_id,category,description,amount,expense_date,status,department,requester_user_id,requester_name,reviewed_by_user_id,reviewed_at,rejection_reason,created_at", "expense_date.desc,id.desc")
+      : role === "Ustadz" && financeUnits.length === 1
+        ? tenantRows("finance_expenses", tenantId, "id,unit_id,category,description,amount,expense_date,status,department,requester_user_id,requester_name,reviewed_by_user_id,reviewed_at,rejection_reason,created_at", "expense_date.desc,id.desc", { requester_user_id: "eq." + actorUserId, unit_id: "eq." + String(financeUnits[0].id) })
         : Promise.resolve([]),
-    isAdmin ? tenantRows("finance_ledger", tenantId, "id,entry_type,source_type,source_id,description,amount,payment_method,receipt_no,actor_user_id,posted_at", "posted_at.desc,id.desc") : Promise.resolve([]),
+    isAdmin ? tenantRows("finance_ledger", tenantId, "id,unit_id,entry_type,source_type,source_id,description,amount,payment_method,receipt_no,actor_user_id,posted_at", "posted_at.desc,id.desc") : Promise.resolve([]),
     isAdmin ? tenantRows("students", tenantId, "id,name,grade,status", "grade.asc,name.asc") : Promise.resolve([]),
     isAdmin ? request("/rest/v1/finance_controls?" + new URLSearchParams({ select: "finance_locked", tenant_id: "eq." + tenantId, limit: "2" }).toString()) : Promise.resolve([]),
   ]);
   const normalizedExpenses = expenseRows.map((row) => ({
     id: String(row.id), category: String(row.category), description: String(row.description), amount: Number(row.amount),
-    date: String(row.expense_date), status: String(row.status), department: String(row.department), requester: String(row.requester_name),
+    date: String(row.expense_date), status: String(row.status), department: String(row.department),
+    unitId: row.unit_id ? String(row.unit_id) : null,
+    unitName: row.unit_id ? unitNames.get(String(row.unit_id)) || "Unit tidak aktif / belum dipetakan" : "Unit lama / belum dipetakan",
+    requester: String(row.requester_name),
     requesterUid: String(row.requester_user_id), approvedByUid: row.reviewed_by_user_id || null, approvedAt: row.reviewed_at || null,
     rejectionReason: row.rejection_reason || "",
   }));
@@ -127,8 +141,9 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
   }));
   return {
     bills: normalizedBills,
+    units: financeUnits.map((unit) => ({ id: String(unit.id), code: String(unit.code), name: String(unit.name), unitType: String(unit.unit_type) })),
     expenses: normalizedExpenses,
-    ledger: ledgerRows.map((row) => ({ id: String(row.id), type: String(row.entry_type), sourceType: String(row.source_type), sourceId: String(row.source_id), description: String(row.description), amount: Number(row.amount), paymentMethod: row.payment_method || null, receiptNo: row.receipt_no || null, date: String(row.posted_at) })),
+    ledger: ledgerRows.map((row) => ({ id: String(row.id), type: String(row.entry_type), sourceType: String(row.source_type), sourceId: String(row.source_id), description: String(row.description), amount: Number(row.amount), paymentMethod: row.payment_method || null, receiptNo: row.receipt_no || null, unitId: row.unit_id ? String(row.unit_id) : null, unitName: row.unit_id ? unitNames.get(String(row.unit_id)) || "Unit tidak aktif / belum dipetakan" : null, date: String(row.posted_at) })),
     students: students
       .filter((row) => !["archived", "archive", "arsip", "inactive", "nonaktif", "tidak aktif", "alumni", "graduated", "lulus", "dikeluarkan"].includes(String(row.status || "").trim().toLowerCase()))
       .map((row) => ({ id: String(row.id), name: String(row.name || ""), grade: String(row.grade || "") })),
@@ -175,7 +190,7 @@ export async function createSupabaseFinanceBills(tenantIdentifier: string, actor
   return rpc("create_tenant_finance_bills", { p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: expected, p_items: items, p_client_request_id: requestId });
 }
 
-export async function createSupabaseFinanceExpense(tenantIdentifier: string, actorId: string, role: string, requesterName: string, value: unknown) {
+export async function createSupabaseFinanceExpense(tenantIdentifier: string, actorId: string, role: string, requesterName: string, actorUnitKey: string | undefined, value: unknown) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   const expected = expectedRole(role);
   if (!expected || !["admin", "super_admin", "ustadz"].includes(expected) || !value || typeof value !== "object" || Array.isArray(value)) throw new SupabaseFinanceError(403, "Role ini tidak dapat mengajukan pengeluaran.");
@@ -183,11 +198,23 @@ export async function createSupabaseFinanceExpense(tenantIdentifier: string, act
   const category = String(item.category || "").trim();
   const description = String(item.description || "").trim();
   const department = String(item.department || "").trim();
+  const requestedUnitId = String(item.unitId || "").trim();
   const amount = Number(item.amount);
   const expenseDate = String(item.expenseDate || "").trim();
   if (!category || category.length > 100 || !description || description.length > 1000 || !department || department.length > 120 || !Number.isSafeInteger(amount) || amount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(expenseDate)) throw new SupabaseFinanceError(400, "Kategori, uraian, unit, nominal, atau tanggal tidak valid.");
-  return rpc("create_tenant_finance_expense", {
-    p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: expected, p_category: category,
+  const unitKey = role === "Ustadz" ? String(actorUnitKey || "").trim() : requestedUnitId;
+  if (!unitKey) throw new SupabaseFinanceError(403, "Unit kerja belum ditetapkan pada profil akun ini.");
+  const unitFilter = isUuid(unitKey)
+    ? { id: "eq." + unitKey }
+    : { code: "eq." + unitKey.toUpperCase() };
+  const unitParams = new URLSearchParams({ select: "id", tenant_id: "eq." + tenantId, status: "eq.active", limit: "2", ...unitFilter });
+  const units = await request("/rest/v1/organization_units?" + unitParams.toString());
+  if (!Array.isArray(units) || units.length !== 1 || !isUuid(String(units[0]?.id || ""))) {
+    throw new SupabaseFinanceError(403, "Pilih satu unit organisasi yang aktif pada tenant ini.");
+  }
+  const unitId = String(units[0].id);
+  return rpc("create_tenant_finance_expense_for_unit", {
+    p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: expected, p_unit_id: unitId, p_category: category,
     p_description: description, p_department: department, p_amount: amount, p_expense_date: expenseDate,
     p_requester_name: String(requesterName || "Pengguna").trim().slice(0, 180), p_client_request_id: validRequestId(item.clientRequestId),
   });

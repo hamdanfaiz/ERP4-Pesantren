@@ -16,6 +16,7 @@ export type StoredUserProfile = {
   tenantTimeZone: string;
   tenantType?: string;
   unitId?: string;
+  organizationUnitId?: string;
   mustChangePassword: boolean;
   modulePermissions: Record<string, boolean>;
   createdAt: string | null;
@@ -38,6 +39,7 @@ type CanonicalProfileRow = {
   status?: string | null;
   tenant_id?: string | null;
   unit_id?: string | null;
+  organization_unit_id?: string | null;
   must_change_password?: boolean | null;
   module_permissions?: Record<string, boolean> | null;
   created_at?: string | null;
@@ -70,7 +72,7 @@ function supabaseAdmin(): SupabaseClient {
 
 const CANONICAL_PROFILE_SELECT = [
   "user_id", "tenant_id", "email", "display_name", "username", "role", "status", "must_change_password",
-  "unit_id", "module_permissions", "linked_santri_id", "linked_santri_name", "linked_santri_nis",
+  "unit_id", "organization_unit_id", "module_permissions", "linked_santri_id", "linked_santri_name", "linked_santri_nis",
   "linked_santri_class", "linked_santri_room", "created_at", "updated_at", "created_by_uid", "updated_by_uid",
   "tenants(name,tenant_type,status,time_zone)",
 ].join(",");
@@ -102,6 +104,7 @@ function mapCanonicalProfile(row: CanonicalProfileRow): StoredUserProfile {
     tenantTimeZone: row.tenants?.time_zone || "Asia/Jakarta",
     tenantType: row.tenants?.tenant_type || undefined,
     unitId: row.unit_id || undefined,
+    organizationUnitId: row.organization_unit_id || undefined,
     mustChangePassword: Boolean(row.must_change_password),
     modulePermissions: permissions,
     createdAt: row.created_at || null,
@@ -350,6 +353,7 @@ export async function createAuthUserWithProfile(input: {
   tenantName: string;
   modulePermissions: Record<string, boolean>;
   createdByUid: string;
+  organizationUnitId?: string | null;
   linkedSantriId?: string;
   linkedSantriName?: string;
   linkedSantriNis?: string;
@@ -375,6 +379,10 @@ export async function createAuthUserWithProfile(input: {
   if (!databaseRole) {
     throw new IdentityConflictError("Role yang diminta tidak dapat diberikan.");
   }
+  if (input.role !== "Ustadz" && input.organizationUnitId != null) {
+    throw new IdentityConflictError("Unit organisasi hanya dapat ditetapkan pada akun Ustadz.");
+  }
+  const organizationUnitId = await resolveActiveOrganizationUnit(input.tenantId, input.organizationUnitId, input.role === "Ustadz");
   if (!input.modulePermissions || typeof input.modulePermissions !== "object"
     || Array.isArray(input.modulePermissions)
     || Object.keys(input.modulePermissions).length > 64
@@ -425,6 +433,7 @@ export async function createAuthUserWithProfile(input: {
     status: "active",
     must_change_password: true,
     module_permissions: input.modulePermissions,
+    organization_unit_id: organizationUnitId,
     created_at: now,
     updated_at: now,
     created_by_uid: input.createdByUid,
@@ -450,6 +459,7 @@ export async function createAuthUserWithProfile(input: {
     status: row.status,
     must_change_password: row.must_change_password,
     module_permissions: row.module_permissions,
+    organization_unit_id: organizationUnitId,
     unit_id: row.unit_id || null,
     linked_santri_id: row.linked_santri_id,
     linked_santri_name: row.linked_santri_name,
@@ -478,6 +488,7 @@ export async function updateUserProfile(uid: string, patch: {
   role?: string;
   status?: string;
   modulePermissions?: Record<string, boolean>;
+  organizationUnitId?: string | null;
   updatedByUid: string;
 }): Promise<void> {
   const supabase = supabaseAdmin();
@@ -494,8 +505,49 @@ export async function updateUserProfile(uid: string, patch: {
   }
   if (patch.status) row.status = patch.status === "inactive" ? "invited" : patch.status === "disabled" ? "suspended" : "active";
   if (patch.modulePermissions) row.module_permissions = patch.modulePermissions;
+  if (patch.organizationUnitId !== undefined) {
+    const profileResult = await supabase.from("profiles").select("tenant_id,role,organization_unit_id").eq("user_id", uid).maybeSingle();
+    if (profileResult.error || !profileResult.data) throw new IdentityUnavailableError("Profil pengguna tidak dapat diverifikasi saat mengubah unit.");
+    const effectiveRole = String(patch.role || profileResult.data.role || "").trim().toLowerCase();
+    if (effectiveRole !== "ustadz" && patch.organizationUnitId != null) {
+      throw new IdentityConflictError("Unit organisasi hanya dapat ditetapkan pada akun Ustadz.");
+    }
+    const organizationUnitId = await resolveActiveOrganizationUnit(
+      String(profileResult.data.tenant_id || ""), patch.organizationUnitId, effectiveRole === "ustadz",
+    );
+    row.organization_unit_id = organizationUnitId;
+  } else if (patch.role && patch.role !== "Ustadz") {
+    row.organization_unit_id = null;
+  }
   const { error } = await supabase.from("profiles").update(row).eq("user_id", uid);
   if (error) throw new IdentityUnavailableError("Gagal memperbarui profil pengguna.");
+}
+
+async function resolveActiveOrganizationUnit(tenantId: string, value: string | null | undefined, required: boolean): Promise<string | null> {
+  const unitId = String(value || "").trim();
+  if (!unitId) {
+    if (required) throw new IdentityConflictError("Akun Ustadz harus ditetapkan ke unit organisasi yang aktif.");
+    return null;
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(unitId)) {
+    throw new IdentityConflictError("ID unit organisasi tidak valid.");
+  }
+  const supabase = supabaseAdmin();
+  const result = await supabase.from("organization_units").select("id")
+    .eq("tenant_id", tenantId).eq("id", unitId).eq("status", "active").maybeSingle();
+  if (result.error) throw new IdentityUnavailableError("Unit organisasi tidak dapat diverifikasi di Supabase.");
+  if (!result.data) throw new IdentityConflictError("Unit organisasi tidak aktif atau bukan milik tenant ini.");
+  return String(result.data.id);
+}
+
+export async function listAssignableOrganizationUnits(tenantId: string): Promise<Array<{ id: string; code: string; name: string; unitType: string }>> {
+  const supabase = supabaseAdmin();
+  const rows = await readIdentityPages((from, to) => supabase.from("organization_units")
+    .select("id,code,name,unit_type")
+    .eq("tenant_id", tenantId).eq("status", "active")
+    .order("name", { ascending: true }).order("code", { ascending: true }).order("id", { ascending: true })
+    .range(from, to), "Daftar unit aktif tidak dapat dibaca dari Supabase.");
+  return rows.map((row: any) => ({ id: String(row.id), code: String(row.code), name: String(row.name), unitType: String(row.unit_type) }));
 }
 
 export async function setAuthDisabled(uid: string, disabled: boolean): Promise<void> {

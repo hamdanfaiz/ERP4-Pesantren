@@ -46,6 +46,7 @@ interface UserRecord {
   status: 'active' | 'disabled' | 'inactive';
   tenantId: string;
   tenantName: string;
+  organizationUnitId?: string | null;
   mustChangePassword?: boolean;
   modulePermissions?: Record<string, boolean>;
   createdAt?: string;
@@ -55,11 +56,21 @@ interface UserRecord {
   linkedSantriNis?: string;
 }
 
+interface OrganizationUnitOption {
+  id: string;
+  code: string;
+  name: string;
+  unitType: string;
+}
+
 const USER_DIRECTORY_PAGE_SIZE = 50;
 
 export function UserManagementView() {
   const { user: currentActor, role: currentRole } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [organizationUnits, setOrganizationUnits] = useState<OrganizationUnitOption[]>([]);
+  const [isLoadingOrganizationUnits, setIsLoadingOrganizationUnits] = useState(true);
+  const [unitLoadError, setUnitLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -82,6 +93,7 @@ export function UserManagementView() {
   const [createEmail, setCreateEmail] = useState('');
   const [createUsername, setCreateUsername] = useState('');
   const [createRole, setCreateRole] = useState<UserRole>('Ustadz');
+  const [createOrganizationUnitId, setCreateOrganizationUnitId] = useState('');
   const [createTempPassword, setCreateTempPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [createPermissions, setCreatePermissions] = useState<Record<string, boolean>>({});
@@ -97,6 +109,7 @@ export function UserManagementView() {
 
   // Form states for editing
   const [editRole, setEditRole] = useState<UserRole>('Ustadz');
+  const [editOrganizationUnitId, setEditOrganizationUnitId] = useState('');
   const [editStatus, setEditStatus] = useState<'active' | 'disabled'>('active');
   const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
   const [isUpdating, setIsUpdating] = useState(false);
@@ -202,6 +215,36 @@ export function UserManagementView() {
   }, [fetchUsers]);
 
   useEffect(() => {
+    if (!currentActor || !['Admin', 'SuperAdmin'].includes(currentRole)) {
+      setIsLoadingOrganizationUnits(false);
+      return;
+    }
+    let active = true;
+    void (async () => {
+      setIsLoadingOrganizationUnits(true);
+      setUnitLoadError(null);
+      try {
+        const token = await getAccessToken();
+        const response = await fetch('/api/users/organization-units', {
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Unit organisasi tidak dapat dimuat.');
+        if (active) setOrganizationUnits(Array.isArray(payload.units) ? payload.units : []);
+      } catch (loadError) {
+        if (active) {
+          setOrganizationUnits([]);
+          setUnitLoadError(loadError instanceof Error ? loadError.message : 'Unit organisasi tidak dapat dimuat.');
+        }
+      } finally {
+        if (active) setIsLoadingOrganizationUnits(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [currentActor, currentRole]);
+
+  useEffect(() => {
     if (!isCreateModalOpen || createRole !== "Walisantri") return;
     let cancelled = false;
     setIsLoadingGuardians(true);
@@ -233,6 +276,7 @@ export function UserManagementView() {
     setCreateUsername('');
     // If actor is Admin, default role is Ustadz (Admin cannot create Admin/SuperAdmin)
     setCreateRole('Ustadz');
+    setCreateOrganizationUnitId('');
     setCreateTempPassword('');
     setCreateLinkedName('');
     setCreateLinkedNis('');
@@ -252,6 +296,14 @@ export function UserManagementView() {
 
     if (createRole === 'Walisantri' && !selectedGuardianId) {
       setCreateError('Pilih data Wali yang telah terhubung ke santri aktif.');
+      return;
+    }
+    if (createRole === 'Ustadz' && isLoadingOrganizationUnits) {
+      setCreateError('Tunggu sampai daftar unit organisasi selesai dimuat.');
+      return;
+    }
+    if (createRole === 'Ustadz' && (unitLoadError || !createOrganizationUnitId)) {
+      setCreateError(unitLoadError || 'Pilih unit organisasi aktif untuk akun Ustadz.');
       return;
     }
     if (createRole !== 'Walisantri' && createTempPassword.length < 12) {
@@ -309,6 +361,7 @@ export function UserManagementView() {
         role: createRole,
         tempPassword: createTempPassword,
         modulePermissions: finalPerms,
+        organizationUnitId: createRole === 'Ustadz' ? createOrganizationUnitId : undefined,
         linkedSantriName: createLinkedName.trim() || undefined,
         linkedSantriNis: createLinkedNis.trim() || undefined,
       };
@@ -349,6 +402,7 @@ export function UserManagementView() {
   const handleOpenEditModal = (targetUser: UserRecord) => {
     setEditingUser(targetUser);
     setEditRole(targetUser.role);
+    setEditOrganizationUnitId(targetUser.organizationUnitId || '');
     setEditStatus(targetUser.status === 'active' ? 'active' : 'disabled');
     
     // Set existing permissions or default
@@ -365,6 +419,15 @@ export function UserManagementView() {
     e.preventDefault();
     if (!editingUser) return;
     setEditError(null);
+
+    if (editRole === 'Ustadz' && isLoadingOrganizationUnits) {
+      setEditError('Tunggu sampai daftar unit organisasi selesai dimuat.');
+      return;
+    }
+    if (editRole === 'Ustadz' && (unitLoadError || !editOrganizationUnitId)) {
+      setEditError(unitLoadError || 'Pilih unit organisasi aktif untuk akun Ustadz.');
+      return;
+    }
 
     // Self demote & disable checks
     if (editingUser.uid === currentActor?.uid) {
@@ -405,6 +468,7 @@ export function UserManagementView() {
         role: editRole,
         status: editStatus,
         modulePermissions: finalPerms,
+        organizationUnitId: editRole === 'Ustadz' ? editOrganizationUnitId : null,
       };
 
       const res = await fetch(`/api/users/${editingUser.uid}`, {
@@ -749,6 +813,11 @@ export function UserManagementView() {
                           <div className="text-[10px] text-slate-400 mt-1">
                             Tenant: <span className="font-mono">{item.tenantName || item.tenantId}</span>
                           </div>
+                          {item.role === 'Ustadz' && (
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              Unit: {organizationUnits.find((unit) => unit.id === item.organizationUnitId)?.name || (item.organizationUnitId ? 'Unit tidak aktif / tidak dimuat' : 'Belum ditugaskan')}
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -1003,6 +1072,36 @@ export function UserManagementView() {
                 </div>
                 )}
               </div>
+
+              {createRole === 'Ustadz' && (
+                <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-2">
+                  <label htmlFor="create-user-organization-unit" className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Unit organisasi penugasan <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="create-user-organization-unit"
+                    value={createOrganizationUnitId}
+                    onChange={(event) => { setCreateOrganizationUnitId(event.target.value); setCreateError(null); }}
+                    required
+                    disabled={isCreating || isLoadingOrganizationUnits || Boolean(unitLoadError) || organizationUnits.length === 0}
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white disabled:opacity-60"
+                  >
+                    <option value="">{isLoadingOrganizationUnits ? 'Memuat unit organisasi…' : 'Pilih unit organisasi aktif'}</option>
+                    {organizationUnits.map((unit) => (
+                      <option key={unit.id} value={unit.id}>{unit.name} · {unit.code}</option>
+                    ))}
+                  </select>
+                  {unitLoadError ? (
+                    <p role="alert" className="text-[10px] text-red-600 dark:text-red-400">{unitLoadError}</p>
+                  ) : isLoadingOrganizationUnits ? (
+                    <p role="status" className="text-[10px] text-slate-500 dark:text-slate-400">Memuat unit aktif pada tenant ini…</p>
+                  ) : organizationUnits.length === 0 ? (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">Belum ada unit aktif. Buat unit organisasi tenant terlebih dahulu sebelum membuat akun Ustadz.</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Akun Ustadz hanya dapat mengajukan pengeluaran untuk unit yang ditugaskan di sini.</p>
+                  )}
+                </div>
+              )}
 
               {createRole !== 'Walisantri' && (
                 <>
@@ -1345,6 +1444,36 @@ export function UserManagementView() {
                   )}
                 </div>
               </div>
+
+              {editRole === 'Ustadz' && (
+                <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-2">
+                  <label htmlFor="edit-user-organization-unit" className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Unit organisasi penugasan <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="edit-user-organization-unit"
+                    value={editOrganizationUnitId}
+                    onChange={(event) => { setEditOrganizationUnitId(event.target.value); setEditError(null); }}
+                    required
+                    disabled={isUpdating || isLoadingOrganizationUnits || Boolean(unitLoadError) || organizationUnits.length === 0}
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white disabled:opacity-60"
+                  >
+                    <option value="">{isLoadingOrganizationUnits ? 'Memuat unit organisasi…' : 'Pilih unit organisasi aktif'}</option>
+                    {organizationUnits.map((unit) => (
+                      <option key={unit.id} value={unit.id}>{unit.name} · {unit.code}</option>
+                    ))}
+                  </select>
+                  {unitLoadError ? (
+                    <p role="alert" className="text-[10px] text-red-600 dark:text-red-400">{unitLoadError}</p>
+                  ) : isLoadingOrganizationUnits ? (
+                    <p role="status" className="text-[10px] text-slate-500 dark:text-slate-400">Memuat unit aktif pada tenant ini…</p>
+                  ) : organizationUnits.length === 0 ? (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">Belum ada unit aktif. Buat unit organisasi tenant terlebih dahulu sebelum menetapkan akun Ustadz.</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Finance memakai unit aktif ini untuk membatasi pengajuan dan pembacaan pengeluaran Ustadz.</p>
+                  )}
+                </div>
+              )}
 
               {/* Module Permissions Grid */}
               <div>

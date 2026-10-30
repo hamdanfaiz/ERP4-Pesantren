@@ -22,6 +22,7 @@ import {
   claimGuardianAccountInvitation,
   createRecoveryLink,
   getUserProfile,
+  listAssignableOrganizationUnits,
   listTenantProfilesPage,
   setAuthDisabled,
   updateUserProfile,
@@ -2782,7 +2783,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadFinanceActor(uid);
-      const result = await createSupabaseFinanceExpense(actor.tenantId, actor.uid, actor.role, actor.name, req.body?.expense);
+      const result = await createSupabaseFinanceExpense(actor.tenantId, actor.uid, actor.role, actor.name, actor.organizationUnitId, req.body?.expense);
       return res.status(201).json(result);
     } catch (error) { return financeRouteError(res, error); }
   });
@@ -4251,6 +4252,20 @@ async function startServer() {
     }
   });
   // 1. List / Search Users for acting admin's tenant
+  app.get("/api/users/organization-units", requireAuth, requireTenantAdmin, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const actor = (req as any).actor;
+    try {
+      const units = await listAssignableOrganizationUnits(actor.tenantId);
+      return res.json({ units });
+    } catch (err: any) {
+      const unavailable = identityFailure(res, err);
+      if (unavailable) return unavailable;
+      return res.status(500).json({ code: "UNIT_LIST_FAILED", error: "Daftar unit organisasi tidak dapat dimuat." });
+    }
+  });
+
+  // 1. List / Search Users for acting admin's tenant
   app.get("/api/users", requireAuth, requireTenantAdmin, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const actor = (req as any).actor;
@@ -4300,6 +4315,7 @@ async function startServer() {
         status: data.status || "active",
         tenantId: data.tenantId,
         tenantName: data.tenantName,
+        organizationUnitId: data.organizationUnitId || null,
         mustChangePassword: Boolean(data.mustChangePassword),
         modulePermissions: resolveUserModulePermissions(data.role, data.modulePermissions),
         createdAt: data.createdAt || null,
@@ -4327,6 +4343,7 @@ async function startServer() {
       tempPassword,
       modulePermissions,
       username,
+      organizationUnitId,
       linkedSantriId,
       linkedSantriName,
       linkedSantriNis,
@@ -4344,6 +4361,12 @@ async function startServer() {
     const allowedRoles = ["SuperAdmin", "Admin", "Ustadz", "Santri", "Walisantri"];
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({ code: "INVALID_ROLE", error: "Role yang dipilih tidak valid." });
+    }
+    if (role === "Ustadz" && (typeof organizationUnitId !== "string" || !organizationUnitId.trim())) {
+      return res.status(400).json({ code: "UNIT_REQUIRED", error: "Pilih unit organisasi aktif untuk akun Ustadz." });
+    }
+    if (role !== "Ustadz" && organizationUnitId != null) {
+      return res.status(400).json({ code: "UNIT_ROLE_MISMATCH", error: "Penugasan unit organisasi hanya dapat diberikan kepada akun Ustadz." });
     }
     if (role === "Walisantri") {
       return res.status(400).json({ code: "WALI_INVITATION_REQUIRED", error: "Akun Wali harus dibuat melalui undangan yang terhubung ke data Wali tenant." });
@@ -4397,6 +4420,7 @@ async function startServer() {
         tenantName: actor.tenantName || actor.tenantId,
         modulePermissions: finalPermissions,
         createdByUid: actor.uid,
+        organizationUnitId: typeof organizationUnitId === "string" ? organizationUnitId.trim() : null,
         linkedSantriId,
         linkedSantriName,
         linkedSantriNis,
@@ -4431,7 +4455,8 @@ async function startServer() {
         return res.status(403).json({ code: "FORBIDDEN", error: "Akses ditolak: pengguna berada di luar tenant Anda." });
       }
 
-      const { name, role, status, modulePermissions } = req.body || {};
+      const { name, role, status, modulePermissions, organizationUnitId } = req.body || {};
+      const hasOrganizationUnit = Object.prototype.hasOwnProperty.call(req.body || {}, "organizationUnitId");
       if (modulePermissions != null && !isValidModulePermissions(modulePermissions)) {
         return res.status(400).json({ code: "INVALID_MODULE_PERMISSIONS", error: "Format izin modul tidak valid." });
       }
@@ -4477,6 +4502,18 @@ async function startServer() {
         newRole = role;
       }
 
+      if (newRole === "Ustadz") {
+        const nextOrganizationUnitId = hasOrganizationUnit ? organizationUnitId : targetData.organizationUnitId;
+        if (typeof nextOrganizationUnitId !== "string" || !nextOrganizationUnitId.trim()) {
+          return res.status(400).json({ code: "UNIT_REQUIRED", error: "Pilih unit organisasi aktif untuk akun Ustadz." });
+        }
+        updates.organizationUnitId = nextOrganizationUnitId.trim();
+      } else if (hasOrganizationUnit && organizationUnitId != null && organizationUnitId !== "") {
+        return res.status(400).json({ code: "UNIT_ROLE_MISMATCH", error: "Penugasan unit organisasi hanya dapat diberikan kepada akun Ustadz." });
+      } else if (hasOrganizationUnit || role) {
+        updates.organizationUnitId = null;
+      }
+
       if (status && ["active", "disabled", "inactive"].includes(String(status).toLowerCase())) {
         const normalizedStatus = String(status).toLowerCase();
         updates.status = normalizedStatus;
@@ -4514,6 +4551,7 @@ async function startServer() {
           role: updates.role,
           status: updates.status,
           modulePermissions: updates.modulePermissions,
+          organizationUnitId: updates.organizationUnitId,
           updatedByUid: actor.uid,
         });
       } catch (profileError) {
