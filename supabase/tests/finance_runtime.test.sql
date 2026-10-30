@@ -6,7 +6,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(73);
+SELECT plan(74);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -29,6 +29,13 @@ VALUES
   ('e5000000-0000-4000-8000-000000000012', 'e5000000-0000-4000-8000-000000000005', 'finance-b@test.invalid', 'Finance Checker', 'admin', 'active', '{"finance":true}'),
   ('e5000000-0000-4000-8000-000000000013', 'e5000000-0000-4000-8000-000000000005', 'finance-guardian@test.invalid', 'Finance Guardian', 'wali_santri', 'active', '{"finance":true}'),
   ('e5000000-0000-4000-8000-000000000014', 'e5000000-0000-4000-8000-000000000005', 'finance-other-guardian@test.invalid', 'Other Guardian', 'wali_santri', 'active', '{"finance":true}');
+
+INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id)
+VALUES (
+  'e5000000-0000-4000-8000-000000000701', 'e5000000-0000-4000-8000-000000000005',
+  'PUSAT', 'Pusat Finance Test', 'pesantren', 'active',
+  'e5000000-0000-4000-8000-000000000011', 'e5000000-0000-4000-8000-000000000011'
+);
 
 UPDATE public.profiles
 SET linked_santri_id = 'e5000000-0000-4000-8000-000000000201'
@@ -94,6 +101,7 @@ SELECT ok(NOT has_table_privilege('anon', 'public.finance_bills', 'SELECT'), 'an
 SELECT ok(NOT has_table_privilege('authenticated', 'public.finance_bills', 'SELECT'), 'authenticated cannot read Finance bills directly');
 SELECT ok(NOT has_function_privilege('anon', 'public.create_tenant_finance_expense(uuid,uuid,text,text,text,text,numeric,date,text,uuid)', 'EXECUTE'), 'anon cannot call Finance write RPC directly');
 SELECT ok(NOT has_function_privilege('authenticated', 'public.create_tenant_finance_expense(uuid,uuid,text,text,text,text,numeric,date,text,uuid)', 'EXECUTE'), 'authenticated cannot call Finance write RPC directly');
+SELECT ok(NOT has_function_privilege('service_role', 'public.create_tenant_finance_expense(uuid,uuid,text,text,text,text,numeric,date,text,uuid)', 'EXECUTE'), 'trusted backend must use the unit-scoped Finance write RPC');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.finance_expenses'::regclass), 'finance_expenses has RLS enabled');
 SELECT ok((SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.finance_expenses'::regclass), 'finance_expenses forces RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.finance_ledger'::regclass), 'finance_ledger has RLS enabled');
@@ -102,9 +110,9 @@ SELECT ok((SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.finance_
 SET LOCAL ROLE service_role;
 
 SELECT is(
-  public.create_tenant_finance_expense(
+  public.create_tenant_finance_expense_for_unit(
     'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
-    'Utilitas', 'Tagihan listrik Oktober', 'Operasional', 125000, DATE '2026-10-22', 'Finance Maker',
+    'e5000000-0000-4000-8000-000000000701', 'Utilitas', 'Tagihan listrik Oktober', 'Operasional', 125000, DATE '2026-10-22', 'Finance Maker',
     'e5000000-0000-4000-8000-000000000101'
   )->>'success',
   'true',
@@ -118,9 +126,9 @@ SELECT is(
   'expense starts pending and is stored in its tenant'
 );
 SELECT is(
-  (public.create_tenant_finance_expense(
+  (public.create_tenant_finance_expense_for_unit(
     'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
-    'Utilitas', 'Tagihan listrik Oktober', 'Operasional', 125000, DATE '2026-10-22', 'Finance Maker',
+    'e5000000-0000-4000-8000-000000000701', 'Utilitas', 'Tagihan listrik Oktober', 'Operasional', 125000, DATE '2026-10-22', 'Finance Maker',
     'e5000000-0000-4000-8000-000000000101'
   )->>'expenseId'),
   (SELECT id::text FROM public.finance_expenses
@@ -135,9 +143,9 @@ SELECT is(
 );
 
 SELECT throws_ok(
-  $$SELECT public.create_tenant_finance_expense(
+  $$SELECT public.create_tenant_finance_expense_for_unit(
     'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
-    'Utilitas', 'Payload berubah', 'Operasional', 125000, DATE '2026-10-22', 'Finance Maker',
+    'e5000000-0000-4000-8000-000000000701', 'Utilitas', 'Payload berubah', 'Operasional', 125000, DATE '2026-10-22', 'Finance Maker',
     'e5000000-0000-4000-8000-000000000101'
   )$$,
   '23505',
@@ -151,9 +159,9 @@ SELECT is(
   'rejected idempotency-key reuse creates no expense'
 );
 SELECT throws_ok(
-  $$SELECT public.create_tenant_finance_expense(
+  $$SELECT public.create_tenant_finance_expense_for_unit(
     'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'ustadz',
-    'Utilitas', 'Role palsu', 'Operasional', 1000, DATE '2026-10-22', 'Finance Maker',
+    'e5000000-0000-4000-8000-000000000701', 'Utilitas', 'Role palsu', 'Operasional', 1000, DATE '2026-10-22', 'Finance Maker',
     'e5000000-0000-4000-8000-000000000102'
   )$$,
   '42501',
@@ -231,9 +239,9 @@ SELECT throws_ok(
 );
 
 SELECT is(
-  public.create_tenant_finance_expense(
+  public.create_tenant_finance_expense_for_unit(
     'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
-    'Pengadaan', 'Pembelian alat kelas', 'Pendidikan', 250000, DATE '2026-10-22', 'Finance Maker',
+    'e5000000-0000-4000-8000-000000000701', 'Pengadaan', 'Pembelian alat kelas', 'Pendidikan', 250000, DATE '2026-10-22', 'Finance Maker',
     'e5000000-0000-4000-8000-000000000103'
   )->>'success',
   'true',
@@ -271,9 +279,9 @@ SELECT is(
   'Admin can close the tenant Finance book'
 );
 SELECT throws_ok(
-  $$SELECT public.create_tenant_finance_expense(
+  $$SELECT public.create_tenant_finance_expense_for_unit(
     'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
-    'Utilitas', 'Tidak boleh saat tutup buku', 'Operasional', 1000, DATE '2026-10-22', 'Finance Maker',
+    'e5000000-0000-4000-8000-000000000701', 'Utilitas', 'Tidak boleh saat tutup buku', 'Operasional', 1000, DATE '2026-10-22', 'Finance Maker',
     'e5000000-0000-4000-8000-000000000104'
   )$$,
   '55000',
@@ -295,18 +303,18 @@ SELECT is(
   'Admin can reopen the tenant Finance book'
 );
 SELECT is(
-  public.create_tenant_finance_expense(
+  public.create_tenant_finance_expense_for_unit(
     'e5000000-0000-4000-8000-000000000005', 'e5000000-0000-4000-8000-000000000011', 'admin',
-    'Utilitas', 'Setelah tutup buku', 'Operasional', 1000, DATE '2026-10-22', 'Finance Maker',
+    'e5000000-0000-4000-8000-000000000701', 'Utilitas', 'Setelah tutup buku', 'Operasional', 1000, DATE '2026-10-22', 'Finance Maker',
     'e5000000-0000-4000-8000-000000000105'
   )->>'success',
   'true',
   'Finance writes resume after the book is reopened'
 );
 SELECT throws_ok(
-  $$SELECT public.create_tenant_finance_expense(
+  $$SELECT public.create_tenant_finance_expense_for_unit(
     'f6000000-0000-4000-8000-000000000006', 'e5000000-0000-4000-8000-000000000011', 'admin',
-    'Utilitas', 'Tenant salah', 'Operasional', 1000, DATE '2026-10-22', 'Finance Maker',
+    'e5000000-0000-4000-8000-000000000701', 'Utilitas', 'Tenant salah', 'Operasional', 1000, DATE '2026-10-22', 'Finance Maker',
     'e5000000-0000-4000-8000-000000000106'
   )$$,
   '42501',
