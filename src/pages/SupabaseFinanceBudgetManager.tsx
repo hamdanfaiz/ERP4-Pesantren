@@ -9,11 +9,16 @@ type BudgetLine = {
   department: string;
   category: string;
   allocatedAmount: number;
-  actualAmount: number;
+  actualAmount: number | null;
 };
 
 type BudgetPlan = {
   id: string;
+  unitId: string | null;
+  unitCode?: string | null;
+  unitName?: string | null;
+  unitStatus?: "active" | "inactive" | null;
+  needsUnitMapping: boolean;
   periodLabel: string;
   periodStart: string;
   periodEnd: string;
@@ -30,12 +35,13 @@ type BudgetPlan = {
   lines: BudgetLine[];
 };
 
-type Snapshot = { plans: BudgetPlan[]; financeLocked: boolean };
+type OrganizationUnit = { id: string; code: string; name: string; status: "active" | "inactive" };
+type Snapshot = { plans: BudgetPlan[]; units: OrganizationUnit[]; financeLocked: boolean };
 type DraftLine = { department: string; category: string; allocatedAmount: string };
-type Draft = { periodLabel: string; periodStart: string; periodEnd: string; notes: string; lines: DraftLine[] };
+type Draft = { unitId: string; periodLabel: string; periodStart: string; periodEnd: string; notes: string; lines: DraftLine[] };
 
-const EMPTY: Snapshot = { plans: [], financeLocked: false };
-const EMPTY_DRAFT: Draft = { periodLabel: "", periodStart: "", periodEnd: "", notes: "", lines: [{ department: "", category: "", allocatedAmount: "" }] };
+const EMPTY: Snapshot = { plans: [], units: [], financeLocked: false };
+const EMPTY_DRAFT: Draft = { unitId: "", periodLabel: "", periodStart: "", periodEnd: "", notes: "", lines: [{ department: "", category: "", allocatedAmount: "" }] };
 const FIELD = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
 const PRIMARY = "inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50";
 const OUTLINE = "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-white/5";
@@ -90,11 +96,15 @@ export function SupabaseFinanceBudgetManager() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState("");
+  const [mappingUnitSelections, setMappingUnitSelections] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
 
   const refresh = useCallback(async () => {
     const result = await requestBudget("/api/erp/budget/snapshot");
-    setSnapshot({ plans: Array.isArray(result.plans) ? result.plans : [], financeLocked: result.financeLocked === true });
+    const units = Array.isArray(result.units) ? result.units : [];
+    setSnapshot({ plans: Array.isArray(result.plans) ? result.plans : [], units, financeLocked: result.financeLocked === true });
+    setSelectedUnitId((current) => current || units.find((unit: OrganizationUnit) => unit.status === "active")?.id || "");
   }, []);
 
   useEffect(() => {
@@ -103,24 +113,32 @@ export function SupabaseFinanceBudgetManager() {
     setError("");
     requestBudget("/api/erp/budget/snapshot")
       .then((result) => {
-        if (active) setSnapshot({ plans: Array.isArray(result.plans) ? result.plans : [], financeLocked: result.financeLocked === true });
+        if (active) {
+          const units = Array.isArray(result.units) ? result.units : [];
+          setSnapshot({ plans: Array.isArray(result.plans) ? result.plans : [], units, financeLocked: result.financeLocked === true });
+          setSelectedUnitId((current) => current || units.find((unit: OrganizationUnit) => unit.status === "active")?.id || "");
+        }
       })
       .catch((loadError: any) => { if (active) setError(loadError?.message || "Data anggaran belum dapat dimuat."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [refresh, user?.tenantId, user?.uid]);
 
-  const activePlan = useMemo(() => snapshot.plans.find((plan) => plan.status !== "closed") || null, [snapshot.plans]);
+  const activeUnits = useMemo(() => snapshot.units.filter((unit) => unit.status === "active"), [snapshot.units]);
+  const selectedUnit = snapshot.units.find((unit) => unit.id === selectedUnitId) || null;
+  const unitPlans = useMemo(() => snapshot.plans.filter((plan) => plan.unitId === selectedUnitId), [snapshot.plans, selectedUnitId]);
+  const unmappedPlans = useMemo(() => snapshot.plans.filter((plan) => !plan.unitId), [snapshot.plans]);
+  const activePlan = useMemo(() => unitPlans.find((plan) => plan.status !== "closed") || null, [unitPlans]);
   const totals = useMemo(() => {
     const lines = activePlan?.lines || [];
     const allocated = lines.reduce((sum, line) => sum + Number(line.allocatedAmount || 0), 0);
-    const actual = lines.reduce((sum, line) => sum + Number(line.actualAmount || 0), 0);
+    const actual = lines.reduce((sum, line) => sum + Number(line.actualAmount ?? 0), 0);
     return { allocated, actual, remaining: allocated - actual };
   }, [activePlan]);
 
-  const clearForm = () => { setEditingId(null); setDraft(EMPTY_DRAFT); };
+  const clearForm = () => { setEditingId(null); setDraft({ ...EMPTY_DRAFT, unitId: selectedUnitId }); };
 
-  const mutation = async (action: "save_draft" | "approve" | "close", plan: Draft | null, planId: string | null) => {
+  const mutation = async (action: "save_draft" | "approve" | "close" | "map_legacy_unit", plan: Draft | { unitId: string } | null, planId: string | null) => {
     setSaving(true);
     setError("");
     setNotice("");
@@ -131,7 +149,7 @@ export function SupabaseFinanceBudgetManager() {
           method: "POST",
           body: JSON.stringify({ ...mutationPayload, clientRequestId }),
         }));
-      setNotice(result.alreadyApplied ? "Permintaan ini sudah diterapkan sebelumnya." : action === "approve" ? "Rencana anggaran disetujui." : action === "close" ? "Rencana anggaran ditutup." : "Rancangan anggaran tersimpan.");
+      setNotice(result.alreadyApplied ? "Permintaan ini sudah diterapkan sebelumnya." : action === "approve" ? "Rencana anggaran disetujui." : action === "close" ? "Rencana anggaran ditutup." : action === "map_legacy_unit" ? "Unit untuk rencana lama berhasil dipetakan." : "Rancangan anggaran tersimpan.");
       if (action === "save_draft") clearForm();
       try { await refresh(); }
       catch { setError("Perubahan sudah tersimpan, tetapi daftar belum berhasil dimuat. Tekan Muat ulang."); }
@@ -145,6 +163,7 @@ export function SupabaseFinanceBudgetManager() {
   const startEditing = (plan: BudgetPlan) => {
     setEditingId(plan.id);
     setDraft({
+      unitId: plan.unitId && activeUnits.some((unit) => unit.id === plan.unitId) ? plan.unitId : "",
       periodLabel: plan.periodLabel,
       periodStart: plan.periodStart.slice(0, 10),
       periodEnd: plan.periodEnd.slice(0, 10),
@@ -155,7 +174,7 @@ export function SupabaseFinanceBudgetManager() {
   };
 
   const formValid = useMemo(() => {
-    if (!draft.periodLabel.trim() || !draft.periodStart || !draft.periodEnd || draft.periodEnd < draft.periodStart || !draft.lines.length) return false;
+    if (!draft.unitId || !draft.periodLabel.trim() || !draft.periodStart || !draft.periodEnd || draft.periodEnd < draft.periodStart || !draft.lines.length) return false;
     const seen = new Set<string>();
     return draft.lines.every((line) => {
       const department = line.department.trim();
@@ -206,6 +225,7 @@ export function SupabaseFinanceBudgetManager() {
           {editingId && <button type="button" className={OUTLINE} onClick={clearForm}><X className="h-4 w-4" />Batal ubah</button>}
         </div>
         <form onSubmit={(event) => { event.preventDefault(); void mutation("save_draft", draft, editingId); }} className="space-y-4">
+          <label className="block max-w-xl text-sm font-medium text-slate-700 dark:text-slate-200">Unit pesantren<select required className={`${FIELD} mt-1.5`} value={draft.unitId} onChange={(event) => { setDraft({ ...draft, unitId: event.target.value }); setSelectedUnitId(event.target.value); }}><option value="">Pilih unit aktif</option>{activeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></label>
           <div className="grid gap-3 md:grid-cols-3">
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nama periode<input required maxLength={120} className={`${FIELD} mt-1.5`} placeholder="Tahun ajaran 2026/2027" value={draft.periodLabel} onChange={(event) => setDraft({ ...draft, periodLabel: event.target.value })} /></label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Mulai<input required type="date" className={`${FIELD} mt-1.5`} value={draft.periodStart} onChange={(event) => setDraft({ ...draft, periodStart: event.target.value })} /></label>
@@ -226,13 +246,14 @@ export function SupabaseFinanceBudgetManager() {
       </section>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Rencana anggaran tenant</h2><p className="mt-1 text-xs text-slate-500">Realisasi mencakup pengeluaran disetujui dalam periode yang cocok dengan bagian dan kategori.</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-white/5 dark:text-slate-300">{snapshot.plans.length} rencana</span></div>
-        {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat rencana anggaran…</div> : snapshot.plans.length === 0 ? <div className="p-10 text-center"><ClipboardList className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" /><p className="mt-3 font-medium text-slate-700 dark:text-slate-200">Belum ada rencana anggaran</p><p className="mt-1 text-sm text-slate-500">Rencana RKAT tenant dimulai dari data kosong; tidak ada angka contoh.</p></div> : <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.plans.map((plan) => {
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-end sm:justify-between dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Rencana anggaran per unit</h2><p className="mt-1 text-xs text-slate-500">Realisasi hanya menghitung pengeluaran dan posting buku Keuangan dari unit serta periode yang sama.</p></div><label className="text-sm font-medium text-slate-700 dark:text-slate-200">Tampilkan unit<select className={`${FIELD} mt-1 min-w-64`} value={selectedUnitId} onChange={(event) => { setSelectedUnitId(event.target.value); if (!editingId) setDraft((current) => ({ ...current, unitId: event.target.value })); }}>{snapshot.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}{unit.status === "inactive" ? " (nonaktif)" : ""}</option>)}</select></label><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-white/5 dark:text-slate-300">{unitPlans.length} rencana</span></div>
+        {unmappedPlans.length > 0 && <div className="border-b border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/20"><h3 className="font-semibold text-amber-950 dark:text-amber-100">Rencana lama perlu dipetakan ke unit</h3><p className="mt-1 text-sm text-amber-900 dark:text-amber-200">Rencana ini tidak dihitung pada ringkasan unit sampai Admin memilih unit yang benar. Pemetaan dicatat dan tidak dilakukan otomatis.</p><ul className="mt-3 space-y-2">{unmappedPlans.map((plan) => <li key={plan.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-white/70 px-3 py-2 dark:border-amber-900 dark:bg-black/10"><span className="min-w-56 flex-1 text-sm font-medium text-slate-800 dark:text-slate-100">{plan.periodLabel} · {dateLabel(plan.periodStart)} – {dateLabel(plan.periodEnd)} · {statusLabel(plan.status)}</span><label className="text-xs font-medium text-slate-600 dark:text-slate-300">Unit yang benar<select className={`${FIELD} mt-1 min-w-64`} value={mappingUnitSelections[plan.id] || ""} onChange={(event) => setMappingUnitSelections((current) => ({ ...current, [plan.id]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}{unit.status === "inactive" ? " (nonaktif)" : ""}</option>)}</select></label><button type="button" className={OUTLINE} disabled={saving || !mappingUnitSelections[plan.id]} onClick={() => { const unitId = mappingUnitSelections[plan.id]; if (!unitId || !window.confirm(`Petakan rencana ${plan.periodLabel} ke unit yang dipilih? Perubahan ini akan dicatat sebagai tindakan Admin.`)) return; setSelectedUnitId(unitId); void mutation("map_legacy_unit", { unitId }, plan.id); }}>Terapkan pemetaan</button></li>)}</ul></div>}
+        {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat rencana anggaran…</div> : unitPlans.length === 0 ? <div className="p-10 text-center"><ClipboardList className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" /><p className="mt-3 font-medium text-slate-700 dark:text-slate-200">Belum ada rencana anggaran untuk unit ini</p><p className="mt-1 text-sm text-slate-500">{selectedUnit ? `${selectedUnit.name} dapat mulai dengan membuat rencana sendiri.` : "Pilih atau buat unit aktif sebelum menambahkan RKAT."}</p></div> : <div className="divide-y divide-slate-100 dark:divide-white/5">{unitPlans.map((plan) => {
           const allocated = plan.lines.reduce((sum, line) => sum + Number(line.allocatedAmount || 0), 0);
-          const actual = plan.lines.reduce((sum, line) => sum + Number(line.actualAmount || 0), 0);
+          const actual = plan.lines.reduce((sum, line) => sum + Number(line.actualAmount ?? 0), 0);
           const statusColor = plan.status === "approved" ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200" : plan.status === "closed" ? "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300" : "bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200";
           return <article key={plan.id} className="space-y-4 p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{plan.periodLabel}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColor}`}>{statusLabel(plan.status)}</span></div><p className="mt-1 text-xs text-slate-500">{dateLabel(plan.periodStart)} – {dateLabel(plan.periodEnd)} · {plan.lines.length} alokasi</p>{plan.notes && <p className="mt-2 max-w-3xl whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">{plan.notes}</p>}</div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{plan.periodLabel}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColor}`}>{statusLabel(plan.status)}</span>{plan.unitCode && <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800 dark:bg-blue-400/10 dark:text-blue-200">{plan.unitCode} · {plan.unitName}</span>}</div><p className="mt-1 text-xs text-slate-500">{dateLabel(plan.periodStart)} – {dateLabel(plan.periodEnd)} · {plan.lines.length} alokasi</p>{plan.notes && <p className="mt-2 max-w-3xl whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">{plan.notes}</p>}</div>
               <div className="flex flex-wrap gap-2">{plan.status === "draft" && <><button type="button" className={OUTLINE} disabled={saving} onClick={() => startEditing(plan)}>Ubah</button><button type="button" className={PRIMARY} disabled={saving || plan.lines.length === 0} onClick={() => void mutation("approve", null, plan.id)}><Check className="h-4 w-4" />Setujui</button></>}{plan.status === "approved" && <button type="button" className={OUTLINE} disabled={saving} onClick={() => { if (window.confirm(`Tutup rencana ${plan.periodLabel}? Rencana tertutup tidak dapat diubah.`)) void mutation("close", null, plan.id); }}><Archive className="h-4 w-4" />Tutup rencana</button>}</div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3"><Metric label="Total alokasi" value={currency(allocated)} /><Metric label="Realisasi" value={currency(actual)} /><Metric label="Sisa" value={currency(allocated - actual)} /></div>

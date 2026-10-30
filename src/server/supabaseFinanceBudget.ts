@@ -115,12 +115,15 @@ export async function mutateSupabaseFinanceBudget(
   if (!isUuid(requestId) || (planId !== null && !isUuid(planId))) {
     throw new SupabaseFinanceBudgetError(400, "Kunci permintaan atau ID anggaran tidak valid.");
   }
-  if (!("save_draft" === action || "approve" === action || "close" === action)) {
+  if (!("save_draft" === action || "approve" === action || "close" === action || "map_legacy_unit" === action)) {
     throw new SupabaseFinanceBudgetError(400, "Tindakan anggaran tidak didukung.");
   }
-  const payload = action === "save_draft" ? input.plan : {};
+  const payload = action === "save_draft" || action === "map_legacy_unit" ? input.plan : {};
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new SupabaseFinanceBudgetError(400, "Isi rencana anggaran tidak valid.");
+  }
+  if ((action === "save_draft" || action === "map_legacy_unit") && !isUuid(String((payload as Row).unitId || ""))) {
+    throw new SupabaseFinanceBudgetError(400, "Pilih unit pesantren yang valid untuk rencana anggaran.");
   }
   return callBudgetRpc("manage_tenant_finance_budget", {
     p_tenant_id: tenantId,
