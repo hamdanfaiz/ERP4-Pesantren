@@ -5,8 +5,8 @@
 **Perkiraan penyelesaian pengembangan: sekitar 73% (rentang 70–75%).** Ini angka kerja kasar tanpa WBS berbobot; deployment hosting dan UAT yang dikerjakan tim lain tidak dihitung. Saya belum menaikkan angka karena cakupan yang tersisa belum ditimbang dengan metode yang disepakati.
 
 - Sumber yang sedang disiapkan untuk ditinjau: PR #13, branch `codex/supabase-runtime-cutover-20261022`.
-- Commit PR #13 terbaru yang diverifikasi: `0cf670ba9097b7002322173adb92568f9ed8a054`. GitHub Actions [run 41041688664](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41041688664) lulus **2/2 job**.
-- Run terbaru mencakup typecheck/build, guard runtime Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP, reservasi NIS dan slot Tahfidz serentak, import-preview, otorisasi API/isolasi tenant, pendaftaran mandiri Wali dengan 19 assertion khusus, alur Storage, serta backup/pemulihan lokal.
+- Implementasi Peer Review Tahfidz teks dan aturan aksesnya lulus pada head `04ab209f5fbd716fd8f78047eaac8d259be64934`, run [41047481907](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41047481907), 2/2 job. Dokumentasi PR berikutnya lulus frontend build; perubahan baru untuk mengecualikan PPOB dari permission dan navigasi sedang menunggu CI final.
+- CI mencakup typecheck/build, guard runtime Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP, reservasi NIS dan slot Tahfidz serentak, import-preview, otorisasi API/isolasi tenant, pendaftaran mandiri Wali, alur Storage, serta backup/pemulihan lokal.
 - Skor sekitar 73% tetap perkiraan kasar, bukan ukuran kontrak kerja atau klaim semua fitur lulus. Audit lintas-modul sudah didokumentasikan; paritas semua perilaku historis dan target Supabase masih belum terbukti.
 - CI tidak menguji database Supabase target, login pelanggan, deployment hosting atau UAT.
 
@@ -18,17 +18,17 @@
 - Source juga berisi API/halaman Supabase untuk Akademik, Asrama, Tahfidz, komunikasi dan beberapa modul operasional lain; tidak semua modul lama memiliki paritas fitur penuh. Matriks cakupan rinci berada pada [audit paritas PR #1–#11](PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md) dan [audit fitur PR #11 → #13](PR11_TO_PR13_FEATURE_PARITY.md).
 - Cakupan multi-unit sudah tersedia untuk Finance, Akademik, dan Asrama pada alur yang dipetakan. Record lama yang belum diketahui unitnya tidak diisi dengan tebakan. Domain lain perlu diklasifikasikan berdasarkan kebutuhan.
 - Dashboard Analitik Operasional memakai snapshot Supabase dan permission tersendiri. Indikatornya berbasis aturan transparan; tidak dipasarkan sebagai prediksi AI.
+- Peer Review Tahfidz mencakup teks antaranggota halaqah yang sama dengan moderasi Ustadz. Audio dan akses Wali tidak disertakan. PPOB/payment gateway dikeluarkan dari rilis awal: menu dan izin modul dimatikan, termasuk jika ada permission lama yang tersimpan.
 - Data dummy Firestore tidak perlu disalin sesuai keputusan pemilik proyek. Tidak ada import atau perubahan database live pada checkpoint ini.
 
 ## Pekerjaan pengembangan yang masih harus ditutup
 
 1. **Lengkapi bukti paritas integrasi.** Audit source alur PPDB → Santri/Wali → Akademik/Asrama/Tahfidz/Finance tercatat di [audit integrasi lintas-modul](CROSS_MODULE_INTEGRATION_AUDIT_2026-10-30.md). Tes CI terbaru membuktikan izin/kedisiplinan Asrama, tenant/role, state transition, dan retry; perilaku historis unik PR #1–#11 serta setiap jalur kegagalan lintas-modul masih perlu dicocokkan sebelum PR lama ditutup.
-2. **Tentukan cakupan Tahfidz Peer Review.** Belum memiliki backend tersimpan di Supabase. Jika masuk rilis awal, perlu rancangan izin wali/minor, berkas audio privat, moderasi, retensi, role dan tenant, lalu API/UI serta tes. Jika ditunda, label dan promosi fiturnya harus jelas.
-3. **Tetapkan status PPOB/Layanan.** Saat ini fail-closed. Aktivasi memerlukan provider dan kontrak API nyata, pengelolaan kredensial server, idempotensi, rekonsiliasi pembayaran, serta penanganan kegagalan/refund.
-4. **Klasifikasi source legacy Firebase sudah didokumentasikan.** Source lama tetap disimpan untuk referensi/import arsip, tetapi guard membuktikan tidak masuk runtime atau dependency image produksi. Rincian batas dan syarat penghapusan ada di [klasifikasi source Firebase](LEGACY_FIREBASE_SOURCE_CLASSIFICATION_2026-10-30.md).
-5. **Rapikan dokumentasi rilis dan portabilitas.** Source sudah memiliki Docker/Compose dan smoke test CI. Instruksi install/upgrade/backup/pemulihan perlu tetap sesuai dengan satu image, skema migration dan konfigurasi Supabase pada profil VPS/on-premise sasaran.
-6. **Rekonsiliasi migration target sebelum penerapan.** Konektor belum berhasil membaca project Supabase `ptsasgdvgrbdtgyqieie`; koneksi PostgreSQL baca-saja terhenti pada validasi TLS. Tidak ada ledger target yang dapat diverifikasi dan tidak ada perubahan live yang dijalankan. Panduan bagi tim backend ada di [checkpoint akses staging](../06_DATABASE/CHECKPOINT_SUPABASE_STAGING_ACCESS_2026-10-30.md).
-7. **Source parity PR lama.** Audit awal tersedia, tetapi setiap perilaku unik PR #1–#11 perlu dipastikan tercakup di source baru atau dinyatakan di luar cakupan, sebelum PR lama ditutup.
+2. **Peer Review Tahfidz dan PPOB sudah memiliki keputusan rilis.** Peer Review teks masuk sesuai batas yang disepakati; audio/Wali tidak masuk. PPOB/payment gateway dikeluarkan dari rilis awal dan tidak dapat dibuka lewat permission.
+3. **Klasifikasi source legacy Firebase sudah didokumentasikan.** Source lama tetap disimpan untuk referensi/import arsip, tetapi guard membuktikan tidak masuk runtime atau dependency image produksi. Rincian batas dan syarat penghapusan ada di [klasifikasi source Firebase](LEGACY_FIREBASE_SOURCE_CLASSIFICATION_2026-10-30.md).
+4. **Rapikan dokumentasi rilis dan portabilitas.** Source sudah memiliki Docker/Compose dan smoke test CI. Instruksi install/upgrade/backup/pemulihan perlu tetap sesuai dengan satu image, skema migration dan konfigurasi Supabase pada profil VPS/on-premise sasaran.
+5. **Rekonsiliasi migration target sebelum penerapan.** Konektor belum berhasil membaca project Supabase `ptsasgdvgrbdtgyqieie`; koneksi PostgreSQL baca-saja terhenti pada validasi TLS. Tidak ada ledger target yang dapat diverifikasi dan tidak ada perubahan live yang dijalankan. Panduan bagi tim backend ada di [checkpoint akses staging](../06_DATABASE/CHECKPOINT_SUPABASE_STAGING_ACCESS_2026-10-30.md).
+6. **Source parity PR lama.** Audit awal tersedia, tetapi setiap perilaku unik PR #1–#11 perlu dipastikan tercakup di source baru atau dinyatakan di luar cakupan, sebelum PR lama ditutup.
 
 ## Yang dilakukan tim penerapan setelah source siap
 

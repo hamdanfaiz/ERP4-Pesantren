@@ -33,7 +33,7 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 ## Gap yang tetap menghalangi kesiapan pengembangan
 
 1. **Tahfidz memiliki padanan backend untuk cakupan rilis yang dipilih.** Tab `badges` menghitung enam capaian progres dari data Supabase dengan tes role/tenant/paginasi. Peer Review memakai teks, dibatasi pada halaqah aktif, dan menunggu moderasi Ustadz; 33 tes pgTAP lulus. Audio dan akses Wali sengaja tidak termasuk dalam cakupan ini. UAT login/role tetap belum dilakukan.
-2. **Analitik Operasional kini memakai snapshot Supabase dan izin modul `intelligence` yang terpisah.** Indikatornya berupa aturan transparan atas antrian PPDB, verifikasi/tagihan, dan arus kas; tidak ada klaim prediksi AI. Model AI prediktif dikeluarkan dari cakupan rilis awal sampai ada data dan validasi yang memadai. PPOB/Layanan masih fail-closed dan memerlukan keputusan cakupan serta integrasi provider yang nyata.
+2. **Analitik Operasional kini memakai snapshot Supabase dan izin modul `intelligence` yang terpisah.** Indikatornya berupa aturan transparan atas antrian PPDB, verifikasi/tagihan, dan arus kas; tidak ada klaim prediksi AI. Model AI prediktif dikeluarkan dari cakupan rilis awal sampai ada data dan validasi yang memadai. Pemilik produk juga mengeluarkan modul PPOB/payment gateway dari rilis awal; navigasi dan pemberian izin dinonaktifkan, sementara integrasi provider menjadi pekerjaan fase lanjutan.
 3. **Audit integrasi antar-modul belum menyeluruh.** Perlu bukti relasi ID, tenant, unit, status, transaksi/retry, audit dan kegagalan parsial pada alur lintas modul.
 4. **Ledger proyek Supabase target `ptsasgdvgrbdtgyqieie` tidak dapat dibaca oleh konektor pada sesi ini.** Tidak ada migration live yang diterapkan. Tim perlu merekonsiliasi ledger dan melakukan rehearsal pada environment staging yang dapat dipulihkan sebelum cutover.
 5. **Pengujian database lokal sintetis bukan pengganti staging/UAT.** Deployment hosting dan UAT tetap dilakukan tim penerapan; sebelum itu source, konfigurasi dan migration perlu direview terhadap environment tujuan.
@@ -51,7 +51,7 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 
 - Head PR #13 `04ab209f5fbd716fd8f78047eaac8d259be64934`; GitHub Actions [run 41047481907](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41047481907) lulus **2/2 job**.
 - Tes pgTAP memverifikasi izin tabel/RPC, isolasi tenant, halaqah dan rentang tanggal keanggotaan, pengiriman idempoten, penolakan penilaian sendiri/lintas halaqah, serta moderasi final oleh Ustadz pengampu. Build, Docker/Compose, API tenant, Storage dan backup/restore juga lulus.
-- PR #13 tetap Draft: parity lintas-modul PR #1–#11, keputusan cakupan PPOB/Layanan dan rekonsiliasi ledger Supabase target belum selesai. Tidak ada perubahan pada Supabase live.
+- PR #13 tetap Draft selama audit paritas lintas-modul PR #1–#11 berlangsung. Cakupan PPOB/payment gateway telah diputuskan untuk dikeluarkan dari rilis awal. Rekonsiliasi ledger Supabase target belum dapat dilakukan dari sesi ini; tidak ada perubahan pada Supabase live.
 
 - Run GitHub Actions 41041688664 pada head `0cf670ba9097b7002322173adb92568f9ed8a054` adalah hasil historis. Untuk head terkini, lihat revalidasi pada run 41047481907 di atas.
 - Job mencakup typecheck/build, pemeriksaan runtime Supabase tanpa Firebase, Docker/Compose dan smoke test image, rehearsal migrasi sintetis, pgTAP, API/isolasi tenant, transaksi serentak, Storage, serta backup/restore.

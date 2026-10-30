@@ -23,7 +23,6 @@ import {
   ShoppingCart,
   MonitorPlay,
   ShoppingBag,
-  CreditCard,
   Gift,
   LogOut
 } from 'lucide-react';
@@ -92,7 +91,6 @@ const MENU_GROUPS = [
         { id: 'crm', label: 'Relasi Wali & Donatur', icon: HeartHandshake },
         { id: 'donation', label: 'Donasi & Wakaf', icon: Gift },
         { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
-        { id: 'ecosystem', label: 'PPOB & Layanan', icon: CreditCard },
      ]
   }
 ];

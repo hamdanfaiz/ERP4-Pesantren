@@ -10,6 +10,8 @@ ERP4 Pesantren ditujukan sebagai software yang dipasang dan dioperasikan untuk p
 
 Kolom `tenant_id` tetap menjadi batas data dan otorisasi di dalam instalasi. Keberadaannya tidak berarti semua pesantren akan ditempatkan pada satu database vendor. Dukungan beberapa pesantren dalam satu instalasi harus menjadi keputusan produk tersendiri.
 
+**Batas rilis awal:** modul PPOB & Layanan ekosistem dan integrasi payment gateway tidak disertakan. Modul disembunyikan dari navigasi dan tidak bisa dibuka melalui permission yang tersimpan sebelumnya. Finance tetap mendukung pencatatan serta verifikasi pembayaran manual; sistem tidak mengklaim settlement otomatis atau koneksi provider.
+
 Paket Docker ERP berkomunikasi dengan endpoint Supabase yang disediakan operator. Paket ini **belum membundel atau mengoperasikan seluruh layanan Supabase**. VPS dan on-premise berarti jalur deployment yang dituju, bukan bukti bahwa clean install di semua jenis server telah berhasil.
 
 Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yang disetujui pelanggan, pelatihan, pemeliharaan, dan dukungan. Harga, bentuk lisensi, periode update, SLA, dan cakupan support belum ditetapkan. Jangan menjanjikan layanan SaaS, operasi offline penuh, native Windows Server, Kubernetes, atau skala tertentu sebelum dirancang dan diuji.
@@ -17,8 +19,8 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 ## Status teknis berdasarkan bukti
 
 - Kode aktif PR #13 mengarahkan modul operasional ke API Supabase. Firebase Admin dinonaktifkan pada semua environment; paket Firebase tidak masuk ke dependensi production. Impor arsip Firestore dinonaktifkan lewat kebijakan global, dan data contoh akan dibuat manual.
-- CI terbaru [run 41001191872](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41001191872) lulus 2/2 job pada head `2b93f96da3571a828fd63e70d0fe765ebaa154f8`: typecheck/build/container serta Supabase lokal, upgrade rehearsal, **53 file pgTAP / 1.195 assertion**, API auth/tenant, transaksi serentak, filter unit Finance, Storage, dan backup/restore sintetis. Bukti ini berasal dari CI lokal dan data sintetis, bukan UAT pelanggan.
-- Source PR #13 saat ini memiliki 103 file migration. Snapshot baca-saja staging terakhir yang tercatat (27 Oktober) menunjukkan 47 versi hingga `20261206000000`; 56 versi source belum tercatat pada snapshot tersebut. Konektor gagal memberikan inventaris terbaru pada 30 Oktober (`INVALID_ARGUMENT`), sehingga angka ini bukan daftar migration yang boleh langsung diterapkan. Tidak ada migration yang diterapkan.
+- CI [run 41048190155](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41048190155) lulus 2/2 job pada head dokumentasi `7dea9918195c81894f96ee37ba1a64cb0e57ad5a`: typecheck/build/container serta Supabase lokal, rehearsal migration, pgTAP, API auth/tenant, transaksi serentak, Storage, dan backup/restore sintetis. Perubahan cakupan PPOB setelah run tersebut menunggu CI baru. Bukti CI berasal dari lingkungan lokal sintetis, bukan UAT pelanggan.
+- Source PR #13 saat ini memiliki 109 file migration. Snapshot baca-saja staging terakhir yang tercatat (27 Oktober) menunjukkan 47 versi hingga `20261206000000`; 62 versi source belum tercatat pada snapshot tersebut. Konektor gagal memberikan inventaris terbaru pada 30 Oktober, sehingga snapshot ini bukan daftar migration yang boleh langsung diterapkan. Tidak ada migration yang diterapkan.
 - Snapshot katalog staging terdahulu menunjukkan 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antartabel tenant memasangkan `tenant_id`; tabel `anon` tanpa SELECT dan `authenticated` tanpa hak tulis langsung. Baseline perlu dibaca ulang sebelum rehearsal.
 - Runtime feature flags sengaja mati secara default sampai migration, provisioning tenant, Auth, role/permission, dan UAT masing-masing modul lulus.
 - Docker/Compose dan smoke test tersedia pada branch cutover. Belum ada bukti instalasi baru dari server kosong milik pelanggan, upgrade/restore di VPS/on-premise, atau uji beban berskala pesantren besar.
@@ -29,7 +31,7 @@ Snapshot teknis ini bukan pengganti audit endpoint, pemeriksaan definisi seluruh
 
 ### 1. Skema, relasi, dan transaksi
 
-- Baca ulang ledger staging, lalu rekonsiliasi selisih dengan 103 file migration source. Snapshot 27 Oktober menunjukkan selisih 56 versi; jangan tandai versi sebagai applied tanpa bukti schema dan jangan anggap semua versi itu siap diterapkan.
+- Baca ulang ledger staging, lalu rekonsiliasi selisih dengan 109 file migration source. Snapshot 27 Oktober menunjukkan 62 versi source belum tercatat; jangan tandai versi sebagai applied tanpa bukti schema dan jangan anggap semua versi itu siap diterapkan.
 - Sebelum penerapan, simpan backup yang dapat dipulihkan dan rehearsalkan seluruh urutan migration pada salinan/environment staging.
 - Verifikasi signature dan definisi function, constraint, index, RLS, Storage policy, dan Data API grant terhadap source commit yang akan dirilis.
 - Uji transaksi kritis: NIS unik bersamaan, onboarding PPDB-ke-santri, assignment kamar, pembayaran/jurnal, stok/dompet koperasi, buku dan peminjaman, sesi/setoran Tahfidz, serta idempotensi retry.
@@ -89,5 +91,5 @@ Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika 
 
 ## Perkiraan checkpoint
 
-Estimasi terakhir adalah **73% penyelesaian pengembangan**. Angka **46% kesiapan go-live** adalah catatan historis; angka itu tidak dipakai untuk melaporkan progres project. Deployment dan UAT dikerjakan tim penerapan. CI, ERD, atau snapshot RLS yang lulus tidak menggantikan migration staging, UAT, dan simulasi environment pelanggan.
+Estimasi terakhir adalah **73% penyelesaian pengembangan**. Deployment dan UAT dikerjakan tim penerapan. CI, ERD, atau snapshot RLS yang lulus tidak menggantikan migration staging, UAT, dan simulasi environment pelanggan.
 

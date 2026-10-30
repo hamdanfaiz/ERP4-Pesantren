@@ -76,8 +76,6 @@ export function sanitizeTenantSettings(value: unknown): SettingsObject {
   };
   const integrations: SettingsObject = {
     waGatewayEndpoint: boundedString(integrationsInput.waGatewayEndpoint, 500, 'Endpoint gateway WhatsApp'),
-    paymentGatewayProvider: ['midtrans', 'xendit'].includes(String(integrationsInput.paymentGatewayProvider))
-      ? integrationsInput.paymentGatewayProvider : 'midtrans',
     smtpHost: boundedString(integrationsInput.smtpHost, 255, 'Host SMTP'),
     smtpPort: boundedString(integrationsInput.smtpPort, 10, 'Port SMTP'),
     smtpUser: boundedString(integrationsInput.smtpUser, 180, 'User SMTP'),
@@ -99,7 +97,7 @@ export function sanitizeTenantSettings(value: unknown): SettingsObject {
       'dashboard', 'master-data', 'users', 'settings', 'ppdb', 'cbt', 'tahfidz', 'boarding',
       'academic', 'lms', 'library', 'finance', 'communication', 'healthcare', 'cooperative',
       'laundry', 'enterprise', 'erp', 'hris', 'ga', 'document', 'alumni', 'crm', 'donation',
-      'marketplace', 'ecosystem', 'intelligence',
+      'marketplace', 'intelligence',
     ]);
     for (const [role, moduleMap] of Object.entries(value.permissions)) {
       if (!allowedRoles.has(role) || !plainObject(moduleMap)) continue;

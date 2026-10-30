@@ -25,7 +25,6 @@ export interface OrgInfo {
 
 export interface IntegrationsConfig {
   waGatewayEndpoint?: string;
-  paymentGatewayProvider?: "midtrans" | "xendit";
   smtpHost: string;
   smtpPort: string;
   smtpUser?: string;
@@ -71,7 +70,6 @@ export const DEFAULT_ORG_INFO: OrgInfo = {
 
 export const DEFAULT_INTEGRATIONS: IntegrationsConfig = {
   waGatewayEndpoint: "https://api.wagw.example.com/v1/send",
-  paymentGatewayProvider: "midtrans",
   smtpHost: "smtp.gmail.com",
   smtpPort: "587",
   smtpUser: "noreply@pesantrenaistudio.edu",
@@ -112,7 +110,6 @@ export const ALL_MODULE_LIST: { id: ModuleId; name: string; category: string }[]
   { id: "crm", name: "Parent CRM & Donatur", category: "Ecosystem" },
   { id: "donation", name: "Wakaf & Infaq Donation", category: "Ecosystem" },
   { id: "marketplace", name: "Marketplace Santri", category: "Ecosystem" },
-  { id: "ecosystem", name: "PPOB & Layanan Ekosistem", category: "Ecosystem" },
   { id: "intelligence", name: "Analitik Operasional", category: "Core" },
 ];
 

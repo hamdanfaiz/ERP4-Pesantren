@@ -11,7 +11,7 @@ export const ALL_SYSTEM_MODULE_IDS: readonly ModuleId[] = [
   'dashboard', 'master-data', 'users', 'ppdb', 'tahfidz', 'boarding', 'finance', 'communication',
   'academic', 'healthcare', 'cooperative', 'hris', 'document', 'library', 'donation',
   'laundry', 'settings', 'enterprise', 'erp', 'ga', 'alumni', 'crm',
-  'lms', 'intelligence', 'marketplace', 'ecosystem', 'cbt'
+  'lms', 'intelligence', 'marketplace', 'cbt'
 ] as const;
 
 // All tenant-scoped ERP modules available to Pesantren Admin by default
@@ -61,6 +61,8 @@ export function isModuleAccessible(
   moduleId: ModuleId,
   userPermissions?: Record<string, boolean> | null
 ): boolean {
+  // Modules outside the initial release cannot be re-enabled by stale or custom grants.
+  if (!ALL_SYSTEM_MODULE_IDS.includes(moduleId)) return false;
   if (role === 'Public') return false;
   if (role === 'SuperAdmin') return true;
 

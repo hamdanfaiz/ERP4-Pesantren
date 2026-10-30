@@ -35,7 +35,7 @@ Kami telah sukses bertransisi dari fase fundamental menuju Enterprise Architectu
 
 ### 2.5 Finance, CRM & Extended Enterprise
 - **Finance Manager**: Buku besar (general ledger), laporan arus kas, pembukuan komprehensif, dan pengaturan tagihan SPP santri.
-- **Ecosystem & PPOB**: Pengelolaan ekosistem seperti transaksi tabungan masa depan, tagihan pulsa/listrik (PPOB), dan penyaluran donasi ZISWAF.
+- **Ecosystem & PPOB (roadmap lanjutan, bukan rilis awal)**: Rencana pengelolaan tabungan masa depan, tagihan pulsa/listrik, dan donasi ZISWAF setelah provider serta kontrol transaksi disepakati.
 - **Marketplace**: Fitur *E-commerce Storefront* untuk seragam dan wirausaha pesantren, mengelola order dengan status, dan modul analitik pendapatan (Revenue/AOV Dashboard).
 - **Parent CRM & Alumni Directory**: Manajemen siklus pelanggan komprehensif, pendaftaran direktori silaturahmi alumni, Tracer Study, dan alat interaksi kampanye (Broadcast Engine).
 - **Executive Intelligence Center**:
@@ -54,6 +54,6 @@ Kami telah sukses bertransisi dari fase fundamental menuju Enterprise Architectu
 6. **Santri/Siswa**: Meminjam buku, mengambil materi video, mengikuti CBT, berinteraksi di library, Koperasi & Laundry.
 
 ## 4. Keunggulan Kompetitif
-- **All-in-one Platform**: Menggabungkan fitur pendidikan murni (CBT, Tahfidz), Operasional Asrama (Laundry, Boarding), serta Bisnis & Enterprise (Finance, E-Commerce, PPOB).
+- **All-in-one Platform**: Menggabungkan fitur pendidikan (CBT, Tahfidz), operasional asrama (Laundry, Boarding), dan bisnis/enterprise (Finance, E-Commerce). PPOB merupakan roadmap lanjutan dan tidak termasuk rilis awal.
 - **Smart AI Integration**: OCR untuk form, Executive AI untuk forecasting, Semantic Hub, & Tahfidz voice simulator.
 - **Premium User Experience**: UI minimalis berkelas enterprise, kaya akan visual chart interaktif (Recharts).

@@ -19,7 +19,6 @@ import {
   AlertTriangle,
   RefreshCw,
   Send,
-  CreditCard,
   Layers,
   Sparkles
 } from 'lucide-react';
@@ -723,10 +722,10 @@ export function SettingsManager() {
               <div className="p-6 space-y-6">
                 <div>
                   <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-2">
-                    <Database className="w-5 h-5 text-indigo-400" /> Integrasi Gateway & Komunikasi Otomatis
+                    <Database className="w-5 h-5 text-indigo-400" /> Integrasi Komunikasi Otomatis
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Konfigurasi kunci API untuk pengiriman pesan WhatsApp massal, payment gateway SPP, dan server email.
+                    Konfigurasi alamat gateway WhatsApp dan server email. Gerbang pembayaran tidak termasuk dalam rilis awal.
                   </p>
                 </div>
 
@@ -752,32 +751,6 @@ export function SettingsManager() {
                   </div>
                   <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-3 text-xs text-slate-500 dark:text-slate-400">
                     Pengiriman dan uji koneksi WhatsApp belum aktif sampai backend gateway dikonfigurasi. Status tidak disimulasikan sebagai koneksi berhasil.
-                  </div>
-                </div>
-
-                {/* Payment Gateway Card */}
-                <div className="p-5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/[0.02] space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-indigo-400" />
-                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Gerbang Pembayaran (VA, QRIS, & Kartu Pembayaran)</h3>
-                    </div>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Belum terhubung</span>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Penyedia Layanan</label>
-                    <select
-                      value={integrations.paymentGatewayProvider || 'midtrans'}
-                      onChange={e => setIntegrations({...integrations, paymentGatewayProvider: e.target.value as any})}
-                      className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                    >
-                      <option value="midtrans">Pembayaran Midtrans (Snap & Core API)</option>
-                      <option value="xendit">Xendit Invoice & XenPlatform</option>
-                    </select>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-3 space-y-1 text-xs text-slate-500 dark:text-slate-400">
-                    <p>Jangan masukkan Server Key di sini. Simpan sebagai secret server bernama <code>PAYMENT_GATEWAY_SECRET_KEY</code> di Cloud Run Secret Manager.</p>
-                    <p>Pembuatan transaksi melalui layanan pembayaran dan uji koneksi belum tersedia di backend; pilihan penyedia hanya mengatur konfigurasi, bukan bukti koneksi.</p>
                   </div>
                 </div>
 

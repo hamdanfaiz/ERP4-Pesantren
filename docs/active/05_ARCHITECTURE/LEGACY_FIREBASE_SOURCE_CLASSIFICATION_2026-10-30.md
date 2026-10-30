@@ -30,4 +30,4 @@ Firebase **bukan backend runtime** PR #13. Jalur aplikasi yang aktif menggunakan
 
 ## Status
 
-Risiko “Firebase masih menjadi runtime” sudah ditutup oleh konfigurasi dan guard CI. Risiko “source lama belum diklasifikasikan” ditutup oleh dokumen ini. Ini **tidak** menutup gap paritas fitur lama, ketiadaan backend Tahfidz Peer Review, integrasi PPOB yang belum dipilih, atau rekonsiliasi ledger Supabase target.
+Risiko “Firebase masih menjadi runtime” sudah ditutup oleh konfigurasi dan guard CI. Risiko “source lama belum diklasifikasikan” ditutup oleh dokumen ini. Ini **tidak** menutup gap paritas fitur lama atau rekonsiliasi ledger Supabase target. Peer Review Tahfidz teks sudah memiliki backend sesuai batas rilis; PPOB/payment gateway dikecualikan dari rilis awal.

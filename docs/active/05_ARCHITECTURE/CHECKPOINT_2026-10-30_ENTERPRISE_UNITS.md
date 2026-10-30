@@ -33,7 +33,7 @@ Cakupan di atas **bukan** pernyataan bahwa semua tabel operasional memakai unit 
 
 1. Audit akhir integrasi lintas-modul: tenant/permission, relasi ID, transisi status, retry, audit dan kegagalan parsial pada alur PPDB → Santri/Wali → Akademik/Asrama/Tahfidz/Finance.
 2. Tutup atau tetapkan sebagai di luar rilis awal fitur yang belum memiliki backend Supabase, terutama Peer Review Tahfidz. Desainnya perlu mencakup izin wali/minor, audio privat, moderasi, retensi dan akses tenant.
-3. PPOB/Layanan tetap fail-closed sampai ada spesifikasi provider, kredensial server dan rekonsiliasi transaksi yang nyata. Analitik yang tersedia berbasis aturan; prediksi AI bukan klaim rilis awal.
+3. PPOB/payment gateway dikeluarkan dari rilis awal; menu dan permission dinonaktifkan. Analitik yang tersedia berbasis aturan; prediksi AI bukan klaim rilis awal.
 4. Tinjau dan rapikan source legacy Firebase yang sudah tidak masuk jalur runtime aktif. CI membuktikan graph frontend aktif dan image runtime tidak memakai Firebase, tetapi file legacy/import tetap ada di source.
 5. Lengkapi verifikasi pengembangan instalasi/upgrade/pemulihan yang dapat dijalankan ulang oleh tim backend. CI sudah menguji Docker/Compose dan smoke test; simulasi hosting/VPS/on-premise serta UAT tetap dilakukan tim penerapan.
 6. Tim penerapan harus merekonsiliasi ledger migration project target sebelum menerapkan migration; akses database live tidak diverifikasi di checkpoint ini.

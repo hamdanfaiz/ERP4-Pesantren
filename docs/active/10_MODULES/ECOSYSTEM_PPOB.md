@@ -1,5 +1,7 @@
 # Modul Ecosystem Services & PPOB
 
+> **Status rilis:** dikecualikan dari rilis awal atas keputusan pemilik produk. Menu, konfigurasi provider, dan izin modul tidak tersedia. Isi dokumen ini merupakan arah pengembangan fase berikutnya, bukan deskripsi kemampuan ERP yang aktif.
+
 ## Tujuan
 Mengelola transaksi ekosistem pembayaran multipel (PPOB), kampanye donasi/amal terintegrasi (ZISWAF), serta tata kelola tabungan masa depan yang mencakup peruntukan khusus seperti (Umroh, Haji, dan Qurban) dalam portal keuangan terpadu.
 
