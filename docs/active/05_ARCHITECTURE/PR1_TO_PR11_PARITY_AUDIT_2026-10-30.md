@@ -2,8 +2,8 @@
 
 Tanggal audit: 30 Oktober 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Checkpoint kode PR #13 yang diperiksa: `15deecd9d16668b11109643ff6d65bfa642a2658`  
-Head audit paritas dan dokumentasi yang diuji: `4188de236c9080a0af11d896dc463b0c23d17be9`
+Checkpoint kode PR #13 yang diperiksa: `6678e7337431b74be70ba69d48b80341ba19af69`  
+CI untuk checkpoint kode tersebut: run `41024972207`, lulus 2/2 job; dokumen audit ini diperbarui setelah hasil CI.
 
 ## Tujuan dan batas bukti
 
@@ -29,7 +29,7 @@ PR #1–#11 bercabang bertingkat dan divergen dari PR #13. Membandingkan jumlah 
 
 ## Kontrol runtime Firebase yang sudah diverifikasi
 
-Pada head PR #13 `1895006c74573ae1d5d09f773eba524607631cb6`, jalur runtime Firebase telah diaudit dan fail-closed: `SUPABASE_ONLY_RUNTIME` menonaktifkan graph Firebase browser; `legacyArchiveImportEnabled` dan `isLegacyFirebaseAdminEnabled` selalu `false`; endpoint impor server memakai gate tersebut. CI run [41019492332](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41019492332) lulus pemeriksaan graph frontend, dependensi production tanpa paket Firebase, gate Firebase Admin, serta smoke test image production tanpa paket Firebase—termasuk saat environment `LEGACY_FIREBASE_ADMIN_ENABLED=true`. Kode import legacy masih tersimpan untuk kompatibilitas source, tetapi bukan runtime dan tidak dapat diaktifkan oleh konfigurasi. Tidak ada record Firestore yang perlu disalin.
+Pada checkpoint kode PR #13 `6678e7337431b74be70ba69d48b80341ba19af69`, GitHub Actions [run 41024972207](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41024972207) lulus 2/2 job. Job frontend membuktikan graph runtime tanpa paket Firebase, Docker/Compose, dan smoke test image; job database menjalankan Supabase lokal sintetis, rehearsal migrasi, pgTAP, API/tenant, transaksi bersamaan, Storage, serta backup/restore. Guard runtime Firebase termasuk dalam suite yang lulus. Kode import legacy masih tersimpan sebagai source nonaktif; tidak ada data Firestore yang perlu disalin. Tidak ada query maupun perubahan migration/data pada Supabase live dalam run ini.
 
 ## Gap yang tetap menghalangi kesiapan pengembangan
 
@@ -48,8 +48,9 @@ Pada head PR #13 `1895006c74573ae1d5d09f773eba524607631cb6`, jalur runtime Fireb
 
 ## Verifikasi yang tersedia
 
-- GitHub Actions PR #13 pada commit kode `15deecd` lulus **2/2 job** (run `41017481319`); head audit ini `4188de2` juga lulus **2/2 job** (run `41018920840`). Job mencakup typecheck/build, guard runtime, container, rehearsal migration dan 1.268 assertion pgTAP lokal, API/tenant, transaksi serentak, Storage, serta backup/restore sintetis.
+- GitHub Actions PR #13 [run 41024972207](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41024972207) lulus **2/2 job** pada checkpoint kode `6678e7337431b74be70ba69d48b80341ba19af69`.
+- Job mencakup typecheck/build, pemeriksaan runtime Supabase tanpa Firebase, Docker/Compose dan smoke test image, rehearsal migrasi sintetis, pgTAP, API/isolasi tenant, transaksi serentak, Storage, serta backup/restore.
+- Pemeriksaan memakai Supabase lokal dan data sintetis. Supabase Preview tidak berjalan karena branch preview tidak terhubung. Tidak ada migration/data yang diterapkan ke Supabase live, login pelanggan, deployment, atau UAT yang diklaim.
 - Tidak ada review submission atau inline review thread pada PR #13 saat diperiksa.
-- `mergeable: true` hanya berarti GitHub tidak menemukan konflik merge saat itu; bukan persetujuan atau bukti kelengkapan fitur.
-- Tidak ada migration/data yang diterapkan ke Supabase live oleh audit ini. Tidak ada login/UAT pelanggan yang diklaim.
+- `mergeable: true` hanya berarti GitHub tidak menemukan konflik merge; bukan persetujuan atau bukti kelengkapan fitur.
 
