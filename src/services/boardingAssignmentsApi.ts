@@ -1,8 +1,10 @@
 import { getAccessToken } from "../authSession";
 
 export type BoardingAssignmentSnapshot = {
-  staff: Array<{ id: string; name: string; email: string }>;
-  locations: Array<{ id: string; name: string; category: string; parentId: string | null }>;
+  staff: Array<{ id: string; name: string; email: string; organizationUnitId: string | null }>;
+  units: Array<{ id: string; code: string; name: string }>;
+  unmappedLocations: Array<{ id: string; name: string; category: string; parentId: string | null; parentUnitId: string | null; parentActive: boolean }>;
+  locations: Array<{ id: string; name: string; category: string; parentId: string | null; organizationUnitId: string; unitName: string }>;
   assignments: Array<{ id: string; userId: string; staffName: string; locationId: string; locationName: string; locationType: string; status: string; createdAt: string }>;
 };
 
@@ -28,6 +30,14 @@ export function saveSupabaseBoardingAssignment(input: {
   status: "active" | "inactive"; clientRequestId: string;
 }) {
   return request<{ assignmentId: string; status: string; alreadyApplied: boolean }>("/api/boarding/staff-assignments", {
+    method: "POST", body: JSON.stringify(input),
+  });
+}
+
+export function assignSupabaseBoardingLocationUnit(input: {
+  category: "Gedung" | "Kamar"; locationId: string; unitId: string; clientRequestId: string;
+}) {
+  return request<{ category: string; locationId: string; unitId: string; alreadyApplied: boolean }>("/api/boarding/staff-assignments/unit-mapping", {
     method: "POST", body: JSON.stringify(input),
   });
 }

@@ -1,9 +1,11 @@
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHash } from "node:crypto";
 import { SupabaseOnboardingError } from "./supabaseOnboarding";
+import { filterBoardingStructuresByUnit, isBoardingStudentInUnit, requireBoardingUnitId } from "./boardingUnitScope";
+import { isOperationalBoardingStudent } from "./boardingStatus";
 
 type JsonObject = Record<string, any>;
-type BoardingActor = { uid: string; tenantId: string; role: string; linkedSantriId?: string | null };
+type BoardingActor = { uid: string; tenantId: string; role: string; linkedSantriId?: string | null; organizationUnitId?: string | null };
 type PreparedIncident = {
   sourceRecordId: string;
   studentId: string;
@@ -77,8 +79,13 @@ async function listTenantRows(table: string, tenantId: string, select: string, o
   throw new SupabaseOnboardingError(503, "Data kedisiplinan melebihi batas halaman yang didukung.");
 }
 
-type BoardingLocationScope = { roomIds: Set<string>; buildingIds: Set<string> };
-async function getBoardingLocationScope(tenantId: string, userId: string): Promise<BoardingLocationScope> {
+type BoardingLocationScope = {
+  roomIds: Set<string>;
+  buildingIds: Set<string>;
+  unitBuildingIds: Set<string>;
+  roomParentById: Map<string, string>;
+};
+async function getBoardingLocationScope(tenantId: string, userId: string, unitId: string): Promise<BoardingLocationScope> {
   const path = "/rest/v1/boarding_staff_assignments?" + new URLSearchParams({
     select: "room_id,building_id", tenant_id: "eq." + tenantId, user_id: "eq." + userId,
     status: "eq.active", order: "id.asc",
@@ -87,22 +94,33 @@ async function getBoardingLocationScope(tenantId: string, userId: string): Promi
     request: supabaseRequest, path, maxRows: 5000,
     onIncomplete: () => new SupabaseOnboardingError(503, "Penugasan lokasi petugas melebihi batas aman atau hasilnya tidak lengkap."),
   });
-  const structures = await listTenantRows("master_data_records", tenantId, "id,category,status", "category.asc,id.asc");
-  const activeRooms = new Set(structures.filter((row) => row.category === "Kamar"
-    && !["inactive", "nonaktif", "disabled"].includes(String(row.status || "").toLowerCase())).map((row) => String(row.id)));
-  const activeBuildings = new Set(structures.filter((row) => row.category === "Gedung"
-    && !["inactive", "nonaktif", "disabled"].includes(String(row.status || "").toLowerCase())).map((row) => String(row.id)));
+  const structures = filterBoardingStructuresByUnit(
+    await listTenantRows("master_data_records", tenantId, "id,category,status,parent_id,organization_unit_id", "category.asc,id.asc"), unitId,
+  );
+  const activeRoomRows = structures.filter((row) => row.category === "Kamar"
+    && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(row.status || "").trim().toLowerCase()));
+  const activeBuildingRows = structures.filter((row) => row.category === "Gedung"
+    && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(row.status || "").trim().toLowerCase()));
+  const activeRooms = new Set(activeRoomRows.map((row) => String(row.id)));
+  const activeBuildings = new Set(activeBuildingRows.map((row) => String(row.id)));
   const roomIds = new Set<string>(), buildingIds = new Set<string>();
   for (const row of rows) {
     if (row.room_id && activeRooms.has(String(row.room_id))) roomIds.add(String(row.room_id));
     if (row.building_id && activeBuildings.has(String(row.building_id))) buildingIds.add(String(row.building_id));
   }
   if (!roomIds.size && !buildingIds.size) throw new SupabaseOnboardingError(403, "Akun Ustadz belum memiliki penugasan kamar atau gedung aktif.");
-  return { roomIds, buildingIds };
+  return { roomIds, buildingIds, unitBuildingIds: activeBuildings,
+    roomParentById: new Map(activeRoomRows.map((row) => [String(row.id), String(row.parent_id || "")] as const)) };
 }
 function isStudentInScope(student: JsonObject, scope: BoardingLocationScope) {
-  return (student.room_id != null && scope.roomIds.has(String(student.room_id)))
-    || (student.building_id != null && scope.buildingIds.has(String(student.building_id)));
+  const roomId = String(student.room_id || ""), buildingId = String(student.building_id || "");
+  if (roomId) {
+    if (!scope.roomIds.has(roomId)) return false;
+    if (buildingId && (!scope.unitBuildingIds.has(buildingId)
+      || (scope.roomParentById.get(roomId) && scope.roomParentById.get(roomId) !== buildingId))) return false;
+    return true;
+  }
+  return Boolean(buildingId && scope.buildingIds.has(buildingId));
 }
 
 function folded(value: unknown) { return String(value || "").trim().toLocaleLowerCase("id-ID"); }
@@ -127,17 +145,19 @@ export async function listSupabaseBoardingDiscipline(actor: BoardingActor) {
   const role = actorRole(actor);
   const tenantId = requiredUuid(actor.tenantId, "Tenant");
   if (!(["admin", "super_admin", "ustadz"] as string[]).includes(role)) throw new SupabaseOnboardingError(403, "Catatan kedisiplinan hanya dapat diakses petugas asrama.");
-  const scope = role === "ustadz" ? await getBoardingLocationScope(tenantId, requiredUuid(actor.uid, "Akun")) : null;
+  const unitId = role === "ustadz" ? requireBoardingUnitId(actor.organizationUnitId) : null;
+  const scope = role === "ustadz" ? await getBoardingLocationScope(tenantId, requiredUuid(actor.uid, "Akun"), unitId!) : null;
   const [incidents, students, rooms] = await Promise.all([
     listTenantRows("boarding_discipline_incidents", tenantId,
       "id,student_id,room_id,room_name_snapshot,offense,category,points,incident_date,resolved,photo_url,resolution,created_at,source_system", "incident_date.desc,created_at.desc,id.desc"),
-    listTenantRows("students", tenantId, "id,name,nis,room_id,building_id,status", "name.asc,id.asc"),
-    listTenantRows("master_data_records", tenantId, "id,name,category", "name.asc,id.asc"),
+    listTenantRows("students", tenantId, "id,name,nis,room_id,building_id,organization_unit_id,status", "name.asc,id.asc"),
+    listTenantRows("master_data_records", tenantId, "id,name,category,parent_id,organization_unit_id", "name.asc,id.asc"),
   ]);
-  const visibleStudents = students.filter((row) => String(row.status || "").toLowerCase() !== "archived"
-    && (!scope || isStudentInScope(row, scope)));
+  const visibleStudents = students.filter((row) => String(row.status || "").trim().toLowerCase() !== "archived"
+    && (!scope || (isOperationalBoardingStudent(row.status) && isBoardingStudentInUnit(row, unitId!) && isStudentInScope(row, scope))));
   const studentById = new Map((scope ? visibleStudents : students).map((row) => [String(row.id), row] as const));
-  const roomById = new Map(rooms.filter((row) => row.category === "Kamar").map((row) => [String(row.id), String(row.name || row.id)] as const));
+  const visibleRooms = unitId ? filterBoardingStructuresByUnit(rooms, unitId) : rooms;
+  const roomById = new Map(visibleRooms.filter((row) => row.category === "Kamar").map((row) => [String(row.id), String(row.name || row.id)] as const));
   return {
     incidents: incidents.filter((row) => !scope || studentById.has(String(row.student_id))).map((row) => {
       const student = studentById.get(String(row.student_id));
@@ -216,7 +236,7 @@ export async function migrateSupabaseLegacyBoardingDiscipline(
     listTenantRows("students", tenantId, "id,source_record_id,name,nis,room_id,status", "name.asc,id.asc"),
     listTenantRows("master_data_records", tenantId, "id,name,category", "name.asc,id.asc"),
   ]);
-  const activeStudents = students.filter((row) => String(row.status || "").toLowerCase() !== "archived");
+  const activeStudents = students.filter((row) => String(row.status || "").trim().toLowerCase() !== "archived");
   const bySource = new Map<string, JsonObject[]>(), byNis = new Map<string, JsonObject[]>(), byName = new Map<string, JsonObject[]>();
   const byId = new Map(activeStudents.map((row) => [String(row.id), row] as const));
   const add = (map: Map<string, JsonObject[]>, key: string, student: JsonObject) => map.set(key, [...(map.get(key) || []), student]);

@@ -2,6 +2,8 @@ import { listGuardianStudentIds } from "./identityStore";
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHash } from "node:crypto";
 import { SupabaseOnboardingError } from "./supabaseOnboarding";
+import { filterBoardingStructuresByUnit, isBoardingStudentInUnit, requireBoardingUnitId } from "./boardingUnitScope";
+import { isOperationalBoardingStudent } from "./boardingStatus";
 
 type JsonObject = Record<string, any>;
 type BoardingActor = {
@@ -9,6 +11,7 @@ type BoardingActor = {
   tenantId: string;
   role: string;
   linkedSantriId?: string | null;
+  organizationUnitId?: string | null;
 };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -86,8 +89,13 @@ async function listTenantRows(table: string, tenantId: string, select: string, o
   throw new SupabaseOnboardingError(503, "Data izin melebihi batas halaman yang didukung.");
 }
 
-type BoardingLocationScope = { roomIds: Set<string>; buildingIds: Set<string> };
-async function getBoardingLocationScope(tenantId: string, userId: string): Promise<BoardingLocationScope> {
+type BoardingLocationScope = {
+  roomIds: Set<string>;
+  buildingIds: Set<string>;
+  unitBuildingIds: Set<string>;
+  roomParentById: Map<string, string>;
+};
+async function getBoardingLocationScope(tenantId: string, userId: string, unitId: string): Promise<BoardingLocationScope> {
   const path = "/rest/v1/boarding_staff_assignments?" + new URLSearchParams({
     select: "room_id,building_id", tenant_id: "eq." + tenantId, user_id: "eq." + userId,
     status: "eq.active", order: "id.asc",
@@ -96,22 +104,33 @@ async function getBoardingLocationScope(tenantId: string, userId: string): Promi
     request: supabaseRequest, path, maxRows: 5000,
     onIncomplete: () => new SupabaseOnboardingError(503, "Penugasan lokasi petugas melebihi batas aman atau hasilnya tidak lengkap."),
   });
-  const structures = await listTenantRows("master_data_records", tenantId, "id,category,status", "category.asc,id.asc");
-  const activeRooms = new Set(structures.filter((row) => row.category === "Kamar"
-    && !["inactive", "nonaktif", "disabled"].includes(String(row.status || "").toLowerCase())).map((row) => String(row.id)));
-  const activeBuildings = new Set(structures.filter((row) => row.category === "Gedung"
-    && !["inactive", "nonaktif", "disabled"].includes(String(row.status || "").toLowerCase())).map((row) => String(row.id)));
+  const structures = filterBoardingStructuresByUnit(
+    await listTenantRows("master_data_records", tenantId, "id,category,status,parent_id,organization_unit_id", "category.asc,id.asc"), unitId,
+  );
+  const activeRoomRows = structures.filter((row) => row.category === "Kamar"
+    && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(row.status || "").trim().toLowerCase()));
+  const activeBuildingRows = structures.filter((row) => row.category === "Gedung"
+    && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(row.status || "").trim().toLowerCase()));
+  const activeRooms = new Set(activeRoomRows.map((row) => String(row.id)));
+  const activeBuildings = new Set(activeBuildingRows.map((row) => String(row.id)));
   const roomIds = new Set<string>(), buildingIds = new Set<string>();
   for (const row of rows) {
     if (row.room_id && activeRooms.has(String(row.room_id))) roomIds.add(String(row.room_id));
     if (row.building_id && activeBuildings.has(String(row.building_id))) buildingIds.add(String(row.building_id));
   }
   if (!roomIds.size && !buildingIds.size) throw new SupabaseOnboardingError(403, "Akun Ustadz belum memiliki penugasan kamar atau gedung aktif.");
-  return { roomIds, buildingIds };
+  return { roomIds, buildingIds, unitBuildingIds: activeBuildings,
+    roomParentById: new Map(activeRoomRows.map((row) => [String(row.id), String(row.parent_id || "")] as const)) };
 }
 function isStudentInScope(student: JsonObject, scope: BoardingLocationScope) {
-  return (student.room_id != null && scope.roomIds.has(String(student.room_id)))
-    || (student.building_id != null && scope.buildingIds.has(String(student.building_id)));
+  const roomId = String(student.room_id || ""), buildingId = String(student.building_id || "");
+  if (roomId) {
+    if (!scope.roomIds.has(roomId)) return false;
+    if (buildingId && (!scope.unitBuildingIds.has(buildingId)
+      || (scope.roomParentById.get(roomId) && scope.roomParentById.get(roomId) !== buildingId))) return false;
+    return true;
+  }
+  return Boolean(buildingId && scope.buildingIds.has(buildingId));
 }
 
 async function resolveLinkedStudent(actor: BoardingActor) {
@@ -137,7 +156,7 @@ async function resolveLinkedStudent(actor: BoardingActor) {
   });
   const sourceRows = await supabaseRequest("/rest/v1/students?" + sourceParams.toString());
   if (Array.isArray(sourceRows)) sourceRows.forEach((row: JsonObject) => matches.set(String(row.id), row));
-  const rows = [...matches.values()].filter((row) => String(row.status || "").toLowerCase() !== "archived");
+  const rows = [...matches.values()].filter((row) => String(row.status || "").trim().toLowerCase() !== "archived");
   if (rows.length !== 1) throw new SupabaseOnboardingError(403, "Tautan santri pada profil tidak valid atau belum unik.");
   return rows[0];
 }
@@ -183,13 +202,14 @@ export async function listSupabaseBoardingPermits(actor: BoardingActor) {
     throw new SupabaseOnboardingError(403, "Role ini tidak dapat membaca izin asrama.");
   }
   let students: JsonObject[];
-  const scope = role === "ustadz" ? await getBoardingLocationScope(tenantId, requiredUuid(actor.uid, "Akun")) : null;
+  const unitId = role === "ustadz" ? requireBoardingUnitId(actor.organizationUnitId) : null;
+  const scope = role === "ustadz" ? await getBoardingLocationScope(tenantId, requiredUuid(actor.uid, "Akun"), unitId!) : null;
   if (role === "santri" || role === "wali_santri") {
     students = await resolveLinkedStudents(actor, tenantId);
   } else {
-    students = await listTenantRows("students", tenantId, "id,source_record_id,name,nis,room_id,building_id,status", "name.asc,id.asc");
-    students = students.filter((student) => String(student.status || "").toLowerCase() !== "archived"
-      && (!scope || isStudentInScope(student, scope)));
+    students = await listTenantRows("students", tenantId, "id,source_record_id,name,nis,room_id,building_id,organization_unit_id,status", "name.asc,id.asc");
+    students = students.filter((student) => String(student.status || "").trim().toLowerCase() !== "archived"
+      && (!scope || (isOperationalBoardingStudent(student.status) && isBoardingStudentInUnit(student, unitId!) && isStudentInScope(student, scope))));
   }
   const studentById = new Map<string, JsonObject>(students.map((student) => [String(student.id), student] as const));
   const permitRows = await listTenantRows("boarding_permits", tenantId,
@@ -208,8 +228,9 @@ export async function listSupabaseBoardingPermits(actor: BoardingActor) {
   const roomIds = [...new Set(visiblePermits.map((row) => String(row.room_id || "")).filter(Boolean))];
   const roomById = new Map<string, string>();
   if (roomIds.length) {
-    const rooms = await listTenantRows("master_data_records", tenantId,
-      "id,name,category", "name.asc,id.asc");
+    const allRooms = await listTenantRows("master_data_records", tenantId,
+      "id,name,category,parent_id,organization_unit_id", "name.asc,id.asc");
+    const rooms = unitId ? filterBoardingStructuresByUnit(allRooms, unitId) : allRooms;
     for (const room of rooms) if (room.category === "Kamar" && roomIds.includes(String(room.id))) {
       roomById.set(String(room.id), String(room.name || room.id));
     }
@@ -379,7 +400,7 @@ export async function migrateSupabaseLegacyBoardingPermits(
     const name = folded(student.name);
     if (name) studentsByName.set(name, [...(studentsByName.get(name) || []), student]);
   }
-  const rooms = structures.filter((item) => item.category === "Kamar" && !["inactive", "nonaktif", "disabled"].includes(folded(item.status)));
+  const rooms = structures.filter((item) => item.category === "Kamar" && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(folded(item.status)));
   const roomByIdentifier = new Map<string, JsonObject>();
   const roomByName = new Map<string, JsonObject[]>();
   for (const room of rooms) {

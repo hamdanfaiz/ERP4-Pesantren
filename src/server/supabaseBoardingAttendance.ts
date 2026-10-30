@@ -1,9 +1,11 @@
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHash } from "node:crypto";
 import { SupabaseOnboardingError } from "./supabaseOnboarding";
+import { filterBoardingStructuresByUnit, isBoardingStudentInUnit, requireBoardingUnitId } from "./boardingUnitScope";
+import { isOperationalBoardingStudent } from "./boardingStatus";
 
 type Row = Record<string, any>;
-type Actor = { uid: string; tenantId: string; role: string };
+type Actor = { uid: string; tenantId: string; role: string; organizationUnitId?: string | null };
 type PreparedAttendance = { sourceRecordId: string; studentId: string; roomId: string | null; roomName: string | null; status: string };
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROLES: Record<string, string> = { Admin: "admin", SuperAdmin: "super_admin", Ustadz: "ustadz" };
@@ -65,45 +67,61 @@ async function tenantRows(table: string, tenantId: string, select: string, order
   });
 }
 const folded = (value: unknown) => String(value || "").trim().toLocaleLowerCase("id-ID");
-const NON_OPERATIONAL_STUDENT_STATUSES = new Set(["archived", "alumni", "graduated", "inactive", "nonaktif", "dikeluarkan"]);
-const isOperationalStudent = (student: Row) => !NON_OPERATIONAL_STUDENT_STATUSES.has(folded(student.status));
-type BoardingLocationScope = { roomIds: Set<string>; buildingIds: Set<string> };
-async function getBoardingLocationScope(tenantId: string, userId: string): Promise<BoardingLocationScope> {
+type BoardingLocationScope = {
+  roomIds: Set<string>;
+  buildingIds: Set<string>;
+  unitBuildingIds: Set<string>;
+  roomParentById: Map<string, string>;
+};
+async function getBoardingLocationScope(tenantId: string, userId: string, unitId: string): Promise<BoardingLocationScope> {
   const path = "/rest/v1/boarding_staff_assignments?" + new URLSearchParams({ select: "room_id,building_id", tenant_id: "eq." + tenantId,
     user_id: "eq." + userId, status: "eq.active", order: "room_id.asc,building_id.asc,user_id.asc" }).toString();
   const rows = await readPostgrestRowsInPages<Row>({
     request, path, maxRows: 5000,
     onIncomplete: () => new SupabaseOnboardingError(503, "Penugasan lokasi petugas melebihi batas aman atau hasilnya tidak lengkap."),
   });
-  const structures = await tenantRows("master_data_records", tenantId, "id,category,status", "category.asc,id.asc");
-  const activeRooms = new Set(structures.filter((row) => row.category === "Kamar"
-    && !["inactive", "nonaktif", "disabled"].includes(String(row.status || "").toLowerCase())).map((row) => String(row.id)));
-  const activeBuildings = new Set(structures.filter((row) => row.category === "Gedung"
-    && !["inactive", "nonaktif", "disabled"].includes(String(row.status || "").toLowerCase())).map((row) => String(row.id)));
+  const structures = filterBoardingStructuresByUnit(
+    await tenantRows("master_data_records", tenantId, "id,category,status,parent_id,organization_unit_id", "category.asc,id.asc"), unitId,
+  );
+  const activeRoomRows = structures.filter((row) => row.category === "Kamar"
+    && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(row.status || "").trim().toLowerCase()));
+  const activeBuildingRows = structures.filter((row) => row.category === "Gedung"
+    && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(row.status || "").trim().toLowerCase()));
+  const activeRooms = new Set(activeRoomRows.map((row) => String(row.id)));
+  const activeBuildings = new Set(activeBuildingRows.map((row) => String(row.id)));
   const roomIds = new Set<string>(), buildingIds = new Set<string>();
   for (const row of rows) {
     if (row.room_id && activeRooms.has(String(row.room_id))) roomIds.add(String(row.room_id));
     if (row.building_id && activeBuildings.has(String(row.building_id))) buildingIds.add(String(row.building_id));
   }
   if (!roomIds.size && !buildingIds.size) throw new SupabaseOnboardingError(403, "Akun Ustadz belum memiliki penugasan kamar atau gedung aktif.");
-  return { roomIds, buildingIds };
+  return { roomIds, buildingIds, unitBuildingIds: activeBuildings,
+    roomParentById: new Map(activeRoomRows.map((row) => [String(row.id), String(row.parent_id || "")] as const)) };
 }
 function isStudentInScope(student: Row, scope: BoardingLocationScope) {
-  return (student.room_id != null && scope.roomIds.has(String(student.room_id)))
-    || (student.building_id != null && scope.buildingIds.has(String(student.building_id)));
+  const roomId = String(student.room_id || ""), buildingId = String(student.building_id || "");
+  if (roomId) {
+    if (!scope.roomIds.has(roomId)) return false;
+    if (buildingId && (!scope.unitBuildingIds.has(buildingId)
+      || (scope.roomParentById.get(roomId) && scope.roomParentById.get(roomId) !== buildingId))) return false;
+    return true;
+  }
+  return Boolean(buildingId && scope.buildingIds.has(buildingId));
 }
 
 export async function getSupabaseBoardingAttendance(actor: Actor, dateValue: unknown) {
   const actorRole = role(actor), tenantId = uuid(actor.tenantId, "Tenant"), date = isoDate(dateValue);
   if (!["admin", "super_admin", "ustadz"].includes(actorRole)) throw new SupabaseOnboardingError(403, "Role ini tidak dapat mengakses absensi asrama.");
-  const scope = actorRole === "ustadz" ? await getBoardingLocationScope(tenantId, uuid(actor.uid, "Akun")) : null;
+  const unitId = actorRole === "ustadz" ? requireBoardingUnitId(actor.organizationUnitId) : null;
+  const scope = actorRole === "ustadz" ? await getBoardingLocationScope(tenantId, uuid(actor.uid, "Akun"), unitId!) : null;
   const [students, structures] = await Promise.all([
-    tenantRows("students", tenantId, "id,source_record_id,name,nis,room_id,building_id,status", "name.asc,id.asc"),
-    tenantRows("master_data_records", tenantId, "id,name,category", "name.asc,id.asc"),
+    tenantRows("students", tenantId, "id,source_record_id,name,nis,room_id,building_id,organization_unit_id,status", "name.asc,id.asc"),
+    tenantRows("master_data_records", tenantId, "id,name,category,parent_id,organization_unit_id", "name.asc,id.asc"),
   ]);
-  const activeStudents = students.filter((student) => isOperationalStudent(student)
-    && (!scope || isStudentInScope(student, scope)));
-  const roomById = new Map(structures.filter((item) => item.category === "Kamar").map((item) => [String(item.id), String(item.name || item.id)] as const));
+  const activeStudents = students.filter((student) => isOperationalBoardingStudent(student.status)
+    && (!scope || (isBoardingStudentInUnit(student, unitId!) && isStudentInScope(student, scope))));
+  const visibleStructures = unitId ? filterBoardingStructuresByUnit(structures, unitId) : structures;
+  const roomById = new Map(visibleStructures.filter((item) => item.category === "Kamar").map((item) => [String(item.id), String(item.name || item.id)] as const));
   const sessionParams = new URLSearchParams({ select: "id,attendance_date", tenant_id: "eq." + tenantId, attendance_date: "eq." + date, session_type: "eq.nightly_curfew", limit: "2" });
   const sessions = await request("/rest/v1/boarding_attendance_sessions?" + sessionParams.toString());
   if (!Array.isArray(sessions) || sessions.length > 1) throw new SupabaseOnboardingError(503, "Sesi kehadiran tenant tidak konsisten.");

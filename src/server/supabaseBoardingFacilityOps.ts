@@ -2,9 +2,10 @@ import { listGuardianStudentIds } from "./identityStore";
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { createHash } from "node:crypto";
 import { SupabaseOnboardingError } from "./supabaseOnboarding";
+import { filterBoardingStructuresByUnit, requireBoardingUnitId } from "./boardingUnitScope";
 
 type Row = Record<string, any>;
-type Actor = { uid: string; tenantId: string; role: string; name?: string; linkedSantriId?: string | null };
+type Actor = { uid: string; tenantId: string; role: string; name?: string; linkedSantriId?: string | null; organizationUnitId?: string | null };
 type Scope = { roomIds: Set<string>; buildingIds: Set<string> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROLE: Record<string, string> = { Admin: "admin", SuperAdmin: "super_admin", Ustadz: "ustadz", Santri: "santri", Walisantri: "wali_santri" };
@@ -58,7 +59,7 @@ async function rows(table: string, tenantId: string, select: string, order: stri
   }
   throw new SupabaseOnboardingError(503, "Data asrama melebihi batas halaman yang didukung.");
 }
-async function locationScope(tenantId: string, userId: string, structures: Row[]): Promise<Scope> {
+async function locationScope(tenantId: string, userId: string, structures: Row[], unitId: string): Promise<Scope> {
   const path = "/rest/v1/boarding_staff_assignments?" + new URLSearchParams({
     select: "room_id,building_id", tenant_id: "eq." + tenantId, user_id: "eq." + userId,
     status: "eq.active", order: "id.asc",
@@ -67,10 +68,11 @@ async function locationScope(tenantId: string, userId: string, structures: Row[]
     request: request, path, maxRows: 5000,
     onIncomplete: () => new SupabaseOnboardingError(503, "Penugasan petugas asrama melebihi batas aman atau hasilnya tidak lengkap."),
   });
-  const activeRooms = new Set(structures.filter((item) => item.category === "Kamar"
-    && !["inactive", "nonaktif", "disabled"].includes(String(item.status || "").toLowerCase())).map((item) => String(item.id)));
-  const activeBuildings = new Set(structures.filter((item) => item.category === "Gedung"
-    && !["inactive", "nonaktif", "disabled"].includes(String(item.status || "").toLowerCase())).map((item) => String(item.id)));
+  const unitStructures = filterBoardingStructuresByUnit(structures, unitId);
+  const activeRooms = new Set(unitStructures.filter((item) => item.category === "Kamar"
+    && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(item.status || "").trim().toLowerCase())).map((item) => String(item.id)));
+  const activeBuildings = new Set(unitStructures.filter((item) => item.category === "Gedung"
+    && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(item.status || "").trim().toLowerCase())).map((item) => String(item.id)));
   const roomIds = new Set<string>(), buildingIds = new Set<string>();
   for (const assignment of assignments) {
     if (assignment.room_id && activeRooms.has(String(assignment.room_id))) roomIds.add(String(assignment.room_id));
@@ -91,7 +93,7 @@ async function linkedStudent(actor: Actor, tenantId: string) {
   const params = new URLSearchParams({ select: "id,name,room_id,building_id,source_record_id,status", tenant_id: "eq." + tenantId, source_record_id: "eq." + linkedId, limit: "2" });
   const bySource = await request("/rest/v1/students?" + params.toString());
   if (Array.isArray(bySource)) bySource.forEach((row: Row) => matches.set(String(row.id), row));
-  const active = [...matches.values()].filter((row) => String(row.status || "").toLowerCase() !== "archived");
+  const active = [...matches.values()].filter((row) => String(row.status || "").trim().toLowerCase() !== "archived");
   if (active.length !== 1) throw new SupabaseOnboardingError(403, "Tautan santri pada profil tidak valid atau belum unik.");
   return active[0];
 }
@@ -123,16 +125,20 @@ function date(value: unknown) {
 export async function listSupabaseBoardingFacilityOps(actor: Actor) {
   const tenantId = uuid(actor.tenantId, "Tenant"), userId = uuid(actor.uid, "Akun"), role = actorRole(actor);
   const [structures, auditRows, ticketRows] = await Promise.all([
-    rows("master_data_records", tenantId, "id,name,category,status,parent_id", "category.asc,name.asc,id.asc"),
+    rows("master_data_records", tenantId, "id,name,category,status,parent_id,organization_unit_id", "category.asc,name.asc,id.asc"),
     role === "santri" || role === "wali_santri" ? Promise.resolve([]) : rows("boarding_cleanliness_audits", tenantId, "id,room_id,audit_date,score,notes,inspector_name_snapshot,created_at", "audit_date.desc,created_at.desc,id.desc"),
     rows("boarding_facility_tickets", tenantId, "id,room_id,issue,description,priority,status,reporter_name_snapshot,created_at,resolved_at", "created_at.desc,id.desc"),
   ]);
   const activeRooms = structures.filter((item) => item.category === "Kamar"
-    && !["inactive", "nonaktif", "disabled"].includes(String(item.status || "").toLowerCase()));
+    && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(item.status || "").trim().toLowerCase()));
   let visibleRooms = activeRooms;
   if (role === "ustadz") {
-    const scope = await locationScope(tenantId, userId, structures);
-    visibleRooms = activeRooms.filter((room) => isAssignedRoom(room, scope));
+    const unitId = requireBoardingUnitId(actor.organizationUnitId);
+    const unitStructures = filterBoardingStructuresByUnit(structures, unitId);
+    const scope = await locationScope(tenantId, userId, structures, unitId);
+    visibleRooms = unitStructures.filter((room) => room.category === "Kamar"
+      && !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(room.status || "").trim().toLowerCase())
+      && isAssignedRoom(room, scope));
   } else if (role === "santri" || role === "wali_santri") {
     const students = await linkedStudents(actor, tenantId);
     const linkedRoomIds = new Set(students.map((student) => String(student.room_id || "")).filter(Boolean));

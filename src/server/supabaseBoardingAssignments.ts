@@ -62,19 +62,39 @@ function requireAdmin(actor: Actor) {
 export async function listSupabaseBoardingStaffAssignments(actor: Actor) {
   requireAdmin(actor);
   const tenantId = uuid(actor.tenantId, "Tenant");
-  const [profiles, structures, assignments] = await Promise.all([
-    listTenantRows("profiles", tenantId, "user_id,display_name,email,role,status", "display_name.asc,user_id.asc"),
-    listTenantRows("master_data_records", tenantId, "id,name,category,status,parent_id", "category.asc,name.asc,id.asc"),
+  const [profiles, structures, assignments, units] = await Promise.all([
+    listTenantRows("profiles", tenantId, "user_id,display_name,email,role,status,organization_unit_id", "display_name.asc,user_id.asc"),
+    listTenantRows("master_data_records", tenantId, "id,name,category,status,parent_id,organization_unit_id", "category.asc,name.asc,id.asc"),
     listTenantRows("boarding_staff_assignments", tenantId, "id,user_id,building_id,room_id,status,created_at,updated_at", "created_at.desc,id.desc"),
+    listTenantRows("organization_units", tenantId, "id,code,name,status", "name.asc,id.asc"),
   ]);
+  const activeUnits = units.filter((unit) => String(unit.status || "").toLowerCase() === "active");
+  const activeUnitIds = new Set(activeUnits.map((unit) => String(unit.id)));
   const staff = profiles.filter((profile) => String(profile.role || "").toLowerCase() === "ustadz" && String(profile.status || "").toLowerCase() === "active")
-    .map((profile) => ({ id: String(profile.user_id), name: String(profile.display_name || profile.email || profile.user_id), email: String(profile.email || "") }));
+    .map((profile) => ({ id: String(profile.user_id), name: String(profile.display_name || profile.email || profile.user_id), email: String(profile.email || ""),
+      organizationUnitId: profile.organization_unit_id ? String(profile.organization_unit_id) : null }));
   const structuresById = new Map(structures.map((item) => [String(item.id), item] as const));
+  const isActiveLocation = (item: Row) => !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(String(item.status || "").trim().toLowerCase());
+  const mappedActive = structures.filter((item) => ["Gedung", "Kamar"].includes(String(item.category))
+    && isActiveLocation(item)
+    && activeUnitIds.has(String(item.organization_unit_id || ""))
+    && (item.category !== "Kamar" || !item.parent_id || (() => {
+      const parent = structuresById.get(String(item.parent_id));
+      return Boolean(parent && parent.category === "Gedung" && parent.organization_unit_id === item.organization_unit_id && isActiveLocation(parent));
+    })()));
   return {
     staff,
-    locations: structures.filter((item) => ["Gedung", "Kamar"].includes(String(item.category))
-      && !["inactive", "nonaktif", "disabled"].includes(String(item.status || "").toLowerCase()))
-      .map((item) => ({ id: String(item.id), name: String(item.name || item.id), category: String(item.category), parentId: item.parent_id ? String(item.parent_id) : null })),
+    units: activeUnits.map((unit) => ({ id: String(unit.id), code: String(unit.code || ""), name: String(unit.name || unit.code || unit.id) })),
+    unmappedLocations: structures.filter((item) => ["Gedung", "Kamar"].includes(String(item.category))
+      && isActiveLocation(item)
+      && item.organization_unit_id == null)
+      .map((item) => ({ id: String(item.id), name: String(item.name || item.id), category: String(item.category),
+        parentId: item.parent_id ? String(item.parent_id) : null,
+        parentUnitId: item.parent_id ? String(structuresById.get(String(item.parent_id))?.organization_unit_id || "") || null : null,
+        parentActive: !item.parent_id || isActiveLocation(structuresById.get(String(item.parent_id)) || {}) })),
+    locations: mappedActive.map((item) => ({ id: String(item.id), name: String(item.name || item.id), category: String(item.category),
+      parentId: item.parent_id ? String(item.parent_id) : null, organizationUnitId: String(item.organization_unit_id),
+      unitName: String(activeUnits.find((unit) => String(unit.id) === String(item.organization_unit_id))?.name || "") })),
     assignments: assignments.map((assignment) => {
       const locationId = String(assignment.building_id || assignment.room_id || "");
       const location = structuresById.get(locationId);
@@ -84,6 +104,25 @@ export async function listSupabaseBoardingStaffAssignments(actor: Actor) {
         status: String(assignment.status), createdAt: String(assignment.created_at || "") };
     }),
   };
+}
+
+export async function assignSupabaseBoardingLocationUnit(actor: Actor, value: unknown) {
+  const role = requireAdmin(actor);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new SupabaseOnboardingError(400, "Data pemetaan lokasi tidak valid.");
+  const input = value as Row;
+  const category = String(input.category || "").trim();
+  if (!(category === "Gedung" || category === "Kamar")) throw new SupabaseOnboardingError(400, "Jenis lokasi hanya dapat berupa Gedung atau Kamar.");
+  const locationId = String(input.locationId || "").trim();
+  if (!locationId || locationId.length > 160 || locationId.includes("/") || /[\u0000-\u001f\u007f]/.test(locationId)) {
+    throw new SupabaseOnboardingError(400, "ID lokasi tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/assign_tenant_boarding_location_unit", { method: "POST", body: JSON.stringify({
+    p_tenant_id: uuid(actor.tenantId, "Tenant"), p_actor_user_id: uuid(actor.uid, "Akun Admin"), p_expected_role: role,
+    p_location_category: category, p_location_id: locationId, p_unit_id: uuid(input.unitId, "Unit organisasi"),
+    p_client_request_id: uuid(input.clientRequestId, "ID permintaan"),
+  }) });
+  if (!result || result.success !== true) throw new SupabaseOnboardingError(503, "Backend belum mengonfirmasi pemetaan lokasi.");
+  return { category: String(result.category), locationId: String(result.locationId), unitId: String(result.unitId), alreadyApplied: Boolean(result.alreadyApplied) };
 }
 
 export async function setSupabaseBoardingStaffAssignment(actor: Actor, value: unknown) {

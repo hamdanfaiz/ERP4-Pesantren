@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
+import { isOperationalBoardingStudent } from "./boardingStatus";
 
 export class SupabaseOnboardingError extends Error {
   status: number;
@@ -101,6 +102,7 @@ export type SupabaseStructureRecord = {
   category: StructureCategory;
   type: StructureCategory;
   status: string;
+  organizationUnitId?: string | null;
   parentId?: string;
   parentCode?: string;
   grade?: string;
@@ -120,7 +122,7 @@ export async function listSupabaseMasterDataStructures(tenantIdentifier: string)
 
   for (let offset = 0; offset < 10000; offset += pageSize) {
     const params = new URLSearchParams({
-      select: "tenant_id,category,id,name,status,parent_id,grade,capacity,occupied,gender_code,location,attributes",
+      select: "tenant_id,category,id,name,status,parent_id,grade,capacity,occupied,gender_code,location,attributes,organization_unit_id",
       tenant_id: "eq." + tenantId,
       category: "in.(Gedung,Kamar,Kelas)",
       order: "category.asc,name.asc",
@@ -152,6 +154,7 @@ export async function listSupabaseMasterDataStructures(tenantIdentifier: string)
       category,
       type: category,
       status: String(row.status || "Active"),
+      organizationUnitId: row.organization_unit_id == null ? null : String(row.organization_unit_id),
       parentId: parentId || undefined,
       parentCode: parentId || undefined,
       grade: String(row.grade || attributes.grade || ""),
@@ -547,18 +550,21 @@ export type SupabaseBoardingStudent = {
   status: string;
 };
 
-export async function listSupabaseBoardingSnapshot(tenantIdentifier: string): Promise<{
+export async function listSupabaseBoardingSnapshot(
+  tenantIdentifier: string,
+  actor?: { uid?: string; role?: string; organizationUnitId?: string | null },
+): Promise<{
   structures: SupabaseStructureRecord[];
   students: SupabaseBoardingStudent[];
 }> {
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
-  const structures = await listSupabaseMasterDataStructures(tenantId);
+  let structures = await listSupabaseMasterDataStructures(tenantId);
   const all: JsonObject[] = [];
   const pageSize = 1000;
 
   for (let offset = 0; offset < 10000; offset += pageSize) {
     const params = new URLSearchParams({
-      select: "id,source_record_id,name,gender,grade,nis,class_id,room_id,building_id,status",
+      select: "id,source_record_id,name,gender,grade,nis,class_id,room_id,building_id,organization_unit_id,status",
       tenant_id: "eq." + tenantId,
       order: "name.asc,id.asc",
       limit: String(pageSize),
@@ -584,8 +590,70 @@ export async function listSupabaseBoardingSnapshot(tenantIdentifier: string): Pr
     }
   }
 
+  let visibleStudentRows = all;
+  if (String(actor?.role || "").toLowerCase() === "ustadz") {
+    const unitId = String(actor?.organizationUnitId || "").trim();
+    const userId = String(actor?.uid || "").trim();
+    if (!isCanonicalUuid(unitId) || !isCanonicalUuid(userId)) {
+      throw new SupabaseOnboardingError(403, "Profil Ustadz belum memiliki unit organisasi aktif.");
+    }
+    const assignmentPath = "/rest/v1/boarding_staff_assignments?" + new URLSearchParams({
+      select: "room_id,building_id", tenant_id: "eq." + tenantId, user_id: "eq." + userId,
+      status: "eq.active", order: "id.asc", limit: "5001",
+    }).toString();
+    const assignments = await supabaseRequest(assignmentPath);
+    if (!Array.isArray(assignments) || assignments.length > 5000) {
+      throw new SupabaseOnboardingError(503, "Penugasan lokasi Ustadz belum dapat diverifikasi dengan aman.");
+    }
+    const byId = new Map(structures.map((item) => [String(item.id), item] as const));
+    const unitStructures = structures.filter((item) => {
+      if (String(item.organizationUnitId || "") !== unitId) return false;
+      if (item.category !== "Kamar" || !item.parentId) return true;
+      const parent = byId.get(item.parentId);
+      return Boolean(parent && parent.category === "Gedung" && parent.organizationUnitId === unitId);
+    });
+    const structuresById = new Map(unitStructures.map((item) => [String(item.id), item] as const));
+    const active = (item: SupabaseStructureRecord) => !["inactive", "nonaktif", "tidak aktif", "disabled"].includes(item.status.trim().toLowerCase());
+    const assignedBuildings = new Set<string>();
+    const assignedRooms = new Set<string>();
+    for (const assignment of assignments) {
+      const buildingId = String(assignment.building_id || "");
+      const roomId = String(assignment.room_id || "");
+      if (buildingId) {
+        const building = structuresById.get(buildingId);
+        if (building?.category === "Gedung" && active(building)) assignedBuildings.add(buildingId);
+      }
+      if (roomId) {
+        const room = structuresById.get(roomId);
+        if (room?.category === "Kamar" && active(room)) assignedRooms.add(roomId);
+      }
+    }
+    const visibleRooms = new Set(unitStructures.filter((item) => item.category === "Kamar" && active(item)
+      && (assignedRooms.has(item.id) || (item.parentId && assignedBuildings.has(item.parentId)))).map((item) => item.id));
+    const unitBuildingIds = new Set(unitStructures.filter((item) => item.category === "Gedung" && active(item)).map((item) => item.id));
+    if (!visibleRooms.size && !assignedBuildings.size) {
+      throw new SupabaseOnboardingError(403, "Akun Ustadz belum memiliki penugasan lokasi aktif.");
+    }
+    const visibleBuildingIds = new Set(assignedBuildings);
+    for (const room of unitStructures) if (room.category === "Kamar" && visibleRooms.has(room.id) && room.parentId) {
+      visibleBuildingIds.add(room.parentId);
+    }
+    structures = unitStructures.filter((item) => item.category === "Kelas"
+      || (item.category === "Gedung" && visibleBuildingIds.has(item.id))
+      || (item.category === "Kamar" && visibleRooms.has(item.id)));
+    visibleStudentRows = all.filter((student) => {
+      if (!isOperationalBoardingStudent(student.status)) return false;
+      if (String(student.organization_unit_id || "") !== unitId) return false;
+      const roomId = String(student.room_id || ""), buildingId = String(student.building_id || "");
+      if (!roomId) return Boolean(buildingId && assignedBuildings.has(buildingId));
+      if (!visibleRooms.has(roomId)) return false;
+      const roomBuildingId = byId.get(roomId)?.parentId || "";
+      return !buildingId || (unitBuildingIds.has(buildingId) && (!roomBuildingId || roomBuildingId === buildingId));
+    });
+  }
+
   const byCategoryAndId = new Map(structures.map((item) => [item.category + ":" + item.id, item]));
-  const students: SupabaseBoardingStudent[] = all.map((row) => {
+  const students: SupabaseBoardingStudent[] = visibleStudentRows.map((row) => {
     const supabaseId = String(row.id || "");
     const sourceRecordId = typeof row.source_record_id === "string" ? row.source_record_id : null;
     const roomId = typeof row.room_id === "string" ? row.room_id : null;

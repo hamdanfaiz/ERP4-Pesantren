@@ -284,6 +284,7 @@ import {
   setSupabaseBoardingAttendance,
 } from "./src/server/supabaseBoardingAttendance";
 import {
+  assignSupabaseBoardingLocationUnit,
   listSupabaseBoardingStaffAssignments,
   setSupabaseBoardingStaffAssignment,
 } from "./src/server/supabaseBoardingAssignments";
@@ -3211,7 +3212,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
       if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) throw new SupabaseOnboardingError(403, "Role ini tidak dapat membaca data asrama.");
-      const snapshot = await listSupabaseBoardingSnapshot(actor.tenantId);
+      const snapshot = await listSupabaseBoardingSnapshot(actor.tenantId, actor);
       return res.json(snapshot);
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3422,6 +3423,19 @@ async function startServer() {
       const actor = await loadMasterDataActor(uid, "boarding");
       requireMasterDataAdmin(actor);
       return res.json(await listSupabaseBoardingStaffAssignments(actor));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/boarding/staff-assignments/unit-mapping", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: "Runtime pemetaan unit lokasi Asrama belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "boarding");
+      requireMasterDataAdmin(actor);
+      const result = await assignSupabaseBoardingLocationUnit(actor, req.body);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
