@@ -4,7 +4,7 @@
 
 PR #13 masih **Open / Draft** dan belum memenuhi syarat untuk digabung. PR #1–#11 juga masih **Open / Draft**; PR #12 sudah **Merged**. Tidak ada PR yang ditutup atau digabung selama checkpoint ini. Menutup PR hanya mengubah status; perubahan baru masuk ke `main` setelah merge.
 
-Pemeriksaan GitHub terbaru pada 30 Oktober 2026 mengonfirmasi PR #1–#11 masih Open/Draft, #12 Closed/Merged, dan #13 Open/Draft. Head PR #13 adalah `c6e48e22fb6caedae6e6b1e7a8ac53b3e0ebae4f`. GitHub Actions [run 41010491068](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41010491068) lulus **2/2 job**: typecheck/build, guard runtime, Docker/Compose, rehearsal migrasi sintetis, pgTAP, API/tenant, alur serentak, Storage, serta backup/restore sintetis. Run ini juga menguji migration Asrama dan pembatasan unit, tetapi tidak membuktikan ledger staging/production atau perilaku dengan akun pelanggan nyata. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch. CI hijau bukan bukti seluruh kelengkapan produk, migrasi live, deployment, atau UAT.
+Pemeriksaan GitHub terbaru pada 30 Oktober 2026 mengonfirmasi PR #1–#11 masih Open/Draft, #12 Closed/Merged, dan #13 Open/Draft. Commit kode PR #13 yang diuji adalah `c6e48e22fb6caedae6e6b1e7a8ac53b3e0ebae4f`; GitHub Actions [run 41010491068](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41010491068) lulus **2/2 job**. Pembaruan dokumen audit/progres juga lulus **2/2 job** pada [run 41011380066](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41011380066). CI menguji typecheck/build, guard runtime, Docker/Compose, rehearsal migrasi sintetis, pgTAP, API/tenant, alur serentak, Storage, serta backup/restore. Uji database memakai Supabase lokal sintetis dan tidak membuktikan ledger staging/production atau perilaku dengan akun pelanggan nyata. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch. CI hijau bukan bukti seluruh kelengkapan produk, migrasi live, deployment, atau UAT.
 
 Perubahan Asrama pada head ini membatasi Ustadz ke unit/lokasi penugasan dan santri operasional yang sesuai. Admin mendapat UI pemetaan historis Gedung/Kamar melalui transaksi tenant-scoped dan idempoten. Data belum dipetakan tetap Admin-only; pemetaan tenant nyata dan pengujian login/role oleh tim penerapan masih diperlukan. Estimasi pengembangan tetap sekitar **73%**.
 
@@ -28,7 +28,7 @@ Konektor Supabase hanya menampilkan project `vqemuyzveuirlkvdggjd`; pembacaan mi
 | #10 | Open / Draft | #9 | backend/supabase-finance-ui (127c67e) | UI Finance/PPDB lama. |
 | #11 | Open / Draft | #10 | backend/supabase-masterdata-structures-ui (88f2686) | Master Data, asrama, dan Tahfidz; matriks perilaku ada pada dokumen paritas #11 → #13. |
 | #12 | Closed / Merged | — | — | Sudah menjadi bagian main. |
-| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (c6e48e2) | Head terakhir lulus 2/2 job CI; pekerjaan pengembangan dan audit paritas masih terbuka, belum siap merge. |
+| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (kode c6e48e2) | Kode dan pembaruan dokumen lulus 2/2 job CI; pekerjaan pengembangan dan audit paritas masih terbuka, belum siap merge. |
 
 ## Hasil perbandingan awal #1–#11 terhadap #13
 
