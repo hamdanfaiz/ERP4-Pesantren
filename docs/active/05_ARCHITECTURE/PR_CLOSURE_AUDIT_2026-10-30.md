@@ -10,6 +10,14 @@ Perubahan tambahan pada head ini menghitung progres enam capaian Tahfidz dari ca
 
 Perubahan Asrama pada head ini membatasi Ustadz ke unit/lokasi penugasan dan santri operasional yang sesuai. Admin mendapat UI pemetaan historis Gedung/Kamar melalui transaksi tenant-scoped dan idempoten. Data belum dipetakan tetap Admin-only; pemetaan tenant nyata dan pengujian login/role oleh tim penerapan masih diperlukan. Estimasi pengembangan tetap sekitar **73%**.
 
+## Revalidasi terbaru — 30 Oktober 2026
+
+- GitHub REST mengonfirmasi PR #1–#11 masih Open/Draft, PR #12 Merged, dan PR #13 Open/Draft. Head PR #13 adalah `3f60d3b8fa35393454ff50be539e0f50dc1080fe`; `main` tetap pada `c8738185ff6e5080ae427ef0021ee25681036c40`.
+- GitHub Actions [run 41020730492](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41020730492) lulus **2/2 job wajib**. CI menguji typecheck/build, Docker/Compose dan runtime tanpa Firebase; rehearsal migration pada Supabase lokal sintetis, pgTAP, API/tenant, reservasi NIS dan Tahfidz serentak, Storage, serta backup/restore.
+- Supabase Preview dilewati karena branch tidak ditautkan ke Supabase Branch. Tidak ada migration/data yang diterapkan ke database live. Tidak ada review GitHub pada PR #13; status `mergeable: clean` hanya menandakan tidak ada konflik berkas.
+- Perubahan kode terakhir pada rangkaian ini menambah pembatasan unit Asrama dan ringkasan capaian Tahfidz berbasis catatan tersimpan. Peer Review Tahfidz, keputusan cakupan fitur yang masih fail-closed, integrasi lintas modul, serta rekonsiliasi ledger target Supabase masih terbuka.
+- **Keputusan:** PR #13 tetap Draft dan belum siap merge. PR #1–#11 juga tetap terbuka; tutup sebagai superseded hanya setelah penggantinya masuk `main` dan paritasnya dibuktikan. Deployment dan UAT tetap di luar metrik pengembangan dan ditangani tim penerapan.
+
 ## Kendala pemeriksaan database staging
 
 Konektor Supabase hanya menampilkan project `vqemuyzveuirlkvdggjd`; pembacaan migrasi dan tabel untuk staging `ptsasgdvgrbdtgyqieie` ditolak karena izin. Langkah teknis baca-saja bagi tim backend tercatat di [checkpoint akses staging](docs/active/06_DATABASE/CHECKPOINT_SUPABASE_STAGING_ACCESS_2026-10-30.md). Tidak ada migrasi atau data yang ditulis ke Supabase. Pemeriksaan ledger staging tetap menjadi gerbang sebelum rehearsal.
@@ -30,7 +38,7 @@ Konektor Supabase hanya menampilkan project `vqemuyzveuirlkvdggjd`; pembacaan mi
 | #10 | Open / Draft | #9 | backend/supabase-finance-ui (127c67e) | UI Finance/PPDB lama. |
 | #11 | Open / Draft | #10 | backend/supabase-masterdata-structures-ui (88f2686) | Master Data, asrama, dan Tahfidz; matriks perilaku ada pada dokumen paritas #11 → #13. |
 | #12 | Closed / Merged | — | — | Sudah menjadi bagian main. |
-| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (`4188de2`) | Audit paritas diperbarui; CI lulus 2/2 job. Peer Review, gap integrasi/cakupan rilis, dan verifikasi ledger tetap terbuka; belum siap merge. |
+| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (`3f60d3b`) | Head terakhir lulus run 41020730492 (2/2 job wajib); Peer Review, gap integrasi/cakupan rilis, dan verifikasi ledger tetap terbuka; belum siap merge. |
 
 ## Hasil perbandingan awal #1–#11 terhadap #13
 
