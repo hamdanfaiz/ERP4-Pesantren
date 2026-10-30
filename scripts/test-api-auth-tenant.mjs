@@ -111,18 +111,18 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'super_admin', 'active', 'superadmin-a', { users: false }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-users', { users: false }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-intelligence-only', {
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-users', {
+      users: false,
       dashboard: false,
       intelligence: true,
       ppdb: false,
       'master-data': false,
       finance: false,
     }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
       .eq('user_id', users[12].uid);
@@ -140,7 +140,6 @@ async function main() {
     const noFinanceAdminToken = await signIn(anon, users[10]);
     const otherTenantMarketplaceAdminToken = await signIn(anon, users[11]);
     const forcedPasswordToken = await signIn(anon, users[12]);
-    const intelligenceOnlyToken = await signIn(anon, users[13]);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
 
@@ -203,12 +202,12 @@ async function main() {
     assert.equal(dashboardPayload.ppdb.enabled, true, 'Dashboard submodule data must reflect the actor permission.');
 
     const dashboardDenied = await fetch(`${apiBase}/api/dashboard/snapshot?surface=dashboard`, {
-      headers: { Authorization: `Bearer ${intelligenceOnlyToken}` },
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
     });
     assert.equal(dashboardDenied.status, 403, 'An intelligence-only user must not inherit dashboard access.');
 
     const intelligenceSnapshot = await fetch(`${apiBase}/api/dashboard/snapshot?surface=intelligence&period=month`, {
-      headers: { Authorization: `Bearer ${intelligenceOnlyToken}` },
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
     });
     assert.equal(intelligenceSnapshot.status, 200, 'Intelligence access must be independently granted.');
     const intelligencePayload = await intelligenceSnapshot.json();
@@ -709,7 +708,7 @@ async function main() {
     });
     assert.equal(tenantResponse.status, 200, 'An active tenant admin should read their own tenant users.');
     const tenantPayload = await tenantResponse.json();
-    assert.equal(tenantPayload.total, 11, 'The tenant admin should only see the eleven synthetic profiles in tenant A.');
+    assert.equal(tenantPayload.total, 10, 'The tenant admin should only see the ten profiles in tenant A.');
     assert.ok(tenantPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'The response must remain scoped to the actor tenant even when a foreign tenantId is requested.');
     assert.ok(!tenantPayload.users.some((profile) => profile.email === users[2].email), 'A profile from another tenant must never appear in the response.');
 
