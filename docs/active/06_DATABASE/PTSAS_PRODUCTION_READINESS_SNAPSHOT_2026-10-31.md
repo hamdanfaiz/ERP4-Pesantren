@@ -7,6 +7,7 @@
 - `src/runtimeBackend.ts` mengarahkan runtime frontend ke Supabase-only. Firestore berisi data dummy dan tidak perlu disalin, sesuai keputusan pemilik proyek.
 - Dashboard Supabase menampilkan project `ERP4-Pesantren`, ref `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`. Project ini harus diperlakukan sebagai Production, bukan staging.
 - Konektor Supabase menampilkan project lama `vqemuyzveuirlkvdggjd` sebagai `ACTIVE_HEALTHY`, tetapi mengembalikan 0 tabel `public` dan 0 migrasi. Ini tidak memeriksa Auth, Storage, Edge Functions, atau resource lain; jangan hapus project tersebut sebelum pemeriksaan layanan-layanan itu.
+- Check `Supabase Preview` pada PR #28 dilewati karena pembuatan preview branch dinonaktifkan; detail check masih menuju halaman integrasi project lama `vqemuyzveuirlkvdggjd`. Ini bukan bukti bahwa integrasi GitHub-Supabase telah berpindah ke `ptsas`. Arahkan integrasi CI ke staging terpisah dan jangan mengaktifkan preview terhadap Production.
 
 ## Hasil query baca-saja pada project target
 
@@ -35,8 +36,9 @@ Source di branch `main` berisi 109 file migration. Perbedaan jumlah ledger dan f
 2. **Siapkan staging yang terpisah dari project Production `ptsas`**, dengan baseline/backup yang dapat dipulihkan. Buktikan prosedur restore pada staging.
 3. Di staging, jalankan preflight read-only dari checkout `main` dan cocokkan seluruh 109 file migration terhadap ledger serta katalog aktual: tabel, constraint, indeks, fungsi/RPC, default privileges, RLS, grants, Storage, dan versi API.
 4. Rekonsiliasi sumber migration `20261205000000` dan `20261206000000` tanpa mengubah ledger Production. Jika riwayat SQL tidak dapat dibuktikan, siapkan staging baru yang dibangun dari seluruh source, lalu jalankan suite dan UAT sintetis.
-5. Uji autentikasi, role/tenant, alur modul, Storage privat, backup/restore, dan instalasi customer-managed pada staging. Periksa feature flags pada environment hosting; nilai contoh di `.env.example` bukan bukti konfigurasi hosting yang sedang berjalan.
-6. **Jangan** jalankan `db push`, `migration repair`, reset, atau migration manual pada Production untuk menghilangkan selisih hitungan. Jangan hapus project `vqe` sebelum semua resource di luar tabel publik diaudit.
+5. Arahkan atau konfirmasi check Supabase Preview agar tidak lagi mengarah ke `vqe`. Gunakan project/branch staging yang terpisah; jangan aktifkan preview branch pada `ptsas` selama project tersebut berstatus Production.
+6. Uji autentikasi, role/tenant, alur modul, Storage privat, backup/restore, dan instalasi customer-managed pada staging. Periksa feature flags pada environment hosting; nilai contoh di `.env.example` bukan bukti konfigurasi hosting yang sedang berjalan.
+7. **Jangan** jalankan `db push`, `migration repair`, reset, atau migration manual pada Production untuk menghilangkan selisih hitungan. Jangan hapus project `vqe` sebelum semua resource di luar tabel publik diaudit.
 
 ## Batas bukti
 
