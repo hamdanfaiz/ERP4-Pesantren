@@ -4,7 +4,7 @@
 
 PR #13 masih **Open / Draft** dan belum memenuhi syarat untuk digabung. PR #1–#11 juga masih **Open / Draft**; PR #12 sudah **Merged**. Tidak ada PR yang ditutup atau digabung selama checkpoint ini. Menutup PR hanya mengubah status; perubahan baru masuk ke `main` setelah merge.
 
-Pemeriksaan GitHub terbaru pada 30 Oktober 2026 mengonfirmasi PR #1–#11 masih Open/Draft, #12 Closed/Merged, dan #13 Open/Draft. Commit kode PR #13 yang diuji adalah `c6e48e22fb6caedae6e6b1e7a8ac53b3e0ebae4f`; GitHub Actions [run 41010491068](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41010491068) lulus **2/2 job**. Pembaruan dokumen audit/progres juga lulus **2/2 job** pada [run 41011380066](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41011380066). CI menguji typecheck/build, guard runtime, Docker/Compose, rehearsal migrasi sintetis, pgTAP, API/tenant, alur serentak, Storage, serta backup/restore. Uji database memakai Supabase lokal sintetis dan tidak membuktikan ledger staging/production atau perilaku dengan akun pelanggan nyata. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch. CI hijau bukan bukti seluruh kelengkapan produk, migrasi live, deployment, atau UAT.
+Pemeriksaan GitHub terbaru pada 30 Oktober 2026 mengonfirmasi PR #1–#11 masih Open/Draft, #12 Closed/Merged, dan #13 Open/Draft. Head PR #13 saat ini `0d2e6ac679d8302c059a670c4eae9c0fdd3294a2`; GitHub Actions [run 41014013150](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41014013150) lulus **2/2 job**. Run tersebut memeriksa typecheck/build, guard runtime, Docker/Compose, rehearsal migration sintetis, pgTAP, API/tenant, alur serentak, Storage, serta backup/restore. Uji database memakai Supabase lokal sintetis dan tidak membuktikan ledger staging/production atau perilaku dengan akun pelanggan nyata. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch. CI hijau bukan bukti seluruh kelengkapan produk, migrasi live, deployment, atau UAT.
 
 Perubahan Asrama pada head ini membatasi Ustadz ke unit/lokasi penugasan dan santri operasional yang sesuai. Admin mendapat UI pemetaan historis Gedung/Kamar melalui transaksi tenant-scoped dan idempoten. Data belum dipetakan tetap Admin-only; pemetaan tenant nyata dan pengujian login/role oleh tim penerapan masih diperlukan. Estimasi pengembangan tetap sekitar **73%**.
 
@@ -28,7 +28,7 @@ Konektor Supabase hanya menampilkan project `vqemuyzveuirlkvdggjd`; pembacaan mi
 | #10 | Open / Draft | #9 | backend/supabase-finance-ui (127c67e) | UI Finance/PPDB lama. |
 | #11 | Open / Draft | #10 | backend/supabase-masterdata-structures-ui (88f2686) | Master Data, asrama, dan Tahfidz; matriks perilaku ada pada dokumen paritas #11 → #13. |
 | #12 | Closed / Merged | — | — | Sudah menjadi bagian main. |
-| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (kode c6e48e2) | Kode dan pembaruan dokumen lulus 2/2 job CI; pekerjaan pengembangan dan audit paritas masih terbuka, belum siap merge. |
+| #13 | Open / Draft | main pasca-#12 | codex/supabase-runtime-cutover-20261022 (`0d2e6ac`) | Audit source-level PR lama ditambahkan dan CI 2/2 job lulus; perilaku fitur, beberapa gap produk, dan verifikasi ledger tetap terbuka, belum siap merge. |
 
 ## Hasil perbandingan awal #1–#11 terhadap #13
 
@@ -38,7 +38,7 @@ Migration `20270130000000_master_data_unit_assignment.sql` memberi `finance_bill
 
 Perubahan di atas diuji pada head tersebut melalui CI lokal sintetis; ini bukan UAT atau verifikasi staging. Tidak ada alasan untuk menutup PR lama sebelum perubahan utama digabung ke `main`.
 
-Perbandingan GitHub menemukan 430 berkas berubah pada PR #13. Daftar berkas yang sama atau berbeda hanya menunjukkan lokasi perubahan, bukan bukti bahwa alur bisnis setara. Ringkasan di bawah menandai tempat verifikasi yang diperlukan sebelum PR lama boleh ditutup.
+Metadata GitHub saat ini melaporkan 443 berkas berubah pada PR #13. Endpoint perbandingan GitHub mengembalikan paling banyak 300 path; daftar berkas maupun jumlah commit hanya menunjukkan lokasi/riwayat perubahan, bukan bukti bahwa alur bisnis setara. Audit sumber per PR yang lebih terstruktur ada di [PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md](docs/active/05_ARCHITECTURE/PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md). Ringkasan di bawah menandai tempat verifikasi yang diperlukan sebelum PR lama boleh ditutup.
 
 | PR | Perubahan lama yang diperiksa | Padanan atau catatan pada PR #13 | Tindakan sebelum penutupan |
 |---|---|---|---|
@@ -52,12 +52,12 @@ Perbandingan GitHub menemukan 430 berkas berubah pada PR #13. Daftar berkas yang
 | #8 | Master Data serta onboarding PPDB atomik | #13 memiliki onboarding dan relasi kandidat–santri–wali–NIS pada migration/API Supabase yang lebih baru. | Pastikan kegagalan parsial, retry idempoten, kelayakan kamar, dan relasi lintas tenant tetap ditutup oleh uji #13. |
 | #9 | Finance tenant runtime | #13 memiliki runtime Finance dan transaksi ledger pada path/migration baru; cakupan unit bertahap dan pemetaan eksplisit data lama baru ditambahkan pada head terbaru. | Verifikasi tagihan/pembayaran, bukti Storage, ledger, dan Finance unit-scope pada pgTAP serta HTTP checks; pertahankan hanya perilaku unik yang belum terwakili. |
 | #10 | Form PPDB–Finance, peninjauan pembayaran, dan bukti transfer | #13 memiliki alur tagihan PPDB yang terhubung dengan Finance dan endpoint bukti pembayaran privat. | Cocokkan status pembayaran, penolakan, retry, dan hubungan kandidat/santri; tidak perlu menggabungkan UI/migration lama secara utuh. |
-| #11 | Master Data, kamar/asrama, Tahfidz dan membership | Matriks PR #11 → #13 mencatat padanan runtime dan tes untuk alur inti; beberapa fitur Tahfidz lanjutan serta cakupan multi-unit tetap terbuka. | Selesaikan gap eksplisit pada matriks dan jangan menggabungkan branch bertingkat lama secara utuh. |
+| #11 | Master Data, kamar/asrama, Tahfidz dan membership | Alur inti memiliki padanan source; tab Peer Review dan Badges Tahfidz belum memakai Supabase, dan cakupan multi-unit/integrasi belum tuntas. Rincian bukti ada di audit paritas. | Lengkapi gap fitur/isolasi dan jangan menggabungkan branch bertingkat lama secara utuh. |
 
 ## Syarat penggabungan
 
 1. Selesaikan pekerjaan pengembangan yang masih dicatat pada deskripsi PR #13: cakupan unit lintas modul/data lama, keputusan fitur yang masih fail-closed, audit integrasi, perapian kode legacy, serta dokumentasi operasi yang konsisten.
-2. Lengkapi pemeriksaan fitur unik PR #1–#10. Tutup hanya setelah perubahan yang diperlukan masuk ke jalur #13 atau terbukti tidak lagi menjadi kontrak produk.
+2. Audit source-level PR #1–#11 sudah dipetakan, tetapi kesetaraan perilaku belum seluruhnya terbukti. Selesaikan pemeriksaan fitur unik dan tutup hanya setelah perubahan yang diperlukan masuk ke jalur #13 atau terbukti tidak lagi menjadi kontrak produk.
 3. Revalidasi ledger Supabase staging dan lakukan rehearsal pada environment yang bisa dipulihkan. Konektor saat audit ini mengembalikan INVALID_ARGUMENT; data/migration live tidak diubah.
 4. Jalankan CI kembali pada head final yang akan digabung dan tinjau hasilnya. Deployment hosting dan UAT tetap menjadi pekerjaan tim penerapan.
 5. Setelah kriteria pengembangan terpenuhi, tandai PR #13 siap ditinjau dan gabungkan ke main. Sesudah merge, tutup PR lama yang telah terbukti superseded dengan tautan ke PR pengganti. Jangan menandai PR lama sebagai merged jika GitHub tidak menggabungkannya.
@@ -79,3 +79,4 @@ Perbandingan GitHub menemukan 430 berkas berubah pada PR #13. Daftar berkas yang
 - Pemeriksaan GitHub langsung: PR #1–#11 **Open/Draft**, PR #12 **Closed/Merged** (`c8738185ff6e5080ae427ef0021ee25681036c40`), PR #13 **Open/Draft** pada head `d20c378`. Tidak ada PR yang ditutup atau digabung pada checkpoint ini.
 - Tidak ada migration atau data yang diterapkan ke staging/production. Akses baca ledger staging masih belum tersedia; jangan menganggap CI lokal sebagai bukti skema target Supabase sudah selaras.
 - **Keputusan:** PR #13 belum lengkap dan belum boleh ditutup atau digabung. Multi-unit Asrama serta pemetaan kelas/histori Akademik, domain operasional lain, area AI/PPOB yang fail-closed, audit integrasi, paritas PR #1–#11, audit legacy, dan rekonsiliasi migration staging tetap terbuka. Estimasi pengembangan bertahan sekitar **73%**.
+
