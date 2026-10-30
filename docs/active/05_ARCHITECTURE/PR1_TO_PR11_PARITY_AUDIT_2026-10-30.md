@@ -2,7 +2,8 @@
 
 Tanggal audit: 30 Oktober 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Head PR #13 yang diperiksa: `60610ccdb5ecac9e40315f505e1af9016f84f8f8`
+Checkpoint kode PR #13 yang diperiksa: `15deecd9d16668b11109643ff6d65bfa642a2658`  
+Checkpoint dokumentasi yang diuji: `06ad8d1e9c5ccc6889541147ff3b04b93f3fd060`
 
 ## Tujuan dan batas bukti
 
@@ -24,11 +25,11 @@ PR #1–#11 bercabang bertingkat dan divergen dari PR #13. Membandingkan jumlah 
 | #8 | Master Data, onboarding santri, reservasi NIS, penempatan kamar | `src/server/supabaseOnboarding.ts`, `supabase/migrations/20261030000000_master_data_onboarding.sql`, `20261101000000_student_room_assignment.sql`, migration runtime Master Data serta tes onboarding/NIS | Ada pengganti source dan tes transaksi sintetis | Rehearsal schema; uji kapasitas kamar, NIS dan relasi santri/wali pada target terisolasi |
 | #9 | Fondasi Finance tenant-scoped dan RPC transaksi | `src/server/supabaseFinance.ts`, `20261117000000_finance_runtime.sql`, Finance budget/ledger migrations dan tes transaksi | Ada pengganti source; catatan Finance historis tetap memerlukan pemetaan eksplisit | Rehearsal ledger, idempotensi pembayaran, pembukuan dan pemulihan pada staging |
 | #10 | UI Finance, bukti pembayaran dan Storage | `src/pages/SupabaseFinanceManager.tsx`, `src/server/financeProofStorage.ts`, API bukti, bucket privat dan tes upload/download | Ada pengganti source dan tes sintetis | Uji hak akses, batas unggahan dan bukti pembayaran pada staging dengan akun sintetis |
-| #11 | Master Data, Asrama, Tahfidz dan UI Supabase | Master Data/Onboarding, API dan UI Asrama, `src/server/supabaseTahfidz.ts`, `src/pages/TahfidzManager.tsx`, `src/pages/SupabaseTahfidzSessions.tsx`, migration dan tes tiap alur | Sebagian besar alur inti punya pengganti; **peer review dan badges Tahfidz belum memakai Supabase** | Lengkapi atau keluarkan secara eksplisit dari cakupan rilis; tutup gap unit dan integrasi; verifikasi fitur pada matriks Tahfidz |
+| #11 | Master Data, Asrama, Tahfidz dan UI Supabase | Master Data/Onboarding, API dan UI Asrama, `src/server/supabaseTahfidz.ts`, `src/pages/TahfidzManager.tsx`, `src/pages/SupabaseTahfidzSessions.tsx`, migration dan tes tiap alur | Alur inti punya pengganti; **capaian/badges kini dihitung dari catatan Supabase dengan cakupan roster tenant**; peer review belum memakai Supabase | Lengkapi atau keluarkan secara eksplisit peer review dari cakupan rilis; tutup gap unit/integrasi; verifikasi fitur pada matriks Tahfidz |
 
 ## Gap yang tetap menghalangi kesiapan pengembangan
 
-1. **Tahfidz belum paritas penuh.** Tab `peer-review` dan `badges` tetap menjadi placeholder saat runtime Supabase aktif; data contoh mode lama disembunyikan. Tidak boleh dilaporkan sebagai fitur selesai.
+1. **Tahfidz belum paritas penuh.** Tab `badges` kini menampilkan enam capaian progres yang dihitung dari data tersimpan Supabase dengan tes role/tenant/paginasi. Tab `peer-review` tetap placeholder saat runtime Supabase aktif; fitur itu belum boleh dilaporkan selesai.
 2. **Analitik AI dan PPOB/Layanan masih fail-closed.** Keputusan cakupan rilis dan pengembangan fitur belum tuntas.
 3. **Audit integrasi antar-modul belum menyeluruh.** Perlu bukti relasi ID, tenant, unit, status, transaksi/retry, audit dan kegagalan parsial pada alur lintas modul.
 4. **Kode legacy Firebase masih ada sebagai source arsip/import yang dinonaktifkan.** CI membuktikan bundle/runtime aktif tidak memakai Firebase; audit akhir harus memastikan jalur arsip tetap tidak dapat menjadi runtime secara tidak sengaja.
@@ -44,9 +45,8 @@ PR #1–#11 bercabang bertingkat dan divergen dari PR #13. Membandingkan jumlah 
 
 ## Verifikasi yang tersedia
 
-- GitHub Actions PR #13 pada head `60610cc` lulus **2/2 job** (run `41012097484`). Job mencakup typecheck/build, guard runtime, container, rehearsal migration dan pgTAP lokal, API/tenant, transaksi serentak, Storage, serta backup/restore sintetis.
+- GitHub Actions PR #13 pada commit kode `15deecd` lulus **2/2 job** (run `41017481319`); dokumentasi checkpoint `06ad8d1` juga lulus **2/2 job** (run `41017953175`). Job mencakup typecheck/build, guard runtime, container, rehearsal migration dan 1.268 assertion pgTAP lokal, API/tenant, transaksi serentak, Storage, serta backup/restore sintetis.
 - Tidak ada review submission atau inline review thread pada PR #13 saat diperiksa.
 - `mergeable: true` hanya berarti GitHub tidak menemukan konflik merge saat itu; bukan persetujuan atau bukti kelengkapan fitur.
 - Tidak ada migration/data yang diterapkan ke Supabase live oleh audit ini. Tidak ada login/UAT pelanggan yang diklaim.
-
 
