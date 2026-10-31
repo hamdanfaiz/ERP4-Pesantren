@@ -6,7 +6,8 @@ BEGIN;
 CREATE TABLE public.master_data_audit_events (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE RESTRICT,
-  actor_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  -- Preserve the historical actor UID after an Auth account is removed.
+  actor_user_id UUID,
   entity_type TEXT NOT NULL CHECK (entity_type IN ('student', 'structure')),
   entity_category TEXT CHECK (entity_category IS NULL OR entity_category IN ('Gedung', 'Kamar', 'Kelas')),
   entity_id TEXT NOT NULL CHECK (length(btrim(entity_id)) BETWEEN 1 AND 160),

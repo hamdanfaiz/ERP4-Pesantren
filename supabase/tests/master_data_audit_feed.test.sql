@@ -3,7 +3,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(28);
+SELECT plan(29);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -35,6 +35,14 @@ SELECT ok(NOT has_table_privilege('service_role', 'public.master_data_audit_even
 SELECT ok(NOT has_table_privilege('service_role', 'public.master_data_audit_events', 'UPDATE'), 'trusted server cannot update audit events');
 SELECT ok(NOT has_table_privilege('service_role', 'public.master_data_audit_events', 'DELETE'), 'trusted server cannot delete audit events');
 SELECT ok(NOT has_table_privilege('service_role', 'public.master_data_audit_events', 'TRUNCATE'), 'trusted server cannot truncate audit events');
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.master_data_audit_events'::regclass
+      AND confrelid = 'auth.users'::regclass
+  ),
+  'audit actor UID remains historical metadata independent of Auth account lifecycle'
+);
 SELECT ok(NOT has_function_privilege('anon', 'public.upsert_master_data_structure_with_actor(uuid,text,text,jsonb,uuid)', 'EXECUTE'), 'anonymous callers cannot use the audited mutation RPC');
 SELECT ok(NOT has_function_privilege('authenticated', 'public.upsert_master_data_structure_with_actor(uuid,text,text,jsonb,uuid)', 'EXECUTE'), 'browser callers cannot use the audited mutation RPC directly');
 SELECT ok(has_function_privilege('service_role', 'public.upsert_master_data_structure_with_actor(uuid,text,text,jsonb,uuid)', 'EXECUTE'), 'trusted server can use the audited mutation RPC');
