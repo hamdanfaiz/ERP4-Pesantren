@@ -16,7 +16,7 @@
 - Konfigurasi lokal menggunakan tenant sintetis di bawah, membuka endpoint konfigurasi/Finance PPDB untuk UAT, dan menjaga `PUBLIC_PPDB_ENABLED=false` agar intake PPDB publik tidak terbuka.
 - PTSAS Production, kredensialnya, dan aturan redirect-nya tidak diubah.
 - Pada pemeriksaan terbaru, browser membuka `http://localhost:4179/` dan menampilkan halaman masuk ERP. Layar menampilkan pesan kredensial tidak cocok dan pemberitahuan pemulihan yang generik; ini membuktikan UI dirender, bukan login berhasil atau email pemulihan terkirim. Runtime lokal menunjuk ke VQE. Akun Production PTSAS tidak dapat dipakai pada preview ini.
-- Konfigurasi Auth VQE yang terlihat saat audit: Site URL `http://localhost:3000`, daftar Redirect URLs kosong. Aplikasi membangun callback reset pada origin preview `http://localhost:4179/`; allowlist lokal yang diperlukan adalah `http://localhost:4179/**`. Penambahan sedang menunggu persetujuan action-time; PTSAS Production tidak diubah.
+- Konfigurasi Auth VQE: Site URL tetap `http://localhost:3000`; setelah persetujuan pengguna, Redirect URLs mencantumkan `http://localhost:4179/**` agar callback preview VQE diterima. Perubahan ini terbatas pada staging; PTSAS Production tidak diubah.
 
 ## Keadaan VQE saat ini
 
@@ -33,13 +33,13 @@
 - Upload bukti memakai hak admin dashboard; ini bukan bukti upload melalui sesi Wali aplikasi.
 - RPC `register_tenant_finance_payment_proof` berhasil mencatat tagihan menjadi `verification`. Pengulangan dengan idempotency key sama menghasilkan `alreadyApplied: true`.
 - Uji negatif RPC menolak role yang tidak sesuai, path traversal, dan tenant berbeda.
-- Login aplikasi, profil setelah login, endpoint upload Wali, onboarding, dan akses pasca-onboarding belum teruji. Preview di `localhost:4179` memakai konfigurasi VQE; pesan reset pada halaman tersebut menargetkan VQE, bukan PTSAS Production, dan bersifat generik sehingga tidak membuktikan email terkirim. Fixture Auth VQE sudah dibersihkan, jadi akun sintetis baru diperlukan. Jangan masukkan kredensial Production di preview staging.
+- Login aplikasi, profil setelah login, endpoint upload Wali, onboarding, dan akses pasca-onboarding belum teruji. Preview di `localhost:4179` memakai konfigurasi VQE; pesan reset di sana menargetkan VQE, bukan PTSAS Production, dan bersifat generik sehingga tidak membuktikan email terkirim. Query baca-saja mengonfirmasi 0 akun untuk email fixture UAT terdahulu; akun sintetis baru diperlukan. Jangan masukkan kredensial Production di preview staging.
 
 ## Perubahan dan verifikasi kode
 
 - Wali dengan email Auth terverifikasi dapat mengakses tagihan kandidat PPDB pra-onboarding hanya pada tenant yang sesuai, untuk kandidat yang belum ditolak/di-onboard, dengan tagihan aktif.
 - Setelah onboarding, akses kandidat dicabut dan tagihan mengikuti relasi santri serta Wali kanonis.
-- CI [run 41178449700](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41178449700) lulus **2/2 job** pada PR head `b2875407178a5d2318b5cc1a8e05e39a810d6f1f`. Setelah pembaruan checkpoint pada head `e49d38a22b89eea30212792895651f6403ceb94b`, CI [run 41179143190](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41179143190) juga lulus **2/2 job**, meliputi build/guard frontend, rehearsal seluruh migrasi, pgTAP, API auth/isolasi tenant, Storage HTTP, backup/restore, regresi modul, dan build Docker pelanggan.
+- CI [run 41179143190](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41179143190) lulus **2/2 job** pada PR head `e49d38a22b89eea30212792895651f6403ceb94b`. Setelah pembaruan checkpoint pada head `b93bffd830dc5f225a909b42aa7aa69f9f5a4eeb`, CI [run 41179453533](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41179453533) juga lulus **2/2 job**, meliputi build/guard frontend, rehearsal seluruh migrasi, pgTAP, API auth/isolasi tenant, Storage HTTP, backup/restore, regresi modul, dan build Docker pelanggan.
 - Kode aplikasi tidak berubah dalam kedua commit dokumentasi tersebut; seluruh workflow lengkap tetap berjalan dan lulus.
 - VQE memiliki 115 migration sampai `20270212000000_optimize_core_tenant_query_indexes`. pgTAP live sebelumnya: 53 assertion privilege API dan 44 assertion isolasi tenant; skrip memakai rollback.
 - Security Advisor: 156 INFO untuk tabel backend-only tanpa policy; tidak ada WARN helper SECURITY DEFINER atau `auth_rls_initplan`. Performance Advisor memberi INFO indeks FK/unused-index. VQE tidak memiliki data operasional sehingga telemetry indeks belum mewakili beban nyata.
@@ -47,7 +47,7 @@
 
 ## Tindak lanjut
 
-1. Preview pada `http://localhost:4179/` sudah merender halaman masuk. Pastikan preview tetap menggunakan `.env` VQE dan `/health/ready` dapat dijangkau sebelum UAT; jangan alihkan preview staging ke PTSAS Production.
+1. Preview pada `http://localhost:4179/` sudah merender halaman masuk dan pola redirect staging sudah diizinkan. Pastikan preview tetap memakai `.env` VQE serta `/health/ready` dapat dijangkau sebelum UAT; jangan alihkan preview staging ke PTSAS Production.
 2. Buat akun Wali uji dan fixture sintetis baru di VQE. Pengguna menetapkan password sendiri; jangan memakai atau memasukkan kredensial Production ke staging.
 3. Uji login melalui aplikasi, profil Wali, daftar kandidat/tagihan, upload berkas melalui endpoint Wali, penolakan akses lintas tenant, onboarding, dan akses setelah onboarding.
 4. Hapus semua fixture setelah UAT dan verifikasi hitungannya kembali nol. Minta konfirmasi tepat sebelum penghapusan cloud.
