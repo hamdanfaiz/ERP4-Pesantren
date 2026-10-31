@@ -5,42 +5,50 @@
 - Supabase `vqemuyzveuirlkvdggjd` adalah staging yang disetujui untuk validasi ERP. Tidak perlu membuat Supabase Branch berbayar.
 - Supabase `ptsasgdvgrbdtgyqieie` adalah Production dan tidak boleh disentuh pada prosedur ini.
 - Data contoh Firestore tidak perlu disalin. Tujuan tahap ini adalah memasang kontrak schema dan menguji logic audit pada staging.
-- Migration `20270213000000_master_data_audit_feed.sql` **belum diterapkan** ke VQE. Pemeriksaan terakhir hanya baca.
+- SQL migration audit feed sudah diterapkan ke VQE melalui Supabase MCP, tetapi MCP mencatat versi server `20261031225438`, bukan versi source `20270213000000`. Schema sudah ada; ledger belum selaras.
 
-## Bukti sebelum tindakan
+## Bukti live terbaru
 
-- Ledger VQE menampilkan 116 migration, terakhir `20270212000000_optimize_core_tenant_query_indexes`.
-- Source repo menyediakan migration berikutnya `supabase/migrations/20270213000000_master_data_audit_feed.sql` beserta pgTAP `supabase/tests/master_data_audit_feed.test.sql`.
-- Pada pemeriksaan baca-saja, `public.master_data_audit_events` belum ada; objek terkait yang diperlukan migration sudah ada. Source migration membatasi pembacaan event ke `service_role`, mengaktifkan RLS dan FORCE RLS, mencegah perubahan/penghapusan event, mencatat metadata tanpa nilai PII, serta memvalidasi aktor pada jalur RPC.
-- Query verifikasi pascamigrasi di file pendamping berhasil dijalankan sebagai SQL baca-saja pada VQE. Semua 15 check bernilai `false`, sesuai kondisi sebelum penerapan: tabel/trigger/RPC audit dan versi ledger `20270213000000` belum tersedia. Ini bukan kegagalan pascamigrasi; jalankan kembali hanya setelah CLI push selesai.
-- GitHub Actions pada source commit `9fb818f` sebelumnya lulus untuk build dan suite DB sintetis. Ini bukan bukti bahwa migration telah berjalan di VQE.
-- Workstation pada checkpoint tidak memiliki Supabase CLI maupun token akses CLI. Tidak ada SQL atau data yang ditulis ke VQE.
+- Ledger VQE dan source sama-sama berisi 117 entri/file. Perbandingan versi menemukan satu selisih: remote-only `20261031225438` (`master_data_audit_feed`) dan source-only `20270213000000` (`master_data_audit_feed`). Tidak ada selisih versi lain.
+- Pemeriksaan pascamigrasi baca-saja menghasilkan **14 dari 15 check lulus**. Satu-satunya yang gagal adalah `migration_version_recorded`; audit table, RLS dan FORCE RLS, privilege, trigger sumber dan immutability, RPC dengan actor, serta pencabutan RPC actor-less semuanya lulus.
+- Pemeriksaan privilege terpisah mengonfirmasi `anon` dan `authenticated` tidak dapat membaca audit table, sedangkan `service_role` dapat membacanya. RPC actor-aware ada di database dan hanya jalur server yang diberi akses.
+- GitHub PR #39 berada pada head `13b913ef4e94e8cc2d2e6cd55cdf1ef46454e470`, berstatus Draft/Open. GitHub Actions run #1084 pada head tersebut lulus.
+- Preview `localhost:4179` berhasil menampilkan sistem dan menu. Namun server UAT yang sedang berjalan berasal dari worktree lokal dengan HEAD `1ae7cff` dan perubahan belum di-commit; tampilan itu **belum menjadi bukti UAT untuk head PR #39**.
+- Tidak ada perubahan ke Production `ptsasgdvgrbdtgyqieie` dan tidak ada data Firestore yang disalin.
 
-## Mengapa tidak memakai MCP `apply_migration`
+## Perbaikan ledger yang diperlukan
 
-Tool MCP `apply_migration` yang tersedia hanya menerima `project_id`, `name`, dan `query`; tidak menyediakan argumen untuk migration version. Dokumentasi/source Supabase menyebut MCP membuat timestamp migration dari sisi server. Issue upstream [supabase/mcp #241](https://github.com/supabase/mcp/issues/241) mendokumentasikan risiko timestamp server berbeda dari timestamp file lokal dan menghasilkan riwayat remote-only. Karena itu, jangan memakai tool tersebut untuk migration yang sudah memiliki nomor versi di repo, dan jangan mencoba menutup selisihnya dengan `migration repair` manual.
+MCP `apply_migration` hanya menerima nama dan SQL, sehingga menerapkan SQL tetapi tidak menjamin versi migration mengikuti nama file lokal. Dokumentasi resmi [Supabase CLI migration repair](https://supabase.com/docs/reference/cli/supabase-migration-repair) menyatakan perintah ini memang memperbaiki tabel history: status `reverted` menghapus satu entri history dan status `applied` memasukkan versi yang benar. Perintah ini **tidak menjalankan atau membatalkan SQL**. Gunakan CLI, bukan SQL manual pada tabel internal.
 
-Gunakan Supabase CLI terhadap **project staging VQE yang tepat**. CLI mengambil timestamp dari nama file migration dan `db push --dry-run` dapat memperlihatkan perubahan tanpa menerapkannya. Ikuti [panduan resmi Supabase Database Migrations](https://supabase.com/docs/guides/deployment/database-migrations) dan [referensi resmi CLI](https://supabase.com/docs/reference/cli/global-flags).
+Karena schema audit feed sudah ada dan postcheck selain versi ledger sudah lulus, jangan menjalankan ulang migration SQL. Prosedur berikut hanya boleh menyentuh **staging VQE**. PTSAS Production tidak termasuk.
 
 ## Langkah tim backend
 
-Jalankan satu operator pada checkout commit source PR #39 yang berisi file migration di atas. Versi CLI CI yang dipatok repo adalah `2.84.2`.
+Jalankan satu operator dari checkout source PR #39 yang memuat migration dan postcheck di atas. Gunakan Supabase CLI `2.84.2` yang dipatok di CI.
 
-1. Pastikan checkout bersih dan memuat file migration serta tesnya. Jangan menyalin SQL ke Dashboard dan jangan mengubah Production.
-2. Ambil backup VQE yang dapat dipulihkan atau pastikan mekanisme snapshot proyek tersedia. Jangan lanjut bila pemulihan belum dapat dibuktikan.
-3. Login dengan Supabase CLI dan link **hanya** ke ref staging `vqemuyzveuirlkvdggjd`. Masukkan token/password melalui prompt atau secret manager; jangan simpan di Git, command history, log, atau chat.
-4. Jalankan `supabase migration list --linked`. Berhenti jika ledger tidak cocok dengan source sampai `20270212000000`, ada versi tidak dikenal, atau ada migration lain yang belum ditinjau.
-5. Jalankan `supabase db push --linked --dry-run`. Hasil yang diharapkan hanya satu file: `20270213000000_master_data_audit_feed.sql`. Jika ada migration tambahan, versi di luar urutan, atau target project tidak jelas, **jangan** lanjutkan push.
-6. Setelah dry-run tepat dan backup terverifikasi, jalankan `supabase db push --linked` satu kali. Pastikan output menyebut file migration tersebut dan tidak melaporkan migration lain.
-7. Jalankan kembali `supabase migration list --linked`; pastikan versi `20270213000000` tercatat. Jalankan query baca-saja [`VQE_MASTER_DATA_AUDIT_POSTCHECK.sql`](./VQE_MASTER_DATA_AUDIT_POSTCHECK.sql); semua baris harus `true`. Pastikan tes [`master_data_audit_feed.test.sql`](../../../supabase/tests/master_data_audit_feed.test.sql) tetap lulus di database lokal/CI.
-8. Simpan output yang sudah disanitasi dan hasil pemeriksaan sebagai bukti staging. Jangan melampirkan token, password, URL koneksi, PII, atau isi event audit.
+1. Pastikan checkout bersih, source PR #39 benar, dan file migration serta postcheck tersedia. Periksa project ref sebelum menjalankan perintah.
+2. Login dengan Supabase CLI dan link hanya ke `vqemuyzveuirlkvdggjd`. Masukkan token/password lewat prompt atau secret manager; jangan simpan di Git, command history, log, atau chat.
+3. Jalankan `supabase migration list --linked`. Lanjut hanya jika selisihnya tepat seperti bukti di atas: versi remote `20261031225438` dan versi lokal `20270213000000`; berhenti jika ada selisih lain atau target bukan VQE.
+4. Jalankan perintah history-only berikut satu per satu:
+
+   ```powershell
+   supabase migration repair 20261031225438 --status reverted
+   supabase migration repair 20270213000000 --status applied
+   ```
+
+   Perintah pertama menghapus alias timestamp server yang salah dari ledger; perintah kedua mencatat versi source yang SQL-nya sudah ada di VQE. Jangan jalankan query DDL, `db push`, atau migration ulang.
+5. Jalankan `supabase migration list --linked` kembali. Hasil harus cocok satu per satu dengan 117 versi file source, termasuk `20270213000000`, tanpa `20261031225438`.
+6. Jalankan `supabase db push --linked --dry-run`. Hasil yang diharapkan: tidak ada migration tertunda. Jika ada perubahan SQL yang ditawarkan, berhenti dan audit sebelum melanjutkan.
+7. Jalankan query baca-saja [`VQE_MASTER_DATA_AUDIT_POSTCHECK.sql`](./VQE_MASTER_DATA_AUDIT_POSTCHECK.sql). Semua 15 check harus `true`. Pastikan tes [`master_data_audit_feed.test.sql`](../../../supabase/tests/master_data_audit_feed.test.sql) lulus di database lokal/CI.
+8. Simpan output yang telah disanitasi. Jangan melampirkan token, password, URL koneksi, PII, atau isi event audit.
 
 ## Stop/rollback gate
 
-- Jangan menjalankan `supabase db reset`, `migration repair`, SQL manual ke schema ledger, atau menyalin query migration ke SQL Editor sebagai jalan pintas.
-- Jika preflight menampilkan lebih dari migration yang ditargetkan, backup gagal, koneksi menunjuk bukan VQE, migration error, atau postcondition tidak cocok, hentikan tindakan dan laporkan output yang sudah disanitasi kepada DBA.
-- Jangan menandai PR sebagai selesai atau mengklaim audit feed staging aktif sebelum langkah verifikasi pasca-push berhasil. PTSAS Production tidak termasuk tahap ini.
+- Jangan menjalankan `supabase db reset`, mengubah tabel migration lewat SQL, mengulang DDL audit feed, atau menghubungkan CLI ke PTSAS Production.
+- Jika versi, nama, jumlah, project ref, privilege, atau hasil postcheck tidak sesuai bukti, hentikan prosedur dan minta DBA meninjau keadaan VQE.
+- Setelah perbaikan ledger, semua 15 postcheck dan verifikasi CLI harus lulus sebelum mengklaim migrasi staging rapi. PR #39 tetap Draft/Open sampai tinjauan source dan UAT pada head PR selesai.
 
 ## Status checkpoint
 
-Migration audit feed siap di source dan lulus suite lokal/CI yang tersedia, tetapi **belum diterapkan ke staging**. Langkah remote menunggu tim backend memasang/menyediakan Supabase CLI 2.84.2 serta mengautentikasi CLI secara lokal. Tidak ada Supabase branch baru, fixture baru, atau perubahan Production.
+SQL audit feed sudah bekerja di staging VQE, tetapi metadata migration belum cocok dengan source. Tim backend hanya perlu melakukan repair ledger melalui Supabase CLI sesuai langkah di atas; tidak perlu mengulang migration SQL. UAT menu/CSV yang terlihat pada port 4179 berasal dari source lokal yang belum di-commit, sehingga UAT terhadap commit resmi PR #39 masih harus dilakukan. Tidak ada Supabase branch baru, fixture baru, atau perubahan Production.
+
