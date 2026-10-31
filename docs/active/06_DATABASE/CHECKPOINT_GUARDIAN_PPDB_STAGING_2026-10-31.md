@@ -9,45 +9,61 @@
 
 ## Batas lingkungan
 
-- Dashboard VQE menampilkan cabang `main / PRODUCTION`. Repo tidak lagi terhubung otomatis ke VQE; integrasi GitHub telah diputus atas instruksi pengguna.
-- Supabase MCP saat ini menolak pembacaan PTSAS. Status dan skema Production belum dapat direkonsiliasi dengan bukti langsung; tidak ada perubahan yang diterapkan ke PTSAS.
-- Worktree terpilih tidak memiliki `.env` atau `.env.local`; variabel `SUPABASE_SECRET_KEY` dan `PUBLIC_PPDB_TENANT_ID` juga tidak tersedia. Jangan memakai konfigurasi usang yang menunjuk ke PTSAS. UAT API/UI memerlukan konfigurasi staging VQE yang dipasang sendiri secara aman oleh tim; secret jangan dikirim lewat chat atau dimasukkan ke kode klien.
+- Dashboard VQE menampilkan `main / PRODUCTION`. Repo tidak lagi terhubung otomatis ke VQE; integrasi GitHub telah diputus atas instruksi pengguna.
+- Supabase MCP saat ini menolak pembacaan PTSAS. Tidak ada perubahan yang diterapkan ke PTSAS.
+- Worktree PR tidak memiliki konfigurasi server VQE. File `.env` pada worktree lokal lain menunjuk ke proyek berbeda, sehingga tidak dipakai. UAT aplikasi memerlukan konfigurasi server khusus VQE termasuk `SUPABASE_SECRET_KEY` dan `PUBLIC_PPDB_TENANT_ID`; jangan kirim secret lewat chat atau masukkan ke bundle klien.
+- Proyek harus dipastikan tetap disposable sebelum UAT lebih lanjut karena dashboard masih memberi label produksi.
 
-## Keadaan VQE saat ini
+## Keadaan fixture VQE sementara
 
-- Ledger berisi 115 migrasi, terakhir `20270212000000_optimize_core_tenant_query_indexes`. Base PR #38 (`main`) berisi 110 migrasi sampai `20270207000000`; lima migrasi berikutnya pada VQE berasal dari PR yang masih Draft.
-- Skema Wali pra-onboarding tersedia; tabel `guardian_candidate_accounts` dibatasi untuk backend. Bucket `erp4-private-finance-proofs` bersifat privat, maksimum 3 MB, MIME `image/png`, `image/jpeg`, dan `application/pdf`.
-- Fixture UAT yang sudah ada: satu tenant sintetis `Pesantren UAT Wali`, slug `uat-wali-erp4-20261031`, UUID `80f406de-aa77-4efa-b36b-232ceb160178`.
-- Belum ada akun Auth uji, profil, kandidat, tagihan, relasi akun Wali, atau objek bukti di VQE. Tidak ada email yang dikirim dan tidak ada data operasional Firestore yang disalin.
-- Dialog Auth VQE telah disiapkan dengan email `wali-uat-erp4-20261031@example.invalid` dan `Auto confirm user` aktif. Pembuatan akun menunggu pengguna memasukkan password sementara dan menekan `Create user` sendiri. Password tidak boleh dikirim ke chat.
+Fixture sintetis dibuat khusus untuk UAT ini; tidak ada data operasional Firestore yang disalin dan tidak ada email undangan yang dikirim.
+
+| Data | Referensi |
+|---|---|
+| Tenant `uat-wali-erp4-20261031` | `80f406de-aa77-4efa-b36b-232ceb160178` |
+| Akun Auth Wali (dibuat dan dikonfirmasi oleh pengguna) | `wali-uat-erp4-20261031@example.invalid`, UUID `07fdbe72-60f1-4b27-b090-919a952d32ad` |
+| Kandidat | `980e32df-9177-4bf1-8a5b-b9f1bbe82a0d`, registrasi `UAT-WALI-20261031-001` |
+| Tagihan | `1a699bf4-76ba-45fb-a61e-7ae82986d087` |
+| Idempotency key bukti | `e1344262-ad4c-4472-868e-55a090e6c3ac` |
+| Objek bukti | `financeProofs/80f406de-aa77-4efa-b36b-232ceb160178/1a699bf4-76ba-45fb-a61e-7ae82986d087/dummy-payment-proof.png` |
+
+Profil Wali aktif terhubung ke tenant. Tagihan bernilai sintetis Rp10.000, relasi Wali-kandidat ada satu, dan tagihan saat ini berstatus `verification`. Objek PNG dummy 68 byte berada di bucket privat `erp4-private-finance-proofs`.
+
+Fixture menunggu keputusan akhir pengguna untuk penghapusan. Cleanup mencakup objek Storage, `finance_write_requests`, tagihan, relasi, kandidat, `finance_controls`, akun Auth/profil, dan tenant. PTSAS Production tidak disentuh.
+
+## Hasil verifikasi
+
+- Login belum dilakukan melalui aplikasi. Autentikasi langsung ke Auth dashboard tidak dipakai untuk menyimpulkan bahwa sesi aplikasi sudah benar.
+- Dengan role database `authenticated`, RLS mengembalikan hanya profil sendiri dan tenant aktif akun uji.
+- Role `authenticated` tidak memiliki akses Data API langsung ke tabel finansial; akses finansial harus melewati endpoint server. Bucket bukti bersifat privat dan tidak memiliki policy akses langsung.
+- Helper relasi Wali-kandidat mengizinkan kandidat yang tertaut, serta menolak tenant/kandidat yang tidak terkait dan kandidat yang ditolak.
+- Upload bukti memakai hak admin dashboard; ini bukan bukti upload melalui sesi Wali aplikasi.
+- RPC `register_tenant_finance_payment_proof` berhasil mencatat tagihan menjadi `verification`. Pengulangan dengan idempotency key sama menghasilkan `alreadyApplied: true`.
+- Uji negatif RPC menolak role yang tidak sesuai, path traversal, dan tenant berbeda.
+- Karena belum ada konfigurasi server VQE yang aman di worktree, login aplikasi, upload melalui endpoint Wali, onboarding, serta akses pasca-onboarding belum teruji.
 
 ## Perubahan dan verifikasi kode
 
-- Wali dengan email Auth terverifikasi dapat mengakses tagihan kandidat PPDB pra-onboarding hanya di tenant yang sesuai, untuk kandidat yang belum ditolak/di-onboard, dengan tagihan aktif.
+- Wali dengan email Auth terverifikasi dapat mengakses tagihan kandidat PPDB pra-onboarding hanya pada tenant yang sesuai, untuk kandidat yang belum ditolak/di-onboard, dengan tagihan aktif.
 - Setelah onboarding, akses kandidat dicabut dan tagihan mengikuti relasi santri serta Wali kanonis.
-- CI pada commit kode `2ba3cdb362aba2a6fa8eaafdd60c5142ea0814f7): [run 41168200484](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41168200484). Kedua job sukses: build dan guard frontend, migration rehearsal, pgTAP, API auth/tenant, Storage, backup/restore, import, idempotensi, serta build konfigurasi Docker pelanggan.
-- Head PR setelahnya hanya memperbarui dokumentasi; workflow CI tidak berjalan pada commit docs. Tidak ada perubahan source aplikasi atau migrasi setelah kode yang diuji.
-- Tes live VQE sebelumnya menghasilkan 53 assertion privilege API dan 44 assertion isolasi tenant; skrip memakai rollback. Tes otomatis itu tidak menggantikan UAT aplikasi Wali.
-- Advisor VQE: 156 temuan INFO RLS pada tabel backend-only tanpa policy, 238 INFO indeks FK, dan 168 INFO unused index. Karena VQE kosong dari data operasional, telemetry indeks belum mewakili beban nyata; tidak ada indeks massal yang dihapus.
+- CI [run 41168200484](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41168200484) lulus pada commit kode `2ba3cdb362aba2a6fa8eaafdd60c5142ea0814f7`: frontend build/guard, migration rehearsal, pgTAP, API tenant/auth, Storage, backup/restore, import, idempotensi, dan build Docker pelanggan.
+- Head PR setelah commit kode berisi pembaruan dokumentasi saja; workflow CI tidak berjalan pada commit docs.
+- VQE memiliki 115 migration sampai `20270212000000_optimize_core_tenant_query_indexes). pgTAP live sebelumnya: 53 assertion privilege API dan 44 assertion isolasi tenant; skrip memakai rollback.
+- Security Advisor: 156 INFO untuk tabel backend-only tanpa policy; tidak ada WARN helper SECURITY DEFINER atau `auth_rls_initplan`. Performance Advisor memberi INFO indeks FK/unused-index. VQE tidak memiliki data operasional sehingga telemetry indeks belum mewakili beban nyata.
 
-## UAT yang masih harus dijalankan
+## Tindak lanjut
 
-Setelah akun Auth uji dibuat dan backend lokal dikonfigurasi dengan kredensial VQE:
-
-1. Buat kandidat sintetis dengan email kontak yang sama dan satu tagihan registrasi.
-2. Daftarkan/claim Wali melalui alur aplikasi, lalu pastikan profil serta tautan kandidat dibuat server-side.
-3. Pastikan Wali hanya melihat kandidat/tagihan yang tertaut dalam tenantnya; tenant lain dan kandidat tak tertaut harus ditolak.
-4. Unggah PNG dummy ke bucket privat, verifikasi metadata/path dan kegagalan akses langsung tanpa otorisasi.
-5. Uji transisi onboarding: akses pra-onboarding dicabut, tagihan terhubung ke santri, dan Wali hanya melihat santri yang berelasi.
-6. Hapus objek Storage, tagihan, kandidat, relasi, profil, akun Auth, dan tenant sintetis. Akun Auth dihapus melalui Supabase Auth dashboard/API tepercaya, bukan SQL langsung.
-7. Verifikasi seluruh hitungan fixture kembali nol dan VQE tidak menyisakan objek `uat/`.
+1. Tim backend menyediakan environment lokal/staging khusus VQE melalui secret manager, mengisi tenant ID sintetis, lalu menjalankan server dari commit source PR yang tepat.
+2. Pengguna menguji login aplikasi sendiri tanpa membagikan password; lakukan pemeriksaan halaman wali, tagihan kandidat, upload file, dan transisi onboarding.
+3. Hapus fixture sesuai tabel di atas dan verifikasi hitungan kembali nol.
+4. Tinjau PR dan hasil UAT sebelum mengubah PR dari Draft/Open.
 
 ## Status PR dan progress checkpoint
 
-PR #38 tetap Draft/Open sampai UAT aplikasi dan tinjauan tim backend selesai. CI terbaru pada kode lulus, tetapi login aplikasi, unggah bukti melalui UI, onboarding, isolasi tenant pada runtime, dan pembersihan fixture belum terverifikasi.
+PR #38 tetap Draft/Open sampai UAT UI Wali dan tinjauan backend selesai.
 
-**Progress PR #38: 75% (3 dari 4 gate checkpoint).** Implementasi kode, CI pada commit kode, dan penerapan skema staging selesai. UAT UI Wali masih tertunda. Angka ini hanya untuk checkpoint PR #38, bukan seluruh produk ERP atau kesiapan komersial.
+**Progress checkpoint PR #38: 75% (3 dari 4 gate).** Implementasi, CI pada commit kode, dan skema staging selesai. UAT database sudah memberi bukti untuk validasi tenant, role, upload object, pencatatan transaksi, dan idempotensi. UAT UI Wali masih tertunda. Angka ini hanya untuk checkpoint PR #38, bukan seluruh ERP atau kesiapan komersial.
 
 ## Riwayat rekonsiliasi migrasi
 
-VQE sempat menerima timestamp migration sementara dari tool. Setiap row yang terdampak direkonsiliasi hanya setelah nama dan SQL diverifikasi, dengan guard bahwa versi kanonis belum ada; SQL skema tidak dijalankan ulang. Ledger akhir sekarang berisi 115 migrasi dengan versi terbaru cocok dengan source PR.
+VQE sempat menerima timestamp migration sementara dari tool. Baris yang terdampak direkonsiliasi hanya setelah nama dan SQL diverifikasi, dengan guard bahwa versi kanonis belum ada; SQL skema tidak dijalankan ulang. Ledger akhir berisi 115 migrasi dengan versi terbaru cocok dengan source PR.
