@@ -485,6 +485,7 @@ async function startServer() {
   const PORT = Number.isInteger(configuredPort) && configuredPort > 0 && configuredPort <= 65535
     ? configuredPort
     : 3000;
+  const HOST = process.env.HOST?.trim() || "0.0.0.0";
 
   // Never trust client-supplied forwarding headers by default. Cloud Run is detected
   // through its platform environment; self-managed operators can set the exact trusted hop count.
@@ -3916,8 +3917,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
   });
 }
 
