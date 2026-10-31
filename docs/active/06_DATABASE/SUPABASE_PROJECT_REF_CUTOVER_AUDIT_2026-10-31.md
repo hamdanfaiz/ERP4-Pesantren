@@ -1,4 +1,4 @@
-# Audit perpindahan Supabase VQE ke PTSAS — 31 Oktober 2026
+# Audit environment Supabase ERP: VQE staging dan PTSAS Production — 31 Oktober 2026
 
 Dokumen ini mencatat bukti untuk membedakan perpindahan antarproyek Supabase dari cutover runtime ERP/Firebase. Tidak ada schema, baris database, Auth, Storage, atau migration PTSAS Production yang diubah. Pada 31 Oktober 2026, project VQE ditetapkan sebagai staging ERP dan integrasi GitHub-nya dihubungkan ke repo `hamdanfaiz/ERP4-Pesantren`; penerapan otomatis hanya berlaku pada VQE. Integrasi PTSAS tidak diubah.
 
