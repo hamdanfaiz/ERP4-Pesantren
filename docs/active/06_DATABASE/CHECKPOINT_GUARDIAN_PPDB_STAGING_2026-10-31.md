@@ -65,3 +65,19 @@
 
 - UAT aplikasi Wali PPDB tetap menunggu tenant, akun Auth Wali, kandidat, dan tagihan uji disposable. Tidak ada fixture persisten yang dibuat.
 - PR #38 tetap Draft; CI dan migrasi staging belum menggantikan UAT login, unggah bukti, onboarding, serta isolasi tenant melalui aplikasi.
+
+## Addendum — policy performance and core indexes (31 Oktober 2026)
+
+- Checkpoint kecil hardening RLS dan indeks inti (migration `20270209000000`–`20270212000000`) selesai: **100% untuk cakupan ini**. Angka ini bukan persentase penyelesaian seluruh produk ERP.
+- CI PR #38 run [41166356939](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41166356939) lulus pada kedua job: build frontend/bundle guard serta rehearsal migration, pgTAP, API tenant/auth, Storage, dan backup/restore.
+- Migration `20270211000000_optimize_profile_rls_initplans` dan `20270212000000_optimize_core_tenant_query_indexes` diterapkan hanya pada VQE. Row sementara untuk migration terakhir (`20261031035845`) direkonsiliasi secara terjaga ke versi source `20270212000000`; SQL tidak dijalankan ulang. Ledger VQE berisi 115 migration dan versi terakhir cocok dengan repo.
+- RLS policy yang memakai konteks stabil sekarang memakai scalar subquery/initplan. Performance Advisor tidak lagi melaporkan `auth_rls_initplan`.
+- Indeks baru: `guardian_students(tenant_id, student_id, guardian_id)` untuk pencarian relasi dari sisi santri; `tahfidz_sessions(tenant_id, halaqah_id, kind, scheduled_at, id)` untuk halaman sesi Ustadz yang dibatasi halaqah dan jenis sesi.
+- pgTAP API privilege mencapai assertion 53; isolasi tenant mencapai assertion 44. CI menjalankan seluruh assertion. Tes live memakai transaksi rollback; sesudahnya jumlah tenant, profil, kandidat, Auth user, dan tabel probe tetap 0.
+- Security Advisor masih mencatat 156 INFO `rls_enabled_no_policy` pada tabel backend-only. Performance Advisor masih mencatat 238 INFO foreign key tanpa indeks penutup dan 168 INFO unused index. Tidak ada indeks yang dihapus massal: VQE kosong sehingga statistik pemakaian belum mewakili beban nyata; temuan FK sisanya perlu dipetakan terhadap pola query dan jadwal penghapusan data sebelum indeks tambahan dipilih.
+- Integrasi GitHub VQE tetap tidak tersambung; PTSAS Production tidak disentuh.
+
+### Status pekerjaan yang masih terbuka
+
+- UAT aplikasi Wali PPDB tetap menunggu tenant, akun Auth Wali, kandidat, dan tagihan disposable. Tes live database tidak membuktikan alur UI login, unggah bukti, dan onboarding.
+- PR #38 tetap Draft sampai UAT aplikasi dan tenant selesai, serta tinjauan backend selesai.
