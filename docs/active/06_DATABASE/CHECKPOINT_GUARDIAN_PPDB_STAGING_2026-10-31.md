@@ -5,7 +5,7 @@
 - PR: [#38 — Enable guardian access to PPDB finance before onboarding](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/38).
 - Branch: `codex/continue-erp-hardening-20261031`; source UI UAT diambil dari head `88e7e7438c91b1fa79d765ebf77ed8efc16ea8a7`.
 - Target UAT: Supabase VQE, project ref `vqemuyzveuirlkvdggjd`, yang pengguna tetapkan sebagai staging.
-- PTSAS `ptsasgdvgrbdtgyqieie` adalah Production dan tidak disentuh.
+- PTSAS `ptsasgdvgrbdtgyqieie` adalah Production; tidak ada data atau skema database yang diubah. Satu email konfirmasi untuk akun Admin yang sudah ada dikirim ulang melalui Auth setelah persetujuan pengguna; kata sandi tidak diubah.
 
 ## Batas lingkungan
 
@@ -29,7 +29,7 @@ Fixture sintetis dibuat khusus untuk UAT ini; tidak ada data operasional Firesto
 | Idempotency key bukti | `e1344262-ad4c-4472-868e-55a090e6c3ac` |
 | Objek bukti | `financeProofs/80f406de-aa77-4efa-b36b-232ceb160178/1a699bf4-76ba-45fb-a61e-7ae82986d087/dummy-payment-proof.png` |
 
-Fixture sudah dibersihkan di VQE: akun Auth dan profil, tenant, kandidat, tagihan, relasi Wali-kandidat, request idempotensi, `finance_controls`, dan objek bukti Storage sudah dihapus. Query verifikasi sesudah cleanup mengembalikan hitungan 0 untuk setiap ID/path sintetis di atas. Akun Auth staging juga terverifikasi tidak ditemukan pada dashboard. PTSAS Production tidak diubah.
+Fixture sudah dibersihkan di VQE: akun Auth dan profil, tenant, kandidat, tagihan, relasi Wali-kandidat, request idempotensi, `finance_controls`, dan objek bukti Storage sudah dihapus. Query verifikasi sesudah cleanup mengembalikan hitungan 0 untuk setiap ID/path sintetis di atas. Akun Auth staging juga terverifikasi tidak ditemukan pada dashboard. Data dan skema database PTSAS Production tidak diubah; email konfirmasi untuk akun Admin yang sudah ada dikirim ulang setelah persetujuan pengguna.
 
 ## Hasil verifikasi
 
