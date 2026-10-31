@@ -16,6 +16,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  npm-install:
+    name: Verify NPM installation for customer environments
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install from the committed NPM lockfile
+        run: npm ci --no-audit --no-fund
+
   frontend:
     name: Frontend build and Firebase bundle guard
     runs-on: ubuntu-24.04
@@ -34,6 +50,9 @@ jobs:
 
       - name: Typecheck
         run: bun run lint
+
+      - name: Keep private RLS helpers out of the Data API
+        run: npm run test:private-api-schema
 
       - name: Verify read-only Supabase migration preflight
         run: npm run test:migration-preflight
@@ -61,6 +80,9 @@ jobs:
 
       - name: Verify guardian invitation before password activation
         run: npm run test:guardian-invitation-verification
+
+      - name: Verify recovery links use the configured application URL
+        run: npm run test:auth-recovery-redirect
 
       - name: Verify Firebase packages are excluded from production dependencies
         run: node scripts/test-production-dependencies.mjs
@@ -285,4 +307,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+
 

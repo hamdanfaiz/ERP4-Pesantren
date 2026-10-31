@@ -43,3 +43,11 @@ PTSAS memiliki snapshot historis baca-saja: 119 tabel public dan 47 versi ledger
 ## Batas bukti
 
 Snapshot ini membuktikan kondisi katalog dan ledger yang terlihat ketika query dijalankan; bukan kesetaraan seluruh database dengan source, perilaku semua endpoint, konfigurasi secret hosting, login/UAT, atau backup/restore Production. Tidak ada migration atau perubahan data Production yang dilakukan oleh audit ini.
+
+
+## Addendum status terkini — 31 Oktober 2026
+
+- Angka 110/110 untuk VQE dan source `main` di bagian Ringkasan adalah snapshot saat checkpoint sebelumnya dibuat. Keadaan terbaru: `main` pada base PR #38 memiliki 110 migrasi sampai `20270207000000`, sedangkan VQE memiliki 112 sampai `20270209000000`; dua migrasi tambahan masih berada di PR #38 yang Draft. VQE kini lebih maju dua migrasi dari `main`.
+- Konektor Supabase menolak akses baca PTSAS untuk pemeriksaan `get_project`, `list_migrations`, dan `list_tables`. Karena itu, catatan 119 tabel, 47 versi ledger, status integrasi, serta auto-deploy di dokumen ini adalah bukti historis saja dan belum diverifikasi ulang pada kondisi terkini. Tidak ada perubahan PTSAS yang dilakukan.
+- Integrasi GitHub VQE sudah diputus; dashboard tetap memberi label `main / PRODUCTION`. Jangan menyimpulkan label itu sebagai status kesetaraan skema atau bukti deployment.
+- VQE belum berisi tenant, akun Auth, profil, kandidat, atau tagihan; UAT manual belum berjalan. PR #38 tetap Draft sampai alur Wali dan isolasi tenant diuji.

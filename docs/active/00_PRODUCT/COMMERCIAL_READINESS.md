@@ -97,3 +97,52 @@ Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika 
 
 Checkpoint terukur: deployment skema staging **110/110 migration (100%)**. Persentase keseluruhan penyelesaian fitur belum dihitung ulang pada checkpoint ini; UAT, provisioning, validasi instalasi pelanggan, dan rekonsiliasi Production masih terbuka.
 
+
+
+## Addendum verifikasi terbaru — 31 Oktober 2026
+
+Catatan di atas yang menyebut VQE 110/110 dan mencatat konfigurasi Production berasal dari snapshot sebelumnya. Kondisi dan batas bukti setelah pemeriksaan terbaru:
+
+- PR #38 tetap terbuka dalam status Draft. Source `main` pada base PR memiliki 110 migrasi sampai `20270207000000`; VQE staging memiliki 112 sampai `20270209000000`, sehingga staging memuat dua migrasi PR #38 yang belum ada di `main`.
+- Integrasi GitHub VQE telah diputus. Label dashboard `main / PRODUCTION` masih tampil dan tidak menunjukkan kesiapan cutover.
+- Upaya baca-saja terbaru ke PTSAS untuk metadata proyek, ledger migration, dan daftar tabel ditolak oleh konektor. Maka angka dan konfigurasi PTSAS di snapshot terdahulu tetap historis; status live skema/ledger dan deployment Production belum terverifikasi ulang. Tidak ada perubahan pada PTSAS.
+- CI PR #38 run [41162313076](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41162313076) lulus 2/2 job, dengan Supabase Preview dilewati. VQE masih tidak memiliki fixture Auth/tenant/PPDB; UAT Wali dan isolasi tenant belum dilakukan.
+- Untuk **cakupan PR #38 saja**, implementasi, CI, dan penerapan/review skema staging sudah lulus; UAT adalah satu gerbang tersisa (3 dari 4, sekitar 75%). Ini bukan persentase penyelesaian keseluruhan ERP atau kesiapan komersial.
+
+
+## Addendum status terbaru — 31 Oktober 2026
+
+Addendum ini menggantikan angka dan status staging/PR pada addendum sebelumnya.
+
+- PR #38 masih Draft/Open. `main` pada base PR (`e9e65e3e8b9d05d126a6150ce726f720722839c5`) memiliki 110 migration sampai `20270207000000`; PR #38 menambahkan lima migration. VQE staging mencatat 115 sampai `20270212000000`.
+- CI terbaru [run 41167881103](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41167881103) lulus 2/2 job pada head branch terkini `9e939d87b3285dd1cb92e34974b7010545158a20`. Cakupan termasuk build/Docker/Compose, rehearsal migration, pgTAP, API auth/tenant, Storage, dan backup/restore. Skrip inventaris PTSAS hanya SELECT metadata; query-querynya telah divalidasi pada VQE staging dan belum dijalankan pada PTSAS Production.
+- Integrasi GitHub VQE sudah terputus. Label dashboard `main / PRODUCTION` tetap label internal Supabase; VQE tetap dipakai sebagai staging sesuai keputusan pemilik.
+- UAT UI Wali PPDB (login, akses tagihan kandidat, unggah bukti, onboarding, dan isolasi tenant) belum dilakukan. Staging tidak memiliki fixture tenant/Auth/kandidat/tagihan persisten; pembuatan fixture masih menunggu persetujuan. CI dan pgTAP tidak menggantikan UAT UI.
+- Konektor saat ini menolak baca PTSAS Production. Snapshot ledger/katalog lama harus dianggap historis sampai tim backend/operator menjalankan [inventaris baca-saja](../06_DATABASE/PTSAS_PRODUCTION_READ_ONLY_RECONCILIATION.sql) pada ref yang benar. Auto-deploy Production tetap harus OFF sampai rekonsiliasi dan backup dipulihkan.
+- **Progres checkpoint PR #38: 75% (3 dari 4 gerbang internal: implementasi, CI, dan penerapan skema staging selesai; UAT UI tersisa).** Angka ini hanya untuk patch PR #38, bukan keseluruhan ERP, kesiapan komersial, atau kelayakan deployment.
+- Tim backend dapat mulai review PR #38 dan menyiapkan jadwal UAT. Jangan merge PR atau menerapkan migration ke PTSAS sebelum UAT dan rekonsiliasi Production selesai.
+
+## Addendum verifikasi staging dan gerbang UAT — 31 Oktober 2026
+
+Bagian ini menggantikan status UAT/CI lama di addendum sebelumnya. Catatan historis lain tetap berlaku bila tidak bertentangan.
+
+- **PR #38 tetap Draft/Open.** Source code pada commit `2ba3cdb362aba2a6fa8eaafdd60c5142ea0814f7` lulus CI [run 41168200484](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41168200484), 2/2 job. Head PR sesudahnya berisi pembaruan dokumentasi; jangan menganggap UAT UI sudah lulus.
+- **VQE staging** aktif sehat dengan 115 migration sampai `20270212000000`. Inventaris langsung saat checkpoint ini menunjukkan 161 tabel `public`, semuanya RLS aktif, dan tidak ada baris operasional pada tabel-tabel tersebut.
+- Fixture sintetis tenant, akun Auth, profil Wali, kandidat, tagihan, relasi, request, dan objek Storage pernah dibuat untuk UAT atas persetujuan pemilik, lalu dihapus atas persetujuan pemilik. Tidak ada fixture atau akun Wali UAT yang persisten sekarang; pernyataan sebelumnya bahwa pembuatan fixture masih menunggu persetujuan sudah tidak berlaku.
+- Source frontend PR lulus guard Supabase-only pada 92 modul; 26 route Supabase aktif dan 26 route migrasi lama tertutup. Guard konfigurasi deployment juga lulus (30 nilai runtime publik, 37 gerbang server fail-closed); guard schema API internal lulus. Firebase masih tercantum dalam source legacy/devDependency, tetapi tidak berada dalam import graph runtime aktif yang diuji.
+- Supabase Advisor melaporkan 156 temuan INFO `rls_enabled_no_policy` pada tabel backend-only. Ini perlu tetap dicocokkan dengan grant API dalam review backend/Production; tidak ada perubahan pada PTSAS Production dalam UAT ini.
+- Preview lokal `http://localhost:4179` berhasil memuat aplikasi dan hanya menerima URL serta publishable key VQE. Worktree tidak memiliki `SUPABASE_SECRET_KEY` VQE atau `PUBLIC_PPDB_TENANT_ID`; karena itu login melalui aplikasi, tagihan Wali, upload endpoint, onboarding, dan isolasi tenant melalui antarmuka belum teruji.
+- Tim backend perlu menyediakan konfigurasi VQE khusus melalui secret manager atau `.env` lokal yang diabaikan Git. Jangan memakai konfigurasi PTSAS Production. Variabel PII harus berupa dua kunci independen yang dibuat dari nilai acak 32 byte (64 karakter hex), disimpan server-side, dan tidak dikirim melalui chat atau dimasukkan ke bundle.
+- Setelah konfigurasi VQE tersedia, buat ulang fixture sintetis untuk UAT UI, jalankan login/tagihan/unggah/onboarding/isolasi tenant, lalu hapus fixture dan verifikasi jumlahnya kembali nol. PTSAS tetap tidak disentuh.
+
+**Progress checkpoint PR #38 tetap 75% (3/4 gerbang internal);** angka ini hanya cakupan PR, bukan persentase keseluruhan ERP atau kesiapan komersial. UAT UI, rekonsiliasi Production, rotasi secret Production, dan clean-install/upgrade/restore di environment pelanggan masih terbuka.
+
+
+## Addendum kesiapan Auth dan callback — 31 Oktober 2026
+
+- Kode server recovery Admin kini meneruskan `PUBLIC_APP_URL` ke Supabase Auth. Regression test `test:auth-recovery-redirect` lulus lokal dan terdaftar di CI.
+- GitHub Actions [run 41175465787](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41175465787) lulus 2/2 job pada PR head dokumentasi terbaru `4cb142edfd7e18563c49f8396b0388b9ee551738`; source code yang diuji mencakup perubahan recovery redirect pada `ed8d536ba3c7f638be357db9c2f7164435af88c3`.
+- Pemeriksaan dashboard Auth Production menunjukkan Site URL `http://localhost:3000` dan belum ada Redirect URLs. Akun Admin sudah berstatus **Confirmed** dan terakhir masuk pada 31 Oktober 2026 pukul 12.19. Verifikasi email berhasil; browser gagal membuka tujuan localhost karena aplikasi tidak tersedia pada origin/port itu.
+- URL Auth Production belum diubah. Sebelum email Auth dikirim kepada pengguna produksi, operator harus menetapkan domain HTTPS hosting dan menambahkan hanya redirect aplikasi yang tepat. Jangan memakai nilai localhost sebagai URL pelanggan.
+- UAT UI Wali pada VQE tetap belum terbukti karena konfigurasi secret server dan tenant UAT belum tersedia. PR #38 tetap Draft/Open dengan progress khusus PR **75%** (implementasi, CI, dan skema staging lulus; UAT UI tersisa). Persentase keseluruhan ERP belum dihitung.
+

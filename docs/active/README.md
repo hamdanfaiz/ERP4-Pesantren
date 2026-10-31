@@ -9,6 +9,7 @@ Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `compl
 - [Progres penyelesaian pengembangan — 30 Okt 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — estimasi progres pengembangan sekitar 73%, tidak termasuk pelaksanaan deployment dan UAT oleh tim penerapan.
 
 ## Referensi aktif
+- [Checkpoint terkini PR #38 — PPDB Wali di VQE](06_DATABASE/CHECKPOINT_GUARDIAN_PPDB_STAGING_2026-10-31.md) — 112 migrasi staging, selisih terhadap `main`, keterbatasan akses PTSAS, dan gerbang UAT.
 - [Audit penutupan PR — 30 Okt 2026](05_ARCHITECTURE/PR_CLOSURE_AUDIT_2026-10-30.md) — status terkini PR #1–#13, bukti CI, perbandingan awal, dan syarat penutupan/penggabungan.
 - [Audit dependensi PR — 25 Okt 2026](05_ARCHITECTURE/PR_DEPENDENCY_AUDIT_2026-10-25.md) — catatan historis tentang base, stack, CI, review, dan kesiapan merge PR #1–#13.
 - [Paritas fitur PR #11 → #13](05_ARCHITECTURE/PR11_TO_PR13_FEATURE_PARITY.md) — pemetaan fitur, perubahan autentikasi, serta gap PPDB, Finance, dan dokumen.

@@ -11,6 +11,7 @@ import {
   checkIdentityStoreReady,
   changeInitialPassword,
   createAuthUserWithProfile,
+  guardianCanAccessCandidate,
   guardianCanAccessStudent,
   listGuardianStudents,
   createGuardianAccountInvitation,
@@ -452,6 +453,20 @@ function safePaymentProofName(input: unknown): string {
   return baseName.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120) || "bukti-pembayaran";
 }
 
+async function guardianCanAccessFinanceBill(tenantId: string, userId: string, billing: Record<string, any>): Promise<boolean> {
+  if (billing.student_id) return guardianCanAccessStudent(tenantId, userId, String(billing.student_id));
+  if (billing.candidate_id) return guardianCanAccessCandidate(tenantId, userId, String(billing.candidate_id));
+  return false;
+}
+
+function financeProofSubjectSegments(billing: Record<string, any>): string[] {
+  const subjects: string[] = [];
+  if (billing.student_id) subjects.push(String(billing.student_id));
+  if (billing.candidate_id) subjects.push("candidate-" + String(billing.candidate_id));
+  if (!subjects.length) subjects.push("unlinked");
+  return subjects;
+}
+
 function detectPaymentProofMime(bytes: Buffer): string | null {
   if (bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "image/png";
   if (bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255]))) return "image/jpeg";
@@ -488,6 +503,7 @@ async function startServer() {
 
   let lastReadinessCheckedAt = 0;
   let lastReadinessResult = false;
+  let readinessFailureLogged = false;
   let readinessInFlight: Promise<boolean> | null = null;
 
   app.get("/health/live", (_req, res) => {
@@ -498,7 +514,22 @@ async function startServer() {
   app.get("/health/ready", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (Date.now() - lastReadinessCheckedAt >= 5000) {
-      readinessInFlight ??= checkIdentityStoreReady().then(() => true).catch(() => false);
+      readinessInFlight ??= checkIdentityStoreReady()
+        .then(() => {
+          readinessFailureLogged = false;
+          return true;
+        })
+        .catch((error: unknown) => {
+          if (!readinessFailureLogged) {
+            console.error("Supabase identity readiness check failed", {
+              errorType: error instanceof Error ? error.name : "unknown",
+              supabaseUrlConfigured: Boolean(process.env.SUPABASE_URL),
+              serverSecretConfigured: Boolean(process.env.SUPABASE_SECRET_KEY),
+            });
+            readinessFailureLogged = true;
+          }
+          return false;
+        });
       lastReadinessResult = await readinessInFlight;
       lastReadinessCheckedAt = Date.now();
       readinessInFlight = null;
@@ -3146,12 +3177,12 @@ async function startServer() {
         const payChannel = typeof req.body?.payChannel === "string" ? req.body.payChannel.trim() : "";
         if (!["BSI", "Muamalat", "MandiriSyariah"].includes(payChannel)) return res.status(400).json({ error: "Metode transfer tidak valid." });
         const billing = await getSupabaseFinanceBill(actor.tenantId, billingId);
-        if (actor.role === "Walisantri" && !(await guardianCanAccessStudent(actor.tenantId, actor.uid, String(billing.student_id)))) return res.status(404).json({ error: "Tagihan tidak ditemukan pada tenant ini." });
+        if (actor.role === "Walisantri" && !(await guardianCanAccessFinanceBill(actor.tenantId, actor.uid, billing))) return res.status(404).json({ error: "Tagihan tidak ditemukan pada tenant ini." });
         const requestId = typeof req.body?.clientRequestId === "string" ? req.body.clientRequestId : "";
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) return res.status(400).json({ error: "Kunci unggahan pembayaran tidak valid." });
         const safeName = safePaymentProofName(req.body?.fileName);
-        const safeSantriId = String(billing.student_id || "unlinked");
-        uploadedPath = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(safeSantriId) + "/" + encodeURIComponent(billingId) + "/" + uid + "-" + Date.now() + "-" + randomUUID() + "-" + safeName;
+        const subjectSegment = financeProofSubjectSegments(billing)[0];
+        uploadedPath = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(subjectSegment) + "/" + encodeURIComponent(billingId) + "/" + uid + "-" + Date.now() + "-" + randomUUID() + "-" + safeName;
         await uploadSupabaseFinanceProof(uploadedPath, bytes, mimeType);
         const fileSha256 = createHash("sha256").update(bytes).digest("hex");
         const result = await registerSupabaseFinanceProof(actor.tenantId, uid, actor.role, billingId, uploadedPath, safeName, payChannel, fileSha256, requestId);
@@ -3177,11 +3208,12 @@ async function startServer() {
         const billingId = typeof req.params.billingId === "string" ? req.params.billingId.trim() : "";
         if (!billingId || billingId.length > 150) return res.status(400).json({ error: "ID tagihan tidak valid." });
         const billing = await getSupabaseFinanceBill(actor.tenantId, billingId);
-        if (actor.role === "Walisantri" && !(await guardianCanAccessStudent(actor.tenantId, actor.uid, String(billing.student_id)))) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
+        if (actor.role === "Walisantri" && !(await guardianCanAccessFinanceBill(actor.tenantId, actor.uid, billing))) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
         if (billing.proof_storage_provider !== "supabase" || typeof billing.proof_storage_path !== "string") return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
-        const safeSantriId = String(billing.student_id || "unlinked");
-        const expectedPrefix = "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(safeSantriId) + "/" + encodeURIComponent(billingId) + "/";
-        if (!billing.proof_storage_path.startsWith(expectedPrefix) || billing.proof_storage_path.includes("..")) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
+        const validPrefixes = financeProofSubjectSegments(billing).map((subject) =>
+          "financeProofs/" + encodeURIComponent(actor.tenantId) + "/" + encodeURIComponent(subject) + "/" + encodeURIComponent(billingId) + "/"
+        );
+        if (!validPrefixes.some((prefix) => billing.proof_storage_path.startsWith(prefix)) || billing.proof_storage_path.includes("..")) return res.status(404).json({ error: "Bukti transfer tidak ditemukan." });
         const proof = await downloadSupabaseFinanceProof(billing.proof_storage_path);
         if (!["image/png", "image/jpeg", "application/pdf"].includes(proof.contentType)) return res.status(415).json({ error: "Tipe berkas bukti tidak didukung." });
         res.setHeader("Content-Disposition", 'inline; filename="' + safePaymentProofName(billing.proof_file) + '"');
