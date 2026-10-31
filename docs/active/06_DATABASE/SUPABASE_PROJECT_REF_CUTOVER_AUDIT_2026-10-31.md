@@ -1,6 +1,6 @@
 # Audit perpindahan Supabase VQE ke PTSAS — 31 Oktober 2026
 
-Dokumen ini mencatat bukti untuk membedakan perpindahan antarproyek Supabase dari cutover runtime ERP/Firebase. Tidak ada schema, baris database, Auth, Storage, migration, atau konfigurasi deployment Production yang diubah. Pada 31 Oktober 2026, integrasi GitHub hanya pada project lama VQE diputus; integrasi PTSAS tidak diubah.
+Dokumen ini mencatat bukti untuk membedakan perpindahan antarproyek Supabase dari cutover runtime ERP/Firebase. Tidak ada schema, baris database, Auth, Storage, atau migration PTSAS Production yang diubah. Pada 31 Oktober 2026, project VQE ditetapkan sebagai staging ERP dan integrasi GitHub-nya dihubungkan ke repo `hamdanfaiz/ERP4-Pesantren`; penerapan otomatis hanya berlaku pada VQE. Integrasi PTSAS tidak diubah.
 
 ## Hasil audit project sumber VQE
 
@@ -13,11 +13,13 @@ Project Supabase `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY` pada saat dib
 - 0 Edge Function; dan
 - 0 routine pada schema `public`.
 
-Dengan inventaris tersebut, tidak ada isi database Supabase yang terdeteksi untuk disalin dari VQE ke PTSAS. Pemeriksaan ini bukan audit lengkap untuk seluruh konfigurasi project: secrets, seluruh schema non-public, konfigurasi provider Auth, log, dan referensi deployment eksternal tidak diperiksa. Project VQE masih aktif dan tidak dihapus atau dijeda. Pada 31 Oktober, koneksi GitHub VQE berhasil diputus; halaman kini meminta pemilihan repository untuk membuat koneksi baru.
+Dengan inventaris tersebut, tidak ada isi database Supabase yang terdeteksi untuk disalin dari VQE ke PTSAS. Pemeriksaan ini bukan audit lengkap untuk seluruh konfigurasi project: secrets, seluruh schema non-public, konfigurasi provider Auth, log, dan referensi deployment eksternal tidak diperiksa. Project VQE tetap aktif dan tidak dihapus atau dijeda. Sesuai persetujuan pemilik, VQE kini dipakai sebagai staging ERP: repository `hamdanfaiz/ERP4-Pesantren`, working directory `.`, branch `main`, dan `Deploy to production` aktif di project VQE. Supabase menamai branch internalnya `main / PRODUCTION`; untuk lingkungan ERP ini project tersebut tetap diperlakukan sebagai staging.
+
+Pembacaan sesudah koneksi dibuat masih menunjukkan 0 migration, 0 tabel aplikasi pada `public`, 0 pengguna Auth, 0 bucket/objek Storage, dan 0 Edge Function. Integrasi belum menerima push/merge setelah diaktifkan, sehingga schema migration ERP belum diterapkan ke VQE.
 
 ## Project tujuan PTSAS dan integrasi repository
 
-Project tujuan ERP adalah `ptsasgdvgrbdtgyqieie`. Dashboard mengonfirmasi integrasi GitHub PTSAS tetap menunjuk ke `hamdanfaiz/ERP4-Pesantren`, working directory `.`, dan `Deploy to production` tetap **OFF**. Project ini berada pada branch `main / PRODUCTION`; preview branch otomatis tidak tersedia pada paket Free. Halaman PTSAS tetap terhubung setelah pemeriksaan, sementara koneksi lama pada VQE sudah dilepas.
+Project tujuan Production ERP adalah `ptsasgdvgrbdtgyqieie`. Dashboard mengonfirmasi integrasi GitHub PTSAS tetap menunjuk ke `hamdanfaiz/ERP4-Pesantren`, working directory `.`, dan `Deploy to production` tetap **OFF**. Project ini berada pada branch `main / PRODUCTION`; preview branch otomatis tidak tersedia pada paket Free. Menghubungkan VQE sebagai staging tidak mengubah konfigurasi atau database PTSAS.
 
 - `Deploy to production` tetap **OFF**.
 - Dashboard menampilkan branch `main / PRODUCTION`; PTSAS bukan staging.
@@ -40,9 +42,8 @@ Konfigurasi repository menargetkan PTSAS, tetapi nilai `VITE_SUPABASE_URL` dan `
 
 ## Kesimpulan dan gerbang berikutnya
 
-1. **Project Supabase lama VQE:** inventory yang dapat diperiksa kosong dan integrasi GitHub sudah dilepas; tidak ada isi database Supabase yang terdeteksi untuk dipindahkan. Project tetap aktif. Jangan menghapusnya sebelum memastikan tidak ada consumer eksternal, Auth provider, Storage, secrets, atau deployment yang masih merujuk padanya.
-2. **Integrasi GitHub:** PTSAS tetap terhubung ke repo ERP yang benar dan penerapan otomatis Production tetap dimatikan; integrasi pada VQE telah diputus. Preview branch PTSAS masih belum tersedia.
+1. **Project VQE:** ditetapkan sebagai staging ERP dan kini terhubung ke repo `hamdanfaiz/ERP4-Pesantren`, branch `main`, dengan penerapan migration otomatis hanya pada VQE. Sebelum integrasi ini menerima push/merge berikutnya, inventarisnya masih kosong; migrasi staging belum terbukti selesai.
+2. **Project PTSAS:** tetap menjadi target Production, terhubung ke repo ERP, dan penerapan otomatis Production tetap **OFF**. Preview branch PTSAS tidak tersedia pada paket Free.
 3. **Firebase → Supabase:** runtime jalur aktif telah lolos guard CI, tetapi validasi environment hosting, staging/rehearsal pada salinan target, rekonsiliasi ledger 47 versi dengan 109 file source, serta login/UAT masih harus dituntaskan.
-4. Sediakan staging Supabase terisolasi yang dapat dipulihkan. Bandingkan nomor, nama, isi SQL, constraint, policy, dan efek migration pada staging terlebih dahulu. Jangan menyalin data dummy Firestore; gunakan fixture sintetis untuk membuktikan alur serta relasi.
+4. Jalankan serta verifikasi seluruh 109 migration pada staging VQE dari repo `main`. Jangan menyalin data dummy Firestore; gunakan fixture sintetis untuk membuktikan alur serta relasi. Rehearsal CI lulus pada Supabase lokal, tetapi belum menjadi bukti bahwa VQE sudah menerima migration.
 5. Setelah rekonsiliasi, minta tim penerapan memvalidasi kedua variabel URL runtime pada environment mereka, lalu lakukan UAT dan smoke test. PTSAS Production tetap tidak menerima migration otomatis dari merge GitHub.
-
