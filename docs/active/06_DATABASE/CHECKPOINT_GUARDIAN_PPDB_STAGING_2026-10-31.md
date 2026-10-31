@@ -15,7 +15,7 @@
 - Kunci server VQE bernama `codex_uat_staging` dibuat setelah persetujuan pengguna. Kunci PII acak juga disiapkan secara lokal; nilai kredensial tidak dicatat di dokumen ini.
 - Konfigurasi lokal menggunakan tenant sintetis di bawah, membuka endpoint konfigurasi/Finance PPDB untuk UAT, dan menjaga `PUBLIC_PPDB_ENABLED=false` agar intake PPDB publik tidak terbuka.
 - PTSAS Production, kredensialnya, dan aturan redirect-nya tidak diubah.
-- UAT UI belum selesai. Percobaan menjalankan server baru bertabrakan dengan listener lama pada port 3000; server yang ada kemudian dihentikan. Browser tidak dapat menjangkau localhost dari workspace ini, sehingga sesi login aplikasi belum bisa diverifikasi.
+- Pada pemeriksaan terbaru, browser membuka `http://localhost:4179/` dan menampilkan halaman masuk ERP. Layar menampilkan pesan kredensial tidak cocok dan pemberitahuan pemulihan yang generik; ini membuktikan UI dirender, bukan login berhasil atau email pemulihan terkirim. Runtime lokal menunjuk ke VQE. Akun Production PTSAS tidak dapat dipakai pada preview ini.
 
 ## Keadaan VQE saat ini
 
@@ -32,7 +32,7 @@
 - Upload bukti memakai hak admin dashboard; ini bukan bukti upload melalui sesi Wali aplikasi.
 - RPC `register_tenant_finance_payment_proof` berhasil mencatat tagihan menjadi `verification`. Pengulangan dengan idempotency key sama menghasilkan `alreadyApplied: true`.
 - Uji negatif RPC menolak role yang tidak sesuai, path traversal, dan tenant berbeda.
-- Login aplikasi, profil setelah login, endpoint upload Wali, onboarding, dan akses pasca-onboarding belum teruji. Preview tetap menunjuk ke VQE yang sudah bersih; konfigurasi server VQE dan akun uji baru diperlukan untuk mengulang UAT UI. Jangan memakai kredensial Production pada preview staging.
+- Login aplikasi, profil setelah login, endpoint upload Wali, onboarding, dan akses pasca-onboarding belum teruji. Preview di `localhost:4179` memakai konfigurasi VQE; pesan reset pada halaman tersebut menargetkan VQE, bukan PTSAS Production, dan bersifat generik sehingga tidak membuktikan email terkirim. Fixture Auth VQE sudah dibersihkan, jadi akun sintetis baru diperlukan. Jangan masukkan kredensial Production di preview staging.
 
 ## Perubahan dan verifikasi kode
 
@@ -46,7 +46,7 @@
 
 ## Tindak lanjut
 
-1. Jalankan server dari worktree PR #38 pada mesin yang membuka browser dengan konfigurasi `.env` VQE. Pastikan halaman login dan `/health/ready` dapat dijangkau sebelum UAT.
+1. Preview pada `http://localhost:4179/` sudah merender halaman masuk. Pastikan preview tetap menggunakan `.env` VQE dan `/health/ready` dapat dijangkau sebelum UAT; jangan alihkan preview staging ke PTSAS Production.
 2. Buat akun Wali uji dan fixture sintetis baru di VQE. Pengguna menetapkan password sendiri; jangan memakai atau memasukkan kredensial Production ke staging.
 3. Uji login melalui aplikasi, profil Wali, daftar kandidat/tagihan, upload berkas melalui endpoint Wali, penolakan akses lintas tenant, onboarding, dan akses setelah onboarding.
 4. Hapus semua fixture setelah UAT dan verifikasi hitungannya kembali nol. Minta konfirmasi tepat sebelum penghapusan cloud.
