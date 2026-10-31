@@ -1,67 +1,49 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
-> **Checkpoint 31 Oktober 2026:** source resmi branch `main`, commit `edd5385fee4d10db64681de9cc08ee757130eb78`, berisi 110 migration. VQE `vqemuyzveuirlkvdggjd` adalah staging yang disetujui dan sudah menerapkan 110/110 versi migration tanpa selisih set. PTSAS `ptsasgdvgrbdtgyqieie` tetap Production, GitHub auto-deploy **OFF**, dan tidak disentuh. Data Firestore dummy tidak perlu disalin. CI PR #36 lulus [2/2 job](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41153976106).
+> **Checkpoint 31 Oktober 2026:** branch `main` pada base PR #38 adalah `e9e65e3e8b9d05d126a6150ce726f720722839c5` dengan 110 migration sampai `20270207000000`. PR #38 Draft/Open membawa lima migration tambahan; VQE staging `vqemuyzveuirlkvdggjd` sudah memiliki 115 migration sampai `20270212000000`. CI PR #38 lulus 2/2 job pada run [41166754714](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41166754714). Integrasi GitHub VQE sudah terputus. PTSAS `ptsasgdvgrbdtgyqieie` tetap Production dan auto-deploy OFF; pembacaan live saat ini ditolak oleh konektor.
 
-**Tujuan dokumen:** memberi tim backend langkah konkret untuk melanjutkan pengujian dan menyiapkan rilis. Status ini tidak menyatakan aplikasi siap produksi atau sudah lulus UAT.
+Dokumen ini menyatakan keadaan yang terverifikasi untuk membantu tim melanjutkan pemeriksaan. Ini bukan pernyataan bahwa produk telah lulus UAT atau siap produksi.
 
-## Fakta lingkungan
+## Keadaan lingkungan
 
-| Lingkungan | Ref | Status dan batas |
+| Lingkungan | Ref | Keadaan dan batas |
 | --- | --- | --- |
-| Staging ERP | `vqemuyzveuirlkvdggjd` | Schema 110/110 migration sudah diterapkan. 160 tabel public, seluruhnya RLS-enabled dan FORCE RLS; 159 tabel tenant-scoped; 4 bucket Storage privat. Belum ada tenant maupun user Auth. Gunakan untuk data sintetis dan UAT. |
-| Production ERP | `ptsasgdvgrbdtgyqieie` | Auto-deploy tetap OFF. Snapshot lama menunjukkan 119 tabel dan 47 versi ledger, dua tanpa metadata. Konektor baca Codex menolak project ini pada checkpoint terakhir; tim harus memverifikasi ulang lewat akses resmi. Jangan menerapkan migration sebelum rekonsiliasi dan backup yang dapat dipulihkan. |
+| Staging ERP | `vqemuyzveuirlkvdggjd` | 115 migration diterapkan sampai `20270212000000`; tidak ada tenant, profil, kandidat, akun Auth, atau data uji persisten. Integrasi GitHub sudah terputus. Dashboard masih menampilkan label internal `main / PRODUCTION`; perlakukan VQE sebagai staging ERP sesuai keputusan pemilik. |
+| Production ERP | `ptsasgdvgrbdtgyqieie` | Auto-deploy OFF. Konektor Codex saat ini menolak pembacaan project, ledger, dan katalog. Snapshot historis mencatat 119 tabel dan 47 entri ledger (dua tanpa metadata), tetapi belum diverifikasi ulang. Jangan deploy migration atau memperbaiki ledger sebelum rekonsiliasi baca-saja dan backup yang dapat dipulihkan. |
 
-Kondisi VQE membuktikan deployment skema staging berhasil; hal itu tidak membuktikan Production sama, login berfungsi, atau seluruh alur bisnis diterima pengguna.
+`main` dan VQE memang berbeda saat ini: VQE telah menerima lima migration dari PR #38 yang belum digabung. Jangan menyebut VQE setara dengan `main` sampai PR tersebut selesai atau migrasi staging direkonsiliasi. Tidak ada data Firestore yang perlu disalin.
 
-## Langkah tim berikutnya
+## Tim dapat mulai sekarang
 
-### 1. Provisioning sintetis dan pemeriksaan konfigurasi staging
+1. **Review PR #38:** periksa perubahan akses Wali terhadap tagihan PPDB sebelum onboarding, lima migration tambahan, RLS/grants, dan CI. PR masih Draft/Open karena UAT aplikasi Wali belum dilakukan. CI hijau belum menguji login melalui UI.
+2. **Siapkan UAT sintetis di VQE:** setelah pemilik menyetujui fixture disposable, buat tenant dan akun Auth uji melalui jalur provisioning resmi, lalu hubungkan profil Wali, kandidat, dan tagihan sintetis. Jangan gunakan email/password pelanggan. Jangan lakukan ini di PTSAS.
+3. **Jalankan skenario UAT:** login Wali, lihat tagihan kandidat yang cocok, upload bukti ke bucket privat, tolak akses lintas-tenant atau kandidat yang tidak valid, onboarding kandidat, dan pastikan hubungan Wali–santri kanonis berfungsi. Catat bukti, hasil, dan commit yang diuji. Hapus fixture setelah UAT.
+4. **Uji instalasi pelanggan:** ikuti runbook Docker/Compose pada VPS Linux dan VM on-premise bersih. Uji konfigurasi runtime, upgrade, backup serta restore database dan Storage. Catat hasil dan batas platform yang benar-benar diuji.
+5. **Rekonsiliasi PTSAS secara baca-saja:** tim backend/operator yang memiliki akses project dapat mengekspor ledger serta katalog skema dan memberikannya kepada pengembang. Cocokkan setiap versi terhadap file source sebelum menyusun rencana perubahan. Auto-deploy harus tetap OFF.
 
-1. Catat commit aplikasi dan migration yang diuji; keduanya harus berasal dari `main` yang sama.
-2. Buat tenant uji melalui jalur provisioning yang disepakati dan akun sintetis untuk setiap role. Jangan menambahkan data asli.
-3. Periksa environment aplikasi menunjuk ke VQE. Pastikan publishable key hanya dipakai di klien; secret/service-role dan kunci PII berada di secret manager/server saja.
-4. Verifikasi migration ledger, tabel, function/RPC, index, constraint, grants, RLS, Storage policy, dan bucket privat di staging.
+## Gerbang sebelum PR #38 siap digabung
 
-**Keluaran:** catatan ref/commit, ringkasan inventaris, serta tenant dan akun sintetis yang dapat digunakan UAT.
+- UAT Wali PPDB dan isolasi tenant lulus dengan fixture sintetis.
+- Seluruh CI hijau pada head terbaru PR; perubahan setelah run `41166754714` memerlukan pemeriksaan hasil CI yang baru.
+- Tim backend meninjau function/RPC, grants, RLS, Storage privat, dan dampak migration.
+- Tidak ada migration Production yang diterapkan. Rekonsiliasi PTSAS, backup/restore, dan persetujuan change window adalah pekerjaan terpisah sebelum cutover.
 
-### 2. UAT Auth, role, tenant, dan modul kritis
+## Batas yang diketahui
 
-Uji login, undangan/pembuatan akun, pemulihan akun, penonaktifan sesi, serta matriks role × permission. Buktikan pengguna satu tenant tidak dapat membaca atau mengubah tenant lain melalui UI, API, RPC, dan Storage.
+- Firebase tidak menjadi runtime aplikasi pada import graph aktif yang dijaga CI. Source legacy dan Firebase sebagai devDependency masih tersimpan; guard memeriksa agar keduanya tidak masuk runtime bundle.
+- VQE tidak memiliki tenant atau akun uji persisten saat checkpoint dibuat. Login dan alur UI Wali belum terbukti.
+- PTSAS belum dapat diaudit ulang melalui konektor. Snapshot Production yang tercantum di dokumen lama bersifat historis.
+- PPOB/payment gateway dikeluarkan dari rilis awal.
+- Persentase penyelesaian keseluruhan tidak dihitung dari kemajuan schema atau CI saja.
 
-Uji alur PPDB → onboarding santri/NIS, asrama/kamar, keuangan dan pencatatan pembayaran manual, Tahfidz, komunikasi, dokumen privat, serta retry/idempotensi. Pastikan fitur yang belum siap tetap fail-closed. PPOB/payment gateway berada di luar rilis awal.
-
-**Keluaran:** bukti uji per alur, isu dengan tingkat dampak dan commit perbaikan, serta persetujuan UAT dari perwakilan pengguna.
-
-### 3. Backup, pemulihan, dan portabilitas pemasangan
-
-Lakukan backup lalu restore database **dan Storage** staging ke environment uji kedua. Buktikan relasi, file, dan kunci enkripsi tetap dapat digunakan. Jalankan clean install, upgrade, dan restore pada Linux VPS serta VM on-premise representatif. Catat kebutuhan DNS/TLS, reverse proxy, SMTP, volume persisten, resource minimum, dan akses jaringan.
-
-**Keluaran:** runbook install/upgrade/backup/restore serta bukti restore dan smoke test di tiap environment.
-
-### 4. Rekonsiliasi Production
-
-1. Gunakan akses baca-saja yang disediakan operator untuk membaca ledger serta katalog PTSAS.
-2. Cocokkan tiap versi ledger dengan source migration dan definisi schema. Dua baris ledger terakhir sebelumnya tidak memiliki metadata `name` maupun `statements`; jangan menandainya applied atau mengubah ledger tanpa bukti.
-3. Simpan backup Production yang dapat dipulihkan sebelum menyusun rencana perubahan.
-4. Minta tim deployment meninjau rencana, jadwal, verifikasi pascapenerapan, dan pemulihan. Biarkan auto-deploy OFF hingga persetujuan change window.
-
-**Keluaran:** rekonsiliasi yang dapat diaudit dan rencana penerapan yang disetujui. Tidak ada perintah `db push`, `migration repair`, reset, atau perubahan Production hanya untuk menyamakan jumlah migration.
-
-## Tanggung jawab
+## Kepemilikan pekerjaan
 
 | Pekerjaan | Pemilik |
 | --- | --- |
-| Source aplikasi, perbaikan, commit/PR dan CI | Pengembang aplikasi |
-| Akses Supabase, provisioning staging, backup, inventaris | Tim backend |
-| UAT, uji hosting VPS/on-premise, operasi dan runbook | Tim backend/penerapan dan perwakilan pesantren |
-| Rekonsiliasi serta deployment Production | Tim backend/penerapan setelah gerbang rilis disetujui |
+| Source aplikasi, perbaikan, PR dan CI | Pengembang aplikasi |
+| Provisioning sintetis, akses staging, inventaris, backup | Tim backend |
+| UAT fungsi pesantren dan persetujuan hasil | Tim backend dan perwakilan pesantren |
+| Instalasi VPS/on-premise, operasi, runbook | Tim backend/penerapan |
+| Rekonsiliasi serta deployment PTSAS Production | Tim backend/penerapan setelah rencana disetujui |
 
-## Status checkpoint
-
-- Deployment migration ke VQE staging: **110/110 (100%)**.
-- CI PR #36: **2/2 job lulus**.
-- Kesiapan keseluruhan fitur tidak dihitung ulang dari checkpoint schema ini.
-- UAT login dan matriks role/tenant, simulasi instalasi pelanggan, backup/restore staging yang dijalankan tim, serta rekonsiliasi Production masih harus dikerjakan.
-- PPOB/payment gateway tidak termasuk rilis awal.
-
-Dokumen terkait: [Audit cutover Supabase](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md), [snapshot Production](../06_DATABASE/PTSAS_PRODUCTION_READINESS_SNAPSHOT_2026-10-31.md), dan [kesiapan komersial](COMMERCIAL_READINESS.md).
+Dokumen terkait: [checkpoint staging PR #38](../06_DATABASE/CHECKPOINT_GUARDIAN_PPDB_STAGING_2026-10-31.md), [audit cutover Supabase](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md), [snapshot Production](../06_DATABASE/PTSAS_PRODUCTION_READINESS_SNAPSHOT_2026-10-31.md), dan [kesiapan komersial](COMMERCIAL_READINESS.md).
