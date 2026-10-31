@@ -2,12 +2,12 @@
 
 ## Ringkasan
 
-- Source resmi yang diperiksa: branch `main`, commit `537d1b01c5db424fdcc1181130073428f0c3fcc0`.
+- Source resmi yang diperiksa: branch `main`, commit `02e1d85286b23861475cdf0dcf1023260ec3266d`.
 - `supabase/config.toml` pada source menetapkan project ref `ptsasgdvgrbdtgyqieie`.
 - `src/runtimeBackend.ts` mengarahkan runtime frontend ke Supabase-only. Firestore berisi data dummy dan tidak perlu disalin, sesuai keputusan pemilik proyek.
 - Dashboard Supabase menampilkan project `ERP4-Pesantren`, ref `ptsasgdvgrbdtgyqieie`, branch `main / PRODUCTION`. Project ini harus diperlakukan sebagai Production, bukan staging.
-- Konektor Supabase menampilkan project lama `vqemuyzveuirlkvdggjd` sebagai `ACTIVE_HEALTHY`, tetapi mengembalikan 0 tabel `public` dan 0 migrasi. Ini tidak memeriksa Auth, Storage, Edge Functions, atau resource lain; jangan hapus project tersebut sebelum pemeriksaan layanan-layanan itu.
-- Check `Supabase Preview` pada PR #28 dilewati karena pembuatan preview branch dinonaktifkan; detail check masih menuju halaman integrasi project lama `vqemuyzveuirlkvdggjd`. Ini bukan bukti bahwa integrasi GitHub-Supabase telah berpindah ke `ptsas`. Arahkan integrasi CI ke staging terpisah dan jangan mengaktifkan preview terhadap Production.
+- Konektor Supabase menampilkan project lama `vqemuyzveuirlkvdggjd` sebagai `ACTIVE_HEALTHY`, tetapi mengembalikan 0 tabel `public` dan 0 migrasi. Audit layanan sebelumnya juga tidak menemukan Auth users, bucket/objek Storage, Edge Functions, atau routine publik. Integrasi GitHub VQE telah diputus pada 31 Oktober 2026; project tetap aktif dan belum dihapus.
+- Integrasi GitHub pada PTSAS tetap menunjuk ke `hamdanfaiz/ERP4-Pesantren` dengan working directory `.`; `Deploy to production` tetap OFF. Paket Free tidak menyediakan preview branch otomatis. Check `Supabase Preview` lama pada PR #28 dilewati dan riwayat check-nya masih mengarah ke VQE; itu adalah hasil historis, bukan bukti deployment atau sinkronisasi schema PTSAS.
 
 ## Hasil query baca-saja pada project target
 
@@ -43,3 +43,4 @@ Source di branch `main` berisi 109 file migration. Perbedaan jumlah ledger dan f
 ## Batas bukti
 
 Snapshot ini membuktikan kondisi katalog dan ledger yang terlihat ketika query dijalankan; bukan kesetaraan seluruh database dengan source, perilaku semua endpoint, konfigurasi secret hosting, login/UAT, atau backup/restore Production. Tidak ada migration atau perubahan data Production yang dilakukan oleh audit ini.
+
