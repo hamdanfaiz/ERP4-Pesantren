@@ -121,3 +121,12 @@ Server menghormati `HOST`; jika tidak diatur, default tetap `0.0.0.0` untuk depl
 
 
 
+
+
+## Checkpoint browser, CI, dan urutan PR — 1 November 2026
+
+- Browser lokal `http://localhost:4179/` kini berhasil menampilkan aplikasi pada sesi **Admin UAT**. Sidebar memuat Data Induk dan modul lain; halaman yang terlihat adalah Akademik dengan status `Runtime Akademik Supabase belum diaktifkan operator`. Ini membuktikan halaman UI dapat dibuka, tetapi belum membuktikan koneksi API/tenant Supabase sehat atau modul operasional aktif. Belum ada write database atau perubahan Production.
+- CI PR #39 terakhir lulus pada head `7d24d7d` (run #1087). Setelah itu commit `d99b299` menyelaraskan satu perubahan workflow: pemicu `pull_request` tidak lagi dibatasi hanya target `main`. Pada saat checkpoint ini belum ada status/run CI untuk `d99b299`; jangan menyebut commit terbaru lulus CI sampai run baru selesai.
+- PR #38 masih Draft/Open dengan head `a05ea63`; PR #39 masih Draft/Open dengan head `d99b299`, base `codex/continue-erp-hardening-20261031`. PR #39 dibangun di atas base lama `0648b96`; perbandingan commit masih menunjukkan PR #39 tertinggal satu commit induk. Konten aturan workflow sudah diselaraskan, tetapi ancestry branch belum tersinkron. Jangan merge atau menutup keduanya sebelum review dependency, UAT staging, dan pemeriksaan source terbaru.
+- Untuk pertanyaan pemilik tentang “sudah terbuka namun bila masuk”: dari browser, sesi sudah berada di dashboard Admin UAT, bukan form login. Minta nama menu/alur dan pesan yang muncul bila masalah terjadi setelah membuka fitur tertentu. Jangan minta atau mencatat kata sandi.
+- **Checkpoint terukur:** PR #38 tetap **75% (3 dari 4 gerbang internal)** sesuai metodologi dokumen ini; UAT wali/tenant dan pemeriksaan yang bergantung padanya masih tersisa. Tidak ada persentase keseluruhan ERP yang dapat dibuktikan dari CI atau satu sesi browser.
