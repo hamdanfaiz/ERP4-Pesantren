@@ -1,4 +1,4 @@
-# Snapshot Audit Target Supabase ERP4-Pesantren — 31 Oktober 2026
+# Snapshot Audit Staging VQE dan Target Production ERP4-Pesantren
 
 ## Ringkasan
 
@@ -9,7 +9,7 @@
 - Project `vqemuyzveuirlkvdggjd` adalah staging ERP. Setelah PR #36 digabung, 110/110 versi migration source `main` tercatat di VQE tanpa versi hilang atau ekstra. Inventaris baca-saja menunjukkan 160 tabel public; 160/160 RLS aktif dan FORCE RLS; 159 tabel tenant-scoped (tabel root `tenants` dikecualikan); 5 policy public; 0 hak langsung `anon`; 0 grant tulis langsung `authenticated`; 4 bucket Storage, semuanya privat; tenants=0 dan auth.users=0. Skema siap untuk provisioning sintetis dan UAT; belum ada akun atau tenant yang dibuat.
 - Integrasi GitHub pada PTSAS tetap menunjuk ke `hamdanfaiz/ERP4-Pesantren` dengan working directory `.`; `Deploy to production` tetap OFF. Paket Free tidak menyediakan preview branch otomatis. Check `Supabase Preview` lama pada PR #28 dilewati dan riwayat check-nya masih mengarah ke VQE; itu adalah hasil historis, bukan bukti deployment atau sinkronisasi schema PTSAS.
 
-## Hasil query baca-saja pada project target
+## Hasil query baca-saja Production dari snapshot terdahulu
 
 Snapshot dibaca melalui SQL Editor dashboard menggunakan query katalog di dalam transaksi `READ ONLY`. Query tidak membaca record operasional, tidak mengubah database, dan tidak menerapkan migration.
 
@@ -35,7 +35,7 @@ PTSAS memiliki snapshot historis baca-saja: 119 tabel public dan 47 versi ledger
 1. **Gunakan `ptsasgdvgrbdtgyqieie` sebagai target kanonis aplikasi.** Pada konfigurasi hosting, verifikasi `SUPABASE_PROJECT_REF=ptsasgdvgrbdtgyqieie` dan URL API memiliki host `ptsasgdvgrbdtgyqieie.supabase.co`. Jangan mengirim key/password dalam tiket, chat, atau log.
 2. **VQE adalah staging ERP** dan PTSAS adalah Production. Penerapan otomatis sudah aktif pada VQE dan tetap OFF pada PTSAS.
 3. Gunakan VQE untuk provisioning tenant/Auth sintetis, uji login dan role/tenant, seluruh alur modul, Storage privat, backup/restore, serta uji pemasangan pelanggan. Rekonsiliasi Production dilakukan tim backend secara terpisah dan baca-saja sebelum menyusun rencana cutover.
-4. Rekonsiliasi sumber migration `20261205000000` dan `20261206000000` tanpa mengubah ledger Production. Jika riwayat SQL tidak dapat dibuktikan, siapkan staging baru yang dibangun dari seluruh source, lalu jalankan suite dan UAT sintetis.
+4. Rekonsiliasi versi ledger PTSAS `20261205000000` dan `20261206000000` tanpa mengubah ledger Production. Karena VQE sudah memuat seluruh 110 migration, gunakan VQE untuk regression/UAT dan rehearsal perubahan baru. Jika riwayat SQL Production tidak dapat dibuktikan, jangan menyalin status migration atau menganggap schema Production sama dengan VQE.
 5. Check Supabase Preview pada PR #28 adalah hasil historis. VQE kini menjadi staging yang disengaja; jangan mengaktifkan deployment otomatis pada PTSAS selama project tersebut berstatus Production.
 6. Uji autentikasi, role/tenant, alur modul, Storage privat, backup/restore, dan instalasi customer-managed pada staging. Periksa feature flags pada environment hosting; nilai contoh di `.env.example` bukan bukti konfigurasi hosting yang sedang berjalan.
 7. **Jangan** jalankan `db push`, `migration repair`, reset, atau migration manual pada Production untuk menghilangkan selisih hitungan. Jangan hapus project `vqe` sebelum semua resource di luar tabel publik diaudit.
