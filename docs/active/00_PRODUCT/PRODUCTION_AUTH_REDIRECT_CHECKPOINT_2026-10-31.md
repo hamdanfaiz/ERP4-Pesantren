@@ -31,6 +31,13 @@ Perubahan URL Auth Production **belum dilakukan** dalam checkpoint ini. Perlu do
 
 Server aplikasi sempat dijalankan dari worktree PR #38 dengan URL dan publishable key Supabase saja; secret server tidak dimuat. Namun browser Codex tetap gagal menjangkau listener localhost, sehingga pemulihan callback end-to-end belum terverifikasi. UAT UI PR #38 tetap tertunda.
 
+## Koreksi alur reset kata sandi
+
+- Source ERP kini mengirimkan `PUBLIC_APP_URL` sebagai redirect eksplisit saat server membuat tautan recovery Admin melalui Supabase Auth. Ini menghindari fallback diam-diam ke Site URL proyek untuk alur recovery yang dibuat ERP.
+- Uji regresi sintetis `npm run test:auth-recovery-redirect` lulus: request recovery memakai nilai `redirect_to` dari `PUBLIC_APP_URL`, tanpa koneksi eksternal. `npm run lint` juga lulus pada worktree lokal.
+- CI untuk source commit baru masih perlu berjalan sebelum PR #38 dianggap terverifikasi.
+- Perubahan ini hanya memengaruhi tautan reset yang dibuat ERP. Email konfirmasi yang dikirim langsung dari Dashboard Supabase tetap bergantung pada Site URL dan Redirect URLs proyek. Site URL Production masih `http://localhost:3000`; domain hosting final dan allowlist yang tepat tetap harus disetel operator. Perubahan dashboard Production belum dilakukan.
+
 ## Hubungan dengan rilis
 
 Temuan ini melengkapi [kesiapan komersial](../00_PRODUCT/COMMERCIAL_READINESS.md) dan [titik mulai tim backend](../00_PRODUCT/BACKEND_TEAM_START_HERE.md). PR #38 tetap Draft/Open pada 75% untuk cakupan PR tersebut; catatan ini tidak mengubah status UAT, persentase keseluruhan ERP, atau kesiapan deploy.
