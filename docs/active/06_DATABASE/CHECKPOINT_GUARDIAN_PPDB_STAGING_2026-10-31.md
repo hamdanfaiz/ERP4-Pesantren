@@ -46,7 +46,7 @@
 ## Addendum status terkini — 31 Oktober 2026
 
 - Pada head `main` yang menjadi base PR #38 (`e9e65e3e8b9d05d126a6150ce726f720722839c5`), source memiliki 110 migrasi sampai `20270207000000`. VQE memiliki 112 migrasi sampai `20270209000000`; dua versi tambahan (`20270208000000` dan `20270209000000`) berasal dari PR #38 yang masih Draft. Jadi VQE saat ini lebih maju dua migrasi daripada `main`, bukan 110/110 setara.
-- Pemeriksaan baca-saja terbaru ke PTSAS (`ptsasgdvgrbdtgyqieie)) lewat `get_project`, `list_migrations`, dan `list_tables` ditolak karena izin konektor. Tidak ada perubahan Production. Snapshot PTSAS terdahulu di bawah ini bersifat historis dan tidak membuktikan keadaan skema atau ledger saat ini.
+- Pemeriksaan baca-saja terbaru ke PTSAS (`ptsasgdvgrbdtgyqieie`) lewat `get_project`, `list_migrations`, dan `list_tables` ditolak karena izin konektor. Tidak ada perubahan Production. Snapshot PTSAS terdahulu di bawah ini bersifat historis dan tidak membuktikan keadaan skema atau ledger saat ini.
 - Integrasi GitHub VQE telah diputus. Dashboard masih menampilkan label `main / PRODUCTION`; label tersebut bukan bukti bahwa VQE/PTSAS telah diselaraskan atau bahwa Production aman menerima migrasi.
 - UAT tetap menunggu provisioning fixture disposable yang disetujui: tenant, akun Wali/Auth, kandidat, dan tagihan. Tidak ada akun atau data sintetis baru yang dibuat.
 - CI PR #38 run [41162313076](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41162313076) lulus pada kedua job; Supabase Preview dilewati dan tidak menerapkan migrasi remote.
