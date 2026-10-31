@@ -194,9 +194,11 @@ export async function upsertSupabaseMasterDataStructure(
   tenantIdentifier: string,
   categoryValue: unknown,
   recordId: unknown,
-  recordValue: unknown
+  recordValue: unknown,
+  actorUserId: string
 ) {
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const actorId = validateUuid(actorUserId, "ID Admin");
   const category = validateCategory(categoryValue);
   const id = typeof recordId === "string" ? recordId.trim() : "";
   if (!id || id.length > 160 || id.includes("/")) {
@@ -213,13 +215,14 @@ export async function upsertSupabaseMasterDataStructure(
     record.capacity = capacity;
   }
 
-  return supabaseRequest("/rest/v1/rpc/upsert_master_data_structure", {
+  return supabaseRequest("/rest/v1/rpc/upsert_master_data_structure_with_actor", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId,
       p_category: category,
       p_id: id,
       p_record: record,
+      p_actor_user_id: actorId,
     }),
   });
 }
@@ -227,26 +230,27 @@ export async function upsertSupabaseMasterDataStructure(
 export async function deleteSupabaseMasterDataStructure(
   tenantIdentifier: string,
   categoryValue: unknown,
-  recordId: unknown
+  recordId: unknown,
+  actorUserId: string
 ) {
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const actorId = validateUuid(actorUserId, "ID Admin");
   const category = validateCategory(categoryValue);
   const id = typeof recordId === "string" ? recordId.trim() : "";
   if (!id || id.length > 160 || id.includes("/")) {
     throw new SupabaseOnboardingError(400, "ID struktur tidak valid.");
   }
 
-  const params = new URLSearchParams({
-    tenant_id: "eq." + tenantId,
-    category: "eq." + category,
-    id: "eq." + id,
-    select: "id",
+  const result = await supabaseRequest("/rest/v1/rpc/delete_master_data_structure_with_actor", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_category: category,
+      p_id: id,
+      p_actor_user_id: actorId,
+    }),
   });
-  const deleted = await supabaseRequest("/rest/v1/master_data_records?" + params.toString(), {
-    method: "DELETE",
-    headers: { Prefer: "return=representation" },
-  });
-  if (!Array.isArray(deleted) || deleted.length === 0) {
+  if (!result || typeof result !== "object" || result.deleted !== true) {
     throw new SupabaseOnboardingError(404, "Data struktur tidak ditemukan pada tenant ini.");
   }
   return { deleted: true };
@@ -393,7 +397,8 @@ function sameCoreStructure(existing: SupabaseStructureRecord, incoming: JsonObje
 export async function migrateSupabaseMasterDataStructures(
   tenantIdentifier: string,
   source: LegacyMasterDataStructure[],
-  apply: boolean
+  apply: boolean,
+  actorUserId: string
 ) {
   const plan = buildStructureMigrationPlan(source);
   if (plan.errors.length) {
@@ -445,12 +450,13 @@ export async function migrateSupabaseMasterDataStructures(
   let imported = 0;
   let skipped = 0;
   const errors: Array<{ id: string; category: string; message: string }> = [];
+  const actorId = validateUuid(actorUserId, "ID Admin");
   for (const item of plan.records) {
     const key = item.category + "\u0000" + item.id;
     const wasPresent = existingByKey.has(key);
     try {
       if (!wasPresent) {
-        await upsertSupabaseMasterDataStructure(tenantIdentifier, item.category, item.id, item.record);
+        await upsertSupabaseMasterDataStructure(tenantIdentifier, item.category, item.id, item.record, actorId);
         imported += 1;
       } else {
         skipped += 1;
@@ -740,6 +746,115 @@ export type SupabaseStudentRoomAssignmentHistoryEntry = {
   changeSource: "boarding_runtime" | "master_data" | "legacy_import" | "ppdb_onboarding" | "migration_baseline" | "system";
   changedAt: string;
 };
+
+export type SupabaseMasterDataAuditEntry = {
+  id: string;
+  actorUserId: string | null;
+  entityType: "student" | "structure";
+  entityCategory: "Gedung" | "Kamar" | "Kelas" | null;
+  entityId: string;
+  action: "created" | "updated" | "archived" | "deleted";
+  changedFields: string[];
+  changeSource: "master_data" | "master_data_import" | "ppdb_onboarding" | "boarding_runtime" | "legacy_import" | "system";
+  occurredAt: string;
+};
+
+type MasterDataAuditPageOptions = {
+  cursor?: unknown;
+  pageSize?: unknown;
+  action?: unknown;
+  entityType?: unknown;
+};
+
+export async function listSupabaseMasterDataAuditPage(
+  tenantIdentifier: string,
+  options: MasterDataAuditPageOptions = {}
+): Promise<{ records: SupabaseMasterDataAuditEntry[]; pageSize: number; hasMore: boolean; nextCursor: string | null }> {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const pageSize = Number(options.pageSize ?? 50);
+  if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    throw new SupabaseOnboardingError(400, "Ukuran halaman audit harus 1 sampai 100.");
+  }
+
+  let cursor = "";
+  if (options.cursor != null && options.cursor !== "") {
+    const rawCursor = String(options.cursor);
+    if (rawCursor.length > 64 || !/^[1-9][0-9]{0,18}$/.test(rawCursor)) {
+      throw new SupabaseOnboardingError(400, "Penanda halaman audit tidak valid.");
+    }
+    try {
+      if (BigInt(rawCursor) > 9223372036854775807n) throw new Error("outside bigint range");
+      cursor = rawCursor;
+    } catch {
+      throw new SupabaseOnboardingError(400, "Penanda halaman audit tidak valid.");
+    }
+  }
+
+  const allowedActions = new Set(["created", "updated", "archived", "deleted"]);
+  const allowedEntityTypes = new Set(["student", "structure"]);
+  const action = options.action == null || options.action === "" || options.action === "all" ? "" : String(options.action);
+  const entityType = options.entityType == null || options.entityType === "" || options.entityType === "all" ? "" : String(options.entityType);
+  if (action && !allowedActions.has(action)) throw new SupabaseOnboardingError(400, "Filter aksi audit tidak valid.");
+  if (entityType && !allowedEntityTypes.has(entityType)) throw new SupabaseOnboardingError(400, "Filter jenis data audit tidak valid.");
+
+  const params = new URLSearchParams({
+    select: "id,actor_user_id,entity_type,entity_category,entity_id,action,changed_fields,change_source,occurred_at",
+    tenant_id: "eq." + tenantId,
+    order: "id.desc",
+    limit: String(pageSize + 1),
+  });
+  if (cursor) params.set("id", "lt." + cursor);
+  if (action) params.set("action", "eq." + action);
+  if (entityType) params.set("entity_type", "eq." + entityType);
+
+  const rows = await supabaseRequest("/rest/v1/master_data_audit_events?" + params.toString());
+  if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Jejak audit belum dapat dibaca.");
+  const hasMore = rows.length > pageSize;
+  const pageRows = rows.slice(0, pageSize);
+  const allowedFields = new Set([
+    "name", "identity", "gender", "grade", "class_id", "room_id", "building_id", "details", "status",
+    "parent_id", "capacity", "occupied", "gender_code", "location", "attributes", "record",
+  ]);
+  const allowedSources = new Set(["master_data", "master_data_import", "ppdb_onboarding", "boarding_runtime", "legacy_import", "system"]);
+  const records: SupabaseMasterDataAuditEntry[] = pageRows.map((row: any) => {
+    const rawId = String(row?.id ?? "");
+    const actorUserId = isCanonicalUuid(String(row?.actor_user_id || "")) ? String(row.actor_user_id) : null;
+    const changedFields: string[] = Array.isArray(row?.changed_fields)
+      ? Array.from(new Set<string>((row.changed_fields as unknown[]).filter((field: unknown): field is string => typeof field === "string" && allowedFields.has(field))))
+      : [];
+    const category = row?.entity_category;
+    const entityCategory = category === "Gedung" || category === "Kamar" || category === "Kelas" ? category : null;
+    const entityTypeValue = row?.entity_type;
+    const actionValue = row?.action;
+    const sourceValue = row?.change_source;
+    if (!/^[1-9][0-9]{0,18}$/.test(rawId)
+      || (entityTypeValue !== "student" && entityTypeValue !== "structure")
+      || (actionValue !== "created" && actionValue !== "updated" && actionValue !== "archived" && actionValue !== "deleted")
+      || (entityTypeValue === "structure" && !entityCategory)
+      || typeof row?.entity_id !== "string" || row.entity_id.length > 160
+      || typeof row?.occurred_at !== "string") {
+      throw new SupabaseOnboardingError(503, "Backend mengembalikan metadata audit yang tidak valid.");
+    }
+    return {
+      id: rawId,
+      actorUserId,
+      entityType: entityTypeValue,
+      entityCategory,
+      entityId: row.entity_id,
+      action: actionValue,
+      changedFields,
+      changeSource: allowedSources.has(sourceValue) ? sourceValue : "system",
+      occurredAt: row.occurred_at,
+    };
+  });
+
+  return {
+    records,
+    pageSize,
+    hasMore,
+    nextCursor: hasMore && records.length ? records[records.length - 1].id : null,
+  };
+}
 
 export async function listSupabaseStudentRoomAssignmentHistory(
   tenantIdentifier: string,
@@ -1446,25 +1561,26 @@ function transferSummary(items: Array<{ row: number; id: string; name: string; s
   };
 }
 
-export async function previewSupabaseMasterDataStudentImport(tenantIdentifier: string, value: unknown) {
+export async function previewSupabaseMasterDataStudentImport(tenantIdentifier: string, actorUserId: string, value: unknown) {
   const items = await buildStudentTransferPlan(tenantIdentifier, value);
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
-  await preflightStudentTransferItems(tenantId, items);
+  await preflightStudentTransferItems(tenantId, validateUuid(actorUserId, "ID Admin"), items);
   return transferSummary(items.map(({ row, id, name, status, messages }) => ({ row, id, name, status, messages })));
 }
 
-async function preflightStudentTransferItems(tenantId: string, items: Array<{ id: string; status: TransferStatus; messages: string[]; record: JsonObject }>) {
+async function preflightStudentTransferItems(tenantId: string, actorUserId: string, items: Array<{ id: string; status: TransferStatus; messages: string[]; record: JsonObject }>) {
   for (let offset = 0; offset < items.length; offset += 12) {
     const batch = items.slice(offset, offset + 12).filter((item) => item.status === "ready");
     const checked = await Promise.all(batch.map(async (item) => {
       try {
-        return await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student", {
+        return await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student_with_actor", {
           method: "POST",
           body: JSON.stringify({
             p_tenant_id: tenantId,
             p_student: buildStudentTransferRpcRecord(item.id, item.record),
             p_guardian: null,
             p_apply: false,
+            p_actor_user_id: actorUserId,
           }),
         });
       } catch (error) {
@@ -1518,22 +1634,23 @@ function buildStudentTransferRpcRecord(sourceId: string, record: JsonObject): Js
 export async function applySupabaseMasterDataStudentImport(tenantIdentifier: string, actorUserId: string, value: unknown) {
   const items = await buildStudentTransferPlan(tenantIdentifier, value);
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
-  await preflightStudentTransferItems(tenantId, items);
+  const actorId = validateUuid(actorUserId, "ID Admin");
+  await preflightStudentTransferItems(tenantId, actorId, items);
   if (items.some((item) => item.status === "error")) throw new SupabaseOnboardingError(400, "Selesaikan semua kesalahan pada pratinjau sebelum menerapkan impor.");
-  validateUuid(actorUserId, "ID Admin");
   let imported = 0;
   let skipped = 0;
   const errors: Array<{ row: number; id: string; message: string }> = [];
   for (const item of items) {
     if (item.status === "skip") { skipped += 1; continue; }
     try {
-      const result = await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student", {
+      const result = await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student_with_actor", {
         method: "POST",
         body: JSON.stringify({
           p_tenant_id: tenantId,
           p_student: buildStudentTransferRpcRecord(item.id, item.record),
           p_guardian: null,
           p_apply: true,
+          p_actor_user_id: actorId,
         }),
       });
       if (result?.status === "imported") imported += 1;
@@ -1616,11 +1733,12 @@ export async function previewSupabaseMasterDataStructureImport(tenantIdentifier:
   return transferSummary(items);
 }
 
-export async function applySupabaseMasterDataStructureImport(tenantIdentifier: string, categoryValue: unknown, value: unknown) {
+export async function applySupabaseMasterDataStructureImport(tenantIdentifier: string, actorUserId: string, categoryValue: unknown, value: unknown) {
   const preview = await previewSupabaseMasterDataStructureImport(tenantIdentifier, categoryValue, value);
   if (preview.errorCount) throw new SupabaseOnboardingError(400, "Selesaikan semua kesalahan pada pratinjau sebelum menerapkan impor.");
   const category = validateCategory(categoryValue);
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const actorId = validateUuid(actorUserId, "ID Admin");
   const rows = transferRows(value);
   let imported = 0;
   let skipped = 0;
@@ -1643,9 +1761,9 @@ export async function applySupabaseMasterDataStructureImport(tenantIdentifier: s
         genderRestriction: transferText(record.genderRestriction, 40),
         location: transferText(record.location, 180),
       };
-      const result = await supabaseRequest("/rest/v1/rpc/create_master_data_structure_if_absent", {
+      const result = await supabaseRequest("/rest/v1/rpc/create_master_data_structure_if_absent_with_actor", {
         method: "POST",
-        body: JSON.stringify({ p_tenant_id: tenantId, p_category: category, p_id: id, p_record: safeRecord }),
+        body: JSON.stringify({ p_tenant_id: tenantId, p_category: category, p_id: id, p_record: safeRecord, p_actor_user_id: actorId }),
       });
       if (result?.status === "created") imported += 1;
       else if (result?.status === "already_exists") skipped += 1;
@@ -1672,12 +1790,14 @@ function normalizeLegacyNis(value: unknown) {
 export async function migrateSupabaseLegacyMasterDataStudents(
   tenantIdentifier: string,
   source: LegacySupabaseStudentSource[],
-  apply: boolean
+  apply: boolean,
+  actorUserId: string
 ) {
   if (!Array.isArray(source) || source.length > 5000) {
     throw new SupabaseOnboardingError(400, "Jumlah data migrasi harus berada pada rentang 0 sampai 5.000 record.");
   }
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const actorId = validateUuid(actorUserId, "ID Admin");
   const errors: LegacyMigrationIssue[] = [];
   const warnings: LegacyMigrationIssue[] = [];
   const prepared: Array<{ id: string; student: JsonObject; guardian: JsonObject | null; warnings: string[] }> = [];
@@ -1849,13 +1969,14 @@ export async function migrateSupabaseLegacyMasterDataStudents(
       const batch = prepared.slice(offset, offset + 12);
       const checks = await Promise.all(batch.map(async (item) => {
         try {
-          return await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student", {
+          return await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student_with_actor", {
             method: "POST",
             body: JSON.stringify({
               p_tenant_id: tenantId,
               p_student: item.student,
               p_guardian: item.guardian,
               p_apply: false,
+              p_actor_user_id: actorId,
             }),
           });
         } catch (error: any) {
@@ -1889,13 +2010,14 @@ export async function migrateSupabaseLegacyMasterDataStudents(
     const batch = prepared.slice(offset, offset + 12);
     const outcomes = await Promise.all(batch.map(async (item) => {
       try {
-        const result = await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student", {
+        const result = await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student_with_actor", {
           method: "POST",
           body: JSON.stringify({
             p_tenant_id: tenantId,
             p_student: item.student,
             p_guardian: item.guardian,
             p_apply: apply,
+            p_actor_user_id: actorId,
           }),
         });
         if (!result || typeof result !== "object" || typeof result.status !== "string") {

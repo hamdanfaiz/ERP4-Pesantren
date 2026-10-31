@@ -45,6 +45,7 @@ import { cn, generateUniqueId } from "../lib/utils";
 import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
 import { MasterDataTransferModal } from "../components/MasterDataTransferModal";
+import { SupabaseMasterDataAuditPanel } from "../components/SupabaseMasterDataAuditPanel";
 import { downloadTransferCsv } from "../utils/dataTransferCsv";
 import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import {
@@ -208,7 +209,6 @@ const MASTER_DATA_DESTINATIONS: Array<{
   { label: "Mata Pelajaran dan Kurikulum", categories: ["Mata Pelajaran", "Kurikulum"], destination: "Akademik Formal", module: "academic" },
   { label: "Yayasan dan Kampus", categories: ["Yayasan", "Kampus"], destination: "Manajemen Multi-Unit", module: "enterprise" },
   { label: "Halaqah", categories: ["Halaqah"], destination: "Tahfidz", module: "tahfidz" },
-  { label: "Jejak Audit", categories: ["Semua Aktivitas"], destination: "Belum tersedia di runtime Supabase" },
 ];
 
 export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
@@ -1513,7 +1513,7 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
       {SUPABASE_MASTER_DATA_RUNTIME && (
         <div className="space-y-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-950 dark:text-sky-100">
           <p>
-            Navigasi lama tetap ditampilkan. Data Induk yang tersambung langsung ke Supabase saat ini mencakup Santri, Gedung, Kamar, Kelas, Peta Struktur, dan Pemesanan Fasilitas. Kategori lainnya diarahkan ke modul pemilik datanya; kategori yang backend-nya belum siap diberi keterangan, tanpa menampilkan data contoh.
+            Navigasi dan sub-menu Data Induk tetap dipertahankan. Santri, Gedung, Kamar, Kelas, peta struktur, pemesanan fasilitas, dan jejak audit memakai sumber data tenant Supabase. Kategori lain diarahkan ke modul pemilik datanya; status yang belum tersedia dijelaskan tanpa menampilkan data contoh.
           </p>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {MASTER_DATA_DESTINATIONS.map((item) => (
@@ -1541,7 +1541,7 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
               ))}
           </div>
           <p className="text-xs leading-5 opacity-80">
-            Jejak Audit menunggu sumber backend tenant yang siap. Data contoh atau log lokal tidak ditampilkan sebagai data operasional. Setiap modul tujuan tetap perlu ditinjau terpisah untuk memastikan seluruh fungsi tersedia.
+            Jejak audit tenant mencatat metadata perubahan tanpa menyimpan nilai identitas atau isi record. Setiap modul tujuan tetap ditinjau agar kepemilikan data dan aksesnya konsisten.
           </p>
         </div>
       )}
@@ -1768,7 +1768,9 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col relative overflow-hidden">
-          {SUPABASE_MASTER_DATA_RUNTIME && isSupabaseHandoffView ? (
+          {SUPABASE_MASTER_DATA_RUNTIME && activeTab === "audit" ? (
+            <SupabaseMasterDataAuditPanel />
+          ) : SUPABASE_MASTER_DATA_RUNTIME && isSupabaseHandoffView ? (
             <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
               <div className={`max-w-xl rounded-2xl border p-6 ${activeHandoff?.module ? "border-sky-200 bg-sky-50 dark:border-sky-400/20 dark:bg-sky-400/5" : "border-amber-200 bg-amber-50 dark:border-amber-400/20 dark:bg-amber-400/5"}`}>
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{activeHandoff?.label || activeSubTab}</h2>

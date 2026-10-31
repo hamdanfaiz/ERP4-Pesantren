@@ -81,6 +81,7 @@ import {
   listSupabaseStudentRoomAssignmentHistory,
   getSupabaseMasterDataStudent,
   listSupabaseMasterDataStudentsPage,
+  listSupabaseMasterDataAuditPage,
   listSupabaseMasterDataStructures,
   onboardSupabaseAcceptedCandidate,
   previewSupabaseMasterDataStudentImport,
@@ -2379,6 +2380,23 @@ async function startServer() {
     } catch (error) { return financeRouteError(res, error); }
   });
 
+  app.get("/api/master-data/audit", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      return res.json(await listSupabaseMasterDataAuditPage(actor.tenantId, {
+        cursor: req.query.cursor,
+        pageSize: req.query.pageSize,
+        action: req.query.action,
+        entityType: req.query.entityType,
+      }));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
   app.get("/api/master-data/structures", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
@@ -2410,7 +2428,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "master-data");
       requireMasterDataAdmin(actor);
-      return res.json(await applySupabaseMasterDataStructureImport(actor.tenantId, req.body?.category, req.body?.rows));
+      return res.json(await applySupabaseMasterDataStructureImport(actor.tenantId, uid, req.body?.category, req.body?.rows));
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
@@ -2428,7 +2446,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "master-data");
       requireMasterDataAdmin(actor);
-      const record = await upsertSupabaseMasterDataStructure(actor.tenantId, req.params.category, req.params.recordId, req.body?.record);
+      const record = await upsertSupabaseMasterDataStructure(actor.tenantId, req.params.category, req.params.recordId, req.body?.record, uid);
       return res.json({ record });
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -2441,7 +2459,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "master-data");
       requireMasterDataAdmin(actor);
-      return res.json(await deleteSupabaseMasterDataStructure(actor.tenantId, req.params.category, req.params.recordId));
+      return res.json(await deleteSupabaseMasterDataStructure(actor.tenantId, req.params.category, req.params.recordId, uid));
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
@@ -2492,7 +2510,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "master-data");
       requireMasterDataAdmin(actor);
-      return res.json(await previewSupabaseMasterDataStudentImport(actor.tenantId, req.body?.rows));
+      return res.json(await previewSupabaseMasterDataStudentImport(actor.tenantId, uid, req.body?.rows));
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
