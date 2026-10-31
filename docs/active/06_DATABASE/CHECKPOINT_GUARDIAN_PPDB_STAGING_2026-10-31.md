@@ -16,6 +16,7 @@
 - Konfigurasi lokal menggunakan tenant sintetis di bawah, membuka endpoint konfigurasi/Finance PPDB untuk UAT, dan menjaga `PUBLIC_PPDB_ENABLED=false` agar intake PPDB publik tidak terbuka.
 - PTSAS Production, kredensialnya, dan aturan redirect-nya tidak diubah.
 - Pada pemeriksaan terbaru, browser membuka `http://localhost:4179/` dan menampilkan halaman masuk ERP. Layar menampilkan pesan kredensial tidak cocok dan pemberitahuan pemulihan yang generik; ini membuktikan UI dirender, bukan login berhasil atau email pemulihan terkirim. Runtime lokal menunjuk ke VQE. Akun Production PTSAS tidak dapat dipakai pada preview ini.
+- Konfigurasi Auth VQE yang terlihat saat audit: Site URL `http://localhost:3000`, daftar Redirect URLs kosong. Aplikasi membangun callback reset pada origin preview `http://localhost:4179/`; allowlist lokal yang diperlukan adalah `http://localhost:4179/**`. Penambahan sedang menunggu persetujuan action-time; PTSAS Production tidak diubah.
 
 ## Keadaan VQE saat ini
 
