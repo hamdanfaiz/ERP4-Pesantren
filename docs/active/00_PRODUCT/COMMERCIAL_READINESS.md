@@ -161,3 +161,11 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - **PR #39 sekitar 75% pada lingkup patch ini**: implementasi, pemeriksaan lokal, dan pemeriksaan RPC staging selesai; UAT browser, Supabase Preview/CI, dan tinjauan backend masih menunggu. Persentase ini bukan progres keseluruhan ERP atau kesiapan go-live.
 - PTSAS Production tidak disentuh. Rekonsiliasi ledger/schema Production, rotasi secret, backup/restore, clean install VPS/on-premise, UAT pelanggan, dan penerimaan komersial tetap terbuka.
 
+## Addendum tindak lanjut menu yang hilang — 31 Oktober 2026
+
+- Pada mode runtime Supabase, seluruh lima tab Data Induk dan kategori lama kini tetap terlihat. Santri, Gedung, Kamar, Kelas, Peta Struktur, dan Pemesanan Fasilitas memakai tampilan yang memiliki sumber Supabase. Wali Santri, Guru/Asatidz, Pegawai, Alumni, Kurikulum/Mata Pelajaran, Yayasan/Kampus, dan Halaqah memberi tautan ke modul pemilik datanya.
+- Jejak Audit sekarang menampilkan status belum tersedia karena belum ada sumber API tenant Supabase. Data contoh/lokal tidak ditampilkan sebagai log operasional. Aksi tambah dan Scan QR disembunyikan pada kategori yang hanya mengarahkan ke modul lain; tautan modul tetap mematuhi izin akun.
+- Daftar izin Admin yang secara eksplisit ditolak dibuka pada Sidebar agar menu tersembunyi dapat diketahui. Aturan RBAC tidak dilonggarkan.
+- Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
+- Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
+

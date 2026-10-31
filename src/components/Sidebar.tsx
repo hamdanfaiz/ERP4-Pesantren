@@ -178,7 +178,7 @@ export function Sidebar({ activeModule, onNavigate, branding }: SidebarProps) {
         )}
 
         {deniedAdminModules.length > 0 && (
-          <details className="mx-1 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+          <details open className="mx-1 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
             <summary className="cursor-pointer font-semibold">
               {deniedAdminModules.length} modul dibatasi oleh izin akun
             </summary>

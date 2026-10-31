@@ -134,6 +134,14 @@ for (const [moduleId, components] of expectedRoutes) {
   const names = jsxComponentNames(clause);
   for (const component of components) assert.ok(names.has(component), `Route ${moduleId} must render ${component} in the Supabase-only runtime.`);
 }
+const sidebarText = fs.readFileSync(path.join(root, 'src', 'components', 'Sidebar.tsx'), 'utf8');
+const menuGroups = sidebarText.match(/const MENU_GROUPS = \[([\s\S]*?)\n\];/);
+assert.ok(menuGroups, 'Could not find the main Sidebar menu groups.');
+for (const moduleId of expectedRoutes.keys()) {
+  if (moduleId === 'intelligence') continue; // This destination has its own Analitik group.
+  assert.match(menuGroups[1], new RegExp(`id:\\s*['"]${moduleId}['"]`), `Sidebar must expose the ${moduleId} destination for roles allowed by RBAC.`);
+}
+assert.match(sidebarText, /allowedModules\.includes\(['"]intelligence['"]\)/, 'Sidebar must expose the Analitik destination through its dedicated group.');
 assert.ok(!routeClauses.has('ecosystem'), 'PPOB/ecosystem must not have an application route in the initial release.');
 assert.ok(!fs.existsSync(path.join(root, 'src', 'pages', 'EcosystemManager.tsx')),
   'The retired mock PPOB/ecosystem screen must not ship in the initial release source.');
@@ -146,6 +154,14 @@ assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && 
   'The mock AI assessment modal must not render in the Supabase Tahfidz runtime.');
 
 const masterDataSource = fs.readFileSync(path.join(root, 'src', 'pages', 'MasterDataManager.tsx'), 'utf8');
+assert.match(masterDataSource, /const visibleTabs = TABS;/,
+  'Master Data must keep the established tabs visible during Supabase cutover.');
+assert.match(masterDataSource, /const visibleSubTabs = activeTab === "booking" \? SUB_TABS\.booking : SUB_TABS\[activeTab\]/,
+  'Master Data must keep the established categories visible during Supabase cutover.');
+assert.match(masterDataSource, /SUPABASE_MASTER_DATA_RUNTIME && isSupabaseHandoffView/,
+  'Unsupported legacy categories must render an explicit Supabase handoff/status view rather than mock data.');
+assert.match(masterDataSource, /modulePermissions\?\.\[activeHandoff\.module\] === false/,
+  'Master Data handoff links must not bypass an explicit module permission denial.');
 assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
 const archiveImportPolicy = fs.readFileSync(path.join(root, 'src', 'runtimeBackend.ts'), 'utf8');

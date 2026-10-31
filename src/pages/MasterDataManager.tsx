@@ -182,30 +182,41 @@ function masterAuditActionLabel(action: string) {
 
 type MasterDataManagerProps = { onNavigate?: (module: ModuleId) => void };
 
-const MASTER_DATA_DESTINATIONS: Array<{ label: string; destination: string; module?: ModuleId }> = [
-  { label: "Wali Santri", destination: "Relasi Wali & Donatur", module: "crm" },
-  { label: "Guru dan Asatidz", destination: "Akademik Formal", module: "academic" },
-  { label: "Pegawai", destination: "Sumber Daya Manusia", module: "hris" },
-  { label: "Alumni", destination: "Data Alumni", module: "alumni" },
-  { label: "Mata Pelajaran dan Kurikulum", destination: "Akademik Formal", module: "academic" },
-  { label: "Yayasan dan Kampus", destination: "Manajemen Multi-Unit", module: "enterprise" },
-  { label: "Halaqah", destination: "Tahfidz", module: "tahfidz" },
-  { label: "Jejak Audit", destination: "Belum tersedia di runtime Supabase" },
+const MASTER_DATA_DESTINATIONS: Array<{
+  label: string;
+  categories: string[];
+  destination: string;
+  module?: ModuleId;
+}> = [
+  { label: "Wali Santri", categories: ["Wali Santri"], destination: "Relasi Wali & Donatur", module: "crm" },
+  { label: "Guru dan Asatidz", categories: ["Guru", "Asatidz"], destination: "Akademik Formal", module: "academic" },
+  { label: "Pegawai", categories: ["Pegawai"], destination: "Sumber Daya Manusia", module: "hris" },
+  { label: "Alumni", categories: ["Alumni"], destination: "Data Alumni", module: "alumni" },
+  { label: "Mata Pelajaran dan Kurikulum", categories: ["Mata Pelajaran", "Kurikulum"], destination: "Akademik Formal", module: "academic" },
+  { label: "Yayasan dan Kampus", categories: ["Yayasan", "Kampus"], destination: "Manajemen Multi-Unit", module: "enterprise" },
+  { label: "Halaqah", categories: ["Halaqah"], destination: "Tahfidz", module: "tahfidz" },
+  { label: "Jejak Audit", categories: ["All Activity"], destination: "Belum tersedia di runtime Supabase" },
 ];
 
 export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
   const { user } = useAuth();
-  const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME ? TABS.filter((tab) => ["entities", "structure", "booking"].includes(tab.id)) : TABS;
+  // Keep the established navigation visible during the backend cutover. Unsupported
+  // categories render an explicit handoff/status view below, never legacy mock data.
+  const visibleTabs = TABS;
   const [activeTab, setActiveTab] = useState<
     "entities" | "structure" | "academic" | "booking" | "audit"
   >("entities");
   const [activeSubTab, setActiveSubTab] = useState("Santri");
-  const visibleSubTabs = SUPABASE_MASTER_DATA_RUNTIME
-    ? activeTab === "entities" ? ["Santri"] : activeTab === "structure" ? ["Gedung", "Kamar", "Kelas", "Peta Struktur"] : []
-    : SUB_TABS[activeTab];
+  const visibleSubTabs = activeTab === "booking" ? SUB_TABS.booking : SUB_TABS[activeTab];
   const isSupabaseTransferView = SUPABASE_MASTER_DATA_RUNTIME
     && (activeTab === "entities" && activeSubTab === "Santri"
       || activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab));
+  const isSupabaseStructureMap = SUPABASE_MASTER_DATA_RUNTIME && activeTab === "structure" && activeSubTab === "Peta Struktur";
+  const isSupabaseHandoffView = SUPABASE_MASTER_DATA_RUNTIME
+    && activeTab !== "booking"
+    && !isSupabaseTransferView
+    && !isSupabaseStructureMap;
+  const activeHandoff = MASTER_DATA_DESTINATIONS.find((item) => item.categories.includes(activeSubTab));
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [roomHistory, setRoomHistory] = useState<SupabaseStudentRoomAssignmentHistoryEntry[]>([]);
   const [roomHistoryStudentId, setRoomHistoryStudentId] = useState("");
@@ -524,9 +535,7 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
     tabId: string,
   ) => {
     setActiveTab(tabId as "entities" | "structure" | "academic" | "booking" | "audit");
-    const nextSubTabs = SUPABASE_MASTER_DATA_RUNTIME
-      ? tabId === "entities" ? ["Santri"] : tabId === "structure" ? ["Gedung", "Kamar", "Kelas", "Peta Struktur"] : []
-      : SUB_TABS[tabId];
+    const nextSubTabs = SUB_TABS[tabId] || [];
     setActiveSubTab(nextSubTabs[0] || "Santri");
     setSelectedRecord(null);
     setSearchQuery("");
@@ -1491,35 +1500,36 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
       {SUPABASE_MASTER_DATA_RUNTIME && (
         <div className="space-y-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-950 dark:text-sky-100">
           <p>
-            Data Induk yang tersambung langsung ke Supabase saat ini mencakup Santri, Gedung, Kamar, Kelas, dan Pemesanan Fasilitas. Bagian lain dari tampilan lama tidak dihapus diam-diam: sebagian sudah dikelola pada modul terpisah dan sebagian masih menunggu pemindahan sumber data.
+            Navigasi lama tetap ditampilkan. Data Induk yang tersambung langsung ke Supabase saat ini mencakup Santri, Gedung, Kamar, Kelas, Peta Struktur, dan Pemesanan Fasilitas. Kategori lainnya diarahkan ke modul pemilik datanya; kategori yang backend-nya belum siap diberi keterangan, tanpa menampilkan data contoh.
           </p>
-          <details>
-            <summary className="cursor-pointer font-semibold">Lihat lokasi fitur lama dan status pemindahannya</summary>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {MASTER_DATA_DESTINATIONS.map((item) => (
                 item.module ? (
                   <button
                     key={item.label}
                     type="button"
                     onClick={() => onNavigate?.(item.module!)}
-                    disabled={!onNavigate}
+                    disabled={!onNavigate || user?.modulePermissions?.[item.module] === false}
                     className="rounded-lg border border-sky-900/10 bg-white/70 px-3 py-2 text-left hover:border-sky-700/30 hover:bg-white disabled:cursor-default dark:border-white/10 dark:bg-slate-950/40 dark:hover:bg-slate-900"
                   >
                     <span className="block font-medium">{item.label}</span>
-                    <span className="mt-0.5 block text-xs opacity-75">Modul terkait: {item.destination} · Buka modul</span>
+                    <span className="mt-0.5 block text-xs opacity-75">
+                      {user?.modulePermissions?.[item.module] === false
+                        ? `Akses ${item.destination} dibatasi oleh izin akun`
+                        : `Dikelola di ${item.destination} · Buka modul`}
+                    </span>
                   </button>
                 ) : (
                   <div key={item.label} className="rounded-lg border border-amber-500/20 bg-amber-50/70 px-3 py-2 text-left dark:bg-amber-950/20">
                     <span className="block font-medium">{item.label}</span>
-                    <span className="mt-0.5 block text-xs opacity-75">{item.destination}</span>
+                    <span className="mt-0.5 block text-xs opacity-75">Belum tersedia: {item.destination}</span>
                   </div>
                 )
               ))}
-            </div>
-            <p className="mt-3 text-xs leading-5 opacity-80">
-              Jejak Audit belum memiliki sumber backend tenant yang siap. Tampilan peta membaca struktur tenant dari Supabase. Data contoh atau log lokal tidak ditampilkan sebagai data operasional. Kesesuaian rinci setiap fungsi pada modul tujuan tetap perlu ditinjau sebelum dinyatakan lengkap.
-            </p>
-          </details>
+          </div>
+          <p className="text-xs leading-5 opacity-80">
+            Jejak Audit menunggu sumber backend tenant yang siap. Data contoh atau log lokal tidak ditampilkan sebagai data operasional. Setiap modul tujuan tetap perlu ditinjau terpisah untuk memastikan seluruh fungsi tersedia.
+          </p>
         </div>
       )}
       {SUPABASE_MASTER_DATA_RUNTIME && SUPABASE_MASTER_DATA_IMPORT && user && ["Admin", "SuperAdmin"].includes(user.role) && (
@@ -1672,14 +1682,14 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
               <span>Ekspor Data</span>
             </button>
           ) : null}
-          {activeTab !== "booking" && activeSubTab !== "Peta Struktur" && <button
+          {(!SUPABASE_MASTER_DATA_RUNTIME || isSupabaseTransferView) && activeTab !== "booking" && activeSubTab !== "Peta Struktur" && <button
             onClick={() => setShowScanner(true)}
             className="flex items-center gap-2 bg-emerald-900/40 text-emerald-400 border border-emerald-500/30 shadow-inner px-4 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-emerald-900/60"
           >
             <QrCode className="w-4 h-4" />
             Scan QR
           </button>}
-          {activeTab !== 'audit' && activeTab !== 'booking' && activeSubTab !== "Peta Struktur" && (
+          {(!SUPABASE_MASTER_DATA_RUNTIME || isSupabaseTransferView) && activeTab !== 'audit' && activeTab !== 'booking' && activeSubTab !== "Peta Struktur" && (
             <button
               onClick={handleAddClick}
               className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors"
@@ -1745,7 +1755,33 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col relative overflow-hidden">
-          {activeTab === "audit" ? (
+          {SUPABASE_MASTER_DATA_RUNTIME && isSupabaseHandoffView ? (
+            <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+              <div className={`max-w-xl rounded-2xl border p-6 ${activeHandoff?.module ? "border-sky-200 bg-sky-50 dark:border-sky-400/20 dark:bg-sky-400/5" : "border-amber-200 bg-amber-50 dark:border-amber-400/20 dark:bg-amber-400/5"}`}>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{activeHandoff?.label || activeSubTab}</h2>
+                {activeHandoff?.module ? (
+                  <>
+                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                      Data ini dikelola pada modul <strong>{activeHandoff.destination}</strong>. Buka modul tersebut untuk melihat dan mengelola data dari sumber Supabase tenant.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.(activeHandoff.module!)}
+                      disabled={!onNavigate || user?.modulePermissions?.[activeHandoff.module] === false}
+                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Buka {activeHandoff.destination}<ArrowRight className="h-4 w-4" />
+                    </button>
+                    {user?.modulePermissions?.[activeHandoff.module] === false && <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Akses modul tujuan dibatasi pada akun Anda. Minta Administrator meninjau izin modul.</p>}
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    Jejak audit tenant belum memiliki API dan sumber data Supabase yang siap. Menu tetap terlihat agar statusnya jelas; fitur ini tidak menampilkan log contoh atau log lokal sebagai data nyata.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : activeTab === "audit" ? (
             <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0a0a0a]/50">
               <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-black/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
