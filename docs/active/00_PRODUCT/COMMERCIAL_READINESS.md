@@ -146,3 +146,18 @@ Bagian ini menggantikan status UAT/CI lama di addendum sebelumnya. Catatan histo
 - URL Auth Production belum diubah. Sebelum email Auth dikirim kepada pengguna produksi, operator harus menetapkan domain HTTPS hosting dan menambahkan hanya redirect aplikasi yang tepat. Jangan memakai nilai localhost sebagai URL pelanggan.
 - UAT UI Wali pada VQE tetap belum terbukti karena konfigurasi secret server dan tenant UAT belum tersedia. PR #38 tetap Draft/Open dengan progress khusus PR **75%** (implementasi, CI, dan skema staging lulus; UAT UI tersisa). Persentase keseluruhan ERP belum dihitung.
 
+
+## Addendum pemeriksaan menu, transfer data, dan runtime — 31 Oktober 2026
+
+Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. Nilai di bawah hanya menggambarkan checkout/branch dan project staging yang disebut; bukan status Production atau seluruh ERP.
+
+- PR #39 Draft/Open, tiga commit, head `ba71a3018375330c12bd39c76d994501c10c9258`, ditumpuk di atas head PR #38. Perubahan belum masuk `main`.
+- Audit source memetakan 26 modul ke menu dan route Supabase. Pada Data Induk, tab yang dulu disembunyikan karena belum punya kontrak Supabase penuh kini ditandai dan diarahkan ke modul terkait; Pemesanan Fasilitas serta Peta Struktur ditampilkan lagi pada runtime Supabase. Jejak Audit belum memiliki sumber tenant Supabase yang setara. Ini belum membuktikan kesetaraan seluruh formulir lama.
+- Profil Admin aktif yang dibaca di VQE memiliki `module_permissions = {}`; pada kebijakan kode saat ini, ini menggunakan izin dasar role Admin tenant dan bukan deny override per modul. Jadi, untuk profil tersebut, tab Data Induk yang tidak muncul sebelumnya berasal dari pembatasan runtime tab, bukan daftar izin eksplisit. Pengaturan global tetap khusus SuperAdmin.
+- Guard runtime Supabase-only lulus untuk 96 modul yang dicapai dari `src/main.tsx` dan mengonfirmasi 26 route Supabase serta penutupan 26 route migrasi lama. Kode Firebase lama masih ada di file legacy/dev dependency, tetapi tidak masuk graph frontend aktif; Firebase bukan runtime dependency produksi.
+- VQE ledger kini berisi 116 migration, termasuk `20261031104213_master_data_import_create_only`, versi yang dicatat saat migration PR #39 diterapkan. RPC tersebut hanya bisa dipanggil `service_role`; `anon` dan `authenticated` ditolak. Uji transaksi create/duplicate menghasilkan `created` lalu `already_exists`, kemudian rollback; jumlah record struktur kembali 0.
+- `npm run lint`, `npm run build`, `npm run test:master-data-transfer-csv`, `npm run test:migration-preflight`, `npm run test:supabase-runtime-no-firebase`, pemeriksaan RBAC, pagination, dan no-browser-drafts lulus secara lokal. Supabase Preview CI dilewati dan GitHub Actions belum melaporkan run untuk head PR #39.
+- UAT browser untuk login, impor/ekspor, role/tenant, dan keterkaitan lintas modul belum berjalan. Preview lokal belum dibuktikan menunjuk ke VQE dan tidak boleh dianggap aman untuk tulis. Konfigurasi server khusus VQE, tenant UAT, dan dua kunci PII server-side perlu dipastikan oleh tim backend sebelum UAT.
+- **PR #39 sekitar 75% pada lingkup patch ini**: implementasi, pemeriksaan lokal, dan pemeriksaan RPC staging selesai; UAT browser, Supabase Preview/CI, dan tinjauan backend masih menunggu. Persentase ini bukan progres keseluruhan ERP atau kesiapan go-live.
+- PTSAS Production tidak disentuh. Rekonsiliasi ledger/schema Production, rotasi secret, backup/restore, clean install VPS/on-premise, UAT pelanggan, dan penerimaan komersial tetap terbuka.
+
