@@ -13,7 +13,7 @@ RETURNS INTEGER
 LANGUAGE SQL
 AS $$ SELECT 1 $$;
 
-SELECT plan(37);
+SELECT plan(38);
 
 -- Existing trigger functions must not be callable as anon, authenticated, or
 -- service_role RPCs. Their database triggers remain attached to their tables.
@@ -67,6 +67,11 @@ SELECT ok(NOT has_function_privilege('anon', 'public.api_default_acl_probe_fn()'
 SELECT ok(NOT has_function_privilege('authenticated', 'public.api_default_acl_probe_fn()', 'EXECUTE'), 'new public function is not callable by authenticated');
 SELECT ok(NOT has_function_privilege('service_role', 'public.api_default_acl_probe_fn()', 'EXECUTE'), 'new public function requires an explicit service_role grant');
 
+SELECT is(
+  (SELECT proconfig FROM pg_proc WHERE oid = 'public.erp4_ppdb_update_updated_at_column()'::regprocedure),
+  ARRAY['search_path=pg_catalog']::TEXT[],
+  'legacy PPDB timestamp trigger pins search_path to pg_catalog'
+);
 SELECT * FROM finish();
 ROLLBACK;
 
