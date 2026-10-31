@@ -1,5 +1,7 @@
 # Audit Relasi Data Staging dan Rekonsiliasi Migration
 
+> **Status diperbarui 31 Oktober 2026:** Snapshot ini pernah menyebut PTSAS sebagai staging. Dashboard kini menunjukkan `ptsasgdvgrbdtgyqieie` sebagai `main / PRODUCTION`; jangan jalankan migration/rehearsal/repair/reset pada project itu. Ref staging terpisah belum tersedia. Data dummy Firestore tidak perlu disalin. Gunakan [audit target terbaru](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md).
+
 Tanggal pemeriksaan: 27 Oktober 2026  
 Project: staging Supabase `ptsasgdvgrbdtgyqieie`  
 Cakupan: pemeriksaan katalog dan agregat baca-saja. Tidak ada record Firestore yang disalin; tidak ada schema, migration, atau row Supabase yang diubah.
