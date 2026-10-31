@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 6123)
+Total output lines: 331
+
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -158,57 +161,13 @@ assert.match(masterDataSource, /const visibleTabs = TABS;/,
   'Master Data must keep the established tabs visible during Supabase cutover.');
 assert.match(masterDataSource, /const visibleSubTabs = activeTab === "booking" \? SUB_TABS\.booking : SUB_TABS\[activeTab\]/,
   'Master Data must keep the established categories visible during Supabase cutover.');
-assert.match(masterDataSource, /SUPABASE_MASTER_DATA_RUNTIME && isSupabaseHandoffView/,
-  'Unsupported legacy categories must render an explicit Supabase handoff/status view rather than mock data.');
-assert.match(masterDataSource, /modulePermissions\?\.\[activeHandoff\.module\] === false/,
-  'Master Data handoff links must not bypass an explicit module permission denial.');
-assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
-  'Master Data archive import must remain independently gated from Supabase-only runtime.');
-const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
-for (const section of ['permits', 'discipline', 'attendance', 'assignments', 'facility-ops']) {
-  assert.match(boardingSource, new RegExp(`id:\\s*["']${section}["']`), `Asrama must keep the ${section} section visible in the Supabase runtime.`);
+for (const label of ['Pemesanan Ruangan', 'Semua Aktivitas', 'Penyaring Multi-Kriteria', 'Relasi Terpadu (berdasarkan ID)', 'Jumlah data:', 'Menampilkan ${paginatedData.length} dari ${filteredData.length} data']) {
+  assert.ok(masterDataSource.includes(label), `Master Data interface must use the Indonesian label "${label}".`);
 }
-assert.match(boardingSource, /<ERPTabs\s+tabs=\{tabs\}/,
-  'Asrama sections must use the shared tab component.');
-assert.match(boardingSource, /<UnavailableSection\s+label=\{selected\.label\}\s+flag=\{selected\.flag\}\s*\/>/,
-  'Disabled Asrama sections must show an explicit readiness state instead of disappearing.');
-assert.doesNotMatch(boardingSource, /if\s*\(!available\.length\)\s*return\s+null/,
-  'Asrama must not render a blank screen when runtime gates are closed.');
-const academicSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAcademicManager.tsx'), 'utf8');
-for (const feature of ['report-card', 'conflict-resolver']) {
-  assert.ok(academicSource.includes(`id: "${feature}"`), `Academic reference submenu ${feature} must remain visible.`);
+for (const retiredLabel of ['Room Booking', 'All Activity', 'Multi-Facet Filter', 'ID-Normalized', 'Showing ${paginatedData.length} of ${filteredData.length} records']) {
+  assert.ok(!masterDataSource.includes(retiredLabel), `Master Data interface must not retain the English label "${retiredLabel}".`);
 }
-assert.match(academicSource, /activeTab === "report-card"\s*\?\s*<ERPFeatureStatus/,
-  'E-Rapor must show its current backend readiness instead of falling through to the assessment form.');
-const cbtSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseCBTManager.tsx'), 'utf8');
-for (const feature of ['dashboard', 'calendar', 'packages', 'monitor', 'settings']) {
-  assert.ok(cbtSource.includes(`id: "${feature}"`), `CBT reference submenu ${feature} must remain visible.`);
-}
-assert.match(cbtSource, /CBT_PENDING\[tab\]\s*&&\s*<ERPFeatureStatus/,
-  'Unavailable CBT reference screens must explain their backend status.');
-const lmsSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLMSManager.tsx'), 'utf8');
-for (const feature of ['dashboard', 'categories', 'video-library', 'assessments', 'peer-review', 'instructor']) {
-  assert.ok(lmsSource.includes(`id: "${feature}"`), `LMS reference submenu ${feature} must remain visible.`);
-}
-assert.match(lmsSource, /tab === "peer-review"\s*&&\s*<ERPFeatureStatus/,
-  'LMS peer review must not silently disappear or display demo data.');
-const hrisSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseHrisManager.tsx'), 'utf8');
-for (const feature of ['tracking', 'shifts', 'payroll', 'performance', 'hiring', 'analytics']) {
-  assert.ok(hrisSource.includes(`id: "${feature}"`), `HRIS reference submenu ${feature} must remain visible.`);
-}
-assert.match(hrisSource, /HRIS_PENDING\[tab\]\s*&&\s*<ERPFeatureStatus/,
-  'Unsupported HRIS reference screens must show readiness information.');
-const alumniSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAlumniManager.tsx'), 'utf8');
-for (const feature of ['directory', 'tracer', 'community', 'donations']) {
-  assert.ok(alumniSource.includes(`id: "${feature}"`), `Alumni reference submenu ${feature} must remain visible.`);
-}
-assert.match(alumniSource, /tab === "directory"\s*\?\s*<>[\s\S]*?<ERPFeatureStatus/,
-  'Unimplemented Alumni sections must show an explicit readiness state instead of directory content.');
-const librarySource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLibraryManager.tsx'), 'utf8');
-assert.match(librarySource, /id:\s*["']digital["']\s*,\s*label:\s*["']Perpustakaan Digital["']/,
-  'The digital library submenu must remain visible when the Storage feature flag is closed.');
-assert.match(librarySource, /activeTab === "digital" && !digitalAssetsEnabled && <ERPFeatureStatus/,
-  'The digital library must explain its closed Storage gate instead of appearing to disappear.');
+assert.match(masterDataSource, /return labels\[value\.…1123 tokens truncated…ary must explain its closed Storage gate instead of appearing to disappear.');
 const archiveImportPolicy = fs.readFileSync(path.join(root, 'src', 'runtimeBackend.ts'), 'utf8');
 assert.match(archiveImportPolicy, /export const legacyArchiveImportEnabled = false/,
   'Firestore archive imports must remain disabled after the no-copy decision.');
@@ -319,4 +278,5 @@ assert.match(facilityBookingSource, /const previewImport = async \(\) => \{\s*if
 assert.match(facilityBookingSource, /const applyImport = async \(\) => \{\s*if \(!SUPABASE_FACILITY_BOOKINGS_IMPORT\) return;/,
   'Facility booking apply action must fail closed when archive import is disabled.');
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
+
 
