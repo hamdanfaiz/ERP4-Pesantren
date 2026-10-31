@@ -122,8 +122,9 @@ const outOfOrder = compareMigrationVersions(local, [{ version: '20270102000000',
 assert.deepEqual(outOfOrder.outOfOrderPending.map(({ version }) => version), ['20270101000000']);
 assert.equal(outOfOrder.canContinueToStagingReview, false);
 
-// Regression fixture from the read-only staging ledger observed on 2026-10-27.
-// This validates planning output only; it does not connect to or change staging.
+// Regression fixture from the read-only VQE staging ledger observed on 2026-10-31.
+// It models the applied prefix through 20261206000000, including the migration
+// Supabase recorded as 20261031104213. This validates planning output only.
 const missingStagingMetadataVersions = new Set(['20261205000000', '20261206000000']);
 const observedStagingMigrations = sourceMigrationsWithSql
   .filter(({ version }) => version <= '20261206000000')
@@ -135,14 +136,14 @@ const observedStagingMigrations = sourceMigrationsWithSql
     // Mirror the observed gap without embedding staging SQL in this fixture.
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
-assert.equal(observedStagingMigrations.length, 47);
+assert.equal(observedStagingMigrations.length, 48);
 assert.equal(sourceMigrationsWithSql.length, 116);
 const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
-assert.equal(stagingBaseline.appliedCount, 47);
+assert.equal(stagingBaseline.appliedCount, 48);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(stagingBaseline.pending.length, 69);
+assert.equal(stagingBaseline.pending.length, 68);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
-assert.equal(stagingBaseline.pending.at(-1).version, '20270213000000');
+assert.equal(stagingBaseline.pending.at(-1).version, '20270212000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
 assert.equal(stagingBaseline.unknownApplied.length, 0);
 assert.deepEqual(stagingBaseline.nameMismatches.map(({ version }) => version), [...missingStagingMetadataVersions]);
