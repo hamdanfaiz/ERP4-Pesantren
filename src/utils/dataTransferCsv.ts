@@ -10,6 +10,7 @@ export function parseTransferCsv(text: string, allowedHeaders: string[]): CsvTra
   let row: string[] = [];
   let cell = "";
   let quoted = false;
+  let quoteClosed = false;
 
   for (let index = 0; index < source.length; index += 1) {
     const character = source[index];
@@ -19,10 +20,27 @@ export function parseTransferCsv(text: string, allowedHeaders: string[]): CsvTra
         index += 1;
       } else if (character === '"') {
         quoted = false;
+        quoteClosed = true;
       } else {
         cell += character;
       }
-    } else if (character === '"' && cell.length === 0) {
+    } else if (quoteClosed && character === ",") {
+      row.push(cell);
+      cell = "";
+      quoteClosed = false;
+    } else if (quoteClosed && (character === "\n" || character === "\r")) {
+      if (character === "\r" && source[index + 1] === "\n") index += 1;
+      row.push(cell);
+      if (row.some((value) => value.trim() !== "")) table.push(row);
+      row = [];
+      cell = "";
+      quoteClosed = false;
+    } else if (quoteClosed && (character === " " || character === "\t")) {
+      // Ignore harmless whitespace between a closing quote and the delimiter.
+    } else if (quoteClosed) {
+      throw new Error("CSV memiliki isi setelah tanda kutip penutup.");
+    } else if (character === '"') {
+      if (cell.length !== 0) throw new Error("CSV memiliki tanda kutip pada posisi yang tidak valid.");
       quoted = true;
     } else if (character === ",") {
       row.push(cell);

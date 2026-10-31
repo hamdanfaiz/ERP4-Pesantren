@@ -79,6 +79,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
     setBusy("preview");
     try {
       if (!file.name.toLocaleLowerCase("id-ID").endsWith(".csv")) throw new Error("Gunakan berkas CSV dari templat Data Induk.");
+      if (file.size > 2 * 1024 * 1024) throw new Error("Ukuran CSV maksimal 2 MB.");
       const parsed = parseTransferCsv(await file.text(), headers);
       setRows(parsed);
       const checked = await previewSupabaseMasterDataImport(kind, parsed, structureCategory);
