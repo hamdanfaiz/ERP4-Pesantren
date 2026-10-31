@@ -25,7 +25,8 @@
 
 - Wali dengan email Auth terverifikasi dapat mengakses tagihan kandidat PPDB pra-onboarding hanya di tenant yang sesuai, untuk kandidat yang belum ditolak/di-onboard, dengan tagihan aktif.
 - Setelah onboarding, akses kandidat dicabut dan tagihan mengikuti relasi santri serta Wali kanonis.
-- CI head PR saat checkpoint diperiksa: [run 41168200484](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41168200484). Kedua job sukses: build dan guard frontend, migration rehearsal, pgTAP, API auth/tenant, Storage, backup/restore, import, idempotensi, serta build konfigurasi Docker pelanggan.
+- CI pada commit kode `2ba3cdb362aba2a6fa8eaafdd60c5142ea0814f7): [run 41168200484](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41168200484). Kedua job sukses: build dan guard frontend, migration rehearsal, pgTAP, API auth/tenant, Storage, backup/restore, import, idempotensi, serta build konfigurasi Docker pelanggan.
+- Head PR setelahnya hanya memperbarui dokumentasi; workflow CI tidak berjalan pada commit docs. Tidak ada perubahan source aplikasi atau migrasi setelah kode yang diuji.
 - Tes live VQE sebelumnya menghasilkan 53 assertion privilege API dan 44 assertion isolasi tenant; skrip memakai rollback. Tes otomatis itu tidak menggantikan UAT aplikasi Wali.
 - Advisor VQE: 156 temuan INFO RLS pada tabel backend-only tanpa policy, 238 INFO indeks FK, dan 168 INFO unused index. Karena VQE kosong dari data operasional, telemetry indeks belum mewakili beban nyata; tidak ada indeks massal yang dihapus.
 
@@ -41,9 +42,11 @@ Setelah akun Auth uji dibuat dan backend lokal dikonfigurasi dengan kredensial V
 6. Hapus objek Storage, tagihan, kandidat, relasi, profil, akun Auth, dan tenant sintetis. Akun Auth dihapus melalui Supabase Auth dashboard/API tepercaya, bukan SQL langsung.
 7. Verifikasi seluruh hitungan fixture kembali nol dan VQE tidak menyisakan objek `uat/`.
 
-## Status PR
+## Status PR dan progress checkpoint
 
-PR #38 tetap Draft/Open sampai UAT aplikasi dan tinjauan tim backend selesai. CI terbaru lulus, tetapi login aplikasi, unggah bukti melalui UI, onboarding, isolasi tenant pada runtime, dan pembersihan fixture belum terverifikasi. Jangan merge PR atas dasar CI saja.
+PR #38 tetap Draft/Open sampai UAT aplikasi dan tinjauan tim backend selesai. CI terbaru pada kode lulus, tetapi login aplikasi, unggah bukti melalui UI, onboarding, isolasi tenant pada runtime, dan pembersihan fixture belum terverifikasi.
+
+**Progress PR #38: 75% (3 dari 4 gate checkpoint).** Implementasi kode, CI pada commit kode, dan penerapan skema staging selesai. UAT UI Wali masih tertunda. Angka ini hanya untuk checkpoint PR #38, bukan seluruh produk ERP atau kesiapan komersial.
 
 ## Riwayat rekonsiliasi migrasi
 
