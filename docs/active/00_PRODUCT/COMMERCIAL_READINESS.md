@@ -21,8 +21,8 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 - Source cutover PR #13 tetap menjadi baseline. PR #17 kini juga merged ke `main` pada merge commit `3e752f8d6c1961130b9baa108736c51ffc702eb7`. Jalur Firestore server dan Firebase Admin sudah dihapus; Firebase client SDK masih ada untuk source lama yang tidak aktif, tetapi guard CI memastikan runtime frontend aktif tidak memuat Firebase.
 - CI PR #17 lulus pada [run 41136728382](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41136728382), 2/2 job, pada Supabase lokal sintetis. Tidak ada migration/schema/record yang diterapkan ke Supabase Production atau data dummy Firestore yang disalin; PPOB/payment gateway dikecualikan dari rilis awal.
 - GitHub Actions [run 41051400486](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41051400486) lulus **2/2 job** pada head source PR #13 `e449c234c253eb7a65795af18c5794fa45e6e9cb`. Cakupan meliputi typecheck/build, penguncian PPOB di RBAC, Docker/Compose, Supabase lokal sintetis, rehearsal migration, pgTAP, API/tenant, transaksi serentak, Storage, dan backup/restore. Ini bukan UAT pelanggan atau bukti perubahan database live.
-- Baseline source `main` sebelum PR #36 memiliki 109 file migration; PR #36 mengusulkan migration metadata-only ke-110 untuk memicu penerapan pada VQE staging. PTSAS tetap Production dengan auto-deploy OFF. Snapshot PTSAS mencatat 47 versi ledger; 62 versi source belum tercatat setelah `20261206000000`, dan metadata dua versi terakhir kosong. Selisih itu belum membuktikan semua migration aman diterapkan; daftar versi adalah inventaris rekonsiliasi, bukan instruksi menjalankan semuanya.
-- Snapshot katalog target terdahulu menunjukkan 119/119 tabel `public` memakai RLS dan FORCE RLS; 118/118 tabel tenant mewajibkan `tenant_id`; 243/243 FK antartabel tenant memasangkan `tenant_id`; tabel `anon` tanpa SELECT dan `authenticated` tanpa hak tulis langsung. Katalog dan baseline ini belum dibaca ulang; rehearsal harus dilakukan pada staging terisolasi.
+- PR #36 sudah merged pada commit `edd5385fee4d10db64681de9cc08ee757130eb78`. VQE staging mencatat seluruh 110 migration source tanpa versi hilang/ekstra. PTSAS tetap Production dengan auto-deploy OFF; snapshot historisnya mencatat 47 versi ledger, tetapi belum direkonsiliasi ulang terhadap source 110 migration. Tidak ada deployment Production.
+- Verifikasi staging VQE setelah PR #36: 160/160 tabel memiliki RLS dan FORCE RLS; 159 tabel tenant-scoped (root `tenants` dikecualikan); 5 policy publik, tidak ada grant langsung ke `anon` atau grant tulis langsung bagi `authenticated`; 4 bucket privat. Ini inventaris staging, bukan bukti katalog PTSAS setara.
 - Runtime feature flags sengaja mati secara default sampai migration, provisioning tenant, Auth, role/permission, dan UAT masing-masing modul lulus.
 - Guard source memeriksa 26 route Supabase. PPOB/Layanan Ekosistem tidak memiliki tipe modul atau route pada rilis awal, dan layar simulasi lamanya sudah dihapus; permission lama untuk modul itu tetap ditolak oleh RBAC. Layar Multi-Unit dan Anggaran tersedia, tetapi API-nya tetap terkunci feature flag server yang default-nya `false`; Analitik memakai ringkasan Supabase berbasis aturan. Pemetaan route tidak membuktikan alur live siap dipakai.
 - Tagihan PPDB dapat dibuat Admin pada record calon santri dan ditautkan ke santri saat onboarding. Admin dapat mencatat pelunasan manual sebelum onboarding; unggah bukti mandiri oleh Wali baru tersedia setelah akun Wali terhubung dengan santri aktif. Jika pembayaran mandiri Wali sebelum onboarding dibutuhkan, itu masih perlu dirancang dan diuji.
@@ -35,7 +35,7 @@ Snapshot teknis ini bukan pengganti audit endpoint, pemeriksaan definisi seluruh
 ### 1. Skema, relasi, dan transaksi
 
 - Tim backend dapat menjalankan `npm run preflight:db-migrations` dari root source `main` untuk membandingkan versi, nama, dan statement migration dengan koneksi PostgreSQL read-only. Pastikan hostname menunjuk ke project target; jangan membagikan URL atau secret. Jika ada `HENTIKAN` atau mismatch, selesaikan rekonsiliasi sebelum rehearsal.
-- Rekonsiliasi ledger Production terhadap migration source. Baseline sebelum PR #36 adalah 47 versi ledger dibandingkan 109 file source; PR #36 menambahkan migration metadata-only ke-110 untuk staging. Perbedaan hitungan dan dua baris metadata kosong tidak membuktikan set migration yang aman untuk Production. Jangan tandai versi sebagai applied tanpa bukti schema.
+- Untuk Production, rekonsiliasi ledger dan schema PTSAS secara terpisah. Snapshot sebelumnya menunjukkan 47 versi ledger dan dua entri tanpa metadata, sedangkan source saat ini memiliki 110 migration. Selisih hitungan bukan instruksi untuk menerapkan migration atau mengubah ledger. Jangan tandai versi sebagai applied tanpa bukti schema.
 - Sebelum penerapan, simpan backup yang dapat dipulihkan dan rehearsalkan seluruh urutan migration pada salinan/environment staging.
 - Verifikasi signature dan definisi function, constraint, index, RLS, Storage policy, dan Data API grant terhadap source commit yang akan dirilis.
 - Uji transaksi kritis: NIS unik bersamaan, onboarding PPDB-ke-santri, assignment kamar, pembayaran/jurnal, stok/dompet koperasi, buku dan peminjaman, sesi/setoran Tahfidz, serta idempotensi retry.
@@ -86,8 +86,8 @@ Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika 
 
 ## Urutan kerja yang disarankan
 
-1. Tim backend memastikan target yang benar dan menyediakan environment staging terisolasi yang dapat dipulihkan. Konektor Supabase yang tersedia pada Codex saat ini tidak menampilkan ref target `ptsasgdvgrbdtgyqieie`; jangan gunakan project Supabase lain sebagai pengganti.
-2. Baca ulang ledger, review, dan rehearsalkan urutan migration yang benar-benar belum diterapkan pada lingkungan yang dapat dipulihkan; tidak ada importer Firestore yang perlu dijalankan.
+1. VQE `vqemuyzveuirlkvdggjd` kini tersedia sebagai staging terisolasi dengan seluruh 110 migration diterapkan. Tim backend dapat memulai provisioning tenant dan akun sintetis, login/UAT, pengujian role/tenant dan alur operasional di sana. PTSAS `ptsasgdvgrbdtgyqieie` tetap Production dengan auto-deploy OFF.
+2. Untuk Production, baca ulang ledger dan katalog secara terpisah melalui akses yang disetujui, rekonsiliasi dua entri ledger tanpa metadata, lalu rancang rehearsal yang dapat dipulihkan. Jangan jalankan migration Production hanya untuk menyamakan hitungan.
 3. Jalankan UAT Auth, role/tenant, modul kritis, Storage, dan error recovery pada staging.
 4. Lakukan clean install, upgrade, dan pemindahan host pada VPS Linux serta VM on-premise representatif.
 5. Selesaikan rotasi secret, operasi/support, lisensi, pilot, dan sizing beban.
@@ -95,5 +95,5 @@ Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika 
 
 ## Perkiraan checkpoint
 
-Estimasi terakhir adalah **73% penyelesaian pengembangan**. Deployment dan UAT dikerjakan tim penerapan. CI, ERD, atau snapshot RLS yang lulus tidak menggantikan migration staging, UAT, dan simulasi environment pelanggan.
+Checkpoint terukur: deployment skema staging **110/110 migration (100%)**. Persentase keseluruhan penyelesaian fitur belum dihitung ulang pada checkpoint ini; UAT, provisioning, validasi instalasi pelanggan, dan rekonsiliasi Production masih terbuka.
 

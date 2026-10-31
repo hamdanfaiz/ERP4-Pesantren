@@ -1,73 +1,67 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
-> **Status database (31 Oktober 2026):** PTSAS `ptsasgdvgrbdtgyqieie` adalah Production dengan GitHub auto-deploy OFF. VQE `vqemuyzveuirlkvdggjd` adalah staging dengan deployment aktif. PR #35 mengubah docs saja, jadi migration belum diterapkan. PR #36 menambah migration metadata-only ke-110 agar integrasi staging memproses migration chain; PR #36 perlu lulus CI sebelum merge. Data Firestore dummy tidak perlu disalin. Gunakan [audit cutover terbaru](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md).
+> **Checkpoint 31 Oktober 2026:** source resmi branch `main`, commit `edd5385fee4d10db64681de9cc08ee757130eb78`, berisi 110 migration. VQE `vqemuyzveuirlkvdggjd` adalah staging yang disetujui dan sudah menerapkan 110/110 versi migration tanpa selisih set. PTSAS `ptsasgdvgrbdtgyqieie` tetap Production, GitHub auto-deploy **OFF**, dan tidak disentuh. Data Firestore dummy tidak perlu disalin. CI PR #36 lulus [2/2 job](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41153976106).
 
-**Diperbarui:** 31 Oktober 2026  
-**Status:** siap dipakai sebagai urutan kerja; tidak menyatakan aplikasi siap produksi.
+**Tujuan dokumen:** memberi tim backend langkah konkret untuk melanjutkan pengujian dan menyiapkan rilis. Status ini tidak menyatakan aplikasi siap produksi atau sudah lulus UAT.
 
-## Tim dapat mulai sekarang
+## Fakta lingkungan
 
-Mulai dari **Fase 1: menyiapkan staging dan membaca keadaan database**. Tim tidak perlu menunggu seluruh sisa pengembangan atau memulai dari PR lama. Gunakan branch `main` sebagai sumber kode resmi.
+| Lingkungan | Ref | Status dan batas |
+| --- | --- | --- |
+| Staging ERP | `vqemuyzveuirlkvdggjd` | Schema 110/110 migration sudah diterapkan. 160 tabel public, seluruhnya RLS-enabled dan FORCE RLS; 159 tabel tenant-scoped; 4 bucket Storage privat. Belum ada tenant maupun user Auth. Gunakan untuk data sintetis dan UAT. |
+| Production ERP | `ptsasgdvgrbdtgyqieie` | Auto-deploy tetap OFF. Snapshot lama menunjukkan 119 tabel dan 47 versi ledger, dua tanpa metadata. Konektor baca Codex menolak project ini pada checkpoint terakhir; tim harus memverifikasi ulang lewat akses resmi. Jangan menerapkan migration sebelum rekonsiliasi dan backup yang dapat dipulihkan. |
 
-## Baseline yang harus dipakai
+Kondisi VQE membuktikan deployment skema staging berhasil; hal itu tidak membuktikan Production sama, login berfungsi, atau seluruh alur bisnis diterima pengguna.
 
-- Sumber kode resmi adalah branch `main`. Sebelum mulai bekerja atau menjalankan preflight, checkout `main` terbaru dan catat SHA yang benar-benar digunakan. Baseline perubahan runtime berasal dari PR #13 dan penghapusan jalur Firebase server dari PR #17.
-- PR #13 adalah baseline cutover Supabase; PR #17 menghapus Firebase Admin dan jalur Firestore server; PR #18–#25 menyempurnakan readiness, panduan backend, konfigurasi pelanggan, katalog izin, serta konsistensi merek/dokumen. PR #24 dan #25 sudah merged.
-- PR #1–#11 ditutup tanpa merge langsung karena implementasinya digantikan/dipetakan ke baseline cutover. Jangan cherry-pick atau memakai branch tersebut sebagai dasar deployment.
-- Data Firestore pemilik adalah dummy dan tidak perlu disalin. Gunakan fixture sintetis untuk staging.
-- Project Supabase `ptsasgdvgrbdtgyqieie` tercatat sebagai `main / PRODUCTION`. Jangan gunakan project itu untuk rehearsal.
+## Langkah tim berikutnya
 
-## Fase 1 — staging dan inventaris baca-saja (mulai sekarang)
+### 1. Provisioning sintetis dan pemeriksaan konfigurasi staging
 
-1. Siapkan project Supabase staging yang terpisah dari Production, atau environment staging mandiri yang dapat dipulihkan.
-2. Checkout `main` dan catat commit yang dipakai. Pastikan migrasi dibaca dari commit yang sama dengan source aplikasi yang akan diuji.
-3. Baca ledger migrasi dan katalog database tanpa menulis. Dari snapshot sebelumnya, ledger memiliki 47 versi sedangkan source `main` memiliki 109 file migration; metadata `name` dan `statements` untuk `20261205000000` serta `20261206000000` kosong. Angka ini adalah baseline historis dan harus dibaca ulang.
-4. Jalankan `npm run preflight:db-migrations` dari root repo hanya setelah URL menunjuk ke staging yang benar. Simpan ringkasan hasilnya tanpa URL atau credential.
-5. Pastikan ada backup staging dan bukti pemulihan sebelum rehearsal.
+1. Catat commit aplikasi dan migration yang diuji; keduanya harus berasal dari `main` yang sama.
+2. Buat tenant uji melalui jalur provisioning yang disepakati dan akun sintetis untuk setiap role. Jangan menambahkan data asli.
+3. Periksa environment aplikasi menunjuk ke VQE. Pastikan publishable key hanya dipakai di klien; secret/service-role dan kunci PII berada di secret manager/server saja.
+4. Verifikasi migration ledger, tabel, function/RPC, index, constraint, grants, RLS, Storage policy, dan bucket privat di staging.
 
-**Koreksi status akses dan target (31 Oktober 2026):** dashboard Supabase yang telah masuk menunjukkan project `ptsasgdvgrbdtgyqieie` (`ERP4-Pesantren`) pada branch `main / PRODUCTION`. Konektor MCP Codex masih hanya menampilkan project `vqemuyzveuirlkvdggjd` dan menolak ref `ptsas`; keterbatasan MCP tidak berarti dashboard target tidak dapat diakses. Hasil query yang sudah terbuka di SQL Editor target, dengan waktu eksekusi yang tidak terlihat, menunjukkan 47 versi pada `supabase_migrations.schema_migrations` (`20260603000000`–`20261206000000`), dengan `name` dan metadata `statements` kosong pada dua versi terakhir `20261205000000` dan `20261206000000`. Ini menunjukkan ledger Production berisi riwayat parsial; bukan bukti skema dan semua 109 migration source sudah selaras. Halaman Tables yang diperiksa tidak menampilkan daftar tabel dalam snapshot aksesibilitas, sehingga jumlah tabel harus dipastikan dengan inventaris SQL baca-saja baru. Project `vqem...` bukan pengganti target dan hasilnya tidak boleh dipakai untuk menyimpulkan keadaan `ptsas`. Jangan menjalankan migration pada Production. Tim backend harus menyiapkan staging yang terpisah, menjalankan ulang inventaris ledger/katalog/RLS/Storage pada target dan staging, merekonsiliasi setiap migration (terutama dua baris metadata kosong), lalu melakukan rehearsal pada staging dengan backup/restore yang terbukti. Tidak ada perubahan database dilakukan pada pemeriksaan ini.
+**Keluaran:** catatan ref/commit, ringkasan inventaris, serta tenant dan akun sintetis yang dapat digunakan UAT.
 
-**Keluaran Fase 1:** ref staging yang terkonfirmasi, commit source, ringkasan ledger-vs-source, inventaris skema/RLS/Storage, dan bukti backup/restore staging.
+### 2. UAT Auth, role, tenant, dan modul kritis
 
-**Jangan lakukan di fase ini:** menerapkan migration, mengubah feature flag Production, menyalin data ke Production, atau membagikan secret melalui chat/tiket.
+Uji login, undangan/pembuatan akun, pemulihan akun, penonaktifan sesi, serta matriks role × permission. Buktikan pengguna satu tenant tidak dapat membaca atau mengubah tenant lain melalui UI, API, RPC, dan Storage.
 
-## Fase 2 — rekonsiliasi source dan ledger
+Uji alur PPDB → onboarding santri/NIS, asrama/kamar, keuangan dan pencatatan pembayaran manual, Tahfidz, komunikasi, dokumen privat, serta retry/idempotensi. Pastikan fitur yang belum siap tetap fail-closed. PPOB/payment gateway berada di luar rilis awal.
 
-- Cocokkan seluruh versi ledger dengan berkas migration pada commit yang akan diuji, termasuk nama dan isi SQL jika metadata tersedia.
-- Jelaskan setiap perbedaan dan dua baris metadata kosong pada baseline sebelumnya. Jangan menandai migration sebagai sudah diterapkan tanpa bukti schema yang sesuai.
-- Tinjau urutan dependency, RLS/FORCE RLS, grant, foreign key tenant, function/RPC, Storage bucket/policy, indeks, dan extension.
-- Buat rencana migration tertulis yang hanya menyebut perubahan yang terbukti belum ada pada staging.
+**Keluaran:** bukti uji per alur, isu dengan tingkat dampak dan commit perbaikan, serta persetujuan UAT dari perwakilan pengguna.
 
-**Keluaran Fase 2:** daftar selisih yang sudah dijelaskan dan rencana migration dengan urutan, risiko, validasi, serta cara pemulihan.
+### 3. Backup, pemulihan, dan portabilitas pemasangan
 
-## Fase 3 — rehearsal pada staging
+Lakukan backup lalu restore database **dan Storage** staging ke environment uji kedua. Buktikan relasi, file, dan kunci enkripsi tetap dapat digunakan. Jalankan clean install, upgrade, dan restore pada Linux VPS serta VM on-premise representatif. Catat kebutuhan DNS/TLS, reverse proxy, SMTP, volume persisten, resource minimum, dan akses jaringan.
 
-- Pulihkan backup/snapshot staging sesuai prosedur.
-- Terapkan rencana migration hanya di staging. Jalankan CI/test yang relevan dari commit yang sama dan isi data sintetis melalui alur aplikasi.
-- Verifikasi isolasi tenant dan matriks role/permission, Auth, PPDB, Master Data/NIS, transaksi asrama dan keuangan, Tahfidz, Storage, retry/idempotensi, serta log/error.
-- Aktifkan flag hanya untuk irisan yang sudah lulus pemeriksaan dan catat hasil per domain. Biarkan fitur yang belum siap tetap fail-closed.
+**Keluaran:** runbook install/upgrade/backup/restore serta bukti restore dan smoke test di tiap environment.
 
-**Keluaran Fase 3:** laporan hasil rehearsal, daftar masalah beserta commit perbaikannya, dan bukti bahwa backup dapat dipulihkan.
+### 4. Rekonsiliasi Production
 
-## Fase 4 — penerimaan operasional oleh tim
+1. Gunakan akses baca-saja yang disediakan operator untuk membaca ledger serta katalog PTSAS.
+2. Cocokkan tiap versi ledger dengan source migration dan definisi schema. Dua baris ledger terakhir sebelumnya tidak memiliki metadata `name` maupun `statements`; jangan menandainya applied atau mengubah ledger tanpa bukti.
+3. Simpan backup Production yang dapat dipulihkan sebelum menyusun rencana perubahan.
+4. Minta tim deployment meninjau rencana, jadwal, verifikasi pascapenerapan, dan pemulihan. Biarkan auto-deploy OFF hingga persetujuan change window.
 
-- Lakukan UAT login, role/tenant, modul kritis, upload/download, dan pemulihan.
-- Uji clean install, upgrade, backup, dan restore pada target VPS/on-premise yang disepakati. Pastikan konfigurasi runtime dan secret terpisah dari image aplikasi.
-- Rotasi secret yang pernah dibagikan dan simpan nilai baru melalui secret manager. Jangan menaruh secret pada repo atau dokumen ini.
+**Keluaran:** rekonsiliasi yang dapat diaudit dan rencana penerapan yang disetujui. Tidak ada perintah `db push`, `migration repair`, reset, atau perubahan Production hanya untuk menyamakan jumlah migration.
 
-**Keluaran Fase 4:** hasil UAT yang ditandatangani, runbook instalasi/upgrade/restore, dan daftar sisa masalah yang disetujui untuk rilis atau ditutup.
+## Tanggung jawab
 
-## Fase 5 — rilis Production
-
-Fase ini dikerjakan tim penerapan setelah fase 1–4 lulus. Sebelum perubahan, pastikan ulang project/ref Production, simpan backup yang dapat dipulihkan, gunakan migration dari commit rilis yang sama dengan aplikasi, dan dokumentasikan hasil pascapenerapan. Tidak ada perubahan Production yang dilakukan dalam checkpoint ini.
-
-## Pembagian tanggung jawab
-
-| Pekerjaan | Pemilik utama |
+| Pekerjaan | Pemilik |
 | --- | --- |
-| Source code, perbaikan temuan, commit/PR, dan bukti CI | Codex / pengembang aplikasi |
-| Menyediakan staging, izin akses baca-saja, backup, serta inventaris database | Tim backend |
-| Rehearsal database, Auth/UAT, pengujian environment pelanggan, dan runbook operasi | Tim backend/penerapan |
-| Perubahan database Production dan deploy hosting | Tim penerapan, setelah gerbang rilis lulus |
+| Source aplikasi, perbaikan, commit/PR dan CI | Pengembang aplikasi |
+| Akses Supabase, provisioning staging, backup, inventaris | Tim backend |
+| UAT, uji hosting VPS/on-premise, operasi dan runbook | Tim backend/penerapan dan perwakilan pesantren |
+| Rekonsiliasi serta deployment Production | Tim backend/penerapan setelah gerbang rilis disetujui |
 
-Untuk daftar gerbang komersial lengkap, lihat [COMMERCIAL_READINESS.md](../00_PRODUCT/COMMERCIAL_READINESS.md).
+## Status checkpoint
+
+- Deployment migration ke VQE staging: **110/110 (100%)**.
+- CI PR #36: **2/2 job lulus**.
+- Kesiapan keseluruhan fitur tidak dihitung ulang dari checkpoint schema ini.
+- UAT login dan matriks role/tenant, simulasi instalasi pelanggan, backup/restore staging yang dijalankan tim, serta rekonsiliasi Production masih harus dikerjakan.
+- PPOB/payment gateway tidak termasuk rilis awal.
+
+Dokumen terkait: [Audit cutover Supabase](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md), [snapshot Production](../06_DATABASE/PTSAS_PRODUCTION_READINESS_SNAPSHOT_2026-10-31.md), dan [kesiapan komersial](COMMERCIAL_READINESS.md).

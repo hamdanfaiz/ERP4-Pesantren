@@ -1,6 +1,6 @@
 # Runbook Rekonsiliasi Migration Ledger Supabase Staging
 
-> **Status diperbarui 31 Oktober 2026:** Dokumen ini adalah snapshot historis; label “staging” pada dokumen ini sudah disupersede. Dashboard menunjukkan Supabase `ptsasgdvgrbdtgyqieie` berada pada branch `main / PRODUCTION`. Jangan jalankan migration, rehearsal, repair, atau reset pada project tersebut. Ref staging terpisah belum tersedia. Data dummy Firestore tidak perlu disalin. Ikuti [audit target terbaru](./SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md) untuk keputusan operasional.
+> **Status 31 Oktober 2026:** snapshot dan prosedur di bawah berasal dari audit 27 Oktober dan sudah disupersede untuk VQE. Staging ERP sekarang adalah `vqemuyzveuirlkvdggjd` dengan seluruh 110 migration source diterapkan; PTSAS `ptsasgdvgrbdtgyqieie` tetap Production dan auto-deploy OFF. Jangan jalankan langkah migration historis di bawah terhadap salah satu project. Untuk langkah operasional terkini, gunakan [audit cutover](./SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md) dan [panduan tim backend](../00_PRODUCT/BACKEND_TEAM_START_HERE.md).
 
 **Tanggal audit:** 27 Oktober 2026  
 **Project staging:** `ptsasgdvgrbdtgyqieie`  
@@ -12,7 +12,7 @@ Firestore berisi data dummy dan tidak akan diimpor. Target pekerjaan adalah menj
 
 Runbook ini menyelesaikan ketidakcocokan migration ledger sebelum migration baru diterapkan. Ini bukan instruksi untuk menghapus atau mereset database.
 
-## Snapshot baca-saja
+## Snapshot historis baca-saja — 27 Oktober (bukan kondisi VQE saat ini)
 
 - Ledger staging memiliki 47 versi. Source PR memiliki 94 migration; ada 47 migration source setelah versi terakhir yang tercatat.
 - Versi `20261205000000` dan `20261206000000` ada di ledger, tetapi kolom `name` dan `statements` keduanya kosong. Preflight sengaja berhenti karena tidak dapat membuktikan isi migration yang dianggap sudah diterapkan.
@@ -28,7 +28,7 @@ CI pada head sebelum perbaikan mendeteksi dua foreign key pada ledger LMS yang h
 
 Commit kode `9cfe2733a79a823db58103c9465e327e38bf3ea1` lulus pada [GitHub Actions run #40472342967](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/40472342967), kedua job sukses. Rehearsal dilakukan pada Supabase lokal dengan fixture sintetis; run ini tidak menulis ke staging. Migration baru masih pending untuk staging karena ledger target berakhir pada `20261206000000`.
 
-## Tindakan yang diperlukan tim backend
+## Tindakan historis — jangan jalankan tanpa rencana Production yang direkonsiliasi
 
 1. Pastikan target adalah project staging `ptsasgdvgrbdtgyqieie`. Siapkan backup yang bisa dipulihkan sebelum mengubah schema atau migration history. Jangan menjalankan `db reset --linked`, menghapus tenant, menghapus tabel, atau menimpa data.
 2. Gunakan source PR #13 pada head yang tercantum di atas. Di checkout bersih, pasang dependency sesuai lockfile dan jalankan pemeriksaan baca-saja dengan konfigurasi `.env` lokal:

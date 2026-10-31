@@ -2,9 +2,9 @@
 
 Dokumen ini mencatat bukti untuk membedakan perpindahan antarproyek Supabase dari cutover runtime ERP/Firebase. Tidak ada schema, baris database, Auth, Storage, atau migration PTSAS Production yang diubah. Pada 31 Oktober 2026, project VQE ditetapkan sebagai staging ERP dan integrasi GitHub-nya dihubungkan ke repo `hamdanfaiz/ERP4-Pesantren`; penerapan otomatis hanya berlaku pada VQE. Integrasi PTSAS tidak diubah.
 
-## Hasil audit project sumber VQE
+## Kondisi awal project VQE sebelum dipakai sebagai staging
 
-Project Supabase `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY` pada saat dibaca. Inventaris baca-saja yang tersedia menunjukkan:
+Pada pemeriksaan awal sebelum deployment schema, project Supabase `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY`. Inventaris baca-saja awal menunjukkan:
 
 - 0 tabel pada schema `public`;
 - 0 versi migration;
@@ -15,7 +15,7 @@ Project Supabase `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY` pada saat dib
 
 Dengan inventaris tersebut, tidak ada isi database Supabase yang terdeteksi untuk disalin dari VQE ke PTSAS. Pemeriksaan ini bukan audit lengkap untuk seluruh konfigurasi project: secrets, seluruh schema non-public, konfigurasi provider Auth, log, dan referensi deployment eksternal tidak diperiksa. Project VQE tetap aktif dan tidak dihapus atau dijeda. Sesuai persetujuan pemilik, VQE kini dipakai sebagai staging ERP: repository `hamdanfaiz/ERP4-Pesantren`, working directory `.`, branch `main`, dan `Deploy to production` aktif di project VQE. Supabase menamai branch internalnya `main / PRODUCTION`; untuk lingkungan ERP ini project tersebut tetap diperlakukan sebagai staging.
 
-PR #35 (squash commit `92d1cda5f6ba1336d661108babb16f94c52ebdbd`) hanya memperbarui dokumentasi dan tidak mengubah `supabase/migrations`. Pembacaan VQE sesudah merge tersebut masih menunjukkan 0 migration, 0 tabel aplikasi pada `public`, 0 pengguna Auth, 0 bucket/objek Storage, dan 0 Edge Function; schema ERP belum diterapkan. PR #36 menambahkan migration metadata `20270207000000_public_schema_migration_ownership.sql` untuk memicu deployment berurutan pada staging VQE saja.
+PR #35 (squash commit `92d1cda5f6ba1336d661108babb16f94c52ebdbd`) hanya memperbarui dokumentasi. Setelah integrasi VQE aktif, PR #36 digabung pada commit `edd5385fee4d10db64681de9cc08ee757130eb78` dan migration chain diterapkan. Verifikasi baca-saja setelah deployment mencocokkan 110 versi source `main` dengan 110 versi ledger VQE tanpa versi hilang atau tambahan; inventaris VQE menunjukkan 160 tabel `public`, seluruhnya RLS-enabled dan FORCE RLS, serta 4 bucket Storage privat. Tidak ada record Firestore yang disalin.
 
 ## Project tujuan PTSAS dan integrasi repository
 
@@ -26,11 +26,11 @@ Project tujuan Production ERP adalah `ptsasgdvgrbdtgyqieie`. Dashboard mengonfir
 - Paket Free tidak menyediakan preview branch otomatis.
 - Tidak ada migration atau penulisan data ke PTSAS dalam audit ini.
 
-### Hasil ledger migration baca-saja, diverifikasi ulang 31 Oktober 2026
+### Snapshot historis ledger migration PTSAS
 
-Query SELECT di SQL Editor PTSAS mengonfirmasi 119 tabel publik dan 47 versi pada `supabase_migrations.schema_migrations`. Versi awal adalah `20260603000000`, versi terakhir `20261206000000`. Dua entri terakhir, `20261205000000` dan `20261206000000`, tidak memiliki `name` maupun `statements` pada ledger.
+Pada snapshot Production terdahulu, query SELECT di SQL Editor PTSAS mengonfirmasi 119 tabel publik dan 47 versi pada `supabase_migrations.schema_migrations`. Versi awal adalah `20260603000000`, versi terakhir `20261206000000`. Dua entri terakhir, `20261205000000` dan `20261206000000`, tidak memiliki `name` maupun `statements` pada ledger. Hasil tersebut belum diverifikasi ulang pada checkpoint ini.
 
-Sebelum PR #36, source `main` berisi 109 file migration; file terakhirnya `20270206000000_tahfidz_peer_review_moderation.sql`. PR #36 menambahkan satu migration metadata, sehingga rantai yang akan diuji berjumlah 110 file. Sebanyak 62 versi source setelah batas ledger—dari `20261207000000_library_legacy_catalog_import.sql` sampai `20270206000000_tahfidz_peer_review_moderation.sql`—belum tercatat sebagai applied di PTSAS. Jumlah versi tidak membuktikan kesetaraan definisi schema; metadata dua entri terakhir juga perlu direkonstruksi dari bukti lain.
+Snapshot PTSAS terdahulu mencatat 119 tabel publik dan 47 versi ledger sampai `20261206000000`, termasuk dua versi terakhir tanpa metadata `name`/`statements`. Snapshot itu berasal dari pemeriksaan sebelumnya; akses MCP PTSAS saat checkpoint ini tetap ditolak, sehingga kondisi ledger Production dan kesetaraannya dengan source terkini belum diverifikasi ulang. Jangan menyimpulkan bahwa selisih dapat diterapkan otomatis.
 
 GitHub Actions run [41147695131](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41147695131) berhasil pada Supabase lokal sintetis. Run tersebut merehearsal upgrade dari batas ledger 47 versi, menerapkan seluruh migration source berikutnya, dan menjalankan pgTAP, transaksi serentak, API/tenant, Storage, serta backup/restore. Ini membuktikan urutan migration dapat dijalankan pada fixture lokal tersebut, tetapi tidak membuktikan schema Production bebas drift atau bahwa perubahan Production aman tanpa staging/backup yang dapat dipulihkan.
 
@@ -42,8 +42,8 @@ Konfigurasi repository menargetkan PTSAS, tetapi nilai `VITE_SUPABASE_URL` dan `
 
 ## Kesimpulan dan gerbang berikutnya
 
-1. **Project VQE:** ditetapkan sebagai staging ERP dan terhubung ke repo `hamdanfaiz/ERP4-Pesantren`, branch `main`, dengan penerapan migration otomatis hanya pada VQE. Merge PR #35 tidak mengubah migration, jadi inventory VQE tetap kosong. PR #36 perlu lulus CI dan digabung sebelum kita mengharapkan deployment schema.
+1. **Project VQE:** staging sudah menerima seluruh 110 migration source `main`; perbandingan set versi source-ledger menunjukkan tidak ada yang hilang atau ekstra. Inventaris saat verifikasi: 160 tabel publik, 160/160 RLS-enabled, 160/160 FORCE RLS, 159 tabel ber-`tenant_id` (tabel root `tenants` dikecualikan), 5 policy publik, 0 grant langsung ke `anon`, dan 0 hak tulis langsung bagi `authenticated`. Empat bucket Storage privat sudah ada. Belum ada tenant atau pengguna Auth, sesuai staging kosong; login/UAT masih perlu dilakukan.
 2. **Project PTSAS:** tetap menjadi target Production, terhubung ke repo ERP, dan penerapan otomatis Production tetap **OFF**. Preview branch PTSAS tidak tersedia pada paket Free.
-3. **Firebase → Supabase:** runtime jalur aktif telah lolos guard CI, tetapi validasi environment hosting, staging/rehearsal pada salinan target, rekonsiliasi ledger 47 versi dengan 109 file source, serta login/UAT masih harus dituntaskan.
-4. Setelah PR #36 digabung, verifikasi seluruh 110 migration pada staging VQE dari repo `main`. Jangan menyalin data dummy Firestore; gunakan fixture sintetis untuk membuktikan alur serta relasi. Rehearsal CI lulus pada Supabase lokal, tetapi belum menjadi bukti bahwa VQE sudah menerima migration.
+3. **Firebase → Supabase:** runtime jalur aktif telah lolos guard CI dan jalur Firebase Admin/Firestore server sudah dihapus. Validasi environment hosting, provisioning tenant/Auth, login/UAT, dan uji instalasi pelanggan belum dilakukan.
+4. CI PR #36 lulus pada [run 41153976106](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41153976106), 2/2 job. Rehearsal lokal sintetis, pgTAP, pemeriksaan API/tenant, transaksi serentak NIS dan Tahfidz, Storage, backup/restore, serta smoke Docker/Compose berhasil. Ini bukti CI, bukan pengganti UAT oleh pengguna.
 5. Setelah rekonsiliasi, minta tim penerapan memvalidasi kedua variabel URL runtime pada environment mereka, lalu lakukan UAT dan smoke test. PTSAS Production tetap tidak menerima migration otomatis dari merge GitHub.
