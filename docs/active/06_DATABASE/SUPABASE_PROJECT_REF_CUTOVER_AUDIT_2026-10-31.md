@@ -26,7 +26,7 @@ Project tujuan Production ERP adalah `ptsasgdvgrbdtgyqieie`. Dashboard mengonfir
 - Paket Free tidak menyediakan preview branch otomatis.
 - Tidak ada migration atau penulisan data ke PTSAS dalam audit ini.
 
-### Hasil ledger migration baca-saja, diverifikasi ulang 31 Oktober 2026
+### Snapshot historis ledger migration PTSAS
 
 Pada snapshot Production terdahulu, query SELECT di SQL Editor PTSAS mengonfirmasi 119 tabel publik dan 47 versi pada `supabase_migrations.schema_migrations`. Versi awal adalah `20260603000000`, versi terakhir `20261206000000`. Dua entri terakhir, `20261205000000` dan `20261206000000`, tidak memiliki `name` maupun `statements` pada ledger. Hasil tersebut belum diverifikasi ulang pada checkpoint ini.
 
