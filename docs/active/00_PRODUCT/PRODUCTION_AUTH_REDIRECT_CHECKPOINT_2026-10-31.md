@@ -7,7 +7,7 @@ Pada dashboard Supabase project `ptsasgdvgrbdtgyqieie` (berlabel `main / PRODUCT
 - **Site URL:** `http://localhost:3000`
 - **Redirect URLs:** belum ada URL yang diizinkan
 
-Pada halaman Auth Users, akun Admin `hamdanfaizworks@gmail.com` menunjukkan status **Confirmed** dan **Last signed in** pada 31 Oktober 2026 pukul 12.19. Karena itu, kegagalan membuka localhost adalah kegagalan halaman tujuan setelah verifikasi, bukan bukti bahwa konfirmasi email gagal.
+Pada halaman Auth Users, akun Admin Production menunjukkan status **Confirmed** dan **Last signed in** pada 31 Oktober 2026 pukul 12.19. Karena itu, kegagalan membuka localhost adalah kegagalan halaman tujuan setelah verifikasi, bukan bukti bahwa konfirmasi email gagal.
 
 Browser yang mencoba membuka `http://localhost:3000` melaporkan `ERR_CONNECTION_REFUSED`. Site URL itu hanya berfungsi bila aplikasi berjalan di port 3000 pada komputer yang membuka tautan. Preview yang sebelumnya digunakan berada di port 4179, sehingga alamatnya tidak cocok.
 

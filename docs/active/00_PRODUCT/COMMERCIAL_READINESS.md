@@ -136,3 +136,13 @@ Bagian ini menggantikan status UAT/CI lama di addendum sebelumnya. Catatan histo
 - Setelah konfigurasi VQE tersedia, buat ulang fixture sintetis untuk UAT UI, jalankan login/tagihan/unggah/onboarding/isolasi tenant, lalu hapus fixture dan verifikasi jumlahnya kembali nol. PTSAS tetap tidak disentuh.
 
 **Progress checkpoint PR #38 tetap 75% (3/4 gerbang internal);** angka ini hanya cakupan PR, bukan persentase keseluruhan ERP atau kesiapan komersial. UAT UI, rekonsiliasi Production, rotasi secret Production, dan clean-install/upgrade/restore di environment pelanggan masih terbuka.
+
+
+## Addendum kesiapan Auth dan callback — 31 Oktober 2026
+
+- Kode server recovery Admin kini meneruskan `PUBLIC_APP_URL` ke Supabase Auth. Regression test `test:auth-recovery-redirect` lulus lokal dan terdaftar di CI.
+- GitHub Actions [run 41175465787](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41175465787) lulus 2/2 job pada PR head dokumentasi terbaru `4cb142edfd7e18563c49f8396b0388b9ee551738`; source code yang diuji mencakup perubahan recovery redirect pada `ed8d536ba3c7f638be357db9c2f7164435af88c3`.
+- Pemeriksaan dashboard Auth Production menunjukkan Site URL `http://localhost:3000` dan belum ada Redirect URLs. Akun Admin sudah berstatus **Confirmed** dan terakhir masuk pada 31 Oktober 2026 pukul 12.19. Verifikasi email berhasil; browser gagal membuka tujuan localhost karena aplikasi tidak tersedia pada origin/port itu.
+- URL Auth Production belum diubah. Sebelum email Auth dikirim kepada pengguna produksi, operator harus menetapkan domain HTTPS hosting dan menambahkan hanya redirect aplikasi yang tepat. Jangan memakai nilai localhost sebagai URL pelanggan.
+- UAT UI Wali pada VQE tetap belum terbukti karena konfigurasi secret server dan tenant UAT belum tersedia. PR #38 tetap Draft/Open dengan progress khusus PR **75%** (implementasi, CI, dan skema staging lulus; UAT UI tersisa). Persentase keseluruhan ERP belum dihitung.
+
