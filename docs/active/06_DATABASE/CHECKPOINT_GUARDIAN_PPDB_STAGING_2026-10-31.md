@@ -85,3 +85,14 @@ Source lokal yang diuji berada pada checkout `88e7e7438c91b1fa79d765ebf77ed8efc1
 
 Semua butir di atas adalah pemeriksaan source lokal/CI. **Tidak menggantikan UAT UI Wali atau sesi Auth melalui aplikasi**; keduanya masih memerlukan konfigurasi server VQE dan akun sintetis sementara. Persentase checkpoint PR #38 tetap 75% sampai gate UAT tersebut selesai.
 
+
+
+## Addendum Auth recovery and environment check — 31 Oktober 2026
+
+- Kueri baca-saja terbaru pada VQE memastikan tenant sintetis `uat-wali-erp4-20261031` aktif dengan satu profil `admin:active`. Hitungan tenant tersebut: kandidat 0, wali 0, relasi wali-kandidat 0, relasi wali-santri 0, tagihan 0, dan permintaan Finance 0. Tidak ada fixture baru dibuat.
+- Log Auth VQE: email recovery pernah diterima layanan pada `2026-10-31T07:46:51Z`; verifikasi tautan yang dicoba pukul `08:00:17Z` menyatakan token tidak ditemukan/kedaluwarsa. Permintaan recovery pada `08:00:24Z`, `08:01:07Z`, dan `08:10:58Z` ditolak HTTP 429 `over_email_send_rate_limit`. Pesan tersebut bukan kesalahan kredensial; batas email bawaan berlaku gabungan per proyek. Untuk percobaan selanjutnya tunggu batas pulih dan kirim satu permintaan saja, atau siapkan SMTP khusus di VQE untuk UAT berulang. Jangan gunakan tautan yang lama.
+- Pesan error umum di preview berasal dari jalur exception yang sebelumnya tidak memakai pemetaan error Auth. Perbaikan di PR #38 kini memetakan exception 429 ke petunjuk batas email dan memiliki regression assertion untuk bentuk exception tersebut. Head kode `af9db8378e91c62b682e44e994302abd24f026c2` lulus CI 3/3 pada [run 41184875367](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41184875367). Local `npm run test:auth-recovery-redirect`, `npm run lint`, `npm run build`, dan `npm run test:customer-deployment-flags` juga lulus.
+- Workstation Windows tidak menyediakan Supabase CLI, Docker CLI, atau tool PostgreSQL `psql`, `pg_dump`, dan `pg_restore`; karena itu smoke test backup/restore tidak dapat dijalankan lokal (ENOENT). Job database pada CI menjalankan test backup/restore serta build container dan lulus. Uji instalasi pelanggan di VPS/on-premise tetap perlu dilakukan tim penerapan.
+- Pemeriksaan metadata proyek PTSAS `ptsasgdvgrbdtgyqieie` melalui konektor ditolak izin. Tidak ada schema, migration, Auth, atau data Production yang diubah.
+
+**Langkah UAT selanjutnya:** jangan membuat ulang tenant atau akun Admin. Setelah satu recovery email berhasil dan pemilik menetapkan kata sandi, buktikan login melalui preview VQE. Baru setelah itu buat fixture Wali/kandidat/tagihan sintetis, jalankan skenario UI, dan bersihkan fixture dengan persetujuan sebelum penghapusan.
