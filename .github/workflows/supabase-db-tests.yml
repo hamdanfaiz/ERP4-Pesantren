@@ -35,6 +35,9 @@ jobs:
       - name: Typecheck
         run: bun run lint
 
+      - name: Keep private RLS helpers out of the Data API
+        run: npm run test:private-api-schema
+
       - name: Verify read-only Supabase migration preflight
         run: npm run test:migration-preflight
 
@@ -285,4 +288,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+
 

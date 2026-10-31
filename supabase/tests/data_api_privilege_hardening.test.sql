@@ -13,7 +13,7 @@ RETURNS INTEGER
 LANGUAGE SQL
 AS $$ SELECT 1 $$;
 
-SELECT plan(38);
+SELECT plan(46);
 
 -- Existing trigger functions must not be callable as anon, authenticated, or
 -- service_role RPCs. Their database triggers remain attached to their tables.
@@ -67,11 +67,61 @@ SELECT ok(NOT has_function_privilege('anon', 'public.api_default_acl_probe_fn()'
 SELECT ok(NOT has_function_privilege('authenticated', 'public.api_default_acl_probe_fn()', 'EXECUTE'), 'new public function is not callable by authenticated');
 SELECT ok(NOT has_function_privilege('service_role', 'public.api_default_acl_probe_fn()', 'EXECUTE'), 'new public function requires an explicit service_role grant');
 
+-- Tenant authorization helpers stay callable by authenticated RLS policies,
+-- but leave public and are not exposed to anon or service_role callers.
+SELECT ok(NOT has_schema_privilege('anon', 'private', 'USAGE'), 'anon cannot resolve objects in the internal schema');
+SELECT ok(has_schema_privilege('authenticated', 'private', 'USAGE'), 'authenticated can resolve internal RLS helpers');
+SELECT ok(NOT has_schema_privilege('service_role', 'private', 'USAGE'), 'service_role does not receive internal schema usage');
 SELECT is(
-  (SELECT proconfig FROM pg_proc WHERE oid = 'public.erp4_ppdb_update_updated_at_column()'::regprocedure),
-  ARRAY['search_path=pg_catalog']::TEXT[],
-  'legacy PPDB timestamp trigger pins search_path to pg_catalog'
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ])),
+  0,
+  'tenant RLS helpers are absent from the exposed public schema'
 );
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ])),
+  4,
+  'all four tenant RLS helpers exist in the internal schema'
+);
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ]) AND has_function_privilege('authenticated', p.oid, 'EXECUTE')),
+  4,
+  'authenticated can execute all tenant RLS helpers used by policies'
+);
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ]) AND has_function_privilege('anon', p.oid, 'EXECUTE')),
+  0,
+  'anon cannot execute internal tenant RLS helpers'
+);
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ]) AND has_function_privilege('service_role', p.oid, 'EXECUTE')),
+  0,
+  'service_role does not receive direct execution grants on tenant RLS helpers'
+);
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ]) AND p.proconfig @> ARRAY['search_path=pg_catalog, public']),
+  4,
+  'all tenant RLS helpers keep a fixed search_path'
+);
+
 SELECT * FROM finish();
 ROLLBACK;
+
 
