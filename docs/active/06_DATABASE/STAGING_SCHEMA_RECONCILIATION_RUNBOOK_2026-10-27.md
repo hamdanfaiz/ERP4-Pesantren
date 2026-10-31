@@ -1,5 +1,7 @@
 # Runbook rekonsiliasi schema staging Supabase
 
+> **Status diperbarui 31 Oktober 2026:** Dokumen ini adalah snapshot historis; label “staging” pada dokumen ini sudah disupersede. Dashboard menunjukkan Supabase `ptsasgdvgrbdtgyqieie` berada pada branch `main / PRODUCTION`. Jangan jalankan migration, rehearsal, repair, atau reset pada project tersebut. Ref staging terpisah belum tersedia. Data dummy Firestore tidak perlu disalin. Ikuti [audit target terbaru](./SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md) untuk keputusan operasional.
+
 **Tanggal:** 27 Oktober 2026  
 **PR cutover:** [#13](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13)  
 **Project staging:** `ptsasgdvgrbdtgyqieie`  
