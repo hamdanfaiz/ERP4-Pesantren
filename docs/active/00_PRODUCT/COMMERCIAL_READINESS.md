@@ -35,7 +35,7 @@ Snapshot teknis ini bukan pengganti audit endpoint, pemeriksaan definisi seluruh
 ### 1. Skema, relasi, dan transaksi
 
 - Tim backend dapat menjalankan `npm run preflight:db-migrations` dari root source `main` untuk membandingkan versi, nama, dan statement migration dengan koneksi PostgreSQL read-only. Pastikan hostname menunjuk ke project target; jangan membagikan URL atau secret. Jika ada `HENTIKAN` atau mismatch, selesaikan rekonsiliasi sebelum rehearsal.
-- Rekonsiliasi ledger Production terhadap migration source. Baseline sebelum PR #36 adalah 47 versi ledger dibandingkan 109 file source; PR #36 menambahkan migration metadata-only ke-110 untuk staging. Perbedaan hitungan dan dua baris metadata kosong tidak membuktikan set migration yang aman untuk Production. Jangan tandai versi sebagai applied tanpa bukti schema.
+- Untuk Production, rekonsiliasi ledger dan schema PTSAS secara terpisah. Snapshot sebelumnya menunjukkan 47 versi ledger dan dua entri tanpa metadata, sedangkan source saat ini memiliki 110 migration. Selisih hitungan bukan instruksi untuk menerapkan migration atau mengubah ledger. Jangan tandai versi sebagai applied tanpa bukti schema.
 - Sebelum penerapan, simpan backup yang dapat dipulihkan dan rehearsalkan seluruh urutan migration pada salinan/environment staging.
 - Verifikasi signature dan definisi function, constraint, index, RLS, Storage policy, dan Data API grant terhadap source commit yang akan dirilis.
 - Uji transaksi kritis: NIS unik bersamaan, onboarding PPDB-ke-santri, assignment kamar, pembayaran/jurnal, stok/dompet koperasi, buku dan peminjaman, sesi/setoran Tahfidz, serta idempotensi retry.
