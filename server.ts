@@ -71,8 +71,11 @@ import {
 import { consumeFinanceProofUploadRateLimit } from "./src/server/financeProofRateLimit";
 import {
   archiveSupabaseMasterDataStudent,
+  applySupabaseMasterDataStudentImport,
+  applySupabaseMasterDataStructureImport,
   assignSupabaseStudentRoom,
   deleteSupabaseMasterDataStructure,
+  exportSupabaseMasterDataStudents,
   getSupabaseNextSantriNis,
   listSupabaseBoardingSnapshot,
   listSupabaseStudentRoomAssignmentHistory,
@@ -80,6 +83,8 @@ import {
   listSupabaseMasterDataStudentsPage,
   listSupabaseMasterDataStructures,
   onboardSupabaseAcceptedCandidate,
+  previewSupabaseMasterDataStudentImport,
+  previewSupabaseMasterDataStructureImport,
   SupabaseOnboardingError,
   upsertSupabaseMasterDataStudent,
   upsertSupabaseMasterDataStructure,
@@ -480,6 +485,7 @@ async function startServer() {
   const PORT = Number.isInteger(configuredPort) && configuredPort > 0 && configuredPort <= 65535
     ? configuredPort
     : 3000;
+  const HOST = process.env.HOST?.trim() || "0.0.0.0";
 
   // Never trust client-supplied forwarding headers by default. Cloud Run is detected
   // through its platform environment; self-managed operators can set the exact trusted hop count.
@@ -2384,6 +2390,30 @@ async function startServer() {
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
+  app.post("/api/master-data/structures/import/preview", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      return res.json(await previewSupabaseMasterDataStructureImport(actor.tenantId, req.body?.category, req.body?.rows));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/master-data/structures/import/apply", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      return res.json(await applySupabaseMasterDataStructureImport(actor.tenantId, req.body?.category, req.body?.rows));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
   app.post("/api/master-data/structures/migrate", requireAuth, (_req, res) => {
     return res.status(410).json({
       code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
@@ -2437,6 +2467,44 @@ async function startServer() {
         dormitory: typeof req.query.dormitory === "string" ? req.query.dormitory : "",
         completeness: typeof req.query.completeness === "string" ? req.query.completeness : "ALL",
       }));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.get("/api/master-data/students/export", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Pragma", "no-cache");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      const includeSensitive = req.query.includeSensitive === "true";
+      return res.json({ records: await exportSupabaseMasterDataStudents(actor.tenantId, includeSensitive) });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/master-data/students/import/preview", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      return res.json(await previewSupabaseMasterDataStudentImport(actor.tenantId, req.body?.rows));
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  app.post("/api/master-data/students/import/apply", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      return res.json(await applySupabaseMasterDataStudentImport(actor.tenantId, uid, req.body?.rows));
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
@@ -3849,8 +3917,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`Server listening on ${HOST}:${PORT}`);
   });
 }
 

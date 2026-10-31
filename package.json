@@ -40,6 +40,7 @@
     "test:library-circulation-import": "tsx scripts/test-library-circulation-import.ts",
     "test:library-assets": "tsx scripts/test-library-assets.ts",
     "test:master-data-pagination": "tsx scripts/test-master-data-pagination.ts",
+    "test:master-data-transfer-csv": "tsx scripts/test-master-data-transfer-csv.ts",
     "test:master-data-no-browser-drafts": "node scripts/test-master-data-no-browser-drafts.mjs",
     "provision:tenant-admin": "node scripts/provision-tenant-admin.mjs",
     "test:supabase-runtime-no-firebase": "node scripts/test-supabase-runtime-no-firebase.mjs",

@@ -120,19 +120,21 @@ export async function listSupabaseMasterDataStructures(tenantIdentifier: string)
   const all: JsonObject[] = [];
   const pageSize = 1000;
 
-  for (let offset = 0; offset < 10000; offset += pageSize) {
+  for (let offset = 0; offset <= 10000; offset += pageSize) {
+    const remaining = 10001 - offset;
     const params = new URLSearchParams({
       select: "tenant_id,category,id,name,status,parent_id,grade,capacity,occupied,gender_code,location,attributes,organization_unit_id",
       tenant_id: "eq." + tenantId,
       category: "in.(Gedung,Kamar,Kelas)",
       order: "category.asc,name.asc",
-      limit: String(pageSize),
+      limit: String(Math.min(pageSize, remaining)),
       offset: String(offset),
     });
     const rows = await supabaseRequest("/rest/v1/master_data_records?" + params.toString());
     if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Data struktur pesantren belum dapat dimuat.");
+    if (offset + rows.length > 10000) throw new SupabaseOnboardingError(413, "Jumlah struktur melebihi batas 10.000 record untuk satu permintaan.");
     all.push(...rows);
-    if (rows.length < pageSize) break;
+    if (rows.length < Math.min(pageSize, remaining)) break;
   }
 
   const buildingsById = new Map<string, string>();
@@ -1277,6 +1279,382 @@ export async function archiveSupabaseMasterDataStudent(
     throw new SupabaseOnboardingError(503, "Backend belum mengonfirmasi pengarsipan santri.");
   }
   return result as JsonObject;
+}
+
+const MASTER_DATA_TRANSFER_MAX_ROWS = 250;
+const MASTER_DATA_EXPORT_MAX_ROWS = 20000;
+
+type TransferStatus = "ready" | "skip" | "error";
+
+function transferText(value: unknown, maxLength = 500) {
+  if (typeof value !== "string" && typeof value !== "number") return "";
+  return String(value).trim().slice(0, maxLength);
+}
+
+function transferRows(value: unknown) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > MASTER_DATA_TRANSFER_MAX_ROWS) {
+    throw new SupabaseOnboardingError(400, "Impor harus berisi 1 sampai " + MASTER_DATA_TRANSFER_MAX_ROWS + " baris per berkas.");
+  }
+  if (value.some((row) => !row || typeof row !== "object" || Array.isArray(row))) {
+    throw new SupabaseOnboardingError(400, "Setiap baris impor harus berupa objek data.");
+  }
+  return value as JsonObject[];
+}
+
+function splitTransferValues(values: string[]) {
+  const unique = [...new Set(values)];
+  return Array.from({ length: Math.ceil(unique.length / 80) }, (_, index) => unique.slice(index * 80, index * 80 + 80));
+}
+
+async function fetchExistingStudentTransferKeys(tenantId: string, sourceIds: string[], nisValues: string[]) {
+  const existingSources = new Set<string>();
+  const nisToSource = new Map<string, string>();
+  for (const values of splitTransferValues(sourceIds)) {
+    if (!values.length) continue;
+    const params = new URLSearchParams({
+      select: "source_record_id,nis",
+      tenant_id: "eq." + tenantId,
+      source_system: "eq.legacy_import",
+      source_record_id: "in.(" + values.map(postgrestQuotedValue).join(",") + ")",
+      limit: String(values.length + 1),
+    });
+    const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
+    if (!Array.isArray(rows) || rows.length > values.length) throw new SupabaseOnboardingError(503, "Pemeriksaan ID sumber belum dapat diverifikasi.");
+    for (const row of rows) {
+      if (typeof row.source_record_id === "string") existingSources.add(row.source_record_id);
+      if (typeof row.nis === "string") nisToSource.set(row.nis, String(row.source_record_id || ""));
+    }
+  }
+  for (const values of splitTransferValues(nisValues)) {
+    if (!values.length) continue;
+    const params = new URLSearchParams({
+      select: "source_record_id,nis",
+      tenant_id: "eq." + tenantId,
+      nis: "in.(" + values.map(postgrestQuotedValue).join(",") + ")",
+      limit: String(values.length + 1),
+    });
+    const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
+    if (!Array.isArray(rows) || rows.length > values.length) throw new SupabaseOnboardingError(503, "Pemeriksaan NIS belum dapat diverifikasi.");
+    for (const row of rows) {
+      if (typeof row.nis === "string") nisToSource.set(row.nis, String(row.source_record_id || "PPDB"));
+    }
+  }
+  return { existingSources, nisToSource };
+}
+
+async function buildStudentTransferPlan(tenantIdentifier: string, value: unknown) {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const rows = transferRows(value);
+  const structures = await listSupabaseMasterDataStructures(tenantId);
+  const sourceIds = rows.map((row) => transferText(row.id, 1500)).filter(Boolean);
+  const nisValues = rows.map((row) => transferText(row.nis, 32)).filter(Boolean);
+  const existing = await fetchExistingStudentTransferKeys(tenantId, sourceIds, nisValues);
+  if (rows.some((row) => transferText(row.nik, 80) || transferText(row.nisn, 80))) {
+    piiKey("PII_ENCRYPTION_KEY");
+    piiKey("PII_FINGERPRINT_KEY");
+  }
+  const idsInFile = new Set<string>();
+  const nisInFile = new Set<string>();
+  const nikInFile = new Set<string>();
+  const nisnInFile = new Set<string>();
+  const findStructure = (category: StructureCategory, name: string) => {
+    if (!name) return { id: "", count: 0 };
+    const matches = structures.filter((item) => item.category === category
+      && item.name.trim().toLocaleLowerCase("id-ID") === name.toLocaleLowerCase("id-ID"));
+    return { id: matches.length === 1 ? matches[0].id : "", count: matches.length };
+  };
+
+  return rows.map((row, index) => {
+    const id = transferText(row.id, 1500);
+    const name = transferText(row.name, 180);
+    const messages: string[] = [];
+    const record: JsonObject = { id, sourceRecordId: id, name };
+    if (!id || id.includes("/")) messages.push("Kolom id wajib diisi dan tidak boleh memuat garis miring.");
+    if (!name) messages.push("Kolom name wajib diisi.");
+    if (id && idsInFile.has(id)) messages.push("ID sumber muncul lebih dari sekali dalam berkas.");
+    if (id) idsInFile.add(id);
+    if (id && existing.existingSources.has(id)) {
+      return { row: index + 2, id, name, status: "skip" as const, messages: ["ID sumber sudah ada; record tidak ditimpa."], record };
+    }
+
+    const nis = transferText(row.nis, 32);
+    if (nis && !/^[0-9]{1,10}$/.test(nis)) messages.push("NIS harus berisi 1–10 digit dan diformat sebagai teks.");
+    if (nis && nisInFile.has(nis)) messages.push("NIS muncul lebih dari sekali dalam berkas.");
+    if (nis) nisInFile.add(nis);
+    if (nis && existing.nisToSource.has(nis)) messages.push("NIS sudah dipakai record lain pada tenant ini.");
+    record.nis = nis;
+
+    const gender = transferText(row.gender, 40);
+    const normalizedGender = gender ? normalizeLegacyGender(gender) : null;
+    if (gender && !normalizedGender) messages.push("gender harus L/P, Putra/Putri, atau padanan yang didukung.");
+    if (normalizedGender) record.gender = normalizedGender;
+
+    const grade = transferText(row.grade, 80);
+    if (grade) {
+      record.grade = grade;
+      const match = findStructure("Kelas", grade);
+      if (match.count > 1) messages.push("Nama kelas cocok dengan lebih dari satu struktur; gunakan nama unik.");
+      else if (match.id) record.classId = match.id;
+    }
+    const buildingName = transferText(row.dormitory, 180);
+    if (buildingName) {
+      const match = findStructure("Gedung", buildingName);
+      if (match.count !== 1) messages.push(match.count ? "Nama gedung tidak unik." : "Gedung pada kolom dormitory tidak ditemukan.");
+      else record.dormitoryId = match.id;
+    }
+    const roomName = transferText(row.room, 180);
+    if (roomName) {
+      const match = findStructure("Kamar", roomName);
+      if (match.count !== 1) messages.push(match.count ? "Nama kamar tidak unik." : "Kamar pada kolom room tidak ditemukan.");
+      else record.roomId = match.id;
+    }
+
+    const nik = transferText(row.nik, 80);
+    const nisn = transferText(row.nisn, 80);
+    const normalizedNik = legacyIdentity(nik, 16, "NIK");
+    const normalizedNisn = legacyIdentity(nisn, 10, "NISN");
+    if (normalizedNik.error) messages.push(normalizedNik.error);
+    if (normalizedNisn.error) messages.push(normalizedNisn.error);
+    if (normalizedNik.value && nikInFile.has(normalizedNik.value)) messages.push("NIK muncul lebih dari sekali dalam berkas.");
+    if (normalizedNisn.value && nisnInFile.has(normalizedNisn.value)) messages.push("NISN muncul lebih dari sekali dalam berkas.");
+    if (normalizedNik.value) { nikInFile.add(normalizedNik.value); record.nik = normalizedNik.value; }
+    if (normalizedNisn.value) { nisnInFile.add(normalizedNisn.value); record.nisn = normalizedNisn.value; }
+
+    const rawStatus = transferText(row.status, 40) || "Active";
+    const status = new Map([
+      ["active", "Active"], ["inactive", "Inactive"], ["alumni", "Alumni"], ["suspended", "Suspended"],
+    ]).get(rawStatus.toLocaleLowerCase("id-ID")) || rawStatus;
+    if (!new Set(["Active", "Inactive", "Alumni", "Suspended"]).has(status)) {
+      messages.push("status harus Active, Inactive, Alumni, atau Suspended.");
+    }
+    record.status = status;
+    for (const field of ["phone", "email", "parentName", "parentPhone", "address"]) {
+      const fieldValue = transferText(row[field], field === "address" ? 1000 : 180);
+      if (fieldValue) record[field] = fieldValue;
+    }
+    return { row: index + 2, id, name, status: messages.length ? "error" as const : "ready" as const, messages, record };
+  });
+}
+
+function transferSummary(items: Array<{ row: number; id: string; name: string; status: TransferStatus; messages: string[] }>) {
+  return {
+    rowCount: items.length,
+    readyCount: items.filter((item) => item.status === "ready").length,
+    skippedCount: items.filter((item) => item.status === "skip").length,
+    errorCount: items.filter((item) => item.status === "error").length,
+    items,
+  };
+}
+
+export async function previewSupabaseMasterDataStudentImport(tenantIdentifier: string, value: unknown) {
+  const items = await buildStudentTransferPlan(tenantIdentifier, value);
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  await preflightStudentTransferItems(tenantId, items);
+  return transferSummary(items.map(({ row, id, name, status, messages }) => ({ row, id, name, status, messages })));
+}
+
+async function preflightStudentTransferItems(tenantId: string, items: Array<{ id: string; status: TransferStatus; messages: string[]; record: JsonObject }>) {
+  for (let offset = 0; offset < items.length; offset += 12) {
+    const batch = items.slice(offset, offset + 12).filter((item) => item.status === "ready");
+    const checked = await Promise.all(batch.map(async (item) => {
+      try {
+        return await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student", {
+          method: "POST",
+          body: JSON.stringify({
+            p_tenant_id: tenantId,
+            p_student: buildStudentTransferRpcRecord(item.id, item.record),
+            p_guardian: null,
+            p_apply: false,
+          }),
+        });
+      } catch (error) {
+        return { status: "error", message: error instanceof SupabaseOnboardingError ? error.message : "Pemeriksaan backend belum dapat diselesaikan." };
+      }
+    }));
+    checked.forEach((result: any, index) => {
+      const item = batch[index];
+      if (result?.status === "already_imported") {
+        item.status = "skip";
+        item.messages.push("ID sumber sudah diimpor; data tidak ditimpa.");
+      } else if (result?.status !== "planned") {
+        item.status = "error";
+        item.messages.push(String(result?.message || "Data berbenturan dengan data tenant yang sudah ada."));
+      }
+    });
+  }
+}
+
+function buildStudentTransferRpcRecord(sourceId: string, record: JsonObject): JsonObject {
+  const nik = legacyIdentity(record.nik, 16, "NIK");
+  const nisn = legacyIdentity(record.nisn, 10, "NISN");
+  if (nik.error || nisn.error) throw new SupabaseOnboardingError(400, nik.error || nisn.error || "Identitas tidak valid.");
+  const details: JsonObject = {};
+  for (const field of ["phone", "email", "parentName", "parentPhone", "address"]) {
+    if (record[field]) details[field] = record[field];
+  }
+  const student: JsonObject = {
+    sourceRecordId: sourceId,
+    name: record.name,
+    nis: record.nis || null,
+    gender: record.gender || null,
+    grade: record.grade || null,
+    classId: record.classId || null,
+    roomId: record.roomId || null,
+    buildingId: record.dormitoryId || null,
+    status: record.status || "Active",
+    details,
+  };
+  if (nik.value) {
+    student.nikCiphertextHex = encryptLegacyIdentity(nik.value);
+    student.nikFingerprintHex = fingerprintLegacyIdentity("nik", nik.value);
+  }
+  if (nisn.value) {
+    student.nisnCiphertextHex = encryptLegacyIdentity(nisn.value);
+    student.nisnFingerprintHex = fingerprintLegacyIdentity("nisn", nisn.value);
+  }
+  return student;
+}
+
+export async function applySupabaseMasterDataStudentImport(tenantIdentifier: string, actorUserId: string, value: unknown) {
+  const items = await buildStudentTransferPlan(tenantIdentifier, value);
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  await preflightStudentTransferItems(tenantId, items);
+  if (items.some((item) => item.status === "error")) throw new SupabaseOnboardingError(400, "Selesaikan semua kesalahan pada pratinjau sebelum menerapkan impor.");
+  validateUuid(actorUserId, "ID Admin");
+  let imported = 0;
+  let skipped = 0;
+  const errors: Array<{ row: number; id: string; message: string }> = [];
+  for (const item of items) {
+    if (item.status === "skip") { skipped += 1; continue; }
+    try {
+      const result = await supabaseRequest("/rest/v1/rpc/import_legacy_master_data_student", {
+        method: "POST",
+        body: JSON.stringify({
+          p_tenant_id: tenantId,
+          p_student: buildStudentTransferRpcRecord(item.id, item.record),
+          p_guardian: null,
+          p_apply: true,
+        }),
+      });
+      if (result?.status === "imported") imported += 1;
+      else if (result?.status === "already_imported") skipped += 1;
+      else throw new SupabaseOnboardingError(409, String(result?.message || "Record bertentangan dengan data tenant yang sudah ada."));
+    } catch (error) {
+      errors.push({ row: item.row, id: item.id, message: error instanceof SupabaseOnboardingError ? error.message : "Record belum dapat disimpan." });
+    }
+  }
+  return { rowCount: items.length, imported, skipped, errorCount: errors.length, errors };
+}
+
+export async function exportSupabaseMasterDataStudents(tenantIdentifier: string, includeSensitive = false) {
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const structures = await listSupabaseMasterDataStructures(tenantId);
+  const records: JsonObject[] = [];
+  const pageSize = 500;
+  for (let offset = 0; offset <= MASTER_DATA_EXPORT_MAX_ROWS; offset += pageSize) {
+    const params = new URLSearchParams({
+      select: "id,tenant_id,source_system,source_record_id,nis,name,gender,grade,nik_ciphertext,nisn_ciphertext,class_id,room_id,building_id,details,status,created_at,updated_at",
+      tenant_id: "eq." + tenantId,
+      status: "neq.Archived",
+      order: "name.asc,id.asc",
+      limit: String(Math.min(pageSize, MASTER_DATA_EXPORT_MAX_ROWS + 1 - offset)),
+      offset: String(offset),
+    });
+    const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
+    if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Ekspor data santri belum dapat diverifikasi.");
+    if (offset + rows.length > MASTER_DATA_EXPORT_MAX_ROWS) {
+      throw new SupabaseOnboardingError(413, "Ekspor melebihi batas 20.000 record. Pecah migrasi berdasarkan kelompok data.");
+    }
+    records.push(...rows.map((row: JsonObject) => {
+      const mapped = mapSupabaseStudentRow(row, tenantId, structures, includeSensitive);
+      const record: JsonObject = {
+        id: mapped.id, name: mapped.name, nis: mapped.nis, gender: mapped.gender, grade: mapped.grade,
+        className: mapped.className, room: mapped.room, dormitory: mapped.dormitory, status: mapped.status,
+      };
+      if (includeSensitive) {
+        for (const field of ["nik", "nisn", "phone", "email", "parentName", "parentPhone", "address"]) {
+          record[field] = mapped[field] || "";
+        }
+      }
+      return record;
+    }));
+    if (rows.length < pageSize) break;
+  }
+  return records;
+}
+
+export async function previewSupabaseMasterDataStructureImport(tenantIdentifier: string, categoryValue: unknown, value: unknown) {
+  const category = validateCategory(categoryValue);
+  const rows = transferRows(value);
+  const existing = await listSupabaseMasterDataStructures(tenantIdentifier);
+  const existingIds = new Set(existing.filter((row) => row.category === category).map((row) => row.id));
+  const incomingIds = new Set<string>();
+  const existingBuildingIds = new Set(existing.filter((row) => row.category === "Gedung").map((row) => row.id));
+  const items = rows.map((row, index) => {
+    const id = transferText(row.id, 160);
+    const name = transferText(row.name, 180);
+    const messages: string[] = [];
+    if (transferText(row.category, 32) !== category) messages.push("category harus sama dengan tab aktif: " + category + ".");
+    if (!id || id.includes("/")) messages.push("id struktur wajib diisi dan tidak boleh memuat garis miring.");
+    if (!name) messages.push("name struktur wajib diisi.");
+    if (id && incomingIds.has(id)) messages.push("ID struktur muncul lebih dari sekali dalam berkas.");
+    if (id) incomingIds.add(id);
+    if (id && existingIds.has(id)) return { row: index + 2, id, name, status: "skip" as const, messages: ["ID struktur sudah ada; record tidak ditimpa."] };
+    const parentId = transferText(row.parentId, 160);
+    if (category === "Kamar" && parentId && !existingBuildingIds.has(parentId)) {
+      messages.push("parentId harus merujuk Gedung yang sudah tersimpan pada tenant ini.");
+    }
+    if (category === "Kamar") {
+      const capacity = Number(transferText(row.capacity, 20));
+      if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 2147483647) messages.push("Kapasitas kamar harus bilangan bulat 1 sampai 2.147.483.647.");
+    } else if (transferText(row.capacity, 20)) {
+      const capacity = Number(transferText(row.capacity, 20));
+      if (!Number.isSafeInteger(capacity) || capacity < 0 || capacity > 2147483647) messages.push("Kapasitas harus bilangan bulat 0 sampai 2.147.483.647.");
+    }
+    return { row: index + 2, id, name, status: messages.length ? "error" as const : "ready" as const, messages };
+  });
+  return transferSummary(items);
+}
+
+export async function applySupabaseMasterDataStructureImport(tenantIdentifier: string, categoryValue: unknown, value: unknown) {
+  const preview = await previewSupabaseMasterDataStructureImport(tenantIdentifier, categoryValue, value);
+  if (preview.errorCount) throw new SupabaseOnboardingError(400, "Selesaikan semua kesalahan pada pratinjau sebelum menerapkan impor.");
+  const category = validateCategory(categoryValue);
+  const tenantId = await resolveActiveTenantId(tenantIdentifier);
+  const rows = transferRows(value);
+  let imported = 0;
+  let skipped = 0;
+  const errors: Array<{ row: number; id: string; message: string }> = [];
+  const statuses = new Map<number, TransferStatus>(preview.items.map((item) => [item.row, item.status] as const));
+  for (let index = 0; index < rows.length; index += 1) {
+    const record = rows[index];
+    if (statuses.get(index + 2) === "skip") { skipped += 1; continue; }
+    const id = transferText(record.id, 160);
+    try {
+      const safeRecord: JsonObject = {
+        id,
+        name: transferText(record.name, 180),
+        category,
+        type: category,
+        status: transferText(record.status, 40) || "Active",
+        parentId: transferText(record.parentId, 160),
+        grade: transferText(record.grade, 80),
+        capacity: transferText(record.capacity, 20),
+        genderRestriction: transferText(record.genderRestriction, 40),
+        location: transferText(record.location, 180),
+      };
+      const result = await supabaseRequest("/rest/v1/rpc/create_master_data_structure_if_absent", {
+        method: "POST",
+        body: JSON.stringify({ p_tenant_id: tenantId, p_category: category, p_id: id, p_record: safeRecord }),
+      });
+      if (result?.status === "created") imported += 1;
+      else if (result?.status === "already_exists") skipped += 1;
+      else throw new SupabaseOnboardingError(503, "Backend tidak mengembalikan hasil impor struktur yang valid.");
+    } catch (error) {
+      errors.push({ row: index + 2, id, message: error instanceof SupabaseOnboardingError ? error.message : "Struktur belum dapat disimpan." });
+    }
+  }
+  return { rowCount: rows.length, imported, skipped, errorCount: errors.length, errors };
 }
 
 function normalizeLegacyNis(value: unknown) {

@@ -3,6 +3,7 @@ import { AlertCircle, Building2, Check, CircleOff, Loader2, Pencil, Plus, Refres
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type UnitType = "pesantren" | "sekolah" | "klinik" | "usaha" | "yayasan" | "lainnya";
 type UnitStatus = "active" | "inactive";
@@ -32,6 +33,15 @@ type UnmappedSnapshot = { candidates: UnmappedCandidate[]; candidateCount: numbe
 type UnmappedExpense = { id: string; category: string; description: string; department: string; amount: number; date: string; status: string; requesterName: string; hasLedgerEntry: boolean };
 type UnmappedFinanceSnapshot = { expenses: UnmappedExpense[]; expenseCount: number; limit: number; offset: number };
 type Draft = { code: string; name: string; unitType: UnitType; location: string };
+type EnterpriseTab = "dashboard" | "registry" | "transfers" | "billing" | "analytics";
+
+const ENTERPRISE_TABS: Array<{ id: EnterpriseTab; label: string }> = [
+  { id: "dashboard", label: "Ringkasan Gabungan" },
+  { id: "registry", label: "Registri Unit" },
+  { id: "transfers", label: "Transfer Antar-Unit" },
+  { id: "billing", label: "Tagihan Antar-Unit" },
+  { id: "analytics", label: "Analitik Keuangan" },
+];
 
 const EMPTY: Snapshot = { units: [], events: [] };
 const EMPTY_UNMAPPED: UnmappedSnapshot = { candidates: [], candidateCount: 0, students: [], studentCount: 0, limit: 100, offset: 0 };
@@ -95,6 +105,7 @@ export function SupabaseEnterpriseUnitsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
+  const [activeTab, setActiveTab] = useState<EnterpriseTab>("dashboard");
   const canMapFinanceRecords = user?.role === "SuperAdmin"
     || (user?.role === "Admin" && user.modulePermissions?.finance !== false);
 
@@ -290,14 +301,24 @@ export function SupabaseEnterpriseUnitsManager() {
           <h1 id="enterprise-units-title" className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Manajemen Multi-Unit</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">Kelola daftar unit di dalam tenant pesantren. Perubahan dicatat pada riwayat audit dan aman untuk dicoba ulang saat koneksi terputus.</p>
         </div>
-        <button type="button" className={PRIMARY} disabled={loading || saving || !backendReady} onClick={() => { setEditingId(null); setDraft(EMPTY_DRAFT); setFormOpen(true); setError(""); setNotice(""); }}>
+        {activeTab === "registry" && <button type="button" className={PRIMARY} disabled={loading || saving || !backendReady} onClick={() => { setEditingId(null); setDraft(EMPTY_DRAFT); setFormOpen(true); setError(""); setNotice(""); }}>
           <Plus className="h-4 w-4" /> Tambah unit
-        </button>
+        </button>}
       </header>
 
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
       {notice && <div role="status" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200"><Check className="mt-0.5 h-4 w-4 shrink-0" /><span>{notice}</span></div>}
 
+      <ERPTabs tabs={ENTERPRISE_TABS} value={activeTab} onChange={(id) => setActiveTab(id as EnterpriseTab)} ariaLabel="Bagian Manajemen Multi-Unit" />
+
+      {activeTab === "dashboard" ? <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Total unit terdaftar</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : snapshot.units.length}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Unit aktif</p><p className="mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-400">{loading ? "—" : activeCount}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Peristiwa audit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : snapshot.events.length}</p></div>
+        </div>
+        <ERPFeatureStatus title="Ringkasan lintas unit" status="Ringkasan tenant tersedia" tone="available" description="Angka di atas berasal dari daftar unit dan riwayat audit tenant yang termuat. Konsolidasi santri, pegawai, saldo kas, pendapatan, dan capaian lintas unit belum tersedia pada API saat ini." />
+      </div> : activeTab === "registry" ? <>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Total unit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : snapshot.units.length}</p></div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Unit aktif</p><p className="mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-400">{loading ? "—" : activeCount}</p></div>
@@ -364,6 +385,10 @@ export function SupabaseEnterpriseUnitsManager() {
         <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 id="enterprise-units-audit-title" className="font-semibold text-slate-900 dark:text-white">Riwayat perubahan</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Menampilkan hingga 100 perubahan unit terbaru.</p></div>
         {loading ? <div className="p-6 text-sm text-slate-500">Memuat riwayat…</div> : snapshot.events.length === 0 ? <div className="p-8 text-center text-sm text-slate-500">Belum ada perubahan yang tercatat.</div> : <ol className="divide-y divide-slate-100 dark:divide-slate-800">{snapshot.events.map((item) => <li key={item.id} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{actionLabel(item.action)} <span className="font-semibold">{String(item.after.name || item.after.code || "unit")}</span></p><p className="mt-1 text-xs text-slate-500">ID aktor: {item.actorUserId.slice(0, 8)}…</p></div><time className="text-xs text-slate-500" dateTime={item.createdAt}>{formatDate(item.createdAt)}</time></li>)}</ol>}
       </section>
+      </> : <ERPFeatureStatus
+        title={ENTERPRISE_TABS.find((tab) => tab.id === activeTab)?.label || "Manajemen Multi-Unit"}
+        description={activeTab === "transfers" ? "Transfer dana atau aset antar-unit belum memiliki alur persetujuan, pencatatan buku besar, dan API khusus. Tidak ada transaksi yang dapat dibuat dari tab ini." : activeTab === "billing" ? "Tagihan antar-unit belum memiliki kontrak dan pencatatan transaksi. Jangan gunakan tagihan manual pada tab ini sebagai saldo yang sah." : "Analitik pendapatan dan biaya per unit belum tersedia. Ringkasan saat ini hanya menampilkan jumlah unit aktif dan peristiwa audit tenant."}
+      />}
     </section>
   );
 }

@@ -1,8 +1,9 @@
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, BookOpen, CalendarClock, Check, ClipboardList, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { Activity, AlertCircle, BookOpen, Boxes, CalendarClock, CalendarDays, Check, ClipboardList, Loader2, Plus, Radio, RefreshCw, ShieldCheck, SlidersHorizontal, Users } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type Question = {
   id: string; subject: string; grade: string; template: string; text: string; options: string[];
@@ -22,11 +23,28 @@ type CbtSettings = {
   correctPoints: number; wrongPoints: number; blankPoints: number; sourceSystem: string;
 };
 type Snapshot = { questions: Question[]; students: Student[]; exams: Exam[]; results: Result[]; classes: string[]; settings: CbtSettings };
-type Tab = "questions" | "exams" | "results" | "import";
+type Tab = "dashboard" | "calendar" | "packages" | "questions" | "exams" | "monitor" | "results" | "settings" | "import";
 type ImportPreview = { snapshotFingerprint: string; counts: { source: number; ready: number; alreadyImported: number; invalid: number }; issues: Array<{ code: string; recordRef: string; severity: string }>; issueCount: number; blockingCount: number; canApply: boolean };
 
 const EMPTY_SETTINGS: CbtSettings = { subjects: [], grades: [], templates: [], autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults" };
 const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS };
+const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
+  { id: "dashboard", label: "Dashboard", icon: <Activity className="h-4 w-4" /> },
+  { id: "calendar", label: "Kalender Ujian", icon: <CalendarDays className="h-4 w-4" /> },
+  { id: "packages", label: "Paket Ujian", icon: <Boxes className="h-4 w-4" /> },
+  { id: "questions", label: "Bank Soal & Builder", icon: <BookOpen className="h-4 w-4" /> },
+  { id: "exams", label: "Sesi Ujian", icon: <CalendarClock className="h-4 w-4" /> },
+  { id: "monitor", label: "Pemantauan Langsung", icon: <Radio className="h-4 w-4" /> },
+  { id: "results", label: "Hasil & Analitik", icon: <ClipboardList className="h-4 w-4" /> },
+  { id: "settings", label: "Pengaturan", icon: <SlidersHorizontal className="h-4 w-4" /> },
+];
+const CBT_PENDING: Partial<Record<Tab, string>> = {
+  dashboard: "Dashboard khusus CBT belum memiliki agregat tenant; kartu di atas hanya ringkasan data CBT yang sudah tersedia.",
+  calendar: "Jadwal sesi ujian dapat dilihat melalui Sesi Ujian, tetapi kalender khusus dan penyaringan agenda belum tersedia.",
+  packages: "Template dan paket soal terpisah belum memiliki pengelolaan, versi, dan publikasi pada API Supabase.",
+  monitor: "Pemantauan peserta secara langsung dan kanal pembaruan status ujian belum disambungkan.",
+  settings: "Sebagian aturan nilai dan pengacakan dibaca dari konfigurasi sesi; halaman konfigurasi tenant yang terpisah belum tersedia.",
+};
 const FIELD = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100";
 const BUTTON = "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50";
 const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
@@ -258,9 +276,9 @@ export function SupabaseCBTManager() {
       {[{ label: "Bank soal", value: snapshot.questions.filter((item) => item.status === "active").length, icon: BookOpen }, { label: "Ujian", value: snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: snapshot.results.length, icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
     </div>
 
-    <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-slate-900" aria-label="Modul CBT">
-      {([{ id: "questions", label: "Bank Soal", icon: BookOpen }, { id: "exams", label: "Ujian & Peserta", icon: CalendarClock }, { id: "results", label: "Hasil", icon: ClipboardList }, ...(legacyArchiveImportEnabled ? [{ id: "import", label: "Impor Data Lama", icon: RefreshCw }] : [])] as Array<{ id: Tab; label: string; icon: React.ElementType }>).map((item) => <button key={item.id} type="button" onClick={() => { setTab(item.id); setError(""); setNotice(""); }} className={"inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold " + (tab === item.id ? "bg-indigo-700 text-white" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5")}><item.icon className="h-4 w-4" />{item.label}</button>)}
-    </nav>
+    <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
+
+    {CBT_PENDING[tab] && <ERPFeatureStatus title={CBT_REFERENCE_TABS.find((item) => item.id === tab)?.label || "Fitur CBT"} description={CBT_PENDING[tab]!} />}
 
     {tab === "questions" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">

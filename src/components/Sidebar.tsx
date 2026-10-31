@@ -47,7 +47,7 @@ const MENU_GROUPS = [
      label: "Sistem Inti",
      items: [
        { id: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard },
-       { id: 'master-data', label: 'Data Induk', icon: Users },
+       { id: 'master-data', label: 'Data Induk (Master Data)', icon: Users },
        { id: 'users', label: 'Manajemen Pengguna', icon: ShieldCheck },
        { id: 'settings', label: 'Pengaturan', icon: Settings },
      ]
@@ -99,6 +99,11 @@ export function Sidebar({ activeModule, onNavigate, branding }: SidebarProps) {
   const { user, role, logout } = useAuth();
   const { getUserAllowedModules } = useSystemSettings();
   const allowedModules = getUserAllowedModules(user, role);
+  const deniedAdminModules = role === "Admin"
+    ? ROLE_MODULES.Admin.filter((moduleId) => user?.modulePermissions?.[moduleId] === false)
+    : [];
+  const moduleLabels = new Map(MENU_GROUPS.flatMap((group) => group.items.map((item) => [item.id, item.label] as const)));
+  moduleLabels.set("intelligence", "Pusat Data Analitik");
 
   return (
     <div className="flex flex-col w-64 glass-panel h-screen shadow-2xl print:hidden sticky top-0 left-0 border-y-0 border-l-0 rounded-none border-r border-slate-200/50 dark:border-white/10 erp-shell-sidebar">
@@ -170,6 +175,20 @@ export function Sidebar({ activeModule, onNavigate, branding }: SidebarProps) {
                Pusat Data Analitik
             </button>
           </>
+        )}
+
+        {deniedAdminModules.length > 0 && (
+          <details open className="mx-1 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+            <summary className="cursor-pointer font-semibold">
+              {deniedAdminModules.length} modul dibatasi oleh izin akun
+            </summary>
+            <p className="mt-2 leading-5 text-amber-800/80 dark:text-amber-100/80">
+              Menu ini disembunyikan karena izin modul pada profil Admin bernilai nonaktif. Minta Superadmin meninjau Manajemen Pengguna.
+            </p>
+            <ul className="mt-2 list-inside list-disc space-y-1">
+              {deniedAdminModules.map((moduleId) => <li key={moduleId}>{moduleLabels.get(moduleId) || moduleId}</li>)}
+            </ul>
+          </details>
         )}
       </div>
 

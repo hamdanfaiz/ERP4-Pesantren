@@ -52,8 +52,14 @@ assert.doesNotMatch(dockerfile, /^(?:ARG|ENV) VITE_/m, "Vite settings must not b
 assert.doesNotMatch(runtimeConfig, /import\.meta\.env/, "Client runtime settings must not fall back to build-time Vite values");
 
 const declaredRuntimeKeys = [...new Set(collectMatches(runtimeKeys, /"(VITE_[A-Z0-9_]+)"/g))].sort();
+const composeClientKeys = [...new Set(collectMatches(environmentBlock, /^\s+(VITE_SUPABASE_[A-Z0-9_]+):/gm))].sort();
+const envExampleClientKeys = [...new Set(collectMatches(envExample, /^(VITE_SUPABASE_[A-Z0-9_]+)=/gm))].sort();
 assert.deepEqual(declaredRuntimeKeys, [...new Set([...clientKeys, "VITE_SUPABASE_PUBLISHABLE_KEY", "VITE_SUPABASE_URL"])].sort(),
   "The browser runtime-config allowlist must match the client settings used by the source");
+assert.deepEqual(composeClientKeys, declaredRuntimeKeys,
+  "Docker Compose must pass only browser runtime settings declared in the public allowlist");
+assert.deepEqual(envExampleClientKeys, declaredRuntimeKeys,
+  ".env.example must document exactly the browser runtime settings declared in the public allowlist");
 assert.ok(declaredRuntimeKeys.every((key) => !/(SECRET|SERVICE_ROLE|PII_|DB_PASSWORD)/.test(key)), "The public runtime allowlist must not contain secrets");
 
 for (const name of declaredRuntimeKeys) {
