@@ -35,7 +35,7 @@ Server aplikasi sempat dijalankan dari worktree PR #38 dengan URL dan publishabl
 
 - Source ERP kini mengirimkan `PUBLIC_APP_URL` sebagai redirect eksplisit saat server membuat tautan recovery Admin melalui Supabase Auth. Ini menghindari fallback diam-diam ke Site URL proyek untuk alur recovery yang dibuat ERP.
 - Uji regresi sintetis `npm run test:auth-recovery-redirect` lulus: request recovery memakai nilai `redirect_to` dari `PUBLIC_APP_URL`, tanpa koneksi eksternal. `npm run lint` juga lulus pada worktree lokal.
-- CI untuk source commit baru masih perlu berjalan sebelum PR #38 dianggap terverifikasi.
+- CI terbaru [run 41175059930](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41175059930) lulus 2/2 job pada source head `ed8d536ba3c7f638be357db9c2f7164435af88c3`, termasuk uji regression redirect recovery.
 - Perubahan ini hanya memengaruhi tautan reset yang dibuat ERP. Email konfirmasi yang dikirim langsung dari Dashboard Supabase tetap bergantung pada Site URL dan Redirect URLs proyek. Site URL Production masih `http://localhost:3000`; domain hosting final dan allowlist yang tepat tetap harus disetel operator. Perubahan dashboard Production belum dilakukan.
 
 ## Hubungan dengan rilis
