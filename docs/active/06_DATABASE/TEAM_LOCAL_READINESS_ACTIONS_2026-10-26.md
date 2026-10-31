@@ -1,5 +1,7 @@
 # Checkpoint terkini — rekonsiliasi target sebelum migrasi (30 Oktober 2026)
 
+> **Status diperbarui 31 Oktober 2026:** Dokumen ini adalah snapshot historis; label “staging” pada dokumen ini sudah disupersede. Dashboard menunjukkan Supabase `ptsasgdvgrbdtgyqieie` berada pada branch `main / PRODUCTION`. Jangan jalankan migration, rehearsal, repair, atau reset pada project tersebut. Ref staging terpisah belum tersedia. Data dummy Firestore tidak perlu disalin. Ikuti [audit target terbaru](./SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md) untuk keputusan operasional.
+
 ## Kondisi terverifikasi
 
 - PR #13 sudah merged ke `main` pada merge commit `cea0ed481950c4e40a1035ff9d971cf3a43929bc`; source head `e449c234c253eb7a65795af18c5794fa45e6e9cb` lulus CI 2/2 pada run `41051400486`. Merge source tidak menerapkan migration database.
