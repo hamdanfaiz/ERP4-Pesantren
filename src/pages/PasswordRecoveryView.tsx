@@ -10,13 +10,15 @@ type Props = {
 
 const CONTROL = 'w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none';
 
+type RecoveryVerification = { ok: true } | { ok: false; message: string };
+
 function callbackValue(query: URLSearchParams, hash: URLSearchParams, key: string): string | null {
   return query.get(key) || hash.get(key);
 }
 
 export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
   const { completePasswordRecovery } = useAuth();
-  const callbackStarted = useRef(false);
+  const verificationPromise = useRef<Promise<RecoveryVerification> | null>(null);
   const [isVerifying, setIsVerifying] = useState(true);
   const [hasRecoverySession, setHasRecoverySession] = useState(false);
   const [password, setPassword] = useState('');
@@ -27,18 +29,16 @@ export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (callbackStarted.current) return;
-    callbackStarted.current = true;
     let cancelled = false;
 
-    const verifyRecoveryLink = async () => {
+    if (!verificationPromise.current) verificationPromise.current = (async (): Promise<RecoveryVerification> => {
       try {
-        if (!supabaseClientConfigured()) throw new Error('Layanan pemulihan akun belum dikonfigurasi. Hubungi administrator.');
+        if (!supabaseClientConfigured()) return { ok: false, message: 'Layanan pemulihan akun belum dikonfigurasi. Hubungi administrator.' };
 
         const query = new URLSearchParams(window.location.search);
         const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
         const authError = callbackValue(query, hash, 'error_description') || callbackValue(query, hash, 'error');
-        if (authError) throw new Error('Tautan pemulihan tidak valid atau sudah kedaluwarsa. Minta tautan baru dari halaman masuk.');
+        if (authError) return { ok: false, message: 'Tautan pemulihan tidak valid atau sudah kedaluwarsa. Minta tautan baru dari halaman masuk.' };
 
         const code = callbackValue(query, hash, 'code');
         const accessToken = callbackValue(query, hash, 'access_token');
@@ -48,33 +48,47 @@ export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
         if (code) {
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError || !data.session?.user) {
-            throw new Error('Tautan pemulihan tidak dapat diverifikasi. Minta tautan baru dari halaman masuk.');
+            return { ok: false, message: 'Tautan pemulihan tidak dapat diverifikasi. Minta tautan baru dari halaman masuk.' };
           }
         } else if (accessToken && refreshToken && callbackType === 'recovery') {
           const { data, error: sessionError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           if (sessionError || !data.session?.user) {
-            throw new Error('Tautan pemulihan tidak dapat diverifikasi. Minta tautan baru dari halaman masuk.');
+            return { ok: false, message: 'Tautan pemulihan tidak dapat diverifikasi. Minta tautan baru dari halaman masuk.' };
           }
         } else {
-          throw new Error('Tautan pemulihan tidak lengkap atau sudah digunakan. Minta tautan baru dari halaman masuk.');
+          // A callback can already have exchanged its one-time code before a
+          // development StrictMode effect replay or a browser refresh. Reuse
+          // that authenticated session instead of leaving the recovery page stuck.
+          const { data: existingSession, error: existingSessionError } = await supabase.auth.getSession();
+          if (existingSessionError || !existingSession.session?.user) {
+            return { ok: false, message: 'Tautan pemulihan tidak lengkap atau sudah digunakan. Minta tautan baru dari halaman masuk.' };
+          }
         }
 
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !sessionData.session?.user) {
-          throw new Error('Sesi pemulihan tidak ditemukan. Minta tautan baru dari halaman masuk.');
+          return { ok: false, message: 'Sesi pemulihan tidak ditemukan. Minta tautan baru dari halaman masuk.' };
         }
 
+        return { ok: true };
+      } catch (cause) {
+        return { ok: false, message: cause instanceof Error ? cause.message : 'Tautan pemulihan tidak dapat diverifikasi.' };
+      }
+    })();
+
+    // StrictMode replays effects in development. Keep one exchange promise and let
+    // the live effect consume its result so cleanup cannot strand the spinner.
+    void verificationPromise.current.then((result) => {
+      if (cancelled) return;
+      if (!('message' in result)) {
         // Remove one-time credentials from the address bar after the SDK has exchanged them.
         window.history.replaceState(null, '', `${window.location.pathname}?passwordRecovery=1`);
-        if (!cancelled) setHasRecoverySession(true);
-      } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : 'Tautan pemulihan tidak dapat diverifikasi.');
-      } finally {
-        if (!cancelled) setIsVerifying(false);
+        setHasRecoverySession(true);
+      } else {
+        setError(result.message);
       }
-    };
-
-    void verifyRecoveryLink();
+      setIsVerifying(false);
+    });
     return () => { cancelled = true; };
   }, []);
 

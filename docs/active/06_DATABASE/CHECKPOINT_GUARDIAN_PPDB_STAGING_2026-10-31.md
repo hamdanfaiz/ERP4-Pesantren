@@ -21,8 +21,9 @@
 ## Keadaan VQE saat ini
 
 - Tenant sintetis `uat-wali-erp4-20261031`, ID `80f406de-aa77-4efa-b36b-232ceb160178`, dibuat kembali di VQE pada 31 Oktober 2026.
-- Hitungan setelah pembuatan menunjukkan: 1 tenant; 0 profil, kandidat, wali, relasi akun Wali-kandidat, tagihan, dan permintaan tulis Finance untuk tenant itu.
-- Fixture Auth, PPDB, Finance, serta Storage dari putaran UAT terdahulu telah dibersihkan dan belum dibuat kembali pada putaran ini.
+- Satu akun Admin pemilik sudah dikonfirmasi melalui Auth dan memiliki profil `admin` berstatus `active` pada tenant sintetis tersebut. Kata sandi ditetapkan oleh pemilik sendiri; nilainya tidak dicatat.
+- Data operasional selain profil Admin masih kosong: 0 kandidat, wali, relasi akun Wali-kandidat, tagihan, dan permintaan tulis Finance untuk tenant itu.
+- Fixture Wali, PPDB, Finance, serta Storage dari putaran UAT terdahulu telah dibersihkan dan belum dibuat kembali pada putaran ini.
 - Tidak ada data operasional Firestore yang disalin. PTSAS Production tidak disentuh.
 
 ## Hasil verifikasi
@@ -33,7 +34,7 @@
 - Upload bukti memakai hak admin dashboard; ini bukan bukti upload melalui sesi Wali aplikasi.
 - RPC `register_tenant_finance_payment_proof` berhasil mencatat tagihan menjadi `verification`. Pengulangan dengan idempotency key sama menghasilkan `alreadyApplied: true`.
 - Uji negatif RPC menolak role yang tidak sesuai, path traversal, dan tenant berbeda.
-- Login aplikasi, profil setelah login, endpoint upload Wali, onboarding, dan akses pasca-onboarding belum teruji. Preview di `localhost:4179` memakai konfigurasi VQE; pesan reset di sana menargetkan VQE, bukan PTSAS Production, dan bersifat generik sehingga tidak membuktikan email terkirim. Query baca-saja mengonfirmasi 0 akun untuk email fixture UAT terdahulu; akun sintetis baru diperlukan. Jangan masukkan kredensial Production di preview staging.
+- Login aplikasi, endpoint upload Wali, onboarding, dan akses pasca-onboarding belum teruji. Undangan Admin sudah diterima, tetapi tautan awal diarahkan ke Site URL VQE `localhost:3000` yang tidak melayani preview; halaman pemulihan dibuka di `localhost:4179` dan sempat terus menampilkan spinner. Pemeriksaan menemukan React StrictMode membatalkan pembaruan status setelah pertukaran kode. Perbaikan kini menjaga satu promise verifikasi untuk efek yang aktif dan dapat memulihkan sesi Supabase yang sudah terbentuk setelah refresh. Pemeriksaan lokal pada tautan tanpa sesi kini berakhir dengan pesan yang dapat ditindaklanjuti, bukan spinner. Pemilik perlu memuat ulang preview dan menyelesaikan penetapan kata sandi; keberhasilan login dan perubahan kata sandi masih harus diuji langsung. Jangan masukkan kredensial Production di preview staging.
 
 ## Perubahan dan verifikasi kode
 
@@ -41,17 +42,20 @@
 - Setelah onboarding, akses kandidat dicabut dan tagihan mengikuti relasi santri serta Wali kanonis.
 - CI [run 41179143190](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41179143190) lulus **2/2 job** pada PR head `e49d38a22b89eea30212792895651f6403ceb94b`. Setelah pembaruan checkpoint pada head `b93bffd830dc5f225a909b42aa7aa69f9f5a4eeb`, CI [run 41179453533](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41179453533) juga lulus **2/2 job**, meliputi build/guard frontend, rehearsal seluruh migrasi, pgTAP, API auth/isolasi tenant, Storage HTTP, backup/restore, regresi modul, dan build Docker pelanggan.
 - Kode aplikasi tidak berubah dalam kedua commit dokumentasi tersebut; seluruh workflow lengkap tetap berjalan dan lulus.
+- Setelah perubahan pemulihan Auth, `npm run lint`, `npm run build`, dan `npm run test:auth-recovery-redirect` lulus secara lokal. Build masih mengeluarkan peringatan ukuran chunk `react-pdf`/aplikasi dan anotasi Rollup dari Zod; tidak menghalangi hasil build.
+- Pemeriksaan ulang `npm ci` dari worktree bersih menemukan lockfile tidak sinkron: paket optional `@emnapi/wasi-threads@1.2.3` dibutuhkan oleh dependency terkunci tetapi tidak tercatat. Jalur NPM bersih tetap perlu diperbaiki; build dan smoke-test Docker pelanggan memakai Bun dan sebelumnya lulus.
 - VQE memiliki 115 migration sampai `20270212000000_optimize_core_tenant_query_indexes`. pgTAP live sebelumnya: 53 assertion privilege API dan 44 assertion isolasi tenant; skrip memakai rollback.
 - Security Advisor: 156 INFO untuk tabel backend-only tanpa policy; tidak ada WARN helper SECURITY DEFINER atau `auth_rls_initplan`. Performance Advisor memberi INFO indeks FK/unused-index. VQE tidak memiliki data operasional sehingga telemetry indeks belum mewakili beban nyata.
 - Pemeriksaan `npm ci --ignore-scripts --offline --dry-run` pada salinan lockfile berhasil merencanakan 115 paket tanpa kesalahan sinkronisasi lock. Instalasi penuh belum terverifikasi: di worktree preview, `npm ci` tertahan oleh Windows `EPERM` saat mencoba melepas `lightningcss` native module; di direktori bersih, mode offline berhenti karena `zxing-wasm@3.0.3` tidak tersedia di cache. Jalankan `npm ci` pada environment bersih dengan akses registry sebelum menyatakan jalur NPM siap. CI Docker pelanggan memakai Bun dan telah lulus.
 
 ## Tindak lanjut
 
-1. Preview pada `http://localhost:4179/` sudah merender halaman masuk dan pola redirect staging sudah diizinkan. Pastikan preview tetap memakai `.env` VQE serta `/health/ready` dapat dijangkau sebelum UAT; jangan alihkan preview staging ke PTSAS Production.
-2. Buat akun Wali uji dan fixture sintetis baru di VQE. Pengguna menetapkan password sendiri; jangan memakai atau memasukkan kredensial Production ke staging.
-3. Uji login melalui aplikasi, profil Wali, daftar kandidat/tagihan, upload berkas melalui endpoint Wali, penolakan akses lintas tenant, onboarding, dan akses setelah onboarding.
-4. Hapus semua fixture setelah UAT dan verifikasi hitungannya kembali nol. Minta konfirmasi tepat sebelum penghapusan cloud.
-5. Tinjau PR dan bukti UAT UI sebelum mengubah PR dari Draft/Open.
+1. Muat ulang `http://localhost:4179/?passwordRecovery=1` setelah preview mengambil perbaikan StrictMode. Jika formulir kata sandi tampil, pengguna menetapkannya sendiri; jika sesi callback sudah kedaluwarsa, minta tautan pemulihan baru dari halaman masuk.
+2. Uji login Admin, profil tenant, dan cakupan modul pada preview VQE. Pastikan `/health/ready` dapat dijangkau; jangan alihkan preview staging ke PTSAS Production.
+3. Buat akun Wali uji dan fixture sintetis baru di VQE. Pengguna menetapkan kata sandi sendiri; jangan memakai atau memasukkan kredensial Production ke staging.
+4. Uji profil Wali, daftar kandidat/tagihan, upload berkas melalui endpoint Wali, penolakan akses lintas tenant, onboarding, dan akses setelah onboarding.
+5. Hapus semua fixture setelah UAT dan verifikasi hitungannya kembali nol. Minta konfirmasi tepat sebelum penghapusan cloud.
+6. Tinjau PR dan bukti UAT UI sebelum mengubah PR dari Draft/Open.
 
 ## Status PR dan progress checkpoint
 
@@ -79,3 +83,4 @@ Source lokal yang diuji berada pada checkout `88e7e7438c91b1fa79d765ebf77ed8efc1
 - Pemeriksaan yang sudah dicatat pada checkpoint sebelumnya tetap lulus: runtime Supabase-only (92 modul/26 route), deployment flags (30 key publik/37 gerbang server), schema API internal, serta build aplikasi.
 
 Semua butir di atas adalah pemeriksaan source lokal/CI. **Tidak menggantikan UAT UI Wali atau sesi Auth melalui aplikasi**; keduanya masih memerlukan konfigurasi server VQE dan akun sintetis sementara. Persentase checkpoint PR #38 tetap 75% sampai gate UAT tersebut selesai.
+
