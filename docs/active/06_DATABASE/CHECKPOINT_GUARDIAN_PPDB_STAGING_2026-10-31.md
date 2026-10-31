@@ -68,3 +68,16 @@ PR #38 tetap Draft/Open sampai UAT UI Wali dan tinjauan backend selesai.
 ## Riwayat rekonsiliasi migrasi
 
 VQE sempat menerima timestamp migration sementara dari tool. Baris yang terdampak direkonsiliasi hanya setelah nama dan SQL diverifikasi, dengan guard bahwa versi kanonis belum ada; SQL skema tidak dijalankan ulang. Ledger akhir berisi 115 migrasi dengan versi terbaru cocok dengan source PR.
+
+## Source-level regression checkpoint — 31 Oktober 2026
+
+Source lokal yang diuji berada pada checkout `88e7e7438c91b1fa79d765ebf77ed8efc16ea8a7`; perbandingan Git menunjukkan satu-satunya perbedaan dari commit kode PR `2ba3cdb362aba2a6fa8eaafdd60c5142ea0814f7` adalah dokumen checkpoint. Kode yang diuji identik dengan commit source yang lulus CI.
+
+- `npm run lint` lulus (`tsc --noEmit`).
+- `npm run test:guardian-invitation-verification` lulus: 7 skenario (1 diterima, 6 ditolak).
+- `npm run test:guardian-student-selection` lulus: 6 assertion.
+- `npm run test:ppdb-onboarding-rooms` lulus.
+- `npm run test:public-ppdb-validation` lulus untuk batas ukuran total dokumen server-side.
+- Pemeriksaan yang sudah dicatat pada checkpoint sebelumnya tetap lulus: runtime Supabase-only (92 modul/26 route), deployment flags (30 key publik/37 gerbang server), schema API internal, serta build aplikasi.
+
+Semua butir di atas adalah pemeriksaan source lokal/CI. **Tidak menggantikan UAT UI Wali atau sesi Auth melalui aplikasi**; keduanya masih memerlukan konfigurasi server VQE dan akun sintetis sementara. Persentase checkpoint PR #38 tetap 75% sampai gate UAT tersebut selesai.
