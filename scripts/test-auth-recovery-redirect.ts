@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { passwordRecoveryErrorMessage } from "../src/utils/passwordRecoveryErrorMessage";
 
 assert.match(passwordRecoveryErrorMessage({ status: 429, code: "over_email_send_rate_limit" }), /Batas email pemulihan proyek.*Jangan kirim permintaan berulang\./);
+assert.match(
+  passwordRecoveryErrorMessage(new Error("429: email rate limit exceeded")),
+  /Batas email pemulihan proyek.*Jangan kirim permintaan berulang\./,
+);
 assert.match(passwordRecoveryErrorMessage({ status: 400, message: "Invalid redirect URL" }), /Alamat aplikasi belum diizinkan/);
 assert.match(passwordRecoveryErrorMessage({ status: 500, message: "SMTP unavailable" }), /Permintaan pemulihan belum dapat diproses/);
 
