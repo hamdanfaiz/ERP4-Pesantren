@@ -2,7 +2,6 @@ import { useAuth } from '../contexts/AuthContext';
 import React, { useState } from 'react';
 import { upsertSupabaseMasterDataStudent } from '../services/masterDataApi';
 import { Users, Save, X, CheckCircle2, AlertTriangle, Loader2, Link2, UserCheck, Building2, Home, BookOpen, UserPlus, ShieldAlert, ShieldCheck } from 'lucide-react';
-import { MOCK_SANTRI, MOCK_WALISANTRI } from '../data/mockRecords';
 
 interface EntityRegistrationFormProps {
   onSuccess?: (savedData?: any) => void;
@@ -14,10 +13,10 @@ interface EntityRegistrationFormProps {
   availableStructure?: Record<string, any[]>;
 }
 
-import { 
-  EntitySchema, 
-  validateMasterData, 
-  checkIdentityConflicts, 
+import {
+  EntitySchema,
+  validateMasterData,
+  checkIdentityConflicts,
   IdentityConflict,
   NIK_REGEX,
   NISN_REGEX,
@@ -26,20 +25,20 @@ import {
 } from '../schema/masterDataSchema';
 import { RegionSelector } from './RegionSelector';
 
-export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({ 
-  onSuccess, 
-  onCancel, 
-  initialData, 
+export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
+  onSuccess,
+  onCancel,
+  initialData,
   isEdit,
-  availableWali = MOCK_WALISANTRI,
-  availableSantri = MOCK_SANTRI,
+  availableWali = [],
+  availableSantri = [],
   availableStructure,
 }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     id: initialData?.id || '',
     name: initialData?.name || '',
-    type: initialData?.type || 'Santri',
+    type: 'Santri',
     status: initialData?.status || 'Active',
     identifier: initialData?.identifier || '',
     contact: initialData?.contact || '',
@@ -114,6 +113,21 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     return list;
   }, [availableSantri, availableWali, availableStructure]);
 
+  const activeStructures = (category: string) => {
+    const records = availableStructure?.[category];
+    return (Array.isArray(records) ? records : []).filter((record) => {
+      const status = String(record?.status || "active").trim().toLocaleLowerCase("id-ID");
+      return !["inactive", "nonaktif", "tidak aktif", "disabled", "archived", "diarsipkan"].includes(status);
+    });
+  };
+  const classOptions = activeStructures("Kelas");
+  const buildingOptions = activeStructures("Gedung");
+  const roomOptions = activeStructures("Kamar");
+  const selectedBuildingId = String(formData.dormitoryId || "");
+  const roomOptionsForBuilding = roomOptions.filter((room) =>
+    !selectedBuildingId || !room.parentId || String(room.parentId) === selectedBuildingId
+  );
+
   // Recommendation 3: Real-time duplicate identity conflict detection
   const conflicts = React.useMemo(() => {
     return checkIdentityConflicts(
@@ -185,7 +199,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Recommendation 3: Strict Schema Validation by entity type
     const result = validateMasterData(formData, 'entities', formData.type);
 
@@ -197,7 +211,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
       });
       setFieldErrors(formatted);
       const firstError = result.error.issues[0]?.message || 'Data formulir tidak valid';
-      setMessage({ type: 'error', text: `Validasi Skema Gagal: ${firstError}` });
+      setMessage({ type: 'error', text: `Validasi data gagal: ${firstError}` });
       return;
     }
 
@@ -210,9 +224,9 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
 
     if (detectedConflicts.length > 0) {
       const first = detectedConflicts[0];
-      setMessage({ 
-        type: 'error', 
-        text: `Duplikasi Terdeteksi: ${first.message}. Mohon periksa kembali nomor identitas.` 
+      setMessage({
+        type: 'error',
+        text: `Data duplikat terdeteksi: ${first.message}. Mohon periksa kembali nomor identitas.`
       });
       return;
     }
@@ -235,7 +249,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
       if (onSuccess) onSuccess(savedData);
     } catch (error) {
       console.error("Error adding document: ", error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal menyimpan entity.' });
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal menyimpan data.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -245,7 +259,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
       <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
         <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-          <Users className="w-5 h-5 text-emerald-500" /> Register New Entity
+          <Users className="w-5 h-5 text-emerald-500" /> {isEdit ? "Ubah Data Santri" : "Tambah Data Santri"}
         </h3>
         {onCancel && (
           <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -257,8 +271,8 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
       <div className="p-6">
         {message && (
           <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-            message.type === 'success' 
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' 
+            message.type === 'success'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
               : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'
           }`}>
             {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
@@ -295,7 +309,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 value={formData.name}
                 onChange={(e) => handleFieldChange('name', e.target.value)}
                 className={`w-full bg-slate-50 dark:bg-black/20 border ${fieldErrors.name ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-slate-200 dark:border-white/10'} rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50`}
-                placeholder="e.g. Ahmad Abdullah"
+                placeholder="Contoh: Ahmad Abdullah"
                 required
               />
               {fieldErrors.name && (
@@ -303,28 +317,19 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Entity Type *</label>
-              <select
-                value={formData.type}
-                onChange={(e) => handleFieldChange('type', e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-              >
-                <option value="Santri">Santri</option>
-                <option value="Wali Santri">Wali Santri</option>
-                <option value="Guru">Guru</option>
-                <option value="Asatidz">Asatidz</option>
-                <option value="Pegawai">Pegawai</option>
-                <option value="Alumni">Alumni</option>
-              </select>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenis Data *</label>
+              <div className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                Santri
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Identifier (NIS/NIP/NIK)</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nomor Identitas (NIS/NIP/NIK)</label>
               <input
                 type="text"
                 value={formData.identifier}
                 onChange={(e) => handleFieldChange('identifier', e.target.value)}
                 className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                placeholder="e.g. 1234567890"
+                placeholder="Contoh: 1234567890"
               />
             </div>
             <div>
@@ -334,17 +339,17 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 value={formData.gradeOrDepartment}
                 onChange={(e) => handleFieldChange('gradeOrDepartment', e.target.value)}
                 className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                placeholder="e.g. Class 10A or Academic"
+                placeholder="Contoh: Kelas 10A atau Akademik"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Contact / Phone</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kontak / Nomor Telepon</label>
               <input
                 type="text"
                 value={formData.contact}
                 onChange={(e) => handleFieldChange('contact', e.target.value)}
                 className={`w-full bg-slate-50 dark:bg-black/20 border ${fieldErrors.contact ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-slate-200 dark:border-white/10'} rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50`}
-                placeholder="e.g. 08123456789"
+                placeholder="Contoh: 08123456789"
               />
               {fieldErrors.contact && (
                 <p className="text-xs text-rose-400 mt-1">{fieldErrors.contact}</p>
@@ -357,10 +362,10 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 onChange={(e) => handleFieldChange('status', e.target.value)}
                 className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Suspended">Suspended</option>
-                <option value="Graduated">Graduated</option>
+                <option value="Active">Aktif</option>
+                <option value="Inactive">Tidak aktif</option>
+                <option value="Suspended">Ditangguhkan</option>
+                <option value="Graduated">Lulus</option>
                 <option value="Alumni">Alumni</option>
               </select>
             </div>
@@ -368,7 +373,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
 
           {(formData.type === 'Santri' || formData.type === 'Wali Santri') && (
             <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Detailed Profile (PPDB Standard)</h4>
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Profil Santri (Standar PPDB)</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -386,8 +391,8 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                     onChange={(e) => handleFieldChange('nik', e.target.value.replace(/\D/g, ''))}
                     placeholder="16 digit NIK sesuai KTP/KK"
                     className={`w-full bg-slate-50 dark:bg-black/20 border ${
-                      fieldErrors.nik 
-                        ? 'border-rose-500 ring-1 ring-rose-500/20' 
+                      fieldErrors.nik
+                        ? 'border-rose-500 ring-1 ring-rose-500/20'
                         : conflicts.some(c => c.field === 'nik')
                           ? 'border-amber-500 ring-1 ring-amber-500/20'
                           : 'border-slate-200 dark:border-white/10'
@@ -420,8 +425,8 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                       onChange={(e) => handleFieldChange('nisn', e.target.value.replace(/\D/g, ''))}
                       placeholder="10 digit NISN Kemendikbud"
                       className={`w-full bg-slate-50 dark:bg-black/20 border ${
-                        fieldErrors.nisn 
-                          ? 'border-rose-500 ring-1 ring-rose-500/20' 
+                        fieldErrors.nisn
+                          ? 'border-rose-500 ring-1 ring-rose-500/20'
                           : conflicts.some(c => c.field === 'nisn')
                             ? 'border-amber-500 ring-1 ring-amber-500/20'
                             : 'border-slate-200 dark:border-white/10'
@@ -439,7 +444,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Gender</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenis Kelamin</label>
                   <select
                     value={formData.gender}
                     onChange={(e) => handleFieldChange('gender', e.target.value)}
@@ -450,7 +455,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Place of Birth</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tempat Lahir</label>
                   <input
                     type="text"
                     value={formData.pob}
@@ -459,7 +464,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Date of Birth</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tanggal Lahir</label>
                   <input
                     type="date"
                     value={formData.dob}
@@ -494,37 +499,30 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 </div>
                 {formData.type === 'Santri' && (
                   <>
-                    {/* Penempatan & Struktur Normalisasi */}
+                    {/* Penempatan santri dari struktur tenant Supabase */}
                     <div className="md:col-span-2 lg:col-span-3 bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-4 space-y-4">
                       <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
                         <div className="flex items-center gap-2">
                           <Building2 className="w-4 h-4 text-emerald-400" />
                           <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                            Penempatan & Struktur Terakreditasi (ID Normalization)
+                            Penempatan Santri
                           </h4>
                         </div>
                         <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded">
-                          Relasi Struktur
+                          Data Struktur Tenant
                         </span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                            Kelas / Grade
+                            Kelas / Jenjang
                           </label>
                           <select
-                            value={formData.classId || formData.grade}
+                            value={formData.classId || ""}
                             onChange={(e) => {
                               const val = e.target.value;
-                              const classMap: Record<string, string> = {
-                                "CLS-XII-A": "XII-A",
-                                "CLS-XII-B": "XII-B",
-                                "CLS-XI-A": "XI-A",
-                                "CLS-XI-B": "XI-B",
-                                "CLS-X-A": "X-A",
-                                "CLS-X-B": "X-B",
-                              };
-                              const gradeName = classMap[val] || val;
+                              const selectedClass = classOptions.find((item) => String(item.id) === val);
+                              const gradeName = selectedClass ? String(selectedClass.grade || selectedClass.name || "") : "";
                               setFormData(prev => ({
                                 ...prev,
                                 classId: val,
@@ -534,14 +532,12 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                             }}
                             className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                           >
-                            <option value="">-- Pilih Kelas --</option>
-                            <option value="CLS-XII-A">Kelas XII-A (CLS-XII-A)</option>
-                            <option value="CLS-XII-B">Kelas XII-B (CLS-XII-B)</option>
-                            <option value="CLS-XI-A">Kelas XI-A (CLS-XI-A)</option>
-                            <option value="CLS-XI-B">Kelas XI-B (CLS-XI-B)</option>
-                            <option value="CLS-X-A">Kelas X-A (CLS-X-A)</option>
-                            <option value="CLS-X-B">Kelas X-B (CLS-X-B)</option>
+                            <option value="">{classOptions.length ? "-- Pilih kelas --" : "Belum ada kelas tersedia"}</option>
+                            {classOptions.map((item) => (
+                              <option key={item.id} value={item.id}>{item.name} ({item.id})</option>
+                            ))}
                           </select>
+                          {!classOptions.length && <p className="mt-1 text-xs text-amber-300">Tambahkan kelas pada tab Struktur terlebih dahulu.</p>}
                         </div>
 
                         <div>
@@ -549,30 +545,27 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                             Gedung / Asrama
                           </label>
                           <select
-                            value={formData.dormitoryId || formData.dormitory}
+                            value={formData.dormitoryId || ""}
                             onChange={(e) => {
                               const val = e.target.value;
-                              const dormMap: Record<string, string> = {
-                                "BLD-UMAR": "Asrama Umar",
-                                "BLD-KHADIJAH": "Asrama Khadijah",
-                                "BLD-UTSMAN": "Asrama Utsman",
-                                "BLD-ALI": "Asrama Ali",
-                              };
-                              const dormName = dormMap[val] || val;
+                              const selectedBuilding = buildingOptions.find((item) => String(item.id) === val);
+                              const selectedRoom = roomOptions.find((item) => String(item.id) === formData.roomId);
+                              const shouldClearRoom = Boolean(selectedRoom?.parentId && String(selectedRoom.parentId) !== val);
                               setFormData(prev => ({
                                 ...prev,
                                 dormitoryId: val,
-                                dormitory: dormName,
+                                dormitory: selectedBuilding?.name || "",
+                                ...(shouldClearRoom ? { roomId: "", room: "" } : {}),
                               }));
                             }}
                             className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                           >
-                            <option value="">-- Pilih Asrama --</option>
-                            <option value="BLD-UMAR">Asrama Umar (BLD-UMAR)</option>
-                            <option value="BLD-KHADIJAH">Asrama Khadijah (BLD-KHADIJAH)</option>
-                            <option value="BLD-UTSMAN">Asrama Utsman (BLD-UTSMAN)</option>
-                            <option value="BLD-ALI">Asrama Ali (BLD-ALI)</option>
+                            <option value="">{buildingOptions.length ? "-- Pilih gedung/asrama --" : "Belum ada gedung tersedia"}</option>
+                            {buildingOptions.map((item) => (
+                              <option key={item.id} value={item.id}>{item.name} ({item.id})</option>
+                            ))}
                           </select>
+                          {!buildingOptions.length && <p className="mt-1 text-xs text-amber-300">Tambahkan gedung pada tab Struktur terlebih dahulu.</p>}
                         </div>
 
                         <div>
@@ -580,61 +573,40 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                             Kamar
                           </label>
                           <select
-                            value={formData.roomId || formData.room}
+                            value={formData.roomId || ""}
                             onChange={(e) => {
                               const val = e.target.value;
-                              const roomMap: Record<string, string> = {
-                                "KMR-A12": "A-12",
-                                "KMR-B04": "B-04",
-                                "KMR-C08": "C-08",
-                                "KMR-D01": "D-01",
-                              };
-                              const roomName = roomMap[val] || val;
+                              const selectedRoom = roomOptions.find((item) => String(item.id) === val);
+                              const parentBuilding = selectedRoom?.parentId
+                                ? buildingOptions.find((item) => String(item.id) === String(selectedRoom.parentId))
+                                : undefined;
                               setFormData(prev => ({
                                 ...prev,
                                 roomId: val,
-                                room: roomName,
+                                room: selectedRoom?.name || "",
+                                ...(parentBuilding ? { dormitoryId: parentBuilding.id, dormitory: parentBuilding.name } : {}),
                               }));
                             }}
                             className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                           >
-                            <option value="">-- Pilih Kamar --</option>
-                            <option value="KMR-A12">Kamar A-12 (KMR-A12)</option>
-                            <option value="KMR-B04">Kamar B-04 (KMR-B04)</option>
-                            <option value="KMR-C08">Kamar C-08 (KMR-C08)</option>
-                            <option value="KMR-D01">Kamar D-01 (KMR-D01)</option>
+                            <option value="">{roomOptionsForBuilding.length ? "-- Pilih kamar --" : "Belum ada kamar tersedia"}</option>
+                            {roomOptionsForBuilding.map((item) => (
+                              <option key={item.id} value={item.id}>{item.name} ({item.id})</option>
+                            ))}
                           </select>
+                          {!roomOptionsForBuilding.length && <p className="mt-1 text-xs text-amber-300">Tambahkan kamar pada tab Struktur, lalu hubungkan ke gedung/asrama.</p>}
                         </div>
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                             Halaqah Tahfidz
                           </label>
-                          <select
-                            value={formData.halaqahId || formData.halaqah}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const hlqMap: Record<string, string> = {
-                                "HLQ-ABUBAKAR": "Abu Bakar",
-                                "HLQ-AISYAH": "Aisyah",
-                                "HLQ-ALI": "Ali",
-                                "HLQ-UTSMAN": "Utsman",
-                              };
-                              const hlqName = hlqMap[val] || val;
-                              setFormData(prev => ({
-                                ...prev,
-                                halaqahId: val,
-                                halaqah: hlqName,
-                              }));
-                            }}
-                            className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                          >
-                            <option value="">-- Pilih Halaqah --</option>
-                            <option value="HLQ-ABUBAKAR">Halaqah Abu Bakar (HLQ-ABUBAKAR)</option>
-                            <option value="HLQ-AISYAH">Halaqah Aisyah (HLQ-AISYAH)</option>
-                            <option value="HLQ-ALI">Halaqah Ali (HLQ-ALI)</option>
-                            <option value="HLQ-UTSMAN">Halaqah Utsman (HLQ-UTSMAN)</option>
-                          </select>
+                          <div className="min-h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-black/30 dark:text-slate-300">
+                            {formData.halaqah || formData.halaqahId
+                              ? `Penempatan saat ini: ${formData.halaqah || formData.halaqahId}`
+                              : "Belum ditetapkan"}
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">Penempatan halaqah dikelola melalui modul Tahfidz agar relasinya memakai data halaqah tenant yang aktif.</p>
                         </div>
                       </div>
                     </div>
@@ -645,7 +617,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                         <div className="flex items-center gap-2">
                           <Link2 className="w-4 h-4 text-blue-400" />
                           <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider">
-                            Relasi Wali Santri (Normalized Foreign Key)
+                            Relasi Wali Santri
                           </h4>
                         </div>
                         <button
@@ -718,7 +690,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                                 handleFieldChange('parentName', e.target.value);
                                 handleFieldChange('fatherName', e.target.value);
                               }}
-                              placeholder="e.g. Bpk. Rudi"
+                              placeholder="Contoh: Bapak Rudi"
                               className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                             />
                           </div>
@@ -728,7 +700,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                               type="text"
                               value={formData.motherName}
                               onChange={(e) => handleFieldChange('motherName', e.target.value)}
-                              placeholder="e.g. Ibu Aminah"
+                              placeholder="Contoh: Ibu Aminah"
                               className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                             />
                           </div>
@@ -738,7 +710,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                               type="text"
                               value={formData.parentPhone}
                               onChange={(e) => handleFieldChange('parentPhone', e.target.value)}
-                              placeholder="e.g. +62 812-xxxx-xxxx"
+                              placeholder="Contoh: +62 812-xxxx-xxxx"
                               className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                             />
                           </div>
@@ -845,7 +817,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                         type="text"
                         value={formData.fatherJob || ''}
                         onChange={(e) => handleFieldChange('fatherJob', e.target.value)}
-                        placeholder="e.g. Wiraswasta / PNS"
+                        placeholder="Contoh: wiraswasta atau PNS"
                         className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       />
                     </div>
@@ -871,10 +843,10 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
 
           {(formData.type === 'Guru' || formData.type === 'Asatidz' || formData.type === 'Pegawai') && (
              <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 space-y-6">
-                
+
                 {/* Employment Profile */}
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Employment Profile</h4>
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Profil Kepegawaian</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {(formData.type === 'Guru' || formData.type === 'Asatidz') && (
                       <div>
@@ -893,8 +865,8 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                           onChange={(e) => handleFieldChange('nuptk', e.target.value.replace(/\D/g, ''))}
                           placeholder="16 digit NUPTK Pendidik"
                           className={`w-full bg-slate-50 dark:bg-black/20 border ${
-                            fieldErrors.nuptk 
-                              ? 'border-rose-500 ring-1 ring-rose-500/20' 
+                            fieldErrors.nuptk
+                              ? 'border-rose-500 ring-1 ring-rose-500/20'
                               : conflicts.some(c => c.field === 'nuptk')
                                 ? 'border-amber-500 ring-1 ring-amber-500/20'
                                 : 'border-slate-200 dark:border-white/10'
@@ -912,7 +884,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                       </div>
                     )}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Join Date</label>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tanggal Bergabung</label>
                       <input
                         type="date"
                         value={formData.joinDate || ''}
@@ -921,15 +893,15 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Employment Type</label>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenis Kepegawaian</label>
                       <select
                         value={formData.employmentType || 'Full-time'}
                         onChange={(e) => handleFieldChange('employmentType', e.target.value)}
                         className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       >
-                        <option value="Full-time">Full-time</option>
-                        <option value="Part-time">Part-time</option>
-                        <option value="Contract">Contract</option>
+                        <option value="Full-time">Penuh waktu</option>
+                        <option value="Part-time">Paruh waktu</option>
+                        <option value="Contract">Kontrak</option>
                       </select>
                     </div>
                     <div>
@@ -942,7 +914,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Bank Account Number</label>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nomor Rekening</label>
                       <input
                         type="text"
                         value={formData.bankAccount || ''}
@@ -965,17 +937,17 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 {/* Education History */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Education History</h4>
-                    <button type="button" onClick={() => addArrayItem('educations', { level: '', institution: '', major: '', graduationYear: '' })} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">+ Add</button>
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Riwayat Pendidikan</h4>
+                    <button type="button" onClick={() => addArrayItem('educations', { level: '', institution: '', major: '', graduationYear: '' })} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">+ Tambah</button>
                   </div>
                   <div className="space-y-3">
                     {(formData.educations || []).map((edu: any, i: number) => (
                       <div key={i} className="flex gap-2 items-start bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-white/10">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 flex-1">
-                          <input type="text" placeholder="Level (e.g. S1)" value={edu.level} onChange={(e) => handleArrayChange('educations', i, 'level', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-                          <input type="text" placeholder="Institution" value={edu.institution} onChange={(e) => handleArrayChange('educations', i, 'institution', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-                          <input type="text" placeholder="Major" value={edu.major} onChange={(e) => handleArrayChange('educations', i, 'major', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-                          <input type="text" placeholder="Year" value={edu.graduationYear} onChange={(e) => handleArrayChange('educations', i, 'graduationYear', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Jenjang (contoh: S1)" value={edu.level} onChange={(e) => handleArrayChange('educations', i, 'level', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Nama lembaga" value={edu.institution} onChange={(e) => handleArrayChange('educations', i, 'institution', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Jurusan" value={edu.major} onChange={(e) => handleArrayChange('educations', i, 'major', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Tahun lulus" value={edu.graduationYear} onChange={(e) => handleArrayChange('educations', i, 'graduationYear', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                         </div>
                         <button type="button" onClick={() => removeArrayItem('educations', i)} className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded"><X className="w-4 h-4" /></button>
                       </div>
@@ -986,16 +958,16 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 {/* Certifications */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Certifications</h4>
-                    <button type="button" onClick={() => addArrayItem('certifications', { name: '', institution: '', year: '' })} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">+ Add</button>
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Sertifikasi</h4>
+                    <button type="button" onClick={() => addArrayItem('certifications', { name: '', institution: '', year: '' })} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">+ Tambah</button>
                   </div>
                   <div className="space-y-3">
                     {(formData.certifications || []).map((cert: any, i: number) => (
                       <div key={i} className="flex gap-2 items-start bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-white/10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 flex-1">
                           <input type="text" placeholder="Nama Sertifikasi" value={cert.name} onChange={(e) => handleArrayChange('certifications', i, 'name', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-                          <input type="text" placeholder="Issuer / Institution" value={cert.institution} onChange={(e) => handleArrayChange('certifications', i, 'institution', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-                          <input type="text" placeholder="Year" value={cert.year} onChange={(e) => handleArrayChange('certifications', i, 'year', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Penerbit / lembaga" value={cert.institution} onChange={(e) => handleArrayChange('certifications', i, 'institution', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Tahun" value={cert.year} onChange={(e) => handleArrayChange('certifications', i, 'year', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                         </div>
                         <button type="button" onClick={() => removeArrayItem('certifications', i)} className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded"><X className="w-4 h-4" /></button>
                       </div>
@@ -1006,29 +978,29 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 {/* Work Experiences */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Work Experiences</h4>
-                    <button type="button" onClick={() => addArrayItem('experiences', { company: '', role: '', startDate: '', endDate: '' })} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">+ Add</button>
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Riwayat Pengalaman Kerja</h4>
+                    <button type="button" onClick={() => addArrayItem('experiences', { company: '', role: '', startDate: '', endDate: '' })} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">+ Tambah</button>
                   </div>
                   <div className="space-y-3">
                     {(formData.experiences || []).map((exp: any, i: number) => (
                       <div key={i} className="flex gap-2 items-start bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-white/10">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 flex-1">
-                          <input type="text" placeholder="Institution/Company" value={exp.company} onChange={(e) => handleArrayChange('experiences', i, 'company', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Lembaga/perusahaan" value={exp.company} onChange={(e) => handleArrayChange('experiences', i, 'company', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                           <input type="text" placeholder="Jabatan/Posisi" value={exp.role} onChange={(e) => handleArrayChange('experiences', i, 'role', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                           <input type="text" placeholder="Tanggal/Tahun Mulai" value={exp.startDate} onChange={(e) => handleArrayChange('experiences', i, 'startDate', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-                          <input type="text" placeholder="End Date/Year" value={exp.endDate} onChange={(e) => handleArrayChange('experiences', i, 'endDate', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Tanggal/tahun berakhir" value={exp.endDate} onChange={(e) => handleArrayChange('experiences', i, 'endDate', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                         </div>
                         <button type="button" onClick={() => removeArrayItem('experiences', i)} className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded"><X className="w-4 h-4" /></button>
                       </div>
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Assignments (Penempatan Tugas) */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Penempatan Tugas / Roles</h4>
-                    <button type="button" onClick={() => addArrayItem('assignments', { role: '', unitId: '', description: '' })} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">+ Add</button>
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Penempatan Tugas / Peran</h4>
+                    <button type="button" onClick={() => addArrayItem('assignments', { role: '', unitId: '', description: '' })} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">+ Tambah</button>
                   </div>
                   <div className="space-y-3">
                     {(formData.assignments || []).map((assignment: any, i: number) => (
@@ -1045,7 +1017,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                               <option value="Staf">Staf</option>
                             </select>
                           </div>
-                          <input type="text" placeholder="Unit/Kamar/Kelas (e.g. Kamar A1)" value={assignment.unitId} onChange={(e) => handleArrayChange('assignments', i, 'unitId', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                          <input type="text" placeholder="Unit/Kamar/Kelas (contoh: Kamar A1)" value={assignment.unitId} onChange={(e) => handleArrayChange('assignments', i, 'unitId', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                           <input type="text" placeholder="Catatan/Keterangan" value={assignment.description} onChange={(e) => handleArrayChange('assignments', i, 'description', e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
                         </div>
                         <button type="button" onClick={() => removeArrayItem('assignments', i)} className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded"><X className="w-4 h-4" /></button>
@@ -1059,26 +1031,26 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
 
           {formData.type === 'Alumni' && (
              <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-                <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Alumni Profile</h4>
+                <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Profil Alumni</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Graduation Year</label>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tahun Kelulusan</label>
                     <input
                       type="number"
                       value={formData.graduationYear || ''}
                       onChange={(e) => handleFieldChange('graduationYear', e.target.value)}
                       className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                      placeholder="e.g. 2024"
+                      placeholder="Contoh: 2024"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Current Activity</label>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kegiatan Saat Ini</label>
                     <input
                       type="text"
                       value={formData.currentActivity || ''}
                       onChange={(e) => handleFieldChange('currentActivity', e.target.value)}
                       className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                      placeholder="e.g. Kuliah di UI / Bekerja"
+                      placeholder="Contoh: Kuliah di UI atau bekerja"
                     />
                   </div>
                 </div>
@@ -1087,15 +1059,10 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
 
           {formData.type === 'Santri' && (
              <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-                <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Documents Attachments</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {['KK', 'KTP', 'Akta', 'Ijazah', 'Rapor'].map(docName => (
-                      <div key={docName} className="p-3 border border-slate-200 dark:border-white/10 rounded-lg bg-slate-50 dark:bg-black/20">
-                          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Document {docName}</label>
-                          <input type="file" className="text-xs text-slate-500 dark:text-slate-400 file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 dark:file:bg-emerald-900/30 dark:file:text-emerald-400" />
-                      </div>
-                    ))}
-                </div>
+                <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Berkas Santri</h4>
+                <p className="rounded-lg border border-amber-300/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+                  Unggah berkas belum tersedia di formulir ini. Setelah data santri disimpan, daftarkan berkas melalui Dokumen Digital dan cantumkan nama atau NIS santri agar mudah ditelusuri.
+                </p>
              </div>
           )}
 
@@ -1106,7 +1073,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 onClick={onCancel}
                 className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 mr-3"
               >
-                Cancel
+                Batal
               </button>
             )}
             <button
@@ -1115,7 +1082,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
               className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save Entity
+              Simpan Data Santri
             </button>
           </div>
         </form>
@@ -1123,3 +1090,4 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     </div>
   );
 };
+
