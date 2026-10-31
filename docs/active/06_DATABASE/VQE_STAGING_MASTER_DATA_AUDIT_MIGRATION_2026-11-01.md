@@ -12,6 +12,7 @@
 - Ledger VQE menampilkan 116 migration, terakhir `20270212000000_optimize_core_tenant_query_indexes`.
 - Source repo menyediakan migration berikutnya `supabase/migrations/20270213000000_master_data_audit_feed.sql` beserta pgTAP `supabase/tests/master_data_audit_feed.test.sql`.
 - Pada pemeriksaan baca-saja, `public.master_data_audit_events` belum ada; objek terkait yang diperlukan migration sudah ada. Source migration membatasi pembacaan event ke `service_role`, mengaktifkan RLS dan FORCE RLS, mencegah perubahan/penghapusan event, mencatat metadata tanpa nilai PII, serta memvalidasi aktor pada jalur RPC.
+- Query verifikasi pascamigrasi di file pendamping berhasil dijalankan sebagai SQL baca-saja pada VQE. Semua 15 check bernilai `false`, sesuai kondisi sebelum penerapan: tabel/trigger/RPC audit dan versi ledger `20270213000000` belum tersedia. Ini bukan kegagalan pascamigrasi; jalankan kembali hanya setelah CLI push selesai.
 - GitHub Actions pada source commit `9fb818f` sebelumnya lulus untuk build dan suite DB sintetis. Ini bukan bukti bahwa migration telah berjalan di VQE.
 - Workstation pada checkpoint tidak memiliki Supabase CLI maupun token akses CLI. Tidak ada SQL atau data yang ditulis ke VQE.
 
@@ -31,7 +32,7 @@ Jalankan satu operator pada checkout commit source PR #39 yang berisi file migra
 4. Jalankan `supabase migration list --linked`. Berhenti jika ledger tidak cocok dengan source sampai `20270212000000`, ada versi tidak dikenal, atau ada migration lain yang belum ditinjau.
 5. Jalankan `supabase db push --linked --dry-run`. Hasil yang diharapkan hanya satu file: `20270213000000_master_data_audit_feed.sql`. Jika ada migration tambahan, versi di luar urutan, atau target project tidak jelas, **jangan** lanjutkan push.
 6. Setelah dry-run tepat dan backup terverifikasi, jalankan `supabase db push --linked` satu kali. Pastikan output menyebut file migration tersebut dan tidak melaporkan migration lain.
-7. Jalankan kembali `supabase migration list --linked`; pastikan versi `20270213000000` tercatat. Periksa tabel, RLS + FORCE RLS, grants, trigger, dan hak EXECUTE RPC terhadap source serta tes `supabase/tests/master_data_audit_feed.test.sql`.
+7. Jalankan kembali `supabase migration list --linked`; pastikan versi `20270213000000` tercatat. Jalankan query baca-saja [`VQE_MASTER_DATA_AUDIT_POSTCHECK.sql`](./VQE_MASTER_DATA_AUDIT_POSTCHECK.sql); semua baris harus `true`. Pastikan tes [`master_data_audit_feed.test.sql`](../../../supabase/tests/master_data_audit_feed.test.sql) tetap lulus di database lokal/CI.
 8. Simpan output yang sudah disanitasi dan hasil pemeriksaan sebagai bukti staging. Jangan melampirkan token, password, URL koneksi, PII, atau isi event audit.
 
 ## Stop/rollback gate
