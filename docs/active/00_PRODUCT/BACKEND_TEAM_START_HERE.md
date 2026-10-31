@@ -1,6 +1,6 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
-> **Checkpoint source yang diaudit — 31 Oktober 2026:** PR #39 memulihkan visibilitas menu dan menambahkan transfer CSV tenant; PPOB tetap dikeluarkan dari rilis awal. Pemecahan bundle terbaru lulus lint dan build; bundle utama berukuran 105.07 kB (31.32 kB gzip). Build masih memberi peringatan untuk chunk renderer PDF 1.46 MB (488.38 kB gzip), yang diunduh saat kartu PDF diminta. Setelah perubahan ini, guard runtime Supabase tanpa Firebase lulus (96 modul/26 rute), pemeriksaan redirect pemulihan kata sandi lulus, dan undangan Wali lulus tujuh skenario. UAT browser belum lulus: `localhost:4179` masih menampilkan UI lama; `.env` staging tidak tersedia pada worktree ini. Uji CSV/paginasi Master Data, skrip logika/kontrak, migration preflight, dan guard schema API privat tercatat lulus pada source sebelumnya di PR. `npm run test:db` belum menjalankan pgTAP karena Docker/Podman dan database lokal `127.0.0.1:54322` tidak tersedia. Audit baca-saja VQE mengonfirmasi 116 versi/nama migration serta SQL statement yang cocok dengan 116 file lokal setelah normalisasi komentar/whitespace; enam entri ledger yang menyimpan satu string penuh dipecah kembali sebelum dibandingkan. Status RLS, grant, advisor, dan batas akses Production dirinci di bawah. Tidak ada perubahan database Production dan auto-deploy tetap OFF.
+> **Checkpoint source yang diaudit — 31 Oktober 2026:** PR #39 memulihkan visibilitas menu dan menambahkan transfer CSV tenant; PPOB tetap dikeluarkan dari rilis awal. Pemecahan bundle terbaru lulus lint dan build; bundle utama berukuran 105.07 kB (31.32 kB gzip). Build masih memberi peringatan untuk chunk renderer PDF 1.46 MB (488.38 kB gzip), yang diunduh saat kartu PDF diminta. Setelah perubahan ini, guard runtime Supabase tanpa Firebase lulus (96 modul/26 rute), pemeriksaan redirect pemulihan kata sandi lulus, dan undangan Wali lulus tujuh skenario. UAT browser belum lulus: `localhost:4179` menampilkan UI lama dan port tersebut menolak peluncuran source terbaru dengan `EADDRINUSE`. `.env` VQE ada di checkout UAT terpisah tetapi tidak di worktree PR; nilainya tidak disalin atau ditampilkan. Server source PR sempat berjalan pada `127.0.0.1:3000`, tetapi browser in-app mengalami timeout; server dihentikan dan tidak ada UAT UI yang diklaim lulus. Source menambahkan opsi `HOST` agar server lokal dapat dibatasi ke loopback; default deployment tetap `0.0.0.0`. Uji CSV/paginasi Master Data, skrip logika/kontrak, migration preflight, dan guard schema API privat tercatat lulus pada source sebelumnya di PR. `npm run test:db` belum menjalankan pgTAP karena Docker/Podman dan database lokal `127.0.0.1:54322` tidak tersedia. Audit baca-saja VQE mengonfirmasi 116 versi/nama migration serta SQL statement yang cocok dengan 116 file lokal setelah normalisasi komentar/whitespace; enam entri ledger yang menyimpan satu string penuh dipecah kembali sebelum dibandingkan. Status RLS, grant, advisor, dan batas akses Production dirinci di bawah. Tidak ada perubahan database Production dan auto-deploy tetap OFF.
 
 > Bagian di bawah yang merujuk head, jumlah migrasi, atau hasil pemeriksaan sebelumnya adalah riwayat checkpoint. Gunakan status terbaru di atas jika ada perbedaan.
 
@@ -83,7 +83,7 @@ Dokumen terkait: [temuan redirect Auth Production](PRODUCTION_AUTH_REDIRECT_CHEC
 
 ## Runbook singkat: preview login berhasil tetapi readiness 503
 
-**Temuan browser 31 Oktober 2026:** login Admin UAT berhasil, tetapi `http://localhost:4179/health/ready` mengembalikan `{"status":"unavailable"}` dan dashboard belum dapat membaca data. Checkout lokal kanonis yang diperiksa memiliki `SUPABASE_URL` dan `VITE_SUPABASE_URL` menuju PTSAS Production. Karena proses yang melayani port 4179 belum dapat diidentifikasi, target backend/client pada browser belum terbukti staging. Jangan gunakan port 4179 atau memasukkan data hingga target diverifikasi.
+**Temuan browser 31 Oktober 2026:** login Admin UAT pernah berhasil, tetapi `http://localhost:4179/health/ready` mengembalikan `{"status":"unavailable"}` dan dashboard belum dapat membaca data. Tampilan yang kini masih terbuka pada port 4179 juga berasal dari UI lama. Percobaan memulai source PR terbaru pada port itu gagal `EADDRINUSE`; proses lama tidak dihentikan. Target backend/client pada browser belum terbukti staging. Jangan gunakan port 4179 atau memasukkan data hingga target diverifikasi.
 
 Untuk mengisolasi API server tanpa menghentikan proses lama:
 
@@ -98,19 +98,20 @@ Untuk mengisolasi API server tanpa menghentikan proses lama:
    node -r dotenv/config -e "for (const name of ['SUPABASE_URL','SUPABASE_SECRET_KEY','VITE_SUPABASE_URL','VITE_SUPABASE_PUBLISHABLE_KEY']) { const value = process.env[name]; console.log(name + ': ' + (name.endsWith('_URL') && value ? new URL(value).host : value ? 'set' : 'missing')); }"
    ```
    Bila dependensi belum terpasang, jalankan `npm ci` terlebih dahulu. Perintah ini hanya memasang paket dari lockfile.
-3. Jalankan server API dari root repository pada port pemeriksaan yang terpisah:
+3. Jalankan server API dari root repository pada port default VQE. Ikat server ke loopback agar endpoint dengan secret VQE tidak terbuka ke jaringan lokal:
    ```powershell
-   $env:PORT = '4180'
+   $env:PORT = '3000'
+   $env:HOST = '127.0.0.1'
    npm run dev
    ```
-   Skrip `dev` menjalankan `tsx server.ts`; server memuat `.env` dari direktori kerja. Biarkan terminal ini terbuka agar log readiness terlihat.
+   Skrip `dev` menjalankan `tsx server.ts`; server memuat `.env` dari direktori kerja. Pastikan `APP_URL` dan `PUBLIC_APP_URL` mengarah ke `http://localhost:3000`, sesuai Site URL/redirect VQE. Biarkan terminal ini terbuka agar log readiness terlihat.
 4. Di PowerShell kedua, periksa endpoint:
    ```powershell
-   curl.exe -i http://127.0.0.1:4180/health/ready
+   curl.exe -i http://127.0.0.1:3000/health/ready
    ```
    Lulus jika respons `HTTP 200` dan `{"status":"ready"}`. Respons `503` berarti identity store masih gagal diperiksa.
 5. Jika tetap 503, lihat terminal server untuk log `Supabase identity readiness check failed`. Log hanya memuat tipe error serta penanda apakah URL dan secret tersedia, bukan nilainya. Perbaiki konfigurasi/profil/akses staging berdasarkan error tersebut; jangan tempel secret atau isi lengkap log sensitif ke tiket.
-6. Setelah health 200, buka `http://localhost:4180/` dan verifikasi lagi login serta dashboard. Jalur password-recovery tidak perlu diulang. Jika health 200 tetapi data modul tetap gagal, periksa flag runtime modul dan log API secara terpisah; readiness hanya membuktikan identity store merespons, bukan seluruh modul UAT.
+6. Setelah health 200, buka `http://localhost:3000/` dan verifikasi login serta dashboard. Jalur password-recovery tidak perlu diulang. Jika health 200 tetapi data modul tetap gagal, periksa flag runtime modul dan log API secara terpisah; readiness hanya membuktikan identity store merespons, bukan seluruh modul UAT.
 
-Port `4180` dipilih untuk menghindari perubahan atau penghentian layanan lama di `4179`. Gunakan hanya konfigurasi staging VQE. Jangan memasukkan `SUPABASE_SECRET_KEY`, kunci PII, atau nilai Production ke klien Vite.
+Server menghormati `HOST`; jika tidak diatur, default tetap `0.0.0.0` untuk deployment/container. Untuk UAT lokal, gunakan `HOST=127.0.0.1`. Port `3000` cocok dengan Site URL VQE pada konfigurasi saat ini. Gunakan hanya konfigurasi staging VQE. Jangan memasukkan `SUPABASE_SECRET_KEY`, kunci PII, atau nilai Production ke klien Vite.
 
