@@ -112,4 +112,3 @@ Untuk mengisolasi API server tanpa menghentikan proses lama:
 6. Setelah health 200, buka `http://localhost:4180/` dan verifikasi lagi login serta dashboard. Jalur password-recovery tidak perlu diulang. Jika health 200 tetapi data modul tetap gagal, periksa flag runtime modul dan log API secara terpisah; readiness hanya membuktikan identity store merespons, bukan seluruh modul UAT.
 
 Port `4180` dipilih untuk menghindari perubahan atau penghentian layanan lama di `4179`. Gunakan hanya konfigurasi staging VQE. Jangan memasukkan `SUPABASE_SECRET_KEY`, kunci PII, atau nilai Production ke klien Vite.
-
