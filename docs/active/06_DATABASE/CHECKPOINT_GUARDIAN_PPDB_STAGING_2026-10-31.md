@@ -78,6 +78,10 @@ Source lokal yang diuji berada pada checkout `88e7e7438c91b1fa79d765ebf77ed8efc1
 - `npm run test:guardian-student-selection` lulus: 6 assertion.
 - `npm run test:ppdb-onboarding-rooms` lulus.
 - `npm run test:public-ppdb-validation` lulus untuk batas ukuran total dokumen server-side.
+- `npm run test:rbac-permissions` lulus (15 pemeriksaan role/permission dan katalog modul Indonesia).
+- Finance unit-scope API dan filter unit lulus.
+- Tahfidz membership date lulus (7 fixture, 2 aktif pada tanggal operasional); pagination roster/riwayat dan keyset sesi lulus; progress capaian lulus.
+- Master Data pagination dan minimisasi rekursif PII lulus.
 - Pemeriksaan yang sudah dicatat pada checkpoint sebelumnya tetap lulus: runtime Supabase-only (92 modul/26 route), deployment flags (30 key publik/37 gerbang server), schema API internal, serta build aplikasi.
 
 Semua butir di atas adalah pemeriksaan source lokal/CI. **Tidak menggantikan UAT UI Wali atau sesi Auth melalui aplikasi**; keduanya masih memerlukan konfigurasi server VQE dan akun sintetis sementara. Persentase checkpoint PR #38 tetap 75% sampai gate UAT tersebut selesai.
