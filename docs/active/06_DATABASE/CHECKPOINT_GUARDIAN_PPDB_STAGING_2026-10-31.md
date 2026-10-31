@@ -49,7 +49,7 @@ Fixture sudah dibersihkan di VQE: akun Auth dan profil, tenant, kandidat, tagiha
 - Head PR setelah commit kode berisi pembaruan dokumentasi saja; workflow CI tidak berjalan pada commit docs.
 - VQE memiliki 115 migration sampai `20270212000000_optimize_core_tenant_query_indexes`. pgTAP live sebelumnya: 53 assertion privilege API dan 44 assertion isolasi tenant; skrip memakai rollback.
 - Security Advisor: 156 INFO untuk tabel backend-only tanpa policy; tidak ada WARN helper SECURITY DEFINER atau `auth_rls_initplan`. Performance Advisor memberi INFO indeks FK/unused-index. VQE tidak memiliki data operasional sehingga telemetry indeks belum mewakili beban nyata.
-- `npm ci` pada worktree PR gagal karena `package-lock.json` tidak sinkron (paket opsional `@emnapi/wasi-threads@1.2.3` tidak ada di lockfile). Dockerfile memakai Bun dan `bun.lock`; isu kompatibilitas npm tetap perlu dibereskan bila tim menggunakan NPM untuk VPS/on-prem.
+- Pemeriksaan `npm ci --ignore-scripts --offline --dry-run` pada salinan lockfile berhasil merencanakan 115 paket tanpa kesalahan sinkronisasi lock. Instalasi penuh belum terverifikasi: di worktree preview, `npm ci` tertahan oleh Windows `EPERM` saat mencoba melepas `lightningcss` native module; di direktori bersih, mode offline berhenti karena `zxing-wasm@3.0.3` tidak tersedia di cache. Jalankan `npm ci` pada environment bersih dengan akses registry sebelum menyatakan jalur NPM siap. CI Docker pelanggan memakai Bun dan telah lulus.
 
 ## Tindak lanjut
 
