@@ -5,6 +5,7 @@ import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { DEFAULT_TENANT_TIME_ZONE } from "../utils/businessDate";
 import { pendingMutationIds } from "../utils/pendingMutationId";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type Product = { id: string; sku: string; name: string; category: string; stock: number; costPrice: number; price: number; reorderPoint: number; expiryDate: string; status: string };
 type WalletAccount = { id: string; studentId: string; student: string; nis: string; grade: string; balance: number; limit: number; status: "Active" | "Blocked" };
@@ -298,11 +299,14 @@ export function SupabaseCooperativeManager() {
   if (role !== "Admin" && role !== "SuperAdmin") return <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">Modul Koperasi Supabase saat ini tersedia untuk Admin tenant dengan izin Koperasi.</div>;
 
   const tabs = [
-    { id: "pos", label: "Kasir", icon: ShoppingCart },
+    { id: "pos", label: "Kasir (POS)", icon: ShoppingCart },
     { id: "inventory", label: "Inventaris", icon: Package },
-    { id: "wallets", label: "Dompet Santri", icon: Wallet },
     { id: "suppliers", label: "Pemasok", icon: Truck },
-    { id: "transactions", label: "Transaksi", icon: BarChart3 },
+    { id: "analytics", label: "Analitik", icon: BarChart3 },
+    { id: "wallets", label: "Dompet Santri", icon: Wallet },
+    { id: "parent-monitoring", label: "Pantauan Wali", icon: Wallet },
+    { id: "staff", label: "Petugas", icon: Truck },
+    { id: "transactions", label: "Riwayat Transaksi", icon: BarChart3 },
     ...(legacyArchiveImportEnabled ? [{ id: "migration", label: "Impor Arsip", icon: RefreshCw }] : []),
   ];
 
@@ -319,8 +323,11 @@ export function SupabaseCooperativeManager() {
     <section className="grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Produk aktif</p><p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{snapshot.products.filter((x) => x.status === "active").length}</p></div><div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Stok perlu diperiksa</p><p className="mt-1 text-2xl font-semibold text-orange-700 dark:text-orange-300">{lowStockCount}</p></div><div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Transaksi hari ini</p><p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{completedToday.length}</p></div></section>
 
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <nav className="flex gap-2 overflow-x-auto border-b border-slate-200 p-2 dark:border-slate-800">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-pressed={activeTab === id} onClick={() => setActiveTab(id)} className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${activeTab === id ? "bg-orange-50 text-orange-700 dark:bg-orange-400/10 dark:text-orange-200" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"}`}><Icon className="h-4 w-4" />{label}</button>)}</nav>
+      <div className="border-b border-slate-200 p-3 dark:border-slate-800"><ERPTabs tabs={tabs.map(({ id, label, icon: Icon }) => ({ id, label, icon: <Icon className="h-4 w-4" /> }))} value={activeTab} onChange={setActiveTab} ariaLabel="Bagian modul Koperasi" /></div>
       {loading ? <div role="status" className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat data Koperasi…</div> : <div className="p-4 sm:p-5">
+        {activeTab === "analytics" && <div className="space-y-4"><div><h2 className="font-semibold text-slate-900 dark:text-white">Analitik koperasi</h2><p className="mt-1 text-xs text-slate-500">Angka berikut dihitung dari transaksi yang dimuat untuk tenant aktif, bukan laporan lintas halaman.</p></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[{ label: "Transaksi termuat", value: snapshot.sales.length }, { label: "Nilai transaksi termuat", value: money(snapshot.sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0)) }, { label: "Produk aktif", value: snapshot.products.filter((item) => item.status === "active").length }, { label: "Stok perlu diperiksa", value: lowStockCount }].map((item) => <article key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">{item.label}</p><p className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{loading ? "—" : item.value}</p></article>)}</div></div>}
+        {activeTab === "parent-monitoring" && <ERPFeatureStatus title="Pantauan Wali" description="Menu tetap terlihat mengikuti acuan. Tampilan pantauan dompet dan transaksi khusus wali belum memiliki API dengan cakupan relasi wali–santri yang diverifikasi, sehingga data tidak dibuka dari halaman Admin ini." />}
+        {activeTab === "staff" && <ERPFeatureStatus title="Petugas koperasi" status="Akun dikelola pada Manajemen Pengguna" tone="available" description="Peran kasir mengikuti akun dan izin modul. Direktori petugas khusus koperasi belum tersedia; pengelolaan akun dan hak akses dilakukan melalui Manajemen Pengguna." />}
         {activeTab === "pos" && <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
           <div className="space-y-4"><label className="block"><span className="text-xs font-medium text-slate-500">Cari produk</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nama, SKU, kategori" className={inputClass} /></label>
             {products.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <button key={product.id} type="button" disabled={product.stock < 1} onClick={() => setCart((current) => { const existing = current.find((line) => line.productId === product.id); return existing ? current.map((line) => line.productId === product.id ? { ...line, quantity: Math.min(product.stock, line.quantity + 1) } : line) : [...current, { productId: product.id, quantity: 1 }]; })} className="rounded-xl border border-slate-200 p-4 text-left hover:border-orange-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:hover:border-orange-500/40"><div className="text-xs text-slate-500">{product.category || "Umum"} · stok {product.stock}</div><div className="mt-1 font-semibold text-slate-900 dark:text-white">{product.name}</div><div className="mt-3 font-semibold text-orange-700 dark:text-orange-300">{money(product.price)}</div></button>)}</div> : <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada produk pada tenant ini.</div>}

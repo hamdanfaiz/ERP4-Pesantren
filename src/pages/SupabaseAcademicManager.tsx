@@ -1,10 +1,11 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, BookOpen, CalendarDays, Check, ClipboardList, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { AlertCircle, BookOpen, CalendarDays, Check, ClipboardList, FileText, Loader2, Plus, RefreshCw, ShieldCheck, Users, Wrench } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { SupabaseAcademicPortal } from "./SupabaseAcademicPortal";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type RecordRow = Record<string, any> & { id: string };
 type Student = { id: string; name: string; nis: string; className: string; organizationUnitId?: string | null; organizationUnitName?: string | null };
@@ -14,7 +15,7 @@ type AcademicClass = { id: string; name: string; organizationUnitId?: string | n
 type UnmappedAcademicClass = { id: string; name: string; status: string };
 type UnmappedAcademicClassSnapshot = { classes: UnmappedAcademicClass[]; classCount: number; limit: number; offset: number };
 type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; students: Student[]; teachers: Teacher[]; classes: AcademicClass[]; units: Unit[]; unitsEnabled: boolean };
-type Tab = "schedule" | "journal" | "assessment";
+type Tab = "schedule" | "journal" | "assessment" | "report-card" | "conflict-resolver";
 
 const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], students: [], teachers: [], classes: [], units: [], unitsEnabled: false };
 const EMPTY_UNMAPPED_CLASSES: UnmappedAcademicClassSnapshot = { classes: [], classCount: 0, limit: 100, offset: 0 };
@@ -31,6 +32,8 @@ const TABS: Array<{ id: Tab; label: string; icon: React.ElementType }> = [
   { id: "schedule", label: "Jadwal KBM", icon: CalendarDays },
   { id: "journal", label: "Jurnal KBM", icon: ClipboardList },
   { id: "assessment", label: "Penilaian", icon: BookOpen },
+  { id: "report-card", label: "E-Rapor", icon: FileText },
+  { id: "conflict-resolver", label: "Konflik Jadwal", icon: Wrench },
 ];
 
 async function requestAcademic(path: string, init: RequestInit = {}) {
@@ -308,11 +311,15 @@ export function SupabaseAcademicManager() {
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
-    <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-slate-900" aria-label="Bagian akademik">
-      {TABS.filter((tab) => tab.id !== "schedule" || isAdmin).map((tab) => <button key={tab.id} type="button" onClick={() => { setActiveTab(tab.id); setError(""); setNotice(""); }} className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${activeTab === tab.id ? "bg-emerald-700 text-white" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5"}`}><tab.icon className="h-4 w-4" />{tab.label}</button>)}
-    </nav>
+    <ERPTabs tabs={TABS.filter((tab) => tab.id !== "schedule" || isAdmin).map((tab) => ({ ...tab, icon: <tab.icon className="h-4 w-4" /> }))} value={activeTab} onChange={(id) => { setActiveTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian akademik" />
 
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
+    {activeTab === "report-card" ? <ERPFeatureStatus
+      title="E-Rapor"
+      description="Menu E-Rapor dari referensi kini terlihat. Penyimpanan nilai harian sudah tersedia pada Penilaian, tetapi penyusunan rapor semester, validasi wali kelas, pengesahan, dan penerbitan rapor belum memiliki alur Supabase tersendiri."
+    /> : activeTab === "conflict-resolver" ? <ERPFeatureStatus
+      title="Penyelesaian konflik jadwal"
+      description="Jadwal KBM tenant dapat dicatat dan dibaca. Deteksi konflik lintas pengajar/ruang/kelas, rekomendasi pengganti, dan persetujuan perubahan otomatis belum disambungkan ke API Supabase."
+    /> : <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">{activeTab === "schedule" ? "Jadwal tersimpan" : activeTab === "journal" ? "Jurnal terbaru" : "Penilaian terbaru"}</h2></div>
         {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat data tenant…</div> : activeTab === "schedule" ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.schedules.length ? snapshot.schedules.map((row) => <article key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{row.subject}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{row.day} · {row.time}</span></div><p className="mt-1 text-sm text-slate-500">{row.className} · {row.teacherName}{row.room ? ` · ${row.room}` : ""}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</article>) : <Empty label="Belum ada jadwal KBM di tenant ini." />}</div> : activeTab === "journal" ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.journals.length ? snapshot.journals.map((row) => <article key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{row.subject} · {row.className}</h3><span className="text-xs text-slate-500">{row.date}</span></div><p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{row.topic}</p><p className="mt-1 text-xs text-slate-500">Pengajar: {row.teacherName} · {journalAttendanceLabel(row.attendance)}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</article>) : <Empty label="Belum ada jurnal KBM di tenant ini." />}</div> : <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.assessments.length ? snapshot.assessments.map((row) => <article key={row.id} className="flex flex-wrap items-center justify-between gap-2 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{row.studentName}</h3><p className="mt-1 text-sm text-slate-500">{row.className} · {row.subject} · {row.assessmentType}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</div><span className={`rounded-lg px-3 py-1 text-sm font-bold ${Number(row.score) < 75 ? "bg-amber-100 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"}`}>{row.score}</span></article>) : <Empty label="Belum ada penilaian di tenant ini." />}</div>}
@@ -356,7 +363,7 @@ export function SupabaseAcademicManager() {
           {role === "Ustadz" && <p className="flex items-start gap-2 text-xs text-slate-500"><Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />Akses roster dibatasi pada kelas yang memiliki jadwal dengan pengajar ini.</p>}
         </form>}
       </section>
-    </div>
+    </div>}
   </main>;
 }
 

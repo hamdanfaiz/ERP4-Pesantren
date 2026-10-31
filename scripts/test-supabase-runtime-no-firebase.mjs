@@ -164,6 +164,51 @@ assert.match(masterDataSource, /modulePermissions\?\.\[activeHandoff\.module\] =
   'Master Data handoff links must not bypass an explicit module permission denial.');
 assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
+const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
+for (const section of ['permits', 'discipline', 'attendance', 'assignments', 'facility-ops']) {
+  assert.match(boardingSource, new RegExp(`id:\\s*["']${section}["']`), `Asrama must keep the ${section} section visible in the Supabase runtime.`);
+}
+assert.match(boardingSource, /<ERPTabs\s+tabs=\{tabs\}/,
+  'Asrama sections must use the shared tab component.');
+assert.match(boardingSource, /<UnavailableSection\s+label=\{selected\.label\}\s+flag=\{selected\.flag\}\s*\/>/,
+  'Disabled Asrama sections must show an explicit readiness state instead of disappearing.');
+assert.doesNotMatch(boardingSource, /if\s*\(!available\.length\)\s*return\s+null/,
+  'Asrama must not render a blank screen when runtime gates are closed.');
+const academicSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAcademicManager.tsx'), 'utf8');
+for (const feature of ['report-card', 'conflict-resolver']) {
+  assert.ok(academicSource.includes(`id: "${feature}"`), `Academic reference submenu ${feature} must remain visible.`);
+}
+assert.match(academicSource, /activeTab === "report-card"\s*\?\s*<ERPFeatureStatus/,
+  'E-Rapor must show its current backend readiness instead of falling through to the assessment form.');
+const cbtSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseCBTManager.tsx'), 'utf8');
+for (const feature of ['dashboard', 'calendar', 'packages', 'monitor', 'settings']) {
+  assert.ok(cbtSource.includes(`id: "${feature}"`), `CBT reference submenu ${feature} must remain visible.`);
+}
+assert.match(cbtSource, /CBT_PENDING\[tab\]\s*&&\s*<ERPFeatureStatus/,
+  'Unavailable CBT reference screens must explain their backend status.');
+const lmsSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLMSManager.tsx'), 'utf8');
+for (const feature of ['dashboard', 'categories', 'video-library', 'assessments', 'peer-review', 'instructor']) {
+  assert.ok(lmsSource.includes(`id: "${feature}"`), `LMS reference submenu ${feature} must remain visible.`);
+}
+assert.match(lmsSource, /tab === "peer-review"\s*&&\s*<ERPFeatureStatus/,
+  'LMS peer review must not silently disappear or display demo data.');
+const hrisSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseHrisManager.tsx'), 'utf8');
+for (const feature of ['tracking', 'shifts', 'payroll', 'performance', 'hiring', 'analytics']) {
+  assert.ok(hrisSource.includes(`id: "${feature}"`), `HRIS reference submenu ${feature} must remain visible.`);
+}
+assert.match(hrisSource, /HRIS_PENDING\[tab\]\s*&&\s*<ERPFeatureStatus/,
+  'Unsupported HRIS reference screens must show readiness information.');
+const alumniSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAlumniManager.tsx'), 'utf8');
+for (const feature of ['directory', 'tracer', 'community', 'donations']) {
+  assert.ok(alumniSource.includes(`id: "${feature}"`), `Alumni reference submenu ${feature} must remain visible.`);
+}
+assert.match(alumniSource, /tab === "directory"\s*\?\s*<>[\s\S]*?<ERPFeatureStatus/,
+  'Unimplemented Alumni sections must show an explicit readiness state instead of directory content.');
+const librarySource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLibraryManager.tsx'), 'utf8');
+assert.match(librarySource, /id:\s*["']digital["']\s*,\s*label:\s*["']Perpustakaan Digital["']/,
+  'The digital library submenu must remain visible when the Storage feature flag is closed.');
+assert.match(librarySource, /activeTab === "digital" && !digitalAssetsEnabled && <ERPFeatureStatus/,
+  'The digital library must explain its closed Storage gate instead of appearing to disappear.');
 const archiveImportPolicy = fs.readFileSync(path.join(root, 'src', 'runtimeBackend.ts'), 'utf8');
 assert.match(archiveImportPolicy, /export const legacyArchiveImportEnabled = false/,
   'Firestore archive imports must remain disabled after the no-copy decision.');
