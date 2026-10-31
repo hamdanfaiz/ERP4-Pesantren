@@ -13,7 +13,7 @@ RETURNS INTEGER
 LANGUAGE SQL
 AS $$ SELECT 1 $$;
 
-SELECT plan(51);
+SELECT plan(53);
 
 -- Existing trigger functions must not be callable as anon, authenticated, or
 -- service_role RPCs. Their database triggers remain attached to their tables.
@@ -160,6 +160,27 @@ SELECT ok(EXISTS (
     AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.is_tenant_admin%'
     AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.has_module_access%'
 ), 'candidate document policy caches stable tenant and permission lookups');
+
+-- Keep high-volume tenant-scoped lookups aligned with the indexes used by the
+-- guardian identity and Tahfidz session APIs.
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_index i
+  WHERE i.indexrelid = 'public.guardian_students_tenant_student_idx'::regclass
+    AND i.indisvalid AND i.indpred IS NULL AND i.indnkeyatts = 3
+    AND i.indkey[0] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.guardian_students'::regclass AND attname = 'tenant_id')
+    AND i.indkey[1] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.guardian_students'::regclass AND attname = 'student_id')
+    AND i.indkey[2] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.guardian_students'::regclass AND attname = 'guardian_id')
+), 'guardian relation has an index for tenant-scoped student reverse lookups');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_index i
+  WHERE i.indexrelid = 'public.tahfidz_sessions_tenant_halaqah_kind_schedule_idx'::regclass
+    AND i.indisvalid AND i.indpred IS NULL AND i.indnkeyatts = 5
+    AND i.indkey[0] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'tenant_id')
+    AND i.indkey[1] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'halaqah_id')
+    AND i.indkey[2] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'kind')
+    AND i.indkey[3] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'scheduled_at')
+    AND i.indkey[4] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'id')
+), 'Tahfidz session pages have an index matching tenant, halaqah, kind, and schedule order');
 
 SELECT * FROM finish();
 ROLLBACK;
