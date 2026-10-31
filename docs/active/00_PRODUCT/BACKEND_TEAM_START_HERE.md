@@ -1,6 +1,6 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
-> **Status PTSAS (31 Oktober 2026):** Project tujuan `ptsasgdvgrbdtgyqieie` berstatus `main / PRODUCTION`. Pemeriksaan baca-saja terbaru mencatat 119 tabel publik dan 47 versi migration (`20260603000000`–`20261206000000`); metadata `name` dan `statements` pada dua entri terakhir kosong. Source `main` memiliki 109 file migration; 62 belum tercatat setelah batas ledger. Selisih itu bukan instruksi untuk menjalankan batch. Data Firestore dummy tidak perlu disalin. Gunakan [audit cutover terbaru](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md).
+> **Status database (31 Oktober 2026):** PTSAS `ptsasgdvgrbdtgyqieie` adalah Production dengan GitHub auto-deploy OFF. VQE `vqemuyzveuirlkvdggjd` adalah staging dengan deployment aktif. PR #35 mengubah docs saja, jadi migration belum diterapkan. PR #36 menambah migration metadata-only ke-110 agar integrasi staging memproses migration chain; PR #36 perlu lulus CI sebelum merge. Data Firestore dummy tidak perlu disalin. Gunakan [audit cutover terbaru](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md).
 
 **Diperbarui:** 31 Oktober 2026  
 **Status:** siap dipakai sebagai urutan kerja; tidak menyatakan aplikasi siap produksi.
