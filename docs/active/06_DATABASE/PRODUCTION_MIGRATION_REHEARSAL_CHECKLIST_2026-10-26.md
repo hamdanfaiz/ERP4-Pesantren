@@ -1,5 +1,7 @@
 # Checklist rehearsal migrasi Supabase Production — 26 Oktober 2026
 
+> **Pembaruan 31 Oktober 2026:** Dokumen ini adalah checklist historis. Project `ptsasgdvgrbdtgyqieie` berstatus `main / PRODUCTION`; jangan gunakan untuk rehearsal. Gunakan staging terpisah yang dapat dipulihkan dan lihat [audit target terbaru](./SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md).
+
 > **Keputusan ruang lingkup 27 Oktober 2026:** impor data Firestore tidak diperlukan karena sumber yang tersedia hanya data dummy. Checklist tetap berlaku untuk migrasi **schema**, backup/restore, uji API/tenant/role, dan rollback; jangan jalankan bagian import/rekonsiliasi arsip sebagai gerbang rilis.
 
 ## Tujuan dan batas
