@@ -4,6 +4,14 @@
 
 Dokumen ini menyatakan keadaan yang terverifikasi untuk membantu tim melanjutkan pemeriksaan. Ini bukan pernyataan bahwa produk telah lulus UAT atau siap produksi.
 
+## Pembaruan 31 Oktober 2026 — menu dan konfigurasi runtime
+
+Perbaikan menu Data Induk dan daftar izin Admin berada di PR [#39](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/39), branch `codex/menu-parity-import-export-20261031`, Draft/Open di atas PR #38. Lima tab Data Induk dan kategori terkait kembali terlihat di mode Supabase; kategori yang dikelola modul lain mengarah ke modul tersebut. `Jejak Audit` tetap ditandai belum tersedia karena API audit tenant Supabase belum ada. Pengaturan platform tetap Superadmin-only, dan modul tenant yang ditolak secara eksplisit pada profil Admin ditampilkan dalam daftar pembatasan.
+
+Guard frontend mencocokkan 26 tujuan menu/rute Supabase. Perapihan konfigurasi juga menghapus flag browser `VITE_SUPABASE_*_RUNTIME_ENABLED` inert dari `.env.example`; hanya flag pada allowlist runtime publik yang boleh dikonfigurasi browser. Semua sakelar server tetap fail-closed. Lihat [panduan visibilitas menu dan flag runtime](MODULE_VISIBILITY_AND_RUNTIME_FLAGS.md).
+
+Pada pembaruan ini `npm run test:customer-deployment-flags` lulus: 30 nilai browser allowlist dan 37 gerbang server fail-closed terverifikasi; `npm run test:supabase-runtime-no-firebase` lulus: 96 modul, 26 rute Supabase, dan 26 rute impor lama yang ditutup. `git diff --check` juga lulus. Lint, build, RBAC (15 pemeriksaan), dan transfer CSV Master Data sudah lulus pada source PR #39 sebelumnya; perubahan terkini hanya mengubah contoh konfigurasi, guard, dan dokumen. CI untuk head terbaru belum terverifikasi. Ledger VQE yang diperiksa baca-saja berisi 116 migrasi; angka ini bukan status migrasi Production PTSAS. Tidak ada perubahan Production.
+
 ## Keadaan lingkungan
 
 | Lingkungan | Ref | Keadaan dan batas |
