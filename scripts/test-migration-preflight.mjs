@@ -92,6 +92,38 @@ const matchingSql = compareMigrationVersions(sqlLocal, sqlApplied);
 assert.equal(matchingSql.statementMismatches.length, 0);
 assert.equal(matchingSql.canContinueToStagingReview, true);
 
+// Supabase can store a migration file as one ledger element; split it safely
+// before comparing it with the local statement list, including dollar-quoted bodies.
+const bundledSql = [
+  '-- a complete migration may arrive as one stored string',
+  'CREATE TABLE profiles (id uuid PRIMARY KEY);',
+  'CREATE FUNCTION profile_probe() RETURNS void LANGUAGE plpgsql AS $body$',
+  'BEGIN PERFORM 1; RETURN; END;',
+  '$body$;',
+  'GRANT SELECT ON profiles TO authenticated;',
+].join('\n');
+const bundledLocal = listLocalMigrations(
+  ['20270103000000_bundled.sql'],
+  () => bundledSql
+);
+const bundledApplied = parseAppliedMigrationsOutput(JSON.stringify([{
+  version: '20270103000000',
+  name: 'bundled',
+  statements: [bundledSql],
+}]));
+const bundledReport = compareMigrationVersions(bundledLocal, bundledApplied);
+assert.equal(bundledLocal[0].statements.length, 3);
+assert.equal(bundledApplied[0].statements.length, 3);
+assert.equal(bundledReport.statementMismatches.length, 0);
+assert.equal(bundledReport.canContinueToStagingReview, true);
+
+const emptyAppliedStatement = compareMigrationVersions(sqlLocal, [{
+  version: '20270101000000',
+  name: 'profiles',
+  statements: [';'],
+}]);
+assert.equal(emptyAppliedStatement.statementMismatches[0].reason, 'missing');
+
 const changedSql = compareMigrationVersions(sqlLocal, [{
   version: '20270101000000',
   name: 'profiles',
