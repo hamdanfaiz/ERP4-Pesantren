@@ -108,3 +108,17 @@ Catatan di atas yang menyebut VQE 110/110 dan mencatat konfigurasi Production be
 - Upaya baca-saja terbaru ke PTSAS untuk metadata proyek, ledger migration, dan daftar tabel ditolak oleh konektor. Maka angka dan konfigurasi PTSAS di snapshot terdahulu tetap historis; status live skema/ledger dan deployment Production belum terverifikasi ulang. Tidak ada perubahan pada PTSAS.
 - CI PR #38 run [41162313076](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41162313076) lulus 2/2 job, dengan Supabase Preview dilewati. VQE masih tidak memiliki fixture Auth/tenant/PPDB; UAT Wali dan isolasi tenant belum dilakukan.
 - Untuk **cakupan PR #38 saja**, implementasi, CI, dan penerapan/review skema staging sudah lulus; UAT adalah satu gerbang tersisa (3 dari 4, sekitar 75%). Ini bukan persentase penyelesaian keseluruhan ERP atau kesiapan komersial.
+
+
+## Addendum status terbaru — 31 Oktober 2026
+
+Addendum ini menggantikan angka dan status staging/PR pada addendum sebelumnya.
+
+- PR #38 masih Draft/Open. `main` pada base PR (`e9e65e3e8b9d05d126a6150ce726f720722839c5`) memiliki 110 migration sampai `20270207000000`; PR #38 menambahkan lima migration. VQE staging mencatat 115 sampai `20270212000000`.
+- CI [run 41167368454](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41167368454) lulus 2/2 job pada perubahan aplikasi PR #38 dan pembaruan dokumen sebelum skrip inventaris baca-saja ditambahkan. Tidak ada kode aplikasi berubah setelah head kode yang diuji. Skrip inventaris baru hanya metadata SQL dan belum dijalankan pada PTSAS.
+- Integrasi GitHub VQE sudah terputus. Label dashboard `main / PRODUCTION` tetap label internal Supabase; VQE tetap dipakai sebagai staging sesuai keputusan pemilik.
+- UAT UI Wali PPDB (login, akses tagihan kandidat, unggah bukti, onboarding, dan isolasi tenant) belum dilakukan. Staging tidak memiliki fixture tenant/Auth/kandidat/tagihan persisten; pembuatan fixture masih menunggu persetujuan. CI dan pgTAP tidak menggantikan UAT UI.
+- Konektor saat ini menolak baca PTSAS Production. Snapshot ledger/katalog lama harus dianggap historis sampai tim backend/operator menjalankan [inventaris baca-saja](../06_DATABASE/PTSAS_PRODUCTION_READ_ONLY_RECONCILIATION.sql) pada ref yang benar. Auto-deploy Production tetap harus OFF sampai rekonsiliasi dan backup dipulihkan.
+- **Progres checkpoint PR #38: 75% (3 dari 4 gerbang internal: implementasi, CI, dan penerapan skema staging selesai; UAT UI tersisa).** Angka ini hanya untuk patch PR #38, bukan keseluruhan ERP, kesiapan komersial, atau kelayakan deployment.
+- Tim backend dapat mulai review PR #38 dan menyiapkan jadwal UAT. Jangan merge PR atau menerapkan migration ke PTSAS sebelum UAT dan rekonsiliasi Production selesai.
+
