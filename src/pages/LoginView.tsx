@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AlertCircle, LogIn, ShieldCheck, UserCheck } from 'lucide-react';
 import { GuardianSelfRegistrationView } from './GuardianSelfRegistrationView';
 import { supabase, supabaseClientConfigured } from '../utils/supabase';
+import { passwordRecoveryErrorMessage } from '../utils/passwordRecoveryErrorMessage';
 
 export function LoginView({ onBack }: { onBack: () => void }) {
   const { login, isLoading } = useAuth();
@@ -50,9 +51,7 @@ export function LoginView({ onBack }: { onBack: () => void }) {
       const redirectTo = new URL('/?passwordRecovery=1', window.location.origin).toString();
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
       if (error) {
-        setRecoveryError(/redirect|url/i.test(error.message)
-          ? 'Alamat aplikasi belum diizinkan untuk pemulihan akun. Hubungi administrator pesantren.'
-          : 'Permintaan pemulihan belum dapat diproses. Coba kembali beberapa saat lagi.');
+        setRecoveryError(passwordRecoveryErrorMessage(error));
         return;
       }
       setRecoveryNotice('Jika email tersebut terdaftar, tautan untuk membuat kata sandi baru akan dikirim ke kotak masuknya.');
