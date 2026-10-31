@@ -69,3 +69,20 @@ Status submenu:
 ## Batas bukti
 
 Audit ini membandingkan label/menu referensi yang terlihat dan source branch saat pemeriksaan. Audit ini tidak membuktikan bahwa seluruh runtime Supabase telah aktif, bahwa setiap peran menjalani UAT, atau bahwa semua fungsi referensi layak dijadikan fitur rilis. Data demo dan perilaku simulasi AI Studio tidak dianggap sebagai bukti penyimpanan permanen.
+
+## Pembandingan langsung lanjutan — 1 November 2026
+
+Referensi AI Studio berhasil dibuka dalam sesi **Super Admin**. Sidebar referensi menampilkan 26 menu: Overview Dashboard, Master Data, User Management, PPDB Digital, CBT, Tahfidz, Asrama, Akademik, LMS, Perpustakaan, Finance, Communication, Healthcare, Koperasi, Laundry, Multi-Unit, ERP Budget, HCM, General Affair, E-Document, Alumni, CRM, Donasi, Marketplace, PPOB, dan Data Warehouse. Layar seperti PPDB, CBT, Tahfidz, Keuangan, serta Dashboard juga menampilkan angka dan rekaman contoh; itu bukan bukti data tersebut tersimpan atau alurnya sudah siap produksi.
+
+Perbandingan menu berdasarkan source branch PR #39:
+
+- **Admin pesantren** seharusnya melihat seluruh menu tenant yang diizinkan oleh profilnya. **Pengaturan platform** hanya untuk Super Admin. Jika ada menu tenant lain yang hilang, periksa role efektif dan `module_permissions` profil: izin eksplisit `false` memang menyembunyikan menu dan Sidebar menampilkan jumlah modul yang dibatasi.
+- **PPOB & Services** ada di referensi, tetapi sengaja tidak masuk rilis awal sesuai keputusan pemilik produk. Jangan mengaktifkan kembali alur transaksi atau permission lama sebelum provider serta kontrol pembayaran dipilih.
+- Source rilis awal menampilkan Pengaturan bagi Super Admin dan tidak menampilkan PPOB. Karena itu, perbandingan Super Admin ke Super Admin tetap memiliki satu perbedaan yang disengaja pada menu teratas; perbandingan Admin ke Admin mengecualikan Pengaturan dan PPOB.
+- Menu serta tab yang tersedia pada source tidak serta-merta berarti semua fungsi referensi sudah beroperasi. Tabel pada peta modul tetap menjadi daftar gap, dan bagian yang belum memiliki API Supabase harus tetap ditandai sebagai belum tersedia atau diarahkan ke modul pemiliknya.
+
+### Batas pemeriksaan preview lokal
+
+Pada sesi pemeriksaan ini, tab referensi dapat dibaca dan dinavigasi. `http://localhost:4179/` menolak koneksi, sehingga UI branch PR #39 tidak dapat dibandingkan secara visual dengan referensi. Instalasi online tidak selesai dalam batas waktu pemeriksaan; instalasi offline juga berhenti karena paket `zxing-wasm@3.0.3` tidak ada di cache npm (`ENOTCACHED`). Karena itu, tidak ada klaim bahwa UAT browser atau seluruh interaksi visual sudah lulus. GitHub Actions terakhir pada head `9fb818f` lulus build dan pemeriksaan source, tetapi pekerjaan tersebut tidak menggantikan UAT browser maupun pengujian backend staging.
+
+Untuk pemeriksaan berikutnya, jalankan server penuh dari head PR #39 dengan dependensi lengkap, tunggu health endpoint siap, lalu bandingkan referensi dan aplikasi memakai role yang sama. Jika menu Admin masih hilang setelah role dipastikan `Admin`, periksa nilai izin eksplisit profil dan tampilkan modul yang dibatasi; jangan menaikkan role atau membuka permission secara massal untuk mengatasi perbedaan tampilan.
