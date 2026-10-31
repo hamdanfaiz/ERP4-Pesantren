@@ -50,3 +50,18 @@
 - Integrasi GitHub VQE telah diputus. Dashboard masih menampilkan label `main / PRODUCTION`; label tersebut bukan bukti bahwa VQE/PTSAS telah diselaraskan atau bahwa Production aman menerima migrasi.
 - UAT tetap menunggu provisioning fixture disposable yang disetujui: tenant, akun Wali/Auth, kandidat, dan tagihan. Tidak ada akun atau data sintetis baru yang dibuat.
 - CI PR #38 run [41162313076](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41162313076) lulus pada kedua job; Supabase Preview dilewati dan tidak menerapkan migrasi remote.
+
+
+## Addendum — internal tenant RLS helpers (31 Oktober 2026)
+
+- PR #38 kini mencakup migration `20270210000000_internalize_tenant_rls_helpers.sql`. CI terbaru [run 41164376726](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41164376726) lulus pada kedua job, termasuk pgTAP. Supabase Preview dilewati dan tidak menerapkan migration.
+- Migration diterapkan hanya pada VQE setelah CI lulus. Tool awalnya mencatat timestamp sementara `20261031033134`; row itu direkonsiliasi dengan guard nama+versi tujuan kosong menjadi `20270210000000`, tanpa menjalankan ulang SQL. Ledger kini berisi 113 migration dan versi terakhir cocok dengan source.
+- Empat helper tenant dipindah dari `public` ke `private`; fungsi tetap SECURITY DEFINER dengan `search_path=pg_catalog, public`. Hanya `authenticated` memiliki USAGE/EXECUTE untuk evaluasi policy. `anon` dan `service_role` tidak mendapat USAGE/EXECUTE; tidak ada helper tersisa di `public`.
+- Empat policy tenant tetap terdaftar. Tes isolasi tenant pada VQE mencapai assertion 44; tes privilege API mencapai assertion 46. Kedua tes memakai transaksi yang di-rollback. Verifikasi sesudahnya: tenant, profil, kandidat, dan pengguna Auth tetap 0; tabel probe tes tidak tersisa.
+- Security Advisor tidak lagi melaporkan empat temuan WARN `authenticated_security_definer_function_executable`. Sebanyak 156 temuan INFO `rls_enabled_no_policy` masih tersisa pada tabel server-only dan tidak diubah dengan membuka policy massal.
+- Tab Integrations VQE menunjukkan “Select the repository to connect”; integrasi GitHub sudah tidak tersambung. Label dashboard tetap `main / PRODUCTION`. Tidak ada perubahan pada PTSAS Production.
+
+### Yang masih perlu dilakukan
+
+- UAT aplikasi Wali PPDB tetap menunggu tenant, akun Auth Wali, kandidat, dan tagihan uji disposable. Tidak ada fixture persisten yang dibuat.
+- PR #38 tetap Draft; CI dan migrasi staging belum menggantikan UAT login, unggah bukti, onboarding, serta isolasi tenant melalui aplikasi.
