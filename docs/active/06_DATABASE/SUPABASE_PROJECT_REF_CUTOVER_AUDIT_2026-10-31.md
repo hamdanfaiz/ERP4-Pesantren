@@ -2,9 +2,9 @@
 
 Dokumen ini mencatat bukti untuk membedakan perpindahan antarproyek Supabase dari cutover runtime ERP/Firebase. Tidak ada schema, baris database, Auth, Storage, atau migration PTSAS Production yang diubah. Pada 31 Oktober 2026, project VQE ditetapkan sebagai staging ERP dan integrasi GitHub-nya dihubungkan ke repo `hamdanfaiz/ERP4-Pesantren`; penerapan otomatis hanya berlaku pada VQE. Integrasi PTSAS tidak diubah.
 
-## Hasil audit project sumber VQE
+## Kondisi awal project VQE sebelum dipakai sebagai staging
 
-Project Supabase `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY` pada saat dibaca. Inventaris baca-saja yang tersedia menunjukkan:
+Pada pemeriksaan awal sebelum deployment schema, project Supabase `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY`. Inventaris baca-saja awal menunjukkan:
 
 - 0 tabel pada schema `public`;
 - 0 versi migration;
@@ -28,7 +28,7 @@ Project tujuan Production ERP adalah `ptsasgdvgrbdtgyqieie`. Dashboard mengonfir
 
 ### Hasil ledger migration baca-saja, diverifikasi ulang 31 Oktober 2026
 
-Query SELECT di SQL Editor PTSAS mengonfirmasi 119 tabel publik dan 47 versi pada `supabase_migrations.schema_migrations`. Versi awal adalah `20260603000000`, versi terakhir `20261206000000`. Dua entri terakhir, `20261205000000` dan `20261206000000`, tidak memiliki `name` maupun `statements` pada ledger.
+Pada snapshot Production terdahulu, query SELECT di SQL Editor PTSAS mengonfirmasi 119 tabel publik dan 47 versi pada `supabase_migrations.schema_migrations`. Versi awal adalah `20260603000000`, versi terakhir `20261206000000`. Dua entri terakhir, `20261205000000` dan `20261206000000`, tidak memiliki `name` maupun `statements` pada ledger. Hasil tersebut belum diverifikasi ulang pada checkpoint ini.
 
 Snapshot PTSAS terdahulu mencatat 119 tabel publik dan 47 versi ledger sampai `20261206000000`, termasuk dua versi terakhir tanpa metadata `name`/`statements`. Snapshot itu berasal dari pemeriksaan sebelumnya; akses MCP PTSAS saat checkpoint ini tetap ditolak, sehingga kondisi ledger Production dan kesetaraannya dengan source terkini belum diverifikasi ulang. Jangan menyimpulkan bahwa selisih dapat diterapkan otomatis.
 
