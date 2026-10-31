@@ -11,7 +11,7 @@ Mulai dari **Fase 1: menyiapkan staging dan membaca keadaan database**. Tim tida
 
 ## Baseline yang harus dipakai
 
-- Sumber kode resmi adalah branch `main`; pada 31 Oktober 2026, HEAD adalah commit `3035217ced377396a8e07236dd1f184bcfb6957b` (PR #31, koreksi dokumentasi). Baseline perubahan runtime tetap berasal dari PR #13 dan penghapusan jalur Firebase server dari PR #17. Saat mulai bekerja, checkout `main` terbaru dan catat SHA aktual.
+- Sumber kode resmi adalah branch `main`. Sebelum mulai bekerja atau menjalankan preflight, checkout `main` terbaru dan catat SHA yang benar-benar digunakan. Baseline perubahan runtime berasal dari PR #13 dan penghapusan jalur Firebase server dari PR #17.
 - PR #13 adalah baseline cutover Supabase; PR #17 menghapus Firebase Admin dan jalur Firestore server; PR #18–#25 menyempurnakan readiness, panduan backend, konfigurasi pelanggan, katalog izin, serta konsistensi merek/dokumen. PR #24 dan #25 sudah merged.
 - PR #1–#11 ditutup tanpa merge langsung karena implementasinya digantikan/dipetakan ke baseline cutover. Jangan cherry-pick atau memakai branch tersebut sebagai dasar deployment.
 - Data Firestore pemilik adalah dummy dan tidak perlu disalin. Gunakan fixture sintetis untuk staging.
