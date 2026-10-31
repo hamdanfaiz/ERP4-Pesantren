@@ -12,7 +12,7 @@
 - Ledger VQE dan source sama-sama berisi 117 entri/file. Perbandingan versi menemukan satu selisih: remote-only `20261031225438` (`master_data_audit_feed`) dan source-only `20270213000000` (`master_data_audit_feed`). Tidak ada selisih versi lain.
 - Pemeriksaan pascamigrasi baca-saja menghasilkan **14 dari 15 check lulus**. Satu-satunya yang gagal adalah `migration_version_recorded`; audit table, RLS dan FORCE RLS, privilege, trigger sumber dan immutability, RPC dengan actor, serta pencabutan RPC actor-less semuanya lulus.
 - Pemeriksaan privilege terpisah mengonfirmasi `anon` dan `authenticated` tidak dapat membaca audit table, sedangkan `service_role` dapat membacanya. RPC actor-aware ada di database dan hanya jalur server yang diberi akses.
-- GitHub PR #39 berada pada head `13b913ef4e94e8cc2d2e6cd55cdf1ef46454e470`, berstatus Draft/Open. GitHub Actions run #1084 pada head tersebut lulus.
+- Source aplikasi PR #39 pada commit `13b913ef4e94e8cc2d2e6cd55cdf1ef46454e470` lulus GitHub Actions run #1084. PR #39 masih Draft/Open; pembaruan checkpoint ini hanya mengubah dokumentasi.
 - Preview `localhost:4179` berhasil menampilkan sistem dan menu. Namun server UAT yang sedang berjalan berasal dari worktree lokal dengan HEAD `1ae7cff` dan perubahan belum di-commit; tampilan itu **belum menjadi bukti UAT untuk head PR #39**.
 - Tidak ada perubahan ke Production `ptsasgdvgrbdtgyqieie` dan tidak ada data Firestore yang disalin.
 
