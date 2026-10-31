@@ -1,54 +1,37 @@
 # Checkpoint Staging: Akses Wali ke Tagihan PPDB
 
 - Tanggal: 31 Oktober 2026
-- Target: Supabase VQE staging `vqemuyzveuirlkvdggjd`
-- Produksi PTSAS `ptsasgdvgrbdtgyqieie`: tidak disentuh.
+- Target: Supabase VQE staging, project ref vqemuyzveuirlkvdggjd.
+- Source: PR #38, branch codex/continue-erp-hardening-20261031.
+- PTSAS, project ref ptsasgdvgrbdtgyqieie, tetap Production dan tidak disentuh.
 
-## Perubahan yang disiapkan
+## Perubahan aplikasi
 
-- Wali dapat melihat dan mengirim bukti untuk tagihan calon santri sebelum onboarding, hanya setelah email Auth terkonfirmasi dan cocok dengan email calon santri pada tenant yang sama.
-- Akses kandidat terbatas pada kandidat yang belum ditolak, belum menjadi data santri, dan mempunyai tagihan Finance PPDB.
-- Setelah onboarding, tagihan dipautkan ke santri dan hubungan akun Wali dipindahkan ke relasi Wali–santri kanonis.
-- Tabel pemetaan baru `guardian_candidate_accounts` dipaksa memakai RLS dan tidak memberi akses tabel langsung kepada `anon` atau `authenticated`. RPC pemeriksaan dan klaim hanya dapat dipanggil `service_role`.
-- Data operasional/Firestore tidak disalin.
+- Wali dengan email Auth terverifikasi dapat melihat dan mengirim bukti untuk tagihan calon santri sebelum onboarding, terbatas pada tenant dan email yang cocok.
+- Kandidat yang ditolak atau sudah menjadi santri tidak lagi dapat diakses melalui relasi pra-onboarding.
+- Setelah onboarding, tagihan dipautkan ke santri dan akses Wali berpindah ke relasi Wali–santri kanonis.
+- Tabel guardian_candidate_accounts hanya dipakai backend; RLS dan FORCE RLS aktif, tanpa akses langsung anon/authenticated.
+- Tidak ada data Firestore atau data operasional yang disalin.
 
-## Keadaan VQE yang terverifikasi
+## Keadaan VQE setelah rekonsiliasi
 
-- Riwayat VQE sebelum perubahan memiliki 110 migrasi dan cocok dengan versi lokal sampai `20270207000000`.
-- Satu-satunya migrasi sumber yang tertunda adalah `20270208000000_guardian_pre_onboarding_candidate_finance.sql`.
-- Migrasi berhasil diterapkan melalui Supabase MCP. Pemeriksaan sesudahnya memastikan tabel dan trigger tersedia, RLS aktif dan dipaksa, akses langsung dari `anon`/`authenticated` ditolak, dan fungsi pemeriksaan hanya dapat dijalankan `service_role`.
-- Supabase MCP mencatat penerapan dengan timestamp saat ini `20261031015736` (nama `guardian_pre_onboarding_candidate_finance`). Schema sudah berubah, tetapi ledger VQE kini tidak cocok dengan timestamp file sumber. Jangan jalankan `db push` sebelum rekonsiliasi.
-- PTSAS Production tidak disentuh.
+- Source sebelumnya memiliki 110 migrasi sampai 20270207000000. Migrasi PR ini adalah 20270208000000_guardian_pre_onboarding_candidate_finance.sql.
+- VQE sudah memiliki efek skema migrasi tersebut. SQL yang tersimpan pada row sementara cocok dengan file source; perbedaan hanya CRLF tambahan di akhir.
+- Sebelum koreksi, row bertimestamp sementara 20261031015736 memiliki nama dan isi SQL yang tepat, sedangkan versi kanonis belum tercatat.
+- Dengan transaksi yang memeriksa nama, isi SQL, dan ketiadaan versi tujuan, ledger VQE dikoreksi dengan mengganti versi row tersebut menjadi 20270208000000. SQL skema tidak dijalankan ulang dan tidak ada data operasional yang diubah.
+- Verifikasi sesudah koreksi: 111 row migrasi; 20270208000000 tercatat tepat satu kali; 20261031015736 tidak ada; versi terbaru 20270208000000.
+- Verifikasi katalog: tabel baru memiliki dua indeks, RLS dan FORCE RLS aktif; trigger onboarding tersedia; empat fungsi terkait tersedia; tidak ada hak EXECUTE untuk anon/authenticated; finance_bills.candidate_id tersedia.
+- Supabase CLI tidak tersedia di workspace. Tim backend dapat mengonfirmasi daftar lokal/remote dengan supabase migration list setelah link ke VQE. Jangan jalankan db push, db reset, atau migration repair lagi sebelum membandingkan daftar.
 
-## Rekonsiliasi ledger staging
+## Validasi dan batas
 
-Jalankan dari checkout repo yang memuat migrasi `20270208000000`, dengan Supabase CLI terbaru dan autentikasi anggota tim yang berwenang. Pastikan project ref tepat `vqemuyzveuirlkvdggjd`; jangan hubungkan ke PTSAS.
+- GitHub Actions run 41160017884 lulus untuk source PR: frontend/typecheck/build/Docker, rehearsal migrasi lokal, pgTAP, API tenant/auth, Storage, serta backup/restore.
+- Supabase Preview berstatus skipped; workflow CI tidak menerapkan migration remote.
+- Uji penerimaan manual login Wali dan unggah bukti pada VQE masih diperlukan. Setelah itu, lakukan regression smoke test PPDB → onboarding → tagihan dan konfirmasi tidak ada kebocoran tenant.
+- PR #38 tetap draft sampai pemeriksaan staging/UAT selesai. Bukti CI saja belum menyelesaikan UAT atau membuktikan kesiapan produksi.
+- Tidak ada perubahan pada PTSAS Production, Auth, Storage, atau data Firestore.
 
-```powershell
-supabase login
-supabase link --project-ref vqemuyzveuirlkvdggjd
-supabase migration list
-```
+## Rujukan
 
-Sebelum memperbaiki ledger, pastikan schema `guardian_candidate_accounts`, fungsi terkait, dan trigger onboarding memang sudah ada pada VQE. Setelah dipastikan, perintah berikut hanya memperbaiki catatan riwayat; perintah ini tidak menjalankan atau membatalkan SQL:
-
-```powershell
-supabase migration repair 20261031015736 --status reverted
-supabase migration repair 20270208000000 --status applied
-supabase migration list
-```
-
-Hasil yang diharapkan: semua timestamp lokal dan remote berpasangan, tidak ada versi remote asing `20261031015736`, dan `20270208000000` tercatat applied. Jika daftar masih berbeda, hentikan proses dan jangan jalankan `supabase db push`, `db reset`, atau migrasi produksi. Prosedur ini mengikuti [panduan resmi Supabase untuk rekonsiliasi riwayat migrasi](https://supabase.com/docs/guides/deployment/database-migrations#step-3-if-the-migration-history-table-is-wrong) dan [referensi `migration repair`](https://supabase.com/docs/reference/cli/supabase-migration-repair).
-
-## Validasi yang masih harus dilakukan
-
-- GitHub Actions pada [revisi PR terbaru](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41159589244) lulus: pemeriksaan TypeScript, build aplikasi dan Docker, rehearsal seluruh migrasi pada Supabase lokal terisolasi, pgTAP, API tenant, Storage, serta uji backup/restore.
-- Suite pgTAP berhasil dijalankan, termasuk 42 assertion pada `guardian_self_registration.test.sql` untuk isolasi tenant, status/email terverifikasi, bukti pembayaran, dan transfer relasi saat onboarding.
-- CI Supabase Preview berstatus skipped. Tidak ada deploy aplikasi atau migrasi ke VQE/PTSAS yang dijalankan oleh workflow ini.
-- Pemeriksaan manual login Wali dan unggah bukti pada lingkungan VQE tetap perlu dilakukan sebelum rilis. Data transaksi atau data Firestore tidak dimigrasikan.
-- Supabase CLI tidak tersedia di workspace ini. Tim backend perlu melakukan rekonsiliasi ledger VQE mengikuti langkah di atas dan membagikan hasil `supabase migration list`. Jangan menandai implementasi ini selesai untuk deploy sebelum hasilnya konsisten.
-
-## Temuan advisor setelah migrasi
-
-- Tabel baru muncul pada advisor sebagai `RLS Enabled No Policy` tingkat INFO. Ini disengaja: tabel internal tidak dapat dibaca/ditulis oleh role klien dan hanya dipakai backend service-role.
-- Tidak ada temuan advisor baru untuk fungsi `SECURITY DEFINER` pada migrasi ini. Advisor masih melaporkan fungsi keamanan lama dan optimasi policy RLS yang tidak diubah oleh checkpoint ini; tinjau terpisah sebelum rilis komersial.
+- Supabase: https://supabase.com/docs/guides/deployment/database-migrations#step-3-if-the-migration-history-table-is-wrong
+- Supabase CLI migration repair: https://supabase.com/docs/reference/cli/supabase-migration-repair
