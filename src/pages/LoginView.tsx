@@ -55,8 +55,8 @@ export function LoginView({ onBack }: { onBack: () => void }) {
         return;
       }
       setRecoveryNotice('Jika email tersebut terdaftar, tautan untuk membuat kata sandi baru akan dikirim ke kotak masuknya.');
-    } catch {
-      setRecoveryError('Permintaan pemulihan belum dapat diproses. Coba kembali beberapa saat lagi.');
+    } catch (error) {
+      setRecoveryError(passwordRecoveryErrorMessage(error));
     } finally {
       setIsSendingRecovery(false);
     }
