@@ -51,6 +51,7 @@
     "test:tahfidz-session-pagination": "tsx scripts/test-tahfidz-session-pagination.ts",
     "test:tahfidz-achievements": "tsx scripts/test-tahfidz-achievements.ts",
     "test:academic-portal": "tsx scripts/test-academic-portal.ts",
+    "test:academic-schedule-conflicts": "tsx scripts/test-academic-schedule-conflicts.ts",
     "test:public-ppdb-validation": "tsx scripts/test-public-ppdb-validation.ts",
     "test:trusted-proxy-hops": "tsx scripts/test-trusted-proxy-hops.ts",
     "test:runtime-config-http": "node scripts/test-runtime-config-http.mjs"
