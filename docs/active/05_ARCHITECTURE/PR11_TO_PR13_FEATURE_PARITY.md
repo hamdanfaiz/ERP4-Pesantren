@@ -1,8 +1,8 @@
 # Matriks Paritas Fitur PR #11 → PR #13
 
-> **Status diperbarui 31 Oktober 2026:** Snapshot ini pernah menyebut PTSAS sebagai staging. Dashboard kini menunjukkan `ptsasgdvgrbdtgyqieie` sebagai `main / PRODUCTION`; jangan jalankan migration/rehearsal/repair/reset pada project itu. Ref staging terpisah belum tersedia. Data dummy Firestore tidak perlu disalin. Gunakan [audit target terbaru](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md).
+> **Status 31 Oktober 2026:** VQE `vqemuyzveuirlkvdggjd` adalah staging dan sudah memiliki 110/110 migration source; PTSAS `ptsasgdvgrbdtgyqieie` tetap Production dengan auto-deploy OFF. Data Firestore dummy tidak perlu disalin. Catatan status database dalam checkpoint bertanggal di dokumen ini adalah snapshot historis; gunakan [audit cutover terbaru](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md) dan [panduan backend](../00_PRODUCT/BACKEND_TEAM_START_HERE.md) sebagai acuan operasional.
 
-# Status PR dan hasil verifikasi terbaru — 30 Oktober 2026
+# Snapshot status PR — 30 Oktober 2026 (riwayat; lihat status database terbaru di banner)
 
 - Status GitHub terverifikasi setelah merge PR #15: PR #1–#11 **Closed / tidak merged** sebagai superseded; PR #12–#15 **Closed / Merged**. PR #13 membawa paritas utama cutover; PR #14 memperbarui panduan Auth/RBAC; PR #15 menghapus mock PPOB dari rilis awal. Tidak ada PR terbuka pada pemeriksaan 30 Oktober.
 - Source head PR #13 `e449c234c253eb7a65795af18c5794fa45e6e9cb` lulus GitHub Actions [run 41051400486](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41051400486), **2/2 job**. CI mencakup typecheck/build, guard runtime tanpa Firebase, Docker/Compose, rehearsal migration sintetis, seluruh pgTAP, API dan isolasi tenant, transaksi serentak, Storage, serta backup/restore. Uji berjalan pada Supabase lokal sintetis; bukan database Supabase live.
