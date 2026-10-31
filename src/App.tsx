@@ -135,7 +135,7 @@ export default function App() {
       case 'tahfidz':
         return <TahfidzManager />;
       case 'master-data':
-        return <MasterDataManager />;
+        return <MasterDataManager onNavigate={setActiveModule} />;
       case 'users':
         if (role !== 'SuperAdmin' && role !== 'Admin') {
           return <ModulePlaceholder module={activeModule} />;

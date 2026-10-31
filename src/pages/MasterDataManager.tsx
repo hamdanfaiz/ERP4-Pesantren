@@ -34,6 +34,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   FileSpreadsheet,
+  Upload,
   Layers,
   BookOpen,
   FilterX
@@ -43,6 +44,8 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import { cn, generateUniqueId } from "../lib/utils";
 import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
+import { MasterDataTransferModal } from "../components/MasterDataTransferModal";
+import { downloadTransferCsv } from "../utils/dataTransferCsv";
 import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import {
   COUNTRIES,
@@ -72,22 +75,23 @@ const SUPABASE_MASTER_DATA_IMPORT = legacyArchiveImportEnabled && publicRuntimeC
 const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "Kelas"]);
 
 const TABS = [
-  { id: "entities", label: "Entities", icon: Users },
-  { id: "structure", label: "Structure", icon: Building },
-  { id: "academic", label: "Academic", icon: GraduationCap },
-  { id: "booking", label: "Facility Booking", icon: Clock },
-  { id: "audit", label: "Audit Trail", icon: Activity },
+  { id: "entities", label: "Data Entitas", icon: Users },
+  { id: "structure", label: "Struktur", icon: Building },
+  { id: "academic", label: "Akademik", icon: GraduationCap },
+  { id: "booking", label: "Pemesanan Fasilitas", icon: Clock },
+  { id: "audit", label: "Jejak Audit", icon: Activity },
 ];
 
 const SUB_TABS: Record<string, string[]> = {
   entities: ["Santri", "Wali Santri", "Guru", "Asatidz", "Pegawai", "Alumni"],
-  structure: ["Yayasan", "Kampus", "Gedung", "Kamar", "Kelas", "Halaqah", "Map View"],
+  structure: ["Yayasan", "Kampus", "Gedung", "Kamar", "Kelas", "Halaqah", "Peta Struktur"],
   academic: ["Mata Pelajaran", "Kurikulum"],
   booking: ["Room Booking"],
   audit: ["All Activity"],
 };
 
 import { DEFAULT_STRUCTURE } from "../data/defaultStructure";
+import type { ModuleId } from "../types";
 export { DEFAULT_STRUCTURE };
 
 const getMockData = (subTab: string) => {
@@ -176,16 +180,32 @@ function masterAuditActionLabel(action: string) {
   return labels[action] || action;
 }
 
-export function MasterDataManager() {
+type MasterDataManagerProps = { onNavigate?: (module: ModuleId) => void };
+
+const MASTER_DATA_DESTINATIONS: Array<{ label: string; destination: string; module?: ModuleId }> = [
+  { label: "Wali Santri", destination: "Relasi Wali & Donatur", module: "crm" },
+  { label: "Guru dan Asatidz", destination: "Akademik Formal", module: "academic" },
+  { label: "Pegawai", destination: "Sumber Daya Manusia", module: "hris" },
+  { label: "Alumni", destination: "Data Alumni", module: "alumni" },
+  { label: "Mata Pelajaran dan Kurikulum", destination: "Akademik Formal", module: "academic" },
+  { label: "Yayasan dan Kampus", destination: "Manajemen Multi-Unit", module: "enterprise" },
+  { label: "Halaqah", destination: "Tahfidz", module: "tahfidz" },
+  { label: "Jejak Audit", destination: "Belum tersedia di runtime Supabase" },
+];
+
+export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
   const { user } = useAuth();
-  const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME ? TABS.filter((tab) => ["entities", "structure"].includes(tab.id)) : TABS;
+  const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME ? TABS.filter((tab) => ["entities", "structure", "booking"].includes(tab.id)) : TABS;
   const [activeTab, setActiveTab] = useState<
     "entities" | "structure" | "academic" | "booking" | "audit"
   >("entities");
   const [activeSubTab, setActiveSubTab] = useState("Santri");
   const visibleSubTabs = SUPABASE_MASTER_DATA_RUNTIME
-    ? activeTab === "entities" ? ["Santri"] : activeTab === "structure" ? ["Gedung", "Kamar", "Kelas"] : []
+    ? activeTab === "entities" ? ["Santri"] : activeTab === "structure" ? ["Gedung", "Kamar", "Kelas", "Peta Struktur"] : []
     : SUB_TABS[activeTab];
+  const isSupabaseTransferView = SUPABASE_MASTER_DATA_RUNTIME
+    && (activeTab === "entities" && activeSubTab === "Santri"
+      || activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab));
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [roomHistory, setRoomHistory] = useState<SupabaseStudentRoomAssignmentHistoryEntry[]>([]);
   const [roomHistoryStudentId, setRoomHistoryStudentId] = useState("");
@@ -205,6 +225,11 @@ export function MasterDataManager() {
 
   // Rekomendasi 4: Advanced Import, Multi-Format Export, & Bulk Operations State
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [transferModal, setTransferModal] = useState<null | {
+    mode: "export" | "import";
+    kind: "students" | "structures";
+    category?: "Gedung" | "Kamar" | "Kelas";
+  }>(null);
 
   // Rekomendasi 4: Multi-Facet Advanced Filter States
   const [genderFilter, setGenderFilter] = useState<'ALL' | 'L' | 'P'>('ALL');
@@ -386,6 +411,21 @@ export function MasterDataManager() {
   };
 
   const handleDownloadTemplate = () => {
+    if (SUPABASE_MASTER_DATA_RUNTIME && activeTab === "entities" && activeSubTab === "Santri") {
+      downloadTransferCsv("templat-impor-santri.csv", [
+        "id", "name", "nis", "gender", "grade", "nik", "nisn", "phone", "email",
+        "parentName", "parentPhone", "address", "dormitory", "room", "status",
+      ], []);
+      showToast("Templat CSV kosong untuk Santri diunduh.", "success");
+      return;
+    }
+    if (SUPABASE_MASTER_DATA_RUNTIME && activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab)) {
+      downloadTransferCsv("templat-impor-" + activeSubTab.toLocaleLowerCase("id-ID") + ".csv", [
+        "id", "name", "category", "status", "parentId", "grade", "capacity", "genderRestriction", "location",
+      ], []);
+      showToast("Templat CSV kosong untuk " + activeSubTab + " diunduh.", "success");
+      return;
+    }
     let headers: string[] = [];
     let sampleRow: string[] = [];
 
@@ -485,7 +525,7 @@ export function MasterDataManager() {
   ) => {
     setActiveTab(tabId as "entities" | "structure" | "academic" | "booking" | "audit");
     const nextSubTabs = SUPABASE_MASTER_DATA_RUNTIME
-      ? tabId === "entities" ? ["Santri"] : tabId === "structure" ? ["Gedung", "Kamar", "Kelas"] : []
+      ? tabId === "entities" ? ["Santri"] : tabId === "structure" ? ["Gedung", "Kamar", "Kelas", "Peta Struktur"] : []
       : SUB_TABS[tabId];
     setActiveSubTab(nextSubTabs[0] || "Santri");
     setSelectedRecord(null);
@@ -1449,8 +1489,37 @@ export function MasterDataManager() {
         </div>
       )}
       {SUPABASE_MASTER_DATA_RUNTIME && (
-        <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
-          Mode Supabase aktif. Sumber data tenant untuk Santri, Gedung, Kamar, dan Kelas berasal dari backend. Modul Master Data lain belum dipindahkan dan disembunyikan pada mode ini.
+        <div className="space-y-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-950 dark:text-sky-100">
+          <p>
+            Data Induk yang tersambung langsung ke Supabase saat ini mencakup Santri, Gedung, Kamar, Kelas, dan Pemesanan Fasilitas. Bagian lain dari tampilan lama tidak dihapus diam-diam: sebagian sudah dikelola pada modul terpisah dan sebagian masih menunggu pemindahan sumber data.
+          </p>
+          <details>
+            <summary className="cursor-pointer font-semibold">Lihat lokasi fitur lama dan status pemindahannya</summary>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {MASTER_DATA_DESTINATIONS.map((item) => (
+                item.module ? (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => onNavigate?.(item.module!)}
+                    disabled={!onNavigate}
+                    className="rounded-lg border border-sky-900/10 bg-white/70 px-3 py-2 text-left hover:border-sky-700/30 hover:bg-white disabled:cursor-default dark:border-white/10 dark:bg-slate-950/40 dark:hover:bg-slate-900"
+                  >
+                    <span className="block font-medium">{item.label}</span>
+                    <span className="mt-0.5 block text-xs opacity-75">Modul terkait: {item.destination} · Buka modul</span>
+                  </button>
+                ) : (
+                  <div key={item.label} className="rounded-lg border border-amber-500/20 bg-amber-50/70 px-3 py-2 text-left dark:bg-amber-950/20">
+                    <span className="block font-medium">{item.label}</span>
+                    <span className="mt-0.5 block text-xs opacity-75">{item.destination}</span>
+                  </div>
+                )
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-5 opacity-80">
+              Jejak Audit belum memiliki sumber backend tenant yang siap. Tampilan peta membaca struktur tenant dari Supabase. Data contoh atau log lokal tidak ditampilkan sebagai data operasional. Kesesuaian rinci setiap fungsi pada modul tujuan tetap perlu ditinjau sebelum dinyatakan lengkap.
+            </p>
+          </details>
         </div>
       )}
       {SUPABASE_MASTER_DATA_RUNTIME && SUPABASE_MASTER_DATA_IMPORT && user && ["Admin", "SuperAdmin"].includes(user.role) && (
@@ -1525,11 +1594,11 @@ export function MasterDataManager() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-medium text-slate-700 dark:text-slate-300 border-b border-emerald-500 pb-1 inline-block">
-                Master Data Management
+                Data Induk Pesantren
               </h1>
             </div>
             <p className="text-slate-500 text-sm mt-2">
-              Centralized single source of truth for all foundational data &mdash; Terkoneksi ke Asrama & Akademik
+              Pengelolaan data dasar yang terhubung dengan modul Akademik dan Asrama.
             </p>
           </div>
           {!SUPABASE_MASTER_DATA_RUNTIME && <div className="flex flex-col gap-1 ml-4 py-1 border-l border-slate-200 dark:border-white/10 pl-6">
@@ -1566,36 +1635,57 @@ export function MasterDataManager() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+          {(!SUPABASE_MASTER_DATA_RUNTIME || isSupabaseTransferView) && <button
             onClick={handleDownloadTemplate}
             className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-3.5 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-slate-200 dark:bg-white/10"
-            title={`Unduh Template CSV Terstruktur untuk ${activeSubTab}`}
+            title={`Unduh templat CSV terstruktur untuk ${activeSubTab}`}
           >
             <FileText className="w-4 h-4 text-emerald-400" />
-            Template CSV
-          </button>
-          <button
-            onClick={() => setIsExportModalOpen(true)}
-            className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-3.5 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-slate-200 dark:bg-white/10"
-            title="Ekspor Data ke Excel (.xlsx/.csv), CSV, atau JSON"
-          >
-            <Download className="w-4 h-4" />
-            <span>Ekspor Data</span>
-          </button>
-          <button
+            Templat CSV
+          </button>}
+          {isSupabaseTransferView && user && ["Admin", "SuperAdmin"].includes(user.role) ? (
+            <>
+              <button type="button" onClick={() => setTransferModal({
+                mode: "import",
+                kind: activeTab === "entities" ? "students" : "structures",
+                category: SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab) ? activeSubTab as "Gedung" | "Kamar" | "Kelas" : undefined,
+              })} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10">
+                <Upload className="h-4 w-4" />
+                <span>Impor CSV</span>
+              </button>
+              <button type="button" onClick={() => setTransferModal({
+                mode: "export",
+                kind: activeTab === "entities" ? "students" : "structures",
+                category: SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab) ? activeSubTab as "Gedung" | "Kamar" | "Kelas" : undefined,
+              })} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10" title="Ekspor seluruh data tenant dari backend">
+                <Download className="h-4 w-4" />
+                <span>Ekspor Data</span>
+              </button>
+            </>
+          ) : !SUPABASE_MASTER_DATA_RUNTIME ? (
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+              title="Ekspor Data ke CSV atau JSON"
+            >
+              <Download className="h-4 w-4" />
+              <span>Ekspor Data</span>
+            </button>
+          ) : null}
+          {activeTab !== "booking" && activeSubTab !== "Peta Struktur" && <button
             onClick={() => setShowScanner(true)}
             className="flex items-center gap-2 bg-emerald-900/40 text-emerald-400 border border-emerald-500/30 shadow-inner px-4 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-emerald-900/60"
           >
             <QrCode className="w-4 h-4" />
             Scan QR
-          </button>
-          {activeTab !== 'audit' && (
+          </button>}
+          {activeTab !== 'audit' && activeTab !== 'booking' && activeSubTab !== "Peta Struktur" && (
             <button
               onClick={handleAddClick}
               className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors"
             >
               <Plus className="w-4 h-4" />
-              Add New Record
+                    Tambah Data
             </button>
           )}
         </div>
@@ -1661,7 +1751,7 @@ export function MasterDataManager() {
                 <div>
                   <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
                     <Activity className="w-5 h-5 text-emerald-400" />
-                    Activity Logs & Audit Trail (Rekomendasi 3)
+                    Riwayat Perubahan dan Jejak Audit
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Histori mutasi data yayasan, integritas identitas, dan audit operasional sistem.
@@ -2105,7 +2195,7 @@ export function MasterDataManager() {
               )}
 
               <div className="flex-1 overflow-x-auto relative print:hidden">
-                {activeSubTab === "Map View" ? (
+                {activeSubTab === "Peta Struktur" ? (
                   <React.Suspense fallback={<div className="p-6 text-sm text-slate-400">Memuat struktur…</div>}><LazyStructureHierarchyD3 /></React.Suspense>
                 ) : (
                 <table className="w-full text-left text-sm whitespace-nowrap">
@@ -3529,6 +3619,18 @@ export function MasterDataManager() {
         selectedRows={selectedRows}
         onExportSuccess={handleExportSuccess}
       />
+
+      {transferModal && (
+        <MasterDataTransferModal
+          key={transferModal.mode + "-" + transferModal.kind + "-" + (transferModal.category || "")}
+          isOpen={Boolean(transferModal)}
+          mode={transferModal.mode}
+          kind={transferModal.kind}
+          structureCategory={transferModal.category}
+          onClose={() => setTransferModal(null)}
+          onComplete={() => setLegacyMigrationRefreshKey((value) => value + 1)}
+        />
+      )}
 
     </div>
   );
