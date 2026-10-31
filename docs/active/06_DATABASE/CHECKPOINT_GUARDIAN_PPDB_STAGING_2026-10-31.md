@@ -13,12 +13,12 @@
 - Supabase MCP menolak pembacaan PTSAS; tidak ada perubahan yang diterapkan ke PTSAS.
 - Worktree PR tidak memuat `.env` VQE. File `.env` pada worktree lain menunjuk ke proyek berbeda dan tidak dipakai. Backend aplikasi memerlukan konfigurasi server khusus VQE, termasuk `SUPABASE_SECRET_KEY` dan `PUBLIC_PPDB_TENANT_ID`; pasang melalui secret manager, jangan kirim secret lewat chat atau masukkan ke bundle klien.
 - Preview lokal saat ini dibuka pada `http://127.0.0.1:4179`, menggunakan source PR dan hanya URL plus publishable key VQE. Pemeriksaan `/runtime-config.json` memastikan target VQE dan tidak mengandung key server; `/health/live` mengembalikan 200. `/health/ready` masih unavailable karena secret server VQE belum disiapkan.
-- Form login aplikasi sudah tampil. Pengguna perlu memasukkan email dan kata sandi sendiri di tab preview; kredensial tidak dibagikan di chat.
+- Form login aplikasi tampil pada preview lokal yang menggunakan project VQE. Setelah cleanup, VQE tidak memiliki akun Auth uji. Akun Admin “Pesantren Digital” ditemukan di PTSAS Production melalui dashboard Auth; kata sandi tidak dapat dibaca. Kredensial Production tidak berlaku pada preview VQE, dan preview tidak diarahkan ke Production.
 - Source worktree PR sudah bersih setelah pengaturan bind loopback khusus lokal dipulihkan. Tidak ada patch host lokal yang di-commit.
 
 ## Keadaan fixture VQE sementara
 
-Fixture sintetis dibuat khusus untuk UAT ini; tidak ada data operasional Firestore yang disalin dan tidak ada email undangan yang dikirim.
+Fixture sintetis dibuat khusus untuk UAT ini; tidak ada data operasional Firestore yang disalin dan tidak ada email undangan yang dikirim. Seluruh fixture sudah dihapus setelah persetujuan pengguna.
 
 | Data | Referensi |
 |---|---|
@@ -29,9 +29,7 @@ Fixture sintetis dibuat khusus untuk UAT ini; tidak ada data operasional Firesto
 | Idempotency key bukti | `e1344262-ad4c-4472-868e-55a090e6c3ac` |
 | Objek bukti | `financeProofs/80f406de-aa77-4efa-b36b-232ceb160178/1a699bf4-76ba-45fb-a61e-7ae82986d087/dummy-payment-proof.png` |
 
-Profil Wali aktif terhubung ke tenant. Tagihan bernilai sintetis Rp10.000, relasi Wali-kandidat ada satu, dan tagihan saat ini berstatus `verification`. Objek PNG dummy 68 byte berada di bucket privat `erp4-private-finance-proofs`.
-
-Fixture sementara masih ada sambil menunggu konfirmasi aksi terakhir untuk penghapusan. Cleanup mencakup objek Storage, `finance_write_requests`, tagihan, relasi, kandidat, `finance_controls`, akun Auth/profil, dan tenant. PTSAS Production tidak disentuh.
+Fixture sudah dibersihkan di VQE: akun Auth dan profil, tenant, kandidat, tagihan, relasi Wali-kandidat, request idempotensi, `finance_controls`, dan objek bukti Storage sudah dihapus. Query verifikasi sesudah cleanup mengembalikan hitungan 0 untuk setiap ID/path sintetis di atas. Akun Auth staging juga terverifikasi tidak ditemukan pada dashboard. PTSAS Production tidak diubah.
 
 ## Hasil verifikasi
 
@@ -41,7 +39,7 @@ Fixture sementara masih ada sambil menunggu konfirmasi aksi terakhir untuk pengh
 - Upload bukti memakai hak admin dashboard; ini bukan bukti upload melalui sesi Wali aplikasi.
 - RPC `register_tenant_finance_payment_proof` berhasil mencatat tagihan menjadi `verification`. Pengulangan dengan idempotency key sama menghasilkan `alreadyApplied: true`.
 - Uji negatif RPC menolak role yang tidak sesuai, path traversal, dan tenant berbeda.
-- Login aplikasi, profil setelah login, endpoint upload Wali, onboarding, dan akses pasca-onboarding belum teruji sampai pengguna masuk dan backend VQE dikonfigurasi.
+- Login aplikasi, profil setelah login, endpoint upload Wali, onboarding, dan akses pasca-onboarding belum teruji. Preview tetap menunjuk ke VQE yang sudah bersih; konfigurasi server VQE dan akun uji baru diperlukan untuk mengulang UAT UI. Jangan memakai kredensial Production pada preview staging.
 
 ## Perubahan dan verifikasi kode
 
@@ -55,11 +53,11 @@ Fixture sementara masih ada sambil menunggu konfirmasi aksi terakhir untuk pengh
 
 ## Tindak lanjut
 
-1. Pengguna masuk sendiri ke form di preview lokal tanpa membagikan kata sandi. Verifikasi halaman Wali dan profil.
-2. Tim backend menyediakan environment VQE melalui secret manager, menyiapkan tenant ID dan runtime flags, lalu menyalakan backend server lokal/staging.
-3. Uji daftar kandidat/tagihan, upload melalui endpoint Wali, penolakan akses tenant lain, onboarding, serta akses pasca-onboarding.
-4. Hapus fixture sesuai tabel di atas dan verifikasi semua hitungan kembali nol.
-5. Tinjau PR dan hasil UAT sebelum mengubah PR dari Draft/Open.
+1. Tim backend menyediakan environment server VQE melalui secret manager, menyiapkan tenant ID dan runtime flags.
+2. Buat ulang akun Wali uji dan fixture sintetis hanya saat sesi UAT berikutnya, tanpa memakai akun Production.
+3. Uji login, profil Wali, daftar kandidat/tagihan, upload melalui endpoint Wali, penolakan akses tenant lain, onboarding, dan akses pasca-onboarding.
+4. Hapus fixture UAT setelah sesi serta verifikasi semua hitungan kembali nol.
+5. Tinjau PR dan bukti UAT UI sebelum mengubah PR dari Draft/Open.
 
 ## Status PR dan progress checkpoint
 
