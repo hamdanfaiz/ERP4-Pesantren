@@ -97,3 +97,14 @@ Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika 
 
 Checkpoint terukur: deployment skema staging **110/110 migration (100%)**. Persentase keseluruhan penyelesaian fitur belum dihitung ulang pada checkpoint ini; UAT, provisioning, validasi instalasi pelanggan, dan rekonsiliasi Production masih terbuka.
 
+
+
+## Addendum verifikasi terbaru — 31 Oktober 2026
+
+Catatan di atas yang menyebut VQE 110/110 dan mencatat konfigurasi Production berasal dari snapshot sebelumnya. Kondisi dan batas bukti setelah pemeriksaan terbaru:
+
+- PR #38 tetap terbuka dalam status Draft. Source `main` pada base PR memiliki 110 migrasi sampai `20270207000000`; VQE staging memiliki 112 sampai `20270209000000`, sehingga staging memuat dua migrasi PR #38 yang belum ada di `main`.
+- Integrasi GitHub VQE telah diputus. Label dashboard `main / PRODUCTION` masih tampil dan tidak menunjukkan kesiapan cutover.
+- Upaya baca-saja terbaru ke PTSAS untuk metadata proyek, ledger migration, dan daftar tabel ditolak oleh konektor. Maka angka dan konfigurasi PTSAS di snapshot terdahulu tetap historis; status live skema/ledger dan deployment Production belum terverifikasi ulang. Tidak ada perubahan pada PTSAS.
+- CI PR #38 run [41162313076](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41162313076) lulus 2/2 job, dengan Supabase Preview dilewati. VQE masih tidak memiliki fixture Auth/tenant/PPDB; UAT Wali dan isolasi tenant belum dilakukan.
+- Untuk **cakupan PR #38 saja**, implementasi, CI, dan penerapan/review skema staging sudah lulus; UAT adalah satu gerbang tersisa (3 dari 4, sekitar 75%). Ini bukan persentase penyelesaian keseluruhan ERP atau kesiapan komersial.
