@@ -34,7 +34,7 @@
 - Upload bukti memakai hak admin dashboard; ini bukan bukti upload melalui sesi Wali aplikasi.
 - RPC `register_tenant_finance_payment_proof` berhasil mencatat tagihan menjadi `verification`. Pengulangan dengan idempotency key sama menghasilkan `alreadyApplied: true`.
 - Uji negatif RPC menolak role yang tidak sesuai, path traversal, dan tenant berbeda.
-- Login aplikasi, endpoint upload Wali, onboarding, dan akses pasca-onboarding belum teruji. Undangan Admin sudah diterima, tetapi tautan awal diarahkan ke Site URL VQE `localhost:3000` yang tidak melayani preview; halaman pemulihan dibuka di `localhost:4179` dan sempat terus menampilkan spinner. Pemeriksaan menemukan React StrictMode membatalkan pembaruan status setelah pertukaran kode. Perbaikan kini menjaga satu promise verifikasi untuk efek yang aktif dan dapat memulihkan sesi Supabase yang sudah terbentuk setelah refresh. Pemeriksaan lokal pada tautan tanpa sesi kini berakhir dengan pesan yang dapat ditindaklanjuti, bukan spinner. Pemilik perlu memuat ulang preview dan menyelesaikan penetapan kata sandi; keberhasilan login dan perubahan kata sandi masih harus diuji langsung. Jangan masukkan kredensial Production di preview staging.
+- Login Admin berhasil melalui preview pada 31 Oktober 2026 sekitar 09:22 UTC; UI menampilkan `Admin UAT` / `Administrator` pada tenant `Pesantren`. Namun ringkasan dashboard belum memuat data dan menampilkan layanan identitas belum dikonfigurasi. Endpoint browser `GET /health/ready` mengembalikan `{"status":"unavailable"}`. Pemeriksaan baca-saja `checkIdentityStoreReady()` dari worktree perbaikan dengan konfigurasi VQE berhasil dan membaca satu profil; ketidaksesuaian ini mengindikasikan backend yang melayani browser belum terbukti memakai konfigurasi yang sama. UAT data Admin, upload Wali, onboarding, dan akses pasca-onboarding tetap belum lulus. Jangan masukkan kredensial Production di preview staging.
 
 ## Perubahan dan verifikasi kode
 
@@ -51,8 +51,8 @@
 
 ## Tindak lanjut
 
-1. Muat ulang `http://localhost:4179/?passwordRecovery=1` setelah preview mengambil perbaikan StrictMode. Jika formulir kata sandi tampil, pengguna menetapkannya sendiri; jika sesi callback sudah kedaluwarsa, minta tautan pemulihan baru dari halaman masuk.
-2. Uji login Admin, profil tenant, dan cakupan modul pada preview VQE. Pastikan `/health/ready` dapat dijangkau; jangan alihkan preview staging ke PTSAS Production.
+1. Login Admin sudah berhasil; jangan kirim recovery email lagi. Tim perlu memastikan proses backend yang melayani browser memakai konfigurasi VQE dan `/health/ready` menjadi `ready` sebelum menyatakan UAT data berhasil.
+2. Setelah readiness backend pada browser `ready`, verifikasi profil/tenant serta akses modul Admin; jangan alihkan preview staging ke PTSAS Production.
 3. Buat akun Wali uji dan fixture sintetis baru di VQE. Pengguna menetapkan kata sandi sendiri; jangan memakai atau memasukkan kredensial Production ke staging.
 4. Uji profil Wali, daftar kandidat/tagihan, upload berkas melalui endpoint Wali, penolakan akses lintas tenant, onboarding, dan akses setelah onboarding.
 5. Hapus semua fixture setelah UAT dan verifikasi hitungannya kembali nol. Minta konfirmasi tepat sebelum penghapusan cloud.
@@ -95,4 +95,4 @@ Semua butir di atas adalah pemeriksaan source lokal/CI. **Tidak menggantikan UAT
 - Workstation Windows tidak menyediakan Supabase CLI, Docker CLI, atau tool PostgreSQL `psql`, `pg_dump`, dan `pg_restore`; karena itu smoke test backup/restore tidak dapat dijalankan lokal (ENOENT). Job database pada CI menjalankan test backup/restore serta build container dan lulus. Uji instalasi pelanggan di VPS/on-premise tetap perlu dilakukan tim penerapan.
 - Pemeriksaan metadata proyek PTSAS `ptsasgdvgrbdtgyqieie` melalui konektor ditolak izin. Tidak ada schema, migration, Auth, atau data Production yang diubah.
 
-**Langkah UAT selanjutnya:** jangan membuat ulang tenant atau akun Admin. Setelah satu recovery email berhasil dan pemilik menetapkan kata sandi, buktikan login melalui preview VQE. Baru setelah itu buat fixture Wali/kandidat/tagihan sintetis, jalankan skenario UI, dan bersihkan fixture dengan persetujuan sebelum penghapusan.
+**Langkah UAT selanjutnya:** jangan membuat ulang tenant atau akun Admin. Login Admin sudah berhasil, tetapi readiness backend yang melayani browser masih `unavailable`; selaraskan proses/env VQE terlebih dahulu. Setelah `/health/ready` menjadi `ready`, verifikasi profil dan cakupan modul, lalu buat fixture Wali/kandidat/tagihan sintetis untuk skenario UI. Bersihkan fixture dengan persetujuan sebelum penghapusan.
