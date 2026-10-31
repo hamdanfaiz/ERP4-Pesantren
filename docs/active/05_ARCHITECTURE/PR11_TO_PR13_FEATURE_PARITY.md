@@ -1,5 +1,7 @@
 # Matriks Paritas Fitur PR #11 → PR #13
 
+> **Status diperbarui 31 Oktober 2026:** Snapshot ini pernah menyebut PTSAS sebagai staging. Dashboard kini menunjukkan `ptsasgdvgrbdtgyqieie` sebagai `main / PRODUCTION`; jangan jalankan migration/rehearsal/repair/reset pada project itu. Ref staging terpisah belum tersedia. Data dummy Firestore tidak perlu disalin. Gunakan [audit target terbaru](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md).
+
 # Status PR dan hasil verifikasi terbaru — 30 Oktober 2026
 
 - Status GitHub terverifikasi setelah merge PR #15: PR #1–#11 **Closed / tidak merged** sebagai superseded; PR #12–#15 **Closed / Merged**. PR #13 membawa paritas utama cutover; PR #14 memperbarui panduan Auth/RBAC; PR #15 menghapus mock PPOB dari rilis awal. Tidak ada PR terbuka pada pemeriksaan 30 Oktober.

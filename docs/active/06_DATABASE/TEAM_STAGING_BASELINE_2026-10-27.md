@@ -1,9 +1,11 @@
 # Baseline Baca-Saja Supabase Staging — ERP4 Pesantren
 
+> **Status diperbarui 31 Oktober 2026:** Dokumen ini adalah snapshot historis; label “staging” pada dokumen ini sudah disupersede. Dashboard menunjukkan Supabase `ptsasgdvgrbdtgyqieie` berada pada branch `main / PRODUCTION`. Jangan jalankan migration, rehearsal, repair, atau reset pada project tersebut. Ref staging terpisah belum tersedia. Data dummy Firestore tidak perlu disalin. Ikuti [audit target terbaru](./SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md) untuk keputusan operasional.
+
 > **Keputusan produk 27 Oktober 2026:** data Firestore pada audit ini dummy dan tidak perlu dipindahkan. Hitungan, hash, dan pencocokan sumber di bawah dipertahankan sebagai jejak historis saja, bukan release gate. Fokus penerimaan beralih ke skema, relasi, transaksi, otorisasi tenant/role, dan alur API dengan fixture sintetis; data operasional contoh dapat dibuat manual kemudian.
 
 **Tanggal pemeriksaan:** 27 Oktober 2026 (WIB)
-**Project ref:** `ptsasgdvgrbdtgyqieie` — **staging**, bukan production
+**Project ref:** `ptsasgdvgrbdtgyqieie` — label “staging” pada snapshot ini telah disupersede; dashboard 31 Oktober 2026 menunjukkan `main / PRODUCTION`.
 **Sumber arsip:** Firestore `graphite-ship-q5xj8`, database `ai-studio-erp4pesantren-a116e14b-1aa6-4667-8bdb-f0af384ccfa8`
 **Head kode yang diaudit:** `b80b31098468a957bfe5a48d8b31c22dede4ef99` ([PR #13](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/13))
 

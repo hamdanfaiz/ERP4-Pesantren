@@ -1,6 +1,6 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
-> **Bukti dashboard yang tersedia (31 Oktober 2026):** target yang benar adalah `ptsasgdvgrbdtgyqieie`; dashboard menunjukkan branch `main / PRODUCTION`. Hasil query yang sudah tampil di SQL Editor (waktu eksekusinya tidak terlihat) memperlihatkan 47 versi ledger, sementara source `main` memiliki 109 file migration. Dua baris ledger terakhir tidak memiliki nama dan metadata statement. Rerun query baca-saja untuk memperoleh snapshot terbaru sebelum rekonsiliasi. Perpindahan schema belum dapat dinyatakan selesai; data Firestore dummy tidak perlu disalin. Verifikasi dan rehearsal tetap wajib dilakukan di staging terpisah sebelum Production.
+> **Status PTSAS (31 Oktober 2026):** Project tujuan `ptsasgdvgrbdtgyqieie` berstatus `main / PRODUCTION`. Pemeriksaan baca-saja terbaru mencatat 119 tabel publik dan 47 versi migration (`20260603000000`–`20261206000000`); metadata `name` dan `statements` pada dua entri terakhir kosong. Source `main` memiliki 109 file migration; 62 belum tercatat setelah batas ledger. Selisih itu bukan instruksi untuk menjalankan batch. Data Firestore dummy tidak perlu disalin. Gunakan [audit cutover terbaru](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md).
 
 **Diperbarui:** 31 Oktober 2026  
 **Status:** siap dipakai sebagai urutan kerja; tidak menyatakan aplikasi siap produksi.
@@ -11,7 +11,7 @@ Mulai dari **Fase 1: menyiapkan staging dan membaca keadaan database**. Tim tida
 
 ## Baseline yang harus dipakai
 
-- Sumber kode resmi saat pembaruan panduan ini adalah `main` pada commit `23e7fd061759e06e9a31aa7a2f10501e859a4329` (PR #25). PR #24 melokalkan katalog izin modul; PR #25 menyelaraskan merek aplikasi dan menandai dokumen Firebase lama sebagai historis. Saat mulai bekerja, checkout `main` terbaru dan catat SHA aktual yang digunakan.
+- Sumber kode resmi pada pembaruan ini adalah branch `main` di commit `a95ca52107bf2b89250a124ba60e9db096db0826` (PR #30, pembaruan dokumentasi). Perubahan runtime tetap berasal dari PR #13 dan penghapusan jalur Firebase server dari PR #17. Saat mulai bekerja, checkout `main` terbaru dan catat SHA aktual.
 - PR #13 adalah baseline cutover Supabase; PR #17 menghapus Firebase Admin dan jalur Firestore server; PR #18–#25 menyempurnakan readiness, panduan backend, konfigurasi pelanggan, katalog izin, serta konsistensi merek/dokumen. PR #24 dan #25 sudah merged.
 - PR #1–#11 ditutup tanpa merge langsung karena implementasinya digantikan/dipetakan ke baseline cutover. Jangan cherry-pick atau memakai branch tersebut sebagai dasar deployment.
 - Data Firestore pemilik adalah dummy dan tidak perlu disalin. Gunakan fixture sintetis untuk staging.

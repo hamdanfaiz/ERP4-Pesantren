@@ -1,5 +1,7 @@
 # Checkpoint kesiapan schema dan logic — tanpa salin data legacy
 
+> **Status diperbarui 31 Oktober 2026:** Dokumen ini adalah snapshot historis; label “staging” pada dokumen ini sudah disupersede. Dashboard menunjukkan Supabase `ptsasgdvgrbdtgyqieie` berada pada branch `main / PRODUCTION`. Jangan jalankan migration, rehearsal, repair, atau reset pada project tersebut. Ref staging terpisah belum tersedia. Data dummy Firestore tidak perlu disalin. Ikuti [audit target terbaru](./SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md) untuk keputusan operasional.
+
 **Tanggal pemeriksaan:** 27 Oktober 2026
 **Repository:** `hamdanfaiz/ERP4-Pesantren` — PR #13
 **Target database yang dibaca:** Supabase staging `ptsasgdvgrbdtgyqieie`
