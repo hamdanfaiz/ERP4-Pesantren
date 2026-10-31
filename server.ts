@@ -503,6 +503,7 @@ async function startServer() {
 
   let lastReadinessCheckedAt = 0;
   let lastReadinessResult = false;
+  let readinessFailureLogged = false;
   let readinessInFlight: Promise<boolean> | null = null;
 
   app.get("/health/live", (_req, res) => {
@@ -513,7 +514,22 @@ async function startServer() {
   app.get("/health/ready", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (Date.now() - lastReadinessCheckedAt >= 5000) {
-      readinessInFlight ??= checkIdentityStoreReady().then(() => true).catch(() => false);
+      readinessInFlight ??= checkIdentityStoreReady()
+        .then(() => {
+          readinessFailureLogged = false;
+          return true;
+        })
+        .catch((error: unknown) => {
+          if (!readinessFailureLogged) {
+            console.error("Supabase identity readiness check failed", {
+              errorType: error instanceof Error ? error.name : "unknown",
+              supabaseUrlConfigured: Boolean(process.env.SUPABASE_URL),
+              serverSecretConfigured: Boolean(process.env.SUPABASE_SECRET_KEY),
+            });
+            readinessFailureLogged = true;
+          }
+          return false;
+        });
       lastReadinessResult = await readinessInFlight;
       lastReadinessCheckedAt = Date.now();
       readinessInFlight = null;
