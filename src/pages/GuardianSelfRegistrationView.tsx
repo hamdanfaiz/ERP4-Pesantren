@@ -86,7 +86,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || "Akun belum dapat ditautkan ke data wali.");
         if (payload.success !== true) {
-          setNotice(payload.message || "Email terverifikasi, tetapi belum cocok dengan data wali aktif. Akun belum memperoleh akses ERP. Hubungi sekretariat untuk memperbarui email pada data PPDB.");
+          setNotice(payload.message || "Email terverifikasi, tetapi belum ditemukan relasi wali aktif atau tagihan PPDB yang cocok. Akun belum memperoleh akses ERP. Hubungi sekretariat untuk memeriksa data PPDB.");
           return;
         }
 
@@ -170,7 +170,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
           </div>
           <h1 className="text-2xl font-bold text-slate-100">{activated ? "Akun Portal Wali aktif" : "Pendaftaran Akun Wali"}</h1>
           <p className="mt-2 text-sm text-slate-400">
-            {activated ? "Email terverifikasi dan akun tertaut ke data wali santri." : tenantName ? `Buat akun sendiri untuk ${tenantName}.` : "Buat akun Portal Wali dengan email yang tercatat di data PPDB."}
+            {activated ? "Email terverifikasi dan akun tertaut ke data wali atau tagihan PPDB yang sesuai." : tenantName ? `Buat akun sendiri untuk ${tenantName}.` : "Buat akun Portal Wali dengan email yang tercatat di data PPDB."}
           </p>
         </header>
 
@@ -179,7 +179,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
 
         {callback ? (
           isBusy ? <div className="flex justify-center gap-2 py-4 text-sm text-slate-400" role="status"><LoaderCircle className="h-4 w-4 animate-spin" />Memverifikasi email dan tautan akun…</div>
-            : activated ? <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/30 p-3 text-sm text-emerald-100">Anda akan masuk ke Portal Wali dengan akses sesuai relasi wali-santri yang terverifikasi.</div>
+              : activated ? <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/30 p-3 text-sm text-emerald-100">Anda akan masuk ke Portal Wali. Sebelum onboarding, Finance hanya menampilkan tagihan PPDB milik calon santri yang cocok dengan email terverifikasi.</div>
               : <button type="button" onClick={() => void exit()} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-700"><LogOut className="h-4 w-4" />Kembali ke halaman masuk</button>
         ) : confirmationSent ? (
           <button type="button" onClick={goBack} className="w-full rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600">Kembali ke halaman masuk</button>
@@ -197,7 +197,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
               <label htmlFor="guardian-signup-password-confirm" className="mb-1.5 block text-xs font-semibold text-slate-300">Ulangi kata sandi</label>
               <input id="guardian-signup-password-confirm" type="password" autoComplete="new-password" required minLength={12} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} className={CONTROL} />
             </div>
-            <p className="text-xs leading-5 text-slate-400">Supabase Auth mengelola kata sandi. Akses sistem baru diberikan setelah email dikonfirmasi dan cocok dengan email pada data wali santri aktif.</p>
+            <p className="text-xs leading-5 text-slate-400">Supabase Auth mengelola kata sandi. Akses diberikan setelah email dikonfirmasi dan cocok dengan relasi Wali aktif atau calon santri yang memiliki tagihan PPDB.</p>
             <button type="submit" disabled={isBusy || !tenantName || !registrationRedirectUrl} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
               {isBusy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               {isBusy ? "Mendaftarkan akun…" : "Daftar dan kirim tautan konfirmasi"}
