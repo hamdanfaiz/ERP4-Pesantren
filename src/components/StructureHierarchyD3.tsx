@@ -20,6 +20,8 @@ export const StructureHierarchyD3: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [reloadToken, setReloadToken] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const observedWidth = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -63,6 +65,29 @@ export const StructureHierarchyD3: React.FC = () => {
   }, [user?.tenantId, user?.uid, reloadToken]);
 
   useEffect(() => {
+    const container = d3Container.current;
+    if (isLoading || !data.length || !container) return;
+
+    const measureWidth = () => {
+      const nextWidth = Math.round(container.clientWidth);
+      if (nextWidth > 0 && nextWidth !== observedWidth.current) {
+        observedWidth.current = nextWidth;
+        setContainerWidth(nextWidth);
+      }
+    };
+
+    measureWidth();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measureWidth);
+      return () => window.removeEventListener('resize', measureWidth);
+    }
+
+    const observer = new ResizeObserver(measureWidth);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [data.length, isLoading]);
+
+  useEffect(() => {
     if (isLoading || !data.length || !d3Container.current) return;
 
     // Clear previous SVG
@@ -97,12 +122,12 @@ export const StructureHierarchyD3: React.FC = () => {
     } catch (e) {
         console.error("D3 stratify error", e);
         // Display error or fallback
-        d3.select(d3Container.current).append('div').text('Invalid hierarchy data (circular reference or missing parents).');
+        d3.select(d3Container.current).append('div').text('Susunan struktur tidak valid (terdapat siklus atau induk tidak ditemukan).');
         return;
     }
 
     const margin = { top: 20, right: 120, bottom: 20, left: 120 };
-    const width = d3Container.current.clientWidth - margin.left - margin.right;
+    const width = Math.max(320, (containerWidth || d3Container.current.clientWidth) - margin.left - margin.right);
     
     // Calculate dynamic height based on number of nodes
     const height = Math.max(500, hierarchicalData.descendants().length * 40) - margin.top - margin.bottom;
@@ -267,15 +292,7 @@ export const StructureHierarchyD3: React.FC = () => {
 
     update(root);
     
-    // Handle resizing window (simple re-render)
-    const handleResize = () => {
-        // Debounce or just clear/re-draw?
-        // We will just let React handle it if width changes, but D3 container width might need observer
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [data, isLoading]);
+  }, [data, isLoading, containerWidth]);
 
   if (isLoading) {
     return (
@@ -302,7 +319,7 @@ export const StructureHierarchyD3: React.FC = () => {
         <div className="absolute top-4 left-4 z-10 bg-white/90 dark:bg-black/90 backdrop-blur border border-slate-200 dark:border-white/10 rounded-lg p-3 shadow-lg">
             <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-2 flex items-center gap-2">
                 <Layers className="w-3.5 h-3.5 text-emerald-500" />
-                Structure Map
+                Peta Struktur
             </h3>
             <div className="space-y-1.5">
                 {[
@@ -316,7 +333,7 @@ export const StructureHierarchyD3: React.FC = () => {
                     </div>
                 ))}
             </div>
-            <div className="mt-3 text-[9px] text-slate-400 dark:text-slate-500 italic">Click nodes to expand/collapse</div>
+            <div className="mt-3 text-[9px] text-slate-400 dark:text-slate-500 italic">Klik simpul untuk memperluas atau meringkas</div>
         </div>
         <div 
             ref={d3Container} 
@@ -326,3 +343,4 @@ export const StructureHierarchyD3: React.FC = () => {
     </div>
   );
 };
+
