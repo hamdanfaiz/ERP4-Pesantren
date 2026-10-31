@@ -560,7 +560,11 @@ export async function setAuthDisabled(uid: string, disabled: boolean): Promise<v
 
 export async function createRecoveryLink(email: string): Promise<string> {
   const supabase = supabaseAdmin();
-  const { data, error } = await supabase.auth.admin.generateLink({ type: "recovery", email });
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: { redirectTo: configuredPublicAppUrl().toString() },
+  });
   const link = data?.properties?.action_link;
   if (error || !link) throw new IdentityUnavailableError("Gagal membuat tautan reset password.");
   return link;
