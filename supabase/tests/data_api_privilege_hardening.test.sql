@@ -13,7 +13,7 @@ RETURNS INTEGER
 LANGUAGE SQL
 AS $$ SELECT 1 $$;
 
-SELECT plan(46);
+SELECT plan(51);
 
 -- Existing trigger functions must not be callable as anon, authenticated, or
 -- service_role RPCs. Their database triggers remain attached to their tables.
@@ -120,6 +120,46 @@ SELECT is(
   4,
   'all tenant RLS helpers keep a fixed search_path'
 );
+
+-- Cache uncorrelated authorization context with initplans instead of invoking
+-- helper functions once per candidate row in policies.
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.user_profiles'::regclass
+    AND p.polname = 'user_profiles_select_own'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT auth.uid%'
+), 'user_profiles policy evaluates auth.uid through an initplan');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.tenants'::regclass
+    AND p.polname = 'tenants_select_current_tenant'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.current_tenant_id%'
+), 'tenants policy caches the active tenant lookup');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.profiles'::regclass
+    AND p.polname = 'profiles_select_self_or_tenant_admin'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT auth.uid%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.current_tenant_id%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.is_tenant_admin%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.has_module_access%'
+), 'profiles policy caches all stable caller-context lookups');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.candidates'::regclass
+    AND p.polname = 'candidates_select_ppdb_admin'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.current_tenant_id%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.is_tenant_admin%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.has_module_access%'
+), 'candidate policy caches stable tenant and permission lookups');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.candidate_documents'::regclass
+    AND p.polname = 'candidate_documents_select_ppdb_admin'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.current_tenant_id%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.is_tenant_admin%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.has_module_access%'
+), 'candidate document policy caches stable tenant and permission lookups');
 
 SELECT * FROM finish();
 ROLLBACK;
