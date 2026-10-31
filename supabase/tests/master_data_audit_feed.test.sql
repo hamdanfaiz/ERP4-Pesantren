@@ -3,7 +3,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(29);
+SELECT plan(32);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -101,6 +101,23 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.delete_master_data_structure_with_actor('ad100000-0000-4000-8000-000000000002', 'Gedung', 'missing', 'ad100000-0000-4000-8000-000000000011')$$,
   '42501', 'Aktor Admin aktif tidak ditemukan pada tenant ini', 'an Admin cannot mutate another tenant through the audited RPC'
+);
+
+-- Exercise the append-only triggers as the database owner. The service role
+-- is intentionally denied UPDATE/DELETE/TRUNCATE by table grants, which would
+-- otherwise test grants rather than the trigger contract.
+RESET ROLE;
+SELECT throws_ok(
+  $$UPDATE public.master_data_audit_events SET action = 'updated' WHERE id = (SELECT min(id) FROM public.master_data_audit_events WHERE tenant_id = 'ad100000-0000-4000-8000-000000000001')$$,
+  '42501', 'Master Data audit events are append-only', 'audit history cannot be updated even by the database owner'
+);
+SELECT throws_ok(
+  $$DELETE FROM public.master_data_audit_events WHERE tenant_id = 'ad100000-0000-4000-8000-000000000001'$$,
+  '42501', 'Master Data audit events are append-only', 'audit history cannot be deleted even by the database owner'
+);
+SELECT throws_ok(
+  $$TRUNCATE TABLE public.master_data_audit_events$$,
+  '42501', 'Master Data audit events are append-only', 'audit history cannot be truncated even by the database owner'
 );
 
 SELECT * FROM finish();
