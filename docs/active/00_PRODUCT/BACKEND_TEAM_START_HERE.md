@@ -53,3 +53,36 @@ Untuk alur UAT yang mencakup login Wali, tagihan, bukti, dan onboarding, konfigu
 | Rekonsiliasi serta deployment PTSAS Production | Tim backend/penerapan setelah rencana disetujui |
 
 Dokumen terkait: [temuan redirect Auth Production](PRODUCTION_AUTH_REDIRECT_CHECKPOINT_2026-10-31.md), [checkpoint staging PR #38](../06_DATABASE/CHECKPOINT_GUARDIAN_PPDB_STAGING_2026-10-31.md), [audit cutover Supabase](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md), [snapshot Production](../06_DATABASE/PTSAS_PRODUCTION_READINESS_SNAPSHOT_2026-10-31.md), dan [kesiapan komersial](COMMERCIAL_READINESS.md).
+
+## Runbook singkat: preview login berhasil tetapi readiness 503
+
+**Temuan browser 31 Oktober 2026:** login Admin UAT berhasil, tetapi `http://localhost:4179/health/ready` mengembalikan `{"status":"unavailable"}` dan dashboard belum dapat membaca data. Login Supabase dari browser tidak membuktikan API server memakai konfigurasi VQE. Worktree pengembangan memiliki konfigurasi VQE dan pemeriksaan identity store lulus; proses yang melayani port 4179 belum teridentifikasi, jadi jangan menyimpulkan bahwa variabelnya sudah masuk ke proses tersebut.
+
+Untuk mengisolasi API server tanpa menghentikan proses lama:
+
+1. Buka PowerShell baru pada **checkout bersih PR #38**, di root repository. Pastikan file lokal `.env` ada dan diabaikan Git:
+   ```powershell
+   Test-Path .env
+   git check-ignore .env
+   ```
+   Jangan tampilkan isi `.env`, jangan commit, dan pastikan nilainya menunjuk ke staging VQE.
+2. Pastikan dua variabel server terbaca tanpa mencetak nilainya:
+   ```powershell
+   node -r dotenv/config -e "for (const name of ['SUPABASE_URL','SUPABASE_SECRET_KEY']) console.log(name + ': ' + (process.env[name] ? 'set' : 'missing'))"
+   ```
+   Bila dependensi belum terpasang, jalankan `npm ci` terlebih dahulu. Perintah ini hanya memasang paket dari lockfile.
+3. Jalankan server API dari root repository pada port pemeriksaan yang terpisah:
+   ```powershell
+   $env:PORT = '4180'
+   npm run dev
+   ```
+   Skrip `dev` menjalankan `tsx server.ts`; server memuat `.env` dari direktori kerja. Biarkan terminal ini terbuka agar log readiness terlihat.
+4. Di PowerShell kedua, periksa endpoint:
+   ```powershell
+   curl.exe -i http://127.0.0.1:4180/health/ready
+   ```
+   Lulus jika respons `HTTP 200` dan `{"status":"ready"}`. Respons `503` berarti identity store masih gagal diperiksa.
+5. Jika tetap 503, lihat terminal server untuk log `Supabase identity readiness check failed`. Log hanya memuat tipe error serta penanda apakah URL dan secret tersedia, bukan nilainya. Perbaiki konfigurasi/profil/akses staging berdasarkan error tersebut; jangan tempel secret atau isi lengkap log sensitif ke tiket.
+6. Setelah health 200, buka `http://localhost:4180/` dan verifikasi lagi login serta dashboard. Jalur password-recovery tidak perlu diulang. Jika health 200 tetapi data modul tetap gagal, periksa flag runtime modul dan log API secara terpisah; readiness hanya membuktikan identity store merespons, bukan seluruh modul UAT.
+
+Port `4180` dipilih untuk menghindari perubahan atau penghentian layanan lama di `4179`. Gunakan hanya konfigurasi staging VQE. Jangan memasukkan `SUPABASE_SECRET_KEY`, kunci PII, atau nilai Production ke klien Vite.
