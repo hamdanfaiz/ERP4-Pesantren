@@ -1,5 +1,7 @@
 # Rekonsiliasi agregat Firestore dan kunci PII — 27 Oktober 2026
 
+> **Status diperbarui 31 Oktober 2026:** Dokumen ini adalah snapshot historis; label “staging” pada dokumen ini sudah disupersede. Dashboard menunjukkan Supabase `ptsasgdvgrbdtgyqieie` berada pada branch `main / PRODUCTION`. Jangan jalankan migration, rehearsal, repair, atau reset pada project tersebut. Ref staging terpisah belum tersedia. Data dummy Firestore tidak perlu disalin. Ikuti [audit target terbaru](./SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md) untuk keputusan operasional.
+
 ## Ringkasan
 
 Pemeriksaan baca-saja pada database Firestore kanonis menemukan **18 koleksi tingkat atas dan 561 dokumen**. Pemeriksaan dilakukan melalui Firestore REST dengan ADC yang telah diotorisasi. Daftar dokumen diminta menggunakan field mask untuk nama dokumen dan tenantId/tenant_id; nilai field, ID dokumen, dan isi record tidak dicatat ke output atau dokumen ini. Pemilik menyatakan data Firestore adalah dummy.
