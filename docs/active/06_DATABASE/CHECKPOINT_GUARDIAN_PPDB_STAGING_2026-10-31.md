@@ -9,27 +9,20 @@
 
 ## Batas lingkungan
 
-- Dashboard VQE menampilkan `main / PRODUCTION`. Repo tidak lagi terhubung otomatis ke VQE; integrasi GitHub telah diputus atas instruksi pengguna. Pastikan proyek tetap disposable sebelum UAT lebih lanjut.
-- Supabase MCP menolak pembacaan PTSAS; tidak ada perubahan yang diterapkan ke PTSAS.
-- Worktree PR tidak memuat `.env` VQE. File `.env` pada worktree lain menunjuk ke proyek berbeda dan tidak dipakai. Backend aplikasi memerlukan konfigurasi server khusus VQE, termasuk `SUPABASE_SECRET_KEY` dan `PUBLIC_PPDB_TENANT_ID`; pasang melalui secret manager, jangan kirim secret lewat chat atau masukkan ke bundle klien.
-- Preview lokal saat ini dibuka pada `http://127.0.0.1:4179`, menggunakan source PR dan hanya URL plus publishable key VQE. Pemeriksaan `/runtime-config.json` memastikan target VQE dan tidak mengandung key server; `/health/live` mengembalikan 200. `/health/ready` masih unavailable karena secret server VQE belum disiapkan.
-- Form login aplikasi tampil pada preview lokal yang menggunakan project VQE. Setelah cleanup, VQE tidak memiliki akun Auth uji. Akun Admin “Pesantren Digital” ditemukan di PTSAS Production melalui dashboard Auth; kata sandi tidak dapat dibaca. Kredensial Production tidak berlaku pada preview VQE, dan preview tidak diarahkan ke Production.
-- Source worktree PR sudah bersih setelah pengaturan bind loopback khusus lokal dipulihkan. Tidak ada patch host lokal yang di-commit.
+- Dashboard VQE menampilkan `main / PRODUCTION`, tetapi pengguna menetapkan VQE sebagai staging. Gunakan hanya data sintetis dan jangan menyalin data Firestore.
+- Supabase MCP menolak pembacaan PTSAS; tidak ada perubahan yang diterapkan ke PTSAS Production.
+- Worktree PR memiliki `.env` lokal yang hanya menunjuk ke VQE. File tersebut dikonfirmasi diabaikan Git dan tidak boleh di-commit, dibagikan lewat chat, atau dimasukkan ke bundle browser.
+- Kunci server VQE bernama `codex_uat_staging` dibuat setelah persetujuan pengguna. Kunci PII acak juga disiapkan secara lokal; nilai kredensial tidak dicatat di dokumen ini.
+- Konfigurasi lokal menggunakan tenant sintetis di bawah, membuka endpoint konfigurasi/Finance PPDB untuk UAT, dan menjaga `PUBLIC_PPDB_ENABLED=false` agar intake PPDB publik tidak terbuka.
+- PTSAS Production, kredensialnya, dan aturan redirect-nya tidak diubah.
+- UAT UI belum selesai. Percobaan menjalankan server baru bertabrakan dengan listener lama pada port 3000; server yang ada kemudian dihentikan. Browser tidak dapat menjangkau localhost dari workspace ini, sehingga sesi login aplikasi belum bisa diverifikasi.
 
-## Keadaan fixture VQE sementara
+## Keadaan VQE saat ini
 
-Fixture sintetis dibuat khusus untuk UAT ini; tidak ada data operasional Firestore yang disalin dan tidak ada email undangan yang dikirim. Seluruh fixture sudah dihapus setelah persetujuan pengguna.
-
-| Data | Referensi |
-|---|---|
-| Tenant `uat-wali-erp4-20261031` | `80f406de-aa77-4efa-b36b-232ceb160178` |
-| Akun Auth Wali (dibuat dan dikonfirmasi oleh pengguna) | `wali-uat-erp4-20261031@example.invalid`, UUID `07fdbe72-60f1-4b27-b090-919a952d32ad` |
-| Kandidat | `980e32df-9177-4bf1-8a5b-b9f1bbe82a0d`, registrasi `UAT-WALI-20261031-001` |
-| Tagihan | `1a699bf4-76ba-45fb-a61e-7ae82986d087` |
-| Idempotency key bukti | `e1344262-ad4c-4472-868e-55a090e6c3ac` |
-| Objek bukti | `financeProofs/80f406de-aa77-4efa-b36b-232ceb160178/1a699bf4-76ba-45fb-a61e-7ae82986d087/dummy-payment-proof.png` |
-
-Fixture sudah dibersihkan di VQE: akun Auth dan profil, tenant, kandidat, tagihan, relasi Wali-kandidat, request idempotensi, `finance_controls`, dan objek bukti Storage sudah dihapus. Query verifikasi sesudah cleanup mengembalikan hitungan 0 untuk setiap ID/path sintetis di atas. Akun Auth staging juga terverifikasi tidak ditemukan pada dashboard. Data dan skema database PTSAS Production tidak diubah; email konfirmasi untuk akun Admin yang sudah ada dikirim ulang setelah persetujuan pengguna.
+- Tenant sintetis `uat-wali-erp4-20261031`, ID `80f406de-aa77-4efa-b36b-232ceb160178`, dibuat kembali di VQE pada 31 Oktober 2026.
+- Hitungan setelah pembuatan menunjukkan: 1 tenant; 0 profil, kandidat, wali, relasi akun Wali-kandidat, tagihan, dan permintaan tulis Finance untuk tenant itu.
+- Fixture Auth, PPDB, Finance, serta Storage dari putaran UAT terdahulu telah dibersihkan dan belum dibuat kembali pada putaran ini.
+- Tidak ada data operasional Firestore yang disalin. PTSAS Production tidak disentuh.
 
 ## Hasil verifikasi
 
@@ -53,10 +46,10 @@ Fixture sudah dibersihkan di VQE: akun Auth dan profil, tenant, kandidat, tagiha
 
 ## Tindak lanjut
 
-1. Tim backend menyediakan environment server VQE melalui secret manager, menyiapkan tenant ID dan runtime flags.
-2. Buat ulang akun Wali uji dan fixture sintetis hanya saat sesi UAT berikutnya, tanpa memakai akun Production.
-3. Uji login, profil Wali, daftar kandidat/tagihan, upload melalui endpoint Wali, penolakan akses tenant lain, onboarding, dan akses pasca-onboarding.
-4. Hapus fixture UAT setelah sesi serta verifikasi semua hitungan kembali nol.
+1. Jalankan server dari worktree PR #38 pada mesin yang membuka browser dengan konfigurasi `.env` VQE. Pastikan halaman login dan `/health/ready` dapat dijangkau sebelum UAT.
+2. Buat akun Wali uji dan fixture sintetis baru di VQE. Pengguna menetapkan password sendiri; jangan memakai atau memasukkan kredensial Production ke staging.
+3. Uji login melalui aplikasi, profil Wali, daftar kandidat/tagihan, upload berkas melalui endpoint Wali, penolakan akses lintas tenant, onboarding, dan akses setelah onboarding.
+4. Hapus semua fixture setelah UAT dan verifikasi hitungannya kembali nol. Minta konfirmasi tepat sebelum penghapusan cloud.
 5. Tinjau PR dan bukti UAT UI sebelum mengubah PR dari Draft/Open.
 
 ## Status PR dan progress checkpoint
