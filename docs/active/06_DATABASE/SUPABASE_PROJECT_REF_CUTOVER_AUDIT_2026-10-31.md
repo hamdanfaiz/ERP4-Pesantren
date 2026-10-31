@@ -1,6 +1,6 @@
 # Audit perpindahan Supabase VQE ke PTSAS — 31 Oktober 2026
 
-Dokumen ini mencatat bukti baca-saja untuk membedakan perpindahan antarproyek Supabase dari cutover runtime ERP/Firebase. Tidak ada schema, baris database, Auth, Storage, migration, atau konfigurasi deployment Production yang diubah dalam audit ini.
+Dokumen ini mencatat bukti untuk membedakan perpindahan antarproyek Supabase dari cutover runtime ERP/Firebase. Tidak ada schema, baris database, Auth, Storage, migration, atau konfigurasi deployment Production yang diubah. Pada 31 Oktober 2026, integrasi GitHub hanya pada project lama VQE diputus; integrasi PTSAS tidak diubah.
 
 ## Hasil audit project sumber VQE
 
@@ -13,11 +13,11 @@ Project Supabase `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY` pada saat dib
 - 0 Edge Function; dan
 - 0 routine pada schema `public`.
 
-Dengan inventaris tersebut, tidak ada isi database Supabase yang terdeteksi untuk disalin dari VQE ke PTSAS. Pemeriksaan ini bukan audit lengkap untuk seluruh konfigurasi project: secrets, seluruh schema non-public, konfigurasi provider Auth, log, dan referensi deployment eksternal tidak diperiksa. Project VQE masih aktif dan tidak dihapus atau dijeda.
+Dengan inventaris tersebut, tidak ada isi database Supabase yang terdeteksi untuk disalin dari VQE ke PTSAS. Pemeriksaan ini bukan audit lengkap untuk seluruh konfigurasi project: secrets, seluruh schema non-public, konfigurasi provider Auth, log, dan referensi deployment eksternal tidak diperiksa. Project VQE masih aktif dan tidak dihapus atau dijeda. Pada 31 Oktober, koneksi GitHub VQE berhasil diputus; halaman kini meminta pemilihan repository untuk membuat koneksi baru.
 
 ## Project tujuan PTSAS dan integrasi repository
 
-Project tujuan ERP adalah `ptsasgdvgrbdtgyqieie`. Pada dashboard Supabase, pengaturan GitHub sebelumnya menunjuk ke repository yang salah. Pengaturan kini menunjuk ke `hamdanfaiz/ERP4-Pesantren`, working directory `.`, dan tetap tersimpan setelah halaman dimuat ulang.
+Project tujuan ERP adalah `ptsasgdvgrbdtgyqieie`. Dashboard mengonfirmasi integrasi GitHub PTSAS tetap menunjuk ke `hamdanfaiz/ERP4-Pesantren`, working directory `.`, dan `Deploy to production` tetap **OFF**. Project ini berada pada branch `main / PRODUCTION`; preview branch otomatis tidak tersedia pada paket Free. Halaman PTSAS tetap terhubung setelah pemeriksaan, sementara koneksi lama pada VQE sudah dilepas.
 
 - `Deploy to production` tetap **OFF**.
 - Dashboard menampilkan branch `main / PRODUCTION`; PTSAS bukan staging.
@@ -40,8 +40,9 @@ Konfigurasi repository menargetkan PTSAS, tetapi nilai `VITE_SUPABASE_URL` dan `
 
 ## Kesimpulan dan gerbang berikutnya
 
-1. **Project Supabase lama VQE:** inventory yang dapat diperiksa kosong; tidak ada isi database Supabase yang terdeteksi untuk dipindahkan. Jangan menghapus VQE sebelum memastikan tidak ada consumer eksternal, Auth provider, Storage, secrets, atau deployment yang masih merujuk padanya.
-2. **Integrasi GitHub → PTSAS:** kini menunjuk ke repo ERP yang benar; penerapan otomatis Production tetap dimatikan.
+1. **Project Supabase lama VQE:** inventory yang dapat diperiksa kosong dan integrasi GitHub sudah dilepas; tidak ada isi database Supabase yang terdeteksi untuk dipindahkan. Project tetap aktif. Jangan menghapusnya sebelum memastikan tidak ada consumer eksternal, Auth provider, Storage, secrets, atau deployment yang masih merujuk padanya.
+2. **Integrasi GitHub:** PTSAS tetap terhubung ke repo ERP yang benar dan penerapan otomatis Production tetap dimatikan; integrasi pada VQE telah diputus. Preview branch PTSAS masih belum tersedia.
 3. **Firebase → Supabase:** runtime jalur aktif telah lolos guard CI, tetapi validasi environment hosting, staging/rehearsal pada salinan target, rekonsiliasi ledger 47 versi dengan 109 file source, serta login/UAT masih harus dituntaskan.
 4. Sediakan staging Supabase terisolasi yang dapat dipulihkan. Bandingkan nomor, nama, isi SQL, constraint, policy, dan efek migration pada staging terlebih dahulu. Jangan menyalin data dummy Firestore; gunakan fixture sintetis untuk membuktikan alur serta relasi.
 5. Setelah rekonsiliasi, minta tim penerapan memvalidasi kedua variabel URL runtime pada environment mereka, lalu lakukan UAT dan smoke test. PTSAS Production tetap tidak menerima migration otomatis dari merge GitHub.
+
