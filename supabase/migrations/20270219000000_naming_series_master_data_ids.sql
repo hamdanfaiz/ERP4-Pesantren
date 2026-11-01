@@ -51,10 +51,31 @@ CREATE TRIGGER tenant_reference_nis_grade_code_guard
   FOR EACH ROW EXECUTE FUNCTION public.guard_tenant_reference_nis_grade_code();
 REVOKE ALL ON FUNCTION public.guard_tenant_reference_nis_grade_code() FROM PUBLIC, anon, authenticated, service_role;
 
-ALTER TABLE public.tenant_naming_series
-  DROP CONSTRAINT IF EXISTS tenant_naming_series_series_key_check,
-  DROP CONSTRAINT IF EXISTS tenant_naming_series_module_id_check,
-  DROP CONSTRAINT IF EXISTS tenant_naming_series_check;
+-- Constraint names from an earlier manual application are not stable: PostgreSQL
+-- may assign the combined series/module check a generated suffix such as check1.
+-- Replace only checks that govern series_key/module_id; preserve independent
+-- display-name, description, and format validation constraints.
+DO $$
+DECLARE
+  v_constraint RECORD;
+BEGIN
+  FOR v_constraint IN
+    SELECT conname
+    FROM pg_catalog.pg_constraint
+    WHERE conrelid = 'public.tenant_naming_series'::REGCLASS
+      AND contype = 'c'
+      AND (
+        pg_catalog.pg_get_constraintdef(oid) ILIKE '%series_key%'
+        OR pg_catalog.pg_get_constraintdef(oid) ILIKE '%module_id%'
+      )
+  LOOP
+    EXECUTE pg_catalog.format(
+      'ALTER TABLE public.tenant_naming_series DROP CONSTRAINT %I',
+      v_constraint.conname
+    );
+  END LOOP;
+END;
+$$;
 ALTER TABLE public.tenant_naming_series
   ADD CONSTRAINT tenant_naming_series_series_key_check CHECK (series_key IN (
     'nis', 'ppdb_registration', 'employee_number', 'building_code', 'room_code', 'class_code'
