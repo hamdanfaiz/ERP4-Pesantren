@@ -550,7 +550,8 @@ async function main() {
 main().catch((error) => {
   const detail = error instanceof assert.AssertionError
     ? error.message
-    : error?.code || error?.name || 'unknown error';
+    : error?.message || error?.code || error?.name || 'unknown error';
   console.error(`Finance Storage HTTP test failed (${detail}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
+
