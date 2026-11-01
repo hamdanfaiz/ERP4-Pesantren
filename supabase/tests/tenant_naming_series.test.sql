@@ -33,6 +33,19 @@ INSERT INTO public.tenant_reference_items (
 SELECT is((SELECT count(*)::INTEGER FROM public.tenant_naming_series
   WHERE tenant_id='c9100000-0000-4000-8000-000000000001'), 6,
   'tenant baru memperoleh seri NIS, pendaftaran PPDB, pegawai, gedung, kamar, dan kelas');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_constraint
+  WHERE conrelid = 'public.tenant_naming_series'::regclass
+    AND contype = 'c' AND convalidated
+    AND pg_get_constraintdef(oid) ILIKE '%description%'
+    AND pg_get_constraintdef(oid) ILIKE '%display_name%'
+), 'validasi deskripsi dan nama seri tetap dipertahankan saat daftar seri diperluas');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_constraint
+  WHERE conrelid = 'public.tenant_naming_series'::regclass
+    AND conname = 'tenant_naming_series_key_module_check' AND convalidated
+    AND pg_get_constraintdef(oid) ILIKE '%building_code%'
+), 'setiap seri terikat ke modul pemilik yang benar');
 SELECT ok((SELECT count(*) = 4 AND bool_and(relrowsecurity AND relforcerowsecurity)
   FROM pg_class WHERE oid = ANY(ARRAY[
     'public.tenant_naming_series'::regclass,
