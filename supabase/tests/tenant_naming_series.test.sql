@@ -127,17 +127,20 @@ SELECT throws_ok(
     WHERE tenant_id='c9100000-0000-4000-8000-000000000001' AND code='SMP_UJI'$$,
   '23514','Kode jenjang NIS tidak dapat diubah setelah nomor diterbitkan; nonaktifkan jenjang lama dan buat jenjang baru',
   'kode jenjang tidak berubah setelah NIS terbit');
-SELECT is(public.upsert_master_data_student_auto_nis_with_actor(
+SELECT ok((public.upsert_master_data_student_auto_nis_with_actor(
   'c9100000-0000-4000-8000-000000000001',
   (SELECT id FROM public.students WHERE tenant_id='c9100000-0000-4000-8000-000000000001'
     AND source_record_id='naming-direct-student-01'),
   'naming-direct-student-01',
   '{"name":"Santri Penomoran","gender":"L","grade":"SMP","nis":"2026999999","status":"Active","details":{}}'::JSONB,
-  NULL,NULL,NULL,NULL,'c9100000-0000-4000-8000-000000000011')->>'nis',
+  NULL,NULL,NULL,NULL,'c9100000-0000-4000-8000-000000000011')->>'studentId') IS NOT NULL,
+  'pembaruan santri menggunakan identitas teknis yang sama');
+SELECT is((SELECT nis FROM public.students WHERE tenant_id='c9100000-0000-4000-8000-000000000001'
+  AND source_record_id='naming-direct-student-01'),
   '2026020003','NIS santri yang sudah terbit tidak berubah saat record diperbarui');
 SELECT is(public.save_tenant_naming_series(
   'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
-  'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6,'yearly',7,true,
+  'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6::SMALLINT,'yearly',7::BIGINT,true,
   'c9100000-0000-4000-8000-000000000021')->>'alreadyApplied',
   'false','Admin tenant dapat mengubah pola PPDB dengan validasi database');
 SELECT is((SELECT format_template FROM public.tenant_naming_series
@@ -148,33 +151,33 @@ SELECT is(public.allocate_tenant_naming_series(
   'REG-2026-000007','angka awal baru diterapkan ke penghitung aktif tanpa memakai ulang nomor terbit');
 SELECT is(public.save_tenant_naming_series(
   'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
-  'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6,'yearly',7,true,
+  'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6::SMALLINT,'yearly',7::BIGINT,true,
   'c9100000-0000-4000-8000-000000000021')->>'alreadyApplied',
   'true','permintaan konfigurasi yang sama aman diulang');
 SELECT throws_ok(
   $$SELECT public.save_tenant_naming_series(
     'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
-    'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6,'yearly',8,true,
+    'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6::SMALLINT,'yearly',8::BIGINT,true,
     'c9100000-0000-4000-8000-000000000021')$$,
   '23505','ID permintaan konfigurasi telah digunakan untuk perubahan lain',
   'kunci idempotensi tidak dapat dipakai untuk payload aturan yang berbeda');
 SELECT throws_ok(
   $$SELECT public.save_tenant_naming_series(
     'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
-    'nis','{{YEAR}}{{GRADE}}{{SEQ}}',5,'yearly',1,true,
+    'nis','{{YEAR}}{{GRADE}}{{SEQ}}',5::SMALLINT,'yearly',1::BIGINT,true,
     'c9100000-0000-4000-8000-000000000022')$$,
   '22023','Aturan NIS harus tetap menghasilkan 10 digit: tahun, kode jenjang, dan 4 digit urut tahunan',
   'NIS tidak dapat diubah menjadi format yang mematahkan kontrak 10 digit');
 SELECT throws_ok(
   $$SELECT public.save_tenant_naming_series(
     'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000012',
-    'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6,'yearly',7,true,
+    'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6::SMALLINT,'yearly',7::BIGINT,true,
     'c9100000-0000-4000-8000-000000000023')$$,
   '42501','Admin tenant dengan akses Data Induk diperlukan',
   'akun staf tidak dapat mengubah Naming Series');
 SELECT is(public.save_tenant_naming_series(
   'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
-  'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6,'yearly',7,false,
+  'ppdb_registration','REG-{{YEAR}}-{{SEQ}}',6::SMALLINT,'yearly',7::BIGINT,false,
   'c9100000-0000-4000-8000-000000000024')->>'alreadyApplied',
   'false','Admin dapat menonaktifkan seri dengan perubahan yang diaudit');
 SELECT throws_ok(
