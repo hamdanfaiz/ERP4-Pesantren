@@ -6,6 +6,7 @@ import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { SupabaseAcademicPortal } from "./SupabaseAcademicPortal";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 import { findAcademicScheduleConflicts } from "../lib/academicScheduleConflicts";
 
 type RecordRow = Record<string, any> & { id: string };
@@ -406,6 +407,7 @@ export function SupabaseAcademicManager() {
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
     <ERPTabs tabs={TABS.filter((tab) => !["schedule", "conflict-resolver", "teachers", "subjects", "curricula"].includes(tab.id) || isAdmin).map((tab) => ({ ...tab, icon: <tab.icon className="h-4 w-4" /> }))} value={activeTab} onChange={(id) => { setActiveTab(id as Tab); if (id !== "schedule") setEditingScheduleId(""); setError(""); setNotice(""); }} ariaLabel="Bagian akademik" />
+    <SupabaseModuleReferenceSettings domains={["academic_subject", "academic_curriculum", "academic_assessment_type", "academic_grade_level"]} />
 
     {activeTab === "report-card" ? <ERPFeatureStatus
       title="E-Rapor"

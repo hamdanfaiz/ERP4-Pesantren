@@ -374,7 +374,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 <option value="">Pilih jenjang aktif</option>
                 {gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
-              {!gradeLevels.length && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Tambahkan jenjang pada Data Induk → Kategori &amp; Referensi.</p>}
+              {!gradeLevels.length && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Atur jenjang pada Pengaturan kategori modul Akademik.</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kontak / Nomor Telepon</label>

@@ -4,6 +4,7 @@ import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 
 type BudgetLine = {
   id: string;
@@ -220,6 +221,7 @@ export function SupabaseFinanceBudgetManager() {
       </header>
 
       <ERPTabs tabs={BUDGET_TABS} value={view} onChange={(id) => { setView(id as BudgetTab); setError(""); setNotice(""); }} ariaLabel="Bagian Keuangan dan Anggaran" />
+      <SupabaseModuleReferenceSettings domains={["finance_expense_category"]} />
 
       {view === "budget" ? <>
       {snapshot.financeLocked && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">Buku Keuangan sedang ditutup. Pengelolaan RKAT tidak memposting transaksi; pengeluaran tetap mengikuti kontrol buku Keuangan.</div>}
@@ -251,7 +253,7 @@ export function SupabaseFinanceBudgetManager() {
             <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold text-slate-900 dark:text-white">Alokasi per bagian dan kategori</h3><button type="button" className={OUTLINE} onClick={addLine} disabled={saving || draft.lines.length >= 500}><Plus className="h-4 w-4" />Tambah alokasi</button></div>
             {draft.lines.map((line, index) => <div key={index} className="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end dark:border-white/10">
               <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Bagian / unit<input readOnly value={selectedUnit?.name || "Pilih unit rencana"} className={`${FIELD} mt-1`} /><span className="mt-1 block text-[11px] font-normal">Bagian mengikuti unit yang dipilih untuk rencana ini.</span></label>
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Kategori<select required className={`${FIELD} mt-1`} value={line.categoryReferenceId} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((item, row) => row === index ? { ...item, categoryReferenceId: event.target.value } : item) }))}><option value="">Pilih kategori pengeluaran</option>{snapshot.budgetCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{!snapshot.budgetCategories.length && <span className="mt-1 block text-[11px] font-normal text-amber-700">Tambahkan kategori di Data Induk → Kategori & Referensi.</span>}</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Kategori<select required className={`${FIELD} mt-1`} value={line.categoryReferenceId} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((item, row) => row === index ? { ...item, categoryReferenceId: event.target.value } : item) }))}><option value="">Pilih kategori pengeluaran</option>{snapshot.budgetCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{!snapshot.budgetCategories.length && <span className="mt-1 block text-[11px] font-normal text-amber-700">Buka Pengaturan kategori modul Keuangan untuk menambahkan kategori.</span>}</label>
               <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Alokasi (Rp)<input required type="number" min="1" max="999999999999" step="1" className={`${FIELD} mt-1`} placeholder="500000" value={line.allocatedAmount} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((item, row) => row === index ? { ...item, allocatedAmount: event.target.value } : item) }))} /></label>
               <button type="button" className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 px-3 text-slate-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 dark:border-slate-700" aria-label={`Hapus alokasi ${index + 1}`} disabled={saving || draft.lines.length <= 1} onClick={() => removeLine(index)}><X className="h-4 w-4" /></button>
             </div>)}

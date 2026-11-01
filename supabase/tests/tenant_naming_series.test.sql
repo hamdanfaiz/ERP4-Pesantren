@@ -87,6 +87,9 @@ SELECT ok(has_function_privilege('service_role','public.manage_ga_inventory_item
 SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public'
   AND indexname='document_records_tenant_number_normalized_uq'),
   'nomor dokumen unik walau kapitalisasi dan spasi berbeda');
+SELECT ok(NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public'
+  AND indexname='document_records_tenant_document_number_uq'),
+  'indeks unik lama yang menduplikasi aturan nomor dokumen sudah dihapus');
 SELECT ok((SELECT count(*) = 5 FROM pg_indexes WHERE schemaname='public' AND indexname IN (
   'donations_tenant_receipt_normalized_uq','waqf_assets_tenant_asset_code_normalized_uq',
   'laundry_orders_tenant_order_number_normalized_uq','cooperative_products_tenant_sku_normalized_uq',

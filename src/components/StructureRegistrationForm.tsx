@@ -55,7 +55,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
       return;
     }
     if (type === 'Kelas' && !gradeLevels.some((item) => item.id === formData.gradeLevelReferenceId && item.name === formData.grade)) {
-      setMessage({ type: 'error', text: 'Pilih jenjang aktif dari Kategori & Referensi terlebih dahulu.' });
+      setMessage({ type: 'error', text: 'Pilih jenjang aktif yang diatur pada modul Akademik.' });
       return;
     }
 
@@ -246,7 +246,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
                     <option value="">Pilih jenjang aktif</option>
                     {gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                   </select>
-                  {!gradeLevels.length && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Tambahkan jenjang pada Data Induk → Kategori &amp; Referensi.</p>}
+                  {!gradeLevels.length && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Atur jenjang pada Pengaturan kategori modul Akademik.</p>}
                 </div>
               </>
             )}

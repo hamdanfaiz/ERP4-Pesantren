@@ -1,4 +1,7 @@
 import { getAccessToken } from "../authSession";
+import { isCompleteTenantNamingSeriesCatalog } from "../lib/namingSeriesCatalog.js";
+
+export { isCompleteTenantNamingSeriesCatalog, TENANT_NAMING_SERIES_KEYS } from "../lib/namingSeriesCatalog.js";
 
 export type SupabaseStructureCategory = "Gedung" | "Kamar" | "Kelas";
 
@@ -102,7 +105,7 @@ async function requestMasterData<T>(path: string, init: RequestInit = {}): Promi
 
 export async function listSupabaseTenantNamingSeries(): Promise<TenantNamingSeries[]> {
   const result = await requestMasterData<{ records: TenantNamingSeries[] }>("/api/master-data/naming-series");
-  if (!Array.isArray(result.records) || result.records.length !== 6) {
+  if (!isCompleteTenantNamingSeriesCatalog(result.records)) {
     throw new Error("Seri penomoran tenant belum lengkap.");
   }
   return result.records;

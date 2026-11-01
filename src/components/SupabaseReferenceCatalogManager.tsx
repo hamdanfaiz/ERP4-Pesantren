@@ -37,10 +37,14 @@ function normalizedCode(value: string) {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80);
 }
 
-export function SupabaseReferenceCatalogManager() {
+export function SupabaseReferenceCatalogManager({ domains }: { domains?: SupabaseReferenceDomain[] }) {
   const { user } = useAuth();
   const isAdmin = ["Admin", "SuperAdmin"].includes(String(user?.role || ""));
-  const [domain, setDomain] = useState<SupabaseReferenceDomain>(DOMAINS[0].id);
+  const availableDomains = useMemo(
+    () => domains ? DOMAINS.filter((item) => domains.includes(item.id)) : DOMAINS,
+    [domains],
+  );
+  const [domain, setDomain] = useState<SupabaseReferenceDomain>(domains?.[0] || DOMAINS[0].id);
   const [rows, setRows] = useState<SupabaseReferenceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,7 +52,11 @@ export function SupabaseReferenceCatalogManager() {
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState<SupabaseReferenceItem | null>(null);
   const [form, setForm] = useState({ code: "", name: "", description: "", status: "active" as "active" | "inactive", nisGradeCode: "" });
-  const selectedDomain = useMemo(() => DOMAINS.find((item) => item.id === domain) || DOMAINS[0], [domain]);
+  const selectedDomain = useMemo(() => availableDomains.find((item) => item.id === domain) || availableDomains[0] || DOMAINS[0], [availableDomains, domain]);
+
+  useEffect(() => {
+    if (!availableDomains.some((item) => item.id === domain) && availableDomains[0]) setDomain(availableDomains[0].id);
+  }, [availableDomains, domain]);
 
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
@@ -75,7 +83,8 @@ export function SupabaseReferenceCatalogManager() {
 
   if (!isAdmin) return <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Pengelolaan kategori referensi hanya tersedia untuk Admin tenant.</section>;
 
-  const tabs = DOMAINS.map((item) => ({ id: item.id, label: item.label }));
+  if (!availableDomains.length) return <section role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Katalog pilihan untuk modul ini belum dikonfigurasi.</section>;
+  const tabs = availableDomains.map((item) => ({ id: item.id, label: item.label }));
   return <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
     <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"><div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kategori dan referensi tenant</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">Nama menjadi pilihan baku antar-modul. Deskripsi menjelaskan arti atau aturan penggunaannya. Referensi yang sudah dipakai dinonaktifkan, bukan dihapus.</p></div><button type="button" className={SECONDARY} onClick={() => void refresh()} disabled={loading}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button></header>
     <ERPTabs tabs={tabs} value={domain} onChange={(value) => { setDomain(value as SupabaseReferenceDomain); setEditing(null); setError(""); setNotice(""); }} ariaLabel="Kategori referensi tenant" />
@@ -101,4 +110,20 @@ export function SupabaseReferenceCatalogManager() {
       </form>
     </div>
   </section>;
+}
+
+export function SupabaseModuleReferenceSettings({ domains }: { domains: SupabaseReferenceDomain[] }) {
+  const { user } = useAuth();
+  if (!["Admin", "SuperAdmin"].includes(String(user?.role || ""))) return null;
+
+  return <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900">
+    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800 marker:hidden dark:text-slate-100">
+      <span>Pengaturan kategori dan referensi modul ini</span>
+      <span className="text-xs font-medium text-slate-500 group-open:hidden">Buka</span>
+      <span className="hidden text-xs font-medium text-slate-500 group-open:inline">Tutup</span>
+    </summary>
+    <div className="border-t border-slate-200 p-3 dark:border-white/10">
+      <SupabaseReferenceCatalogManager domains={domains} />
+    </div>
+  </details>;
 }

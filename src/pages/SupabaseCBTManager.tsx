@@ -4,6 +4,7 @@ import { Activity, AlertCircle, BookOpen, Boxes, CalendarClock, CalendarDays, Ch
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 
 type Question = {
   id: string; subject: string; grade: string; template: string; subjectReferenceId: string;
@@ -308,6 +309,7 @@ export function SupabaseCBTManager() {
     </div>
 
     <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
+    <SupabaseModuleReferenceSettings domains={["cbt_question_template"]} />
 
     {CBT_PENDING[tab] && <ERPFeatureStatus title={CBT_REFERENCE_TABS.find((item) => item.id === tab)?.label || "Fitur CBT"} description={CBT_PENDING[tab]!} />}
 
@@ -321,7 +323,7 @@ export function SupabaseCBTManager() {
         <form onSubmit={saveQuestion} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={form.subjectReferenceId} onChange={(e) => setForm({ ...form, subjectReferenceId: e.target.value })}><option value="">Pilih mata pelajaran</option>{snapshot.references.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Jenjang pendidikan<select required className={FIELD} value={form.gradeLevelReferenceId} onChange={(e) => setForm({ ...form, gradeLevelReferenceId: e.target.value })}><option value="">Pilih jenjang</option>{snapshot.references.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Paket soal<select required className={FIELD} value={form.templateReferenceId} onChange={(e) => setForm({ ...form, templateReferenceId: e.target.value })}><option value="">Pilih paket soal</option>{snapshot.references.templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Kesulitan<select className={FIELD} value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}><option value="Easy">Mudah</option><option value="Medium">Sedang</option><option value="Hard">Sulit</option></select></label></div>
-          {(!snapshot.references.subjects.length || !snapshot.references.gradeLevels.length || !snapshot.references.templates.length) && <p role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Katalog mata pelajaran, jenjang, dan paket soal harus diisi Admin melalui Data Induk → Kategori & Referensi sebelum soal dapat disimpan.</p>}
+          {(!snapshot.references.subjects.length || !snapshot.references.gradeLevels.length || !snapshot.references.templates.length) && <p role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Pilih mata pelajaran dan jenjang yang sudah dikelola di Akademik, serta paket soal dari Pengaturan kategori modul CBT.</p>}
           <label className={LABEL}>Teks soal<textarea required rows={4} maxLength={12000} className={FIELD} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} /></label>
           <div className="space-y-2"><span className={LABEL}>Opsi jawaban</span>{form.options.map((option, index) => <div key={index} className="flex items-center gap-2"><span className="w-6 text-xs font-bold text-slate-500">{String.fromCharCode(65 + index)}</span><input aria-label={"Opsi " + String.fromCharCode(65 + index)} maxLength={1000} className={FIELD + " mt-0"} value={option} onChange={(e) => setForm({ ...form, options: form.options.map((value, optionIndex) => optionIndex === index ? e.target.value : value) })} /></div>)}</div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Indeks jawaban benar<select className={FIELD} value={form.correctAnswer} onChange={(e) => setForm({ ...form, correctAnswer: e.target.value })}>{form.options.map((_, index) => <option key={index} value={index}>{String.fromCharCode(65 + index)}</option>)}</select></label><label className={LABEL}>Tag, pisahkan dengan koma<input className={FIELD} value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></label></div>

@@ -33,7 +33,6 @@ import {
   SlidersHorizontal,
   FileSpreadsheet,
   Upload,
-  Layers,
   BookOpen,
   FilterX,
   Hash
@@ -45,7 +44,6 @@ import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
 import { MasterDataTransferModal } from "../components/MasterDataTransferModal";
 import { SupabaseMasterDataAuditPanel } from "../components/SupabaseMasterDataAuditPanel";
-import { SupabaseReferenceCatalogManager } from "../components/SupabaseReferenceCatalogManager";
 import { SupabaseNamingSeriesManager } from "../components/SupabaseNamingSeriesManager";
 import { downloadTransferCsv } from "../utils/dataTransferCsv";
 import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
@@ -79,7 +77,6 @@ const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "K
 const TABS = [
   { id: "entities", label: "Data Entitas", icon: Users },
   { id: "structure", label: "Struktur", icon: Building },
-  { id: "references", label: "Kategori & Referensi", icon: Layers },
   { id: "naming", label: "Aturan Penomoran", icon: Hash },
   { id: "audit", label: "Jejak Audit", icon: Activity },
 ];
@@ -87,7 +84,6 @@ const TABS = [
 const SUB_TABS: Record<string, string[]> = {
   entities: ["Santri"],
   structure: ["Gedung", "Kamar", "Kelas", "Peta Struktur"],
-  references: ["Mata Pelajaran", "Kurikulum", "Jenis Penilaian", "Jenjang Pendidikan", "Paket Soal CBT", "Jabatan Pegawai", "Fasilitas", "Jenis Tagihan", "Kategori Pengeluaran"],
   naming: ["Aturan Penomoran"],
   audit: ["Semua Aktivitas"],
 };
@@ -198,17 +194,17 @@ export function MasterDataManager() {
   // Naming Series stays discoverable even when this preview has no Supabase
   // runtime. Its configuration screen then shows a clear unavailable state;
   // it must never fall through to mock CRUD actions.
-  const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME ? TABS : TABS.filter((tab) => tab.id !== "references");
+  const visibleTabs = TABS;
   // Keep legacy state variants typed for the retained non-Supabase branches;
   // only the three owner tabs below are exposed in the current navigation.
-  const [activeTab, setActiveTab] = useState<"entities" | "structure" | "references" | "naming" | "academic" | "booking" | "audit">("entities");
+  const [activeTab, setActiveTab] = useState<"entities" | "structure" | "naming" | "academic" | "booking" | "audit">("entities");
   const [activeSubTab, setActiveSubTab] = useState("Santri");
   const visibleSubTabs = SUB_TABS[activeTab] || [];
   const isSupabaseTransferView = SUPABASE_MASTER_DATA_RUNTIME
     && (activeTab === "entities" && activeSubTab === "Santri"
       || activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab));
   const isSupabaseStructureMap = SUPABASE_MASTER_DATA_RUNTIME && activeTab === "structure" && activeSubTab === "Peta Struktur";
-  const isTenantConfigurationTab = activeTab === "references" || activeTab === "naming";
+  const isTenantConfigurationTab = activeTab === "naming";
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [roomHistory, setRoomHistory] = useState<SupabaseStudentRoomAssignmentHistoryEntry[]>([]);
   const [roomHistoryStudentId, setRoomHistoryStudentId] = useState("");
@@ -526,7 +522,7 @@ export function MasterDataManager() {
   const handleTabChange = (
     tabId: string,
   ) => {
-    setActiveTab(tabId as "entities" | "structure" | "references" | "naming" | "academic" | "booking" | "audit");
+    setActiveTab(tabId as "entities" | "structure" | "naming" | "academic" | "booking" | "audit");
     const nextSubTabs = SUB_TABS[tabId] || [];
     setActiveSubTab(nextSubTabs[0] || "Santri");
     setSelectedRecord(null);
@@ -1690,7 +1686,7 @@ export function MasterDataManager() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {["NIS dan nomor pendaftaran", "Nomor pegawai", "Gedung, kamar, dan kelas", "Dokumen dan kuitansi", "Aset, persediaan, dan wakaf", "Laundry, koperasi, dan marketplace"].map((label) => <div key={label} className="rounded-xl border border-slate-200 p-4 text-sm font-medium text-slate-700 dark:border-white/10 dark:text-slate-200">{label}</div>)}
         </div>
-      </section>) : SUPABASE_MASTER_DATA_RUNTIME && activeTab === "references" ? <SupabaseReferenceCatalogManager /> : <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col md:flex-row min-h-[600px] relative print:border-none print:shadow-none print:bg-transparent print:min-h-0 print:block">
+      </section>) : <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col md:flex-row min-h-[600px] relative print:border-none print:shadow-none print:bg-transparent print:min-h-0 print:block">
         {/* Left Sidebar / Sub-nav */}
         <div className="w-full md:w-56 border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/5 bg-black/20 p-4 print:hidden">
           <div className="text-[10px] uppercase font-semibold text-slate-500 tracking-widest mb-3 px-2">

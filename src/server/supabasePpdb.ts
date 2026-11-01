@@ -113,7 +113,7 @@ function prepareAdminPpdbCandidate(raw: unknown, index: number, gradeLevels: Gra
     ? gradeLevels.find((item) => item.id === requestedGradeId)
     : gradeLevels.find((item) => item.name.toLocaleLowerCase("id-ID") === requestedGrade.toLocaleLowerCase("id-ID"));
   if (!selectedGrade || selectedGrade.name.toLocaleLowerCase("id-ID") !== requestedGrade.toLocaleLowerCase("id-ID")) {
-    throw new SupabasePpdbError(400, "Jenjang harus dipilih dari Kategori & Referensi tenant yang aktif.");
+    throw new SupabasePpdbError(400, "Jenjang harus dipilih dari referensi tenant yang aktif.");
   }
   const grade = selectedGrade.name;
   const previousSchool = cleanCandidateText(candidate.previousSchool, "Asal sekolah", 160, true);
@@ -204,7 +204,7 @@ export async function previewSupabasePpdbCandidates(
   }
   await requireActiveTenant(tenantId);
   const gradeLevels = await listActiveTenantGradeLevels(tenantId);
-  if (!gradeLevels.length) throw new SupabasePpdbError(409, "Tambahkan jenjang aktif pada Data Induk → Kategori & Referensi sebelum meninjau pendaftar.");
+  if (!gradeLevels.length) throw new SupabasePpdbError(409, "Atur jenjang aktif pada modul Akademik → Pengaturan kategori dan referensi sebelum meninjau pendaftar.");
 
   const rows = payload.candidates.map((raw: unknown, index: number) => {
     try {
@@ -309,7 +309,7 @@ export async function createSupabasePpdbCandidates(
 
   const fingerprintKey = ppdbRequestFingerprintKey();
   const gradeLevels = await listActiveTenantGradeLevels(tenantId);
-  if (!gradeLevels.length) throw new SupabasePpdbError(409, "Tambahkan jenjang aktif pada Data Induk → Kategori & Referensi sebelum menyimpan pendaftar.");
+  if (!gradeLevels.length) throw new SupabasePpdbError(409, "Atur jenjang aktif pada modul Akademik → Pengaturan kategori dan referensi sebelum menyimpan pendaftar.");
   const candidates = payload.candidates.map((raw: unknown, index: number) => prepareAdminPpdbCandidate(raw, index, gradeLevels, true));
   // Fingerprint stable normalized plaintext before randomized encryption. Only the HMAC is stored.
   const canonical = JSON.stringify(candidates.map((entry) => entry.requestFingerprintMaterial));
