@@ -41,7 +41,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     name: initialData?.name || '',
     type: 'Santri',
     status: initialData?.status || 'Active',
-    identifier: initialData?.identifier || '',
+    identifier: initialData?.nis || initialData?.identifier || '',
     contact: initialData?.contact || '',
     gradeOrDepartment: initialData?.gradeOrDepartment || '',
     nik: initialData?.nik || '',
@@ -253,14 +253,18 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
       if (formData.type !== 'Santri') {
         throw new Error('Kategori ini belum tersedia pada runtime Supabase.');
       }
-      const savedData = await upsertSupabaseMasterDataStudent({
+      const studentPayload = {
         ...result.data,
-        id: result.data.id || initialData?.id || `SAN-${globalThis.crypto.randomUUID()}`,
+        nis: isEdit ? String(initialData?.nis || formData.identifier || '').trim() || null : null,
+      };
+      const savedData = await upsertSupabaseMasterDataStudent({
+        ...studentPayload,
+        id: isEdit ? result.data.id || initialData?.id || '' : '',
         supabaseId: initialData?.supabaseId,
         type: 'Santri',
         tenantId: user?.tenantId,
       });
-      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" berhasil disimpan dengan validasi skema ketat.` });
+      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" tersimpan dengan NIS ${savedData.nis || 'otomatis'} dan pemeriksaan keunikan backend.` });
       if (onSuccess) onSuccess(savedData);
     } catch (error) {
       console.error("Error adding document: ", error);
@@ -338,14 +342,15 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nomor Identitas (NIS/NIP/NIK)</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nomor Induk Santri (NIS)</label>
               <input
                 type="text"
                 value={formData.identifier}
-                onChange={(e) => handleFieldChange('identifier', e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                placeholder="Contoh: 1234567890"
+                readOnly
+                className="w-full cursor-not-allowed bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm opacity-80"
+                placeholder="Diterbitkan backend saat data santri disimpan"
               />
+              <p className="mt-1 text-xs text-slate-500">NIS baru dibuat otomatis setelah jenjang dipilih; NIS yang sudah terbit tidak dapat diubah dari formulir ini.</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenjang pendidikan</label>

@@ -96,13 +96,13 @@ async function listActiveTenantGradeLevels(tenantId: string): Promise<GradeLevel
     .map((row: JsonObject) => ({ id: String(row.id), name: String(row.name).trim() }));
 }
 
-function prepareAdminPpdbCandidate(raw: unknown, index: number, gradeLevels: GradeLevelChoice[]) {
+function prepareAdminPpdbCandidate(raw: unknown, index: number, gradeLevels: GradeLevelChoice[], allowAutoRegistrationId = false) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new SupabasePpdbError(400, `Data calon santri ke-${index + 1} tidak valid.`);
   }
   const candidate = raw as JsonObject;
-  const registrationId = cleanCandidateText(candidate.registrationId, "Nomor pendaftaran", 50, true).toLocaleUpperCase("id-ID");
-  if (!/^[A-Z0-9][A-Z0-9./-]{0,49}$/.test(registrationId)) {
+  const registrationId = cleanCandidateText(candidate.registrationId, "Nomor pendaftaran", 50, !allowAutoRegistrationId).toLocaleUpperCase("id-ID");
+  if (registrationId && !/^[A-Z0-9][A-Z0-9./-]{0,49}$/.test(registrationId)) {
     throw new SupabasePpdbError(400, "Nomor pendaftaran hanya boleh berisi huruf, angka, titik, garis miring, dan tanda hubung.");
   }
   const name = cleanCandidateText(candidate.name, "Nama calon santri", 120, true);
@@ -310,7 +310,7 @@ export async function createSupabasePpdbCandidates(
   const fingerprintKey = ppdbRequestFingerprintKey();
   const gradeLevels = await listActiveTenantGradeLevels(tenantId);
   if (!gradeLevels.length) throw new SupabasePpdbError(409, "Tambahkan jenjang aktif pada Data Induk → Kategori & Referensi sebelum menyimpan pendaftar.");
-  const candidates = payload.candidates.map((raw: unknown, index: number) => prepareAdminPpdbCandidate(raw, index, gradeLevels));
+  const candidates = payload.candidates.map((raw: unknown, index: number) => prepareAdminPpdbCandidate(raw, index, gradeLevels, true));
   // Fingerprint stable normalized plaintext before randomized encryption. Only the HMAC is stored.
   const canonical = JSON.stringify(candidates.map((entry) => entry.requestFingerprintMaterial));
   const payloadFingerprint = createHmac("sha256", fingerprintKey).update(canonical, "utf8").digest("hex");
@@ -333,7 +333,8 @@ export async function createSupabasePpdbCandidates(
     const id = String(item.id || "");
     const registrationId = String(item.registrationId || "");
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
-      || registrationId !== candidates[index].registrationId) {
+      || (candidates[index].registrationId && registrationId !== candidates[index].registrationId)
+      || !/^[A-Z0-9][A-Z0-9./-]{0,49}$/.test(registrationId)) {
       throw new SupabasePpdbError(503, "Backend belum mengonfirmasi identitas calon santri yang tersimpan.");
     }
     return { id, registrationId };

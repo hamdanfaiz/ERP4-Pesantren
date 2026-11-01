@@ -35,7 +35,8 @@ import {
   Upload,
   Layers,
   BookOpen,
-  FilterX
+  FilterX,
+  Hash
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Scanner } from "@yudiel/react-qr-scanner";
@@ -45,6 +46,7 @@ import { ExportModal } from "../components/ExportModal";
 import { MasterDataTransferModal } from "../components/MasterDataTransferModal";
 import { SupabaseMasterDataAuditPanel } from "../components/SupabaseMasterDataAuditPanel";
 import { SupabaseReferenceCatalogManager } from "../components/SupabaseReferenceCatalogManager";
+import { SupabaseNamingSeriesManager } from "../components/SupabaseNamingSeriesManager";
 import { downloadTransferCsv } from "../utils/dataTransferCsv";
 import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import {
@@ -78,6 +80,7 @@ const TABS = [
   { id: "entities", label: "Data Entitas", icon: Users },
   { id: "structure", label: "Struktur", icon: Building },
   { id: "references", label: "Kategori & Referensi", icon: Layers },
+  { id: "naming", label: "Aturan Penomoran", icon: Hash },
   { id: "audit", label: "Jejak Audit", icon: Activity },
 ];
 
@@ -85,6 +88,7 @@ const SUB_TABS: Record<string, string[]> = {
   entities: ["Santri"],
   structure: ["Gedung", "Kamar", "Kelas", "Peta Struktur"],
   references: ["Mata Pelajaran", "Kurikulum", "Jenis Penilaian", "Jenjang Pendidikan", "Paket Soal CBT", "Jabatan Pegawai", "Fasilitas", "Jenis Tagihan", "Kategori Pengeluaran"],
+  naming: ["Aturan Penomoran"],
   audit: ["Semua Aktivitas"],
 };
 
@@ -191,10 +195,10 @@ function masterAuditActionLabel(action: string) {
 
 export function MasterDataManager() {
   const { user } = useAuth();
-  const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME ? TABS : TABS.filter((tab) => tab.id !== "references");
+  const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME ? TABS : TABS.filter((tab) => tab.id !== "references" && tab.id !== "naming");
   // Keep legacy state variants typed for the retained non-Supabase branches;
   // only the three owner tabs below are exposed in the current navigation.
-  const [activeTab, setActiveTab] = useState<"entities" | "structure" | "references" | "academic" | "booking" | "audit">("entities");
+  const [activeTab, setActiveTab] = useState<"entities" | "structure" | "references" | "naming" | "academic" | "booking" | "audit">("entities");
   const [activeSubTab, setActiveSubTab] = useState("Santri");
   const visibleSubTabs = SUB_TABS[activeTab] || [];
   const isSupabaseTransferView = SUPABASE_MASTER_DATA_RUNTIME
@@ -518,7 +522,7 @@ export function MasterDataManager() {
   const handleTabChange = (
     tabId: string,
   ) => {
-    setActiveTab(tabId as "entities" | "structure" | "references" | "academic" | "booking" | "audit");
+    setActiveTab(tabId as "entities" | "structure" | "references" | "naming" | "academic" | "booking" | "audit");
     const nextSubTabs = SUB_TABS[tabId] || [];
     setActiveSubTab(nextSubTabs[0] || "Santri");
     setSelectedRecord(null);
@@ -1671,7 +1675,7 @@ export function MasterDataManager() {
         })}
       </div>
 
-      {SUPABASE_MASTER_DATA_RUNTIME && activeTab === "references" ? <SupabaseReferenceCatalogManager /> : <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col md:flex-row min-h-[600px] relative print:border-none print:shadow-none print:bg-transparent print:min-h-0 print:block">
+      {SUPABASE_MASTER_DATA_RUNTIME && activeTab === "references" ? <SupabaseReferenceCatalogManager /> : SUPABASE_MASTER_DATA_RUNTIME && activeTab === "naming" ? <SupabaseNamingSeriesManager /> : <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col md:flex-row min-h-[600px] relative print:border-none print:shadow-none print:bg-transparent print:min-h-0 print:block">
         {/* Left Sidebar / Sub-nav */}
         <div className="w-full md:w-56 border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/5 bg-black/20 p-4 print:hidden">
           <div className="text-[10px] uppercase font-semibold text-slate-500 tracking-widest mb-3 px-2">

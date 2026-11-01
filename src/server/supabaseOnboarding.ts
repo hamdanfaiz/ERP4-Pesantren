@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { isOperationalBoardingStudent } from "./boardingStatus";
 
 export class SupabaseOnboardingError extends Error {
@@ -171,44 +171,28 @@ export async function listSupabaseMasterDataStructures(tenantIdentifier: string)
   });
 }
 
-export async function getSupabaseNextSantriNis(
-  tenantIdentifier: string,
-  grade: string,
-  candidateId?: string
-) {
-  const tenantId = await resolveActiveTenantId(tenantIdentifier);
-  const body = await supabaseRequest("/rest/v1/rpc/next_available_santri_nis", {
-    method: "POST",
-    body: JSON.stringify({
-      p_tenant_id: tenantId,
-      p_grade: String(grade || ""),
-      p_exclude_candidate_id: candidateId ? validateUuid(candidateId, "ID calon santri") : null,
-    }),
-  });
-  if (typeof body !== "string" || !/^[0-9]{10}$/.test(body)) {
-    throw new SupabaseOnboardingError(503, "Backend belum menghasilkan NIS yang valid.");
-  }
-  return body;
-}
-
 export async function upsertSupabaseMasterDataStructure(
   tenantIdentifier: string,
   categoryValue: unknown,
   recordId: unknown,
   recordValue: unknown,
-  actorUserId: string
+  actorUserId: string,
+  options: { preserveImportedId?: boolean } = {}
 ) {
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
   const actorId = validateUuid(actorUserId, "ID Admin");
   const category = validateCategory(categoryValue);
   const id = typeof recordId === "string" ? recordId.trim() : "";
-  if (!id || id.length > 160 || id.includes("/")) {
+  if (id.length > 160 || id.includes("/")) {
     throw new SupabaseOnboardingError(400, "ID struktur tidak valid.");
   }
   const rawRecord = recordValue && typeof recordValue === "object" && !Array.isArray(recordValue)
     ? recordValue as JsonObject
     : null;
   if (!rawRecord) throw new SupabaseOnboardingError(400, "Data struktur tidak valid.");
+  if (options.preserveImportedId && !id) {
+    throw new SupabaseOnboardingError(400, "ID historis wajib tersedia untuk impor struktur.");
+  }
   const record = { ...rawRecord };
   if (category === "Kamar") {
     const capacity = parseCapacity(record.capacity);
@@ -216,7 +200,9 @@ export async function upsertSupabaseMasterDataStructure(
     record.capacity = capacity;
   }
 
-  return supabaseRequest("/rest/v1/rpc/upsert_master_data_structure_with_actor", {
+  return supabaseRequest(options.preserveImportedId
+    ? "/rest/v1/rpc/upsert_master_data_structure_with_actor"
+    : "/rest/v1/rpc/upsert_master_data_structure_auto_with_actor", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId,
@@ -457,7 +443,7 @@ export async function migrateSupabaseMasterDataStructures(
     const wasPresent = existingByKey.has(key);
     try {
       if (!wasPresent) {
-        await upsertSupabaseMasterDataStructure(tenantIdentifier, item.category, item.id, item.record, actorId);
+        await upsertSupabaseMasterDataStructure(tenantIdentifier, item.category, item.id, item.record, actorId, { preserveImportedId: true });
         imported += 1;
       } else {
         skipped += 1;
@@ -1063,7 +1049,7 @@ function safeStudentDetails(record: JsonObject): JsonObject {
   const excluded = new Set([
     "id", "supabaseId", "sourceRecordId", "tenantId", "type", "category",
     "name", "nis", "gender", "grade", "classId", "roomId", "buildingId",
-    "dormitoryId", "status", "nik", "nisn", "createdAt", "updatedAt",
+    "dormitoryId", "identifier", "status", "nik", "nisn", "createdAt", "updatedAt",
   ]);
   const details: JsonObject = {};
   Object.entries(record).forEach(([key, value]) => {
@@ -1309,7 +1295,7 @@ export async function upsertSupabaseMasterDataStudent(
   const providedSourceRecordId = typeof record.sourceRecordId === "string" ? record.sourceRecordId.trim() : "";
   const recordId = typeof record.id === "string" ? record.id.trim() : "";
   const sourceRecordId = providedSourceRecordId
-    || (studentId ? (recordId && !isCanonicalUuid(recordId) ? recordId : "") : (recordId || studentIdentifier).trim());
+    || (studentId ? (recordId && !isCanonicalUuid(recordId) ? recordId : "") : (recordId || studentIdentifier || `SAN-${randomUUID()}`).trim());
   if (!studentId && (!sourceRecordId || sourceRecordId.length > 1500)) {
     throw new SupabaseOnboardingError(400, "ID santri tidak valid.");
   }
@@ -1352,7 +1338,7 @@ export async function upsertSupabaseMasterDataStudent(
   const buildingId = rawBuildingId || null;
   const details = safeStudentDetails(record);
 
-  const result = await supabaseRequest("/rest/v1/rpc/upsert_master_data_student_with_actor", {
+  const result = await supabaseRequest("/rest/v1/rpc/upsert_master_data_student_auto_nis_with_actor", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId,

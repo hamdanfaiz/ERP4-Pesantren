@@ -200,6 +200,10 @@ export async function upsertSupabaseHrisEmployee(tenantIdentifier: string, actor
   if (!isUuid(actorId) || !isUuid(employeeId) || !isUuid(requestId)) throw new SupabaseHrisError(400, "Identitas permintaan tidak valid.");
   const organizationUnitId = requiredText(input.organizationUnitId, "Unit kerja", 64);
   if (!isUuid(organizationUnitId)) throw new SupabaseHrisError(400, "Pilih unit kerja yang valid.");
+  const employeeNumber = typeof input.employeeNumber === "string" ? input.employeeNumber.trim() : "";
+  if (employeeNumber.length > 40 || (employeeNumber && !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,39}$/.test(employeeNumber))) {
+    throw new SupabaseHrisError(400, "Nomor pegawai lama tidak valid.");
+  }
   const jobTitle = await activeJobTitleName(tenantId, input.jobTitleReferenceId);
   const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
   const phone = typeof input.phone === "string" ? input.phone.trim() : "";
@@ -212,7 +216,7 @@ export async function upsertSupabaseHrisEmployee(tenantIdentifier: string, actor
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId, p_actor_user_id: actorId, p_employee_id: employeeId,
-      p_employee_number: requiredText(input.employeeNumber, "Nomor pegawai", 40),
+      p_employee_number: employeeNumber || null,
       p_full_name: requiredText(input.fullName, "Nama pegawai", 180),
       p_job_title: requiredText(jobTitle, "Jabatan", 120),
       p_organization_unit_id: organizationUnitId,

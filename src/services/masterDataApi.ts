@@ -27,10 +27,25 @@ export type SupabaseReferenceItem = {
   domain: SupabaseReferenceDomain;
   code: string;
   name: string;
+  nisGradeCode: string | null;
   description: string;
   status: "active" | "inactive";
   organizationUnitId: string | null;
   createdAt: string;
+  updatedAt: string;
+};
+
+export type TenantNamingSeriesKey = "nis" | "ppdb_registration" | "employee_number" | "building_code" | "room_code" | "class_code";
+export type TenantNamingSeries = {
+  seriesKey: TenantNamingSeriesKey;
+  moduleId: "master-data" | "ppdb" | "hris";
+  displayName: string;
+  description: string;
+  formatTemplate: string;
+  sequenceWidth: number;
+  resetPeriod: "never" | "yearly" | "monthly";
+  startNumber: number;
+  isActive: boolean;
   updatedAt: string;
 };
 
@@ -85,6 +100,30 @@ async function requestMasterData<T>(path: string, init: RequestInit = {}): Promi
   return payload as T;
 }
 
+export async function listSupabaseTenantNamingSeries(): Promise<TenantNamingSeries[]> {
+  const result = await requestMasterData<{ records: TenantNamingSeries[] }>("/api/master-data/naming-series");
+  if (!Array.isArray(result.records) || result.records.length !== 6) {
+    throw new Error("Seri penomoran tenant belum lengkap.");
+  }
+  return result.records;
+}
+
+export async function saveSupabaseTenantNamingSeries(
+  input: Pick<TenantNamingSeries, "seriesKey" | "formatTemplate" | "sequenceWidth" | "resetPeriod" | "startNumber" | "isActive">,
+): Promise<TenantNamingSeries> {
+  const result = await requestMasterData<{ record: TenantNamingSeries }>(
+    "/api/master-data/naming-series/" + encodeURIComponent(input.seriesKey),
+    {
+      method: "PUT",
+      body: JSON.stringify({ ...input, clientRequestId: crypto.randomUUID() }),
+    },
+  );
+  if (!result.record || result.record.seriesKey !== input.seriesKey) {
+    throw new Error("Perubahan seri penomoran belum dapat diverifikasi.");
+  }
+  return result.record;
+}
+
 export async function listSupabaseReferenceItems(domain: SupabaseReferenceDomain, includeInactive = false) {
   const params = new URLSearchParams({ domain });
   if (includeInactive) params.set("includeInactive", "true");
@@ -94,7 +133,7 @@ export async function listSupabaseReferenceItems(domain: SupabaseReferenceDomain
 
 export async function saveSupabaseReferenceItem(
   domain: SupabaseReferenceDomain,
-  record: Pick<SupabaseReferenceItem, "code" | "name" | "description" | "status" | "organizationUnitId">,
+  record: Pick<SupabaseReferenceItem, "code" | "name" | "description" | "status" | "organizationUnitId" | "nisGradeCode">,
   id?: string,
 ) {
   const path = id
@@ -130,10 +169,12 @@ export async function upsertSupabaseMasterDataStructure(
   record: Record<string, unknown>
 ) {
   const id = typeof record.id === "string" ? record.id.trim() : "";
-  if (!id) throw new Error("ID struktur wajib diisi.");
+  const path = id
+    ? "/api/master-data/structures/" + encodeURIComponent(category) + "/" + encodeURIComponent(id)
+    : "/api/master-data/structures/" + encodeURIComponent(category);
   const result = await requestMasterData<{ record: SupabaseStructureRecord }>(
-    "/api/master-data/structures/" + encodeURIComponent(category) + "/" + encodeURIComponent(id),
-    { method: "PUT", body: JSON.stringify({ record }) }
+    path,
+    { method: id ? "PUT" : "POST", body: JSON.stringify({ record }) }
   );
   return result.record;
 }
@@ -373,10 +414,9 @@ export async function upsertSupabaseMasterDataStudent(
   const sourceId = typeof record.id === "string" ? record.id.trim() : "";
   const supabaseId = typeof record.supabaseId === "string" ? record.supabaseId.trim() : "";
   const identifier = supabaseId || sourceId;
-  if (!identifier) throw new Error("ID santri wajib diisi.");
   const result = await requestMasterData<{ record: SupabaseMasterDataStudentRecord }>(
-    "/api/master-data/students/" + encodeURIComponent(identifier),
-    { method: "PUT", body: JSON.stringify({ record }) }
+    identifier ? "/api/master-data/students/" + encodeURIComponent(identifier) : "/api/master-data/students",
+    { method: identifier ? "PUT" : "POST", body: JSON.stringify({ record }) }
   );
   return result.record;
 }

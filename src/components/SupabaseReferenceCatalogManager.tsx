@@ -13,7 +13,7 @@ const DOMAINS: Array<{ id: SupabaseReferenceDomain; label: string; help: string 
   { id: "academic_subject", label: "Mata Pelajaran", help: "Dipakai pada jadwal, jurnal KBM, dan penilaian." },
   { id: "academic_curriculum", label: "Kurikulum", help: "Dipakai pada jadwal akademik." },
   { id: "academic_assessment_type", label: "Jenis Penilaian", help: "Dipakai pada pencatatan nilai santri." },
-  { id: "academic_grade_level", label: "Jenjang Pendidikan", help: "Satu jenjang tenant menghubungkan kelas, pendaftaran PPDB, data santri, tagihan, kursus LMS, dan ujian CBT." },
+  { id: "academic_grade_level", label: "Jenjang Pendidikan", help: "Satu jenjang tenant menghubungkan kelas, pendaftaran PPDB, data santri, tagihan, kursus LMS, dan ujian CBT. Setiap jenjang aktif juga memerlukan kode NIS dua digit yang unik." },
   { id: "cbt_question_template", label: "Paket Soal CBT", help: "Paket atau format bank soal yang dipilih pada setiap soal." },
   { id: "hris_job_title", label: "Jabatan Pegawai", help: "Jabatan baku pegawai untuk direktori dan laporan SDM; unit kerja tetap terhubung ke struktur organisasi." },
   { id: "facility_resource", label: "Fasilitas", help: "Ruang atau fasilitas yang dapat dipilih pada jadwal dan pemesanan." },
@@ -47,7 +47,7 @@ export function SupabaseReferenceCatalogManager() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState<SupabaseReferenceItem | null>(null);
-  const [form, setForm] = useState({ code: "", name: "", description: "", status: "active" as "active" | "inactive" });
+  const [form, setForm] = useState({ code: "", name: "", description: "", status: "active" as "active" | "inactive", nisGradeCode: "" });
   const selectedDomain = useMemo(() => DOMAINS.find((item) => item.id === domain) || DOMAINS[0], [domain]);
 
   const refresh = useCallback(async () => {
@@ -58,16 +58,16 @@ export function SupabaseReferenceCatalogManager() {
   }, [domain]);
   useEffect(() => { void refresh(); }, [refresh, user?.tenantId, user?.uid]);
 
-  const startCreate = () => { setEditing(null); setForm({ code: "", name: "", description: "", status: "active" }); setError(""); setNotice(""); };
-  const startEdit = (row: SupabaseReferenceItem) => { setEditing(row); setForm({ code: row.code, name: row.name, description: row.description, status: row.status }); setError(""); setNotice(""); };
+  const startCreate = () => { setEditing(null); setForm({ code: "", name: "", description: "", status: "active", nisGradeCode: "" }); setError(""); setNotice(""); };
+  const startEdit = (row: SupabaseReferenceItem) => { setEditing(row); setForm({ code: row.code, name: row.name, description: row.description, status: row.status, nisGradeCode: row.nisGradeCode || "" }); setError(""); setNotice(""); };
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!isAdmin) return;
     setSaving(true); setError(""); setNotice("");
     try {
-      const saved = await saveSupabaseReferenceItem(domain, { ...form, code: normalizedCode(form.code || form.name), organizationUnitId: null }, editing?.id);
+      const saved = await saveSupabaseReferenceItem(domain, { ...form, code: normalizedCode(form.code || form.name), organizationUnitId: null, nisGradeCode: domain === "academic_grade_level" ? form.nisGradeCode || null : null }, editing?.id);
       setRows((current) => editing ? current.map((row) => row.id === saved.id ? saved : row) : [...current, saved].sort((a, b) => a.name.localeCompare(b.name, "id")));
-      setEditing(null); setForm({ code: "", name: "", description: "", status: "active" });
+      setEditing(null); setForm({ code: "", name: "", description: "", status: "active", nisGradeCode: "" });
       setNotice(editing ? "Referensi diperbarui." : "Referensi ditambahkan.");
     } catch (cause: any) { setError(cause?.message || "Referensi belum dapat disimpan."); }
     finally { setSaving(false); }
@@ -87,12 +87,13 @@ export function SupabaseReferenceCatalogManager() {
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/10"><h3 className="font-semibold text-slate-900 dark:text-white">Daftar {selectedDomain.label}</h3><button type="button" className={PRIMARY} onClick={startCreate}><Plus className="h-4 w-4" />Tambah</button></div>
         {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat referensi tenant…</div>
           : rows.length === 0 ? <div className="p-10 text-center text-sm text-slate-500">Belum ada {selectedDomain.label.toLocaleLowerCase("id-ID")} pada tenant ini. Tambahkan pilihan agar modul terkait tidak memakai teks bebas.</div>
-            : <div className="divide-y divide-slate-100 dark:divide-white/5">{rows.map((row) => <article key={row.id} className="flex flex-wrap items-start justify-between gap-3 p-4"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h4 className="font-medium text-slate-900 dark:text-white">{row.name}</h4><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${row.status === "active" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>{row.status === "active" ? "Aktif" : "Nonaktif"}</span></div><p className="mt-1 font-mono text-xs text-slate-500">{row.code}</p>{row.description && <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">{row.description}</p>}</div><button type="button" onClick={() => startEdit(row)} className={SECONDARY}>Ubah</button></article>)}</div>}
+            : <div className="divide-y divide-slate-100 dark:divide-white/5">{rows.map((row) => <article key={row.id} className="flex flex-wrap items-start justify-between gap-3 p-4"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h4 className="font-medium text-slate-900 dark:text-white">{row.name}</h4><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${row.status === "active" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>{row.status === "active" ? "Aktif" : "Nonaktif"}</span>{domain === "academic_grade_level" && <span className={`rounded-full px-2 py-0.5 font-mono text-xs font-semibold ${row.nisGradeCode ? "bg-sky-50 text-sky-700 dark:bg-sky-400/10 dark:text-sky-200" : "bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-100"}`}>Kode NIS: {row.nisGradeCode || "belum diatur"}</span>}</div><p className="mt-1 font-mono text-xs text-slate-500">{row.code}</p>{row.description && <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">{row.description}</p>}</div><button type="button" onClick={() => startEdit(row)} className={SECONDARY}>Ubah</button></article>)}</div>}
       </div>
       <form onSubmit={save} className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-white/10">
         <div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-slate-900 dark:text-white">{editing ? "Ubah referensi" : "Referensi baru"}</h3>{editing && <button type="button" onClick={startCreate} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5" aria-label="Batal mengubah"><X className="h-4 w-4" /></button>}</div>
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Kode sistem (otomatis)<input required maxLength={80} pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,79}" readOnly disabled={saving} className="mt-1 w-full cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 opacity-75 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100" placeholder="Terbentuk otomatis dari nama pilihan" value={form.code} /></label>
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Nama pilihan<input required maxLength={180} className={FIELD} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value, code: editing || current.code ? current.code : normalizedCode(event.target.value) }))} /></label>
+        {domain === "academic_grade_level" && <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Kode jenjang NIS<input required={form.status === "active"} inputMode="numeric" autoComplete="off" maxLength={2} pattern="[0-9]{2}" className={FIELD} value={form.nisGradeCode} onChange={(event) => setForm((current) => ({ ...current, nisGradeCode: event.target.value.replace(/[^0-9]/g, "").slice(0, 2) }))} placeholder="Contoh: 01" /><span className="mt-1 block text-xs font-normal text-slate-500">Dua digit unik per tenant. Kode tidak dapat diubah setelah dipakai menerbitkan NIS.</span></label>}
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Deskripsi<textarea required minLength={8} maxLength={2000} rows={3} className={FIELD} placeholder="Jelaskan arti, cakupan, atau aturan pemakaian; harus berbeda dari nama." value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /><span className="mt-1 block text-xs font-normal text-slate-500">Minimal 8 karakter. Nama menjadi pilihan; deskripsi menjelaskan maknanya.</span></label>
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Status<select className={FIELD} value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as "active" | "inactive" }))}><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></label>
         {editing?.status === "active" && form.status === "inactive" && <p className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-400/10 dark:text-amber-100"><Archive className="mt-0.5 h-4 w-4 shrink-0" />Referensi tidak akan muncul pada transaksi baru. Histori yang sudah memakai referensi tetap tersimpan.</p>}

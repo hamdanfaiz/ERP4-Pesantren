@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { listSupabaseReferenceItems, upsertSupabaseMasterDataStructure, type SupabaseReferenceItem, type SupabaseStructureRecord } from '../services/masterDataApi';
 import { Building, Save, X, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
-import { generateUniqueId } from '../lib/utils';
 import { isActiveOnboardingStructure } from '../utils/ppdbOnboardingRooms';
 
 interface StructureRegistrationFormProps {
@@ -70,7 +69,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
 
     try {
       if (!['Gedung', 'Kamar', 'Kelas'].includes(type)) throw new Error('Runtime Supabase Master Data tahap ini hanya mendukung Gedung, Kamar, dan Kelas.');
-      const idToUse = isEdit && initialData?.id ? initialData.id : formData.id || generateUniqueId('Structure', []);
+      const idToUse = isEdit && initialData?.id ? initialData.id : '';
       const saved = await upsertSupabaseMasterDataStructure(type as 'Gedung' | 'Kamar' | 'Kelas', {
         ...submissionData,
         id: idToUse,
@@ -114,15 +113,15 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">ID</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kode {type} {isEdit ? '' : '(otomatis)'}</label>
               <input
                 type="text"
                 value={formData.id}
-                onChange={(e) => handleFieldChange('id', e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                placeholder="Dibuat otomatis jika kosong"
-                disabled={isEdit}
+                readOnly
+                className="w-full cursor-not-allowed bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm opacity-80"
+                placeholder={isEdit ? '' : 'Diterbitkan backend saat disimpan'}
               />
+              {!isEdit && <p className="mt-1 text-xs text-slate-500">Kode unik diterbitkan dalam transaksi tenant dan tidak perlu diisi.</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nama *</label>
