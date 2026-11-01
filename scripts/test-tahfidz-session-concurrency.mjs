@@ -96,6 +96,11 @@ function cleanup(dbUrl) {
     DELETE FROM public.master_data_audit_events WHERE tenant_id = '${tenantId}'::uuid;
     ALTER TABLE public.master_data_audit_events ENABLE TRIGGER master_data_audit_events_immutable_rows;
     DELETE FROM public.candidates WHERE tenant_id = '${tenantId}'::uuid;
+    DELETE FROM public.tenant_reference_items WHERE tenant_id = '${tenantId}'::uuid;
+    DELETE FROM public.tenant_naming_series_allocations WHERE tenant_id = '${tenantId}'::uuid;
+    DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = '${tenantId}'::uuid;
+    DELETE FROM public.tenant_naming_series_events WHERE tenant_id = '${tenantId}'::uuid;
+    DELETE FROM public.tenant_naming_series WHERE tenant_id = '${tenantId}'::uuid;
     DELETE FROM public.profiles WHERE tenant_id = '${tenantId}'::uuid;
     DELETE FROM auth.users WHERE id IN ('${adminId}'::uuid, '${teacherId}'::uuid);
     DELETE FROM public.tenants WHERE id = '${tenantId}'::uuid;
@@ -134,10 +139,16 @@ async function main() {
       VALUES
         ('${adminId}'::uuid, '${tenantId}'::uuid, 'session-race-admin@test.invalid', 'Admin Race', 'admin', 'active', '{"tahfidz":true}'),
         ('${teacherId}'::uuid, '${tenantId}'::uuid, 'session-race-teacher@test.invalid', 'Ustadz Race', 'ustadz', 'active', '{"tahfidz":true}');
-      INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+      INSERT INTO public.tenant_reference_items (
+        tenant_id, domain, code, name, description, status, nis_grade_code, created_by_user_id, updated_by_user_id
+      ) VALUES (
+        '${tenantId}'::uuid, 'academic_grade_level', 'TEST_GRADE_VII', 'VII',
+        'Jenjang uji konkurensi sesi Tahfidz.', 'active', '07', '${adminId}'::uuid, '${adminId}'::uuid
+      );
+      INSERT INTO public.candidates (id, tenant_id, registration_id, name, grade, nik_ciphertext, nik_fingerprint)
       VALUES
-        ('${students[0].candidate}'::uuid, '${tenantId}'::uuid, 'TSR-001', 'Santri Race A', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')),
-        ('${students[1].candidate}'::uuid, '${tenantId}'::uuid, 'TSR-002', 'Santri Race B', decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'));
+        ('${students[0].candidate}'::uuid, '${tenantId}'::uuid, 'TSR-001', 'Santri Race A', 'VII', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')),
+        ('${students[1].candidate}'::uuid, '${tenantId}'::uuid, 'TSR-002', 'Santri Race B', 'VII', decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'));
       INSERT INTO public.students (
         id, tenant_id, source_candidate_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status
       ) VALUES
