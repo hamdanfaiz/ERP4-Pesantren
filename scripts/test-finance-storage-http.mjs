@@ -73,6 +73,39 @@ async function signIn(anon, user) {
   return data.session.access_token;
 }
 
+function jakartaBusinessDate() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+async function allocateSeries(admin, tenantId, seriesKey, context = {}) {
+  const { data, error } = await admin.rpc('allocate_tenant_naming_series', {
+    p_tenant_id: tenantId,
+    p_series_key: seriesKey,
+    p_effective_date: jakartaBusinessDate(),
+    p_context: context,
+  });
+  if (error || typeof data !== 'string' || !data) {
+    throw new Error(`Unable to allocate synthetic ${seriesKey} identifier${error?.code ? ` (${error.code})` : ''}.`);
+  }
+  return data;
+}
+
+async function allocateStructureCode(admin, tenantId, seriesKey) {
+  const { data, error } = await admin.rpc('allocate_tenant_structure_naming_series', {
+    p_tenant_id: tenantId,
+    p_series_key: seriesKey,
+    p_effective_date: jakartaBusinessDate(),
+  });
+  if (error || typeof data !== 'string' || !data) {
+    throw new Error(`Unable to allocate synthetic ${seriesKey} identifier${error?.code ? ` (${error.code})` : ''}.`);
+  }
+  return data;
+}
+
 function assertNoError(result, message) {
   if (result?.error) throw new Error(message);
 }
@@ -90,8 +123,9 @@ async function main() {
   const otherStudentId = randomUUID();
   const billRequestId = randomUUID();
   const fixtureSuffix = randomUUID().slice(0, 10);
-  const classId = `storage-class-${fixtureSuffix}`;
-  const roomId = `storage-room-${fixtureSuffix}`;
+  let classId = '';
+  let roomId = '';
+  let buildingId = '';
   const users = [];
   let serverProcess;
   let uploadedPath = '';
@@ -119,25 +153,59 @@ async function main() {
     users.push(financeAdmin);
     const rateLimitAdmin = await createUser(admin, tenantId, 'admin', 'finance-rate-limit');
     users.push(rateLimitAdmin);
+    const { data: gradeReference, error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: tenantId,
+      domain: 'academic_grade_level',
+      code: `STORAGE_GRADE_${fixtureSuffix}`,
+      name: 'VII',
+      description: 'Jenjang untuk fixture pengujian Storage.',
+      status: 'active',
+      nis_grade_code: '07',
+      created_by_user_id: financeAdmin.uid,
+      updated_by_user_id: financeAdmin.uid,
+    }).select('id').single();
+    if (gradeReferenceError || !gradeReference?.id) throw new Error('Unable to seed the tenant grade reference for Storage tests.');
+    const { data: foreignGradeReference, error: foreignGradeReferenceError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: foreignTenantId,
+      domain: 'academic_grade_level',
+      code: `FOREIGN_STORAGE_GRADE_${fixtureSuffix}`,
+      name: 'VII',
+      description: 'Jenjang tenant asing untuk fixture pengujian Storage.',
+      status: 'active',
+      nis_grade_code: '07',
+    }).select('id').single();
+    if (foreignGradeReferenceError || !foreignGradeReference?.id) throw new Error('Unable to seed the foreign tenant grade reference for Storage tests.');
+    [buildingId, roomId, classId] = await Promise.all([
+      allocateStructureCode(admin, tenantId, 'building_code'),
+      allocateStructureCode(admin, tenantId, 'room_code'),
+      allocateStructureCode(admin, tenantId, 'class_code'),
+    ]);
     const { error: structuresError } = await admin.from('master_data_records').insert([
-      { tenant_id: tenantId, category: 'Kelas', id: classId, name: 'Kelas storage test' },
-      { tenant_id: tenantId, category: 'Kamar', id: roomId, name: 'Kamar storage test', capacity: 10 },
+      { tenant_id: tenantId, category: 'Gedung', id: buildingId, name: 'Gedung storage test', status: 'active' },
+      { tenant_id: tenantId, category: 'Kamar', id: roomId, name: 'Kamar storage test', parent_id: buildingId, capacity: 10, status: 'active' },
+      { tenant_id: tenantId, category: 'Kelas', id: classId, name: 'Kelas storage test', grade: 'VII', grade_level_reference_id: gradeReference.id, status: 'active' },
     ]);
     if (structuresError) throw new Error('Unable to create synthetic student structures.');
 
+    const candidateRegistrationId = await allocateSeries(admin, tenantId, 'ppdb_registration');
     const { error: candidateError } = await admin.from('candidates').insert({
       id: candidateId,
       tenant_id: tenantId,
-      registration_id: `ST-${fixtureSuffix}`,
+      registration_id: candidateRegistrationId,
       name: 'Santri Storage Test',
+      grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
     });
     if (candidateError) throw new Error('Unable to create a synthetic candidate.');
 
+    const foreignRegistrationId = await allocateSeries(admin, foreignTenantId, 'ppdb_registration');
     const { error: foreignCandidateError } = await admin.from('candidates').insert({
       id: foreignCandidateId,
       tenant_id: foreignTenantId,
-      registration_id: `FOREIGN-${fixtureSuffix}`,
+      registration_id: foreignRegistrationId,
       name: 'Foreign tenant candidate',
+      grade: 'VII',
+      grade_level_reference_id: foreignGradeReference.id,
     });
     if (foreignCandidateError) throw new Error('Unable to create a foreign tenant candidate.');
     const ppdbDocumentBytes = Buffer.from('%PDF-1.7\n% ERP4 synthetic PPDB candidate document\n%%EOF\n', 'utf8');
@@ -162,14 +230,16 @@ async function main() {
     });
     if (foreignCandidateDocumentsError) throw new Error('Unable to link the foreign synthetic PPDB document.');
 
+    const studentNis = await allocateSeries(admin, tenantId, 'nis', { grade: '07' });
     const { error: studentError } = await admin.from('students').insert({
       id: studentId,
       tenant_id: tenantId,
       source_candidate_id: candidateId,
-      nis: `98${randomUUID().replace(/\D/g, '').slice(0, 8).padEnd(8, '0')}`,
+      nis: studentNis,
       name: 'Santri Storage Test',
       gender: 'L',
       grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
       nik_ciphertext: `\\x${'ab'.repeat(44)}`,
       nik_fingerprint: `\\x${'cd'.repeat(32)}`,
       class_id: classId,
@@ -182,22 +252,27 @@ async function main() {
     const otherGuardian = await createUser(admin, tenantId, 'wali_santri', 'other-guardian');
     users.push(otherGuardian);
 
+    const otherCandidateRegistrationId = await allocateSeries(admin, tenantId, 'ppdb_registration');
     const { error: otherCandidateError } = await admin.from('candidates').insert({
       id: otherCandidateId,
       tenant_id: tenantId,
-      registration_id: `ST-${fixtureSuffix}-OTHER`,
+      registration_id: otherCandidateRegistrationId,
       name: 'Santri Storage Test Other',
+      grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
     });
     if (otherCandidateError) throw new Error('Unable to create the unrelated guardian candidate.');
 
+    const otherStudentNis = await allocateSeries(admin, tenantId, 'nis', { grade: '07' });
     const { error: otherStudentError } = await admin.from('students').insert({
       id: otherStudentId,
       tenant_id: tenantId,
       source_candidate_id: otherCandidateId,
-      nis: `97${randomUUID().replace(/\D/g, '').slice(0, 8).padEnd(8, '0')}`,
+      nis: otherStudentNis,
       name: 'Santri Storage Test Other',
       gender: 'L',
       grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
       nik_ciphertext: `\\x${'ef'.repeat(44)}`,
       nik_fingerprint: `\\x${'12'.repeat(32)}`,
       class_id: classId,
@@ -538,6 +613,11 @@ async function main() {
     }
     for (const table of ['ppdb_document_access_events', 'candidate_documents', 'candidates']) {
       try { await admin.from(table).delete().eq('tenant_id', foreignTenantId); } catch {}
+    }
+    for (const cleanupTenantId of [tenantId, foreignTenantId]) {
+      for (const table of ['tenant_naming_series_allocations', 'tenant_naming_series_counters', 'tenant_naming_series_events', 'tenant_naming_series', 'tenant_reference_items']) {
+        try { await admin.from(table).delete().eq('tenant_id', cleanupTenantId); } catch {}
+      }
     }
     for (const user of users) {
       try { await admin.auth.admin.deleteUser(user.uid); } catch {}
