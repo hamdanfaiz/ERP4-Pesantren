@@ -326,7 +326,7 @@ async function main() {
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('student_id', studentId)
-      .eq('fee_type', 'SPP')
+      .eq('fee_type', feeTypeReference.name)
       .eq('period', `storage-${fixtureSuffix}`)
       .single();
     if (billLookupError || !bill?.id) throw new Error('Unable to find the synthetic Finance bill.');
