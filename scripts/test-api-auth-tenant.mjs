@@ -287,6 +287,16 @@ async function main() {
     assert.deepEqual(emptyMarketplace.orders, [], 'A new tenant starts with no orders.');
     assert.deepEqual(emptyMarketplace.movements, [], 'A new tenant starts with no stock movements.');
 
+    const { data: marketplaceCategory, error: marketplaceCategoryError } = await admin.from('tenant_reference_items')
+      .select('id,name')
+      .eq('tenant_id', tenantIds[0])
+      .eq('domain', 'marketplace_product_category')
+      .eq('name', 'Perlengkapan Santri')
+      .eq('status', 'active')
+      .maybeSingle();
+    assert.equal(marketplaceCategoryError, null, 'The product fixture must read the tenant-owned Marketplace category.');
+    assert.ok(marketplaceCategory?.id, 'An Admin tenant starts with an active default product category.');
+
     const productResponse = await fetch(`${apiBase}/api/marketplace/products`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
@@ -294,7 +304,7 @@ async function main() {
         action: 'create',
         sku: `MKT-${fixtureSuffix}`,
         name: 'Produk Uji Tanpa Impor',
-        category: 'Perlengkapan',
+        categoryReferenceId: marketplaceCategory.id,
         unitPrice: 12500,
         initialStock: 8,
         seller: 'Koperasi',
@@ -847,6 +857,11 @@ async function main() {
         `DELETE FROM public.marketplace_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_orders WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_products WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_reference_items WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_naming_series_allocations WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_naming_series_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_naming_series WHERE tenant_id = ANY(${tenantArray});`,
         'COMMIT;',
       ].join(' ');
       execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', cleanupSql], {
