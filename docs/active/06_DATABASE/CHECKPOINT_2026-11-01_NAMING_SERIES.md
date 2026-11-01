@@ -40,57 +40,25 @@ Format NIS tetap sepuluh digit untuk menjaga kontrak yang sudah ada: tahun, kode
 
 - Migration SQL `20270218000000_operational_relationships_and_naming_series.sql` sudah diterapkan ke schema VQE melalui MCP. Pemeriksaan pascamigrasi baca-saja sebelumnya menemukan tiga seri default, enam foreign key baru tervalidasi, empat tabel naming mengaktifkan RLS+FORCE, hak baca browser dicabut, dan fungsi alokasi hanya dapat dipanggil oleh `service_role`.
 - Migration lanjutan `20270219000000_naming_series_master_data_ids.sql` sudah diterapkan ke VQE. Ia menambahkan tiga seri kode gedung/kamar/kelas, kolom kode NIS dua digit pada katalog jenjang, validasi bahwa jenjang aktif memiliki kode, serta pembuatan NIS langsung dari Data Induk dan PPDB. Kode NIS tidak ditebak dari teks jenjang.
-- Karena MCP `apply_migration` tidak menerima versi file, migration lanjutan tercatat sebagai `20261101051456 naming_series_master_data_ids`, bukan `20270219000000`. SQL yang tersimpan di ledger telah dibandingkan karakter demi karakter dengan file sumber lokal. Ledger perlu dikoreksi dengan pembaruan metadata terjaga setelah perubahan migration diperbarui di PR.
+- Karena MCP `apply_migration` tidak menerima versi file, migration lanjutan sempat tercatat sebagai `20261101051456`; setelah SQL final dicocokkan dengan sumber PR, hanya metadata versi ledger diperbaiki menjadi `20270219000000`. Urutan migration VQE kini sama dengan repo.
 - Daftar seri staging sekarang memuat enam seri inti: NIS, PPDB, pegawai, gedung, kamar, dan kelas. Constraint relasi seri/modul sudah divalidasi dan constraint validasi nama/deskripsi tetap dipertahankan. Data seri konfigurasi tenant dibuat sebagai bagian migration; belum ada data transaksi atau alokasi nomor uji yang dibuat.
 - Percobaan pertama migration lanjutan gagal saat menemui constraint lama bernama hasil-generate `tenant_naming_series_check1`; transaksi gagal dan tidak meninggalkan perubahan. Migration kemudian diperbaiki agar hanya mengganti check constraint `series_key`/`module_id`, lalu berhasil diterapkan.
-- Tidak ada record transaksi uji yang dibuat di VQE. Production tidak disentuh.
+- pgTAP untuk Naming Series dijalankan di VQE dengan fixture tenant sintetis dalam transaksi `BEGIN`/`ROLLBACK`: **35 dari 35 pemeriksaan lulus**. Pemeriksaan sesudahnya memastikan tenant fixture tidak tertinggal. Production tidak disentuh.
 - Pemeriksaan source lulus: `npm run lint`, `npm run build`, `npm run test:migration-preflight`, `npm run test:ppdb-csv-import`, `npm run test:ppdb-onboarding-rooms`, `npm run test:hris-legacy-import`, `npm run test:master-data-transfer-csv`, dan `git diff --check`. Uji `npm run test:supabase-runtime-no-firebase` awalnya gagal karena ekspektasi tab tidak mengikuti perilaku aktual; pemeriksaan diperbarui untuk menuntut tab Referensi dan Naming Series tersembunyi saat runtime belum aktif, lalu lulus: 100 modul aktif, 26 rute Supabase, dan 26 rute migrasi lama tertutup. Build masih menampilkan peringatan chunk PDF besar dan komentar dependensi; tidak menggagalkan build.
 - `supabase test db`/pgTAP belum berjalan di workspace karena Docker tidak tersedia. Browser UAT staging juga belum membuktikan modul ini.
 
 ## Gerbang yang masih terbuka
 
-DDL migration pertama dan kedua sudah ada di VQE; migration pertama sudah tercatat dengan versi source `20270218000000`. Migration kedua berhasil, tetapi ledger mencatat versi waktu MCP `20261101051456`. Jangan menjalankan ulang DDL. Sinkronkan hanya metadata versi migration kedua setelah SQL final sudah dipush ke PR.
+Skema dan ledger VQE kini selaras dengan kedua migration Naming Series. pgTAP staging lulus **35/35** dalam transaksi rollback. Tabel konfigurasi/counter/alokasi/event memakai RLS paksa; fungsi alokasi, konfigurasi, pembuatan struktur, pembuatan santri, dan onboarding hanya dapat dipanggil `service_role`.
 
-Perbaikan yang benar adalah `supabase migration repair` CLI, yang hanya memperbaiki status pada migration history dan tidak menjalankan SQL. Di workspace saat checkpoint ini dibuat, Supabase CLI belum terpasang dan URL database VQE belum tersedia di env lokal. Selain itu, `supabase/config.toml` pada checkout ini menunjuk ke Production PTSAS. Karena itu, **jangan gunakan `--linked` dari checkout ini**. Tim backend harus mengisi URL koneksi VQE ke variabel sesi `SUPABASE_DB_URL_VQE` dari penyimpanan rahasia lokal, lalu memakai `--db-url` eksplisit. Jangan menyalin URL berpassword ke Git, chat, atau riwayat perintah.
-
-```powershell
-$u = [Uri]$env:SUPABASE_DB_URL_VQE
-$dbUser = [Uri]::UnescapeDataString($u.UserInfo.Split(':')[0])
-$isVqeDirect = $u.DnsSafeHost -eq 'db.vqemuyzveuirlkvdggjd.supabase.co'
-$isVqePooler = $u.DnsSafeHost.EndsWith('.pooler.supabase.com') -and $dbUser -eq 'postgres.vqemuyzveuirlkvdggjd'
-if (-not ($isVqeDirect -or $isVqePooler)) { throw 'URL tidak terverifikasi sebagai VQE staging; hentikan.' }
-
-supabase migration list --db-url $env:SUPABASE_DB_URL_VQE
-supabase migration repair 20261101041832 --status reverted --db-url $env:SUPABASE_DB_URL_VQE
-supabase migration repair 20270218000000 --status applied --db-url $env:SUPABASE_DB_URL_VQE
-supabase migration list --db-url $env:SUPABASE_DB_URL_VQE
-supabase db push --db-url $env:SUPABASE_DB_URL_VQE --dry-run
-```
-
-Untuk menyelaraskan ledger yang sekarang, gunakan pembaruan metadata terjaga berikut hanya setelah commit berisi SQL final tersedia di PR. Guard mencocokkan versi hasil MCP, nama, jumlah statement, panjang, dan hash dari statement yang diperiksa; pembaruan tidak menjalankan ulang SQL. Jika guard menghasilkan nol baris, hentikan dan periksa ledger.
-
-```sql
-UPDATE supabase_migrations.schema_migrations
-SET version = '20270219000000'
-WHERE version = '20261101051456'
-  AND name = 'naming_series_master_data_ids'
-  AND array_length(statements, 1) = 1
-  AND length(statements[1]) = 22734
-  AND md5(statements[1]) = '08ea5fdee949c7014860c9798a76133b'
-  AND NOT EXISTS (
-    SELECT 1 FROM supabase_migrations.schema_migrations
-    WHERE version = '20270219000000'
-  );
-```
-
-Sesudahnya, pastikan daftar migration berakhir pada versi source `20270219000000` dan dry-run kosong. Jangan gunakan PTSAS. Setelah ledger selaras, jalankan pgTAP dan UAT penuh di VQE; baru evaluasi promosi Production.
+Masih perlu UAT antarmuka sebagai Admin VQE untuk: mengatur seri dan kode jenjang; membuat santri, pegawai, gedung, kamar, kelas, dan pendaftaran PPDB; memastikan nomor historis dari impor dipertahankan; serta memastikan referensi relasi memakai pilihan baku. Jalankan pula uji dua permintaan NIS serentak (`npm run test:db:nis-race`) setelah environment uji VQE siap. `supabase test db` lokal belum berjalan karena Docker tidak tersedia; pgTAP staging di atas sudah menguji alur transaksi secara langsung. Jangan menyentuh PTSAS sebelum gerbang UAT dan uji bersamaan lulus.
 
 Referensi resmi: [Supabase Database Migrations](https://supabase.com/docs/guides/deployment/database-migrations) dan [Supabase CLI reference untuk `migration list`, `migration repair`, serta `db push`](https://supabase.com/docs/reference/cli/global-flags).
 
 ## Status checkpoint
 
-**Implementasi lingkup Naming Series: 95%** — enam seri, layar konfigurasi, kode NIS per jenjang, alokasi backend, ID struktur otomatis, dan skema VQE tersedia. Sisa 5% mencakup sinkronisasi metadata ledger, menjalankan pgTAP, dan UAT UI/alur impor staging. Angka ini hanya untuk Naming Series, bukan keseluruhan ERP.
+**Implementasi lingkup Naming Series: 100%; verifikasi staging: 85%** — enam seri, layar konfigurasi, kode NIS per jenjang, alokasi backend, ID struktur otomatis, migrasi VQE, ledger, serta 35/35 pgTAP tersedia/lulus. Verifikasi yang tersisa adalah UAT antarmuka dan uji permintaan NIS bersamaan. Angka ini hanya untuk Naming Series, bukan keseluruhan ERP.
 
-Implementasi Naming Series sudah dipush pada commit `59dda6e` di [PR #40](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40). PR tetap Draft karena migration history VQE belum selaras dan pgTAP/UAT belum lulus. Production belum disentuh. Periksa status remote PR untuk commit terbaru sebelum menjalankan langkah migrasi.
+Implementasi Naming Series berada di [PR #40](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40). PR tetap Draft sampai UAT antarmuka dan uji permintaan NIS bersamaan lulus. Production belum disentuh.
 
 Fitur ini belum layak dipromosikan ke Production sampai seluruh gerbang tersebut lulus.
