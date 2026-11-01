@@ -154,12 +154,20 @@ assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && 
   'The mock AI assessment modal must not render in the Supabase Tahfidz runtime.');
 
 const masterDataSource = fs.readFileSync(path.join(root, 'src', 'pages', 'MasterDataManager.tsx'), 'utf8');
-assert.match(masterDataSource, /const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME\s*\?\s*TABS\s*:\s*TABS\.filter\(\(tab\)\s*=>\s*tab\.id\s*!==\s*["']references["']\);/,
-  'Master Data must keep Naming Series discoverable while hiding backend-only reference catalogs until runtime is active.');
+assert.match(masterDataSource, /const visibleTabs = TABS;/,
+  'Master Data must keep its owner-focused navigation, including Naming Series, visible in every runtime.');
+const masterDataTabs = masterDataSource.match(/const TABS = \[([\s\S]*?)\n\];/);
+assert.ok(masterDataTabs, 'Could not find the Master Data tab catalog.');
+for (const tabId of ['entities', 'structure', 'naming', 'audit']) {
+  assert.match(masterDataTabs[1], new RegExp(`id:\\s*["']${tabId}["']`),
+    `Master Data must expose the ${tabId} owner tab.`);
+}
+assert.doesNotMatch(masterDataTabs[1], /id:\s*["']references["']/,
+  'Reference catalogs must live with their owning modules instead of a generic Master Data tab.');
 assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?koneksi runtime Supabase belum diaktifkan[\s\S]*?<\/section>\)/,
   'Naming Series must show a clear unavailable state rather than disappear or fall through to mock CRUD when runtime is disabled.');
-assert.match(masterDataSource, /const isTenantConfigurationTab = activeTab === ["']references["'] \|\| activeTab === ["']naming["'];/,
-  'Tenant configuration tabs must not expose mock record actions when runtime is disabled.');
+assert.match(masterDataSource, /const isTenantConfigurationTab = activeTab === ["']naming["'];/,
+  'Naming Series configuration must not expose mock record actions when runtime is disabled.');
 assert.match(masterDataSource, /const visibleSubTabs = SUB_TABS\[activeTab\] \|\| \[\]/,
   'Master Data must render only categories owned by the selected tab.');
 const masterDataCategories = masterDataSource.match(/const SUB_TABS: Record<string, string\[]> = \{([\s\S]*?)\n\};/);
@@ -168,8 +176,8 @@ assert.match(masterDataCategories[1], /entities:\s*\["Santri"\]/,
   'The entity tab must own only the student record category.');
 assert.match(masterDataCategories[1], /structure:\s*\["Gedung",\s*"Kamar",\s*"Kelas",\s*"Peta Struktur"\]/,
   'The structure tab must own only campus/dorm structure categories.');
-assert.match(masterDataCategories[1], /references:\s*\["Mata Pelajaran",\s*"Kurikulum",\s*"Jenis Penilaian",\s*"Jenjang Pendidikan",\s*"Paket Soal CBT",\s*"Jabatan Pegawai",\s*"Fasilitas",\s*"Jenis Tagihan",\s*"Kategori Pengeluaran"\]/,
-  'The references tab must expose the tenant catalogs that are owned centrally.');
+assert.doesNotMatch(masterDataCategories[1], /references\s*:/,
+  'The Master Data category map must not retain a generic references category.');
 assert.doesNotMatch(masterDataCategories[1], /["'](?:Wali Santri|Guru dan Asatidz|Guru|Asatidz|Pegawai|Alumni|Halaqah|Yayasan dan Kampus|Pemesanan Fasilitas)["']/,
   'Records owned by other modules must not be listed as Master Data categories.');
 assert.doesNotMatch(masterDataSource, /onNavigate|activeHandoff|MASTER_DATA_DESTINATIONS|Data terkait|Kategori lain dikelola/,
