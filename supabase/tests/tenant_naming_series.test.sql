@@ -99,6 +99,20 @@ SELECT is(public.upsert_hris_employee_with_unit(
 SELECT is(public.allocate_tenant_naming_series(
   'c9100000-0000-4000-8000-000000000001','employee_number','2026-11-01','{}'::JSONB),
   'PEG-2026-00002','alokasi selanjutnya tidak mengulang nomor pegawai yang baru disimpan');
+SELECT throws_ok(
+  $$SELECT public.upsert_hris_employee(
+    'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
+    'c9100000-0000-4000-8000-000000000042','PEG-MANUAL-01','Pegawai Manual Uji','Staf Uji',
+    'Unit Uji',NULL,'081234567899','2026-11-01','active','c9100000-0000-4000-8000-000000000052')$$,
+  '22023','Nomor pegawai baru dibuat otomatis oleh Naming Series',
+  'pembuatan pegawai menolak nomor manual yang melewati Naming Series');
+SELECT throws_ok(
+  $$SELECT public.create_admin_ppdb_candidates_batch(
+    'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011','admin',
+    'c9100000-0000-4000-8000-000000000062',repeat('a',64)::TEXT,
+    '[{"candidateId":"c9100000-0000-4000-8000-000000000063","registrationId":"PPDB-MANUAL-01","candidate":{}}]'::JSONB)$$,
+  '22023','Nomor pendaftaran dibuat otomatis oleh Naming Series',
+  'pembuatan pendaftar menolak nomor manual di luar seri tenant');
 SELECT is(public.upsert_master_data_structure_auto_with_actor(
   'c9100000-0000-4000-8000-000000000001','Gedung','',
   '{"name":"Gedung Uji","status":"Active"}'::JSONB,
@@ -122,6 +136,20 @@ SELECT ok((public.upsert_master_data_student_auto_nis_with_actor(
 SELECT is((SELECT nis FROM public.students WHERE tenant_id='c9100000-0000-4000-8000-000000000001'
   AND source_record_id='naming-direct-student-01'),
   '2026020003','santri baru langsung mendapat NIS seri tenant yang unik');
+SELECT is((public.upsert_master_data_student_auto_nis_with_actor(
+  'c9100000-0000-4000-8000-000000000001',NULL,'naming-direct-student-01',
+  '{"name":"Santri Penomoran","gender":"L","grade":"SMP","nis":"2026999999","status":"Active","details":{}}'::JSONB,
+  NULL,NULL,NULL,NULL,'c9100000-0000-4000-8000-000000000011')->>'studentId'),
+  (SELECT id::TEXT FROM public.students WHERE tenant_id='c9100000-0000-4000-8000-000000000001'
+    AND source_record_id='naming-direct-student-01'),
+  'percobaan ulang dengan ID sumber yang sama mempertahankan UUID teknis santri');
+SELECT is((SELECT nis FROM public.students WHERE tenant_id='c9100000-0000-4000-8000-000000000001'
+  AND source_record_id='naming-direct-student-01'),
+  '2026020003','percobaan ulang tidak mengganti NIS yang sudah diterbitkan');
+SELECT is((SELECT last_value FROM public.tenant_naming_series_counters
+  WHERE tenant_id='c9100000-0000-4000-8000-000000000001'
+    AND series_key='nis' AND period_key='2026:GRADE=02'),
+  3::BIGINT,'percobaan ulang tidak mengonsumsi nomor urut baru');
 SELECT throws_ok(
   $$UPDATE public.tenant_reference_items SET nis_grade_code='04'
     WHERE tenant_id='c9100000-0000-4000-8000-000000000001' AND code='SMP_UJI'$$,
@@ -189,3 +217,4 @@ SELECT throws_ok(
 RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;
+
