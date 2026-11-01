@@ -68,7 +68,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 117);
+assert.equal(sourceMigrationsWithSql.length, 119);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -77,7 +77,9 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202702090000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270210000000_internalize_tenant_rls_helpers.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270211000000_optimize_profile_rls_initplans.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270212000000_optimize_core_tenant_query_indexes.sql'));
-assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270213000000_master_data_audit_feed.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20261031225438_master_data_audit_feed.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20261101015832_tenant_reference_relationships.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270215000000_harden_reference_relationship_contract.sql'));
 assert(sourceMigrationsWithSql.every(({ statements }) => Array.isArray(statements) && statements.length > 0));
 
 const sqlLocal = listLocalMigrations(
@@ -169,14 +171,14 @@ const observedStagingMigrations = sourceMigrationsWithSql
     // Mirror the observed gap without embedding staging SQL in this fixture.
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
-assert.equal(observedStagingMigrations.length, 48);
-assert.equal(sourceMigrationsWithSql.length, 117);
+assert.equal(observedStagingMigrations.length, 50);
+assert.equal(sourceMigrationsWithSql.length, 119);
 const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
-assert.equal(stagingBaseline.appliedCount, 48);
+assert.equal(stagingBaseline.appliedCount, 50);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
 assert.equal(stagingBaseline.pending.length, 69);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
-assert.equal(stagingBaseline.pending.at(-1).version, '20270213000000');
+assert.equal(stagingBaseline.pending.at(-1).version, '20270215000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
 assert.equal(stagingBaseline.unknownApplied.length, 0);
 assert.deepEqual(stagingBaseline.nameMismatches.map(({ version }) => version), [...missingStagingMetadataVersions]);

@@ -2,6 +2,35 @@ import { getAccessToken } from "../authSession";
 
 export type SupabaseStructureCategory = "Gedung" | "Kamar" | "Kelas";
 
+export type SupabaseReferenceDomain =
+  | "academic_subject"
+  | "academic_curriculum"
+  | "academic_assessment_type"
+  | "facility_resource"
+  | "finance_fee_type"
+  | "finance_expense_category"
+  | "marketplace_product_category"
+  | "cooperative_product_category"
+  | "cooperative_supplier_category"
+  | "library_book_category"
+  | "healthcare_medicine_category"
+  | "healthcare_medicine_unit"
+  | "ga_asset_category"
+  | "ga_inventory_category"
+  | "ga_inventory_unit";
+
+export type SupabaseReferenceItem = {
+  id: string;
+  domain: SupabaseReferenceDomain;
+  code: string;
+  name: string;
+  description: string;
+  status: "active" | "inactive";
+  organizationUnitId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export interface SupabaseStructureRecord {
   id: string;
   name: string;
@@ -50,6 +79,28 @@ async function requestMasterData<T>(path: string, init: RequestInit = {}): Promi
   const payload: any = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Permintaan Master Data Supabase gagal diproses.");
   return payload as T;
+}
+
+export async function listSupabaseReferenceItems(domain: SupabaseReferenceDomain, includeInactive = false) {
+  const params = new URLSearchParams({ domain });
+  if (includeInactive) params.set("includeInactive", "true");
+  const result = await requestMasterData<{ records: SupabaseReferenceItem[] }>("/api/master-data/references?" + params.toString());
+  return Array.isArray(result.records) ? result.records : [];
+}
+
+export async function saveSupabaseReferenceItem(
+  domain: SupabaseReferenceDomain,
+  record: Pick<SupabaseReferenceItem, "code" | "name" | "description" | "status" | "organizationUnitId">,
+  id?: string,
+) {
+  const path = id
+    ? "/api/master-data/references/" + encodeURIComponent(domain) + "/" + encodeURIComponent(id)
+    : "/api/master-data/references/" + encodeURIComponent(domain);
+  const result = await requestMasterData<{ record: SupabaseReferenceItem }>(path, {
+    method: id ? "PUT" : "POST",
+    body: JSON.stringify({ record }),
+  });
+  return result.record;
 }
 
 export async function listSupabaseMasterDataStructures() {

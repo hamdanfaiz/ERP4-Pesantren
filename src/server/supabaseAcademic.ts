@@ -166,7 +166,18 @@ export async function getSupabaseAcademicSnapshot(
   } else if (unitsEnabled && filter.mode === "unassigned") {
     classParams.set("organization_unit_id", "is.null");
   }
-  const [studentRows, staffRows, classRows, unitRows] = await Promise.all([
+  const referenceParams = new URLSearchParams({
+    select: "id,domain,code,name,description,organization_unit_id",
+    tenant_id: "eq." + tenantId,
+    domain: "in.(academic_subject,academic_curriculum,academic_assessment_type,facility_resource)",
+    status: "eq.active",
+    order: "domain.asc,name.asc,id.asc",
+    limit: "2001",
+  });
+  if (unitsEnabled && role === "Ustadz" && isUuid(String(actorUnitId || ""))) {
+    referenceParams.set("or", "(organization_unit_id.is.null,organization_unit_id.eq." + actorUnitId + ")");
+  }
+  const [studentRows, staffRows, classRows, unitRows, referenceRows] = await Promise.all([
     readPostgrestRowsInPages<Row>({
       request,
       path: "/rest/v1/students?" + studentParams.toString(),
@@ -182,11 +193,15 @@ export async function getSupabaseAcademicSnapshot(
         return request("/rest/v1/organization_units?" + unitParams.toString());
       })()
       : Promise.resolve([]),
+    request("/rest/v1/tenant_reference_items?" + referenceParams.toString()),
   ]);
-  if (!Array.isArray(studentRows) || studentRows.length > 5000 || !Array.isArray(staffRows) || staffRows.length > 500 || !Array.isArray(classRows) || classRows.length > 500 || !Array.isArray(unitRows) || unitRows.length > 500) {
+  if (!Array.isArray(studentRows) || studentRows.length > 5000 || !Array.isArray(staffRows) || staffRows.length > 500 || !Array.isArray(classRows) || classRows.length > 500 || !Array.isArray(unitRows) || unitRows.length > 500 || !Array.isArray(referenceRows) || referenceRows.length > 2000) {
     throw new SupabaseAcademicError(503, "Roster akademik, daftar pengajar, atau unit melewati batas aman tampilan.");
   }
   const unitsById = new Map<string, Row>((unitRows as Row[]).map((row) => [String(row.id), row]));
+  const activeReference = (domain: string) => (referenceRows as Row[])
+    .filter((row) => row.domain === domain)
+    .map((row) => ({ id: String(row.id), code: String(row.code || ""), name: String(row.name || ""), description: String(row.description || ""), organizationUnitId: String(row.organization_unit_id || "") || null }));
   const classNamesById = new Map<string, string>((classRows as Row[])
     .filter((row) => !["inactive", "nonaktif", "disabled", "arsip"].includes(String(row.status || "").trim().toLowerCase()))
     .map((row): [string, string] => [String(row.id), String(row.name || "")]));
@@ -219,6 +234,8 @@ export async function getSupabaseAcademicSnapshot(
     .map((row) => ({ id: String(row.id), name: String(row.name || "").trim(), organizationUnitId: String(row.organization_unit_id || "") || null }))
     .filter((row) => row.name && (!visibleClassNames || visibleClassNames.has(row.name)));
   return { schedules, journals, assessments, students, teachers, classes,
+    subjects: activeReference("academic_subject"), curricula: activeReference("academic_curriculum"),
+    assessmentTypes: activeReference("academic_assessment_type"), facilities: activeReference("facility_resource"),
     units: (unitRows as Row[]).map((row) => ({ id: String(row.id), name: String(row.name || ""), code: String(row.code || ""), status: String(row.status || ""), unitType: String(row.unit_type || "") })),
     unitsEnabled, unitFilter: filter.mode === "unit" ? filter.unitId : filter.mode };
 }
@@ -370,6 +387,56 @@ function validDate(value: unknown) {
   return date;
 }
 
+async function activeAcademicReference(tenantId: string, idValue: unknown, domain: string, label: string) {
+  const id = String(idValue || "").trim();
+  if (!isUuid(id)) throw new SupabaseAcademicError(400, "Pilih " + label + " dari daftar tenant.");
+  const params = new URLSearchParams({
+    select: "id,domain,name,status,organization_unit_id",
+    tenant_id: "eq." + tenantId,
+    domain: "eq." + domain,
+    id: "eq." + id,
+    status: "eq.active",
+    limit: "2",
+  });
+  const rows = await request("/rest/v1/tenant_reference_items?" + params.toString());
+  if (!Array.isArray(rows) || rows.length !== 1) throw new SupabaseAcademicError(400, label + " tidak aktif atau tidak tersedia pada tenant ini.");
+  return rows[0] as Row;
+}
+
+async function activeAcademicClass(tenantId: string, idValue: unknown) {
+  const id = String(idValue || "").trim();
+  if (!id || id.length > 100) throw new SupabaseAcademicError(400, "Pilih kelas dari Data Induk tenant.");
+  const params = new URLSearchParams({
+    select: "id,name,status,organization_unit_id",
+    tenant_id: "eq." + tenantId,
+    category: "eq.Kelas",
+    id: "eq." + id,
+    limit: "2",
+  });
+  const rows = await request("/rest/v1/master_data_records?" + params.toString());
+  if (!Array.isArray(rows) || rows.length !== 1 || ["inactive", "nonaktif", "disabled", "arsip"].includes(String(rows[0].status || "").toLowerCase())) {
+    throw new SupabaseAcademicError(400, "Kelas tidak aktif atau tidak tersedia pada Data Induk tenant.");
+  }
+  return rows[0] as Row;
+}
+
+async function activeAcademicTeacher(tenantId: string, userId: string) {
+  if (!isUuid(userId)) throw new SupabaseAcademicError(400, "Pengajar tidak valid.");
+  const params = new URLSearchParams({
+    select: "user_id,display_name,role,status,organization_unit_id",
+    tenant_id: "eq." + tenantId,
+    user_id: "eq." + userId,
+    role: "eq.ustadz",
+    status: "eq.active",
+    limit: "2",
+  });
+  const rows = await request("/rest/v1/profiles?" + params.toString());
+  if (!Array.isArray(rows) || rows.length !== 1 || !String(rows[0].display_name || "").trim()) {
+    throw new SupabaseAcademicError(400, "Pengajar aktif tidak ditemukan pada tenant ini.");
+  }
+  return rows[0] as Row;
+}
+
 export async function saveSupabaseAcademicRecord(
   tenantIdentifier: string,
   actorId: string,
@@ -391,6 +458,8 @@ export async function saveSupabaseAcademicRecord(
   if (!["Admin", "SuperAdmin", "Ustadz"].includes(role)) throw new SupabaseAcademicError(403, "Role ini tidak dapat mengelola data akademik.");
 
   let record: Row;
+  const scopedReferences: Row[] = [];
+  let relationshipUnitId = "";
   if (kind === "schedule") {
     if (role === "Ustadz") throw new SupabaseAcademicError(403, "Hanya Admin yang dapat mengatur jadwal.");
     const day = text(item.day, "Hari", 20, true);
@@ -400,38 +469,71 @@ export async function saveSupabaseAcademicRecord(
     const teacherUserId = text(item.teacherUserId, "Pengajar", 36);
     if (!teacherUserId) throw new SupabaseAcademicError(400, "Pengajar aktif wajib dipilih agar bentrok jadwal dapat dicegah.");
     if (!isUuid(teacherUserId)) throw new SupabaseAcademicError(400, "ID pengajar tidak valid.");
+    const teacher = await activeAcademicTeacher(tenantId, teacherUserId);
+    const classReference = await activeAcademicClass(tenantId, item.classReferenceId);
+    const subjectReference = await activeAcademicReference(tenantId, item.subjectReferenceId, "academic_subject", "mata pelajaran");
+    const curriculumReference = await activeAcademicReference(tenantId, item.curriculumReferenceId, "academic_curriculum", "kurikulum");
+    const facilityReferenceId = String(item.facilityReferenceId || "").trim();
+    const facilityReference = facilityReferenceId ? await activeAcademicReference(tenantId, facilityReferenceId, "facility_resource", "ruang") : null;
+    scopedReferences.push(classReference, subjectReference, curriculumReference, ...(facilityReference ? [facilityReference] : []));
     record = {
-      day, time, subject: text(item.subject, "Mata pelajaran", 150, true),
-      teacherName: text(item.teacherName, "Nama pengajar", 180, true),
+      day, time, subject: String(subjectReference.name),
+      subjectReferenceId: String(subjectReference.id),
+      teacherName: String(teacher.display_name),
       teacherUserId,
-      className: text(item.className, "Kelas", 100, true),
-      room: text(item.room, "Ruang", 100), curriculum: text(item.curriculum, "Kurikulum", 100),
+      className: String(classReference.name), classReferenceId: String(classReference.id),
+      room: facilityReference ? String(facilityReference.name) : "",
+      facilityReferenceId: facilityReference ? String(facilityReference.id) : "",
+      curriculum: String(curriculumReference.name), curriculumReferenceId: String(curriculumReference.id),
     };
   } else if (kind === "journal") {
     const teacherUserId = role === "Ustadz" ? actorId : text(item.teacherUserId, "Pengajar", 36, true);
     if (!isUuid(teacherUserId)) throw new SupabaseAcademicError(400, "ID pengajar tidak valid.");
+    const teacher = await activeAcademicTeacher(tenantId, teacherUserId);
+    const classReference = await activeAcademicClass(tenantId, item.classReferenceId);
+    const subjectReference = await activeAcademicReference(tenantId, item.subjectReferenceId, "academic_subject", "mata pelajaran");
+    scopedReferences.push(classReference, subjectReference);
     const present = Number(item.attendancePresent ?? 0), absent = Number(item.attendanceAbsent ?? 0), excused = Number(item.attendanceExcused ?? 0);
     if (![present, absent, excused].every((count) => Number.isInteger(count) && count >= 0 && count <= 500)) throw new SupabaseAcademicError(400, "Jumlah kehadiran tidak valid.");
     record = {
-      date: validDate(item.date), className: text(item.className, "Kelas", 100, true),
-      subject: text(item.subject, "Mata pelajaran", 150, true), topic: text(item.topic, "Materi", 2000, true),
+      date: validDate(item.date), className: String(classReference.name), classReferenceId: String(classReference.id),
+      subject: String(subjectReference.name), subjectReferenceId: String(subjectReference.id), topic: text(item.topic, "Materi", 2000, true),
       competency: text(item.competency, "Kompetensi", 4000), teacherUserId,
-      teacherName: text(item.teacherName, "Nama pengajar", 180, true),
+      teacherName: String(teacher.display_name),
       attendance: { present, absent, excused }, status: "Completed",
     };
   } else {
     const studentId = text(item.studentId, "Santri", 36, true);
     const teacherUserId = role === "Ustadz" ? actorId : text(item.teacherUserId, "Pengajar", 36, true);
     if (!isUuid(studentId) || !isUuid(teacherUserId)) throw new SupabaseAcademicError(400, "Santri atau pengajar tidak valid.");
+    const [studentRows, teacher, subjectReference, assessmentReference] = await Promise.all([
+      request("/rest/v1/students?" + new URLSearchParams({ select: "id,name,grade,class_id,organization_unit_id,status", tenant_id: "eq." + tenantId, id: "eq." + studentId, limit: "2" }).toString()),
+      activeAcademicTeacher(tenantId, teacherUserId),
+      activeAcademicReference(tenantId, item.subjectReferenceId, "academic_subject", "mata pelajaran"),
+      activeAcademicReference(tenantId, item.assessmentTypeReferenceId, "academic_assessment_type", "jenis penilaian"),
+    ]);
+    const student = Array.isArray(studentRows) ? studentRows[0] as Row | undefined : undefined;
+    if (!student || ["archived", "archive", "arsip", "inactive", "nonaktif", "tidak aktif", "alumni", "graduated", "lulus", "dikeluarkan"].includes(String(student.status || "").trim().toLowerCase())) {
+      throw new SupabaseAcademicError(400, "Santri aktif tidak ditemukan pada tenant ini.");
+    }
+    scopedReferences.push(subjectReference, assessmentReference);
+    relationshipUnitId = String(student.organization_unit_id || "");
+    let studentClassName = String(student.grade || "");
+    if (student.class_id) {
+      const studentClass = await activeAcademicClass(tenantId, student.class_id);
+      studentClassName = String(studentClass.name || studentClassName);
+      scopedReferences.push(studentClass);
+    }
     const score = Number(item.score);
     if (!Number.isFinite(score) || score < 0 || score > 100) throw new SupabaseAcademicError(400, "Nilai harus berupa angka 0–100.");
     const category = text(item.category, "Kategori", 20, true);
     if (!["Formative", "Summative"].includes(category)) throw new SupabaseAcademicError(400, "Kategori penilaian tidak valid.");
     record = {
-      studentId, studentName: text(item.studentName, "Nama santri", 180, true),
-      className: text(item.className, "Kelas", 100), teacherUserId,
-      subject: text(item.subject, "Mata pelajaran", 150, true),
-      assessmentType: text(item.assessmentType, "Jenis penilaian", 100, true),
+      studentId, studentName: String(student.name || ""), className: studentClassName, teacherUserId,
+      subject: String(subjectReference.name), subjectReferenceId: String(subjectReference.id),
+      assessmentType: String(assessmentReference.name), assessmentTypeReferenceId: String(assessmentReference.id),
+      ...(student.class_id ? { classReferenceId: String(student.class_id) } : {}),
+      teacherName: String(teacher.display_name),
       category, score, remedialStatus: score < 75 ? "Needed" : "None",
     };
   }
@@ -449,6 +551,13 @@ export async function saveSupabaseAcademicRecord(
       const params = new URLSearchParams({ select: "id", tenant_id: "eq." + tenantId, id: "eq." + unitId, status: "eq.active", limit: "2" });
       const units = await request("/rest/v1/organization_units?" + params.toString());
       if (!Array.isArray(units) || units.length !== 1) throw new SupabaseAcademicError(403, "Unit aktif tidak ditemukan pada tenant ini.");
+    }
+  }
+  if (kind !== "assessment") relationshipUnitId = String(record.organizationUnitId || "");
+  for (const reference of scopedReferences) {
+    const referenceUnitId = String(reference.organization_unit_id || "");
+    if (referenceUnitId && (!unitsEnabled || !relationshipUnitId || referenceUnitId !== relationshipUnitId)) {
+      throw new SupabaseAcademicError(400, "Referensi yang dipilih tidak berlaku pada unit organisasi record ini.");
     }
   }
   const result = await request("/rest/v1/rpc/save_academic_record", {

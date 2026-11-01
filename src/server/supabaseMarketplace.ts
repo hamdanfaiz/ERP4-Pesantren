@@ -1,5 +1,7 @@
 type Row = Record<string, any>;
 
+import { listSupabaseReferenceItems } from "./supabaseReferenceCatalog";
+
 export class SupabaseMarketplaceError extends Error {
   status: number;
   constructor(status: number, message: string) { super(message); this.name = "SupabaseMarketplaceError"; this.status = status; }
@@ -52,24 +54,34 @@ async function rows(table: string, tenantId: string, select: string, order: stri
 }
 export async function getSupabaseMarketplaceSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
-  const [products, orders, items, movements] = await Promise.all([
+  const [products, orders, items, movements, productCategories] = await Promise.all([
     rows("marketplace_products", tenantId, "id,sku,name,category,unit_price,stock_quantity,seller,image_label,status,created_at,updated_at", "status.asc,name.asc,id.asc", 3000),
     rows("marketplace_orders", tenantId, "id,customer_name,customer_type,status,item_count,total_amount,created_at,updated_at,source_system,legacy_date_known", "created_at.desc,id.desc", 5000),
     rows("marketplace_order_items", tenantId, "id,order_id,product_id,product_sku_snapshot,product_name_snapshot,quantity,unit_price,line_total,created_at", "created_at.asc,id.asc", 20000),
     rows("marketplace_stock_movements", tenantId, "id,product_id,order_id,quantity_delta,balance_after,reason,created_at", "created_at.desc,id.desc", 1000),
+    listSupabaseReferenceItems(tenantId, "marketplace_product_category"),
   ]);
   const productsById = new Map<string, Row>(products.map((row): [string, Row] => [String(row.id), row]));
   const itemsByOrder = new Map<string, Row[]>();
   for (const item of items) itemsByOrder.set(String(item.order_id), [...(itemsByOrder.get(String(item.order_id)) || []), item]);
   return {
     products: products.filter((row) => row.status === "active").map((row) => ({ ...row, price: Number(row.unit_price), stock: Number(row.stock_quantity), image: String(row.image_label || "📦") })),
+    productCategories: productCategories.filter((item) => item.status === "active").map(({ id, code, name, description }) => ({ id, code, name, description })),
     orders: orders.map((row) => ({ ...row, customer: row.customer_name, type: row.customer_type, total: Number(row.total_amount), items: Number(row.item_count), date: String(row.created_at || ""), lines: itemsByOrder.get(String(row.id)) || [] })),
     movements: movements.map((row) => ({ ...row, productName: productsById.get(String(row.product_id))?.name || "Produk diarsipkan" })),
   };
 }
 export async function manageSupabaseMarketplaceProduct(tenantId: string, actorId: string, item: Row) {
   if (!uuid(tenantId) || !uuid(actorId) || !uuid(item?.clientRequestId)) throw new SupabaseMarketplaceError(400, "Data produk marketplace tidak valid.");
-  return request("/rest/v1/rpc/manage_marketplace_product", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: item }) });
+  const payload = { ...item };
+  if (payload.action === "create" || payload.action === "update") {
+    if (!uuid(payload.categoryReferenceId)) throw new SupabaseMarketplaceError(400, "Pilih kategori produk marketplace yang valid.");
+    const references = await listSupabaseReferenceItems(tenantId, "marketplace_product_category");
+    const selected = references.find((reference) => reference.id === payload.categoryReferenceId && reference.status === "active");
+    if (!selected) throw new SupabaseMarketplaceError(400, "Kategori marketplace tidak aktif atau bukan milik tenant ini.");
+    payload.category = selected.name;
+  }
+  return request("/rest/v1/rpc/manage_marketplace_product", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: payload }) });
 }
 export async function adjustSupabaseMarketplaceStock(tenantId: string, actorId: string, item: Row) {
   if (!uuid(tenantId) || !uuid(actorId) || !uuid(item?.productId) || !uuid(item?.clientRequestId) || !Number.isInteger(item?.delta) || typeof item?.reason !== "string") throw new SupabaseMarketplaceError(400, "Mutasi stok marketplace tidak valid.");

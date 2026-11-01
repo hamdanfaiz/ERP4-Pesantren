@@ -13,14 +13,15 @@ type Student = { id: string; name: string; nis: string; className: string; organ
 type Teacher = { id: string; name: string; organizationUnitId?: string | null; organizationUnitName?: string | null };
 type Unit = { id: string; name: string; code: string; status: string; unitType: string };
 type AcademicClass = { id: string; name: string; organizationUnitId?: string | null };
+type AcademicReference = { id: string; code: string; name: string; description?: string; organizationUnitId?: string | null };
 type UnmappedAcademicClass = { id: string; name: string; status: string };
 type UnmappedAcademicClassSnapshot = { classes: UnmappedAcademicClass[]; classCount: number; limit: number; offset: number };
-type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; students: Student[]; teachers: Teacher[]; classes: AcademicClass[]; units: Unit[]; unitsEnabled: boolean };
+type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; students: Student[]; teachers: Teacher[]; classes: AcademicClass[]; subjects: AcademicReference[]; curricula: AcademicReference[]; assessmentTypes: AcademicReference[]; facilities: AcademicReference[]; units: Unit[]; unitsEnabled: boolean };
 type Tab = "schedule" | "journal" | "assessment" | "report-card" | "conflict-resolver" | "teachers" | "subjects" | "curricula";
 type SubjectReference = { name: string; schedules: number; journals: number; assessments: number };
 type CurriculumReference = { name: string; schedules: number };
 
-const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], students: [], teachers: [], classes: [], units: [], unitsEnabled: false };
+const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], students: [], teachers: [], classes: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
 const EMPTY_UNMAPPED_CLASSES: UnmappedAcademicClassSnapshot = { classes: [], classCount: 0, limit: 100, offset: 0 };
 const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_ACADEMIC_IMPORT_ENABLED") === "true";
 type AcademicImportPreview = {
@@ -80,10 +81,10 @@ export function SupabaseAcademicManager() {
   const [classMappingNotice, setClassMappingNotice] = useState("");
   const [classMappingRequest, setClassMappingRequest] = useState("");
   const [classMappingSelections, setClassMappingSelections] = useState<Record<string, string>>({});
-  const [schedule, setSchedule] = useState({ day: "Senin", time: "07:30 - 09:00", subject: "", teacherUserId: "", teacherName: "", className: "", room: "", curriculum: "Formal", organizationUnitId: "" });
+  const [schedule, setSchedule] = useState({ day: "Senin", time: "07:30 - 09:00", subject: "", subjectReferenceId: "", teacherUserId: "", teacherName: "", className: "", classReferenceId: "", room: "", facilityReferenceId: "", curriculum: "", curriculumReferenceId: "", organizationUnitId: "" });
   const [editingScheduleId, setEditingScheduleId] = useState("");
-  const [journal, setJournal] = useState({ date: today(), className: "", subject: "", topic: "", competency: "", attendancePresent: "", attendanceAbsent: "", attendanceExcused: "", teacherUserId: "", teacherName: "", organizationUnitId: "" });
-  const [assessment, setAssessment] = useState({ studentId: "", studentName: "", className: "", teacherUserId: "", subject: "", assessmentType: "Tugas Harian", category: "Formative", score: "" });
+  const [journal, setJournal] = useState({ date: today(), className: "", classReferenceId: "", subject: "", subjectReferenceId: "", topic: "", competency: "", attendancePresent: "", attendanceAbsent: "", attendanceExcused: "", teacherUserId: "", teacherName: "", organizationUnitId: "" });
+  const [assessment, setAssessment] = useState({ studentId: "", studentName: "", className: "", teacherUserId: "", subject: "", subjectReferenceId: "", assessmentType: "", assessmentTypeReferenceId: "", category: "Formative", score: "" });
 
   useEffect(() => {
     if (role === "Ustadz" && user?.uid) {
@@ -116,17 +117,17 @@ export function SupabaseAcademicManager() {
   }, []);
   const scheduleUnitId = schedule.organizationUnitId || activeUnits[0]?.id || "";
   const journalUnitId = journal.organizationUnitId || activeUnits[0]?.id || "";
-  const classesForUnit = useCallback((unitId: string) => {
-    const byName = new Map<string, AcademicClass>();
-    for (const row of snapshot.classes) {
-      if (snapshot.unitsEnabled && row.organizationUnitId && row.organizationUnitId !== unitId) continue;
-      const existing = byName.get(row.name);
-      if (!existing || row.organizationUnitId === unitId) byName.set(row.name, row);
-    }
-    return [...byName.keys()].sort((a, b) => a.localeCompare(b, "id"));
-  }, [snapshot.classes, snapshot.unitsEnabled]);
+  const classesForUnit = useCallback((unitId: string) => snapshot.classes
+    .filter((row) => !snapshot.unitsEnabled || !row.organizationUnitId || row.organizationUnitId === unitId)
+    .sort((a, b) => a.name.localeCompare(b.name, "id") || a.id.localeCompare(b.id)),
+  [snapshot.classes, snapshot.unitsEnabled]);
   const scheduleClasses = useMemo(() => classesForUnit(scheduleUnitId), [classesForUnit, scheduleUnitId]);
   const journalClasses = useMemo(() => classesForUnit(journalUnitId), [classesForUnit, journalUnitId]);
+  const forUnit = (items: AcademicReference[], unitId: string) => items.filter((item) => !snapshot.unitsEnabled || !item.organizationUnitId || item.organizationUnitId === unitId);
+  const scheduleSubjects = useMemo(() => forUnit(snapshot.subjects, scheduleUnitId), [snapshot.subjects, snapshot.unitsEnabled, scheduleUnitId]);
+  const journalSubjects = useMemo(() => forUnit(snapshot.subjects, journalUnitId), [snapshot.subjects, snapshot.unitsEnabled, journalUnitId]);
+  const scheduleCurricula = useMemo(() => forUnit(snapshot.curricula, scheduleUnitId), [snapshot.curricula, snapshot.unitsEnabled, scheduleUnitId]);
+  const scheduleFacilities = useMemo(() => forUnit(snapshot.facilities, scheduleUnitId), [snapshot.facilities, snapshot.unitsEnabled, scheduleUnitId]);
   const scheduleTeachers = useMemo(() => snapshot.unitsEnabled && isAdmin
     ? snapshot.teachers.filter((teacher) => teacher.organizationUnitId === scheduleUnitId)
     : snapshot.teachers, [snapshot.teachers, snapshot.unitsEnabled, isAdmin, scheduleUnitId]);
@@ -176,6 +177,10 @@ export function SupabaseAcademicManager() {
         students: Array.isArray(payload.students) ? payload.students : [],
         teachers: Array.isArray(payload.teachers) ? payload.teachers : [],
         classes: Array.isArray(payload.classes) ? payload.classes : [],
+        subjects: Array.isArray(payload.subjects) ? payload.subjects : [],
+        curricula: Array.isArray(payload.curricula) ? payload.curricula : [],
+        assessmentTypes: Array.isArray(payload.assessmentTypes) ? payload.assessmentTypes : [],
+        facilities: Array.isArray(payload.facilities) ? payload.facilities : [],
         units: Array.isArray(payload.units) ? payload.units : [],
         unitsEnabled: payload.unitsEnabled === true,
       });
@@ -205,7 +210,7 @@ export function SupabaseAcademicManager() {
       setNotice(editingId ? "Jadwal berhasil diperbarui di tenant Supabase." : "Data tersimpan di tenant Supabase.");
       if (activeTab === "schedule") {
         setEditingScheduleId("");
-        setSchedule({ day: "Senin", time: "07:30 - 09:00", subject: "", teacherUserId: "", teacherName: "", className: "", room: "", curriculum: "Formal", organizationUnitId: scheduleUnitId });
+        setSchedule({ day: "Senin", time: "07:30 - 09:00", subject: "", subjectReferenceId: "", teacherUserId: "", teacherName: "", className: "", classReferenceId: "", room: "", facilityReferenceId: "", curriculum: "", curriculumReferenceId: "", organizationUnitId: scheduleUnitId });
       }
       if (activeTab === "journal") setJournal((current) => ({ ...current, organizationUnitId: journalUnitId, topic: "", competency: "", attendancePresent: "", attendanceAbsent: "", attendanceExcused: "" }));
       if (activeTab === "assessment") setAssessment((current) => ({ ...current, score: "" }));
@@ -224,7 +229,31 @@ export function SupabaseAcademicManager() {
   const hasUnitForWrite = !snapshot.unitsEnabled || !isAdmin || activeUnits.length > 0;
   const changeStudent = (studentId: string) => {
     const student = snapshot.students.find((item) => item.id === studentId);
-    setAssessment((current) => ({ ...current, studentId, studentName: student?.name || "", className: student?.className || "" }));
+    setAssessment((current) => ({ ...current, studentId, studentName: student?.name || "", className: student?.className || "", subject: "", subjectReferenceId: "" }));
+  };
+  const setScheduleClass = (classReferenceId: string) => {
+    const selected = snapshot.classes.find((item) => item.id === classReferenceId);
+    setSchedule((current) => ({ ...current, classReferenceId, className: selected?.name || "" }));
+  };
+  const setJournalClass = (classReferenceId: string) => {
+    const selected = snapshot.classes.find((item) => item.id === classReferenceId);
+    setJournal((current) => ({ ...current, classReferenceId, className: selected?.name || "" }));
+  };
+  const setScheduleSubject = (subjectReferenceId: string) => {
+    const selected = snapshot.subjects.find((item) => item.id === subjectReferenceId);
+    setSchedule((current) => ({ ...current, subjectReferenceId, subject: selected?.name || "" }));
+  };
+  const setJournalSubject = (subjectReferenceId: string) => {
+    const selected = snapshot.subjects.find((item) => item.id === subjectReferenceId);
+    setJournal((current) => ({ ...current, subjectReferenceId, subject: selected?.name || "" }));
+  };
+  const setAssessmentSubject = (subjectReferenceId: string) => {
+    const selected = snapshot.subjects.find((item) => item.id === subjectReferenceId);
+    setAssessment((current) => ({ ...current, subjectReferenceId, subject: selected?.name || "" }));
+  };
+  const setAssessmentType = (assessmentTypeReferenceId: string) => {
+    const selected = snapshot.assessmentTypes.find((item) => item.id === assessmentTypeReferenceId);
+    setAssessment((current) => ({ ...current, assessmentTypeReferenceId, assessmentType: selected?.name || "" }));
   };
   const setJournalTeacher = (teacherId: string) => {
     const teacher = snapshot.teachers.find((item) => item.id === teacherId);
@@ -243,10 +272,10 @@ export function SupabaseAcademicManager() {
       return;
     }
     setSchedule({
-      day: String(record.day || "Senin"), time: String(record.time || ""), subject: String(record.subject || ""),
+      day: String(record.day || "Senin"), time: String(record.time || ""), subject: String(record.subject || ""), subjectReferenceId: String(record.subjectReferenceId || ""),
       teacherUserId: String(record.teacherUserId || ""), teacherName: String(record.teacherName || ""),
-      className: String(record.className || ""), room: String(record.room || ""),
-      curriculum: String(record.curriculum || "Formal"), organizationUnitId: String(record.organizationUnitId || ""),
+      className: String(record.className || ""), classReferenceId: String(record.classReferenceId || ""), room: String(record.room || ""), facilityReferenceId: String(record.facilityReferenceId || ""),
+      curriculum: String(record.curriculum || ""), curriculumReferenceId: String(record.curriculumReferenceId || ""), organizationUnitId: String(record.organizationUnitId || ""),
     });
     setEditingScheduleId(String(record.id));
     setActiveTab("schedule");
@@ -256,7 +285,7 @@ export function SupabaseAcademicManager() {
 
   const cancelScheduleEdit = () => {
     setEditingScheduleId("");
-    setSchedule({ day: "Senin", time: "07:30 - 09:00", subject: "", teacherUserId: "", teacherName: "", className: "", room: "", curriculum: "Formal", organizationUnitId: scheduleUnitId });
+    setSchedule({ day: "Senin", time: "07:30 - 09:00", subject: "", subjectReferenceId: "", teacherUserId: "", teacherName: "", className: "", classReferenceId: "", room: "", facilityReferenceId: "", curriculum: "", curriculumReferenceId: "", organizationUnitId: scheduleUnitId });
     setError("");
     setNotice("");
   };
@@ -400,20 +429,20 @@ export function SupabaseAcademicManager() {
         <div className="mb-4 flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-700" /><h2 className="font-semibold text-slate-900 dark:text-white">{activeTab === "schedule" ? editingScheduleId ? "Perbaiki jadwal" : "Tambah jadwal" : activeTab === "journal" ? "Catat jurnal KBM" : "Input penilaian"}</h2></div>
         {loading ? <p className="text-sm text-slate-500">Menunggu data tenant…</p> : <form onSubmit={submit} className="space-y-4">
           {activeTab === "schedule" && <>
-            {snapshot.unitsEnabled && isAdmin && <Field label="Unit organisasi"><select required className={fieldClass} value={scheduleUnitId} onChange={(e) => setSchedule((current) => ({ ...current, organizationUnitId: e.target.value, teacherUserId: "", teacherName: "" }))}><option value="">Pilih unit aktif</option>{activeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select></Field>}
+            {snapshot.unitsEnabled && isAdmin && <Field label="Unit organisasi"><select required className={fieldClass} value={scheduleUnitId} onChange={(e) => setSchedule((current) => ({ ...current, organizationUnitId: e.target.value, teacherUserId: "", teacherName: "", subject: "", subjectReferenceId: "", className: "", classReferenceId: "", room: "", facilityReferenceId: "", curriculum: "", curriculumReferenceId: "" }))}><option value="">Pilih unit aktif</option>{activeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select></Field>}
             <Field label="Hari"><select className={fieldClass} value={schedule.day} onChange={(e) => setSchedule({ ...schedule, day: e.target.value })}>{["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day) => <option key={day}>{day}</option>)}</select></Field>
             <Field label="Waktu (HH:MM - HH:MM)"><input required className={fieldClass} value={schedule.time} onChange={(e) => setSchedule({ ...schedule, time: e.target.value })} placeholder="07:30 - 09:00" /></Field>
-            <Field label="Mata pelajaran"><input required maxLength={150} className={fieldClass} value={schedule.subject} onChange={(e) => setSchedule({ ...schedule, subject: e.target.value })} /></Field>
-            <Field label="Kelas"><select required className={fieldClass} value={schedule.className} onChange={(e) => setSchedule({ ...schedule, className: e.target.value })}><option value="">Pilih kelas dari roster</option>{scheduleClasses.map((name) => <option key={name}>{name}</option>)}</select></Field>
+            <Field label="Mata pelajaran"><select required className={fieldClass} value={schedule.subjectReferenceId} onChange={(e) => setScheduleSubject(e.target.value)}><option value="">Pilih mata pelajaran</option>{scheduleSubjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+            <Field label="Kelas"><select required className={fieldClass} value={schedule.classReferenceId} onChange={(e) => setScheduleClass(e.target.value)}><option value="">Pilih kelas dari Data Induk</option>{scheduleClasses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
             <Field label="Pengajar"><select required className={fieldClass} value={schedule.teacherUserId} onChange={(e) => setScheduleTeacher(e.target.value)}><option value="">Pilih pengajar</option>{scheduleTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}</select></Field>
-            <Field label="Ruang"><input maxLength={100} className={fieldClass} value={schedule.room} onChange={(e) => setSchedule({ ...schedule, room: e.target.value })} /></Field>
-            <Field label="Kurikulum"><input maxLength={100} className={fieldClass} value={schedule.curriculum} onChange={(e) => setSchedule({ ...schedule, curriculum: e.target.value })} /></Field>
+            <Field label="Ruang"><select className={fieldClass} value={schedule.facilityReferenceId} onChange={(e) => { const selected = snapshot.facilities.find((item) => item.id === e.target.value); setSchedule((current) => ({ ...current, facilityReferenceId: e.target.value, room: selected?.name || "" })); }}><option value="">Tanpa ruang khusus</option>{scheduleFacilities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+            <Field label="Kurikulum"><select required className={fieldClass} value={schedule.curriculumReferenceId} onChange={(e) => { const selected = snapshot.curricula.find((item) => item.id === e.target.value); setSchedule((current) => ({ ...current, curriculumReferenceId: e.target.value, curriculum: selected?.name || "" })); }}><option value="">Pilih kurikulum</option>{scheduleCurricula.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
           </>}
           {activeTab === "journal" && <>
-            {snapshot.unitsEnabled && isAdmin && <Field label="Unit organisasi"><select required className={fieldClass} value={journalUnitId} onChange={(e) => setJournal((current) => ({ ...current, organizationUnitId: e.target.value, teacherUserId: "", teacherName: "" }))}><option value="">Pilih unit aktif</option>{activeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select></Field>}
+            {snapshot.unitsEnabled && isAdmin && <Field label="Unit organisasi"><select required className={fieldClass} value={journalUnitId} onChange={(e) => setJournal((current) => ({ ...current, organizationUnitId: e.target.value, teacherUserId: "", teacherName: "", subject: "", subjectReferenceId: "", className: "", classReferenceId: "" }))}><option value="">Pilih unit aktif</option>{activeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select></Field>}
             <Field label="Tanggal"><input type="date" required className={fieldClass} value={journal.date} onChange={(e) => setJournal({ ...journal, date: e.target.value })} /></Field>
-            <Field label="Kelas"><select required className={fieldClass} value={journal.className} onChange={(e) => setJournal({ ...journal, className: e.target.value })}><option value="">Pilih kelas dari roster</option>{journalClasses.map((name) => <option key={name}>{name}</option>)}</select></Field>
-            <Field label="Mata pelajaran"><input required maxLength={150} className={fieldClass} value={journal.subject} onChange={(e) => setJournal({ ...journal, subject: e.target.value })} /></Field>
+            <Field label="Kelas"><select required className={fieldClass} value={journal.classReferenceId} onChange={(e) => setJournalClass(e.target.value)}><option value="">Pilih kelas dari Data Induk</option>{journalClasses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+            <Field label="Mata pelajaran"><select required className={fieldClass} value={journal.subjectReferenceId} onChange={(e) => setJournalSubject(e.target.value)}><option value="">Pilih mata pelajaran</option>{journalSubjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
             <Field label="Materi"><textarea required maxLength={2000} rows={3} className={fieldClass} value={journal.topic} onChange={(e) => setJournal({ ...journal, topic: e.target.value })} /></Field>
             <Field label="Kompetensi / catatan"><textarea maxLength={4000} rows={2} className={fieldClass} value={journal.competency} onChange={(e) => setJournal({ ...journal, competency: e.target.value })} /></Field>
             {isAdmin && <Field label="Pengajar"><select required className={fieldClass} value={journal.teacherUserId} onChange={(e) => setJournalTeacher(e.target.value)}><option value="">Pilih pengajar</option>{journalTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}</select></Field>}
@@ -423,8 +452,8 @@ export function SupabaseAcademicManager() {
             <Field label="Santri"><select required className={fieldClass} value={assessment.studentId} onChange={(e) => changeStudent(e.target.value)}><option value="">Pilih santri aktif</option>{snapshot.students.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis}</option>)}</select></Field>
             {selectedStudent && <p className="-mt-2 text-xs text-slate-500">Kelas {selectedStudent.className || "belum ditetapkan"}{selectedStudent.organizationUnitName ? ` · ${selectedStudent.organizationUnitName}` : snapshot.unitsEnabled ? " · belum dipetakan ke unit" : ""}</p>}
             {isAdmin && <Field label="Pengajar"><select required className={fieldClass} value={assessment.teacherUserId} onChange={(e) => setAssessmentTeacher(e.target.value)}><option value="">Pilih pengajar</option>{assessmentTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}</select></Field>}
-            <Field label="Mata pelajaran"><input required maxLength={150} className={fieldClass} value={assessment.subject} onChange={(e) => setAssessment({ ...assessment, subject: e.target.value })} /></Field>
-            <Field label="Jenis penilaian"><input required maxLength={100} className={fieldClass} value={assessment.assessmentType} onChange={(e) => setAssessment({ ...assessment, assessmentType: e.target.value })} /></Field>
+            <Field label="Mata pelajaran"><select required className={fieldClass} value={assessment.subjectReferenceId} onChange={(e) => setAssessmentSubject(e.target.value)}><option value="">Pilih mata pelajaran</option>{forUnit(snapshot.subjects, selectedStudent?.organizationUnitId || "").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+            <Field label="Jenis penilaian"><select required className={fieldClass} value={assessment.assessmentTypeReferenceId} onChange={(e) => setAssessmentType(e.target.value)}><option value="">Pilih jenis penilaian</option>{snapshot.assessmentTypes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
             <div className="grid grid-cols-2 gap-3"><Field label="Kategori"><select className={fieldClass} value={assessment.category} onChange={(e) => setAssessment({ ...assessment, category: e.target.value })}><option value="Formative">Formatif</option><option value="Summative">Sumatif</option></select></Field><Field label="Nilai (0–100)"><input type="number" required min="0" max="100" step="any" className={fieldClass} value={assessment.score} onChange={(e) => setAssessment({ ...assessment, score: e.target.value })} /></Field></div>
           </>}
           <button type="submit" disabled={saving || loading || !creatingAcademicRecord || !hasUnitForWrite || (activeTab === "assessment" && (snapshot.students.length === 0 || (snapshot.unitsEnabled && !selectedStudent?.organizationUnitId)))} className={`${buttonClass} w-full`}><Plus className="h-4 w-4" />{saving ? "Menyimpan…" : editingScheduleId && activeTab === "schedule" ? "Simpan perubahan" : "Simpan ke Supabase"}</button>

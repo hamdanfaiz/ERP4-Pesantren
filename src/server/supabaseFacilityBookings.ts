@@ -51,12 +51,43 @@ async function boundedRows(table: string, tenantId: string, select: string, orde
 }
 export async function getSupabaseFacilityBookings(tenantIdentifier: string) {
   const tenantId = await activeTenant(tenantIdentifier);
-  const bookings = await boundedRows("facility_bookings", tenantId, "id,room_name,booking_date,start_time,end_time,purpose,booker_name,status,source_system,source_record_id,created_at,updated_at", "booking_date.desc,start_time.desc,id.desc", 6000);
-  return { bookings: bookings.map((row) => ({ ...row, room: row.room_name, date: row.booking_date, startTime: String(row.start_time).slice(0, 5), endTime: String(row.end_time).slice(0, 5), purpose: row.purpose, booker: row.booker_name, status: row.status === "confirmed" ? "Confirmed" : "Cancelled" })) };
+  const [bookings, resources] = await Promise.all([
+    boundedRows("facility_bookings", tenantId, "id,facility_reference_id,room_name,booking_date,start_time,end_time,purpose,booker_name,status,source_system,source_record_id,created_at,updated_at", "booking_date.desc,start_time.desc,id.desc", 6000),
+    request("/rest/v1/tenant_reference_items?" + new URLSearchParams({
+      select: "id,code,name,description",
+      tenant_id: "eq." + tenantId,
+      domain: "eq.facility_resource",
+      status: "eq.active",
+      order: "name.asc,id.asc",
+      limit: "501",
+    }).toString()),
+  ]);
+  if (!Array.isArray(resources) || resources.length > 500) throw new SupabaseFacilityBookingError(503, "Daftar fasilitas tenant melewati batas aman tampilan.");
+  return {
+    bookings: bookings.map((row) => ({ ...row, facilityReferenceId: row.facility_reference_id ? String(row.facility_reference_id) : null, room: row.room_name, date: row.booking_date, startTime: String(row.start_time).slice(0, 5), endTime: String(row.end_time).slice(0, 5), purpose: row.purpose, booker: row.booker_name, status: row.status === "confirmed" ? "Confirmed" : "Cancelled" })),
+    resources: resources.map((row: Row) => ({ id: String(row.id), code: String(row.code), name: String(row.name), description: String(row.description || "") })),
+  };
 }
 export async function manageSupabaseFacilityBooking(tenantId: string, actorId: string, item: Row) {
   if (!uuid(tenantId) || !uuid(actorId) || !uuid(item?.clientRequestId)) throw new SupabaseFacilityBookingError(400, "Data pemesanan fasilitas tidak valid.");
-  return request("/rest/v1/rpc/manage_facility_booking", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: item }) });
+  const action = String(item.action || "");
+  let normalizedItem = item;
+  if (action === "create" || action === "update") {
+    const referenceId = String(item.facilityReferenceId || "").trim();
+    if (!uuid(referenceId)) throw new SupabaseFacilityBookingError(400, "Pilih fasilitas dari daftar referensi tenant.");
+    const params = new URLSearchParams({
+      select: "id,name,status",
+      tenant_id: "eq." + tenantId,
+      domain: "eq.facility_resource",
+      id: "eq." + referenceId,
+      status: "eq.active",
+      limit: "2",
+    });
+    const rows = await request("/rest/v1/tenant_reference_items?" + params.toString());
+    if (!Array.isArray(rows) || rows.length !== 1) throw new SupabaseFacilityBookingError(400, "Fasilitas tidak aktif atau tidak tersedia pada tenant ini.");
+    normalizedItem = { ...item, facilityReferenceId: referenceId, room: String(rows[0].name) };
+  }
+  return request("/rest/v1/rpc/manage_facility_booking", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: normalizedItem }) });
 }
 export async function getSupabaseFacilityBookingImportContext(tenantIdentifier: string) {
   const tenantId = await activeTenant(tenantIdentifier);

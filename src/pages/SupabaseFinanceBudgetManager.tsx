@@ -37,8 +37,9 @@ type BudgetPlan = {
 };
 
 type OrganizationUnit = { id: string; code: string; name: string; status: "active" | "inactive" };
-type Snapshot = { plans: BudgetPlan[]; units: OrganizationUnit[]; financeLocked: boolean };
-type DraftLine = { department: string; category: string; allocatedAmount: string };
+type BudgetCategory = { id: string; code: string; name: string; description: string };
+type Snapshot = { plans: BudgetPlan[]; units: OrganizationUnit[]; budgetCategories: BudgetCategory[]; financeLocked: boolean };
+type DraftLine = { categoryReferenceId: string; allocatedAmount: string };
 type Draft = { unitId: string; periodLabel: string; periodStart: string; periodEnd: string; notes: string; lines: DraftLine[] };
 type BudgetTab = "budget" | "forecast" | "expenses" | "approvals" | "books" | "statements" | "cashflow";
 const BUDGET_TABS: Array<{ id: BudgetTab; label: string }> = [
@@ -51,8 +52,8 @@ const BUDGET_TABS: Array<{ id: BudgetTab; label: string }> = [
   { id: "cashflow", label: "Analisis Arus Kas" },
 ];
 
-const EMPTY: Snapshot = { plans: [], units: [], financeLocked: false };
-const EMPTY_DRAFT: Draft = { unitId: "", periodLabel: "", periodStart: "", periodEnd: "", notes: "", lines: [{ department: "", category: "", allocatedAmount: "" }] };
+const EMPTY: Snapshot = { plans: [], units: [], budgetCategories: [], financeLocked: false };
+const EMPTY_DRAFT: Draft = { unitId: "", periodLabel: "", periodStart: "", periodEnd: "", notes: "", lines: [{ categoryReferenceId: "", allocatedAmount: "" }] };
 const FIELD = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
 const PRIMARY = "inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50";
 const OUTLINE = "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-white/5";
@@ -115,7 +116,7 @@ export function SupabaseFinanceBudgetManager() {
   const refresh = useCallback(async () => {
     const result = await requestBudget("/api/erp/budget/snapshot");
     const units = Array.isArray(result.units) ? result.units : [];
-    setSnapshot({ plans: Array.isArray(result.plans) ? result.plans : [], units, financeLocked: result.financeLocked === true });
+    setSnapshot({ plans: Array.isArray(result.plans) ? result.plans : [], units, budgetCategories: Array.isArray(result.budgetCategories) ? result.budgetCategories : [], financeLocked: result.financeLocked === true });
     setSelectedUnitId((current) => current || units.find((unit: OrganizationUnit) => unit.status === "active")?.id || "");
   }, []);
 
@@ -127,7 +128,7 @@ export function SupabaseFinanceBudgetManager() {
       .then((result) => {
         if (active) {
           const units = Array.isArray(result.units) ? result.units : [];
-          setSnapshot({ plans: Array.isArray(result.plans) ? result.plans : [], units, financeLocked: result.financeLocked === true });
+          setSnapshot({ plans: Array.isArray(result.plans) ? result.plans : [], units, budgetCategories: Array.isArray(result.budgetCategories) ? result.budgetCategories : [], financeLocked: result.financeLocked === true });
           setSelectedUnitId((current) => current || units.find((unit: OrganizationUnit) => unit.status === "active")?.id || "");
         }
       })
@@ -180,7 +181,7 @@ export function SupabaseFinanceBudgetManager() {
       periodStart: plan.periodStart.slice(0, 10),
       periodEnd: plan.periodEnd.slice(0, 10),
       notes: plan.notes || "",
-      lines: plan.lines.length ? plan.lines.map((line) => ({ department: line.department, category: line.category, allocatedAmount: String(line.allocatedAmount) })) : [{ department: "", category: "", allocatedAmount: "" }],
+      lines: plan.lines.length ? plan.lines.map((line) => ({ categoryReferenceId: snapshot.budgetCategories.find((category) => category.name === line.category)?.id || "", allocatedAmount: String(line.allocatedAmount) })) : [{ categoryReferenceId: "", allocatedAmount: "" }],
     });
     setError("");
   };
@@ -189,17 +190,16 @@ export function SupabaseFinanceBudgetManager() {
     if (!draft.unitId || !draft.periodLabel.trim() || !draft.periodStart || !draft.periodEnd || draft.periodEnd < draft.periodStart || !draft.lines.length) return false;
     const seen = new Set<string>();
     return draft.lines.every((line) => {
-      const department = line.department.trim();
-      const category = line.category.trim();
+      const categoryReferenceId = line.categoryReferenceId;
       const amount = Number(line.allocatedAmount);
-      const key = `${department.toLocaleLowerCase()}\u0000${category.toLocaleLowerCase()}`;
-      if (!department || !category || !Number.isSafeInteger(amount) || amount <= 0 || seen.has(key)) return false;
+      if (!categoryReferenceId || !Number.isSafeInteger(amount) || amount <= 0 || seen.has(categoryReferenceId)) return false;
+      const key = categoryReferenceId;
       seen.add(key);
       return true;
     });
   }, [draft]);
 
-  const addLine = () => setDraft((current) => ({ ...current, lines: [...current.lines, { department: "", category: "", allocatedAmount: "" }] }));
+  const addLine = () => setDraft((current) => ({ ...current, lines: [...current.lines, { categoryReferenceId: "", allocatedAmount: "" }] }));
   const removeLine = (index: number) => setDraft((current) => ({ ...current, lines: current.lines.length === 1 ? current.lines : current.lines.filter((_, lineIndex) => lineIndex !== index) }));
 
   if (role !== "Admin" && role !== "SuperAdmin") {
@@ -250,8 +250,8 @@ export function SupabaseFinanceBudgetManager() {
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold text-slate-900 dark:text-white">Alokasi per bagian dan kategori</h3><button type="button" className={OUTLINE} onClick={addLine} disabled={saving || draft.lines.length >= 500}><Plus className="h-4 w-4" />Tambah alokasi</button></div>
             {draft.lines.map((line, index) => <div key={index} className="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end dark:border-white/10">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Bagian<input required maxLength={120} className={`${FIELD} mt-1`} placeholder="Operasional" value={line.department} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((item, row) => row === index ? { ...item, department: event.target.value } : item) }))} /></label>
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Kategori<input required maxLength={100} className={`${FIELD} mt-1`} placeholder="Listrik" value={line.category} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((item, row) => row === index ? { ...item, category: event.target.value } : item) }))} /></label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Bagian / unit<input readOnly value={selectedUnit?.name || "Pilih unit rencana"} className={`${FIELD} mt-1`} /><span className="mt-1 block text-[11px] font-normal">Bagian mengikuti unit yang dipilih untuk rencana ini.</span></label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Kategori<select required className={`${FIELD} mt-1`} value={line.categoryReferenceId} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((item, row) => row === index ? { ...item, categoryReferenceId: event.target.value } : item) }))}><option value="">Pilih kategori pengeluaran</option>{snapshot.budgetCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{!snapshot.budgetCategories.length && <span className="mt-1 block text-[11px] font-normal text-amber-700">Tambahkan kategori di Data Induk → Kategori & Referensi.</span>}</label>
               <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Alokasi (Rp)<input required type="number" min="1" max="999999999999" step="1" className={`${FIELD} mt-1`} placeholder="500000" value={line.allocatedAmount} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((item, row) => row === index ? { ...item, allocatedAmount: event.target.value } : item) }))} /></label>
               <button type="button" className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 px-3 text-slate-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 dark:border-slate-700" aria-label={`Hapus alokasi ${index + 1}`} disabled={saving || draft.lines.length <= 1} onClick={() => removeLine(index)}><X className="h-4 w-4" /></button>
             </div>)}

@@ -91,6 +91,12 @@ import {
   upsertSupabaseMasterDataStructure,
 } from "./src/server/supabaseOnboarding";
 import {
+  listSupabaseReferenceItems,
+  saveSupabaseReferenceItem,
+  SupabaseReferenceCatalogError,
+  REFERENCE_DOMAINS,
+} from "./src/server/supabaseReferenceCatalog";
+import {
   graduateSupabaseStudent,
   listSupabaseAlumniSnapshot,
   SupabaseAlumniError,
@@ -722,6 +728,7 @@ async function startServer() {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof SupabaseReferenceCatalogError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Master Data endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan Master Data Supabase belum dapat diproses." });
   };
@@ -2405,6 +2412,58 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "master-data");
       return res.json({ records: await listSupabaseMasterDataStructures(actor.tenantId) });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+
+  const referenceDomainModule: Record<string, "academic" | "finance" | "ga" | "healthcare" | "marketplace" | "cooperative" | "library"> = {
+    academic_subject: "academic", academic_curriculum: "academic", academic_assessment_type: "academic",
+    facility_resource: "ga", finance_fee_type: "finance", finance_expense_category: "finance",
+    marketplace_product_category: "marketplace", cooperative_product_category: "cooperative",
+    cooperative_supplier_category: "cooperative", library_book_category: "library",
+    healthcare_medicine_category: "healthcare", healthcare_medicine_unit: "healthcare",
+    ga_asset_category: "ga", ga_inventory_category: "ga", ga_inventory_unit: "ga",
+  };
+  app.get("/api/master-data/references", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const domain = String(req.query.domain || "");
+      if (!(REFERENCE_DOMAINS as readonly string[]).includes(domain)) throw new SupabaseReferenceCatalogError(400, "Jenis referensi tidak dikenal.");
+      const moduleId = referenceDomainModule[domain];
+      const profile = await getUserProfile(uid);
+      const tenantId = String(profile?.tenantId || "").trim();
+      if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId
+        || !resolveUserModulePermissions(profile.role, profile.modulePermissions)[moduleId]) {
+        throw new SupabaseOnboardingError(403, "Akses referensi tenant tidak diberikan kepada akun ini.");
+      }
+      const isAdmin = ["Admin", "SuperAdmin"].includes(String(profile.role));
+      return res.json({ records: await listSupabaseReferenceItems(tenantId, domain, isAdmin && req.query.includeInactive === "true") });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+  app.put("/api/master-data/references/:domain/:referenceId", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      const record = await saveSupabaseReferenceItem(actor.tenantId, uid, req.params.domain, req.params.referenceId, req.body?.record);
+      return res.json({ record });
+    } catch (error) { return masterDataRouteError(res, error); }
+  });
+  app.post("/api/master-data/references/:domain", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadMasterDataActor(uid, "master-data");
+      requireMasterDataAdmin(actor);
+      const record = await saveSupabaseReferenceItem(actor.tenantId, uid, req.params.domain, null, req.body?.record);
+      return res.status(201).json({ record });
     } catch (error) { return masterDataRouteError(res, error); }
   });
 

@@ -1,4 +1,5 @@
 import { readPostgrestRowsInPages } from "./postgrestPagination";
+import { listSupabaseReferenceItems } from "./supabaseReferenceCatalog";
 
 type Row = Record<string, any>;
 
@@ -54,12 +55,14 @@ async function boundedRows(path: string, limit: number, label: string) {
 
 export async function getSupabaseHealthcareSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
-  const [students, records, visits, medicines, movements] = await Promise.all([
+  const [students, records, visits, medicines, movements, medicineCategories, medicineUnits] = await Promise.all([
     boundedRows("/rest/v1/students?" + new URLSearchParams({ select: "id,name,nis,grade,status", tenant_id: "eq." + tenantId, order: "name.asc,id.asc", limit: "5001" }).toString(), 5000, "roster UKS"),
     boundedRows("/rest/v1/healthcare_records?" + new URLSearchParams({ select: "id,student_id,blood_type,height_cm,weight_kg,allergies,chronic_conditions,last_check,updated_at", tenant_id: "eq." + tenantId, order: "updated_at.desc", limit: "5001" }).toString(), 5000, "rekam medis"),
     boundedRows("/rest/v1/healthcare_visits?" + new URLSearchParams({ select: "id,student_id,visit_date,visit_time,complaint,temperature_c,diagnosis,action_taken,status,created_at", tenant_id: "eq." + tenantId, order: "visit_date.desc,visit_time.desc", limit: "5001" }).toString(), 5000, "kunjungan UKS"),
-    boundedRows("/rest/v1/healthcare_medicines?" + new URLSearchParams({ select: "id,name,category,stock_quantity,min_stock,unit,expires_on,updated_at", tenant_id: "eq." + tenantId, order: "name.asc", limit: "2001" }).toString(), 2000, "inventaris obat"),
+    boundedRows("/rest/v1/healthcare_medicines?" + new URLSearchParams({ select: "id,name,category,category_reference_id,stock_quantity,min_stock,unit,unit_reference_id,expires_on,updated_at", tenant_id: "eq." + tenantId, order: "name.asc", limit: "2001" }).toString(), 2000, "inventaris obat"),
     boundedRows("/rest/v1/healthcare_stock_movements?" + new URLSearchParams({ select: "id,medicine_id,quantity_delta,reason,created_at", tenant_id: "eq." + tenantId, order: "created_at.desc", limit: "1001" }).toString(), 1000, "mutasi stok"),
+    listSupabaseReferenceItems(tenantId, "healthcare_medicine_category"),
+    listSupabaseReferenceItems(tenantId, "healthcare_medicine_unit"),
   ]);
   const studentsById = new Map<string, Row>(students.map((row): [string, Row] => [String(row.id), row]));
   const medicinesById = new Map<string, Row>(medicines.map((row): [string, Row] => [String(row.id), row]));
@@ -69,6 +72,8 @@ export async function getSupabaseHealthcareSnapshot(tenantIdentifier: string) {
     visits: visits.map((row) => ({ ...row, student: studentsById.get(String(row.student_id)) || null })),
     medicines: medicines.map((row) => ({ ...row, stockStatus: Number(row.stock_quantity) <= 0 ? "Out of Stock" : Number(row.stock_quantity) <= Number(row.min_stock) ? "Low Stock" : "Sufficient" })),
     movements: movements.map((row) => ({ ...row, medicineName: medicinesById.get(String(row.medicine_id))?.name || "Obat diarsipkan" })),
+    medicineCategories,
+    medicineUnits,
   };
 }
 
@@ -82,7 +87,16 @@ export async function createSupabaseHealthcareVisit(tenantId: string, actorId: s
 }
 export async function createSupabaseHealthcareMedicine(tenantId: string, actorId: string, item: any) {
   if (!uuid(tenantId) || !uuid(actorId) || !uuid(item?.clientRequestId)) throw new SupabaseHealthcareError(400, "Data obat UKS tidak valid.");
-  return request("/rest/v1/rpc/create_healthcare_medicine", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: item }) });
+  if (!uuid(item?.categoryReferenceId) || !uuid(item?.unitReferenceId)) throw new SupabaseHealthcareError(400, "Pilih kategori dan satuan obat dari katalog tenant.");
+  const [categories, units] = await Promise.all([
+    listSupabaseReferenceItems(tenantId, "healthcare_medicine_category"),
+    listSupabaseReferenceItems(tenantId, "healthcare_medicine_unit"),
+  ]);
+  const category = categories.find((reference) => reference.id === item.categoryReferenceId);
+  const unit = units.find((reference) => reference.id === item.unitReferenceId);
+  if (!category || !unit) throw new SupabaseHealthcareError(400, "Kategori atau satuan obat tidak aktif pada tenant ini.");
+  const canonicalItem = { ...item, category: category.name, unit: unit.name };
+  return request("/rest/v1/rpc/create_healthcare_medicine", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: canonicalItem }) });
 }
 export async function adjustSupabaseHealthcareStock(tenantId: string, actorId: string, item: any) {
   if (!uuid(tenantId) || !uuid(actorId) || !uuid(item?.medicineId) || !uuid(item?.requestId) || !Number.isInteger(item?.delta) || typeof item?.reason !== "string") throw new SupabaseHealthcareError(400, "Mutasi stok UKS tidak valid.");

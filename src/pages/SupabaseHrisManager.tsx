@@ -5,9 +5,10 @@ import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type Employee = {
   id: string; employeeNumber: string; fullName: string; jobTitle: string; department: string;
-  email: string; phone: string; hireDate: string | null;
+  organizationUnitId: string | null; email: string; phone: string; hireDate: string | null;
   employmentStatus: "active" | "on_leave" | "inactive" | "terminated";
 };
+type OrganizationUnit = { id: string; code: string; name: string; unitType: string };
 type Attendance = {
   id: string; employeeId: string; workDate: string; status: "present" | "late" | "absent" | "leave" | "remote";
   checkInAt: string | null; checkOutAt: string | null;
@@ -17,7 +18,7 @@ type LeaveRequest = {
   startsOn: string; endsOn: string; reason: string; status: "pending" | "approved" | "rejected";
   requestedByUserId: string; reviewedByUserId: string | null; reviewNote: string; reviewedAt: string | null; createdAt: string;
 };
-type Snapshot = { employees: Employee[]; attendance: Attendance[]; leaveRequests: LeaveRequest[] };
+type Snapshot = { employees: Employee[]; attendance: Attendance[]; leaveRequests: LeaveRequest[]; organizationUnits: OrganizationUnit[] };
 type EmployeeDraft = Omit<Employee, "id"> & { id?: string };
 type LeaveDraft = { employeeId: string; leaveType: LeaveRequest["leaveType"]; startsOn: string; endsOn: string; reason: string };
 type HrisTab = "employees" | "attendance" | "leave" | "tracking" | "shifts" | "payroll" | "performance" | "hiring" | "analytics";
@@ -41,7 +42,7 @@ const HRIS_PENDING: Partial<Record<HrisTab, string>> = {
   analytics: "Analitik SDM per periode dan unit belum disediakan oleh API tenant.",
 };
 const EMPTY_DRAFT: EmployeeDraft = {
-  employeeNumber: "", fullName: "", jobTitle: "", department: "", email: "", phone: "", hireDate: "", employmentStatus: "active",
+  employeeNumber: "", fullName: "", jobTitle: "", department: "", organizationUnitId: null, email: "", phone: "", hireDate: "", employmentStatus: "active",
 };
 const EMPTY_LEAVE_DRAFT: LeaveDraft = { employeeId: "", leaveType: "annual", startsOn: today(), endsOn: today(), reason: "" };
 
@@ -83,7 +84,7 @@ async function hrisRequest<T>(path: string, init: RequestInit = {}): Promise<T> 
 }
 
 export function SupabaseHrisManager() {
-  const [snapshot, setSnapshot] = useState<Snapshot>({ employees: [], attendance: [], leaveRequests: [] });
+  const [snapshot, setSnapshot] = useState<Snapshot>({ employees: [], attendance: [], leaveRequests: [], organizationUnits: [] });
   const [tab, setTab] = useState<HrisTab>("employees");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,7 +104,7 @@ export function SupabaseHrisManager() {
 
   const refresh = useCallback(async () => {
     const result = await hrisRequest<Snapshot>("/api/hris/snapshot");
-    setSnapshot({ employees: Array.isArray(result.employees) ? result.employees : [], attendance: Array.isArray(result.attendance) ? result.attendance : [], leaveRequests: Array.isArray(result.leaveRequests) ? result.leaveRequests : [] });
+    setSnapshot({ employees: Array.isArray(result.employees) ? result.employees : [], attendance: Array.isArray(result.attendance) ? result.attendance : [], leaveRequests: Array.isArray(result.leaveRequests) ? result.leaveRequests : [], organizationUnits: Array.isArray(result.organizationUnits) ? result.organizationUnits : [] });
     setEmployeeId((current) => current || result.employees?.find((item) => item.employmentStatus === "active")?.id || "");
   }, []);
 
@@ -113,7 +114,7 @@ export function SupabaseHrisManager() {
     void hrisRequest<Snapshot>("/api/hris/snapshot")
       .then((result) => {
         if (!mounted) return;
-        setSnapshot({ employees: Array.isArray(result.employees) ? result.employees : [], attendance: Array.isArray(result.attendance) ? result.attendance : [], leaveRequests: Array.isArray(result.leaveRequests) ? result.leaveRequests : [] });
+        setSnapshot({ employees: Array.isArray(result.employees) ? result.employees : [], attendance: Array.isArray(result.attendance) ? result.attendance : [], leaveRequests: Array.isArray(result.leaveRequests) ? result.leaveRequests : [], organizationUnits: Array.isArray(result.organizationUnits) ? result.organizationUnits : [] });
         setEmployeeId(result.employees?.find((item) => item.employmentStatus === "active")?.id || "");
       })
       .catch((loadError: any) => { if (mounted) setError(loadError?.message || "Data HRIS belum dapat dimuat."); })
@@ -235,11 +236,12 @@ export function SupabaseHrisManager() {
 
       {employeeDraft && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={(event) => void saveEmployee(event)} className="max-h-[92vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
         <div><h2 className="text-lg font-bold text-slate-900 dark:text-white">{employeeDraft.id ? "Ubah data pegawai" : "Tambah pegawai"}</h2><p className="mt-1 text-sm text-slate-500">Perubahan dicatat dengan akun Admin tenant.</p></div>
-        <div className="grid gap-3 sm:grid-cols-2">{(["employeeNumber", "fullName", "jobTitle", "department", "email", "phone"] as const).map((field) => <label key={field} className="text-xs font-medium text-slate-600 dark:text-slate-300">{{ employeeNumber: "Nomor pegawai", fullName: "Nama lengkap", jobTitle: "Jabatan", department: "Unit kerja", email: "Email", phone: "Telepon" }[field]}<input required={field !== "email" && field !== "phone"} type={field === "email" ? "email" : "text"} maxLength={field === "employeeNumber" ? 40 : field === "fullName" ? 180 : 120} value={employeeDraft[field] || ""} onChange={(e) => setEmployeeDraft({ ...employeeDraft, [field]: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950" /></label>)}
+        <div className="grid gap-3 sm:grid-cols-2">{(["employeeNumber", "fullName", "jobTitle", "email", "phone"] as const).map((field) => <label key={field} className="text-xs font-medium text-slate-600 dark:text-slate-300">{{ employeeNumber: "Nomor pegawai", fullName: "Nama lengkap", jobTitle: "Jabatan", email: "Email", phone: "Telepon" }[field]}<input required={field !== "email" && field !== "phone"} type={field === "email" ? "email" : "text"} maxLength={field === "employeeNumber" ? 40 : field === "fullName" ? 180 : 120} value={employeeDraft[field] || ""} onChange={(e) => setEmployeeDraft({ ...employeeDraft, [field]: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950" />{field === "jobTitle" && <span className="mt-1 block font-normal">Nama jabatan bersifat deskriptif; unit dipilih dari daftar unit pesantren.</span>}</label>)}
+          <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Unit kerja<select required value={employeeDraft.organizationUnitId || ""} onChange={(e) => setEmployeeDraft({ ...employeeDraft, organizationUnitId: e.target.value || null })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950"><option value="">Pilih unit kerja</option>{snapshot.organizationUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name} · {unit.code}</option>)}</select><span className="mt-1 block font-normal">Unit kerja terhubung ke struktur organisasi tenant.</span>{!snapshot.organizationUnits.length && <span className="mt-1 block font-normal text-amber-700">Tambahkan unit di Manajemen Multi-Unit sebelum mendaftarkan pegawai.</span>}</label>
           <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Tanggal mulai<input type="date" value={employeeDraft.hireDate || ""} onChange={(e) => setEmployeeDraft({ ...employeeDraft, hireDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950" /></label>
           <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Status kerja<select value={employeeDraft.employmentStatus} onChange={(e) => setEmployeeDraft({ ...employeeDraft, employmentStatus: e.target.value as Employee["employmentStatus"] })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950"><option value="active">Aktif</option><option value="on_leave">Cuti</option><option value="inactive">Nonaktif</option><option value="terminated">Berakhir</option></select></label>
         </div>
-        <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-white/10"><button type="button" onClick={() => setEmployeeDraft(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button type="submit" disabled={saving} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Menyimpan…" : "Simpan"}</button></div>
+        <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-white/10"><button type="button" onClick={() => setEmployeeDraft(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button type="submit" disabled={saving || !employeeDraft.organizationUnitId} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Menyimpan…" : "Simpan"}</button></div>
       </form></div>}
       {leaveDraft && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={(event) => void saveLeave(event)} className="max-h-[92vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
         <div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Catat cuti pegawai</h2><p className="mt-1 text-sm text-slate-500">Pengajuan dicatat Admin atas nama pegawai aktif; periode maksimal 120 hari kalender.</p></div>

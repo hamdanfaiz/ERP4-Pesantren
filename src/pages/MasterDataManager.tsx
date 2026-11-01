@@ -44,6 +44,7 @@ import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
 import { MasterDataTransferModal } from "../components/MasterDataTransferModal";
 import { SupabaseMasterDataAuditPanel } from "../components/SupabaseMasterDataAuditPanel";
+import { SupabaseReferenceCatalogManager } from "../components/SupabaseReferenceCatalogManager";
 import { downloadTransferCsv } from "../utils/dataTransferCsv";
 import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import {
@@ -76,12 +77,14 @@ const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "K
 const TABS = [
   { id: "entities", label: "Data Entitas", icon: Users },
   { id: "structure", label: "Struktur", icon: Building },
+  { id: "references", label: "Kategori & Referensi", icon: Layers },
   { id: "audit", label: "Jejak Audit", icon: Activity },
 ];
 
 const SUB_TABS: Record<string, string[]> = {
   entities: ["Santri"],
   structure: ["Gedung", "Kamar", "Kelas", "Peta Struktur"],
+  references: ["Mata Pelajaran", "Kurikulum", "Jenis Penilaian", "Fasilitas", "Jenis Tagihan", "Kategori Pengeluaran"],
   audit: ["Semua Aktivitas"],
 };
 
@@ -188,10 +191,10 @@ function masterAuditActionLabel(action: string) {
 
 export function MasterDataManager() {
   const { user } = useAuth();
-  const visibleTabs = TABS;
+  const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME ? TABS : TABS.filter((tab) => tab.id !== "references");
   // Keep legacy state variants typed for the retained non-Supabase branches;
   // only the three owner tabs below are exposed in the current navigation.
-  const [activeTab, setActiveTab] = useState<"entities" | "structure" | "academic" | "booking" | "audit">("entities");
+  const [activeTab, setActiveTab] = useState<"entities" | "structure" | "references" | "academic" | "booking" | "audit">("entities");
   const [activeSubTab, setActiveSubTab] = useState("Santri");
   const visibleSubTabs = SUB_TABS[activeTab] || [];
   const isSupabaseTransferView = SUPABASE_MASTER_DATA_RUNTIME
@@ -515,7 +518,7 @@ export function MasterDataManager() {
   const handleTabChange = (
     tabId: string,
   ) => {
-    setActiveTab(tabId as "entities" | "structure" | "academic" | "booking" | "audit");
+    setActiveTab(tabId as "entities" | "structure" | "references" | "academic" | "booking" | "audit");
     const nextSubTabs = SUB_TABS[tabId] || [];
     setActiveSubTab(nextSubTabs[0] || "Santri");
     setSelectedRecord(null);
@@ -1668,7 +1671,7 @@ export function MasterDataManager() {
         })}
       </div>
 
-      <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col md:flex-row min-h-[600px] relative print:border-none print:shadow-none print:bg-transparent print:min-h-0 print:block">
+      {SUPABASE_MASTER_DATA_RUNTIME && activeTab === "references" ? <SupabaseReferenceCatalogManager /> : <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col md:flex-row min-h-[600px] relative print:border-none print:shadow-none print:bg-transparent print:min-h-0 print:block">
         {/* Left Sidebar / Sub-nav */}
         <div className="w-full md:w-56 border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/5 bg-black/20 p-4 print:hidden">
           <div className="text-[10px] uppercase font-semibold text-slate-500 tracking-widest mb-3 px-2">
@@ -3203,7 +3206,7 @@ export function MasterDataManager() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
       {selectedRows.length > 0 && (
         <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/95 p-2 shadow-xl print:hidden">
           <span className="rounded-lg border border-emerald-500/30 bg-emerald-900/40 px-3 py-1 text-xs font-medium text-emerald-300">
