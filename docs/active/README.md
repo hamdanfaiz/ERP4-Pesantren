@@ -7,6 +7,7 @@ Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `compl
 ## Kesiapan produk
 - [Kesiapan Komersial dan Go-Live](00_PRODUCT/COMMERCIAL_READINESS.md) — kontrak produk self-hosted, bukti teknis, dan tahapan pilot/deploy.
 - [Progres penyelesaian pengembangan — 30 Okt 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — estimasi progres pengembangan sekitar 73%, tidak termasuk pelaksanaan deployment dan UAT oleh tim penerapan.
+- [Checkpoint penempatan menu — 1 Nov 2026](00_PRODUCT/MODULE_OWNERSHIP_CHECKPOINT_2026-11-01.md) — lokasi menu pada modul pemilik, batas katalog baca-saja, hasil pemeriksaan lokal, dan gate yang masih terbuka.
 
 ## Referensi aktif
 - [Checkpoint terkini PR #38 — PPDB Wali di VQE](06_DATABASE/CHECKPOINT_GUARDIAN_PPDB_STAGING_2026-10-31.md) — 112 migrasi staging, selisih terhadap `main`, keterbatasan akses PTSAS, dan gerbang UAT.
