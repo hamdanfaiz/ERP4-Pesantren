@@ -304,11 +304,20 @@ async function main() {
     ]);
     if (guardianAccountsError) throw new Error('Unable to create canonical guardian account links.');
 
+    const { data: feeTypeReference, error: feeTypeReferenceError } = await admin.from('tenant_reference_items')
+      .select('name')
+      .eq('tenant_id', tenantId)
+      .eq('domain', 'finance_fee_type')
+      .eq('code', 'SPP_BULANAN')
+      .eq('status', 'active')
+      .single();
+    if (feeTypeReferenceError || !feeTypeReference?.name) throw new Error('Unable to find the tenant SPP fee type reference.');
+
     const { data: billResult, error: billError } = await admin.rpc('create_tenant_finance_bills', {
       p_tenant_id: tenantId,
       p_actor_user_id: financeAdmin.uid,
       p_expected_role: 'admin',
-      p_items: [{ studentId, feeType: 'SPP', period: `storage-${fixtureSuffix}`, amount: 50000 }],
+      p_items: [{ studentId, feeType: feeTypeReference.name, period: `storage-${fixtureSuffix}`, amount: 50000 }],
       p_client_request_id: billRequestId,
     });
     if (billError || billResult?.created !== 1) throw new Error('Unable to create a synthetic Finance bill.');
