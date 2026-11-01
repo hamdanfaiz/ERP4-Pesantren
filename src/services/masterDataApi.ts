@@ -35,10 +35,10 @@ export type SupabaseReferenceItem = {
   updatedAt: string;
 };
 
-export type TenantNamingSeriesKey = "nis" | "ppdb_registration" | "employee_number" | "building_code" | "room_code" | "class_code";
+export type TenantNamingSeriesKey = "nis" | "ppdb_registration" | "employee_number" | "building_code" | "room_code" | "class_code" | "document_number" | "finance_receipt" | "asset_code" | "inventory_item_code" | "donation_receipt" | "waqf_asset_code" | "laundry_order_number" | "cooperative_product_sku" | "marketplace_product_sku";
 export type TenantNamingSeries = {
   seriesKey: TenantNamingSeriesKey;
-  moduleId: "master-data" | "ppdb" | "hris";
+  moduleId: "master-data" | "ppdb" | "hris" | "document" | "finance" | "ga" | "donation" | "laundry" | "cooperative" | "marketplace";
   displayName: string;
   description: string;
   formatTemplate: string;

@@ -15,7 +15,7 @@ INSERT INTO auth.users (
   ('c9100000-0000-4000-8000-000000000012','00000000-0000-0000-0000-000000000000','authenticated','authenticated','naming-staff@test.invalid','',now(),'{}','{}',now(),now());
 
 INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, status, module_permissions) VALUES
-  ('c9100000-0000-4000-8000-000000000011','c9100000-0000-4000-8000-000000000001','naming-admin@test.invalid','Admin Naming','admin','active','{"master-data":true,"hris":true}'),
+  ('c9100000-0000-4000-8000-000000000011','c9100000-0000-4000-8000-000000000001','naming-admin@test.invalid','Admin Naming','admin','active','{"master-data":true,"hris":true,"document":true,"finance":true,"ga":true}'),
   ('c9100000-0000-4000-8000-000000000012','c9100000-0000-4000-8000-000000000001','naming-staff@test.invalid','Staf Naming','ustadz','active','{"master-data":true}');
 
 INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, created_by_user_id, updated_by_user_id)
@@ -29,10 +29,9 @@ INSERT INTO public.tenant_reference_items (
   'Jabatan sintetis untuk menguji pembuatan nomor pegawai otomatis.','active',
   'c9100000-0000-4000-8000-000000000011','c9100000-0000-4000-8000-000000000011'
 );
-
 SELECT is((SELECT count(*)::INTEGER FROM public.tenant_naming_series
-  WHERE tenant_id='c9100000-0000-4000-8000-000000000001'), 6,
-  'tenant baru memperoleh seri NIS, pendaftaran PPDB, pegawai, gedung, kamar, dan kelas');
+  WHERE tenant_id='c9100000-0000-4000-8000-000000000001'), 15,
+  'tenant baru memperoleh seri identitas untuk seluruh modul operasional');
 SELECT ok(EXISTS (
   SELECT 1 FROM pg_constraint
   WHERE conrelid = 'public.tenant_naming_series'::regclass
@@ -69,6 +68,30 @@ SELECT ok(NOT has_function_privilege('authenticated','public.save_tenant_naming_
   'klien browser tidak dapat mengubah Naming Series secara langsung');
 SELECT ok(has_function_privilege('service_role','public.save_tenant_naming_series(uuid,uuid,text,text,smallint,text,bigint,boolean,uuid)','EXECUTE'),
   'server tepercaya dapat menyimpan Naming Series setelah validasi Admin');
+SELECT ok(has_function_privilege('service_role','public.allocate_tenant_extended_naming_series(uuid,text,date,uuid)','EXECUTE'),
+  'server tepercaya dapat meminta nomor semua modul bisnis');
+SELECT ok(has_function_privilege('service_role','public.save_tenant_extended_naming_series(uuid,uuid,text,text,smallint,text,bigint,boolean,uuid)','EXECUTE'),
+  'server tepercaya dapat mengatur seri tambahan setelah pemeriksaan Admin tenant');
+SELECT ok(NOT has_function_privilege('service_role','public.allocate_tenant_additional_naming_series(uuid,text,date,uuid)','EXECUTE')
+  AND NOT has_function_privilege('service_role','public.save_tenant_additional_naming_series(uuid,uuid,text,text,smallint,text,bigint,boolean,uuid)','EXECUTE'),
+  'helper internal seri tambahan tidak dapat dipanggil langsung melalui Data API');
+SELECT ok(has_function_privilege('service_role','public.manage_waqf_asset(uuid,uuid,jsonb)','EXECUTE')
+  AND has_function_privilege('service_role','public.manage_cooperative_product(uuid,uuid,jsonb)','EXECUTE')
+  AND has_function_privilege('service_role','public.manage_marketplace_product(uuid,uuid,jsonb)','EXECUTE')
+  AND has_function_privilege('service_role','public.record_donation(uuid,uuid,jsonb)','EXECUTE')
+  AND has_function_privilege('service_role','public.create_tenant_laundry_order(uuid,uuid,uuid,numeric,integer,uuid)','EXECUTE'),
+  'API operasional menerima operasi penomoran hanya melalui prosedur backend tepercaya');
+SELECT ok(has_function_privilege('service_role','public.manage_ga_inventory_item(uuid,uuid,jsonb)','EXECUTE')
+  AND NOT has_function_privilege('service_role','public.manage_ga_inventory_item_with_legacy_code(uuid,uuid,jsonb)','EXECUTE'),
+  'pencatatan inventaris hanya dapat memakai RPC berlapis penerbit nomor otomatis');
+SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public'
+  AND indexname='document_records_tenant_number_normalized_uq'),
+  'nomor dokumen unik walau kapitalisasi dan spasi berbeda');
+SELECT ok((SELECT count(*) = 5 FROM pg_indexes WHERE schemaname='public' AND indexname IN (
+  'donations_tenant_receipt_normalized_uq','waqf_assets_tenant_asset_code_normalized_uq',
+  'laundry_orders_tenant_order_number_normalized_uq','cooperative_products_tenant_sku_normalized_uq',
+  'marketplace_products_tenant_sku_normalized_uq')),
+  'kode dan nomor donasi, wakaf, laundry, koperasi, dan marketplace unik setelah normalisasi');
 SELECT ok((SELECT count(*) = 6 AND bool_and(convalidated)
   FROM pg_constraint WHERE conname IN (
     'student_room_history_previous_room_fk','student_room_history_room_fk',
@@ -121,6 +144,99 @@ SELECT is(public.upsert_master_data_structure_auto_with_actor(
 SELECT is(public.allocate_tenant_structure_naming_series(
   'c9100000-0000-4000-8000-000000000001','building_code','2026-11-01'),
   'GED-00002','kode berikutnya bergerak atomik dan tidak mengulang kode gedung tersimpan');
+SELECT is(public.register_tenant_document(
+  'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011','admin',
+  'c9100000-0000-4000-8000-000000000071','c9100000-0000-4000-8000-000000000072',NULL,
+  'incoming','Surat uji penomoran',NULL,'Administrator','2026-11-01','Dokumen sintetis untuk pengujian.')
+  ->>'documentNumber','DOC/2026/00001','dokumen memperoleh nomor otomatis dari seri tenant');
+SELECT is(public.register_tenant_document(
+  'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011','admin',
+  'c9100000-0000-4000-8000-000000000071','c9100000-0000-4000-8000-000000000073','NOMOR-ABAIKAN',
+  'incoming','Surat uji penomoran',NULL,'Administrator','2026-11-01','Dokumen sintetis untuk pengujian.')
+  ->>'alreadyApplied','true','pengulangan pendaftaran dokumen mengembalikan nomor lama tanpa alokasi baru');
+SELECT is((SELECT count(*)::INTEGER FROM public.tenant_naming_series_allocations
+  WHERE tenant_id='c9100000-0000-4000-8000-000000000001' AND series_key='document_number'
+    AND client_request_id='c9100000-0000-4000-8000-000000000071'),1,
+  'satu ID permintaan dokumen hanya menyimpan satu alokasi');
+SELECT is(public.allocate_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','finance_receipt','2026-11-01',
+  'c9100000-0000-4000-8000-000000000074'),
+  'KWT/2026/000001','kuitansi memakai seri tenant dengan penghitung atomik');
+SELECT is(public.allocate_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','finance_receipt','2026-11-01',
+  'c9100000-0000-4000-8000-000000000074'),
+  'KWT/2026/000001','pengulangan permintaan kuitansi mengembalikan nomor yang sama');
+SELECT is(public.allocate_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','donation_receipt','2030-04-05',
+  'c9100000-0000-4000-8000-000000000081'),
+  'DON/2030/0000001','kuitansi donasi memakai Naming Series tenant');
+SELECT is(public.allocate_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','donation_receipt','2030-04-05',
+  'c9100000-0000-4000-8000-000000000081'),
+  'DON/2030/0000001','retry kuitansi donasi idempoten dan tidak memakai nomor lain');
+SELECT is(public.allocate_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','waqf_asset_code','2030-04-05',
+  'c9100000-0000-4000-8000-000000000082'),
+  'WAK-00001','aset wakaf memperoleh kode otomatis tenant');
+SELECT is(public.allocate_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','laundry_order_number','2030-04-05',
+  'c9100000-0000-4000-8000-000000000083'),
+  'LDY-2030-000001','pesanan laundry memperoleh nomor otomatis tenant');
+SELECT is(public.allocate_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','cooperative_product_sku','2030-04-05',
+  'c9100000-0000-4000-8000-000000000084'),
+  'KOP-00001','produk koperasi memperoleh kode otomatis tenant');
+SELECT is(public.allocate_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','marketplace_product_sku','2030-04-05',
+  'c9100000-0000-4000-8000-000000000085'),
+  'TOK-00001','produk marketplace memperoleh kode otomatis tenant');
+SELECT ok((public.manage_ga_facility(
+  'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
+  '{"action":"create","clientRequestId":"c9100000-0000-4000-8000-000000000075","assetCode":"KODE-MANUAL","name":"Aset Uji","category":"Peralatan","location":"Gudang","condition":"Baik","acquisitionValue":0}'::JSONB)
+  ->>'id') IS NOT NULL,
+  'pendaftaran aset mengembalikan ID teknis yang dikeluarkan basis data');
+SELECT is((SELECT asset_code FROM public.ga_facilities WHERE tenant_id='c9100000-0000-4000-8000-000000000001'
+  AND client_request_id='c9100000-0000-4000-8000-000000000075'),
+  'AST-00001','kode aset manual diabaikan dan diganti seri otomatis');
+SELECT throws_ok(
+  $$UPDATE public.ga_facilities SET asset_code='AST-MANUAL'
+    WHERE tenant_id='c9100000-0000-4000-8000-000000000001' AND client_request_id='c9100000-0000-4000-8000-000000000075'$$,
+  '23514','Kode aset yang sudah diterbitkan tidak dapat diubah','kode aset yang telah terbit tidak dapat diganti');
+SELECT ok((public.manage_ga_inventory_item(
+  'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
+  '{"action":"create","clientRequestId":"c9100000-0000-4000-8000-000000000076","itemCode":"BARANG-MANUAL","name":"Barang Uji","category":"Alat Tulis Kantor","initialQuantity":0,"minimumQuantity":0,"unit":"Pcs","unitCost":0,"location":"Gudang"}'::JSONB)
+  ->>'id') IS NOT NULL,
+  'pencatatan inventaris mengembalikan ID teknis yang dikeluarkan basis data');
+SELECT is((SELECT item_code FROM public.ga_inventory_items WHERE tenant_id='c9100000-0000-4000-8000-000000000001'
+  AND client_request_id='c9100000-0000-4000-8000-000000000076'),
+  'BRG-00001','kode inventaris manual diabaikan dan diganti seri otomatis');
+SELECT is((public.manage_ga_inventory_item(
+  'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
+  '{"action":"create","clientRequestId":"c9100000-0000-4000-8000-000000000076","itemCode":"BARANG-MANUAL","name":"Barang Uji","category":"Alat Tulis Kantor","initialQuantity":0,"minimumQuantity":0,"unit":"Pcs","unitCost":0,"location":"Gudang"}'::JSONB)
+  ->>'id'),
+  (SELECT id::TEXT FROM public.ga_inventory_items WHERE tenant_id='c9100000-0000-4000-8000-000000000001'
+    AND client_request_id='c9100000-0000-4000-8000-000000000076'),
+  'percobaan ulang pencatatan inventaris mengembalikan ID dan kode yang sama');
+SELECT is(public.allocate_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','inventory_item_code','2026-11-01',
+  'c9100000-0000-4000-8000-000000000079'),
+  'BRG-00002','percobaan ulang inventaris tidak memakan nomor berikutnya');
+SELECT throws_ok(
+  $$UPDATE public.ga_inventory_items SET item_code='BRG-MANUAL'
+    WHERE tenant_id='c9100000-0000-4000-8000-000000000001' AND client_request_id='c9100000-0000-4000-8000-000000000076'$$,
+  '23514','Kode inventaris yang sudah diterbitkan tidak dapat diubah','kode inventaris yang sudah terbit bersifat tetap');
+SELECT is(public.save_tenant_extended_naming_series(
+  'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000011',
+  'asset_code','ASET-{{YEAR}}-{{SEQ}}',5::SMALLINT,'yearly',1::BIGINT,true,
+  'c9100000-0000-4000-8000-000000000077')->>'alreadyApplied',
+  'false','Admin dengan akses General Affairs dapat mengatur pola kode aset');
+SELECT throws_ok(
+  $$SELECT public.save_tenant_extended_naming_series(
+    'c9100000-0000-4000-8000-000000000001','c9100000-0000-4000-8000-000000000012',
+    'finance_receipt','KWT/{{YEAR}}/{{SEQ}}',6::SMALLINT,'yearly',1::BIGINT,true,
+    'c9100000-0000-4000-8000-000000000078')$$,
+  '42501','Admin tenant dengan akses modul terkait diperlukan',
+  'perubahan Naming Series menolak pengguna tanpa role Admin');
 INSERT INTO public.tenant_reference_items (
   tenant_id,domain,code,name,description,status,nis_grade_code,created_by_user_id,updated_by_user_id
 ) VALUES (

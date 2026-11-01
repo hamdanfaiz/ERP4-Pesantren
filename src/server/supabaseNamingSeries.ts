@@ -1,9 +1,9 @@
 type Row = Record<string, any>;
 
-export type TenantNamingSeriesKey = "nis" | "ppdb_registration" | "employee_number" | "building_code" | "room_code" | "class_code";
+export type TenantNamingSeriesKey = "nis" | "ppdb_registration" | "employee_number" | "building_code" | "room_code" | "class_code" | "document_number" | "finance_receipt" | "asset_code" | "inventory_item_code" | "donation_receipt" | "waqf_asset_code" | "laundry_order_number" | "cooperative_product_sku" | "marketplace_product_sku";
 export type TenantNamingSeries = {
   seriesKey: TenantNamingSeriesKey;
-  moduleId: "master-data" | "ppdb" | "hris";
+  moduleId: "master-data" | "ppdb" | "hris" | "document" | "finance" | "ga" | "donation" | "laundry" | "cooperative" | "marketplace";
   displayName: string;
   description: string;
   formatTemplate: string;
@@ -87,11 +87,11 @@ export async function listSupabaseTenantNamingSeries(tenantIdentifier: string): 
     select: "series_key,module_id,display_name,description,format_template,sequence_width,reset_period,start_number,is_active,updated_at",
     tenant_id: "eq." + tenantId,
     order: "module_id.asc,series_key.asc",
-    limit: "10",
+    limit: "20",
   });
   const rows = await request("/rest/v1/tenant_naming_series?" + params.toString());
-  if (!Array.isArray(rows) || rows.length !== 6) {
-    throw new SupabaseNamingSeriesError(503, "Enam seri penomoran baku tenant belum lengkap.");
+  if (!Array.isArray(rows) || rows.length !== 15) {
+    throw new SupabaseNamingSeriesError(503, "Lima belas seri penomoran baku tenant belum lengkap.");
   }
   return rows.map(mapSeries);
 }
@@ -111,7 +111,7 @@ export async function saveSupabaseTenantNamingSeries(
   const startNumber = Number(input.startNumber);
   const isActive = input.isActive === true;
   const clientRequestId = String(input.clientRequestId || "");
-  if (!["nis", "ppdb_registration", "employee_number", "building_code", "room_code", "class_code"].includes(seriesKey)
+  if (!["nis", "ppdb_registration", "employee_number", "building_code", "room_code", "class_code", "document_number", "finance_receipt", "asset_code", "inventory_item_code", "donation_receipt", "waqf_asset_code", "laundry_order_number", "cooperative_product_sku", "marketplace_product_sku"].includes(seriesKey)
     || !uuid(clientRequestId)
     || !Number.isInteger(sequenceWidth) || sequenceWidth < 1 || sequenceWidth > 12
     || !Number.isSafeInteger(startNumber) || startNumber < 1 || startNumber > 999999999999
@@ -120,9 +120,11 @@ export async function saveSupabaseTenantNamingSeries(
     throw new SupabaseNamingSeriesError(400, "Lengkapi aturan seri dengan nilai yang didukung.");
   }
   const structureSeries = ["building_code", "room_code", "class_code"].includes(seriesKey);
-  await request(structureSeries
-    ? "/rest/v1/rpc/save_tenant_structure_naming_series"
-    : "/rest/v1/rpc/save_tenant_naming_series", {
+  const extendedSeries = ["document_number", "finance_receipt", "asset_code", "inventory_item_code", "donation_receipt", "waqf_asset_code", "laundry_order_number", "cooperative_product_sku", "marketplace_product_sku"].includes(seriesKey);
+  const saveRpc = structureSeries
+    ? "save_tenant_structure_naming_series"
+    : extendedSeries ? "save_tenant_extended_naming_series" : "save_tenant_naming_series";
+  await request("/rest/v1/rpc/" + saveRpc, {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId,

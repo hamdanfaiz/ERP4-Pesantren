@@ -68,7 +68,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 125);
+assert.equal(sourceMigrationsWithSql.length, 128);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -86,6 +86,9 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202702180000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270219000000_naming_series_master_data_ids.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270220000000_student_nis_source_idempotency.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270221000000_enforce_auto_business_identifiers.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270222000000_extend_naming_series_business_identifiers.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270223000000_additional_operational_naming_series.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270224000000_ga_business_identifier_update_guard.sql'));
 assert(sourceMigrationsWithSql.every(({ statements }) => Array.isArray(statements) && statements.length > 0));
 
 const sqlLocal = listLocalMigrations(
@@ -178,13 +181,13 @@ const observedStagingMigrations = sourceMigrationsWithSql
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
 assert.equal(observedStagingMigrations.length, 50);
-assert.equal(sourceMigrationsWithSql.length, 125);
+assert.equal(sourceMigrationsWithSql.length, 128);
 const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
 assert.equal(stagingBaseline.appliedCount, 50);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(stagingBaseline.pending.length, 75);
+assert.equal(stagingBaseline.pending.length, 78);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
-assert.equal(stagingBaseline.pending.at(-1).version, '20270221000000');
+assert.equal(stagingBaseline.pending.at(-1).version, '20270224000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
 assert.equal(stagingBaseline.unknownApplied.length, 0);
 assert.deepEqual(stagingBaseline.nameMismatches.map(({ version }) => version), [...missingStagingMetadataVersions]);

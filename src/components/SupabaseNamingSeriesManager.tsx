@@ -19,7 +19,31 @@ const SERIES_HELP: Record<TenantNamingSeriesKey, string> = {
   building_code: "Kode gedung dibuat backend saat gedung baru disimpan. ID historis tidak berubah.",
   room_code: "Kode kamar dibuat backend saat kamar baru disimpan. Hubungan kamar ke gedung tetap memakai ID.",
   class_code: "Kode kelas dibuat backend saat kelas baru disimpan. Hubungan kelas ke jenjang tetap tervalidasi.",
+  document_number: "Nomor dokumen dibuat backend saat surat atau dokumen dicatat. Nomor historis tetap dipertahankan.",
+  finance_receipt: "Nomor kuitansi dibuat backend saat pembayaran dinyatakan lunas dan dicatat ke buku besar.",
+  asset_code: "Kode aset tetap dibuat backend saat aset baru didaftarkan. Kode yang sudah terbit tidak diubah.",
+  inventory_item_code: "Kode inventaris dibuat backend saat barang baru didaftarkan. Kode yang sudah terbit tidak diubah.",
+  donation_receipt: "Nomor kuitansi donasi dibuat otomatis dan konsisten dengan transaksi serta audit donasi.",
+  waqf_asset_code: "Kode aset wakaf dibuat otomatis saat aset dicatat dan tidak dapat diubah setelah terbit.",
+  laundry_order_number: "Nomor pesanan laundry dibuat otomatis saat transaksi diterima dan tetap sama saat dicoba ulang.",
+  cooperative_product_sku: "Kode internal produk koperasi dibuat otomatis saat produk baru disimpan dan tidak dapat diubah.",
+  marketplace_product_sku: "Kode internal produk marketplace dibuat otomatis saat produk baru disimpan dan tidak dapat diubah.",
 };
+
+function moduleLabel(moduleId: TenantNamingSeries["moduleId"]) {
+  return ({
+    "master-data": "Data Induk",
+    ppdb: "Penerimaan Santri Baru",
+    hris: "Sumber Daya Manusia",
+    document: "Dokumen Digital",
+    finance: "Keuangan",
+    ga: "Sarana dan Inventaris",
+    donation: "Donasi dan Wakaf",
+    laundry: "Laundry",
+    cooperative: "Koperasi",
+    marketplace: "Marketplace",
+  } as const)[moduleId];
+}
 
 function preview(series: TenantNamingSeries) {
   const date = new Date();
@@ -52,10 +76,14 @@ function validTemplate(series: TenantNamingSeries) {
       && ["never", "yearly"].includes(series.resetPeriod)
       && /^[A-Za-z0-9][A-Za-z0-9./-]{0,49}$/.test(preview(series));
   }
-  if (series.seriesKey === "employee_number") return !template.includes("{{GRADE}}")
-    && /^[A-Za-z0-9][A-Za-z0-9._/-]{0,39}$/.test(preview(series));
-  return !template.includes("{{GRADE}}")
-    && /^[A-Za-z0-9][A-Za-z0-9._/-]{0,39}$/.test(preview(series));
+  if (template.includes("{{GRADE}}")
+    || (series.resetPeriod === "yearly" && yearCount !== 1)
+    || (series.resetPeriod === "monthly" && (yearCount !== 1 || monthCount !== 1))) return false;
+  const maxLength = series.seriesKey === "document_number" ? 80
+    : series.seriesKey === "cooperative_product_sku" ? 48
+      : series.seriesKey === "marketplace_product_sku" ? 40 : 50;
+  return preview(series).length <= maxLength
+    && new RegExp(`^[A-Za-z0-9][A-Za-z0-9./_-]{0,${maxLength - 1}}$`).test(preview(series));
 }
 
 export function SupabaseNamingSeriesManager() {
@@ -124,7 +152,7 @@ export function SupabaseNamingSeriesManager() {
     <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"><Hash className="h-5 w-5" /></span>
-      <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">Atur enam pola nomor bisnis inti untuk tenant ini. ID teknis tetap dibuat otomatis oleh basis data; kode bisnis diterbitkan dengan penghitung transaksional dan keunikan pada jenis datanya.</p></div>
+      <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">Atur lima belas pola nomor bisnis tenant lintas modul. ID teknis tetap UUID dan dibuat basis data; kode bisnis diterbitkan backend dengan penghitung transaksional serta perlindungan unik per jenis data.</p></div>
       </div>
       <button type="button" className={SECONDARY} onClick={() => void refresh()} disabled={loading || savingKey !== null}><RefreshCw className={"h-4 w-4 " + (loading ? "animate-spin" : "")} />Muat ulang</button>
     </header>
@@ -133,7 +161,7 @@ export function SupabaseNamingSeriesManager() {
       Perubahan pola hanya memengaruhi nomor yang akan dibuat berikutnya. Nomor yang sudah diterbitkan dan nomor historis hasil impor tidak diubah. Nomor impor tetap dipertahankan agar dokumen lama dan rekonsiliasi tetap cocok.
     </div>
     <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-300">
-      Nomor transaksi keuangan dan donasi, nomor dokumen, serta kode aset dan persediaan mengikuti aturan pada modul masing-masing.
+      NIS mempertahankan format 10 digit. Nomor dokumen, kuitansi, kode aset, pesanan, dan produk dibuat otomatis; seri yang sudah terbit tidak digunakan ulang.
     </div>
     {!isAdmin && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Aturan penomoran hanya dapat diubah oleh Admin tenant.</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
@@ -141,7 +169,7 @@ export function SupabaseNamingSeriesManager() {
     {loading ? <div role="status" className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 p-12 text-sm text-slate-500 dark:border-white/10"><Loader2 className="h-4 w-4 animate-spin" />Memuat aturan tenant…</div>
       : sortedSeries.length === 0 ? <div className="rounded-xl border border-dashed border-slate-200 p-10 text-center text-sm text-slate-500 dark:border-white/10">Aturan penomoran belum tersedia untuk tenant ini.</div>
         : <div className="grid gap-4 xl:grid-cols-3">{sortedSeries.map((item) => <article key={item.seriesKey} className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-white/10">
-          <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.displayName}</h3><p className="mt-1 text-xs text-slate-500">{item.moduleId === "master-data" ? "Data Induk & PPDB" : item.moduleId === "ppdb" ? "Penerimaan Santri Baru" : "Sumber Daya Manusia"}</p></div><label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"><input type="checkbox" checked={item.isActive} disabled={!isAdmin || savingKey !== null} onChange={(event) => update(item.seriesKey, { isActive: event.target.checked })} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />Aktif</label></div>
+          <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.displayName}</h3><p className="mt-1 text-xs text-slate-500">{moduleLabel(item.moduleId)}</p></div><label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"><input type="checkbox" checked={item.isActive} disabled={!isAdmin || savingKey !== null} onChange={(event) => update(item.seriesKey, { isActive: event.target.checked })} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />Aktif</label></div>
           <p className="min-h-10 text-sm text-slate-600 dark:text-slate-300">{SERIES_HELP[item.seriesKey]}</p>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Pola nomor
             <input value={item.formatTemplate} readOnly={item.seriesKey === "nis"} disabled={!isAdmin || savingKey !== null} onChange={(event) => update(item.seriesKey, { formatTemplate: event.target.value })} maxLength={120} className={FIELD + (item.seriesKey === "nis" ? " cursor-not-allowed opacity-75" : "")} />

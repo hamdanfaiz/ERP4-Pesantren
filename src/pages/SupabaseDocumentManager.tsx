@@ -15,11 +15,11 @@ type DocumentRecord = {
   senderName: string | null; recipientName: string | null; documentDate: string;
   summary: string | null; status: Status; createdAt: string; updatedAt: string; attachments: Attachment[];
 };
-type Draft = { documentNumber: string; direction: Direction; subject: string; senderName: string; recipientName: string; documentDate: string; summary: string };
+type Draft = { direction: Direction; subject: string; senderName: string; recipientName: string; documentDate: string; summary: string };
 type PageResult = { documents: DocumentRecord[]; nextCursor: string | null };
 type ViewTab = "all" | Direction | "approval" | "archive" | "ocr";
 
-const INITIAL_DRAFT: Draft = { documentNumber: "", direction: "incoming", subject: "", senderName: "", recipientName: "", documentDate: tenantBusinessDate(), summary: "" };
+const INITIAL_DRAFT: Draft = { direction: "incoming", subject: "", senderName: "", recipientName: "", documentDate: tenantBusinessDate(), summary: "" };
 const TAB_LABEL: Record<ViewTab, string> = { all: "Semua dokumen", incoming: "Surat masuk", outgoing: "Surat keluar", internal: "Internal", approval: "Persetujuan elektronik", archive: "Arsip Digital", ocr: "Pemindai OCR" };
 const DIRECTION_LABEL: Record<Direction, string> = { incoming: "Masuk", outgoing: "Keluar", internal: "Internal" };
 const STATUS_LABEL: Record<Status, string> = { registered: "Terdaftar", in_review: "Dalam telaah", approved: "Disetujui", rejected: "Perlu perbaikan", archived: "Diarsipkan" };
@@ -116,7 +116,7 @@ export function SupabaseDocumentManager() {
     if (!canManage) { setError("Akses pengelolaan Dokumen Digital hanya tersedia untuk Admin tenant."); return; }
     setSaving(true); setError(""); setNotice("");
     try {
-      const payload = { ...draft, documentNumber: draft.documentNumber.trim(), subject: draft.subject.trim(), senderName: draft.senderName.trim(), recipientName: draft.recipientName.trim(), summary: draft.summary.trim() };
+      const payload = { ...draft, subject: draft.subject.trim(), senderName: draft.senderName.trim(), recipientName: draft.recipientName.trim(), summary: draft.summary.trim() };
       const lease = await pendingMutationIds.acquire("document:register", { tenantId: user?.tenantId || "", actorId: user?.uid || "", payload });
       await documentRequest("/api/documents", { method: "POST", body: JSON.stringify({ document: { ...payload, clientRequestId: lease.requestId } }) });
       lease.clear();
@@ -270,11 +270,11 @@ export function SupabaseDocumentManager() {
 
       {formOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setFormOpen(false); }}>
         <form onSubmit={createDocument} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="document-dialog-title">
-          <div className="flex items-start justify-between gap-3"><div><h2 id="document-dialog-title" className="text-lg font-semibold text-slate-900 dark:text-white">Catat dokumen</h2><p className="mt-1 text-sm text-slate-500">Nomor dokumen harus unik dalam pesantren ini.</p></div><button type="button" disabled={saving} onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5" aria-label="Tutup"><X className="h-5 w-5" /></button></div>
+          <div className="flex items-start justify-between gap-3"><div><h2 id="document-dialog-title" className="text-lg font-semibold text-slate-900 dark:text-white">Catat dokumen</h2><p className="mt-1 text-sm text-slate-500">Nomor unik dibuat otomatis saat dokumen tersimpan.</p></div><button type="button" disabled={saving} onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5" aria-label="Tutup"><X className="h-5 w-5" /></button></div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Jenis dokumen<select value={draft.direction} onChange={(event) => setDraft((item) => ({ ...item, direction: event.target.value as Direction }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white"><option value="incoming">Surat masuk</option><option value="outgoing">Surat keluar</option><option value="internal">Dokumen internal</option></select></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal dokumen<input required type="date" value={draft.documentDate} onChange={(event) => setDraft((item) => ({ ...item, documentDate: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
-            <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">Nomor dokumen<input required maxLength={80} value={draft.documentNumber} onChange={(event) => setDraft((item) => ({ ...item, documentNumber: event.target.value }))} placeholder="Contoh: 012/PP/2026" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
+            <div role="note" className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-800 dark:border-sky-400/20 dark:bg-sky-400/5 dark:text-sky-200 sm:col-span-2">Nomor dokumen mengikuti aturan Naming Series tenant dan tidak perlu diketik.</div>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">Perihal<input required maxLength={240} value={draft.subject} onChange={(event) => setDraft((item) => ({ ...item, subject: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Pengirim<input maxLength={200} value={draft.senderName} onChange={(event) => setDraft((item) => ({ ...item, senderName: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Penerima<input maxLength={200} value={draft.recipientName} onChange={(event) => setDraft((item) => ({ ...item, recipientName: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>

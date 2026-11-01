@@ -66,7 +66,6 @@ function isCalendarDate(value: unknown): value is string {
 
 export type DocumentDraft = {
   clientRequestId: string;
-  documentNumber: string;
   direction: "incoming" | "outgoing" | "internal";
   subject: string;
   senderName?: string | null;
@@ -84,7 +83,6 @@ function validateDocumentDraft(input: DocumentDraft) {
   if (!isCalendarDate(input.documentDate)) throw new SupabaseDocumentError(400, "Tanggal dokumen tidak valid.");
   return {
     clientRequestId: input.clientRequestId,
-    documentNumber: requiredText(input.documentNumber, 80, "Nomor dokumen"),
     direction,
     subject: requiredText(input.subject, 240, "Perihal"),
     senderName: optionalText(input.senderName, 200, "Pengirim"),
@@ -106,7 +104,7 @@ export async function createSupabaseDocumentRecord(
     p_expected_role: String(role || "").toLowerCase(),
     p_client_request_id: input.clientRequestId,
     p_document_id: documentId,
-    p_document_number: input.documentNumber,
+    p_document_number: null,
     p_direction: input.direction,
     p_subject: input.subject,
     p_sender_name: input.senderName,

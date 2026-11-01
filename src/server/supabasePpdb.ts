@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 10779)
-Total output lines: 833
-
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -104,13 +101,7 @@ function prepareAdminPpdbCandidate(raw: unknown, index: number, gradeLevels: Gra
     throw new SupabasePpdbError(400, `Data calon santri ke-${index + 1} tidak valid.`);
   }
   const candidate = raw as JsonObject;
-  const suppliedRegistrationId = cleanCandidateText(candidate.registrationId, "Nomor pendaftaran", 50);
-  if (allowAutoRegistrationId && suppliedRegistrationId) {
-    throw new SupabasePpdbError(400, "Nomor pendaftaran dibuat otomatis oleh Naming Series dan tidak boleh diisi manual.");
-  }
-  const registrationId = allowAutoRegistrationId
-    ? ""
-    : cleanCandidateText(suppliedRegistrationId, "Nomor pendaftaran", 50, true).toLocaleUpperCase("id-ID");
+  const registrationId = cleanCandidateText(candidate.registrationId, "Nomor pendaftaran", 50, !allowAutoRegistrationId).toLocaleUpperCase("id-ID");
   if (registrationId && !/^[A-Z0-9][A-Z0-9./-]{0,49}$/.test(registrationId)) {
     throw new SupabasePpdbError(400, "Nomor pendaftaran hanya boleh berisi huruf, angka, titik, garis miring, dan tanda hubung.");
   }
@@ -294,7 +285,222 @@ export async function previewSupabasePpdbCandidates(
         if (prepared.nisnFingerprintHex && existingNisn.has(prepared.nisnFingerprintHex)) issues.push("NISN sudah terdaftar pada tenant ini.");
         if (duplicateOfRows.length) issues.push(`Data berulang di berkas dengan baris ${duplicateOfRows.join(", ")}.`);
       }
-      return { row, registrationId, status: issues.…2779 tokens truncated…e_bills?${billParams.toString()}`)
+      return { row, registrationId, status: issues.length ? "conflict" : "ready", issues };
+    }),
+  };
+}
+
+/** Create tenant-bound offline PPDB records atomically and make uncertain retries idempotent. */
+export async function createSupabasePpdbCandidates(
+  tenantIdentifier: string,
+  actorUserId: string,
+  actorRole: string,
+  input: unknown,
+) {
+  const { tenantId, actorId, expectedRole } = assertAdminPpdbActor(tenantIdentifier, actorUserId, actorRole);
+  const payload = input && typeof input === "object" && !Array.isArray(input) ? input as JsonObject : {};
+  const clientRequestId = String(payload.clientRequestId || "").trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)) {
+    throw new SupabasePpdbError(400, "ID permintaan PPDB tidak valid. Silakan kirim ulang formulir.");
+  }
+  if (!Array.isArray(payload.candidates) || payload.candidates.length < 1 || payload.candidates.length > 100) {
+    throw new SupabasePpdbError(400, "Permintaan harus berisi 1 sampai 100 calon santri.");
+  }
+
+  const fingerprintKey = ppdbRequestFingerprintKey();
+  const gradeLevels = await listActiveTenantGradeLevels(tenantId);
+  if (!gradeLevels.length) throw new SupabasePpdbError(409, "Tambahkan jenjang aktif pada Data Induk → Kategori & Referensi sebelum menyimpan pendaftar.");
+  const candidates = payload.candidates.map((raw: unknown, index: number) => prepareAdminPpdbCandidate(raw, index, gradeLevels, true));
+  // Fingerprint stable normalized plaintext before randomized encryption. Only the HMAC is stored.
+  const canonical = JSON.stringify(candidates.map((entry) => entry.requestFingerprintMaterial));
+  const payloadFingerprint = createHmac("sha256", fingerprintKey).update(canonical, "utf8").digest("hex");
+  const result = await request("/rest/v1/rpc/create_admin_ppdb_candidates_batch", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_client_request_id: clientRequestId,
+      p_payload_fingerprint: payloadFingerprint,
+      p_candidates: candidates.map(({ requestFingerprintMaterial: _fingerprintMaterial, ...entry }) => entry),
+    }),
+  });
+  if (!result || typeof result !== "object" || !Array.isArray(result.candidates)
+    || result.candidates.length !== candidates.length) {
+    throw new SupabasePpdbError(503, "Backend belum mengonfirmasi seluruh calon santri.");
+  }
+  const createdCandidates = result.candidates.map((item: JsonObject, index: number) => {
+    const id = String(item.id || "");
+    const registrationId = String(item.registrationId || "");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+      || (candidates[index].registrationId && registrationId !== candidates[index].registrationId)
+      || !/^[A-Z0-9][A-Z0-9./-]{0,49}$/.test(registrationId)) {
+      throw new SupabasePpdbError(503, "Backend belum mengonfirmasi identitas calon santri yang tersimpan.");
+    }
+    return { id, registrationId };
+  });
+  return {
+    alreadyApplied: result.alreadyApplied === true,
+    requestId: String(result.requestId || clientRequestId),
+    candidates: createdCandidates,
+  };
+}
+
+async function requireActiveTenant(tenantId: string) {
+  const params = new URLSearchParams({ select: "id", id: `eq.${tenantId}`, status: "eq.active", limit: "2" });
+  const rows = await request(`/rest/v1/tenants?${params.toString()}`);
+  if (!Array.isArray(rows) || rows.length !== 1) throw new SupabasePpdbError(403, "Tenant PPDB tidak aktif atau tidak tersedia.");
+}
+
+function safeScoreMap(value: unknown, allowedFields: readonly string[], min: number, max: number) {
+  const input = value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
+  const result: Record<string, number> = {};
+  for (const field of allowedFields) {
+    const score = input[field];
+    if (typeof score !== "number") continue;
+    if (Number.isInteger(score) && score >= min && score <= max) result[field] = score;
+  }
+  return result;
+}
+
+function safeReligiousScores(value: unknown) {
+  const input = value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
+  const grades = safeScoreMap(input, ["quranFluency", "tajweedMastery", "worshipPractice"], 0, 100);
+  return {
+    ...grades,
+    memorizedJuz: typeof input.memorizedJuz === "string" ? input.memorizedJuz.slice(0, 500) : "",
+    notes: typeof input.notes === "string" ? input.notes.slice(0, 4000) : "",
+    totalScore: typeof input.totalScore === "number" && Number.isInteger(input.totalScore) && input.totalScore >= 0 && input.totalScore <= 100 ? input.totalScore : undefined,
+    evaluatedAt: typeof input.evaluatedAt === "string" ? input.evaluatedAt.slice(0, 40) : undefined,
+    evaluator: typeof input.evaluator === "string" ? input.evaluator.slice(0, 180) : undefined,
+  };
+}
+
+function safeWorkflow(value: unknown) {
+  const input = value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
+  return {
+    examScores: safeScoreMap(input.examScores, ["math", "science", "english", "tpa", "quran"], 0, 100),
+    interviewScores: safeScoreMap(input.interviewScores, ["academicPotential", "personality", "communication"], 1, 5),
+    religiousScores: safeReligiousScores(input.religiousScores),
+  };
+}
+
+function toCandidate(row: JsonObject, documents: JsonObject = {}, bills: JsonObject = {}) {
+  const workflow = safeWorkflow(row.workflow_data);
+  return {
+    id: String(row.id),
+    registrationId: String(row.registration_id || ""),
+    name: String(row.name || ""),
+    previousSchool: String(row.previous_school || ""),
+    grade: String(row.grade || ""),
+    phone: String(row.phone || ""),
+    email: String(row.email || ""),
+    gender: String(row.gender || "").toUpperCase() === "P" ? "P" : "L",
+    stage: String(row.stage || "Registered"),
+    score: row.score == null ? undefined : Number(row.score),
+    dateApplied: String(row.date_applied || ""),
+    examSlot: String(row.exam_slot || ""),
+    interviewer: String(row.interviewer || ""),
+    interviewSlot: String(row.interview_slot || ""),
+    interviewNotified: Boolean(row.interview_notified),
+    notes: String(row.notes || "").slice(0, 4000),
+    onboardingStatus: String(row.onboarding_status || "Pending"),
+    syncToMasterData: Boolean(row.sync_to_master_data),
+    examScores: workflow.examScores,
+    interviewScores: workflow.interviewScores,
+    religiousScores: workflow.religiousScores,
+    bills: {
+      registration: bills.registration || null,
+      tuition: bills.tuition || null,
+    },
+    documents: {
+      kk: Boolean(documents.kk),
+      birthCertificate: Boolean(documents.birth_certificate),
+      reportCards: Boolean(documents.report_cards),
+      ijazah: Boolean(documents.ijazah),
+      skhun: Boolean(documents.skhun),
+      pasPhoto: Boolean(documents.pas_photo),
+      downloadable: {
+        kk: typeof documents.kk_path === "string" && Boolean(documents.kk_path),
+        birthCertificate: typeof documents.birth_certificate_path === "string" && Boolean(documents.birth_certificate_path),
+        reportCards: typeof documents.report_cards_path === "string" && Boolean(documents.report_cards_path),
+        ijazah: typeof documents.ijazah_path === "string" && Boolean(documents.ijazah_path),
+        skhun: typeof documents.skhun_path === "string" && Boolean(documents.skhun_path),
+        pasPhoto: typeof documents.pas_photo_path === "string" && Boolean(documents.pas_photo_path),
+      },
+    },
+  };
+}
+
+export type SupabasePpdbCandidateCursor = { createdAt: string; id: string };
+
+export type SupabasePpdbCandidatePageInput = {
+  limit?: number;
+  search?: string;
+  stage?: string | null;
+  cursor?: SupabasePpdbCandidateCursor | null;
+};
+
+export async function listSupabasePpdbCandidates(
+  tenantIdentifier: string,
+  input: SupabasePpdbCandidatePageInput = {},
+) {
+  const tenantId = requireUuid(tenantIdentifier);
+  await requireActiveTenant(tenantId);
+  const limit = input.limit ?? 250;
+  const search = typeof input.search === "string" ? input.search.trim() : "";
+  const stage = typeof input.stage === "string" ? input.stage.trim() : "";
+  const validStages = ["Registered", "Document Review", "Entry Exam", "Interview", "Accepted", "Rejected"];
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 250) {
+    throw new SupabasePpdbError(400, "Jumlah pendaftar per halaman harus antara 1 dan 250.");
+  }
+  if (search.length > 100 || (search.length > 0 && search.length < 3)) {
+    throw new SupabasePpdbError(400, "Pencarian PPDB harus kosong atau berisi 3 sampai 100 karakter.");
+  }
+  if (stage && !validStages.includes(stage)) throw new SupabasePpdbError(400, "Tahap PPDB tidak valid.");
+  const cursor = input.cursor || null;
+  if (cursor && (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cursor.id)
+      || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/i.test(cursor.createdAt))) {
+    throw new SupabasePpdbError(400, "Kursor halaman PPDB tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/list_admin_ppdb_candidates_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_search: search || null,
+      p_stage: stage || null,
+      p_after_created_at: cursor?.createdAt || null,
+      p_after_id: cursor?.id || null,
+      p_page_size: limit,
+    }),
+  });
+  if (!result || typeof result !== "object" || !Array.isArray(result.candidates)) {
+    throw new SupabasePpdbError(503, "Daftar PPDB belum dapat dimuat.");
+  }
+  const gradeLevels = await listActiveTenantGradeLevels(tenantId);
+  const rows = result.candidates as JsonObject[];
+  const ids = rows.map((row: JsonObject) => String(row.id)).filter((id: string) => /^[0-9a-f-]{36}$/i.test(id));
+  let documentByCandidate = new Map<string, JsonObject>();
+  let billsByCandidate = new Map<string, JsonObject>();
+  if (ids.length) {
+    const documentParams = new URLSearchParams({
+      select: "candidate_id,kk,birth_certificate,report_cards,ijazah,skhun,pas_photo,kk_path,birth_certificate_path,report_cards_path,ijazah_path,skhun_path,pas_photo_path",
+      tenant_id: `eq.${tenantId}`,
+      candidate_id: `in.(${ids.join(",")})`,
+      limit: String(Math.min(ids.length + 1, 501)),
+    });
+    const billParams = new URLSearchParams({
+      select: "id,candidate_id,payment_type,fee_type,period,amount,paid_amount,status",
+      tenant_id: `eq.${tenantId}`,
+      candidate_id: `in.(${ids.join(",")})`,
+      payment_type: "in.(registration,tuition)",
+      order: "created_at.asc,id.asc",
+      limit: "501",
+    });
+    const [documentRows, billRows] = await Promise.all([
+      request(`/rest/v1/candidate_documents?${documentParams.toString()}`),
+      String(process.env.SUPABASE_PPDB_FINANCE_BILLS_ENABLED || "").trim().toLowerCase() === "true"
+        ? request(`/rest/v1/finance_bills?${billParams.toString()}`)
         : Promise.resolve([]),
     ]);
     if (!Array.isArray(documentRows)) throw new SupabasePpdbError(503, "Dokumen PPDB belum dapat dimuat.");
@@ -618,4 +824,3 @@ export async function updateSupabasePpdbCandidate(tenantIdentifier: string, acto
   if (result !== true) throw new SupabasePpdbError(404, "Calon santri tidak ditemukan pada tenant ini.");
   return { success: true };
 }
-
