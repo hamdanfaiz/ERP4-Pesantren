@@ -16,15 +16,17 @@ VALUES
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at
-) VALUES (
-  'c3000000-0000-4000-8000-000000000011','00000000-0000-0000-0000-000000000000','authenticated','authenticated',
-  'ppdb-runtime-admin@test.invalid','',now(),'{}','{}',now(),now()
-);
+) VALUES
+  ('c3000000-0000-4000-8000-000000000011','00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+   'ppdb-runtime-admin@test.invalid','',now(),'{}','{}',now(),now()),
+  ('d4000000-0000-4000-8000-000000000012','00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+   'ppdb-runtime-admin-b@test.invalid','',now(),'{}','{}',now(),now());
 INSERT INTO public.profiles(user_id, tenant_id, email, display_name, role, status, module_permissions)
-VALUES (
-  'c3000000-0000-4000-8000-000000000011','c3000000-0000-4000-8000-000000000003',
-  'ppdb-runtime-admin@test.invalid','PPDB Runtime Admin','admin','active','{"ppdb":true}'
-);
+VALUES
+  ('c3000000-0000-4000-8000-000000000011','c3000000-0000-4000-8000-000000000003',
+   'ppdb-runtime-admin@test.invalid','PPDB Runtime Admin','admin','active','{"ppdb":true}'),
+  ('d4000000-0000-4000-8000-000000000012','d4000000-0000-4000-8000-000000000004',
+   'ppdb-runtime-admin-b@test.invalid','PPDB Runtime Admin B','admin','active','{"ppdb":true}');
 \ir test_support/seed_tenant_grade_levels.sql
 
 SELECT ok(
