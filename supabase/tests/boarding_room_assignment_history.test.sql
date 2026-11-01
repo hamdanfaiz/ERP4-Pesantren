@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(68);
+SELECT plan(74);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES
@@ -113,6 +113,18 @@ SELECT ok(NOT has_table_privilege('anon','public.student_room_assignment_history
   'anonymous users cannot read room history');
 SELECT ok(NOT has_table_privilege('authenticated','public.student_room_assignment_history','SELECT'),
   'authenticated users cannot query room history directly');
+SELECT ok(NOT has_table_privilege('anon','public.ppdb_onboarding_events','SELECT'),
+  'anonymous users cannot read the private PPDB onboarding ledger');
+SELECT ok(NOT has_table_privilege('authenticated','public.ppdb_onboarding_events','SELECT'),
+  'authenticated clients cannot read the private PPDB onboarding ledger');
+SELECT ok(has_table_privilege('service_role','public.ppdb_onboarding_events','SELECT'),
+  'trusted server role can read onboarding ledger for idempotent retry recovery');
+SELECT ok(NOT has_table_privilege('service_role','public.ppdb_onboarding_events','INSERT'),
+  'trusted server role cannot insert ledger events directly');
+SELECT ok(NOT has_table_privilege('service_role','public.ppdb_onboarding_events','UPDATE'),
+  'trusted server role cannot rewrite ledger events directly');
+SELECT ok(NOT has_table_privilege('service_role','public.ppdb_onboarding_events','DELETE'),
+  'trusted server role cannot delete ledger events directly');
 
 SELECT ok(NOT has_table_privilege('service_role','public.student_room_assignment_history','UPDATE'),
   'service role cannot rewrite room history events');

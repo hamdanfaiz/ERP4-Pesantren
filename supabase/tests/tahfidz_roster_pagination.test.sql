@@ -181,7 +181,7 @@ SELECT throws_ok(
 -- A volume smoke test keeps tenant keyset pagination stable on a large synthetic roster.
 -- Every generated row is isolated to this transaction and rolled back below.
 INSERT INTO public.candidates (
-  id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint
+  id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade
 )
 SELECT
   md5('tahfidz-scale-candidate:' || generated.number)::uuid,
@@ -198,7 +198,8 @@ SELECT
     md5('candidate-fingerprint-a:' || generated.number)
       || md5('candidate-fingerprint-b:' || generated.number),
     'hex'
-  )
+  ),
+  'VII'
 FROM generate_series(1, 10000) AS generated(number);
 
 INSERT INTO public.students (

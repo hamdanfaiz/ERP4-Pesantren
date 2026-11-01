@@ -36,6 +36,124 @@ WHERE NOT EXISTS (
 )
 ON CONFLICT DO NOTHING;
 
+-- Seed only the tenant-owned choices required by synthetic operational tests.
+-- Production catalogs remain tenant-managed through the application.
+INSERT INTO public.tenant_reference_items (
+  tenant_id, domain, code, name, description, status, created_by_user_id, updated_by_user_id
+)
+SELECT tenant_actor.tenant_id, choice.domain, choice.code, choice.name, choice.description, 'active',
+  tenant_actor.user_id, tenant_actor.user_id
+FROM (
+  SELECT DISTINCT ON (tenant_id) tenant_id, user_id
+  FROM public.profiles
+  WHERE status = 'active'
+  ORDER BY tenant_id, CASE lower(role) WHEN 'super_admin' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, user_id
+) AS tenant_actor
+CROSS JOIN (VALUES
+  ('academic_curriculum', 'PGTAP_FORMAL', 'Formal', 'Kurikulum formal untuk skenario pengujian.'),
+  ('academic_curriculum', 'PGTAP_KEPESANTRENAN', 'Kepesantrenan', 'Kurikulum kepesantrenan untuk skenario pengujian.'),
+  ('academic_assessment_type', 'PGTAP_KUIS', 'Kuis', 'Jenis penilaian kuis untuk skenario pengujian.'),
+  ('facility_resource', 'PGTAP_RUANG_A', 'Ruang A', 'Ruang uji A.'),
+  ('facility_resource', 'PGTAP_RUANG_B', 'Ruang B', 'Ruang uji B.'),
+  ('facility_resource', 'PGTAP_RUANG_C', 'Ruang C', 'Ruang uji C.'),
+  ('finance_fee_type', 'PGTAP_BIAYA_PENDAFTARAN', 'Biaya Pendaftaran', 'Jenis biaya pendaftaran untuk skenario pengujian.'),
+  ('finance_fee_type', 'PGTAP_SPP', 'SPP', 'Jenis biaya pendidikan bulanan untuk skenario pengujian.'),
+  ('finance_expense_category', 'PGTAP_OPERASIONAL', 'Operasional', 'Kategori pengeluaran operasional untuk skenario pengujian.'),
+  ('finance_expense_category', 'PGTAP_UTILITAS', 'Utilitas', 'Kategori pengeluaran utilitas untuk skenario pengujian.'),
+  ('finance_expense_category', 'PGTAP_PENDIDIKAN', 'Pendidikan', 'Kategori pengeluaran pendidikan untuk skenario pengujian.'),
+  ('finance_expense_category', 'PGTAP_KONSUMSI', 'Konsumsi', 'Kategori pengeluaran konsumsi untuk skenario pengujian.'),
+  ('finance_expense_category', 'PGTAP_LISTRIK', 'Listrik', 'Kategori pengeluaran listrik untuk skenario pengujian.'),
+  ('finance_expense_category', 'PGTAP_BAHAN_AJAR', 'Bahan Ajar', 'Kategori pengeluaran bahan ajar untuk skenario pengujian.'),
+  ('cbt_question_template', 'PGTAP_DEADLINE_TEST', 'Deadline Test', 'Paket soal uji batas waktu.'),
+  ('cbt_question_template', 'PGTAP_IDEMPOTENCY', 'Idempotency', 'Paket soal uji idempotensi.')
+) AS choice(domain, code, name, description)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.tenant_reference_items existing
+  WHERE existing.tenant_id = tenant_actor.tenant_id
+    AND existing.domain = choice.domain
+    AND lower(btrim(existing.name)) = lower(choice.name)
+)
+ON CONFLICT DO NOTHING;
+
+CREATE OR REPLACE FUNCTION pg_temp.test_academic_references(p_tenant_id UUID, p_record_data JSONB)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+DECLARE
+  v_data JSONB := p_record_data;
+  v_reference_id UUID;
+  v_class_id TEXT;
+  v_class_name TEXT;
+  v_unit_id UUID := NULLIF(p_record_data->>'organizationUnitId', '')::UUID;
+  v_curriculum_name TEXT;
+BEGIN
+  SELECT id INTO v_reference_id FROM public.tenant_reference_items
+  WHERE tenant_id = p_tenant_id AND domain = 'academic_subject' AND status = 'active'
+    AND lower(btrim(name)) = lower(btrim(p_record_data->>'subject'))
+  LIMIT 1;
+  IF v_reference_id IS NOT NULL THEN
+    v_data := jsonb_set(v_data, '{subjectReferenceId}', to_jsonb(v_reference_id::TEXT), true);
+  END IF;
+
+  IF p_record_data ? 'studentId' THEN
+    SELECT s.class_id, s.organization_unit_id INTO v_class_id, v_unit_id
+    FROM public.students s WHERE s.tenant_id = p_tenant_id AND s.id = (p_record_data->>'studentId')::UUID;
+  ELSIF p_record_data ? 'className' THEN
+    SELECT m.id, m.name INTO v_class_id, v_class_name
+    FROM public.master_data_records m
+    WHERE m.tenant_id = p_tenant_id AND m.category = 'Kelas'
+      AND lower(btrim(m.name)) = lower(btrim(p_record_data->>'className'))
+      AND (m.organization_unit_id IS NULL OR m.organization_unit_id IS NOT DISTINCT FROM v_unit_id)
+      AND lower(m.status) NOT IN ('inactive', 'nonaktif', 'disabled', 'arsip')
+    ORDER BY m.organization_unit_id NULLS FIRST, m.id LIMIT 1;
+  END IF;
+  IF v_class_id IS NOT NULL THEN
+    SELECT m.name INTO v_class_name FROM public.master_data_records m
+    WHERE m.tenant_id = p_tenant_id AND m.category = 'Kelas' AND m.id = v_class_id
+      AND (m.organization_unit_id IS NULL OR m.organization_unit_id IS NOT DISTINCT FROM v_unit_id)
+      AND lower(m.status) NOT IN ('inactive', 'nonaktif', 'disabled', 'arsip');
+    IF v_class_name IS NOT NULL THEN
+      v_data := jsonb_set(v_data, '{classReferenceId}', to_jsonb(v_class_id), true);
+      v_data := jsonb_set(v_data, '{className}', to_jsonb(v_class_name), true);
+    END IF;
+  END IF;
+
+  IF p_record_data->>'kind' = 'schedule' OR p_record_data ? 'day' THEN
+    v_curriculum_name := COALESCE(NULLIF(p_record_data->>'curriculum', ''), 'Formal');
+    SELECT id INTO v_reference_id FROM public.tenant_reference_items
+    WHERE tenant_id = p_tenant_id AND domain = 'academic_curriculum' AND status = 'active'
+      AND lower(btrim(name)) = lower(btrim(v_curriculum_name)) LIMIT 1;
+    IF v_reference_id IS NOT NULL THEN
+      v_data := jsonb_set(v_data, '{curriculum}', to_jsonb(v_curriculum_name), true);
+      v_data := jsonb_set(v_data, '{curriculumReferenceId}', to_jsonb(v_reference_id::TEXT), true);
+    END IF;
+  END IF;
+
+  IF p_record_data ? 'assessmentType' THEN
+    SELECT id INTO v_reference_id FROM public.tenant_reference_items
+    WHERE tenant_id = p_tenant_id AND domain = 'academic_assessment_type' AND status = 'active'
+      AND lower(btrim(name)) = lower(btrim(p_record_data->>'assessmentType')) LIMIT 1;
+    IF v_reference_id IS NOT NULL THEN
+      v_data := jsonb_set(v_data, '{assessmentTypeReferenceId}', to_jsonb(v_reference_id::TEXT), true);
+    END IF;
+  END IF;
+
+  IF NULLIF(btrim(p_record_data->>'room'), '') IS NOT NULL THEN
+    SELECT id INTO v_reference_id FROM public.tenant_reference_items
+    WHERE tenant_id = p_tenant_id AND domain = 'facility_resource' AND status = 'active'
+      AND lower(btrim(name)) = lower(btrim(p_record_data->>'room'))
+      AND (organization_unit_id IS NULL OR organization_unit_id IS NOT DISTINCT FROM v_unit_id)
+    LIMIT 1;
+    IF v_reference_id IS NOT NULL THEN
+      v_data := jsonb_set(v_data, '{facilityReferenceId}', to_jsonb(v_reference_id::TEXT), true);
+    END IF;
+  END IF;
+  RETURN v_data;
+END;
+$$;
+
 
 -- Common academic subjects referenced by synthetic schedule and assessment tests.
 INSERT INTO public.tenant_reference_items (

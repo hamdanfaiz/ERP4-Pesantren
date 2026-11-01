@@ -117,4 +117,9 @@ REVOKE ALL ON FUNCTION public.create_tenant_laundry_order(UUID, UUID, UUID, NUME
 GRANT EXECUTE ON FUNCTION public.create_tenant_laundry_order(UUID, UUID, UUID, NUMERIC, INTEGER, UUID)
   TO service_role;
 
+-- This invoker wrapper reads the private idempotency ledger before calling the
+-- actor-validating onboarding RPC. Give only the trusted server role read access;
+-- clients still have no table grants and no direct function execution.
+GRANT SELECT ON TABLE public.ppdb_onboarding_events TO service_role;
+
 COMMIT;

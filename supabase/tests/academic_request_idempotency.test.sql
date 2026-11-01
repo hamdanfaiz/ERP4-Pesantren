@@ -38,7 +38,7 @@ SELECT is(
   public.save_academic_record(
     'e1900000-0000-4000-8000-000000000009','e1900000-0000-4000-8000-000000000011',
     'assessment',NULL,'e1900000-0000-4000-8000-000000000501',
-    '{"studentId":"e1900000-0000-4000-8000-000000000201","studentName":"Academic Test Student","className":"VII","subject":"Matematika","assessmentType":"Kuis","category":"Formative","score":88}'::jsonb
+    pg_temp.test_academic_references('e1900000-0000-4000-8000-000000000009', '{"studentId":"e1900000-0000-4000-8000-000000000201","studentName":"Academic Test Student","className":"VII","subject":"Matematika","assessmentType":"Kuis","category":"Formative","score":88}'::jsonb)
   )->>'alreadyApplied',
   'false',
   'first assessment write creates a record'
@@ -47,7 +47,7 @@ SELECT is(
   public.save_academic_record(
     'e1900000-0000-4000-8000-000000000009','e1900000-0000-4000-8000-000000000011',
     'assessment',NULL,'e1900000-0000-4000-8000-000000000501',
-    '{"studentId":"e1900000-0000-4000-8000-000000000201","studentName":"Academic Test Student","className":"VII","subject":"Matematika","assessmentType":"Kuis","category":"Formative","score":88}'::jsonb
+    pg_temp.test_academic_references('e1900000-0000-4000-8000-000000000009', '{"studentId":"e1900000-0000-4000-8000-000000000201","studentName":"Academic Test Student","className":"VII","subject":"Matematika","assessmentType":"Kuis","category":"Formative","score":88}'::jsonb)
   )->>'alreadyApplied',
   'true',
   'identical assessment retry replays its original record'
@@ -56,7 +56,7 @@ SELECT throws_ok(
   $$SELECT public.save_academic_record(
     'e1900000-0000-4000-8000-000000000009','e1900000-0000-4000-8000-000000000011',
     'assessment',NULL,'e1900000-0000-4000-8000-000000000501',
-    '{"studentId":"e1900000-0000-4000-8000-000000000201","studentName":"Academic Test Student","className":"VII","subject":"Matematika","assessmentType":"Kuis","category":"Formative","score":91}'::jsonb
+    pg_temp.test_academic_references('e1900000-0000-4000-8000-000000000009', '{"studentId":"e1900000-0000-4000-8000-000000000201","studentName":"Academic Test Student","className":"VII","subject":"Matematika","assessmentType":"Kuis","category":"Formative","score":91}'::jsonb)
   )$$,
   '23505',
   'Academic request ID was already used for a different actor or payload',
@@ -66,7 +66,7 @@ SELECT throws_ok(
   $$SELECT public.save_academic_record(
     'e1900000-0000-4000-8000-000000000009','e1900000-0000-4000-8000-000000000012',
     'assessment',NULL,'e1900000-0000-4000-8000-000000000501',
-    '{"studentId":"e1900000-0000-4000-8000-000000000201","studentName":"Academic Test Student","className":"VII","subject":"Matematika","assessmentType":"Kuis","category":"Formative","score":88}'::jsonb
+    pg_temp.test_academic_references('e1900000-0000-4000-8000-000000000009', '{"studentId":"e1900000-0000-4000-8000-000000000201","studentName":"Academic Test Student","className":"VII","subject":"Matematika","assessmentType":"Kuis","category":"Formative","score":88}'::jsonb)
   )$$,
   '23505',
   'Academic request ID was already used for a different actor or payload',
