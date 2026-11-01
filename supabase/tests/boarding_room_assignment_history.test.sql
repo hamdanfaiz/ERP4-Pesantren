@@ -46,7 +46,7 @@ INSERT INTO public.candidates (
   id, tenant_id, registration_id, name, grade, gender, stage, nik_ciphertext, nik_fingerprint
 ) VALUES (
   'd4600000-0000-4000-8000-000000000102','d4600000-0000-4000-8000-000000000001',
-  'RH-A-002','Santri PPDB Uji','SMP','L','Accepted',decode(repeat('34',44),'hex'),decode(repeat('56',32),'hex')
+  'RH-A-002','Santri PPDB Uji','VII','L','Accepted',decode(repeat('34',44),'hex'),decode(repeat('56',32),'hex')
 );
 INSERT INTO public.identity_claims (tenant_id, identity_type, fingerprint, entity_type, entity_id)
 VALUES ('d4600000-0000-4000-8000-000000000001','nik',decode(repeat('56',32),'hex'),'candidate',
@@ -222,7 +222,7 @@ SELECT is((SELECT change_source FROM public.student_room_assignment_history
 
 SELECT is(public.onboard_accepted_ppdb_candidate_with_room_history_actor(
   'd4600000-0000-4000-8000-000000000001','d4600000-0000-4000-8000-000000000011',
-  'd4600000-0000-4000-8000-000000000102','2026020001','RH-C1','RH-R1','RH-G1',
+  'd4600000-0000-4000-8000-000000000102','2026070001','RH-C1','RH-R1','RH-G1',
   'Wali Uji','0812345678','d4600000-0000-4000-8000-000000000099'
 )->>'success','true','Admin can onboard an accepted PPDB candidate through the audited wrapper');
 SELECT is((SELECT master_student_id FROM public.candidates
@@ -255,7 +255,7 @@ SELECT is((SELECT count(*)::INTEGER FROM public.guardian_students gs
 SELECT is((SELECT count(*)::INTEGER FROM public.nis_reservations n
   JOIN public.students s ON s.tenant_id=n.tenant_id AND s.id=n.student_id
   WHERE n.tenant_id='d4600000-0000-4000-8000-000000000001'
-    AND n.nis='2026020001' AND n.candidate_id='d4600000-0000-4000-8000-000000000102'
+    AND n.nis='2026070001' AND n.candidate_id='d4600000-0000-4000-8000-000000000102'
     AND s.source_candidate_id=n.candidate_id AND n.source='ppdb_onboarding'),
   1,'NIS reservation, candidate and canonical student commit as one relation');
 SELECT is((SELECT count(*)::INTEGER FROM public.identity_claims
@@ -268,7 +268,7 @@ SELECT is((SELECT count(*)::INTEGER FROM public.identity_claims
 SELECT is((SELECT onboarding_status FROM public.candidates
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND id='d4600000-0000-4000-8000-000000000102'),
   'Completed','candidate status is completed after onboarding');
-SELECT ok((SELECT sync_to_master_data AND nis='2026020001' AND class_id='RH-C1'
+SELECT ok((SELECT sync_to_master_data AND nis='2026070001' AND class_id='RH-C1'
     AND room_id='RH-R1' AND dormitory_id='RH-G1'
   FROM public.candidates WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
     AND id='d4600000-0000-4000-8000-000000000102'),
@@ -278,12 +278,12 @@ SELECT is((SELECT occupied FROM public.master_data_records
   1,'onboarding increments the selected empty room occupancy in the same transaction');
 SELECT is(public.onboard_accepted_ppdb_candidate_with_room_history_actor(
   'd4600000-0000-4000-8000-000000000001','d4600000-0000-4000-8000-000000000011',
-  'd4600000-0000-4000-8000-000000000102','2026020001','RH-C1','RH-R1','RH-G1',
+  'd4600000-0000-4000-8000-000000000102','2026070001','RH-C1','RH-R1','RH-G1',
   'Wali Uji','0812345678','d4600000-0000-4000-8000-000000000099'
 )->>'alreadyOnboarded','true','retry with the same onboarding request returns the committed result');
 SELECT is(public.onboard_accepted_ppdb_candidate_with_room_history_actor(
   'd4600000-0000-4000-8000-000000000001','d4600000-0000-4000-8000-000000000011',
-  'd4600000-0000-4000-8000-000000000102','2026020001','RH-C1','RH-R1','RH-G1',
+  'd4600000-0000-4000-8000-000000000102','2026070001','RH-C1','RH-R1','RH-G1',
   'Wali Uji','0812345678','d4600000-0000-4000-8000-000000000099'
 )->>'replayed','true','same request ID is recognized as an idempotent replay');
 SELECT is((SELECT count(*)::INTEGER FROM public.students
@@ -296,7 +296,7 @@ SELECT is((SELECT count(*)::INTEGER FROM public.guardians
   1,'onboarding retry does not create a duplicate guardian');
 SELECT is((SELECT count(*)::INTEGER FROM public.nis_reservations
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001'
-    AND nis='2026020001' AND candidate_id='d4600000-0000-4000-8000-000000000102'),
+    AND nis='2026070001' AND candidate_id='d4600000-0000-4000-8000-000000000102'),
   1,'onboarding retry does not duplicate the NIS reservation');
 SELECT is((SELECT occupied FROM public.master_data_records
   WHERE tenant_id='d4600000-0000-4000-8000-000000000001' AND category='Kamar' AND id='RH-R1'),

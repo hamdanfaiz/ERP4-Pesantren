@@ -57,8 +57,10 @@ CROSS JOIN (VALUES
   ('facility_resource', 'PGTAP_RUANG_B', 'Ruang B', 'Ruang uji B.'),
   ('facility_resource', 'PGTAP_RUANG_C', 'Ruang C', 'Ruang uji C.'),
   ('finance_fee_type', 'PGTAP_BIAYA_PENDAFTARAN', 'Biaya Pendaftaran', 'Jenis biaya pendaftaran untuk skenario pengujian.'),
+  ('finance_fee_type', 'PGTAP_UANG_PANGKAL', 'Uang Pangkal', 'Jenis uang pangkal untuk skenario pengujian.'),
   ('finance_fee_type', 'PGTAP_SPP', 'SPP', 'Jenis biaya pendidikan bulanan untuk skenario pengujian.'),
   ('finance_expense_category', 'PGTAP_OPERASIONAL', 'Operasional', 'Kategori pengeluaran operasional untuk skenario pengujian.'),
+  ('finance_expense_category', 'PGTAP_PENGADAAN', 'Pengadaan', 'Kategori pengeluaran pengadaan untuk skenario pengujian.'),
   ('finance_expense_category', 'PGTAP_UTILITAS', 'Utilitas', 'Kategori pengeluaran utilitas untuk skenario pengujian.'),
   ('finance_expense_category', 'PGTAP_PENDIDIKAN', 'Pendidikan', 'Kategori pengeluaran pendidikan untuk skenario pengujian.'),
   ('finance_expense_category', 'PGTAP_KONSUMSI', 'Konsumsi', 'Kategori pengeluaran konsumsi untuk skenario pengujian.'),
@@ -153,6 +155,7 @@ BEGIN
   RETURN v_data;
 END;
 $$;
+GRANT EXECUTE ON FUNCTION pg_temp.test_academic_references(UUID, JSONB) TO service_role;
 
 
 -- Common academic subjects referenced by synthetic schedule and assessment tests.
