@@ -153,6 +153,8 @@ async function main() {
     users.push(financeAdmin);
     const rateLimitAdmin = await createUser(admin, tenantId, 'admin', 'finance-rate-limit');
     users.push(rateLimitAdmin);
+    const foreignAdmin = await createUser(admin, foreignTenantId, 'admin', 'foreign-tenant-admin');
+    users.push(foreignAdmin);
     const { data: gradeReference, error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantId,
       domain: 'academic_grade_level',
@@ -173,6 +175,8 @@ async function main() {
       description: 'Jenjang tenant asing untuk fixture pengujian Storage.',
       status: 'active',
       nis_grade_code: '07',
+      created_by_user_id: foreignAdmin.uid,
+      updated_by_user_id: foreignAdmin.uid,
     }).select('id').single();
     if (foreignGradeReferenceError || !foreignGradeReference?.id) throw new Error('Unable to seed the foreign tenant grade reference for Storage tests.');
     [buildingId, roomId, classId] = await Promise.all([
