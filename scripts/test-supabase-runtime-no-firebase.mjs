@@ -155,10 +155,22 @@ assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && 
 
 const masterDataSource = fs.readFileSync(path.join(root, 'src', 'pages', 'MasterDataManager.tsx'), 'utf8');
 assert.match(masterDataSource, /const visibleTabs = TABS;/,
-  'Master Data must keep the established tabs visible during Supabase cutover.');
-assert.match(masterDataSource, /const visibleSubTabs = activeTab === "booking" \? SUB_TABS\.booking : SUB_TABS\[activeTab\]/,
-  'Master Data must keep the established categories visible during Supabase cutover.');
-for (const label of ['Pemesanan Ruangan', 'Semua Aktivitas', 'Penyaring Multi-Kriteria', 'Relasi Terpadu (berdasarkan ID)', 'Jumlah data:', 'Menampilkan ${paginatedData.length} dari ${filteredData.length} data']) {
+  'Master Data must render only its own tabs.');
+assert.match(masterDataSource, /const visibleSubTabs = SUB_TABS\[activeTab\] \|\| \[\]/,
+  'Master Data must render only categories owned by the selected tab.');
+const masterDataCategories = masterDataSource.match(/const SUB_TABS: Record<string, string\[]> = \{([\s\S]*?)\n\};/);
+assert.ok(masterDataCategories, 'Could not find the Master Data category map.');
+assert.match(masterDataCategories[1], /entities:\s*\["Santri"\]/,
+  'The entity tab must own only the student record category.');
+assert.match(masterDataCategories[1], /structure:\s*\["Gedung",\s*"Kamar",\s*"Kelas",\s*"Peta Struktur"\]/,
+  'The structure tab must own only campus/dorm structure categories.');
+assert.doesNotMatch(masterDataCategories[1], /Wali Santri|Guru|Asatidz|Pegawai|Alumni|Mata Pelajaran|Kurikulum|Halaqah|Yayasan|Kampus|Pemesanan/,
+  'Records owned by other modules must not be listed as Master Data categories.');
+assert.doesNotMatch(masterDataSource, /onNavigate|activeHandoff|MASTER_DATA_DESTINATIONS|Data terkait|Kategori lain dikelola/,
+  'Master Data must not render redirects or a related-data shortcut strip.');
+assert.doesNotMatch(masterDataSource, /setActiveSubTab\(["']Wali Santri["']\)|Buka Profil Lengkap Wali Santri/,
+  'Student details must not navigate into the retired Wali category inside Master Data.');
+for (const label of ['Semua Aktivitas', 'Penyaring Multi-Kriteria', 'Relasi Terpadu (berdasarkan ID)', 'Jumlah data:', 'Menampilkan ${paginatedData.length} dari ${filteredData.length} data']) {
   assert.ok(masterDataSource.includes(label), `Master Data interface must use the Indonesian label "${label}".`);
 }
 for (const retiredLabel of ['Room Booking', 'All Activity', 'Multi-Facet Filter', 'ID-Normalized', 'Showing ${paginatedData.length} of ${filteredData.length} records']) {
@@ -166,10 +178,6 @@ for (const retiredLabel of ['Room Booking', 'All Activity', 'Multi-Facet Filter'
 }
 assert.match(masterDataSource, /return labels\[value\.toLowerCase\(\)\] \|\| value \|\| "—"/,
   'Master Data status values must be displayed in Indonesian without changing their stored values.');
-assert.match(masterDataSource, /SUPABASE_MASTER_DATA_RUNTIME && isSupabaseHandoffView/,
-  'Unsupported legacy categories must render an explicit Supabase handoff/status view rather than mock data.');
-assert.match(masterDataSource, /modulePermissions\?\.\[activeHandoff\.module\] === false/,
-  'Master Data handoff links must not bypass an explicit module permission denial.');
 assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
 const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
@@ -186,8 +194,33 @@ const academicSource = fs.readFileSync(path.join(root, 'src', 'pages', 'Supabase
 for (const feature of ['report-card', 'conflict-resolver']) {
   assert.ok(academicSource.includes(`id: "${feature}"`), `Academic reference submenu ${feature} must remain visible.`);
 }
+for (const feature of ['teachers', 'subjects', 'curricula']) {
+  assert.ok(academicSource.includes(`id: "${feature}"`), `Academic must own the ${feature} reference submenu moved from Master Data.`);
+}
+assert.match(academicSource, /!\[\"schedule\",\s*\"conflict-resolver\",\s*\"teachers\",\s*\"subjects\",\s*\"curricula\"\]\.includes\(tab\.id\)\s*\|\|\s*isAdmin/,
+  'Academic owner reference tabs must be limited to Admin roles.');
+assert.match(academicSource, /activeTab === "teachers"\s*\?\s*<TeacherDirectory[\s\S]*?activeTab === "subjects"\s*\?\s*<SubjectReferenceList[\s\S]*?activeTab === "curricula"\s*\?\s*<CurriculumReferenceList/,
+  'Moved academic reference tabs must render their tenant-backed views in the Academic module.');
 assert.match(academicSource, /activeTab === "report-card"\s*\?\s*<ERPFeatureStatus/,
   'E-Rapor must show its current backend readiness instead of falling through to the assessment form.');
+const generalAffairSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseGeneralAffairManager.tsx'), 'utf8');
+assert.match(generalAffairSource, /id:\s*"booking",\s*label:\s*"Pemesanan Fasilitas"/,
+  'Facility booking must be owned by Sarana & Prasarana.');
+assert.match(generalAffairSource, /activeTab === "booking"\s*\?\s*<Suspense[\s\S]*?<FacilityBooking\s*\/>/,
+  'Facility booking must render in its owner module without redirecting from Master Data.');
+for (const [file, label, description] of [
+  ['SupabaseCrmManager.tsx', 'Wali santri', 'Wali records must be managed in CRM.'],
+  ['SupabaseHrisManager.tsx', 'Direktori Pegawai', 'Employee records must be managed in HRIS.'],
+  ['SupabaseAlumniManager.tsx', 'directory', 'Alumni records must be managed in the Alumni module.'],
+]) {
+  const ownerSource = fs.readFileSync(path.join(root, 'src', 'pages', file), 'utf8');
+  assert.ok(ownerSource.includes(label), description);
+}
+const enterpriseSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseEnterpriseUnitsManager.tsx'), 'utf8');
+assert.match(enterpriseSource, /yayasan|pesantren|sekolah/i,
+  'Yayasan and campus units must remain managed in the multi-unit module.');
+assert.match(tahfidzSource, /halaqah/i,
+  'Halaqah records must remain managed in the Tahfidz module.');
 const cbtSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseCBTManager.tsx'), 'utf8');
 for (const feature of ['dashboard', 'calendar', 'packages', 'monitor', 'settings']) {
   assert.ok(cbtSource.includes(`id: "${feature}"`), `CBT reference submenu ${feature} must remain visible.`);

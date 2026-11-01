@@ -16,7 +16,6 @@ import {
   Phone,
   MapPin,
   HeartPulse,
-  GraduationCap,
   Download,
   Activity,
   Clock,
@@ -28,7 +27,6 @@ import {
   CreditCard,
   AlertTriangle,
   Link2,
-  ExternalLink,
   ArrowRight,
   UserCheck,
   ShieldCheck,
@@ -78,21 +76,16 @@ const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "K
 const TABS = [
   { id: "entities", label: "Data Entitas", icon: Users },
   { id: "structure", label: "Struktur", icon: Building },
-  { id: "academic", label: "Akademik", icon: GraduationCap },
-  { id: "booking", label: "Pemesanan Fasilitas", icon: Clock },
   { id: "audit", label: "Jejak Audit", icon: Activity },
 ];
 
 const SUB_TABS: Record<string, string[]> = {
-  entities: ["Santri", "Wali Santri", "Guru", "Asatidz", "Pegawai", "Alumni"],
-  structure: ["Yayasan", "Kampus", "Gedung", "Kamar", "Kelas", "Halaqah", "Peta Struktur"],
-  academic: ["Mata Pelajaran", "Kurikulum"],
-  booking: ["Pemesanan Ruangan"],
+  entities: ["Santri"],
+  structure: ["Gedung", "Kamar", "Kelas", "Peta Struktur"],
   audit: ["Semua Aktivitas"],
 };
 
 import { DEFAULT_STRUCTURE } from "../data/defaultStructure";
-import type { ModuleId } from "../types";
 export { DEFAULT_STRUCTURE };
 
 const getMockData = (subTab: string) => {
@@ -182,7 +175,6 @@ import {
   NUPTK_REGEX 
 } from "../schema/masterDataSchema";
 const LazyStructureHierarchyD3 = React.lazy(async () => ({ default: (await import("../components/StructureHierarchyD3")).StructureHierarchyD3 }));
-const LazyFacilityBooking = React.lazy(async () => ({ default: (await import("../components/FacilityBooking")).FacilityBooking }));
 
 function masterDataFieldLabel(key: string) {
   const labels: Record<string, string> = { id: "ID", name: "Nama", gender: "Jenis Kelamin", grade: "Jenjang", className: "Kelas", nis: "NIS", nisn: "NISN", nik: "NIK", phone: "Nomor Telepon", email: "Email", parentName: "Nama Wali", parentPhone: "Telepon Wali", whatsappPhone: "Nomor WhatsApp", address: "Alamat", dateOfBirth: "Tanggal Lahir", birthDate: "Tanggal Lahir", placeOfBirth: "Tempat Lahir", religion: "Agama", bloodType: "Golongan Darah", medical: "Riwayat Kesehatan", status: "Status", qrcode: "Kode QR", currentActivity: "Kegiatan Saat Ini", institution: "Instansi", employmentType: "Jenis Kepegawaian", gradeOrDepartment: "Jenjang/Unit", graduationYear: "Tahun Lulus", occupation: "Pekerjaan", income: "Penghasilan", relation: "Hubungan", nuptk: "NUPTK", npwp: "NPWP", createdAt: "Dibuat pada", updatedAt: "Diperbarui pada" };
@@ -194,42 +186,18 @@ function masterAuditActionLabel(action: string) {
   return labels[action] || action;
 }
 
-type MasterDataManagerProps = { onNavigate?: (module: ModuleId) => void };
-
-const MASTER_DATA_DESTINATIONS: Array<{
-  label: string;
-  categories: string[];
-  destination: string;
-  module?: ModuleId;
-}> = [
-  { label: "Wali Santri", categories: ["Wali Santri"], destination: "Relasi Wali & Donatur", module: "crm" },
-  { label: "Guru dan Asatidz", categories: ["Guru", "Asatidz"], destination: "Akademik Formal", module: "academic" },
-  { label: "Pegawai", categories: ["Pegawai"], destination: "Sumber Daya Manusia", module: "hris" },
-  { label: "Alumni", categories: ["Alumni"], destination: "Data Alumni", module: "alumni" },
-  { label: "Mata Pelajaran dan Kurikulum", categories: ["Mata Pelajaran", "Kurikulum"], destination: "Akademik Formal", module: "academic" },
-  { label: "Yayasan dan Kampus", categories: ["Yayasan", "Kampus"], destination: "Manajemen Multi-Unit", module: "enterprise" },
-  { label: "Halaqah", categories: ["Halaqah"], destination: "Tahfidz", module: "tahfidz" },
-];
-
-export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
+export function MasterDataManager() {
   const { user } = useAuth();
-  // Keep the established navigation visible during the backend cutover. Unsupported
-  // categories render an explicit handoff/status view below, never legacy mock data.
   const visibleTabs = TABS;
-  const [activeTab, setActiveTab] = useState<
-    "entities" | "structure" | "academic" | "booking" | "audit"
-  >("entities");
+  // Keep legacy state variants typed for the retained non-Supabase branches;
+  // only the three owner tabs below are exposed in the current navigation.
+  const [activeTab, setActiveTab] = useState<"entities" | "structure" | "academic" | "booking" | "audit">("entities");
   const [activeSubTab, setActiveSubTab] = useState("Santri");
-  const visibleSubTabs = activeTab === "booking" ? SUB_TABS.booking : SUB_TABS[activeTab];
+  const visibleSubTabs = SUB_TABS[activeTab] || [];
   const isSupabaseTransferView = SUPABASE_MASTER_DATA_RUNTIME
     && (activeTab === "entities" && activeSubTab === "Santri"
       || activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab));
   const isSupabaseStructureMap = SUPABASE_MASTER_DATA_RUNTIME && activeTab === "structure" && activeSubTab === "Peta Struktur";
-  const isSupabaseHandoffView = SUPABASE_MASTER_DATA_RUNTIME
-    && activeTab !== "booking"
-    && !isSupabaseTransferView
-    && !isSupabaseStructureMap;
-  const activeHandoff = MASTER_DATA_DESTINATIONS.find((item) => item.categories.includes(activeSubTab));
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [roomHistory, setRoomHistory] = useState<SupabaseStudentRoomAssignmentHistoryEntry[]>([]);
   const [roomHistoryStudentId, setRoomHistoryStudentId] = useState("");
@@ -1510,41 +1478,6 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
           </button>
         </div>
       )}
-      {SUPABASE_MASTER_DATA_RUNTIME && (
-        <div className="space-y-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-950 dark:text-sky-100">
-          <p>
-            Navigasi dan sub-menu Data Induk tetap dipertahankan. Santri, Gedung, Kamar, Kelas, peta struktur, pemesanan fasilitas, dan jejak audit memakai sumber data tenant Supabase. Kategori lain diarahkan ke modul pemilik datanya; status yang belum tersedia dijelaskan tanpa menampilkan data contoh.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {MASTER_DATA_DESTINATIONS.map((item) => (
-                item.module ? (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => onNavigate?.(item.module!)}
-                    disabled={!onNavigate || user?.modulePermissions?.[item.module] === false}
-                    className="rounded-lg border border-sky-900/10 bg-white/70 px-3 py-2 text-left hover:border-sky-700/30 hover:bg-white disabled:cursor-default dark:border-white/10 dark:bg-slate-950/40 dark:hover:bg-slate-900"
-                  >
-                    <span className="block font-medium">{item.label}</span>
-                    <span className="mt-0.5 block text-xs opacity-75">
-                      {user?.modulePermissions?.[item.module] === false
-                        ? `Akses ${item.destination} dibatasi oleh izin akun`
-                        : `Dikelola di ${item.destination} · Buka modul`}
-                    </span>
-                  </button>
-                ) : (
-                  <div key={item.label} className="rounded-lg border border-amber-500/20 bg-amber-50/70 px-3 py-2 text-left dark:bg-amber-950/20">
-                    <span className="block font-medium">{item.label}</span>
-                    <span className="mt-0.5 block text-xs opacity-75">Belum tersedia: {item.destination}</span>
-                  </div>
-                )
-              ))}
-          </div>
-          <p className="text-xs leading-5 opacity-80">
-            Jejak audit tenant mencatat metadata perubahan tanpa menyimpan nilai identitas atau isi record. Setiap modul tujuan tetap ditinjau agar kepemilikan data dan aksesnya konsisten.
-          </p>
-        </div>
-      )}
       {SUPABASE_MASTER_DATA_RUNTIME && SUPABASE_MASTER_DATA_IMPORT && user && ["Admin", "SuperAdmin"].includes(user.role) && (
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1770,32 +1703,6 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
         <div className="flex-1 flex flex-col relative overflow-hidden">
           {SUPABASE_MASTER_DATA_RUNTIME && activeTab === "audit" ? (
             <SupabaseMasterDataAuditPanel />
-          ) : SUPABASE_MASTER_DATA_RUNTIME && isSupabaseHandoffView ? (
-            <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-              <div className={`max-w-xl rounded-2xl border p-6 ${activeHandoff?.module ? "border-sky-200 bg-sky-50 dark:border-sky-400/20 dark:bg-sky-400/5" : "border-amber-200 bg-amber-50 dark:border-amber-400/20 dark:bg-amber-400/5"}`}>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{activeHandoff?.label || activeSubTab}</h2>
-                {activeHandoff?.module ? (
-                  <>
-                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                      Data ini dikelola pada modul <strong>{activeHandoff.destination}</strong>. Buka modul tersebut untuk melihat dan mengelola data dari sumber Supabase tenant.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => onNavigate?.(activeHandoff.module!)}
-                      disabled={!onNavigate || user?.modulePermissions?.[activeHandoff.module] === false}
-                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Buka {activeHandoff.destination}<ArrowRight className="h-4 w-4" />
-                    </button>
-                    {user?.modulePermissions?.[activeHandoff.module] === false && <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Akses modul tujuan dibatasi pada akun Anda. Minta Administrator meninjau izin modul.</p>}
-                  </>
-                ) : (
-                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                    Jejak audit tenant belum memiliki API dan sumber data Supabase yang siap. Menu tetap terlihat agar statusnya jelas; fitur ini tidak menampilkan log contoh atau log lokal sebagai data nyata.
-                  </p>
-                )}
-              </div>
-            </div>
           ) : activeTab === "audit" ? (
             <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0a0a0a]/50">
               <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-black/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2008,8 +1915,6 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
                 })()}
               </div>
             </div>
-          ) : activeTab === "booking" ? (
-            <React.Suspense fallback={<div className="p-6 text-sm text-slate-400">Memuat pemesanan fasilitas…</div>}><LazyFacilityBooking /></React.Suspense>
           ) : (
             <div className="flex-1 flex flex-col h-full print:block">
               <div className="p-4 border-b border-slate-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-black/10 print:hidden">
@@ -2686,7 +2591,7 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
                                     </div>
                                   )}
                                   <div className="text-[10px] text-slate-500 uppercase mt-0.5">
-                                    Home Address
+                                    Alamat Rumah
                                   </div>
                                 </div>
                               </div>
@@ -2695,7 +2600,9 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
 
                           {/* Data Wali Santri Terintegrasi */}
                           {(() => {
-                            const waliList = dataSources["Wali Santri"] || MOCK_WALISANTRI;
+                            const waliList = SUPABASE_MASTER_DATA_RUNTIME
+                              ? []
+                              : dataSources["Wali Santri"] || MOCK_WALISANTRI;
                             const matchedWali = selectedRecord.waliSantriId 
                               ? waliList.find((w) => w.id === selectedRecord.waliSantriId)
                               : waliList.find((w) => w.name?.toLowerCase() === selectedRecord.parentName?.toLowerCase());
@@ -2718,11 +2625,11 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
                                   </h4>
                                   {isNormalized ? (
                                     <span className="text-[9px] bg-blue-500/20 text-blue-300 font-mono px-2 py-0.5 rounded flex items-center gap-1">
-                                      <ShieldCheck className="w-3 h-3 text-blue-400" /> ID Normalized
+                                      <ShieldCheck className="w-3 h-3 text-blue-400" /> Relasi terhubung
                                     </span>
                                   ) : (
                                     <span className="text-[9px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded">
-                                      Unlinked Plain Text
+                                      Relasi belum tertaut
                                     </span>
                                   )}
                                 </div>
@@ -2756,19 +2663,11 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
                                     </span>
                                   </div>
 
-                                  {matchedWali ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveSubTab("Wali Santri");
-                                        setSelectedRecord(matchedWali);
-                                      }}
-                                      className="w-full mt-2 py-1.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-white rounded-lg border border-blue-500/30 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-                                    >
-                                      <span>Buka Profil Lengkap Wali Santri</span>
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                    </button>
-                                  ) : (
+                                  {SUPABASE_MASTER_DATA_RUNTIME ? (
+                                    <p className="rounded-lg border border-slate-200 px-3 py-2 text-xs leading-5 text-slate-500 dark:border-white/10">
+                                      Profil dan pengelolaan wali tersedia di modul Relasi Wali & Donatur. Data di sini hanya mengikuti informasi kontak yang tersimpan pada profil santri.
+                                    </p>
+                                  ) : !matchedWali ? (
                                     <button
                                       type="button"
                                       onClick={() => handleEditClick(selectedRecord)}
@@ -2777,7 +2676,7 @@ export function MasterDataManager({ onNavigate }: MasterDataManagerProps) {
                                       <span>Tautkan ke Master Wali Santri</span>
                                       <Link2 className="w-3.5 h-3.5" />
                                     </button>
-                                  )}
+                                  ) : null}
                                 </div>
                               </div>
                             );
