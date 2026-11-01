@@ -27,6 +27,7 @@ VALUES
   ('e3000000-0000-4000-8000-000000000012', 'e3000000-0000-4000-8000-000000000001', 'unit-map-ustadz-a@test.invalid', 'Ustadz A', 'ustadz', 'active', '{}'),
   ('e3000000-0000-4000-8000-000000000013', 'e3000000-0000-4000-8000-000000000001', 'unit-map-admin-denied@test.invalid', 'Admin Without Master Data', 'admin', 'active', '{"master-data":false}'),
   ('e4000000-0000-4000-8000-000000000021', 'e4000000-0000-4000-8000-000000000002', 'unit-map-admin-b@test.invalid', 'Admin B', 'admin', 'active', '{}');
+\ir test_support/seed_tenant_grade_levels.sql
 
 INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id)
 VALUES
@@ -34,11 +35,11 @@ VALUES
   ('e3000000-0000-4000-8000-000000000102', 'e3000000-0000-4000-8000-000000000001', 'CABANG', 'Unit Cabang', 'pesantren', 'active', 'e3000000-0000-4000-8000-000000000011', 'e3000000-0000-4000-8000-000000000011'),
   ('e4000000-0000-4000-8000-000000000103', 'e4000000-0000-4000-8000-000000000002', 'PUSAT', 'Unit Tenant B', 'pesantren', 'active', 'e4000000-0000-4000-8000-000000000021', 'e4000000-0000-4000-8000-000000000021');
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
-  ('e3000000-0000-4000-8000-000000000201', 'e3000000-0000-4000-8000-000000000001', 'UNIT-MAP-001', 'Calon Santri Satu', decode(repeat('ab', 44), 'hex'), decode(repeat('11', 32), 'hex')),
-  ('e3000000-0000-4000-8000-000000000202', 'e3000000-0000-4000-8000-000000000001', 'UNIT-MAP-002', 'Calon Santri Dua', decode(repeat('ac', 44), 'hex'), decode(repeat('12', 32), 'hex')),
-  ('e3000000-0000-4000-8000-000000000203', 'e3000000-0000-4000-8000-000000000001', 'UNIT-MAP-003', 'Calon Santri Tiga', decode(repeat('ad', 44), 'hex'), decode(repeat('13', 32), 'hex'));
+  ('e3000000-0000-4000-8000-000000000201', 'e3000000-0000-4000-8000-000000000001', 'UNIT-MAP-001', 'Calon Santri Satu', decode(repeat('ab', 44), 'hex'), decode(repeat('11', 32), 'hex'), 'VII'),
+  ('e3000000-0000-4000-8000-000000000202', 'e3000000-0000-4000-8000-000000000001', 'UNIT-MAP-002', 'Calon Santri Dua', decode(repeat('ac', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'VII'),
+  ('e3000000-0000-4000-8000-000000000203', 'e3000000-0000-4000-8000-000000000001', 'UNIT-MAP-003', 'Calon Santri Tiga', decode(repeat('ad', 44), 'hex'), decode(repeat('13', 32), 'hex'), 'VII');
 
 INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity)
 VALUES

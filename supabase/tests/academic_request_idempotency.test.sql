@@ -20,9 +20,10 @@ VALUES
    'academic-idempotency-one@test.invalid','Academic Admin One','admin','active','{"academic":true}'),
   ('e1900000-0000-4000-8000-000000000012','e1900000-0000-4000-8000-000000000009',
    'academic-idempotency-two@test.invalid','Academic Admin Two','admin','active','{"academic":true}');
-INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint)
+\ir test_support/seed_tenant_grade_levels.sql
+INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint, grade)
 VALUES ('e1900000-0000-4000-8000-000000000101','e1900000-0000-4000-8000-000000000009',
-  'AID001','Academic Test Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'));
+  'AID001','Academic Test Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII');
 INSERT INTO public.students(
   id,tenant_id,source_candidate_id,nis,name,gender,grade,nik_ciphertext,nik_fingerprint,status
 ) VALUES (

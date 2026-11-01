@@ -28,6 +28,13 @@ VALUES (
   'hris-admin@test.invalid', 'HRIS Import Admin', 'admin', 'active', '{"hris":true}'
 );
 
+INSERT INTO public.organization_units (
+  tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id
+) VALUES (
+  'd4000000-0000-4000-8000-000000000001', 'PERPUSTAKAAN', 'Perpustakaan', 'lainnya', 'active',
+  'd4000000-0000-4000-8000-000000000011', 'd4000000-0000-4000-8000-000000000011'
+);
+
 CREATE TEMP TABLE hris_auth_users_before_import ON COMMIT DROP AS
 SELECT count(*)::INTEGER AS user_count FROM auth.users;
 

@@ -20,11 +20,11 @@ INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, stat
   ('e9160000-0000-4000-8000-000000000012', 'e9160000-0000-4000-8000-000000000002', 'choice-rel-b@test.invalid', 'Choice Relationship Admin B', 'admin', 'active', '{"master-data":true,"ppdb":true}');
 
 INSERT INTO public.tenant_reference_items (
-  id, tenant_id, domain, code, name, description, created_by_user_id, updated_by_user_id
+  id, tenant_id, domain, code, name, description, nis_grade_code, created_by_user_id, updated_by_user_id
 ) VALUES
-  ('e9160000-0000-4000-8000-000000000101', 'e9160000-0000-4000-8000-000000000001', 'academic_grade_level', 'VII', 'Kelas VII', 'Jenjang pendidikan untuk santri kelas tujuh.', 'e9160000-0000-4000-8000-000000000011', 'e9160000-0000-4000-8000-000000000011'),
-  ('e9160000-0000-4000-8000-000000000102', 'e9160000-0000-4000-8000-000000000001', 'academic_grade_level', 'VIII', 'Kelas VIII', 'Jenjang pendidikan untuk santri kelas delapan.', 'e9160000-0000-4000-8000-000000000011', 'e9160000-0000-4000-8000-000000000011'),
-  ('e9160000-0000-4000-8000-000000000201', 'e9160000-0000-4000-8000-000000000002', 'academic_grade_level', 'VII', 'Kelas VII', 'Jenjang pendidikan untuk santri kelas tujuh.', 'e9160000-0000-4000-8000-000000000012', 'e9160000-0000-4000-8000-000000000012');
+  ('e9160000-0000-4000-8000-000000000101', 'e9160000-0000-4000-8000-000000000001', 'academic_grade_level', 'VII', 'Kelas VII', 'Jenjang pendidikan untuk santri kelas tujuh.', '07', 'e9160000-0000-4000-8000-000000000011', 'e9160000-0000-4000-8000-000000000011'),
+  ('e9160000-0000-4000-8000-000000000102', 'e9160000-0000-4000-8000-000000000001', 'academic_grade_level', 'VIII', 'Kelas VIII', 'Jenjang pendidikan untuk santri kelas delapan.', '08', 'e9160000-0000-4000-8000-000000000011', 'e9160000-0000-4000-8000-000000000011'),
+  ('e9160000-0000-4000-8000-000000000201', 'e9160000-0000-4000-8000-000000000002', 'academic_grade_level', 'VII', 'Kelas VII', 'Jenjang pendidikan untuk santri kelas tujuh.', '07', 'e9160000-0000-4000-8000-000000000012', 'e9160000-0000-4000-8000-000000000012');
 
 INSERT INTO public.master_data_records (tenant_id, category, id, name, status, grade, grade_level_reference_id)
 VALUES

@@ -13,24 +13,27 @@ INSERT INTO auth.users (
   raw_app_meta_data,raw_user_meta_data,created_at,updated_at
 ) VALUES
   ('e2800000-0000-4000-8000-000000000011','00000000-0000-0000-0000-000000000000','authenticated','authenticated','academic-class-admin@test.invalid','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now()),
-  ('e2800000-0000-4000-8000-000000000012','00000000-0000-0000-0000-000000000000','authenticated','authenticated','academic-class-teacher@test.invalid','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now());
+  ('e2800000-0000-4000-8000-000000000012','00000000-0000-0000-0000-000000000000','authenticated','authenticated','academic-class-teacher@test.invalid','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now()),
+  ('e2800000-0000-4000-8000-000000000013','00000000-0000-0000-0000-000000000000','authenticated','authenticated','academic-class-admin-b@test.invalid','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now());
 INSERT INTO public.profiles(user_id,tenant_id,email,display_name,role,status,module_permissions)
 VALUES
   ('e2800000-0000-4000-8000-000000000011','e2800000-0000-4000-8000-000000000001','academic-class-admin@test.invalid','Academic Admin','admin','active','{"academic":true}'),
-  ('e2800000-0000-4000-8000-000000000012','e2800000-0000-4000-8000-000000000001','academic-class-teacher@test.invalid','Academic Teacher','ustadz','active','{"academic":true}');
+  ('e2800000-0000-4000-8000-000000000012','e2800000-0000-4000-8000-000000000001','academic-class-teacher@test.invalid','Academic Teacher','ustadz','active','{"academic":true}'),
+  ('e2800000-0000-4000-8000-000000000013','e2800000-0000-4000-8000-000000000002','academic-class-admin-b@test.invalid','Academic Admin B','admin','active','{"academic":true}');
+\ir test_support/seed_tenant_grade_levels.sql
 INSERT INTO public.organization_units(id,tenant_id,code,name,unit_type,status,created_by_user_id,updated_by_user_id)
 VALUES
   ('e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000001','UNIT-A','Unit Akademik A','sekolah','active','e2800000-0000-4000-8000-000000000011','e2800000-0000-4000-8000-000000000011'),
   ('e2800000-0000-4000-8000-000000000102','e2800000-0000-4000-8000-000000000001','UNIT-B','Unit Akademik B','sekolah','active','e2800000-0000-4000-8000-000000000011','e2800000-0000-4000-8000-000000000011'),
   ('e2800000-0000-4000-8000-000000000103','e2800000-0000-4000-8000-000000000001','UNIT-X','Unit Akademik Nonaktif','sekolah','inactive','e2800000-0000-4000-8000-000000000011','e2800000-0000-4000-8000-000000000011');
-INSERT INTO public.master_data_records(tenant_id,category,id,name,status,organization_unit_id)
+INSERT INTO public.master_data_records(tenant_id,category,id,name,status,organization_unit_id,grade)
 VALUES
-  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-A','VII','Active','e2800000-0000-4000-8000-000000000101'),
-  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-B','VII','Active','e2800000-0000-4000-8000-000000000102'),
-  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-C','VIII','Active',NULL),
-  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-D','IX','Active',NULL),
-  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-E','VII','Active',NULL),
-  ('e2800000-0000-4000-8000-000000000002','Kelas','FOREIGN-CLASS','Kelas Tenant Lain','Active',NULL);
+  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-A','VII','Active','e2800000-0000-4000-8000-000000000101','VII'),
+  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-B','VII','Active','e2800000-0000-4000-8000-000000000102','VII'),
+  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-C','VIII','Active',NULL,'VIII'),
+  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-D','IX','Active',NULL,'IX'),
+  ('e2800000-0000-4000-8000-000000000001','Kelas','CLASS-E','VII','Active',NULL,'VII'),
+  ('e2800000-0000-4000-8000-000000000002','Kelas','FOREIGN-CLASS','Kelas Tenant Lain','Active',NULL,'VII');
 
 SELECT ok(NOT has_function_privilege('anon','public.assign_tenant_academic_class_unit(uuid,uuid,text,text,uuid,uuid)','EXECUTE'),'anonymous callers cannot assign a class unit');
 SELECT ok(NOT has_function_privilege('authenticated','public.assign_tenant_academic_class_unit(uuid,uuid,text,text,uuid,uuid)','EXECUTE'),'browser users cannot call the assignment RPC directly');

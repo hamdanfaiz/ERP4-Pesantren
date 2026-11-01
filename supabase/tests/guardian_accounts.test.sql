@@ -24,14 +24,15 @@ VALUES ('c7000000-0000-4000-8000-000000000011', 'c7000000-0000-4000-8000-0000000
   'guardian-admin@test.invalid', 'Admin Uji', 'admin', 'active', '{"users":true}'),
  ('c7000000-0000-4000-8000-000000000015', 'c7000000-0000-4000-8000-000000000007',
   'guardian-legacy@test.invalid', 'Wali Lama', 'wali_santri', 'active', '{}');
+\ir test_support/seed_tenant_grade_levels.sql
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
-  ('c7000000-0000-4000-8000-000000000101', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-001', 'Santri Satu', decode(repeat('a1', 44), 'hex'), decode(repeat('b1', 32), 'hex')),
-  ('c7000000-0000-4000-8000-000000000102', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-002', 'Santri Dua', decode(repeat('a2', 44), 'hex'), decode(repeat('b2', 32), 'hex')),
-  ('c7000000-0000-4000-8000-000000000103', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-PARENT', 'Wali Uji', decode(repeat('a3', 44), 'hex'), decode(repeat('b3', 32), 'hex')),
-  ('c7000000-0000-4000-8000-000000000104', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-PARENT-2', 'Wali Kedua', decode(repeat('a4', 44), 'hex'), decode(repeat('b4', 32), 'hex')),
-  ('c7000000-0000-4000-8000-000000000105', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-PARENT-3', 'Wali Ketiga', decode(repeat('a5', 44), 'hex'), decode(repeat('b5', 32), 'hex'));
+  ('c7000000-0000-4000-8000-000000000101', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-001', 'Santri Satu', decode(repeat('a1', 44), 'hex'), decode(repeat('b1', 32), 'hex'), 'VII'),
+  ('c7000000-0000-4000-8000-000000000102', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-002', 'Santri Dua', decode(repeat('a2', 44), 'hex'), decode(repeat('b2', 32), 'hex'), 'VII'),
+  ('c7000000-0000-4000-8000-000000000103', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-PARENT', 'Wali Uji', decode(repeat('a3', 44), 'hex'), decode(repeat('b3', 32), 'hex'), 'VII'),
+  ('c7000000-0000-4000-8000-000000000104', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-PARENT-2', 'Wali Kedua', decode(repeat('a4', 44), 'hex'), decode(repeat('b4', 32), 'hex'), 'VII'),
+  ('c7000000-0000-4000-8000-000000000105', 'c7000000-0000-4000-8000-000000000007', 'G-TEST-PARENT-3', 'Wali Ketiga', decode(repeat('a5', 44), 'hex'), decode(repeat('b5', 32), 'hex'), 'VII');
 
 INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity)
 VALUES

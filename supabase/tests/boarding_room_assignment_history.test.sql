@@ -26,12 +26,13 @@ VALUES
    'room-admin-a@test.invalid','Admin Asrama A','admin','active','{"boarding":true,"master-data":true,"ppdb":true}'),
   ('d4600000-0000-4000-8000-000000000012','d4600000-0000-4000-8000-000000000002',
    'room-admin-b@test.invalid','Admin Asrama B','admin','active','{"boarding":true,"master-data":true,"ppdb":true}');
+\ir test_support/seed_tenant_grade_levels.sql
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES (
   'd4600000-0000-4000-8000-000000000101','d4600000-0000-4000-8000-000000000001',
   'RH-A-001','Santri Uji Riwayat',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex')
-);
+, 'VII');
 
 INSERT INTO public.master_data_records (tenant_id, category, id, name, gender_code)
 VALUES ('d4600000-0000-4000-8000-000000000001','Gedung','RH-G1','Gedung Utara','L');

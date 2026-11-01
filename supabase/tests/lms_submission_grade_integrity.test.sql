@@ -28,12 +28,13 @@ VALUES
    'lms-workflow-admin-one@test.invalid','LMS Admin One','admin','active','{"lms":true}',NULL),
   ('e2500000-0000-4000-8000-000000000014','e2500000-0000-4000-8000-000000000009',
    'lms-workflow-admin-two@test.invalid','LMS Admin Two','admin','active','{"lms":true}',NULL);
-INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint)
+\ir test_support/seed_tenant_grade_levels.sql
+INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint, grade)
 VALUES
   ('e2500000-0000-4000-8000-000000000101','e2500000-0000-4000-8000-000000000009',
-   'LSI001','LMS Student One',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex')),
+   'LSI001','LMS Student One',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII'),
   ('e2500000-0000-4000-8000-000000000102','e2500000-0000-4000-8000-000000000009',
-   'LSI002','LMS Student Two',decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex'));
+   'LSI002','LMS Student Two',decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex'), 'VII');
 INSERT INTO public.students(
   id,tenant_id,source_candidate_id,nis,name,gender,grade,nik_ciphertext,nik_fingerprint,status
 ) VALUES

@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(21);
+SELECT plan(23);
 
 INSERT INTO public.tenants(id, slug, name, status) VALUES
   ('c7100000-0000-4000-8000-000000000001', 'ppdb-admin-create-a-test', 'PPDB Admin Create A', 'active'),
@@ -19,6 +19,7 @@ INSERT INTO public.profiles(user_id, tenant_id, email, display_name, role, statu
   ('c7100000-0000-4000-8000-000000000011','c7100000-0000-4000-8000-000000000001','ppdb-create-admin@test.invalid','PPDB Admin','admin','active','{"ppdb":true}'),
   ('c7100000-0000-4000-8000-000000000012','c7100000-0000-4000-8000-000000000001','ppdb-create-disabled@test.invalid','PPDB Admin Disabled','admin','active','{"ppdb":false}'),
   ('c7100000-0000-4000-8000-000000000013','c7100000-0000-4000-8000-000000000001','ppdb-create-wali@test.invalid','PPDB Wali','wali_santri','active','{"ppdb":true}');
+\ir test_support/seed_tenant_grade_levels.sql
 
 SELECT ok(NOT has_function_privilege('anon','public.create_admin_ppdb_candidates_batch(uuid,uuid,text,uuid,text,jsonb)','EXECUTE'), 'anonymous clients cannot invoke the Admin candidate RPC');
 SELECT ok(NOT has_function_privilege('authenticated','public.create_admin_ppdb_candidates_batch(uuid,uuid,text,uuid,text,jsonb)','EXECUTE'), 'browser sessions cannot invoke the service-only candidate RPC');
@@ -37,7 +38,7 @@ SELECT is(
     'c7100000-0000-4000-8000-000000000001','c7100000-0000-4000-8000-000000000011','admin',
     'c7100000-0000-4000-8000-000000000501','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     jsonb_build_array(jsonb_build_object(
-      'candidateId','c7100000-0000-4000-8000-000000000101','registrationId','PPDB-A-001',
+      'candidateId','c7100000-0000-4000-8000-000000000101',
       'candidate',jsonb_build_object('name','Calon Santri Uji','previousSchool','Sekolah Uji','grade','VII',
         'phone','081234567890','whatsappPhone','081234567890','email','calon@test.invalid',
         'nikCiphertext',repeat('ab',44),'nikFingerprint',repeat('cd',32),'nisnCiphertext',repeat('ef',44),
@@ -46,6 +47,18 @@ SELECT is(
       'workflowData','{}'::jsonb,'documents','{}'::jsonb
     ))
   )->>'alreadyApplied','false','active Admin creates the first candidate');
+SELECT ok(
+  (SELECT registration_id ~ '^PPDB-[0-9]{4}-000001$' FROM public.candidates WHERE tenant_id='c7100000-0000-4000-8000-000000000001' AND id='c7100000-0000-4000-8000-000000000101'),
+  'new Admin candidates receive the first automatic tenant/year registration number'
+);
+SELECT throws_ok(
+  $$SELECT public.create_admin_ppdb_candidates_batch(
+    'c7100000-0000-4000-8000-000000000001','c7100000-0000-4000-8000-000000000011','admin',
+    'c7100000-0000-4000-8000-000000000508','1212121212121212121212121212121212121212121212121212121212121212',
+    jsonb_build_array(jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000108','registrationId','MANUAL-001',
+      'candidate','{}'::jsonb,'workflowData','{}'::jsonb,'documents','{}'::jsonb)))$$,
+  '22023','Nomor pendaftaran dibuat otomatis oleh Naming Series','caller cannot inject a manual registration number'
+);
 SELECT is((SELECT created_by_user_id FROM public.candidates WHERE id='c7100000-0000-4000-8000-000000000101'), 'c7100000-0000-4000-8000-000000000011'::uuid, 'candidate records the creating Admin');
 SELECT is((SELECT count(*)::int FROM public.identity_claims WHERE tenant_id='c7100000-0000-4000-8000-000000000001' AND entity_id='c7100000-0000-4000-8000-000000000101'), 2, 'NIK and NISN uniqueness claims are created atomically');
 SELECT is((SELECT count(*)::int FROM public.ppdb_candidate_creation_requests WHERE tenant_id='c7100000-0000-4000-8000-000000000001'), 1, 'successful write records an idempotency request');
@@ -54,7 +67,7 @@ SELECT is(
     'c7100000-0000-4000-8000-000000000001','c7100000-0000-4000-8000-000000000011','admin',
     'c7100000-0000-4000-8000-000000000501','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     jsonb_build_array(jsonb_build_object(
-      'candidateId','c7100000-0000-4000-8000-000000000999','registrationId','PPDB-A-001',
+      'candidateId','c7100000-0000-4000-8000-000000000999',
       'candidate',jsonb_build_object('name','Calon Santri Uji','previousSchool','Sekolah Uji','grade','VII',
         'phone','081234567890','whatsappPhone','081234567890','email','calon@test.invalid',
         'nikCiphertext',repeat('ab',44),'nikFingerprint',repeat('cd',32),'nisnCiphertext',repeat('ef',44),
@@ -68,7 +81,7 @@ SELECT throws_ok(
   $$SELECT public.create_admin_ppdb_candidates_batch(
     'c7100000-0000-4000-8000-000000000001','c7100000-0000-4000-8000-000000000011','admin',
     'c7100000-0000-4000-8000-000000000501','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    jsonb_build_array(jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000999','registrationId','PPDB-A-002',
+    jsonb_build_array(jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000999',
       'candidate',jsonb_build_object('name','Calon Uji Berbeda'),'workflowData','{}'::jsonb,'documents','{}'::jsonb)))$$,
   '23505','PPDB request ID was already used for a different actor or payload','request key rejects a changed payload');
 SELECT throws_ok(
@@ -97,10 +110,10 @@ SELECT throws_ok(
     'c7100000-0000-4000-8000-000000000001','c7100000-0000-4000-8000-000000000011','admin',
     'c7100000-0000-4000-8000-000000000505','ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
     jsonb_build_array(
-      jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000102','registrationId','PPDB-A-002',
+      jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000102',
         'candidate',jsonb_build_object('name','Batch Atomic One','previousSchool','Sekolah Uji','grade','VII','phone','081234567890','whatsappPhone','081234567890','nikCiphertext',repeat('34',44),'nikFingerprint',repeat('56',32),'pob','Bandung','dob','2012-01-02','address','Alamat Uji','gender','P','fatherName','Ayah Uji','motherName','Ibu Uji'),
         'workflowData','{}'::jsonb,'documents','{}'::jsonb),
-      jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000103','registrationId','PPDB-A-003',
+      jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000103',
         'candidate',jsonb_build_object('name','Batch Atomic Two','previousSchool','Sekolah Uji','grade','VII','phone','081234567891','whatsappPhone','081234567891','nikCiphertext',repeat('78',44),'nikFingerprint',repeat('cd',32),'pob','Bandung','dob','2012-01-03','address','Alamat Uji','gender','L','fatherName','Ayah Uji','motherName','Ibu Uji'),
         'workflowData','{}'::jsonb,'documents','{}'::jsonb)
     ))$$,

@@ -14,14 +14,17 @@ INSERT INTO auth.users (
 ) VALUES
   ('c7200000-0000-4000-8000-000000000011','00000000-0000-0000-0000-000000000000','authenticated','authenticated','ppdb-upload-admin@test.invalid','',now(),'{}','{}',now(),now()),
   ('c7200000-0000-4000-8000-000000000012','00000000-0000-0000-0000-000000000000','authenticated','authenticated','ppdb-upload-disabled@test.invalid','',now(),'{}','{}',now(),now()),
-  ('c7200000-0000-4000-8000-000000000013','00000000-0000-0000-0000-000000000000','authenticated','authenticated','ppdb-upload-wali@test.invalid','',now(),'{}','{}',now(),now());
+  ('c7200000-0000-4000-8000-000000000013','00000000-0000-0000-0000-000000000000','authenticated','authenticated','ppdb-upload-wali@test.invalid','',now(),'{}','{}',now(),now()),
+  ('c7200000-0000-4000-8000-000000000014','00000000-0000-0000-0000-000000000000','authenticated','authenticated','ppdb-upload-admin-b@test.invalid','',now(),'{}','{}',now(),now());
 INSERT INTO public.profiles(user_id, tenant_id, email, display_name, role, status, module_permissions) VALUES
   ('c7200000-0000-4000-8000-000000000011','c7200000-0000-4000-8000-000000000001','ppdb-upload-admin@test.invalid','PPDB Upload Admin','admin','active','{"ppdb":true}'),
   ('c7200000-0000-4000-8000-000000000012','c7200000-0000-4000-8000-000000000001','ppdb-upload-disabled@test.invalid','PPDB Upload Disabled','admin','active','{"ppdb":false}'),
-  ('c7200000-0000-4000-8000-000000000013','c7200000-0000-4000-8000-000000000001','ppdb-upload-wali@test.invalid','PPDB Upload Wali','wali_santri','active','{"ppdb":true}');
-INSERT INTO public.candidates(id, tenant_id, registration_id, name) VALUES
-  ('c7200000-0000-4000-8000-000000000101','c7200000-0000-4000-8000-000000000001','UPLOAD-A-001','Calon Santri Upload'),
-  ('c7200000-0000-4000-8000-000000000201','c7200000-0000-4000-8000-000000000002','UPLOAD-B-001','Calon Santri Tenant Lain');
+  ('c7200000-0000-4000-8000-000000000013','c7200000-0000-4000-8000-000000000001','ppdb-upload-wali@test.invalid','PPDB Upload Wali','wali_santri','active','{"ppdb":true}'),
+  ('c7200000-0000-4000-8000-000000000014','c7200000-0000-4000-8000-000000000002','ppdb-upload-admin-b@test.invalid','PPDB Upload Admin B','admin','active','{"ppdb":true}');
+\ir test_support/seed_tenant_grade_levels.sql
+INSERT INTO public.candidates(id, tenant_id, registration_id, name, grade) VALUES
+  ('c7200000-0000-4000-8000-000000000101','c7200000-0000-4000-8000-000000000001','UPLOAD-A-001','Calon Santri Upload','VII'),
+  ('c7200000-0000-4000-8000-000000000201','c7200000-0000-4000-8000-000000000002','UPLOAD-B-001','Calon Santri Tenant Lain','VII');
 
 SELECT ok(NOT has_function_privilege('anon','public.register_admin_ppdb_document_upload(uuid,uuid,text,uuid,text,uuid,text,text,text)','EXECUTE'), 'anonymous clients cannot invoke the upload RPC');
 SELECT ok(NOT has_function_privilege('authenticated','public.register_admin_ppdb_document_upload(uuid,uuid,text,uuid,text,uuid,text,text,text)','EXECUTE'), 'browser clients cannot invoke the upload RPC');

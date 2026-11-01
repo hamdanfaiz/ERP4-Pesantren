@@ -29,6 +29,7 @@ VALUES
   ('e5000000-0000-4000-8000-000000000012', 'e5000000-0000-4000-8000-000000000005', 'finance-b@test.invalid', 'Finance Checker', 'admin', 'active', '{"finance":true}'),
   ('e5000000-0000-4000-8000-000000000013', 'e5000000-0000-4000-8000-000000000005', 'finance-guardian@test.invalid', 'Finance Guardian', 'wali_santri', 'active', '{"finance":true}'),
   ('e5000000-0000-4000-8000-000000000014', 'e5000000-0000-4000-8000-000000000005', 'finance-other-guardian@test.invalid', 'Other Guardian', 'wali_santri', 'active', '{"finance":true}');
+\ir test_support/seed_tenant_grade_levels.sql
 
 INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id)
 VALUES (
@@ -44,16 +45,16 @@ UPDATE public.profiles
 SET linked_santri_id = 'e5000000-0000-4000-8000-000000000299'
 WHERE user_id = 'e5000000-0000-4000-8000-000000000014';
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
   ('e5000000-0000-4000-8000-000000000101', 'e5000000-0000-4000-8000-000000000005',
-   'FIN-TEST-001', 'Santri Finance Test', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')),
+   'FIN-TEST-001', 'Santri Finance Test', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex'), 'VII'),
   ('e5000000-0000-4000-8000-000000000102', 'e5000000-0000-4000-8000-000000000005',
-   'FIN-TEST-002', 'Sibling Finance Test', decode(repeat('ac', 44), 'hex'), decode(repeat('ce', 32), 'hex')),
+   'FIN-TEST-002', 'Sibling Finance Test', decode(repeat('ac', 44), 'hex'), decode(repeat('ce', 32), 'hex'), 'VII'),
   ('e5000000-0000-4000-8000-000000000103', 'e5000000-0000-4000-8000-000000000005',
-   'FIN-GUARDIAN-001', 'Finance Guardian', decode(repeat('ad', 44), 'hex'), decode(repeat('cf', 32), 'hex')),
+   'FIN-GUARDIAN-001', 'Finance Guardian', decode(repeat('ad', 44), 'hex'), decode(repeat('cf', 32), 'hex'), 'VII'),
   ('e5000000-0000-4000-8000-000000000104', 'e5000000-0000-4000-8000-000000000005',
-   'FIN-GUARDIAN-002', 'Other Guardian', decode(repeat('ae', 44), 'hex'), decode(repeat('d0', 32), 'hex'));
+   'FIN-GUARDIAN-002', 'Other Guardian', decode(repeat('ae', 44), 'hex'), decode(repeat('d0', 32), 'hex'), 'VII');
 INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity)
 VALUES
   ('e5000000-0000-4000-8000-000000000005', 'Kelas', 'finance-class-test', 'Kelas Finance Test', NULL),

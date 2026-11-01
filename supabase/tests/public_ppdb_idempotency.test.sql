@@ -9,6 +9,20 @@ SELECT plan(14);
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES ('e5000000-0000-4000-8000-000000000005', 'ppdb-idempotency-test', 'PPDB Idempotency Test', 'active');
 
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) VALUES (
+  'e5000000-0000-4000-8000-000000000011','00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+  'ppdb-idempotency-admin@test.invalid','',now(),'{}','{}',now(),now()
+);
+INSERT INTO public.profiles(user_id, tenant_id, email, display_name, role, status, module_permissions)
+VALUES (
+  'e5000000-0000-4000-8000-000000000011','e5000000-0000-4000-8000-000000000005',
+  'ppdb-idempotency-admin@test.invalid','PPDB Idempotency Admin','admin','active','{"ppdb":true}'
+);
+\ir test_support/seed_tenant_grade_levels.sql
+
 CREATE TEMP TABLE ppdb_idempotency_fixture AS
 SELECT
   'e5000000-0000-4000-8000-000000000005'::UUID AS tenant_id,

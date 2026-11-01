@@ -19,18 +19,19 @@ VALUES
   ('e2700000-0000-4000-8000-000000000011','e2700000-0000-4000-8000-000000000001','academic-unit-admin@test.invalid','Academic Admin','admin','active','{"academic":true}'),
   ('e2700000-0000-4000-8000-000000000012','e2700000-0000-4000-8000-000000000001','academic-unit-teacher-a@test.invalid','Ustadz Unit A','ustadz','active','{"academic":true}'),
   ('e2700000-0000-4000-8000-000000000013','e2700000-0000-4000-8000-000000000001','academic-unit-teacher-b@test.invalid','Ustadz Unit B','ustadz','active','{"academic":true}');
+\ir test_support/seed_tenant_grade_levels.sql
 INSERT INTO public.organization_units(id,tenant_id,code,name,unit_type,status,created_by_user_id,updated_by_user_id)
 VALUES
   ('e2700000-0000-4000-8000-000000000101','e2700000-0000-4000-8000-000000000001','UNIT-A','Unit Akademik A','sekolah','active','e2700000-0000-4000-8000-000000000011','e2700000-0000-4000-8000-000000000011'),
   ('e2700000-0000-4000-8000-000000000102','e2700000-0000-4000-8000-000000000001','UNIT-B','Unit Akademik B','sekolah','active','e2700000-0000-4000-8000-000000000011','e2700000-0000-4000-8000-000000000011');
 UPDATE public.profiles SET organization_unit_id='e2700000-0000-4000-8000-000000000101' WHERE user_id='e2700000-0000-4000-8000-000000000012';
 UPDATE public.profiles SET organization_unit_id='e2700000-0000-4000-8000-000000000102' WHERE user_id='e2700000-0000-4000-8000-000000000013';
-INSERT INTO public.master_data_records(tenant_id,category,id,name,status,organization_unit_id)
+INSERT INTO public.master_data_records(tenant_id,category,id,name,status,organization_unit_id,grade)
 VALUES
-  ('e2700000-0000-4000-8000-000000000001','Kelas','CLASS-A','VII','Active','e2700000-0000-4000-8000-000000000101'),
-  ('e2700000-0000-4000-8000-000000000001','Kelas','CLASS-B','VII','Active','e2700000-0000-4000-8000-000000000102');
-INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint,organization_unit_id)
-VALUES ('e2700000-0000-4000-8000-000000000201','e2700000-0000-4000-8000-000000000001','AUS001','Santri Unit A',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'),'e2700000-0000-4000-8000-000000000101');
+  ('e2700000-0000-4000-8000-000000000001','Kelas','CLASS-A','VII','Active','e2700000-0000-4000-8000-000000000101','VII'),
+  ('e2700000-0000-4000-8000-000000000001','Kelas','CLASS-B','VII','Active','e2700000-0000-4000-8000-000000000102','VII');
+INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint,organization_unit_id, grade)
+VALUES ('e2700000-0000-4000-8000-000000000201','e2700000-0000-4000-8000-000000000001','AUS001','Santri Unit A',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'),'e2700000-0000-4000-8000-000000000101', 'VII');
 INSERT INTO public.students(id,tenant_id,source_candidate_id,nis,name,gender,grade,class_id,nik_ciphertext,nik_fingerprint,status,organization_unit_id)
 VALUES ('e2700000-0000-4000-8000-000000000301','e2700000-0000-4000-8000-000000000001','e2700000-0000-4000-8000-000000000201','9270000001','Santri Unit A','L','VII','CLASS-A',decode(repeat('34',44),'hex'),decode(repeat('56',32),'hex'),'active','e2700000-0000-4000-8000-000000000101');
 

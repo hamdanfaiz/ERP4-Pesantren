@@ -18,6 +18,7 @@ VALUES
   ('e7300000-0000-4000-8000-000000000011','e7300000-0000-4000-8000-000000000001','boarding-unit-admin@test.invalid','Admin Unit','admin','active','{"boarding":true}'),
   ('e7300000-0000-4000-8000-000000000012','e7300000-0000-4000-8000-000000000001','boarding-unit-ustadz-a@test.invalid','Ustadz Unit A','ustadz','active','{"boarding":true}'),
   ('e7300000-0000-4000-8000-000000000013','e7300000-0000-4000-8000-000000000001','boarding-unit-ustadz-unassigned@test.invalid','Ustadz Belum Dipetakan','ustadz','active','{"boarding":true}');
+\ir test_support/seed_tenant_grade_levels.sql
 
 INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id)
 VALUES
@@ -80,12 +81,12 @@ SELECT throws_ok($$SELECT public.assign_tenant_boarding_location_unit(
 UPDATE public.profiles SET module_permissions='{"boarding":true}'::jsonb
 WHERE user_id='e7300000-0000-4000-8000-000000000011';
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
-  ('e7300000-0000-4000-8000-000000000201','e7300000-0000-4000-8000-000000000001','BUS-001','Santri Unit A',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex')),
-  ('e7300000-0000-4000-8000-000000000202','e7300000-0000-4000-8000-000000000001','BUS-002','Santri Unit B',decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex')),
-  ('e7300000-0000-4000-8000-000000000203','e7300000-0000-4000-8000-000000000001','BUS-003','Santri Belum Dipetakan',decode(repeat('ad',44),'hex'),decode(repeat('cf',32),'hex')),
-  ('e7300000-0000-4000-8000-000000000204','e7300000-0000-4000-8000-000000000001','BUS-004','Santri Unit A Kamar Unit B',decode(repeat('ae',44),'hex'),decode(repeat('d0',32),'hex'));
+  ('e7300000-0000-4000-8000-000000000201','e7300000-0000-4000-8000-000000000001','BUS-001','Santri Unit A',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII'),
+  ('e7300000-0000-4000-8000-000000000202','e7300000-0000-4000-8000-000000000001','BUS-002','Santri Unit B',decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex'), 'VII'),
+  ('e7300000-0000-4000-8000-000000000203','e7300000-0000-4000-8000-000000000001','BUS-003','Santri Belum Dipetakan',decode(repeat('ad',44),'hex'),decode(repeat('cf',32),'hex'), 'VII'),
+  ('e7300000-0000-4000-8000-000000000204','e7300000-0000-4000-8000-000000000001','BUS-004','Santri Unit A Kamar Unit B',decode(repeat('ae',44),'hex'),decode(repeat('d0',32),'hex'), 'VII');
 INSERT INTO public.students (id, tenant_id, source_candidate_id, nis, name, gender, grade,
   nik_ciphertext, nik_fingerprint, class_id, room_id, building_id, organization_unit_id, status) VALUES
   ('e7300000-0000-4000-8000-000000000301','e7300000-0000-4000-8000-000000000001','e7300000-0000-4000-8000-000000000201','9730000001','Santri Unit A','L','VII',decode(repeat('34',44),'hex'),decode(repeat('56',32),'hex'),'BUS-C-A','BUS-R-A','BUS-G-A','e7300000-0000-4000-8000-000000000101','Active'),

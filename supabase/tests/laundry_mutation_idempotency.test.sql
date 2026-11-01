@@ -17,10 +17,11 @@ INSERT INTO auth.users (
 INSERT INTO public.profiles(user_id,tenant_id,email,display_name,role,status,module_permissions)
 VALUES ('d1500000-0000-4000-8000-000000000011','d1500000-0000-4000-8000-000000000009',
   'laundry-idempotency@test.invalid','Laundry Test Admin','admin','active','{"laundry":true}');
+\ir test_support/seed_tenant_grade_levels.sql
 
-INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint)
+INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint, grade)
 VALUES ('d1500000-0000-4000-8000-000000000101','d1500000-0000-4000-8000-000000000009',
-  'LID001','Laundry Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'));
+  'LID001','Laundry Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII');
 INSERT INTO public.students(
   id,tenant_id,source_candidate_id,nis,name,gender,grade,nik_ciphertext,nik_fingerprint,status
 ) VALUES (

@@ -26,19 +26,19 @@ SET LOCAL ROLE service_role;
 SELECT is(
   public.manage_ga_inventory_item(
     'e2200000-0000-4000-8000-000000000009','e2200000-0000-4000-8000-000000000011',
-    '{"action":"create","clientRequestId":"e2200000-0000-4000-8000-000000000501","itemCode":"INV-GA-01","name":"Proyektor","category":"Kelas","initialQuantity":10,"minimumQuantity":2,"unit":"Pcs","unitCost":1000000,"location":"Gudang"}'::jsonb
+    '{"action":"create","clientRequestId":"e2200000-0000-4000-8000-000000000501","itemCode":"INV-GA-01","name":"Proyektor","category":"Perlengkapan Operasional","initialQuantity":10,"minimumQuantity":2,"unit":"Pcs","unitCost":1000000,"location":"Gudang"}'::jsonb
   )->>'replayed','false','first inventory create is applied'
 );
 SELECT is(
   public.manage_ga_inventory_item(
     'e2200000-0000-4000-8000-000000000009','e2200000-0000-4000-8000-000000000011',
-    '{"action":"create","clientRequestId":"e2200000-0000-4000-8000-000000000501","itemCode":"INV-GA-01","name":"Proyektor","category":"Kelas","initialQuantity":10,"minimumQuantity":2,"unit":"Pcs","unitCost":1000000,"location":"Gudang"}'::jsonb
+    '{"action":"create","clientRequestId":"e2200000-0000-4000-8000-000000000501","itemCode":"INV-GA-01","name":"Proyektor","category":"Perlengkapan Operasional","initialQuantity":10,"minimumQuantity":2,"unit":"Pcs","unitCost":1000000,"location":"Gudang"}'::jsonb
   )->>'replayed','true','identical create replay returns the same item'
 );
 SELECT throws_ok(
   $$SELECT public.manage_ga_inventory_item(
     'e2200000-0000-4000-8000-000000000009','e2200000-0000-4000-8000-000000000011',
-    '{"action":"create","clientRequestId":"e2200000-0000-4000-8000-000000000501","itemCode":"INV-GA-01","name":"Item berbeda","category":"Kelas","initialQuantity":10,"minimumQuantity":2,"unit":"Pcs","unitCost":1000000,"location":"Gudang"}'::jsonb
+    '{"action":"create","clientRequestId":"e2200000-0000-4000-8000-000000000501","itemCode":"INV-GA-01","name":"Item berbeda","category":"Perlengkapan Operasional","initialQuantity":10,"minimumQuantity":2,"unit":"Pcs","unitCost":1000000,"location":"Gudang"}'::jsonb
   )$$,
   '23505','General Affairs inventory request ID was already used for a different mutation',
   'create request key cannot be reused with changed content'
@@ -46,7 +46,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.manage_ga_inventory_item(
     'e2200000-0000-4000-8000-000000000009','e2200000-0000-4000-8000-000000000012',
-    '{"action":"create","clientRequestId":"e2200000-0000-4000-8000-000000000501","itemCode":"INV-GA-01","name":"Proyektor","category":"Kelas","initialQuantity":10,"minimumQuantity":2,"unit":"Pcs","unitCost":1000000,"location":"Gudang"}'::jsonb
+    '{"action":"create","clientRequestId":"e2200000-0000-4000-8000-000000000501","itemCode":"INV-GA-01","name":"Proyektor","category":"Perlengkapan Operasional","initialQuantity":10,"minimumQuantity":2,"unit":"Pcs","unitCost":1000000,"location":"Gudang"}'::jsonb
   )$$,
   '23505','General Affairs inventory request ID was already used for a different mutation',
   'another actor cannot replay a create key'
@@ -57,7 +57,7 @@ SELECT is(
     'e2200000-0000-4000-8000-000000000009','e2200000-0000-4000-8000-000000000011',
     jsonb_build_object('action','update','clientRequestId','e2200000-0000-4000-8000-000000000502',
       'id',(SELECT id FROM public.ga_inventory_items WHERE tenant_id='e2200000-0000-4000-8000-000000000009' AND item_code='INV-GA-01'),
-      'itemCode','INV-GA-01','name','Proyektor Kelas','category','Kelas','minimumQuantity',1,
+      'itemCode','INV-GA-01','name','Proyektor Kelas','category','Perlengkapan Operasional','minimumQuantity',1,
       'unit','Pcs','unitCost',900000,'location','Ruang kelas')
   )->>'replayed','false','first inventory update is applied'
 );
@@ -66,7 +66,7 @@ SELECT is(
     'e2200000-0000-4000-8000-000000000009','e2200000-0000-4000-8000-000000000011',
     jsonb_build_object('action','update','clientRequestId','e2200000-0000-4000-8000-000000000502',
       'id',(SELECT id FROM public.ga_inventory_items WHERE tenant_id='e2200000-0000-4000-8000-000000000009' AND item_code='INV-GA-01'),
-      'itemCode','INV-GA-01','name','Proyektor Kelas','category','Kelas','minimumQuantity',1,
+      'itemCode','INV-GA-01','name','Proyektor Kelas','category','Perlengkapan Operasional','minimumQuantity',1,
       'unit','Pcs','unitCost',900000,'location','Ruang kelas')
   )->>'replayed','true','identical inventory update replays'
 );
@@ -75,7 +75,7 @@ SELECT throws_ok(
     'e2200000-0000-4000-8000-000000000009','e2200000-0000-4000-8000-000000000011',
     jsonb_build_object('action','update','clientRequestId','e2200000-0000-4000-8000-000000000502',
       'id',(SELECT id FROM public.ga_inventory_items WHERE tenant_id='e2200000-0000-4000-8000-000000000009' AND item_code='INV-GA-01'),
-      'itemCode','INV-GA-01','name','Nama berbeda','category','Kelas','minimumQuantity',1,
+      'itemCode','INV-GA-01','name','Nama berbeda','category','Perlengkapan Operasional','minimumQuantity',1,
       'unit','Pcs','unitCost',900000,'location','Ruang kelas')
   )$$,
   '23505','General Affairs inventory request ID was already used for a different mutation',
@@ -86,7 +86,7 @@ SELECT throws_ok(
     'e2200000-0000-4000-8000-000000000009','e2200000-0000-4000-8000-000000000012',
     jsonb_build_object('action','update','clientRequestId','e2200000-0000-4000-8000-000000000502',
       'id',(SELECT id FROM public.ga_inventory_items WHERE tenant_id='e2200000-0000-4000-8000-000000000009' AND item_code='INV-GA-01'),
-      'itemCode','INV-GA-01','name','Proyektor Kelas','category','Kelas','minimumQuantity',1,
+      'itemCode','INV-GA-01','name','Proyektor Kelas','category','Perlengkapan Operasional','minimumQuantity',1,
       'unit','Pcs','unitCost',900000,'location','Ruang kelas')
   )$$,
   '23505','General Affairs inventory request ID was already used for a different mutation',
@@ -119,7 +119,7 @@ SELECT throws_ok(
     'e2200000-0000-4000-8000-000000000009','e2200000-0000-4000-8000-000000000011',
     jsonb_build_object('action','update','clientRequestId','e2200000-0000-4000-8000-000000000504',
       'id',(SELECT id FROM public.ga_inventory_items WHERE tenant_id='e2200000-0000-4000-8000-000000000009' AND item_code='INV-GA-01'),
-      'itemCode','INV-GA-01','name','Proyektor Kelas','category','Kelas','minimumQuantity',1,
+      'itemCode','INV-GA-01','name','Proyektor Kelas','category','Perlengkapan Operasional','minimumQuantity',1,
       'unit','Pcs','unitCost',900000,'location','Ruang kelas')
   )$$,
   '23505','General Affairs inventory request ID was already used for a different mutation',

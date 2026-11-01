@@ -23,11 +23,12 @@ VALUES (
   'd9100000-0000-4000-8000-000000000011', 'd9100000-0000-4000-8000-000000000009',
   'cooperative-idempotency@test.invalid', 'Cooperative Idempotency Admin', 'admin', 'active', '{"cooperative":true}'
 );
+\ir test_support/seed_tenant_grade_levels.sql
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
-  ('d9100000-0000-4000-8000-000000000101', 'd9100000-0000-4000-8000-000000000009', 'CID001', 'Student A', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')),
-  ('d9100000-0000-4000-8000-000000000102', 'd9100000-0000-4000-8000-000000000009', 'CID002', 'Student B', decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'));
+  ('d9100000-0000-4000-8000-000000000101', 'd9100000-0000-4000-8000-000000000009', 'CID001', 'Student A', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex'), 'VII'),
+  ('d9100000-0000-4000-8000-000000000102', 'd9100000-0000-4000-8000-000000000009', 'CID002', 'Student B', decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'VII');
 
 INSERT INTO public.students (
   id, tenant_id, source_candidate_id, nis, name, gender, grade,

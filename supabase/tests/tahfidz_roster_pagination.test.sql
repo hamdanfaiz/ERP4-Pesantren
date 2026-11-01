@@ -30,19 +30,20 @@ VALUES
   ('d1900000-0000-4000-8000-000000000014', 'd1900000-0000-4000-8000-000000000009', 'roster-wali@test.invalid', 'Wali Roster', 'wali_santri', 'active', '{"tahfidz":true}', NULL),
   ('d1900000-0000-4000-8000-000000000015', 'd1900000-0000-4000-8000-000000000009', 'roster-no-permission@test.invalid', 'Admin Tanpa Izin', 'admin', 'active', '{"tahfidz":false}', NULL),
   ('d2900000-0000-4000-8000-000000000021', 'd2900000-0000-4000-8000-000000000009', 'roster-admin-b@test.invalid', 'Admin Tenant B', 'admin', 'active', '{"tahfidz":true}', NULL);
+\ir test_support/seed_tenant_grade_levels.sql
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
-  ('d1900000-0000-4000-8000-000000000101', 'd1900000-0000-4000-8000-000000000009', 'TR-A-001', 'Santri Alfa', decode(repeat('ab', 44), 'hex'), decode(repeat('11', 32), 'hex')),
-  ('d1900000-0000-4000-8000-000000000102', 'd1900000-0000-4000-8000-000000000009', 'TR-A-002', 'Santri Beta', decode(repeat('bc', 44), 'hex'), decode(repeat('22', 32), 'hex')),
-  ('d1900000-0000-4000-8000-000000000103', 'd1900000-0000-4000-8000-000000000009', 'TR-A-003', 'Santri Gamma', decode(repeat('cd', 44), 'hex'), decode(repeat('33', 32), 'hex')),
-  ('d1900000-0000-4000-8000-000000000105', 'd1900000-0000-4000-8000-000000000009', 'TR-A-005', 'Santri Delta', decode(repeat('a1', 44), 'hex'), decode(repeat('71', 32), 'hex')),
-  ('d1900000-0000-4000-8000-000000000106', 'd1900000-0000-4000-8000-000000000009', 'TR-A-006', 'Santri Epsilon', decode(repeat('a2', 44), 'hex'), decode(repeat('72', 32), 'hex')),
-  ('d1900000-0000-4000-8000-000000000107', 'd1900000-0000-4000-8000-000000000009', 'TR-A-007', 'Santri Zeta', decode(repeat('a3', 44), 'hex'), decode(repeat('73', 32), 'hex')),
-  ('d1900000-0000-4000-8000-000000000108', 'd1900000-0000-4000-8000-000000000009', 'TR-A-008', 'Santri Eta', decode(repeat('a4', 44), 'hex'), decode(repeat('74', 32), 'hex')),
-  ('d1900000-0000-4000-8000-000000000109', 'd1900000-0000-4000-8000-000000000009', 'TR-A-009', 'Santri Theta', decode(repeat('a5', 44), 'hex'), decode(repeat('75', 32), 'hex')),
-  ('d2900000-0000-4000-8000-000000000201', 'd2900000-0000-4000-8000-000000000009', 'TR-B-001', 'Santri Tenant B', decode(repeat('de', 44), 'hex'), decode(repeat('44', 32), 'hex')),
-  ('d1900000-0000-4000-8000-000000000104', 'd1900000-0000-4000-8000-000000000009', 'TR-A-004', 'Wali Santri', decode(repeat('ef', 44), 'hex'), decode(repeat('55', 32), 'hex'));
+  ('d1900000-0000-4000-8000-000000000101', 'd1900000-0000-4000-8000-000000000009', 'TR-A-001', 'Santri Alfa', decode(repeat('ab', 44), 'hex'), decode(repeat('11', 32), 'hex'), 'VII'),
+  ('d1900000-0000-4000-8000-000000000102', 'd1900000-0000-4000-8000-000000000009', 'TR-A-002', 'Santri Beta', decode(repeat('bc', 44), 'hex'), decode(repeat('22', 32), 'hex'), 'VII'),
+  ('d1900000-0000-4000-8000-000000000103', 'd1900000-0000-4000-8000-000000000009', 'TR-A-003', 'Santri Gamma', decode(repeat('cd', 44), 'hex'), decode(repeat('33', 32), 'hex'), 'VII'),
+  ('d1900000-0000-4000-8000-000000000105', 'd1900000-0000-4000-8000-000000000009', 'TR-A-005', 'Santri Delta', decode(repeat('a1', 44), 'hex'), decode(repeat('71', 32), 'hex'), 'VII'),
+  ('d1900000-0000-4000-8000-000000000106', 'd1900000-0000-4000-8000-000000000009', 'TR-A-006', 'Santri Epsilon', decode(repeat('a2', 44), 'hex'), decode(repeat('72', 32), 'hex'), 'VII'),
+  ('d1900000-0000-4000-8000-000000000107', 'd1900000-0000-4000-8000-000000000009', 'TR-A-007', 'Santri Zeta', decode(repeat('a3', 44), 'hex'), decode(repeat('73', 32), 'hex'), 'VII'),
+  ('d1900000-0000-4000-8000-000000000108', 'd1900000-0000-4000-8000-000000000009', 'TR-A-008', 'Santri Eta', decode(repeat('a4', 44), 'hex'), decode(repeat('74', 32), 'hex'), 'VII'),
+  ('d1900000-0000-4000-8000-000000000109', 'd1900000-0000-4000-8000-000000000009', 'TR-A-009', 'Santri Theta', decode(repeat('a5', 44), 'hex'), decode(repeat('75', 32), 'hex'), 'VII'),
+  ('d2900000-0000-4000-8000-000000000201', 'd2900000-0000-4000-8000-000000000009', 'TR-B-001', 'Santri Tenant B', decode(repeat('de', 44), 'hex'), decode(repeat('44', 32), 'hex'), 'VII'),
+  ('d1900000-0000-4000-8000-000000000104', 'd1900000-0000-4000-8000-000000000009', 'TR-A-004', 'Wali Santri', decode(repeat('ef', 44), 'hex'), decode(repeat('55', 32), 'hex'), 'VII');
 
 INSERT INTO public.students (id, tenant_id, source_candidate_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status)
 VALUES

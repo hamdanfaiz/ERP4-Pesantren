@@ -20,9 +20,10 @@ VALUES
    'healthcare-admin-one@test.invalid','Healthcare Admin One','admin','active','{"healthcare":true}'),
   ('e2100000-0000-4000-8000-000000000012','e2100000-0000-4000-8000-000000000009',
    'healthcare-admin-two@test.invalid','Healthcare Admin Two','admin','active','{"healthcare":true}');
-INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint)
+\ir test_support/seed_tenant_grade_levels.sql
+INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint, grade)
 VALUES ('e2100000-0000-4000-8000-000000000101','e2100000-0000-4000-8000-000000000009',
-  'HID001','Healthcare Test Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'));
+  'HID001','Healthcare Test Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII');
 INSERT INTO public.students(
   id,tenant_id,source_candidate_id,nis,name,gender,grade,nik_ciphertext,nik_fingerprint,status
 ) VALUES (

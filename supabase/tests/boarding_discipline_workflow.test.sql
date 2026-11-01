@@ -18,10 +18,11 @@ INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, stat
   ('e8200000-0000-4000-8000-000000000011','e8200000-0000-4000-8000-000000000001','discipline-admin@test.invalid','Admin Kedisiplinan','admin','active','{"boarding":true}'),
   ('e8200000-0000-4000-8000-000000000012','e8200000-0000-4000-8000-000000000001','discipline-ustadz@test.invalid','Ustadz Belum Ditugaskan','ustadz','active','{"boarding":true}'),
   ('e8200000-0000-4000-8000-000000000013','e8200000-0000-4000-8000-000000000002','discipline-admin-b@test.invalid','Admin Tenant B','admin','active','{"boarding":true}');
+\ir test_support/seed_tenant_grade_levels.sql
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint) VALUES
-  ('e8200000-0000-4000-8000-000000000101','e8200000-0000-4000-8000-000000000001','DISC-A-001','Santri A',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex')),
-  ('e8200000-0000-4000-8000-000000000102','e8200000-0000-4000-8000-000000000002','DISC-B-001','Santri B',decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex'));
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade) VALUES
+  ('e8200000-0000-4000-8000-000000000101','e8200000-0000-4000-8000-000000000001','DISC-A-001','Santri A',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII'),
+  ('e8200000-0000-4000-8000-000000000102','e8200000-0000-4000-8000-000000000002','DISC-B-001','Santri B',decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex'), 'VII');
 
 INSERT INTO public.students (id, tenant_id, source_candidate_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status) VALUES
   ('e8200000-0000-4000-8000-000000000201','e8200000-0000-4000-8000-000000000001','e8200000-0000-4000-8000-000000000101','9820000001','Santri A','L','VII',decode(repeat('34',44),'hex'),decode(repeat('56',32),'hex'),'Active'),

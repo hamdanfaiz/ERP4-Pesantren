@@ -13,6 +13,20 @@ VALUES
   ('c3000000-0000-4000-8000-000000000003', 'ppdb-runtime-a-test', 'PPDB Runtime A Test', 'active'),
   ('d4000000-0000-4000-8000-000000000004', 'ppdb-runtime-b-test', 'PPDB Runtime B Test', 'active');
 
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) VALUES (
+  'c3000000-0000-4000-8000-000000000011','00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+  'ppdb-runtime-admin@test.invalid','',now(),'{}','{}',now(),now()
+);
+INSERT INTO public.profiles(user_id, tenant_id, email, display_name, role, status, module_permissions)
+VALUES (
+  'c3000000-0000-4000-8000-000000000011','c3000000-0000-4000-8000-000000000003',
+  'ppdb-runtime-admin@test.invalid','PPDB Runtime Admin','admin','active','{"ppdb":true}'
+);
+\ir test_support/seed_tenant_grade_levels.sql
+
 SELECT ok(
   NOT has_function_privilege('anon', 'public.submit_public_ppdb(uuid,uuid,smallint,jsonb,jsonb)', 'EXECUTE'),
   'anonymous clients cannot call the PPDB write RPC directly'

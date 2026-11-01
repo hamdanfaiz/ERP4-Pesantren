@@ -4,6 +4,21 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SELECT plan(49);
 
+INSERT INTO public.tenants(id, slug, name, status)
+VALUES ('e9130000-0000-4000-8000-000000000001', 'reference-relations-test', 'Reference Relations Test', 'active');
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) VALUES (
+  'e9130000-0000-4000-8000-000000000011','00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+  'reference-relations-admin@test.invalid','',now(),'{}','{}',now(),now()
+);
+INSERT INTO public.profiles(user_id, tenant_id, email, display_name, role, status, module_permissions)
+VALUES (
+  'e9130000-0000-4000-8000-000000000011','e9130000-0000-4000-8000-000000000001',
+  'reference-relations-admin@test.invalid','Reference Relations Admin','admin','active','{"erp":true}'
+);
+
 SELECT ok(
   (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid = 'public.tenant_reference_items'::regclass),
   'reference catalog enforces row-level security'
