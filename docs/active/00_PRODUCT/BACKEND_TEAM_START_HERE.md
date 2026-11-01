@@ -152,3 +152,8 @@ Server menghormati `HOST`; jika tidak diatur, default tetap `0.0.0.0` untuk depl
 - Pemeriksaan visual pada preview `localhost:4179` kini memperlihatkan Data Induk tanpa strip “Data terkait”; panel/tautan pengalihan tidak terlihat. Ini hanya spot-check tampilan, bukan bukti source preview, login, atau backend tenant sudah tervalidasi. Postcheck VQE sebelumnya masih memiliki satu mismatch metadata migration. Tidak ada perubahan database Production.
 - PR #39 tetap Draft/Open. UAT login Admin dan baca-tulis tenant masih perlu dijalankan pada environment staging yang source serta target backend-nya dapat diverifikasi.
 - **Persentase keseluruhan tetap:** sekitar **73% kematangan fitur** dan **46% kesiapan release/go-live**, menurut checkpoint produk terakhir. Ini bukan metrik per-job CI.
+
+
+## Status Advisor staging VQE terbaru — 1 November 2026
+
+Performance Advisor saat ini mencatat 258 foreign key tanpa indeks penutup penuh, 98 indeks yang belum terpakai, dan satu indeks duplikat pada `document_records`. Pemeriksaan katalog menemukan 522 FK pada 148 tabel; 27 dari 285 FK tanpa indeks penuh hanya memiliki partial index yang cocok. Temuan ini belum menjadi alasan untuk menambah ratusan indeks atau menghapus indeks, karena workload staging belum representatif. Lihat [tinjauan Performance Advisor VQE](../06_DATABASE/VQE_PERFORMANCE_ADVISOR_REVIEW_2026-11-01.md) untuk metodologi, migration duplikat yang belum diterapkan, gate benchmark, serta tindak lanjut keamanan. PR #40 masih Draft; CI terakhir lulus 3/3 job, sementara UAT antarmuka Admin staging menunggu konfigurasi secret VQE lokal. PTSAS Production tidak disentuh.
