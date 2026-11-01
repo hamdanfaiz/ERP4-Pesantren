@@ -186,6 +186,16 @@ ALTER TABLE public.master_data_audit_events ENABLE TRIGGER master_data_audit_eve
 -- reference its profile. Remove those tenant-only defaults before deleting profiles.
 DELETE FROM public.tenant_reference_items
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+-- New tenants are also seeded with naming rules; remove every generated
+-- counter and allocation before deleting the tenant fixture.
+DELETE FROM public.tenant_naming_series_events
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.tenant_naming_series_allocations
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.tenant_naming_series_counters
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.tenant_naming_series
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.profiles
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM auth.users

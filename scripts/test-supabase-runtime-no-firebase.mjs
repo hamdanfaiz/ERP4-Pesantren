@@ -154,8 +154,12 @@ assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && 
   'The mock AI assessment modal must not render in the Supabase Tahfidz runtime.');
 
 const masterDataSource = fs.readFileSync(path.join(root, 'src', 'pages', 'MasterDataManager.tsx'), 'utf8');
-assert.match(masterDataSource, /const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME\s*\?\s*TABS\s*:\s*TABS\.filter\(\(tab\)\s*=>\s*tab\.id\s*!==\s*["']references["']\s*&&\s*tab\.id\s*!==\s*["']naming["']\);/,
-  'Master Data must hide reference catalogs and Naming Series until the Supabase runtime is active.');
+assert.match(masterDataSource, /const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME\s*\?\s*TABS\s*:\s*TABS\.filter\(\(tab\)\s*=>\s*tab\.id\s*!==\s*["']references["']\);/,
+  'Master Data must keep Naming Series discoverable while hiding backend-only reference catalogs until runtime is active.');
+assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?koneksi runtime Supabase belum diaktifkan[\s\S]*?<\/section>\)/,
+  'Naming Series must show a clear unavailable state rather than disappear or fall through to mock CRUD when runtime is disabled.');
+assert.match(masterDataSource, /const isTenantConfigurationTab = activeTab === ["']references["'] \|\| activeTab === ["']naming["'];/,
+  'Tenant configuration tabs must not expose mock record actions when runtime is disabled.');
 assert.match(masterDataSource, /const visibleSubTabs = SUB_TABS\[activeTab\] \|\| \[\]/,
   'Master Data must render only categories owned by the selected tab.');
 const masterDataCategories = masterDataSource.match(/const SUB_TABS: Record<string, string\[]> = \{([\s\S]*?)\n\};/);
