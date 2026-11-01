@@ -129,6 +129,18 @@ async function main() {
       .update({ must_change_password: true })
       .eq('user_id', users[12].uid);
     if (forcePasswordError) throw new Error('Unable to configure the synthetic forced-password-change fixture.');
+    const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: tenantIds[0],
+      domain: 'academic_grade_level',
+      code: 'TEST_GRADE_VII',
+      name: 'VII',
+      description: 'Jenjang uji integrasi PPDB tenant.',
+      status: 'active',
+      nis_grade_code: '07',
+      created_by_user_id: users[0].uid,
+      updated_by_user_id: users[0].uid,
+    });
+    if (gradeReferenceError) throw new Error('Unable to configure the synthetic tenant grade catalog.');
 
     const adminToken = await signIn(anon, users[0]);
     const santriToken = await signIn(anon, users[1]);
