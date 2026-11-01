@@ -6,12 +6,14 @@ import { useAuth } from "../contexts/AuthContext";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type Question = {
-  id: string; subject: string; grade: string; template: string; text: string; options: string[];
+  id: string; subject: string; grade: string; template: string; subjectReferenceId: string;
+  gradeLevelReferenceId: string; templateReferenceId: string; text: string; options: string[];
   correctAnswer: number; explanation: string; difficulty: string; tags: string[]; status: string;
 };
 type Student = { id: string; name: string; grade: string; className: string };
 type Exam = {
-  id: string; title: string; subject: string; grade: string; startsAt: string; endsAt: string;
+  id: string; title: string; subject: string; grade: string; subjectReferenceId: string;
+  gradeLevelReferenceId: string; startsAt: string; endsAt: string;
   durationMinutes: number; passingScore: number; status: string; assignedCount: number; completedCount: number;
 };
 type Result = {
@@ -19,15 +21,20 @@ type Result = {
   score: number | null; passed: boolean | null; submittedAt: string | null; correct: number | null; wrong: number | null; blank: number | null;
 };
 type CbtSettings = {
-  subjects: string[]; grades: string[]; templates: string[]; autoGrading: boolean; shuffleQuestions: boolean;
+  autoGrading: boolean; shuffleQuestions: boolean;
   correctPoints: number; wrongPoints: number; blankPoints: number; sourceSystem: string;
 };
-type Snapshot = { questions: Question[]; students: Student[]; exams: Exam[]; results: Result[]; classes: string[]; settings: CbtSettings };
+type ReferenceOption = { id: string; name: string; description: string };
+type Snapshot = {
+  questions: Question[]; students: Student[]; exams: Exam[]; results: Result[]; classes: string[];
+  settings: CbtSettings;
+  references: { subjects: ReferenceOption[]; gradeLevels: ReferenceOption[]; templates: ReferenceOption[] };
+};
 type Tab = "dashboard" | "calendar" | "packages" | "questions" | "exams" | "monitor" | "results" | "settings" | "import";
 type ImportPreview = { snapshotFingerprint: string; counts: { source: number; ready: number; alreadyImported: number; invalid: number }; issues: Array<{ code: string; recordRef: string; severity: string }>; issueCount: number; blockingCount: number; canApply: boolean };
 
-const EMPTY_SETTINGS: CbtSettings = { subjects: [], grades: [], templates: [], autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults" };
-const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS };
+const EMPTY_SETTINGS: CbtSettings = { autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults" };
+const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS, references: { subjects: [], gradeLevels: [], templates: [] } };
 const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "dashboard", label: "Dashboard", icon: <Activity className="h-4 w-4" /> },
   { id: "calendar", label: "Kalender Ujian", icon: <CalendarDays className="h-4 w-4" /> },
@@ -100,11 +107,11 @@ export function SupabaseCBTManager() {
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
-    subject: "", grade: "", template: "Paket A", text: "", options: ["", "", "", ""],
+    subjectReferenceId: "", gradeLevelReferenceId: "", templateReferenceId: "", text: "", options: ["", "", "", ""],
     correctAnswer: "0", explanation: "", difficulty: "Medium", tags: "",
   });
   const [exam, setExam] = useState({
-    title: "", subject: "", grade: "", startsAt: localDateTimeOffset(60), endsAt: localDateTimeOffset(180),
+    title: "", subjectReferenceId: "", gradeLevelReferenceId: "", startsAt: localDateTimeOffset(60), endsAt: localDateTimeOffset(180),
     durationMinutes: 90, passingScore: 75, correctPoints: 1, wrongPoints: 0, blankPoints: 0, shuffleQuestions: true, status: "draft",
   });
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
@@ -117,6 +124,11 @@ export function SupabaseCBTManager() {
     setLoading(true); setError("");
     try {
       const result = await requestCbt("/api/cbt/admin");
+      const references = result.references && typeof result.references === "object" ? {
+        subjects: Array.isArray(result.references.subjects) ? result.references.subjects : [],
+        gradeLevels: Array.isArray(result.references.gradeLevels) ? result.references.gradeLevels : [],
+        templates: Array.isArray(result.references.templates) ? result.references.templates : [],
+      } : EMPTY.references;
       setSnapshot({
         questions: Array.isArray(result.questions) ? result.questions : [],
         exams: Array.isArray(result.exams) ? result.exams : [],
@@ -124,6 +136,7 @@ export function SupabaseCBTManager() {
         students: Array.isArray(result.students) ? result.students : [],
         classes: Array.isArray(result.classes) ? result.classes : [],
         settings: result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } : EMPTY_SETTINGS,
+        references,
       });
       const settings = result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } as CbtSettings : EMPTY_SETTINGS;
       const tenantId = String(user?.tenantId || "");
@@ -135,14 +148,29 @@ export function SupabaseCBTManager() {
         setImportPreview(null);
         setSettingsImportPreview(null);
         setForm({
-          subject: settings.subjects[0] || "", grade: settings.grades[0] || "",
-          template: settings.templates[0] || "Paket A", text: "", options: ["", "", "", ""],
+          subjectReferenceId: references.subjects[0]?.id || "",
+          gradeLevelReferenceId: references.gradeLevels[0]?.id || "",
+          templateReferenceId: references.templates[0]?.id || "",
+          text: "", options: ["", "", "", ""],
           correctAnswer: "0", explanation: "", difficulty: "Medium", tags: "",
         });
         setExam((current) => ({
-          ...current, title: "", subject: settings.subjects[0] || "", grade: settings.grades[0] || "",
+          ...current, title: "", subjectReferenceId: references.subjects[0]?.id || "",
+          gradeLevelReferenceId: references.gradeLevels[0]?.id || "",
           correctPoints: settings.correctPoints, wrongPoints: settings.wrongPoints,
           blankPoints: settings.blankPoints, shuffleQuestions: settings.shuffleQuestions,
+        }));
+      } else {
+        setForm((current) => ({
+          ...current,
+          subjectReferenceId: references.subjects.some((item: ReferenceOption) => item.id === current.subjectReferenceId) ? current.subjectReferenceId : references.subjects[0]?.id || "",
+          gradeLevelReferenceId: references.gradeLevels.some((item: ReferenceOption) => item.id === current.gradeLevelReferenceId) ? current.gradeLevelReferenceId : references.gradeLevels[0]?.id || "",
+          templateReferenceId: references.templates.some((item: ReferenceOption) => item.id === current.templateReferenceId) ? current.templateReferenceId : references.templates[0]?.id || "",
+        }));
+        setExam((current) => ({
+          ...current,
+          subjectReferenceId: references.subjects.some((item: ReferenceOption) => item.id === current.subjectReferenceId) ? current.subjectReferenceId : references.subjects[0]?.id || "",
+          gradeLevelReferenceId: references.gradeLevels.some((item: ReferenceOption) => item.id === current.gradeLevelReferenceId) ? current.gradeLevelReferenceId : references.gradeLevels[0]?.id || "",
         }));
       }
     } catch (cause: any) { setSnapshot(EMPTY); setError(cause?.message || "Data CBT Supabase belum dapat dimuat."); }
@@ -155,12 +183,14 @@ export function SupabaseCBTManager() {
     [question.subject, question.grade, question.template, question.text, question.tags.join(" ")]
       .join(" ").toLowerCase().includes(search.toLowerCase())), [snapshot.questions, search]);
   const eligibleQuestions = useMemo(() => snapshot.questions.filter((question) => question.status === "active"
-    && question.subject === exam.subject && question.grade === exam.grade), [snapshot.questions, exam.subject, exam.grade]);
+    && question.subjectReferenceId === exam.subjectReferenceId
+    && question.gradeLevelReferenceId === exam.gradeLevelReferenceId
+    && Boolean(question.subjectReferenceId && question.gradeLevelReferenceId)), [snapshot.questions, exam.subjectReferenceId, exam.gradeLevelReferenceId]);
   const selectedQuestionCount = selectedQuestions.filter((id) => eligibleQuestions.some((question) => question.id === id)).length;
 
   const resetQuestion = () => {
     setEditingQuestionId(null);
-    setForm({ subject: "", grade: "", template: "Paket A", text: "", options: ["", "", "", ""], correctAnswer: "0", explanation: "", difficulty: "Medium", tags: "" });
+    setForm({ subjectReferenceId: snapshot.references.subjects[0]?.id || "", gradeLevelReferenceId: snapshot.references.gradeLevels[0]?.id || "", templateReferenceId: snapshot.references.templates[0]?.id || "", text: "", options: ["", "", "", ""], correctAnswer: "0", explanation: "", difficulty: "Medium", tags: "" });
   };
 
   const saveQuestion = async (event: React.FormEvent) => {
@@ -225,7 +255,8 @@ export function SupabaseCBTManager() {
   const editQuestion = (question: Question) => {
     setEditingQuestionId(question.id); setTab("questions"); setError(""); setNotice("");
     setForm({
-      subject: question.subject, grade: question.grade, template: question.template,
+      subjectReferenceId: question.subjectReferenceId, gradeLevelReferenceId: question.gradeLevelReferenceId,
+      templateReferenceId: question.templateReferenceId,
       text: question.text, options: [...question.options, "", "", "", ""].slice(0, 8),
       correctAnswer: String(question.correctAnswer), explanation: question.explanation || "",
       difficulty: question.difficulty || "Medium", tags: question.tags.join(", "),
@@ -288,14 +319,14 @@ export function SupabaseCBTManager() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div className="mb-4 flex items-center gap-2"><Plus className="h-4 w-4 text-indigo-700" /><h2 className="font-semibold text-slate-900 dark:text-white">{editingQuestionId ? "Ubah soal" : "Tambah soal"}</h2></div>
         <form onSubmit={saveQuestion} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<input list="cbt-subject-options" required maxLength={150} className={FIELD} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></label><label className={LABEL}>Jenjang<input list="cbt-grade-options" required maxLength={40} className={FIELD} value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} /></label></div>
-          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Paket<input list="cbt-template-options" required maxLength={80} className={FIELD} value={form.template} onChange={(e) => setForm({ ...form, template: e.target.value })} /></label><label className={LABEL}>Kesulitan<select className={FIELD} value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}><option value="Easy">Mudah</option><option value="Medium">Sedang</option><option value="Hard">Sulit</option></select></label></div>
-          <datalist id="cbt-subject-options">{snapshot.settings.subjects.map((item) => <option key={item} value={item} />)}</datalist><datalist id="cbt-grade-options">{snapshot.settings.grades.map((item) => <option key={item} value={item} />)}</datalist><datalist id="cbt-template-options">{snapshot.settings.templates.map((item) => <option key={item} value={item} />)}</datalist>
+          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={form.subjectReferenceId} onChange={(e) => setForm({ ...form, subjectReferenceId: e.target.value })}><option value="">Pilih mata pelajaran</option>{snapshot.references.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Jenjang pendidikan<select required className={FIELD} value={form.gradeLevelReferenceId} onChange={(e) => setForm({ ...form, gradeLevelReferenceId: e.target.value })}><option value="">Pilih jenjang</option>{snapshot.references.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
+          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Paket soal<select required className={FIELD} value={form.templateReferenceId} onChange={(e) => setForm({ ...form, templateReferenceId: e.target.value })}><option value="">Pilih paket soal</option>{snapshot.references.templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Kesulitan<select className={FIELD} value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}><option value="Easy">Mudah</option><option value="Medium">Sedang</option><option value="Hard">Sulit</option></select></label></div>
+          {(!snapshot.references.subjects.length || !snapshot.references.gradeLevels.length || !snapshot.references.templates.length) && <p role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Katalog mata pelajaran, jenjang, dan paket soal harus diisi Admin melalui Data Induk → Kategori & Referensi sebelum soal dapat disimpan.</p>}
           <label className={LABEL}>Teks soal<textarea required rows={4} maxLength={12000} className={FIELD} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} /></label>
           <div className="space-y-2"><span className={LABEL}>Opsi jawaban</span>{form.options.map((option, index) => <div key={index} className="flex items-center gap-2"><span className="w-6 text-xs font-bold text-slate-500">{String.fromCharCode(65 + index)}</span><input aria-label={"Opsi " + String.fromCharCode(65 + index)} maxLength={1000} className={FIELD + " mt-0"} value={option} onChange={(e) => setForm({ ...form, options: form.options.map((value, optionIndex) => optionIndex === index ? e.target.value : value) })} /></div>)}</div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Indeks jawaban benar<select className={FIELD} value={form.correctAnswer} onChange={(e) => setForm({ ...form, correctAnswer: e.target.value })}>{form.options.map((_, index) => <option key={index} value={index}>{String.fromCharCode(65 + index)}</option>)}</select></label><label className={LABEL}>Tag, pisahkan dengan koma<input className={FIELD} value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></label></div>
           <label className={LABEL}>Pembahasan<textarea rows={2} maxLength={4000} className={FIELD} value={form.explanation} onChange={(e) => setForm({ ...form, explanation: e.target.value })} /></label>
-          <div className="flex gap-2">{editingQuestionId && <button type="button" onClick={resetQuestion} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Batal</button>}<button type="submit" disabled={saving} className={BUTTON + " flex-1"}>{saving ? "Menyimpan…" : "Simpan ke Supabase"}</button></div>
+          <div className="flex gap-2">{editingQuestionId && <button type="button" onClick={resetQuestion} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Batal</button>}<button type="submit" disabled={saving || !snapshot.references.subjects.length || !snapshot.references.gradeLevels.length || !snapshot.references.templates.length || !form.subjectReferenceId || !form.gradeLevelReferenceId || !form.templateReferenceId} className={BUTTON + " flex-1"}>{saving ? "Menyimpan…" : "Simpan ke Supabase"}</button></div>
         </form>
       </section>
     </div>}
@@ -309,7 +340,7 @@ export function SupabaseCBTManager() {
         <h2 className="mb-4 font-semibold text-slate-900 dark:text-white">Buat jadwal ujian</h2>
         {loading ? <p className="text-sm text-slate-500">Memuat roster tenant…</p> : <form onSubmit={submitExam} className="space-y-3">
           <label className={LABEL}>Nama ujian<input required maxLength={180} className={FIELD} value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} /></label>
-          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={exam.subject} onChange={(e) => { setExam({ ...exam, subject: e.target.value, grade: "", }); setSelectedQuestions([]); }}><option value="">Pilih</option>{[...new Set([...snapshot.settings.subjects, ...snapshot.questions.filter((q) => q.status === "active").map((q) => q.subject)])].map((item) => <option key={item}>{item}</option>)}</select></label><label className={LABEL}>Jenjang<select required className={FIELD} value={exam.grade} onChange={(e) => { setExam({ ...exam, grade: e.target.value }); setSelectedQuestions([]); }}><option value="">Pilih</option>{[...new Set([...snapshot.settings.grades, ...snapshot.questions.filter((q) => q.status === "active" && (!exam.subject || q.subject === exam.subject)).map((q) => q.grade)])].map((item) => <option key={item}>{item}</option>)}</select></label></div>
+          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={exam.subjectReferenceId} onChange={(e) => { setExam({ ...exam, subjectReferenceId: e.target.value, gradeLevelReferenceId: "" }); setSelectedQuestions([]); }}><option value="">Pilih mata pelajaran</option>{snapshot.references.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Jenjang<select required className={FIELD} value={exam.gradeLevelReferenceId} onChange={(e) => { setExam({ ...exam, gradeLevelReferenceId: e.target.value }); setSelectedQuestions([]); }}><option value="">Pilih jenjang</option>{snapshot.references.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mulai<input type="datetime-local" required className={FIELD} value={exam.startsAt} onChange={(e) => setExam({ ...exam, startsAt: e.target.value })} /></label><label className={LABEL}>Akhir jendela<input type="datetime-local" required className={FIELD} value={exam.endsAt} onChange={(e) => setExam({ ...exam, endsAt: e.target.value })} /></label></div>
           <div className="grid gap-3 sm:grid-cols-3"><label className={LABEL}>Durasi (menit)<input type="number" min="1" max="600" required className={FIELD} value={exam.durationMinutes} onChange={(e) => setExam({ ...exam, durationMinutes: Number(e.target.value) })} /></label><label className={LABEL}>Nilai lulus<input type="number" min="0" max="100" step="any" className={FIELD} value={exam.passingScore} onChange={(e) => setExam({ ...exam, passingScore: Number(e.target.value) })} /></label><label className={LABEL}>Status<select className={FIELD} value={exam.status} onChange={(e) => setExam({ ...exam, status: e.target.value })}><option value="draft">Draf</option><option value="published">Terbit</option></select></label></div>
           <div className="grid gap-3 sm:grid-cols-3"><label className={LABEL}>Poin jawaban benar<input type="number" min="0" max="100" step="any" className={FIELD} value={exam.correctPoints} onChange={(e) => setExam({ ...exam, correctPoints: Number(e.target.value) })} /></label><label className={LABEL}>Poin jawaban salah<input type="number" min="-100" max="100" step="any" className={FIELD} value={exam.wrongPoints} onChange={(e) => setExam({ ...exam, wrongPoints: Number(e.target.value) })} /></label><label className={LABEL}>Poin tidak dijawab<input type="number" min="-100" max="100" step="any" className={FIELD} value={exam.blankPoints} onChange={(e) => setExam({ ...exam, blankPoints: Number(e.target.value) })} /></label></div>

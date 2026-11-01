@@ -2415,8 +2415,9 @@ async function startServer() {
     } catch (error) { return masterDataRouteError(res, error); }
   });
 
-  const referenceDomainModule: Record<string, "academic" | "finance" | "ga" | "healthcare" | "marketplace" | "cooperative" | "library"> = {
+  const referenceDomainModule: Record<string, "master-data" | "academic" | "cbt" | "hris" | "finance" | "ga" | "healthcare" | "marketplace" | "cooperative" | "library"> = {
     academic_subject: "academic", academic_curriculum: "academic", academic_assessment_type: "academic",
+    academic_grade_level: "master-data", cbt_question_template: "cbt", hris_job_title: "hris",
     facility_resource: "ga", finance_fee_type: "finance", finance_expense_category: "finance",
     marketplace_product_category: "marketplace", cooperative_product_category: "cooperative",
     cooperative_supplier_category: "cooperative", library_book_category: "library",

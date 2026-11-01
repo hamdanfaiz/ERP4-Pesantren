@@ -133,6 +133,7 @@ export function SupabasePpdbManager() {
   const canManagePpdb = isAdmin && (role === "SuperAdmin" || user?.modulePermissions?.ppdb !== false);
   const canManageCandidateBills = isAdmin && user?.modulePermissions?.finance !== false;
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [gradeLevels, setGradeLevels] = useState<Array<{ id: string; name: string }>>([]);
   const [drafts, setDrafts] = useState<Record<string, CandidateDraft>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -172,7 +173,7 @@ export function SupabasePpdbManager() {
   const refresh = useCallback(async () => {
     const requestId = ++requestSequence.current;
     if (!isAdmin || !user?.tenantId) {
-      setCandidates([]); setHasMore(false); setNextCursor(null); setLoadedQueryKey(queryKey); setLoading(false); setLoadingMore(false);
+      setCandidates([]); setGradeLevels([]); setHasMore(false); setNextCursor(null); setLoadedQueryKey(queryKey); setLoading(false); setLoadingMore(false);
       return;
     }
     setLoading(true);
@@ -186,12 +187,14 @@ export function SupabasePpdbManager() {
       });
       if (requestId !== requestSequence.current) return;
       setCandidates(Array.isArray(payload.candidates) ? payload.candidates : []);
+      setGradeLevels(Array.isArray(payload.gradeLevels) ? payload.gradeLevels.filter((item: any) => item && typeof item.id === "string" && typeof item.name === "string") : []);
       setHasMore(Boolean(payload.hasMore));
       setNextCursor(payload.nextCursor && typeof payload.nextCursor.createdAt === "string" && typeof payload.nextCursor.id === "string" ? payload.nextCursor : null);
       setLoadedQueryKey(queryKey);
     } catch (loadError: any) {
       if (requestId !== requestSequence.current) return;
       setCandidates([]);
+      setGradeLevels([]);
       setHasMore(false); setNextCursor(null); setLoadedQueryKey(queryKey);
       setError(loadError?.message || "Daftar calon santri Supabase belum dapat dimuat.");
     } finally {
@@ -302,13 +305,16 @@ export function SupabasePpdbManager() {
     event.preventDefault();
     if (!user?.tenantId || !user.uid) { setError("Profil Admin dan tenant aktif diperlukan."); return; }
     const candidate = { ...newCandidate, email: newCandidate.email.trim().toLowerCase() };
+    const gradeReference = gradeLevels.find((item) => item.name === candidate.grade);
+    if (!gradeReference) { setCreateError("Pilih jenjang aktif dari katalog Data Induk sebelum menyimpan."); return; }
+    const candidateWithGradeReference = { ...candidate, gradeLevelReferenceId: gradeReference.id };
     setCreateSaving(true); setCreateError(""); setError(""); setNotice("");
     let lease: Awaited<ReturnType<typeof pendingMutationIds.acquire>> | null = null;
     try {
-      lease = await pendingMutationIds.acquire(`ppdb-candidate-create:${user.tenantId}:${user.uid}`, candidate);
+      lease = await pendingMutationIds.acquire(`ppdb-candidate-create:${user.tenantId}:${user.uid}`, candidateWithGradeReference);
       const result = await requestPpdb("/api/ppdb/candidates", {
         method: "POST",
-        body: JSON.stringify({ clientRequestId: lease.requestId, candidates: [candidate] }),
+        body: JSON.stringify({ clientRequestId: lease.requestId, candidates: [candidateWithGradeReference] }),
       });
       lease.clear();
       const created = Array.isArray(result.candidates) ? result.candidates[0] : null;
@@ -487,7 +493,7 @@ export function SupabasePpdbManager() {
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nomor pendaftaran<input required pattern="[A-Za-z0-9][A-Za-z0-9./-]{0,49}" title="Gunakan huruf, angka, titik, garis miring, atau tanda hubung." maxLength={50} value={newCandidate.registrationId} onChange={(event) => setNewCandidate({ ...newCandidate, registrationId: event.target.value })} className={FORM_CONTROL} /></label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nama lengkap<input required maxLength={120} value={newCandidate.name} onChange={(event) => setNewCandidate({ ...newCandidate, name: event.target.value })} className={FORM_CONTROL} /></label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Jenis kelamin<select value={newCandidate.gender} onChange={(event) => setNewCandidate({ ...newCandidate, gender: event.target.value as "L" | "P" })} className={FORM_CONTROL}><option value="L">Laki-laki</option><option value="P">Perempuan</option></select></label>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Jenjang/kelas tujuan<input required maxLength={40} value={newCandidate.grade} onChange={(event) => setNewCandidate({ ...newCandidate, grade: event.target.value })} placeholder="Contoh: VII" className={FORM_CONTROL} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Jenjang tujuan<select required value={newCandidate.grade} onChange={(event) => setNewCandidate({ ...newCandidate, grade: event.target.value })} className={FORM_CONTROL}><option value="">Pilih jenjang aktif</option>{gradeLevels.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select>{!gradeLevels.length && <span className="mt-1 block text-xs font-normal text-amber-700 dark:text-amber-300">Tambahkan jenjang pada Data Induk → Kategori &amp; Referensi terlebih dahulu.</span>}</label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Asal sekolah<input required maxLength={160} value={newCandidate.previousSchool} onChange={(event) => setNewCandidate({ ...newCandidate, previousSchool: event.target.value })} className={FORM_CONTROL} /></label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">NIK (16 digit)<input required inputMode="numeric" pattern="[0-9]{16}" maxLength={16} value={newCandidate.nik} onChange={(event) => setNewCandidate({ ...newCandidate, nik: event.target.value.replace(/\D/g, "") })} className={FORM_CONTROL} /></label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">NISN (opsional, 10 digit)<input inputMode="numeric" pattern="[0-9]{10}" maxLength={10} value={newCandidate.nisn} onChange={(event) => setNewCandidate({ ...newCandidate, nisn: event.target.value.replace(/\D/g, "") })} className={FORM_CONTROL} /></label>
@@ -507,7 +513,7 @@ export function SupabasePpdbManager() {
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Pendidikan ibu<input maxLength={80} value={newCandidate.motherEducation} onChange={(event) => setNewCandidate({ ...newCandidate, motherEducation: event.target.value })} className={FORM_CONTROL} /></label>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Penghasilan keluarga<input maxLength={80} value={newCandidate.familyIncome} onChange={(event) => setNewCandidate({ ...newCandidate, familyIncome: event.target.value })} className={FORM_CONTROL} /></label>
           </div></section>
-        </div><footer className="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><button type="button" onClick={() => setCreateOpen(false)} disabled={createSaving} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Batal</button><button type="submit" disabled={createSaving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{createSaving && <Loader2 className="h-4 w-4 animate-spin" />}{createSaving ? "Menyimpan…" : "Simpan pendaftar"}</button></footer>
+        </div><footer className="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><button type="button" onClick={() => setCreateOpen(false)} disabled={createSaving} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Batal</button><button type="submit" disabled={createSaving || !gradeLevels.length || !newCandidate.grade} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{createSaving && <Loader2 className="h-4 w-4 animate-spin" />}{createSaving ? "Menyimpan…" : "Simpan pendaftar"}</button></footer>
       </form></div>}
       {onboardingCandidate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={(event) => void submitOnboarding(event)} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"><header className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white"><UserCheck className="h-5 w-5 text-emerald-600" />Pendaftaran santri diterima</h2><p className="mt-1 text-sm text-slate-500">{onboardingCandidate.name} · {onboardingCandidate.registrationId} · {onboardingCandidate.grade}</p></div><button type="button" aria-label="Tutup" onClick={() => setOnboardingCandidate(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
         <div className="space-y-4 p-5"><p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200">Pembuatan data santri, wali, klaim identitas, reservasi NIS, dan kapasitas kamar dijalankan dalam satu transaksi Supabase. Jika ada data yang berbenturan, seluruh transaksi ditolak.</p>

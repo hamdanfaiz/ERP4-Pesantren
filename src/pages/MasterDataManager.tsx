@@ -84,7 +84,7 @@ const TABS = [
 const SUB_TABS: Record<string, string[]> = {
   entities: ["Santri"],
   structure: ["Gedung", "Kamar", "Kelas", "Peta Struktur"],
-  references: ["Mata Pelajaran", "Kurikulum", "Jenis Penilaian", "Fasilitas", "Jenis Tagihan", "Kategori Pengeluaran"],
+  references: ["Mata Pelajaran", "Kurikulum", "Jenis Penilaian", "Jenjang Pendidikan", "Paket Soal CBT", "Jabatan Pegawai", "Fasilitas", "Jenis Tagihan", "Kategori Pengeluaran"],
   audit: ["Semua Aktivitas"],
 };
 

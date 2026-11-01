@@ -154,8 +154,8 @@ assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && 
   'The mock AI assessment modal must not render in the Supabase Tahfidz runtime.');
 
 const masterDataSource = fs.readFileSync(path.join(root, 'src', 'pages', 'MasterDataManager.tsx'), 'utf8');
-assert.match(masterDataSource, /const visibleTabs = TABS;/,
-  'Master Data must render only its own tabs.');
+assert.match(masterDataSource, /const visibleTabs = SUPABASE_MASTER_DATA_RUNTIME\s*\?\s*TABS\s*:\s*TABS\.filter\(\(tab\)\s*=>\s*tab\.id\s*!==\s*["']references["']\);/,
+  'Master Data must expose its reference catalog only when the Supabase runtime is active.');
 assert.match(masterDataSource, /const visibleSubTabs = SUB_TABS\[activeTab\] \|\| \[\]/,
   'Master Data must render only categories owned by the selected tab.');
 const masterDataCategories = masterDataSource.match(/const SUB_TABS: Record<string, string\[]> = \{([\s\S]*?)\n\};/);
@@ -164,7 +164,9 @@ assert.match(masterDataCategories[1], /entities:\s*\["Santri"\]/,
   'The entity tab must own only the student record category.');
 assert.match(masterDataCategories[1], /structure:\s*\["Gedung",\s*"Kamar",\s*"Kelas",\s*"Peta Struktur"\]/,
   'The structure tab must own only campus/dorm structure categories.');
-assert.doesNotMatch(masterDataCategories[1], /Wali Santri|Guru|Asatidz|Pegawai|Alumni|Mata Pelajaran|Kurikulum|Halaqah|Yayasan|Kampus|Pemesanan/,
+assert.match(masterDataCategories[1], /references:\s*\["Mata Pelajaran",\s*"Kurikulum",\s*"Jenis Penilaian",\s*"Jenjang Pendidikan",\s*"Paket Soal CBT",\s*"Jabatan Pegawai",\s*"Fasilitas",\s*"Jenis Tagihan",\s*"Kategori Pengeluaran"\]/,
+  'The references tab must expose the tenant catalogs that are owned centrally.');
+assert.doesNotMatch(masterDataCategories[1], /["'](?:Wali Santri|Guru dan Asatidz|Guru|Asatidz|Pegawai|Alumni|Halaqah|Yayasan dan Kampus|Pemesanan Fasilitas)["']/,
   'Records owned by other modules must not be listed as Master Data categories.');
 assert.doesNotMatch(masterDataSource, /onNavigate|activeHandoff|MASTER_DATA_DESTINATIONS|Data terkait|Kategori lain dikelola/,
   'Master Data must not render redirects or a related-data shortcut strip.');

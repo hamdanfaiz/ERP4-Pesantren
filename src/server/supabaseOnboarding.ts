@@ -123,7 +123,7 @@ export async function listSupabaseMasterDataStructures(tenantIdentifier: string)
   for (let offset = 0; offset <= 10000; offset += pageSize) {
     const remaining = 10001 - offset;
     const params = new URLSearchParams({
-      select: "tenant_id,category,id,name,status,parent_id,grade,capacity,occupied,gender_code,location,attributes,organization_unit_id",
+      select: "tenant_id,category,id,name,status,parent_id,grade,grade_level_reference_id,capacity,occupied,gender_code,location,attributes,organization_unit_id",
       tenant_id: "eq." + tenantId,
       category: "in.(Gedung,Kamar,Kelas)",
       order: "category.asc,name.asc",
@@ -160,6 +160,7 @@ export async function listSupabaseMasterDataStructures(tenantIdentifier: string)
       parentId: parentId || undefined,
       parentCode: parentId || undefined,
       grade: String(row.grade || attributes.grade || ""),
+      gradeLevelReferenceId: row.grade_level_reference_id == null ? "" : String(row.grade_level_reference_id),
       capacity: row.capacity == null ? undefined : Number(row.capacity),
       occupied: Number(row.occupied || 0),
       gender: gender || undefined,

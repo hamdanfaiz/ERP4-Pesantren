@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { upsertSupabaseMasterDataStructure, type SupabaseStructureRecord } from '../services/masterDataApi';
+import React, { useEffect, useState } from 'react';
+import { listSupabaseReferenceItems, upsertSupabaseMasterDataStructure, type SupabaseReferenceItem, type SupabaseStructureRecord } from '../services/masterDataApi';
 import { Building, Save, X, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { generateUniqueId } from '../lib/utils';
 import { isActiveOnboardingStructure } from '../utils/ppdbOnboardingRooms';
@@ -22,6 +22,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
     capacity: initialData?.capacity || '',
     location: initialData?.location || '',
     grade: initialData?.grade || '',
+    gradeLevelReferenceId: initialData?.gradeLevelReferenceId || '',
     description: initialData?.description || '',
     parentCode: initialData?.parentCode || '', // For Kampus ID, Gedung ID etc.
     gender: initialData?.gender || initialData?.genderRestriction || '',
@@ -32,7 +33,17 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gradeLevels, setGradeLevels] = useState<SupabaseReferenceItem[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  useEffect(() => {
+    if (type !== 'Kelas') return;
+    let active = true;
+    listSupabaseReferenceItems('academic_grade_level')
+      .then((items) => { if (active) setGradeLevels(items.filter((item) => item.status === 'active')); })
+      .catch((error) => { if (active) setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Katalog jenjang belum dapat dimuat.' }); });
+    return () => { active = false; };
+  }, [type]);
 
   const handleFieldChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -42,6 +53,10 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
     e.preventDefault();
     if (!formData.name) {
       setMessage({ type: 'error', text: 'Nama wajib diisi.' });
+      return;
+    }
+    if (type === 'Kelas' && !gradeLevels.some((item) => item.id === formData.gradeLevelReferenceId && item.name === formData.grade)) {
+      setMessage({ type: 'error', text: 'Pilih jenjang aktif dari Kategori & Referensi terlebih dahulu.' });
       return;
     }
 
@@ -216,16 +231,23 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
               </div>
             )}
 
-            {(type === 'Kelas' || type === 'Halaqah') && (
+            {type === 'Kelas' && (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenjang/Tingkat</label>
-                  <input
-                    type="text"
-                    value={formData.grade}
-                    onChange={(e) => handleFieldChange('grade', e.target.value)}
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenjang pendidikan</label>
+                  <select
+                    required
+                    value={formData.gradeLevelReferenceId || gradeLevels.find((item) => item.name === formData.grade)?.id || ''}
+                    onChange={(e) => {
+                      const selected = gradeLevels.find((item) => item.id === e.target.value);
+                      setFormData((current) => ({ ...current, grade: selected?.name || '', gradeLevelReferenceId: selected?.id || '' }));
+                    }}
                     className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  />
+                  >
+                    <option value="">Pilih jenjang aktif</option>
+                    {gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </select>
+                  {!gradeLevels.length && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Tambahkan jenjang pada Data Induk → Kategori &amp; Referensi.</p>}
                 </div>
               </>
             )}
@@ -245,7 +267,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
             )}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (type === 'Kelas' && !gradeLevels.length)}
               className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

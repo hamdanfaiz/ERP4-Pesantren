@@ -240,9 +240,6 @@ export async function createSupabaseFinanceExpense(tenantIdentifier: string, act
   const amount = Number(item.amount);
   const expenseDate = String(item.expenseDate || "").trim();
   if (!isUuid(categoryReferenceId) || !description || description.length > 1000 || !Number.isSafeInteger(amount) || amount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(expenseDate)) throw new SupabaseFinanceError(400, "Kategori, uraian, unit, nominal, atau tanggal tidak valid.");
-  const categoryRows = await activeReferenceItems(tenantId, "finance_expense_category", [categoryReferenceId]);
-  if (categoryRows.length !== 1) throw new SupabaseFinanceError(400, "Pilih kategori pengeluaran aktif pada tenant ini.");
-  const category = String(categoryRows[0].name);
   const unitKey = role === "Ustadz" ? String(actorUnitKey || "").trim() : requestedUnitId;
   if (!unitKey) throw new SupabaseFinanceError(403, "Unit kerja belum ditetapkan pada profil akun ini.");
   const unitFilter = isUuid(unitKey)
@@ -256,6 +253,9 @@ export async function createSupabaseFinanceExpense(tenantIdentifier: string, act
   const unitId = String(units[0].id);
   const department = String(units[0].name || "").trim();
   if (!department) throw new SupabaseFinanceError(409, "Nama unit organisasi belum tersedia untuk pencatatan pengeluaran.");
+  const categoryRows = await activeReferenceItems(tenantId, "finance_expense_category", [categoryReferenceId]);
+  if (categoryRows.length !== 1) throw new SupabaseFinanceError(400, "Pilih kategori pengeluaran aktif pada tenant ini.");
+  const category = String(categoryRows[0].name);
   return rpc("create_tenant_finance_expense_for_unit", {
     p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: expected, p_unit_id: unitId, p_category: category,
     p_description: description, p_department: department, p_amount: amount, p_expense_date: expenseDate,

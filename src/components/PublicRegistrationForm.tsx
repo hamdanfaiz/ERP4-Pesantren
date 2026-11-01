@@ -55,7 +55,7 @@ export function PublicRegistrationForm({
   );
   const [formData, setFormData] = useState<Partial<Candidate>>({
     gender: "L",
-    grade: "SMP",
+    grade: "",
     documents: {
       kk: false,
       birthCertificate: false,
@@ -68,6 +68,8 @@ export function PublicRegistrationForm({
 
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gradeLevels, setGradeLevels] = useState<Array<{ id: string; name: string }>>([]);
+  const [gradeLevelReferenceId, setGradeLevelReferenceId] = useState("");
   const [isPublicRegistrationAvailable, setIsPublicRegistrationAvailable] = useState(false);
   const [isServerDocumentUploadEnabled, setIsServerDocumentUploadEnabled] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -90,6 +92,13 @@ export function PublicRegistrationForm({
           generalSettings: { ...current.generalSettings, academicYear: config.academicYear || current.generalSettings.academicYear },
           orgInfo: { ...current.orgInfo, ...(config.orgInfo || {}) },
         }));
+        const options = Array.isArray(config.gradeLevels)
+          ? config.gradeLevels.filter((item: any) => item && typeof item.id === "string" && typeof item.name === "string") as Array<{ id: string; name: string }>
+          : [];
+        if (!options.length) throw new Error("Jenjang pendaftaran belum disiapkan oleh Admin pesantren.");
+        setGradeLevels(options);
+        setGradeLevelReferenceId(options[0].id);
+        setFormData((current) => ({ ...current, grade: options[0].name }));
         setIsServerDocumentUploadEnabled(config.documentUploadEnabled === true);
         setIsPublicRegistrationAvailable(true);
       })
@@ -142,7 +151,8 @@ export function PublicRegistrationForm({
     setSubmitError(null);
 
     const candidate = {
-      name: formData.name?.trim() || "", gender: formData.gender || "L", grade: formData.grade || "SMP",
+      name: formData.name?.trim() || "", gender: formData.gender || "L", grade: formData.grade || "",
+      gradeLevelReferenceId,
       previousSchool: formData.previousSchool?.trim() || "", phone: formData.phone?.trim() || "",
       whatsappPhone: formData.whatsappPhone?.trim() || formData.phone?.trim() || "", email: formData.email?.trim() || "",
       nik: formData.nik?.trim() || "", nisn: formData.nisn?.trim() || "", pob: formData.pob?.trim() || "",
@@ -424,15 +434,17 @@ export function PublicRegistrationForm({
                       </label>
                       <select
                         required
-                        value={formData.grade || "SMP"}
-                        onChange={(e) =>
-                          setFormData({ ...formData, grade: e.target.value })
-                        }
+                        value={gradeLevelReferenceId}
+                        onChange={(e) => {
+                          const selected = gradeLevels.find((item) => item.id === e.target.value);
+                          setGradeLevelReferenceId(e.target.value);
+                          setFormData((current) => ({ ...current, grade: selected?.name || "" }));
+                        }}
+                        disabled={!gradeLevels.length || !isPublicRegistrationAvailable}
                         className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       >
-                        <option value="SD">SD IT / Madrasah Ibtidaiyah (MI)</option>
-                        <option value="SMP">SMP IT / Madrasah Tsanawiyah (MTs Boarding)</option>
-                        <option value="SMA">SMA IT / Madrasah Aliyah (MA Boarding)</option>
+                        <option value="">Pilih jenjang tujuan</option>
+                        {gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                       </select>
                     </div>
                     <div>

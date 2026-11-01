@@ -6,6 +6,9 @@ export type SupabaseReferenceDomain =
   | "academic_subject"
   | "academic_curriculum"
   | "academic_assessment_type"
+  | "academic_grade_level"
+  | "cbt_question_template"
+  | "hris_job_title"
   | "facility_resource"
   | "finance_fee_type"
   | "finance_expense_category"
@@ -40,6 +43,7 @@ export interface SupabaseStructureRecord {
   parentId?: string;
   parentCode?: string;
   grade?: string;
+  gradeLevelReferenceId?: string;
   capacity?: number | string;
   occupied?: number;
   gender?: string;

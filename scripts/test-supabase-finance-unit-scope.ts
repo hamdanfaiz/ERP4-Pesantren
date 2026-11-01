@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createSupabaseFinanceExpense, SupabaseFinanceError } from "../src/server/supabaseFinance";
 
 const tenantId = "e5200000-0000-4000-8000-000000000001";
+const categoryReferenceId = "e5200000-0000-4000-8000-000000000201";
 const unitId = "e5200000-0000-4000-8000-000000000101";
 const unknownUnitId = "e5200000-0000-4000-8000-000000000102";
 const originalFetch = globalThis.fetch;
@@ -24,7 +25,16 @@ globalThis.fetch = async (input: URL | RequestInfo, init?: RequestInit) => {
   if (url.pathname === "/rest/v1/organization_units") {
     const requestedId = url.searchParams.get("id")?.slice(3);
     const requestedCode = url.searchParams.get("code")?.slice(3);
-    if (requestedId === unitId || requestedCode === "MADRASAH") return Response.json([{ id: unitId }]);
+    if (requestedId === unitId || requestedCode === "MADRASAH") return Response.json([{ id: unitId, name: "Pendidikan" }]);
+    return Response.json([]);
+  }
+  if (url.pathname === "/rest/v1/tenant_reference_items") {
+    const requestedTenant = url.searchParams.get("tenant_id");
+    const requestedDomain = url.searchParams.get("domain");
+    const requestedId = url.searchParams.get("id");
+    if (requestedTenant === `eq.${tenantId}` && requestedDomain === "eq.finance_expense_category" && requestedId === `in.(${categoryReferenceId})`) {
+      return Response.json([{ id: categoryReferenceId, name: "Operasional" }]);
+    }
     return Response.json([]);
   }
   if (url.pathname === "/rest/v1/rpc/create_tenant_finance_expense_for_unit" && method === "POST") {
@@ -35,7 +45,8 @@ globalThis.fetch = async (input: URL | RequestInfo, init?: RequestInit) => {
 
 function input(overrides: Record<string, unknown> = {}) {
   return {
-    category: "Operasional",
+    categoryReferenceId,
+    category: "Kategori bebas yang harus diabaikan",
     description: "Perbaikan kelas",
     department: "Pendidikan",
     amount: 150000,
@@ -58,7 +69,15 @@ try {
   const adminRpc = calls.find((call) => call.url.pathname.endsWith("/rpc/create_tenant_finance_expense_for_unit"));
   assert.ok(adminRpc, "Admin request calls the new unit-scoped RPC");
   assert.equal(adminRpc?.body.p_unit_id, unitId);
+  assert.equal(adminRpc?.body.p_category, "Operasional", "the server resolves the category label from the tenant reference ID");
   assert.equal(adminRpc?.body.p_department, "Pendidikan");
+
+  const beforeInvalidCategory = calls.filter((call) => call.url.pathname.endsWith("/rpc/create_tenant_finance_expense_for_unit")).length;
+  await assert.rejects(
+    () => createSupabaseFinanceExpense(tenantId, "e5200000-0000-4000-8000-000000000011", "Admin", "Admin Unit", undefined, input({ unitId, categoryReferenceId: "e5200000-0000-4000-8000-000000000299" })),
+    (error: unknown) => error instanceof SupabaseFinanceError && error.status === 400,
+  );
+  assert.equal(calls.filter((call) => call.url.pathname.endsWith("/rpc/create_tenant_finance_expense_for_unit")).length, beforeInvalidCategory, "unknown or cross-tenant category never reaches the write RPC");
 
   const rpcCount = calls.filter((call) => call.url.pathname.endsWith("/rpc/create_tenant_finance_expense_for_unit")).length;
   await assert.rejects(

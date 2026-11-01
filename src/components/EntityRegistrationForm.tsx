@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
-import React, { useState } from 'react';
-import { upsertSupabaseMasterDataStudent } from '../services/masterDataApi';
+import React, { useEffect, useState } from 'react';
+import { listSupabaseReferenceItems, upsertSupabaseMasterDataStudent, type SupabaseReferenceItem } from '../services/masterDataApi';
 import { Users, Save, X, CheckCircle2, AlertTriangle, Loader2, Link2, UserCheck, Building2, Home, BookOpen, UserPlus, ShieldAlert, ShieldCheck } from 'lucide-react';
 
 interface EntityRegistrationFormProps {
@@ -35,6 +35,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
   availableStructure,
 }) => {
   const { user } = useAuth();
+  const [gradeLevels, setGradeLevels] = useState<SupabaseReferenceItem[]>([]);
   const [formData, setFormData] = useState({
     id: initialData?.id || '',
     name: initialData?.name || '',
@@ -70,6 +71,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     studentName: initialData?.studentName || '',
     studentGrade: initialData?.studentGrade || '',
     grade: initialData?.grade || '',
+    gradeLevelReferenceId: initialData?.gradeLevelReferenceId || '',
     classId: initialData?.classId || '',
     dormitory: initialData?.dormitory || '',
     dormitoryId: initialData?.dormitoryId || '',
@@ -90,6 +92,16 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     graduationYear: initialData?.graduationYear || '',
     currentActivity: initialData?.currentActivity || '',
   });
+
+  useEffect(() => {
+    let active = true;
+    listSupabaseReferenceItems('academic_grade_level')
+      .then((items) => { if (active) setGradeLevels(items.filter((item) => item.status === 'active')); })
+      .catch((error) => {
+        if (active) setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Katalog jenjang belum dapat dimuat.' });
+      });
+    return () => { active = false; };
+  }, [user?.tenantId, user?.uid]);
 
   const [useCustomParent, setUseCustomParent] = useState(
     !initialData?.waliSantriId && (initialData?.parentName || initialData?.fatherName) ? true : false
@@ -121,6 +133,9 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     });
   };
   const classOptions = activeStructures("Kelas");
+  const classOptionsForGrade = formData.grade
+    ? classOptions.filter((item) => String(item.grade || '') === String(formData.grade))
+    : classOptions;
   const buildingOptions = activeStructures("Gedung");
   const roomOptions = activeStructures("Kamar");
   const selectedBuildingId = String(formData.dormitoryId || "");
@@ -333,14 +348,28 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenjang / Bagian</label>
-              <input
-                type="text"
-                value={formData.gradeOrDepartment}
-                onChange={(e) => handleFieldChange('gradeOrDepartment', e.target.value)}
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenjang pendidikan</label>
+              <select
+                required
+                value={formData.gradeLevelReferenceId || gradeLevels.find((item) => item.name === formData.grade)?.id || ''}
+                onChange={(e) => {
+                  const selected = gradeLevels.find((item) => item.id === e.target.value);
+                  const selectedClass = classOptions.find((item) => String(item.id) === String(formData.classId));
+                  const clearClass = Boolean(selectedClass && selectedClass.grade !== selected?.name);
+                  setFormData((current) => ({
+                    ...current,
+                    grade: selected?.name || '',
+                    gradeLevelReferenceId: selected?.id || '',
+                    gradeOrDepartment: selected?.name || '',
+                    ...(clearClass ? { classId: '' } : {}),
+                  }));
+                }}
                 className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                placeholder="Contoh: Kelas 10A atau Akademik"
-              />
+              >
+                <option value="">Pilih jenjang aktif</option>
+                {gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              {!gradeLevels.length && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Tambahkan jenjang pada Data Induk → Kategori &amp; Referensi.</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kontak / Nomor Telepon</label>
@@ -527,17 +556,18 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                                 ...prev,
                                 classId: val,
                                 grade: gradeName,
+                                gradeLevelReferenceId: selectedClass?.gradeLevelReferenceId || '',
                                 gradeOrDepartment: gradeName,
                               }));
                             }}
                             className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                           >
                             <option value="">{classOptions.length ? "-- Pilih kelas --" : "Belum ada kelas tersedia"}</option>
-                            {classOptions.map((item) => (
+                            {classOptionsForGrade.map((item) => (
                               <option key={item.id} value={item.id}>{item.name} ({item.id})</option>
                             ))}
                           </select>
-                          {!classOptions.length && <p className="mt-1 text-xs text-amber-300">Tambahkan kelas pada tab Struktur terlebih dahulu.</p>}
+                          {!classOptionsForGrade.length && <p className="mt-1 text-xs text-amber-300">Tambahkan kelas aktif pada jenjang terpilih di tab Struktur terlebih dahulu.</p>}
                         </div>
 
                         <div>
