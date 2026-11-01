@@ -593,7 +593,7 @@ SELECT ok(
   'settled bill records its full paid amount, date, and receipt'
 );
 SELECT ok(
-  (SELECT receipt_no ~ '^KWT/FIN/[0-9]{4}/[A-F0-9]{10}$'
+  (SELECT receipt_no ~ '^KWT/[0-9]{4}/[0-9]{6}$'
    FROM public.finance_bills
    WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005' AND fee_type = 'SPP' AND period = '2026-10'),
   'settlement receipt has the expected format'
