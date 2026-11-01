@@ -40,8 +40,9 @@ Format NIS tetap sepuluh digit untuk menjaga kontrak yang sudah ada: tahun, kode
 
 - Migration SQL `20270218000000_operational_relationships_and_naming_series.sql` sudah diterapkan ke schema VQE melalui MCP. Pemeriksaan pascamigrasi baca-saja sebelumnya menemukan tiga seri default, enam foreign key baru tervalidasi, empat tabel naming mengaktifkan RLS+FORCE, hak baca browser dicabut, dan fungsi alokasi hanya dapat dipanggil oleh `service_role`.
 - Migration lanjutan `20270219000000_naming_series_master_data_ids.sql` menyiapkan tiga seri struktur tambahan, kode NIS per jenjang, dan penerbitan NIS langsung dari Data Induk. Migration ini **belum** diterapkan ke VQE; pemeriksaan lama tidak mencakupnya.
+- Snapshot MCP baca-saja terbaru: VQE berstatus `ACTIVE_HEALTHY`; ledger berakhir di `20270217000000`, lalu mencatat migration Naming Series sebagai `20261101041832 operational_relationships_and_naming_series`. Empat tabel Naming Series yang sudah ada menampilkan RLS dan FORCE RLS aktif. Untuk tiga fungsi inti yang diperiksa, `anon` dan `authenticated` tidak memiliki hak EXECUTE; fungsi konfigurasi/alokasi hanya dapat dipanggil `service_role`, sedangkan fungsi seed hanya dipanggil trigger. Ini pemeriksaan katalog terpilih, bukan pengganti pgTAP.
 - Tidak ada alokasi/counter/event atau record transaksi uji yang dibuat di VQE. Production tidak disentuh.
-- Pemeriksaan source terbaru lulus: `npm run lint`, `npm run build`, `npm run test:migration-preflight`, `npm run test:ppdb-csv-import`, `npm run test:ppdb-onboarding-rooms`, `npm run test:hris-legacy-import`, `npm run test:master-data-transfer-csv`, dan `git diff --check`. Build masih menampilkan peringatan chunk PDF besar dan komentar dependensi; tidak menggagalkan build.
+- Pemeriksaan source lulus: `npm run lint`, `npm run build`, `npm run test:migration-preflight`, `npm run test:ppdb-csv-import`, `npm run test:ppdb-onboarding-rooms`, `npm run test:hris-legacy-import`, `npm run test:master-data-transfer-csv`, dan `git diff --check`. Uji `npm run test:supabase-runtime-no-firebase` awalnya gagal karena ekspektasi tab tidak mengikuti perilaku aktual; pemeriksaan diperbarui untuk menuntut tab Referensi dan Naming Series tersembunyi saat runtime belum aktif, lalu lulus: 100 modul aktif, 26 rute Supabase, dan 26 rute migrasi lama tertutup. Build masih menampilkan peringatan chunk PDF besar dan komentar dependensi; tidak menggagalkan build.
 - `supabase test db`/pgTAP belum berjalan di workspace karena Docker tidak tersedia. Browser UAT staging juga belum membuktikan modul ini.
 
 ## Gerbang yang masih terbuka
@@ -72,4 +73,6 @@ Referensi resmi: [Supabase Database Migrations](https://supabase.com/docs/guides
 
 **Implementasi lingkup Naming Series: 80%** — enam seri, layar konfigurasi, kode NIS per jenjang, alokasi backend, ID struktur otomatis, pemeriksaan source lokal, dan kasus pgTAP sudah disiapkan. Sisa 20% meliputi sinkronisasi migration VQE, menjalankan pgTAP, dan UAT UI/alur impor staging. Angka ini hanya untuk Naming Series, bukan keseluruhan ERP.
 
-Fitur ini belum layak dipromosikan ke Production sampai seluruh gerbang tersebut lulus. Perubahan lokal belum di-commit/push pada checkpoint ini.
+Implementasi Naming Series sudah dipush pada commit `59dda6e` di [PR #40](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40). PR tetap Draft karena migration history VQE belum selaras dan pgTAP/UAT belum lulus. Production belum disentuh. Periksa status remote PR untuk commit terbaru sebelum menjalankan langkah migrasi.
+
+Fitur ini belum layak dipromosikan ke Production sampai seluruh gerbang tersebut lulus.
