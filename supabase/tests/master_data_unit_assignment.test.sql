@@ -27,7 +27,7 @@ VALUES
   ('e3000000-0000-4000-8000-000000000012', 'e3000000-0000-4000-8000-000000000001', 'unit-map-ustadz-a@test.invalid', 'Ustadz A', 'ustadz', 'active', '{}'),
   ('e3000000-0000-4000-8000-000000000013', 'e3000000-0000-4000-8000-000000000001', 'unit-map-admin-denied@test.invalid', 'Admin Without Master Data', 'admin', 'active', '{"master-data":false}'),
   ('e4000000-0000-4000-8000-000000000021', 'e4000000-0000-4000-8000-000000000002', 'unit-map-admin-b@test.invalid', 'Admin B', 'admin', 'active', '{}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id)
 VALUES
@@ -41,10 +41,11 @@ VALUES
   ('e3000000-0000-4000-8000-000000000202', 'e3000000-0000-4000-8000-000000000001', 'UNIT-MAP-002', 'Calon Santri Dua', decode(repeat('ac', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'VII'),
   ('e3000000-0000-4000-8000-000000000203', 'e3000000-0000-4000-8000-000000000001', 'UNIT-MAP-003', 'Calon Santri Tiga', decode(repeat('ad', 44), 'hex'), decode(repeat('13', 32), 'hex'), 'VII');
 
-INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity)
+INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity, grade)
 VALUES
-  ('e3000000-0000-4000-8000-000000000001', 'Kelas', 'unit-map-class', 'Kelas Unit Map', NULL),
-  ('e3000000-0000-4000-8000-000000000001', 'Kamar', 'unit-map-room', 'Kamar Unit Map', 10);
+  ('e3000000-0000-4000-8000-000000000001', 'Kelas', 'unit-map-class', 'Kelas Unit Map VII', NULL, 'VII'),
+  ('e3000000-0000-4000-8000-000000000001', 'Kelas', 'unit-map-class-viii', 'Kelas Unit Map VIII', NULL, 'VIII'),
+  ('e3000000-0000-4000-8000-000000000001', 'Kamar', 'unit-map-room', 'Kamar Unit Map', 10, NULL);
 
 INSERT INTO public.students (
   id, tenant_id, source_candidate_id, nis, name, gender, grade,
@@ -53,7 +54,7 @@ INSERT INTO public.students (
 VALUES
   ('e3000000-0000-4000-8000-000000000301', 'e3000000-0000-4000-8000-000000000001', 'e3000000-0000-4000-8000-000000000201', '1234500001', 'Santri Satu', 'L', 'VII', decode(repeat('cd', 44), 'hex'), decode(repeat('21', 32), 'hex'), 'unit-map-class', 'unit-map-room', 'ppdb', NULL),
   ('e3000000-0000-4000-8000-000000000302', 'e3000000-0000-4000-8000-000000000001', 'e3000000-0000-4000-8000-000000000202', '1234500002', 'Santri Dua', 'P', 'VII', decode(repeat('ce', 44), 'hex'), decode(repeat('22', 32), 'hex'), 'unit-map-class', 'unit-map-room', 'ppdb', NULL),
-  ('e3000000-0000-4000-8000-000000000304', 'e3000000-0000-4000-8000-000000000001', NULL, '1234500004', 'Santri Mandiri', 'L', 'VIII', decode(repeat('d0', 44), 'hex'), decode(repeat('24', 32), 'hex'), 'unit-map-class', 'unit-map-room', 'master_data', 'UNIT-MAP-STANDALONE');
+  ('e3000000-0000-4000-8000-000000000304', 'e3000000-0000-4000-8000-000000000001', NULL, '1234500004', 'Santri Mandiri', 'L', 'VIII', decode(repeat('d0', 44), 'hex'), decode(repeat('24', 32), 'hex'), 'unit-map-class-viii', 'unit-map-room', 'master_data', 'UNIT-MAP-STANDALONE');
 
 INSERT INTO public.finance_bills (
   id, tenant_id, student_id, candidate_id, student_name, grade, fee_type, period, amount, payment_type, created_by_user_id

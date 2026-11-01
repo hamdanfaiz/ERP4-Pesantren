@@ -21,6 +21,19 @@ INSERT INTO auth.users (
   ('c8000000-0000-4000-8000-000000000015', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'guardian-other@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('c8000000-0000-4000-8000-000000000016', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'guardian-unlinked@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
 
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) VALUES (
+  'c8000000-0000-4000-8000-000000000017', '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated', 'guardian-fixture-admin@test.invalid', '', now(),
+  '{"provider":"email","providers":["email"]}', '{}', now(), now()
+);
+INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, status, module_permissions)
+VALUES ('c8000000-0000-4000-8000-000000000017', 'c8000000-0000-4000-8000-000000000001',
+  'guardian-fixture-admin@test.invalid', 'Admin Fixture Wali', 'admin', 'active', '{}');
+\ir test_support/seed_tenant_reference_catalogs.psql
+
 INSERT INTO public.candidates (
   id, tenant_id, registration_id, name, email, nik_ciphertext, nik_fingerprint, grade) VALUES
   ('c8000000-0000-4000-8000-000000000101', 'c8000000-0000-4000-8000-000000000001', 'GS-001', 'Santri Satu', 'Guardian-Self@test.invalid', decode(repeat('a1', 44), 'hex'), decode(repeat('b1', 32), 'hex'), 'VII'),
@@ -29,10 +42,10 @@ INSERT INTO public.candidates (
   ('c8000000-0000-4000-8000-000000000104', 'c8000000-0000-4000-8000-000000000001', 'GS-004', 'Santri Empat', 'guardian-self@test.invalid', decode(repeat('a4', 44), 'hex'), decode(repeat('b4', 32), 'hex'), 'VII'),
   ('c8000000-0000-4000-8000-000000000105', 'c8000000-0000-4000-8000-000000000001', 'GS-005', 'Santri Lima', 'guardian-self@test.invalid', decode(repeat('a5', 44), 'hex'), decode(repeat('b5', 32), 'hex'), 'VII');
 
-INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity)
+INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity, grade)
 VALUES
-  ('c8000000-0000-4000-8000-000000000001', 'Kelas', 'guardian-self-class', 'VII - A', NULL),
-  ('c8000000-0000-4000-8000-000000000001', 'Kamar', 'guardian-self-room', 'Kamar Uji', 10);
+  ('c8000000-0000-4000-8000-000000000001', 'Kelas', 'guardian-self-class', 'VII - A', NULL, 'VII'),
+  ('c8000000-0000-4000-8000-000000000001', 'Kamar', 'guardian-self-room', 'Kamar Uji', 10, NULL);
 
 INSERT INTO public.students (
   id, tenant_id, source_candidate_id, nis, name, gender, grade,
@@ -57,7 +70,6 @@ VALUES
 INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, status, module_permissions)
 VALUES ('c8000000-0000-4000-8000-000000000012', 'c8000000-0000-4000-8000-000000000001',
   'guardian-existing@test.invalid', 'Wali Eksisting', 'wali_santri', 'active', '{}');
-\ir test_support/seed_tenant_grade_levels.sql
 INSERT INTO public.guardian_user_accounts (tenant_id, guardian_id, user_id)
 VALUES ('c8000000-0000-4000-8000-000000000001', 'c8000000-0000-4000-8000-000000000303', 'c8000000-0000-4000-8000-000000000012');
 

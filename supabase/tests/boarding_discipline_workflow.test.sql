@@ -18,7 +18,7 @@ INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, stat
   ('e8200000-0000-4000-8000-000000000011','e8200000-0000-4000-8000-000000000001','discipline-admin@test.invalid','Admin Kedisiplinan','admin','active','{"boarding":true}'),
   ('e8200000-0000-4000-8000-000000000012','e8200000-0000-4000-8000-000000000001','discipline-ustadz@test.invalid','Ustadz Belum Ditugaskan','ustadz','active','{"boarding":true}'),
   ('e8200000-0000-4000-8000-000000000013','e8200000-0000-4000-8000-000000000002','discipline-admin-b@test.invalid','Admin Tenant B','admin','active','{"boarding":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade) VALUES
   ('e8200000-0000-4000-8000-000000000101','e8200000-0000-4000-8000-000000000001','DISC-A-001','Santri A',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII'),

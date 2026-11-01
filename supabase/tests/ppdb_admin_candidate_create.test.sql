@@ -19,7 +19,7 @@ INSERT INTO public.profiles(user_id, tenant_id, email, display_name, role, statu
   ('c7100000-0000-4000-8000-000000000011','c7100000-0000-4000-8000-000000000001','ppdb-create-admin@test.invalid','PPDB Admin','admin','active','{"ppdb":true}'),
   ('c7100000-0000-4000-8000-000000000012','c7100000-0000-4000-8000-000000000001','ppdb-create-disabled@test.invalid','PPDB Admin Disabled','admin','active','{"ppdb":false}'),
   ('c7100000-0000-4000-8000-000000000013','c7100000-0000-4000-8000-000000000001','ppdb-create-wali@test.invalid','PPDB Wali','wali_santri','active','{"ppdb":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 SELECT ok(NOT has_function_privilege('anon','public.create_admin_ppdb_candidates_batch(uuid,uuid,text,uuid,text,jsonb)','EXECUTE'), 'anonymous clients cannot invoke the Admin candidate RPC');
 SELECT ok(NOT has_function_privilege('authenticated','public.create_admin_ppdb_candidates_batch(uuid,uuid,text,uuid,text,jsonb)','EXECUTE'), 'browser sessions cannot invoke the service-only candidate RPC');
@@ -83,28 +83,28 @@ SELECT throws_ok(
     'c7100000-0000-4000-8000-000000000501','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     jsonb_build_array(jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000999',
       'candidate',jsonb_build_object('name','Calon Uji Berbeda'),'workflowData','{}'::jsonb,'documents','{}'::jsonb)))$$,
-  '23505','PPDB request ID was already used for a different actor or payload','request key rejects a changed payload');
+  '23505','ID permintaan PPDB telah digunakan untuk data lain','request key rejects a changed payload');
 SELECT throws_ok(
   $$SELECT public.create_admin_ppdb_candidates_batch(
     'c7100000-0000-4000-8000-000000000001','c7100000-0000-4000-8000-000000000012','admin',
     'c7100000-0000-4000-8000-000000000502','cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
     jsonb_build_array(jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000190','registrationId','BLOCKED',
       'candidate','{}'::jsonb,'workflowData','{}'::jsonb,'documents','{}'::jsonb)))$$,
-  '42501','Active Admin PPDB permission is required','Admin without PPDB permission is rejected');
+  '42501','Admin aktif dengan akses PPDB diperlukan','Admin without PPDB permission is rejected');
 SELECT throws_ok(
   $$SELECT public.create_admin_ppdb_candidates_batch(
     'c7100000-0000-4000-8000-000000000002','c7100000-0000-4000-8000-000000000011','admin',
     'c7100000-0000-4000-8000-000000000503','dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
     jsonb_build_array(jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000190','registrationId','BLOCKED',
       'candidate','{}'::jsonb,'workflowData','{}'::jsonb,'documents','{}'::jsonb)))$$,
-  '42501','Active Admin PPDB permission is required','Admin cannot write to another tenant');
+  '42501','Admin aktif dengan akses PPDB diperlukan','Admin cannot write to another tenant');
 SELECT throws_ok(
   $$SELECT public.create_admin_ppdb_candidates_batch(
     'c7100000-0000-4000-8000-000000000001','c7100000-0000-4000-8000-000000000013','admin',
     'c7100000-0000-4000-8000-000000000504','eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
     jsonb_build_array(jsonb_build_object('candidateId','c7100000-0000-4000-8000-000000000190','registrationId','BLOCKED',
       'candidate','{}'::jsonb,'workflowData','{}'::jsonb,'documents','{}'::jsonb)))$$,
-  '42501','Active Admin PPDB permission is required','Wali role cannot be asserted as Admin');
+  '42501','Admin aktif dengan akses PPDB diperlukan','Wali role cannot be asserted as Admin');
 SELECT throws_ok(
   $$SELECT public.create_admin_ppdb_candidates_batch(
     'c7100000-0000-4000-8000-000000000001','c7100000-0000-4000-8000-000000000011','admin',

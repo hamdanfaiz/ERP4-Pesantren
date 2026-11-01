@@ -18,7 +18,7 @@ INSERT INTO auth.users (
 INSERT INTO public.profiles(user_id, tenant_id, email, display_name, role, status, module_permissions) VALUES
   ('c7200000-0000-4000-8000-000000000011','c7200000-0000-4000-8000-000000000001','ppdb-search-a@test.invalid','PPDB Search Admin A','admin','active','{"ppdb":true}'),
   ('c7200000-0000-4000-8000-000000000012','c7200000-0000-4000-8000-000000000002','ppdb-search-b@test.invalid','PPDB Search Admin B','admin','active','{"ppdb":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates(id, tenant_id, registration_id, name, previous_school, phone, grade, stage, created_at)
 VALUES

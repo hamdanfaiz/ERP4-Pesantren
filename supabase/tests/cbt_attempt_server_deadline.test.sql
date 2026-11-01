@@ -21,7 +21,7 @@ VALUES
    'e1800000-0000-4000-8000-000000000201'),
   ('e1800000-0000-4000-8000-000000000012','e1800000-0000-4000-8000-000000000009',
    'cbt-deadline-admin@test.invalid','CBT Test Admin','admin','active','{"cbt":true}',NULL);
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint, grade)
 VALUES ('e1800000-0000-4000-8000-000000000101','e1800000-0000-4000-8000-000000000009',
   'CBD001','CBT Test Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII');

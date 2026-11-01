@@ -27,7 +27,7 @@ VALUES
    'ppdb-runtime-admin@test.invalid','PPDB Runtime Admin','admin','active','{"ppdb":true}'),
   ('d4000000-0000-4000-8000-000000000012','d4000000-0000-4000-8000-000000000004',
    'ppdb-runtime-admin-b@test.invalid','PPDB Runtime Admin B','admin','active','{"ppdb":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 SELECT ok(
   NOT has_function_privilege('anon', 'public.submit_public_ppdb(uuid,uuid,smallint,jsonb,jsonb)', 'EXECUTE'),

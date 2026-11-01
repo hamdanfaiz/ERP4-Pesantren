@@ -26,7 +26,7 @@ VALUES
    'room-admin-a@test.invalid','Admin Asrama A','admin','active','{"boarding":true,"master-data":true,"ppdb":true}'),
   ('d4600000-0000-4000-8000-000000000012','d4600000-0000-4000-8000-000000000002',
    'room-admin-b@test.invalid','Admin Asrama B','admin','active','{"boarding":true,"master-data":true,"ppdb":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES (
@@ -40,8 +40,8 @@ INSERT INTO public.master_data_records (tenant_id, category, id, name, parent_id
 VALUES
   ('d4600000-0000-4000-8000-000000000001','Kamar','RH-R1','Kamar Utara','RH-G1',2,1,'L'),
   ('d4600000-0000-4000-8000-000000000001','Kamar','RH-R2','Kamar Selatan','RH-G1',2,0,'L');
-INSERT INTO public.master_data_records (tenant_id, category, id, name)
-VALUES ('d4600000-0000-4000-8000-000000000001','Kelas','RH-C1','Kelas Uji');
+INSERT INTO public.master_data_records (tenant_id, category, id, name, grade)
+VALUES ('d4600000-0000-4000-8000-000000000001','Kelas','RH-C1','Kelas Uji','VII');
 INSERT INTO public.candidates (
   id, tenant_id, registration_id, name, grade, gender, stage, nik_ciphertext, nik_fingerprint
 ) VALUES (

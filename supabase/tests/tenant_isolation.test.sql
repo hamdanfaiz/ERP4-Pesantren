@@ -33,7 +33,7 @@ VALUES
   ('a1000000-0000-4000-8000-000000000012', 'a1000000-0000-4000-8000-000000000001', 'ustadz-a@test.invalid', 'Ustadz A', 'ustadz', 'active', '{}'),
   ('b2000000-0000-4000-8000-000000000021', 'b2000000-0000-4000-8000-000000000002', 'admin-b@test.invalid', 'Admin B', 'admin', 'active', '{"users":true,"ppdb":true}'),
   ('a1000000-0000-4000-8000-000000000013', 'a1000000-0000-4000-8000-000000000001', 'suspended-a@test.invalid', 'Suspended A', 'admin', 'suspended', '{"users":true,"ppdb":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, grade)
 VALUES

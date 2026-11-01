@@ -29,7 +29,7 @@ VALUES
   ('e5000000-0000-4000-8000-000000000012', 'e5000000-0000-4000-8000-000000000005', 'finance-b@test.invalid', 'Finance Checker', 'admin', 'active', '{"finance":true}'),
   ('e5000000-0000-4000-8000-000000000013', 'e5000000-0000-4000-8000-000000000005', 'finance-guardian@test.invalid', 'Finance Guardian', 'wali_santri', 'active', '{"finance":true}'),
   ('e5000000-0000-4000-8000-000000000014', 'e5000000-0000-4000-8000-000000000005', 'finance-other-guardian@test.invalid', 'Other Guardian', 'wali_santri', 'active', '{"finance":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id)
 VALUES (
@@ -50,15 +50,16 @@ VALUES
   ('e5000000-0000-4000-8000-000000000101', 'e5000000-0000-4000-8000-000000000005',
    'FIN-TEST-001', 'Santri Finance Test', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex'), 'VII'),
   ('e5000000-0000-4000-8000-000000000102', 'e5000000-0000-4000-8000-000000000005',
-   'FIN-TEST-002', 'Sibling Finance Test', decode(repeat('ac', 44), 'hex'), decode(repeat('ce', 32), 'hex'), 'VII'),
+   'FIN-TEST-002', 'Sibling Finance Test', decode(repeat('ac', 44), 'hex'), decode(repeat('ce', 32), 'hex'), 'VIII'),
   ('e5000000-0000-4000-8000-000000000103', 'e5000000-0000-4000-8000-000000000005',
    'FIN-GUARDIAN-001', 'Finance Guardian', decode(repeat('ad', 44), 'hex'), decode(repeat('cf', 32), 'hex'), 'VII'),
   ('e5000000-0000-4000-8000-000000000104', 'e5000000-0000-4000-8000-000000000005',
    'FIN-GUARDIAN-002', 'Other Guardian', decode(repeat('ae', 44), 'hex'), decode(repeat('d0', 32), 'hex'), 'VII');
-INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity)
+INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity, grade)
 VALUES
-  ('e5000000-0000-4000-8000-000000000005', 'Kelas', 'finance-class-test', 'Kelas Finance Test', NULL),
-  ('e5000000-0000-4000-8000-000000000005', 'Kamar', 'finance-room-test', 'Kamar Finance Test', 10);
+  ('e5000000-0000-4000-8000-000000000005', 'Kelas', 'finance-class-test', 'Kelas Finance Test VII', NULL, 'VII'),
+  ('e5000000-0000-4000-8000-000000000005', 'Kelas', 'finance-class-test-viii', 'Kelas Finance Test VIII', NULL, 'VIII'),
+  ('e5000000-0000-4000-8000-000000000005', 'Kamar', 'finance-room-test', 'Kamar Finance Test', 10, NULL);
 INSERT INTO public.students (
   id, tenant_id, source_candidate_id, nis, name, gender, grade,
   nik_ciphertext, nik_fingerprint, class_id, room_id
@@ -75,7 +76,7 @@ INSERT INTO public.students (
 ) VALUES (
   'e5000000-0000-4000-8000-000000000202', 'e5000000-0000-4000-8000-000000000005',
   'e5000000-0000-4000-8000-000000000102', '1234567891', 'Sibling Finance Test', 'L', 'VIII',
-  decode(repeat('f0', 44), 'hex'), decode(repeat('13', 32), 'hex'), 'finance-class-test', 'finance-room-test'
+  decode(repeat('f0', 44), 'hex'), decode(repeat('13', 32), 'hex'), 'finance-class-test-viii', 'finance-room-test'
 );
 INSERT INTO public.guardians (id, tenant_id, source_candidate_id, name, phone)
 VALUES

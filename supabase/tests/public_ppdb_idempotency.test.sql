@@ -21,7 +21,7 @@ VALUES (
   'e5000000-0000-4000-8000-000000000011','e5000000-0000-4000-8000-000000000005',
   'ppdb-idempotency-admin@test.invalid','PPDB Idempotency Admin','admin','active','{"ppdb":true}'
 );
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 CREATE TEMP TABLE ppdb_idempotency_fixture AS
 SELECT
@@ -154,11 +154,11 @@ SELECT is((SELECT public_submission_fingerprint FROM public.candidates
     AND id = 'e5000000-0000-4000-8000-000000000101'),
   decode(repeat('a1', 32), 'hex'),
   'only the 32-byte request HMAC is persisted');
-SELECT is((SELECT last_value FROM public.registration_counters
+SELECT is((SELECT last_value FROM public.tenant_naming_series_counters
   WHERE tenant_id = 'e5000000-0000-4000-8000-000000000005'
-    AND admission_year = 2027),
+    AND series_key = 'ppdb_registration' AND period_key = '2027'),
   1::BIGINT,
-  'a retry does not consume another registration number');
+  'a retry does not consume another registration number from its tenant series');
 
 SELECT * FROM finish();
 ROLLBACK;

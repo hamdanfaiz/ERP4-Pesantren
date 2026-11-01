@@ -51,6 +51,7 @@ INSERT INTO public.finance_expenses (
 
 -- Recreate pre-migration rows: historic expenses may lack a unit mapping and catalog link.
 ALTER TABLE public.finance_expenses DISABLE TRIGGER finance_expenses_link_category;
+ALTER TABLE public.finance_expenses DISABLE TRIGGER finance_expenses_unit_immutable;
 UPDATE public.finance_expenses
 SET unit_id = NULL, category_reference_id = NULL,
   department = CASE id
@@ -65,6 +66,7 @@ SET unit_id = NULL, category_reference_id = NULL, department = 'Umum'
 WHERE tenant_id = 'f5300000-0000-4000-8000-000000000002'
   AND id = 'f5300000-0000-4000-8000-000000000305';
 ALTER TABLE public.finance_expenses ENABLE TRIGGER finance_expenses_link_category;
+ALTER TABLE public.finance_expenses ENABLE TRIGGER finance_expenses_unit_immutable;
 
 INSERT INTO public.finance_ledger (id, tenant_id, unit_id, entry_type, source_type, source_id, description, amount, actor_user_id)
 VALUES

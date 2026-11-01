@@ -24,7 +24,7 @@ VALUES (
   'd9000000-0000-4000-8000-000000000011', 'd9000000-0000-4000-8000-000000000009',
   'cooperative-timezone@test.invalid', 'Cooperative Timezone Admin', 'admin', 'active', '{"cooperative":true}'
 );
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES (
@@ -53,7 +53,7 @@ INSERT INTO public.cooperative_products (
 )
 VALUES (
   'd9000000-0000-4000-8000-000000000301', 'd9000000-0000-4000-8000-000000000009',
-  'CTZ001', 'Produk Cooperative Timezone Test', 'Test', 10, 10, 100,
+  'CTZ001', 'Produk Cooperative Timezone Test', 'Perlengkapan Santri', 10, 10, 100,
   0, 'd9000000-0000-4000-8000-000000000302',
   'd9000000-0000-4000-8000-000000000011', 'd9000000-0000-4000-8000-000000000011'
 );

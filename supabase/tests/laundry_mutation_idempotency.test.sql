@@ -17,7 +17,7 @@ INSERT INTO auth.users (
 INSERT INTO public.profiles(user_id,tenant_id,email,display_name,role,status,module_permissions)
 VALUES ('d1500000-0000-4000-8000-000000000011','d1500000-0000-4000-8000-000000000009',
   'laundry-idempotency@test.invalid','Laundry Test Admin','admin','active','{"laundry":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint, grade)
 VALUES ('d1500000-0000-4000-8000-000000000101','d1500000-0000-4000-8000-000000000009',

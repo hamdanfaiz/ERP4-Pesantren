@@ -20,7 +20,7 @@ VALUES
   ('e2800000-0000-4000-8000-000000000011','e2800000-0000-4000-8000-000000000001','academic-class-admin@test.invalid','Academic Admin','admin','active','{"academic":true}'),
   ('e2800000-0000-4000-8000-000000000012','e2800000-0000-4000-8000-000000000001','academic-class-teacher@test.invalid','Academic Teacher','ustadz','active','{"academic":true}'),
   ('e2800000-0000-4000-8000-000000000013','e2800000-0000-4000-8000-000000000002','academic-class-admin-b@test.invalid','Academic Admin B','admin','active','{"academic":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 INSERT INTO public.organization_units(id,tenant_id,code,name,unit_type,status,created_by_user_id,updated_by_user_id)
 VALUES
   ('e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000001','UNIT-A','Unit Akademik A','sekolah','active','e2800000-0000-4000-8000-000000000011','e2800000-0000-4000-8000-000000000011'),

@@ -18,7 +18,7 @@ VALUES
   ('e7300000-0000-4000-8000-000000000011','e7300000-0000-4000-8000-000000000001','boarding-unit-admin@test.invalid','Admin Unit','admin','active','{"boarding":true}'),
   ('e7300000-0000-4000-8000-000000000012','e7300000-0000-4000-8000-000000000001','boarding-unit-ustadz-a@test.invalid','Ustadz Unit A','ustadz','active','{"boarding":true}'),
   ('e7300000-0000-4000-8000-000000000013','e7300000-0000-4000-8000-000000000001','boarding-unit-ustadz-unassigned@test.invalid','Ustadz Belum Dipetakan','ustadz','active','{"boarding":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id)
 VALUES

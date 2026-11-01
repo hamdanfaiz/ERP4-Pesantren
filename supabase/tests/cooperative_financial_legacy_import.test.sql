@@ -42,7 +42,7 @@ VALUES (
   'active',
   '{"cooperative":true,"finance":true}'
 );
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES (
@@ -91,7 +91,7 @@ VALUES (
   'd9200000-0000-4000-8000-000000000009',
   'CFI001',
   'Test Product',
-  'Test',
+  'Perlengkapan Santri',
   10,
   10,
   100,

@@ -20,7 +20,7 @@ VALUES
    'healthcare-admin-one@test.invalid','Healthcare Admin One','admin','active','{"healthcare":true}'),
   ('e2100000-0000-4000-8000-000000000012','e2100000-0000-4000-8000-000000000009',
    'healthcare-admin-two@test.invalid','Healthcare Admin Two','admin','active','{"healthcare":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint, grade)
 VALUES ('e2100000-0000-4000-8000-000000000101','e2100000-0000-4000-8000-000000000009',
   'HID001','Healthcare Test Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII');
@@ -37,7 +37,7 @@ SET LOCAL ROLE service_role;
 SELECT is(
   public.create_healthcare_medicine(
     'e2100000-0000-4000-8000-000000000009','e2100000-0000-4000-8000-000000000011',
-    '{"clientRequestId":"e2100000-0000-4000-8000-000000000501","name":"Parasetamol","category":"Analgesik","initialStock":10,"minStock":2,"unit":"tablet","expiresOn":"2027-12-31"}'::jsonb
+    '{"clientRequestId":"e2100000-0000-4000-8000-000000000501","name":"Parasetamol","category":"Analgesik dan Antipiretik","initialStock":10,"minStock":2,"unit":"Tablet","expiresOn":"2027-12-31"}'::jsonb
   )->>'alreadyApplied','false','first medicine request creates one inventory item'
 );
 SELECT is(
@@ -50,13 +50,13 @@ SELECT is(
 SELECT is(
   public.create_healthcare_medicine(
     'e2100000-0000-4000-8000-000000000009','e2100000-0000-4000-8000-000000000011',
-    '{"clientRequestId":"e2100000-0000-4000-8000-000000000501","name":"Parasetamol","category":"Analgesik","initialStock":10,"minStock":2,"unit":"tablet","expiresOn":"2027-12-31"}'::jsonb
+    '{"clientRequestId":"e2100000-0000-4000-8000-000000000501","name":"Parasetamol","category":"Analgesik dan Antipiretik","initialStock":10,"minStock":2,"unit":"Tablet","expiresOn":"2027-12-31"}'::jsonb
   )->>'alreadyApplied','true','identical medicine retry remains safe after stock changes'
 );
 SELECT throws_ok(
   $$SELECT public.create_healthcare_medicine(
     'e2100000-0000-4000-8000-000000000009','e2100000-0000-4000-8000-000000000011',
-    '{"clientRequestId":"e2100000-0000-4000-8000-000000000501","name":"Obat berbeda","category":"Analgesik","initialStock":10,"minStock":2,"unit":"tablet","expiresOn":"2027-12-31"}'::jsonb
+    '{"clientRequestId":"e2100000-0000-4000-8000-000000000501","name":"Obat berbeda","category":"Analgesik dan Antipiretik","initialStock":10,"minStock":2,"unit":"Tablet","expiresOn":"2027-12-31"}'::jsonb
   )$$,
   '23505','Healthcare medicine request ID was already used for a different mutation',
   'medicine key cannot be reused with changed fields'
@@ -64,7 +64,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.create_healthcare_medicine(
     'e2100000-0000-4000-8000-000000000009','e2100000-0000-4000-8000-000000000012',
-    '{"clientRequestId":"e2100000-0000-4000-8000-000000000501","name":"Parasetamol","category":"Analgesik","initialStock":10,"minStock":2,"unit":"tablet","expiresOn":"2027-12-31"}'::jsonb
+    '{"clientRequestId":"e2100000-0000-4000-8000-000000000501","name":"Parasetamol","category":"Analgesik dan Antipiretik","initialStock":10,"minStock":2,"unit":"Tablet","expiresOn":"2027-12-31"}'::jsonb
   )$$,
   '23505','Healthcare medicine request ID was already used for a different mutation',
   'another actor cannot replay a medicine creation key'

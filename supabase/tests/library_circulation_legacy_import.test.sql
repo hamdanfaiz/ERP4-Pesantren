@@ -24,7 +24,7 @@ VALUES (
   'e3000000-0000-4000-8000-000000000011', 'e3000000-0000-4000-8000-000000000001',
   'library-circ-admin@test.invalid', 'Library Circulation Admin', 'admin', 'active', '{"library":true}'
 );
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES

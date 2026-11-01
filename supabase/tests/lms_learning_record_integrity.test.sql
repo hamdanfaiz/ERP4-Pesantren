@@ -30,7 +30,7 @@ VALUES
    'lms-record-inactive-student@test.invalid','Inactive Student','santri','active','{"lms":true}','e2600000-0000-4000-8000-000000000203'),
   ('e2600000-0000-4000-8000-000000000014','e2600000-0000-4000-8000-000000000009',
    'lms-record-teacher@test.invalid','LMS Teacher','ustadz','active','{"lms":true}',NULL);
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates(id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
@@ -54,10 +54,11 @@ VALUES
    decode(repeat('36',44),'hex'),decode(repeat('58',32),'hex'),'inactive');
 
 INSERT INTO public.lms_courses(
-  id, tenant_id, category_name, title, description, grade, instructor_user_id, status, color,
+  id, tenant_id, category_id, category_name, title, description, grade, instructor_user_id, status, color,
   client_request_id, created_by, updated_by
 ) VALUES (
   'e2600000-0000-4000-8000-000000000301','e2600000-0000-4000-8000-000000000009',
+  (SELECT id FROM public.lms_categories WHERE tenant_id='e2600000-0000-4000-8000-000000000009' AND name='Umum'),
   'Umum','Kelas LMS','Materi pembelajaran','VII','e2600000-0000-4000-8000-000000000014','published','indigo',
   'e2600000-0000-4000-8000-000000000304','e2600000-0000-4000-8000-000000000014',
   'e2600000-0000-4000-8000-000000000014'

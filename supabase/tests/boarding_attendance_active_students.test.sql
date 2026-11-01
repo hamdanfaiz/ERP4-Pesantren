@@ -21,7 +21,7 @@ VALUES (
   'e2800000-0000-4000-8000-000000000011','e2800000-0000-4000-8000-000000000009',
   'boarding-active-admin@test.invalid','Boarding Admin','admin','active','{"boarding":true}'
 );
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates(id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES

@@ -68,7 +68,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 128);
+assert.equal(sourceMigrationsWithSql.length, 129);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -83,6 +83,7 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202702150000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270216000000_tenant_operational_choice_relationships.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270217000000_index_tenant_choice_foreign_keys.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270218000000_operational_relationships_and_naming_series.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270225000000_restore_idempotency_for_generated_identifiers.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270219000000_naming_series_master_data_ids.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270220000000_student_nis_source_idempotency.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270221000000_enforce_auto_business_identifiers.sql'));
@@ -254,13 +255,13 @@ const observedStagingMigrations = sourceMigrationsWithSql
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
 assert.equal(observedStagingMigrations.length, 49);
-assert.equal(sourceMigrationsWithSql.length, 128);
+assert.equal(sourceMigrationsWithSql.length, 129);
 const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
 assert.equal(stagingBaseline.appliedCount, 49);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(stagingBaseline.pending.length, 79);
+assert.equal(stagingBaseline.pending.length, 80);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
-assert.equal(stagingBaseline.pending.at(-1).version, '20270224000000');
+assert.equal(stagingBaseline.pending.at(-1).version, '20270225000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
 assert.equal(stagingBaseline.unknownApplied.length, 0);
 assert.deepEqual(stagingBaseline.nameMismatches.map(({ version }) => version), [...missingStagingMetadataVersions]);
@@ -334,5 +335,3 @@ assert.match(READ_ONLY_LEDGER_QUERY, /COMMIT/);
 assert.doesNotMatch(READ_ONLY_LEDGER_QUERY, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE)\b/i);
 
 console.log('Supabase migration preflight logic passed: version/name/SQL lineage comparison, safe SQL parsing, duplicate/unknown versions, TLS enforcement, and read-only SQL.');
-
-

@@ -30,7 +30,7 @@ VALUES
   ('d1900000-0000-4000-8000-000000000014', 'd1900000-0000-4000-8000-000000000009', 'roster-wali@test.invalid', 'Wali Roster', 'wali_santri', 'active', '{"tahfidz":true}', NULL),
   ('d1900000-0000-4000-8000-000000000015', 'd1900000-0000-4000-8000-000000000009', 'roster-no-permission@test.invalid', 'Admin Tanpa Izin', 'admin', 'active', '{"tahfidz":false}', NULL),
   ('d2900000-0000-4000-8000-000000000021', 'd2900000-0000-4000-8000-000000000009', 'roster-admin-b@test.invalid', 'Admin Tenant B', 'admin', 'active', '{"tahfidz":true}', NULL);
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES

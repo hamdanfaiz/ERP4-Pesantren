@@ -23,7 +23,7 @@ VALUES
   ('d1900000-0000-4000-8000-000000000011', 'd1900000-0000-4000-8000-000000000009', 'session-admin@test.invalid', 'Admin Uji', 'admin', 'active', '{"tahfidz":true}'),
   ('d1900000-0000-4000-8000-000000000012', 'd1900000-0000-4000-8000-000000000009', 'session-teacher-a@test.invalid', 'Ustadz A', 'ustadz', 'active', '{"tahfidz":true}'),
   ('d1900000-0000-4000-8000-000000000013', 'd1900000-0000-4000-8000-000000000009', 'session-teacher-b@test.invalid', 'Ustadz B', 'ustadz', 'active', '{"tahfidz":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES

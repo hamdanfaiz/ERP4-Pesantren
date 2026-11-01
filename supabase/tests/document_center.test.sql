@@ -64,12 +64,16 @@ SELECT throws_ok(
     '001/PP/2027', 'incoming', 'Lintas tenant', NULL, NULL, '2027-01-17', NULL
   )$$, '42501', 'Akses aktif Admin ke Dokumen Digital diperlukan', 'admin cannot register a record in another tenant'
 );
-SELECT throws_ok(
-  $$SELECT public.register_tenant_document(
+SELECT isnt(
+  (public.register_tenant_document(
     'a1700000-0000-4000-8000-000000000001', 'a1700000-0000-4000-8000-000000000011', 'admin',
     'a1700000-0000-4000-8000-000000000023', 'a1700000-0000-4000-8000-000000000033',
     '012/pp/2027', 'outgoing', 'Nomor ganda', NULL, 'Penerima', '2027-01-17', NULL
-  )$$, '23505', NULL, 'document numbers are unique within a tenant'
+  )->>'documentNumber'),
+  (SELECT document_number FROM public.document_records
+   WHERE tenant_id = 'a1700000-0000-4000-8000-000000000001'
+     AND id = 'a1700000-0000-4000-8000-000000000031'),
+  'new documents receive a distinct server-generated number instead of a caller-supplied duplicate'
 );
 SELECT throws_ok(
   $$SELECT public.transition_tenant_document(
@@ -147,7 +151,7 @@ SELECT throws_ok(
 );
 RESET ROLE;
 
-SELECT is((SELECT count(*)::INTEGER FROM public.document_records WHERE tenant_id = 'a1700000-0000-4000-8000-000000000001'), 1, 'one tenant document exists');
+SELECT is((SELECT count(*)::INTEGER FROM public.document_records WHERE tenant_id = 'a1700000-0000-4000-8000-000000000001'), 2, 'tenant documents retain unique generated numbers');
 SELECT is((SELECT count(*)::INTEGER FROM public.document_records WHERE tenant_id = 'b2700000-0000-4000-8000-000000000002'), 0, 'another tenant receives no document data');
 SELECT is((SELECT count(*)::INTEGER FROM public.document_attachments WHERE tenant_id = 'a1700000-0000-4000-8000-000000000001'), 1, 'one verified attachment is recorded for the tenant');
 SELECT is((SELECT count(*)::INTEGER FROM public.document_attachments WHERE tenant_id = 'b2700000-0000-4000-8000-000000000002'), 0, 'another tenant receives no attachment metadata');

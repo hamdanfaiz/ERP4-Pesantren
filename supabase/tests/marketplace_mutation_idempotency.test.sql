@@ -71,7 +71,10 @@ SELECT set_config(
     'd9300000-0000-4000-8000-000000000009','d9300000-0000-4000-8000-000000000011',
     jsonb_build_object(
       'action','update','id',current_setting('erp4.marketplace_product_result')::jsonb->>'id',
-      'sku','MKT-001','name','Seragam Revisi','category','Seragam','unitPrice',11,
+      'sku',(SELECT sku FROM public.marketplace_products
+        WHERE tenant_id='d9300000-0000-4000-8000-000000000009'
+          AND id=(current_setting('erp4.marketplace_product_result')::jsonb->>'id')::uuid),
+      'name','Seragam Revisi','category','Seragam','unitPrice',11,
       'seller','Koperasi','imageLabel','Box','clientRequestId','d9300000-0000-4000-8000-000000000402'
     )
   )::text,
@@ -83,7 +86,10 @@ SELECT is(
     'd9300000-0000-4000-8000-000000000009','d9300000-0000-4000-8000-000000000011',
     jsonb_build_object(
       'action','update','id',current_setting('erp4.marketplace_product_result')::jsonb->>'id',
-      'sku','MKT-001','name','Seragam Revisi','category','Seragam','unitPrice',11,
+      'sku',(SELECT sku FROM public.marketplace_products
+        WHERE tenant_id='d9300000-0000-4000-8000-000000000009'
+          AND id=(current_setting('erp4.marketplace_product_result')::jsonb->>'id')::uuid),
+      'name','Seragam Revisi','category','Seragam','unitPrice',11,
       'seller','Koperasi','imageLabel','Box','clientRequestId','d9300000-0000-4000-8000-000000000402'
     )
   )->>'replayed'),
@@ -95,7 +101,10 @@ SELECT throws_ok(
     'd9300000-0000-4000-8000-000000000009','d9300000-0000-4000-8000-000000000011',
     jsonb_build_object(
       'action','update','id',current_setting('erp4.marketplace_product_result')::jsonb->>'id',
-      'sku','MKT-001','name','Different Retry','category','Seragam','unitPrice',11,
+      'sku',(SELECT sku FROM public.marketplace_products
+        WHERE tenant_id='d9300000-0000-4000-8000-000000000009'
+          AND id=(current_setting('erp4.marketplace_product_result')::jsonb->>'id')::uuid),
+      'name','Different Retry','category','Seragam','unitPrice',11,
       'seller','Koperasi','imageLabel','Box','clientRequestId','d9300000-0000-4000-8000-000000000402'
     )
   )$$,

@@ -21,7 +21,7 @@ INSERT INTO public.profiles(user_id, tenant_id, email, display_name, role, statu
   ('c7200000-0000-4000-8000-000000000012','c7200000-0000-4000-8000-000000000001','ppdb-upload-disabled@test.invalid','PPDB Upload Disabled','admin','active','{"ppdb":false}'),
   ('c7200000-0000-4000-8000-000000000013','c7200000-0000-4000-8000-000000000001','ppdb-upload-wali@test.invalid','PPDB Upload Wali','wali_santri','active','{"ppdb":true}'),
   ('c7200000-0000-4000-8000-000000000014','c7200000-0000-4000-8000-000000000002','ppdb-upload-admin-b@test.invalid','PPDB Upload Admin B','admin','active','{"ppdb":true}');
-\ir test_support/seed_tenant_grade_levels.sql
+\ir test_support/seed_tenant_reference_catalogs.psql
 INSERT INTO public.candidates(id, tenant_id, registration_id, name, grade) VALUES
   ('c7200000-0000-4000-8000-000000000101','c7200000-0000-4000-8000-000000000001','UPLOAD-A-001','Calon Santri Upload','VII'),
   ('c7200000-0000-4000-8000-000000000201','c7200000-0000-4000-8000-000000000002','UPLOAD-B-001','Calon Santri Tenant Lain','VII');
