@@ -19,12 +19,12 @@ type UnmappedAcademicClass = { id: string; name: string; status: string };
 type UnmappedAcademicClassSnapshot = { classes: UnmappedAcademicClass[]; classCount: number; limit: number; offset: number };
 type PageableAcademicKind = "schedule" | "journal" | "assessment";
 type AcademicRecordPageMeta = { hasMore: boolean; nextCursor: string | null };
-type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; recordPages: Record<PageableAcademicKind, AcademicRecordPageMeta>; students: Student[]; studentPage: AcademicRecordPageMeta; teachers: Teacher[]; classes: AcademicClass[]; subjects: AcademicReference[]; curricula: AcademicReference[]; assessmentTypes: AcademicReference[]; facilities: AcademicReference[]; units: Unit[]; unitsEnabled: boolean };
+type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; recordPages: Record<PageableAcademicKind, AcademicRecordPageMeta>; students: Student[]; studentPage: AcademicRecordPageMeta; teachers: Teacher[]; subjects: AcademicReference[]; curricula: AcademicReference[]; assessmentTypes: AcademicReference[]; facilities: AcademicReference[]; units: Unit[]; unitsEnabled: boolean };
 type Tab = "schedule" | "journal" | "assessment" | "report-card" | "conflict-resolver" | "teachers" | "subjects" | "curricula";
 type SubjectReference = { name: string; schedules: number; journals: number; assessments: number };
 type CurriculumReference = { name: string; schedules: number };
 
-const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], recordPages: { schedule: { hasMore: false, nextCursor: null }, journal: { hasMore: false, nextCursor: null }, assessment: { hasMore: false, nextCursor: null } }, students: [], studentPage: { hasMore: false, nextCursor: null }, teachers: [], classes: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
+const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], recordPages: { schedule: { hasMore: false, nextCursor: null }, journal: { hasMore: false, nextCursor: null }, assessment: { hasMore: false, nextCursor: null } }, students: [], studentPage: { hasMore: false, nextCursor: null }, teachers: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
 const EMPTY_UNMAPPED_CLASSES: UnmappedAcademicClassSnapshot = { classes: [], classCount: 0, limit: 100, offset: 0 };
 const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_ACADEMIC_IMPORT_ENABLED") === "true";
 type AcademicImportPreview = {
@@ -62,6 +62,108 @@ async function requestAcademic(path: string, init: RequestInit = {}) {
 const fieldClass = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100";
 const labelClass = "block text-sm font-medium text-slate-700 dark:text-slate-300";
 const buttonClass = "inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50";
+
+function AcademicClassPicker({
+  label,
+  value,
+  selectedName,
+  unitId,
+  unitsEnabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  selectedName: string;
+  unitId: string;
+  unitsEnabled: boolean;
+  onChange: (id: string, name: string) => void;
+}) {
+  const [searchInput, setSearchInput] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [classes, setClasses] = useState<AcademicClass[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const requestEpoch = useRef(0);
+
+  const loadPage = useCallback(async (search: string, cursor: string | null, append: boolean) => {
+    const epoch = ++requestEpoch.current;
+    setLoading(true);
+    setError("");
+    try {
+      const query = new URLSearchParams();
+      if (search) query.set("q", search);
+      if (unitsEnabled && unitId) query.set("unitId", unitId);
+      if (cursor) query.set("cursor", cursor);
+      const result = await requestAcademic(`/api/academic/classes${query.size ? `?${query.toString()}` : ""}`);
+      if (epoch !== requestEpoch.current) return;
+      if (!Array.isArray(result.classes) || result.classes.length > 100 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (result.classes.length !== 100 || typeof result.nextCursor !== "string" || !result.nextCursor || result.nextCursor === cursor))
+        || (!result.hasMore && result.nextCursor != null)) {
+        throw new Error("Halaman pilihan kelas belum lengkap.");
+      }
+      const loaded = result.classes.map((item: any) => {
+        const id = typeof item?.id === "string" ? item.id : "";
+        const name = typeof item?.name === "string" ? item.name.trim() : "";
+        if (!id || id.length > 160 || !name || name.length > 180) throw new Error("Ada referensi kelas yang tidak valid.");
+        return { id, name, organizationUnitId: typeof item.organizationUnitId === "string" ? item.organizationUnitId : null } as AcademicClass;
+      });
+      setClasses((current) => {
+        if (!append) return loaded;
+        const existing = new Set(current.map((item) => item.id));
+        return [...current, ...loaded.filter((item) => !existing.has(item.id))];
+      });
+      setAppliedSearch(search);
+      setNextCursor(typeof result.nextCursor === "string" ? result.nextCursor : null);
+      setHasMore(result.hasMore);
+    } catch (loadError: any) {
+      if (epoch === requestEpoch.current) setError(loadError?.message || "Daftar kelas belum dapat dimuat.");
+    } finally {
+      if (epoch === requestEpoch.current) setLoading(false);
+    }
+  }, [unitId, unitsEnabled]);
+
+  useEffect(() => {
+    setSearchInput("");
+    setAppliedSearch("");
+    setClasses([]);
+    setNextCursor(null);
+    setHasMore(false);
+    void loadPage("", null, false);
+    return () => { requestEpoch.current += 1; };
+  }, [loadPage]);
+
+  const search = () => void loadPage(searchInput.trim().replace(/\s+/g, " ").normalize("NFC"), null, false);
+  return <div className="space-y-2">
+    <div className="flex gap-2">
+      <input type="search" maxLength={80} className={fieldClass} value={searchInput}
+        onChange={(event) => setSearchInput(event.target.value)}
+        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); search(); } }}
+        placeholder="Cari nama kelas" aria-label={`Cari ${label.toLocaleLowerCase("id-ID")}`} />
+      <button type="button" onClick={search} disabled={loading}
+        className="shrink-0 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">
+        {loading ? "Memuat…" : "Cari"}
+      </button>
+    </div>
+    <select required className={fieldClass} value={value} aria-label={label}
+      onChange={(event) => {
+        const selected = classes.find((item) => item.id === event.target.value);
+        if (selected) onChange(selected.id, selected.name);
+        else if (!event.target.value) onChange("", "");
+      }}>
+      <option value="">Pilih kelas dari Data Induk</option>
+      {value && !classes.some((item) => item.id === value) && <option value={value}>{selectedName || "Kelas terpilih"} · dipilih</option>}
+      {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+    </select>
+    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+      <span>{classes.length} kelas dimuat{appliedSearch ? ` untuk “${appliedSearch}”` : ""}{hasMore ? "; masih ada hasil berikutnya" : ""}.</span>
+      {hasMore && <button type="button" onClick={() => void loadPage(appliedSearch, nextCursor, true)} disabled={loading}
+        className="font-semibold text-emerald-700 underline disabled:opacity-50 dark:text-emerald-300">Muat kelas berikutnya</button>}
+    </div>
+    {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
+  </div>;
+}
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -134,12 +236,6 @@ export function SupabaseAcademicManager() {
   }, []);
   const scheduleUnitId = schedule.organizationUnitId || activeUnits[0]?.id || "";
   const journalUnitId = journal.organizationUnitId || activeUnits[0]?.id || "";
-  const classesForUnit = useCallback((unitId: string) => snapshot.classes
-    .filter((row) => !snapshot.unitsEnabled || !row.organizationUnitId || row.organizationUnitId === unitId)
-    .sort((a, b) => a.name.localeCompare(b.name, "id") || a.id.localeCompare(b.id)),
-  [snapshot.classes, snapshot.unitsEnabled]);
-  const scheduleClasses = useMemo(() => classesForUnit(scheduleUnitId), [classesForUnit, scheduleUnitId]);
-  const journalClasses = useMemo(() => classesForUnit(journalUnitId), [classesForUnit, journalUnitId]);
   const forUnit = (items: AcademicReference[], unitId: string) => items.filter((item) => !snapshot.unitsEnabled || !item.organizationUnitId || item.organizationUnitId === unitId);
   const scheduleSubjects = useMemo(() => forUnit(snapshot.subjects, scheduleUnitId), [snapshot.subjects, snapshot.unitsEnabled, scheduleUnitId]);
   const journalSubjects = useMemo(() => forUnit(snapshot.subjects, journalUnitId), [snapshot.subjects, snapshot.unitsEnabled, journalUnitId]);
@@ -204,7 +300,6 @@ export function SupabaseAcademicManager() {
         students: Array.isArray(payload.students) ? payload.students : [],
         studentPage: { hasMore: payload.studentPage?.hasMore === true, nextCursor: typeof payload.studentPage?.nextCursor === "string" ? payload.studentPage.nextCursor : null },
         teachers: Array.isArray(payload.teachers) ? payload.teachers : [],
-        classes: Array.isArray(payload.classes) ? payload.classes : [],
         subjects: Array.isArray(payload.subjects) ? payload.subjects : [],
         curricula: Array.isArray(payload.curricula) ? payload.curricula : [],
         assessmentTypes: Array.isArray(payload.assessmentTypes) ? payload.assessmentTypes : [],
@@ -380,14 +475,6 @@ export function SupabaseAcademicManager() {
     setSelectedStudentCache(null);
     setAssessment((current) => ({ ...current, studentId: "", studentName: "", className: "", subject: "", subjectReferenceId: "" }));
     setUnitFilter(nextUnitFilter);
-  };
-  const setScheduleClass = (classReferenceId: string) => {
-    const selected = snapshot.classes.find((item) => item.id === classReferenceId);
-    setSchedule((current) => ({ ...current, classReferenceId, className: selected?.name || "" }));
-  };
-  const setJournalClass = (classReferenceId: string) => {
-    const selected = snapshot.classes.find((item) => item.id === classReferenceId);
-    setJournal((current) => ({ ...current, classReferenceId, className: selected?.name || "" }));
   };
   const setScheduleSubject = (subjectReferenceId: string) => {
     const selected = snapshot.subjects.find((item) => item.id === subjectReferenceId);
@@ -587,7 +674,7 @@ export function SupabaseAcademicManager() {
             <Field label="Hari"><select className={fieldClass} value={schedule.day} onChange={(e) => setSchedule({ ...schedule, day: e.target.value })}>{["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day) => <option key={day}>{day}</option>)}</select></Field>
             <Field label="Waktu (HH:MM - HH:MM)"><input required className={fieldClass} value={schedule.time} onChange={(e) => setSchedule({ ...schedule, time: e.target.value })} placeholder="07:30 - 09:00" /></Field>
             <Field label="Mata pelajaran"><select required className={fieldClass} value={schedule.subjectReferenceId} onChange={(e) => setScheduleSubject(e.target.value)}><option value="">Pilih mata pelajaran</option>{scheduleSubjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-            <Field label="Kelas"><select required className={fieldClass} value={schedule.classReferenceId} onChange={(e) => setScheduleClass(e.target.value)}><option value="">Pilih kelas dari Data Induk</option>{scheduleClasses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+            <div className={labelClass}><span className="block">Kelas</span><AcademicClassPicker label="Kelas jadwal KBM" value={schedule.classReferenceId} selectedName={schedule.className} unitId={scheduleUnitId} unitsEnabled={snapshot.unitsEnabled} onChange={(classReferenceId, className) => setSchedule((current) => ({ ...current, classReferenceId, className }))} /></div>
             <Field label="Pengajar"><select required className={fieldClass} value={schedule.teacherUserId} onChange={(e) => setScheduleTeacher(e.target.value)}><option value="">Pilih pengajar</option>{scheduleTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}</select></Field>
             <Field label="Ruang"><select className={fieldClass} value={schedule.facilityReferenceId} onChange={(e) => { const selected = snapshot.facilities.find((item) => item.id === e.target.value); setSchedule((current) => ({ ...current, facilityReferenceId: e.target.value, room: selected?.name || "" })); }}><option value="">Tanpa ruang khusus</option>{scheduleFacilities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
             <Field label="Kurikulum"><select required className={fieldClass} value={schedule.curriculumReferenceId} onChange={(e) => { const selected = snapshot.curricula.find((item) => item.id === e.target.value); setSchedule((current) => ({ ...current, curriculumReferenceId: e.target.value, curriculum: selected?.name || "" })); }}><option value="">Pilih kurikulum</option>{scheduleCurricula.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
@@ -595,7 +682,7 @@ export function SupabaseAcademicManager() {
           {activeTab === "journal" && <>
             {snapshot.unitsEnabled && isAdmin && <Field label="Unit organisasi"><select required className={fieldClass} value={journalUnitId} onChange={(e) => setJournal((current) => ({ ...current, organizationUnitId: e.target.value, teacherUserId: "", teacherName: "", subject: "", subjectReferenceId: "", className: "", classReferenceId: "" }))}><option value="">Pilih unit aktif</option>{activeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select></Field>}
             <Field label="Tanggal"><input type="date" required className={fieldClass} value={journal.date} onChange={(e) => setJournal({ ...journal, date: e.target.value })} /></Field>
-            <Field label="Kelas"><select required className={fieldClass} value={journal.classReferenceId} onChange={(e) => setJournalClass(e.target.value)}><option value="">Pilih kelas dari Data Induk</option>{journalClasses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+            <div className={labelClass}><span className="block">Kelas</span><AcademicClassPicker label="Kelas jurnal KBM" value={journal.classReferenceId} selectedName={journal.className} unitId={journalUnitId} unitsEnabled={snapshot.unitsEnabled} onChange={(classReferenceId, className) => setJournal((current) => ({ ...current, classReferenceId, className }))} /></div>
             <Field label="Mata pelajaran"><select required className={fieldClass} value={journal.subjectReferenceId} onChange={(e) => setJournalSubject(e.target.value)}><option value="">Pilih mata pelajaran</option>{journalSubjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
             <Field label="Materi"><textarea required maxLength={2000} rows={3} className={fieldClass} value={journal.topic} onChange={(e) => setJournal({ ...journal, topic: e.target.value })} /></Field>
             <Field label="Kompetensi / catatan"><textarea maxLength={4000} rows={2} className={fieldClass} value={journal.competency} onChange={(e) => setJournal({ ...journal, competency: e.target.value })} /></Field>

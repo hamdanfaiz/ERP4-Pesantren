@@ -54,3 +54,21 @@ Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. Pengujian pgTAP
 4. Evaluasi batas 500 kelas dan scan konflik 5.000 jadwal dengan data sintetis berskala realistis.
 5. Perbarui PR #40 untuk tinjauan backend. Jangan merge sebelum CI, uji staging, dan UAT Admin lulus.
 6. Production tetap menjadi langkah setelah gerbang staging serta penerimaan tim backend terpenuhi.
+
+## Pengembangan berikutnya — pilihan kelas tanpa batas 500 — 5 November 2026
+
+- Source lokal kini memiliki `GET /api/academic/classes` dan RPC tenant-scoped dengan pencarian prefix serta keyset cursor 100 kelas per halaman.
+- Form Jadwal KBM dan Jurnal KBM memakai picker pencarian/paginasi. Roster RPC tidak lagi mengembalikan daftar kelas parsial; pemuatan roster santri tetap berjalan terpisah.
+- Fungsi database mengikat cursor ke scope di lapisan server, lalu memeriksa tenant/profil aktif, role, izin Akademik, unit organisasi, dan jadwal kelas Ustadz di Postgres. Wildcard pencarian ditolak agar tidak mengubah cakupan query.
+- pgTAP diperluas menjadi 48 assertion dengan tenant sintetis 501 kelas, cursor kelas, isolasi tenant/unit, kelas Ustadz, indeks prefix/keyset, serta ACL `service_role` versus `anon`/`authenticated`.
+- Validasi lokal lulus: `npm run lint`, `npm run test:academic-class-pagination`, `npm run test:academic-roster-pagination`, `npm run build`, dan `git diff --check`. Build mengulang peringatan chunk PDF sekitar 1,46 MB.
+- Migration `20270302000000_academic_class_reference_pagination.sql` belum diterapkan ke VQE; pgTAP belum dijalankan karena lingkungan lokal tidak memiliki Docker/`psql`, dan upaya konektor SQL sebelumnya tidak dapat menjalankan helper dollar-quoted dengan aman.
+- Perubahan masih berada pada working tree lokal saat checkpoint dibuat. CI, UAT Admin, penerapan migration ke VQE, serta rekonsiliasi ledger tenant-reference tetap menjadi gerbang. PR #40 tetap Draft/Open dan Production tidak disentuh.
+
+## Pengembangan berikutnya — daftar kelas berskala besar — 5 November 2026
+
+- Dropdown kelas Jadwal KBM dan Jurnal KBM kini menggunakan endpoint terpisah dengan pencarian prefix dan keyset pagination 100 record, sehingga tenant dengan lebih dari 500 kelas tidak gagal karena batas agregasi.
+- Migration menambah indeks urutan keyset dan indeks `text_pattern_ops` untuk pencarian prefix pada locale selain `C`; fungsi tetap memvalidasi tenant, profil, role, izin, unit, dan jadwal Ustadz.
+- Uji lokal service/UI, lint, build, dan diff-check telah lulus sebelum pembaruan indeks. Pemeriksaan preflight diperbarui agar mengenali 134 migrasi lokal termasuk file baru; jalankan ulang sebelum commit.
+- Migration dan pgTAP belum diterapkan/dijalankan di VQE. Staging UAT Admin, CI pada head PR, dan rekonsiliasi ledger masih wajib; Production PTSAS tetap tidak disentuh.
+- PR #40 tetap Draft/Open. Tidak ada merge yang dilakukan.

@@ -23,7 +23,7 @@ git -C $worktree commit --allow-empty -m 'ci: run PR 40 checks'
 git -C $worktree push origin HEAD:refs/heads/codex/menu-owner-placement-20261101
 ```
 
-Git harus terautentikasi ke repo GitHub sebelum perintah `push`. Setelah push berhasil, tunggu sampai job `npm-install`, `frontend`, dan `database` selesai di tab **Checks** PR #40. Job database mencakup replay migration Supabase lokal, pgTAP, race NIS/Tahfidz, API Auth/tenant, Storage, serta backup/restore pada lingkungan terisolasi CI.
+Git harus terautentikasi ke repo GitHub sebelum perintah `push`. Setelah push berhasil, tunggu sampai job `npm-install`, `frontend`, dan `database` selesai di tab **Checks** PR #40. Job database mencakup replay seluruh migration Supabase lokal (termasuk `20270302000000_academic_class_reference_pagination.sql`), pgTAP roster/kelas (termasuk tenant sintetis 501 kelas), race NIS/Tahfidz, API Auth/tenant, Storage, serta backup/restore pada lingkungan terisolasi CI.
 
 Setelah workflow selesai, worktree sementara dapat dibuang:
 
@@ -37,3 +37,7 @@ git -C $repo worktree remove $worktree
 - Jangan mengaktifkan Deploy to Production. VQE staging tetap terpisah dari PTSAS Production.
 - Jika push ditolak karena branch sudah bergerak, jalankan `git -C $repo fetch origin` lagi, buat ulang worktree pada head terbaru, lalu ulangi commit kosong dan push.
 - PR tetap Draft/Open sampai CI, pgTAP, UAT Admin VQE, rekonsiliasi ledger staging, dan penerimaan tim backend selesai.
+
+## Gate tambahan — picker kelas Akademik
+
+Perubahan terbaru menambah migration `20270302000000_academic_class_reference_pagination.sql` dan memperluas `supabase/tests/academic_student_roster_pagination.test.sql` menjadi 48 assertion. Pastikan CI head terbaru mereplay migration ini dan menyelesaikan pgTAP, termasuk paging tenant sintetis 501 kelas serta indeks prefix/keyset, sebelum UAT staging atau merge.

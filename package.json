@@ -54,6 +54,7 @@
     "test:academic-portal": "tsx scripts/test-academic-portal.ts",
     "test:academic-record-pagination": "tsx scripts/test-academic-record-pagination.ts",
     "test:academic-roster-pagination": "tsx scripts/test-academic-roster-pagination.ts",
+    "test:academic-class-pagination": "tsx scripts/test-academic-class-pagination.ts",
     "test:academic-schedule-conflicts": "tsx scripts/test-academic-schedule-conflicts.ts",
     "test:public-ppdb-validation": "tsx scripts/test-public-ppdb-validation.ts",
     "test:trusted-proxy-hops": "tsx scripts/test-trusted-proxy-hops.ts",

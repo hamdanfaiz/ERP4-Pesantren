@@ -18,6 +18,12 @@ import {
   encodeAcademicRosterCursor,
   normalizeAcademicRosterSearch,
 } from "../lib/academicRosterPagination";
+import {
+  ACADEMIC_CLASS_PAGE_SIZE,
+  decodeAcademicClassCursor,
+  encodeAcademicClassCursor,
+  normalizeAcademicClassSearch,
+} from "../lib/academicClassPagination";
 
 type Row = Record<string, any>;
 
@@ -226,7 +232,6 @@ async function academicRosterPageForScope(
   });
   if (!result || typeof result !== "object" || result.success !== true
     || !Array.isArray(result.students) || result.students.length > ACADEMIC_ROSTER_PAGE_SIZE
-    || !Array.isArray(result.classes) || result.classes.length > 500
     || typeof result.hasMore !== "boolean"
     || (result.hasMore && result.students.length !== ACADEMIC_ROSTER_PAGE_SIZE)) {
     throw new SupabaseAcademicError(503, "Halaman roster Akademik belum lengkap atau tidak dapat diverifikasi.");
@@ -237,12 +242,6 @@ async function academicRosterPageForScope(
       || typeof row.nis !== "string" || typeof row.className !== "string"
       || (unitId && !isUuid(unitId))) throw new SupabaseAcademicError(503, "Ada santri dengan identitas roster tidak valid.");
     return { id: String(row.id), name: String(row.name), nis: String(row.nis), className: String(row.className), organizationUnitId: unitId || null };
-  });
-  const classes = (result.classes as Row[]).map((row) => {
-    const unitId = String(row.organizationUnitId || "");
-    if (typeof row.id !== "string" || !row.id.trim() || typeof row.name !== "string" || !row.name.trim()
-      || (unitId && !isUuid(unitId))) throw new SupabaseAcademicError(503, "Ada kelas Akademik dengan referensi tidak valid.");
-    return { id: String(row.id), name: String(row.name).trim(), organizationUnitId: unitId || null };
   });
   let nextCursor: string | null = null;
   if (result.hasMore) {
@@ -257,7 +256,77 @@ async function academicRosterPageForScope(
   } else if (result.nextCursor != null) {
     throw new SupabaseAcademicError(503, "Halaman roster Akademik mengirim kursor yang tidak diharapkan.");
   }
-  return { students, classes, hasMore: result.hasMore, nextCursor };
+  // Class references have their own searchable keyset endpoint. Never treat
+  // the roster RPC's bounded legacy sample as a complete selector list.
+  return { students, hasMore: result.hasMore, nextCursor };
+}
+
+export async function getSupabaseAcademicClassPage(
+  tenantIdentifier: string,
+  actorId: string,
+  role: string,
+  unitsEnabled: boolean,
+  actorUnitId: string | undefined,
+  requestedUnitFilter: unknown,
+  searchValue: unknown,
+  cursorValue?: unknown,
+) {
+  if (!isUuid(actorId) || !["Admin", "SuperAdmin", "Ustadz"].includes(role)) {
+    throw new SupabaseAcademicError(403, "Akses daftar kelas Akademik tidak diizinkan.");
+  }
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const filter = await resolveAcademicUnitFilter(tenantId, role, actorUnitId, unitsEnabled, requestedUnitFilter);
+  let search: string;
+  try { search = normalizeAcademicClassSearch(searchValue); }
+  catch (error) { throw new SupabaseAcademicError(400, error instanceof Error ? error.message : "Pencarian kelas Akademik tidak valid."); }
+  const expectedRole = role === "Admin" ? "admin" : role === "SuperAdmin" ? "super_admin" : "ustadz";
+  const scope = `${tenantId}:${actorId}:${expectedRole}:${unitsEnabled ? `${filter.mode}:${filter.unitId || ""}` : "all"}`;
+  let cursor;
+  try { cursor = decodeAcademicClassCursor(cursorValue, { search, scope }); }
+  catch (error) { throw new SupabaseAcademicError(400, error instanceof Error ? error.message : "Kursor kelas Akademik tidak valid."); }
+  const result = await request("/rest/v1/rpc/get_tenant_academic_class_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_units_enabled: unitsEnabled,
+      p_unit_mode: filter.mode,
+      p_unit_id: filter.unitId || null,
+      p_search: search,
+      p_after_name: cursor?.name || null,
+      p_after_id: cursor?.id || null,
+      p_limit: ACADEMIC_CLASS_PAGE_SIZE,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true
+    || !Array.isArray(result.classes) || result.classes.length > ACADEMIC_CLASS_PAGE_SIZE
+    || typeof result.hasMore !== "boolean"
+    || (result.hasMore && result.classes.length !== ACADEMIC_CLASS_PAGE_SIZE)) {
+    throw new SupabaseAcademicError(503, "Halaman daftar kelas Akademik belum lengkap atau tidak dapat diverifikasi.");
+  }
+  const classes = (result.classes as Row[]).map((row) => {
+    const id = String(row.id || "");
+    const name = String(row.name || "").trim();
+    const unitId = String(row.organizationUnitId || "");
+    if (!id || id.length > 160 || /[\u0000-\u001f\u007f]/u.test(id) || !name || name.length > 180
+      || (unitId && !isUuid(unitId))) throw new SupabaseAcademicError(503, "Ada referensi kelas yang tidak valid.");
+    return { id, name, organizationUnitId: unitId || null };
+  });
+  let nextCursor: string | null = null;
+  if (result.hasMore) {
+    const rawCursor = result.nextCursor as Row | null;
+    const last = classes[classes.length - 1];
+    if (!rawCursor || typeof rawCursor.name !== "string" || rawCursor.name.length > 180
+      || /[\u0000-\u001f\u007f]/u.test(rawCursor.name)
+      || typeof rawCursor.id !== "string" || !last || rawCursor.id !== last.id) {
+      throw new SupabaseAcademicError(503, "Kursor daftar kelas Akademik belum konsisten.");
+    }
+    nextCursor = encodeAcademicClassCursor({ name: rawCursor.name, id: rawCursor.id, search, scope });
+  } else if (result.nextCursor != null) {
+    throw new SupabaseAcademicError(503, "Daftar kelas mengirim kursor yang tidak diharapkan.");
+  }
+  return { classes, hasMore: result.hasMore, nextCursor };
 }
 
 export async function getSupabaseAcademicRosterPage(
@@ -397,13 +466,11 @@ export async function getSupabaseAcademicSnapshot(
       return { id: String(row.user_id), name: String(row.display_name || ""), organizationUnitId: unitId || null,
         organizationUnitName: unitId ? String(unitsById.get(unitId)?.name || "Unit tidak tersedia") : null };
     });
-  const classes = rosterPage.classes.map((row) => ({ ...row,
-    organizationUnitName: row.organizationUnitId ? String(unitsById.get(row.organizationUnitId)?.name || "Unit tidak tersedia") : null }));
   return { schedules, journals, assessments, recordPages: {
       schedule: { hasMore: schedulePage.hasMore, nextCursor: schedulePage.nextCursor },
       journal: { hasMore: journalPage.hasMore, nextCursor: journalPage.nextCursor },
       assessment: { hasMore: assessmentPage.hasMore, nextCursor: assessmentPage.nextCursor },
-    }, students, studentPage: { hasMore: rosterPage.hasMore, nextCursor: rosterPage.nextCursor }, teachers, classes,
+    }, students, studentPage: { hasMore: rosterPage.hasMore, nextCursor: rosterPage.nextCursor }, teachers,
     subjects: activeReference("academic_subject"), curricula: activeReference("academic_curriculum"),
     assessmentTypes: activeReference("academic_assessment_type"), facilities: activeReference("facility_resource"),
     units: (unitRows as Row[]).map((row) => ({ id: String(row.id), name: String(row.name || ""), code: String(row.code || ""), status: String(row.status || ""), unitType: String(row.unit_type || "") })),

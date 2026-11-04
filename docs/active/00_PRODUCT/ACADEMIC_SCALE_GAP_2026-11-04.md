@@ -35,3 +35,11 @@ Daftar jadwal, jurnal, penilaian, dan santri kini dimuat per halaman; jumlah san
 
 Pagination cursor jadwal/jurnal/penilaian/roster dan guard kelas Ustadz sudah diimplementasikan di source dan dua migration terbaru sudah diterapkan ke VQE staging. Setelah diselaraskan dengan head PR #40 `90c17e8`, validasi lokal lulus: lint, build, pagination catatan/roster, konflik jadwal, portal Akademik, migration preflight, dan guard Supabase-only. pgTAP roster belum dijalankan; daftar kelas dibatasi 500 referensi dan scan konflik 5.000 jadwal masih memerlukan uji kapasitas tenant besar. UAT preview belum selesai. Production tidak disentuh.
 
+## Perubahan kapasitas pilihan kelas — 5 November 2026
+
+- Batas keras 500 kelas pada roster Akademik dihapus dari source. Roster tidak lagi membawa sampel kelas yang dapat terlihat lengkap padahal terpotong.
+- Pilihan kelas jadwal dan jurnal kini memakai endpoint pencarian/pagination keyset berukuran 100. Kursor terikat pada tenant, aktor, role, pencarian, dan filter unit. Fungsi Postgres memeriksa profil/tenant aktif dan izin Akademik; kelas Ustadz dibatasi ke referensi kelas yang mempunyai jadwal untuk Ustadz tersebut.
+- Migration source baru `20270302000000_academic_class_reference_pagination.sql` dan assertion pgTAP untuk tenant dengan 501 kelas sintetis sudah ditambahkan. Perubahan masih lokal; migration belum diterapkan ke VQE dan assertion belum dijalankan di Postgres.
+- Lint, build, uji pagination kelas, uji pagination roster, dan `git diff --check` lulus. Build tetap memberi peringatan chunk PDF 1,46 MB.
+- Gerbang skala tenant besar yang tersisa adalah pemindaian konflik jadwal 5.000 record dan uji beban/UAT representatif. Production PTSAS tidak disentuh.
+

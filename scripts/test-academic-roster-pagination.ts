@@ -66,7 +66,7 @@ try {
   const firstPage = await getSupabaseAcademicRosterPage(tenantId, actorId, "Ustadz", false, undefined, undefined, "Santri");
   assert.equal(firstPage.students.length, 50);
   assert.equal(firstPage.hasMore, true);
-  assert.equal(firstPage.classes[0].id, "CLASS-A");
+  assert.equal("classes" in firstPage, false, "class choices are loaded from their searchable page endpoint");
   assert.ok(firstPage.nextCursor);
   assert.equal(requests[0].body.p_tenant_id, tenantId);
   assert.equal(requests[0].body.p_actor_user_id, actorId);

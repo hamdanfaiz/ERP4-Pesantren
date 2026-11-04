@@ -66,3 +66,11 @@ Tidak ada data Firestore dummy yang disalin. Tidak ada perubahan pada Production
 - VQE staging memiliki 133 migration, termasuk `20270228000000` dan `20270301000000`; pgTAP roster 27 assertion belum berhasil dijalankan. Docker, `psql`, dan Supabase CLI tidak tersedia. Percobaan SQL konektor berhenti pada parse error dan pemeriksaan baca-saja sesudahnya memastikan tenant, user, profil, kandidat, santri, catatan Akademik, serta ekstensi pgTAP sintetis tetap tidak berubah.
 - Tidak ada review submission atau inline review thread pada PR #40. PR tetap Draft/Open. Production tetap tidak disentuh.
 
+## Source lanjutan — 5 November 2026
+
+- Batas keras 500 kelas dihapus dari source picker Akademik. Roster tidak lagi menyertakan daftar kelas terbatas; Jadwal KBM dan Jurnal KBM memuat pilihan kelas melalui endpoint tenant-scoped dengan pencarian dan cursor halaman 100.
+- Perubahan source dan migration `20270302000000_academic_class_reference_pagination.sql` belum dijalankan di VQE. Perlu direplay melalui CI terisolasi; jangan menerapkannya ke Production.
+- Validasi lokal lulus: lint, test class pagination, test roster pagination, build, dan whitespace check. Build masih memperingatkan bundle PDF 1,46 MB.
+- pgTAP diperluas untuk skenario 501 kelas, keyset berurutan, prefix search, tenant/unit/role, pembatasan kelas Ustadz, serta ACL RPC. Bukti Postgres belum ada, jadi gerbang database masih terbuka.
+- Rincian kapasitas diperbarui di `ACADEMIC_SCALE_GAP_2026-11-04.md`. Perubahan ini memperbaiki batas pilihan kelas pada source, tetapi belum menutup sertifikasi skala tenant besar maupun batas scan konflik 5.000 jadwal.
+

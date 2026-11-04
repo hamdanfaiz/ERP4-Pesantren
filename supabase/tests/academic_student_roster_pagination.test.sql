@@ -3,7 +3,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(27);
+SELECT plan(48);
 
 INSERT INTO public.tenants(id,slug,name,status)
 VALUES
@@ -45,6 +45,11 @@ VALUES
   ('e2800000-0000-4000-8000-000000000001','Kelas','ROSTER-CLASS-B','VII','Active','e2800000-0000-4000-8000-000000000102','VII'),
   ('e2800000-0000-4000-8000-000000000002','Kelas','ROSTER-CLASS-C','VII','Active','e2800000-0000-4000-8000-000000000103','VII');
 
+INSERT INTO public.master_data_records(tenant_id,category,id,name,status)
+SELECT 'e2800000-0000-4000-8000-000000000001','Kelas',
+  'SCALE-' || lpad(n::TEXT,4,'0'),'Tenant Scale Class ' || lpad(n::TEXT,4,'0'),'Active'
+FROM generate_series(1,501) AS n;
+
 INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint,organization_unit_id,grade)
 VALUES
   ('e2800000-0000-4000-8000-000000000201','e2800000-0000-4000-8000-000000000001','ROSTER-CAND-A','Santri Unit A',decode(repeat('a1',44),'hex'),decode(repeat('b1',32),'hex'),'e2800000-0000-4000-8000-000000000101','VII'),
@@ -68,6 +73,17 @@ RETURNS JSONB LANGUAGE SQL AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION pg_temp.academic_classes(
+  p_tenant UUID, p_actor UUID, p_role TEXT,
+  p_mode TEXT DEFAULT 'all', p_unit UUID DEFAULT NULL, p_search TEXT DEFAULT '',
+  p_after_name TEXT DEFAULT NULL, p_after_id TEXT DEFAULT NULL, p_limit INTEGER DEFAULT 100
+)
+RETURNS JSONB LANGUAGE SQL AS $$
+  SELECT public.get_tenant_academic_class_page(
+    p_tenant,p_actor,p_role,true,p_mode,p_unit,p_search,p_after_name,p_after_id,p_limit
+  );
+$$;
+
 SET LOCAL ROLE service_role;
 
 SELECT is(public.save_academic_record(
@@ -82,8 +98,32 @@ SELECT is(public.save_academic_record(
 SELECT ok(has_function_privilege('service_role','public.get_tenant_academic_roster_page(uuid,uuid,text,boolean,text,uuid,text,text,uuid,integer)','EXECUTE'),'only the trusted server role can call the roster RPC');
 SELECT ok(NOT has_function_privilege('anon','public.get_tenant_academic_roster_page(uuid,uuid,text,boolean,text,uuid,text,text,uuid,integer)','EXECUTE'),'anonymous clients cannot call the roster RPC');
 SELECT ok(NOT has_function_privilege('authenticated','public.get_tenant_academic_roster_page(uuid,uuid,text,boolean,text,uuid,text,text,uuid,integer)','EXECUTE'),'authenticated clients cannot call the roster RPC directly');
+SELECT ok(has_function_privilege('service_role','public.get_tenant_academic_class_page(uuid,uuid,text,boolean,text,uuid,text,text,text,integer)','EXECUTE'),'only the trusted server role can call the class page RPC');
+SELECT ok(NOT has_function_privilege('anon','public.get_tenant_academic_class_page(uuid,uuid,text,boolean,text,uuid,text,text,text,integer)','EXECUTE'),'anonymous clients cannot call the class page RPC');
+SELECT ok(NOT has_function_privilege('authenticated','public.get_tenant_academic_class_page(uuid,uuid,text,boolean,text,uuid,text,text,text,integer)','EXECUTE'),'authenticated clients cannot call the class page RPC directly');
+SELECT ok(EXISTS (SELECT 1 FROM pg_class AS idx JOIN pg_namespace AS ns ON ns.oid=idx.relnamespace WHERE ns.nspname='public' AND idx.relname='master_data_academic_class_tenant_name_id_idx'),'keyset ordering has a tenant-scoped active-class index');
+SELECT ok(EXISTS (SELECT 1 FROM pg_class AS idx JOIN pg_namespace AS ns ON ns.oid=idx.relnamespace WHERE ns.nspname='public' AND idx.relname='master_data_academic_class_tenant_name_pattern_idx'),'prefix search has a dedicated pattern-operator index');
 SELECT is(jsonb_array_length(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin')->'students'),2,'admin receives both active students in their tenant');
-SELECT is(jsonb_array_length(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin')->'classes'),2,'admin receives both same-name classes by distinct reference');
+SELECT is(jsonb_array_length(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin')->'classes'),0,'roster response no longer embeds a bounded and potentially incomplete class list');
+SELECT is(jsonb_array_length(pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'VII')->'classes'),2,'class page returns both same-name classes by distinct reference');
+SELECT is(jsonb_array_length(pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'V')->'classes'),2,'class prefix search finds both same-name classes');
+SELECT is(pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'VII',NULL,NULL,1)->'classes'->0->>'id','ROSTER-CLASS-A','first class keyset page starts with the stable ID tie-breaker');
+SELECT is(pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'VII',NULL,NULL,1)->>'hasMore','true','class page reports that another class exists');
+SELECT is(pg_temp.academic_classes(
+  'e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'VII',
+  pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'VII',NULL,NULL,1)->'nextCursor'->>'name',
+  pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'VII',NULL,NULL,1)->'nextCursor'->>'id',1
+)->'classes'->0->>'id','ROSTER-CLASS-B','next class page continues after the exact name and text ID cursor');
+SELECT is(pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','ustadz','unit','e2800000-0000-4000-8000-000000000101')->'classes'->0->>'id','ROSTER-CLASS-A','Ustadz A receives only their scheduled class reference');
+SELECT is(pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000013','ustadz','unit','e2800000-0000-4000-8000-000000000102')->'classes'->0->>'id','ROSTER-CLASS-B','Ustadz B receives only their scheduled class reference');
+SELECT is(pg_temp.academic_classes('e2800000-0000-4000-8000-000000000002','e2800000-0000-4000-8000-000000000014','admin')->'classes'->0->>'id','ROSTER-CLASS-C','tenant B class page excludes all tenant A classes');
+SELECT is(jsonb_array_length(pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'Tenant Scale')->'classes'),100,'large tenant class choices are returned in bounded pages');
+SELECT is(pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'Tenant Scale')->>'hasMore','true','tenant with over 500 classes remains navigable instead of failing closed');
+SELECT is(pg_temp.academic_classes(
+  'e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'Tenant Scale',
+  pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'Tenant Scale')->'nextCursor'->>'name',
+  pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'Tenant Scale')->'nextCursor'->>'id',100
+)->'classes'->0->>'id','SCALE-0101','large tenant cursor continues after the hundredth class without gaps');
 SELECT ok(NOT ((pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin')->'students') @> '[{"id":"e2800000-0000-4000-8000-000000000303"}]'::jsonb),'tenant A roster excludes tenant B student');
 SELECT is(jsonb_array_length(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'Unit A')->'students'),1,'name search returns only matching active students');
 SELECT is(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'9380000002')->'students'->0->>'id','e2800000-0000-4000-8000-000000000302','NIS search locates the matching student');
@@ -96,7 +136,7 @@ SELECT is(pg_temp.academic_roster(
 )->'students'->0->>'id','e2800000-0000-4000-8000-000000000302','second keyset page returns the next student without duplication');
 SELECT is(jsonb_array_length(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','ustadz','unit','e2800000-0000-4000-8000-000000000101')->'students'),1,'Ustadz A sees only students in the exact assigned class and unit');
 SELECT is(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','ustadz','unit','e2800000-0000-4000-8000-000000000101')->'students'->0->>'id','e2800000-0000-4000-8000-000000000301','Ustadz A roster contains the student in class A');
-SELECT is(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','ustadz','unit','e2800000-0000-4000-8000-000000000101')->'classes'->0->>'id','ROSTER-CLASS-A','Ustadz A receives class A reference despite duplicate display name');
+SELECT is(jsonb_array_length(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','ustadz','unit','e2800000-0000-4000-8000-000000000101')->'classes'),0,'roster RPC leaves class selection to the separate searchable endpoint');
 SELECT is(jsonb_array_length(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000013','ustadz','unit','e2800000-0000-4000-8000-000000000102')->'students'),1,'Ustadz B sees only students in the exact assigned class and unit');
 SELECT is(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000013','ustadz','unit','e2800000-0000-4000-8000-000000000102')->'students'->0->>'id','e2800000-0000-4000-8000-000000000302','Ustadz B roster contains the student in class B');
 SELECT is(jsonb_array_length(pg_temp.academic_roster('e2800000-0000-4000-8000-000000000002','e2800000-0000-4000-8000-000000000014','admin')->'students'),1,'tenant B admin sees only tenant B roster records');
@@ -104,6 +144,11 @@ SELECT throws_ok($$SELECT pg_temp.academic_roster('e2800000-0000-4000-8000-00000
 SELECT throws_ok($$SELECT pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','admin')$$,'42501','Profil akademik aktif tidak ditemukan pada tenant','expected role must match the active tenant profile');
 SELECT throws_ok($$SELECT pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','ustadz','unit','e2800000-0000-4000-8000-000000000102')$$,'42501','Ustadz hanya dapat melihat roster unitnya sendiri','Ustadz cannot request another organization unit');
 SELECT throws_ok($$SELECT public.get_tenant_academic_roster_page('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin',true,NULL,NULL,'',NULL,NULL,50)$$,'22023','Permintaan roster Akademik tidak valid','null unit mode is rejected instead of bypassing filter validation');
+SELECT throws_ok($$SELECT pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','unit','e2800000-0000-4000-8000-000000000103')$$,'42501','Unit aktif tidak ditemukan pada tenant ini','class page rejects a unit from another tenant');
+SELECT throws_ok($$SELECT pg_temp.academic_classes('e2800000-0000-4000-8000-000000000002','e2800000-0000-4000-8000-000000000011','admin')$$,'42501','Profil akademik aktif tidak ditemukan pada tenant','class page rejects actors from another tenant');
+SELECT throws_ok($$SELECT pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000012','admin')$$,'42501','Profil akademik aktif tidak ditemukan pada tenant','class page role must match the actor profile');
+SELECT throws_ok($$SELECT pg_temp.academic_classes('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','all',NULL,'%')$$,'22023','Permintaan daftar kelas Akademik tidak valid','class search rejects wildcard input');
+SELECT throws_ok($$SELECT public.get_tenant_academic_class_page('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin',true,NULL,NULL,'',NULL,NULL,100)$$,'22023','Permintaan daftar kelas Akademik tidak valid','class page rejects a null unit mode');
 SELECT throws_ok($$SELECT pg_temp.academic_roster('e2800000-0000-4000-8000-000000000001','e2800000-0000-4000-8000-000000000011','admin','unit','e2800000-0000-4000-8000-000000000103')$$,'42501','Unit aktif tidak ditemukan pada tenant ini','unit from a different tenant cannot be selected');
 
 SELECT is(public.save_academic_record(
