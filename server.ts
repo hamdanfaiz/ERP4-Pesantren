@@ -177,6 +177,7 @@ import { getSupabaseDashboardSnapshot, SupabaseDashboardError } from "./src/serv
 import {
   assignSupabaseAcademicClassUnit,
   getSupabaseAcademicRecordsPage,
+  getSupabaseAcademicRosterPage,
   getSupabaseAcademicConflictSchedules,
   getSupabaseAcademicPortalPage,
   getSupabaseAcademicPortalStudent,
@@ -1186,6 +1187,24 @@ async function startServer() {
     } catch (error) { return academicRouteError(res, error); }
   });
 
+  app.get("/api/academic/students", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      if ((req.query.cursor !== undefined && typeof req.query.cursor !== "string")
+        || (req.query.q !== undefined && typeof req.query.q !== "string")
+        || (req.query.unitId !== undefined && typeof req.query.unitId !== "string")) {
+        return res.status(400).json({ error: "Filter roster santri tidak valid." });
+      }
+      const actor = await loadAcademicActor(uid);
+      return res.json(await getSupabaseAcademicRosterPage(
+        actor.tenantId, actor.uid, actor.role, enterpriseUnitsRuntimeEnabled,
+        actor.organizationUnitId, req.query.unitId, req.query.q, req.query.cursor,
+      ));
+    } catch (error) { return academicRouteError(res, error); }
+  });
   app.get("/api/academic/schedule-conflicts", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });

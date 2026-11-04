@@ -19,12 +19,12 @@ type UnmappedAcademicClass = { id: string; name: string; status: string };
 type UnmappedAcademicClassSnapshot = { classes: UnmappedAcademicClass[]; classCount: number; limit: number; offset: number };
 type PageableAcademicKind = "schedule" | "journal" | "assessment";
 type AcademicRecordPageMeta = { hasMore: boolean; nextCursor: string | null };
-type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; recordPages: Record<PageableAcademicKind, AcademicRecordPageMeta>; students: Student[]; teachers: Teacher[]; classes: AcademicClass[]; subjects: AcademicReference[]; curricula: AcademicReference[]; assessmentTypes: AcademicReference[]; facilities: AcademicReference[]; units: Unit[]; unitsEnabled: boolean };
+type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; recordPages: Record<PageableAcademicKind, AcademicRecordPageMeta>; students: Student[]; studentPage: AcademicRecordPageMeta; teachers: Teacher[]; classes: AcademicClass[]; subjects: AcademicReference[]; curricula: AcademicReference[]; assessmentTypes: AcademicReference[]; facilities: AcademicReference[]; units: Unit[]; unitsEnabled: boolean };
 type Tab = "schedule" | "journal" | "assessment" | "report-card" | "conflict-resolver" | "teachers" | "subjects" | "curricula";
 type SubjectReference = { name: string; schedules: number; journals: number; assessments: number };
 type CurriculumReference = { name: string; schedules: number };
 
-const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], recordPages: { schedule: { hasMore: false, nextCursor: null }, journal: { hasMore: false, nextCursor: null }, assessment: { hasMore: false, nextCursor: null } }, students: [], teachers: [], classes: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
+const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], recordPages: { schedule: { hasMore: false, nextCursor: null }, journal: { hasMore: false, nextCursor: null }, assessment: { hasMore: false, nextCursor: null } }, students: [], studentPage: { hasMore: false, nextCursor: null }, teachers: [], classes: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
 const EMPTY_UNMAPPED_CLASSES: UnmappedAcademicClassSnapshot = { classes: [], classCount: 0, limit: 100, offset: 0 };
 const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_ACADEMIC_IMPORT_ENABLED") === "true";
 type AcademicImportPreview = {
@@ -78,6 +78,13 @@ export function SupabaseAcademicManager() {
   const conflictRequestEpoch = useRef(0);
   const [loading, setLoading] = useState(true);
   const [loadingMoreKind, setLoadingMoreKind] = useState<PageableAcademicKind | null>(null);
+  const [studentRoster, setStudentRoster] = useState<Student[]>([]);
+  const [studentRosterPage, setStudentRosterPage] = useState<AcademicRecordPageMeta>({ hasMore: false, nextCursor: null });
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentSearchInput, setStudentSearchInput] = useState("");
+  const [studentRosterLoading, setStudentRosterLoading] = useState(false);
+  const [selectedStudentCache, setSelectedStudentCache] = useState<Student | null>(null);
+  const studentRosterRequestEpoch = useRef(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -174,6 +181,8 @@ export function SupabaseAcademicManager() {
 
   const refresh = useCallback(async () => {
     const requestEpoch = ++academicRequestEpoch.current;
+    studentRosterRequestEpoch.current += 1;
+    setStudentRosterLoading(false);
     setLoadingMoreKind(null);
     if (!canManage || !user?.tenantId) { setSnapshot(EMPTY); setLoading(false); return; }
     setLoading(true); setError("");
@@ -193,6 +202,7 @@ export function SupabaseAcademicManager() {
           assessment: { hasMore: payload.recordPages?.assessment?.hasMore === true, nextCursor: typeof payload.recordPages?.assessment?.nextCursor === "string" ? payload.recordPages.assessment.nextCursor : null },
         },
         students: Array.isArray(payload.students) ? payload.students : [],
+        studentPage: { hasMore: payload.studentPage?.hasMore === true, nextCursor: typeof payload.studentPage?.nextCursor === "string" ? payload.studentPage.nextCursor : null },
         teachers: Array.isArray(payload.teachers) ? payload.teachers : [],
         classes: Array.isArray(payload.classes) ? payload.classes : [],
         subjects: Array.isArray(payload.subjects) ? payload.subjects : [],
@@ -202,6 +212,10 @@ export function SupabaseAcademicManager() {
         units: Array.isArray(payload.units) ? payload.units : [],
         unitsEnabled: payload.unitsEnabled === true,
       });
+      setStudentRoster(Array.isArray(payload.students) ? payload.students : []);
+      setStudentRosterPage({ hasMore: payload.studentPage?.hasMore === true, nextCursor: typeof payload.studentPage?.nextCursor === "string" ? payload.studentPage.nextCursor : null });
+      setStudentSearch("");
+      setStudentSearchInput("");
       if (payload.unitsEnabled === true && isAdmin) await refreshUnmappedClasses();
       else setUnmappedClasses(EMPTY_UNMAPPED_CLASSES);
     } catch (loadError: any) {
@@ -210,6 +224,38 @@ export function SupabaseAcademicManager() {
   }, [canManage, isAdmin, refreshUnmappedClasses, user?.tenantId, user?.uid, unitFilter]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  const loadStudentRosterPage = useCallback(async (searchValue: string, cursorValue: string | null = null) => {
+    if (loading || studentRosterLoading) return;
+    const requestEpoch = ++studentRosterRequestEpoch.current;
+    setStudentRosterLoading(true);
+    setError("");
+    try {
+      const query = new URLSearchParams();
+      const normalizedSearch = searchValue.trim().replace(/\s+/g, " ").normalize("NFC");
+      if (normalizedSearch) query.set("q", normalizedSearch);
+      if (cursorValue) query.set("cursor", cursorValue);
+      if (unitFilter !== "all") query.set("unitId", unitFilter);
+      const result = await requestAcademic(`/api/academic/students${query.size ? `?${query.toString()}` : ""}`);
+      if (requestEpoch !== studentRosterRequestEpoch.current) return;
+      if (!Array.isArray(result.students) || result.students.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor || result.nextCursor === cursorValue))
+        || (!result.hasMore && result.nextCursor != null)) {
+        throw new Error("Halaman roster santri belum lengkap.");
+      }
+      setStudentRoster((current) => {
+        if (!cursorValue) return result.students;
+        const existing = new Set(current.map((student: Student) => student.id));
+        return [...current, ...result.students.filter((student: Student) => !existing.has(student.id))];
+      });
+      setStudentSearch(normalizedSearch);
+      setStudentRosterPage({ hasMore: result.hasMore, nextCursor: typeof result.nextCursor === "string" ? result.nextCursor : null });
+    } catch (loadError: any) {
+      if (requestEpoch === studentRosterRequestEpoch.current) setError(loadError?.message || "Roster santri belum dapat dimuat.");
+    } finally {
+      if (requestEpoch === studentRosterRequestEpoch.current) setStudentRosterLoading(false);
+    }
+  }, [loading, studentRosterLoading, unitFilter]);
 
   const loadMoreAcademicRecords = useCallback(async (kind: PageableAcademicKind) => {
     const page = snapshot.recordPages[kind];
@@ -310,7 +356,7 @@ export function SupabaseAcademicManager() {
     finally { setSaving(false); }
   };
 
-  const selectedStudent = snapshot.students.find((student) => student.id === assessment.studentId);
+  const selectedStudent = studentRoster.find((student) => student.id === assessment.studentId) || selectedStudentCache;
   const assessmentTeachers = snapshot.unitsEnabled && isAdmin
     ? selectedStudent?.organizationUnitId
       ? snapshot.teachers.filter((teacher) => teacher.organizationUnitId === selectedStudent.organizationUnitId)
@@ -319,8 +365,21 @@ export function SupabaseAcademicManager() {
   const creatingAcademicRecord = unitFilter !== "unassigned";
   const hasUnitForWrite = !snapshot.unitsEnabled || !isAdmin || activeUnits.length > 0;
   const changeStudent = (studentId: string) => {
-    const student = snapshot.students.find((item) => item.id === studentId);
+    const student = studentRoster.find((item) => item.id === studentId) || null;
+    setSelectedStudentCache(student);
     setAssessment((current) => ({ ...current, studentId, studentName: student?.name || "", className: student?.className || "", subject: "", subjectReferenceId: "" }));
+  };
+  const changeAcademicUnitFilter = (nextUnitFilter: string) => {
+    if (nextUnitFilter === unitFilter) return;
+    studentRosterRequestEpoch.current += 1;
+    setStudentRosterLoading(false);
+    setStudentRoster([]);
+    setStudentRosterPage({ hasMore: false, nextCursor: null });
+    setStudentSearch("");
+    setStudentSearchInput("");
+    setSelectedStudentCache(null);
+    setAssessment((current) => ({ ...current, studentId: "", studentName: "", className: "", subject: "", subjectReferenceId: "" }));
+    setUnitFilter(nextUnitFilter);
   };
   const setScheduleClass = (classReferenceId: string) => {
     const selected = snapshot.classes.find((item) => item.id === classReferenceId);
@@ -435,7 +494,7 @@ export function SupabaseAcademicManager() {
     {snapshot.unitsEnabled && isAdmin && <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900 sm:flex-row sm:items-end sm:justify-between">
       <div><p className="text-sm font-semibold text-slate-900 dark:text-white">Cakupan unit organisasi</p><p className="mt-1 text-xs text-slate-500">Data lama tanpa pemetaan tetap tersedia melalui filter khusus.</p></div>
       <label className={`${labelClass} sm:min-w-64`}>Tampilkan data
-        <select className={fieldClass} value={unitFilter} onChange={(event) => setUnitFilter(event.target.value)}>
+        <select className={fieldClass} value={unitFilter} onChange={(event) => changeAcademicUnitFilter(event.target.value)}>
           <option value="all">Semua unit</option>
           {activeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
           <option value="unassigned">Belum dipetakan</option>
@@ -544,16 +603,22 @@ export function SupabaseAcademicManager() {
             <div className="grid grid-cols-3 gap-2">{([["attendancePresent", "Hadir"], ["attendanceExcused", "Izin/sakit"], ["attendanceAbsent", "Absen"]] as const).map(([key, label]) => <label key={key} className={labelClass}>{label}<input type="number" min="0" max="500" className={fieldClass} value={journal[key]} onChange={(e) => setJournal({ ...journal, [key]: e.target.value })} /></label>)}</div>
           </>}
           {activeTab === "assessment" && <>
-            <Field label="Santri"><select required className={fieldClass} value={assessment.studentId} onChange={(e) => changeStudent(e.target.value)}><option value="">Pilih santri aktif</option>{snapshot.students.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis}</option>)}</select></Field>
+            <Field label="Santri"><select required className={fieldClass} value={assessment.studentId} onChange={(e) => changeStudent(e.target.value)}><option value="">Pilih santri aktif</option>{assessment.studentId && !studentRoster.some((student) => student.id === assessment.studentId) && <option value={assessment.studentId}>{assessment.studentName || "Santri terpilih"} · dipilih</option>}{studentRoster.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis}</option>)}</select></Field>
+            <Field label="Cari santri berdasarkan nama atau NIS"><input type="search" maxLength={80} className={fieldClass} value={studentSearchInput} onChange={(event) => setStudentSearchInput(event.target.value)} placeholder="Ketik nama atau nomor induk" /></Field>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => void loadStudentRosterPage(studentSearchInput)} disabled={loading || studentRosterLoading} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{studentRosterLoading ? "Mencari…" : "Cari santri"}</button>
+              {studentRosterPage.hasMore && <button type="button" onClick={() => void loadStudentRosterPage(studentSearch, studentRosterPage.nextCursor)} disabled={loading || studentRosterLoading} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{studentRosterLoading ? "Memuat…" : "Muat santri berikutnya"}</button>}
+              <span className="text-xs text-slate-500">{studentRoster.length.toLocaleString("id-ID")} santri dimuat{studentSearch ? ` untuk “${studentSearch}”` : ""}{studentRosterPage.hasMore ? "; masih ada hasil berikutnya" : ""}.</span>
+            </div>
+            {!loading && studentRoster.length === 0 && <p role="status" className="text-xs text-amber-700 dark:text-amber-200">{studentSearch ? "Tidak ditemukan santri yang cocok." : "Belum ada santri yang dapat dipilih pada cakupan ini."}</p>}
             {selectedStudent && <p className="-mt-2 text-xs text-slate-500">Kelas {selectedStudent.className || "belum ditetapkan"}{selectedStudent.organizationUnitName ? ` · ${selectedStudent.organizationUnitName}` : snapshot.unitsEnabled ? " · belum dipetakan ke unit" : ""}</p>}
             {isAdmin && <Field label="Pengajar"><select required className={fieldClass} value={assessment.teacherUserId} onChange={(e) => setAssessmentTeacher(e.target.value)}><option value="">Pilih pengajar</option>{assessmentTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}</select></Field>}
             <Field label="Mata pelajaran"><select required className={fieldClass} value={assessment.subjectReferenceId} onChange={(e) => setAssessmentSubject(e.target.value)}><option value="">Pilih mata pelajaran</option>{forUnit(snapshot.subjects, selectedStudent?.organizationUnitId || "").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
             <Field label="Jenis penilaian"><select required className={fieldClass} value={assessment.assessmentTypeReferenceId} onChange={(e) => setAssessmentType(e.target.value)}><option value="">Pilih jenis penilaian</option>{snapshot.assessmentTypes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
             <div className="grid grid-cols-2 gap-3"><Field label="Kategori"><select className={fieldClass} value={assessment.category} onChange={(e) => setAssessment({ ...assessment, category: e.target.value })}><option value="Formative">Formatif</option><option value="Summative">Sumatif</option></select></Field><Field label="Nilai (0–100)"><input type="number" required min="0" max="100" step="any" className={fieldClass} value={assessment.score} onChange={(e) => setAssessment({ ...assessment, score: e.target.value })} /></Field></div>
           </>}
-          <button type="submit" disabled={saving || loading || !creatingAcademicRecord || !hasUnitForWrite || (activeTab === "assessment" && (snapshot.students.length === 0 || (snapshot.unitsEnabled && !selectedStudent?.organizationUnitId)))} className={`${buttonClass} w-full`}><Plus className="h-4 w-4" />{saving ? "Menyimpan…" : editingScheduleId && activeTab === "schedule" ? "Simpan perubahan" : "Simpan ke Supabase"}</button>
+          <button type="submit" disabled={saving || loading || !creatingAcademicRecord || !hasUnitForWrite || (activeTab === "assessment" && (!assessment.studentId || (snapshot.unitsEnabled && !selectedStudent?.organizationUnitId)))} className={`${buttonClass} w-full`}><Plus className="h-4 w-4" />{saving ? "Menyimpan…" : editingScheduleId && activeTab === "schedule" ? "Simpan perubahan" : "Simpan ke Supabase"}</button>
           {editingScheduleId && activeTab === "schedule" && <button type="button" onClick={cancelScheduleEdit} disabled={saving} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Batalkan perubahan</button>}
-          {activeTab === "assessment" && snapshot.students.length === 0 && <p className="text-xs text-amber-700 dark:text-amber-200">Roster tenant belum tersedia, sehingga input nilai dinonaktifkan.</p>}
           {snapshot.unitsEnabled && isAdmin && activeUnits.length === 0 && <p className="text-xs text-amber-700 dark:text-amber-200">Belum ada unit aktif. Admin perlu menyiapkan unit sebelum pencatatan akademik.</p>}
           {snapshot.unitsEnabled && activeTab === "assessment" && selectedStudent && !selectedStudent.organizationUnitId && <p className="text-xs text-amber-700 dark:text-amber-200">Santri ini belum dipetakan ke unit; nilai belum dapat disimpan agar cakupan unit tetap konsisten.</p>}
           {role === "Ustadz" && <p className="flex items-start gap-2 text-xs text-slate-500"><Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />Akses roster dibatasi pada kelas yang memiliki jadwal dengan pengajar ini.</p>}

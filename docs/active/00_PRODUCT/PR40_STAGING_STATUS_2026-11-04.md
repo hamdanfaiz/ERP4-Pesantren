@@ -7,9 +7,9 @@ Production PTSAS: tidak disentuh.
 
 ## Bukti yang sudah dikonfirmasi
 
-- Ledger VQE berisi 131 migration sampai `20270227000000_remove_redundant_document_number_index`.
-- Pencocokan baca-saja menunjukkan ledger VQE dan source sama-sama memiliki 131 versi/nama; satu-satunya perbedaan versi adalah alias yang terdokumentasi `20261101015832_tenant_reference_relationships` → `20270214120000_tenant_reference_relationships`.
-- Full preflight baca-saja atas seluruh ledger VQE memakai parser source: 131/131 migrasi, tidak ada versi asing, beda nama, atau mismatch SQL; alias tervalidasi dan semua statement cocok. Alias itu masih berstatus perlu rekonsiliasi ledger saja. Tidak ada DDL atau penulisan database dalam pemeriksaan ini.
+- Sebelum pagination Akademik diterapkan, ledger VQE berisi 131 migration sampai `20270227000000_remove_redundant_document_number_index`.
+- Preflight baca-saja pada checkpoint sebelumnya mencocokkan versi/nama/SQL untuk 131 entri dan mengidentifikasi alias terdokumentasi `20261101015832_tenant_reference_relationships` → `20270214120000_tenant_reference_relationships`.
+- Setelah pagination Akademik diterapkan pada staging, ledger VQE berisi 133 entri hingga `20270301000000_academic_student_roster_pagination`. Dua entri terbaru sudah diverifikasi memakai versi dan nama source. Alias tenant-reference sebelumnya masih tercatat dan harus diperlakukan sesuai runbook.
 - Dengan persetujuan pemilik, satu baris versi sementara `20261101130634` diselaraskan ke versi source `20270227000000`. Nama migration dan statement ledger dipertahankan; jumlah entri tetap 131.
 - Indeks lama `document_records_tenant_document_number_uq` sudah tidak ada. Indeks unik ternormalisasi `document_records_tenant_number_normalized_uq` tetap ada pada `(tenant_id, lower(btrim(document_number)))`. Jangan jalankan ulang DDL atau repair ledger untuk migration ini.
 - Supabase JS dari proses server lokal berhasil menjalankan query tanpa baris pada tabel `tenants` (HTTP 200). Key rahasia tidak dimasukkan ke browser, dokumen, atau chat.
@@ -19,7 +19,7 @@ Production PTSAS: tidak disentuh.
   Ini konsisten dengan akses operasional server-only/default-deny. Jangan membuka policy umum.
 - Performance Advisor mencatat 258 foreign key tanpa indeks pendukung dan 96 indeks belum digunakan. Jangan melakukan perubahan massal sebelum ada workload representatif.
 - Preview source PR dapat dijalankan pada port lokal `4184`, tetapi browser AI Studio tidak dapat mengakses loopback dan mengalami timeout. UAT tampilan belum terverifikasi; coba URL itu dari Chrome lokal pada komputer yang sama.
-- Audit Akademik lanjutan memastikan deteksi konflik jadwal dan validasi transaksional saat simpan sudah ada; `npm run test:academic-schedule-conflicts` lulus. Perubahan lokal kini memaginasi jurnal/penilaian per 50 record dengan kursor tenant/role/unit dan indeks pendukung. Migrasi belum diterapkan ke VQE. Jadwal dan roster santri masih dibatasi 5.000, sehingga sertifikasi skala pesantren besar belum selesai. Rincian status dicatat di `ACADEMIC_SCALE_GAP_2026-11-04.md`.
+- Audit Akademik lanjutan memastikan deteksi konflik jadwal dan validasi transaksional saat simpan sudah ada; `npm run test:academic-schedule-conflicts` lulus. Jurnal/penilaian dan jadwal dipaginasi per 50 record. Roster kini juga dipaginasi per 50 record dengan pencarian nama/NIS dan pembatasan kelas Ustadz melalui ID referensi. Migration cursor Akademik sudah diterapkan ke VQE. Uji pgTAP dan UAT visual masih terbuka; batas kelas 500 serta scan konflik 5.000 perlu evaluasi kapasitas tenant besar. Rincian status dicatat di `ACADEMIC_SCALE_GAP_2026-11-04.md`.
 
 ## Batas bukti lokal
 
@@ -34,7 +34,7 @@ Audit dependency setelah perbaikan lockfile melaporkan **0 advisori dependency p
 1. Rekonsiliasi alias ledger VQE yang sudah tervalidasi menggunakan prosedur di `MIGRATION_ORDERING_TENANT_REFERENCE.md`. Perintah harus terhubung khusus ke VQE; ini memperbaiki riwayat versi dan **tidak menjalankan ulang DDL**. Jangan kirim password/database URL melalui chat atau commit.
 2. CI run #1135 dan full preflight baca-saja telah lulus pemeriksaan SQL; sesudah rekonsiliasi ledger, verifikasi kembali hasil preflight sebelum lanjut.
 3. Buka `http://127.0.0.1:4184/` di Chrome lokal pada komputer yang sama. Jika dapat dibuka, jalankan UAT Admin: login, Data Induk, Naming Series, NIS per jenjang, PPDB, pegawai, struktur, impor/ekspor, serta pemeriksaan akses role/tenant. Server tidak mengisi kredensial; login dilakukan oleh pemilik akun. Jika localhost tetap timeout, tim perlu menjalankan preview dari checkout lokal mereka.
-4. Selesaikan pagination jadwal/roster serta verifikasi kelengkapan konflik untuk tenant besar; migrasi indeks jurnal/penilaian harus lulus CI dan rehearsal VQE.
+4. Jalankan pgTAP roster di staging/CI, verifikasi pagination dan batas kelas, lalu uji beban tenant besar serta kelengkapan konflik jadwal.
 5. Aktifkan dan verifikasi Leaked Password Protection pada Auth VQE; tinjau Advisor performa dengan data sintetis dan beban realistis. Jangan menambahkan/menghapus indeks secara massal.
 6. Setelah staging lulus, lakukan audit baca-saja Production, siapkan backup/restore dan rencana cutover terpisah, lalu minta tim backend melakukan penerimaan dan deploy self-hosted.
 
@@ -44,7 +44,24 @@ Tidak ada data Firestore dummy yang disalin. Tidak ada perubahan pada Production
 
 - Daftar Jadwal, Jurnal, dan Penilaian kini memakai halaman cursor berukuran 50; filter tenant, jenis, unit, dan pengajar dijalankan pada query backend.
 - Pemeriksaan konflik pindah ke endpoint Admin-only yang memindai jadwal tenant/filter hingga 5.000 record. Bila jumlahnya melampaui batas atau halaman sumber tidak stabil, endpoint mengembalikan error dan UI tidak menampilkan hasil seolah lengkap.
-- Uji lokal lulus: `npm run lint`, `npm run build`, `npm run test:academic-record-pagination`, `npm run test:academic-schedule-conflicts`, `npm run test:academic-portal`, `npm run test:supabase-runtime-no-firebase`, dan `git diff --check`. Pengujian memastikan role Ustadz ditolak sebelum query konflik dan scan di atas batas 5.000 ditolak.
-- Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. UAT visual Admin belum dilakukan. Migrasi indeks cursor masih perlu direhearsal di Supabase lokal/staging; tidak ada migration yang diterapkan ke VQE pada langkah ini.
-- Roster santri serta pemetaan kelas Ustadz masih dibatasi 5.000. Karena itu skala tenant besar belum tersertifikasi. Production PTSAS tidak disentuh.
+- Uji aplikasi lokal lulus: `npm run lint`, `npm run build`, `npm run test:academic-record-pagination`, `npm run test:academic-roster-pagination`, `npm run test:academic-schedule-conflicts`, `npm run test:academic-portal`, `npm run test:migration-preflight`, `npm run test:supabase-runtime-no-firebase`, dan `git diff --check`.
+- Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. UAT visual Admin belum dilakukan. Migration sudah diterapkan ke VQE; test pgTAP roster 27 assertion belum berjalan dan menunggu CI.
+- Roster santri sudah berpaginasi; pemetaan kelas dibatasi maksimal 500 referensi per permintaan dan scan konflik maksimal 5.000 jadwal. Skala tenant besar belum tersertifikasi. Production PTSAS tidak disentuh.
+
+## Checkpoint pengembangan roster Akademik — 4 November 2026
+
+- Migration `20270228000000_academic_record_cursor_indexes.sql` dan `20270301000000_academic_student_roster_pagination.sql` sudah diterapkan ke VQE. Indeks urutan roster dan jadwal guru/kelas tersedia; RPC memvalidasi tenant, profil aktif, role, izin Akademik, unit, pencarian, dan cursor.
+- Kelas Ustadz dibatasi lewat ID kelas yang sama dengan relasi santri. Trigger mencegah Ustadz menyimpan nilai untuk kelas lain meski nama kelasnya sama.
+- Test pgTAP berisi 27 pemeriksaan sintetis untuk pagination, pencarian, tenant/unit/role, privasi RPC, dan penolakan nilai lintas kelas. File test belum dijalankan; pemanggilan SQL test melalui konektor ditolak karena payload gabungan melewati batas ukuran.
+- Verifikasi baca-saja VQE memastikan kedua migration source tercatat tepat di versi target, RPC tersedia, `service_role` dapat memanggilnya, `anon`/`authenticated` tidak dapat memanggilnya, trigger aktif, dan enam indeks Akademik tersedia. Jumlah santri, catatan Akademik, dan tenant fixture tetap nol.
+- Ledger VQE sekarang berisi 133 migration; alias tenant-reference lama masih ada. Rekonsiliasi alias itu perlu mengikuti runbook secara terpisah.
+- `npm run preflight:db-migrations:local` tidak dapat dijalankan karena `psql` tidak ditemukan. `supabase test db` tidak dapat dijalankan karena Docker tidak tersedia.
+- Verifikasi source terbaru: lint, build, uji roster, uji pagination catatan, uji konflik jadwal, uji portal Akademik, uji logika migration preflight, serta guard Supabase-only lulus. Build tetap memperingatkan chunk PDF 1,46 MB.
+- Source roster disimpan pada branch lokal `codex/pr40-roster-pagination-20261105`, direbase di atas head PR #40 `90c17e8`; belum di-push. CI belum berjalan untuk perubahan roster. UAT Admin belum selesai. Production PTSAS tidak disentuh.
+
+## Pembaruan sinkronisasi — 5 November 2026
+
+- Git fetch berhasil dan mengonfirmasi head branch PR #40 `90c17e83f51c4d4cfe479f17c7ec5009289fa525` (commit `90c17e8`). Commit lokal roster berada satu commit di atas head tersebut; source Jadwal dan pemindaian konflik dari PR dipertahankan.
+- Validasi setelah rebase lulus: lint, build, uji pagination roster/catatan, konflik jadwal, portal Akademik, migration preflight, guard Supabase-only, dan pemeriksaan whitespace. CI belum berjalan karena perubahan lokal belum di-push.
+- VQE staging tetap pada 133 migration, termasuk `20270228000000` dan `20270301000000`; pgTAP 27 assertion belum dijalankan. Tidak ada fixture uji yang tertinggal. Production tetap tidak disentuh.
 

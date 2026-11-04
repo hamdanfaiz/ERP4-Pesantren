@@ -7,23 +7,25 @@
 - Jadwal di tab Akademik kini memakai cursor tenant-scoped sebanyak 50 record dengan urutan stabil `created_at DESC, id DESC`; filter tenant, unit, dan pengajar diterapkan di server.
 - Pemindai konflik hanya dijalankan saat Admin membuka tab konflik. Endpoint membaca seluruh jadwal tenant/filter secara bounded hingga 5.000 record; hasil di atas batas ditolak dengan error 503 sehingga UI tidak menyatakan “tidak ada konflik” dari hasil parsial.
 - Jurnal dan penilaian kini memakai halaman cursor tenant-scoped sebanyak 50 record. Cursor berurutan stabil berdasarkan `created_at DESC, id DESC`; filter tenant, jenis, unit, dan pengajar diterapkan sebelum pagination. Endpoint memeriksa profil aktif, role, izin modul, serta batas unit Ustadz.
-- Indeks parsial untuk urutan cursor jurnal/penilaian sudah ditambahkan sebagai migrasi sumber dan pemeriksaan pgTAP. Migrasi tersebut belum diterapkan ke staging.
-- Roster santri Akademik dan pemetaan kelas yang dipakai untuk membatasi data Ustadz masih memiliki batas 5.000; karena itu sertifikasi tenant besar belum selesai. Daftar pengajar, kelas, unit, serta pilihan referensi memiliki batas yang lebih kecil.
+- Roster santri kini memakai halaman keyset tenant-scoped sebanyak 50 record, pencarian nama/NIS, serta cursor yang terikat pada tenant, aktor, role, pencarian, dan filter unit.
+- Roster Ustadz ditentukan oleh `class_reference_id` yang sama persis dengan `students.class_id`; nama kelas yang kebetulan sama tidak memberi akses. Guard transaksi juga menolak penilaian Ustadz untuk kelas yang tidak dijadwalkan bagi Ustadz tersebut.
+- Kelas tetap dibatasi maksimal 500 referensi per permintaan agar pilihan formulir terukur; jika melebihi batas, endpoint gagal tertutup. Pengajar, unit, dan katalog pilihan juga tetap memiliki batas tampilan tersendiri.
+- Indeks untuk urutan cursor roster dan relasi kelas/pengajar ditambahkan dalam migration source `20270301000000_academic_student_roster_pagination.sql`. Kedua migration akademik sudah diterapkan pada VQE staging; uji pgTAP-nya masih menunggu CI.
 
 ## Dampak untuk pesantren besar
 
-Daftar jadwal, jurnal, dan penilaian kini dapat dimuat per halaman; jumlah histori gabungan tidak lagi menjadi batas snapshot. Sementara itu, pemindaian konflik dan roster/Ustadz tetap fail-closed pada 5.000 record. Tenant yang melewati ambang tersebut belum dapat menggunakan semua alur Akademik sampai roster/pemetaan kelas dipaginasi dan pemeriksaan konflik dipindah ke query yang berskala lebih besar.
+Daftar jadwal, jurnal, penilaian, dan santri kini dimuat per halaman; jumlah santri tenant tidak lagi dibatasi oleh satu snapshot 5.000 baris. Pemindaian konflik masih dibatasi 5.000 jadwal, sedangkan kelas dalam satu pilihan dibatasi 500 referensi. Karena itu skala tenant besar belum tersertifikasi sampai uji beban dan UAT mewakili jumlah kelas, jadwal, dan santri sebenarnya.
 
 ## Rekomendasi implementasi sebelum rilis skala besar
 
-1. Paginasikan roster santri/pemetaan kelas serta terapkan filter kelas/unit di server sebelum pagination.
+1. Evaluasi batas 500 kelas berdasarkan jumlah kelas tenant besar; bila dibutuhkan, sediakan pencarian/paginasi referensi kelas dengan filter Ustadz di server.
 2. Untuk konflik lebih dari 5.000 jadwal, pindahkan pencarian konflik ke query atau fungsi Postgres yang efisien dan tetap menyatakan kelengkapan cakupan secara eksplisit.
 3. Pertahankan validasi transaksi yang menolak bentrok saat simpan; pemeriksaan UI tidak boleh menjadi satu-satunya kontrol.
 4. Tambahkan uji sintetis tenant besar untuk semua halaman, termasuk filter tenant/unit, cursor tanpa duplikasi atau record terlewat, penolakan respons konflik parsial, dan pengujian beban yang representatif.
 
 ## Kriteria penerimaan
 
-- Snapshot tidak memuat seluruh riwayat tanpa batas; jadwal/jurnal/penilaian dimuat per halaman dan roster tidak berhenti pada batas total tenant.
+- Snapshot tidak memuat seluruh riwayat atau roster tanpa batas; setiap daftar besar memakai halaman dan cursor.
 - Navigasi antarhalaman seluruh jenis catatan dan roster stabil; filter tenant/jenis/unit/pengajar/kelas diterapkan sebelum pagination.
 - Hasil konflik hanya menyatakan lengkap setelah seluruh jadwal dalam tenant/filter dipindai; jika melewati batas yang diizinkan, UI menampilkan error, bukan daftar parsial.
 - Upaya simpan yang menghasilkan konflik tetap ditolak secara transaksional.
@@ -31,5 +33,5 @@ Daftar jadwal, jurnal, dan penilaian kini dapat dimuat per halaman; jumlah histo
 
 ## Status
 
-Pagination cursor jadwal/jurnal/penilaian, pemindai konflik bounded, dan indeks histori sudah diimplementasikan di source. Pengujian lokal mencakup scope tenant, role, cursor, kelengkapan scan, serta penolakan lebih dari 5.000 jadwal. Migrasi indeks belum diterapkan ke staging. Batas 5.000 pada roster/pemetaan kelas, uji tenant besar, verifikasi UAT preview, serta skalabilitas konflik di atas ambang masih terbuka. Production tidak disentuh.
+Pagination cursor jadwal/jurnal/penilaian/roster dan guard kelas Ustadz sudah diimplementasikan di source dan dua migration terbaru sudah diterapkan ke VQE staging. Setelah diselaraskan dengan head PR #40 `90c17e8`, validasi lokal lulus: lint, build, pagination catatan/roster, konflik jadwal, portal Akademik, migration preflight, dan guard Supabase-only. pgTAP roster belum dijalankan; daftar kelas dibatasi 500 referensi dan scan konflik 5.000 jadwal masih memerlukan uji kapasitas tenant besar. UAT preview belum selesai. Production tidak disentuh.
 
