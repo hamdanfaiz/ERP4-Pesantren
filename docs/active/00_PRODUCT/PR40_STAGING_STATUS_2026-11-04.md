@@ -25,13 +25,13 @@ Production PTSAS: tidak disentuh.
 
 Server preview dari commit kode `79d516880fb0c957d672cc4db8d9725f7f294ba3` mencatat `Server listening on 127.0.0.1:4184`, tetapi permintaan HTTP dari tool dan browser AI Studio timeout. Karena itu halaman dan API belum dapat diverifikasi pada sesi ini; login Admin dan seluruh alur modul belum diuji.
 
-Pada head PR sebelumnya `79d5168`, GitHub Actions lulus 3/3 job pada [run #1135](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41813589719). Hasil itu adalah baseline historis dan tidak mencakup pagination roster terbaru. Untuk head PR saat ini `816dd97a07665d7d489a2105244c8fa004341734`, GitHub Actions belum mencatat workflow run maupun status check. Build sebelumnya memberi peringatan ukuran chunk PDF sekitar 1,46 MB.
+Pada head PR sebelumnya `79d5168`, GitHub Actions lulus 3/3 job pada [run #1135](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41813589719). Hasil itu adalah baseline historis dan tidak mencakup pagination roster terbaru. Untuk head PR saat ini `442ccdecaa97ce05b84bd353077c0074df4d2e39`, GitHub Actions belum mencatat workflow run; hanya status Supabase Preview yang `skipped`. Pembaruan ref melalui konektor GitHub tidak memicu job CI pada head baru, sehingga diperlukan native Git push; petunjuk ada di `PR40_CI_HANDOFF_2026-11-05.md`. Build sebelumnya memberi peringatan ukuran chunk PDF sekitar 1,46 MB.
 
 Audit dependency setelah perbaikan lockfile melaporkan **0 advisori dependency produksi** (`npm audit --omit=dev`). Audit semua dependency masih melaporkan 16 advisori pada tooling/dependency pengembangan (2 rendah, 9 sedang, 5 tinggi): jalur Firebase/Firestore transitive menyarankan downgrade besar yang tidak aman, `xlsx` belum memiliki perbaikan upstream, dan `minimatch` belum memiliki versi perbaikan dalam rentang dependency saat ini. Tidak menjalankan `npm audit fix --force`. Build, lint, guard Supabase runtime/kontrak lokal, dan smoke check production-only lulus. Lockfile dan dependency yang sama sudah melewati CI #1135.
 
 ## Gerbang yang masih harus diselesaikan
 
-1. Picu dan selesaikan seluruh job CI pada head terbaru, termasuk replay migration lokal dan pgTAP roster.
+1. Minta tim melakukan native Git push sesuai `PR40_CI_HANDOFF_2026-11-05.md`, lalu selesaikan seluruh job CI pada head terbaru, termasuk replay migration lokal dan pgTAP roster.
 2. Jalankan UAT Admin VQE untuk login, Data Induk, Naming Series, NIS, PPDB, pegawai, struktur, impor/ekspor, pagination, serta isolasi role/tenant. Preview port `4184` pernah timeout di browser Codex; gunakan Chrome lokal atau preview checkout tim bila masih terjadi.
 3. Rekonsiliasi alias ledger VQE sesuai `MIGRATION_ORDERING_TENANT_REFERENCE.md`, lalu ulangi preflight baca-saja. Langkah `migration repair` hanya memperbaiki ledger dan **tidak menjalankan ulang DDL**.
 4. Evaluasi batas 500 kelas dan scan konflik 5.000 jadwal dengan data sintetis realistis.
@@ -57,12 +57,12 @@ Tidak ada data Firestore dummy yang disalin. Tidak ada perubahan pada Production
 - Ledger VQE sekarang berisi 133 migration; alias tenant-reference lama masih ada. Rekonsiliasi alias itu perlu mengikuti runbook secara terpisah.
 - `npm run preflight:db-migrations:local` tidak dapat dijalankan karena `psql` tidak ditemukan. `supabase test db` tidak dapat dijalankan karena Docker tidak tersedia.
 - Verifikasi source terbaru: lint, build, uji roster, uji pagination catatan, uji konflik jadwal, uji portal Akademik, uji logika migration preflight, serta guard Supabase-only lulus. Build tetap memperingatkan chunk PDF 1,46 MB.
-- Source roster disimpan pada branch lokal `codex/pr40-roster-pagination-20261105`, dan head GitHub PR `816dd97` memiliki tree yang sama. CI belum berjalan pada head ini. UAT Admin belum selesai. Production PTSAS tidak disentuh.
+- Source roster disimpan pada branch lokal `codex/pr40-roster-pagination-20261105`; head GitHub PR `442ccde` memiliki tree yang sama. CI belum berjalan pada head ini. UAT Admin belum selesai. Production PTSAS tidak disentuh.
 
 ## Pembaruan sinkronisasi — 5 November 2026
 
-- Git fetch mengonfirmasi head PR #40 `816dd97a07665d7d489a2105244c8fa004341734`; tree-nya sama dengan commit lokal `3d0bff0` (`cbab1c0`). Source roster sudah tersedia pada branch PR melalui konektor GitHub.
-- Validasi lokal sesudah rebase lulus: lint, build, uji pagination roster/catatan, konflik jadwal, portal Akademik, migration preflight, guard Supabase-only, dan pemeriksaan whitespace. Pada head terbaru, GitHub API mengembalikan nol workflow run dan nol status check; pemicu CI masih perlu dibereskan.
+- Git fetch mengonfirmasi head PR #40 `442ccdecaa97ce05b84bd353077c0074df4d2e39`; tree `bf402cba6ded7b0774d06692f71881080089f0fe` sama dengan commit lokal terbaru. Source roster dan checkpoint tersedia pada branch PR melalui konektor GitHub.
+- Validasi lokal sesudah rebase lulus: lint, build, uji pagination roster/catatan, konflik jadwal, portal Akademik, migration preflight, guard Supabase-only, dan pemeriksaan whitespace. Pada head terbaru, GitHub API mengembalikan nol workflow run dan hanya status Supabase Preview `skipped`; pembaruan ref via konektor belum memicu workflow. Tim perlu melakukan native Git push agar peristiwa `pull_request`/`push` menjalankan CI.
 - VQE staging memiliki 133 migration, termasuk `20270228000000` dan `20270301000000`; pgTAP roster 27 assertion belum berhasil dijalankan. Docker, `psql`, dan Supabase CLI tidak tersedia. Percobaan SQL konektor berhenti pada parse error dan pemeriksaan baca-saja sesudahnya memastikan tenant, user, profil, kandidat, santri, catatan Akademik, serta ekstensi pgTAP sintetis tetap tidak berubah.
 - Tidak ada review submission atau inline review thread pada PR #40. PR tetap Draft/Open. Production tetap tidak disentuh.
 

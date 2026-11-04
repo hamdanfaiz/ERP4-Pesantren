@@ -11,7 +11,7 @@ Pengembangan PR #40 untuk mengurangi batas roster Akademik dan memperketat relas
 - Pembatasan roster dan penilaian Ustadz menggunakan ID referensi kelas, bukan nama tampilan.
 - UI menyediakan pencarian dan pemuatan halaman roster berikutnya.
 - Migration dan pgTAP baru: `20270301000000_academic_student_roster_pagination.sql` dan `supabase/tests/academic_student_roster_pagination.test.sql`.
-- Perubahan berada di branch lokal `codex/pr40-roster-pagination-20261105`. Commit lokal `3d0bff0` dan head PR #40 `816dd97` memiliki tree yang sama (`cbab1c0`); source sudah tersedia di GitHub melalui konektor GitHub.
+- Perubahan berada di branch lokal `codex/pr40-roster-pagination-20261105`. Source PR #40 saat ini di `442ccde` memiliki tree yang sama dengan commit lokal terbaru (`bf402cb`); code pagination dan checkpoint sudah tersedia di GitHub.
 
 ## Hasil uji source
 
@@ -42,13 +42,13 @@ Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. Pengujian pgTAP
 
 ## GitHub dan PR
 
-- PR #40 masih Draft/Open. Head PR `816dd97a07665d7d489a2105244c8fa004341734`; tree-nya sama dengan branch lokal `codex/pr40-roster-pagination-20261105`.
-- GitHub Actions dan status checks belum mencatat run untuk head tersebut. Tidak ada review submission atau inline review thread pada PR.
+- PR #40 masih Draft/Open. Head PR `442ccdecaa97ce05b84bd353077c0074df4d2e39`; tree-nya sama dengan branch lokal `codex/pr40-roster-pagination-20261105`.
+- GitHub Actions belum mencatat run untuk head tersebut; hanya status Supabase Preview yang berakhir `skipped`. Tidak ada review submission atau inline review thread pada PR.
 - PR #38 dan #39 masih Draft/Open. CI sebelumnya lulus, tetapi UAT visual belum selesai; belum layak di-merge.
 
 ## Urutan aman saat dilanjutkan
 
-1. Picu dan selesaikan seluruh job CI untuk head PR terbaru; job harus mencakup replay migration lokal dan 27 assertion pgTAP.
+1. Minta tim menjalankan native Git push untuk memicu seluruh job CI pada head terbaru; job harus mencakup replay migration lokal dan 27 assertion pgTAP. Petunjuk tersedia di `PR40_CI_HANDOFF_2026-11-05.md`.
 2. Jalankan UAT Admin di VQE untuk login, role/tenant, pencarian dan pagination roster, penilaian kelas, serta Data Induk.
 3. Rekonsiliasi alias migration tenant-reference mengikuti `MIGRATION_ORDERING_TENANT_REFERENCE.md`, lalu ulangi preflight baca-saja.
 4. Evaluasi batas 500 kelas dan scan konflik 5.000 jadwal dengan data sintetis berskala realistis.
