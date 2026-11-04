@@ -9,7 +9,7 @@ Production PTSAS: tidak disentuh.
 
 - Ledger VQE berisi 131 migration sampai `20270227000000_remove_redundant_document_number_index`.
 - Pencocokan baca-saja menunjukkan ledger VQE dan source sama-sama memiliki 131 versi/nama; satu-satunya perbedaan versi adalah alias yang terdokumentasi `20261101015832_tenant_reference_relationships` → `20270214120000_tenant_reference_relationships`.
-- SQL tersimpan untuk alias tersebut dibandingkan baca-saja menggunakan parser canonicalizer preflight: 90/90 statement cocok dengan source. Rekonsiliasi ledger alias belum dilakukan; ikuti prosedur di `MIGRATION_ORDERING_TENANT_REFERENCE.md` dan jangan jalankan ulang DDL.
+- Full preflight baca-saja atas seluruh ledger VQE memakai parser source: 131/131 migrasi, tidak ada versi asing, beda nama, atau mismatch SQL; alias tervalidasi dan semua statement cocok. Alias itu masih berstatus perlu rekonsiliasi ledger saja. Tidak ada DDL atau penulisan database dalam pemeriksaan ini.
 - Dengan persetujuan pemilik, satu baris versi sementara `20261101130634` diselaraskan ke versi source `20270227000000`. Nama migration dan statement ledger dipertahankan; jumlah entri tetap 131.
 - Indeks lama `document_records_tenant_document_number_uq` sudah tidak ada. Indeks unik ternormalisasi `document_records_tenant_number_normalized_uq` tetap ada pada `(tenant_id, lower(btrim(document_number)))`. Jangan jalankan ulang DDL atau repair ledger untuk migration ini.
 - Supabase JS dari proses server lokal berhasil menjalankan query tanpa baris pada tabel `tenants` (HTTP 200). Key rahasia tidak dimasukkan ke browser, dokumen, atau chat.
@@ -30,8 +30,8 @@ Audit dependency setelah perbaikan lockfile melaporkan **0 advisori dependency p
 
 ## Gerbang yang masih harus diselesaikan
 
-1. Jalankan `npm run preflight:db-migrations` dengan URL database VQE yang disimpan di environment lokal/secret manager, bukan di Git atau chat, untuk memeriksa statement seluruh history. Inventaris versi/nama dan alias yang cocok sudah diperiksa baca-saja melalui Supabase MCP; ledger alias masih perlu direkonsiliasi tanpa menjalankan SQL migration.
-2. CI run #1135 telah lulus migration rehearsal dan pgTAP pada Supabase lokal terisolasi. Ini belum menggantikan pemeriksaan penuh terhadap seluruh statement yang tersimpan di VQE.
+1. Rekonsiliasi alias ledger VQE yang sudah tervalidasi menggunakan prosedur di `MIGRATION_ORDERING_TENANT_REFERENCE.md`. Perintah harus terhubung khusus ke VQE; ini memperbaiki riwayat versi dan **tidak menjalankan ulang DDL**. Jangan kirim password/database URL melalui chat atau commit.
+2. CI run #1135 dan full preflight baca-saja telah lulus pemeriksaan SQL; sesudah rekonsiliasi ledger, verifikasi kembali hasil preflight sebelum lanjut.
 3. Jalankan UAT manual pada preview head PR #40 di `http://127.0.0.1:4183/`: login Admin, Data Induk, Naming Series, NIS per jenjang, PPDB, pegawai, struktur, impor/ekspor, serta pemeriksaan akses role/tenant. Server tidak mengisi kredensial; login dilakukan oleh pemilik akun.
 4. Aktifkan dan verifikasi Leaked Password Protection pada Auth VQE.
 5. Tinjau Advisor performa dengan data sintetis dan beban yang realistis. Jangan menambahkan/menghapus indeks secara massal.

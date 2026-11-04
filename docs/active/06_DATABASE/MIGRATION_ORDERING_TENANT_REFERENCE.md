@@ -41,7 +41,7 @@ Jika SQL lama tidak cocok, salah satu tabel/relasi tidak ada, versi tambahan mun
 ## Status
 
 - Clean migration replay: lulus pada GitHub Actions run #1135 (3/3 job) untuk head kode PR #40.
-- Pemeriksaan baca-saja Supabase MCP (4 November 2026): 131 versi/nama ledger cocok dengan source kecuali alias yang dijelaskan di atas; canonicalizer preflight membandingkan SQL lama dan file source dengan hasil cocok 90/90 statement.
+- Full pemeriksaan baca-saja Supabase MCP (4 November 2026): seluruh 131 versi/nama ledger dicocokkan dengan source; tidak ada versi asing, perbedaan nama, atau mismatch SQL. Alias `20261101015832 → 20270214120000` tervalidasi dan seluruh statement tersimpan cocok setelah canonicalization.
 - Rekonsiliasi ledger alias VQE: belum dijalankan. Prosedur `migration repair` di atas tetap diperlukan sebelum `db push`; ini hanya memperbarui ledger, bukan menjalankan SQL migration.
 - Production: tidak disentuh.
 - PR #40: tetap Draft sampai preflight penuh, rekonsiliasi ledger alias, dan UAT staging lulus.
