@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { findAcademicScheduleConflicts } from "../src/lib/academicScheduleConflicts";
-import { saveSupabaseAcademicRecord } from "../src/server/supabaseAcademic";
+import { getSupabaseAcademicConflictSchedules, saveSupabaseAcademicRecord } from "../src/server/supabaseAcademic";
 
 const base = {
   day: "Senin",
@@ -67,6 +67,7 @@ assert.equal(manyConflicts.truncated, true);
 
 const originalFetch = globalThis.fetch;
 const requests: string[] = [];
+let overflowAcademicScan = false;
 process.env.SUPABASE_URL = "https://academic-test.invalid";
 process.env.SUPABASE_SECRET_KEY = "sb_secret_test_only";
 globalThis.fetch = async (input) => {
@@ -75,9 +76,69 @@ globalThis.fetch = async (input) => {
   if (url.startsWith("https://academic-test.invalid/rest/v1/tenants?")) {
     return new Response(JSON.stringify([{ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", status: "active" }]), { status: 200 });
   }
+  if (url.startsWith("https://academic-test.invalid/rest/v1/academic_records?")) {
+    const params = new URL(url).searchParams;
+    assert.equal(params.get("tenant_id"), "eq.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    assert.equal(params.get("kind"), "eq.schedule");
+    assert.equal(params.get("deleted_at"), "is.null");
+    assert.equal(params.get("order"), "updated_at.desc,id.asc");
+    if (overflowAcademicScan) {
+      const offset = Number(params.get("offset") || 0);
+      const limit = Number(params.get("limit") || 0);
+      const count = Math.max(0, Math.min(limit, 5001 - offset));
+      return new Response(JSON.stringify(Array.from({ length: count }, (_, index) => ({ id: `record-${offset + index}` }))), { status: 200 });
+    }
+    if (params.get("offset") !== "0") return new Response("[]", { status: 200 });
+    return new Response(JSON.stringify([{
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      kind: "schedule",
+      teacher_user_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      student_id: null,
+      record_data: { ...base, id: undefined, subject: "Matematika" },
+      created_at: "2026-11-04T08:00:00.000Z",
+      updated_at: "2026-11-04T08:00:00.000Z",
+    }]), { status: 200 });
+  }
   throw new Error("Unexpected external request in academic schedule validation test.");
 };
 try {
+  await assert.rejects(
+    getSupabaseAcademicConflictSchedules(
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "Ustadz",
+      false,
+      undefined,
+      undefined,
+    ),
+    (error: any) => error?.status === 403,
+  );
+  assert.equal(requests.length, 0, "Role non-admin ditolak sebelum query tenant dilakukan.");
+  const conflictScan = await getSupabaseAcademicConflictSchedules(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "Admin",
+    false,
+    undefined,
+    undefined,
+  );
+  assert.equal(conflictScan.complete, true);
+  assert.equal(conflictScan.scannedCount, 1);
+  assert.equal(conflictScan.records[0].id, "dddddddd-dddd-4ddd-8ddd-dddddddddddd");
+  assert.equal(conflictScan.records[0].subject, "Matematika");
+  overflowAcademicScan = true;
+  await assert.rejects(
+    getSupabaseAcademicConflictSchedules(
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "Admin",
+      false,
+      undefined,
+      undefined,
+    ),
+    (error: any) => error?.status === 503 && error?.message.includes("batas aman"),
+  );
+  overflowAcademicScan = false;
   await assert.rejects(
     saveSupabaseAcademicRecord(
       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",

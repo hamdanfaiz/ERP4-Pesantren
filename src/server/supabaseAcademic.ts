@@ -198,12 +198,42 @@ export async function getSupabaseAcademicRecordsPage(
   if (!isUuid(actorId) || !["Admin", "SuperAdmin", "Ustadz"].includes(role)) {
     throw new SupabaseAcademicError(403, "Akses catatan Akademik tidak diizinkan.");
   }
-  if (kindValue !== "journal" && kindValue !== "assessment") {
+  if (kindValue !== "schedule" && kindValue !== "journal" && kindValue !== "assessment") {
     throw new SupabaseAcademicError(400, "Jenis catatan akademik tidak valid.");
   }
   const tenantId = await resolveTenantId(tenantIdentifier);
   const filter = await resolveAcademicUnitFilter(tenantId, role, actorUnitId, unitsEnabled, requestedUnitFilter);
   return academicRecordPageForScope(tenantId, actorId, role, unitsEnabled, filter, kindValue, cursorValue);
+}
+
+export async function getSupabaseAcademicConflictSchedules(
+  tenantIdentifier: string,
+  actorId: string,
+  role: string,
+  unitsEnabled: boolean,
+  actorUnitId: string | undefined,
+  requestedUnitFilter: unknown,
+) {
+  if (!isUuid(actorId) || !["Admin", "SuperAdmin"].includes(role)) {
+    throw new SupabaseAcademicError(403, "Pemeriksaan konflik jadwal hanya tersedia untuk Admin tenant.");
+  }
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const filter = await resolveAcademicUnitFilter(tenantId, role, actorUnitId, unitsEnabled, requestedUnitFilter);
+  const rows = await tenantRows(tenantId, role, actorId, unitsEnabled, filter);
+  let unitsById = new Map<string, Row>();
+  if (unitsEnabled) {
+    const unitParams = new URLSearchParams({ select: "id,name", tenant_id: "eq." + tenantId, order: "id.asc", limit: "501" });
+    const unitRows = await request("/rest/v1/organization_units?" + unitParams.toString());
+    if (!Array.isArray(unitRows) || unitRows.length > 500) {
+      throw new SupabaseAcademicError(503, "Jumlah unit melewati batas aman pemeriksaan konflik jadwal.");
+    }
+    unitsById = new Map<string, Row>((unitRows as Row[]).map((row) => [String(row.id), row]));
+  }
+  return {
+    records: rows.map((row) => mapRecord(row, unitsById)),
+    scannedCount: rows.length,
+    complete: true,
+  };
 }
 
 export async function getSupabaseAcademicSnapshot(
@@ -216,7 +246,6 @@ export async function getSupabaseAcademicSnapshot(
 ) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   const filter = await resolveAcademicUnitFilter(tenantId, role, actorUnitId, unitsEnabled, requestedUnitFilter);
-  const schedulesOnly = await tenantRows(tenantId, role, actorId, unitsEnabled, filter);
   const studentParams = new URLSearchParams({
     select: "id,name,nis,grade,status,class_id,details" + (unitsEnabled ? ",organization_unit_id" : ""),
     tenant_id: "eq." + tenantId,
@@ -262,7 +291,7 @@ export async function getSupabaseAcademicSnapshot(
   if (unitsEnabled && role === "Ustadz" && isUuid(String(actorUnitId || ""))) {
     referenceParams.set("or", "(organization_unit_id.is.null,organization_unit_id.eq." + actorUnitId + ")");
   }
-  const [studentRows, staffRows, classRows, unitRows, referenceRows] = await Promise.all([
+  const [studentRows, staffRows, classRows, unitRows, referenceRows, schedulePage, journalPage, assessmentPage, teacherScheduleRows] = await Promise.all([
     readPostgrestRowsInPages<Row>({
       request,
       path: "/rest/v1/students?" + studentParams.toString(),
@@ -279,6 +308,10 @@ export async function getSupabaseAcademicSnapshot(
       })()
       : Promise.resolve([]),
     request("/rest/v1/tenant_reference_items?" + referenceParams.toString()),
+    academicRecordPageForScope(tenantId, actorId, role, unitsEnabled, filter, "schedule", undefined),
+    academicRecordPageForScope(tenantId, actorId, role, unitsEnabled, filter, "journal", undefined),
+    academicRecordPageForScope(tenantId, actorId, role, unitsEnabled, filter, "assessment", undefined),
+    role === "Ustadz" ? tenantRows(tenantId, role, actorId, unitsEnabled, filter) : Promise.resolve([]),
   ]);
   if (!Array.isArray(studentRows) || studentRows.length > 5000 || !Array.isArray(staffRows) || staffRows.length > 500 || !Array.isArray(classRows) || classRows.length > 500 || !Array.isArray(unitRows) || unitRows.length > 500 || !Array.isArray(referenceRows) || referenceRows.length > 2000) {
     throw new SupabaseAcademicError(503, "Roster akademik, daftar pengajar, atau unit melewati batas aman tampilan.");
@@ -291,7 +324,7 @@ export async function getSupabaseAcademicSnapshot(
     .filter((row) => !["inactive", "nonaktif", "disabled", "arsip"].includes(String(row.status || "").trim().toLowerCase()))
     .map((row): [string, string] => [String(row.id), String(row.name || "")]));
   const visibleClassNames = role === "Ustadz"
-    ? new Set(schedulesOnly.map((row) => String(row.record_data?.className || "")).filter(Boolean))
+    ? new Set((teacherScheduleRows as Row[]).map((row) => String(row.record_data?.className || "")).filter(Boolean))
     : null;
   const students = (studentRows as Row[]).filter((row) => !["archived", "alumni", "graduated", "inactive", "nonaktif", "dikeluarkan"].includes(String(row.status || "").trim().toLowerCase())).filter((row) => {
     if (!visibleClassNames) return true;
@@ -304,11 +337,7 @@ export async function getSupabaseAcademicSnapshot(
     return { id: String(row.id), name: String(row.name || ""), nis: String(row.nis || ""), className: classNamesById.get(String(row.class_id || "")) || String(details.className || row.grade || ""),
       organizationUnitId: unitId || null, organizationUnitName: unitId ? String(unitsById.get(unitId)?.name || "Unit tidak tersedia") : null };
   });
-  const schedules = schedulesOnly.map((row) => mapRecord(row, unitsById));
-  const [journalPage, assessmentPage] = await Promise.all([
-    academicRecordPageForScope(tenantId, actorId, role, unitsEnabled, filter, "journal", undefined, unitsById),
-    academicRecordPageForScope(tenantId, actorId, role, unitsEnabled, filter, "assessment", undefined, unitsById),
-  ]);
+  const schedules = schedulePage.records;
   const journals = journalPage.records;
   const assessments = assessmentPage.records;
   const teachers = (staffRows as Row[])
@@ -323,6 +352,7 @@ export async function getSupabaseAcademicSnapshot(
     .map((row) => ({ id: String(row.id), name: String(row.name || "").trim(), organizationUnitId: String(row.organization_unit_id || "") || null }))
     .filter((row) => row.name && (!visibleClassNames || visibleClassNames.has(row.name)));
   return { schedules, journals, assessments, recordPages: {
+      schedule: { hasMore: schedulePage.hasMore, nextCursor: schedulePage.nextCursor },
       journal: { hasMore: journalPage.hasMore, nextCursor: journalPage.nextCursor },
       assessment: { hasMore: assessmentPage.hasMore, nextCursor: assessmentPage.nextCursor },
     }, students, teachers, classes,

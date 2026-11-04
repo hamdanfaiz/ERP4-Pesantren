@@ -1,6 +1,6 @@
 export const ACADEMIC_RECORD_PAGE_SIZE = 50;
 
-export type AcademicRecordKind = "journal" | "assessment";
+export type AcademicRecordKind = "schedule" | "journal" | "assessment";
 export type AcademicRecordCursor = { createdAt: string; id: string };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -41,7 +41,7 @@ export function buildAcademicRecordPageParams(input: {
   cursor?: AcademicRecordCursor | null;
 }) {
   if (!UUID_PATTERN.test(input.tenantId)) throw new Error("Tenant akademik tidak valid.");
-  if (input.kind !== "journal" && input.kind !== "assessment") throw new Error("Jenis catatan akademik tidak valid.");
+  if (input.kind !== "schedule" && input.kind !== "journal" && input.kind !== "assessment") throw new Error("Jenis catatan akademik tidak valid.");
   const params = new URLSearchParams({
     select: "id,kind,teacher_user_id,student_id,record_data,created_at,updated_at" + (input.includeOrganizationUnit ? ",organization_unit_id" : ""),
     tenant_id: "eq." + input.tenantId,

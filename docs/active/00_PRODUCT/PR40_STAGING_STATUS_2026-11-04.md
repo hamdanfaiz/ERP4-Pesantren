@@ -40,3 +40,11 @@ Audit dependency setelah perbaikan lockfile melaporkan **0 advisori dependency p
 
 Tidak ada data Firestore dummy yang disalin. Tidak ada perubahan pada Production. Jangan menutup atau merge PR #40 sebelum gerbang staging di atas lulus.
 
+## Pembaruan source Akademik — 4 November 2026
+
+- Daftar Jadwal, Jurnal, dan Penilaian kini memakai halaman cursor berukuran 50; filter tenant, jenis, unit, dan pengajar dijalankan pada query backend.
+- Pemeriksaan konflik pindah ke endpoint Admin-only yang memindai jadwal tenant/filter hingga 5.000 record. Bila jumlahnya melampaui batas atau halaman sumber tidak stabil, endpoint mengembalikan error dan UI tidak menampilkan hasil seolah lengkap.
+- Uji lokal lulus: `npm run lint`, `npm run build`, `npm run test:academic-record-pagination`, `npm run test:academic-schedule-conflicts`, `npm run test:academic-portal`, `npm run test:supabase-runtime-no-firebase`, dan `git diff --check`. Pengujian memastikan role Ustadz ditolak sebelum query konflik dan scan di atas batas 5.000 ditolak.
+- Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. UAT visual Admin belum dilakukan. Migrasi indeks cursor masih perlu direhearsal di Supabase lokal/staging; tidak ada migration yang diterapkan ke VQE pada langkah ini.
+- Roster santri serta pemetaan kelas Ustadz masih dibatasi 5.000. Karena itu skala tenant besar belum tersertifikasi. Production PTSAS tidak disentuh.
+

@@ -177,6 +177,7 @@ import { getSupabaseDashboardSnapshot, SupabaseDashboardError } from "./src/serv
 import {
   assignSupabaseAcademicClassUnit,
   getSupabaseAcademicRecordsPage,
+  getSupabaseAcademicConflictSchedules,
   getSupabaseAcademicPortalPage,
   getSupabaseAcademicPortalStudent,
   getSupabaseAcademicSnapshot,
@@ -1181,6 +1182,23 @@ async function startServer() {
       return res.json(await getSupabaseAcademicRecordsPage(
         actor.tenantId, actor.uid, actor.role, enterpriseUnitsRuntimeEnabled,
         actor.organizationUnitId, req.query.unitId, req.query.kind, req.query.cursor,
+      ));
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.get("/api/academic/schedule-conflicts", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      if (req.query.unitId !== undefined && typeof req.query.unitId !== "string") {
+        return res.status(400).json({ error: "Filter unit konflik jadwal tidak valid." });
+      }
+      const actor = await loadAcademicActor(uid);
+      return res.json(await getSupabaseAcademicConflictSchedules(
+        actor.tenantId, actor.uid, actor.role, enterpriseUnitsRuntimeEnabled,
+        actor.organizationUnitId, req.query.unitId,
       ));
     } catch (error) { return academicRouteError(res, error); }
   });

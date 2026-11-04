@@ -17,14 +17,14 @@ type AcademicClass = { id: string; name: string; organizationUnitId?: string | n
 type AcademicReference = { id: string; code: string; name: string; description?: string; organizationUnitId?: string | null };
 type UnmappedAcademicClass = { id: string; name: string; status: string };
 type UnmappedAcademicClassSnapshot = { classes: UnmappedAcademicClass[]; classCount: number; limit: number; offset: number };
-type PageableAcademicKind = "journal" | "assessment";
+type PageableAcademicKind = "schedule" | "journal" | "assessment";
 type AcademicRecordPageMeta = { hasMore: boolean; nextCursor: string | null };
 type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; recordPages: Record<PageableAcademicKind, AcademicRecordPageMeta>; students: Student[]; teachers: Teacher[]; classes: AcademicClass[]; subjects: AcademicReference[]; curricula: AcademicReference[]; assessmentTypes: AcademicReference[]; facilities: AcademicReference[]; units: Unit[]; unitsEnabled: boolean };
 type Tab = "schedule" | "journal" | "assessment" | "report-card" | "conflict-resolver" | "teachers" | "subjects" | "curricula";
 type SubjectReference = { name: string; schedules: number; journals: number; assessments: number };
 type CurriculumReference = { name: string; schedules: number };
 
-const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], recordPages: { journal: { hasMore: false, nextCursor: null }, assessment: { hasMore: false, nextCursor: null } }, students: [], teachers: [], classes: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
+const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], recordPages: { schedule: { hasMore: false, nextCursor: null }, journal: { hasMore: false, nextCursor: null }, assessment: { hasMore: false, nextCursor: null } }, students: [], teachers: [], classes: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
 const EMPTY_UNMAPPED_CLASSES: UnmappedAcademicClassSnapshot = { classes: [], classCount: 0, limit: 100, offset: 0 };
 const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_ACADEMIC_IMPORT_ENABLED") === "true";
 type AcademicImportPreview = {
@@ -71,6 +71,11 @@ export function SupabaseAcademicManager() {
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [unitFilter, setUnitFilter] = useState("all");
   const [activeTab, setActiveTab] = useState<Tab>("schedule");
+  const [conflictSchedules, setConflictSchedules] = useState<RecordRow[]>([]);
+  const [conflictLoading, setConflictLoading] = useState(false);
+  const [conflictError, setConflictError] = useState("");
+  const [conflictScannedCount, setConflictScannedCount] = useState(0);
+  const conflictRequestEpoch = useRef(0);
   const [loading, setLoading] = useState(true);
   const [loadingMoreKind, setLoadingMoreKind] = useState<PageableAcademicKind | null>(null);
   const [saving, setSaving] = useState(false);
@@ -102,7 +107,7 @@ export function SupabaseAcademicManager() {
 
   const isAdmin = role === "Admin" || role === "SuperAdmin";
   const canManage = isAdmin || role === "Ustadz";
-  const scheduleConflictReport = useMemo(() => findAcademicScheduleConflicts(snapshot.schedules), [snapshot.schedules]);
+  const scheduleConflictReport = useMemo(() => findAcademicScheduleConflicts(conflictSchedules), [conflictSchedules]);
   const activeUnits = useMemo(() => snapshot.units.filter((unit) => unit.status === "active"), [snapshot.units]);
   const refreshUnmappedClasses = useCallback(async (offset = 0) => {
     setClassMappingLoading(true);
@@ -183,6 +188,7 @@ export function SupabaseAcademicManager() {
         journals: Array.isArray(payload.journals) ? payload.journals : [],
         assessments: Array.isArray(payload.assessments) ? payload.assessments : [],
         recordPages: {
+          schedule: { hasMore: payload.recordPages?.schedule?.hasMore === true, nextCursor: typeof payload.recordPages?.schedule?.nextCursor === "string" ? payload.recordPages.schedule.nextCursor : null },
           journal: { hasMore: payload.recordPages?.journal?.hasMore === true, nextCursor: typeof payload.recordPages?.journal?.nextCursor === "string" ? payload.recordPages.journal.nextCursor : null },
           assessment: { hasMore: payload.recordPages?.assessment?.hasMore === true, nextCursor: typeof payload.recordPages?.assessment?.nextCursor === "string" ? payload.recordPages.assessment.nextCursor : null },
         },
@@ -215,7 +221,10 @@ export function SupabaseAcademicManager() {
       if (unitFilter !== "all") query.set("unitId", unitFilter);
       const result = await requestAcademic(`/api/academic/records?${query.toString()}`);
       if (requestEpoch !== academicRequestEpoch.current) return;
-      if (!Array.isArray(result.records) || typeof result.hasMore !== "boolean") throw new Error("Halaman catatan Akademik belum lengkap.");
+      if (!Array.isArray(result.records) || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))) {
+        throw new Error("Halaman catatan Akademik belum lengkap.");
+      }
       setSnapshot((current) => {
         const existing = new Set(current[kind].map((record) => record.id));
         const appended = result.records.filter((record: RecordRow) => !existing.has(String(record.id)));
@@ -232,6 +241,47 @@ export function SupabaseAcademicManager() {
       if (requestEpoch === academicRequestEpoch.current) setError(loadError?.message || "Halaman catatan Akademik belum dapat dimuat.");
     } finally { if (requestEpoch === academicRequestEpoch.current) setLoadingMoreKind(null); }
   }, [loading, loadingMoreKind, snapshot.recordPages, unitFilter]);
+
+  const loadConflictSchedules = useCallback(async () => {
+    const requestEpoch = ++conflictRequestEpoch.current;
+    setConflictSchedules([]);
+    setConflictScannedCount(0);
+    setConflictLoading(true);
+    setConflictError("");
+    try {
+      const query = new URLSearchParams();
+      if (unitFilter !== "all") query.set("unitId", unitFilter);
+      const payload = await requestAcademic("/api/academic/schedule-conflicts" + (query.size ? "?" + query.toString() : ""));
+      if (requestEpoch !== conflictRequestEpoch.current) return;
+      if (payload.complete !== true || !Array.isArray(payload.records)
+        || !Number.isSafeInteger(payload.scannedCount) || payload.scannedCount !== payload.records.length) {
+        throw new Error("Hasil pemeriksaan konflik jadwal belum lengkap. Muat ulang sebelum mengambil keputusan.");
+      }
+      setConflictSchedules(payload.records);
+      setConflictScannedCount(payload.scannedCount);
+    } catch (loadError: any) {
+      if (requestEpoch === conflictRequestEpoch.current) {
+        setConflictSchedules([]);
+        setConflictScannedCount(0);
+        setConflictError(loadError?.message || "Pemeriksaan konflik jadwal belum dapat dimuat.");
+      }
+    } finally {
+      if (requestEpoch === conflictRequestEpoch.current) setConflictLoading(false);
+    }
+  }, [unitFilter]);
+
+  useEffect(() => {
+    if (activeTab === "conflict-resolver" && isAdmin) {
+      void loadConflictSchedules();
+      return;
+    }
+    conflictRequestEpoch.current += 1;
+    setConflictLoading(false);
+    setConflictSchedules([]);
+    setConflictScannedCount(0);
+    setConflictError("");
+    if (activeTab === "conflict-resolver" && !isAdmin) setActiveTab("journal");
+  }, [activeTab, isAdmin, loadConflictSchedules]);
 
   if (role === "Santri" || role === "Walisantri") return <SupabaseAcademicPortal />;
 
@@ -411,7 +461,7 @@ export function SupabaseAcademicManager() {
     </section>}
 
     <div className="grid gap-3 sm:grid-cols-3">
-      {[{ label: "Jadwal aktif", value: snapshot.schedules.length, icon: CalendarDays }, { label: "Jurnal termuat", value: `${snapshot.journals.length}${snapshot.recordPages.journal.hasMore ? "+" : ""}`, icon: ClipboardList }, { label: "Penilaian termuat", value: `${snapshot.assessments.length}${snapshot.recordPages.assessment.hasMore ? "+" : ""}`, icon: BookOpen }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-emerald-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
+      {[{ label: "Jadwal termuat", value: `${snapshot.schedules.length}${snapshot.recordPages.schedule.hasMore ? "+" : ""}`, icon: CalendarDays }, { label: "Jurnal termuat", value: `${snapshot.journals.length}${snapshot.recordPages.journal.hasMore ? "+" : ""}`, icon: ClipboardList }, { label: "Penilaian termuat", value: `${snapshot.assessments.length}${snapshot.recordPages.assessment.hasMore ? "+" : ""}`, icon: BookOpen }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-emerald-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
     </div>
 
     <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"><strong>Data akademik tenant.</strong> Jadwal, jurnal, dan penilaian baru dicatat di Supabase. Layar ini saat ini mencakup tiga alur tersebut; rapor, KKTP/remedial, pengaturan akademik, komentar wali kelas, serta portal Santri/Wali belum tersedia.</div>
@@ -453,8 +503,8 @@ export function SupabaseAcademicManager() {
       title="E-Rapor"
       description="Menu E-Rapor dari referensi kini terlihat. Penyimpanan nilai harian sudah tersedia pada Penilaian, tetapi penyusunan rapor semester, validasi wali kelas, pengesahan, dan penerbitan rapor belum memiliki alur Supabase tersendiri."
     /> : activeTab === "conflict-resolver" ? <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Penyelesaian konflik jadwal</h2><p className="mt-1 text-sm text-slate-500">Bentrok pengajar, ruang, atau kelas ditampilkan dari jadwal tenant yang termuat. Perubahan jadwal akan divalidasi ulang oleh transaksi Supabase.</p></div><button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button></div>
-      {loading ? <div className="flex items-center gap-2 py-8 text-sm text-slate-500" role="status"><Loader2 className="h-4 w-4 animate-spin" />Memeriksa jadwal tenant…</div> : scheduleConflictReport.conflicts.length === 0 ? scheduleConflictReport.invalidRecordIds.length ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Belum dapat memastikan tidak ada bentrok karena ada jadwal yang formatnya tidak valid.</div> : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100">Tidak ada konflik pada jadwal yang berhasil dimuat.</div> : <div className="space-y-3">{scheduleConflictReport.conflicts.map((conflict) => <article key={`${conflict.first.id}:${conflict.second.id}`} className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-400/20 dark:bg-amber-400/5"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-amber-950 dark:text-amber-100">{conflict.day} · {conflict.overlapStart}–{conflict.overlapEnd} · bentrok {conflict.reasons.join(", ").toLocaleLowerCase("id-ID")}</p><div className="mt-3 grid gap-3 md:grid-cols-2">{[conflict.first, conflict.second].map((record) => <div key={record.id} className="rounded-lg border border-amber-200/70 bg-white/80 p-3 text-sm dark:border-white/10 dark:bg-slate-950/50"><p className="font-semibold text-slate-900 dark:text-white">{record.subject || "Mata pelajaran belum diisi"}</p><p className="mt-1 text-slate-600 dark:text-slate-300">{record.time} · {record.className || "Kelas belum diisi"}</p><p className="mt-1 text-xs text-slate-500">{record.teacherName || "Pengajar belum dipetakan"}{record.room ? ` · ${record.room}` : ""}{record.organizationUnitName ? ` · ${record.organizationUnitName}` : ""}</p></div>)}</div></div><div className="flex shrink-0 flex-col gap-2">{[conflict.first, conflict.second].map((record) => { const unitMissing = snapshot.unitsEnabled && !record.organizationUnitId; return <button key={`edit-${record.id}`} type="button" disabled={unitMissing} title={unitMissing ? "Petakan jadwal ke unit sebelum mengubahnya." : `Ubah jadwal ${record.subject || "tanpa nama"}`} onClick={() => editConflictedSchedule(record as RecordRow)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Perbaiki {record.subject || "jadwal"}</button>; })}</div></div></article>)}</div>}
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Penyelesaian konflik jadwal</h2><p className="mt-1 text-sm text-slate-500">Pemeriksaan mencakup seluruh jadwal tenant sesuai filter hingga batas aman 5.000 record. Jika batas terlampaui, sistem menolak hasil parsial. Perubahan jadwal divalidasi ulang oleh transaksi Supabase.</p>{!conflictLoading && !conflictError && <p className="mt-1 text-xs text-slate-500">{conflictScannedCount.toLocaleString("id-ID")} jadwal berhasil dipindai.</p>}</div><button type="button" onClick={() => void loadConflictSchedules()} disabled={conflictLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${conflictLoading ? "animate-spin" : ""}`} />Muat ulang</button></div>
+      {conflictError ? <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">{conflictError}</div> : conflictLoading ? <div className="flex items-center gap-2 py-8 text-sm text-slate-500" role="status"><Loader2 className="h-4 w-4 animate-spin" />Memeriksa seluruh jadwal tenant…</div> : scheduleConflictReport.conflicts.length === 0 ? scheduleConflictReport.invalidRecordIds.length ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Belum dapat memastikan tidak ada bentrok karena ada jadwal yang formatnya tidak valid.</div> : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100">Tidak ditemukan konflik pada {conflictScannedCount.toLocaleString("id-ID")} jadwal tenant yang dipindai.</div> : <div className="space-y-3">{scheduleConflictReport.conflicts.map((conflict) => <article key={`${conflict.first.id}:${conflict.second.id}`} className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-400/20 dark:bg-amber-400/5"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-amber-950 dark:text-amber-100">{conflict.day} · {conflict.overlapStart}–{conflict.overlapEnd} · bentrok {conflict.reasons.join(", ").toLocaleLowerCase("id-ID")}</p><div className="mt-3 grid gap-3 md:grid-cols-2">{[conflict.first, conflict.second].map((record) => <div key={record.id} className="rounded-lg border border-amber-200/70 bg-white/80 p-3 text-sm dark:border-white/10 dark:bg-slate-950/50"><p className="font-semibold text-slate-900 dark:text-white">{record.subject || "Mata pelajaran belum diisi"}</p><p className="mt-1 text-slate-600 dark:text-slate-300">{record.time} · {record.className || "Kelas belum diisi"}</p><p className="mt-1 text-xs text-slate-500">{record.teacherName || "Pengajar belum dipetakan"}{record.room ? ` · ${record.room}` : ""}{record.organizationUnitName ? ` · ${record.organizationUnitName}` : ""}</p></div>)}</div></div><div className="flex shrink-0 flex-col gap-2">{[conflict.first, conflict.second].map((record) => { const unitMissing = snapshot.unitsEnabled && !record.organizationUnitId; return <button key={`edit-${record.id}`} type="button" disabled={unitMissing} title={unitMissing ? "Petakan jadwal ke unit sebelum mengubahnya." : `Ubah jadwal ${record.subject || "tanpa nama"}`} onClick={() => editConflictedSchedule(record as RecordRow)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Perbaiki {record.subject || "jadwal"}</button>; })}</div></div></article>)}</div>}
       {scheduleConflictReport.truncated && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Daftar dibatasi hingga 500 konflik agar pemeriksaan tetap responsif. Perbaiki sebagian jadwal, lalu muat ulang untuk melihat sisanya.</div>}
       {scheduleConflictReport.invalidRecordIds.length > 0 && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100"><strong>{scheduleConflictReport.invalidRecordIds.length} jadwal tidak dapat diperiksa.</strong> Format hari/waktunya tidak valid. Tinjau record sebelum menganggap tidak ada bentrok.</div>}
       {snapshot.unitsEnabled && <p className="text-xs text-slate-500">Jadwal tanpa unit organisasi tetap terdeteksi sebagai kemungkinan bentrok, tetapi harus dipetakan sebelum dapat diubah. Perbedaan unit aktif mengikuti batas konflik yang sama dengan penyimpanan jadwal.</p>}
@@ -465,6 +515,7 @@ export function SupabaseAcademicManager() {
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">{activeTab === "schedule" ? "Jadwal tersimpan" : activeTab === "journal" ? "Jurnal terbaru" : "Penilaian terbaru"}</h2></div>
         {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat data tenant…</div> : activeTab === "schedule" ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.schedules.length ? snapshot.schedules.map((row) => <article key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{row.subject}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{row.day} · {row.time}</span></div><p className="mt-1 text-sm text-slate-500">{row.className} · {row.teacherName}{row.room ? ` · ${row.room}` : ""}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</article>) : <Empty label="Belum ada jadwal KBM di tenant ini." />}</div> : activeTab === "journal" ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.journals.length ? snapshot.journals.map((row) => <article key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{row.subject} · {row.className}</h3><span className="text-xs text-slate-500">{row.date}</span></div><p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{row.topic}</p><p className="mt-1 text-xs text-slate-500">Pengajar: {row.teacherName} · {journalAttendanceLabel(row.attendance)}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</article>) : <Empty label="Belum ada jurnal KBM di tenant ini." />}</div> : <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.assessments.length ? snapshot.assessments.map((row) => <article key={row.id} className="flex flex-wrap items-center justify-between gap-2 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{row.studentName}</h3><p className="mt-1 text-sm text-slate-500">{row.className} · {row.subject} · {row.assessmentType}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</div><span className={`rounded-lg px-3 py-1 text-sm font-bold ${Number(row.score) < 75 ? "bg-amber-100 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"}`}>{row.score}</span></article>) : <Empty label="Belum ada penilaian di tenant ini." />}</div>}
+        {!loading && activeTab === "schedule" && snapshot.recordPages.schedule.hasMore && <div className="flex justify-center border-t border-slate-100 p-4 dark:border-white/5"><button type="button" onClick={() => void loadMoreAcademicRecords("schedule")} disabled={loadingMoreKind !== null} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMoreKind === "schedule" ? "Memuat jadwal…" : "Muat jadwal berikutnya"}</button></div>}
         {!loading && activeTab === "journal" && snapshot.recordPages.journal.hasMore && <div className="flex justify-center border-t border-slate-100 p-4 dark:border-white/5"><button type="button" onClick={() => void loadMoreAcademicRecords("journal")} disabled={loadingMoreKind !== null} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMoreKind === "journal" ? "Memuat jurnal…" : "Muat jurnal berikutnya"}</button></div>}
         {!loading && activeTab === "assessment" && snapshot.recordPages.assessment.hasMore && <div className="flex justify-center border-t border-slate-100 p-4 dark:border-white/5"><button type="button" onClick={() => void loadMoreAcademicRecords("assessment")} disabled={loadingMoreKind !== null} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMoreKind === "assessment" ? "Memuat penilaian…" : "Muat penilaian berikutnya"}</button></div>}
       </section>
