@@ -20,16 +20,16 @@ Production PTSAS: tidak disentuh.
 
 ## Batas bukti lokal
 
-Preview `4181` berjalan dari checkout audit lokal `codex/policyless-table-guard-20261101` (commit source `224c5c8`), bukan dari head PR #40 `d3aba1e`. Kesamaan source belum dibuktikan. Smoke check tersebut **bukan** UAT Admin dan tidak boleh dipakai sebagai bukti semua menu/transaksi pada head PR bekerja.
+Preview `4181` berjalan dari checkout audit lokal `codex/policyless-table-guard-20261101` (commit source `224c5c8`), bukan dari head PR #40 `7ad90f3`. Kesamaan source belum dibuktikan. Smoke check tersebut **bukan** UAT Admin dan tidak boleh dipakai sebagai bukti semua menu/transaksi pada head PR bekerja.
 
-Lint, build, pemeriksaan schema API privat, guard import graph tanpa Firebase, serta kontrak Naming Series tercatat lulus di checkout audit. GitHub Actions sebelumnya lulus pada head PR yang tercantum dalam deskripsi PR. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB.
+GitHub Actions pada head PR `7ad90f3` lulus 3/3 job pada [run #1133](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41810234551): build frontend/Firebase guard, instalasi NPM produksi, serta migrasi/API auth/tenant/pgTAP. Rangkaian database mencakup rehearsal migrasi dari batas ledger staging, payload sintetis Laundry, pgTAP, race NIS/Tahfidz, API tenant, Storage, dan backup/restore pada Supabase lokal terisolasi. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB.
 
 Audit dependensi sebelumnya menemukan 25 advisori (3 rendah, 10 sedang, 11 tinggi, 1 kritis). Pemindaian ulang gagal mencapai registry npm karena resolusi DNS. Belum ada pembaruan dependensi yang diterapkan; jangan gunakan `npm audit fix --force`.
 
 ## Gerbang yang masih harus diselesaikan
 
 1. Sediakan `SUPABASE_DB_URL` atau `SUPABASE_DB_POOLER_URL` VQE melalui secret manager / environment lokal yang diabaikan Git. Jangan kirim password database lewat chat, PR, terminal log, atau browser.
-2. Jalankan migration preflight dan pgTAP pada source PR #40 terbaru. Environment sekarang tidak memiliki URL Postgres; Docker, Podman, dan `psql` juga tidak tersedia. Supabase CLI berada di cache lokal tetapi tidak ada di `PATH`.
+2. CI run #1133 sudah lulus migration rehearsal dan pgTAP pada Supabase lokal terisolasi. Perbandingan preflight langsung ke database VQE masih terbuka karena environment tidak memiliki `SUPABASE_DB_URL`/pooler. Docker, Podman, dan `psql` juga tidak tersedia lokal; Supabase CLI berada di cache tetapi tidak ada di `PATH`.
 3. Jalankan UAT pada head PR #40: login Admin, Data Induk, Naming Series, NIS per jenjang, PPDB, pegawai, struktur, impor/ekspor, dan pemeriksaan akses role/tenant.
 4. Aktifkan dan verifikasi Leaked Password Protection pada Auth VQE.
 5. Tinjau Advisor performa dengan data sintetis dan beban yang realistis. Jangan menambahkan/menghapus indeks secara massal.
