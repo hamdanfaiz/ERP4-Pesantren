@@ -1,4 +1,4 @@
-# Status Staging PR #40 — 4 November 2026
+# Status Staging PR #40 — 5 November 2026
 
 PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40)  
 Status PR: Draft/Open; belum siap merge.  
@@ -21,22 +21,22 @@ Production PTSAS: tidak disentuh.
 - Preview source PR dapat dijalankan pada port lokal `4184`, tetapi browser AI Studio tidak dapat mengakses loopback dan mengalami timeout. UAT tampilan belum terverifikasi; coba URL itu dari Chrome lokal pada komputer yang sama.
 - Audit Akademik lanjutan memastikan deteksi konflik jadwal dan validasi transaksional saat simpan sudah ada; `npm run test:academic-schedule-conflicts` lulus. Jurnal/penilaian dan jadwal dipaginasi per 50 record. Roster kini juga dipaginasi per 50 record dengan pencarian nama/NIS dan pembatasan kelas Ustadz melalui ID referensi. Migration cursor Akademik sudah diterapkan ke VQE. Uji pgTAP dan UAT visual masih terbuka; batas kelas 500 serta scan konflik 5.000 perlu evaluasi kapasitas tenant besar. Rincian status dicatat di `ACADEMIC_SCALE_GAP_2026-11-04.md`.
 
-## Batas bukti lokal
+## Batas bukti lokal dan CI head saat ini
 
 Server preview dari commit kode `79d516880fb0c957d672cc4db8d9725f7f294ba3` mencatat `Server listening on 127.0.0.1:4184`, tetapi permintaan HTTP dari tool dan browser AI Studio timeout. Karena itu halaman dan API belum dapat diverifikasi pada sesi ini; login Admin dan seluruh alur modul belum diuji.
 
-GitHub Actions pada head PR `79d5168` lulus 3/3 job pada [run #1135](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41813589719): build frontend/Firebase guard, instalasi NPM untuk lingkungan pelanggan, serta rehearsal migrasi/API Auth/tenant/pgTAP. Rangkaian database mencakup rehearsal dari batas ledger staging, data sintetis Laundry, race NIS/Tahfidz, API tenant, Storage, dan backup/restore di Supabase lokal terisolasi. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB.
+Pada head PR sebelumnya `79d5168`, GitHub Actions lulus 3/3 job pada [run #1135](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41813589719). Hasil itu adalah baseline historis dan tidak mencakup pagination roster terbaru. Untuk head PR saat ini `816dd97a07665d7d489a2105244c8fa004341734`, GitHub Actions belum mencatat workflow run maupun status check. Build sebelumnya memberi peringatan ukuran chunk PDF sekitar 1,46 MB.
 
 Audit dependency setelah perbaikan lockfile melaporkan **0 advisori dependency produksi** (`npm audit --omit=dev`). Audit semua dependency masih melaporkan 16 advisori pada tooling/dependency pengembangan (2 rendah, 9 sedang, 5 tinggi): jalur Firebase/Firestore transitive menyarankan downgrade besar yang tidak aman, `xlsx` belum memiliki perbaikan upstream, dan `minimatch` belum memiliki versi perbaikan dalam rentang dependency saat ini. Tidak menjalankan `npm audit fix --force`. Build, lint, guard Supabase runtime/kontrak lokal, dan smoke check production-only lulus. Lockfile dan dependency yang sama sudah melewati CI #1135.
 
 ## Gerbang yang masih harus diselesaikan
 
-1. Rekonsiliasi alias ledger VQE yang sudah tervalidasi menggunakan prosedur di `MIGRATION_ORDERING_TENANT_REFERENCE.md`. Perintah harus terhubung khusus ke VQE; ini memperbaiki riwayat versi dan **tidak menjalankan ulang DDL**. Jangan kirim password/database URL melalui chat atau commit.
-2. CI run #1135 dan full preflight baca-saja telah lulus pemeriksaan SQL; sesudah rekonsiliasi ledger, verifikasi kembali hasil preflight sebelum lanjut.
-3. Buka `http://127.0.0.1:4184/` di Chrome lokal pada komputer yang sama. Jika dapat dibuka, jalankan UAT Admin: login, Data Induk, Naming Series, NIS per jenjang, PPDB, pegawai, struktur, impor/ekspor, serta pemeriksaan akses role/tenant. Server tidak mengisi kredensial; login dilakukan oleh pemilik akun. Jika localhost tetap timeout, tim perlu menjalankan preview dari checkout lokal mereka.
-4. Jalankan pgTAP roster di staging/CI, verifikasi pagination dan batas kelas, lalu uji beban tenant besar serta kelengkapan konflik jadwal.
-5. Aktifkan dan verifikasi Leaked Password Protection pada Auth VQE; tinjau Advisor performa dengan data sintetis dan beban realistis. Jangan menambahkan/menghapus indeks secara massal.
-6. Setelah staging lulus, lakukan audit baca-saja Production, siapkan backup/restore dan rencana cutover terpisah, lalu minta tim backend melakukan penerimaan dan deploy self-hosted.
+1. Picu dan selesaikan seluruh job CI pada head terbaru, termasuk replay migration lokal dan pgTAP roster.
+2. Jalankan UAT Admin VQE untuk login, Data Induk, Naming Series, NIS, PPDB, pegawai, struktur, impor/ekspor, pagination, serta isolasi role/tenant. Preview port `4184` pernah timeout di browser Codex; gunakan Chrome lokal atau preview checkout tim bila masih terjadi.
+3. Rekonsiliasi alias ledger VQE sesuai `MIGRATION_ORDERING_TENANT_REFERENCE.md`, lalu ulangi preflight baca-saja. Langkah `migration repair` hanya memperbaiki ledger dan **tidak menjalankan ulang DDL**.
+4. Evaluasi batas 500 kelas dan scan konflik 5.000 jadwal dengan data sintetis realistis.
+5. Aktifkan dan verifikasi Leaked Password Protection pada Auth VQE; tinjau Advisor performa dengan beban realistis. Jangan mengubah indeks secara massal.
+6. Setelah staging lulus, lakukan audit baca-saja Production, siapkan backup/restore dan rencana cutover terpisah, lalu minta tim backend menerima dan deploy self-hosted.
 
 Tidak ada data Firestore dummy yang disalin. Tidak ada perubahan pada Production. Jangan menutup atau merge PR #40 sebelum gerbang staging di atas lulus.
 
@@ -52,16 +52,17 @@ Tidak ada data Firestore dummy yang disalin. Tidak ada perubahan pada Production
 
 - Migration `20270228000000_academic_record_cursor_indexes.sql` dan `20270301000000_academic_student_roster_pagination.sql` sudah diterapkan ke VQE. Indeks urutan roster dan jadwal guru/kelas tersedia; RPC memvalidasi tenant, profil aktif, role, izin Akademik, unit, pencarian, dan cursor.
 - Kelas Ustadz dibatasi lewat ID kelas yang sama dengan relasi santri. Trigger mencegah Ustadz menyimpan nilai untuk kelas lain meski nama kelasnya sama.
-- Test pgTAP berisi 27 pemeriksaan sintetis untuk pagination, pencarian, tenant/unit/role, privasi RPC, dan penolakan nilai lintas kelas. File test belum dijalankan; pemanggilan SQL test melalui konektor ditolak karena payload gabungan melewati batas ukuran.
+- Test pgTAP berisi 27 pemeriksaan sintetis untuk pagination, pencarian, tenant/unit/role, privasi RPC, dan penolakan nilai lintas kelas. `pgtap` tersedia pada VQE tetapi belum terpasang. Percobaan melalui konektor SQL gagal saat mem-parsing fungsi helper ber-dollar-quote; tidak ada fixture tertinggal dan ekstensi tetap tidak terpasang. Docker, `psql`, dan Supabase CLI tidak tersedia di workstation, sehingga jalur yang benar adalah menjalankannya lewat CI/lingkungan lokal Supabase terisolasi.
 - Verifikasi baca-saja VQE memastikan kedua migration source tercatat tepat di versi target, RPC tersedia, `service_role` dapat memanggilnya, `anon`/`authenticated` tidak dapat memanggilnya, trigger aktif, dan enam indeks Akademik tersedia. Jumlah santri, catatan Akademik, dan tenant fixture tetap nol.
 - Ledger VQE sekarang berisi 133 migration; alias tenant-reference lama masih ada. Rekonsiliasi alias itu perlu mengikuti runbook secara terpisah.
 - `npm run preflight:db-migrations:local` tidak dapat dijalankan karena `psql` tidak ditemukan. `supabase test db` tidak dapat dijalankan karena Docker tidak tersedia.
 - Verifikasi source terbaru: lint, build, uji roster, uji pagination catatan, uji konflik jadwal, uji portal Akademik, uji logika migration preflight, serta guard Supabase-only lulus. Build tetap memperingatkan chunk PDF 1,46 MB.
-- Source roster disimpan pada branch lokal `codex/pr40-roster-pagination-20261105`, direbase di atas head PR #40 `90c17e8`; belum di-push. CI belum berjalan untuk perubahan roster. UAT Admin belum selesai. Production PTSAS tidak disentuh.
+- Source roster disimpan pada branch lokal `codex/pr40-roster-pagination-20261105`, dan head GitHub PR `816dd97` memiliki tree yang sama. CI belum berjalan pada head ini. UAT Admin belum selesai. Production PTSAS tidak disentuh.
 
 ## Pembaruan sinkronisasi — 5 November 2026
 
-- Git fetch berhasil dan mengonfirmasi head branch PR #40 `90c17e83f51c4d4cfe479f17c7ec5009289fa525` (commit `90c17e8`). Commit lokal roster berada satu commit di atas head tersebut; source Jadwal dan pemindaian konflik dari PR dipertahankan.
-- Validasi setelah rebase lulus: lint, build, uji pagination roster/catatan, konflik jadwal, portal Akademik, migration preflight, guard Supabase-only, dan pemeriksaan whitespace. CI belum berjalan karena perubahan lokal belum di-push.
-- VQE staging tetap pada 133 migration, termasuk `20270228000000` dan `20270301000000`; pgTAP 27 assertion belum dijalankan. Tidak ada fixture uji yang tertinggal. Production tetap tidak disentuh.
+- Git fetch mengonfirmasi head PR #40 `816dd97a07665d7d489a2105244c8fa004341734`; tree-nya sama dengan commit lokal `3d0bff0` (`cbab1c0`). Source roster sudah tersedia pada branch PR melalui konektor GitHub.
+- Validasi lokal sesudah rebase lulus: lint, build, uji pagination roster/catatan, konflik jadwal, portal Akademik, migration preflight, guard Supabase-only, dan pemeriksaan whitespace. Pada head terbaru, GitHub API mengembalikan nol workflow run dan nol status check; pemicu CI masih perlu dibereskan.
+- VQE staging memiliki 133 migration, termasuk `20270228000000` dan `20270301000000`; pgTAP roster 27 assertion belum berhasil dijalankan. Docker, `psql`, dan Supabase CLI tidak tersedia. Percobaan SQL konektor berhenti pada parse error dan pemeriksaan baca-saja sesudahnya memastikan tenant, user, profil, kandidat, santri, catatan Akademik, serta ekstensi pgTAP sintetis tetap tidak berubah.
+- Tidak ada review submission atau inline review thread pada PR #40. PR tetap Draft/Open. Production tetap tidak disentuh.
 
