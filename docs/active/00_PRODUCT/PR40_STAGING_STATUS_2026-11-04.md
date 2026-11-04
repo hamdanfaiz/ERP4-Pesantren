@@ -18,11 +18,11 @@ Production PTSAS: tidak disentuh.
   - 0 tabel publik tanpa RLS memiliki grant operasi tersebut ke `anon`/ `authenticated`.
   Ini konsisten dengan akses operasional server-only/default-deny. Jangan membuka policy umum.
 - Performance Advisor mencatat 258 foreign key tanpa indeks pendukung dan 96 indeks belum digunakan. Jangan melakukan perubahan massal sebelum ada workload representatif.
-- Local preview yang sudah diverifikasi dari head kode PR berjalan di `127.0.0.1:4183`; lihat batas bukti di bawah.
+- Preview source PR dapat dijalankan pada port lokal `4184`, tetapi browser AI Studio tidak dapat mengakses loopback dan mengalami timeout. UAT tampilan belum terverifikasi; coba URL itu dari Chrome lokal pada komputer yang sama.
 
 ## Batas bukti lokal
 
-Preview tepat dari head PR #40 kini berjalan pada `127.0.0.1:4183` dari commit `79d516880fb0c957d672cc4db8d9725f7f294ba3`. Readiness dan landing page memberi HTTP 200; `/api/users` tanpa autentikasi memberi HTTP 401. Ini membuktikan startup dan penolakan akses anonim, tetapi **belum** membuktikan UAT Admin atau seluruh alur modul.
+Server preview dari commit kode `79d516880fb0c957d672cc4db8d9725f7f294ba3` mencatat `Server listening on 127.0.0.1:4184`, tetapi permintaan HTTP dari tool dan browser AI Studio timeout. Karena itu halaman dan API belum dapat diverifikasi pada sesi ini; login Admin dan seluruh alur modul belum diuji.
 
 GitHub Actions pada head PR `79d5168` lulus 3/3 job pada [run #1135](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41813589719): build frontend/Firebase guard, instalasi NPM untuk lingkungan pelanggan, serta rehearsal migrasi/API Auth/tenant/pgTAP. Rangkaian database mencakup rehearsal dari batas ledger staging, data sintetis Laundry, race NIS/Tahfidz, API tenant, Storage, dan backup/restore di Supabase lokal terisolasi. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB.
 
@@ -32,7 +32,7 @@ Audit dependency setelah perbaikan lockfile melaporkan **0 advisori dependency p
 
 1. Rekonsiliasi alias ledger VQE yang sudah tervalidasi menggunakan prosedur di `MIGRATION_ORDERING_TENANT_REFERENCE.md`. Perintah harus terhubung khusus ke VQE; ini memperbaiki riwayat versi dan **tidak menjalankan ulang DDL**. Jangan kirim password/database URL melalui chat atau commit.
 2. CI run #1135 dan full preflight baca-saja telah lulus pemeriksaan SQL; sesudah rekonsiliasi ledger, verifikasi kembali hasil preflight sebelum lanjut.
-3. Jalankan UAT manual pada preview head PR #40 di `http://127.0.0.1:4183/`: login Admin, Data Induk, Naming Series, NIS per jenjang, PPDB, pegawai, struktur, impor/ekspor, serta pemeriksaan akses role/tenant. Server tidak mengisi kredensial; login dilakukan oleh pemilik akun.
+3. Buka `http://127.0.0.1:4184/` di Chrome lokal pada komputer yang sama. Jika dapat dibuka, jalankan UAT Admin: login, Data Induk, Naming Series, NIS per jenjang, PPDB, pegawai, struktur, impor/ekspor, serta pemeriksaan akses role/tenant. Server tidak mengisi kredensial; login dilakukan oleh pemilik akun. Jika localhost tetap timeout, tim perlu menjalankan preview dari checkout lokal mereka.
 4. Aktifkan dan verifikasi Leaked Password Protection pada Auth VQE.
 5. Tinjau Advisor performa dengan data sintetis dan beban yang realistis. Jangan menambahkan/menghapus indeks secara massal.
 6. Setelah staging lulus, lakukan audit baca-saja Production, siapkan backup/restore dan rencana cutover terpisah, lalu minta tim backend melakukan penerimaan dan deploy self-hosted.
