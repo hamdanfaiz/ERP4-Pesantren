@@ -176,6 +176,7 @@ import {
 import { getSupabaseDashboardSnapshot, SupabaseDashboardError } from "./src/server/supabaseDashboard";
 import {
   assignSupabaseAcademicClassUnit,
+  getSupabaseAcademicRecordsPage,
   getSupabaseAcademicPortalPage,
   getSupabaseAcademicPortalStudent,
   getSupabaseAcademicSnapshot,
@@ -1161,6 +1162,25 @@ async function startServer() {
       return res.json(await getSupabaseAcademicSnapshot(
         actor.tenantId, actor.uid, actor.role, enterpriseUnitsRuntimeEnabled,
         actor.organizationUnitId, req.query.unitId,
+      ));
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.get("/api/academic/records", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      if ((req.query.cursor !== undefined && typeof req.query.cursor !== "string")
+        || (req.query.kind !== undefined && typeof req.query.kind !== "string")
+        || (req.query.unitId !== undefined && typeof req.query.unitId !== "string")) {
+        return res.status(400).json({ error: "Filter catatan akademik tidak valid." });
+      }
+      const actor = await loadAcademicActor(uid);
+      return res.json(await getSupabaseAcademicRecordsPage(
+        actor.tenantId, actor.uid, actor.role, enterpriseUnitsRuntimeEnabled,
+        actor.organizationUnitId, req.query.unitId, req.query.kind, req.query.cursor,
       ));
     } catch (error) { return academicRouteError(res, error); }
   });

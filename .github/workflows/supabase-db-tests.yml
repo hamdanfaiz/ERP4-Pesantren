@@ -108,6 +108,9 @@ jobs:
 
       - name: Verify Academic portal tenant and student scoping
         run: npm run test:academic-portal
+
+      - name: Verify Academic record cursor pagination and role/unit scope
+        run: npm run test:academic-record-pagination
       - name: Verify public PPDB document total-size validation
         run: npm run test:public-ppdb-validation
 

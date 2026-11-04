@@ -68,7 +68,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 131);
+assert.equal(sourceMigrationsWithSql.length, 132);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -90,6 +90,7 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202702210000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270222000000_extend_naming_series_business_identifiers.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270223000000_additional_operational_naming_series.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270224000000_ga_business_identifier_update_guard.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270228000000_academic_record_cursor_indexes.sql'));
 assert(sourceMigrationsWithSql.every(({ statements }) => Array.isArray(statements) && statements.length > 0));
 
 const migrationIndex = (fileName) => sourceMigrationsWithSql.findIndex((migration) => migration.fileName === fileName);
@@ -255,13 +256,13 @@ const observedStagingMigrations = sourceMigrationsWithSql
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
 assert.equal(observedStagingMigrations.length, 49);
-assert.equal(sourceMigrationsWithSql.length, 131);
+assert.equal(sourceMigrationsWithSql.length, 132);
 const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
 assert.equal(stagingBaseline.appliedCount, 49);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(stagingBaseline.pending.length, 82);
+assert.equal(stagingBaseline.pending.length, 83);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
-assert.equal(stagingBaseline.pending.at(-1).version, '20270227000000');
+assert.equal(stagingBaseline.pending.at(-1).version, '20270228000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
 assert.equal(stagingBaseline.unknownApplied.length, 0);
 assert.deepEqual(stagingBaseline.nameMismatches.map(({ version }) => version), [...missingStagingMetadataVersions]);

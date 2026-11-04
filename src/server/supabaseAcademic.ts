@@ -5,6 +5,13 @@ import {
   decodeAcademicPortalCursor,
   encodeAcademicPortalCursor,
 } from "../lib/academicPortalPagination";
+import {
+  ACADEMIC_RECORD_PAGE_SIZE,
+  AcademicRecordKind,
+  buildAcademicRecordPageParams,
+  decodeAcademicRecordCursor,
+  encodeAcademicRecordCursor,
+} from "../lib/academicRecordsPagination";
 
 type Row = Record<string, any>;
 
@@ -106,6 +113,7 @@ async function tenantRows(tenantId: string, role: string, actorId: string, units
   const params = new URLSearchParams({
     select: "id,kind,teacher_user_id,student_id,record_data,created_at,updated_at" + (unitsEnabled ? ",organization_unit_id" : ""),
     tenant_id: "eq." + tenantId,
+    kind: "eq.schedule",
     deleted_at: "is.null",
     order: "updated_at.desc,id.asc",
     limit: "5001",
@@ -121,6 +129,83 @@ async function tenantRows(tenantId: string, role: string, actorId: string, units
   });
 }
 
+async function academicRecordPageForScope(
+  tenantId: string,
+  actorId: string,
+  role: string,
+  unitsEnabled: boolean,
+  filter: AcademicUnitFilter,
+  kind: AcademicRecordKind,
+  cursorValue?: unknown,
+  knownUnits?: Map<string, Row>,
+) {
+  let cursor;
+  try { cursor = decodeAcademicRecordCursor(cursorValue); }
+  catch { throw new SupabaseAcademicError(400, "Kursor catatan akademik tidak valid. Muat ulang daftar."); }
+  const params = buildAcademicRecordPageParams({
+    tenantId,
+    kind,
+    includeOrganizationUnit: unitsEnabled,
+    organizationUnitId: unitsEnabled && filter.mode === "unit" ? filter.unitId : null,
+    includeUnassignedUnit: unitsEnabled && filter.mode === "unassigned",
+    teacherUserId: role === "Ustadz" ? actorId : null,
+    cursor,
+  });
+  const response = await request("/rest/v1/academic_records?" + params.toString());
+  if (!Array.isArray(response) || response.length > ACADEMIC_RECORD_PAGE_SIZE + 1) {
+    throw new SupabaseAcademicError(503, "Halaman catatan akademik belum dapat diverifikasi.");
+  }
+  const hasMore = response.length > ACADEMIC_RECORD_PAGE_SIZE;
+  const rows = (response as Row[]).slice(0, ACADEMIC_RECORD_PAGE_SIZE);
+  let unitsById = knownUnits || new Map<string, Row>();
+  if (unitsEnabled && !knownUnits) {
+    const unitIds = [...new Set(rows.map((row) => String(row.organization_unit_id || "")).filter(Boolean))];
+    if (unitIds.length) {
+      const unitParams = new URLSearchParams({
+        select: "id,name",
+        tenant_id: "eq." + tenantId,
+        id: "in.(${ids})".replace("${ids}", unitIds.join(",")),
+        limit: String(unitIds.length + 1),
+      });
+      const unitRows = await request("/rest/v1/organization_units?" + unitParams.toString());
+      if (!Array.isArray(unitRows) || unitRows.length !== unitIds.length) {
+        throw new SupabaseAcademicError(503, "Nama unit pada catatan akademik belum dapat diverifikasi.");
+      }
+      unitsById = new Map<string, Row>((unitRows as Row[]).map((row) => [String(row.id), row]));
+    }
+  }
+  const records = rows.map((row) => ({
+    ...mapRecord(row, unitsById),
+    ...(kind === "assessment" ? { studentId: String(row.student_id || "") } : {}),
+  }));
+  const last = rows[rows.length - 1];
+  const nextCursor = hasMore && last
+    ? encodeAcademicRecordCursor({ createdAt: String(last.created_at || ""), id: String(last.id || "") })
+    : null;
+  return { records, hasMore, nextCursor };
+}
+
+export async function getSupabaseAcademicRecordsPage(
+  tenantIdentifier: string,
+  actorId: string,
+  role: string,
+  unitsEnabled: boolean,
+  actorUnitId: string | undefined,
+  requestedUnitFilter: unknown,
+  kindValue: unknown,
+  cursorValue?: unknown,
+) {
+  if (!isUuid(actorId) || !["Admin", "SuperAdmin", "Ustadz"].includes(role)) {
+    throw new SupabaseAcademicError(403, "Akses catatan Akademik tidak diizinkan.");
+  }
+  if (kindValue !== "journal" && kindValue !== "assessment") {
+    throw new SupabaseAcademicError(400, "Jenis catatan akademik tidak valid.");
+  }
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const filter = await resolveAcademicUnitFilter(tenantId, role, actorUnitId, unitsEnabled, requestedUnitFilter);
+  return academicRecordPageForScope(tenantId, actorId, role, unitsEnabled, filter, kindValue, cursorValue);
+}
+
 export async function getSupabaseAcademicSnapshot(
   tenantIdentifier: string,
   actorId: string,
@@ -131,7 +216,7 @@ export async function getSupabaseAcademicSnapshot(
 ) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   const filter = await resolveAcademicUnitFilter(tenantId, role, actorUnitId, unitsEnabled, requestedUnitFilter);
-  const records = await tenantRows(tenantId, role, actorId, unitsEnabled, filter);
+  const schedulesOnly = await tenantRows(tenantId, role, actorId, unitsEnabled, filter);
   const studentParams = new URLSearchParams({
     select: "id,name,nis,grade,status,class_id,details" + (unitsEnabled ? ",organization_unit_id" : ""),
     tenant_id: "eq." + tenantId,
@@ -206,7 +291,7 @@ export async function getSupabaseAcademicSnapshot(
     .filter((row) => !["inactive", "nonaktif", "disabled", "arsip"].includes(String(row.status || "").trim().toLowerCase()))
     .map((row): [string, string] => [String(row.id), String(row.name || "")]));
   const visibleClassNames = role === "Ustadz"
-    ? new Set(records.filter((row) => row.kind === "schedule").map((row) => String(row.record_data?.className || "")).filter(Boolean))
+    ? new Set(schedulesOnly.map((row) => String(row.record_data?.className || "")).filter(Boolean))
     : null;
   const students = (studentRows as Row[]).filter((row) => !["archived", "alumni", "graduated", "inactive", "nonaktif", "dikeluarkan"].includes(String(row.status || "").trim().toLowerCase())).filter((row) => {
     if (!visibleClassNames) return true;
@@ -219,9 +304,13 @@ export async function getSupabaseAcademicSnapshot(
     return { id: String(row.id), name: String(row.name || ""), nis: String(row.nis || ""), className: classNamesById.get(String(row.class_id || "")) || String(details.className || row.grade || ""),
       organizationUnitId: unitId || null, organizationUnitName: unitId ? String(unitsById.get(unitId)?.name || "Unit tidak tersedia") : null };
   });
-  const schedules = records.filter((row) => row.kind === "schedule").map((row) => mapRecord(row, unitsById));
-  const journals = records.filter((row) => row.kind === "journal").map((row) => mapRecord(row, unitsById));
-  const assessments = records.filter((row) => row.kind === "assessment").map((row) => ({ ...mapRecord(row, unitsById), studentId: String(row.student_id || "") }));
+  const schedules = schedulesOnly.map((row) => mapRecord(row, unitsById));
+  const [journalPage, assessmentPage] = await Promise.all([
+    academicRecordPageForScope(tenantId, actorId, role, unitsEnabled, filter, "journal", undefined, unitsById),
+    academicRecordPageForScope(tenantId, actorId, role, unitsEnabled, filter, "assessment", undefined, unitsById),
+  ]);
+  const journals = journalPage.records;
+  const assessments = assessmentPage.records;
   const teachers = (staffRows as Row[])
     .filter((row) => role !== "Ustadz" || String(row.user_id) === actorId)
     .map((row) => {
@@ -233,7 +322,10 @@ export async function getSupabaseAcademicSnapshot(
     .filter((row) => !["inactive", "nonaktif", "disabled", "arsip"].includes(String(row.status || "").trim().toLowerCase()))
     .map((row) => ({ id: String(row.id), name: String(row.name || "").trim(), organizationUnitId: String(row.organization_unit_id || "") || null }))
     .filter((row) => row.name && (!visibleClassNames || visibleClassNames.has(row.name)));
-  return { schedules, journals, assessments, students, teachers, classes,
+  return { schedules, journals, assessments, recordPages: {
+      journal: { hasMore: journalPage.hasMore, nextCursor: journalPage.nextCursor },
+      assessment: { hasMore: assessmentPage.hasMore, nextCursor: assessmentPage.nextCursor },
+    }, students, teachers, classes,
     subjects: activeReference("academic_subject"), curricula: activeReference("academic_curriculum"),
     assessmentTypes: activeReference("academic_assessment_type"), facilities: activeReference("facility_resource"),
     units: (unitRows as Row[]).map((row) => ({ id: String(row.id), name: String(row.name || ""), code: String(row.code || ""), status: String(row.status || ""), unitType: String(row.unit_type || "") })),

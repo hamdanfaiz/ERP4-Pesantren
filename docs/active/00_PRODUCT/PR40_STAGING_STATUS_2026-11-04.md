@@ -19,7 +19,7 @@ Production PTSAS: tidak disentuh.
   Ini konsisten dengan akses operasional server-only/default-deny. Jangan membuka policy umum.
 - Performance Advisor mencatat 258 foreign key tanpa indeks pendukung dan 96 indeks belum digunakan. Jangan melakukan perubahan massal sebelum ada workload representatif.
 - Preview source PR dapat dijalankan pada port lokal `4184`, tetapi browser AI Studio tidak dapat mengakses loopback dan mengalami timeout. UAT tampilan belum terverifikasi; coba URL itu dari Chrome lokal pada komputer yang sama.
-- Audit Akademik lanjutan memastikan deteksi konflik jadwal dan validasi transaksional saat simpan sudah ada; `npm run test:academic-schedule-conflicts` lulus. Batas source saat ini memindai maksimal 5.000 record Akademik gabungan; ini menjadi gap skalabilitas sebelum klaim kesiapan untuk pesantren besar. Rincian dan kriteria perbaikannya dicatat di `ACADEMIC_SCALE_GAP_2026-11-04.md`.
+- Audit Akademik lanjutan memastikan deteksi konflik jadwal dan validasi transaksional saat simpan sudah ada; `npm run test:academic-schedule-conflicts` lulus. Perubahan lokal kini memaginasi jurnal/penilaian per 50 record dengan kursor tenant/role/unit dan indeks pendukung. Migrasi belum diterapkan ke VQE. Jadwal dan roster santri masih dibatasi 5.000, sehingga sertifikasi skala pesantren besar belum selesai. Rincian status dicatat di `ACADEMIC_SCALE_GAP_2026-11-04.md`.
 
 ## Batas bukti lokal
 
@@ -34,8 +34,8 @@ Audit dependency setelah perbaikan lockfile melaporkan **0 advisori dependency p
 1. Rekonsiliasi alias ledger VQE yang sudah tervalidasi menggunakan prosedur di `MIGRATION_ORDERING_TENANT_REFERENCE.md`. Perintah harus terhubung khusus ke VQE; ini memperbaiki riwayat versi dan **tidak menjalankan ulang DDL**. Jangan kirim password/database URL melalui chat atau commit.
 2. CI run #1135 dan full preflight baca-saja telah lulus pemeriksaan SQL; sesudah rekonsiliasi ledger, verifikasi kembali hasil preflight sebelum lanjut.
 3. Buka `http://127.0.0.1:4184/` di Chrome lokal pada komputer yang sama. Jika dapat dibuka, jalankan UAT Admin: login, Data Induk, Naming Series, NIS per jenjang, PPDB, pegawai, struktur, impor/ekspor, serta pemeriksaan akses role/tenant. Server tidak mengisi kredensial; login dilakukan oleh pemilik akun. Jika localhost tetap timeout, tim perlu menjalankan preview dari checkout lokal mereka.
-4. Aktifkan dan verifikasi Leaked Password Protection pada Auth VQE.
-5. Tinjau Advisor performa dengan data sintetis dan beban yang realistis. Jangan menambahkan/menghapus indeks secara massal.
+4. Selesaikan pagination jadwal/roster serta verifikasi kelengkapan konflik untuk tenant besar; migrasi indeks jurnal/penilaian harus lulus CI dan rehearsal VQE.
+5. Aktifkan dan verifikasi Leaked Password Protection pada Auth VQE; tinjau Advisor performa dengan data sintetis dan beban realistis. Jangan menambahkan/menghapus indeks secara massal.
 6. Setelah staging lulus, lakukan audit baca-saja Production, siapkan backup/restore dan rencana cutover terpisah, lalu minta tim backend melakukan penerimaan dan deploy self-hosted.
 
 Tidak ada data Firestore dummy yang disalin. Tidak ada perubahan pada Production. Jangan menutup atau merge PR #40 sebelum gerbang staging di atas lulus.

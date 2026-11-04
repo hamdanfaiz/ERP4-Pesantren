@@ -1,6 +1,6 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, BookOpen, CalendarDays, Check, ClipboardList, FileText, Loader2, Plus, RefreshCw, ShieldCheck, Users, Wrench } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
@@ -17,12 +17,14 @@ type AcademicClass = { id: string; name: string; organizationUnitId?: string | n
 type AcademicReference = { id: string; code: string; name: string; description?: string; organizationUnitId?: string | null };
 type UnmappedAcademicClass = { id: string; name: string; status: string };
 type UnmappedAcademicClassSnapshot = { classes: UnmappedAcademicClass[]; classCount: number; limit: number; offset: number };
-type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; students: Student[]; teachers: Teacher[]; classes: AcademicClass[]; subjects: AcademicReference[]; curricula: AcademicReference[]; assessmentTypes: AcademicReference[]; facilities: AcademicReference[]; units: Unit[]; unitsEnabled: boolean };
+type PageableAcademicKind = "journal" | "assessment";
+type AcademicRecordPageMeta = { hasMore: boolean; nextCursor: string | null };
+type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; recordPages: Record<PageableAcademicKind, AcademicRecordPageMeta>; students: Student[]; teachers: Teacher[]; classes: AcademicClass[]; subjects: AcademicReference[]; curricula: AcademicReference[]; assessmentTypes: AcademicReference[]; facilities: AcademicReference[]; units: Unit[]; unitsEnabled: boolean };
 type Tab = "schedule" | "journal" | "assessment" | "report-card" | "conflict-resolver" | "teachers" | "subjects" | "curricula";
 type SubjectReference = { name: string; schedules: number; journals: number; assessments: number };
 type CurriculumReference = { name: string; schedules: number };
 
-const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], students: [], teachers: [], classes: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
+const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], recordPages: { journal: { hasMore: false, nextCursor: null }, assessment: { hasMore: false, nextCursor: null } }, students: [], teachers: [], classes: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
 const EMPTY_UNMAPPED_CLASSES: UnmappedAcademicClassSnapshot = { classes: [], classCount: 0, limit: 100, offset: 0 };
 const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_ACADEMIC_IMPORT_ENABLED") === "true";
 type AcademicImportPreview = {
@@ -65,10 +67,12 @@ function today() { return new Date().toISOString().slice(0, 10); }
 
 export function SupabaseAcademicManager() {
   const { role, user } = useAuth();
+  const academicRequestEpoch = useRef(0);
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [unitFilter, setUnitFilter] = useState("all");
   const [activeTab, setActiveTab] = useState<Tab>("schedule");
   const [loading, setLoading] = useState(true);
+  const [loadingMoreKind, setLoadingMoreKind] = useState<PageableAcademicKind | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -164,17 +168,24 @@ export function SupabaseAcademicManager() {
   }, [snapshot.schedules]);
 
   const refresh = useCallback(async () => {
-    if (!canManage || !user?.tenantId) { setSnapshot(EMPTY); return; }
+    const requestEpoch = ++academicRequestEpoch.current;
+    setLoadingMoreKind(null);
+    if (!canManage || !user?.tenantId) { setSnapshot(EMPTY); setLoading(false); return; }
     setLoading(true); setError("");
     try {
       const query = new URLSearchParams();
       if (unitFilter !== "all") query.set("unitId", unitFilter);
       const queryString = query.toString();
       const payload = await requestAcademic("/api/academic/snapshot" + (queryString ? "?" + queryString : ""));
+      if (requestEpoch !== academicRequestEpoch.current) return;
       setSnapshot({
         schedules: Array.isArray(payload.schedules) ? payload.schedules : [],
         journals: Array.isArray(payload.journals) ? payload.journals : [],
         assessments: Array.isArray(payload.assessments) ? payload.assessments : [],
+        recordPages: {
+          journal: { hasMore: payload.recordPages?.journal?.hasMore === true, nextCursor: typeof payload.recordPages?.journal?.nextCursor === "string" ? payload.recordPages.journal.nextCursor : null },
+          assessment: { hasMore: payload.recordPages?.assessment?.hasMore === true, nextCursor: typeof payload.recordPages?.assessment?.nextCursor === "string" ? payload.recordPages.assessment.nextCursor : null },
+        },
         students: Array.isArray(payload.students) ? payload.students : [],
         teachers: Array.isArray(payload.teachers) ? payload.teachers : [],
         classes: Array.isArray(payload.classes) ? payload.classes : [],
@@ -187,11 +198,40 @@ export function SupabaseAcademicManager() {
       });
       if (payload.unitsEnabled === true && isAdmin) await refreshUnmappedClasses();
       else setUnmappedClasses(EMPTY_UNMAPPED_CLASSES);
-    } catch (loadError: any) { setSnapshot(EMPTY); setError(loadError?.message || "Data Akademik Supabase belum dapat dimuat."); }
-    finally { setLoading(false); }
+    } catch (loadError: any) {
+      if (requestEpoch === academicRequestEpoch.current) { setSnapshot(EMPTY); setError(loadError?.message || "Data Akademik Supabase belum dapat dimuat."); }
+    } finally { if (requestEpoch === academicRequestEpoch.current) setLoading(false); }
   }, [canManage, isAdmin, refreshUnmappedClasses, user?.tenantId, user?.uid, unitFilter]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  const loadMoreAcademicRecords = useCallback(async (kind: PageableAcademicKind) => {
+    const page = snapshot.recordPages[kind];
+    if (loading || loadingMoreKind || !page.hasMore || !page.nextCursor) return;
+    const requestEpoch = academicRequestEpoch.current;
+    setLoadingMoreKind(kind); setError("");
+    try {
+      const query = new URLSearchParams({ kind, cursor: page.nextCursor });
+      if (unitFilter !== "all") query.set("unitId", unitFilter);
+      const result = await requestAcademic(`/api/academic/records?${query.toString()}`);
+      if (requestEpoch !== academicRequestEpoch.current) return;
+      if (!Array.isArray(result.records) || typeof result.hasMore !== "boolean") throw new Error("Halaman catatan Akademik belum lengkap.");
+      setSnapshot((current) => {
+        const existing = new Set(current[kind].map((record) => record.id));
+        const appended = result.records.filter((record: RecordRow) => !existing.has(String(record.id)));
+        return {
+          ...current,
+          [kind]: [...current[kind], ...appended],
+          recordPages: {
+            ...current.recordPages,
+            [kind]: { hasMore: result.hasMore, nextCursor: typeof result.nextCursor === "string" ? result.nextCursor : null },
+          },
+        };
+      });
+    } catch (loadError: any) {
+      if (requestEpoch === academicRequestEpoch.current) setError(loadError?.message || "Halaman catatan Akademik belum dapat dimuat.");
+    } finally { if (requestEpoch === academicRequestEpoch.current) setLoadingMoreKind(null); }
+  }, [loading, loadingMoreKind, snapshot.recordPages, unitFilter]);
 
   if (role === "Santri" || role === "Walisantri") return <SupabaseAcademicPortal />;
 
@@ -371,7 +411,7 @@ export function SupabaseAcademicManager() {
     </section>}
 
     <div className="grid gap-3 sm:grid-cols-3">
-      {[{ label: "Jadwal aktif", value: snapshot.schedules.length, icon: CalendarDays }, { label: "Jurnal KBM", value: snapshot.journals.length, icon: ClipboardList }, { label: "Penilaian", value: snapshot.assessments.length, icon: BookOpen }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-emerald-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
+      {[{ label: "Jadwal aktif", value: snapshot.schedules.length, icon: CalendarDays }, { label: "Jurnal termuat", value: `${snapshot.journals.length}${snapshot.recordPages.journal.hasMore ? "+" : ""}`, icon: ClipboardList }, { label: "Penilaian termuat", value: `${snapshot.assessments.length}${snapshot.recordPages.assessment.hasMore ? "+" : ""}`, icon: BookOpen }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-emerald-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
     </div>
 
     <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"><strong>Data akademik tenant.</strong> Jadwal, jurnal, dan penilaian baru dicatat di Supabase. Layar ini saat ini mencakup tiga alur tersebut; rapor, KKTP/remedial, pengaturan akademik, komentar wali kelas, serta portal Santri/Wali belum tersedia.</div>
@@ -425,6 +465,8 @@ export function SupabaseAcademicManager() {
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">{activeTab === "schedule" ? "Jadwal tersimpan" : activeTab === "journal" ? "Jurnal terbaru" : "Penilaian terbaru"}</h2></div>
         {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat data tenant…</div> : activeTab === "schedule" ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.schedules.length ? snapshot.schedules.map((row) => <article key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{row.subject}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{row.day} · {row.time}</span></div><p className="mt-1 text-sm text-slate-500">{row.className} · {row.teacherName}{row.room ? ` · ${row.room}` : ""}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</article>) : <Empty label="Belum ada jadwal KBM di tenant ini." />}</div> : activeTab === "journal" ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.journals.length ? snapshot.journals.map((row) => <article key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{row.subject} · {row.className}</h3><span className="text-xs text-slate-500">{row.date}</span></div><p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{row.topic}</p><p className="mt-1 text-xs text-slate-500">Pengajar: {row.teacherName} · {journalAttendanceLabel(row.attendance)}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</article>) : <Empty label="Belum ada jurnal KBM di tenant ini." />}</div> : <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.assessments.length ? snapshot.assessments.map((row) => <article key={row.id} className="flex flex-wrap items-center justify-between gap-2 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{row.studentName}</h3><p className="mt-1 text-sm text-slate-500">{row.className} · {row.subject} · {row.assessmentType}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</div><span className={`rounded-lg px-3 py-1 text-sm font-bold ${Number(row.score) < 75 ? "bg-amber-100 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"}`}>{row.score}</span></article>) : <Empty label="Belum ada penilaian di tenant ini." />}</div>}
+        {!loading && activeTab === "journal" && snapshot.recordPages.journal.hasMore && <div className="flex justify-center border-t border-slate-100 p-4 dark:border-white/5"><button type="button" onClick={() => void loadMoreAcademicRecords("journal")} disabled={loadingMoreKind !== null} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMoreKind === "journal" ? "Memuat jurnal…" : "Muat jurnal berikutnya"}</button></div>}
+        {!loading && activeTab === "assessment" && snapshot.recordPages.assessment.hasMore && <div className="flex justify-center border-t border-slate-100 p-4 dark:border-white/5"><button type="button" onClick={() => void loadMoreAcademicRecords("assessment")} disabled={loadingMoreKind !== null} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{loadingMoreKind === "assessment" ? "Memuat penilaian…" : "Muat penilaian berikutnya"}</button></div>}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
@@ -482,7 +524,7 @@ function TeacherDirectory({ loading, teachers }: { loading: boolean; teachers: T
 }
 function SubjectReferenceList({ loading, items }: { loading: boolean; items: SubjectReference[] }) {
   return <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-    <div><h2 className="font-semibold text-slate-900 dark:text-white">Mata Pelajaran</h2><p className="mt-1 text-sm text-slate-500">Daftar nama yang digunakan pada catatan akademik tenant.</p></div>
+    <div><h2 className="font-semibold text-slate-900 dark:text-white">Mata Pelajaran</h2><p className="mt-1 text-sm text-slate-500">Daftar nama yang digunakan pada jadwal dan halaman riwayat yang sudah dimuat. Angka jurnal dan penilaian mengikuti jumlah halaman yang dimuat, bukan total arsip tenant.</p></div>
     <ReferenceNotice />
     {loading ? <p role="status" className="py-8 text-sm text-slate-500">Memuat mata pelajaran…</p> : items.length === 0 ? <Empty label="Belum ada mata pelajaran yang tercatat." /> : <div className="divide-y divide-slate-100 dark:divide-white/5">{items.map((item) => <article key={item.name} className="flex flex-wrap items-center justify-between gap-2 py-3"><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3><p className="text-xs text-slate-500">Jadwal {item.schedules} · Jurnal {item.journals} · Penilaian {item.assessments}</p></article>)}</div>}
   </section>;
