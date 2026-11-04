@@ -19,6 +19,7 @@ Production PTSAS: tidak disentuh.
   Ini konsisten dengan akses operasional server-only/default-deny. Jangan membuka policy umum.
 - Performance Advisor mencatat 258 foreign key tanpa indeks pendukung dan 96 indeks belum digunakan. Jangan melakukan perubahan massal sebelum ada workload representatif.
 - Preview source PR dapat dijalankan pada port lokal `4184`, tetapi browser AI Studio tidak dapat mengakses loopback dan mengalami timeout. UAT tampilan belum terverifikasi; coba URL itu dari Chrome lokal pada komputer yang sama.
+- Audit Akademik lanjutan memastikan deteksi konflik jadwal dan validasi transaksional saat simpan sudah ada; `npm run test:academic-schedule-conflicts` lulus. Batas source saat ini memindai maksimal 5.000 record Akademik gabungan; ini menjadi gap skalabilitas sebelum klaim kesiapan untuk pesantren besar. Rincian dan kriteria perbaikannya dicatat di `ACADEMIC_SCALE_GAP_2026-11-04.md`.
 
 ## Batas bukti lokal
 
@@ -38,3 +39,4 @@ Audit dependency setelah perbaikan lockfile melaporkan **0 advisori dependency p
 6. Setelah staging lulus, lakukan audit baca-saja Production, siapkan backup/restore dan rencana cutover terpisah, lalu minta tim backend melakukan penerimaan dan deploy self-hosted.
 
 Tidak ada data Firestore dummy yang disalin. Tidak ada perubahan pada Production. Jangan menutup atau merge PR #40 sebelum gerbang staging di atas lulus.
+
