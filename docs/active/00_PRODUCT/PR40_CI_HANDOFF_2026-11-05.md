@@ -3,8 +3,9 @@
 ## Status PR dan bukti saat ini
 
 - Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
-- Sebelum pembaruan handoff ini, head PR adalah `d71d3c95901ccbb61955ee4b756df0bc05e65e5a`; source aplikasi yang diverifikasi adalah `989b0571a6b08a9069f09a6f8a05a56cc0202c81`. PR masih Draft/Open dan API GitHub menandainya belum mergeable.
-- Pemeriksaan GitHub terbaru pada head `d71d3c9`: tidak ada workflow run PR, status check, atau review. Belum ada bukti CI GitHub untuk source terbaru.
+- Pembaruan handoff sebelumnya berada pada head `d71d3c95901ccbb61955ee4b756df0bc05e65e5a`; source aplikasi yang diverifikasi adalah `989b0571a6b08a9069f09a6f8a05a56cc0202c81`.
+- Commit handoff terbaru: `729bba5544688cc6ab8c2cf173948d005a7bdf72`. PR masih Draft/Open dan API GitHub menandainya belum mergeable.
+- Pemeriksaan GitHub pada head `729bba5`: tidak ada workflow run PR, status check, atau review. Belum ada bukti CI GitHub untuk source terbaru.
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
 
 ## Pemeriksaan lokal pada source `989b057`
