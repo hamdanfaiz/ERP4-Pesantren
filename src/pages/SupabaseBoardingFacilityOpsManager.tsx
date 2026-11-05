@@ -3,6 +3,7 @@ import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ClipboardCheck, LoaderCircle, RotateCcw, Wrench } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { ERPTabs } from "../components/ERPDesignSystem";
 import {
   createSupabaseCleanlinessAudit,
   createSupabaseFacilityTicket,
@@ -115,7 +116,7 @@ export function SupabaseBoardingFacilityOpsManager() {
   return <section className="space-y-5">
     <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><div className="flex items-center gap-2 text-sm font-semibold text-slate-600">Asrama · Operasional fasilitas · Supabase</div><h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Kebersihan dan Fasilitas</h1><p className="mt-1 max-w-2xl text-sm text-slate-600">Audit dan tiket disimpan per tenant. Akses Ustadz serta pelapor santri dibatasi ke kamar yang berhak diakses.</p></div>
       <button type="button" onClick={reload} disabled={loading} className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"><RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button></header>
-    {visibleViews.length > 1 && <nav aria-label="Operasional fasilitas asrama" className="inline-flex max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-100 p-1">{visibleViews.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setView(id)} aria-current={selectedView === id ? "page" : undefined} className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold ${selectedView === id ? "bg-white text-emerald-800 shadow-sm" : "text-slate-600 hover:bg-white/70"}`}><Icon className="h-4 w-4" />{label}</button>)}</nav>}
+    {visibleViews.length > 1 && <ERPTabs tabs={visibleViews.map(({ id, label, icon: Icon }) => ({ id, label, icon: <Icon className="h-4 w-4" /> }))} value={selectedView} onChange={(value) => setView(value as View)} ariaLabel="Operasional fasilitas asrama" />}
     {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
     {FACILITY_OPS_IMPORT_ENABLED && ["Admin", "SuperAdmin"].includes(role) && <div className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
@@ -134,3 +135,4 @@ export function SupabaseBoardingFacilityOpsManager() {
       </div>}
   </section>;
 }
+
