@@ -1,90 +1,87 @@
-# Serah terima PR #40 — 5 November 2026
+# Checkpoint pengembangan ERP4 Pesantren — 5 November 2026
 
-## Status PR dan bukti saat ini
+## Status pengiriman
 
-- Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
-- Commit kode terakhir adalah `180cc08`, yang menyatukan enam tab Dokumen Digital pada `ERPTabs`; commit `4d32053` sebelumnya menyamakan tab Operasional Fasilitas Asrama dengan komponen yang sama.
-- Pada pemeriksaan PR head `b60200b`, statusnya Draft/Open; endpoint GitHub mentah mengembalikan `mergeable=null` dan `mergeable_state=unknown`. Status ini belum membuktikan ada konflik merge.
-- GitHub Actions repository aktif dan memiliki 1.135 run historis; run terbaru yang terlihat (#1135) selesai sukses pada 4 November 2026 pukul 10:21 UTC, sebelum commit UI pada 5 November. Untuk head `b60200b`, tidak ada workflow run/status baru; check yang terlihat hanya `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch. Push Git pada 5 November belum menghasilkan workflow, jadi tim perlu memeriksa event delivery/configuration atau mendorong update dari kredensial GitHub lokal mereka. Run historis tidak membuktikan head terkini.
-- Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
-- Supabase MCP menolak `get_project` dan read-only SQL untuk Production. `list_migrations` mengembalikan daftar kosong, tetapi tanpa akses proyek hasil itu bukan bukti bahwa schema/ledger Production kosong; status Production tetap belum terverifikasi.
+- Repo: hamdanfaiz/ERP4-Pesantren.
+- PR #40 — Relasi tenant dan penomoran otomatis: https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40
+- Branch: codex/menu-owner-placement-20261101.
+- Head yang terverifikasi: ac288bbe644fd34b72013a88d2c714a70ff96c40.
+- PR masih Draft/Open dan belum boleh di-merge. GitHub saat diperiksa melaporkan mergeable=false; belum ada workflow run untuk head ini. Periksa konflik/status PR lagi sebelum merge.
+- Proyek Production PTSAS ptsasgdvgrbdtgyqieie tidak diubah. Semua pemeriksaan database pada checkpoint ini hanya menyentuh staging VQE vqemuyzveuirlkvdggjd.
 
-## Pemeriksaan lokal pada source UI PR (`fb72586` dan commit kode `180cc08`)
+## Bukti runtime dan source
 
-- `npm run lint` dan `npm run build` lulus. Build memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
-- Seluruh 39 skrip tes non-database/API yang tersedia lulus menggunakan npm/Node. Ini mencakup pemeriksaan migrasi offline, runtime Supabase-only, tenant/RBAC, alur PPDB, Master Data, Akademik, Tahfidz, impor/ekspor, pengaturan Finance, serta dua tes HTTP loopback setelah akses `127.0.0.1` diizinkan. Workflow repo memakai Bun `1.4.4`; Bun belum tersedia lokal sehingga hasil ini bukan reproduksi toolchain CI yang persis.
-- Instalasi production-only (`npm ci --omit=dev`) lulus; `node scripts/test-production-dependencies.mjs` dan `node scripts/test-production-runtime.mjs` lulus. Smoke runtime membuktikan paket Firebase tidak terpasang pada instalasi produksi, halaman utama merespons 200, dan `/api/users` merespons 401 tanpa autentikasi. Tidak ada koneksi Supabase dalam smoke ini. Dependensi penuh dipulihkan setelahnya.
-- Tujuh tes yang memerlukan koneksi database/API live belum dijalankan: `test:db`, `test:db:nis-race`, `test:db:tahfidz-session-race`, `test:api:auth-tenant`, `test:api:finance-storage`, `test:api:library-storage`, dan `test:db:backup-restore`.
-- Hasil lokal bukan workflow GitHub dan tidak membuktikan UAT visual, integrasi Supabase live, atau seluruh gerbang rilis.
+- Pada checkout lokal yang memuat source Dokumen Digital yang sama dengan PR, npm run test:supabase-runtime-no-firebase lulus: 152 modul pada graph frontend/server tidak mengimpor Firebase; 26 route Supabase dikenali dan 26 route migrasi lama tertutup. Ini membuktikan batas graph runtime yang diperiksa, bukan bahwa seluruh repo bebas kode atau dependensi Firebase.
+- SDK Firebase masih tercantum sebagai devDependency dan sejumlah file legacy yang tidak masuk graph runtime masih memiliki referensi Firestore.
+- npm run lint, npm run build, serta 39 skrip non-database/API pernah lulus pada source UI PR. Build memberi peringatan anotasi Rollup Zod dan ukuran chunk react-pdf sekitar 1,46 MB.
+- Smoke instalasi production-only dan runtime juga pernah lulus; halaman utama merespons 200 dan /api/users tanpa autentikasi merespons 401. Smoke ini tidak menguji koneksi Supabase live.
+- Hasil lokal tersebut bukan pengganti workflow GitHub Actions. Untuk commit head PR terkini, workflow run masih belum ada.
 
-## Staging VQE dan prasyarat koneksi
+## Supabase staging VQE — pemeriksaan baca-saja terbaru
 
-- Target staging yang disetujui: `vqemuyzveuirlkvdggjd`. Pemeriksaan baca-saja terkini mencatat 134 entri ledger dan 134 file source. Dua migrasi memiliki versi alias pada ledger, tetapi nama migrasinya cocok; tidak ditemukan file source atau entri remote lain yang hilang.
-- Alias yang perlu rekonsiliasi: source `20270214120000_tenant_reference_relationships` tercatat di VQE sebagai `20261101015832_tenant_reference_relationships`; source `20270302000000_academic_class_reference_pagination` tercatat sebagai `20261105070231_academic_class_reference_pagination`.
-- Pemeriksaan katalog baca-saja menemukan 21 indeks, 11 fungsi, 14 trigger, tabel `tenant_reference_items`, 51 kolom, 20 constraint, dan RLS paksa yang diharapkan dari kedua migrasi. Perbandingan hash badan fungsi efektif yang dibaca dari `pg_proc.prosrc` cocok untuk 11 fungsi pada source migration chain: fungsi Finance yang diperbarui di `20270215000000_harden_reference_relationship_contract.sql` juga cocok persis dengan fungsi live; `search_path`, mode `SECURITY DEFINER`, grant eksekusi, serta definisi trigger Finance terkait sesuai dengan source. Alias di ledger tetap perlu direkonsiliasi. Definisi indeks/constraint, trigger lain, dan jumlah/backfill data belum dibandingkan persis; bukti ini tidak cukup untuk menjalankan `migration repair`.
-- Checkout ini hanya memiliki `.env.example`, tanpa `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL` khusus VQE. Jangan gunakan `.env` kanonis yang menunjuk Production `ptsasgdvgrbdtgyqieie` untuk preflight/rehearsal staging.
-- `npm run preflight:db-migrations` tidak dapat dijalankan sampai URL koneksi Postgres VQE tersedia di environment lokal yang diabaikan Git. Jangan kirim password/kunci lewat chat.
-- Preflight remote kini memeriksa bahwa `SUPABASE_PROJECT_REF`, host `SUPABASE_URL`, dan project ref pada URL database Postgres mengarah ke proyek yang sama. Tes unit menolak URL Production PTSAS saat environment menunjuk ke VQE; koneksi langsung dan pooler untuk target yang cocok diterima.
-- Validasi preflight juga menolak URL non-PostgreSQL. `npm run test:migration-preflight` dan `npm run lint` lulus pada perubahan lokal ini.
-- `npm run build` dan `npm run lint` lulus setelah koreksi navigasi Dokumen Digital pada PR head `e196f57`. Bundle memuat lima tab utama dan aksi Semua Dokumen; hasil render/responsivitas browser tetap belum diverifikasi. Build memberi peringatan anotasi Rollup Zod dan chunk `react-pdf` sekitar 1,46 MB.
-- Supabase CLI `2.84.2`, `psql`, dan Docker tidak tersedia di PATH/checkout ini. Gunakan CLI versi pin pada runner lokal/CI dan URL Postgres khusus VQE untuk menjalankan preflight; jangan menggantinya dengan API secret.
+- Ledger VQE berisi 134 entri dan repo memiliki 134 file migration. Jumlahnya sama, tetapi dua versi ledger adalah alias dan bukan versi source:
+  - Source 20270214120000_tenant_reference_relationships tercatat sebagai 20261101015832_tenant_reference_relationships.
+  - Source 20270302000000_academic_class_reference_pagination tercatat sebagai 20261105070231_academic_class_reference_pagination.
+- Perbandingan katalog PostgreSQL baca-saja terhadap source chain untuk relasi katalog, hardening, dan pagination kelas menemukan:
+  - 21 indeks yang diharapkan beserta definisinya.
+  - 20 foreign key relasi tenant beserta definisinya.
+  - 14 trigger relasi inti beserta event dan fungsi pemicunya.
+  - 11 badan fungsi yang sebelumnya dibandingkan cocok dengan source efektif. Fungsi Finance cocok dengan migrasi hardening 20270215000000, yang memang menggantikan definisi awal.
+  - Constraint katalog tenant ditemukan; domain check live mencakup perluasan dari migration 20270216000000_tenant_operational_choice_relationships.
+  - Pengaturan search_path, mode keamanan, hak EXECUTE, RLS paksa, dan trigger Finance yang dibandingkan cocok dengan source.
+- Bukti ini menutup pemeriksaan definisi objek yang disebut di atas. Bukti ini tidak membuktikan semua migrasi database dari 134 file telah dibandingkan satu per satu, kesesuaian setiap efek backfill pada data, atau kesiapan Production.
+- Tidak ada penulisan data, perubahan ledger, pengubahan aturan, ataupun migration Production pada pemeriksaan ini.
 
-## Snapshot Supabase staging VQE — baca-saja, 5 November 2026
+## Prasyarat yang masih kurang untuk rekonsiliasi
 
-- Proyek staging `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY` di `ap-northeast-1`, PostgreSQL 17.11. Pemeriksaan terkini menemukan 134 entri ledger; dua entri memakai versi alias yang dijelaskan pada bagian prasyarat. Jangan menyamakan jumlah entri dengan sinkronisasi versi.
-- Daftar schema `public` berisi 167 tabel; 167 memakai RLS dan 0 tidak. Security Advisor melaporkan rls_enabled_no_policy: 162 (INFO); auth_leaked_password_protection: 1 (WARN). Temuan `rls_enabled_no_policy` berlevel INFO: tabel tanpa policy tetap tertutup untuk akses Data API langsung. Namun kode server menggunakan secret key yang melewati RLS; batas keamanan tetap memerlukan verifikasi profil aktif, tenant, role, dan izin modul di setiap handler. Source memiliki pemeriksaan actor tersebut untuk Master Data dan Dokumen Digital; tes integrasi Auth/tenant masih wajib sebelum merge.
-- Temuan Auth `auth_leaked_password_protection` berlevel WARN; pengaturan perlindungan kata sandi bocor perlu diperiksa di Auth proyek staging. MCP tidak mengubah setting ini.
-- Performance Advisor melaporkan unindexed_foreign_keys: 258 (INFO); unused_index: 102 (INFO). Jangan menambahkan indeks ke semua foreign key atau menghapus indeks yang belum terpakai secara massal. Triage dengan pola query produksi dan `EXPLAIN (ANALYZE, BUFFERS)` setelah data sintetis representatif tersedia.
-- Ini snapshot advisory baca-saja, bukan persetujuan keamanan/performa atau bukti UAT. Tidak ada migration, policy, index, setting Auth, atau data Production yang diubah.
+- Checkout ini tidak memiliki SUPABASE_DB_POOLER_URL khusus VQE; yang ada hanya .env.example. Jangan memakai .env Production atau menaruh password/kunci di chat.
+- Supabase CLI 2.84.2 sesuai versi workflow repo, psql, dan Docker belum tersedia pada checkout ini.
+- Karena itu preflight database resmi dan dry-run terhadap koneksi Postgres VQE belum dijalankan. MCP hanya dipakai untuk query katalog baca-saja.
+- Jangan mengubah ledger dengan SQL manual atau menjalankan ulang migration yang sudah diterapkan.
+- Tim backend dapat melanjutkan di runner lokal/CI yang terisolasi: sediakan URL pooler VQE sebagai secret environment, pasang CLI versi pin, lalu jalankan langkah berikut dari repo yang ter-link ke VQE.
 
-## Update staging setelah snapshot — migrasi kelas Akademik
+  npm run preflight:db-migrations
+  supabase migration list
+  supabase db push --dry-run
 
-- Migrasi sumber `20270302000000_academic_class_reference_pagination.sql` telah diterapkan ke **VQE staging saja** melalui Supabase migration tool. Verifikasi baca-saja menemukan kedua indeks kelas dan kedua fungsi paginasi.
-- Kedua fungsi terverifikasi memakai `SECURITY INVOKER` dan `search_path=pg_catalog, public`; tabel prasyarat `master_data_records`, `students`, dan `academic_records` ada di staging. Tidak ada data tenant/Production yang diubah.
-- Tool mencatat migrasi dengan versi waktu otomatis `20261105070231` dan nama `academic_class_reference_pagination`, bukan versi sumber `20270302000000`. Ini membuat ledger berjumlah 134, tetapi **belum sinkron** dengan source.
-- Ledger lama juga masih mencatat alias `20261101015832_tenant_reference_relationships`, sementara source memakai versi `20270214120000`. Source Git membuktikan keduanya adalah rename identik (blob `789e09d7ad32be971acb029a2116106105f46c29`, commit `43e44dbabac7dac400da8fb9cb4545b3bf320e3f`), tetapi SQL live alias tetap harus diperiksa.
-- Pemeriksaan katalog terbaru memastikan nama objek, 51 kolom, 20 constraint, tabel referensi, dan RLS paksa yang diharapkan kedua migrasi ada di VQE. Pemeriksaan ini belum membandingkan definisi SQL secara persis ataupun memvalidasi jumlah/backfill data tenant.
-- Jangan menjalankan ulang SQL `20270302000000` atau melakukan penulisan ledger manual. Tim backend harus memakai Supabase CLI yang dipin dan URL pooler khusus VQE. Setelah preflight serta pemeriksaan definisi live memastikan setiap SQL alias cocok persis, rekonsiliasi lewat [`supabase migration repair`](https://supabase.com/docs/reference/cli/supabase-migration-repair), yang hanya mengubah ledger:
-
-  ```powershell
+- Jika preflight mengonfirmasi kedua alias cocok persis, tidak ada versi asing, dan dry-run tidak merencanakan DDL yang sudah ada, rekonsiliasi ledger saja dengan CLI:
   supabase migration repair 20261101015832 --status reverted
   supabase migration repair 20270214120000 --status applied
   supabase migration repair 20261105070231 --status reverted
   supabase migration repair 20270302000000 --status applied
   supabase migration list
   supabase db push --dry-run
-  ```
+- Hentikan langkah tersebut bila ada mismatch SQL/nama, versi asing, perubahan DDL tak terduga, atau target bukan VQE. Jangan arahkan CLI ke Production.
 
-  Jalankan dari root repo yang ter-link khusus ke VQE. Jangan lanjut bila preflight menemukan mismatch SQL, versi asing, atau migrasi tertunda.
-- Production PTSAS tetap tidak disentuh. PR dan cutover tetap tertahan oleh rekonsiliasi migration ledger, tujuh tes integrasi DB/API, workflow CI, dan UAT Admin.
+## Tes integrasi dan UAT yang belum selesai
 
-## Urutan aman untuk tim backend
+Tujuh tes berikut belum terbukti lulus terhadap database/API VQE yang terhubung:
 
-1. Sediakan `SUPABASE_DB_POOLER_URL` khusus VQE di environment lokal/CI yang tidak di-commit. Pastikan project ref dalam URL adalah `vqemuyzveuirlkvdggjd`; jangan gunakan nilai dari `.env` Production dan jangan kirim kredensial melalui chat.
-2. Siapkan Supabase CLI versi `2.84.2` sesuai workflow repo dan `psql`, atau runner CI terisolasi yang menyediakan keduanya. Jalankan `npm run preflight:db-migrations` terhadap VQE.
-3. Lanjutkan hanya jika preflight memastikan SQL alias `20261101015832 → 20270214120000` dan versi otomatis `20261105070231 → 20270302000000` cocok persis serta tidak ada versi asing, mismatch SQL/nama, atau urutan yang tertinggal. Gunakan empat perintah repair di bagian update staging di atas; jangan mengubah ledger dengan SQL manual dan jangan menjalankan ulang SQL migration yang telah berhasil diterapkan.
-4. Jalankan `supabase migration list` dan `supabase db push --dry-run` dengan target VQE yang eksplisit. Tinjau daftar perubahan sebelum menerapkan migration yang belum ada; verifikasi indeks dan fungsi picker kelas sesudahnya.
-5. Jalankan seluruh tujuh tes integrasi di atas di Postgres/Supabase terisolasi dan lampirkan tautan workflow serta hasil per job. Jangan gunakan Production sebagai target tes.
-6. Selesaikan UAT Admin VQE: login, isolasi tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul terkait. Pertahankan PR Draft sampai CI, database, dan UAT terbukti lulus.
+1. test:db
+2. test:db:nis-race
+3. test:db:tahfidz-session-race
+4. test:api:auth-tenant
+5. test:api:finance-storage
+6. test:api:library-storage
+7. test:db:backup-restore
 
-## Temuan UI Dokumen Digital — ketidaksesuaian style tab masih terbuka
+UAT Admin staging masih perlu mencakup isolasi tenant/role, Data Induk dan Naming Series, alur PPDB/NIS, Akademik, Tahfidz, transaksi Finance, unggah/unduh Storage, impor/ekspor, serta pemulihan backup. Gunakan tenant dan data sintetis saja.
 
-- Pengguna melaporkan bahwa style tab pada modul Dokumen Digital belum sesuai standar UI.
-- Pada 5 November 2026 pengguna menegaskan bahwa style tab masih terlihat tidak sesuai dengan standar yang dipakai. Catatan ini menjadi status terbaru dan **menggantikan asumsi bahwa penyelarasan sebelumnya sudah menyelesaikan masalah**.
-- Pemeriksaan halaman referensi AI Studio pada 5 November menampilkan lima tab utama: Surat Masuk, Surat Keluar, E-Approval, Arsip Digital, dan AI OCR Scanner.
-- Source saat ini menunjukkan navigasi `SupabaseDocumentManager` dan `DocumentManager` memakai komponen bersama `ERPTabs`. Namun, itu hanya membuktikan pemakaian komponen pada source, bukan kesesuaian hasil render yang sedang dilihat pengguna.
-- Pada checkout saat ini, lima navigasi utama sudah mengikuti susunan referensi: Surat Masuk, Surat Keluar, Persetujuan elektronik, Arsip Digital, dan Pemindai OCR. Akses **Semua dokumen** dipindah ke aksi filter di toolbar agar fungsi daftar lengkap tetap ada tanpa menambah tab keenam.
-- **Dokumen internal** tetap dapat dibuka melalui filter jenis dalam tampilan Semua dokumen. `npm run lint` dan `npm run build` lulus setelah perubahan penempatan; build masih memberi peringatan komentar anotasi Zod dan chunk `react-pdf` sekitar 1,46 MB.
-- Perubahan struktur menyelaraskan jumlah tab pada source, tetapi belum membuktikan style render sama dengan referensi. Pemeriksaan visual harus mencocokkan ukuran, jarak, responsivitas, keadaan aktif, dan perpindahan tab pada desktop serta layar sempit.
-- Commit `4d32053` mengganti navigasi khusus pada Operasional Fasilitas Asrama dengan `ERPTabs`, menjaga dua bagian sesuai role yang diizinkan. Tidak ada perubahan pada sumber data atau aturan akses.
-- `npm run lint` dan `npm run build` lulus pada checkout persis yang berisi koreksi tab Dokumen Digital `180cc08`; build masih memberi peringatan Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
-- **Tindak lanjut wajib:** pada browser Admin staging, pastikan route dan build yang sedang dibuka berasal dari head terbaru; bandingkan hasil render Dokumen Digital dengan referensi; catat perbedaan yang terlihat, lalu koreksi dan verifikasi ulang desktop serta layar sempit. Jangan tandai konsistensi UI selesai sampai hasil render dan perpindahan tab terbukti.
-- Status visual/responsif: **belum diverifikasi dan masih terbuka**. Pemeriksaan source saja tidak membuktikan hasil render atau perpindahan tab di runtime.
+## Dokumen Digital — style tab masih menjadi temuan terbuka
 
-## Gerbang sebelum merge atau cutover
+- Source SupabaseDocumentManager menggunakan komponen bersama ERPTabs dan lima bagian utama: Surat Masuk, Surat Keluar, Persetujuan elektronik, Arsip Digital, dan Pemindai OCR. Fungsi Semua dokumen tersedia sebagai aksi di toolbar; Dokumen internal tersedia melalui filter jenis.
+- Jumlah dan susunan tab sesuai dengan acuan yang diperiksa. Pengguna masih melaporkan style tab berbeda dari standar. Source yang memakai komponen bersama belum membuktikan tampilan render sudah sama.
+- Browser yang diperiksa pada checkpoint ini sedang menampilkan halaman ChatGPT, bukan ERP atau sesi Admin staging. UAT visual/responsif belum dilakukan. Perlu membandingkan keadaan aktif, normal, hover, fokus, gulir, desktop, dan layar sempit sebelum menutup temuan ini.
 
-- PR tetap Draft/Open; status mergeability GitHub pada head `b60200b` belum diketahui (`mergeable_state=unknown`). PR tetap Draft karena gerbang integrasi, staging, dan UAT di bawah belum lulus.
-- Actions memiliki riwayat run, tetapi belum ada workflow run/check untuk head terbaru; workflow `Supabase Preview` hanya `skipped`.
-- Uji integrasi, rekonsiliasi ledger, penerapan/rehearsal migration staging, dan UAT Admin masih harus dibuktikan.
-- Cutover Production baru dapat dipertimbangkan setelah staging diterima dan seluruh gerbang di atas lulus. Tidak ada langkah dalam handoff ini yang menerapkan perubahan ke Production.
+## Gerbang sebelum merge dan cutover
+
+1. Jalankan preflight dan dry-run VQE menggunakan CLI yang dipin; rekonsiliasi alias lewat CLI hanya setelah syarat di atas terpenuhi.
+2. Jalankan tujuh tes integrasi pada staging terisolasi dan catat hasil per tes.
+3. Selesaikan UAT Admin dan visual/responsif; perbaiki temuan tab bila render membuktikan masih berbeda.
+4. Picu atau pulihkan workflow CI pada head PR terbaru, periksa status mergeability dan konflik.
+5. Verifikasi schema, aturan akses, dan konfigurasi Production secara terpisah sebelum cutover. Jangan lakukan migrasi atau perubahan Production sebelum seluruh gerbang staging lulus.
+6. Setelah PR siap, minta review team backend. Deploy dan UAT hosting tetap dikerjakan team Anda.
+
+Checkpoint ini menunjukkan pekerjaan implementasi sudah tersedia untuk direview di PR, tetapi belum menyatakan sistem siap merge, cutover, atau deploy.
+
 
