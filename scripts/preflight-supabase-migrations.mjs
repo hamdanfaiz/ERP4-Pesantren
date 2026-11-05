@@ -31,6 +31,11 @@ const MIGRATION_VERSION_ALIASES = Object.freeze([
     to: '20270214120000',
     name: 'tenant_reference_relationships',
   }),
+  Object.freeze({
+    from: '20261105070231',
+    to: '20270302000000',
+    name: 'academic_class_reference_pagination',
+  }),
 ]);
 
 function hasEscapeStringPrefix(value) {
