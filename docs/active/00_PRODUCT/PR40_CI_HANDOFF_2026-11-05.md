@@ -5,20 +5,22 @@
 - Repo: `hamdanfaiz/ERP4-Pesantren`.
 - PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40).
 - Branch: `codex/menu-owner-placement-20261101`.
-- Source aplikasi yang terakhir diuji: `944801e8590026a0629994f9db50f427e81abe72`. Setelah pemeriksaan itu, PR menerima commit dokumentasi saja; lihat header PR untuk HEAD terbaru sebelum menjalankan CI.
-- PR masih Draft/Open dan belum layak digabung. GitHub belum mengembalikan status mergeability yang pasti (`mergeable_state=unknown`); perbandingan branch menunjukkan 190 commit ahead dan 0 behind dari `main`.
-- Tidak ada workflow run GitHub Actions untuk head terbaru. Satu check-run `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; check ini bukan hasil build atau tes aplikasi.
-- `.github/workflows/supabase-db-tests.yml` tersedia pada `main` dan memiliki pemicu `pull_request` untuk base `main`. Konektor tidak dapat membaca pengaturan Actions tingkat repo; tim perlu memeriksa apakah Actions/workflow diaktifkan serta event push memicu run. Run #1135 menguji commit lama dan tidak membuktikan head saat ini.
+- Source aplikasi yang terakhir diuji untuk PR: `944801e8590026a0629994f9db50f427e81abe72`; HEAD PR terbaru yang diperiksa `b59ca9bead2ebc36ce7697de6555b7e45abc0cf1`.
+- PR masih Draft/Open dan belum layak digabung. GitHub belum mengembalikan status mergeability yang pasti (`mergeable_state=unknown`); perbandingan HEAD PR terbaru menunjukkan 193 commit ahead dan 0 behind dari `main`.
+- Pemeriksaan CI terbaru pada HEAD `b59ca9b` menemukan nol workflow run. Satu check `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; ini bukan hasil build/tes aplikasi. Run Actions #1135 menguji commit lama dan tidak membuktikan head saat ini.
+- `.github/workflows/supabase-db-tests.yml` memiliki pemicu `pull_request` untuk base `main`, tetapi status workflow dan pengaturan Actions tingkat repo tidak dapat dibaca melalui konektor. Tim perlu memastikan Actions diaktifkan dan memeriksa log event saat PR berikutnya diperbarui.
 
 ## Bukti build dan tes lokal
 
-Pada source yang sama dengan head terakhir, lulus:
+Pada source code head PR `944801e8590026a0629994f9db50f427e81abe72`, lulus:
 
 - `npm run lint`
 - `npm run build`
 - 39/39 skrip `test:*` non-database/API
 
 Dua skrip yang memerlukan loopback lokal (`test:trusted-proxy-hops` dan `test:runtime-config-http`) awalnya ditolak sandbox dengan `EACCES`; keduanya lulus setelah diulang dengan izin koneksi loopback. Build masih memberi peringatan anotasi Rollup pada Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
+
+Pemeriksaan tambahan pada worktree lokal saat ini (`HEAD f6a6cde` plus perubahan lokal Dokumen Digital dan catatan ini): `npm run lint`, `npm run build`, dan 39/39 skrip non-database/API lulus. Ini bukti lokal tambahan, bukan workflow run atau validasi penuh terhadap HEAD PR `b59ca9b`.
 
 Tes integrasi database/API belum dijalankan pada head terbaru:
 
@@ -43,7 +45,7 @@ Jalankan di runner CI yang menyediakan Supabase/Postgres terisolasi. Jangan mema
 
 ## Tindakan tim backend
 
-1. Periksa mengapa Actions tidak membuat run untuk head `944801e`. Lihat tab **Actions**, pastikan workflow diaktifkan dan event `pull_request` diizinkan, lalu jalankan ulang CI dari push terautentikasi tim. Native push sebelumnya juga belum menghasilkan run, jadi jangan menganggap commit kosong otomatis menyelesaikan masalah.
+1. Periksa mengapa Actions tidak membuat run untuk HEAD PR `b59ca9b`. Lihat tab **Actions**, pastikan workflow diaktifkan dan event `pull_request` diizinkan, lalu jalankan CI dari push terautentikasi tim. Native push sebelumnya juga belum menghasilkan run, jadi jangan menganggap commit kosong otomatis menyelesaikan masalah.
 2. Jalankan seluruh tujuh tes integrasi dalam job CI terisolasi. Simpan tautan run dan hasil tiap job pada PR.
 3. Sediakan runner/akses staging VQE, audit ledger terlebih dahulu, lalu rehearsal migration `20270302000000` menggunakan target VQE yang eksplisit. Verifikasi indeks dan fungsi sesudahnya, serta jalankan pgTAP terkait.
 4. Selesaikan UAT Admin staging untuk login, tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul yang terdampak.
@@ -51,5 +53,4 @@ Jalankan di runner CI yang menyediakan Supabase/Postgres terisolasi. Jangan mema
 
 ## Perubahan UI yang ikut pada PR
 
-Dokumen Digital memakai `ERPTabs` yang sama dengan modul lain. Tab dipindahkan ke luar bingkai panel dan diberi ikon agar bentuk serta penempatannya konsisten; filter dan daftar dokumen tetap di panel konten.
-
+Dokumen Digital memakai `ERPTabs` yang sama dengan modul lain. Tab dipindahkan ke luar bingkai panel dan diberi ikon pada perubahan lokal. Pengguna masih melaporkan gaya tab belum sesuai standar; verifikasi visual dan penyelarasan jarak, wadah, serta keadaan aktif/nonaktif tetap menjadi tindak lanjut sebelum perubahan UI dinyatakan selesai. Perubahan kode dan catatan ini belum di-commit.
