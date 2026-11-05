@@ -118,6 +118,9 @@ RETURNS JSONB LANGUAGE SQL AS $$
   );
 $$;
 
+GRANT EXECUTE ON FUNCTION pg_temp.academic_roster(UUID, UUID, TEXT, TEXT, UUID, TEXT, TEXT, UUID, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION pg_temp.academic_classes(UUID, UUID, TEXT, TEXT, UUID, TEXT, TEXT, TEXT, INTEGER) TO service_role;
+
 SET LOCAL ROLE service_role;
 
 SELECT is(public.save_academic_record(
