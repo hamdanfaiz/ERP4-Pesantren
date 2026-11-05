@@ -79,9 +79,9 @@ VALUES
   ('e2800000-0000-4000-8000-000000000001','Kelas','ROSTER-CLASS-B','VII','Active','e2800000-0000-4000-8000-000000000102','VII'),
   ('e2800000-0000-4000-8000-000000000002','Kelas','ROSTER-CLASS-C','VII','Active','e2800000-0000-4000-8000-000000000103','VII');
 
-INSERT INTO public.master_data_records(tenant_id,category,id,name,status)
+INSERT INTO public.master_data_records(tenant_id,category,id,name,status,grade)
 SELECT 'e2800000-0000-4000-8000-000000000001','Kelas',
-  'SCALE-' || lpad(n::TEXT,4,'0'),'Tenant Scale Class ' || lpad(n::TEXT,4,'0'),'Active'
+  'SCALE-' || lpad(n::TEXT,4,'0'),'Tenant Scale Class ' || lpad(n::TEXT,4,'0'),'Active','VII'
 FROM generate_series(1,501) AS n;
 
 INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint,organization_unit_id,grade)
