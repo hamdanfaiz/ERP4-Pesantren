@@ -5,7 +5,7 @@
 - Repo: `hamdanfaiz/ERP4-Pesantren`.
 - PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40).
 - Branch: `codex/menu-owner-placement-20261101`.
-- Head terakhir yang tercatat: `944801e8590026a0629994f9db50f427e81abe72`.
+- Source aplikasi yang terakhir diuji: `944801e8590026a0629994f9db50f427e81abe72`. Setelah pemeriksaan itu, PR menerima commit dokumentasi saja; lihat header PR untuk HEAD terbaru sebelum menjalankan CI.
 - PR masih Draft/Open dan belum layak digabung. GitHub belum mengembalikan status mergeability yang pasti (`mergeable_state=unknown`); perbandingan branch menunjukkan 190 commit ahead dan 0 behind dari `main`.
 - PR terbaru belum memiliki status check atau workflow run. Run Actions #1135 menguji commit lama dan tidak membuktikan head saat ini.
 
