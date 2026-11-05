@@ -43,10 +43,11 @@
 
 ## Temuan UI Dokumen Digital — masih terbuka
 
-- Pengguna melaporkan secara khusus bahwa style tab pada modul Dokumen Digital belum sesuai standar UI yang digunakan sistem. Temuan ini belum dianggap selesai.
-- Source Dokumen Digital menggunakan komponen tab bersama `ERPTabs`, sama seperti modul acuan; ini belum membuktikan hasil visual konsisten. Perbedaan belum dapat diidentifikasi dari source saja.
-- Pada pemeriksaan 5 November 2026, Chrome tidak dapat menjangkau `localhost:4179` (timeout). Server lokal yang dinyalakan pada `127.0.0.1:54327` berjalan, tetapi browser tetap tidak dapat mengaksesnya; server tersebut kemudian dihentikan. Render Admin tidak tersedia untuk dibandingkan pada sesi ini.
-- Tim perlu menyediakan preview yang dapat dijangkau browser dan sesi Admin VQE agar UAT visual dapat membandingkan tab Dokumen Digital dengan modul acuan dan menentukan koreksi konkret. Jangan tandai temuan ini selesai sebelum pemeriksaan visual dilakukan.
+- Pengguna melaporkan bahwa style tab pada modul Dokumen Digital belum sesuai standar UI; temuan tetap terbuka.
+- Pemeriksaan visual halaman referensi AI Studio pada 5 November menampilkan lima tab: Surat Masuk, Surat Keluar, E-Approval, Arsip Digital, dan AI OCR Scanner; wadahnya mendukung scroll horizontal dan memberi keadaan aktif berwarna biru.
+- Source PR `SupabaseDocumentManager` memiliki tujuh filter tab (Semua dokumen, Surat masuk, Surat keluar, Persetujuan elektronik, Arsip Digital, Pemindai OCR, Internal) dan memakai `ERPTabs` bersama. Perbedaan jumlah/label dapat memengaruhi lebar dan scroll, tetapi belum membuktikan penyebab mismatch CSS. Fitur yang tidak ada di referensi tidak dihapus tanpa tinjauan produk.
+- Preview lokal yang dibuka di Chrome pada `127.0.0.1:54327` kini menolak koneksi (`ERR_CONNECTION_REFUSED`); render PR dengan sesi Admin VQE belum tersedia. Karena itu, styling yang benar-benar tampil belum dapat dibandingkan dengan modul acuan.
+- UAT visual memerlukan preview PR yang dapat dijangkau browser dan sesi Admin VQE. Jangan tandai temuan selesai sebelum pembandingan visual dan koreksi terverifikasi.
 
 ## Gerbang sebelum merge atau cutover
 
