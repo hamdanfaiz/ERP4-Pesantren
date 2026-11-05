@@ -5,19 +5,19 @@
 - Repo: hamdanfaiz/ERP4-Pesantren.
 - PR #40 — Relasi tenant dan penomoran otomatis: https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40
 - Branch: codex/menu-owner-placement-20261101.
-- Basis pemeriksaan sebelum pembaruan dokumen ini: head PR `d44b95be14ac91ce8627fc358138fc6e7daad390`. Commit dokumentasi ini akan memajukan head; status CI perlu diperiksa pada SHA commit hasil pembaruan.
-- PR masih Draft/Open dan belum siap merge. GitHub mengembalikan `mergeable_state=unknown`; diagnostik untuk head `d44b95be14ac91ce8627fc358138fc6e7daad390` hanya menampilkan check Supabase Preview berstatus `skipped`, tanpa status checks lain.
+- Head PR pada awal checkpoint ini `76879e67b8dd20e66a4ad9b056bbab68573d4129`. Pemeriksaan lokal dijalankan di worktree saudara pada HEAD `f250d568605d23982546a51653d7953df11acdb2`; perbandingan Git menunjukkan satu-satunya selisih terhadap head PR adalah dokumen handoff ini, sehingga source aplikasi identik.
+- PR masih Draft/Open dan belum siap merge. Diagnostik GitHub pada head `76879e67b8dd20e66a4ad9b056bbab68573d4129` hanya menampilkan check Supabase Preview berstatus `skipped`, tanpa workflow run terbaru. GitHub mengembalikan status mergeability `unknown` pada pemeriksaan baca-saja terakhir.
 - Proyek Production PTSAS ptsasgdvgrbdtgyqieie tidak diubah. Semua pemeriksaan database pada checkpoint ini hanya menyentuh staging VQE vqemuyzveuirlkvdggjd.
 
 ## Bukti runtime dan source
 
 - Pada checkout lokal, `npm run test:supabase-runtime-no-firebase` lulus: 152 modul pada graph frontend/server tidak mengimpor Firebase; 26 route Supabase dikenali dan 26 route migrasi lama tertutup. Ini membuktikan batas graph runtime yang diperiksa, bukan bahwa seluruh repo bebas kode atau dependensi Firebase.
 - SDK Firebase masih tercantum sebagai devDependency dan sejumlah file legacy yang tidak masuk graph runtime masih memiliki referensi Firestore.
-- Pada snapshot source PR, `npm run lint`, `npm run build`, `npm run test:supabase-test-environment`, dan `npm run test:synthetic-tenant-fixture` lulus. Build memberi peringatan anotasi Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB. Hasil ini bukan CI pada keseluruhan head PR.
-- Smoke instalasi production-only dan runtime juga pernah lulus; halaman utama merespons 200 dan /api/users tanpa autentikasi merespons 401. Smoke ini tidak menguji koneksi Supabase live.
-- `npm run test:migration-preflight` dan `npm run test:supabase-runtime-no-firebase` juga baru lulus pada checkout lokal: pemeriksaan lineage/preflight offline berhasil; graph runtime memeriksa 152 modul, mengenali 26 route Supabase, dan menutup 26 route migrasi lama. Sebanyak 39 skrip non-database/API sebelumnya juga pernah lulus.
-- Guard target staging dan kontrak isolasi fixture masuk ke workflow CI. Run GitHub Actions terakhir yang lulus adalah #1135 pada 4 November 2026, SHA `79d516880fb0c957d672cc4db8d9725f7f294ba3`; itu bukan bukti untuk source head PR `d44b95be14ac91ce8627fc358138fc6e7daad390`. Diagnostik head tersebut hanya menunjukkan Supabase Preview `skipped`, tanpa run workflow terbaru.
-- File workflow branch PR memiliki `workflow_dispatch`, tetapi file workflow `main` belum memilikinya; halaman Actions memakai workflow dari `main` sehingga tombol pemicu manual tidak tersedia. Commit baru pada branch PR perlu memicu `pull_request`, lalu hasil Actions diverifikasi pada SHA tepat.
+- Pada source aplikasi yang sama dengan head PR, instalasi terkunci `npm ci` berhasil (839 paket), `npm run lint` lulus, dan `npm run build` lulus. Build memberi peringatan anotasi Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB.
+- Sebanyak 31 pemeriksaan frontend dan guard lulus pada source yang sama, termasuk preflight migration offline, RBAC/tenant, Master Data CSV/Naming Series, Akademik/Tahfidz, Library, PPDB, proteksi fixture, batas runtime Firebase, dan konfigurasi deployment.
+- `npm ci --omit=dev` berhasil (478 paket). `node scripts/test-production-runtime.mjs` lulus: server produksi lokal merespons halaman utama 200, `/api/users` tanpa autentikasi merespons 401, dan paket Firebase tidak terpasang. Ini tidak menguji koneksi Supabase live.
+- Run GitHub Actions terakhir yang lulus adalah #1135 pada 4 November 2026, SHA `79d516880fb0c957d672cc4db8d9725f7f294ba3`; itu bukan bukti untuk head PR `76879e67b8dd20e66a4ad9b056bbab68573d4129`. Diagnostik head ini hanya menunjukkan Supabase Preview `skipped`, tanpa workflow run terbaru.
+- File workflow branch PR memiliki `workflow_dispatch`, tetapi file workflow `main` belum memilikinya; halaman Actions memakai workflow dari `main`, sehingga tombol pemicu manual tidak tersedia. Pembaruan metadata PR lewat konektor juga tidak memicu run; perlu push Git pada branch PR dan verifikasi Actions pada SHA hasil push.
 
 ## Supabase staging VQE — pemeriksaan baca-saja terbaru
 
@@ -45,7 +45,7 @@
 ## Prasyarat yang masih kurang untuk rekonsiliasi
 
 - Checkout ini tidak memiliki SUPABASE_DB_POOLER_URL khusus VQE; yang ada hanya .env.example. Jangan memakai .env Production atau menaruh password/kunci di chat.
-- Executable CLI Supabase ada di direktori sementara workspace, tetapi percobaan lokal berhenti dengan `EPERM` saat menulis telemetry ke `%USERPROFILE%\\.supabase`. Docker, `psql`, dan `node_modules` tidak tersedia pada checkout ini.
+- Executable CLI Supabase ada di direktori sementara workspace, tetapi percobaan lokal berhenti dengan `EPERM` saat menulis telemetry ke `%USERPROFILE%\\.supabase`. Docker dan `psql` tidak tersedia di lingkungan ini.
 - Karena itu suite database lokal, preflight CLI, dan dry-run koneksi Postgres VQE belum dijalankan dari checkout ini. MCP hanya dipakai untuk query katalog baca-saja. CI yang menjalankan Supabase lokal terisolasi tetap menjadi jalur untuk membuktikan suite pada source terbaru.
 - Jangan mengubah ledger dengan SQL manual atau menjalankan ulang migration yang sudah diterapkan.
 - Tim backend dapat melanjutkan di runner lokal/CI yang terisolasi: sediakan URL pooler khusus VQE sebagai secret environment, pasang CLI versi pin, lalu jalankan langkah berikut dari repo yang ter-link ke VQE.
@@ -90,5 +90,6 @@
 7. Setelah PR siap, minta review team backend. Deploy dan UAT hosting tetap dikerjakan team Anda.
 
 Checkpoint ini menunjukkan pekerjaan implementasi sudah tersedia untuk direview di PR, tetapi belum menyatakan sistem siap merge, cutover, atau deploy.
+
 
 
