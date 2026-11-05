@@ -106,11 +106,30 @@ jobs:
       - name: Verify Master Data PII is not persisted in browser storage
         run: npm run test:master-data-no-browser-drafts
 
+      - name: Verify tenant-safe Master Data CSV transfer
+        run: npm run test:master-data-transfer-csv
+
+      - name: Verify tenant Naming Series catalog
+        run: npm run test:naming-series-catalog
+
       - name: Verify Academic portal tenant and student scoping
         run: npm run test:academic-portal
 
       - name: Verify Academic record cursor pagination and role/unit scope
         run: npm run test:academic-record-pagination
+
+      - name: Verify Academic class reference search and pagination
+        run: npm run test:academic-class-pagination
+
+      - name: Verify Academic roster pagination and Ustadz scope
+        run: npm run test:academic-roster-pagination
+
+      - name: Verify Academic schedule conflict detection
+        run: npm run test:academic-schedule-conflicts
+
+      - name: Verify private Library asset validation
+        run: npm run test:library-assets
+
       - name: Verify public PPDB document total-size validation
         run: npm run test:public-ppdb-validation
 
@@ -308,5 +327,6 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+
 
 
