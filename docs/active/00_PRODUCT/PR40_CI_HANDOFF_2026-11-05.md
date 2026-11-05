@@ -5,17 +5,18 @@
 - Repo: hamdanfaiz/ERP4-Pesantren.
 - PR #40 — Relasi tenant dan penomoran otomatis: https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40
 - Branch: codex/menu-owner-placement-20261101.
-- Head yang terverifikasi: ac288bbe644fd34b72013a88d2c714a70ff96c40.
-- PR masih Draft/Open dan belum boleh di-merge. GitHub saat diperiksa melaporkan mergeable=false; belum ada workflow run untuk head ini. Periksa konflik/status PR lagi sebelum merge.
+- Head PR yang diperiksa: `35879df49af8a2d791bbd3c4587e4cc3be3745bd`. Checkout uji lokal berada pada `440878623dc2f0bedb98a483301923885957bfc7`; file `src/pages/SupabaseDocumentManager.tsx` di checkout itu cocok dengan blob PR `d80a9368816f43a387cde58f6226f42c1300052e`. Build lokal tidak menggantikan CI pada seluruh head PR.
+- PR masih Draft/Open dan belum boleh di-merge. GitHub saat diperiksa melaporkan `mergeable=false`; belum ada workflow run untuk head `35879df49af8a2d791bbd3c4587e4cc3be3745bd`. Periksa konflik/status PR lagi sebelum merge.
 - Proyek Production PTSAS ptsasgdvgrbdtgyqieie tidak diubah. Semua pemeriksaan database pada checkpoint ini hanya menyentuh staging VQE vqemuyzveuirlkvdggjd.
 
 ## Bukti runtime dan source
 
 - Pada checkout lokal yang memuat source Dokumen Digital yang sama dengan PR, npm run test:supabase-runtime-no-firebase lulus: 152 modul pada graph frontend/server tidak mengimpor Firebase; 26 route Supabase dikenali dan 26 route migrasi lama tertutup. Ini membuktikan batas graph runtime yang diperiksa, bukan bahwa seluruh repo bebas kode atau dependensi Firebase.
 - SDK Firebase masih tercantum sebagai devDependency dan sejumlah file legacy yang tidak masuk graph runtime masih memiliki referensi Firestore.
-- npm run lint, npm run build, serta 39 skrip non-database/API pernah lulus pada source UI PR. Build memberi peringatan anotasi Rollup Zod dan ukuran chunk react-pdf sekitar 1,46 MB.
+- Pada checkout uji lokal `4408786`, `npm run lint` dan `npm run build` baru dijalankan ulang dan lulus. File Dokumen Digital yang dibuild cocok dengan blob PR saat diperiksa; seluruh hasil tetap pemeriksaan lokal, bukan CI pada keseluruhan head PR. Build memberi peringatan anotasi Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB.
 - Smoke instalasi production-only dan runtime juga pernah lulus; halaman utama merespons 200 dan /api/users tanpa autentikasi merespons 401. Smoke ini tidak menguji koneksi Supabase live.
-- Hasil lokal tersebut bukan pengganti workflow GitHub Actions. Untuk commit head PR terkini, workflow run masih belum ada.
+- `npm run test:migration-preflight` dan `npm run test:supabase-runtime-no-firebase` juga baru lulus pada checkout lokal: pemeriksaan lineage/preflight offline berhasil; graph runtime memeriksa 152 modul, mengenali 26 route Supabase, dan menutup 26 route migrasi lama. Sebanyak 39 skrip non-database/API sebelumnya juga pernah lulus.
+- Hasil lokal tersebut bukan pengganti workflow GitHub Actions. Fetch run untuk head `35879df49af8a2d791bbd3c4587e4cc3be3745bd` mengembalikan daftar kosong.
 
 ## Supabase staging VQE — pemeriksaan baca-saja terbaru
 
@@ -31,6 +32,13 @@
   - Pengaturan search_path, mode keamanan, hak EXECUTE, RLS paksa, dan trigger Finance yang dibandingkan cocok dengan source.
 - Bukti ini menutup pemeriksaan definisi objek yang disebut di atas. Bukti ini tidak membuktikan semua migrasi database dari 134 file telah dibandingkan satu per satu, kesesuaian setiap efek backfill pada data, atau kesiapan Production.
 - Tidak ada penulisan data, perubahan ledger, pengubahan aturan, ataupun migration Production pada pemeriksaan ini.
+
+## Advisory Supabase staging terbaru (read-only)
+
+- Security advisor VQE melaporkan 162 tabel `public` dengan RLS aktif tanpa policy (INFO), dan satu peringatan karena perlindungan kata sandi yang pernah bocor belum aktif pada Auth staging.
+- Query katalog baca-saja memastikan semua 162 tabel tersebut tidak memberi hak SELECT/INSERT/UPDATE/DELETE kepada role `anon` atau `authenticated`. Temuan RLS tanpa policy karena itu fail-closed untuk akses Data API langsung; akses lewat server/RPC tetap perlu dicakup dalam tes.
+- Performance advisor melaporkan 258 foreign key tanpa indeks penutup dan 104 indeks yang belum digunakan (INFO). Jangan menambah atau menghapus semuanya otomatis; petakan dulu ke query berfrekuensi tinggi, rencana query, dan beban tulis.
+- Production PTSAS `ptsasgdvgrbdtgyqieie` tetap tidak tersentuh. Konektor menolak pembacaan ledger Production, sehingga status migrasi Production belum terverifikasi.
 
 ## Prasyarat yang masih kurang untuk rekonsiliasi
 
