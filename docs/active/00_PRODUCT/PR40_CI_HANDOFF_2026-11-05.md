@@ -3,7 +3,7 @@
 ## Status PR dan bukti saat ini
 
 - Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
-- Source aplikasi terakhir diverifikasi pada `989b0571a6b08a9069f09a6f8a05a56cc0202c81`; commit setelahnya hanya memperbarui dokumentasi handoff.
+- Head PR saat handoff diperbarui adalah `4d32053da0d35504579ed63b183866f605e6a06e`; commit ini menyamakan navigasi tab Operasional Fasilitas Asrama dengan komponen bersama `ERPTabs`.
 - PR masih Draft/Open dan API GitHub menandainya belum mergeable.
 - Diagnostik GitHub pada head PR terkini menemukan satu check run `Supabase Preview` dengan kesimpulan `skipped`, karena branch tidak diasosiasikan dengan Supabase Branch. Tidak ada GitHub Actions workflow run atau status context tambahan; daftar review kosong. Check tersebut bukan bukti build atau tes aplikasi. Workflow `.github/workflows/supabase-db-tests.yml` ada di `main` untuk `pull_request` ke `main`; pemilik repo perlu memeriksa pengaturan/izin Actions atau event delivery.
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
@@ -46,7 +46,9 @@
 - Pengguna melaporkan bahwa style tab pada modul Dokumen Digital belum sesuai standar UI.
 - Pemeriksaan halaman referensi AI Studio pada 5 November menampilkan lima tab utama: Surat Masuk, Surat Keluar, E-Approval, Arsip Digital, dan AI OCR Scanner.
 - Commit `db18402` menyelaraskan lima tab utama di `SupabaseDocumentManager` dengan acuan. Akses **Semua dokumen** tetap tersedia sebagai tombol tampilan, sedangkan **Internal** tetap tersedia sebagai pilihan filter jenis. Perubahan ini mempertahankan kedua fungsi tanpa menambah tab utama.
+- Commit `4d32053` mengganti navigasi khusus pada Operasional Fasilitas Asrama dengan `ERPTabs`, menjaga dua bagian sesuai role yang diizinkan. Tidak ada perubahan pada sumber data atau aturan akses.
 - `npm run lint` dan `npm run build` lulus di checkout lokal; build masih memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf`. Preview lokal saat ini tidak dapat dijangkau (`ERR_CONNECTION_TIMED_OUT`), sehingga render aktual, keadaan aktif/nonaktif, dan responsivitas belum dibandingkan.
+- Sesudah perbaikan tab asrama, kandidat lokal menjalankan kembali `npm run lint`, `npm run build`, dan `npm run test:supabase-runtime-no-firebase`; semuanya lulus. Build ini berasal dari worktree kandidat lokal, bukan checkout yang dibuat langsung dari head GitHub `4d32053`.
 - UAT visual tetap terbuka sampai preview PR dapat dijangkau browser dengan sesi Admin VQE dan tampilan dibandingkan dengan acuan pada ukuran layar yang sama.
 
 ## Gerbang sebelum merge atau cutover
