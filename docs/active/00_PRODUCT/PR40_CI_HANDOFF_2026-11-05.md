@@ -7,7 +7,8 @@
 - Branch: `codex/menu-owner-placement-20261101`.
 - Source aplikasi yang terakhir diuji: `944801e8590026a0629994f9db50f427e81abe72`. Setelah pemeriksaan itu, PR menerima commit dokumentasi saja; lihat header PR untuk HEAD terbaru sebelum menjalankan CI.
 - PR masih Draft/Open dan belum layak digabung. GitHub belum mengembalikan status mergeability yang pasti (`mergeable_state=unknown`); perbandingan branch menunjukkan 190 commit ahead dan 0 behind dari `main`.
-- PR terbaru belum memiliki status check atau workflow run. Run Actions #1135 menguji commit lama dan tidak membuktikan head saat ini.
+- Tidak ada workflow run GitHub Actions untuk head terbaru. Satu check-run `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; check ini bukan hasil build atau tes aplikasi.
+- `.github/workflows/supabase-db-tests.yml` tersedia pada `main` dan memiliki pemicu `pull_request` untuk base `main`. Konektor tidak dapat membaca pengaturan Actions tingkat repo; tim perlu memeriksa apakah Actions/workflow diaktifkan serta event push memicu run. Run #1135 menguji commit lama dan tidak membuktikan head saat ini.
 
 ## Bukti build dan tes lokal
 
