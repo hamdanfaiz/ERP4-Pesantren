@@ -5,9 +5,11 @@
 - Repo: `hamdanfaiz/ERP4-Pesantren`.
 - PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40).
 - Branch PR: `codex/menu-owner-placement-20261101`.
-- Head source saat pembaruan panduan: `42d343743cfbc42c38c3687c9ea2972a134fc7af`.
-- GitHub Actions belum membuat workflow run untuk head sebelumnya (`b2d7acc`) maupun head panduan ini. Hanya pemeriksaan Supabase Preview yang berstatus `skipped` karena branch tidak terhubung ke Supabase Branch.
+- Head source saat pembaruan panduan: `d9b3be7a6f8ae021360008e02b1dba738d2eab5e`.
+- GitHub Actions belum membuat workflow run untuk head terbaru ini. Pembaruan file melalui konektor GitHub tidak memicu Actions; tim perlu membuat fast-forward push native dari clone yang terautentikasi. Pemeriksaan Supabase Preview terpisah berstatus `skipped` karena branch tidak terhubung ke Supabase Branch.
 - Source dan guard runtime terbaru sudah berada di branch PR. Guard menelusuri graph impor frontend dan server (152 modul) serta memastikan Firebase tidak menjadi dependency produksi. Pembaruan ref melalui konektor GitHub tidak memulai Actions; perlu native Git push dari clone yang terautentikasi.
+
+Workflow kini mendaftarkan semua 46 script `test:*` di `package.json`; audit ini hanya memeriksa cakupan perintah, bukan hasil lulus tes. Enam pemeriksaan yang baru ditambahkan mencakup Master Data CSV, katalog Naming Series, pencarian/paginasi kelas, paginasi roster/Ustadz, konflik jadwal, dan validasi aset Library.
 
 ## Cara aman memicu CI dari Windows PowerShell
 
