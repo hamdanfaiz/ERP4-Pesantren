@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabase";
 import { pendingMutationIds } from "../utils/pendingMutationId";
 import { tenantBusinessDate } from "../utils/businessDate";
-import { ERPFeatureStatus } from "../components/ERPDesignSystem";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type Direction = "incoming" | "outgoing" | "internal";
 type Status = "registered" | "in_review" | "approved" | "rejected" | "archived";
@@ -231,10 +231,12 @@ export function SupabaseDocumentManager() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/60">
-        <div className="border-b border-slate-200 px-4 pt-3 dark:border-white/10 sm:px-5">
-          <div role="tablist" aria-label="Jenis dokumen" className="flex gap-2 overflow-x-auto">
-            {tabs.map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} onClick={() => setTab(item)} className={`shrink-0 border-b-2 px-3 py-3 text-sm font-medium transition ${tab === item ? "border-emerald-600 text-emerald-700 dark:text-emerald-300" : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"}`}>{TAB_LABEL[item]}</button>)}
-          </div>
+        <div className="border-b border-slate-200 px-4 pt-3 dark:border-white/10 s          <ERPTabs
+            tabs={tabs.map((item) => ({ id: item, label: TAB_LABEL[item] }))}
+            value={tab}
+            onChange={(value) => setTab(value as ViewTab)}
+            ariaLabel="Jenis dokumen"
+          />   </div>
         </div>
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="relative w-full sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nomor, perihal, pengirim..." className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:border-white/10 dark:bg-slate-950/40 dark:text-white" /></div>
