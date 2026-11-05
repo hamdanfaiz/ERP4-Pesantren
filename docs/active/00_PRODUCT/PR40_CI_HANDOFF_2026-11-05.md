@@ -7,6 +7,7 @@
 - PR masih Draft/Open dan API GitHub menandainya belum mergeable.
 - Pemeriksaan GitHub pada head PR saat ditinjau dan pembaruan dokumentasi sesudahnya tidak menemukan workflow run, status check, atau review. Belum ada bukti CI GitHub.
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
+- Supabase MCP menolak `get_project` dan read-only SQL untuk Production. `list_migrations` mengembalikan daftar kosong, tetapi tanpa akses proyek hasil itu bukan bukti bahwa schema/ledger Production kosong; status Production tetap belum terverifikasi.
 
 ## Pemeriksaan lokal pada source `989b057`
 
