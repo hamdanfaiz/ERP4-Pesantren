@@ -31,6 +31,8 @@ Setelah workflow selesai, worktree sementara dapat dibuang:
 git -C $repo worktree remove $worktree
 ```
 
+- Pemeriksaan baca-saja Supabase MCP pada 5 November 2026: VQE memiliki 133 migration sampai `20270301000000_academic_student_roster_pagination`; source PR memiliki 134 migration. Versi kelas `20270302000000_academic_class_reference_pagination` belum diterapkan, dan ledger VQE masih mencatat alias lama `20261101015832_tenant_reference_relationships`. Tidak ada perubahan database yang dilakukan.
+
 ## Batasan
 
 - Langkah ini hanya memicu CI di GitHub; tidak menjalankan deployment atau migrasi ke Supabase Production.
