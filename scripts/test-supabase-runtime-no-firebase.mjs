@@ -44,6 +44,7 @@ function visit(fileName) {
   function collect(node) {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) addSpecifier(node.moduleSpecifier);
     if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) addSpecifier(node.arguments[0]);
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'require') addSpecifier(node.arguments[0]);
     ts.forEachChild(node, collect);
   }
   collect(sourceFile);
@@ -68,8 +69,14 @@ function visit(fileName) {
 
 visit(entryPoint);
 assert.ok(visited.has(entryPoint), 'Frontend entry point src/main.tsx was not checked.');
-assert.deepEqual(violations, [], `Firebase must not appear in the active frontend import graph:\n${violations.join('\n')}`);
-console.log(`Supabase-only frontend import graph passed (${visited.size} modules checked from src/main.tsx).`);
+const serverEntryPoint = path.join(root, 'server.ts');
+visit(serverEntryPoint);
+assert.ok(visited.has(serverEntryPoint), 'Server runtime entry point server.ts was not checked.');
+assert.deepEqual(violations, [], `Firebase must not appear in the active frontend or server import graph:\n${violations.join('\n')}`);
+const packageManifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const firebaseProductionDependencies = Object.keys(packageManifest.dependencies || {}).filter(isFirebasePackage);
+assert.deepEqual(firebaseProductionDependencies, [], 'Firebase packages must not be installed as production runtime dependencies.');
+console.log(`Supabase-only runtime import graphs passed (${visited.size} modules checked from src/main.tsx and server.ts; no Firebase production dependencies).`);
 
 const appPath = path.join(root, 'src', 'App.tsx');
 const appText = fs.readFileSync(appPath, 'utf8');
@@ -374,4 +381,5 @@ assert.match(facilityBookingSource, /const previewImport = async \(\) => \{\s*if
 assert.match(facilityBookingSource, /const applyImport = async \(\) => \{\s*if \(!SUPABASE_FACILITY_BOOKINGS_IMPORT\) return;/,
   'Facility booking apply action must fail closed when archive import is disabled.');
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
+
 
