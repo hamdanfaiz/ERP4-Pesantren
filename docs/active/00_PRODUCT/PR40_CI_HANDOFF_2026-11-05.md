@@ -1,50 +1,45 @@
-# Serah terima pemeriksaan PR #40 — 5 November 2026
+# Serah terima PR #40 — 5 November 2026
 
-## Status saat ini
+## Status PR dan bukti saat ini
 
-- Repo: `hamdanfaiz/ERP4-Pesantren`.
-- PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
-- Source PR terakhir yang diuji penuh secara lokal: `989b0571a6b08a9069f09a6f8a05a56cc0202c81`. PR tetap Draft/Open.
-- Pada head `989b057`, `npm run lint`, `npm run build`, dan 39/39 skrip `test:*` non-database/API lulus pada checkout bersih dengan lockfile yang cocok. Build memberi peringatan anotasi Rollup pada Zod dan chunk `react-pdf` sekitar 1,46 MB.
-- Pemeriksaan GitHub untuk head tersebut menemukan satu check `Supabase Preview` berstatus `skipped` karena branch tidak terhubung ke Supabase Branch; belum ada workflow Actions untuk source head ini. Run Actions #1135 sukses pada commit lama `79d516880fb0c957d672cc4db8d9725f7f294ba3`, jadi bukan bukti head terbaru.
-- Workflow `.github/workflows/supabase-db-tests.yml` memiliki pemicu `pull_request` ke `main`. Tim perlu memeriksa pengaturan Actions/event pada repo dan menyediakan bukti workflow untuk head terbaru.
+- Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
+- Sebelum pembaruan handoff ini, head PR adalah `d71d3c95901ccbb61955ee4b756df0bc05e65e5a`; source aplikasi yang diverifikasi adalah `989b0571a6b08a9069f09a6f8a05a56cc0202c81`. PR masih Draft/Open dan API GitHub menandainya belum mergeable.
+- Pemeriksaan GitHub terbaru pada head `d71d3c9`: tidak ada workflow run PR, status check, atau review. Belum ada bukti CI GitHub untuk source terbaru.
+- Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
 
-## Bukti build dan tes lokal
-
-Validasi dilakukan pada worktree terisolasi `erp4-pr40-head-20261105`, tepat di head `989b057`:
+## Pemeriksaan lokal pada source `989b057`
 
 - `npm run lint` — lulus.
-- `npm run build` — lulus.
-- 39/39 skrip tes non-database/API — lulus, termasuk guard Supabase-only dan pemeriksaan Master Data, PPDB, Akademik, Tahfidz, serta tenant.
+- `npm run build` — lulus. Build memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
+- 37/37 tes non-database/API yang tidak memerlukan loopback lulus pada pemeriksaan ulang 5 November, termasuk guard runtime Supabase-only, Master Data, PPDB, Akademik, Tahfidz, tenant, impor/ekspor, dan RBAC.
+- Tes `test:trusted-proxy-hops` dan `test:runtime-config-http` tidak dijalankan ulang pada pemeriksaan ini karena memerlukan loopback. Hasil 39/39 yang tercatat sebelumnya tetap merupakan bukti lokal historis, bukan workflow GitHub.
+- Uji database/API yang belum terbukti: `test:db`, `test:db:nis-race`, `test:db:tahfidz-session-race`, `test:api:auth-tenant`, `test:api:finance-storage`, `test:api:library-storage`, dan `test:db:backup-restore`.
 
-Tujuh tes integrasi database/API belum dijalankan pada head terbaru:
+## Staging VQE dan prasyarat koneksi
 
-- `test:db` (pgTAP seluruh migration, termasuk picker kelas dan tenant sintetis 501 kelas)
-- `test:db:nis-race`
-- `test:db:tahfidz-session-race`
-- `test:api:auth-tenant`
-- `test:api:finance-storage`
-- `test:api:library-storage`
-- `test:db:backup-restore`
+- Target staging yang disetujui: `vqemuyzveuirlkvdggjd`. Pemeriksaan baca-saja Supabase mencatat 133 migration staging dari 134 migration source. `20270302000000_academic_class_reference_pagination.sql` belum tercatat.
+- Ledger staging masih menggunakan versi alias `20261101015832_tenant_reference_relationships`; source yang benar adalah `20270214120000_tenant_reference_relationships`. Runbook memuat pemeriksaan exact-SQL sebelum rekonsiliasi.
+- `npm run preflight:db-migrations` berhenti dengan pesan bahwa `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL` harus disediakan. `.env` worktree UAT VQE hanya memiliki URL dan API key Supabase, tanpa URL koneksi Postgres. `.env` pada worktree kanonis menunjuk ke Production dan tidak boleh dipakai untuk preflight staging.
+- CLI `supabase` dan `psql` tidak tersedia di PATH; Docker juga tidak terdeteksi. Ada binary CLI sementara versi `2.122.0`, tetapi workflow repository meminta CLI `2.84.2`; gunakan versi yang dipin, bukan binary sementara.
+- Jadi pemeriksaan alias yang tersimpan di database belum dapat diulang melalui skrip preflight resmi pada checkout ini. Tidak memakai API secret sebagai pengganti password Postgres.
 
-Jalankan di runner CI yang menyediakan Supabase/Postgres terisolasi. Jangan memakai database Production sebagai target pengujian.
-## Rekonsiliasi staging VQE
+## Urutan aman untuk tim backend
 
-- Target staging yang disetujui: `vqemuyzveuirlkvdggjd`. Production PTSAS `ptsasgdvgrbdtgyqieie` tidak disentuh.
-- Pemeriksaan baca-saja terbaru: VQE berisi 133 migration, sedangkan source berisi 134. Migration `20270302000000_academic_class_reference_pagination.sql` belum tercatat pada VQE.
-- Ledger VQE juga memiliki nama/timestamp lama `20261101015832_tenant_reference_relationships` yang tidak sama dengan migration file di repo. Jangan menjalankan ulang migration terkait atau memperbaiki ledger dengan SQL manual.
-- Migration picker kelas menambah indeks partial dan mengganti/membuat fungsi keyset `SECURITY INVOKER`; ia tidak menyalin atau menghapus data. Namun, rekonsiliasi ledger harus dilakukan dulu agar file migration yang sudah pernah diterapkan tidak dijalankan ulang.
-- Supabase MCP `apply_migration` sebelumnya dapat mencatat versi berbeda dari nama file. Gunakan Supabase CLI yang dipin sesuai workflow repo (`2.84.2`) dari checkout terisolasi yang secara eksplisit ditautkan ke VQE. Awali dengan `supabase migration list` dan `supabase db push --dry-run`; cocokkan setiap versi yang akan dijalankan dengan file. Gunakan `supabase migration repair` hanya untuk koreksi ledger setelah operator memeriksa versi tepat. Jangan gunakan konfigurasi default `supabase/config.toml` sebagai alasan untuk menarget Production.
-- Kredensial staging harus disediakan tim melalui `.env` lokal atau secret CI; jangan ditempelkan ke chat atau browser.
+1. Sediakan `SUPABASE_DB_POOLER_URL` khusus VQE di environment lokal/CI yang tidak di-commit. Pastikan project ref dalam URL adalah `vqemuyzveuirlkvdggjd`; jangan gunakan nilai dari `.env` Production dan jangan kirim kredensial melalui chat.
+2. Siapkan Supabase CLI versi `2.84.2` sesuai workflow repo dan `psql`, atau runner CI terisolasi yang menyediakan keduanya. Jalankan `npm run preflight:db-migrations` terhadap VQE.
+3. Lanjutkan hanya jika preflight memastikan SQL alias `20261101015832 → 20270214120000` cocok persis serta tidak ada versi asing, mismatch SQL/nama, atau urutan yang tertinggal. Rekonsiliasi ledger dengan `supabase migration repair 20270214120000 --status applied` hanya setelah verifikasi itu. Jangan mengubah ledger dengan SQL manual dan jangan menjalankan ulang migration tenant-reference.
+4. Jalankan `supabase migration list` dan `supabase db push --dry-run` dengan target VQE yang eksplisit. Tinjau daftar perubahan sebelum menerapkan migration yang belum ada; verifikasi indeks dan fungsi picker kelas sesudahnya.
+5. Jalankan seluruh tujuh tes integrasi di atas di Postgres/Supabase terisolasi dan lampirkan tautan workflow serta hasil per job. Jangan gunakan Production sebagai target tes.
+6. Selesaikan UAT Admin VQE: login, isolasi tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul terkait. Pertahankan PR Draft sampai CI, database, dan UAT terbukti lulus.
 
-## Tindakan tim backend
+## Temuan UI Dokumen Digital
 
-1. Periksa mengapa Actions tidak membuat run untuk HEAD PR `b59ca9b`. Lihat tab **Actions**, pastikan workflow diaktifkan dan event `pull_request` diizinkan, lalu jalankan CI dari push terautentikasi tim. Native push sebelumnya juga belum menghasilkan run, jadi jangan menganggap commit kosong otomatis menyelesaikan masalah.
-2. Jalankan seluruh tujuh tes integrasi dalam job CI terisolasi. Simpan tautan run dan hasil tiap job pada PR.
-3. Sediakan runner/akses staging VQE, audit ledger terlebih dahulu, lalu rehearsal migration `20270302000000` menggunakan target VQE yang eksplisit. Verifikasi indeks dan fungsi sesudahnya, serta jalankan pgTAP terkait.
-4. Selesaikan UAT Admin staging untuk login, tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul yang terdampak.
-5. Minta tinjauan tim atas perubahan dan bukti. Pertahankan PR Draft sampai CI, database, dan UAT lulus. Production baru dipertimbangkan setelah staging diterima; tidak ada langkah dalam panduan ini yang menerapkan migration ke Production.
+- Dokumen Digital menggunakan komponen tab bersama `ERPTabs`; commit `4d8df2e` menghapus margin tambahan agar jaraknya mengikuti container halaman.
+- Pengguna masih melaporkan style tab belum sesuai standar. Preview lokal yang dapat diamati menampilkan landing publik, bukan sesi Admin. Karena itu, perbandingan visual wadah, ukuran, jarak, dan keadaan aktif/nonaktif masih terbuka; jangan tandai UI selesai sebelum Admin VQE dapat memeriksa render dan membandingkannya dengan modul acuan.
 
-## Perubahan UI yang ikut pada PR
+## Gerbang sebelum merge atau cutover
 
-Pada source head `944801e`, Dokumen Digital sudah memakai `ERPTabs` bersama, menampilkan ikon, dan menempatkan tab di luar panel konten. Laporan pengguna pada 5 November 2026 menyatakan gaya tab masih belum sesuai standar. Commit `4d8df2e` menghapus margin `mb-4` tambahan agar jarak mengikuti `space-y-6` pada container halaman. Verifikasi visual pada aplikasi berjalan masih terbuka untuk membandingkan wadah, ukuran, dan keadaan aktif/nonaktif dengan modul acuan; jangan tandai pekerjaan UI selesai sebelum render dibandingkan.
+- PR tetap Draft/Open dan saat pemeriksaan GitHub belum mergeable.
+- Tidak ada workflow run/check untuk head terbaru.
+- Uji integrasi, rekonsiliasi ledger, penerapan/rehearsal migration staging, dan UAT Admin masih harus dibuktikan.
+- Cutover Production baru dapat dipertimbangkan setelah staging diterima dan seluruh gerbang di atas lulus. Tidak ada langkah dalam handoff ini yang menerapkan perubahan ke Production.
