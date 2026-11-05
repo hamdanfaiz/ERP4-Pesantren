@@ -3,26 +3,21 @@
 ## Status saat ini
 
 - Repo: `hamdanfaiz/ERP4-Pesantren`.
-- PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40).
-- Branch: `codex/menu-owner-placement-20261101`.
-- Source aplikasi PR yang terakhir diuji: `944801e8590026a0629994f9db50f427e81abe72`. Snapshot PR yang diperiksa sebelum pembaruan handoff: `b59ca9bead2ebc36ce7697de6555b7e45abc0cf1` (Draft/Open, 193 commit ahead dan 0 behind dari `main`). Periksa halaman PR untuk HEAD terkini.
-- Pemeriksaan CI pada snapshot `b59ca9b` menemukan nol workflow run. Satu check `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; ini bukan hasil build/tes aplikasi. Run Actions #1135 menguji commit lama dan tidak membuktikan source terbaru.
-- Sesudah handoff diperbarui pada commit `fd99930`, GitHub masih menunjukkan nol workflow run; `Supabase Preview` tetap `skipped`. Workflow lokal memiliki pemicu `pull_request` ke `main`, tetapi status Actions tingkat repo tidak dapat diverifikasi dari konektor.
-- `.github/workflows/supabase-db-tests.yml` memiliki pemicu `pull_request` untuk base `main`, tetapi status workflow dan pengaturan Actions tingkat repo tidak dapat dibaca melalui konektor. Tim perlu memastikan Actions diaktifkan dan memeriksa log event saat PR berikutnya diperbarui.
+- PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
+- Source PR terakhir yang diuji penuh secara lokal: `989b0571a6b08a9069f09a6f8a05a56cc0202c81`. PR tetap Draft/Open.
+- Pada head `989b057`, `npm run lint`, `npm run build`, dan 39/39 skrip `test:*` non-database/API lulus pada checkout bersih dengan lockfile yang cocok. Build memberi peringatan anotasi Rollup pada Zod dan chunk `react-pdf` sekitar 1,46 MB.
+- Pemeriksaan GitHub untuk head tersebut menemukan satu check `Supabase Preview` berstatus `skipped` karena branch tidak terhubung ke Supabase Branch; belum ada workflow Actions untuk source head ini. Run Actions #1135 sukses pada commit lama `79d516880fb0c957d672cc4db8d9725f7f294ba3`, jadi bukan bukti head terbaru.
+- Workflow `.github/workflows/supabase-db-tests.yml` memiliki pemicu `pull_request` ke `main`. Tim perlu memeriksa pengaturan Actions/event pada repo dan menyediakan bukti workflow untuk head terbaru.
 
 ## Bukti build dan tes lokal
 
-Pada source code head PR `944801e8590026a0629994f9db50f427e81abe72`, lulus:
+Validasi dilakukan pada worktree terisolasi `erp4-pr40-head-20261105`, tepat di head `989b057`:
 
-- `npm run lint`
-- `npm run build`
-- 39/39 skrip `test:*` non-database/API
+- `npm run lint` — lulus.
+- `npm run build` — lulus.
+- 39/39 skrip tes non-database/API — lulus, termasuk guard Supabase-only dan pemeriksaan Master Data, PPDB, Akademik, Tahfidz, serta tenant.
 
-Dua skrip yang memerlukan loopback lokal (`test:trusted-proxy-hops` dan `test:runtime-config-http`) awalnya ditolak sandbox dengan `EACCES`; keduanya lulus setelah diulang dengan izin koneksi loopback. Build masih memberi peringatan anotasi Rollup pada Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
-
-Pemeriksaan tambahan pada worktree lokal saat ini (`HEAD f6a6cde` plus perubahan lokal Dokumen Digital dan catatan ini): `npm run lint`, `npm run build`, dan 39/39 skrip non-database/API lulus. Ini bukti lokal tambahan, bukan workflow run atau validasi penuh terhadap HEAD PR `b59ca9b`.
-
-Tes integrasi database/API belum dijalankan pada head terbaru:
+Tujuh tes integrasi database/API belum dijalankan pada head terbaru:
 
 - `test:db` (pgTAP seluruh migration, termasuk picker kelas dan tenant sintetis 501 kelas)
 - `test:db:nis-race`
@@ -33,7 +28,6 @@ Tes integrasi database/API belum dijalankan pada head terbaru:
 - `test:db:backup-restore`
 
 Jalankan di runner CI yang menyediakan Supabase/Postgres terisolasi. Jangan memakai database Production sebagai target pengujian.
-
 ## Rekonsiliasi staging VQE
 
 - Target staging yang disetujui: `vqemuyzveuirlkvdggjd`. Production PTSAS `ptsasgdvgrbdtgyqieie` tidak disentuh.
