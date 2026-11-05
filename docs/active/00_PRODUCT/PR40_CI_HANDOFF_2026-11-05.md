@@ -5,8 +5,8 @@
 - Repo: hamdanfaiz/ERP4-Pesantren.
 - PR #40 — Relasi tenant dan penomoran otomatis: https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40
 - Branch: codex/menu-owner-placement-20261101.
-- Head PR sebelum perbaikan cleanup sintetis: `6e99412650874a66709f5dfd627a55473de7bf31`. Commit koreksi ini menambah isolasi fixture staging; cocokkan head terkini setelah perubahan dipush.
-- PR masih Draft/Open dan belum boleh di-merge. GitHub pada head sebelumnya melaporkan `mergeable=false`, tanpa workflow run atau status checks. Periksa konflik, mergeability, dan CI setelah branch PR diperbarui.
+- Head PR terbaru: `cb6179c7821990798af363a7030378a6a772d367`; commit ini menambahkan isolasi fixture staging setelah uji Finance/Library menunjukkan audit append-only menolak penghapusan Auth/profile.
+- PR masih Draft/Open dan belum boleh di-merge. Pemeriksaan GitHub pada head terbaru melaporkan `mergeable=false`, tanpa workflow run atau status checks. Periksa ulang konflik, mergeability, dan CI setelah trigger workflow dipulihkan.
 - Proyek Production PTSAS ptsasgdvgrbdtgyqieie tidak diubah. Semua pemeriksaan database pada checkpoint ini hanya menyentuh staging VQE vqemuyzveuirlkvdggjd.
 
 ## Bukti runtime dan source
@@ -38,7 +38,8 @@
 
 - Security advisor VQE melaporkan 162 tabel `public` dengan RLS aktif tanpa policy (INFO), dan satu peringatan karena perlindungan kata sandi yang pernah bocor belum aktif pada Auth staging.
 - Query katalog baca-saja memastikan semua 162 tabel tersebut tidak memberi hak SELECT/INSERT/UPDATE/DELETE kepada role `anon` atau `authenticated`. Temuan RLS tanpa policy karena itu fail-closed untuk akses Data API langsung; akses lewat server/RPC tetap perlu dicakup dalam tes.
-- Performance advisor melaporkan 258 foreign key tanpa indeks penutup dan 104 indeks yang belum digunakan (INFO). Jangan menambah atau menghapus semuanya otomatis; petakan dulu ke query berfrekuensi tinggi, rencana query, dan beban tulis.
+- Performance advisor terbaru pada 2026-11-05 melaporkan 258 foreign key tanpa indeks penutup dan 96 indeks yang belum digunakan (INFO). Catatan lama tentang 104 indeks belum digunakan sudah kedaluwarsa. Jangan menambah atau menghapus indeks secara massal; VQE belum mewakili beban produksi. Petakan temuan ke query berfrekuensi tinggi, rencana query, dan beban tulis dengan data sintetis berskala realistis.
+- Auth advisor memperingatkan perlindungan kata sandi bocor belum aktif di VQE staging. Aktifkan dan uji di staging sebelum rilis; verifikasi konfigurasi Production secara terpisah. Jangan mengirim password atau secret melalui chat.
 - Production PTSAS `ptsasgdvgrbdtgyqieie` tetap tidak tersentuh. Konektor menolak pembacaan ledger Production, sehingga status migrasi Production belum terverifikasi.
 
 ## Prasyarat yang masih kurang untuk rekonsiliasi
@@ -47,7 +48,7 @@
 - Supabase CLI 2.84.2 sesuai versi workflow repo, psql, dan Docker belum tersedia pada checkout ini.
 - Karena itu preflight database resmi dan dry-run terhadap koneksi Postgres VQE belum dijalankan. MCP hanya dipakai untuk query katalog baca-saja.
 - Jangan mengubah ledger dengan SQL manual atau menjalankan ulang migration yang sudah diterapkan.
-- Tim backend dapat melanjutkan di runner lokal/CI yang terisolasi: sediakan URL pooler VQE sebagai secret environment, pasang CLI versi pin, lalu jalankan langkah berikut dari repo yang ter-link ke VQE.
+- Tim backend dapat melanjutkan di runner lokal/CI yang terisolasi: sediakan URL pooler khusus VQE sebagai secret environment, pasang CLI versi pin, lalu jalankan langkah berikut dari repo yang ter-link ke VQE.
 
   npm run preflight:db-migrations
   supabase migration list
