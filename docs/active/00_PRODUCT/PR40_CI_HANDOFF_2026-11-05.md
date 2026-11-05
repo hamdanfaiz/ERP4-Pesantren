@@ -4,15 +4,16 @@
 
 - Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
 - Commit kode terakhir adalah `180cc08`, yang menyatukan enam tab Dokumen Digital pada `ERPTabs`; commit `4d32053` sebelumnya menyamakan tab Operasional Fasilitas Asrama dengan komponen yang sama.
-- Pada pemeriksaan PR head `73d848c`, statusnya Draft/Open; endpoint GitHub mentah mengembalikan `mergeable=null` dan `mergeable_state=unknown`. Status ini belum membuktikan ada konflik merge.
-- GitHub Actions repository aktif dan memiliki 1.135 run historis; run terbaru yang terlihat (#1135) selesai sukses pada 4 November 2026 pukul 10:21 UTC, sebelum commit UI pada 5 November. Untuk head `486ea2a`, tidak ada workflow run/status baru; check yang terlihat hanya `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch. Push Git pada 5 November belum menghasilkan workflow, jadi tim perlu memeriksa event delivery/configuration atau mendorong update dari kredensial GitHub lokal mereka. Run historis tidak membuktikan head terkini.
+- Pada pemeriksaan PR head `b60200b`, statusnya Draft/Open; endpoint GitHub mentah mengembalikan `mergeable=null` dan `mergeable_state=unknown`. Status ini belum membuktikan ada konflik merge.
+- GitHub Actions repository aktif dan memiliki 1.135 run historis; run terbaru yang terlihat (#1135) selesai sukses pada 4 November 2026 pukul 10:21 UTC, sebelum commit UI pada 5 November. Untuk head `b60200b`, tidak ada workflow run/status baru; check yang terlihat hanya `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch. Push Git pada 5 November belum menghasilkan workflow, jadi tim perlu memeriksa event delivery/configuration atau mendorong update dari kredensial GitHub lokal mereka. Run historis tidak membuktikan head terkini.
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
 - Supabase MCP menolak `get_project` dan read-only SQL untuk Production. `list_migrations` mengembalikan daftar kosong, tetapi tanpa akses proyek hasil itu bukan bukti bahwa schema/ledger Production kosong; status Production tetap belum terverifikasi.
 
-## Pemeriksaan lokal pada head `fb72586`
+## Pemeriksaan lokal pada source UI PR (`fb72586` dan commit kode `180cc08`)
 
 - `npm run lint` dan `npm run build` lulus. Build memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
 - Seluruh 39 skrip tes non-database/API yang tersedia lulus. Ini mencakup pemeriksaan migrasi offline, runtime Supabase-only, tenant/RBAC, alur PPDB, Master Data, Akademik, Tahfidz, impor/ekspor, pengaturan Finance, serta dua tes HTTP loopback setelah akses `127.0.0.1` diizinkan.
+- Instalasi production-only (`npm ci --omit=dev`) lulus; `node scripts/test-production-dependencies.mjs` dan `node scripts/test-production-runtime.mjs` lulus. Smoke runtime membuktikan paket Firebase tidak terpasang pada instalasi produksi, halaman utama merespons 200, dan `/api/users` merespons 401 tanpa autentikasi. Tidak ada koneksi Supabase dalam smoke ini. Dependensi penuh dipulihkan setelahnya.
 - Tujuh tes yang memerlukan koneksi database/API live belum dijalankan: `test:db`, `test:db:nis-race`, `test:db:tahfidz-session-race`, `test:api:auth-tenant`, `test:api:finance-storage`, `test:api:library-storage`, dan `test:db:backup-restore`.
 - Hasil lokal bukan workflow GitHub dan tidak membuktikan UAT visual, integrasi Supabase live, atau seluruh gerbang rilis.
 
@@ -54,7 +55,7 @@
 
 ## Gerbang sebelum merge atau cutover
 
-- PR tetap Draft/Open; status mergeability GitHub belum diketahui (`mergeable_state=unknown`). PR tetap Draft karena gerbang integrasi, staging, dan UAT di bawah belum lulus.
+- PR tetap Draft/Open; status mergeability GitHub pada head `b60200b` belum diketahui (`mergeable_state=unknown`). PR tetap Draft karena gerbang integrasi, staging, dan UAT di bawah belum lulus.
 - Actions memiliki riwayat run, tetapi belum ada workflow run/check untuk head terbaru; workflow `Supabase Preview` hanya `skipped`.
 - Uji integrasi, rekonsiliasi ledger, penerapan/rehearsal migration staging, dan UAT Admin masih harus dibuktikan.
 - Cutover Production baru dapat dipertimbangkan setelah staging diterima dan seluruh gerbang di atas lulus. Tidak ada langkah dalam handoff ini yang menerapkan perubahan ke Production.
