@@ -5,18 +5,19 @@
 - Repo: hamdanfaiz/ERP4-Pesantren.
 - PR #40 — Relasi tenant dan penomoran otomatis: https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40
 - Branch: codex/menu-owner-placement-20261101.
-- Basis source aplikasi yang diperiksa adalah head PR `c05560121a5207e003668cc09f262b06160ffa9e`; perubahan setelah itu hanya dokumentasi, jadi source aplikasi tetap identik dengan source yang diuji lokal. Commit dokumen berikutnya akan memajukan head dan CI harus diperiksa lagi pada SHA barunya.
-- PR masih Draft/Open dan belum siap merge. Pada head `c05560121a5207e003668cc09f262b06160ffa9e`, GitHub hanya menampilkan check Supabase Preview berstatus `skipped`; tidak ada workflow Actions. `mergeable_state` terakhir `unknown`.
+- Basis source aplikasi yang diperiksa tetap sama dengan head PR `ce41c5128cacee85f2ca7744d866df919587243e`; perubahan setelah itu hanya dokumentasi. Checkpoint ini akan memajukan head melalui commit dokumentasi, sehingga status CI perlu diperiksa lagi pada SHA barunya.
+- PR masih Draft/Open dan belum siap merge. Pada head `ce41c5128cacee85f2ca7744d866df919587243e`, GitHub hanya menampilkan check Supabase Preview berstatus `skipped`; tidak ada workflow Actions. `mergeable_state` terakhir `unknown`.
 - Proyek Production PTSAS ptsasgdvgrbdtgyqieie tidak diubah. Semua pemeriksaan database pada checkpoint ini hanya menyentuh staging VQE vqemuyzveuirlkvdggjd.
 
 ## Bukti runtime dan source
 
 - Pada checkout lokal, `npm run test:supabase-runtime-no-firebase` lulus: 152 modul pada graph frontend/server tidak mengimpor Firebase; 26 route Supabase dikenali dan 26 route migrasi lama tertutup. Ini membuktikan batas graph runtime yang diperiksa, bukan bahwa seluruh repo bebas kode atau dependensi Firebase.
 - SDK Firebase masih tercantum sebagai devDependency dan sejumlah file legacy yang tidak masuk graph runtime masih memiliki referensi Firestore.
-- Pada source aplikasi yang sama dengan head PR, instalasi terkunci `npm ci` berhasil (839 paket), `npm run lint` lulus, dan `npm run build` lulus. Build memberi peringatan anotasi Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB.
-- Sebanyak 31 pemeriksaan frontend dan guard lulus pada source yang sama, termasuk preflight migration offline, RBAC/tenant, Master Data CSV/Naming Series, Akademik/Tahfidz, Library, PPDB, proteksi fixture, batas runtime Firebase, dan konfigurasi deployment.
+- Pada checkpoint lokal ini, `npm ci --offline --no-audit --no-fund` berhasil dari cache (839 paket); `npm run lint`, `npm run build`, dan `git diff --check` lulus. Build memberi peringatan anotasi Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB.
+- Sebanyak 19 pemeriksaan mandiri lulus: preflight migration, graph runtime Supabase-only, private API schema, guard target staging, cleanup fixture sintetis, dashboard cash-flow, Naming Series, Master Data tanpa PII browser, deployment flags, CBT/PPDB import, Finance unit-scope/filter, Library import, business date, RBAC, pemulihan Auth, undangan wali, dan HRIS import.
+- `test:trusted-proxy-hops` belum menghasilkan verdict aplikasi: proses gagal membuka koneksi loopback dengan `EACCES` pada sandbox. Jalankan ulang pada runner CI/host yang mengizinkan loopback.
 - `npm ci --omit=dev` berhasil (478 paket). `node scripts/test-production-runtime.mjs` lulus: server produksi lokal merespons halaman utama 200, `/api/users` tanpa autentikasi merespons 401, dan paket Firebase tidak terpasang. Ini tidak menguji koneksi Supabase live.
-- Run GitHub Actions terakhir yang lulus adalah 4 November 2026, SHA `79d516880fb0c957d672cc4db8d9725f7f294ba3`; itu bukan bukti untuk head PR `c05560121a5207e003668cc09f262b06160ffa9e`.
+- Run GitHub Actions terakhir yang lulus adalah 4 November 2026, SHA `79d516880fb0c957d672cc4db8d9725f7f294ba3`; itu bukan bukti untuk head PR `ce41c5128cacee85f2ca7744d866df919587243e`.
 - File workflow branch PR memiliki `workflow_dispatch`, tetapi file workflow `main` belum memilikinya. Pembaruan branch melalui integrasi sudah diterima, tetapi belum membuat run Actions pada SHA baru; verifikasi CI tetap harus dilakukan dari workflow/runner yang tersedia bagi pemilik repo atau team backend.
 
 ## Supabase staging VQE — pemeriksaan baca-saja terbaru
@@ -47,7 +48,7 @@
 
 ## Prasyarat yang masih kurang untuk rekonsiliasi
 
-- Checkout ini tidak memiliki SUPABASE_DB_POOLER_URL khusus VQE; yang ada hanya .env.example. Jangan memakai .env Production atau menaruh password/kunci di chat.
+- Worktree verifikasi tidak memiliki `.env`. `.env` yang ditemukan di checkout canonical mengarah ke project selain VQE, sehingga tidak dibaca nilainya atau dipakai untuk tes staging. Tidak ada `SUPABASE_DB_POOLER_URL` VQE yang tersedia; jangan memakai `.env` Production atau menaruh password/kunci di chat.
 - Executable CLI Supabase ada di direktori sementara workspace, tetapi percobaan lokal berhenti dengan `EPERM` saat menulis telemetry ke `%USERPROFILE%\\.supabase`. Docker dan `psql` tidak tersedia di lingkungan ini.
 - Karena itu suite database lokal, preflight CLI, dan dry-run koneksi Postgres VQE belum dijalankan dari checkout ini. MCP hanya dipakai untuk query katalog baca-saja. CI yang menjalankan Supabase lokal terisolasi tetap menjadi jalur untuk membuktikan suite pada source terbaru.
 - Jangan mengubah ledger dengan SQL manual atau menjalankan ulang migration yang sudah diterapkan.
@@ -92,7 +93,7 @@
 6. Verifikasi schema, aturan akses, dan konfigurasi Production secara terpisah sebelum cutover. Jangan lakukan migrasi atau perubahan Production sebelum seluruh gerbang staging lulus.
 7. Setelah PR siap, minta review team backend. Deploy dan UAT hosting tetap dikerjakan team Anda.
 
-Checkpoint ini menunjukkan pekerjaan implementasi sudah tersedia untuk direview di PR, tetapi belum menyatakan sistem siap merge, cutover, atau deploy.
+Checkpoint aman 5 November 2026: perubahan aplikasi tidak dibuat pada sesi pemeriksaan ini; dependency lokal terpasang dari cache dan file build/`node_modules` diabaikan Git. Checkpoint dokumentasi ini dicatat pada cabang PR; Production tidak disentuh. PR belum siap merge, cutover, atau deploy. Untuk melanjutkan, jalankan CI pada SHA terbaru, sediakan konfigurasi VQE yang benar melalui secret lokal/CI, lalu selesaikan gerbang database dan UAT di atas.
 
 
 
