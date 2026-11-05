@@ -33,10 +33,11 @@
 5. Jalankan seluruh tujuh tes integrasi di atas di Postgres/Supabase terisolasi dan lampirkan tautan workflow serta hasil per job. Jangan gunakan Production sebagai target tes.
 6. Selesaikan UAT Admin VQE: login, isolasi tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul terkait. Pertahankan PR Draft sampai CI, database, dan UAT terbukti lulus.
 
-## Temuan UI Dokumen Digital
+## Temuan UI Dokumen Digital — masih terbuka
 
-- Dokumen Digital menggunakan komponen tab bersama `ERPTabs`; commit `4d8df2e` menghapus margin tambahan agar jaraknya mengikuti container halaman.
-- Pengguna masih melaporkan style tab belum sesuai standar. Preview lokal yang dapat diamati menampilkan landing publik, bukan sesi Admin. Karena itu, perbandingan visual wadah, ukuran, jarak, dan keadaan aktif/nonaktif masih terbuka; jangan tandai UI selesai sebelum Admin VQE dapat memeriksa render dan membandingkannya dengan modul acuan.
+- Pengguna melaporkan secara khusus bahwa style tab pada modul Dokumen Digital belum sesuai standar UI yang digunakan sistem. Temuan ini belum dianggap selesai.
+- Dokumen Digital menggunakan komponen tab bersama `ERPTabs`; commit `4d8df2e` menghapus margin tambahan agar jaraknya mengikuti container halaman, tetapi pemakaian komponen bersama belum membuktikan hasil visualnya sudah konsisten.
+- Preview lokal yang dapat diamati menampilkan landing publik, bukan sesi Admin. Perbandingan visual dengan modul acuan dan koreksi yang diperlukan masih menunggu UAT Admin VQE. Jangan tandai tab Dokumen Digital selesai sebelum tampilannya diperiksa langsung.
 
 ## Gerbang sebelum merge atau cutover
 
