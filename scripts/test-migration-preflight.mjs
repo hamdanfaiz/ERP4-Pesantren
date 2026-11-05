@@ -239,6 +239,45 @@ assert.equal(oldTenantReferenceAlias.canContinueToStagingReview, false);
 assert.match(formatReport(oldTenantReferenceAlias), /riwayat migrasi staging masih memakai versi lama/);
 assert.match(formatReport(oldTenantReferenceAlias), /SQL cocok persis/);
 
+const academicClassReferenceMigration = sourceMigrationsWithSql.find(({ fileName }) =>
+  fileName === '20270302000000_academic_class_reference_pagination.sql'
+);
+const oldAcademicClassReferenceAlias = compareMigrationVersions([academicClassReferenceMigration], [{
+  version: '20261105070231',
+  name: 'academic_class_reference_pagination',
+  statements: academicClassReferenceMigration.statements,
+}]);
+assert.deepEqual(oldAcademicClassReferenceAlias.unknownApplied, []);
+assert.equal(oldAcademicClassReferenceAlias.pending.length, 0);
+assert.equal(oldAcademicClassReferenceAlias.statementMismatches.length, 0);
+assert.deepEqual(oldAcademicClassReferenceAlias.migrationAliasesPendingRepair, [{
+  from: '20261105070231', to: '20270302000000', name: 'academic_class_reference_pagination',
+}]);
+assert.deepEqual(oldAcademicClassReferenceAlias.validatedMigrationAliases, [{
+  from: '20261105070231', to: '20270302000000', name: 'academic_class_reference_pagination',
+}]);
+assert.equal(oldAcademicClassReferenceAlias.canContinueToStagingReview, false);
+assert.match(formatReport(oldAcademicClassReferenceAlias), /SQL cocok persis/);
+
+const changedAcademicClassReferenceAlias = compareMigrationVersions([academicClassReferenceMigration], [{
+  version: '20261105070231',
+  name: 'academic_class_reference_pagination',
+  statements: ['CREATE TABLE public.academic_class_alias_mismatch (id UUID PRIMARY KEY)'],
+}]);
+assert.equal(changedAcademicClassReferenceAlias.statementMismatches.length, 1);
+assert.equal(changedAcademicClassReferenceAlias.canContinueToStagingReview, false);
+
+const repairedAcademicClassReferenceAlias = compareMigrationVersions([academicClassReferenceMigration], [{
+  version: '20270302000000',
+  name: null,
+  statements: null,
+}]);
+assert.equal(repairedAcademicClassReferenceAlias.statementMismatches.length, 0);
+assert.deepEqual(repairedAcademicClassReferenceAlias.repairedMigrationAliases, [{
+  version: '20270302000000', name: 'academic_class_reference_pagination',
+}]);
+assert.equal(repairedAcademicClassReferenceAlias.canContinueToStagingReview, true);
+
 const changedTenantReferenceAlias = compareMigrationVersions([tenantReferenceMigration], [{
   version: '20261101015832',
   name: 'tenant_reference_relationships',
