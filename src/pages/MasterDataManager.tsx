@@ -43,6 +43,7 @@ import { cn, generateUniqueId } from "../lib/utils";
 import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
 import { MasterDataTransferModal } from "../components/MasterDataTransferModal";
+import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseMasterDataAuditPanel } from "../components/SupabaseMasterDataAuditPanel";
 import { SupabaseNamingSeriesManager } from "../components/SupabaseNamingSeriesManager";
 import { downloadTransferCsv } from "../utils/dataTransferCsv";
@@ -1654,26 +1655,13 @@ export function MasterDataManager() {
         </div>
       </div>
 
-      <div className="flex gap-2 text-sm bg-black/20 border border-slate-200 dark:border-white/5 rounded-lg p-1 w-fit mb-6 print:hidden">
-        {visibleTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button aria-pressed={isActive}
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id as any)}
-              className={`erp-tab-control flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${
-                isActive
-                  ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 shadow-inner"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-white/5 hover:text-slate-700 dark:text-slate-300"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <ERPTabs
+        tabs={visibleTabs.map(({ id, label, icon: Icon }) => ({ id, label, icon: <Icon className="w-4 h-4" /> }))}
+        value={activeTab}
+        onChange={handleTabChange}
+        ariaLabel="Bagian Data Induk"
+        className="mb-6 print:hidden"
+      />
 
       {activeTab === "naming" ? (SUPABASE_MASTER_DATA_RUNTIME ? <SupabaseNamingSeriesManager /> : <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-8">
         <header className="flex items-start gap-3">
