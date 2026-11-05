@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseTestEnvironment } from './supabase-test-environment.mjs';
+import { isolateSyntheticTenantFixture } from './synthetic-tenant-fixture.mjs';
 
 const BUCKET = 'erp4-private-finance-proofs';
 const PPDB_BUCKET = 'ppdb-documents';
@@ -125,6 +126,7 @@ async function main() {
   let roomId = '';
   let buildingId = '';
   const users = [];
+  const createdTenantIds = [];
   let serverProcess;
   let uploadedPath = '';
   let ppdbDocumentPath = '';
@@ -139,6 +141,7 @@ async function main() {
       status: 'active',
     });
     if (tenantError) throw new Error('Unable to create a synthetic finance tenant.');
+    createdTenantIds.push(tenantId);
     const { error: foreignTenantError } = await admin.from('tenants').insert({
       id: foreignTenantId,
       slug: `storage-foreign-${fixtureSuffix}`,
@@ -146,6 +149,7 @@ async function main() {
       status: 'active',
     });
     if (foreignTenantError) throw new Error('Unable to create a foreign synthetic tenant.');
+    createdTenantIds.push(foreignTenantId);
 
     const financeAdmin = await createUser(admin, tenantId, 'admin', 'finance-admin');
     users.push(financeAdmin);
@@ -601,7 +605,7 @@ async function main() {
     assertNoError({ error: listError }, 'Unable to inspect the synthetic private proof directory.');
     assert.equal(storedObjects.length, 1, 'The idempotent retry must not leave an orphan duplicate object.');
 
-    console.log(`Storage HTTP tests passed (${target}): shared finance upload rate limit, Finance proof upload/download, PPDB Admin document download, private-bucket isolation, tenant/RBAC boundaries, audit logging, idempotency, and cleanup.`);
+    console.log(`Storage HTTP tests passed (${target}): shared finance upload rate limit, Finance proof upload/download, PPDB Admin document download, private-bucket isolation, tenant/RBAC boundaries, and idempotency.`);
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -613,28 +617,24 @@ async function main() {
     }
 
     const cleanupErrors = [];
+    await cleanupStep(cleanupErrors, 'synthetic fixture isolation', () => isolateSyntheticTenantFixture(admin, {
+      tenantIds: createdTenantIds,
+      userIds: users.map((user) => user.uid),
+    }));
     if (uploadedPath) await cleanupStep(cleanupErrors, 'Finance proof object', () => admin.storage.from(BUCKET).remove([uploadedPath]));
     const ppdbObjects = [ppdbDocumentPath, ppdbUploadPath, foreignDocumentPath].filter(Boolean);
     if (ppdbObjects.length) await cleanupStep(cleanupErrors, 'PPDB document objects', () => admin.storage.from(PPDB_BUCKET).remove(ppdbObjects));
-    for (const table of ['ppdb_document_access_events', 'ppdb_document_upload_events', 'ppdb_document_upload_requests', 'finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'students', 'candidate_documents', 'candidates', 'master_data_records']) {
+    for (const table of ['finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'candidate_documents']) {
       await cleanupStep(cleanupErrors, `${table} tenant rows`, () => admin.from(table).delete().eq('tenant_id', tenantId));
     }
-    for (const table of ['ppdb_document_access_events', 'candidate_documents', 'candidates']) {
+    for (const table of ['candidate_documents']) {
       await cleanupStep(cleanupErrors, `${table} foreign tenant rows`, () => admin.from(table).delete().eq('tenant_id', foreignTenantId));
     }
-    for (const cleanupTenantId of [tenantId, foreignTenantId]) {
-      for (const table of ['tenant_naming_series_allocations', 'tenant_naming_series_counters', 'tenant_naming_series_events', 'tenant_naming_series', 'tenant_reference_items']) {
-        await cleanupStep(cleanupErrors, `${table} tenant reference rows`, () => admin.from(table).delete().eq('tenant_id', cleanupTenantId));
-      }
-    }
-    for (const user of users) {
-      await cleanupStep(cleanupErrors, 'synthetic Auth user', () => admin.auth.admin.deleteUser(user.uid));
-    }
-    await cleanupStep(cleanupErrors, 'foreign synthetic tenant', () => admin.from('tenants').delete().eq('id', foreignTenantId));
-    await cleanupStep(cleanupErrors, 'synthetic tenant', () => admin.from('tenants').delete().eq('id', tenantId));
     if (cleanupErrors.length) {
       console.error(`Staging/local fixture cleanup incomplete: ${cleanupErrors.join(', ')}.`);
       process.exitCode = 1;
+    } else {
+      console.log(`Synthetic ${target} tenant fixtures are suspended; Auth users are banned and append-only references remain available for audit.`);
     }
   }
 }

@@ -224,6 +224,9 @@ jobs:
       - name: Guard staging tests from writing to Production
         run: npm run test:supabase-test-environment
 
+      - name: Keep synthetic integration fixtures inaccessible after tests
+        run: npm run test:synthetic-tenant-fixture
+
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v3
         with:

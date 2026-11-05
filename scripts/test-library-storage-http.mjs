@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseTestEnvironment } from './supabase-test-environment.mjs';
+import { isolateSyntheticTenantFixture } from './synthetic-tenant-fixture.mjs';
 
 const BUCKET = 'erp4-private-library-assets';
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -95,12 +96,15 @@ async function main() {
   const foreignTenantId = randomUUID();
   const fixtureSuffix = randomUUID().slice(0, 10);
   const users = [];
+  const createdTenantIds = [];
   const storagePaths = new Set();
   let serverProcess;
 
   try {
     await createTenant(admin, tenantId, `library-storage-${fixtureSuffix}`, `Library Storage Test ${fixtureSuffix}`);
+    createdTenantIds.push(tenantId);
     await createTenant(admin, foreignTenantId, `library-foreign-${fixtureSuffix}`, `Foreign Library Test ${fixtureSuffix}`);
+    createdTenantIds.push(foreignTenantId);
     const libraryAdmin = await createUser(admin, tenantId, 'admin', 'admin', { library: true });
     users.push(libraryAdmin);
     const noLibraryAccess = await createUser(admin, tenantId, 'admin', 'no-access', { library: false });
@@ -361,19 +365,16 @@ async function main() {
     }
 
     const cleanupErrors = [];
+    await cleanupStep(cleanupErrors, 'synthetic fixture isolation', () => isolateSyntheticTenantFixture(admin, {
+      tenantIds: createdTenantIds,
+      userIds: users.map((user) => user.uid),
+    }));
     if (storagePaths.size) await cleanupStep(cleanupErrors, 'library Storage objects', () => admin.storage.from(BUCKET).remove([...storagePaths]));
-    for (const table of ['library_digital_assets', 'library_digital_asset_upload_requests']) {
-      await cleanupStep(cleanupErrors, `${table} tenant rows`, () => admin.from(table).delete().eq('tenant_id', tenantId));
-      await cleanupStep(cleanupErrors, `${table} foreign tenant rows`, () => admin.from(table).delete().eq('tenant_id', foreignTenantId));
-    }
-    for (const user of users) {
-      await cleanupStep(cleanupErrors, 'synthetic Auth user', () => admin.auth.admin.deleteUser(user.uid));
-    }
-    await cleanupStep(cleanupErrors, 'foreign synthetic tenant', () => admin.from('tenants').delete().eq('id', foreignTenantId));
-    await cleanupStep(cleanupErrors, 'synthetic tenant', () => admin.from('tenants').delete().eq('id', tenantId));
     if (cleanupErrors.length) {
       console.error(`Staging/local fixture cleanup incomplete: ${cleanupErrors.join(', ')}.`);
       process.exitCode = 1;
+    } else {
+      console.log(`Synthetic ${target} tenant fixtures are suspended; Auth users are banned and append-only references remain available for audit.`);
     }
   }
 }
