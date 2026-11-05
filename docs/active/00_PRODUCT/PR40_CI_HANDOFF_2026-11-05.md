@@ -3,17 +3,17 @@
 ## Status PR dan bukti saat ini
 
 - Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
-- Commit kode terakhir adalah `4d32053`, yang menyamakan navigasi tab Operasional Fasilitas Asrama dengan komponen bersama `ERPTabs`; perubahan kode lain pada Dokumen Digital dan Data Induk juga tercatat dalam riwayat PR.
-- PR masih Draft/Open dan API GitHub menandainya belum mergeable.
-- Pemeriksaan check pada PR menemukan hanya `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; tidak ada GitHub Actions workflow run atau status context. Check tersebut bukan bukti build atau tes aplikasi. Setiap pembaruan melalui GitHub API yang tercatat di sini belum memulai Actions; tim perlu memeriksa event delivery dan memicu ulang lewat push terautentikasi atau mekanisme workflow yang tersedia.
+- Commit kode terakhir adalah `180cc08`, yang menyatukan enam tab Dokumen Digital pada `ERPTabs`; commit `4d32053` sebelumnya menyamakan tab Operasional Fasilitas Asrama dengan komponen yang sama.
+- Pada head `180cc08`, PR masih Draft/Open dan API GitHub menandainya belum mergeable.
+- Diagnostik pada head tersebut menemukan hanya `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; tidak ada GitHub Actions workflow run atau status context. Check itu bukan bukti build atau tes aplikasi. Push Git terbaru juga belum menghasilkan workflow run; tim perlu memeriksa event delivery atau konfigurasi Actions.
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
 - Supabase MCP menolak `get_project` dan read-only SQL untuk Production. `list_migrations` mengembalikan daftar kosong, tetapi tanpa akses proyek hasil itu bukan bukti bahwa schema/ledger Production kosong; status Production tetap belum terverifikasi.
 
-## Pemeriksaan lokal pada source `989b057`
+## Pemeriksaan regresi lokal sebelum koreksi tab terakhir
 
-- `npm run lint` — lulus.
-- `npm run build` — lulus. Build memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
-- 39/39 tes non-database/API lulus pada pemeriksaan ulang 5 November, termasuk guard runtime Supabase-only, Master Data, PPDB, Akademik, Tahfidz, tenant, impor/ekspor, RBAC, trusted-proxy, dan runtime-config HTTP. Dua tes loopback lulus setelah diberi izin untuk mengakses server lokal `127.0.0.1`; ini tetap bukti lokal, bukan workflow GitHub.
+- `npm run lint`, `npm run build`, dan 39/39 tes non-database/API lulus pada source `8f7c27f`. Dua tes loopback lulus setelah diberi izin untuk mengakses server lokal `127.0.0.1`; ini bukti lokal, bukan workflow GitHub.
+- Source dan perubahan tab terbaru `180cc08` menjalani pemeriksaan ulang: `npm run lint` dan `npm run build` lulus. Build memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
+- Build dan tes tersebut tidak membuktikan UAT visual, integrasi Supabase live, atau seluruh gerbang rilis.
 - Uji database/API yang belum terbukti: `test:db`, `test:db:nis-race`, `test:db:tahfidz-session-race`, `test:api:auth-tenant`, `test:api:finance-storage`, `test:api:library-storage`, dan `test:db:backup-restore`.
 
 ## Staging VQE dan prasyarat koneksi
@@ -48,9 +48,8 @@
 - Koreksi lanjutan menempatkan **Semua dokumen** dalam tab strip bersama, sehingga semua navigasi pada `SupabaseDocumentManager` menggunakan `ERPTabs` dan style standar yang sama. Tab utama kini enam: Semua dokumen, Surat Masuk, Surat Keluar, Persetujuan elektronik, Arsip Digital, dan Pemindai OCR.
 - **Internal** tetap tersedia sebagai pilihan filter jenis ketika tab Semua dokumen dipilih. Perubahan hanya menyamakan tampilan dan penempatan navigasi; UAT visual/responsif masih perlu dilakukan pada sesi Admin staging.
 - Commit `4d32053` mengganti navigasi khusus pada Operasional Fasilitas Asrama dengan `ERPTabs`, menjaga dua bagian sesuai role yang diizinkan. Tidak ada perubahan pada sumber data atau aturan akses.
-- `npm run lint` dan `npm run build` lulus di checkout lokal; build masih memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf`. Preview lokal saat ini tidak dapat dijangkau (`ERR_CONNECTION_TIMED_OUT`), sehingga render aktual, keadaan aktif/nonaktif, dan responsivitas belum dibandingkan.
-- Sesudah perbaikan tab asrama, kandidat lokal menjalankan kembali `npm run lint`, `npm run build`, dan `npm run test:supabase-runtime-no-firebase`; semuanya lulus. Build ini berasal dari worktree kandidat lokal, bukan checkout yang dibuat langsung dari head GitHub `4d32053`.
-- UAT visual tetap terbuka sampai preview PR dapat dijangkau browser dengan sesi Admin VQE dan tampilan dibandingkan dengan acuan pada ukuran layar yang sama.
+- `npm run lint` dan `npm run build` lulus pada checkout persis yang berisi koreksi tab Dokumen Digital `180cc08`; build masih memberi peringatan Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
+- Belum ada UAT visual/responsif pada browser dengan sesi Admin VQE. Pemeriksaan source memastikan keenam kontrol menggunakan komponen bersama, tetapi belum membuktikan hasil render dan perpindahan tab di runtime.
 
 ## Gerbang sebelum merge atau cutover
 
