@@ -12,8 +12,7 @@
 
 - `npm run lint` — lulus.
 - `npm run build` — lulus. Build memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
-- 37/37 tes non-database/API yang tidak memerlukan loopback lulus pada pemeriksaan ulang 5 November, termasuk guard runtime Supabase-only, Master Data, PPDB, Akademik, Tahfidz, tenant, impor/ekspor, dan RBAC.
-- Tes `test:trusted-proxy-hops` dan `test:runtime-config-http` tidak dijalankan ulang pada pemeriksaan ini karena memerlukan loopback. Hasil 39/39 yang tercatat sebelumnya tetap merupakan bukti lokal historis, bukan workflow GitHub.
+- 39/39 tes non-database/API lulus pada pemeriksaan ulang 5 November, termasuk guard runtime Supabase-only, Master Data, PPDB, Akademik, Tahfidz, tenant, impor/ekspor, RBAC, trusted-proxy, dan runtime-config HTTP. Dua tes loopback lulus setelah diberi izin untuk mengakses server lokal `127.0.0.1`; ini tetap bukti lokal, bukan workflow GitHub.
 - Uji database/API yang belum terbukti: `test:db`, `test:db:nis-race`, `test:db:tahfidz-session-race`, `test:api:auth-tenant`, `test:api:finance-storage`, `test:api:library-storage`, dan `test:db:backup-restore`.
 
 ## Staging VQE dan prasyarat koneksi
