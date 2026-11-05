@@ -53,4 +53,4 @@ Jalankan di runner CI yang menyediakan Supabase/Postgres terisolasi. Jangan mema
 
 ## Perubahan UI yang ikut pada PR
 
-Pada source head `944801e`, Dokumen Digital sudah memakai `ERPTabs` bersama, menampilkan ikon, dan menempatkan tab di luar panel konten. Pengguna masih melaporkan gaya tab belum sesuai standar. Verifikasi visual pada aplikasi berjalan dan penyelarasan jarak, wadah, serta keadaan aktif/nonaktif tetap terbuka; jangan tandai pekerjaan UI ini selesai sebelum hasil render dibandingkan dengan acuan.
+Pada source head `944801e`, Dokumen Digital sudah memakai `ERPTabs` bersama, menampilkan ikon, dan menempatkan tab di luar panel konten. Laporan pengguna pada 5 November 2026 menyatakan gaya tab masih belum sesuai standar. Commit `4d8df2e` menghapus margin `mb-4` tambahan agar jarak mengikuti `space-y-6` pada container halaman. Verifikasi visual pada aplikasi berjalan masih terbuka untuk membandingkan wadah, ukuran, dan keadaan aktif/nonaktif dengan modul acuan; jangan tandai pekerjaan UI selesai sebelum render dibandingkan.
