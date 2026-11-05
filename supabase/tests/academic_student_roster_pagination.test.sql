@@ -28,6 +28,40 @@ VALUES
 
 \ir test_support/seed_tenant_reference_catalogs.psql
 
+-- Keep this test independent from shared seeds: each fixture tenant needs an active
+-- grade reference before inserting its class rows.
+UPDATE public.tenant_reference_items AS item
+SET status = 'active',
+    nis_grade_code = '07',
+    updated_by_user_id = fixture.user_id
+FROM (VALUES
+  ('e2800000-0000-4000-8000-000000000001'::UUID, 'e2800000-0000-4000-8000-000000000011'::UUID),
+  ('e2800000-0000-4000-8000-000000000002'::UUID, 'e2800000-0000-4000-8000-000000000014'::UUID)
+) AS fixture(tenant_id, user_id)
+WHERE item.tenant_id = fixture.tenant_id
+  AND item.domain = 'academic_grade_level'
+  AND lower(btrim(item.name)) = 'vii'
+  AND (item.status <> 'active' OR item.nis_grade_code IS DISTINCT FROM '07');
+
+INSERT INTO public.tenant_reference_items (
+  tenant_id, domain, code, name, description, status, nis_grade_code,
+  created_by_user_id, updated_by_user_id
+)
+SELECT fixture.tenant_id, 'academic_grade_level', 'ROSTER_GRADE_VII', 'VII',
+  'Jenjang kelas tujuh untuk skenario roster.', 'active', '07',
+  fixture.user_id, fixture.user_id
+FROM (VALUES
+  ('e2800000-0000-4000-8000-000000000001'::UUID, 'e2800000-0000-4000-8000-000000000011'::UUID),
+  ('e2800000-0000-4000-8000-000000000002'::UUID, 'e2800000-0000-4000-8000-000000000014'::UUID)
+) AS fixture(tenant_id, user_id)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.tenant_reference_items AS item
+  WHERE item.tenant_id = fixture.tenant_id
+    AND item.domain = 'academic_grade_level'
+    AND lower(btrim(item.name)) = 'vii'
+)
+ON CONFLICT DO NOTHING;
+
 INSERT INTO public.organization_units(id,tenant_id,code,name,unit_type,status,created_by_user_id,updated_by_user_id)
 VALUES
   ('e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000001','ROSTER-A','Unit Akademik A','sekolah','active','e2800000-0000-4000-8000-000000000011','e2800000-0000-4000-8000-000000000011'),
