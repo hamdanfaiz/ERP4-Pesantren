@@ -5,7 +5,7 @@
 - Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
 - Source aplikasi terakhir diverifikasi pada `989b0571a6b08a9069f09a6f8a05a56cc0202c81`; commit setelahnya hanya memperbarui dokumentasi handoff.
 - PR masih Draft/Open dan API GitHub menandainya belum mergeable.
-- Pemeriksaan GitHub pada head PR saat ditinjau dan pembaruan dokumentasi sesudahnya tidak menemukan workflow run, status check, atau review. Belum ada bukti CI GitHub.
+- Pemeriksaan GitHub pada head PR terbaru tidak menemukan workflow run, status check, atau review. Workflow `.github/workflows/supabase-db-tests.yml` ada di `main` dan mengatur `pull_request` untuk target `main`; PR ini memenuhi pemicu tersebut. Jadi penyebab run tidak muncul bukan file workflow yang hilang; pemilik repo perlu memeriksa pengaturan/izin GitHub Actions atau pengiriman event. Belum ada bukti CI GitHub.
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
 - Supabase MCP menolak `get_project` dan read-only SQL untuk Production. `list_migrations` mengembalikan daftar kosong, tetapi tanpa akses proyek hasil itu bukan bukti bahwa schema/ledger Production kosong; status Production tetap belum terverifikasi.
 
