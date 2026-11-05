@@ -4,7 +4,7 @@
 
 - Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
 - Commit kode terakhir adalah `180cc08`, yang menyatukan enam tab Dokumen Digital pada `ERPTabs`; commit `4d32053` sebelumnya menyamakan tab Operasional Fasilitas Asrama dengan komponen yang sama.
-- Pada head `180cc08`, PR masih Draft/Open dan API GitHub menandainya belum mergeable.
+- Pada pemeriksaan PR head `73d848c`, statusnya Draft/Open; endpoint GitHub mentah mengembalikan `mergeable=null` dan `mergeable_state=unknown`. Status ini belum membuktikan ada konflik merge.
 - GitHub Actions repository aktif dan memiliki 1.135 run historis; run terbaru yang terlihat (#1135) selesai sukses pada 4 November 2026 pukul 10:21 UTC, sebelum commit UI pada 5 November. Untuk head `486ea2a`, tidak ada workflow run/status baru; check yang terlihat hanya `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch. Push Git pada 5 November belum menghasilkan workflow, jadi tim perlu memeriksa event delivery/configuration atau mendorong update dari kredensial GitHub lokal mereka. Run historis tidak membuktikan head terkini.
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
 - Supabase MCP menolak `get_project` dan read-only SQL untuk Production. `list_migrations` mengembalikan daftar kosong, tetapi tanpa akses proyek hasil itu bukan bukti bahwa schema/ledger Production kosong; status Production tetap belum terverifikasi.
@@ -54,7 +54,7 @@
 
 ## Gerbang sebelum merge atau cutover
 
-- PR tetap Draft/Open dan saat pemeriksaan GitHub belum mergeable.
+- PR tetap Draft/Open; status mergeability GitHub belum diketahui (`mergeable_state=unknown`). PR tetap Draft karena gerbang integrasi, staging, dan UAT di bawah belum lulus.
 - Actions memiliki riwayat run, tetapi belum ada workflow run/check untuk head terbaru; workflow `Supabase Preview` hanya `skipped`.
 - Uji integrasi, rekonsiliasi ledger, penerapan/rehearsal migration staging, dan UAT Admin masih harus dibuktikan.
 - Cutover Production baru dapat dipertimbangkan setelah staging diterima dan seluruh gerbang di atas lulus. Tidak ada langkah dalam handoff ini yang menerapkan perubahan ke Production.
