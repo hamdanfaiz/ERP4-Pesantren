@@ -12,7 +12,7 @@
 ## Pemeriksaan lokal pada source UI PR (`fb72586` dan commit kode `180cc08`)
 
 - `npm run lint` dan `npm run build` lulus. Build memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
-- Seluruh 39 skrip tes non-database/API yang tersedia lulus. Ini mencakup pemeriksaan migrasi offline, runtime Supabase-only, tenant/RBAC, alur PPDB, Master Data, Akademik, Tahfidz, impor/ekspor, pengaturan Finance, serta dua tes HTTP loopback setelah akses `127.0.0.1` diizinkan.
+- Seluruh 39 skrip tes non-database/API yang tersedia lulus menggunakan npm/Node. Ini mencakup pemeriksaan migrasi offline, runtime Supabase-only, tenant/RBAC, alur PPDB, Master Data, Akademik, Tahfidz, impor/ekspor, pengaturan Finance, serta dua tes HTTP loopback setelah akses `127.0.0.1` diizinkan. Workflow repo memakai Bun `1.4.4`; Bun belum tersedia lokal sehingga hasil ini bukan reproduksi toolchain CI yang persis.
 - Instalasi production-only (`npm ci --omit=dev`) lulus; `node scripts/test-production-dependencies.mjs` dan `node scripts/test-production-runtime.mjs` lulus. Smoke runtime membuktikan paket Firebase tidak terpasang pada instalasi produksi, halaman utama merespons 200, dan `/api/users` merespons 401 tanpa autentikasi. Tidak ada koneksi Supabase dalam smoke ini. Dependensi penuh dipulihkan setelahnya.
 - Tujuh tes yang memerlukan koneksi database/API live belum dijalankan: `test:db`, `test:db:nis-race`, `test:db:tahfidz-session-race`, `test:api:auth-tenant`, `test:api:finance-storage`, `test:api:library-storage`, dan `test:db:backup-restore`.
 - Hasil lokal bukan workflow GitHub dan tidak membuktikan UAT visual, integrasi Supabase live, atau seluruh gerbang rilis.
@@ -23,7 +23,7 @@
 - `.env` pada checkout staging tidak memiliki `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL`. `.env` kanonis yang memiliki URL pooler menunjuk ke Production `ptsasgdvgrbdtgyqieie`; jangan gunakan untuk preflight/rehearsal staging.
 - Ledger staging masih menggunakan versi alias `20261101015832_tenant_reference_relationships`; source yang benar adalah `20270214120000_tenant_reference_relationships`. Runbook memuat pemeriksaan exact-SQL sebelum rekonsiliasi.
 - `npm run preflight:db-migrations` berhenti dengan pesan bahwa `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL` harus disediakan. `.env` worktree UAT VQE hanya memiliki URL dan API key Supabase, tanpa URL koneksi Postgres. `.env` pada worktree kanonis menunjuk ke Production dan tidak boleh dipakai untuk preflight staging.
-- CLI `supabase` dan `psql` tidak tersedia di PATH; Docker juga tidak terdeteksi. Ada binary CLI sementara versi `2.122.0`, tetapi workflow repository meminta CLI `2.84.2`; gunakan versi yang dipin, bukan binary sementara.
+- Bun `1.4.4`, CLI `supabase` `2.84.2`, `psql`, dan Docker tidak tersedia di PATH/lingkungan lokal. Ada binary CLI sementara versi `2.122.0`, tetapi workflow repository meminta CLI `2.84.2`; gunakan versi yang dipin, bukan binary sementara.
 - Jadi pemeriksaan alias yang tersimpan di database belum dapat diulang melalui skrip preflight resmi pada checkout ini. Tidak memakai API secret sebagai pengganti password Postgres.
 
 ## Snapshot Supabase staging VQE — baca-saja, 5 November 2026
