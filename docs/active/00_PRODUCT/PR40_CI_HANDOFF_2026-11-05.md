@@ -45,3 +45,11 @@ git -C $repo worktree remove $worktree
 ## Gate tambahan — picker kelas Akademik
 
 Perubahan terbaru menambah migration `20270302000000_academic_class_reference_pagination.sql`, memperluas `supabase/tests/academic_student_roster_pagination.test.sql` menjadi 48 assertion, dan memperluas guard runtime agar mencakup frontend serta server (152 modul). Pastikan CI head terbaru mereplay migration ini dan menyelesaikan pgTAP, termasuk paging tenant sintetis 501 kelas serta indeks prefix/keyset, sebelum UAT staging atau merge.
+
+
+## Hasil verifikasi head PR — 5 November 2026
+
+- Pada source tree PR `d1669ff392a37a7e4a6d93d0ce72ad517eb73e0a`, lulus `npm ci --no-audit --no-fund`, `npm run lint`, `npm run build`, `npm run test:migration-preflight`, dan 39/39 skrip tes non-database/API. Head `2ae7bfff00f7b819fe188f75ce016d24add2cf2d` hanya commit kosong; tree-nya sama.
+- Run Actions #1135 sukses, tetapi commit yang diuji `79d516880fb0c957d672cc4db8d9725f7f294ba3` berjarak 17 commit dari source tree PR terkini. Run tersebut bukan bukti CI untuk perubahan setelahnya.
+- Tujuh tes integrasi `test:db`, race NIS/Tahfidz, API Auth/tenant, Storage, dan backup/restore belum dijalankan pada head terkini. Jalankan di runner GitHub yang memakai Supabase lokal terisolasi.
+- Pemeriksaan source lokal tidak mengubah staging/Production. Build masih memperingatkan chunk PDF sekitar 1,46 MB dan anotasi Rollup dari Zod.
