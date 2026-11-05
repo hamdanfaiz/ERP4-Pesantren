@@ -413,6 +413,12 @@ div:has(> .erp-tab-control.w-full) {
   background: color-mix(in srgb, var(--erp-brand) 7%, var(--erp-surface)) !important;
   color: var(--erp-text) !important;
 }
+.erp-tab-control:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--erp-brand-strong) !important;
+  outline-offset: 2px;
+}
 .erp-tab-control:disabled { opacity: .5; cursor: not-allowed; }
 
 .erp-page-container { width: 100%; min-width: 0; margin-inline: auto; padding: 1.25rem; }
