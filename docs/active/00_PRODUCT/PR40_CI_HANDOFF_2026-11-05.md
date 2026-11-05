@@ -19,20 +19,19 @@
 
 ## Staging VQE dan prasyarat koneksi
 
-- Target staging yang disetujui: `vqemuyzveuirlkvdggjd`. Pemeriksaan baca-saja Supabase mencatat 133 migration staging dari 134 migration source. `20270302000000_academic_class_reference_pagination.sql` belum tercatat.
-- `.env` pada checkout staging tidak memiliki `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL`. `.env` kanonis yang memiliki URL pooler menunjuk ke Production `ptsasgdvgrbdtgyqieie`; jangan gunakan untuk preflight/rehearsal staging.
-- Ledger staging masih menggunakan versi alias `20261101015832_tenant_reference_relationships`; source yang benar adalah `20270214120000_tenant_reference_relationships`. Runbook memuat pemeriksaan exact-SQL sebelum rekonsiliasi.
-- `npm run preflight:db-migrations` berhenti dengan pesan bahwa `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL` harus disediakan. `.env` worktree UAT VQE hanya memiliki URL dan API key Supabase, tanpa URL koneksi Postgres. `.env` pada worktree kanonis menunjuk ke Production dan tidak boleh dipakai untuk preflight staging.
+- Target staging yang disetujui: `vqemuyzveuirlkvdggjd`. Pemeriksaan baca-saja terkini mencatat 134 entri ledger dan 134 file source. Dua migrasi memiliki versi alias pada ledger, tetapi nama migrasinya cocok; tidak ditemukan file source atau entri remote lain yang hilang.
+- Alias yang perlu rekonsiliasi: source `20270214120000_tenant_reference_relationships` tercatat di VQE sebagai `20261101015832_tenant_reference_relationships`; source `20270302000000_academic_class_reference_pagination` tercatat sebagai `20261105070231_academic_class_reference_pagination`.
+- Pemeriksaan katalog baca-saja menemukan 21 indeks, 11 fungsi, 14 trigger, tabel `tenant_reference_items`, 51 kolom, 20 constraint, dan RLS paksa yang diharapkan dari kedua migrasi. Ini bukti keberadaan objek, **bukan** pembuktian definisi indeks/fungsi/constraint atau hasil backfill identik dengan SQL source. Perbandingan exact-SQL tetap menjadi syarat sebelum repair.
+- Checkout ini hanya memiliki `.env.example`, tanpa `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL` khusus VQE. Jangan gunakan `.env` kanonis yang menunjuk Production `ptsasgdvgrbdtgyqieie` untuk preflight/rehearsal staging.
+- `npm run preflight:db-migrations` tidak dapat dijalankan sampai URL koneksi Postgres VQE tersedia di environment lokal yang diabaikan Git. Jangan kirim password/kunci lewat chat.
 - Preflight remote kini memeriksa bahwa `SUPABASE_PROJECT_REF`, host `SUPABASE_URL`, dan project ref pada URL database Postgres mengarah ke proyek yang sama. Tes unit menolak URL Production PTSAS saat environment menunjuk ke VQE; koneksi langsung dan pooler untuk target yang cocok diterima.
 - Validasi preflight juga menolak URL non-PostgreSQL. `npm run test:migration-preflight` dan `npm run lint` lulus pada perubahan lokal ini.
-- `npm run build` lulus pada source aplikasi yang sama dengan head PR terbaru; perubahan sesudah build hanya menyentuh skrip preflight, tes skrip, dan dokumen handoff. Bundle memuat halaman `SupabaseDocumentManager` dan stylesheet `ERPTabs`; ini membuktikan source masuk build, tetapi belum membuktikan hasil render/responsivitas di browser. Build tetap memberi peringatan Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB.
-- Preflight terhadap database VQE tetap belum bisa dijalankan karena URL pooler khusus staging belum tersedia.
-- Bun `1.4.4`, CLI `supabase` `2.84.2`, `psql`, dan Docker tidak tersedia di PATH/lingkungan lokal. Ada binary CLI sementara versi `2.122.0`, tetapi workflow repository meminta CLI `2.84.2`; gunakan versi yang dipin, bukan binary sementara.
-- Jadi pemeriksaan alias yang tersimpan di database belum dapat diulang melalui skrip preflight resmi pada checkout ini. Tidak memakai API secret sebagai pengganti password Postgres.
+- `npm run build` dan `npm run lint` lulus setelah koreksi navigasi Dokumen Digital pada PR head `e196f57`. Bundle memuat lima tab utama dan aksi Semua Dokumen; hasil render/responsivitas browser tetap belum diverifikasi. Build memberi peringatan anotasi Rollup Zod dan chunk `react-pdf` sekitar 1,46 MB.
+- Supabase CLI `2.84.2`, `psql`, dan Docker tidak tersedia di PATH/checkout ini. Gunakan CLI versi pin pada runner lokal/CI dan URL Postgres khusus VQE untuk menjalankan preflight; jangan menggantinya dengan API secret.
 
 ## Snapshot Supabase staging VQE — baca-saja, 5 November 2026
 
-- Proyek staging `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY` di `ap-northeast-1`, PostgreSQL 17.11. Pemeriksaan migrations menemukan 133 versi terpasang; terbaru `20270301000000 academic_student_roster_pagination`. Source memiliki 134 file, sehingga `20270302000000_academic_class_reference_pagination.sql` masih belum terpasang. Alias ledger tenant-reference tetap perlu direkonsiliasi dengan prosedur pada bagian prasyarat.
+- Proyek staging `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY` di `ap-northeast-1`, PostgreSQL 17.11. Pemeriksaan terkini menemukan 134 entri ledger; dua entri memakai versi alias yang dijelaskan pada bagian prasyarat. Jangan menyamakan jumlah entri dengan sinkronisasi versi.
 - Daftar schema `public` berisi 167 tabel; 167 memakai RLS dan 0 tidak. Security Advisor melaporkan rls_enabled_no_policy: 162 (INFO); auth_leaked_password_protection: 1 (WARN). Temuan `rls_enabled_no_policy` berlevel INFO: tabel tanpa policy tetap tertutup untuk akses Data API langsung. Namun kode server menggunakan secret key yang melewati RLS; batas keamanan tetap memerlukan verifikasi profil aktif, tenant, role, dan izin modul di setiap handler. Source memiliki pemeriksaan actor tersebut untuk Master Data dan Dokumen Digital; tes integrasi Auth/tenant masih wajib sebelum merge.
 - Temuan Auth `auth_leaked_password_protection` berlevel WARN; pengaturan perlindungan kata sandi bocor perlu diperiksa di Auth proyek staging. MCP tidak mengubah setting ini.
 - Performance Advisor melaporkan unindexed_foreign_keys: 258 (INFO); unused_index: 102 (INFO). Jangan menambahkan indeks ke semua foreign key atau menghapus indeks yang belum terpakai secara massal. Triage dengan pola query produksi dan `EXPLAIN (ANALYZE, BUFFERS)` setelah data sintetis representatif tersedia.
@@ -42,8 +41,9 @@
 
 - Migrasi sumber `20270302000000_academic_class_reference_pagination.sql` telah diterapkan ke **VQE staging saja** melalui Supabase migration tool. Verifikasi baca-saja menemukan kedua indeks kelas dan kedua fungsi paginasi.
 - Kedua fungsi terverifikasi memakai `SECURITY INVOKER` dan `search_path=pg_catalog, public`; tabel prasyarat `master_data_records`, `students`, dan `academic_records` ada di staging. Tidak ada data tenant/Production yang diubah.
-- Tool mencatat migrasi dengan versi waktu otomatis `20261105070231` dan nama `academic_class_reference_pagination`, bukan versi sumber `20270302000000`. Jadi ledger staging sekarang berisi 134 baris, tetapi **belum sinkron** dengan source. Jumlah baris yang sama bukan bukti kesamaan migrasi.
+- Tool mencatat migrasi dengan versi waktu otomatis `20261105070231` dan nama `academic_class_reference_pagination`, bukan versi sumber `20270302000000`. Ini membuat ledger berjumlah 134, tetapi **belum sinkron** dengan source.
 - Ledger lama juga masih mencatat alias `20261101015832_tenant_reference_relationships`, sementara source memakai versi `20270214120000`. Source Git membuktikan keduanya adalah rename identik (blob `789e09d7ad32be971acb029a2116106105f46c29`, commit `43e44dbabac7dac400da8fb9cb4545b3bf320e3f`), tetapi SQL live alias tetap harus diperiksa.
+- Pemeriksaan katalog terbaru memastikan nama objek, 51 kolom, 20 constraint, tabel referensi, dan RLS paksa yang diharapkan kedua migrasi ada di VQE. Pemeriksaan ini belum membandingkan definisi SQL secara persis ataupun memvalidasi jumlah/backfill data tenant.
 - Jangan menjalankan ulang SQL `20270302000000` atau melakukan penulisan ledger manual. Tim backend harus memakai Supabase CLI yang dipin dan URL pooler khusus VQE. Setelah preflight serta pemeriksaan definisi live memastikan setiap SQL alias cocok persis, rekonsiliasi lewat [`supabase migration repair`](https://supabase.com/docs/reference/cli/supabase-migration-repair), yang hanya mengubah ledger:
 
   ```powershell
@@ -87,3 +87,4 @@
 - Actions memiliki riwayat run, tetapi belum ada workflow run/check untuk head terbaru; workflow `Supabase Preview` hanya `skipped`.
 - Uji integrasi, rekonsiliasi ledger, penerapan/rehearsal migration staging, dan UAT Admin masih harus dibuktikan.
 - Cutover Production baru dapat dipertimbangkan setelah staging diterima dan seluruh gerbang di atas lulus. Tidak ada langkah dalam handoff ini yang menerapkan perubahan ke Production.
+
