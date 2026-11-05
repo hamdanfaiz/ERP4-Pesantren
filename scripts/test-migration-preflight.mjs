@@ -6,6 +6,7 @@ import {
   canonicalizeSqlStatement,
   databaseUrlFromSupabaseStatus,
   databaseUrlFromEnvironment,
+  assertDatabaseTargetMatchesEnvironment,
   formatReport,
   listLocalMigrations,
   parseAppliedMigrationsOutput,
@@ -23,6 +24,41 @@ assert.equal(
   'postgresql://direct.example.invalid/postgres'
 );
 assert.equal(databaseUrlFromEnvironment({}), '');
+
+const stagingRef = 'vqemuyzveuirlkvdggjd';
+const stagingEnvironment = {
+  SUPABASE_PROJECT_REF: stagingRef,
+  SUPABASE_URL: `https://${stagingRef}.supabase.co`,
+};
+assert.equal(assertDatabaseTargetMatchesEnvironment(
+  `postgresql://postgres.${stagingRef}:placeholder@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres`,
+  stagingEnvironment,
+), stagingRef);
+assert.equal(assertDatabaseTargetMatchesEnvironment(
+  `postgresql://postgres:placeholder@db.${stagingRef}.supabase.co:5432/postgres`,
+  stagingEnvironment,
+), stagingRef);
+assert.throws(
+  () => assertDatabaseTargetMatchesEnvironment(
+    'postgresql://postgres.ptsasgdvgrbdtgyqieie:placeholder@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres',
+    stagingEnvironment,
+  ),
+  /tidak cocok/,
+);
+assert.throws(
+  () => assertDatabaseTargetMatchesEnvironment(
+    'postgresql://postgres:placeholder@db.ptsasgdvgrbdtgyqieie.supabase.co:5432/postgres',
+    stagingEnvironment,
+  ),
+  /tidak cocok/,
+);
+assert.throws(
+  () => assertDatabaseTargetMatchesEnvironment(
+    `postgresql://postgres.${stagingRef}:placeholder@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres`,
+    { SUPABASE_URL: `https://${stagingRef}.supabase.co` },
+  ),
+  /tidak dapat diverifikasi/,
+);
 
 const local = listLocalMigrations([
   '20270102000000_guardians.sql',

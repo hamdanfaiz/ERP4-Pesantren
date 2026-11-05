@@ -503,6 +503,40 @@ export function databaseUrlFromEnvironment(env = process.env) {
   return env.SUPABASE_DB_POOLER_URL || env.SUPABASE_DB_URL || '';
 }
 
+export function assertDatabaseTargetMatchesEnvironment(databaseUrl, env = process.env) {
+  const projectRef = String(env.SUPABASE_PROJECT_REF || '').trim().toLowerCase();
+  const apiUrl = String(env.SUPABASE_URL || '').trim();
+  if (!/^[a-z0-9]{20}$/.test(projectRef) || !apiUrl) {
+    throw new Error('Target database tidak dapat diverifikasi; set SUPABASE_PROJECT_REF dan SUPABASE_URL.');
+  }
+
+  let api;
+  let database;
+  try {
+    api = new URL(apiUrl);
+    database = new URL(databaseUrl);
+  } catch {
+    throw new Error('Target database tidak dapat diverifikasi dari konfigurasi Supabase.');
+  }
+
+  if (api.protocol !== 'https:' || api.hostname.toLowerCase() !== `${projectRef}.supabase.co`) {
+    throw new Error('SUPABASE_PROJECT_REF tidak cocok dengan SUPABASE_URL.');
+  }
+
+  const host = database.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  const username = decodeURIComponent(database.username);
+  const directProjectRef = host.match(/^db\.([a-z0-9]{20})\.supabase\.co$/)?.[1];
+  const poolerProjectRef = host.endsWith('.pooler.supabase.com')
+    ? username.match(/^postgres\.([a-z0-9]{20})$/)?.[1]
+    : null;
+  const databaseProjectRef = directProjectRef || poolerProjectRef;
+
+  if (!databaseProjectRef || databaseProjectRef !== projectRef) {
+    throw new Error('URL database tidak cocok dengan SUPABASE_PROJECT_REF; preflight dihentikan.');
+  }
+  return projectRef;
+}
+
 function readAppliedMigrations(databaseUrl) {
   const result = execFileSync('psql', [
     '-X', '-A', '-t', '-q', '-v', 'ON_ERROR_STOP=1', '-c', READ_ONLY_LEDGER_QUERY,
@@ -590,6 +624,7 @@ export function main({ env = process.env, repoRoot = getRepoRoot(), useLocalStac
       console.error('Atur SUPABASE_DB_POOLER_URL atau SUPABASE_DB_URL pada environment untuk database target. Nilainya tidak akan dicetak.');
       return 2;
     }
+    if (!useLocalStack) assertDatabaseTargetMatchesEnvironment(databaseUrl, env);
 
     const migrationDirectory = path.join(repoRoot, 'supabase', 'migrations');
     const migrations = listLocalMigrations(

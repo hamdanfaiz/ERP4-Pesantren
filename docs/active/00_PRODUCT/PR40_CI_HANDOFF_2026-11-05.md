@@ -23,6 +23,8 @@
 - `.env` pada checkout staging tidak memiliki `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL`. `.env` kanonis yang memiliki URL pooler menunjuk ke Production `ptsasgdvgrbdtgyqieie`; jangan gunakan untuk preflight/rehearsal staging.
 - Ledger staging masih menggunakan versi alias `20261101015832_tenant_reference_relationships`; source yang benar adalah `20270214120000_tenant_reference_relationships`. Runbook memuat pemeriksaan exact-SQL sebelum rekonsiliasi.
 - `npm run preflight:db-migrations` berhenti dengan pesan bahwa `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL` harus disediakan. `.env` worktree UAT VQE hanya memiliki URL dan API key Supabase, tanpa URL koneksi Postgres. `.env` pada worktree kanonis menunjuk ke Production dan tidak boleh dipakai untuk preflight staging.
+- Preflight remote kini memeriksa bahwa `SUPABASE_PROJECT_REF`, host `SUPABASE_URL`, dan project ref pada URL database Postgres mengarah ke proyek yang sama. Tes unit menolak URL Production PTSAS saat environment menunjuk ke VQE; koneksi langsung dan pooler untuk target yang cocok diterima.
+- `npm run test:migration-preflight` dan `npm run lint` lulus pada perubahan lokal ini. Preflight terhadap database VQE tetap belum bisa dijalankan karena URL pooler khusus staging belum tersedia.
 - Bun `1.4.4`, CLI `supabase` `2.84.2`, `psql`, dan Docker tidak tersedia di PATH/lingkungan lokal. Ada binary CLI sementara versi `2.122.0`, tetapi workflow repository meminta CLI `2.84.2`; gunakan versi yang dipin, bukan binary sementara.
 - Jadi pemeriksaan alias yang tersimpan di database belum dapat diulang melalui skrip preflight resmi pada checkout ini. Tidak memakai API secret sebagai pengganti password Postgres.
 
@@ -63,16 +65,18 @@
 5. Jalankan seluruh tujuh tes integrasi di atas di Postgres/Supabase terisolasi dan lampirkan tautan workflow serta hasil per job. Jangan gunakan Production sebagai target tes.
 6. Selesaikan UAT Admin VQE: login, isolasi tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul terkait. Pertahankan PR Draft sampai CI, database, dan UAT terbukti lulus.
 
-## Temuan UI Dokumen Digital — tab diselaraskan, verifikasi visual masih terbuka
+## Temuan UI Dokumen Digital — ketidaksesuaian style tab masih terbuka
 
 - Pengguna melaporkan bahwa style tab pada modul Dokumen Digital belum sesuai standar UI.
+- Pada 5 November 2026 pengguna menegaskan bahwa style tab masih terlihat tidak sesuai dengan standar yang dipakai. Catatan ini menjadi status terbaru dan **menggantikan asumsi bahwa penyelarasan sebelumnya sudah menyelesaikan masalah**.
 - Pemeriksaan halaman referensi AI Studio pada 5 November menampilkan lima tab utama: Surat Masuk, Surat Keluar, E-Approval, Arsip Digital, dan AI OCR Scanner.
-- Koreksi lanjutan menempatkan **Semua dokumen** dalam tab strip bersama, sehingga semua navigasi pada `SupabaseDocumentManager` menggunakan `ERPTabs` dan style standar yang sama. Tab utama kini enam: Semua dokumen, Surat Masuk, Surat Keluar, Persetujuan elektronik, Arsip Digital, dan Pemindai OCR.
-- Implementasi lama `DocumentManager` yang masih ada di source juga telah diselaraskan ke `ERPTabs`, agar tidak menyimpan gaya khusus yang berbeda. Router aplikasi saat ini menunjuk ke `SupabaseDocumentManager`; visual preview setelah perubahan tetap perlu diperiksa saat UAT.
+- Source saat ini menunjukkan navigasi `SupabaseDocumentManager` dan `DocumentManager` memakai komponen bersama `ERPTabs`. Namun, itu hanya membuktikan pemakaian komponen pada source, bukan kesesuaian hasil render yang sedang dilihat pengguna.
+- Tab pada source Supabase berjumlah enam: Semua dokumen, Surat Masuk, Surat Keluar, Persetujuan elektronik, Arsip Digital, dan Pemindai OCR. Pemeriksaan visual harus mencocokkan juga urutan, ukuran, jarak, responsivitas, dan keadaan aktif terhadap modul acuan.
 - **Internal** tetap tersedia sebagai pilihan filter jenis ketika tab Semua dokumen dipilih. Perubahan hanya menyamakan tampilan dan penempatan navigasi; UAT visual/responsif masih perlu dilakukan pada sesi Admin staging.
 - Commit `4d32053` mengganti navigasi khusus pada Operasional Fasilitas Asrama dengan `ERPTabs`, menjaga dua bagian sesuai role yang diizinkan. Tidak ada perubahan pada sumber data atau aturan akses.
 - `npm run lint` dan `npm run build` lulus pada checkout persis yang berisi koreksi tab Dokumen Digital `180cc08`; build masih memberi peringatan Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
-- Belum ada UAT visual/responsif pada browser dengan sesi Admin VQE. Pemeriksaan source memastikan keenam kontrol menggunakan komponen bersama, tetapi belum membuktikan hasil render dan perpindahan tab di runtime.
+- **Tindak lanjut wajib:** pada browser Admin staging, pastikan route dan build yang sedang dibuka berasal dari head terbaru; bandingkan tab Dokumen Digital dengan komponen tab standar pada referensi; catat perbedaan yang terlihat, lalu koreksi dan verifikasi ulang desktop serta layar sempit. Jangan tandai konsistensi UI selesai sampai hasil render dan perpindahan tab terbukti.
+- Status visual/responsif: **belum diverifikasi dan masih terbuka**. Pemeriksaan source saja tidak membuktikan hasil render atau perpindahan tab di runtime.
 
 ## Gerbang sebelum merge atau cutover
 
