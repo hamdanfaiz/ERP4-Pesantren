@@ -5,8 +5,8 @@
 - Repo: hamdanfaiz/ERP4-Pesantren.
 - PR #40 — Relasi tenant dan penomoran otomatis: https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40
 - Branch: codex/menu-owner-placement-20261101.
-- Head PR terbaru: `cb6179c7821990798af363a7030378a6a772d367`; commit ini menambahkan isolasi fixture staging setelah uji Finance/Library menunjukkan audit append-only menolak penghapusan Auth/profile.
-- PR masih Draft/Open dan belum boleh di-merge. Pemeriksaan GitHub pada head terbaru melaporkan `mergeable=false`, tanpa workflow run atau status checks. Periksa ulang konflik, mergeability, dan CI setelah trigger workflow dipulihkan.
+- Basis pemeriksaan sebelum pembaruan dokumen ini: head PR `d44b95be14ac91ce8627fc358138fc6e7daad390`. Commit dokumentasi ini akan memajukan head; status CI perlu diperiksa pada SHA commit hasil pembaruan.
+- PR masih Draft/Open dan belum siap merge. GitHub mengembalikan `mergeable_state=unknown`; diagnostik untuk head `d44b95be14ac91ce8627fc358138fc6e7daad390` hanya menampilkan check Supabase Preview berstatus `skipped`, tanpa status checks lain.
 - Proyek Production PTSAS ptsasgdvgrbdtgyqieie tidak diubah. Semua pemeriksaan database pada checkpoint ini hanya menyentuh staging VQE vqemuyzveuirlkvdggjd.
 
 ## Bukti runtime dan source
@@ -16,8 +16,8 @@
 - Pada snapshot source PR, `npm run lint`, `npm run build`, `npm run test:supabase-test-environment`, dan `npm run test:synthetic-tenant-fixture` lulus. Build memberi peringatan anotasi Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB. Hasil ini bukan CI pada keseluruhan head PR.
 - Smoke instalasi production-only dan runtime juga pernah lulus; halaman utama merespons 200 dan /api/users tanpa autentikasi merespons 401. Smoke ini tidak menguji koneksi Supabase live.
 - `npm run test:migration-preflight` dan `npm run test:supabase-runtime-no-firebase` juga baru lulus pada checkout lokal: pemeriksaan lineage/preflight offline berhasil; graph runtime memeriksa 152 modul, mengenali 26 route Supabase, dan menutup 26 route migrasi lama. Sebanyak 39 skrip non-database/API sebelumnya juga pernah lulus.
-- Guard target staging dan kontrak isolasi fixture masuk ke workflow CI. Workflow baru belum berjalan pada head PR.
-- Hasil lokal tersebut bukan pengganti workflow GitHub Actions. Fetch run untuk head sebelumnya `6e99412650874a66709f5dfd627a55473de7bf31` mengembalikan daftar kosong; cek ulang setelah update PR.
+- Guard target staging dan kontrak isolasi fixture masuk ke workflow CI. Run GitHub Actions terakhir yang lulus adalah #1135 pada 4 November 2026, SHA `79d516880fb0c957d672cc4db8d9725f7f294ba3`; itu bukan bukti untuk source head PR `d44b95be14ac91ce8627fc358138fc6e7daad390`. Diagnostik head tersebut hanya menunjukkan Supabase Preview `skipped`, tanpa run workflow terbaru.
+- File workflow branch PR memiliki `workflow_dispatch`, tetapi file workflow `main` belum memilikinya; halaman Actions memakai workflow dari `main` sehingga tombol pemicu manual tidak tersedia. Commit baru pada branch PR perlu memicu `pull_request`, lalu hasil Actions diverifikasi pada SHA tepat.
 
 ## Supabase staging VQE — pemeriksaan baca-saja terbaru
 
@@ -40,13 +40,13 @@
 - Query katalog baca-saja memastikan semua 162 tabel tersebut tidak memberi hak SELECT/INSERT/UPDATE/DELETE kepada role `anon` atau `authenticated`. Temuan RLS tanpa policy karena itu fail-closed untuk akses Data API langsung; akses lewat server/RPC tetap perlu dicakup dalam tes.
 - Performance advisor terbaru pada 2026-11-05 melaporkan 258 foreign key tanpa indeks penutup dan 96 indeks yang belum digunakan (INFO). Catatan lama tentang 104 indeks belum digunakan sudah kedaluwarsa. Jangan menambah atau menghapus indeks secara massal; VQE belum mewakili beban produksi. Petakan temuan ke query berfrekuensi tinggi, rencana query, dan beban tulis dengan data sintetis berskala realistis.
 - Auth advisor memperingatkan perlindungan kata sandi bocor belum aktif di VQE staging. Aktifkan dan uji di staging sebelum rilis; verifikasi konfigurasi Production secara terpisah. Jangan mengirim password atau secret melalui chat.
-- Production PTSAS `ptsasgdvgrbdtgyqieie` tetap tidak tersentuh. Konektor menolak pembacaan ledger Production, sehingga status migrasi Production belum terverifikasi.
+- Production PTSAS `ptsasgdvgrbdtgyqieie` tetap tidak tersentuh. Dashboard yang diperiksa baca-saja pada 5 November menampilkan 47 versi ledger; repo memiliki 134 migration dan perbandingan versi menemukan 87 versi source belum tercatat, tanpa versi ledger tambahan. Konektor MCP menolak `list_migrations`; angka ini bukti metadata ledger, bukan pemeriksaan struktur/checksum atau efek setiap migration.
 
 ## Prasyarat yang masih kurang untuk rekonsiliasi
 
 - Checkout ini tidak memiliki SUPABASE_DB_POOLER_URL khusus VQE; yang ada hanya .env.example. Jangan memakai .env Production atau menaruh password/kunci di chat.
-- Supabase CLI 2.84.2 sesuai versi workflow repo, psql, dan Docker belum tersedia pada checkout ini.
-- Karena itu preflight database resmi dan dry-run terhadap koneksi Postgres VQE belum dijalankan. MCP hanya dipakai untuk query katalog baca-saja.
+- Executable CLI Supabase ada di direktori sementara workspace, tetapi percobaan lokal berhenti dengan `EPERM` saat menulis telemetry ke `%USERPROFILE%\\.supabase`. Docker, `psql`, dan `node_modules` tidak tersedia pada checkout ini.
+- Karena itu suite database lokal, preflight CLI, dan dry-run koneksi Postgres VQE belum dijalankan dari checkout ini. MCP hanya dipakai untuk query katalog baca-saja. CI yang menjalankan Supabase lokal terisolasi tetap menjadi jalur untuk membuktikan suite pada source terbaru.
 - Jangan mengubah ledger dengan SQL manual atau menjalankan ulang migration yang sudah diterapkan.
 - Tim backend dapat melanjutkan di runner lokal/CI yang terisolasi: sediakan URL pooler khusus VQE sebagai secret environment, pasang CLI versi pin, lalu jalankan langkah berikut dari repo yang ter-link ke VQE.
 
