@@ -3,9 +3,9 @@
 ## Status PR dan bukti saat ini
 
 - Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
-- Head PR saat handoff diperbarui adalah `4d32053da0d35504579ed63b183866f605e6a06e`; commit ini menyamakan navigasi tab Operasional Fasilitas Asrama dengan komponen bersama `ERPTabs`.
+- Commit kode terakhir adalah `4d32053`, yang menyamakan navigasi tab Operasional Fasilitas Asrama dengan komponen bersama `ERPTabs`; perubahan kode lain pada Dokumen Digital dan Data Induk juga tercatat dalam riwayat PR.
 - PR masih Draft/Open dan API GitHub menandainya belum mergeable.
-- Diagnostik GitHub pada head PR terkini menemukan satu check run `Supabase Preview` dengan kesimpulan `skipped`, karena branch tidak diasosiasikan dengan Supabase Branch. Tidak ada GitHub Actions workflow run atau status context tambahan; daftar review kosong. Check tersebut bukan bukti build atau tes aplikasi. Workflow `.github/workflows/supabase-db-tests.yml` ada di `main` untuk `pull_request` ke `main`; pemilik repo perlu memeriksa pengaturan/izin Actions atau event delivery.
+- Pemeriksaan check pada PR menemukan hanya `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; tidak ada GitHub Actions workflow run atau status context. Check tersebut bukan bukti build atau tes aplikasi. Setiap pembaruan melalui GitHub API yang tercatat di sini belum memulai Actions; tim perlu memeriksa event delivery dan memicu ulang lewat push terautentikasi atau mekanisme workflow yang tersedia.
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
 - Supabase MCP menolak `get_project` dan read-only SQL untuk Production. `list_migrations` mengembalikan daftar kosong, tetapi tanpa akses proyek hasil itu bukan bukti bahwa schema/ledger Production kosong; status Production tetap belum terverifikasi.
 
