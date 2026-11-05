@@ -243,7 +243,6 @@ export function SupabaseDocumentManager() {
         value={tab}
         onChange={(value) => setTab(value as ViewTab)}
         ariaLabel="Jenis dokumen"
-        className="mb-4"
       />
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/60">
