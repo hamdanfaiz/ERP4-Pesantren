@@ -190,12 +190,13 @@ export function SupabaseDocumentManager() {
     finally { setLoadingMore(false); }
   };
 
-  const tabs: { id: Exclude<ViewTab, "all">; icon: React.ReactNode }[] = [
-    { id: "incoming", icon: <Inbox className="h-4 w-4" /> },
-    { id: "outgoing", icon: <Send className="h-4 w-4" /> },
-    { id: "approval", icon: <ShieldCheck className="h-4 w-4" /> },
-    { id: "archive", icon: <Archive className="h-4 w-4" /> },
-    { id: "ocr", icon: <Search className="h-4 w-4" /> },
+  const tabs: { id: ViewTab; label: string; icon: React.ReactNode }[] = [
+    { id: "all", label: "Semua dokumen", icon: <FileText className="h-4 w-4" /> },
+    { id: "incoming", label: TAB_LABEL.incoming, icon: <Inbox className="h-4 w-4" /> },
+    { id: "outgoing", label: TAB_LABEL.outgoing, icon: <Send className="h-4 w-4" /> },
+    { id: "approval", label: TAB_LABEL.approval, icon: <ShieldCheck className="h-4 w-4" /> },
+    { id: "archive", label: TAB_LABEL.archive, icon: <Archive className="h-4 w-4" /> },
+    { id: "ocr", label: TAB_LABEL.ocr, icon: <Search className="h-4 w-4" /> },
   ];
   const statusActions = (document: DocumentRecord): Array<{ label: string; status: Status; icon: React.ReactNode }> => {
     if (document.status === "registered") return [
@@ -223,9 +224,6 @@ export function SupabaseDocumentManager() {
           <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Catat surat masuk, surat keluar, dan dokumen internal dengan alur telaah serta arsip per tenant.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => { setTab("all"); setDirectionFilter("all"); }} aria-pressed={tab === "all"} className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition ${tab === "all" ? "border-emerald-600 bg-emerald-50 text-emerald-800 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-200" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"}`}>
-            <FileText className="h-4 w-4" /> Semua dokumen
-          </button>
           <button type="button" onClick={() => void refresh()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10" aria-label="Muat ulang dokumen">
             <RefreshCw className="h-4 w-4" /> Muat ulang
           </button>
@@ -243,9 +241,9 @@ export function SupabaseDocumentManager() {
       </div>
 
       <ERPTabs
-        tabs={tabs.map((item) => ({ ...item, label: TAB_LABEL[item.id] }))}
+        tabs={tabs}
         value={tab}
-        onChange={(value) => { setTab(value as Exclude<ViewTab, "all">); setDirectionFilter("all"); }}
+        onChange={(value) => { setTab(value as ViewTab); setDirectionFilter("all"); }}
         ariaLabel="Jenis dokumen"
       />
 

@@ -41,11 +41,12 @@
 5. Jalankan seluruh tujuh tes integrasi di atas di Postgres/Supabase terisolasi dan lampirkan tautan workflow serta hasil per job. Jangan gunakan Production sebagai target tes.
 6. Selesaikan UAT Admin VQE: login, isolasi tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul terkait. Pertahankan PR Draft sampai CI, database, dan UAT terbukti lulus.
 
-## Temuan UI Dokumen Digital — perbaikan struktur dikirim, verifikasi visual masih terbuka
+## Temuan UI Dokumen Digital — tab diselaraskan, verifikasi visual masih terbuka
 
 - Pengguna melaporkan bahwa style tab pada modul Dokumen Digital belum sesuai standar UI.
 - Pemeriksaan halaman referensi AI Studio pada 5 November menampilkan lima tab utama: Surat Masuk, Surat Keluar, E-Approval, Arsip Digital, dan AI OCR Scanner.
-- Commit `db18402` menyelaraskan lima tab utama di `SupabaseDocumentManager` dengan acuan. Akses **Semua dokumen** tetap tersedia sebagai tombol tampilan, sedangkan **Internal** tetap tersedia sebagai pilihan filter jenis. Perubahan ini mempertahankan kedua fungsi tanpa menambah tab utama.
+- Koreksi lanjutan menempatkan **Semua dokumen** dalam tab strip bersama, sehingga semua navigasi pada `SupabaseDocumentManager` menggunakan `ERPTabs` dan style standar yang sama. Tab utama kini enam: Semua dokumen, Surat Masuk, Surat Keluar, Persetujuan elektronik, Arsip Digital, dan Pemindai OCR.
+- **Internal** tetap tersedia sebagai pilihan filter jenis ketika tab Semua dokumen dipilih. Perubahan hanya menyamakan tampilan dan penempatan navigasi; UAT visual/responsif masih perlu dilakukan pada sesi Admin staging.
 - Commit `4d32053` mengganti navigasi khusus pada Operasional Fasilitas Asrama dengan `ERPTabs`, menjaga dua bagian sesuai role yang diizinkan. Tidak ada perubahan pada sumber data atau aturan akses.
 - `npm run lint` dan `npm run build` lulus di checkout lokal; build masih memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf`. Preview lokal saat ini tidak dapat dijangkau (`ERR_CONNECTION_TIMED_OUT`), sehingga render aktual, keadaan aktif/nonaktif, dan responsivitas belum dibandingkan.
 - Sesudah perbaikan tab asrama, kandidat lokal menjalankan kembali `npm run lint`, `npm run build`, dan `npm run test:supabase-runtime-no-firebase`; semuanya lulus. Build ini berasal dari worktree kandidat lokal, bukan checkout yang dibuat langsung dari head GitHub `4d32053`.
