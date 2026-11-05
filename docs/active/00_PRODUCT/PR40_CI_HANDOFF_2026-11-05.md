@@ -1,55 +1,54 @@
-# Panduan pemicu CI PR #40 — 5 November 2026
+# Serah terima pemeriksaan PR #40 — 5 November 2026
 
-## Kondisi
+## Status saat ini
 
 - Repo: `hamdanfaiz/ERP4-Pesantren`.
 - PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40).
-- Branch PR: `codex/menu-owner-placement-20261101`.
-- Head source saat pembaruan panduan: `d9b3be7a6f8ae021360008e02b1dba738d2eab5e`.
-- GitHub Actions belum membuat workflow run untuk head terbaru ini. Pembaruan file melalui konektor GitHub tidak memicu Actions; tim perlu membuat fast-forward push native dari clone yang terautentikasi. Pemeriksaan Supabase Preview terpisah berstatus `skipped` karena branch tidak terhubung ke Supabase Branch.
-- Source dan guard runtime terbaru sudah berada di branch PR. Guard menelusuri graph impor frontend dan server (152 modul) serta memastikan Firebase tidak menjadi dependency produksi. Pembaruan ref melalui konektor GitHub tidak memulai Actions; perlu native Git push dari clone yang terautentikasi.
+- Branch: `codex/menu-owner-placement-20261101`.
+- Head terakhir yang tercatat: `944801e8590026a0629994f9db50f427e81abe72`.
+- PR masih Draft/Open dan belum layak digabung. GitHub belum mengembalikan status mergeability yang pasti (`mergeable_state=unknown`); perbandingan branch menunjukkan 190 commit ahead dan 0 behind dari `main`.
+- PR terbaru belum memiliki status check atau workflow run. Run Actions #1135 menguji commit lama dan tidak membuktikan head saat ini.
 
-Workflow kini mendaftarkan semua 46 script `test:*` di `package.json`; audit ini hanya memeriksa cakupan perintah, bukan hasil lulus tes. Enam pemeriksaan yang baru ditambahkan mencakup Master Data CSV, katalog Naming Series, pencarian/paginasi kelas, paginasi roster/Ustadz, konflik jadwal, dan validasi aset Library.
+## Bukti build dan tes lokal
 
-## Cara aman memicu CI dari Windows PowerShell
+Pada source yang sama dengan head terakhir, lulus:
 
-Jalankan dari clone repo tim. Perintah berikut membuat worktree sementara yang terpisah, mengambil branch PR terbaru, membuat commit kosong untuk memicu pemeriksaan, lalu mengirimkannya sebagai fast-forward. Tidak ada perubahan file kerja tim.
+- `npm run lint`
+- `npm run build`
+- 39/39 skrip `test:*` non-database/API
 
-```powershell
-$repo = 'C:\path\ke\ERP4-Pesantren'
-$worktree = Join-Path (Split-Path $repo -Parent) 'erp4-pr40-ci-20261105'
+Dua skrip yang memerlukan loopback lokal (`test:trusted-proxy-hops` dan `test:runtime-config-http`) awalnya ditolak sandbox dengan `EACCES`; keduanya lulus setelah diulang dengan izin koneksi loopback. Build masih memberi peringatan anotasi Rollup pada Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
 
-git -C $repo fetch origin
-git -C $repo worktree add --detach $worktree origin/codex/menu-owner-placement-20261101
-git -C $worktree commit --allow-empty -m 'ci: run PR 40 checks'
-git -C $worktree push origin HEAD:refs/heads/codex/menu-owner-placement-20261101
-```
+Tes integrasi database/API belum dijalankan pada head terbaru:
 
-Git harus terautentikasi ke repo GitHub sebelum perintah `push`. Setelah push berhasil, tunggu sampai job `npm-install`, `frontend`, dan `database` selesai di tab **Checks** PR #40. Job database mencakup replay seluruh migration Supabase lokal (termasuk `20270302000000_academic_class_reference_pagination.sql`), pgTAP roster/kelas (termasuk tenant sintetis 501 kelas), race NIS/Tahfidz, API Auth/tenant, Storage, serta backup/restore pada lingkungan terisolasi CI.
+- `test:db` (pgTAP seluruh migration, termasuk picker kelas dan tenant sintetis 501 kelas)
+- `test:db:nis-race`
+- `test:db:tahfidz-session-race`
+- `test:api:auth-tenant`
+- `test:api:finance-storage`
+- `test:api:library-storage`
+- `test:db:backup-restore`
 
-Setelah workflow selesai, worktree sementara dapat dibuang:
+Jalankan di runner CI yang menyediakan Supabase/Postgres terisolasi. Jangan memakai database Production sebagai target pengujian.
 
-```powershell
-git -C $repo worktree remove $worktree
-```
+## Rekonsiliasi staging VQE
 
-- Pemeriksaan baca-saja Supabase MCP pada 5 November 2026: VQE memiliki 133 migration sampai `20270301000000_academic_student_roster_pagination`; source PR memiliki 134 migration. Versi kelas `20270302000000_academic_class_reference_pagination` belum diterapkan, dan ledger VQE masih mencatat alias lama `20261101015832_tenant_reference_relationships`. Tidak ada perubahan database yang dilakukan.
+- Target staging yang disetujui: `vqemuyzveuirlkvdggjd`. Production PTSAS `ptsasgdvgrbdtgyqieie` tidak disentuh.
+- Pemeriksaan baca-saja terbaru: VQE berisi 133 migration, sedangkan source berisi 134. Migration `20270302000000_academic_class_reference_pagination.sql` belum tercatat pada VQE.
+- Ledger VQE juga memiliki nama/timestamp lama `20261101015832_tenant_reference_relationships` yang tidak sama dengan migration file di repo. Jangan menjalankan ulang migration terkait atau memperbaiki ledger dengan SQL manual.
+- Migration picker kelas menambah indeks partial dan mengganti/membuat fungsi keyset `SECURITY INVOKER`; ia tidak menyalin atau menghapus data. Namun, rekonsiliasi ledger harus dilakukan dulu agar file migration yang sudah pernah diterapkan tidak dijalankan ulang.
+- Supabase MCP `apply_migration` sebelumnya dapat mencatat versi berbeda dari nama file. Gunakan Supabase CLI yang dipin sesuai workflow repo (`2.84.2`) dari checkout terisolasi yang secara eksplisit ditautkan ke VQE. Awali dengan `supabase migration list` dan `supabase db push --dry-run`; cocokkan setiap versi yang akan dijalankan dengan file. Gunakan `supabase migration repair` hanya untuk koreksi ledger setelah operator memeriksa versi tepat. Jangan gunakan konfigurasi default `supabase/config.toml` sebagai alasan untuk menarget Production.
+- Kredensial staging harus disediakan tim melalui `.env` lokal atau secret CI; jangan ditempelkan ke chat atau browser.
 
-## Batasan
+## Tindakan tim backend
 
-- Langkah ini hanya memicu CI di GitHub; tidak menjalankan deployment atau migrasi ke Supabase Production.
-- Jangan mengaktifkan Deploy to Production. VQE staging tetap terpisah dari PTSAS Production.
-- Jika push ditolak karena branch sudah bergerak, jalankan `git -C $repo fetch origin` lagi, buat ulang worktree pada head terbaru, lalu ulangi commit kosong dan push.
-- PR tetap Draft/Open sampai CI, pgTAP, UAT Admin VQE, rekonsiliasi ledger staging, dan penerimaan tim backend selesai.
+1. Periksa mengapa Actions tidak membuat run untuk head `944801e`. Lihat tab **Actions**, pastikan workflow diaktifkan dan event `pull_request` diizinkan, lalu jalankan ulang CI dari push terautentikasi tim. Native push sebelumnya juga belum menghasilkan run, jadi jangan menganggap commit kosong otomatis menyelesaikan masalah.
+2. Jalankan seluruh tujuh tes integrasi dalam job CI terisolasi. Simpan tautan run dan hasil tiap job pada PR.
+3. Sediakan runner/akses staging VQE, audit ledger terlebih dahulu, lalu rehearsal migration `20270302000000` menggunakan target VQE yang eksplisit. Verifikasi indeks dan fungsi sesudahnya, serta jalankan pgTAP terkait.
+4. Selesaikan UAT Admin staging untuk login, tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul yang terdampak.
+5. Minta tinjauan tim atas perubahan dan bukti. Pertahankan PR Draft sampai CI, database, dan UAT lulus. Production baru dipertimbangkan setelah staging diterima; tidak ada langkah dalam panduan ini yang menerapkan migration ke Production.
 
-## Gate tambahan — picker kelas Akademik
+## Perubahan UI yang ikut pada PR
 
-Perubahan terbaru menambah migration `20270302000000_academic_class_reference_pagination.sql`, memperluas `supabase/tests/academic_student_roster_pagination.test.sql` menjadi 48 assertion, dan memperluas guard runtime agar mencakup frontend serta server (152 modul). Pastikan CI head terbaru mereplay migration ini dan menyelesaikan pgTAP, termasuk paging tenant sintetis 501 kelas serta indeks prefix/keyset, sebelum UAT staging atau merge.
+Dokumen Digital memakai `ERPTabs` yang sama dengan modul lain. Tab dipindahkan ke luar bingkai panel dan diberi ikon agar bentuk serta penempatannya konsisten; filter dan daftar dokumen tetap di panel konten.
 
-
-## Hasil verifikasi head PR — 5 November 2026
-
-- Pada source tree PR `d1669ff392a37a7e4a6d93d0ce72ad517eb73e0a`, lulus `npm ci --no-audit --no-fund`, `npm run lint`, `npm run build`, `npm run test:migration-preflight`, dan 39/39 skrip tes non-database/API. Head `2ae7bfff00f7b819fe188f75ce016d24add2cf2d` hanya commit kosong; tree-nya sama.
-- Run Actions #1135 sukses, tetapi commit yang diuji `79d516880fb0c957d672cc4db8d9725f7f294ba3` berjarak 17 commit dari source tree PR terkini. Run tersebut bukan bukti CI untuk perubahan setelahnya.
-- Tujuh tes integrasi `test:db`, race NIS/Tahfidz, API Auth/tenant, Storage, dan backup/restore belum dijalankan pada head terkini. Jalankan di runner GitHub yang memakai Supabase lokal terisolasi.
-- Pemeriksaan source lokal tidak mengubah staging/Production. Build masih memperingatkan chunk PDF sekitar 1,46 MB dan anotasi Rollup dari Zod.
