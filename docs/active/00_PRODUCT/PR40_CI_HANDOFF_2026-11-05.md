@@ -5,7 +5,7 @@
 - Repo: `hamdanfaiz/ERP4-Pesantren`; PR [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40), branch `codex/menu-owner-placement-20261101`.
 - Commit kode terakhir adalah `180cc08`, yang menyatukan enam tab Dokumen Digital pada `ERPTabs`; commit `4d32053` sebelumnya menyamakan tab Operasional Fasilitas Asrama dengan komponen yang sama.
 - Pada head `180cc08`, PR masih Draft/Open dan API GitHub menandainya belum mergeable.
-- Diagnostik pada head tersebut menemukan hanya `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; tidak ada GitHub Actions workflow run atau status context. Check itu bukan bukti build atau tes aplikasi. Push Git terbaru juga belum menghasilkan workflow run; tim perlu memeriksa event delivery atau konfigurasi Actions.
+- GitHub Actions repository aktif dan memiliki 1.135 run historis; run terbaru yang terlihat (#1135) selesai sukses pada 4 November 2026 pukul 10:21 UTC, sebelum commit UI pada 5 November. Untuk head `486ea2a`, tidak ada workflow run/status baru; check yang terlihat hanya `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch. Push Git pada 5 November belum menghasilkan workflow, jadi tim perlu memeriksa event delivery/configuration atau mendorong update dari kredensial GitHub lokal mereka. Run historis tidak membuktikan head terkini.
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
 - Supabase MCP menolak `get_project` dan read-only SQL untuk Production. `list_migrations` mengembalikan daftar kosong, tetapi tanpa akses proyek hasil itu bukan bukti bahwa schema/ledger Production kosong; status Production tetap belum terverifikasi.
 
@@ -19,6 +19,7 @@
 ## Staging VQE dan prasyarat koneksi
 
 - Target staging yang disetujui: `vqemuyzveuirlkvdggjd`. Pemeriksaan baca-saja Supabase mencatat 133 migration staging dari 134 migration source. `20270302000000_academic_class_reference_pagination.sql` belum tercatat.
+- `.env` pada checkout staging tidak memiliki `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL`. `.env` kanonis yang memiliki URL pooler menunjuk ke Production `ptsasgdvgrbdtgyqieie`; jangan gunakan untuk preflight/rehearsal staging.
 - Ledger staging masih menggunakan versi alias `20261101015832_tenant_reference_relationships`; source yang benar adalah `20270214120000_tenant_reference_relationships`. Runbook memuat pemeriksaan exact-SQL sebelum rekonsiliasi.
 - `npm run preflight:db-migrations` berhenti dengan pesan bahwa `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL` harus disediakan. `.env` worktree UAT VQE hanya memiliki URL dan API key Supabase, tanpa URL koneksi Postgres. `.env` pada worktree kanonis menunjuk ke Production dan tidak boleh dipakai untuk preflight staging.
 - CLI `supabase` dan `psql` tidak tersedia di PATH; Docker juga tidak terdeteksi. Ada binary CLI sementara versi `2.122.0`, tetapi workflow repository meminta CLI `2.84.2`; gunakan versi yang dipin, bukan binary sementara.
@@ -54,6 +55,6 @@
 ## Gerbang sebelum merge atau cutover
 
 - PR tetap Draft/Open dan saat pemeriksaan GitHub belum mergeable.
-- Tidak ada workflow run/check untuk head terbaru.
+- Actions memiliki riwayat run, tetapi belum ada workflow run/check untuk head terbaru; workflow `Supabase Preview` hanya `skipped`.
 - Uji integrasi, rekonsiliasi ledger, penerapan/rehearsal migration staging, dan UAT Admin masih harus dibuktikan.
 - Cutover Production baru dapat dipertimbangkan setelah staging diterima dan seluruh gerbang di atas lulus. Tidak ada langkah dalam handoff ini yang menerapkan perubahan ke Production.
