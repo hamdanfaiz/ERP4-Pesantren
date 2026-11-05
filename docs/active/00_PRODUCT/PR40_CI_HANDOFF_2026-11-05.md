@@ -24,6 +24,14 @@
 - CLI `supabase` dan `psql` tidak tersedia di PATH; Docker juga tidak terdeteksi. Ada binary CLI sementara versi `2.122.0`, tetapi workflow repository meminta CLI `2.84.2`; gunakan versi yang dipin, bukan binary sementara.
 - Jadi pemeriksaan alias yang tersimpan di database belum dapat diulang melalui skrip preflight resmi pada checkout ini. Tidak memakai API secret sebagai pengganti password Postgres.
 
+## Snapshot Supabase staging VQE — baca-saja, 5 November 2026
+
+- Proyek staging `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY` di `ap-northeast-1`, PostgreSQL 17.11. Pemeriksaan migrations menemukan 133 versi terpasang; terbaru `20270301000000 academic_student_roster_pagination`. Source memiliki 134 file, sehingga `20270302000000_academic_class_reference_pagination.sql` masih belum terpasang. Alias ledger tenant-reference tetap perlu direkonsiliasi dengan prosedur pada bagian prasyarat.
+- Daftar schema `public` berisi 167 tabel; 167 memakai RLS dan 0 tidak. Security Advisor melaporkan rls_enabled_no_policy: 162 (INFO); auth_leaked_password_protection: 1 (WARN). Temuan `rls_enabled_no_policy` berlevel INFO: tabel tanpa policy tetap tertutup untuk akses Data API langsung. Namun kode server menggunakan secret key yang melewati RLS; batas keamanan tetap memerlukan verifikasi profil aktif, tenant, role, dan izin modul di setiap handler. Source memiliki pemeriksaan actor tersebut untuk Master Data dan Dokumen Digital; tes integrasi Auth/tenant masih wajib sebelum merge.
+- Temuan Auth `auth_leaked_password_protection` berlevel WARN; pengaturan perlindungan kata sandi bocor perlu diperiksa di Auth proyek staging. MCP tidak mengubah setting ini.
+- Performance Advisor melaporkan unindexed_foreign_keys: 258 (INFO); unused_index: 102 (INFO). Jangan menambahkan indeks ke semua foreign key atau menghapus indeks yang belum terpakai secara massal. Triage dengan pola query produksi dan `EXPLAIN (ANALYZE, BUFFERS)` setelah data sintetis representatif tersedia.
+- Ini snapshot advisory baca-saja, bukan persetujuan keamanan/performa atau bukti UAT. Tidak ada migration, policy, index, setting Auth, atau data Production yang diubah.
+
 ## Urutan aman untuk tim backend
 
 1. Sediakan `SUPABASE_DB_POOLER_URL` khusus VQE di environment lokal/CI yang tidak di-commit. Pastikan project ref dalam URL adalah `vqemuyzveuirlkvdggjd`; jangan gunakan nilai dari `.env` Production dan jangan kirim kredensial melalui chat.
