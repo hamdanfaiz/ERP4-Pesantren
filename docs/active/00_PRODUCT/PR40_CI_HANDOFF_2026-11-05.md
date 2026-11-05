@@ -36,8 +36,9 @@
 ## Temuan UI Dokumen Digital — masih terbuka
 
 - Pengguna melaporkan secara khusus bahwa style tab pada modul Dokumen Digital belum sesuai standar UI yang digunakan sistem. Temuan ini belum dianggap selesai.
-- Dokumen Digital menggunakan komponen tab bersama `ERPTabs`; commit `4d8df2e` menghapus margin tambahan agar jaraknya mengikuti container halaman, tetapi pemakaian komponen bersama belum membuktikan hasil visualnya sudah konsisten.
-- Preview lokal yang dapat diamati menampilkan landing publik, bukan sesi Admin. Perbandingan visual dengan modul acuan dan koreksi yang diperlukan masih menunggu UAT Admin VQE. Jangan tandai tab Dokumen Digital selesai sebelum tampilannya diperiksa langsung.
+- Source Dokumen Digital menggunakan komponen tab bersama `ERPTabs`, sama seperti modul acuan; ini belum membuktikan hasil visual konsisten. Perbedaan belum dapat diidentifikasi dari source saja.
+- Pada pemeriksaan 5 November 2026, Chrome tidak dapat menjangkau `localhost:4179` (timeout). Server lokal yang dinyalakan pada `127.0.0.1:54327` berjalan, tetapi browser tetap tidak dapat mengaksesnya; server tersebut kemudian dihentikan. Render Admin tidak tersedia untuk dibandingkan pada sesi ini.
+- Tim perlu menyediakan preview yang dapat dijangkau browser dan sesi Admin VQE agar UAT visual dapat membandingkan tab Dokumen Digital dengan modul acuan dan menentukan koreksi konkret. Jangan tandai temuan ini selesai sebelum pemeriksaan visual dilakukan.
 
 ## Gerbang sebelum merge atau cutover
 
