@@ -5,18 +5,19 @@
 - Repo: hamdanfaiz/ERP4-Pesantren.
 - PR #40 — Relasi tenant dan penomoran otomatis: https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40
 - Branch: codex/menu-owner-placement-20261101.
-- Head PR yang diperiksa: `35879df49af8a2d791bbd3c4587e4cc3be3745bd`. Checkout uji lokal berada pada `440878623dc2f0bedb98a483301923885957bfc7`; file `src/pages/SupabaseDocumentManager.tsx` di checkout itu cocok dengan blob PR `d80a9368816f43a387cde58f6226f42c1300052e`. Build lokal tidak menggantikan CI pada seluruh head PR.
-- PR masih Draft/Open dan belum boleh di-merge. GitHub saat diperiksa melaporkan `mergeable=false`; belum ada workflow run untuk head `35879df49af8a2d791bbd3c4587e4cc3be3745bd`. Periksa konflik/status PR lagi sebelum merge.
+- Head PR yang diperiksa ulang sebelum koreksi ini: `f16802dbc5ebfdf4848333881acbc485b023b308`. Commit koreksi disusun sebagai turunan langsung dari head tersebut; periksa SHA dan CI terbaru setelah branch PR diperbarui.
+- PR masih Draft/Open dan belum boleh di-merge. GitHub saat diperiksa melaporkan `mergeable=false`; pencarian workflow run untuk base head `f16802d` kosong. Periksa konflik/status dan CI pada head koreksi.
 - Proyek Production PTSAS ptsasgdvgrbdtgyqieie tidak diubah. Semua pemeriksaan database pada checkpoint ini hanya menyentuh staging VQE vqemuyzveuirlkvdggjd.
 
 ## Bukti runtime dan source
 
-- Pada checkout lokal yang memuat source Dokumen Digital yang sama dengan PR, npm run test:supabase-runtime-no-firebase lulus: 152 modul pada graph frontend/server tidak mengimpor Firebase; 26 route Supabase dikenali dan 26 route migrasi lama tertutup. Ini membuktikan batas graph runtime yang diperiksa, bukan bahwa seluruh repo bebas kode atau dependensi Firebase.
+- Pada checkout lokal, `npm run test:supabase-runtime-no-firebase` lulus: 152 modul pada graph frontend/server tidak mengimpor Firebase; 26 route Supabase dikenali dan 26 route migrasi lama tertutup. Ini membuktikan batas graph runtime yang diperiksa, bukan bahwa seluruh repo bebas kode atau dependensi Firebase.
 - SDK Firebase masih tercantum sebagai devDependency dan sejumlah file legacy yang tidak masuk graph runtime masih memiliki referensi Firestore.
-- Pada checkout uji lokal `4408786`, `npm run lint` dan `npm run build` baru dijalankan ulang dan lulus. File Dokumen Digital yang dibuild cocok dengan blob PR saat diperiksa; seluruh hasil tetap pemeriksaan lokal, bukan CI pada keseluruhan head PR. Build memberi peringatan anotasi Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB.
+- Pada checkout lokal dari snapshot PR, `npm run lint`, `npm run build`, dan `npm run test:supabase-test-environment` lulus. Build memberi peringatan anotasi Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB. Hasil ini bukan CI pada keseluruhan head PR.
 - Smoke instalasi production-only dan runtime juga pernah lulus; halaman utama merespons 200 dan /api/users tanpa autentikasi merespons 401. Smoke ini tidak menguji koneksi Supabase live.
 - `npm run test:migration-preflight` dan `npm run test:supabase-runtime-no-firebase` juga baru lulus pada checkout lokal: pemeriksaan lineage/preflight offline berhasil; graph runtime memeriksa 152 modul, mengenali 26 route Supabase, dan menutup 26 route migrasi lama. Sebanyak 39 skrip non-database/API sebelumnya juga pernah lulus.
-- Hasil lokal tersebut bukan pengganti workflow GitHub Actions. Fetch run untuk head `35879df49af8a2d791bbd3c4587e4cc3be3745bd` mengembalikan daftar kosong.
+- Guard test baru juga dimasukkan ke workflow CI untuk memastikan target staging menolak project Production. Workflow baru belum berjalan pada head PR.
+- Hasil lokal tersebut bukan pengganti workflow GitHub Actions. Fetch run untuk head `f16802dbc5ebfdf4848333881acbc485b023b308` mengembalikan daftar kosong.
 
 ## Supabase staging VQE — pemeriksaan baca-saja terbaru
 
@@ -31,7 +32,7 @@
   - Constraint katalog tenant ditemukan; domain check live mencakup perluasan dari migration 20270216000000_tenant_operational_choice_relationships.
   - Pengaturan search_path, mode keamanan, hak EXECUTE, RLS paksa, dan trigger Finance yang dibandingkan cocok dengan source.
 - Bukti ini menutup pemeriksaan definisi objek yang disebut di atas. Bukti ini tidak membuktikan semua migrasi database dari 134 file telah dibandingkan satu per satu, kesesuaian setiap efek backfill pada data, atau kesiapan Production.
-- Tidak ada penulisan data, perubahan ledger, pengubahan aturan, ataupun migration Production pada pemeriksaan ini.
+- Pemeriksaan katalog yang disebut di bagian ini bersifat baca-saja. Setelah pemeriksaan, tes Finance/Storage membuat fixture sintetis pada VQE dan cleanup berikutnya dicatat di bagian tes di bawah. Tidak ada perubahan ledger, aturan, atau migration Production.
 
 ## Advisory Supabase staging terbaru (read-only)
 
@@ -63,7 +64,7 @@
 
 ## Tes integrasi dan UAT yang belum selesai
 
-Tujuh tes berikut belum terbukti lulus terhadap database/API VQE yang terhubung:
+Tujuh tes berikut belum terbukti lulus penuh terhadap VQE. Pada 5 November, assertion API/Storage untuk bukti Finance dan dokumen PPDB mencapai hasil yang diharapkan, tetapi proses `test:api:finance-storage` berakhir dengan kode 1 karena cleanup fixture belum lulus; tes ini **tidak dihitung lulus**. `test:api:library-storage` belum terverifikasi.
 
 1. test:db
 2. test:db:nis-race
@@ -73,22 +74,27 @@ Tujuh tes berikut belum terbukti lulus terhadap database/API VQE yang terhubung:
 6. test:api:library-storage
 7. test:db:backup-restore
 
+Cleanup test Finance/Storage pada VQE sudah dilakukan terpisah dan dibatasi pada fixture sintetis yang dibuat oleh tes. Verifikasi pasca-cleanup menunjukkan akun Auth, profil, kandidat, santri, record Data Induk, seri/referensi, event/request PPDB, dan objek Storage pada prefix tes berjumlah nol. Dua tenant uji dipertahankan sebagai tombstone berstatus `suspended`, bersama 10 event `master_data_audit_events` yang immutable; trigger audit menolak penghapusan log. Production PTSAS tidak disentuh.
+
+Source saat ini menambahkan guard: tes staging menolak target selain ref dan URL VQE yang tepat, membutuhkan `ERP4_ALLOW_STAGING_MUTATIONS=true`, dan menolak key publishable sebagai key server. Guard tersebut ikut dimasukkan ke workflow CI. Bila cleanup gagal, skrip hanya mencatat label langkah dan kode error yang disanitasi, bukan pesan mentah yang mungkin memuat detail sensitif. Tes integrasi live jangan diulang sebelum jalur cleanup memiliki akses privileged yang didukung dan menghasilkan verifikasi cleanup tanpa menghapus jejak audit.
+
 UAT Admin staging masih perlu mencakup isolasi tenant/role, Data Induk dan Naming Series, alur PPDB/NIS, Akademik, Tahfidz, transaksi Finance, unggah/unduh Storage, impor/ekspor, serta pemulihan backup. Gunakan tenant dan data sintetis saja.
 
-## Dokumen Digital — style tab masih menjadi temuan terbuka
+## Dokumen Digital — koreksi source, UAT visual masih terbuka
 
-- Source SupabaseDocumentManager menggunakan komponen bersama ERPTabs dan lima bagian utama: Surat Masuk, Surat Keluar, Persetujuan elektronik, Arsip Digital, dan Pemindai OCR. Fungsi Semua dokumen tersedia sebagai aksi di toolbar; Dokumen internal tersedia melalui filter jenis.
-- Jumlah dan susunan tab sesuai dengan acuan yang diperiksa. Pengguna masih melaporkan style tab berbeda dari standar. Source yang memakai komponen bersama belum membuktikan tampilan render sudah sama.
-- Browser yang diperiksa pada checkpoint ini sedang menampilkan halaman ChatGPT, bukan ERP atau sesi Admin staging. UAT visual/responsif belum dilakukan. Perlu membandingkan keadaan aktif, normal, hover, fokus, gulir, desktop, dan layar sempit sebelum menutup temuan ini.
+- Perubahan lokal memindahkan “Semua dokumen” ke grup bersama `ERPTabs`, sehingga semua kategori navigasi memakai ukuran, warna, status aktif, dan perilaku responsif dari komponen standar. Filter “Jenis dokumen” tetap ditampilkan pada tab tersebut; fungsi filter tidak berubah.
+- Perubahan source tab disiapkan pada branch koreksi PR #40; hasil render/responsif masih belum diverifikasi.
+- Koreksi mengatasi ketidakkonsistenan struktur tab pada source. Pengguna sebelumnya masih melihat perbedaan visual; kesesuaian render tetap belum terbukti sampai Admin staging membandingkan keadaan aktif, normal, hover, fokus, gulir, desktop, dan layar sempit.
 
 ## Gerbang sebelum merge dan cutover
 
 1. Jalankan preflight dan dry-run VQE menggunakan CLI yang dipin; rekonsiliasi alias lewat CLI hanya setelah syarat di atas terpenuhi.
-2. Jalankan tujuh tes integrasi pada staging terisolasi dan catat hasil per tes.
-3. Selesaikan UAT Admin dan visual/responsif; perbaiki temuan tab bila render membuktikan masih berbeda.
-4. Picu atau pulihkan workflow CI pada head PR terbaru, periksa status mergeability dan konflik.
-5. Verifikasi schema, aturan akses, dan konfigurasi Production secara terpisah sebelum cutover. Jangan lakukan migrasi atau perubahan Production sebelum seluruh gerbang staging lulus.
-6. Setelah PR siap, minta review team backend. Deploy dan UAT hosting tetap dikerjakan team Anda.
+2. Perbaiki cleanup fixture untuk tes Finance/Storage dengan jalur privileged yang didukung; pertahankan audit immutable dan verifikasi tenant tombstone.
+3. Jalankan ulang `test:api:finance-storage`, lalu jalankan enam tes integrasi lain pada staging terisolasi dan catat kode keluar tiap tes.
+4. Selesaikan UAT Admin dan visual/responsif, termasuk tab Dokumen Digital pada source terbaru.
+5. Picu atau pulihkan workflow CI pada head PR terbaru, periksa status mergeability dan konflik.
+6. Verifikasi schema, aturan akses, dan konfigurasi Production secara terpisah sebelum cutover. Jangan lakukan migrasi atau perubahan Production sebelum seluruh gerbang staging lulus.
+7. Setelah PR siap, minta review team backend. Deploy dan UAT hosting tetap dikerjakan team Anda.
 
 Checkpoint ini menunjukkan pekerjaan implementasi sudah tersedia untuk direview di PR, tetapi belum menyatakan sistem siap merge, cutover, atau deploy.
 

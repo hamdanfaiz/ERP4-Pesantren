@@ -21,7 +21,7 @@ type ViewTab = "all" | "incoming" | "outgoing" | "approval" | "archive" | "ocr";
 type DirectionFilter = "all" | Direction;
 
 const INITIAL_DRAFT: Draft = { direction: "incoming", subject: "", senderName: "", recipientName: "", documentDate: tenantBusinessDate(), summary: "" };
-const TAB_LABEL: Record<Exclude<ViewTab, "all">, string> = { incoming: "Surat Masuk", outgoing: "Surat Keluar", approval: "Persetujuan elektronik", archive: "Arsip Digital", ocr: "Pemindai OCR" };
+const TAB_LABEL: Record<ViewTab, string> = { all: "Semua dokumen", incoming: "Surat Masuk", outgoing: "Surat Keluar", approval: "Persetujuan elektronik", archive: "Arsip Digital", ocr: "Pemindai OCR" };
 const DIRECTION_LABEL: Record<Direction, string> = { incoming: "Masuk", outgoing: "Keluar", internal: "Internal" };
 const STATUS_LABEL: Record<Status, string> = { registered: "Terdaftar", in_review: "Dalam telaah", approved: "Disetujui", rejected: "Perlu perbaikan", archived: "Diarsipkan" };
 const STATUS_STYLE: Record<Status, string> = {
@@ -190,7 +190,8 @@ export function SupabaseDocumentManager() {
     finally { setLoadingMore(false); }
   };
 
-  const tabs: { id: Exclude<ViewTab, "all">; label: string; icon: React.ReactNode }[] = [
+  const tabs: { id: ViewTab; label: string; icon: React.ReactNode }[] = [
+    { id: "all", label: TAB_LABEL.all, icon: <FileText className="h-4 w-4" /> },
     { id: "incoming", label: TAB_LABEL.incoming, icon: <Inbox className="h-4 w-4" /> },
     { id: "outgoing", label: TAB_LABEL.outgoing, icon: <Send className="h-4 w-4" /> },
     { id: "approval", label: TAB_LABEL.approval, icon: <ShieldCheck className="h-4 w-4" /> },
@@ -242,16 +243,13 @@ export function SupabaseDocumentManager() {
       <ERPTabs
         tabs={tabs}
         value={tab}
-        onChange={(value) => { setTab(value as Exclude<ViewTab, "all">); setDirectionFilter("all"); }}
+        onChange={(value) => { setTab(value as ViewTab); setDirectionFilter("all"); }}
         ariaLabel="Bagian Dokumen Digital"
       />
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/60">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 xl:flex-row xl:items-center xl:justify-between xl:px-5">
           <div className="flex w-full min-w-0 flex-col gap-2 sm:max-w-xl sm:flex-row">
-            <button type="button" aria-pressed={tab === "all"} onClick={() => { setTab("all"); setDirectionFilter("all"); }} className={`erp-button-secondary shrink-0 text-sm ${tab === "all" ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-400/50 dark:bg-emerald-400/10 dark:text-emerald-200" : ""}`}>
-              <FileText className="h-4 w-4" /> Semua dokumen
-            </button>
             <div className="relative w-full min-w-0 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nomor, perihal, pengirim..." className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:border-white/10 dark:bg-slate-950/40 dark:text-white" /></div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">

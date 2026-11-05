@@ -21,6 +21,7 @@
     "test:api:finance-storage": "node scripts/test-finance-storage-http.mjs",
     "test:api:library-storage": "node scripts/test-library-storage-http.mjs",
     "test:db:backup-restore": "node scripts/test-database-backup-restore.mjs",
+    "test:supabase-test-environment": "node scripts/test-supabase-test-environment.mjs",
     "test:cbt-settings-import": "tsx scripts/test-cbt-settings-import.ts",
     "test:ppdb-legacy-import": "tsx scripts/test-supabase-ppdb-import.ts",
     "test:dashboard-cashflow": "node scripts/test-dashboard-cashflow.mjs",

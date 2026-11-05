@@ -1,31 +1,12 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseTestEnvironment } from './supabase-test-environment.mjs';
 
 const BUCKET = 'erp4-private-library-assets';
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-
-function localSupabaseEnvironment() {
-  const output = execFileSync('supabase', ['status', '-o', 'env'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1024 * 1024,
-  });
-  const values = {};
-  for (const line of output.split(/\r?\n/)) {
-    const match = line.match(/^\s*(?:export\s+)?([A-Z0-9_]+)=(.*)$/);
-    if (match) values[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-  }
-  const url = values.API_URL || values.SUPABASE_URL;
-  const anonKey = values.ANON_KEY || values.SUPABASE_ANON_KEY;
-  const serviceKey = values.SERVICE_ROLE_KEY || values.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !anonKey || !serviceKey) {
-    throw new Error('Supabase local status did not expose the local API URL and test keys.');
-  }
-  return { url, anonKey, serviceKey };
-}
 
 async function availablePort() {
   const listener = createServer();
@@ -36,6 +17,23 @@ async function availablePort() {
   const { port } = listener.address();
   await new Promise((resolve, reject) => listener.close((error) => error ? reject(error) : resolve()));
   return port;
+}
+
+async function cleanupStep(errors, label, operation) {
+  try {
+    const result = await operation();
+    if (result?.error) throw result.error;
+  } catch (error) {
+    const rawCode = typeof error?.code === 'string'
+      ? error.code
+      : typeof error?.name === 'string'
+        ? error.name
+        : typeof error?.status === 'number'
+          ? `HTTP_${error.status}`
+          : 'unknown';
+    const safeCode = rawCode.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 80) || 'unknown';
+    errors.push(`${label} (${safeCode})`);
+  }
 }
 
 async function createTenant(admin, id, slug, name) {
@@ -90,7 +88,7 @@ function storageObjectUrl(baseUrl, path) {
 }
 
 async function main() {
-  const { url, anonKey, serviceKey } = localSupabaseEnvironment();
+  const { url, anonKey, serviceKey, target } = getSupabaseTestEnvironment({ allowStagingWrites: true });
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const anon = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const tenantId = randomUUID();
@@ -115,7 +113,7 @@ async function main() {
     const foreignAdminToken = await signIn(anon, foreignAdmin);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
-    serverProcess = spawn('bun', ['run', 'dev'], {
+    serverProcess = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server.ts'], {
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -351,7 +349,7 @@ async function main() {
     assert.equal(finalList.assets.length, 2, 'Only the two verified uploads should create visible tenant asset metadata.');
     assert.ok(finalList.assets.every((asset) => !Object.hasOwn(asset, 'storagePath')));
 
-    console.log('Library Storage HTTP tests passed: signed upload/download, private bucket, tenant and role isolation, idempotent finalization and recovery, content hash/signature verification, rejected-object cleanup, and metadata path privacy.');
+    console.log(`Library Storage HTTP tests passed (${target}): signed upload/download, private bucket, tenant and role isolation, idempotent finalization and recovery, content hash/signature verification, rejected-object cleanup, and metadata path privacy.`);
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -362,18 +360,21 @@ async function main() {
       if (serverProcess.exitCode === null) serverProcess.kill('SIGKILL');
     }
 
-    if (storagePaths.size) {
-      try { await admin.storage.from(BUCKET).remove([...storagePaths]); } catch {}
-    }
+    const cleanupErrors = [];
+    if (storagePaths.size) await cleanupStep(cleanupErrors, 'library Storage objects', () => admin.storage.from(BUCKET).remove([...storagePaths]));
     for (const table of ['library_digital_assets', 'library_digital_asset_upload_requests']) {
-      try { await admin.from(table).delete().eq('tenant_id', tenantId); } catch {}
-      try { await admin.from(table).delete().eq('tenant_id', foreignTenantId); } catch {}
+      await cleanupStep(cleanupErrors, `${table} tenant rows`, () => admin.from(table).delete().eq('tenant_id', tenantId));
+      await cleanupStep(cleanupErrors, `${table} foreign tenant rows`, () => admin.from(table).delete().eq('tenant_id', foreignTenantId));
     }
     for (const user of users) {
-      try { await admin.auth.admin.deleteUser(user.uid); } catch {}
+      await cleanupStep(cleanupErrors, 'synthetic Auth user', () => admin.auth.admin.deleteUser(user.uid));
     }
-    try { await admin.from('tenants').delete().eq('id', foreignTenantId); } catch {}
-    try { await admin.from('tenants').delete().eq('id', tenantId); } catch {}
+    await cleanupStep(cleanupErrors, 'foreign synthetic tenant', () => admin.from('tenants').delete().eq('id', foreignTenantId));
+    await cleanupStep(cleanupErrors, 'synthetic tenant', () => admin.from('tenants').delete().eq('id', tenantId));
+    if (cleanupErrors.length) {
+      console.error(`Staging/local fixture cleanup incomplete: ${cleanupErrors.join(', ')}.`);
+      process.exitCode = 1;
+    }
   }
 }
 
@@ -381,6 +382,6 @@ main().catch((error) => {
   const detail = error instanceof assert.AssertionError
     ? error.message
     : error?.code || error?.name || 'unknown error';
-  console.error(`Library Storage HTTP test failed (${detail}). Check the local Supabase stack and migration state.`);
+  console.error(`Library Storage HTTP test failed (${detail}). Check the selected Supabase test project and migration state.`);
   process.exitCode = 1;
 });
