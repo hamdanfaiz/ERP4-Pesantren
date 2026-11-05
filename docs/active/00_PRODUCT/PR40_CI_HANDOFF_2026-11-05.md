@@ -24,7 +24,9 @@
 - Ledger staging masih menggunakan versi alias `20261101015832_tenant_reference_relationships`; source yang benar adalah `20270214120000_tenant_reference_relationships`. Runbook memuat pemeriksaan exact-SQL sebelum rekonsiliasi.
 - `npm run preflight:db-migrations` berhenti dengan pesan bahwa `SUPABASE_DB_POOLER_URL` atau `SUPABASE_DB_URL` harus disediakan. `.env` worktree UAT VQE hanya memiliki URL dan API key Supabase, tanpa URL koneksi Postgres. `.env` pada worktree kanonis menunjuk ke Production dan tidak boleh dipakai untuk preflight staging.
 - Preflight remote kini memeriksa bahwa `SUPABASE_PROJECT_REF`, host `SUPABASE_URL`, dan project ref pada URL database Postgres mengarah ke proyek yang sama. Tes unit menolak URL Production PTSAS saat environment menunjuk ke VQE; koneksi langsung dan pooler untuk target yang cocok diterima.
-- `npm run test:migration-preflight` dan `npm run lint` lulus pada perubahan lokal ini. Preflight terhadap database VQE tetap belum bisa dijalankan karena URL pooler khusus staging belum tersedia.
+- Validasi preflight juga menolak URL non-PostgreSQL. `npm run test:migration-preflight` dan `npm run lint` lulus pada perubahan lokal ini.
+- `npm run build` lulus pada tree yang sama dengan head PR terbaru. Bundle memuat halaman `SupabaseDocumentManager` dan stylesheet `ERPTabs`; ini membuktikan source masuk build, tetapi belum membuktikan hasil render/responsivitas di browser. Build tetap memberi peringatan Rollup dari Zod dan chunk `react-pdf` sekitar 1,46 MB.
+- Preflight terhadap database VQE tetap belum bisa dijalankan karena URL pooler khusus staging belum tersedia.
 - Bun `1.4.4`, CLI `supabase` `2.84.2`, `psql`, dan Docker tidak tersedia di PATH/lingkungan lokal. Ada binary CLI sementara versi `2.122.0`, tetapi workflow repository meminta CLI `2.84.2`; gunakan versi yang dipin, bukan binary sementara.
 - Jadi pemeriksaan alias yang tersimpan di database belum dapat diulang melalui skrip preflight resmi pada checkout ini. Tidak memakai API secret sebagai pengganti password Postgres.
 

@@ -34,6 +34,13 @@ assert.equal(assertDatabaseTargetMatchesEnvironment(
   `postgresql://postgres.${stagingRef}:placeholder@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres`,
   stagingEnvironment,
 ), stagingRef);
+assert.throws(
+  () => assertDatabaseTargetMatchesEnvironment(
+    `https://postgres.${stagingRef}:placeholder@db.${stagingRef}.supabase.co/postgres`,
+    stagingEnvironment,
+  ),
+  /bukan koneksi PostgreSQL/,
+);
 assert.equal(assertDatabaseTargetMatchesEnvironment(
   `postgresql://postgres:placeholder@db.${stagingRef}.supabase.co:5432/postgres`,
   stagingEnvironment,

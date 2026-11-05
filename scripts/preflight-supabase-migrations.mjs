@@ -522,6 +522,9 @@ export function assertDatabaseTargetMatchesEnvironment(databaseUrl, env = proces
   if (api.protocol !== 'https:' || api.hostname.toLowerCase() !== `${projectRef}.supabase.co`) {
     throw new Error('SUPABASE_PROJECT_REF tidak cocok dengan SUPABASE_URL.');
   }
+  if (!['postgres:', 'postgresql:'].includes(database.protocol)) {
+    throw new Error('URL target bukan koneksi PostgreSQL; preflight dihentikan.');
+  }
 
   const host = database.hostname.replace(/^\[|\]$/g, '').toLowerCase();
   const username = decodeURIComponent(database.username);
