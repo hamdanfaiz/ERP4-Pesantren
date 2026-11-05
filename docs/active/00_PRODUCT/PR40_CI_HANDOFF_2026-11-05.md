@@ -5,9 +5,9 @@
 - Repo: `hamdanfaiz/ERP4-Pesantren`.
 - PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40).
 - Branch: `codex/menu-owner-placement-20261101`.
-- Source aplikasi yang terakhir diuji untuk PR: `944801e8590026a0629994f9db50f427e81abe72`; HEAD PR terbaru yang diperiksa `b59ca9bead2ebc36ce7697de6555b7e45abc0cf1`.
-- PR masih Draft/Open dan belum layak digabung. GitHub belum mengembalikan status mergeability yang pasti (`mergeable_state=unknown`); perbandingan HEAD PR terbaru menunjukkan 193 commit ahead dan 0 behind dari `main`.
-- Pemeriksaan CI terbaru pada HEAD `b59ca9b` menemukan nol workflow run. Satu check `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; ini bukan hasil build/tes aplikasi. Run Actions #1135 menguji commit lama dan tidak membuktikan head saat ini.
+- Source aplikasi PR yang terakhir diuji: `944801e8590026a0629994f9db50f427e81abe72`. Snapshot PR yang diperiksa sebelum pembaruan handoff: `b59ca9bead2ebc36ce7697de6555b7e45abc0cf1` (Draft/Open, 193 commit ahead dan 0 behind dari `main`). Periksa halaman PR untuk HEAD terkini.
+- Pemeriksaan CI pada snapshot `b59ca9b` menemukan nol workflow run. Satu check `Supabase Preview` berstatus `skipped` karena branch tidak diasosiasikan dengan Supabase Branch; ini bukan hasil build/tes aplikasi. Run Actions #1135 menguji commit lama dan tidak membuktikan source terbaru.
+- Sesudah handoff diperbarui pada commit `fd99930`, GitHub masih menunjukkan nol workflow run; `Supabase Preview` tetap `skipped`. Workflow lokal memiliki pemicu `pull_request` ke `main`, tetapi status Actions tingkat repo tidak dapat diverifikasi dari konektor.
 - `.github/workflows/supabase-db-tests.yml` memiliki pemicu `pull_request` untuk base `main`, tetapi status workflow dan pengaturan Actions tingkat repo tidak dapat dibaca melalui konektor. Tim perlu memastikan Actions diaktifkan dan memeriksa log event saat PR berikutnya diperbarui.
 
 ## Bukti build dan tes lokal
@@ -53,4 +53,4 @@ Jalankan di runner CI yang menyediakan Supabase/Postgres terisolasi. Jangan mema
 
 ## Perubahan UI yang ikut pada PR
 
-Dokumen Digital memakai `ERPTabs` yang sama dengan modul lain. Tab dipindahkan ke luar bingkai panel dan diberi ikon pada perubahan lokal. Pengguna masih melaporkan gaya tab belum sesuai standar; verifikasi visual dan penyelarasan jarak, wadah, serta keadaan aktif/nonaktif tetap menjadi tindak lanjut sebelum perubahan UI dinyatakan selesai. Perubahan kode dan catatan ini belum di-commit.
+Pada source head `944801e`, Dokumen Digital sudah memakai `ERPTabs` bersama, menampilkan ikon, dan menempatkan tab di luar panel konten. Pengguna masih melaporkan gaya tab belum sesuai standar. Verifikasi visual pada aplikasi berjalan dan penyelarasan jarak, wadah, serta keadaan aktif/nonaktif tetap terbuka; jangan tandai pekerjaan UI ini selesai sebelum hasil render dibandingkan dengan acuan.
