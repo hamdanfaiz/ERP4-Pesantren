@@ -5,9 +5,9 @@
 - Repo: `hamdanfaiz/ERP4-Pesantren`.
 - PR: [#40 — Relasi tenant dan penomoran otomatis](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40).
 - Branch PR: `codex/menu-owner-placement-20261101`.
-- Head source saat panduan dibuat: `442ccdecaa97ce05b84bd353077c0074df4d2e39`.
-- GitHub Actions belum membuat workflow run untuk head tersebut. Hanya pemeriksaan Supabase Preview yang berstatus `skipped` karena branch tidak terhubung ke Supabase Branch.
-- Source sudah berada di branch PR. Pembaruan ref melalui konektor GitHub tidak memulai Actions; perlu native Git push dari clone yang terautentikasi.
+- Head source saat pembaruan panduan: `42d343743cfbc42c38c3687c9ea2972a134fc7af`.
+- GitHub Actions belum membuat workflow run untuk head sebelumnya (`b2d7acc`) maupun head panduan ini. Hanya pemeriksaan Supabase Preview yang berstatus `skipped` karena branch tidak terhubung ke Supabase Branch.
+- Source dan guard runtime terbaru sudah berada di branch PR. Guard menelusuri graph impor frontend dan server (152 modul) serta memastikan Firebase tidak menjadi dependency produksi. Pembaruan ref melalui konektor GitHub tidak memulai Actions; perlu native Git push dari clone yang terautentikasi.
 
 ## Cara aman memicu CI dari Windows PowerShell
 
@@ -40,4 +40,4 @@ git -C $repo worktree remove $worktree
 
 ## Gate tambahan — picker kelas Akademik
 
-Perubahan terbaru menambah migration `20270302000000_academic_class_reference_pagination.sql` dan memperluas `supabase/tests/academic_student_roster_pagination.test.sql` menjadi 48 assertion. Pastikan CI head terbaru mereplay migration ini dan menyelesaikan pgTAP, termasuk paging tenant sintetis 501 kelas serta indeks prefix/keyset, sebelum UAT staging atau merge.
+Perubahan terbaru menambah migration `20270302000000_academic_class_reference_pagination.sql`, memperluas `supabase/tests/academic_student_roster_pagination.test.sql` menjadi 48 assertion, dan memperluas guard runtime agar mencakup frontend serta server (152 modul). Pastikan CI head terbaru mereplay migration ini dan menyelesaikan pgTAP, termasuk paging tenant sintetis 501 kelas serta indeks prefix/keyset, sebelum UAT staging atau merge.
