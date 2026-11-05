@@ -40,14 +40,25 @@
 - Kedua fungsi terverifikasi memakai `SECURITY INVOKER` dan `search_path=pg_catalog, public`; tabel prasyarat `master_data_records`, `students`, dan `academic_records` ada di staging. Tidak ada data tenant/Production yang diubah.
 - Tool mencatat migrasi dengan versi waktu otomatis `20261105070231` dan nama `academic_class_reference_pagination`, bukan versi sumber `20270302000000`. Jadi ledger staging sekarang berisi 134 baris, tetapi **belum sinkron** dengan source. Jumlah baris yang sama bukan bukti kesamaan migrasi.
 - Ledger lama juga masih mencatat alias `20261101015832_tenant_reference_relationships`, sementara source memakai versi `20270214120000`. Source Git membuktikan keduanya adalah rename identik (blob `789e09d7ad32be971acb029a2116106105f46c29`, commit `43e44dbabac7dac400da8fb9cb4545b3bf320e3f`), tetapi SQL live alias tetap harus diperiksa.
-- Jangan menjalankan ulang SQL `20270302000000` atau melakukan penulisan ledger manual. Tim backend harus memakai Supabase CLI yang dipin, URL pooler khusus VQE, preflight, lalu `supabase migration repair` resmi untuk memetakan alias versi otomatis ke versi sumber setelah memeriksa definisi live. Setelah itu jalankan ulang `supabase migration list`, `db push --dry-run`, dan tes integrasi.
+- Jangan menjalankan ulang SQL `20270302000000` atau melakukan penulisan ledger manual. Tim backend harus memakai Supabase CLI yang dipin dan URL pooler khusus VQE. Setelah preflight serta pemeriksaan definisi live memastikan setiap SQL alias cocok persis, rekonsiliasi lewat [`supabase migration repair`](https://supabase.com/docs/reference/cli/supabase-migration-repair), yang hanya mengubah ledger:
+
+  ```powershell
+  supabase migration repair 20261101015832 --status reverted
+  supabase migration repair 20270214120000 --status applied
+  supabase migration repair 20261105070231 --status reverted
+  supabase migration repair 20270302000000 --status applied
+  supabase migration list
+  supabase db push --dry-run
+  ```
+
+  Jalankan dari root repo yang ter-link khusus ke VQE. Jangan lanjut bila preflight menemukan mismatch SQL, versi asing, atau migrasi tertunda.
 - Production PTSAS tetap tidak disentuh. PR dan cutover tetap tertahan oleh rekonsiliasi migration ledger, tujuh tes integrasi DB/API, workflow CI, dan UAT Admin.
 
 ## Urutan aman untuk tim backend
 
 1. Sediakan `SUPABASE_DB_POOLER_URL` khusus VQE di environment lokal/CI yang tidak di-commit. Pastikan project ref dalam URL adalah `vqemuyzveuirlkvdggjd`; jangan gunakan nilai dari `.env` Production dan jangan kirim kredensial melalui chat.
 2. Siapkan Supabase CLI versi `2.84.2` sesuai workflow repo dan `psql`, atau runner CI terisolasi yang menyediakan keduanya. Jalankan `npm run preflight:db-migrations` terhadap VQE.
-3. Lanjutkan hanya jika preflight memastikan SQL alias `20261101015832 → 20270214120000` dan versi otomatis `20261105070231 → 20270302000000` cocok persis serta tidak ada versi asing, mismatch SQL/nama, atau urutan yang tertinggal. Rekonsiliasi dengan `supabase migration repair <versi-lama> --status reverted` lalu `supabase migration repair <versi-sumber> --status applied` hanya setelah verifikasi prosedur pada CLI versi yang dipin. Jangan mengubah ledger dengan SQL manual dan jangan menjalankan ulang SQL migration yang telah berhasil diterapkan.
+3. Lanjutkan hanya jika preflight memastikan SQL alias `20261101015832 → 20270214120000` dan versi otomatis `20261105070231 → 20270302000000` cocok persis serta tidak ada versi asing, mismatch SQL/nama, atau urutan yang tertinggal. Gunakan empat perintah repair di bagian update staging di atas; jangan mengubah ledger dengan SQL manual dan jangan menjalankan ulang SQL migration yang telah berhasil diterapkan.
 4. Jalankan `supabase migration list` dan `supabase db push --dry-run` dengan target VQE yang eksplisit. Tinjau daftar perubahan sebelum menerapkan migration yang belum ada; verifikasi indeks dan fungsi picker kelas sesudahnya.
 5. Jalankan seluruh tujuh tes integrasi di atas di Postgres/Supabase terisolasi dan lampirkan tautan workflow serta hasil per job. Jangan gunakan Production sebagai target tes.
 6. Selesaikan UAT Admin VQE: login, isolasi tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul terkait. Pertahankan PR Draft sampai CI, database, dan UAT terbukti lulus.
