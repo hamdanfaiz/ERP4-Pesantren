@@ -600,7 +600,7 @@ export function PublicRegistrationForm({
                       <FileText className="text-emerald-600 w-5 h-5" /> Upload Dokumen Persyaratan
                     </h3>
                     <p className="text-sm text-slate-500">
-                      Unggah dokumen soft-file di bawah ini. Dokumen akan langsung terverifikasi oleh panitia seleksi.
+                      Unggah dokumen soft-file di bawah ini. Berkas akan tersimpan dan diteruskan kepada panitia seleksi untuk diperiksa.
                     </p>
                   </div>
 
