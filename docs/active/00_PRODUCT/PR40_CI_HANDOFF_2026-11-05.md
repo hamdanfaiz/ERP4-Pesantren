@@ -9,12 +9,12 @@
 - Tidak ada migration atau data Production PTSAS `ptsasgdvgrbdtgyqieie` yang diubah.
 - Supabase MCP menolak `get_project` dan read-only SQL untuk Production. `list_migrations` mengembalikan daftar kosong, tetapi tanpa akses proyek hasil itu bukan bukti bahwa schema/ledger Production kosong; status Production tetap belum terverifikasi.
 
-## Pemeriksaan regresi lokal sebelum koreksi tab terakhir
+## Pemeriksaan lokal pada head `fb72586`
 
-- `npm run lint`, `npm run build`, dan 39/39 tes non-database/API lulus pada source `8f7c27f`. Dua tes loopback lulus setelah diberi izin untuk mengakses server lokal `127.0.0.1`; ini bukti lokal, bukan workflow GitHub.
-- Source dan perubahan tab terbaru `180cc08` menjalani pemeriksaan ulang: `npm run lint` dan `npm run build` lulus. Build memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
-- Build dan tes tersebut tidak membuktikan UAT visual, integrasi Supabase live, atau seluruh gerbang rilis.
-- Uji database/API yang belum terbukti: `test:db`, `test:db:nis-race`, `test:db:tahfidz-session-race`, `test:api:auth-tenant`, `test:api:finance-storage`, `test:api:library-storage`, dan `test:db:backup-restore`.
+- `npm run lint` dan `npm run build` lulus. Build memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
+- Seluruh 39 skrip tes non-database/API yang tersedia lulus. Ini mencakup pemeriksaan migrasi offline, runtime Supabase-only, tenant/RBAC, alur PPDB, Master Data, Akademik, Tahfidz, impor/ekspor, pengaturan Finance, serta dua tes HTTP loopback setelah akses `127.0.0.1` diizinkan.
+- Tujuh tes yang memerlukan koneksi database/API live belum dijalankan: `test:db`, `test:db:nis-race`, `test:db:tahfidz-session-race`, `test:api:auth-tenant`, `test:api:finance-storage`, `test:api:library-storage`, dan `test:db:backup-restore`.
+- Hasil lokal bukan workflow GitHub dan tidak membuktikan UAT visual, integrasi Supabase live, atau seluruh gerbang rilis.
 
 ## Staging VQE dan prasyarat koneksi
 
