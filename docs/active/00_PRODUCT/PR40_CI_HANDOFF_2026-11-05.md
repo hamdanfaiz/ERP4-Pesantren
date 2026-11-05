@@ -41,13 +41,13 @@
 5. Jalankan seluruh tujuh tes integrasi di atas di Postgres/Supabase terisolasi dan lampirkan tautan workflow serta hasil per job. Jangan gunakan Production sebagai target tes.
 6. Selesaikan UAT Admin VQE: login, isolasi tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul terkait. Pertahankan PR Draft sampai CI, database, dan UAT terbukti lulus.
 
-## Temuan UI Dokumen Digital — masih terbuka
+## Temuan UI Dokumen Digital — perbaikan struktur dikirim, verifikasi visual masih terbuka
 
-- Pengguna melaporkan bahwa style tab pada modul Dokumen Digital belum sesuai standar UI; temuan tetap terbuka.
-- Pemeriksaan visual halaman referensi AI Studio pada 5 November menampilkan lima tab: Surat Masuk, Surat Keluar, E-Approval, Arsip Digital, dan AI OCR Scanner; wadahnya mendukung scroll horizontal dan memberi keadaan aktif berwarna biru.
-- Source PR `SupabaseDocumentManager` memiliki tujuh filter tab (Semua dokumen, Surat masuk, Surat keluar, Persetujuan elektronik, Arsip Digital, Pemindai OCR, Internal) dan memakai `ERPTabs` bersama. Perbedaan jumlah/label dapat memengaruhi lebar dan scroll, tetapi belum membuktikan penyebab mismatch CSS. Fitur yang tidak ada di referensi tidak dihapus tanpa tinjauan produk.
-- Preview lokal yang dibuka di Chrome pada `127.0.0.1:54327` kini menolak koneksi (`ERR_CONNECTION_REFUSED`); render PR dengan sesi Admin VQE belum tersedia. Karena itu, styling yang benar-benar tampil belum dapat dibandingkan dengan modul acuan.
-- UAT visual memerlukan preview PR yang dapat dijangkau browser dan sesi Admin VQE. Jangan tandai temuan selesai sebelum pembandingan visual dan koreksi terverifikasi.
+- Pengguna melaporkan bahwa style tab pada modul Dokumen Digital belum sesuai standar UI.
+- Pemeriksaan halaman referensi AI Studio pada 5 November menampilkan lima tab utama: Surat Masuk, Surat Keluar, E-Approval, Arsip Digital, dan AI OCR Scanner.
+- Commit `db18402` menyelaraskan lima tab utama di `SupabaseDocumentManager` dengan acuan. Akses **Semua dokumen** tetap tersedia sebagai tombol tampilan, sedangkan **Internal** tetap tersedia sebagai pilihan filter jenis. Perubahan ini mempertahankan kedua fungsi tanpa menambah tab utama.
+- `npm run lint` dan `npm run build` lulus di checkout lokal; build masih memberi peringatan anotasi Rollup dari Zod dan ukuran chunk `react-pdf`. Preview lokal saat ini tidak dapat dijangkau (`ERR_CONNECTION_TIMED_OUT`), sehingga render aktual, keadaan aktif/nonaktif, dan responsivitas belum dibandingkan.
+- UAT visual tetap terbuka sampai preview PR dapat dijangkau browser dengan sesi Admin VQE dan tampilan dibandingkan dengan acuan pada ukuran layar yang sama.
 
 ## Gerbang sebelum merge atau cutover
 
