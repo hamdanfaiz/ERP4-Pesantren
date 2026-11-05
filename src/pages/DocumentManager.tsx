@@ -21,6 +21,7 @@ import {
   QrCode
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { ERPTabs } from "../components/ERPDesignSystem";
 import { getAllMasterDataRecords } from "../data/mockRecords";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -140,73 +141,41 @@ export function DocumentManager() {
         </div>
       </div>
 
-      <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden">
-        <div className="border-b border-slate-200 dark:border-white/5 bg-black/40 overflow-x-auto">
-          <div className="flex p-2 gap-2 min-w-max">
-            {[
-              {
-                id: "incoming",
-                label: "Surat Masuk",
-                icon: <Mail className="w-4 h-4" />,
-              },
-              {
-                id: "outgoing",
-                label: "Surat Keluar",
-                icon: <Files className="w-4 h-4" />,
-              },
-              {
-                id: "approval",
-                label: "E-Approval",
-                icon: <FileSignature className="w-4 h-4" />,
-              },
-              {
-                id: "archive",
-                label: "Arsip Digital",
-                icon: <FileBox className="w-4 h-4" />,
-              },
-              {
-                id: "ocr",
-                label: "AI OCR Scanner",
-                icon: <ScanFace className="w-4 h-4" />,
-              },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                aria-pressed={activeTab === tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn("erp-tab-control", 
-                  "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all relative",
-                  activeTab === tab.id
-                    ? "bg-blue-500/10 text-blue-400"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:bg-white/5",
-                )}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="space-y-3">
+        <ERPTabs
+          tabs={[
+            { id: "incoming", label: "Surat Masuk", icon: <Mail className="h-4 w-4" /> },
+            { id: "outgoing", label: "Surat Keluar", icon: <Files className="h-4 w-4" /> },
+            { id: "approval", label: "Persetujuan elektronik", icon: <FileSignature className="h-4 w-4" /> },
+            { id: "archive", label: "Arsip Digital", icon: <FileBox className="h-4 w-4" /> },
+            { id: "ocr", label: "Pemindai OCR", icon: <ScanFace className="h-4 w-4" /> },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+          ariaLabel="Bagian Dokumen Digital"
+        />
 
-        <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-black/20 border-b border-slate-200 dark:border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Search letter ID..."
-                className="pl-9 pr-4 py-2  rounded-lg text-sm focus:outline-none focus:border-blue-500 w-full sm:w-80 bg-slate-50 dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-300"
-              />
+        <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden">
+          <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-black/20 border-b border-slate-200 dark:border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search letter ID..."
+                  className="pl-9 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500 w-full sm:w-80 bg-slate-50 dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-300"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="p-6">
-          {activeTab === 'ocr' ? <OcrScannerView /> : null}
-          {activeTab === 'incoming' ? <IncomingLettersView /> : null}
-          {activeTab === 'outgoing' ? <OutgoingLettersView /> : null}
-          {activeTab === 'approval' ? <ApprovalView /> : null}
-          {activeTab === 'archive' ? <ArchiveView /> : null}
+          <div className="p-6">
+            {activeTab === 'ocr' ? <OcrScannerView /> : null}
+            {activeTab === 'incoming' ? <IncomingLettersView /> : null}
+            {activeTab === 'outgoing' ? <OutgoingLettersView /> : null}
+            {activeTab === 'approval' ? <ApprovalView /> : null}
+            {activeTab === 'archive' ? <ArchiveView /> : null}
+          </div>
         </div>
       </div>
     </div>

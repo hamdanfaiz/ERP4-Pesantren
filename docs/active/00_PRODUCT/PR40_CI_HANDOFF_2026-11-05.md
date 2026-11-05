@@ -34,11 +34,20 @@
 - Performance Advisor melaporkan unindexed_foreign_keys: 258 (INFO); unused_index: 102 (INFO). Jangan menambahkan indeks ke semua foreign key atau menghapus indeks yang belum terpakai secara massal. Triage dengan pola query produksi dan `EXPLAIN (ANALYZE, BUFFERS)` setelah data sintetis representatif tersedia.
 - Ini snapshot advisory baca-saja, bukan persetujuan keamanan/performa atau bukti UAT. Tidak ada migration, policy, index, setting Auth, atau data Production yang diubah.
 
+## Update staging setelah snapshot — migrasi kelas Akademik
+
+- Migrasi sumber `20270302000000_academic_class_reference_pagination.sql` telah diterapkan ke **VQE staging saja** melalui Supabase migration tool. Verifikasi baca-saja menemukan kedua indeks kelas dan kedua fungsi paginasi.
+- Kedua fungsi terverifikasi memakai `SECURITY INVOKER` dan `search_path=pg_catalog, public`; tabel prasyarat `master_data_records`, `students`, dan `academic_records` ada di staging. Tidak ada data tenant/Production yang diubah.
+- Tool mencatat migrasi dengan versi waktu otomatis `20261105070231` dan nama `academic_class_reference_pagination`, bukan versi sumber `20270302000000`. Jadi ledger staging sekarang berisi 134 baris, tetapi **belum sinkron** dengan source. Jumlah baris yang sama bukan bukti kesamaan migrasi.
+- Ledger lama juga masih mencatat alias `20261101015832_tenant_reference_relationships`, sementara source memakai versi `20270214120000`. Source Git membuktikan keduanya adalah rename identik (blob `789e09d7ad32be971acb029a2116106105f46c29`, commit `43e44dbabac7dac400da8fb9cb4545b3bf320e3f`), tetapi SQL live alias tetap harus diperiksa.
+- Jangan menjalankan ulang SQL `20270302000000` atau melakukan penulisan ledger manual. Tim backend harus memakai Supabase CLI yang dipin, URL pooler khusus VQE, preflight, lalu `supabase migration repair` resmi untuk memetakan alias versi otomatis ke versi sumber setelah memeriksa definisi live. Setelah itu jalankan ulang `supabase migration list`, `db push --dry-run`, dan tes integrasi.
+- Production PTSAS tetap tidak disentuh. PR dan cutover tetap tertahan oleh rekonsiliasi migration ledger, tujuh tes integrasi DB/API, workflow CI, dan UAT Admin.
+
 ## Urutan aman untuk tim backend
 
 1. Sediakan `SUPABASE_DB_POOLER_URL` khusus VQE di environment lokal/CI yang tidak di-commit. Pastikan project ref dalam URL adalah `vqemuyzveuirlkvdggjd`; jangan gunakan nilai dari `.env` Production dan jangan kirim kredensial melalui chat.
 2. Siapkan Supabase CLI versi `2.84.2` sesuai workflow repo dan `psql`, atau runner CI terisolasi yang menyediakan keduanya. Jalankan `npm run preflight:db-migrations` terhadap VQE.
-3. Lanjutkan hanya jika preflight memastikan SQL alias `20261101015832 → 20270214120000` cocok persis serta tidak ada versi asing, mismatch SQL/nama, atau urutan yang tertinggal. Rekonsiliasi ledger dengan `supabase migration repair 20270214120000 --status applied` hanya setelah verifikasi itu. Jangan mengubah ledger dengan SQL manual dan jangan menjalankan ulang migration tenant-reference.
+3. Lanjutkan hanya jika preflight memastikan SQL alias `20261101015832 → 20270214120000` dan versi otomatis `20261105070231 → 20270302000000` cocok persis serta tidak ada versi asing, mismatch SQL/nama, atau urutan yang tertinggal. Rekonsiliasi dengan `supabase migration repair <versi-lama> --status reverted` lalu `supabase migration repair <versi-sumber> --status applied` hanya setelah verifikasi prosedur pada CLI versi yang dipin. Jangan mengubah ledger dengan SQL manual dan jangan menjalankan ulang SQL migration yang telah berhasil diterapkan.
 4. Jalankan `supabase migration list` dan `supabase db push --dry-run` dengan target VQE yang eksplisit. Tinjau daftar perubahan sebelum menerapkan migration yang belum ada; verifikasi indeks dan fungsi picker kelas sesudahnya.
 5. Jalankan seluruh tujuh tes integrasi di atas di Postgres/Supabase terisolasi dan lampirkan tautan workflow serta hasil per job. Jangan gunakan Production sebagai target tes.
 6. Selesaikan UAT Admin VQE: login, isolasi tenant/role, Data Induk, Naming Series, pagination, impor/ekspor, dan modul terkait. Pertahankan PR Draft sampai CI, database, dan UAT terbukti lulus.
@@ -48,6 +57,7 @@
 - Pengguna melaporkan bahwa style tab pada modul Dokumen Digital belum sesuai standar UI.
 - Pemeriksaan halaman referensi AI Studio pada 5 November menampilkan lima tab utama: Surat Masuk, Surat Keluar, E-Approval, Arsip Digital, dan AI OCR Scanner.
 - Koreksi lanjutan menempatkan **Semua dokumen** dalam tab strip bersama, sehingga semua navigasi pada `SupabaseDocumentManager` menggunakan `ERPTabs` dan style standar yang sama. Tab utama kini enam: Semua dokumen, Surat Masuk, Surat Keluar, Persetujuan elektronik, Arsip Digital, dan Pemindai OCR.
+- Implementasi lama `DocumentManager` yang masih ada di source juga telah diselaraskan ke `ERPTabs`, agar tidak menyimpan gaya khusus yang berbeda. Router aplikasi saat ini menunjuk ke `SupabaseDocumentManager`; visual preview setelah perubahan tetap perlu diperiksa saat UAT.
 - **Internal** tetap tersedia sebagai pilihan filter jenis ketika tab Semua dokumen dipilih. Perubahan hanya menyamakan tampilan dan penempatan navigasi; UAT visual/responsif masih perlu dilakukan pada sesi Admin staging.
 - Commit `4d32053` mengganti navigasi khusus pada Operasional Fasilitas Asrama dengan `ERPTabs`, menjaga dua bagian sesuai role yang diizinkan. Tidak ada perubahan pada sumber data atau aturan akses.
 - `npm run lint` dan `npm run build` lulus pada checkout persis yang berisi koreksi tab Dokumen Digital `180cc08`; build masih memberi peringatan Rollup dari Zod dan ukuran chunk `react-pdf` sekitar 1,46 MB.
