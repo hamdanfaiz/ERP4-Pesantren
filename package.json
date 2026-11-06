@@ -14,6 +14,7 @@
     "test:private-api-schema": "node scripts/test-private-api-schema.mjs",
     "test:db:nis-race": "node scripts/test-nis-concurrency.mjs",
     "test:db:tahfidz-session-race": "node scripts/test-tahfidz-session-concurrency.mjs",
+    "test:db:room-assignment-race": "node scripts/test-room-assignment-reference-locks.mjs",
     "test:migration-preflight": "node scripts/test-migration-preflight.mjs",
     "preflight:db-migrations": "node scripts/preflight-supabase-migrations.mjs",
     "preflight:db-migrations:local": "node scripts/preflight-supabase-migrations.mjs --local",
