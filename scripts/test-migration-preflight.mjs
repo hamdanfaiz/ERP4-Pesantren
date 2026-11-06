@@ -144,6 +144,11 @@ const roomAssignmentLockMigration = sourceMigrationsWithSql.find(
 assert.match(roomAssignmentLockMigration.statements.join('\n'), /WHERE id = p_tenant_id AND status = 'active'\s+FOR SHARE/i);
 assert.match(roomAssignmentLockMigration.statements.join('\n'), /SELECT \* INTO v_building[\s\S]*?WHERE tenant_id = p_tenant_id AND category = 'Gedung' AND id = v_building_id[\s\S]*?FOR SHARE/i);
 assert.doesNotMatch(roomAssignmentLockMigration.statements.join('\n'), /FOR KEY SHARE/i);
+const ppdbRoomLockFunction = roomAssignmentLockMigration.statements
+  .filter((statement) => statement.includes('CREATE OR REPLACE FUNCTION public.onboard_accepted_ppdb_candidate('))
+  .join('\n');
+assert.match(ppdbRoomLockFunction, /WHERE id = p_tenant_id AND status = 'active'[\s\S]*?FOR SHARE/i);
+assert.equal([...ppdbRoomLockFunction.matchAll(/\bFOR SHARE\b/gi)].length, 4);
 assert.match(
   sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270302000000_academic_class_reference_pagination.sql').statements.join('\n'),
   /lower\(name\) text_pattern_ops/i
