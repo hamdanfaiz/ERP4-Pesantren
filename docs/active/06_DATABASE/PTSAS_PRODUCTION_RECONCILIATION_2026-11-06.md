@@ -1,4 +1,6 @@
 # Rekonsiliasi Skema PTSAS Production
+> **Status terbaru — 6 November 2026, 22.20 WIB.** Tabel perbandingan di bawah adalah snapshot inventaris baca-saja terdahulu, bukan keadaan terkini VQE. Source sekarang berisi 136 file migration; VQE memiliki 135 versi canonical sampai `20270303000000` ditambah satu baris alias `20261106151606` untuk migration `20270304000000_student_room_assignment_reference_locks`. SQL telah diterapkan, tetapi alias ledger belum direkonsiliasi. PR #40 source `c618...` lulus CI #1182 (3/3); CI #1183 pada checkpoint dokumentasi baru masih berjalan. Production PTSAS tidak disentuh. Lihat [checkpoint terbaru](../00_PRODUCT/CHECKPOINT_2026-11-06_RESUME_STAGING.md).
+
 
 **Status:** belum aman untuk menjalankan `db push` atau memperbaiki ledger.  
 **Sumber:** CSV inventaris baca-saja yang dijalankan pada 6 November 2026 pukul 10:38 UTC; PostgreSQL 17.11, database `postgres`, sesi `postgres`. CSV berisi metadata skema, bukan baris operasional.  
