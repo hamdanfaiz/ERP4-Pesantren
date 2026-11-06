@@ -93,6 +93,8 @@ function cleanup(dbUrl) {
     'DROP TRIGGER IF EXISTS room_assignment_test_delay ON public.master_data_records;',
     'DROP FUNCTION IF EXISTS public.room_assignment_test_delay();',
     "DELETE FROM public.student_room_assignment_history WHERE tenant_id = '" + tenantId + "'::uuid;",
+    "DELETE FROM public.cooperative_wallet_ledger WHERE tenant_id = '" + tenantId + "'::uuid;",
+    "DELETE FROM public.cooperative_wallets WHERE tenant_id = '" + tenantId + "'::uuid;",
     "DELETE FROM public.students WHERE tenant_id = '" + tenantId + "'::uuid;",
     "DELETE FROM public.master_data_records WHERE tenant_id = '" + tenantId + "'::uuid AND category = 'Kamar';",
     "DELETE FROM public.master_data_records WHERE tenant_id = '" + tenantId + "'::uuid AND category = 'Gedung';",
