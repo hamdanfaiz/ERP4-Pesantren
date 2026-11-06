@@ -59,3 +59,13 @@ Dokumen ini menjadi status terbaru untuk melanjutkan pekerjaan. Catatan historis
 ## Batas perubahan lokal
 
 Worktree `erp4-pr38-40-integration-20261106` berisi perubahan tracked/untracked dan basisnya berbeda dari head PR #40. Jangan push seluruh worktree. Untuk source aplikasi, gunakan branch PR #40; perubahan lokal perlu ditinjau dan direkonsiliasi satu per satu sebelum diambil.
+
+## Checkpoint terbaru — 6 November 2026, 22.50 WIB
+
+- PR #40 masih **Open**, belum di-merge. Head dokumentasi saat mulai checkpoint `58553c2e493d10cf35e0268a2d1e40a7bed064c8`; source aplikasi yang diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`.
+- GitHub Actions **#1187** (`42245703954`) lulus **3/3 job** pada head `58553c2e...`: build/frontend dan Firebase bundle guard, replay migration + API auth + pgTAP, serta instalasi NPM dari lockfile untuk environment pelanggan. Job database juga memverifikasi baseline migration sintetis, isolation/auth, Finance, Storage, backup/restore lokal CI, dan konkurensi NIS/Tahfidz/penempatan kamar.
+- Kelulusan tersebut adalah bukti CI pada database lokal sintetis, bukan UAT browser atau verifikasi database Production. Source aplikasi tidak berubah dalam pembaruan ini.
+- PR #40 punya 25 ID menu sidebar yang terpetakan secara statis ke route dan RBAC. Validasi statis tidak memastikan seluruh aksi UI/runtime sudah lulus UAT; rute tambahan `intelligence` di luar sidebar tetap perlu keputusan pemilik produk/tim backend.
+- Preview lokal pada port 4179/3000 sebelumnya tidak aktif. UAT login Admin/Wali, navigasi pasca-login, dan alur modul di browser masih terbuka.
+- VQE `vqemuyzveuirlkvdggjd`: migration kamar `20270304000000` sudah aktif dengan alias ledger `20261106151606`. Jangan jalankan DDL ulang. Rekonsiliasi satu baris ledger dan pengaturan Auth ditunda sampai pemilik aktif setelah pukul 05.00 WIB.
+- PTSAS Production `ptsasgdvgrbdtgyqieie` tidak disentuh. Inventaris skema lengkap, backup/restore yang terbukti, rehearsal, serta dry-run Production tetap menjadi gerbang wajib.

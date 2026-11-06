@@ -1,4 +1,9 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
+> **Status terbaru — 6 November 2026, 22.50 WIB.** PR #40 masih terbuka untuk review. Source aplikasi terakhir yang diuji adalah `c61825935c49b642d8bed08b16e7c428a73add15`; CI #1187 lulus 3/3 pada head dokumentasi `58553c2e493d10cf35e0268a2d1e40a7bed064c8`. Run #1187 menguji build/runtime, instalasi NPM, migration replay sintetis, API/auth, pgTAP, Storage, backup/restore lokal CI, dan konkurensi. Hasil CI ini tidak sama dengan UAT browser atau verifikasi Production.
+>
+> Preview lokal 4179/3000 tidak aktif saat diperiksa. UAT login Admin/Wali dan modul di browser masih terbuka. VQE sudah menjalankan migration `20270304000000`, tetapi satu versi ledger masih alias `20261106151606`; jangan jalankan ulang DDL. PTSAS Production tidak disentuh, dan tetap menunggu inventaris penuh, backup/restore yang terbukti, rehearsal serta dry-run yang disetujui.
+> [Checkpoint terbaru dan urutan tindakan](CHECKPOINT_2026-11-06_RESUME_STAGING.md).
+
 
 > **Status terkini — 6 November 2026, 22.45 WIB.** Data operasional/angka di bagian bertanggal di bawah adalah snapshot historis dan tidak menggantikan status terbaru ini.
 >
