@@ -36,3 +36,9 @@
 - Temuan tambahan VQE: 162 tabel `public` dengan RLS tanpa policy (INFO), 258 foreign key tanpa indeks penutup dan 96 indeks yang belum terlihat dipakai (INFO). Temuan RLS tanpa policy bersifat fail-closed untuk akses tabel langsung; jangan menambah policy hanya untuk menghilangkan peringatan. Indeks perlu dipilih setelah menilai pola query dan rencana skala, bukan dibuat massal hanya berdasarkan hitungan advisor.
 - Health advisor tidak menampilkan lint aktif pada snapshot ini. Belum ada perubahan pengaturan Auth, DDL, atau indeks pada VQE; Production tidak disentuh.
 
+## Batas runtime Firebase
+
+- Audit source menemukan 23 file legacy yang masih memiliki import atau referensi Firestore/Firebase, terutama halaman lama dan service onboarding lama. `src/App.tsx` dan `src/main.tsx` tidak memuat halaman legacy tersebut pada graph aktif.
+- CI pada head `8d54f689b9b781f80028cbc9dc0e101bb3d3696b` lulus untuk guard graph runtime tanpa Firebase dan image produksi tanpa paket Firebase. `src/firebase.ts` menolak pemakaian lama, dan alias Vite `firebase/firestore` mengarah ke shim yang melempar error.
+- Dengan bukti itu, runtime yang diuji tidak bergantung pada Firestore; namun berkas legacy dan Firebase devDependency masih berada di source untuk kebutuhan kompatibilitas/type-check. Bila kebijakan repositori menuntut source bersih tanpa referensi Firebase sama sekali, pengarsipan/penghapusan berkas legacy menjadi pekerjaan source-cleanup terpisah sebelum klaim tersebut dibuat.
+
