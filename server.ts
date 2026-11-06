@@ -559,6 +559,49 @@ async function startServer() {
     return res.status(200).json({ status: "ready" });
   });
 
+  app.get("/api/auth/profile", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Vary", "Authorization");
+    const uid = String((req as any).user?.uid || "").trim();
+    if (!uid) return res.status(401).json({ code: "UNAUTHORIZED", error: "Autentikasi diperlukan." });
+
+    try {
+      // The caller identity comes only from the verified bearer token; no user ID is accepted from the request.
+      const profile = await getUserProfile(uid);
+      if (!profile) {
+        return res.status(404).json({ code: "PROFILE_NOT_FOUND", error: "Profil akun belum diprovisikan. Hubungi administrator pesantren." });
+      }
+
+      return res.status(200).json({
+        profile: {
+          uid: profile.uid,
+          email: profile.email,
+          name: profile.name,
+          username: profile.username,
+          role: profile.role,
+          status: profile.status,
+          tenantId: profile.tenantId,
+          tenantName: profile.tenantName,
+          tenantTimeZone: profile.tenantTimeZone,
+          tenantType: profile.tenantType,
+          unitId: profile.unitId,
+          mustChangePassword: profile.mustChangePassword,
+          modulePermissions: profile.modulePermissions,
+          linkedSantriId: profile.linkedSantriId,
+          linkedSantriName: profile.linkedSantriName,
+          linkedSantriNis: profile.linkedSantriNis,
+          linkedSantriClass: profile.linkedSantriClass,
+          linkedSantriRoom: profile.linkedSantriRoom,
+        },
+      });
+    } catch (error) {
+      const unavailable = identityFailure(res, error);
+      if (unavailable) return unavailable;
+      console.error("Supabase auth profile endpoint failed", error instanceof Error ? error.name : "unknown error");
+      return res.status(503).json({ code: "PROFILE_UNAVAILABLE", error: "Profil akun belum dapat diverifikasi. Silakan coba kembali." });
+    }
+  });
+
   const loadCommunicationActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
     if (!profile) throw new CommunicationStoreError(403, "Profil akun tidak ditemukan.");
