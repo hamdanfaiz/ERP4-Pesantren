@@ -169,14 +169,14 @@ const observedStagingMigrations = sourceMigrationsWithSql
     // Mirror the observed gap without embedding staging SQL in this fixture.
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
-assert.equal(observedStagingMigrations.length, 48);
+assert.equal(observedStagingMigrations.length, 49);
 assert.equal(sourceMigrationsWithSql.length, 117);
 const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
-assert.equal(stagingBaseline.appliedCount, 48);
+assert.equal(stagingBaseline.appliedCount, 49);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(stagingBaseline.pending.length, 69);
+assert.equal(stagingBaseline.pending.length, 68);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
-assert.equal(stagingBaseline.pending.at(-1).version, '20270213000000');
+assert.equal(stagingBaseline.pending.at(-1).version, '20270212000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
 assert.equal(stagingBaseline.unknownApplied.length, 0);
 assert.deepEqual(stagingBaseline.nameMismatches.map(({ version }) => version), [...missingStagingMetadataVersions]);
