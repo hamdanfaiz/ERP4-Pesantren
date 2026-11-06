@@ -88,5 +88,18 @@
 
 Checkpoint awal dibuat 5 November dan diperbarui 6 November 2026. Perubahan source impor santri dan CI terbaru sudah dicatat pada PR #40; Production tidak disentuh. PR belum siap merge, cutover, atau deploy karena UAT UI/staging dan review backend masih terbuka.
 
+## Checkpoint revalidasi — 6 November 2026
 
+- Head PR #40 yang diperiksa: `9818d4516bb53ee7f940ea522a1fbf9e9673c04f`. GitHub Actions run [#1160](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42169726516) lulus 3/3 job. Job database merehearsal upgrade dari batas ledger staging, menjalankan pgTAP, API/isolasi tenant, Storage, dan backup/restore pada Supabase lokal terisolasi. Ini bukan penerapan ke VQE live atau UAT browser.
+- VQE staging mempunyai 134 entri ledger sampai `20270302000000_academic_class_reference_pagination`. PR #40 memiliki 135 file migration; `20270303000000_master_data_student_import_relationships` masih pending. Query baca-saja menemukan RPC import lama sudah ada tetapi helper validasi baru belum ada, konsisten dengan migration yang belum diterapkan.
+- File `.env` di checkout UAT `erp4-pr40-uat-20261104` menunjuk ke VQE dan diabaikan Git, tetapi `SUPABASE_DB_POOLER_URL` belum tersedia. Karena itu dry-run CLI dan penerapan live VQE belum dilakukan. Jangan memakai URI Production atau memakai MCP `apply_migration` untuk mengganti urutan migration source.
+- Dashboard Supabase yang sedang memilih `main / PRODUCTION` menampilkan 47 entri ledger; yang terbaru `20261206000000`. Konektor MCP masih menolak baca Production. Dibanding 135 file source PR #40, selisih hitungan ledger adalah 88 entri. Ini hanya perbandingan metadata, bukan bukti tentang DDL, backfill, atau struktur efektif Production. PTSAS tidak diubah.
+- Head PR #38 `0bc56b435aaf8d25a138bc28ef4d36d85d75f57b`, #39 `28cbb95c3f42bef5e6483055be738924ce893059`, dan #40 `9818d4516bb53ee7f940ea522a1fbf9e9673c04f` semuanya masih Draft/Open. Ancestry compare menunjukkan head #40 memuat head #38 dan #39 (masing-masing behind 0); tidak ada review atau thread review. Gunakan #40 sebagai target review gabungan dan jangan merge #38/#39 terpisah.
+- Progress implementasi tetap diperkirakan sekitar 73%; keberhasilan CI tidak dihitung sebagai penyelesaian UAT live, rekonsiliasi Production, atau cutover. PR belum siap merge/deploy.
 
+### Tindak lanjut
+1. Sediakan URI Session Pooler khusus VQE di `.env` checkout UAT yang diabaikan Git; jangan kirim nilainya ke chat.
+2. Dari checkout PR #40 yang tepat, jalankan preflight dan `supabase db push --dry-run`; pastikan hanya migration `20270303000000` yang pending.
+3. Terapkan migration ke VQE dengan CLI, lalu verifikasi ledger, fungsi, hak EXECUTE, dan alur pratinjau/impor dengan data sintetis.
+4. Selesaikan UAT UI/API staging dan review backend.
+5. Minta tim backend menjalankan inventaris baca-saja Production yang tersedia di `docs/active/06_DATABASE/PTSAS_PRODUCTION_READ_ONLY_RECONCILIATION.sql`; rekonsiliasi metadata dan struktur sebelum rencana cutover. Auto-deploy tetap OFF.
