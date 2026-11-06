@@ -1,5 +1,16 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
+> **Status terkini — 6 November 2026, 22.45 WIB.** Data operasional/angka di bagian bertanggal di bawah adalah snapshot historis dan tidak menggantikan status terbaru ini.
+>
+> - PR #40 `codex/menu-owner-placement-20261101` adalah source review aktif; kode terakhir diuji pada `c61825935c49b642d8bed08b16e7c428a73add15`. CI #1186 lulus 3/3 pada head dokumentasi terbaru `80990bca4f29ae71f6d2a1e0a1e6f4bd20d9f0d3`. PR #40 terbuka, siap ditinjau backend, belum merged.
+> - Sidebar source memuat 25 modul rilis awal; PPOB/payment provider tetap dikecualikan. Izin role dapat menyembunyikan menu yang tidak diizinkan, dan gerbang runtime server tetap default mati. Menu atau rute yang terlihat tidak membuktikan API modul sudah UAT.
+> - Migration `20270304000000_student_room_assignment_reference_locks` sudah aktif di VQE staging `vqemuyzveuirlkvdggjd`; ledger memakai alias `20261106151606`. Jangan jalankan ulang SQL. Rekonsiliasi metadata satu baris belum dilakukan.
+> - VQE berpaket Supabase Free. Leaked-password protection memerlukan Pro menurut [dokumentasi Auth Supabase](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection); tidak ada upgrade atau biaya dilakukan.
+> - PTSAS Production `ptsasgdvgrbdtgyqieie` tidak diubah. Snapshot yang tersedia memiliki 47 ledger version versus 136 file migration source; dua migration 20261031 terbukti memiliki objek DDL yang belum ada. Selisih 89 ledger bukan bukti bahwa semua DDL hilang, dan inventaris skema penuh, backup/restore, dry-run, serta rehearsal Production belum selesai.
+> - UAT internal UI belum selesai: referensi AI Studio yang dapat dibuka menampilkan beranda PPDB dan login; tidak ada sesi Admin aktif untuk menguji dashboard/modul. Local preview `localhost:4179` dan `:3000` tidak sedang listening.
+> - [Checkpoint terbaru, bukti, dan langkah berikut](CHECKPOINT_2026-11-06_RESUME_STAGING.md). Persentase yang dapat dibuktikan adalah CI 3/3; produk belum dinyatakan siap komersial atau Production cutover.
+>
+
 **Status:** dokumen penerimaan internal. Dokumen ini tidak menyatakan produk siap dijual atau siap produksi.
 **Diperbarui:** 31 Oktober 2026
 **Jalur rilis utama:** PR #13, self-hosted, satu instalasi per pesantren.
