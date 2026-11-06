@@ -1,5 +1,14 @@
 # Checkpoint Pengembangan — 6 November 2026, 22.20 WIB
 
+## Pembaruan checkpoint — 6 November 2026, 22.28 WIB
+
+- CI #1184 `42242584323` selesai **3/3 job lulus** pada head `2845d025ae5b96617e6544141263f0a9ad4d63ae` (perubahan dokumentasi). Job database menjalankan replay Production-baseline sintetis; NPM install; frontend typecheck/build, Firebase runtime guard, dan Docker smoke tests. Source aplikasi di dalamnya sama dengan `c61825935c49b642d8bed08b16e7c428a73add15`, yang juga lulus 3/3 pada #1182.
+- Tes konkurensi penempatan kamar dan penguncian konfigurasi referensi selesai lulus. Status ini hanya membuktikan pipeline pada source PR; UAT browser belum dilakukan.
+- Security/Performance/Health Advisor VQE dibaca ulang pukul 15:25 UTC: 162 temuan RLS tanpa policy (fail-closed, tanpa grants table ke role API), satu WARN perlindungan kata sandi bocor, 258 FK tanpa indeks pendukung, 95 peringatan unused-index, dan 0 temuan health.
+- PR #40 masih terbuka dan siap ditinjau. Production tetap tidak berubah; VQE tetap memiliki satu baris migration alias `20261106151606` untuk source `20270304000000`. Tidak ada DDL yang dijalankan ulang.
+- Tindakan operator ditunda hingga pemilik aktif sekitar pukul 05.00 WIB: persetujuan rekonsiliasi **satu baris ledger VQE** dan aktivasi perlindungan kata sandi bocor pada Auth VQE. Jangan lakukan tindakan tersebut terhadap Production.
+
+
 Dokumen ini menjadi status terbaru untuk melanjutkan pekerjaan. Catatan historis yang lebih lama di PR #40 harus dibaca sebagai snapshot pada tanggalnya; checkpoint ini menggantikannya untuk status CI, staging, dan migration.
 
 ## Sumber dan CI
