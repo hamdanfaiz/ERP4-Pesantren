@@ -1,5 +1,12 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
+## Pembaruan source — 7 November 2026, CI #1212
+
+- Source fix pada commit `bba3a5eb7c7ede3d99cade2e89c669755efb95a6` memindahkan pembacaan profil sesi ke `GET /api/auth/profile`. Server memverifikasi bearer token, mengambil UID hanya dari token, memuat satu profil milik pemanggil, dan mengirim field sesi minimum dengan `Cache-Control: private, no-store`.
+- Fix ini menghilangkan ketergantungan alur login browser pada grant `SELECT` tabel `profiles/tenants`. Alasannya: snapshot Production dari operator melaporkan tidak ada grant langsung untuk role browser, sementara migration source lama memang mencantumkan grant SELECT terbatas. Perbedaan grant live dan source tetap perlu dicocokkan tim backend saat DDL Production ditinjau; source fix tidak mengubah Production.
+- Tes integrasi baru mencakup permintaan tanpa token, token invalid, profil sendiri, ID pengguna palsu di query, profil nonaktif, dan minimisasi field. CI [run #1212](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42314879474) lulus **3/3 job**, termasuk API/Auth tenant isolation, build, migration replay sintetis, pgTAP, Storage, dan backup/restore lokal CI.
+- **Status deliverable source saya:** perubahan source sudah dipush ke PR #40 dan lulus CI; tim backend dapat mulai review pada commit tersebut. Ini bukan persetujuan migrasi atau pernyataan siap deploy Production. Pemeriksaan DDL aktual, restore Production, urutan migrasi dan change window tetap milik tim backend; UAT browser juga belum dibuktikan oleh CI.
+
 ## Checkpoint terbaru — 7 November 2026
 
 - **PR #40** masih Open, belum merged. CI run [#1206](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42311021365) lulus 3/3 pada head `345be53d1feb5af20682248e99dabab23e69ee42`; CI run [#1208](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42312516120) kemudian lulus 3/3 pada head `1dfe0debf2fe2a2aa96b3f28dfeb3ea6795dfec5`, yang memperbarui runbook dan handoff. CI tersebut memeriksa source/build, replay baseline Production sintetis, serta backup/restore lokal.
