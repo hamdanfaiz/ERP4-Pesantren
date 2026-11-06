@@ -134,3 +134,15 @@ Runbook operator: [PTSAS_PRODUCTION_MIGRATION_RUNBOOK_2026-11-06.md](../06_DATAB
 - Run tersebut tidak menghubungkan atau mengubah Production PTSAS dan bukan UAT browser/live. Runbook operator Production tetap memerlukan verifikasi backup, rekonsiliasi inventory, dan dry-run oleh operator yang memiliki akses ke PTSAS.
 - Koreksi status worktree: migrasi `20270303000000_master_data_student_import_relationships.sql` yang disebut di atas memang cocok dengan PR #40; worktree secara keseluruhan masih belum direkonsiliasi. Lint/build/preflight/diff check lokal lulus, sedangkan PostgreSQL lokal tidak dijalankan karena alatnya tidak tersedia.
 - PR #38–#40 tetap Draft/Open dan belum masuk `main`. Gate tersisa: UAT UI dan operasional VQE, tinjauan backend, serta prosedur Production pada runbook. Tidak ada migrasi Production yang dijalankan.
+
+## Pemeriksaan ulang 6 November 2026 — PR, CI, dan akses Production
+
+- Status terkini PR #38, #39, dan #40: semuanya masih Draft/Open dan belum merged. Tidak ada review submission pada ketiganya.
+- Git comparison membuktikan head PR #40 `56575dcf4725a1d09c6fd3a52ab51aaeca818f9a` berada di depan head PR #38 `0bc56b435aaf8d25a138bc28ef4d36d85d75f57b` sebanyak 213 commit dan PR #39 `28cbb95c3f42bef5e6483055be738924ce893059` sebanyak 160 commit; keduanya memiliki `behind_by=0`. Riwayat commit PR #38 dan #39 sudah tercakup di PR #40, tetapi belum ada yang masuk `main`.
+- GitHub Actions terbaru pada masing-masing head lulus 3/3 job: #38 run [#1150](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42154508525), #39 run [#1152](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42155797447), dan #40 run [#1171](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42217366259). Job mencakup instalasi NPM, build/guard runtime Firebase, migrasi/API Auth/tenant, dan pgTAP.
+- Pembacaan ulang PTSAS lewat konektor Codex tetap ditolak (`get_project` dan `list_migrations`); konektor masih dapat membaca VQE. Mode read-only yang terlihat di Supabase belum memberi konektor akses ke Production. Tidak ada operasi tulis atau migrasi Production.
+- Pemeriksaan lokal pada cabang integrasi lulus: rencana impor relasional Santri, migration preflight, runtime Supabase tanpa Firebase, TypeScript, build, dan `git diff --check`. Build masih memberi peringatan chunk PDF sekitar 1,46 MB dan anotasi Zod pihak ketiga.
+- Workstation saat pemeriksaan tidak memiliki Docker, `psql`, `pg_dump`, atau `pg_restore`, sehingga rehearsal database lokal tidak dapat dijalankan di sana. CI #1171 tetap menjadi bukti replay migrasi terisolasi pada source PR #40.
+- Endpoint lokal `127.0.0.1:4179/health/ready` dan `127.0.0.1:3000/health/ready` tidak memiliki server aktif; UAT visual/live browser belum dibuktikan.
+
+**Langkah berikut:** tim backend dapat meninjau source dari PR #40 yang sudah lulus CI. Sebelum cutover Production, pulihkan akses baca MCP PTSAS atau minta operator Production menjalankan inventaris baca-saja dan dry-run pada runbook. Jangan menjalankan `db push` sampai backup, rekonsiliasi ledger/DDL, dan keputusan operator selesai.
