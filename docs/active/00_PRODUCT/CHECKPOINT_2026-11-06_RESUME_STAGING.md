@@ -69,3 +69,13 @@ Worktree `erp4-pr38-40-integration-20261106` berisi perubahan tracked/untracked 
 - Preview lokal pada port 4179/3000 sebelumnya tidak aktif. UAT login Admin/Wali, navigasi pasca-login, dan alur modul di browser masih terbuka.
 - VQE `vqemuyzveuirlkvdggjd`: migration kamar `20270304000000` sudah aktif dengan alias ledger `20261106151606`. Jangan jalankan DDL ulang. Rekonsiliasi satu baris ledger dan pengaturan Auth ditunda sampai pemilik aktif setelah pukul 05.00 WIB.
 - PTSAS Production `ptsasgdvgrbdtgyqieie` tidak disentuh. Inventaris skema lengkap, backup/restore yang terbukti, rehearsal, serta dry-run Production tetap menjadi gerbang wajib.
+
+## Checkpoint terbaru — 6 November 2026, 22.58 WIB
+
+- CI GitHub Actions **#1188** (`42247038181`) selesai **3/3 job lulus** pada head `dfff6bbd13c10f115cf17b845f087b6ebcf84421`. Tiga job: frontend build/Firebase bundle guard, instalasi NPM untuk environment pelanggan, dan migration replay/API auth/pgTAP.
+- Read-only Supabase MCP memastikan ledger VQE berisi **136 baris**; nama migration kamar tersimpan di versi alias `20261106151606`, sedangkan source version adalah `20270304000000`. Versi canonical belum ada di ledger. DDL sudah aktif; jangan jalankan ulang. PTSAS Production tetap tidak diubah.
+- Pembacaan metadata migration PTSAS Production ditolak connector dengan `INVALID_ARGUMENT`/permission. Inventaris yang tersedia masih snapshot sebelumnya; tim backend/operator harus menyediakan hasil baca-saja terbaru. Tidak ada akses tulis atau perubahan Production.
+- Uji lokal tambahan pada integration worktree yang berbeda dan memiliki perubahan belum commit: TypeScript lint, production build, migration preflight, RBAC, Supabase-only runtime graph, deployment flags, transfer CSV, Naming Series, PPDB CSV, callback registrasi Wali StrictMode, dan konflik jadwal Akademik lulus. Hasil lokal ini bukan pengganti CI pada head PR. Build lulus dengan peringatan chunk PDF besar (~1,46 MB).
+- Supabase CLI tidak tersedia sebagai command di workspace, sehingga tes konkurensi kamar lokal tidak dijalankan. CI #1188 mencakup tes konkurensi tersebut pada database Supabase lokal terisolasi.
+- UAT browser pasca-login Admin/Wali masih terbuka; localhost:4179/3000 sebelumnya tidak aktif. Route `intelligence` di luar 25 menu sidebar masih perlu ditetapkan apakah perlu navigasi atau memang internal.
+- Manual setting dan persetujuan operator ditahan sampai pemilik aktif setelah pukul 05.00 WIB. Jangan menulis ke Production.
