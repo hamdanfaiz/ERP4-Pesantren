@@ -1,13 +1,13 @@
 # Checkpoint Pengembangan — 6 November 2026, 22.20 WIB
 
-## Status saat dilanjutkan — 6 November 2026, 23.30 WIB
+## Status saat dilanjutkan — 6 November 2026, 23.43 WIB
 
-- PR #40 tetap **Open, belum merged**. Head saat audit `32dcbb691d5abbef1ac61516d9a657ddb46c3311`; source aplikasi terakhir diuji `c61825935c49b642d8bed08b16e7c428a73add15`.
-- GitHub Actions CI [#1193](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42251623019) lulus 3/3: build/dependency pelanggan/Firebase bundle guard; migration, API Auth/isolasi tenant, pgTAP dan replay baseline Production sintetis. Ini bukan UAT browser atau uji pada database Production.
+- PR #40 tetap **Open, belum merged**. Source aplikasi terakhir diuji `c61825935c49b642d8bed08b16e7c428a73add15`; head dokumentasi/CI saat ini `fd2ccb5ff1c83842a57c19d455a6f00171d1b2d6` menambahkan retry jaringan untuk unduhan kunci PostgreSQL.
+- CI [#1196](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42254448795) lulus **3/3 job** pada head tersebut. Frontend build/Firebase bundle guard, instalasi NPM pelanggan, replay Production-baseline sintetis, migrasi/API Auth/isolasi tenant, pgTAP, Finance, Storage, konkurensi, backup/restore lokal CI, dan Docker smoke test lulus. Ini bukan UAT browser atau pengujian database Production.
+- CI #1195 sebelumnya berhenti saat unduhan kunci apt PostgreSQL terputus; retry di #1196 menyelesaikan masalah lingkungan itu.
 - Snapshot CSV Production pukul 17.38 WIB: ledger 47 versi dibanding 136 file source (89 belum tercatat); dua migration lama memiliki efek DDL yang belum ada. Production tidak disentuh.
-- VQE: 136 ledger rows, yakni 135 canonical plus alias `20261106151606` untuk DDL source `20270304000000`. Jangan ulang DDL; rekonsiliasi satu baris metadata tetap ditunda sampai operator aktif.
-- Belum ada bukti UAT browser Admin/Wali yang selesai. Jangan merge/cutover sebelum UAT, inventaris baca-saja terbaru Production, backup/restore terbukti, dan rehearsal/dry-run ditinjau. Manual operator ditunda sampai pengguna aktif sekitar 05.00 WIB.
-- Langkah aman berikutnya: bereskan dokumentasi/handoff dan kumpulkan bukti CI; setelah operator aktif, selesaikan hanya tindakan staging yang disetujui. Production tetap tidak boleh ditulis sebelum gerbangnya lengkap.
+- VQE: 136 ledger rows, yakni 135 versi canonical plus alias `20261106151606` untuk DDL source `20270304000000`. Jangan ulang DDL; rekonsiliasi satu baris metadata tetap menunggu operator.
+- Belum ada bukti UAT browser Admin/Wali yang selesai. Beberapa submenu di audit paritas masih belum mempunyai backend (mis. E-Rapor, OCR, payroll, dan sejumlah alur CBT/LMS/multi-unit); UI statusnya tidak berarti fiturnya selesai. Jangan merge/cutover sebelum UAT, inventaris baca-saja terbaru Production, backup/restore terbukti, dan rehearsal/dry-run ditinjau. Manual operator ditunda sampai pengguna aktif sekitar 05.00 WIB.
 
 
 ## Pembaruan checkpoint — 6 November 2026, 22.28 WIB
