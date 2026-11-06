@@ -57,3 +57,27 @@ Jalankan satu kali dari checkout yang ditinjau. Jangan membuka project/link lain
 
 Rujukan resmi: [Supabase CLI `db push`](https://supabase.com/docs/reference/cli/supabase-db-push) mendukung dry-run dan menjelaskan bahwa migration yang versinya sudah ada pada history akan dilewati; [CLI reference](https://supabase.com/docs/reference/cli/introduction) mencantumkan `--include-all` untuk migration yang tidak ada pada remote history.
 
+
+
+## Addendum inventaris Production baca-saja — 6 November 2026, 13:31 UTC
+
+Addendum ini memperbarui kesimpulan yang lebih lama pada runbook ini. Pemeriksaan dilakukan lewat SQL Editor dashboard pada project ptsasgdvgrbdtgyqieie, cabang main PRODUCTION; query hanya membaca katalog dan ledger, tanpa membaca data operasional atau menjalankan DDL/DML.
+
+### Hasil yang diverifikasi
+
+- Ledger mencatat 47 versi sampai 20261206000000; repository source memuat 135 versi, sehingga 88 versi belum tercatat. Dua versi awal yang hilang dari ledger ialah 20261031104213 dan 20261031225438; 86 versi lain lebih baru.
+- Baris 20261205000000 dan 20261206000000 tidak memiliki nama/payload migration di ledger. Pemeriksaan katalog pada 13:29:55 dan 13:31:13 UTC mengonfirmasi efek inti dari source migration 20261205000000_data_api_default_privilege_hardening.sql dan 20261206000000_ppdb_legacy_candidate_import.sql sudah ada. Jangan menjalankan ulang DDL atau melakukan migration repair hanya karena metadata kedua baris kosong.
+- Hardening ACL terlihat pada default ACL Production; empat helper trigger yang diperiksa tidak memiliki hak EXECUTE langsung untuk anon, authenticated, atau service_role.
+- Struktur impor PPDB legacy terlihat: kolom metadata sumber kandidat dan indeks unik parsial tersedia; ppdb_legacy_import_batches memiliki sepuluh kolom wajib, RLS/FORCE RLS aktif, constraint/FK tervalidasi; RPC import_legacy_ppdb_candidates adalah SECURITY INVOKER, memakai search_path tetap, dan hanya dapat dieksekusi service_role.
+- Dari 119 tabel publik, semuanya mengaktifkan RLS dan FORCE RLS; hanya tabel root tenants tanpa tenant_id. Katalog memiliki 5 policy publik, 402 indeks, 119 fungsi, 24 pemicu non-internal, dan 2 bucket Storage.
+- Akses SQL Editor dashboard berhasil untuk pembacaan tersebut, tetapi konektor MCP Codex tetap hanya menampilkan VQE dan permintaan daftar migration PTSAS masih ditolak. Panel Read-only di dashboard tidak otomatis memberi otorisasi ke sesi MCP yang berbeda.
+
+### Gerbang sebelum migrasi Production
+
+1. Ambil backup penuh dan buktikan jalur pemulihan pada prosedur yang sesuai; jangan melakukan cutover tanpa backup yang bisa dipulihkan.
+2. Gunakan checkout commit PR #40 yang sama dan sudah direview. Simpan inventaris baca-saja penuh terbaru serta daftarkan selisih migration 88 versi sebagai daftar kerja; jangan menafsirkan selisih ledger sebagai bukti bahwa seluruh objeknya hilang.
+3. Jalankan supabase db push --dry-run --include-all pada URL Production yang disimpan aman di mesin operator. Cocokkan setiap versi yang direncanakan dengan inventaris dan rehearsal CI. Hentikan bila target, versi, atau urutan tidak cocok; dry-run bukan pemeriksaan kesetaraan schema penuh.
+4. Jangan menandai migration applied, mengedit ledger, atau mengulang dua DDL yang efek intinya sudah terbukti hanya untuk menyamakan metadata. Jika CLI mengusulkan migration yang merusak objek yang telah ada, jangan jalankan; buat rencana rekonsiliasi idempoten dan review terpisah.
+5. Setelah review operator/backend dan persetujuan cutover, terapkan perubahan satu kali, lalu ulangi inventaris katalog/ledger dan UAT role-tenant. Catat commit source, backup ID, dry-run, hasil apply, dan verifikasi pasca-apply.
+
+Sampai semua gerbang ini lulus, status Production adalah belum dimigrasikan penuh dan belum siap cutover. Tidak ada perubahan tulis Production yang dilakukan dalam pemeriksaan ini.
