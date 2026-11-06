@@ -81,3 +81,17 @@ Addendum ini memperbarui kesimpulan yang lebih lama pada runbook ini. Pemeriksaa
 5. Setelah review operator/backend dan persetujuan cutover, terapkan perubahan satu kali, lalu ulangi inventaris katalog/ledger dan UAT role-tenant. Catat commit source, backup ID, dry-run, hasil apply, dan verifikasi pasca-apply.
 
 Sampai semua gerbang ini lulus, status Production adalah belum dimigrasikan penuh dan belum siap cutover. Tidak ada perubahan tulis Production yang dilakukan dalam pemeriksaan ini.
+
+## Verifikasi DDL migration out-of-order — 6 November 2026, 13:47 UTC
+
+Pemeriksaan tambahan hanya membaca katalog PTSAS Production pada SQL Editor Supabase:
+
+- Tabel public.master_data_audit_events tidak ada.
+- Fungsi public.create_master_data_structure_if_absent dan fungsi audit/wrapper yang didefinisikan dalam dua source migration terkait tidak ditemukan di katalog.
+- Empat trigger audit yang diharapkan tidak ditemukan. Query ini tidak membaca record operasional dan tidak menulis apa pun.
+
+Jadi dua versi lama yang hilang dari ledger bukan sekadar metadata tertinggal: DDL dari 20261031104213_master_data_import_create_only.sql dan 20261031225438_master_data_audit_feed.sql memang belum ada di Production. Sebaliknya, efek inti versi 20261205000000 dan 20261206000000 telah diverifikasi ada walau metadata nama/payload-nya kosong; jangan menjalankan ulang kedua DDL Desember atau mengedit ledger hanya karena nama kosong.
+
+CI #1174 lulus pada baseline Production sintetis: 47 versi ledger, dua gap out-of-order dan 86 gap versi setelah high-water mark, serta dua entry metadata kosong. Rehearsal menerapkan source migration dengan --include-all dan menguji gap lama tersebut di lingkungan lokal CI; ini bukan penerapan atau bukti pemulihan Production.
+
+Sebelum penerapan, operator harus mengambil backup yang dapat dipulihkan, menjalankan dry-run dengan source yang sama, memeriksa versi dan urutan yang terdaftar sebagai pending, serta membandingkan perubahan pada objek yang sudah ada. Hentikan jika dry-run mencoba membuat ulang tabel/fungsi yang telah ada atau menemukan drift lain. Setelah persetujuan backend/operator, jalankan penerapan sekali dan verifikasi schema, ledger, RLS, fungsi, pemicu, ACL, bucket, dan UAT role-tenant.
