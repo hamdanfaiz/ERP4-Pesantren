@@ -1,12 +1,12 @@
-# Checkpoint pengembangan ERP4 Pesantren — 5 November 2026
+# Checkpoint pengembangan ERP4 Pesantren — pembaruan 6 November 2026
 
 ## Status pengiriman
 
 - Repo: hamdanfaiz/ERP4-Pesantren.
 - PR #40 — Relasi tenant dan penomoran otomatis: https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40
 - Branch: codex/menu-owner-placement-20261101.
-- Source baseline PR #40 `f8c66425c630bec663a2dc95a0689a18066a6c04` lulus Actions run #42138699038 dengan 3/3 job. Commit terbaru menambahkan migration `20270303000000_master_data_student_import_relationships.sql`, tes pgTAP, dan validasi hubungan jenjang-kelas-asrama pada impor santri.
-- Migration baru itu belum diterapkan di VQE. CI pada head terbaru harus lulus upgrade rehearsal, pgTAP, build, dan guard tanpa Firebase sebelum perubahan dinyatakan terverifikasi. PR tetap Draft/Open sampai CI terbaru, UAT UI/staging, dan review backend selesai.
+- Source baseline PR #40 `f8c66425c630bec663a2dc95a0689a18066a6c04` lulus Actions run #42138699038 dengan 3/3 job. Head kode PR #40 `3746e356e3f11ba71680f3b8611993cd6435a4a5` juga lulus Actions run [#42151282153](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42151282153) dengan 3/3 job, termasuk migration `20270303000000_master_data_student_import_relationships.sql` dan tes pgTAP terkait. Supabase Preview dilewati karena tidak ada Supabase Branch.
+- PR tetap Draft/Open sampai UAT UI/staging dan review backend selesai. Run CI membuktikan source dan tes otomatis pada Supabase lokal terisolasi; tidak menjalankan migration pada VQE atau Production.
 - Proyek Production PTSAS `ptsasgdvgrbdtgyqieie` tidak diubah. Pemeriksaan database di checkpoint ini hanya baca-saja pada staging VQE `vqemuyzveuirlkvdggjd`.
 
 ## Bukti runtime dan source
@@ -22,8 +22,8 @@
 
 ## Supabase staging VQE — pemeriksaan baca-saja terbaru
 
-- Snapshot baca-saja 6 November 2026 menunjukkan ledger VQE 134 entri cocok pada pasangan `version` dan `name` dengan 134 file source baseline PR #40. Source terbaru menambahkan migration `20270303000000_master_data_student_import_relationships.sql`; migration ini satu versi tertunda dan belum diterapkan di VQE.
-- Kecocokan metadata baseline tidak membuktikan checksum/teks SQL semua migration, seluruh struktur efektif, atau dampak backfill. Tidak ada migration baru yang dijalankan di VQE atau Production.
+- Snapshot baca-saja 6 November 2026 menunjukkan ledger VQE 134 entri. Pada head PR #40, source memiliki 135 migration: 134 pasangan `version`/`name` baseline cocok dengan ledger, sedangkan `20270303000000_master_data_student_import_relationships` adalah satu migration tambahan yang tertunda di source dan belum diterapkan di VQE.
+- Kecocokan metadata tersebut tidak membuktikan checksum/teks SQL seluruh migration, semua struktur efektif, atau dampak backfill. Tidak ada migration baru yang dijalankan di VQE atau Production.
 - Perbandingan katalog PostgreSQL baca-saja terhadap source chain untuk relasi katalog, hardening, dan pagination kelas menemukan:
   - 21 indeks yang diharapkan beserta definisinya.
   - 20 foreign key relasi tenant beserta definisinya.
@@ -65,7 +65,7 @@
 - `npm run test:api:finance-storage` dan `npm run test:api:library-storage` lulus terhadap VQE setelah perbaikan cleanup. Cakupannya termasuk upload/download privat, isolasi tenant dan role, validasi/idempotensi, audit, serta pemulihan objek.
 - Cleanup menangguhkan tenant dan profil sintetis serta memblokir akun Auth. Audit append-only dan referensi tanpa hak DELETE dipertahankan sebagai tombstone; objek Storage tes dihapus. Ini menjaga integritas audit tanpa membiarkan akun fixture mengakses sistem.
 - Verifikasi baca-saja setelah kedua suite: 8 tenant berawalan slug tes tersimpan, semuanya `suspended`; profil aktif = 0; akun Auth yang tidak diblokir = 0; objek Storage pada jalur tenant tes = 0. Production PTSAS tidak disentuh.
-- Actions run #42138699038 meluluskan source baseline PR #40 di Supabase lokal terisolasi: rehearsal upgrade, backfill sintetis, pgTAP, race NIS/Tahfidz, API Auth/tenant, Finance/Library Storage, dan backup/restore. Job frontend meluluskan transfer CSV, Naming Series, Auth/recovery, graph tanpa Firebase, build, serta smoke test Docker pelanggan. Migration baru `20270303000000` belum termasuk dalam run tersebut; gunakan hasil CI pada head terbaru untuk memverifikasi tambahan itu. Supabase Preview dilewati dan CI bukan UAT langsung pada VQE, UAT visual, atau verifikasi Production.
+- Actions run #42151282153 pada head kode terbaru meluluskan 3/3 job di Supabase lokal terisolasi. Job database meluluskan upgrade rehearsal, backfill sintetis, pgTAP migration baru, tes database, race NIS/Tahfidz, Auth/tenant, Finance/Library Storage, dan backup/restore. Job frontend meluluskan transfer CSV, Naming Series, Auth/recovery, graph tanpa Firebase, build, serta smoke test Docker pelanggan. Supabase Preview dilewati. CI bukan UAT langsung pada VQE, UAT visual, atau verifikasi Production.
 - Tes lokal tambahan lulus untuk guard Production, RBAC, Naming Series, Master Data pagination dan CSV, dashboard keuangan, validasi PPDB, runtime tanpa Firebase, alur pemulihan/undangan wali, pagination akademik, aset dan sirkulasi perpustakaan, tanggal bisnis, serta pagination/pencapaian Tahfidz. Tes unit tidak menggantikan tes database dan UAT.
 - Guard staging mewajibkan ref dan URL VQE yang tepat, `ERP4_ALLOW_STAGING_MUTATIONS=true`, publishable key dan key server; Production ditolak. Cleanup gagal tertutup jika tenant/profil tidak berhasil disuspensi atau akun Auth tidak berhasil diblokir.
 - UAT Admin staging masih mencakup matriks role/tenant lintas modul, Data Induk dan Naming Series, PPDB/NIS, Akademik, Tahfidz, Finance, impor/ekspor, backup/restore, serta tampilan responsif. Gunakan tenant sintetis saja.
@@ -79,14 +79,14 @@
 ## Gerbang sebelum merge dan cutover
 
 1. Jalankan preflight dan `db push --dry-run` VQE menggunakan CLI yang dipin untuk memeriksa target dan rencana DDL. Metadata baseline VQE cocok menurut versi/nama; migration baru `20270303000000` seharusnya muncul sebagai pending. Hentikan jika muncul versi/nama asing atau rencana DDL tak terduga.
-2. Jalankan `test:db`, race NIS/Tahfidz, Auth/tenant, dan backup/restore pada staging terisolasi; catat kode keluar dan bukti isolasi untuk masing-masing.
+2. CI head kode `3746e356` sudah menjalankan tes tersebut pada Supabase lokal terisolasi. Jika source berubah lagi, jalankan ulang CI; untuk VQE, lanjutkan UAT terkontrol dengan data sintetis dan catat buktinya.
 3. Tinjau kebijakan retensi tombstone sintetis sebelum staging digunakan ulang untuk UAT berikutnya.
 4. Selesaikan UAT Admin dan visual/responsif, termasuk tab Dokumen Digital pada source terbaru.
-5. Picu atau pulihkan workflow CI pada head PR terbaru, periksa status mergeability dan konflik.
+5. CI head kode `3746e356` lulus 3/3 job; setelah perubahan source berikutnya, periksa lagi semua job, status mergeability, dan konflik.
 6. Verifikasi schema, aturan akses, dan konfigurasi Production secara terpisah sebelum cutover. Jangan lakukan migrasi atau perubahan Production sebelum seluruh gerbang staging lulus.
 7. Setelah PR siap, minta review team backend. Deploy dan UAT hosting tetap dikerjakan team Anda.
 
-Checkpoint aman 5 November 2026: perubahan aplikasi tidak dibuat pada sesi pemeriksaan ini; dependency lokal terpasang dari cache dan file build/`node_modules` diabaikan Git. Checkpoint dokumentasi ini dicatat pada cabang PR; Production tidak disentuh. PR belum siap merge, cutover, atau deploy. Untuk melanjutkan, jalankan CI pada SHA terbaru, sediakan konfigurasi VQE yang benar melalui secret lokal/CI, lalu selesaikan gerbang database dan UAT di atas.
+Checkpoint awal dibuat 5 November dan diperbarui 6 November 2026. Perubahan source impor santri dan CI terbaru sudah dicatat pada PR #40; Production tidak disentuh. PR belum siap merge, cutover, atau deploy karena UAT UI/staging dan review backend masih terbuka.
 
 
 
