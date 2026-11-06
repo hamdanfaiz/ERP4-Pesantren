@@ -29,3 +29,10 @@
 4. Selesaikan UAT live dengan data sintetis untuk role/tenant, impor-ekspor, PPDB/NIS, Akademik, Tahfidz, Finance, Storage, dan tampilan responsif.
 5. Rekonsiliasi schema dan ledger Production secara terpisah sebelum mempertimbangkan cutover. Merge dan deploy hosting tetap menunggu review backend serta gerbang staging.
 
+## Temuan Auth dan advisor terbaru
+
+- Organisasi Supabase VQE saat diperiksa menggunakan paket Free. Advisor Security melaporkan `Leaked Password Protection Disabled` pada tingkat WARN. Dokumentasi Supabase menyatakan pemeriksaan kata sandi bocor tersedia pada Pro ke atas: https://supabase.com/docs/guides/auth/password-security.
+- Antarmuka aplikasi dan endpoint server yang diperiksa membatasi kata sandi baru menjadi minimal 12 karakter. Setiap environment Supabase yang akan dipakai pelanggan tetap perlu mengatur batas minimum yang sama pada kebijakan Auth server-side; validasi UI saja tidak cukup untuk melindungi endpoint Auth yang bisa dipanggil langsung.
+- Temuan tambahan VQE: 162 tabel `public` dengan RLS tanpa policy (INFO), 258 foreign key tanpa indeks penutup dan 96 indeks yang belum terlihat dipakai (INFO). Temuan RLS tanpa policy bersifat fail-closed untuk akses tabel langsung; jangan menambah policy hanya untuk menghilangkan peringatan. Indeks perlu dipilih setelah menilai pola query dan rencana skala, bukan dibuat massal hanya berdasarkan hitungan advisor.
+- Health advisor tidak menampilkan lint aktif pada snapshot ini. Belum ada perubahan pengaturan Auth, DDL, atau indeks pada VQE; Production tidak disentuh.
+
