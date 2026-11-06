@@ -169,3 +169,15 @@ Bagian ini memperbarui angka inventaris lama di atas. Pemeriksaan dilakukan pada
 - UI dashboard memberi akses baca SQL Editor, tetapi konektor MCP Codex masih hanya menampilkan VQE; list_migrations untuk PTSAS tetap ditolak. Mengubah toggle Read-only saja belum membuktikan sesi MCP mendapat hak baca Production.
 
 Batas keputusan: verifikasi efek dua migration menghapus alasan untuk mengulang DDL-nya, tetapi belum membuktikan kesetaraan penuh seluruh 135 migration dengan Production. Tetap perlu inventaris struktur lengkap, backup/restore yang dapat dipulihkan, dan dry-run CLI pada source yang sama sebelum cutover. Production belum ditulis. PR #40 tetap Ready for review; CI dan perubahan dokumen di branch belum menggantikan tinjauan tim backend atau UAT aplikasi.
+
+## Verifikasi DDL dua migration out-of-order — 6 November 2026, 13:47 UTC
+
+Pemeriksaan baca-saja tambahan pada SQL Editor cabang Production mengonfirmasi objek yang dibuat dua migration 20261031 yang belum tercatat memang belum ada:
+
+- to_regclass(public.master_data_audit_events) menghasilkan NULL; query katalog tidak menemukan fungsi create_master_data_structure_if_absent maupun fungsi audit/wrapper yang didefinisikan oleh migration terkait.
+- Query trigger pada empat nama trigger audit yang diharapkan menghasilkan daftar kosong.
+- Tidak ada baris operasional dibaca dan tidak ada perubahan database.
+
+Ini membedakan dua kelas gap: efek inti migration ledger 20261205000000 dan 20261206000000 ditemukan pada katalog; tetapi DDL migration 20261031104213_master_data_import_create_only.sql dan 20261031225438_master_data_audit_feed.sql benar-benar belum ada di Production. Dua migration lama perlu diterapkan dari source melalui rencana --include-all, bukan ditandai applied. CI #1174 telah lulus replay baseline sintetis 47 versi dengan 88 gap source dan menguji penerapan out-of-order; replay itu tidak mengubah Production.
+
+Rencana cutover tetap memerlukan backup/restore yang terbukti, dry-run Production pada commit yang direview, inspeksi setiap versi yang akan diterapkan, dan persetujuan UAT/backend. Jangan menutup gap melalui perubahan ledger manual.
