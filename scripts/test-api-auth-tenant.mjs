@@ -204,6 +204,38 @@ async function main() {
     const readyResponse = await fetch(`${apiBase}/health/ready`);
     assert.equal(readyResponse.status, 200, 'Readiness must verify the local Supabase profile store.');
     assert.equal((await readyResponse.json()).status, 'ready');
+    const unauthenticatedProfile = await fetch(`${apiBase}/api/auth/profile`);
+    assert.equal(unauthenticatedProfile.status, 401, 'The authenticated profile endpoint must reject requests without a bearer token.');
+
+    const invalidTokenProfile = await fetch(`${apiBase}/api/auth/profile`, {
+      headers: { Authorization: 'Bearer invalid-token' },
+    });
+    assert.equal(invalidTokenProfile.status, 401, 'The profile endpoint must verify bearer tokens before reading a profile.');
+
+    const ownProfileResponse = await fetch(`${apiBase}/api/auth/profile`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(ownProfileResponse.status, 200, 'A valid user can load their own profile through the trusted server.');
+    assert.equal(ownProfileResponse.headers.get('cache-control'), 'private, no-store');
+    const ownProfilePayload = await ownProfileResponse.json();
+    assert.equal(ownProfilePayload.profile.uid, users[0].uid);
+    assert.equal(ownProfilePayload.profile.tenantId, tenantIds[0]);
+    assert.equal(ownProfilePayload.profile.role, 'Admin');
+    assert.equal(ownProfilePayload.profile.status, 'active');
+    assert.equal(Object.hasOwn(ownProfilePayload.profile, 'createdByUid'), false, 'The profile endpoint must return only fields needed by the client.');
+
+    const ignoredProfileSelector = await fetch(`${apiBase}/api/auth/profile?userId=${encodeURIComponent(users[2].uid)}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(ignoredProfileSelector.status, 200);
+    assert.equal((await ignoredProfileSelector.json()).profile.uid, users[0].uid, 'Profile selection must come from the verified token, not a caller-supplied user ID.');
+
+    const inactiveProfileResponse = await fetch(`${apiBase}/api/auth/profile`, {
+      headers: { Authorization: `Bearer ${inactiveAdminToken}` },
+    });
+    assert.equal(inactiveProfileResponse.status, 200);
+    assert.equal((await inactiveProfileResponse.json()).profile.status, 'disabled', 'Inactive profiles must be explicitly marked for client-side fail-closed validation.');
+
     assert.equal(readyResponse.headers.get('cache-control'), 'no-store');
 
     const dashboardSnapshot = await fetch(`${apiBase}/api/dashboard/snapshot?surface=dashboard&period=month`, {
