@@ -27,7 +27,7 @@ Status submenu:
 | Ujian (CBT) | Dashboard, kalender, sesi, paket, bank/builder soal, pemantauan langsung, hasil/analitik, pengaturan | Bank soal, sesi/penugasan, dan hasil punya API. Menu referensi yang belum tersambung kini ditampilkan dengan status. | Paket, kalender khusus, pemantauan langsung, dan konfigurasi tenant belum memiliki alur terpisah. |
 | Tahfidz | Ringkasan, setoran, target/rapor, talaqqi, munaqasyah, portal wali, peer review, Al-Qur'an, capaian, halaqah, ekspor/pengingat/penilaian audio | Roster, halaqah, setoran, target, jadwal/sesi, portal tertaut, serta peer review teks termoderasi memiliki jalur Supabase | Pastikan semua tab tidak memakai state contoh saat runtime Supabase. Audio/AI, sebagian ekspor/pengingat, dan gamifikasi belum boleh dianggap aktif tanpa API dan UAT. |
 | Asrama | Detail kamar, izin, kedisiplinan, kehadiran, audit kebersihan, tiket perbaikan, musyrif | Izin, kedisiplinan, kehadiran, penugasan petugas, audit kebersihan, dan tiket punya API/layar | Lima bagian saat ini mewadahi tujuh area referensi: kamar bersumber dari Data Induk; fasilitas memuat audit dan tiket; penugasan memuat musyrif. Beri penjelasan/pengarah yang eksplisit. |
-| Akademik Formal | Jadwal/kalender, jurnal KBM, penilaian, E-Rapor, penyelesaian konflik jadwal | Jadwal, jurnal, dan penilaian memakai API tenant. Deteksi konflik pengajar/ruang/kelas tersedia pada layar Akademik; transaksi Supabase juga menolak jadwal yang bentrok. | E-Rapor semester belum tersedia. Resolusi konflik masih berupa pemeriksaan dan tindakan manual, bukan penjadwalan ulang otomatis. Snapshot Akademik berhenti aman jika data melebihi batas 5.000 record; tinjau skalabilitas untuk pesantren besar. |
+| Akademik Formal | Jadwal/kalender, jurnal KBM, penilaian, E-Rapor, penyelesaian konflik jadwal | Jadwal, jurnal, dan penilaian memakai API tenant. Deteksi konflik pengajar/ruang/kelas tersedia pada layar Akademik; transaksi Supabase juga menolak jadwal yang bentrok. | E-Rapor semester belum tersedia. Resolusi konflik masih berupa pemeriksaan dan tindakan manual, bukan penjadwalan ulang otomatis. Daftar jadwal/jurnal/nilai dan roster memakai paginasi, tetapi daftar awal pengajar dan unit masing-masing dibatasi 500 serta referensi akademik 2.000. Pemindaian konflik jadwal dibatasi 5.000 record dan pemetaan nama unit 500; kelebihan batas ditolak aman, tetapi kapasitas ini harus ditingkatkan sebelum tenant besar. |
 | LMS | Dashboard, kursus/kategori, pustaka video, asesmen, ulasan sebaya, pengajar | Kursus, kategori, materi, penugasan/pengumpulan, penilaian, dan instruktur sebagian dikelola melalui layar kursus; submenu terkait kini diperlihatkan | Dashboard agregat dan peer review LMS belum tersedia; katalog video/instruktur terpisah belum ada. |
 | Perpustakaan | Ringkasan, katalog, sirkulasi, perpustakaan digital | Katalog, peminjaman/pengembalian, serta berkas digital privat pada source | Pastikan ringkasan dan tab digital mengikuti flag Storage; jangan tampilkan tombol unggah ketika API/Storage tertutup. |
 | Keuangan & Tagihan | Tagihan/SPP, pengeluaran dan persetujuan, buku besar, penutupan buku, verifikasi bukti, cetak dan rilis massal | Tagihan, pengajuan/persetujuan pengeluaran, ledger, penguncian, dan bukti privat tersedia pada source | UAT maker-checker, audit, tutup buku, hak Wali, unduh/cetak, dan integrasi PPDB masih menjadi gate. |
@@ -99,3 +99,15 @@ Pada source PR #39 head `26b4b97`, tab Data Induk dibatasi pada **Data Entitas (
 - GitHub Actions run [#1091](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41259171340) lulus 3/3 job pada head tersebut; ini mencakup migrasi/pgTAP, API/tenant, Storage, dan backup/restore sintetis, bukan UAT browser Admin VQE.
 - UAT visual Admin VQE belum dilakukan. PR tetap Draft/Open dan belum merge.
 
+
+
+## Verifikasi batas skala Akademik — 7 November 2026
+
+Pemeriksaan source PR #40 pada head `455f25d486ad54266895db5a2a4647fab58a3ce5` mengoreksi batas yang disebut di tabel:
+
+- Roster santri dan catatan jadwal, jurnal, serta penilaian memakai endpoint dengan paginasi keyset. Batas 5.000 bukan batas snapshot umum.
+- Snapshot awal tetap membatasi pengajar dan unit masing-masing 500, serta referensi akademik 2.000; sistem menolak snapshot ketika batas itu terlampaui.
+- Endpoint konflik memindai maksimal 5.000 jadwal dan memuat maksimal 500 unit untuk nama unit. Jika terlampaui, endpoint gagal-tertutup dan UI tidak menampilkan hasil parsial.
+- Untuk kesiapan pesantren besar, batas konflik dan katalog pengajar/unit perlu dirancang ulang serta diuji pada volume representatif. Sampai itu dilakukan, jangan menyatakan seluruh alur Akademik siap untuk volume tak terbatas.
+
+Bukti source: `src/server/supabaseAcademic.ts` (`tenantRows`, `getSupabaseAcademicConflictSchedules`, `getSupabaseAcademicSnapshot`) dan `src/pages/SupabaseAcademicManager.tsx` (status pemeriksaan konflik). Verifikasi source tidak menggantikan UAT staging.
