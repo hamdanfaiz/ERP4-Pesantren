@@ -111,7 +111,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 134);
+assert.equal(sourceMigrationsWithSql.length, 135);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -136,6 +136,7 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202702240000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270228000000_academic_record_cursor_indexes.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270301000000_academic_student_roster_pagination.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270302000000_academic_class_reference_pagination.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270303000000_master_data_student_import_relationships.sql'));
 assert.match(
   sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270302000000_academic_class_reference_pagination.sql').statements.join('\n'),
   /lower\(name\) text_pattern_ops/i
@@ -344,8 +345,9 @@ const observedStagingMigrations = sourceMigrationsWithSql
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
 assert.equal(observedStagingMigrations.length, 49);
-assert.equal(sourceMigrationsWithSql.length, 134);
-const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
+const stagingBaselineSource = sourceMigrationsWithSql.filter(({ version }) => version <= '20270302000000');
+assert.equal(stagingBaselineSource.length, 134);
+const stagingBaseline = compareMigrationVersions(stagingBaselineSource, observedStagingMigrations);
 assert.equal(stagingBaseline.appliedCount, 49);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
 assert.equal(stagingBaseline.pending.length, 85);

@@ -45,6 +45,7 @@
     "test:master-data-pagination": "tsx scripts/test-master-data-pagination.ts",
     "test:naming-series-catalog": "node scripts/test-naming-series-catalog.mjs",
     "test:master-data-transfer-csv": "tsx scripts/test-master-data-transfer-csv.ts",
+    "test:master-data-student-import-plan": "tsx scripts/test-master-data-student-import-plan.ts",
     "test:master-data-no-browser-drafts": "node scripts/test-master-data-no-browser-drafts.mjs",
     "provision:tenant-admin": "node scripts/provision-tenant-admin.mjs",
     "test:supabase-runtime-no-firebase": "node scripts/test-supabase-runtime-no-firebase.mjs",

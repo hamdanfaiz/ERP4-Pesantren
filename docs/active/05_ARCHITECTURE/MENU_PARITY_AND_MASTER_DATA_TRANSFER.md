@@ -61,3 +61,11 @@ Ekspor dan impor baru menggunakan API server Supabase, role Admin/Super Admin, d
 ## Batas verifikasi
 
 Build dan UAT antarmuka memerlukan dependency proyek dan konfigurasi Supabase staging yang aman. Jangan gunakan preview localhost:4179 untuk uji tulis sebelum servernya terbukti menunjuk ke proyek staging; konfigurasi `.env` checkout kanonis yang diperiksa sebelumnya menunjuk ke Production. Migration baru belum diterapkan melalui perubahan ini dan harus dijalankan serta diverifikasi di staging sebelum fitur impor struktur digunakan. Perubahan ini tidak menjalankan impor/ekspor ke database live.
+### Relasi pada impor CSV santri
+
+- Kolom `grade` hanya menerima nama jenjang yang aktif pada katalog tenant `academic_grade_level`; nilai teks bebas ditolak.
+- Kolom `className` bersifat opsional dan dicocokkan dengan nama kelas aktif. Jika diisi, kelas harus memiliki jenjang aktif yang sama dengan `grade`; jika `grade` kosong, jenjang dapat diturunkan dari kelas tersebut.
+- Kolom `dormitory` dicocokkan dengan gedung aktif. Kolom `room` dicocokkan dengan kamar aktif; gedung kamar harus sama dengan `dormitory`, atau diturunkan dari induk kamar bila `dormitory` kosong.
+- Penempatan kamar memerlukan gender santri dan aturan gender gedung/kamar yang cocok. Pratinjau menolak kamar penuh, relasi induk yang salah, dan kapasitas yang terlampaui oleh baris lain dalam berkas.
+- Saat diterapkan, impor membuat record santri tanpa relasi kamar terlebih dahulu, lalu memanggil RPC penempatan kamar yang sama dengan alur operasional. RPC mengunci kamar, memeriksa ulang kapasitas/okupansi, memperbarui jumlah penghuni, dan mencatat riwayat dengan aktor Admin. Dengan begitu pratinjau tetap memberi pemeriksaan awal, sedangkan transaksi basis data menjadi penentu terakhir ketika ada perubahan bersamaan.
+- Katalog/nonaktif, kelas tanpa jenjang, gedung atau kamar tidak aktif, dan gedung yang tidak sesuai tidak diubah diam-diam menjadi relasi kosong. Operator perlu memperbaiki relasi pada data induk atau menghapus kolom relasi dari baris yang memang belum ditempatkan.

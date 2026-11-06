@@ -1448,6 +1448,18 @@ async function buildStudentTransferPlan(tenantIdentifier: string, value: unknown
   const tenantId = await resolveActiveTenantId(tenantIdentifier);
   const rows = transferRows(value);
   const structures = await listSupabaseMasterDataStructures(tenantId);
+  const gradeReferenceParams = new URLSearchParams({
+    select: "id,name,status",
+    tenant_id: "eq." + tenantId,
+    domain: "eq.academic_grade_level",
+    status: "eq.active",
+    order: "name.asc,id.asc",
+    limit: "1001",
+  });
+  const gradeReferences = await supabaseRequest("/rest/v1/tenant_reference_items?" + gradeReferenceParams.toString());
+  if (!Array.isArray(gradeReferences) || gradeReferences.length > 1000) {
+    throw new SupabaseOnboardingError(503, "Katalog jenjang aktif tenant belum dapat diverifikasi.");
+  }
   const sourceIds = rows.map((row) => transferText(row.id, 1500)).filter(Boolean);
   const nisValues = rows.map((row) => transferText(row.nis, 32)).filter(Boolean);
   const existing = await fetchExistingStudentTransferKeys(tenantId, sourceIds, nisValues);
@@ -1459,14 +1471,20 @@ async function buildStudentTransferPlan(tenantIdentifier: string, value: unknown
   const nisInFile = new Set<string>();
   const nikInFile = new Set<string>();
   const nisnInFile = new Set<string>();
+  const activeStructures = structures.filter((item) => String(item.status || "").trim().toLocaleLowerCase("id-ID") === "active");
   const findStructure = (category: StructureCategory, name: string) => {
     if (!name) return { id: "", count: 0 };
-    const matches = structures.filter((item) => item.category === category
+    const matches = activeStructures.filter((item) => item.category === category
       && item.name.trim().toLocaleLowerCase("id-ID") === name.toLocaleLowerCase("id-ID"));
-    return { id: matches.length === 1 ? matches[0].id : "", count: matches.length };
+    return { item: matches.length === 1 ? matches[0] : undefined, id: matches.length === 1 ? matches[0].id : "", count: matches.length };
+  };
+  const findGradeReference = (name: string) => {
+    if (!name) return { item: undefined, count: 0 };
+    const matches = gradeReferences.filter((item: JsonObject) => String(item.name || "").trim().toLocaleLowerCase("id-ID") === name.toLocaleLowerCase("id-ID"));
+    return { item: matches.length === 1 ? matches[0] as JsonObject : undefined, count: matches.length };
   };
 
-  return rows.map((row, index) => {
+  const planned = rows.map((row, index) => {
     const id = transferText(row.id, 1500);
     const name = transferText(row.name, 180);
     const messages: string[] = [];
@@ -1491,25 +1509,70 @@ async function buildStudentTransferPlan(tenantIdentifier: string, value: unknown
     if (gender && !normalizedGender) messages.push("gender harus L/P, Putra/Putri, atau padanan yang didukung.");
     if (normalizedGender) record.gender = normalizedGender;
 
-    const grade = transferText(row.grade, 80);
-    if (grade) {
-      record.grade = grade;
-      const match = findStructure("Kelas", grade);
-      if (match.count > 1) messages.push("Nama kelas cocok dengan lebih dari satu struktur; gunakan nama unik.");
-      else if (match.id) record.classId = match.id;
+    const gradeName = transferText(row.grade, 180);
+    const className = transferText(row.className, 180);
+    const classMatch = findStructure("Kelas", className);
+    if (className && classMatch.count !== 1) {
+      messages.push(classMatch.count ? "Nama kelas cocok dengan lebih dari satu struktur aktif." : "Kelas pada kolom className tidak ditemukan atau tidak aktif.");
     }
+    const gradeMatch = findGradeReference(gradeName);
+    if (gradeName && gradeMatch.count !== 1) {
+      messages.push(gradeMatch.count ? "Jenjang cocok dengan lebih dari satu referensi aktif." : "Jenjang pada kolom grade tidak ditemukan dalam katalog aktif tenant.");
+    }
+    let selectedGrade = gradeMatch.item;
+    if (classMatch.item) {
+      const classGradeId = String(classMatch.item.gradeLevelReferenceId || "");
+      const classGrade = gradeReferences.find((item: JsonObject) => String(item.id) === classGradeId) as JsonObject | undefined;
+      if (!classGrade) {
+        messages.push("Kelas belum terhubung ke jenjang aktif tenant.");
+      } else if (selectedGrade && String(selectedGrade.id) !== String(classGrade.id)) {
+        messages.push("Jenjang yang dipilih tidak sesuai dengan jenjang kelas.");
+      } else if (!selectedGrade && !gradeName) {
+        selectedGrade = classGrade;
+      }
+      record.classId = classMatch.item.id;
+    }
+    if (selectedGrade) record.grade = String(selectedGrade.name);
+    if (selectedGrade && typeof selectedGrade.id === "string") record.gradeLevelReferenceId = selectedGrade.id;
+
     const buildingName = transferText(row.dormitory, 180);
+    let selectedBuilding: SupabaseStructureRecord | undefined;
     if (buildingName) {
       const match = findStructure("Gedung", buildingName);
-      if (match.count !== 1) messages.push(match.count ? "Nama gedung tidak unik." : "Gedung pada kolom dormitory tidak ditemukan.");
-      else record.dormitoryId = match.id;
+      if (match.count !== 1) messages.push(match.count ? "Nama gedung aktif tidak unik." : "Gedung pada kolom dormitory tidak ditemukan atau tidak aktif.");
+      else selectedBuilding = match.item;
     }
     const roomName = transferText(row.room, 180);
+    let selectedRoom: SupabaseStructureRecord | undefined;
     if (roomName) {
       const match = findStructure("Kamar", roomName);
-      if (match.count !== 1) messages.push(match.count ? "Nama kamar tidak unik." : "Kamar pada kolom room tidak ditemukan.");
-      else record.roomId = match.id;
+      if (match.count !== 1) messages.push(match.count ? "Nama kamar aktif tidak unik." : "Kamar pada kolom room tidak ditemukan atau tidak aktif.");
+      else selectedRoom = match.item;
     }
+    if (selectedRoom) {
+      if (!selectedRoom.parentId) {
+        messages.push("Kamar belum terhubung ke gedung aktif.");
+      } else {
+        const roomBuilding = activeStructures.find((item) => item.category === "Gedung" && item.id === selectedRoom!.parentId);
+        if (!roomBuilding) messages.push("Gedung induk kamar tidak ditemukan atau tidak aktif.");
+        else if (selectedBuilding && selectedBuilding.id !== roomBuilding.id) messages.push("Gedung yang dipilih tidak sesuai dengan gedung induk kamar.");
+        else selectedBuilding = roomBuilding;
+      }
+      record.roomId = selectedRoom.id;
+      const capacity = Number(selectedRoom.capacity);
+      const occupied = Number(selectedRoom.occupied);
+      if (!Number.isInteger(capacity) || capacity < 1 || !Number.isInteger(occupied) || occupied < 0 || occupied > capacity) {
+        messages.push("Kapasitas atau okupansi kamar belum valid.");
+      } else if (occupied >= capacity) {
+        messages.push("Kamar sudah penuh.");
+      }
+      const roomGender = String(selectedRoom.gender || selectedBuilding?.gender || "");
+      const studentGender = normalizedGender || "";
+      if (!studentGender) messages.push("Jenis kelamin santri wajib dipilih sebelum menempatkan ke kamar.");
+      if (!roomGender) messages.push("Jenis kelamin kamar atau gedung belum dikonfigurasi.");
+      else if (studentGender && roomGender !== studentGender) messages.push("Jenis kelamin santri tidak sesuai dengan kamar atau gedung.");
+    }
+    if (selectedBuilding) record.dormitoryId = selectedBuilding.id;
 
     const nik = transferText(row.nik, 80);
     const nisn = transferText(row.nisn, 80);
@@ -1536,6 +1599,26 @@ async function buildStudentTransferPlan(tenantIdentifier: string, value: unknown
     }
     return { row: index + 2, id, name, status: messages.length ? "error" as const : "ready" as const, messages, record };
   });
+
+  // Reserve available room capacity within this file in row order. The transactional
+  // room RPC rechecks live occupancy when each row is applied, covering concurrent imports.
+  const roomAssignments = new Map<string, Array<(typeof planned)[number]>>();
+  for (const item of planned) {
+    if (item.status !== "ready" || typeof item.record.roomId !== "string") continue;
+    const assignments = roomAssignments.get(item.record.roomId) || [];
+    assignments.push(item);
+    roomAssignments.set(item.record.roomId, assignments);
+  }
+  for (const [roomId, assignments] of roomAssignments) {
+    const room = activeStructures.find((item) => item.category === "Kamar" && item.id === roomId);
+    if (!room) continue;
+    const available = Math.max(0, Number(room.capacity) - Number(room.occupied));
+    for (const item of assignments.slice(available)) {
+      item.status = "error";
+      item.messages.push("Kapasitas kamar tidak mencukupi untuk seluruh baris impor pada berkas ini.");
+    }
+  }
+  return planned;
 }
 
 function transferSummary(items: Array<{ row: number; id: string; name: string; status: TransferStatus; messages: string[] }>) {
