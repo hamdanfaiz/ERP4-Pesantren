@@ -1,4 +1,54 @@
 # Runbook migrasi PTSAS Production — 6 November 2026
+
+## Addendum terkini — rekonsiliasi, backup/restore, dan urutan migrasi (7 November 2026)
+
+Addendum ini **menggantikan angka dan status lama** dalam runbook ini jika berbeda. Source yang dibahas adalah PR #40 head `345be53d1feb5af20682248e99dabab23e69ee42`. CI [run #1206](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42311021365) selesai lulus 3/3 job. Job database menjalankan replay migrasi dengan baseline Production sintetis dan memeriksa backup/restore pada database lokal CI; itu bukan backup/restore live PTSAS.
+
+### Snapshot PTSAS yang dilaporkan operator
+
+Hasil baca-saja MCP Desktop yang diberikan operator pada 7 November: 119 tabel publik, seluruhnya RLS dan FORCE RLS; lima policy SELECT untuk `authenticated`; tidak ditemukan grant tabel langsung kepada `PUBLIC`, `anon`, atau `authenticated`. Ledger Production berisi 47 versi; semuanya ada di source, 45 nama cocok dan dua nama tidak dikembalikan MCP. Sebanyak 89 dari 136 versi source tidak tercatat pada ledger. Ini **selisih metadata untuk investigasi**, bukan daftar siap diterapkan. Tidak ada perubahan Production yang dilakukan.
+
+Konektor Supabase Apps pada sesi Codex pengembang tetap menolak akses Production. Oleh karena itu angka katalog/ledger di atas bersumber dari hasil operator, bukan pengulangan independen oleh pengembang. Lihat [rekonsiliasi baca-saja 7 November](./PTSAS_PRODUCTION_RECONCILIATION_2026-11-07.md).
+
+### Membandingkan DDL tanpa menulis ke Production
+
+Jalankan dari root checkout PR #40 yang commit-nya sudah dicatat. Tim harus mengisi `PTSAS_PROD_DB_URL` secara lokal melalui secret manager/terminal tepercaya; jangan menaruh nilainya dalam command literal, Git, output, atau chat. Pastikan host koneksi menunjuk ke `ptsasgdvgrbdtgyqieie`.
+
+```powershell
+supabase --version
+supabase db dump --db-url "$env:PTSAS_PROD_DB_URL" --schema public -f .\evidence\ptsas-production-public-schema.sql
+supabase db diff --db-url "$env:PTSAS_PROD_DB_URL" --schema public
+supabase db push --db-url "$env:PTSAS_PROD_DB_URL" --dry-run
+```
+
+Dump menyimpan DDL aktual `public`; diff membandingkan remote dengan baseline shadow yang dibentuk dari migration source. Simpan output diff dan daftar dry-run sebagai bukti. Jangan gunakan `db pull` untuk pemeriksaan ini: proses pull dapat menawarkan pencatatan baseline ke ledger remote. Jangan gunakan `-f` pada `db diff`, karena itu membuat file migration.
+
+Periksa juga policy, trigger dan fungsi kustom pada schema terkelola `auth`/`storage`; dump CLI biasa mengecualikan objek platform-managed pada schema itu. Tinjau grants, extension, sequence, constraint, index, view, fungsi dan trigger. Backup database juga tidak mencakup berkas objek Storage. [Referensi resmi CLI](https://supabase.com/docs/reference/cli/v0/supabase-db-dump).
+
+### Backup dan bukti restore
+
+Sebelum perubahan apa pun, pastikan Database → Backups menunjukkan backup yang tersedia sesuai paket project. Simpan logical backup terpisah hanya di penyimpanan terenkripsi dengan akses terbatas:
+
+```powershell
+supabase db dump --db-url "$env:PTSAS_PROD_DB_URL" --role-only -f .\evidence\ptsas-roles.sql
+supabase db dump --db-url "$env:PTSAS_PROD_DB_URL" --schema public -f .\evidence\ptsas-schema.sql
+supabase db dump --db-url "$env:PTSAS_PROD_DB_URL" --schema public --data-only --use-copy -f .\evidence\ptsas-data.sql
+```
+
+Pulihkan ketiga file ke database lokal/target uji yang **kosong dan terisolasi**, lalu jalankan pemeriksaan integritas, jumlah record per tabel yang disetujui, fungsi/constraint/index/policy, dan smoke test. Jangan pernah menjalankan restore ke PTSAS untuk rehearsal. Contoh urutan restore CLI resmi memakai `psql --single-transaction`, `ON_ERROR_STOP=1`, lalu file roles, schema, dan data; ikuti panduan restore dan gunakan hanya URL target uji. File dump berisi data sensitif: jangan commit atau kirimkan.
+
+Logical dump di atas tidak membuktikan pemulihan berkas Storage, Auth, atau konfigurasi rahasia. Uji komponen itu terpisah; verifikasi objek Storage melalui backup/ekspor Storage, dan simpan kunci aplikasi (termasuk kunci PII) di secret manager. Catat sumber/ref, commit, timestamp, jenis backup, checksum, ukuran, target restore, durasi, hasil pemeriksaan, serta bagian yang tidak tercakup. Backup hanya dinyatakan terbukti setelah restore dan pemeriksaan hasil sukses. [Panduan backup/restore resmi](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore), [jenis backup dan batasannya](https://supabase.com/docs/guides/platform/backups).
+
+### Urutan keputusan migrasi
+
+1. Cocokkan setiap versi ledger Production dengan file source bernomor, nama, dan efek DDL katalog. Kunci source dengan commit yang sama untuk diff, dry-run, dan seluruh rehearsal.
+2. Kelompokkan migration menurut timestamp; identifikasi dependency, perubahan data/backfill, constraint/FK, fungsi/pemicu, RLS/grants, Storage, potensi lock/downtime, dan kebutuhan langkah setelah migrasi.
+3. Untuk migration yang tidak tercatat, tentukan dari DDL aktual apakah efek memang tidak ada, sudah ada, atau berbeda. Versi ledger yang kosong nama/payload tidak otomatis berarti DDL harus dijalankan ulang.
+4. Rehearsal harus meniru gap dan baseline Production di lingkungan terisolasi. CI #1206 lulus replay sintetis; ia tidak menguji seluruh data/DDL Production aktual.
+5. Jangan menjalankan `db push` tanpa `--dry-run` ke PTSAS sekarang. Hentikan jika diff memuat DROP/CREATE tak terduga, urutan/dependency tak jelas, restore belum terbukti, atau hasil berbeda dari baseline rehearsal. Setelah review tim backend dan persetujuan change window, operator membuat migration korektif forward-only bila perlu, baru menyiapkan rencana penerapan.
+
+Jangan jalankan `supabase db reset --linked`/remote, jangan mengubah ledger dengan `migration repair`, dan jangan menerapkan DDL Production pada tahap audit ini. Supabase menjalankan migration berdasarkan versi; `--include-all` dapat menyertakan versi lama yang hilang dari history, sehingga wajib ditinjau melalui diff dan rehearsal lebih dahulu. [Panduan deployment dan sinkronisasi migration](https://supabase.com/docs/guides/deployment/database-migrations).
+
 > **Status terbaru — 6 November 2026, 23.50 WIB.** PR #40 Open dan belum merged. Source aplikasi terakhir diuji `c61825935c49b642d8bed08b16e7c428a73add15`; checkpoint head `7e0d7d2c0a005939cdd3aa1d8459c3cd3dc0dc86` lulus CI [#1197](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42255259547) 3/3. CI memakai baseline Production sintetis, bukan database Production. Snapshot CSV Production pukul 17.38 WIB menunjukkan 47 ledger versions vs 136 source files: 89 pending (dua out-of-order dan 87 versi lebih baru); dua payload migration kosong. VQE memiliki 136 ledger rows: 135 canonical hingga `20270303000000` dan alias `20261106151606` untuk `20270304000000`. DDL VQE sudah aktif; jangan jalankan ulang. Production tidak diubah. UAT browser, backup/restore Production yang terbukti, inventaris terbaru, dan dry-run Production tetap prasyarat.
 
 
