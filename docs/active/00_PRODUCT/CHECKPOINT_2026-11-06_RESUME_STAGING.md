@@ -3,6 +3,7 @@
 ## Pembaruan checkpoint — 6 November 2026, 22.28 WIB
 
 - CI #1184 `42242584323` selesai **3/3 job lulus** pada head `2845d025ae5b96617e6544141263f0a9ad4d63ae` (perubahan dokumentasi). Job database menjalankan replay Production-baseline sintetis; NPM install; frontend typecheck/build, Firebase runtime guard, dan Docker smoke tests. Source aplikasi di dalamnya sama dengan `c61825935c49b642d8bed08b16e7c428a73add15`, yang juga lulus 3/3 pada #1182.
+- Organisasi Supabase VQE diverifikasi berpaket Free. Leaked-password protection memerlukan Pro menurut dokumentasi Supabase; tidak ada upgrade atau perubahan billing dilakukan.
 - Tes konkurensi penempatan kamar dan penguncian konfigurasi referensi selesai lulus. Status ini hanya membuktikan pipeline pada source PR; UAT browser belum dilakukan.
 - Security/Performance/Health Advisor VQE dibaca ulang pukul 15:25 UTC: 162 temuan RLS tanpa policy (fail-closed, tanpa grants table ke role API), satu WARN perlindungan kata sandi bocor, 258 FK tanpa indeks pendukung, 95 peringatan unused-index, dan 0 temuan health.
 - PR #40 masih terbuka dan siap ditinjau. Production tetap tidak berubah; VQE tetap memiliki satu baris migration alias `20261106151606` untuk source `20270304000000`. Tidak ada DDL yang dijalankan ulang.
@@ -30,7 +31,7 @@ Dokumen ini menjadi status terbaru untuk melanjutkan pekerjaan. Catatan historis
 ## Temuan security dan performa VQE
 
 - 162 tabel memiliki RLS aktif tetapi tanpa policy. Pemeriksaan grant membuktikan tabel-tabel tersebut tidak memberi akses table kepada `anon` maupun `authenticated`; keadaan ini fail-closed. Jangan menambah policy secara massal hanya untuk menghilangkan temuan INFO.
-- Advisor memberi peringatan bahwa perlindungan kata sandi bocor belum aktif. Minta operator mengaktifkannya pada Auth VQE setelah konfirmasi pemilik; jangan mengubah Auth Production.
+- Advisor memberi peringatan bahwa perlindungan kata sandi bocor belum aktif. Organisasi VQE terverifikasi memakai paket **Free**; dokumentasi Supabase menyatakan pemeriksaan kata sandi bocor tersedia mulai paket Pro. Jangan upgrade atau menimbulkan biaya tanpa keputusan pemilik. Pada paket Free, gunakan kebijakan password kuat yang tersedia; evaluasi paket/mitigasi untuk Production sebelum pengguna nyata. [Dokumentasi resmi](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
 - Advisor performance menandai 258 foreign key tanpa indeks B-tree pendukung dan 95 indeks yang belum dipakai. Angka indeks tidak boleh diperbaiki massal: ukur workload skala pesantren besar, periksa duplikasi/fungsi indeks dan dampak lock, lalu usulkan batch yang terukur. Peringatan indeks belum terpakai berisiko rendah pada staging berisi sedikit data.
 - Health advisor tidak melaporkan lint aktif pada pemeriksaan sebelumnya.
 
@@ -44,7 +45,7 @@ Dokumen ini menjadi status terbaru untuk melanjutkan pekerjaan. Catatan historis
 ## Langkah lanjut berurutan
 
 1. Saat pemilik aktif pukul 05.00 WIB, minta persetujuan terbatas untuk merekonsiliasi **satu baris VQE saja** dari `20261106151606` ke `20270304000000`; tidak menjalankan ulang DDL dan tidak menyentuh Production. Jika persetujuan tidak diberikan, biarkan alias dan minta operator backend yang menanganinya.
-2. Minta pemilik/operator menyalakan leaked-password protection di Auth VQE; verifikasi status setelah perubahan.
+2. Jangan meminta operator menyalakan leaked-password protection pada VQE Free. Catat sebagai batasan paket; pemilik/tim backend memutuskan upgrade Pro atau mitigasi password policy sebelum Production.
 3. Tim backend meninjau source PR #40 dan advisor index; utamakan validasi serta rencana indeks berbasis workload.
 4. Jalankan UAT browser Admin/Wali, seluruh navigasi, import/export, relasi Master Data, PPDB, onboarding/NIS, penempatan kamar, Tahfidz, finance, Storage, isolasi tenant, dan responsif. Bersihkan fixture uji setelah selesai.
 5. Lengkapi rehearsal Production (inventaris penuh, backup yang dapat dipulihkan, dry-run pada head review, daftar migration yang akan dijalankan). Cutover Production tetap menunggu gate dan operator backend.
