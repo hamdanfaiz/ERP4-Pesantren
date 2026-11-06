@@ -40,7 +40,7 @@ Temuan Advisor “RLS enabled, no policy” pada 162 tabel konsisten dengan desa
 - Tidak ada review submission atau inline review thread pada PR #40 saat audit.
 - Validasi lokal pada worktree integrasi terpisah: lint, build, migration preflight, serta 42 dari 44 pemeriksaan logika non-database lulus. Dua pemeriksaan yang membuka loopback server ditolak sandbox dengan `EACCES`; pemeriksaan migrasi race lokal tidak dapat dijalankan karena Supabase CLI lokal tidak tersedia. Hasil ini **bukan** bukti tambahan pada head PR #40; CI #1198 adalah bukti pada head PR.
 - UAT browser Admin/Wali belum selesai. UAT harus menguji navigasi dan sub-menu, hak akses, isolasi tenant, PPDB, NIS/Naming Series, asrama, Tahfidz, Finance, impor/ekspor, Storage, dan ukuran layar.
-- Pembacaan live PTSAS Production masih ditolak konektor MCP dengan `You do not have permission to perform this action`. Inventaris CSV sebelumnya (47 versi ledger vs 136 file source) adalah snapshot lama, bukan inventaris live saat ini. Tidak ada perubahan Production.
+- Operator melaporkan bahwa MCP Desktop `supabase` berhasil membaca metadata PTSAS Production pada 7 November: 119 tabel `public` dengan RLS/FORCE RLS, 5 policy SELECT, dan 47 versi ledger. Konektor Supabase Apps pada sesi agen masih menolak pembacaan; ini jalur terpisah dan tidak membatalkan hasil Desktop yang dilaporkan. Rekonsiliasi versi serta batas bukti ada di [laporan Production 7 November](PTSAS_PRODUCTION_RECONCILIATION_2026-11-07.md). Tidak ada perubahan Production.
 
 ## Urutan tindak lanjut
 
