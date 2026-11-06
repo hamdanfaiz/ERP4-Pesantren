@@ -99,6 +99,10 @@ function cleanup(dbUrl) {
     'ALTER TABLE public.master_data_audit_events DISABLE TRIGGER master_data_audit_events_immutable_rows;',
     "DELETE FROM public.master_data_audit_events WHERE tenant_id = '" + tenantId + "'::uuid;",
     'ALTER TABLE public.master_data_audit_events ENABLE TRIGGER master_data_audit_events_immutable_rows;',
+    "DELETE FROM public.tenant_naming_series_events WHERE tenant_id = '" + tenantId + "'::uuid;",
+    "DELETE FROM public.tenant_naming_series_allocations WHERE tenant_id = '" + tenantId + "'::uuid;",
+    "DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = '" + tenantId + "'::uuid;",
+    "DELETE FROM public.tenant_naming_series WHERE tenant_id = '" + tenantId + "'::uuid;",
     "DELETE FROM public.tenants WHERE id = '" + tenantId + "'::uuid;",
   ].join('\n'));
 }
@@ -149,9 +153,9 @@ async function main() {
       "INSERT INTO public.tenants (id, slug, name, status) VALUES ('" + tenantId + "'::uuid, '" + tenantSlug + "', 'Room assignment lock test', 'active');",
       "INSERT INTO public.master_data_records (tenant_id, category, id, name, status, gender_code) VALUES ('" + tenantId + "'::uuid, 'Gedung', '" + buildingId + "', 'Gedung Uji', 'Active', 'L');",
       "INSERT INTO public.master_data_records (tenant_id, category, id, name, status, parent_id, capacity, occupied) VALUES ('" + tenantId + "'::uuid, 'Kamar', '" + roomId + "', 'Kamar Uji', 'Active', '" + buildingId + "', 1, 0);",
-      "INSERT INTO public.students (id, tenant_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status) VALUES",
-      "('" + studentIds[0] + "'::uuid, '" + tenantId + "'::uuid, '9240000001', 'Santri Uji A', 'L', NULL, decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex'), 'Active'),",
-      "('" + studentIds[1] + "'::uuid, '" + tenantId + "'::uuid, '9240000002', 'Santri Uji B', 'L', NULL, decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'Active');",
+      "INSERT INTO public.students (id, tenant_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status, source_system, source_record_id) VALUES",
+      "('" + studentIds[0] + "'::uuid, '" + tenantId + "'::uuid, '9240000001', 'Santri Uji A', 'L', NULL, decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex'), 'Active', 'master_data', 'room-lock-student-a'),",
+      "('" + studentIds[1] + "'::uuid, '" + tenantId + "'::uuid, '9240000002', 'Santri Uji B', 'L', NULL, decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'Active', 'master_data', 'room-lock-student-b');",
       'CREATE OR REPLACE FUNCTION public.room_assignment_test_delay() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.occupied > OLD.occupied THEN PERFORM pg_sleep(4); END IF; RETURN NEW; END; $$;',
       'CREATE TRIGGER room_assignment_test_delay BEFORE UPDATE OF occupied ON public.master_data_records FOR EACH ROW WHEN (NEW.tenant_id = \'' + tenantId + '\'::uuid AND NEW.category = \'Kamar\') EXECUTE FUNCTION public.room_assignment_test_delay();',
     ].join('\n'));
