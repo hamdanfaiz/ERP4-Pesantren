@@ -1,5 +1,5 @@
 # Rekonsiliasi Skema PTSAS Production
-> **Status terbaru — 6 November 2026, 22.20 WIB.** Tabel perbandingan di bawah adalah snapshot inventaris baca-saja terdahulu, bukan keadaan terkini VQE. Source sekarang berisi 136 file migration; VQE memiliki 135 versi canonical sampai `20270303000000` ditambah satu baris alias `20261106151606` untuk migration `20270304000000_student_room_assignment_reference_locks`. SQL telah diterapkan, tetapi alias ledger belum direkonsiliasi. PR #40 source `c618...` lulus CI #1182 (3/3); CI #1183 pada checkpoint dokumentasi baru masih berjalan. Production PTSAS tidak disentuh. Lihat [checkpoint terbaru](../00_PRODUCT/CHECKPOINT_2026-11-06_RESUME_STAGING.md).
+> **Status terbaru — 6 November 2026, 23.19 WIB.** Ekspor Production terbaru yang tersedia dibuat 6 November pukul 17.38 WIB; dibandingkan dengan source commit aplikasi `c61825935c49b642d8bed08b16e7c428a73add15` (136 migrations), ledger berisi 47 versi dan 89 versi belum tercatat. Dua versi out-of-order kehilangan efek DDL; dua baris ledger tidak memiliki payload SQL. Tidak ada tulisan ke Production, dan konektor MCP tetap menolak baca live. CI #1192 lulus 3/3 pada head dokumentasi `811859bb2b072bc79b398c0353e3cab581d2eb93`, tetapi ini bukan UAT/rehearsal Production. Lihat [checkpoint terbaru](../00_PRODUCT/CHECKPOINT_2026-11-06_RESUME_STAGING.md). Tabel perbandingan di bawah adalah snapshot inventaris baca-saja terdahulu, bukan keadaan terkini VQE. Source sekarang berisi 136 file migration; VQE memiliki 135 versi canonical sampai `20270303000000` ditambah satu baris alias `20261106151606` untuk migration `20270304000000_student_room_assignment_reference_locks`. SQL telah diterapkan, tetapi alias ledger belum direkonsiliasi. PR #40 source `c618...` lulus CI #1182 (3/3); CI #1183 pada checkpoint dokumentasi baru masih berjalan. Production PTSAS tidak disentuh. Lihat [checkpoint terbaru](../00_PRODUCT/CHECKPOINT_2026-11-06_RESUME_STAGING.md).
 
 
 **Status:** belum aman untuk menjalankan `db push` atau memperbaiki ledger.  
@@ -12,7 +12,7 @@ Skrip satu-hasil untuk mengulang inventaris: [PTSAS_PRODUCTION_READ_ONLY_RECONCI
 
 | Inventaris | PTSAS Production | VQE staging | Selisih |
 | --- | ---: | ---: | ---: |
-| Versi migration di ledger | 47 | 135 | 88 versi source tidak tercatat di Production |
+| Versi migration di ledger | 47 | 136 | 89 versi source tidak tercatat di Production |
 | Relasi publik | 119 | 167 | 48 relasi staging tidak ada di Production |
 | Kolom publik | 1.381 | 1.928 | 547 lebih sedikit di Production |
 | Constraint publik | 1.110 | 1.581 | 471 lebih sedikit di Production |
@@ -61,12 +61,14 @@ Versi ledger Production tertinggi adalah `20261206000000`, tetapi dua file sourc
 - `20261031104213_master_data_import_create_only`
 - `20261031225438_master_data_audit_feed`
 
-Akibatnya, 88 versi source yang belum tercatat terbagi menjadi **2 versi out-of-order sebelum high-water mark** dan **86 versi setelahnya**. Migration preflight menolak kondisi out-of-order, mismatch nama, atau payload SQL yang hilang. Production juga memiliki dua baris ledger tanpa `name` dan tanpa payload `statements`: `20261205000000` dan `20261206000000`.
+Akibatnya, 89 versi source yang belum tercatat terbagi menjadi **2 versi out-of-order sebelum high-water mark** dan **87 versi setelahnya**. Migration preflight menolak kondisi out-of-order, mismatch nama, atau payload SQL yang hilang. Production juga memiliki dua baris ledger tanpa `name` dan tanpa payload `statements`: `20261205000000` dan `20261206000000`.
 
 Inventaris Production menguatkan bahwa dua migration awal itu bukan sekadar entri ledger yang tertinggal:
 
-- Tabel `public.master_data_audit_events` dan empat trigger audit terkait belum ada di Production; tabelnya ada di VQE. Migration `20261031225438_master_data_audit_feed` membuatnya.
 - RPC `public.create_master_data_structure_if_absent` belum terlihat di Production; migration `20261031104213_master_data_import_create_only` membuatnya.
+- Efek migration `20261031225438_master_data_audit_feed` belum ada: tabel `public.master_data_audit_events`, dua indeks, fungsi audit/actor, dan empat trigger audit tidak muncul di katalog CSV.
+
+Hitungan 136 source versi dibanding 47 Production ledger tidak cukup sebagai instruksi menerapkan 89 migration. Dua migration lama memiliki efek DDL yang benar-benar belum ada, dan dua payload ledger tetap kosong; susun rehearsal pada snapshot ini sebelum rencana Production.
 
 Jangan menambahkan baris ledger secara manual untuk membuat angka versi cocok. Itu akan menutupi DDL yang memang belum ada.
 
@@ -111,6 +113,6 @@ Advisor VQE mencatat 258 foreign key tanpa indeks penutup dan 95 indeks belum te
 
 - Tim backend saat ini dapat melihat PTSAS Production `ptsasgdvgrbdtgyqieie`, tetapi belum dapat melihat VQE staging `vqemuyzveuirlkvdggjd`. Karena itu, bukti live staging untuk tim harus disertakan sebagai laporan/CI yang dapat dibaca di GitHub; jangan memasukkan kredensial atau baris data ke dokumen.
 - CSV inventaris lengkap yang diberikan pemilik pada 6 November 2026 pukul 17:38 WIB berhasil diekspor: 4.098 baris metadata, termasuk 47 entri ledger, 119 relasi, 1.381 kolom, 1.110 constraint, 402 indeks, 5 policy, 119 fungsi, 24 trigger, 886 entri ACL, dan 2 bucket. CSV tidak berisi baris operasional.
-- GitHub Actions run #1167 lulus 3/3 pada head PR #40 sebelumnya. Run #1168 lulus 3/3 pada commit `6b853c421c04ef8189f778a7b3cadb87910f5d3b`, termasuk rehearsal baseline Production tiruan yang dijelaskan di atas.
+- GitHub Actions run #1167 lulus 3/3 pada head PR #40 sebelumnya. Run #1168 lulus 3/3 pada commit `6b853c421c04ef8189f778a7b3cadb87910f5d3b`, termasuk rehearsal baseline Production tiruan yang dijelaskan di atas. Run #1192 juga lulus 3/3 pada source aplikasi `c61825935c49b642d8bed08b16e7c428a73add15`; replay assertion membandingkan seluruh migration ledger dengan 136 file source. Snapshot Production dan skema live tidak berubah.
 - Instruksi pemilik tetap: setelah seluruh pemeriksaan staging yang disepakati lulus, lanjutkan ke Production tanpa menunggu pengingat baru. VQE live migration sudah 135/135 dan rehearsal migration baseline kini lulus; UAT operasional/UI serta pemeriksaan sebelum penerapan Production masih perlu dituntaskan.
 - Production tetap tidak berubah. Sesudah rehearsal CI dan UAT tersisa lulus, lakukan preflight/dry-run terhadap koneksi Production yang benar dan backup yang dapat dipulihkan; lalu jalankan migrasi ke Production sesuai instruksi pemilik dan simpan hasil verifikasi sebelum/sesudah untuk tim backend.

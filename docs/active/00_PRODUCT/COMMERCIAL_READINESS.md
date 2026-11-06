@@ -1,4 +1,9 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
+> **Bukti terbaru — 6 November 2026, 23.19 WIB.** PR #40 head source aplikasi `c61825935c49b642d8bed08b16e7c428a73add15` lulus CI #1192 (3/3 job). Perbandingan ekspor Production 17.38 WIB terhadap source 136 migration menemukan 47 ledger versions, 89 versi belum tercatat, dua migration lama beserta efek DDL yang belum ada, dan dua payload ledger kosong. Production tidak diubah; MCP tidak memberi akses baca live.
+>
+> Production memiliki RLS/FORCE RLS pada 119 relasi dan tidak ada grant tabel ke `anon`/`PUBLIC`, tetapi UAT browser, audit fungsi live, backup/restore, rehearsal serta dry-run Production masih terbuka. Ini belum membuktikan kesiapan deploy atau komersial.
+> [Checkpoint dan laporan rekonsiliasi terbaru](CHECKPOINT_2026-11-06_RESUME_STAGING.md).
+
 > **Pembaruan checkpoint — 6 November 2026, 23.08 WIB.** CI #1191 lulus 3/3 job pada source dokumen PR `602926c548410e2f6af2d0001701d5cf23fd0ece`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. UAT browser, inventaris penuh Production, backup/restore yang terbukti, dan rehearsal/dry-run masih terbuka.
 >
 > VQE memiliki 136 migration ledger rows, dengan migration kamar aktif pada alias `20261106151606`; jangan menjalankan DDL ulang. MCP masih menolak baca ledger Production, dan tidak ada perubahan Production.
