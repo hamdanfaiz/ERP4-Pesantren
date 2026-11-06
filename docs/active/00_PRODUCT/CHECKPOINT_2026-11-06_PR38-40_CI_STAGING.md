@@ -89,3 +89,11 @@
 - Jangan mengaktifkan tenant lama atau memindahkan record demi tes. Lengkapi jalur tersebut dengan fixture sintetis terisolasi yang dibersihkan setelah pengujian, atau lewat pgTAP/CI yang sudah lulus.
 - Preview lokal `localhost:4179` sedang tidak berjalan. Worktree `erp4-pr40-uat-20261104` berada pada commit `b2d7acc` dan memiliki perubahan lokal; jangan gunakan sebagai representasi head PR terkini tanpa sinkronisasi terpisah.
 - PR #38 (run #1150), PR #39 (run #1152), dan PR #40 (run #1164) lulus CI pada head masing-masing. Ketiganya tetap Draft/Open; PR #40 masih menunggu UAT antarmuka dan verifikasi staging operasional.
+
+
+## CSV hasil SQL Editor PTSAS Production — 6 November 2026
+
+- CSV yang diberikan berisi 47 baris ledger dan kolom `version,name`. Dua nama kosong pada versi `20261205000000` dan `20261206000000`.
+- Perbandingan versi menunjukkan semua 47 versi Production ada pada source saat ini; tidak ada versi Production-only. Sebanyak 88 dari 135 versi source tidak tercatat di ledger Production. Ini adalah selisih ledger, bukan bukti bahwa seluruh DDL tersebut belum pernah diterapkan.
+- Dua kolom nama yang kosong dan selisih 88 versi harus direkonsiliasi terhadap schema-only export/katalog Production. Jangan menjalankan `db push`, migration repair, atau menandai versi applied hanya berdasarkan CSV.
+- Pemeriksaan akses langsung Production dari konektor Supabase tetap ditolak. Langkah berikut untuk tim backend: jalankan skrip baca-saja `docs/active/06_DATABASE/PTSAS_PRODUCTION_READ_ONLY_RECONCILIATION.sql` di SQL Editor pada ref Production yang tepat, simpan hasil metadata, lalu bandingkan dengan source dan VQE sebelum menyiapkan cutover.
