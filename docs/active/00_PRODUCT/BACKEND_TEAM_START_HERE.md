@@ -14,6 +14,12 @@
 - `.env` staging yang diperiksa hanya memuat API key; tidak ada `SUPABASE_DB_URL` atau `SUPABASE_DB_POOLER_URL`. Gunakan Supabase CLI dengan URL database VQE yang diperoleh secara aman untuk `db push --dry-run`, tinjau bahwa hanya migrasi di atas yang pending, lalu terapkan dan verifikasi ledger serta smoke test. Jangan memperbaiki ledger manual atau memakai MCP `apply_migration` untuk migration ber-versi yang harus cocok dengan source.
 - Advisor VQE terbaru: 162 tabel dengan RLS tanpa policy (INFO), 258 foreign key tanpa indeks penutup (INFO), 96 indeks belum terpakai (INFO), dan perlindungan kata sandi bocor Auth belum aktif (WARN). Jangan menambahkan policy massal atau menghapus indeks tanpa memeriksa kontrak akses dan workload.
 - Konektor Supabase yang tersedia hanya menampilkan VQE. Pembacaan project dan ledger Production PTSAS (`ptsasgdvgrbdtgyqieie`) saat ini ditolak, sehingga keadaan ledger/schema Production belum terverifikasi. Catatan lama tentang 47 versi ledger adalah snapshot terdahulu, bukan hasil pemeriksaan saat ini.
+### Temuan log Auth VQE — 5–6 November 2026
+
+- Query baca-saja 24 jam menemukan 9 operasi DELETE Auth berstatus 500 (`unexpected_failure`), bukan penghapusan berhasil. Pesan database yang disanitasi menunjukkan penghapusan profil ditolak oleh FK `ON DELETE RESTRICT` dari `ppdb_document_access_events` dan `tenant_reference_items`.
+- Ini selaras dengan kontrak retensi audit/katalog. Source aplikasi saat ini tidak menyediakan endpoint DELETE pengguna; perubahan status memakai `PATCH /api/users/:uid`, mem-ban/unban akun Auth, lalu memperbarui status profil dengan kompensasi bila update profil gagal. Jangan mengubah FK ini menjadi `CASCADE` untuk menghilangkan 500.
+- Operasional: gunakan **Nonaktifkan Akun** di modul Pengguna. Untuk fixture uji yang memiliki jejak audit, pertahankan akun dalam status nonaktif atau bersihkan hanya fixture tenant uji setelah relasi dan jejaknya ditinjau. Log `user_deleted` saja tidak membuktikan akun berhasil dihapus.
+- Koreksi hitungan log: field HTTP yang benar adalah `status`; agregasi awal pada `status_code` tidak menangkap respons 500 tersebut. Tidak ada data profil/email yang dimasukkan ke catatan ini.
 - Tidak ada migrasi atau perubahan data Production pada checkpoint ini. Jangan cutover sebelum staging live diverifikasi, struktur dan ledger Production direkonsiliasi terhadap source yang sama, serta tim menyelesaikan UAT dan review.
 
 ### UAT yang tersisa
