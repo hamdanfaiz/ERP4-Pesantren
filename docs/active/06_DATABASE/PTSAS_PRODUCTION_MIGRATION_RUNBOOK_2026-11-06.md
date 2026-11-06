@@ -1,4 +1,6 @@
 # Runbook migrasi PTSAS Production — 6 November 2026
+> **Status terbaru — 6 November 2026, 22.20 WIB.** Catatan dan angka di bawah adalah snapshot historis dan harus dibaca bersama [checkpoint terbaru](../00_PRODUCT/CHECKPOINT_2026-11-06_RESUME_STAGING.md). CI #1182 lulus pada source PR #40 `c618...`; checkpoint dokumentasi PR kini berada pada commit `5153391`, dengan CI #1183 masih berjalan ketika catatan ini ditambahkan. Migration source `20270304000000_student_room_assignment_reference_locks` telah diterapkan di VQE, tetapi ledger mencatat alias `20261106151606`. Jangan jalankan ulang DDL; rekonsiliasi satu baris metadata menunggu persetujuan pemilik. Production PTSAS tetap tidak berubah.
+
 
 ## Status dan bukti
 
