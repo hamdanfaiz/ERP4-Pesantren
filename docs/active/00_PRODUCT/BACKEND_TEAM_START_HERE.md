@@ -1,5 +1,51 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
-## Checkpoint handoff 6 November 2026
+
+## Checkpoint aktif — 7 November 2026, 00:24 WIB
+
+Status ini menggantikan angka dan status yang lebih lama di bagian arsip bawah. Snapshot Production tetap hanya snapshot; jangan gunakan sebagai izin migrasi.
+
+### PR, sumber, dan bukti CI
+
+- [PR #40](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40) terbuka, bukan Draft, berbasis `main`, dan mergeable. Head dokumentasi `8d987cbf18516915c9d9334fb7fbd1a7ca2f9059`; source aplikasi terakhir diuji `c61825935c49b642d8bed08b16e7c428a73add15`. Commit 8d987 hanya menambahkan audit dan memperbarui handoff; tidak mengubah kode aplikasi.
+- GitHub Actions [run #1199](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42260328450) lulus 3/3 pada head audit. Workflow mencakup build/guard Firebase, instalasi NPM pelanggan, replay migrasi pada baseline Production sintetis, pgTAP, API/Auth dan isolasi tenant, Storage, konkurensi, backup/restore lokal CI, serta Docker smoke test. CI tidak membuktikan UAT browser atau backup Production.
+- PR #38 dan #39 masih Draft/Open. Perbandingan Git menunjukkan head #38 dan #39 masing-masing berada di dalam riwayat head #40 (head #40 249 commit di depan #38 dan 202 di depan #39, tanpa commit PR lama yang tertinggal). Tinjau PR #40 sebagai integrasi; jangan merge #38/#39 terpisah.
+- Tidak ada review submission atau inline review thread untuk #40 ketika checkpoint ini dibuat. Tim backend dapat memulai review source PR #40 sekarang.
+
+### VQE staging — hanya baca
+
+- Project: `vqemuyzveuirlkvdggjd`. Ledger memiliki 136 entri; ada alias `20261106151606_student_room_assignment_reference_locks` untuk file sumber `20270304000000_student_room_assignment_reference_locks`. SQL-nya sudah aktif. **Jangan jalankan ulang DDL.** Rekonsiliasi metadata ledger perlu akses tulis staging dan pemeriksaan operator.
+- 167 tabel `public` mengaktifkan RLS. Dari 162 tabel tanpa policy, tidak ditemukan grant tabel/kolom langsung kepada `anon` atau `authenticated`. Lima tabel lain hanya memberikan SELECT kepada authenticated dengan policy tenant/role: `tenants`, `profiles`, `candidates`, `candidate_documents`, `user_profiles`. Tidak ditemukan grant tulis langsung kepada dua role itu.
+- 93 fungsi `SECURITY DEFINER` publik tidak dapat dieksekusi oleh `anon` atau `authenticated`; operasi modul harus tetap lewat server tepercaya dengan validasi role, tenant, dan payload.
+- Security Advisor memberi peringatan **Leaked Password Protection** belum aktif. Panduan Supabase menyebut pemeriksaan password bocor tersedia pada Pro+. Cek paket VQE dan kebijakan Auth: [panduan keamanan password](https://supabase.com/docs/guides/auth/password-security). Jangan menyimpan password aplikasi sendiri.
+- Performance Advisor: 258 FK tanpa indeks penutup, 95 indeks belum terpakai. Jangan tambah/hapus indeks massal berdasarkan staging yang belum mewakili beban pesantren. Audit FK terdahulu ada di [laporan indeks VQE](../05_ARCHITECTURE/VQE_FK_INDEX_AUDIT_2026-11-06.md).
+
+### PTSAS Production — tidak ada perubahan
+
+- Project `ptsasgdvgrbdtgyqieie`. Konektor saat ini menolak pembacaan live dengan `You do not have permission to perform this action`.
+- Snapshot CSV lama (6 November, 17:38 WIB) menunjukkan 47 ledger versions berbanding 136 migration source. Itu bukan inventaris live hari ini; selisihnya tidak membuktikan bahwa semua DDL hilang.
+- Tidak ada migration, query tulis, perubahan konfigurasi, atau perubahan data pada Production.
+
+### Pemeriksaan tambahan dan batasnya
+
+- Worktree integrasi lokal yang berbeda dari source PR: lint, build, migration preflight, dan 42/44 test logika non-database lulus. Dua test HTTP loopback ditolak sandbox dengan `EACCES`; test race database lokal tidak berjalan karena Supabase CLI tidak ada. Jangan anggap hasil scratch worktree sebagai bukti release head.
+- Build lokal lulus dengan peringatan chunk renderer PDF sekitar 1,46 MB. PDF dimuat saat dibutuhkan; tetap periksa jalur PDF pada UAT.
+- UAT visual/login Admin dan Wali belum selesai.
+
+### Urutan gate berikutnya
+
+1. UAT UI Admin dan Wali pada VQE: menu/submenu, role/tenant, PPDB, NIS/Naming Series, impor/ekspor, asrama, Tahfidz, Finance, Storage, dan responsif. Gunakan data sintetis dan bersihkan setelah UAT.
+2. Periksa konfigurasi Auth staging, termasuk perlindungan password bocor bila paket mendukung.
+3. Rekonsiliasi satu alias ledger staging hanya sebagai metadata setelah memastikan SQL sumber yang aktif. Jangan jalankan ulang DDL.
+4. Dapatkan inventaris Production baca-saja terbaru melalui koneksi berizin atau hasil query baca-saja operator.
+5. Tim backend membuktikan backup dan restore Production, lalu meninjau rehearsal/dry-run migrasi terhadap inventaris yang sama dengan source.
+6. Merge/cutover hanya setelah seluruh gate, UAT, dan review backend selesai. Deploy hosting dan UAT akhir tetap milik tim backend.
+
+Perkiraan kemajuan pengembangan keseluruhan masih sekitar **72%**. Angka ini bukan persentase fitur yang lulus UAT dan bukan status siap deploy. Saat gate tertutup, pembaruan persen harus memakai bukti terbaru.
+
+---
+
+## Arsip checkpoint 6 November 2026 dan sebelumnya
+
 
 ### PR dan CI
 
