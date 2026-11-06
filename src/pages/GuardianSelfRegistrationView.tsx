@@ -2,12 +2,17 @@ import React, { useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, LoaderCircle, LogOut, ShieldCheck, UserPlus } from "lucide-react";
 import { supabase } from "../utils/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { getOrCreateSingleFlightPromise } from "../utils/singleFlightPromise";
 
 type Props = {
   callback?: boolean;
   onBack?: () => void;
   onActivated?: () => void;
 };
+
+type GuardianRegistrationCallbackResult =
+  | { status: "activated" }
+  | { status: "notice"; message: string };
 
 const CONTROL = "w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none";
 
@@ -23,7 +28,8 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
   const [activated, setActivated] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const callbackStarted = useRef(false);
+  const callbackTask = useRef<Promise<GuardianRegistrationCallbackResult> | null>(null);
+  const activationNotified = useRef(false);
 
   useEffect(() => {
     if (callback) return;
@@ -47,11 +53,8 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
 
   useEffect(() => {
     if (!callback) return;
-    if (callbackStarted.current) return;
-    callbackStarted.current = true;
     let cancelled = false;
-    const finishRegistration = async () => {
-      try {
+    const task = getOrCreateSingleFlightPromise(callbackTask, async () => {
         const query = new URLSearchParams(window.location.search);
         const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
         const authError = query.get("error_description") || hash.get("error_description");
@@ -75,8 +78,10 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
           throw new Error("Buka tautan verifikasi dari email yang Anda daftarkan, lalu coba kembali.");
         }
         if (!session.user.email_confirmed_at) {
-          setNotice("Pendaftaran akun diterima. Konfirmasikan alamat email melalui tautan yang dikirim sebelum mengaktifkan Portal Wali.");
-          return;
+          return {
+            status: "notice",
+            message: "Pendaftaran akun diterima. Konfirmasikan alamat email melalui tautan yang dikirim sebelum mengaktifkan Portal Wali.",
+          } satisfies GuardianRegistrationCallbackResult;
         }
 
         const response = await fetch("/api/guardian-registration/claim", {
@@ -86,21 +91,36 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || "Akun belum dapat ditautkan ke data wali.");
         if (payload.success !== true) {
-          setNotice(payload.message || "Email terverifikasi, tetapi belum ditemukan relasi wali aktif atau tagihan PPDB yang cocok. Akun belum memperoleh akses ERP. Hubungi sekretariat untuk memeriksa data PPDB.");
-          return;
+          return {
+            status: "notice",
+            message: payload.message || "Email terverifikasi, tetapi belum ditemukan relasi wali aktif atau tagihan PPDB yang cocok. Akun belum memperoleh akses ERP. Hubungi sekretariat untuk memeriksa data PPDB.",
+          } satisfies GuardianRegistrationCallbackResult;
         }
 
         await refreshProfile();
+        return { status: "activated" } satisfies GuardianRegistrationCallbackResult;
+      });
+
+    void task
+      .then((result) => {
         if (cancelled) return;
+        if (result.status === "notice") {
+          setNotice(result.message);
+          return;
+        }
         setActivated(true);
-        onActivated?.();
-      } catch (cause) {
+        if (!activationNotified.current) {
+          activationNotified.current = true;
+          onActivated?.();
+        }
+      })
+      .catch((cause) => {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "Pendaftaran Portal Wali gagal diproses.");
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setIsBusy(false);
-      }
-    };
-    void finishRegistration();
+      });
+
     return () => { cancelled = true; };
   }, [callback, onActivated, refreshProfile]);
 
