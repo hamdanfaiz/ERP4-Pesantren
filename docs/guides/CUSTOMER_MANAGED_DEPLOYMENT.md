@@ -62,7 +62,7 @@ Flag tanpa awalan `VITE_` mengendalikan endpoint server; flag `VITE_` mengendali
 
 For a fresh database, apply and verify the reviewed migrations first. Migration `20270121000000_tenant_admin_bootstrap.sql` adds a server-only RPC; it does not import Firestore records, create sample operational data, or enable runtime flags.
 
-The trusted operator needs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the ignored `.env` file or the host's secret manager. Configure Supabase Auth email delivery and allowlist the application's invite redirect URL before sending an invitation. Optionally set `SUPABASE_AUTH_REDIRECT_URL`, `BOOTSTRAP_TENANT_TYPE`, and `BOOTSTRAP_TENANT_TIME_ZONE` in that operator environment. The default time zone is `Asia/Jakarta`.
+The trusted operator needs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the ignored `.env` file or the host's secret manager. Configure Supabase Auth email delivery and allowlist the application's invite redirect URL before sending an invitation. Set the Auth server's minimum password length to 12 or greater in every environment; the application validates this for registration, invitation activation, password recovery, and Admin-created credentials, while the Auth setting also protects direct Auth API requests. Optionally enable leaked-password protection when the Auth plan supports it; Supabase Cloud documents this feature for Pro and higher plans. Optionally set `SUPABASE_AUTH_REDIRECT_URL`, `BOOTSTRAP_TENANT_TYPE`, and `BOOTSTRAP_TENANT_TIME_ZONE` in that operator environment. The default time zone is `Asia/Jakarta`.
 
 Run once from the repository root:
 
