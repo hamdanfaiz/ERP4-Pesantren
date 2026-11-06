@@ -146,3 +146,12 @@ Runbook operator: [PTSAS_PRODUCTION_MIGRATION_RUNBOOK_2026-11-06.md](../06_DATAB
 - Endpoint lokal `127.0.0.1:4179/health/ready` dan `127.0.0.1:3000/health/ready` tidak memiliki server aktif; UAT visual/live browser belum dibuktikan.
 
 **Langkah berikut:** tim backend dapat meninjau source dari PR #40 yang sudah lulus CI. Sebelum cutover Production, pulihkan akses baca MCP PTSAS atau minta operator Production menjalankan inventaris baca-saja dan dry-run pada runbook. Jangan menjalankan `db push` sampai backup, rekonsiliasi ledger/DDL, dan keputusan operator selesai.
+
+## Pemeriksaan ulang VQE dan handoff — 6 November 2026, 13:15 UTC
+
+- Konektor Supabase Codex yang tersedia saat pemeriksaan hanya mencantumkan VQE. Permintaan baca list_migrations untuk PTSAS ptsasgdvgrbdtgyqieie masih ditolak dengan "You do not have permission to perform this action". Pengaturan Read-only pada panel MCP belum memperbarui akses konektor ini; Production tidak diubah.
+- Ledger VQE staging saat ini memuat 135 versions through 20270303000000. Advisor Health tidak melaporkan lint aktif.
+- Pemeriksaan katalog baca-saja: 167/167 tabel publik mengaktifkan RLS dan FORCE RLS. Satu-satunya relasi publik tanpa kolom tenant_id adalah tabel root tenants. Terdapat 162 tabel RLS tanpa policy, yang bersifat fail-closed; anon tidak memiliki grant tabel dan authenticated hanya memiliki lima grant SELECT, tanpa grant tulis.
+- Advisor Security masih memberi WARN untuk auth_leaked_password_protection. Advisor Performance mencatat 258 FK tanpa indeks penutup dan 95 indeks belum terpakai. Jangan menambah atau menghapus indeks massal dari angka advisor: cocokkan constraint dan indeks, pola query, serta beban sintetis skala realistis. Jangan menambahkan policy ke tabel server-only hanya untuk menghilangkan INFO.
+- Pemeriksaan lokal pada worktree integrasi ef824c3 dengan perubahan lokal yang belum dikomit: test:master-data-student-import-plan, test:migration-preflight, test:supabase-runtime-no-firebase, lint, dan build lulus. Build tetap memberi peringatan chunk PDF 1,46 MB dan anotasi Zod pihak ketiga. Worktree ini belum identik dengan head PR #40, jadi hasil lokal ini bukan pengganti CI head remote.
+- PR #40 head remote sebelumnya tetap lulus 3/3 job pada run #1172. PR #40 sudah berstatus Ready for review, tetapi belum memiliki review submission dan belum digabung ke main; PR #38/#39 masih Draft/Open. UAT visual dan gate rekonsiliasi Production masih terbuka.
