@@ -42,3 +42,30 @@
 - CI pada head `8d54f689b9b781f80028cbc9dc0e101bb3d3696b` lulus untuk guard graph runtime tanpa Firebase dan image produksi tanpa paket Firebase. `src/firebase.ts` menolak pemakaian lama, dan alias Vite `firebase/firestore` mengarah ke shim yang melempar error.
 - Dengan bukti itu, runtime yang diuji tidak bergantung pada Firestore; namun berkas legacy dan Firebase devDependency masih berada di source untuk kebutuhan kompatibilitas/type-check. Bila kebijakan repositori menuntut source bersih tanpa referensi Firebase sama sekali, pengarsipan/penghapusan berkas legacy menjadi pekerjaan source-cleanup terpisah sebelum klaim tersebut dibuat.
 
+
+## Pembaruan 6 November 2026 — pemeriksaan PR dan Production
+
+### Status PR #38–#40
+
+- Head GitHub yang diverifikasi: #38 `0bc56b435aaf8d25a138bc28ef4d36d85d75f57b`, #39 `28cbb95c3f42bef5e6483055be738924ce893059`, #40 `157f867674ec26a07a7e5805c4fb8056aecaaef0`.
+- Head PR #40 berada 203 commit di atas #38 dan 150 commit di atas #39, tanpa commit yang tertinggal. PR #40 menjadi jalur integrasi untuk meninjau stack tersebut bersama.
+- CI terbaru di ketiga head lulus 3/3 job: run #1150 (#38), #1152 (#39), #1162 (#40). Ketiga PR tetap Draft/Open dan belum memiliki review; UAT live dan penerimaan backend masih menunggu.
+- Isi migrasi `20270303000000_master_data_student_import_relationships.sql`, tes pgTAP terkait, dan panduan deployment pada worktree integrasi dibandingkan dengan head #40 dan sama persis. Perubahan itu telah dipush dan diuji oleh CI #1162; tidak ada source code tambahan yang perlu didorong ulang.
+
+### Pemeriksaan source lokal
+
+- Lulus: `npm run lint`, `npm run build`, `npm run test:migration-preflight`, `npm run test:master-data-student-import-plan`, `npm run test:master-data-transfer-csv`, dan `git diff --check`.
+- Build berhasil dengan peringatan anotasi pihak ketiga Zod dan chunk PDF sekitar 1,46 MB. Docker, `psql`, dan Supabase CLI tidak tersedia di workstation; pgTAP pada migrasi yang sama sudah tercakup di job CI #1162.
+
+### Inventaris PTSAS Production baca-saja
+
+- SQL Editor memastikan ref terpilih adalah PTSAS Production `ptsasgdvgrbdtgyqieie`. Query hanya membaca metadata katalog dan ledger; tidak membaca record operasional atau menjalankan DDL/DML.
+- Ledger Production berisi 47 versi migrasi unik, terbaru `20261206000000`. Source memiliki 135 file sampai `20270303000000_master_data_student_import_relationships.sql`; jangan lakukan cutover sebelum ledger dan struktur direkonsiliasi.
+- Dari 119 tabel publik, seluruhnya mengaktifkan RLS dan 118 memiliki kolom `tenant_id`. Satu pengecualian adalah tabel root `tenants`: RLS dan FORCE RLS aktif, dengan kebijakan SELECT authenticated `id = current_tenant_id()`. Tidak ditemukan tabel operasional yang kehilangan kolom tenant.
+- Katalog mencatat lima kebijakan RLS publik dan dua bucket Storage privat. Tidak ada perubahan pada Production.
+
+### Prasyarat VQE yang belum selesai
+
+- VQE staging `vqemuyzveuirlkvdggjd` memiliki 134 versi ledger sampai `20270302000000_academic_class_reference_pagination`; migrasi `20270303000000` masih menunggu.
+- File `erp4-pr40-uat-20261104/.env` belum memiliki `SUPABASE_DB_POOLER_URL`; URL itu tidak dikirim lewat chat. Dry-run dan penerapan ke VQE belum terjadi.
+- Setelah URL Session Pooler khusus VQE disimpan, jalankan preflight dan `db push --dry-run` dengan verifikasi ref, lalu terapkan migrasi ke VQE dan ulangi UAT. Production tetap tidak boleh menerima migrasi sebelum tahap rekonsiliasi terpisah.
