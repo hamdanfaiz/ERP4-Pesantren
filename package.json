@@ -34,6 +34,7 @@
     "test:auth-recovery-redirect": "tsx scripts/test-auth-recovery-redirect.ts",
     "test:document-list-filters": "tsx scripts/test-document-list-filters.ts",
     "test:guardian-invitation-verification": "tsx scripts/test-guardian-invitation-verification.ts",
+    "test:guardian-registration-strictmode": "tsx scripts/test-guardian-registration-strictmode.ts",
     "test:hris-legacy-import": "tsx scripts/test-hris-legacy-import.ts",
     "test:alumni-workflow": "tsx scripts/test-alumni-workflow.ts",
     "test:cooperative-legacy-import": "tsx scripts/test-cooperative-legacy-import.ts",
