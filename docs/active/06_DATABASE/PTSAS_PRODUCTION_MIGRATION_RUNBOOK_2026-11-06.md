@@ -1,14 +1,14 @@
 # Runbook migrasi PTSAS Production — 6 November 2026
-> **Status terbaru — 6 November 2026, 22.20 WIB.** Catatan dan angka di bawah adalah snapshot historis dan harus dibaca bersama [checkpoint terbaru](../00_PRODUCT/CHECKPOINT_2026-11-06_RESUME_STAGING.md). CI #1182 lulus pada source PR #40 `c618...`; checkpoint dokumentasi PR kini berada pada commit `5153391`, dengan CI #1183 masih berjalan ketika catatan ini ditambahkan. Migration source `20270304000000_student_room_assignment_reference_locks` telah diterapkan di VQE, tetapi ledger mencatat alias `20261106151606`. Jangan jalankan ulang DDL; rekonsiliasi satu baris metadata menunggu persetujuan pemilik. Production PTSAS tetap tidak berubah.
+> **Status terbaru — 6 November 2026, 23.30 WIB.** PR #40 head dokumentasi `32dcbb691d5abbef1ac61516d9a657ddb46c3311` Open dan belum merged; source aplikasi terakhir diuji `c61825935c49b642d8bed08b16e7c428a73add15`. CI [#1193](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42251623019) lulus 3/3, termasuk replay pada baseline Production sintetis, bukan database Production. Snapshot CSV Production pukul 17.38 WIB menunjukkan 47 ledger versions vs 136 source files: 89 pending, terdiri dari dua migration out-of-order dan 87 versi lebih baru; dua payload metadata kosong. VQE memiliki 136 ledger rows: 135 canonical hingga `20270303000000` dan alias `20261106151606` untuk source `20270304000000`. DDL VQE sudah aktif; jangan jalankan ulang. Production tidak diubah. UAT browser, backup/restore Production yang terbukti, inventaris terbaru dan dry-run pada target Production tetap prasyarat.
 
 
 ## Status dan bukti
 
 - Target: PTSAS Production `ptsasgdvgrbdtgyqieie`. VQE `vqemuyzveuirlkvdggjd` tetap sebagai staging.
 - CI pada PR #40 commit `6b853c421c04ef8189f778a7b3cadb87910f5d3b` lulus 3/3 job pada run [#1168](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42213196954). Job database membentuk baseline ledger Production tiruan, menerapkan migration yang hilang dengan `--include-all`, memverifikasi 135 versi serta objek audit/RPC, dan menjalankan suite database.
-- VQE live memiliki 135 versi migration sampai `20270303000000`. Production belum berubah.
-- Ekspor baca-saja Production yang disediakan pemilik menunjukkan 47 versi ledger, 88 versi source tidak tercatat, dua versi lebih lama yang hilang (`20261031104213`, `20261031225438`), serta dua baris ledger tanpa metadata (`20261205000000`, `20261206000000`).
-- GitHub PR #40 masih Draft/Open. Jalankan dari source yang sudah ditinjau dan disetujui tim backend; jangan mengambil source dari worktree yang belum disinkronkan.
+- VQE live memiliki 135 versi migration canonical sampai `20270303000000`, ditambah satu alias ledger (`20261106151606`) untuk source `20270304000000`; total 136 baris ledger. DDL sudah aktif, jangan jalankan ulang.
+- Ekspor baca-saja Production yang disediakan pemilik menunjukkan 47 versi ledger, 89 versi source tidak tercatat, dua versi lebih lama yang hilang (`20261031104213`, `20261031225438`) dan 87 versi setelah high-water mark, serta dua baris ledger tanpa payload migration (`20261205000000`, `20261206000000`).
+- GitHub PR #40 berstatus Open dan bukan Draft. Jalankan dari source yang sudah ditinjau dan disetujui tim backend; jangan mengambil source dari worktree yang belum disinkronkan.
 - Pemilik telah meminta agar hasil staging yang lulus dilanjutkan ke Production tanpa menunggu pengingat. Konektor Codex saat ini ditolak oleh PTSAS Production dan workstation tidak dapat mengambil Supabase CLI dari jaringan, sehingga operator yang memiliki akses Production perlu menjalankan langkah di bawah.
 
 ## Prasyarat sebelum dry-run
@@ -36,7 +36,7 @@ supabase db push --db-url "$env:SUPABASE_DB_URL" --include-all --dry-run
 
 Dry-run ini hanya menampilkan migration yang akan dijalankan. Ledger snapshot memperkirakan 88 migration pending, termasuk dua versi out-of-order. Simpan daftar versi yang dicetak, tanpa menyimpan URL koneksi atau password.
 
-**Hentikan proses** bila ref salah, dry-run tidak menunjukkan daftar yang dapat direkonsiliasi dengan 88 versi source pending, ada migration Production-only/unknown, atau backup belum dapat dipulihkan. Pastikan juga efek DDL untuk dua baris ledger tanpa metadata sudah dicocokkan dengan source. Karena versi tersebut sudah tercatat di ledger, CLI akan melewatinya; `--include-all` tidak memperbaiki DDL yang mungkin hilang dari dua migration itu.
+**Hentikan proses** bila ref salah, dry-run tidak menunjukkan daftar yang dapat direkonsiliasi dengan 89 versi source pending, ada migration Production-only/unknown, atau backup belum dapat dipulihkan. Pastikan juga efek DDL untuk dua baris ledger tanpa metadata sudah dicocokkan dengan source. Karena versi tersebut sudah tercatat di ledger, CLI akan melewatinya; `--include-all` tidak memperbaiki DDL yang mungkin hilang dari dua migration itu.
 
 Jangan jalankan `migration repair` atau mengubah ledger manual hanya untuk membuat nama/angka tampak cocok. Dua migration lama yang belum tercatat harus dijalankan sebagai migration source; jangan menandainya applied tanpa bukti DDL.
 
@@ -52,7 +52,7 @@ Jalankan satu kali dari checkout yang ditinjau. Jangan membuka project/link lain
 
 ## Verifikasi setelah penerapan
 
-1. Jalankan `supabase migration list --db-url "$env:SUPABASE_DB_URL"` dan pastikan seluruh 135 versi source tercatat. Dua baris metadata yang sebelumnya kosong perlu dicatat; verifikasi bahwa efek migration-nya memang ada sebelum memutuskan perbaikan metadata.
+1. Jalankan `supabase migration list --db-url "$env:SUPABASE_DB_URL"` dan pastikan seluruh 136 versi source tercatat. Dua baris metadata yang sebelumnya kosong perlu dicatat; verifikasi bahwa efek migration-nya memang ada sebelum memutuskan perbaikan metadata.
 2. Jalankan skrip [inventaris baca-saja satu hasil](./PTSAS_PRODUCTION_READ_ONLY_RECONCILIATION_SINGLE_EXPORT.sql) di PTSAS Production dan simpan CSV metadata. Jangan ekspor baris operasional.
 3. Bandingkan relasi, kolom, constraint, indeks, RLS/FORCE RLS, policy, fungsi, pemicu, ACL, dan bucket terhadap source/VQE. Semua 119 relasi Production sebelumnya memiliki RLS dan FORCE RLS; jangan melonggarkan aturan untuk membuat modul terlihat.
 4. Verifikasi smoke test aplikasi dan role/tenant pada jadwal UAT tim backend. Jika ada regresi, hentikan penggunaan fitur terdampak dan ikuti prosedur restore yang telah diuji.

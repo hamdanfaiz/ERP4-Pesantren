@@ -1,5 +1,15 @@
 # Checkpoint Pengembangan — 6 November 2026, 22.20 WIB
 
+## Status saat dilanjutkan — 6 November 2026, 23.30 WIB
+
+- PR #40 tetap **Open, belum merged**. Head saat audit `32dcbb691d5abbef1ac61516d9a657ddb46c3311`; source aplikasi terakhir diuji `c61825935c49b642d8bed08b16e7c428a73add15`.
+- GitHub Actions CI [#1193](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42251623019) lulus 3/3: build/dependency pelanggan/Firebase bundle guard; migration, API Auth/isolasi tenant, pgTAP dan replay baseline Production sintetis. Ini bukan UAT browser atau uji pada database Production.
+- Snapshot CSV Production pukul 17.38 WIB: ledger 47 versi dibanding 136 file source (89 belum tercatat); dua migration lama memiliki efek DDL yang belum ada. Production tidak disentuh.
+- VQE: 136 ledger rows, yakni 135 canonical plus alias `20261106151606` untuk DDL source `20270304000000`. Jangan ulang DDL; rekonsiliasi satu baris metadata tetap ditunda sampai operator aktif.
+- Belum ada bukti UAT browser Admin/Wali yang selesai. Jangan merge/cutover sebelum UAT, inventaris baca-saja terbaru Production, backup/restore terbukti, dan rehearsal/dry-run ditinjau. Manual operator ditunda sampai pengguna aktif sekitar 05.00 WIB.
+- Langkah aman berikutnya: bereskan dokumentasi/handoff dan kumpulkan bukti CI; setelah operator aktif, selesaikan hanya tindakan staging yang disetujui. Production tetap tidak boleh ditulis sebelum gerbangnya lengkap.
+
+
 ## Pembaruan checkpoint — 6 November 2026, 22.28 WIB
 
 - CI #1184 `42242584323` selesai **3/3 job lulus** pada head `2845d025ae5b96617e6544141263f0a9ad4d63ae` (perubahan dokumentasi). Job database menjalankan replay Production-baseline sintetis; NPM install; frontend typecheck/build, Firebase runtime guard, dan Docker smoke tests. Source aplikasi di dalamnya sama dengan `c61825935c49b642d8bed08b16e7c428a73add15`, yang juga lulus 3/3 pada #1182.
