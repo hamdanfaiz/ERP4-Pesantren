@@ -2,7 +2,7 @@
 
 ## Checkpoint terbaru — 7 November 2026
 
-- **PR #40** masih Open, belum merged. CI run [#1206](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42311021365) lulus 3/3 pada head `345be53d1feb5af20682248e99dabab23e69ee42`. Commit dokumentasi berikutnya memperbarui runbook ini; tunggu CI baru pada head terbaru sebelum memakai bukti CI sebagai gate.
+- **PR #40** masih Open, belum merged. CI run [#1206](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42311021365) lulus 3/3 pada head `345be53d1feb5af20682248e99dabab23e69ee42`; CI run [#1208](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42312516120) kemudian lulus 3/3 pada head `1dfe0debf2fe2a2aa96b3f28dfeb3ea6795dfec5`, yang memperbarui runbook dan handoff. CI tersebut memeriksa source/build, replay baseline Production sintetis, serta backup/restore lokal.
 - Operator melaporkan hasil baca-saja Production via MCP Desktop: 119 tabel publik, seluruhnya RLS + FORCE RLS; 47 versi ledger; 136 file migrasi source; 89 versi source tidak tercatat. Hasil lengkap dan batas pembuktiannya ada di [rekonsiliasi Production 7 November](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-07.md). Konektor Supabase Apps pada sesi pengembang masih menolak akses, jadi snapshot itu belum dapat diulang secara independen dari sesi ini.
 - Belum ada perubahan tulis pada Production. Jangan menganggap 89 selisih ledger sebagai daftar migrasi siap dijalankan.
 - CI #1206 membuktikan replay terhadap **baseline sintetis** serta backup/restore lokal CI. Backup dan restore PTSAS, diff DDL langsung, UAT browser staging, dan persetujuan change window Production belum terbukti.
