@@ -106,3 +106,11 @@
 - Pemeriksaan setelah rollback memastikan 0 baris jenjang fixture, 0 record Master Data fixture, dan 0 audit event fixture tertinggal.
 - Ini membuktikan validator live pada jalur relasi tersebut. Belum menguji RPC import dengan `p_apply=true`, penempatan kamar transaksional melalui API, kasus kamar penuh dengan santri existing, atau alur UI end-to-end.
 - Production PTSAS tidak disentuh. SQL inventaris Production di source branch memakai urutan trigger yang sudah dikoreksi; salinan workspace lama juga diperbaiki lokal setelah pengguna menemukan error alias kolom.
+
+## Handoff update — Production cutover and team access (6 November 2026)
+
+- The owner confirmed that the backend team can access PTSAS Production `ptsasgdvgrbdtgyqieie`, while VQE staging `vqemuyzveuirlkvdggjd` is visible only to the owner. This handoff records staging evidence in GitHub; it does not include credentials or operational rows.
+- The complete read-only Production export supplied by the owner contains 4,098 metadata rows at 2026-11-06 10:38:45 UTC (17:38:45 WIB): 47 migration entries, 119 public relations, 1,381 columns, 1,110 constraints, 402 indexes, 5 RLS policies, 119 functions, 24 triggers, 886 ACL entries, and 2 Storage buckets. It contains no operational row data. The corrected one-query SQL and reconciliation report are added to this PR for backend review.
+- VQE currently reports 135 migrations through `20270303000000`. GitHub Actions run [#1167](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42202906454) passed all three jobs on head `17974717d9ff69ef4602ae38083bf14c6005fcb7`. That run did not recreate the two missing out-of-order Production migrations; this commit adds that isolated local-CI rehearsal. Its CI result is pending.
+- The owner's standing instruction is to move the verified change to Production once all agreed staging checks pass, without waiting for another reminder. Production has not been changed. The exact Production-baseline replay and remaining operational/UI UAT are still open gates; the older green CI run is not recorded as proof of those gates.
+- Local checks on the prepared source passed: migration-preflight regression, TypeScript lint, production build, and `git diff --check`. Full PostgreSQL replay must be verified by the new GitHub Actions run.

@@ -363,6 +363,53 @@ assert.deepEqual(stagingBaseline.statementMismatches.map(({ version, reason }) =
 assert.equal(stagingBaseline.canContinueToStagingReview, false);
 assert.match(formatReport(stagingBaseline), /HENTIKAN/);
 
+// Regression fixture for the read-only PTSAS Production inventory captured on
+// 2026-11-06: 47 applied versions through 20261206000000, two missing older
+// migrations, and two existing rows with missing name/statement metadata.
+const productionMissingMigrationVersions = new Set([
+  '20261031104213',
+  '20261031225438',
+]);
+const productionMissingMetadataVersions = new Set([
+  '20261205000000',
+  '20261206000000',
+]);
+const productionSourceAtBoundary = sourceMigrationsWithSql
+  .filter(({ version }) => version <= '20261206000000');
+assert.equal(productionSourceAtBoundary.length, 49);
+const observedProductionMigrations = productionSourceAtBoundary
+  .filter(({ version }) => !productionMissingMigrationVersions.has(version))
+  .map(({ version, fileName, statements }) => ({
+    version,
+    name: productionMissingMetadataVersions.has(version)
+      ? null
+      : fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, ''),
+    statements: productionMissingMetadataVersions.has(version) ? null : statements,
+  }));
+assert.equal(observedProductionMigrations.length, 47);
+const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
+assert.equal(productionBaseline.appliedCount, 47);
+assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
+assert.equal(productionBaseline.pending.length, 88);
+assert.deepEqual(
+  productionBaseline.outOfOrderPending.map(({ version }) => version),
+  [...productionMissingMigrationVersions],
+);
+assert.equal(productionBaseline.unknownApplied.length, 0);
+assert.deepEqual(
+  productionBaseline.nameMismatches.map(({ version }) => version),
+  [...productionMissingMetadataVersions],
+);
+assert.deepEqual(
+  productionBaseline.statementMismatches.map(({ version, reason }) => ({ version, reason })),
+  [...productionMissingMetadataVersions].map((version) => ({ version, reason: 'missing' })),
+);
+assert.equal(productionBaseline.canContinueToStagingReview, false);
+assert.match(formatReport(productionBaseline), /lebih lama dari versi terakhir database/);
+assert.match(formatReport(productionBaseline), /20261031104213.*master_data_import_create_only/);
+assert.match(formatReport(productionBaseline), /20261031225438.*master_data_audit_feed/);
+assert.match(formatReport(productionBaseline), /statement SQL pada ledger kosong/);
+
 const twoMetadataMissingMigrations = sourceMigrationsWithSql.filter(({ version }) =>
   ['20261205000000', '20261206000000'].includes(version)
 );
