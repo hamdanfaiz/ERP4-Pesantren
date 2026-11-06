@@ -69,3 +69,14 @@
 - VQE staging `vqemuyzveuirlkvdggjd` memiliki 134 versi ledger sampai `20270302000000_academic_class_reference_pagination`; migrasi `20270303000000` masih menunggu.
 - File `erp4-pr40-uat-20261104/.env` belum memiliki `SUPABASE_DB_POOLER_URL`; URL itu tidak dikirim lewat chat. Dry-run dan penerapan ke VQE belum terjadi.
 - Setelah URL Session Pooler khusus VQE disimpan, jalankan preflight dan `db push --dry-run` dengan verifikasi ref, lalu terapkan migrasi ke VQE dan ulangi UAT. Production tetap tidak boleh menerima migrasi sebelum tahap rekonsiliasi terpisah.
+
+
+## Pembaruan 6 November 2026 — penerapan migrasi VQE 20270303000000
+
+- Source di PR #40 pada saat penerapan: `25f1873426f1fbae46dc9f7eb94d8e0c70dd4e79`. Migrasi `20270303000000_master_data_student_import_relationships.sql` diterapkan ke VQE staging `vqemuyzveuirlkvdggjd` melalui konektor Supabase setelah fungsi audit, impor santri, penempatan kamar, dan kolom rujukan jenjang diverifikasi tersedia.
+- Konektor mencatat migrasi dengan versi waktu `20261106094752`. Satu baris metadata ledger itu kemudian direkonsiliasi ke versi sumber `20270303000000`; isi statements/rollback dipertahankan dan DDL tidak dijalankan ulang.
+- Verifikasi pasca-penerapan: ledger VQE berisi 135 migrasi dan memiliki versi canonical `20270303000000`; fungsi validasi/impor tersedia; `anon` dan `authenticated` tidak dapat mengeksekusi RPC impor, `service_role` dapat; `search_path` validator terkunci.
+- GitHub Actions run #1163 lulus: frontend/build guard, migrations/API auth/pgTAP, dan instalasi NPM. Ini bukti suite CI terisolasi, bukan pengganti seluruh UAT live.
+- `SUPABASE_DB_POOLER_URL` kini ada di `erp4-pr40-uat-20261104/.env`, cocok dengan VQE region `ap-northeast-1`, dan `.env*` diabaikan Git. Nilai rahasia tidak dicatat atau dikirim.
+- Supabase CLI belum tersedia pada workstation; perintah `db push --dry-run` belum dijalankan. Migrasi ini diterapkan langsung melalui konektor Supabase.
+- UAT live impor sintetik, Auth/isolasi tenant menyeluruh, Storage, dan UAT antarmuka/responsif masih terbuka. PR #40 tetap Draft/Open; Production PTSAS `ptsasgdvgrbdtgyqieie` tidak diubah. Ledger Production tetap perlu rekonsiliasi sebelum cutover.
