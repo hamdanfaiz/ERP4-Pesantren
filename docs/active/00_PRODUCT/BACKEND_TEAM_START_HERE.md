@@ -1,40 +1,36 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
-## Checkpoint aktif — 7 November 2026, 04:47 WIB
-
-Status ini memperbarui checkpoint 00:24 WIB. Snapshot Production hanya bukti historis; jangan gunakan sebagai izin atau daftar otomatis untuk menerapkan migrasi.
+## Checkpoint aktif — 7 November 2026, 06:17 WIB
 
 ### PR #40, source, dan CI
 
-- PR #40 terbuka, bukan Draft, berbasis `main`, dan mergeable. Head saat ini `3777d8383f80c7f6f89b57923d75e05808f0a9bd`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. Commit setelah source hanya memperbarui dokumen.
-- GitHub Actions [run #1200](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42262093341) lulus **3/3 job** pada head dokumentasi 3777. Ini mencakup build/guard Firebase, instalasi NPM pelanggan, migrasi pada baseline sintetis, API/Auth dan isolasi tenant, pgTAP, Storage, transaksi serentak, backup/restore CI, dan Docker smoke test. CI tidak menggantikan UAT browser, backup Production, atau rehearsal live.
-- PR #38 dan #39 masih Draft/Open; riwayatnya telah terkonsolidasi dalam #40. Tinjau #40 sebagai integrasi; jangan merge PR lama secara terpisah.
-- Laporan audit staging yang ditinjau: [audit VQE 7 November](../06_DATABASE/VQE_STAGING_ADVISOR_AUDIT_2026-11-07.md).
+- [PR #40](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/40) masih **Open, belum merged**. Head dokumentasi `ec20b66a6697550d86c7bc9ff091fb9417cabcd8`; source aplikasi terakhir diuji `c61825935c49b642d8bed08b16e7c428a73add15`. Commit terbaru hanya dokumentasi.
+- GitHub Actions [run #1204](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42309828935) lulus **3/3 job** pada head ec20. Cakupan termasuk build/guard Firebase, pemasangan NPM pelanggan, migration replay pada baseline Production sintetis, API/Auth dan isolasi tenant, pgTAP, Storage, konkurensi, backup/restore lokal, dan Docker smoke test. Ini bukan UAT browser, backup Production, atau rehearsal live.
+- Belum ada submission review maupun review thread pada PR #40. Perubahan PR #38/#39 terkonsolidasi di #40.
+- Build lokal salinan source bersih juga lulus lint, build, dan 19 pemeriksaan logika terpilih. Build memberi peringatan chunk JavaScript di atas 500 kB. Laporan Production terbaru ada di [rekonsiliasi baca-saja 7 November](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-07.md).
 
 ### VQE staging — inspeksi baca-saja terbaru
 
-- Project `vqemuyzveuirlkvdggjd`: 136 entri ledger. Versi `20261106151606_student_room_assignment_reference_locks` adalah alias untuk sumber `20270304000000_student_room_assignment_reference_locks`; SQL migrasi sudah aktif. **Jangan jalankan ulang DDL.** Perbaikan ledger satu baris masih menunggu akses operator.
-- Advisor keamanan: 162 tabel RLS aktif tanpa policy (INFO; akses langsung default-deny) dan perlindungan password bocor belum aktif (WARN). Advisor performa mencatat 258 FK tanpa indeks covering dan 95 indeks yang belum terpakai (INFO); jangan melakukan perubahan indeks massal tanpa beban uji representatif.
-- UAT visual/login Admin dan Wali belum selesai. Fitur menu yang tampil belum menjadi bukti bahwa tiap alur interaktif lolos UAT.
+- Project `vqemuyzveuirlkvdggjd`: 136 baris ledger; satu alias `20261106151606_student_room_assignment_reference_locks` mewakili source `20270304000000_student_room_assignment_reference_locks`. SQL migrasi sudah aktif. **Jangan jalankan ulang DDL.** Metadata alias masih perlu direkonsiliasi dengan prosedur staging yang sesuai.
+- Advisor terakhir: 167 tabel `public` mengaktifkan RLS; 162 tabel tidak memiliki policy dan tidak memiliki grant langsung bagi browser roles, sehingga akses langsung default-deny. Perlindungan password bocor belum aktif; 258 FK tanpa indeks penutup dan 95 indeks belum digunakan adalah INFO yang perlu diuji dengan beban representatif, bukan diubah massal.
+- UAT browser Admin/Wali, termasuk alur login dan semua modul, belum selesai.
 
-### PTSAS Production — tidak ada perubahan
+### PTSAS Production — metadata terbaca; belum ada perubahan
 
-- Project `ptsasgdvgrbdtgyqieie`: konektor masih menolak pembacaan live. Tidak ada query tulis, migrasi, atau perubahan konfigurasi/data Production.
-- CSV terakhir yang tersedia berasal dari 6 November pukul 17:38 WIB. Perbandingan snapshot terhadap pohon migrasi PR #40 pada head 3777 menemukan **47 versi ledger yang semuanya cocok dengan source; 89 dari 136 versi source tidak ada di snapshot; tidak ada versi ekstra**. Ini bukan pembacaan live.
-- Snapshot memiliki **29 versi bertanggal 8 November–6 Desember 2026**, setelah tanggal saat ini (7 November), dan dua baris memakai nilai nama literal `null`. Operator perlu mengonfirmasi asal/waktu ekspor dan mengirim inventaris baca-saja baru. Jangan menganggap 89 sebagai daftar DDL yang aman dijalankan atau memperbaiki ledger Production dari snapshot.
-- Dua migrasi yang sebelumnya teridentifikasi kehilangan efek DDL tetap perlu diperiksa pada inventaris live; hal itu tidak membuktikan bahwa seluruh versi yang tidak tercatat belum diterapkan.
+- Operator melaporkan bahwa MCP Desktop `supabase` berhasil membaca metadata Production pada 7 November. Tidak perlu meminta OAuth tambahan; konektor Supabase Apps dalam sesi agen masih terpisah dan tetap menolak.
+- Katalog `public`: 119/119 tabel mengaktifkan RLS dan FORCE RLS. Operator melaporkan 5 policy, semuanya `PERMISSIVE SELECT` untuk `authenticated`, serta tidak ada grant langsung ke `PUBLIC`, `anon`, atau `authenticated`. Route server, RPC, fungsi istimewa, dan login belum dibuktikan oleh pemeriksaan katalog ini.
+- Ledger: 47 versi; semua versi ditemukan pada 136 file source PR #40. 45 nama cocok; dua nama tidak dikembalikan MCP tetapi dipetakan berdasarkan versi. Ada 89 versi source yang belum tercatat dan 29 nomor versi setelah tanggal laporan. Daftar selisih rinci ada di laporan rekonsiliasi; **jangan terapkan 89 migrasi secara massal**.
+- Tidak ada baris data aplikasi yang dibaca dan tidak ada query tulis atau perubahan Production. Ledger bukan bukti efek DDL, dan Production memerlukan diff schema aktual.
 
-### Gate berikutnya
+### Gerbang berikutnya
 
-1. Setelah operator aktif, ambil inventaris Production baca-saja yang baru dan konfirmasi anomali 29 versi masa depan serta dua nama `null`.
-2. Di staging, rekonsiliasi alias ledger hanya setelah memeriksa status dan versi source; jangan mengulang DDL.
-3. Tinjau pengaturan perlindungan password bocor VQE dan paket yang mendukungnya.
-4. Jalankan UAT browser Admin/Wali dengan fixture sintetis: menu/submenu, role dan tenant, PPDB, NIS/Naming Series, impor/ekspor, asrama, Tahfidz, Finance, Storage, dan responsif; hapus fixture setelahnya.
-5. Tim backend meninjau source, keamanan, dan runbook. Production memerlukan backup/restore terbukti serta rehearsal/dry-run terhadap inventaris terbaru sebelum keputusan migrasi.
+1. Tim backend tinjau report rekonsiliasi, ambil schema-only snapshot Production, bandingkan efek DDL, dan buktikan backup serta restore pada target terisolasi.
+2. Selesaikan rehearsal migration plan pada baseline yang cocok; urutkan migrasi dan tangani efek DDL yang hilang dengan migrasi korektif baru, bukan rerun buta.
+3. Selesaikan UAT Admin/Wali di staging untuk menu/submenu, role/tenant, PPDB, NIS/Naming Series, impor/ekspor, asrama, Tahfidz, Finance, Storage, dan layar responsif; hapus fixture setelah bukti tersimpan.
+4. Rekonsiliasi alias ledger VQE setelah memastikan versi source dan status DDL yang aktif; jangan mengulang DDL.
+5. Merge/cutover hanya setelah review backend, UAT, backup/restore, schema diff, dan rehearsal lulus. Deploy hosting serta UAT hosting tetap dilakukan tim backend.
 
-Progress pengembangan tetap **sekitar 72%** berdasarkan checkpoint; itu bukan persentase fitur yang lulus UAT atau status siap deploy. Deploy hosting dan UAT akhir tetap menjadi pekerjaan tim backend.
-
-
+Status ini memisahkan bukti CI/sintetis dari Production live. **ERP belum siap migrasi Production atau go-live.**
 ---
 
 ## Arsip checkpoint 6 November 2026 dan sebelumnya
