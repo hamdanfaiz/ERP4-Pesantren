@@ -80,3 +80,12 @@
 - `SUPABASE_DB_POOLER_URL` kini ada di `erp4-pr40-uat-20261104/.env`, cocok dengan VQE region `ap-northeast-1`, dan `.env*` diabaikan Git. Nilai rahasia tidak dicatat atau dikirim.
 - Supabase CLI belum tersedia pada workstation; perintah `db push --dry-run` belum dijalankan. Migrasi ini diterapkan langsung melalui konektor Supabase.
 - UAT live impor sintetik, Auth/isolasi tenant menyeluruh, Storage, dan UAT antarmuka/responsif masih terbuka. PR #40 tetap Draft/Open; Production PTSAS `ptsasgdvgrbdtgyqieie` tidak diubah. Ledger Production tetap perlu rekonsiliasi sebelum cutover.
+
+
+## UAT baca-saja validator impor master data — 6 November 2026
+
+- Pada tenant aktif VQE, validator mengembalikan `planned` untuk jenjang aktif tenant, `conflict` untuk jenjang bebas yang tidak dikenal, dan `conflict` untuk ID kelas dari tenant lain. Pengujian hanya memanggil fungsi validasi; tidak membuat atau mengubah record.
+- Inventaris agregat staging menunjukkan sembilan tenant (satu aktif, delapan ditangguhkan). Tenant aktif belum memiliki record Master Data kelas/gedung/kamar; katalog tersebut hanya ada pada tenant yang ditangguhkan. Karena itu pengujian live positif untuk hubungan kelas↔jenjang, gedung↔kamar, gender, kapasitas, dan sinkronisasi okupansi belum lengkap.
+- Jangan mengaktifkan tenant lama atau memindahkan record demi tes. Lengkapi jalur tersebut dengan fixture sintetis terisolasi yang dibersihkan setelah pengujian, atau lewat pgTAP/CI yang sudah lulus.
+- Preview lokal `localhost:4179` sedang tidak berjalan. Worktree `erp4-pr40-uat-20261104` berada pada commit `b2d7acc` dan memiliki perubahan lokal; jangan gunakan sebagai representasi head PR terkini tanpa sinkronisasi terpisah.
+- PR #38 (run #1150), PR #39 (run #1152), dan PR #40 (run #1164) lulus CI pada head masing-masing. Ketiganya tetap Draft/Open; PR #40 masih menunggu UAT antarmuka dan verifikasi staging operasional.
