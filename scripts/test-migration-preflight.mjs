@@ -77,7 +77,7 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202702090000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270210000000_internalize_tenant_rls_helpers.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270211000000_optimize_profile_rls_initplans.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270212000000_optimize_core_tenant_query_indexes.sql'));
-assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270213000000_master_data_audit_feed.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20261031225438_master_data_audit_feed.sql'));
 assert(sourceMigrationsWithSql.every(({ statements }) => Array.isArray(statements) && statements.length > 0));
 
 const sqlLocal = listLocalMigrations(
