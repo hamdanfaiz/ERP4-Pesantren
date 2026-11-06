@@ -1,4 +1,9 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
+> **Pembaruan checkpoint — 6 November 2026, 23.08 WIB.** CI #1191 lulus 3/3 job pada source dokumen PR `602926c548410e2f6af2d0001701d5cf23fd0ece`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. UAT browser, inventaris penuh Production, backup/restore yang terbukti, dan rehearsal/dry-run masih terbuka.
+>
+> VQE memiliki 136 migration ledger rows, dengan migration kamar aktif pada alias `20261106151606`; jangan menjalankan DDL ulang. MCP masih menolak baca ledger Production, dan tidak ada perubahan Production.
+> [Checkpoint terbaru dan langkah operator](CHECKPOINT_2026-11-06_RESUME_STAGING.md).
+
 > **Status terbaru — 6 November 2026, 22.58 WIB.** CI #1188 lulus 3/3 job pada head review `dfff6bbd13c10f115cf17b845f087b6ebcf84421`; bukti tersebut mencakup build/runtime, instalasi NPM, migration replay sintetis, API/Auth, pgTAP, Storage, dan backup/restore lokal CI. UAT browser dan cutover Production belum lulus.
 >
 > Read-only MCP terbaru mengonfirmasi VQE memiliki 136 ledger rows, dengan migration `student_room_assignment_reference_locks` tercatat sebagai alias `20261106151606` (source `20270304000000`); jangan mengulang DDL. PTSAS Production tidak disentuh, dan permintaan baca ledger terbaru ditolak connector. Operator perlu memberikan inventaris baca-saja terkini.

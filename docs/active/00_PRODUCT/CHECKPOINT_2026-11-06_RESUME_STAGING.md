@@ -79,3 +79,13 @@ Worktree `erp4-pr38-40-integration-20261106` berisi perubahan tracked/untracked 
 - Supabase CLI tidak tersedia sebagai command di workspace, sehingga tes konkurensi kamar lokal tidak dijalankan. CI #1188 mencakup tes konkurensi tersebut pada database Supabase lokal terisolasi.
 - UAT browser pasca-login Admin/Wali masih terbuka; localhost:4179/3000 sebelumnya tidak aktif. Sidebar memiliki 25 item modul utama serta item terpisah `Pusat Data Analitik` pada grup Analitik, jadi semua 26 route memiliki navigasi.
 - Manual setting dan persetujuan operator ditahan sampai pemilik aktif setelah pukul 05.00 WIB. Jangan menulis ke Production.
+
+## Checkpoint pengembangan terbaru — 6 November 2026, 23.08 WIB
+
+- GitHub Actions **#1191** (`42248646612`) lulus **3/3 job** pada head `602926c548410e2f6af2d0001701d5cf23fd0ece`. Source aplikasi yang diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`; commit setelahnya hanya dokumentasi.
+- Source Sidebar statis memiliki 25 menu modul utama dan item `Pusat Data Analitik` terpisah; total 26 navigasi sesuai 26 route dan RBAC. Semua tombol/form belum dapat disebut teruji sebelum UAT browser.
+- VQE masih memiliki 136 ledger rows; migration `student_room_assignment_reference_locks` aktif dengan alias `20261106151606` (source `20270304000000`). **Tidak ada DDL yang diulang.**
+- MCP masih menolak baca ledger PTSAS Production. Production tidak berubah; gunakan skrip inventaris baca-saja satu CSV dan minta operator/tim backend menjalankannya saat aktif.
+- Integration worktree lokal tetap berbeda dari PR, ada 9 commit lebih depan serta perubahan tracked/untracked. Jangan push seluruh worktree. Lint, build, migration-preflight, dan tes lokal terpilih lulus di sana; itu bukan bukti build source release. Build lokal mencatat chunk PDF besar.
+- Supabase CLI tidak ada di PATH maupun `node_modules` lokal; tes konkurensi lokal tidak dijalankan. CI #1191 menguji konkurensi di Supabase lokal terisolasi.
+- **Tindakan tertunda setelah pukul 05.00 WIB:** rekonsiliasi satu baris ledger VQE setelah konfirmasi aktif; sediakan inventaris Production baca-saja; nyalakan preview dan jalankan UAT Admin/Wali. Jangan menyentuh Production sebelum inventaris, backup/restore dan rehearsal/dry-run ditinjau.
