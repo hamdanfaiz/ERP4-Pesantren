@@ -179,6 +179,7 @@ DECLARE
   v_room_result JSONB;
   v_room_id TEXT;
   v_building_id TEXT;
+  v_grade_reference_id UUID;
   v_student_id UUID;
 BEGIN
   PERFORM public.validate_master_data_audit_actor(p_tenant_id, p_actor_user_id);
@@ -196,6 +197,7 @@ BEGIN
 
   v_room_id := NULLIF(v_relationships->>'roomId', '');
   v_building_id := NULLIF(v_relationships->>'buildingId', '');
+  v_grade_reference_id := NULLIF(v_relationships->>'gradeLevelReferenceId', '')::UUID;
   v_student := p_student || jsonb_build_object(
     'grade', NULLIF(v_relationships->>'grade', ''),
     'classId', NULLIF(v_relationships->>'classId', ''),
@@ -216,14 +218,22 @@ BEGIN
     true
   );
   v_result := public.import_legacy_master_data_student(p_tenant_id, v_student, p_guardian, p_apply);
+  IF p_apply IS TRUE AND v_result->>'status' = 'imported' THEN
+    v_student_id := NULLIF(v_result->>'studentId', '')::UUID;
+    IF v_student_id IS NULL THEN
+      RAISE EXCEPTION 'ID santri hasil impor tidak tersedia' USING ERRCODE = '55000';
+    END IF;
+    UPDATE public.students
+    SET grade_level_reference_id = v_grade_reference_id
+    WHERE tenant_id = p_tenant_id AND id = v_student_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Santri hasil impor tidak ditemukan pada tenant aktif' USING ERRCODE = '55000';
+    END IF;
+  END IF;
   IF p_apply IS NOT TRUE OR v_result->>'status' <> 'imported' OR v_room_id IS NULL THEN
     RETURN v_result;
   END IF;
 
-  v_student_id := NULLIF(v_result->>'studentId', '')::UUID;
-  IF v_student_id IS NULL THEN
-    RAISE EXCEPTION 'ID santri hasil impor tidak tersedia' USING ERRCODE = '55000';
-  END IF;
   v_room_result := public.assign_student_to_room(p_tenant_id, v_student_id, v_room_id, v_building_id);
   RETURN v_result || jsonb_build_object('roomAssignment', v_room_result);
 END;

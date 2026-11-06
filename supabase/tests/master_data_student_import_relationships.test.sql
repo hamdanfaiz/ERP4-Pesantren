@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(21);
+SELECT plan(22);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES ('e1900000-0000-4000-8000-000000000001', 'student-import-rel-test', 'Student Import Relations Test', 'active');
@@ -98,6 +98,7 @@ SELECT is(public.import_legacy_master_data_student_with_actor(
 RESET ROLE;
 SELECT is((SELECT room_id FROM public.students WHERE tenant_id='e1900000-0000-4000-8000-000000000001' AND source_record_id='imported-with-room'), 'IMPORT-ROOM-A', 'imported student is assigned to the selected room');
 SELECT is((SELECT building_id FROM public.students WHERE tenant_id='e1900000-0000-4000-8000-000000000001' AND source_record_id='imported-with-room'), 'IMPORT-BUILDING-A', 'imported student stores the matching parent building');
+SELECT is((SELECT grade_level_reference_id::TEXT FROM public.students WHERE tenant_id='e1900000-0000-4000-8000-000000000001' AND source_record_id='imported-with-room'), 'e1900000-0000-4000-8000-000000000101', 'imported student stores the resolved tenant grade reference');
 SELECT is((SELECT occupied FROM public.master_data_records WHERE tenant_id='e1900000-0000-4000-8000-000000000001' AND category='Kamar' AND id='IMPORT-ROOM-A'), 1, 'room occupancy is incremented transactionally');
 SELECT is((SELECT changed_by::TEXT FROM public.student_room_assignment_history WHERE tenant_id='e1900000-0000-4000-8000-000000000001' AND student_id=(SELECT id FROM public.students WHERE source_record_id='imported-with-room') ORDER BY id DESC LIMIT 1), 'e1900000-0000-4000-8000-000000000011', 'room history records the Admin who imported the student');
 SELECT * FROM finish();
