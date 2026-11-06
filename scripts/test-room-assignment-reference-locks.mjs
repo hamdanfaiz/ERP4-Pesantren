@@ -93,12 +93,12 @@ function cleanup(dbUrl) {
     'DROP TRIGGER IF EXISTS room_assignment_test_delay ON public.master_data_records;',
     'DROP FUNCTION IF EXISTS public.room_assignment_test_delay();',
     "DELETE FROM public.student_room_assignment_history WHERE tenant_id = '" + tenantId + "'::uuid;",
-    'ALTER TABLE public.master_data_audit_events DISABLE TRIGGER master_data_audit_events_immutable_rows;',
-    "DELETE FROM public.master_data_audit_events WHERE tenant_id = '" + tenantId + "'::uuid;",
-    'ALTER TABLE public.master_data_audit_events ENABLE TRIGGER master_data_audit_events_immutable_rows;',
     "DELETE FROM public.students WHERE tenant_id = '" + tenantId + "'::uuid;",
     "DELETE FROM public.master_data_records WHERE tenant_id = '" + tenantId + "'::uuid AND category = 'Kamar';",
     "DELETE FROM public.master_data_records WHERE tenant_id = '" + tenantId + "'::uuid AND category = 'Gedung';",
+    'ALTER TABLE public.master_data_audit_events DISABLE TRIGGER master_data_audit_events_immutable_rows;',
+    "DELETE FROM public.master_data_audit_events WHERE tenant_id = '" + tenantId + "'::uuid;",
+    'ALTER TABLE public.master_data_audit_events ENABLE TRIGGER master_data_audit_events_immutable_rows;',
     "DELETE FROM public.tenants WHERE id = '" + tenantId + "'::uuid;",
   ].join('\n'));
 }
@@ -150,8 +150,8 @@ async function main() {
       "INSERT INTO public.master_data_records (tenant_id, category, id, name, status, gender_code) VALUES ('" + tenantId + "'::uuid, 'Gedung', '" + buildingId + "', 'Gedung Uji', 'Active', 'L');",
       "INSERT INTO public.master_data_records (tenant_id, category, id, name, status, parent_id, capacity, occupied) VALUES ('" + tenantId + "'::uuid, 'Kamar', '" + roomId + "', 'Kamar Uji', 'Active', '" + buildingId + "', 1, 0);",
       "INSERT INTO public.students (id, tenant_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status) VALUES",
-      "('" + studentIds[0] + "'::uuid, '" + tenantId + "'::uuid, '9240000001', 'Santri Uji A', 'L', 'VII', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex'), 'Active'),",
-      "('" + studentIds[1] + "'::uuid, '" + tenantId + "'::uuid, '9240000002', 'Santri Uji B', 'L', 'VII', decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'Active');",
+      "('" + studentIds[0] + "'::uuid, '" + tenantId + "'::uuid, '9240000001', 'Santri Uji A', 'L', NULL, decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex'), 'Active'),",
+      "('" + studentIds[1] + "'::uuid, '" + tenantId + "'::uuid, '9240000002', 'Santri Uji B', 'L', NULL, decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'Active');",
       'CREATE OR REPLACE FUNCTION public.room_assignment_test_delay() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.occupied > OLD.occupied THEN PERFORM pg_sleep(4); END IF; RETURN NEW; END; $$;',
       'CREATE TRIGGER room_assignment_test_delay BEFORE UPDATE OF occupied ON public.master_data_records FOR EACH ROW WHEN (NEW.tenant_id = \'' + tenantId + '\'::uuid AND NEW.category = \'Kamar\') EXECUTE FUNCTION public.room_assignment_test_delay();',
     ].join('\n'));
