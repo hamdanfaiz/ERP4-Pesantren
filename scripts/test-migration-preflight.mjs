@@ -141,9 +141,9 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202703040000
 const roomAssignmentLockMigration = sourceMigrationsWithSql.find(
   ({ fileName }) => fileName === '20270304000000_student_room_assignment_reference_locks.sql'
 );
-assert.match(roomAssignmentLockMigration.statements.join('\\n'), /WHERE id = p_tenant_id AND status = 'active'\\s+FOR SHARE/i);
-assert.match(roomAssignmentLockMigration.statements.join('\\n'), /SELECT \\* INTO v_building[\\s\\S]*?WHERE tenant_id = p_tenant_id AND category = 'Gedung' AND id = v_building_id[\\s\\S]*?FOR SHARE/i);
-assert.doesNotMatch(roomAssignmentLockMigration.statements.join('\\n'), /FOR KEY SHARE/i);
+assert.match(roomAssignmentLockMigration.statements.join('\n'), /WHERE id = p_tenant_id AND status = 'active'\s+FOR SHARE/i);
+assert.match(roomAssignmentLockMigration.statements.join('\n'), /SELECT \* INTO v_building[\s\S]*?WHERE tenant_id = p_tenant_id AND category = 'Gedung' AND id = v_building_id[\s\S]*?FOR SHARE/i);
+assert.doesNotMatch(roomAssignmentLockMigration.statements.join('\n'), /FOR KEY SHARE/i);
 assert.match(
   sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270302000000_academic_class_reference_pagination.sql').statements.join('\n'),
   /lower\(name\) text_pattern_ops/i
