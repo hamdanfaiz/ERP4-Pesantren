@@ -97,3 +97,12 @@
 - Perbandingan versi menunjukkan semua 47 versi Production ada pada source saat ini; tidak ada versi Production-only. Sebanyak 88 dari 135 versi source tidak tercatat di ledger Production. Ini adalah selisih ledger, bukan bukti bahwa seluruh DDL tersebut belum pernah diterapkan.
 - Dua kolom nama yang kosong dan selisih 88 versi harus direkonsiliasi terhadap schema-only export/katalog Production. Jangan menjalankan `db push`, migration repair, atau menandai versi applied hanya berdasarkan CSV.
 - Pemeriksaan akses langsung Production dari konektor Supabase tetap ditolak. Langkah berikut untuk tim backend: jalankan skrip baca-saja `docs/active/06_DATABASE/PTSAS_PRODUCTION_READ_ONLY_RECONCILIATION.sql` di SQL Editor pada ref Production yang tepat, simpan hasil metadata, lalu bandingkan dengan source dan VQE sebelum menyiapkan cutover.
+
+
+## UAT live relasi kelas, gedung, dan kamar — 6 November 2026
+
+- VQE diuji dalam transaksi tunggal dengan fixture jenjang, kelas, gedung, serta dua kamar sintetis. Query menjalankan validator relasi, lalu `ROLLBACK`.
+- Hasil: relasi valid `planned`; jenjang salah, gender tidak cocok, gedung tidak cocok, dan okupansi tidak sinkron masing-masing `conflict`.
+- Pemeriksaan setelah rollback memastikan 0 baris jenjang fixture, 0 record Master Data fixture, dan 0 audit event fixture tertinggal.
+- Ini membuktikan validator live pada jalur relasi tersebut. Belum menguji RPC import dengan `p_apply=true`, penempatan kamar transaksional melalui API, kasus kamar penuh dengan santri existing, atau alur UI end-to-end.
+- Production PTSAS tidak disentuh. SQL inventaris Production di source branch memakai urutan trigger yang sudah dikoreksi; salinan workspace lama juga diperbaiki lokal setelah pengguna menemukan error alias kolom.
