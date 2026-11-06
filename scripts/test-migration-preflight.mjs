@@ -111,7 +111,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 135);
+assert.equal(sourceMigrationsWithSql.length, 136);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -137,6 +137,13 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202702280000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270301000000_academic_student_roster_pagination.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270302000000_academic_class_reference_pagination.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270303000000_master_data_student_import_relationships.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270304000000_student_room_assignment_reference_locks.sql'));
+const roomAssignmentLockMigration = sourceMigrationsWithSql.find(
+  ({ fileName }) => fileName === '20270304000000_student_room_assignment_reference_locks.sql'
+);
+assert.match(roomAssignmentLockMigration.statements.join('\\n'), /WHERE id = p_tenant_id AND status = 'active'\\s+FOR SHARE/i);
+assert.match(roomAssignmentLockMigration.statements.join('\\n'), /SELECT \\* INTO v_building[\\s\\S]*?WHERE tenant_id = p_tenant_id AND category = 'Gedung' AND id = v_building_id[\\s\\S]*?FOR SHARE/i);
+assert.doesNotMatch(roomAssignmentLockMigration.statements.join('\\n'), /FOR KEY SHARE/i);
 assert.match(
   sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270302000000_academic_class_reference_pagination.sql').statements.join('\n'),
   /lower\(name\) text_pattern_ops/i
@@ -390,7 +397,7 @@ assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 88);
+assert.equal(productionBaseline.pending.length, 89);
 assert.deepEqual(
   productionBaseline.outOfOrderPending.map(({ version }) => version),
   [...productionMissingMigrationVersions],
