@@ -114,3 +114,15 @@
 - VQE currently reports 135 migrations through `20270303000000`. GitHub Actions run [#1167](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42202906454) passed all three jobs on head `17974717d9ff69ef4602ae38083bf14c6005fcb7`. Run #1168 passed all 3 jobs at commit `6b853c421c04ef8189f778a7b3cadb87910f5d3b`, including the isolated Production-baseline replay (`migration up --include-all`) with exact migration version-set verification. Production itself was not changed.
 - The owner's standing instruction is to move the verified change to Production once all agreed staging checks pass, without waiting for another reminder. Production has not been changed. The exact Production-baseline replay and remaining operational/UI UAT are still open gates; the older green CI run is not recorded as proof of those gates.
 - Local checks on the prepared source passed: migration-preflight regression, TypeScript lint, production build, and `git diff --check`. Full PostgreSQL replay must be verified by the new GitHub Actions run.
+
+
+## Pembaruan 6 November 2026 — status handoff setelah run #1169
+
+- PR #40 branch head saat pembaruan ini: `c10f84d398977281ee099c5873111db640101e4b`. PR #40 masih Draft/Open. Run CI #1169 lulus 3/3 pada head ini; run #1168 pada commit `6b853c421c04ef8189f778a7b3cadb87910f5d3b` juga lulus 3/3, termasuk rehearsal baseline Production tiruan.
+- PR #38 dan #39 masih Draft/Open. Perbandingan GitHub menunjukkan head #40 berada di depan keduanya dan tidak ada commit #38/#39 yang tertinggal. PR #41 digabung ke branch #40; isi PR #42 terserap melalui #41. Perubahan itu belum masuk `main`.
+- VQE staging masih mencatat 135 migration sampai `20270303000000`. PTSAS Production belum berubah; inventaris baca-saja yang diberikan pemilik menunjukkan 47 versi ledger dan 88 versi source belum tercatat.
+- CLI lokal belum terpasang. Node `v24.11.0` memenuhi syarat versi; unduhan langsung GitHub Releases timeout. Instalasi npm CLI v2 mengambil binary melalui `postinstall`, sehingga akses ke GitHub Releases kemungkinan menjadi penyebab utama; `EPERM` tampak saat pembersihan cache Windows. Runbook di direktori database memberi langkah pemasangan, dry-run, dan penerapan bagi operator Production.
+- Worktree Codex `codex/pr38-40-integration-20261106` memiliki perubahan kode lokal yang belum berada pada head PR #40. Pada worktree tersebut, `npm run lint`, `npm run build`, `node scripts/test-migration-preflight.mjs`, dan `git diff --check` lulus; pengujian PostgreSQL lokal tidak berjalan karena Supabase CLI, Docker, dan psql tidak tersedia. Hasil CI #1168/#1169 tidak boleh dianggap menguji perubahan lokal setelah head remote.
+- Gate tersisa: jalankan CI atas perubahan kode yang akan dikirim; selesaikan UAT browser dan operasional VQE; minta review backend; lalu operator dengan akses Production meninjau backup, inventory, dan dry-run sebelum cutover. Belum ada migrasi Production yang dijalankan.
+
+Runbook operator: [PTSAS_PRODUCTION_MIGRATION_RUNBOOK_2026-11-06.md](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_RUNBOOK_2026-11-06.md).
