@@ -79,6 +79,9 @@ jobs:
       - name: Verify guardian invitation before password activation
         run: npm run test:guardian-invitation-verification
 
+      - name: Verify Wali registration callback survives StrictMode
+        run: npm run test:guardian-registration-strictmode
+
       - name: Verify recovery links use the configured application URL
         run: npm run test:auth-recovery-redirect
 

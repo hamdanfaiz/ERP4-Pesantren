@@ -31,6 +31,7 @@
     "test:rbac-permissions": "tsx scripts/test-rbac-permissions.ts",
     "test:auth-recovery-redirect": "tsx scripts/test-auth-recovery-redirect.ts",
     "test:guardian-invitation-verification": "tsx scripts/test-guardian-invitation-verification.ts",
+    "test:guardian-registration-strictmode": "tsx scripts/test-guardian-registration-strictmode.ts",
     "test:hris-legacy-import": "tsx scripts/test-hris-legacy-import.ts",
     "test:alumni-workflow": "tsx scripts/test-alumni-workflow.ts",
     "test:cooperative-legacy-import": "tsx scripts/test-cooperative-legacy-import.ts",
