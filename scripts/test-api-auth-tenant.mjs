@@ -1961,6 +1961,7 @@ async function main() {
         `DELETE FROM public.tahfidz_memberships WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tahfidz_targets WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.academic_records WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.finance_controls WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.finance_ledger WHERE tenant_id = ANY(${tenantArray}) AND source_type IN ('cooperative_wallet', 'cooperative_sale');`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests DISABLE TRIGGER cooperative_supplier_requests_immutable;',
         `DELETE FROM public.cooperative_supplier_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
