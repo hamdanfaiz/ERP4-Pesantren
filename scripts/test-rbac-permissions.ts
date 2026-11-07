@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isModuleAccessible, isValidModulePermissions } from "../src/rbac";
+import { findUnauthorizedModuleGrants, isModuleAccessible, isValidModulePermissions } from "../src/rbac";
 import { ALL_MODULE_LIST } from "../src/services/systemSettingsService";
 import type { ModuleId } from "../src/types";
 
@@ -19,6 +19,33 @@ assert.equal(isValidModulePermissions({ finance: "false" }), false);
 assert.equal(isValidModulePermissions({ notARealModule: true }), false);
 assert.equal(isValidModulePermissions({ ecosystem: true }), false);
 assert.equal(isValidModulePermissions([]), false);
+
+const limitedAdminPermissions = { finance: false };
+assert.deepEqual(
+  findUnauthorizedModuleGrants("Admin", limitedAdminPermissions, "Santri", {}),
+  ["finance"],
+  "A role default cannot grant Finance beyond the actor's own scope.",
+);
+assert.deepEqual(
+  findUnauthorizedModuleGrants("Admin", limitedAdminPermissions, "Santri", { finance: true }),
+  ["finance"],
+  "An explicit module grant cannot exceed the actor's own scope.",
+);
+assert.deepEqual(
+  findUnauthorizedModuleGrants("Admin", limitedAdminPermissions, "Admin", { finance: true }, "Admin", limitedAdminPermissions),
+  ["finance"],
+  "A restricted Admin cannot grant a denied module to their own account.",
+);
+assert.deepEqual(
+  findUnauthorizedModuleGrants("Admin", limitedAdminPermissions, "Admin", { finance: true }, "Admin", { finance: true }),
+  [],
+  "Existing grants are preserved and can be edited without being misreported as new escalation.",
+);
+assert.deepEqual(
+  findUnauthorizedModuleGrants("SuperAdmin", {}, "SuperAdmin", { settings: true }),
+  [],
+  "SuperAdmin grants are not limited by a tenant permission scope.",
+);
 
 assert.deepEqual(
   ALL_MODULE_LIST.map(({ id, name, category }) => [id, name, category]),
@@ -52,4 +79,4 @@ assert.deepEqual(
   ],
 );
 
-console.log("RBAC permissions dan katalog modul Indonesia: 15 pemeriksaan lulus");
+console.log("RBAC permissions, batas pemberian modul, dan katalog Indonesia: 20 pemeriksaan lulus");
