@@ -1,16 +1,16 @@
-## Checkpoint terbaru — setelah merge PR #38–#40 dan PR #43, 7 November 2026
+## Checkpoint terbaru — setelah merge PR #38–#40, PR #43, dan PR #47, 7 November 2026
 
 ### Source dan verifikasi
 
-- `main` sekarang berada pada merge commit PR #43 `f4e54f1229cf9f97433d725b7aa65e96481d65e2`. PR #38–#40 dan PR #43 sudah merged. PR #1–#11 tetap closed tanpa merge karena implementasinya digantikan; tidak ada PR terbuka saat checkpoint diperiksa.
+- `main` sekarang berada pada merge commit PR #47 `45230fc06f4e7baedb4ed9adadc62f7b24efb23d`. PR #38–#40, PR #43, dan PR #47 sudah merged. PR #1–#11 tetap closed tanpa merge karena implementasinya digantikan; tidak ada PR terbuka saat checkpoint diperiksa.
 - PR #43 menutup gap pemberian permission modul: Admin tenant tidak dapat memberi grant baru di luar kewenangannya lewat pembuatan akun, undangan Wali, perubahan akun sendiri, atau UI. Grant yang sudah ada tetap dapat dipertahankan saat edit dan dapat dicabut.
-- CI terbaru pada head PR #43 `1970ed3dcc6565347b1b3c6f688e9d1195b960d1` lulus **3/3 job** pada [run #42324842742](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42324842742). Cakupan meliputi build dan runtime tanpa Firebase, regresi RBAC/API/Auth dan isolasi tenant, replay migrasi serta pgTAP sintetis, transaksi paralel, Storage, backup/restore lokal CI, Docker smoke test, dan pemasangan NPM.
+- CI PR #47 lulus **3/3 job** pada head `d6acf4712d3c7b69b4fb2973962d6da643bdfa1e` melalui [run #42329049029](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42329049029). Selain suite build/runtime, migrasi/pgTAP dan pemasangan NPM, uji API kini membuktikan hak baca/tulis katalog mengikuti modul pemiliknya.
 - CI lulus pada source PR tepat sebelum merge; workflow ini dipicu sebagai PR. Hasilnya bukan UAT browser, bukan bukti DDL Production, dan bukan bukti backup/restore Production. Tidak ada perubahan pada Supabase Production.
 
 ### VQE staging
 
 - Project VQE `vqemuyzveuirlkvdggjd` tercatat memiliki **136/136 versi dan nama migration** yang cocok dengan source `main` hingga `20270304000000_student_room_assignment_reference_locks`. PR #43 tidak mengubah migration.
-- Kecocokan ledger version/name tidak membuktikan DDL aktual atau kelulusan UAT. Jangan menjalankan ulang migration yang sudah aktif.
+- PR #47 tidak mengubah migration. Kecocokan ledger version/name tidak membuktikan DDL aktual atau kelulusan UAT. Jangan menjalankan ulang migration yang sudah aktif.
 
 ### PTSAS Production dan gerbang tim backend
 
