@@ -1,5 +1,14 @@
 # Audit paritas sumber PR #1–#11 dengan PR #13
 
+## Revalidasi tambahan — 8 November 2026
+
+- GitHub menunjukkan `main` di commit `148b0c670ea4960e43393b34704c2ca8748c4ce3`; PR #1–#11 semuanya berstatus `closed`, `merged=false`, dan `merged_at=null`. Jangan merge branch lama: PR #1 saja sudah 1.159 commit tertinggal dari `main` dan memiliki 9 commit khusus. Status closed bukan bukti bahwa seluruh fiturnya telah diuji; paritas dipetakan dari source lebih baru dan matriks di bawah.
+- Di worktree audit, round-trip HTTP pada **VQE staging** lulus dengan fixture sintetis: PPDB publik dan empat berkas privat, workflow kandidat sampai diterima, tagihan pendaftaran/tuition, onboarding santri/wali dengan relasi kelas/gedung/kamar, klaim identitas/NIS, okupansi, tautan tagihan, retry idempoten dan penolakan konflik. Finance proof upload/download dan batas role/tenant/rate limit juga lulus. Production tidak disentuh.
+- Pendaftaran PPDB publik sebelumnya tidak mengirim `gradeLevels` dari route konfigurasi ke form. `server.ts` pada worktree audit sekarang menyertakannya; round-trip staging memverifikasi pilihan jenjang tampil. Perbaikan/test ini masih berupa perubahan lokal dan belum masuk `main` atau CI.
+- Setelah pengujian, tenant sintetis disuspensi, akun Auth diblokir, dan objek Storage sintetis dihapus. Record wali/santri yang dirujuk ledger audit onboarding tetap berada pada tenant yang disuspensi.
+- Sembilan tes lokal tambahan lulus untuk kebijakan route, deployment flags, Naming Series, PII browser, kelayakan kamar, validasi PPDB, parser CSV PPDB, pilihan santri wali, dan guard cakupan 54 skrip CI. Ini **bukan** bukti seluruh modul telah lulus. Build/typecheck penuh dan tes positif provisioning Admin belum dijalankan di worktree ini karena dependensi lengkap tidak tersedia.
+- Rincian status tiap modul dan batas bukti: [MODULE_TEST_COVERAGE_2026-11-07.md](./MODULE_TEST_COVERAGE_2026-11-07.md). Rehearsal migrasi/restore Production dan UAT browser pada hosting tetap menjadi gerbang tim backend.
+
 ## Revalidasi terkini — 7 November 2026, 18.36 WIB
 
 - `main` saat ini berada pada `de5c9a26bcfaa79bba8d989bcf1434f11549bd90`, hasil merge PR #65. Metadata GitHub saat diperiksa menunjukkan PR #1–#11 seluruhnya `Closed`, `merged=false`, dan tidak ada PR terbuka. Jangan merge branch lama satu per satu: semuanya adalah jalur historis yang digantikan implementasi pada `main`.
@@ -109,4 +118,3 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 - Pemeriksaan memakai Supabase lokal dan data sintetis. Supabase Preview tidak berjalan karena branch preview tidak terhubung. Tidak ada migration/data yang diterapkan ke Supabase live, login pelanggan, deployment, atau UAT yang diklaim.
 - Tidak ada review submission atau inline review thread pada PR #13 saat diperiksa.
 - `mergeable: true` hanya berarti GitHub tidak menemukan konflik merge; bukan persetujuan atau bukti kelengkapan fitur.
-

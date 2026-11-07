@@ -3445,7 +3445,12 @@ async function startServer() {
     if (!publicPpdbEnabled) return res.status(503).json({ error: "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren." });
     try {
       const config = await getSupabasePublicPpdbConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
-      return res.json({ academicYear: config.academicYear, orgInfo: config.orgInfo, documentUploadEnabled: true });
+      return res.json({
+        academicYear: config.academicYear,
+        orgInfo: config.orgInfo,
+        gradeLevels: config.gradeLevels,
+        documentUploadEnabled: true,
+      });
     } catch (err: any) {
       const status = Number(err?.status) || 503;
       return res.status(status).json({ error: status === 503 ? "Konfigurasi PPDB Supabase belum tersedia." : err.message });

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
@@ -8,6 +8,8 @@ import { isolateSyntheticTenantFixture } from './synthetic-tenant-fixture.mjs';
 
 const BUCKET = 'erp4-private-finance-proofs';
 const PPDB_BUCKET = 'ppdb-documents';
+const TEST_PII_ENCRYPTION_KEY = Buffer.alloc(32, 0x6b).toString('hex');
+const TEST_PII_FINGERPRINT_KEY = Buffer.alloc(32, 0x5a).toString('hex');
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function availablePort() {
@@ -38,6 +40,17 @@ async function cleanupStep(errors, label, operation) {
   }
 }
 
+function safeCode(error) {
+  const rawCode = typeof error?.code === 'string'
+    ? error.code
+    : typeof error?.name === 'string'
+      ? error.name
+      : typeof error?.status === 'number'
+        ? `HTTP_${error.status}`
+        : 'unknown';
+  return rawCode.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 80) || 'unknown';
+}
+
 async function createUser(admin, tenantId, role, label) {
   const id = randomUUID();
   const email = `storage-${label}-${id.slice(0, 8)}@example.test`;
@@ -57,7 +70,9 @@ async function createUser(admin, tenantId, role, label) {
     display_name: `Storage test ${label}`,
     role,
     status: 'active',
-    module_permissions: role === 'admin' ? { finance: true, ppdb: true } : { finance: true },
+    module_permissions: role === 'admin'
+      ? { finance: true, ppdb: true, 'master-data': true, boarding: true }
+      : { finance: true },
   });
   if (profileError) {
     await admin.auth.admin.deleteUser(data.user.id);
@@ -109,6 +124,20 @@ function assertNoError(result, message) {
   if (result?.error) throw new Error(message);
 }
 
+async function authorizedJson(url, token, body, method = 'POST') {
+  const response = await fetch(url, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const raw = await response.text();
+  try {
+    return { response, body: raw ? JSON.parse(raw) : {} };
+  } catch {
+    throw new Error(`Expected JSON from ${new URL(url).pathname} (HTTP ${response.status}; ${response.headers.get('content-type') || 'unknown content type'}).`);
+  }
+}
+
 async function main() {
   const { url, anonKey, serviceKey, target } = getSupabaseTestEnvironment({ allowStagingWrites: true });
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -121,9 +150,13 @@ async function main() {
   const otherCandidateId = randomUUID();
   const otherStudentId = randomUUID();
   const billRequestId = randomUUID();
+  const ppdbRegistrationBillRequestId = randomUUID();
+  const ppdbTuitionBillRequestId = randomUUID();
+  const ppdbOnboardingRequestId = randomUUID();
   const fixtureSuffix = randomUUID().slice(0, 10);
   let classId = '';
   let roomId = '';
+  let alternateRoomId = '';
   let buildingId = '';
   const users = [];
   const createdTenantIds = [];
@@ -132,6 +165,7 @@ async function main() {
   let ppdbDocumentPath = '';
   let ppdbUploadPath = '';
   let foreignDocumentPath = '';
+  let publicPpdbCandidateId = '';
 
   try {
     const { error: tenantError } = await admin.from('tenants').insert({
@@ -140,7 +174,7 @@ async function main() {
       name: `Storage HTTP Test ${fixtureSuffix}`,
       status: 'active',
     });
-    if (tenantError) throw new Error('Unable to create a synthetic finance tenant.');
+    if (tenantError) throw new Error(`Unable to create a synthetic finance tenant (${safeCode(tenantError)}${tenantError.status ? `, HTTP ${tenantError.status}` : ''}).`);
     createdTenantIds.push(tenantId);
     const { error: foreignTenantError } = await admin.from('tenants').insert({
       id: foreignTenantId,
@@ -169,6 +203,15 @@ async function main() {
       updated_by_user_id: financeAdmin.uid,
     }).select('id').single();
     if (gradeReferenceError || !gradeReference?.id) throw new Error('Unable to seed the tenant grade reference for Storage tests.');
+    const { error: tenantSettingsError } = await admin.from('tenant_settings').insert({
+      tenant_id: tenantId,
+      settings: {
+        generalSettings: { academicYear: '2027/2028' },
+        orgInfo: { schoolName: `Pesantren PPDB Uji ${fixtureSuffix}`, address: 'Alamat sintetis untuk test.' },
+      },
+      updated_by_user_id: financeAdmin.uid,
+    });
+    if (tenantSettingsError) throw new Error('Unable to seed synthetic public PPDB tenant settings.');
     const { data: foreignGradeReference, error: foreignGradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: foreignTenantId,
       domain: 'academic_grade_level',
@@ -181,14 +224,16 @@ async function main() {
       updated_by_user_id: foreignAdmin.uid,
     }).select('id').single();
     if (foreignGradeReferenceError || !foreignGradeReference?.id) throw new Error('Unable to seed the foreign tenant grade reference for Storage tests.');
-    [buildingId, roomId, classId] = await Promise.all([
+    [buildingId, roomId, alternateRoomId, classId] = await Promise.all([
       allocateStructureCode(admin, tenantId, 'building_code'),
+      allocateStructureCode(admin, tenantId, 'room_code'),
       allocateStructureCode(admin, tenantId, 'room_code'),
       allocateStructureCode(admin, tenantId, 'class_code'),
     ]);
     const { error: structuresError } = await admin.from('master_data_records').insert([
       { tenant_id: tenantId, category: 'Gedung', id: buildingId, name: 'Gedung storage test', status: 'active' },
-      { tenant_id: tenantId, category: 'Kamar', id: roomId, name: 'Kamar storage test', parent_id: buildingId, capacity: 10, status: 'active' },
+      { tenant_id: tenantId, category: 'Kamar', id: roomId, name: 'Kamar storage test', parent_id: buildingId, gender_code: 'L', capacity: 10, status: 'active' },
+      { tenant_id: tenantId, category: 'Kamar', id: alternateRoomId, name: 'Kamar alternatif storage test', parent_id: buildingId, gender_code: 'L', capacity: 5, status: 'active' },
       { tenant_id: tenantId, category: 'Kelas', id: classId, name: 'Kelas storage test', grade: 'VII', grade_level_reference_id: gradeReference.id, status: 'active' },
     ]);
     if (structuresError) throw new Error('Unable to create synthetic student structures.');
@@ -339,7 +384,8 @@ async function main() {
     const rateLimitToken = await signIn(anon, rateLimitAdmin);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
-    serverProcess = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server.ts'], {
+    const tsxCliPath = process.env.ERP4_TSX_CLI_PATH || 'node_modules/tsx/dist/cli.mjs';
+    serverProcess = spawn(process.execPath, [tsxCliPath, 'server.ts'], {
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -352,7 +398,15 @@ async function main() {
         SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED: 'true',
         SUPABASE_PPDB_RUNTIME_ENABLED: 'true',
         SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED: 'true',
-        PII_FINGERPRINT_KEY: Buffer.alloc(32, 0x5a).toString('hex'),
+        SUPABASE_PPDB_FINANCE_BILLS_ENABLED: 'true',
+        SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED: 'true',
+        SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'true',
+        SUPABASE_BOARDING_RUNTIME_ENABLED: 'true',
+        SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED: 'true',
+        PUBLIC_PPDB_ENABLED: 'true',
+        PUBLIC_PPDB_TENANT_ID: tenantId,
+        PII_ENCRYPTION_KEY: TEST_PII_ENCRYPTION_KEY,
+        PII_FINGERPRINT_KEY: TEST_PII_FINGERPRINT_KEY,
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -370,6 +424,345 @@ async function main() {
       await sleep(250);
     }
     assert.ok(ready, 'API server did not become ready on its configured test port.');
+
+    const publicPpdbConfigResponse = await fetch(`${apiBase}/api/public/ppdb/config`);
+    assert.equal(publicPpdbConfigResponse.status, 200, 'An active tenant with a grade catalog and academic year should expose public PPDB configuration.');
+    assert.equal(publicPpdbConfigResponse.headers.get('cache-control'), 'no-store');
+    const publicPpdbConfig = await publicPpdbConfigResponse.json();
+    assert.equal(publicPpdbConfig.academicYear, '2027/2028');
+    assert.equal(publicPpdbConfig.orgInfo.schoolName, `Pesantren PPDB Uji ${fixtureSuffix}`);
+    assert.deepEqual(publicPpdbConfig.gradeLevels, [{ id: gradeReference.id, name: 'VII' }], 'The public form must receive the tenant grade choices from its runtime configuration.');
+    assert.equal(publicPpdbConfig.documentUploadEnabled, true);
+
+    const publicPpdbNik = (1_000_000_000_000_000n
+      + BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 16)}`) % 9_000_000_000_000_000n).toString();
+    publicPpdbCandidateId = randomUUID();
+    const publicPpdbFiles = {
+      kk: { name: 'kk.pdf', mimeType: 'application/pdf', base64: Buffer.from('%PDF-1.7\n% synthetic KK\n%%EOF\n').toString('base64') },
+      birthCertificate: { name: 'akta.pdf', mimeType: 'application/pdf', base64: Buffer.from('%PDF-1.7\n% synthetic birth certificate\n%%EOF\n').toString('base64') },
+      reportCards: { name: 'rapor.pdf', mimeType: 'application/pdf', base64: Buffer.from('%PDF-1.7\n% synthetic report cards\n%%EOF\n').toString('base64') },
+      pasPhoto: { name: 'pas-foto.png', mimeType: 'image/png', base64: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).toString('base64') },
+    };
+    const publicPpdbPayload = {
+      clientRequestId: publicPpdbCandidateId,
+      candidate: {
+        name: 'Calon Santri PPDB HTTP Uji', gender: 'L', grade: 'VII', gradeLevelReferenceId: gradeReference.id,
+        previousSchool: 'Sekolah Sintetis', phone: '081234567810', whatsappPhone: '081234567810',
+        email: `ppdb-${fixtureSuffix}@example.test`, nik: publicPpdbNik, nisn: '', pob: 'Jakarta',
+        dob: '2012-05-06', address: 'Alamat sintetis untuk pengujian.', province: 'DKI Jakarta',
+        regency: 'Jakarta Selatan', district: 'Tebet', village: 'Tebet Barat', fatherName: 'Ayah Sintetis',
+        motherName: 'Ibu Sintetis', fatherJob: 'Wiraswasta', motherJob: 'Guru', fatherEducation: 'SMA',
+        motherEducation: 'SMA', familyIncome: 'Tidak dicatat',
+      },
+      files: publicPpdbFiles,
+    };
+    const publicPpdbHeaders = { 'Content-Type': 'application/json', Accept: 'application/json' };
+    const publicPpdbSubmit = await fetch(`${apiBase}/api/public/ppdb/registrations`, {
+      method: 'POST', headers: publicPpdbHeaders, body: JSON.stringify(publicPpdbPayload),
+    });
+    const publicPpdbSubmitBody = await publicPpdbSubmit.json();
+    assert.equal(publicPpdbSubmit.status, 201, `A valid public PPDB request should be saved (${publicPpdbSubmit.status}: ${publicPpdbSubmitBody.error || 'unknown response'}).`);
+    assert.equal(publicPpdbSubmit.headers.get('cache-control'), 'no-store');
+    assert.equal(publicPpdbSubmitBody.candidate.id, publicPpdbCandidateId);
+    assert.match(publicPpdbSubmitBody.candidate.registrationId, /^PPDB-2027-\d{6}$/);
+    assert.equal(publicPpdbSubmitBody.candidate.stage, 'Registered');
+    assert.equal(publicPpdbSubmitBody.candidate.documents.kk, true);
+    assert.equal(publicPpdbSubmitBody.candidate.documents.birthCertificate, true);
+    assert.equal(publicPpdbSubmitBody.candidate.documents.reportCards, true);
+    assert.equal(publicPpdbSubmitBody.candidate.documents.pasPhoto, true);
+    assert.equal(Object.hasOwn(publicPpdbSubmitBody.candidate, 'nikCiphertext'), false, 'The API response must not expose encrypted identity internals.');
+    assert.equal(Object.hasOwn(publicPpdbSubmitBody.candidate, 'nikFingerprint'), false, 'The API response must not expose identity fingerprints.');
+
+    const { data: savedPublicCandidate, error: savedPublicCandidateError } = await admin.from('candidates')
+      .select('id,tenant_id,registration_id,name,grade,grade_level_reference_id,nik_ciphertext,nik_fingerprint,nisn_ciphertext,nisn_fingerprint')
+      .eq('tenant_id', tenantId)
+      .eq('id', publicPpdbCandidateId)
+      .single();
+    assertNoError({ error: savedPublicCandidateError }, 'Unable to verify the persisted public PPDB candidate.');
+    assert.equal(savedPublicCandidate.registration_id, publicPpdbSubmitBody.candidate.registrationId);
+    assert.equal(savedPublicCandidate.name, 'Calon Santri PPDB HTTP Uji');
+    assert.equal(savedPublicCandidate.grade, 'VII');
+    assert.equal(savedPublicCandidate.grade_level_reference_id, gradeReference.id, 'The public grade selection must persist as a tenant reference relationship.');
+    assert.match(savedPublicCandidate.nik_ciphertext, /^\\x[0-9a-f]{88}$/i, 'NIK must be encrypted before it reaches the candidate row.');
+    assert.equal(savedPublicCandidate.nik_ciphertext.includes(publicPpdbNik), false, 'NIK plaintext must not be persisted as ciphertext.');
+    const expectedNikFingerprint = createHmac('sha256', Buffer.from(TEST_PII_FINGERPRINT_KEY, 'hex'))
+      .update(`nik:${publicPpdbNik}`)
+      .digest('hex');
+    assert.equal(savedPublicCandidate.nik_fingerprint, `\\x${expectedNikFingerprint}`, 'NIK uniqueness must use the keyed fingerprint, not plaintext.');
+
+    const { data: publicIdentityClaim, error: publicIdentityClaimError } = await admin.from('identity_claims')
+      .select('tenant_id,identity_type,entity_type,entity_id,fingerprint')
+      .eq('tenant_id', tenantId)
+      .eq('identity_type', 'nik')
+      .eq('entity_id', publicPpdbCandidateId)
+      .single();
+    assertNoError({ error: publicIdentityClaimError }, 'Unable to verify the public PPDB NIK uniqueness relation.');
+    assert.equal(publicIdentityClaim.entity_type, 'candidate');
+    assert.equal(publicIdentityClaim.fingerprint, `\\x${expectedNikFingerprint}`);
+
+    const { data: savedPublicDocuments, error: savedPublicDocumentsError } = await admin.from('candidate_documents')
+      .select('tenant_id,candidate_id,kk,kk_path,birth_certificate,birth_certificate_path,report_cards,report_cards_path,pas_photo,pas_photo_path')
+      .eq('tenant_id', tenantId)
+      .eq('candidate_id', publicPpdbCandidateId)
+      .single();
+    assertNoError({ error: savedPublicDocumentsError }, 'Unable to verify the public PPDB document relation.');
+    assert.equal(savedPublicDocuments.tenant_id, tenantId);
+    assert.equal(savedPublicDocuments.kk, true);
+    assert.equal(savedPublicDocuments.birth_certificate, true);
+    assert.equal(savedPublicDocuments.report_cards, true);
+    assert.equal(savedPublicDocuments.pas_photo, true);
+    const publicDocumentPathByKey = {
+      kk: savedPublicDocuments.kk_path,
+      birthCertificate: savedPublicDocuments.birth_certificate_path,
+      reportCards: savedPublicDocuments.report_cards_path,
+      pasPhoto: savedPublicDocuments.pas_photo_path,
+    };
+    for (const [documentKey, document] of Object.entries(publicPpdbFiles)) {
+      const path = publicDocumentPathByKey[documentKey];
+      assert.ok(path.startsWith(`${tenantId}/${publicPpdbCandidateId}/${documentKey}-`), `The ${documentKey} relation must point into its tenant/candidate folder.`);
+      const { data: storedDocument, error: storedDocumentError } = await admin.storage.from(PPDB_BUCKET).download(path);
+      assertNoError({ error: storedDocumentError }, `Unable to read back the synthetic ${documentKey} from private Storage.`);
+      assert.deepEqual(Buffer.from(await storedDocument.arrayBuffer()), Buffer.from(document.base64, 'base64'), `The ${documentKey} upload must persist exact bytes.`);
+    }
+
+    const publicPpdbReplay = await fetch(`${apiBase}/api/public/ppdb/registrations`, {
+      method: 'POST', headers: publicPpdbHeaders, body: JSON.stringify(publicPpdbPayload),
+    });
+    const publicPpdbReplayBody = await publicPpdbReplay.json();
+    assert.equal(publicPpdbReplay.status, 201, 'A same-payload public PPDB retry should resolve to the existing registration.');
+    assert.equal(publicPpdbReplayBody.candidate.id, publicPpdbCandidateId);
+    assert.equal(publicPpdbReplayBody.candidate.registrationId, publicPpdbSubmitBody.candidate.registrationId);
+    const { data: publicCandidatesAfterReplay, error: publicCandidatesAfterReplayError } = await admin.from('candidates')
+      .select('id,registration_id')
+      .eq('tenant_id', tenantId)
+      .eq('id', publicPpdbCandidateId);
+    assertNoError({ error: publicCandidatesAfterReplayError }, 'Unable to verify the public PPDB idempotent retry.');
+    assert.equal(publicCandidatesAfterReplay.length, 1, 'A retry must not create a duplicate candidate.');
+    assert.equal(publicCandidatesAfterReplay[0].registration_id, publicPpdbSubmitBody.candidate.registrationId);
+    const { data: publicObjectsAfterReplay, error: publicObjectsAfterReplayError } = await admin.storage.from(PPDB_BUCKET)
+      .list(`${tenantId}/${publicPpdbCandidateId}`, { limit: 20 });
+    assertNoError({ error: publicObjectsAfterReplayError }, 'Unable to inspect public PPDB retry cleanup in private Storage.');
+    assert.equal(publicObjectsAfterReplay.length, 4, 'A retry must remove the replaced objects and keep only the four current documents.');
+
+    const changedPublicPpdbRetryPayload = structuredClone(publicPpdbPayload);
+    changedPublicPpdbRetryPayload.candidate.name = 'Nama yang Berbeda';
+    const changedPublicPpdbRetry = await fetch(`${apiBase}/api/public/ppdb/registrations`, {
+      method: 'POST', headers: publicPpdbHeaders, body: JSON.stringify(changedPublicPpdbRetryPayload),
+    });
+    assert.equal(changedPublicPpdbRetry.status, 409, 'The public request ID must not be reused for a different payload.');
+    const { data: publicCandidateAfterConflict, error: publicCandidateAfterConflictError } = await admin.from('candidates')
+      .select('name')
+      .eq('tenant_id', tenantId)
+      .eq('id', publicPpdbCandidateId)
+      .single();
+    assertNoError({ error: publicCandidateAfterConflictError }, 'Unable to verify public PPDB conflict did not overwrite the saved candidate.');
+    assert.equal(publicCandidateAfterConflict.name, 'Calon Santri PPDB HTTP Uji');
+    const { data: publicObjectsAfterConflict, error: publicObjectsAfterConflictError } = await admin.storage.from(PPDB_BUCKET)
+      .list(`${tenantId}/${publicPpdbCandidateId}`, { limit: 20 });
+    assertNoError({ error: publicObjectsAfterConflictError }, 'Unable to inspect public PPDB conflict cleanup in private Storage.');
+    assert.equal(publicObjectsAfterConflict.length, 4, 'A conflicting retry must remove its uncommitted document objects.');
+
+    const duplicateIdentityPayload = structuredClone(publicPpdbPayload);
+    duplicateIdentityPayload.clientRequestId = randomUUID();
+    duplicateIdentityPayload.candidate.name = 'Kandidat dengan NIK duplikat';
+    const duplicateIdentityResponse = await fetch(`${apiBase}/api/public/ppdb/registrations`, {
+      method: 'POST', headers: publicPpdbHeaders, body: JSON.stringify(duplicateIdentityPayload),
+    });
+    assert.equal(duplicateIdentityResponse.status, 409, 'A different public submission cannot claim the same tenant NIK.');
+    const { data: publicCandidatesAfterDuplicate, error: publicCandidatesAfterDuplicateError } = await admin.from('candidates')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('id', duplicateIdentityPayload.clientRequestId);
+    assertNoError({ error: publicCandidatesAfterDuplicateError }, 'Unable to verify duplicate public identity rejection.');
+    assert.equal(publicCandidatesAfterDuplicate.length, 0, 'A rejected duplicate NIK must not persist a second candidate.');
+    const { data: publicObjectsAfterDuplicate, error: publicObjectsAfterDuplicateError } = await admin.storage.from(PPDB_BUCKET)
+      .list(`${tenantId}/${publicPpdbCandidateId}`, { limit: 20 });
+    assertNoError({ error: publicObjectsAfterDuplicateError }, 'Unable to inspect duplicate identity cleanup in private Storage.');
+    assert.equal(publicObjectsAfterDuplicate.length, 4, 'A duplicate-identity rejection must remove uncommitted document objects.');
+
+    const registrationBillRequest = await authorizedJson(
+      `${apiBase}/api/ppdb/candidates/${publicPpdbCandidateId}/bills`,
+      financeAdminToken,
+      { bill: { paymentType: 'registration', amount: 150000, clientRequestId: ppdbRegistrationBillRequestId } },
+    );
+    assert.equal(registrationBillRequest.response.status, 201, `An authorized Admin should issue a registration bill (${registrationBillRequest.response.status}: ${registrationBillRequest.body.error || 'unknown response'}).`);
+    assert.equal(registrationBillRequest.body.success, true);
+    assert.equal(registrationBillRequest.body.created, 1);
+    const registrationBillId = registrationBillRequest.body.billId;
+    assert.ok(registrationBillId, 'The registration bill response must include its persisted identifier.');
+    const registrationBillRetry = await authorizedJson(
+      `${apiBase}/api/ppdb/candidates/${publicPpdbCandidateId}/bills`,
+      financeAdminToken,
+      { bill: { paymentType: 'registration', amount: 150000, clientRequestId: ppdbRegistrationBillRequestId } },
+    );
+    assert.equal(registrationBillRetry.response.status, 201, 'An identical PPDB bill retry must resolve to the original idempotent result.');
+    assert.equal(registrationBillRetry.body.billId, registrationBillId);
+    const { data: registrationBillsAfterRetry, error: registrationBillsAfterRetryError } = await admin.from('finance_bills')
+      .select('id,tenant_id,candidate_id,student_id,payment_type,amount')
+      .eq('tenant_id', tenantId)
+      .eq('candidate_id', publicPpdbCandidateId)
+      .eq('payment_type', 'registration');
+    assertNoError({ error: registrationBillsAfterRetryError }, 'Unable to verify the PPDB registration bill relationship.');
+    assert.equal(registrationBillsAfterRetry.length, 1, 'An identical bill retry must not create a duplicate candidate invoice.');
+    assert.equal(registrationBillsAfterRetry[0].id, registrationBillId);
+    assert.equal(registrationBillsAfterRetry[0].student_id, null, 'A candidate bill remains linked to the PPDB candidate until onboarding.');
+
+    const ppdbWorkflow = [
+      { core: { stage: 'Document Review' } },
+      { core: { stage: 'Entry Exam' } },
+      {
+        core: { stage: 'Interview' },
+        workflow: { examScores: { math: 80, science: 82, english: 78, tpa: 84, quran: 88 } },
+      },
+      {
+        core: { stage: 'Accepted' },
+        workflow: { interviewScores: { academicPotential: 4, personality: 5, communication: 4 } },
+      },
+    ];
+    for (const patch of ppdbWorkflow) {
+      const result = await authorizedJson(
+        `${apiBase}/api/ppdb/candidates/${publicPpdbCandidateId}`,
+        financeAdminToken,
+        patch,
+        'PATCH',
+      );
+      assert.equal(result.response.status, 200, `A valid PPDB workflow transition to ${patch.core.stage} should persist (${result.response.status}: ${result.body.error || 'unknown response'}).`);
+      assert.equal(result.body.success, true);
+    }
+
+    const tuitionBillRequest = await authorizedJson(
+      `${apiBase}/api/ppdb/candidates/${publicPpdbCandidateId}/bills`,
+      financeAdminToken,
+      { bill: { paymentType: 'tuition', amount: 2500000, clientRequestId: ppdbTuitionBillRequestId } },
+    );
+    assert.equal(tuitionBillRequest.response.status, 201, `An accepted candidate should receive a tuition bill (${tuitionBillRequest.response.status}: ${tuitionBillRequest.body.error || 'unknown response'}).`);
+    assert.equal(tuitionBillRequest.body.success, true);
+    assert.equal(tuitionBillRequest.body.created, 1);
+
+    const onboardingAssignment = {
+      nis: '',
+      classId,
+      roomId,
+      buildingId,
+      waliName: 'Wali Sintetis PPDB Uji',
+      waliPhone: '081234567891',
+    };
+    const onboarding = await authorizedJson(
+      `${apiBase}/api/ppdb/candidates/${publicPpdbCandidateId}/onboard`,
+      financeAdminToken,
+      { clientRequestId: ppdbOnboardingRequestId, assignment: onboardingAssignment },
+    );
+    assert.equal(onboarding.response.status, 201, `An accepted candidate should be onboarded atomically (${onboarding.response.status}: ${onboarding.body.error || 'unknown response'}).`);
+    assert.equal(onboarding.body.success, true);
+    assert.equal(onboarding.body.alreadyOnboarded, false);
+    assert.equal(onboarding.body.replayed, false);
+    assert.match(onboarding.body.nis, /^\d{10}$/);
+    const onboardedStudentId = onboarding.body.santriId;
+    const onboardedGuardianId = onboarding.body.waliId;
+    assert.ok(onboardedStudentId && onboardedGuardianId, 'Onboarding must return the persisted student and guardian identifiers.');
+
+    const { data: onboardedStudent, error: onboardedStudentError } = await admin.from('students')
+      .select('id,tenant_id,source_candidate_id,nis,class_id,room_id,building_id')
+      .eq('tenant_id', tenantId)
+      .eq('id', onboardedStudentId)
+      .single();
+    assertNoError({ error: onboardedStudentError }, 'Unable to verify the PPDB onboarding student relation.');
+    assert.equal(onboardedStudent.source_candidate_id, publicPpdbCandidateId);
+    assert.equal(onboardedStudent.class_id, classId);
+    assert.equal(onboardedStudent.room_id, roomId);
+    assert.equal(onboardedStudent.building_id, buildingId);
+    assert.equal(onboardedStudent.nis, onboarding.body.nis);
+
+    const { data: onboardedGuardianLink, error: onboardedGuardianLinkError } = await admin.from('guardian_students')
+      .select('tenant_id,guardian_id,student_id')
+      .eq('tenant_id', tenantId)
+      .eq('guardian_id', onboardedGuardianId)
+      .eq('student_id', onboardedStudentId)
+      .single();
+    assertNoError({ error: onboardedGuardianLinkError }, 'Unable to verify the PPDB guardian-to-student relationship.');
+    assert.equal(onboardedGuardianLink.tenant_id, tenantId);
+    const { data: onboardedGuardian, error: onboardedGuardianError } = await admin.from('guardians')
+      .select('id,tenant_id,source_candidate_id,name,phone')
+      .eq('tenant_id', tenantId)
+      .eq('id', onboardedGuardianId)
+      .single();
+    assertNoError({ error: onboardedGuardianError }, 'Unable to verify the PPDB guardian record.');
+    assert.equal(onboardedGuardian.source_candidate_id, publicPpdbCandidateId);
+    assert.equal(onboardedGuardian.name, onboardingAssignment.waliName);
+
+    const { data: completedCandidate, error: completedCandidateError } = await admin.from('candidates')
+      .select('stage,onboarding_status,master_student_id,master_guardian_id,nis')
+      .eq('tenant_id', tenantId)
+      .eq('id', publicPpdbCandidateId)
+      .single();
+    assertNoError({ error: completedCandidateError }, 'Unable to verify the PPDB candidate onboarding state.');
+    assert.equal(completedCandidate.stage, 'Accepted');
+    assert.equal(completedCandidate.onboarding_status, 'Completed');
+    assert.equal(completedCandidate.master_student_id, onboardedStudentId);
+    assert.equal(completedCandidate.master_guardian_id, onboardedGuardianId);
+    assert.equal(completedCandidate.nis, onboarding.body.nis);
+
+    const { data: onboardingReservation, error: onboardingReservationError } = await admin.from('nis_reservations')
+      .select('tenant_id,nis,candidate_id,student_id,source')
+      .eq('tenant_id', tenantId)
+      .eq('nis', onboarding.body.nis)
+      .single();
+    assertNoError({ error: onboardingReservationError }, 'Unable to verify the onboarding NIS reservation.');
+    assert.equal(onboardingReservation.candidate_id, publicPpdbCandidateId);
+    assert.equal(onboardingReservation.student_id, onboardedStudentId);
+    assert.equal(onboardingReservation.source, 'ppdb_onboarding');
+
+    const { data: transitionedIdentityClaim, error: transitionedIdentityClaimError } = await admin.from('identity_claims')
+      .select('entity_type,entity_id')
+      .eq('tenant_id', tenantId)
+      .eq('identity_type', 'nik')
+      .eq('entity_id', onboardedStudentId)
+      .single();
+    assertNoError({ error: transitionedIdentityClaimError }, 'Unable to verify the identity claim moved to the onboarded student.');
+    assert.equal(transitionedIdentityClaim.entity_type, 'santri');
+
+    const { data: occupiedOnboardingRoom, error: occupiedOnboardingRoomError } = await admin.from('master_data_records')
+      .select('occupied')
+      .eq('tenant_id', tenantId)
+      .eq('category', 'Kamar')
+      .eq('id', roomId)
+      .single();
+    assertNoError({ error: occupiedOnboardingRoomError }, 'Unable to verify room occupancy after onboarding.');
+    assert.equal(occupiedOnboardingRoom.occupied, 1, 'Onboarding must increase room occupancy exactly once.');
+
+    const { data: linkedCandidateBills, error: linkedCandidateBillsError } = await admin.from('finance_bills')
+      .select('id,candidate_id,student_id,payment_type,amount')
+      .eq('tenant_id', tenantId)
+      .eq('candidate_id', publicPpdbCandidateId)
+      .order('payment_type');
+    assertNoError({ error: linkedCandidateBillsError }, 'Unable to verify PPDB bills after student onboarding.');
+    assert.equal(linkedCandidateBills.length, 2, 'Registration and tuition bills should both remain linked to the candidate.');
+    assert.ok(linkedCandidateBills.every((bill) => bill.student_id === onboardedStudentId), 'Onboarding must link all candidate bills to the new student.');
+
+    const onboardingRetry = await authorizedJson(
+      `${apiBase}/api/ppdb/candidates/${publicPpdbCandidateId}/onboard`,
+      financeAdminToken,
+      { clientRequestId: ppdbOnboardingRequestId, assignment: onboardingAssignment },
+    );
+    assert.equal(onboardingRetry.response.status, 200, 'An identical onboarding retry should return the existing student and guardian.');
+    assert.equal(onboardingRetry.body.alreadyOnboarded, true);
+    assert.equal(onboardingRetry.body.replayed, true);
+    assert.equal(onboardingRetry.body.santriId, onboardedStudentId);
+    assert.equal(onboardingRetry.body.waliId, onboardedGuardianId);
+    const changedOnboardingRetry = await authorizedJson(
+      `${apiBase}/api/ppdb/candidates/${publicPpdbCandidateId}/onboard`,
+      financeAdminToken,
+      { clientRequestId: ppdbOnboardingRequestId, assignment: { ...onboardingAssignment, roomId: alternateRoomId } },
+    );
+    assert.equal(changedOnboardingRetry.response.status, 409, 'An onboarding request ID cannot be reused for a different room assignment.');
+    const { data: alternateRoomAfterConflict, error: alternateRoomAfterConflictError } = await admin.from('master_data_records')
+      .select('occupied')
+      .eq('tenant_id', tenantId)
+      .eq('category', 'Kamar')
+      .eq('id', alternateRoomId)
+      .single();
+    assertNoError({ error: alternateRoomAfterConflictError }, 'Unable to verify changed onboarding retry did not affect another room.');
+    assert.equal(alternateRoomAfterConflict.occupied, 0, 'A conflicting onboarding retry must not change room occupancy.');
 
     for (let attempt = 1; attempt <= 12; attempt += 1) {
       const limitedAttempt = await fetch(`${apiBase}/api/finance/payment-proofs`, {
@@ -605,7 +998,7 @@ async function main() {
     assertNoError({ error: listError }, 'Unable to inspect the synthetic private proof directory.');
     assert.equal(storedObjects.length, 1, 'The idempotent retry must not leave an orphan duplicate object.');
 
-    console.log(`Storage HTTP tests passed (${target}): shared finance upload rate limit, Finance proof upload/download, PPDB Admin document download, private-bucket isolation, tenant/RBAC boundaries, and idempotency.`);
+    console.log(`Storage/PPDB HTTP tests passed (${target}): Finance proof upload/download, public PPDB configuration and registration persistence, encrypted identity, private document upload/read-back, candidate billing, PPDB workflow acceptance, atomic onboarding with NIS/guardian/class/room relationships, linked invoices, idempotent retries, conflict rejection, tenant/RBAC boundaries, and rate limits.`);
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -622,13 +1015,31 @@ async function main() {
       userIds: users.map((user) => user.uid),
     }));
     if (uploadedPath) await cleanupStep(cleanupErrors, 'Finance proof object', () => admin.storage.from(BUCKET).remove([uploadedPath]));
+    if (publicPpdbCandidateId) {
+      await cleanupStep(cleanupErrors, 'public PPDB document objects', async () => {
+        const directory = `${tenantId}/${publicPpdbCandidateId}`;
+        const { data, error } = await admin.storage.from(PPDB_BUCKET).list(directory, { limit: 100 });
+        if (error) throw error;
+        const paths = (data || []).map((item) => `${directory}/${item.name}`);
+        if (paths.length) {
+          const { error: removeError } = await admin.storage.from(PPDB_BUCKET).remove(paths);
+          if (removeError) throw removeError;
+        }
+      });
+    }
     const ppdbObjects = [ppdbDocumentPath, ppdbUploadPath, foreignDocumentPath].filter(Boolean);
     if (ppdbObjects.length) await cleanupStep(cleanupErrors, 'PPDB document objects', () => admin.storage.from(PPDB_BUCKET).remove(ppdbObjects));
-    for (const table of ['finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'candidate_documents']) {
-      await cleanupStep(cleanupErrors, `${table} tenant rows`, () => admin.from(table).delete().eq('tenant_id', tenantId));
+    if (createdTenantIds.includes(tenantId)) {
+      for (const table of ['finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'candidate_documents']) {
+        await cleanupStep(cleanupErrors, `${table} tenant rows`, () => admin.from(table).delete().eq('tenant_id', tenantId));
+      }
+      // Onboarded guardian/student rows are referenced by immutable PPDB onboarding events;
+      // the suspended tenant and banned synthetic accounts are the isolation boundary.
     }
-    for (const table of ['candidate_documents']) {
-      await cleanupStep(cleanupErrors, `${table} foreign tenant rows`, () => admin.from(table).delete().eq('tenant_id', foreignTenantId));
+    if (createdTenantIds.includes(foreignTenantId)) {
+      for (const table of ['candidate_documents']) {
+        await cleanupStep(cleanupErrors, `${table} foreign tenant rows`, () => admin.from(table).delete().eq('tenant_id', foreignTenantId));
+      }
     }
     if (cleanupErrors.length) {
       console.error(`Staging/local fixture cleanup incomplete: ${cleanupErrors.join(', ')}.`);
