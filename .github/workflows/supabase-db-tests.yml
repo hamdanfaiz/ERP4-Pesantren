@@ -47,6 +47,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Ensure all package test scripts run in CI
+        run: npm run test:ci-coverage
+
       - name: Typecheck
         run: bun run lint
 
@@ -86,6 +89,9 @@ jobs:
       - name: Verify recovery links use the configured application URL
         run: npm run test:auth-recovery-redirect
 
+      - name: Verify Document Center filters
+        run: npm run test:document-list-filters
+
       - name: Verify Firebase packages are excluded from production dependencies
         run: node scripts/test-production-dependencies.mjs
 
@@ -109,6 +115,9 @@ jobs:
 
       - name: Verify Master Data pagination and nested PII minimization
         run: npm run test:master-data-pagination
+
+      - name: Verify Master Data student import references and capacity
+        run: npm run test:master-data-student-import-plan
 
       - name: Verify Master Data PII is not persisted in browser storage
         run: npm run test:master-data-no-browser-drafts
