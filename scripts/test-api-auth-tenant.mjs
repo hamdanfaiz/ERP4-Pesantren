@@ -1931,12 +1931,12 @@ async function main() {
     });
     assert.equal(santriRecordWrite.status, 403, 'A Santri cannot create setoran even when granted module read access.');
 
-    const laundryDeniedRole = await fetch(`${apiBase}/api/laundry/snapshot`, {
+    const laundryDeniedRole = await fetch(`${referenceApiBase}/api/laundry/snapshot`, {
       headers: { Authorization: `Bearer ${ustadzToken}` },
     });
     assert.equal(laundryDeniedRole.status, 403, 'Laundry management is restricted to an authorized tenant Admin.');
 
-    const laundryEmptyResponse = await fetch(`${apiBase}/api/laundry/snapshot`, {
+    const laundryEmptyResponse = await fetch(`${referenceApiBase}/api/laundry/snapshot`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     assert.equal(laundryEmptyResponse.status, 200, 'An authorized Admin can read the initial Laundry snapshot.');
@@ -1950,14 +1950,14 @@ async function main() {
       excessRatePerKg: 5000,
       clientRequestId: randomUUID(),
     };
-    const laundrySettingsSave = await fetch(`${apiBase}/api/laundry/settings`, {
+    const laundrySettingsSave = await fetch(`${referenceApiBase}/api/laundry/settings`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(laundrySettingsInput),
     });
     assert.equal(laundrySettingsSave.status, 200, 'An authorized Admin can save tenant Laundry quota settings.');
     assert.equal((await laundrySettingsSave.json()).replayed, false);
-    const laundrySettingsRetry = await fetch(`${apiBase}/api/laundry/settings`, {
+    const laundrySettingsRetry = await fetch(`${referenceApiBase}/api/laundry/settings`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(laundrySettingsInput),
@@ -1971,7 +1971,7 @@ async function main() {
       pieces: 4,
       clientRequestId: randomUUID(),
     };
-    const laundryOrderCreate = await fetch(`${apiBase}/api/laundry/orders`, {
+    const laundryOrderCreate = await fetch(`${referenceApiBase}/api/laundry/orders`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(laundryOrderInput),
@@ -1980,7 +1980,7 @@ async function main() {
     const createdLaundryOrder = await laundryOrderCreate.json();
     assert.ok(createdLaundryOrder.id && createdLaundryOrder.orderNumber);
     assert.equal(createdLaundryOrder.replayed, false);
-    const laundryOrderRetry = await fetch(`${apiBase}/api/laundry/orders`, {
+    const laundryOrderRetry = await fetch(`${referenceApiBase}/api/laundry/orders`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(laundryOrderInput),
@@ -1997,7 +1997,7 @@ async function main() {
     assert.equal(savedLaundryOrder.data?.student_id, tahfidzStudentId, 'The persisted order keeps its same-tenant student relation.');
     assert.equal(savedLaundryOrder.data?.order_number, createdLaundryOrder.orderNumber);
 
-    const laundryAfterCreateResponse = await fetch(`${apiBase}/api/laundry/snapshot`, {
+    const laundryAfterCreateResponse = await fetch(`${referenceApiBase}/api/laundry/snapshot`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     assert.equal(laundryAfterCreateResponse.status, 200);
@@ -2012,7 +2012,7 @@ async function main() {
     assert.equal(laundryQuota.excessKg, 1.25);
     assert.equal(laundryQuota.estimatedCharge, 6250, 'Quota charge uses the saved rate and same-month order weight.');
 
-    const invalidLaundryTransition = await fetch(`${apiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+    const invalidLaundryTransition = await fetch(`${referenceApiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'collected', clientRequestId: randomUUID() }),
@@ -2020,14 +2020,14 @@ async function main() {
     assert.equal(invalidLaundryTransition.status, 409, 'Laundry rejects an invalid status jump.');
 
     const laundryTransitionInput = { status: 'washing', clientRequestId: randomUUID() };
-    const laundryTransition = await fetch(`${apiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+    const laundryTransition = await fetch(`${referenceApiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(laundryTransitionInput),
     });
     assert.equal(laundryTransition.status, 200);
     assert.equal((await laundryTransition.json()).status, 'washing');
-    const laundryTransitionRetry = await fetch(`${apiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+    const laundryTransitionRetry = await fetch(`${referenceApiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(laundryTransitionInput),
@@ -2035,12 +2035,12 @@ async function main() {
     assert.equal(laundryTransitionRetry.status, 200);
     assert.equal((await laundryTransitionRetry.json()).replayed, true, 'A repeated status request does not append a second transition.');
 
-    const laundryTenantBResponse = await fetch(`${apiBase}/api/laundry/snapshot`, {
+    const laundryTenantBResponse = await fetch(`${referenceApiBase}/api/laundry/snapshot`, {
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
     });
     assert.equal(laundryTenantBResponse.status, 200);
     assert.deepEqual((await laundryTenantBResponse.json()).orders, [], 'Laundry snapshots do not expose another tenant\'s orders.');
-    const laundryCrossTenantTransition = await fetch(`${apiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+    const laundryCrossTenantTransition = await fetch(`${referenceApiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'ready', clientRequestId: randomUUID() }),
