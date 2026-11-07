@@ -175,7 +175,7 @@ async function main() {
       .update({ must_change_password: true })
       .eq('user_id', users[12].uid);
     if (forcePasswordError) throw new Error('Unable to configure the synthetic forced-password-change fixture.');
-    const academicUnlinkedSantri = await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'academic-unlinked-santri', { academic: true });
+    const academicUnlinkedSantri = await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'academic-unlinked-santri', { academic: true });
     users.push(academicUnlinkedSantri);
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
