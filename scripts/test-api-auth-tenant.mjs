@@ -177,7 +177,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -2051,7 +2051,170 @@ async function main() {
     });
     assert.equal(laundryCrossTenantTransition.status, 404, 'A different tenant cannot transition an order by guessing its ID.');
 
-    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    const donationSnapshotUrl = referenceApiBase + '/api/donation/snapshot';
+    const donationUstadz = await fetch(donationSnapshotUrl, { headers: { Authorization: 'Bearer ' + ustadzToken } });
+    assert.equal(donationUstadz.status, 403, 'Ustadz without Donation permission is denied.');
+    const donationLimitedAdmin = await fetch(donationSnapshotUrl, { headers: { Authorization: 'Bearer ' + donationNoPermissionToken } });
+    assert.equal(donationLimitedAdmin.status, 403, 'Admin without Donation permission is denied.');
+    const donationInitialResponse = await fetch(donationSnapshotUrl, { headers: { Authorization: 'Bearer ' + adminToken } });
+    assert.equal(donationInitialResponse.status, 200);
+    const donationInitial = await donationInitialResponse.json();
+    assert.deepEqual(donationInitial.campaigns, []);
+    assert.deepEqual(donationInitial.donors, []);
+    assert.deepEqual(donationInitial.donations, []);
+    assert.deepEqual(donationInitial.waqfAssets, []);
+
+    const donationCampaignInput = {
+      action: 'create',
+      title: 'Kampanye Uji ' + fixtureSuffix,
+      fundType: 'infaq',
+      description: 'Kampanye sintetis API.',
+      targetAmount: 1000000,
+      endDate: null,
+      status: 'active',
+      clientRequestId: randomUUID(),
+    };
+    const donationCampaignResponse = await fetch(referenceApiBase + '/api/donation/campaigns', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationCampaignInput),
+    });
+    assert.equal(donationCampaignResponse.status, 201);
+    const donationCampaign = await donationCampaignResponse.json();
+    assert.equal(donationCampaign.replayed, false);
+    const donationCampaignRetry = await fetch(referenceApiBase + '/api/donation/campaigns', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationCampaignInput),
+    });
+    assert.equal(donationCampaignRetry.status, 201);
+    assert.equal((await donationCampaignRetry.json()).id, donationCampaign.id);
+
+    const donationDonorInput = {
+      action: 'create',
+      fullName: 'Donatur Uji ' + fixtureSuffix,
+      donorType: 'community',
+      email: 'donatur-' + fixtureSuffix + '@example.test',
+      phone: '081234567890',
+      notes: 'Fixture sintetis.',
+      status: 'active',
+      clientRequestId: randomUUID(),
+    };
+    const donationDonorResponse = await fetch(referenceApiBase + '/api/donation/donors', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationDonorInput),
+    });
+    assert.equal(donationDonorResponse.status, 201);
+    const donationDonor = await donationDonorResponse.json();
+
+    const waqfAssetInput = {
+      action: 'create',
+      assetCode: 'WAKAF-' + fixtureSuffix,
+      name: 'Aset Wakaf Uji ' + fixtureSuffix,
+      assetType: 'building',
+      location: 'Komplek uji',
+      estimatedValue: 50000000,
+      conditionLabel: 'Baik',
+      wakifName: 'Wakif Uji',
+      acquiredOn: new Date().toISOString().slice(0, 10),
+      status: 'active',
+      notes: 'Fixture sintetis.',
+      clientRequestId: randomUUID(),
+    };
+    const waqfAssetResponse = await fetch(referenceApiBase + '/api/donation/waqf-assets', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(waqfAssetInput),
+    });
+    assert.equal(waqfAssetResponse.status, 201);
+    const waqfAsset = await waqfAssetResponse.json();
+
+    const donationTransactionInput = {
+      donorId: donationDonor.id,
+      campaignId: donationCampaign.id,
+      donorName: 'Nama harus berasal dari relasi donatur',
+      amount: 250000,
+      fundType: 'other',
+      paymentMethod: 'bank_transfer',
+      receivedAt: new Date().toISOString(),
+      referenceNote: 'Uji relasi dan simpan-baca.',
+      clientRequestId: randomUUID(),
+    };
+    const donationTransactionResponse = await fetch(referenceApiBase + '/api/donation/transactions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationTransactionInput),
+    });
+    assert.equal(donationTransactionResponse.status, 201);
+    const donationTransaction = await donationTransactionResponse.json();
+    assert.ok(donationTransaction.receiptNumber.startsWith('DON-'));
+    const donationTransactionRetry = await fetch(referenceApiBase + '/api/donation/transactions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationTransactionInput),
+    });
+    assert.equal(donationTransactionRetry.status, 201);
+    assert.equal((await donationTransactionRetry.json()).id, donationTransaction.id);
+
+    const [savedDonation, savedWaqfAsset] = await Promise.all([
+      admin.from('donations').select('tenant_id,donor_id,campaign_id,donor_name_snapshot,amount,fund_type,status').eq('id', donationTransaction.id).single(),
+      admin.from('waqf_assets').select('tenant_id,name').eq('id', waqfAsset.id).single(),
+    ]);
+    assert.equal(savedDonation.error, null);
+    assert.equal(savedDonation.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedDonation.data?.donor_id, donationDonor.id);
+    assert.equal(savedDonation.data?.campaign_id, donationCampaign.id);
+    assert.equal(savedDonation.data?.donor_name_snapshot, donationDonorInput.fullName);
+    assert.equal(Number(savedDonation.data?.amount), 250000);
+    assert.equal(savedDonation.data?.fund_type, 'infaq');
+    assert.equal(savedDonation.data?.status, 'confirmed');
+    assert.equal(savedWaqfAsset.error, null);
+    assert.equal(savedWaqfAsset.data?.tenant_id, tenantIds[0]);
+
+    const donationReadbackResponse = await fetch(donationSnapshotUrl, {
+      headers: { Authorization: 'Bearer ' + adminToken },
+    });
+    assert.equal(donationReadbackResponse.status, 200);
+    const donationReadback = await donationReadbackResponse.json();
+    assert.equal(donationReadback.campaigns.find((item) => item.id === donationCampaign.id)?.current, 250000);
+    assert.equal(donationReadback.donors.find((item) => item.id === donationDonor.id)?.lifetime, 250000);
+    assert.equal(donationReadback.donations.find((item) => item.id === donationTransaction.id)?.campaignTitle, donationCampaignInput.title);
+    assert.equal(donationReadback.summary.totalConfirmed, 250000);
+    assert.equal(donationReadback.summary.waqfAssetValue, 50000000);
+
+    const tenantBDonationResponse = await fetch(donationSnapshotUrl, {
+      headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken },
+    });
+    assert.equal(tenantBDonationResponse.status, 200);
+    const tenantBDonation = await tenantBDonationResponse.json();
+    assert.deepEqual(tenantBDonation.campaigns, []);
+    assert.deepEqual(tenantBDonation.donors, []);
+    assert.deepEqual(tenantBDonation.donations, []);
+    assert.deepEqual(tenantBDonation.waqfAssets, []);
+
+    const donationVoidUrl = referenceApiBase + '/api/donation/transactions/' + encodeURIComponent(donationTransaction.id) + '/void';
+    const donationVoidInput = { reason: 'Pembatalan uji sintetis.', clientRequestId: randomUUID() };
+    const donationVoidResponse = await fetch(donationVoidUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationVoidInput),
+    });
+    assert.equal(donationVoidResponse.status, 200);
+    const donationVoidRetry = await fetch(donationVoidUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationVoidInput),
+    });
+    assert.equal(donationVoidRetry.status, 200);
+    assert.equal((await donationVoidRetry.json()).replayed, true);
+    const crossTenantDonationVoid = await fetch(donationVoidUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'Tenant berbeda uji.', clientRequestId: randomUUID() }),
+    });
+    assert.equal(crossTenantDonationVoid.status, 404);
+    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -2102,7 +2265,7 @@ async function main() {
         `DELETE FROM public.donation_receipt_counters WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.waqf_assets WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.donation_donors WHERE tenant_id = ANY(${tenantArray});`,
-        `DELETE FROM public.donation_campaigns WHERE tenant_id = ANY(${tenantArray});`
+        `DELETE FROM public.donation_campaigns WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests DISABLE TRIGGER cooperative_supplier_requests_immutable;',
         `DELETE FROM public.cooperative_supplier_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests ENABLE TRIGGER cooperative_supplier_requests_immutable;',
