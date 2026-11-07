@@ -1,27 +1,16 @@
-> **Status otoritatif — 7 November 2026, sesudah PR #49–#51.** `main` berada pada `3655344d5ba4ce44deac57129b791238bcfe70bb`; PR #49–#51 merged. CI lulus 3/3 job pada [PR #49](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332200376), [PR #50](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332878921), dan [PR #51](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42334687865). PR #49 menguji kebijakan autentikasi route privat; PR #51 menambahkan guard browser persistence; PR #50 memperbarui dokumen.
->
-> Pengujian tersebut tidak berarti seluruh fitur, fungsi, relasi, dan penyimpanan semua modul sudah lulus UAT. Runtime Supabase dan kontrak keamanan memiliki bukti otomatis serta verifikasi terbatas, tetapi end-to-end simpan-baca untuk setiap modul belum selesai. Backend Supabase tersedia sebagai target yang dikonfigurasi; health dan alur tulis setiap modul pada environment hosting belum dibuktikan secara menyeluruh.
->
-> Production tidak diubah. Tim backend masih bertanggung jawab atas perbandingan DDL aktual, urutan migrasi, backup/restore Production, dan UAT di hosting. Source siap ditinjau; produk belum dinyatakan siap deploy atau komersial. Rincian status dan daftar bukti ada di [handoff backend](BACKEND_TEAM_START_HERE.md).
-
-> **Checkpoint otoritatif — 7 November 2026, sesudah PR #47.** `main` berada pada commit merge `45230fc06f4e7baedb4ed9adadc62f7b24efb23d`. PR #1–#11 tetap closed tanpa merge; cakupan utamanya dipetakan ke source yang lebih baru. PR #43 membatasi pemberian permission oleh Admin; PR #47 menegakkan permission modul pemilik pada perubahan katalog referensi.
->
-> **CI:** PR #47 lulus 3/3 job pada [run #42329049029](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42329049029), termasuk build, pemeriksaan tipe, migrasi/pgTAP dan uji API katalog lintas permission modul. CI memakai Supabase lokal sintetis; hasilnya bukan UAT browser atau bukti Production.
->
-> **Staging:** VQE `vqemuyzveuirlkvdggjd` memiliki 136/136 versi/nama ledger yang cocok dengan source, terakhir `20270304000000_student_room_assignment_reference_locks`; PR #47 tidak mengubah migration.
->
-> **Production:** PTSAS `ptsasgdvgrbdtgyqieie` tidak diubah. Snapshot operator yang tersedia mencatat 47 versi ledger dibanding 136 file source. Jangan menerapkan selisih 89 secara massal; kesetaraan DDL, urutan migration, dan backup/restore Production harus diperiksa tim backend.
->
-> **Kesiapan:** source dapat ditinjau tim sekarang, tetapi aplikasi belum dinyatakan siap deploy/go-live. Login, role/tenant, fungsi modul, Storage, responsif, dan UAT hosting masih perlu dibuktikan tim backend. Data Firestore dummy tidak disalin; PPOB/payment gateway tidak termasuk rilis awal; Peer Review Tahfidz dibatasi pada teks.
->
-> Catatan berikutnya yang bertanggal lebih lama adalah riwayat, bukan status operasional terkini.
->
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
-> **Bukti terbaru — 7 November 2026, 04.56 WIB.** PR #40 masih Open dan belum merged; head dokumentasi `2aa0099dddc8501bd41f767dbe2bf8a16fbe59f9`, sedangkan source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. CI [#1201](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42299718397) lulus 3/3 pada head tersebut. CI mencakup migrasi baseline sintetis, bukan UAT browser atau Production live.
+
+> **Status otoritatif — 7 November 2026, 18.36 WIB.** Source utama adalah main `de5c9a26bcfaa79bba8d989bcf1434f11549bd90` setelah PR #65 merged. PR #1–#11 tetap closed tanpa merge; tidak ada PR terbuka pada pemeriksaan GitHub terakhir.
 >
-> VQE staging memiliki 136 ledger rows; satu alias untuk migrasi kamar masih perlu rekonsiliasi metadata. Jangan jalankan DDL-nya ulang. Snapshot CSV Production 6 November, dibanding source PR, berisi 47 versi cocok, 89 versi source tidak ada, dan tidak ada versi ekstra. Snapshot itu juga punya 29 tanggal migrasi setelah 7 November serta dua nilai nama literal `null`; konektor tetap menolak baca live. Minta inventaris baca-saja baru dan konfirmasi anomali sebelum merencanakan migrasi. Tidak ada perubahan Production.
+> CI pada commit ini lulus tiga job: migrasi/API/pgTAP, build frontend dan guard bundel Firebase, serta instalasi NPM untuk lingkungan pelanggan. [Hasil CI](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42366639181). CI menjalankan backend Supabase lokal dengan data sintetis dan beberapa round-trip API lintas modul; ini bukan UAT browser seluruh sistem atau bukti Production.
 >
-> UAT Admin/Wali, tinjauan backend, inventaris Production terbaru, backup/restore Production, serta rehearsal/dry-run live belum selesai. Audit paritas masih mencatat fitur yang belum tersedia; status/menu bukan bukti fungsi lengkap. Perkiraan kemajuan pengembangan sekitar **72%**, bukan persentase fitur yang lulus UAT. ERP belum siap deploy/cutover atau dinyatakan layak komersial. Lihat [checkpoint handoff terbaru](BACKEND_TEAM_START_HERE.md), [audit paritas fitur](AI_STUDIO_REFERENCE_PARITY_AUDIT_2026-10-31.md), dan [laporan Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-06.md).
+> Source `main` saat ini memiliki 138 migration files. Snapshot operator VQE terdahulu mencatat 136 ledger entries sampai migration `20270304000000` dengan satu alias nama; ledger VQE belum diperiksa ulang terhadap dua migration terbaru. Snapshot baca-saja Production terakhir mencatat 47 ledger entries dan 119 tabel public dengan RLS + FORCE RLS. Production tidak diubah; DDL, urutan migration, serta backup/restore Production belum dibuktikan.
+>
+> Produk **belum dinyatakan siap deploy atau komersial**. UAT browser untuk login, role/tenant, simpan-baca tiap modul, Storage dan tampilan responsif belum lengkap. Tim backend tetap mengerjakan schema diff, rehearsal urutan migration, backup/restore Production, dan UAT hosting. Gunakan [handoff backend terkini](BACKEND_TEAM_START_HERE.md) sebagai daftar bukti.
+>
+> Pemeriksaan source/konfigurasi lokal yang tidak memerlukan dependency lulus untuk cakupan workflow, schema privat, fixture sintetis, deployment flags, dan penyimpanan PII Master Data. Pengulangan suite DB terhambat karena Docker/Supabase CLI tidak tersedia; `npm ci` tidak selesai, sehingga typecheck/build dan skrip yang memerlukan dependency tidak dapat dijalankan. Bukti integrasi terbaru tetap workflow CI pada commit tersebut.
+
+> Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
 
 > **Pembaruan checkpoint — 6 November 2026, 23.08 WIB.** CI #1191 lulus 3/3 job pada source dokumen PR `602926c548410e2f6af2d0001701d5cf23fd0ece`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. UAT browser, inventaris penuh Production, backup/restore yang terbukti, dan rehearsal/dry-run masih terbuka.
 >
@@ -53,7 +42,7 @@
 >
 
 **Status:** dokumen penerimaan internal. Dokumen ini tidak menyatakan produk siap dijual atau siap produksi.
-**Diperbarui:** 31 Oktober 2026
+**Diperbarui:** 7 November 2026
 **Jalur rilis utama:** PR #13, self-hosted, satu instalasi per pesantren.
 
 ## Kontrak produk
@@ -70,24 +59,19 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 
 ## Status teknis berdasarkan bukti
 
-- Source cutover PR #13 tetap menjadi baseline. PR #17 kini juga merged ke `main` pada merge commit `3e752f8d6c1961130b9baa108736c51ffc702eb7`. Jalur Firestore server dan Firebase Admin sudah dihapus; Firebase client SDK masih ada untuk source lama yang tidak aktif, tetapi guard CI memastikan runtime frontend aktif tidak memuat Firebase.
-- CI PR #17 lulus pada [run 41136728382](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41136728382), 2/2 job, pada Supabase lokal sintetis. Tidak ada migration/schema/record yang diterapkan ke Supabase Production atau data dummy Firestore yang disalin; PPOB/payment gateway dikecualikan dari rilis awal.
-- GitHub Actions [run 41051400486](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41051400486) lulus **2/2 job** pada head source PR #13 `e449c234c253eb7a65795af18c5794fa45e6e9cb`. Cakupan meliputi typecheck/build, penguncian PPOB di RBAC, Docker/Compose, Supabase lokal sintetis, rehearsal migration, pgTAP, API/tenant, transaksi serentak, Storage, dan backup/restore. Ini bukan UAT pelanggan atau bukti perubahan database live.
-- PR #36 sudah merged pada commit `edd5385fee4d10db64681de9cc08ee757130eb78`. VQE staging mencatat seluruh 110 migration source tanpa versi hilang/ekstra. PTSAS tetap Production dengan auto-deploy OFF; snapshot historisnya mencatat 47 versi ledger, tetapi belum direkonsiliasi ulang terhadap source 110 migration. Tidak ada deployment Production.
-- Verifikasi staging VQE setelah PR #36: 160/160 tabel memiliki RLS dan FORCE RLS; 159 tabel tenant-scoped (root `tenants` dikecualikan); 5 policy publik, tidak ada grant langsung ke `anon` atau grant tulis langsung bagi `authenticated`; 4 bucket privat. Ini inventaris staging, bukan bukti katalog PTSAS setara.
-- Runtime feature flags sengaja mati secara default sampai migration, provisioning tenant, Auth, role/permission, dan UAT masing-masing modul lulus.
-- Guard source memeriksa 26 route Supabase. PPOB/Layanan Ekosistem tidak memiliki tipe modul atau route pada rilis awal, dan layar simulasi lamanya sudah dihapus; permission lama untuk modul itu tetap ditolak oleh RBAC. Layar Multi-Unit dan Anggaran tersedia, tetapi API-nya tetap terkunci feature flag server yang default-nya `false`; Analitik memakai ringkasan Supabase berbasis aturan. Pemetaan route tidak membuktikan alur live siap dipakai.
-- Tagihan PPDB dapat dibuat Admin pada record calon santri dan ditautkan ke santri saat onboarding. Admin dapat mencatat pelunasan manual sebelum onboarding; unggah bukti mandiri oleh Wali baru tersedia setelah akun Wali terhubung dengan santri aktif. Jika pembayaran mandiri Wali sebelum onboarding dibutuhkan, itu masih perlu dirancang dan diuji.
-- Docker/Compose dan smoke test tersedia pada branch cutover. Belum ada bukti instalasi baru dari server kosong milik pelanggan, upgrade/restore di VPS/on-premise, atau uji beban berskala pesantren besar.
-
-Snapshot teknis ini bukan pengganti audit endpoint, pemeriksaan definisi seluruh function di staging, uji lintas tenant secara live, dan penerimaan pengguna.
-
+- Runtime utama menggunakan Supabase; guard CI memastikan Firebase tidak masuk ke graph frontend aktif. Build, smoke test runtime, instalasi NPM, dan migrasi/API/pgTAP lulus pada commit `de5c9a26bcfaa79bba8d989bcf1434f11549bd90` di [CI #42366639181](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42366639181).
+- Sejak baseline audit `0e3e730`, 19 commit menambah round-trip API atau perbaikan idempotensi untuk CRM, komunikasi, Tahfidz, Akademik, Koperasi, Laundry, Donasi, Dokumen, Kesehatan, fasilitas, urusan umum dan Perpustakaan. Guard CI juga memastikan semua skrip `test:*` di package manifest dijalankan oleh workflow. Cakupan tersebut tetap bukan uji browser menyeluruh untuk semua form dan tombol.
+- PR #1–#11 ditutup tanpa merge karena implementasi utamanya digantikan source yang lebih baru. Tidak ada alasan untuk menggabungkan branch lama langsung ke `main`; lihat [audit paritas](../05_ARCHITECTURE/PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
+- Jumlah migration source `main` adalah 138. Snapshot operator VQE terakhir yang tersedia menyebut 136 ledger entries sampai `20270304000000`, dengan alias metadata pada migration room-lock; jangan mengulang DDL. Verifikasi status dua migration berikutnya melalui preflight pada project VQE sebelum penerapan.
+- Snapshot operator Production terakhir menyebut 47 ledger entries dan 119 tabel public ber-RLS + FORCE RLS. Ini bukan bukti DDL sesuai source. Tidak ada perubahan Production; rekonsiliasi DDL dan urutan migration perlu dikerjakan tim backend.
+- CI menggunakan Supabase lokal dan data sintetis. Login Admin/Wali, seluruh CRUD/relasi UI, deploy clean-install ke VPS/on-premise, serta UAT hosting belum terbukti. Backup/restore lokal CI bukan backup/restore Production.
+- Batas rilis awal tetap: PPOB/payment gateway tidak termasuk; Peer Review Tahfidz hanya teks dan dimoderasi Ustadz. Aplikasi berjalan sebagai container yang memakai Supabase eksternal; paket tidak membundel seluruh layanan Supabase. Harga, SLA, dukungan, dan ketentuan lisensi juga belum ditetapkan.
 ## Gerbang rilis komersial
 
 ### 1. Skema, relasi, dan transaksi
 
 - Tim backend dapat menjalankan `npm run preflight:db-migrations` dari root source `main` untuk membandingkan versi, nama, dan statement migration dengan koneksi PostgreSQL read-only. Pastikan hostname menunjuk ke project target; jangan membagikan URL atau secret. Jika ada `HENTIKAN` atau mismatch, selesaikan rekonsiliasi sebelum rehearsal.
-- Untuk Production, rekonsiliasi ledger dan schema PTSAS secara terpisah. Snapshot sebelumnya menunjukkan 47 versi ledger dan dua entri tanpa metadata, sedangkan source saat ini memiliki 110 migration. Selisih hitungan bukan instruksi untuk menerapkan migration atau mengubah ledger. Jangan tandai versi sebagai applied tanpa bukti schema.
+- Untuk Production, rekonsiliasi ledger dan schema PTSAS secara terpisah. Snapshot sebelumnya menunjukkan 47 versi ledger dan dua entri tanpa metadata, sedangkan source saat ini memiliki 138 migration. Selisih hitungan bukan instruksi untuk menerapkan migration atau mengubah ledger. Jangan tandai versi sebagai applied tanpa bukti schema.
 - Sebelum penerapan, simpan backup yang dapat dipulihkan dan rehearsalkan seluruh urutan migration pada salinan/environment staging.
 - Verifikasi signature dan definisi function, constraint, index, RLS, Storage policy, dan Data API grant terhadap source commit yang akan dirilis.
 - Uji transaksi kritis: NIS unik bersamaan, onboarding PPDB-ke-santri, assignment kamar, pembayaran/jurnal, stok/dompet koperasi, buku dan peminjaman, sesi/setoran Tahfidz, serta idempotensi retry.
