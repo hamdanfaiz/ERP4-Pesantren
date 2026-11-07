@@ -2713,9 +2713,17 @@ async function main() {
     });
     const gaOpnameBody = await gaOpnameResponse.json();
     assert.equal(gaOpnameResponse.status, 201, `GA asset opname failed: ${JSON.stringify(gaOpnameBody)}`);
+    const gaDisposeResponse = await fetch(referenceApiBase + '/api/ga/assets', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'dispose', id: createdGaAsset.id, clientRequestId: randomUUID() }),
+    });
+    const gaDisposeBody = await gaDisposeResponse.json();
+    assert.equal(gaDisposeResponse.status, 201, `GA asset disposal failed: ${JSON.stringify(gaDisposeBody)}`);
+
     const gaAssetEvents = await admin.from('ga_facility_events').select('event_type').eq('facility_id', createdGaAsset.id);
     assert.equal(gaAssetEvents.error, null);
-    assert.deepEqual(gaAssetEvents.data?.map((event) => event.event_type).sort(), ['created', 'opname']);
+    assert.deepEqual(gaAssetEvents.data?.map((event) => event.event_type).sort(), ['created', 'disposed', 'opname']);
 
     const gaInventoryDraft = {
       action: 'create',
@@ -2812,6 +2820,7 @@ async function main() {
     const listedGaInventory = gaFinalSnapshot.inventory.find((item) => item.id === createdGaInventory.id);
     assert.equal(listedGaAsset?.category_reference_id, gaAssetCategoryId);
     assert.equal(listedGaAsset?.condition, 'Perlu Servis');
+    assert.equal(listedGaAsset?.status, 'disposed');
     assert.ok(listedGaAsset?.last_opname_on);
     assert.equal(listedGaInventory?.category_reference_id, gaInventoryCategoryId);
     assert.equal(listedGaInventory?.unit_reference_id, gaInventoryUnitId);
