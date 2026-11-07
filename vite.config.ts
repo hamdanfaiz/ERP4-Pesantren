@@ -24,6 +24,21 @@ function firebaseClientBundleGuard(): Plugin {
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), firebaseClientBundleGuard()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            const modulePath = id.replace(/\\/g, '/');
+            if (/\/node_modules\/(react|react-dom|scheduler)\//.test(modulePath)) {
+              return 'vendor-react';
+            }
+            if (modulePath.includes('/node_modules/@supabase/')) {
+              return 'vendor-supabase';
+            }
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         'firebase/firestore': path.resolve(__dirname, 'src/firebaseFirestoreDisabled.ts'),
@@ -39,3 +54,4 @@ export default defineConfig(() => {
     },
   };
 });
+

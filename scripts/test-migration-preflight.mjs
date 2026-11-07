@@ -68,7 +68,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 115);
+assert.equal(sourceMigrationsWithSql.length, 117);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -77,6 +77,7 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202702090000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270210000000_internalize_tenant_rls_helpers.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270211000000_optimize_profile_rls_initplans.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270212000000_optimize_core_tenant_query_indexes.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20261031225438_master_data_audit_feed.sql'));
 assert(sourceMigrationsWithSql.every(({ statements }) => Array.isArray(statements) && statements.length > 0));
 
 const sqlLocal = listLocalMigrations(
@@ -91,6 +92,38 @@ const sqlApplied = parseAppliedMigrationsOutput(JSON.stringify([{
 const matchingSql = compareMigrationVersions(sqlLocal, sqlApplied);
 assert.equal(matchingSql.statementMismatches.length, 0);
 assert.equal(matchingSql.canContinueToStagingReview, true);
+
+// Supabase can store a migration file as one ledger element; split it safely
+// before comparing it with the local statement list, including dollar-quoted bodies.
+const bundledSql = [
+  '-- a complete migration may arrive as one stored string',
+  'CREATE TABLE profiles (id uuid PRIMARY KEY);',
+  'CREATE FUNCTION profile_probe() RETURNS void LANGUAGE plpgsql AS $body$',
+  'BEGIN PERFORM 1; RETURN; END;',
+  '$body$;',
+  'GRANT SELECT ON profiles TO authenticated;',
+].join('\n');
+const bundledLocal = listLocalMigrations(
+  ['20270103000000_bundled.sql'],
+  () => bundledSql
+);
+const bundledApplied = parseAppliedMigrationsOutput(JSON.stringify([{
+  version: '20270103000000',
+  name: 'bundled',
+  statements: [bundledSql],
+}]));
+const bundledReport = compareMigrationVersions(bundledLocal, bundledApplied);
+assert.equal(bundledLocal[0].statements.length, 3);
+assert.equal(bundledApplied[0].statements.length, 3);
+assert.equal(bundledReport.statementMismatches.length, 0);
+assert.equal(bundledReport.canContinueToStagingReview, true);
+
+const emptyAppliedStatement = compareMigrationVersions(sqlLocal, [{
+  version: '20270101000000',
+  name: 'profiles',
+  statements: [';'],
+}]);
+assert.equal(emptyAppliedStatement.statementMismatches[0].reason, 'missing');
 
 const changedSql = compareMigrationVersions(sqlLocal, [{
   version: '20270101000000',
@@ -122,8 +155,9 @@ const outOfOrder = compareMigrationVersions(local, [{ version: '20270102000000',
 assert.deepEqual(outOfOrder.outOfOrderPending.map(({ version }) => version), ['20270101000000']);
 assert.equal(outOfOrder.canContinueToStagingReview, false);
 
-// Regression fixture from the read-only staging ledger observed on 2026-10-27.
-// This validates planning output only; it does not connect to or change staging.
+// Regression fixture from the read-only VQE staging ledger observed on 2026-10-31.
+// It models the applied prefix through 20261206000000, including the migration
+// Supabase recorded as 20261031104213. This validates planning output only.
 const missingStagingMetadataVersions = new Set(['20261205000000', '20261206000000']);
 const observedStagingMigrations = sourceMigrationsWithSql
   .filter(({ version }) => version <= '20261206000000')
@@ -135,10 +169,10 @@ const observedStagingMigrations = sourceMigrationsWithSql
     // Mirror the observed gap without embedding staging SQL in this fixture.
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
-assert.equal(observedStagingMigrations.length, 47);
-assert.equal(sourceMigrationsWithSql.length, 115);
+assert.equal(observedStagingMigrations.length, 49);
+assert.equal(sourceMigrationsWithSql.length, 117);
 const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
-assert.equal(stagingBaseline.appliedCount, 47);
+assert.equal(stagingBaseline.appliedCount, 49);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
 assert.equal(stagingBaseline.pending.length, 68);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');

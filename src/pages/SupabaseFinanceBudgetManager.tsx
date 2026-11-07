@@ -3,6 +3,7 @@ import { Archive, AlertCircle, Check, ClipboardList, Loader2, Plus, RefreshCw, S
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type BudgetLine = {
   id: string;
@@ -39,6 +40,16 @@ type OrganizationUnit = { id: string; code: string; name: string; status: "activ
 type Snapshot = { plans: BudgetPlan[]; units: OrganizationUnit[]; financeLocked: boolean };
 type DraftLine = { department: string; category: string; allocatedAmount: string };
 type Draft = { unitId: string; periodLabel: string; periodStart: string; periodEnd: string; notes: string; lines: DraftLine[] };
+type BudgetTab = "budget" | "forecast" | "expenses" | "approvals" | "books" | "statements" | "cashflow";
+const BUDGET_TABS: Array<{ id: BudgetTab; label: string }> = [
+  { id: "budget", label: "Budget & RKAT" },
+  { id: "forecast", label: "Proyeksi Anggaran" },
+  { id: "expenses", label: "Pelacakan Pengeluaran" },
+  { id: "approvals", label: "Persetujuan Anggaran" },
+  { id: "books", label: "Buku Multi-Entitas" },
+  { id: "statements", label: "Laporan Keuangan" },
+  { id: "cashflow", label: "Analisis Arus Kas" },
+];
 
 const EMPTY: Snapshot = { plans: [], units: [], financeLocked: false };
 const EMPTY_DRAFT: Draft = { unitId: "", periodLabel: "", periodStart: "", periodEnd: "", notes: "", lines: [{ department: "", category: "", allocatedAmount: "" }] };
@@ -90,6 +101,7 @@ async function runIdempotentBudgetMutation<T>(
 
 export function SupabaseFinanceBudgetManager() {
   const { role, user } = useAuth();
+  const [view, setView] = useState<BudgetTab>("budget");
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -207,6 +219,9 @@ export function SupabaseFinanceBudgetManager() {
         </button>
       </header>
 
+      <ERPTabs tabs={BUDGET_TABS} value={view} onChange={(id) => { setView(id as BudgetTab); setError(""); setNotice(""); }} ariaLabel="Bagian Keuangan dan Anggaran" />
+
+      {view === "budget" ? <>
       {snapshot.financeLocked && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">Buku Keuangan sedang ditutup. Pengelolaan RKAT tidak memposting transaksi; pengeluaran tetap mengikuti kontrol buku Keuangan.</div>}
       {error && <div role="alert" className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><Check className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
@@ -262,6 +277,12 @@ export function SupabaseFinanceBudgetManager() {
           </article>;
         })}</div>}
       </section>
+      </> : <ERPFeatureStatus
+        title={BUDGET_TABS.find((item) => item.id === view)?.label || "Keuangan & Anggaran"}
+        status={view === "expenses" || view === "approvals" || view === "books" || view === "cashflow" ? "Sebagian fungsi tersedia pada modul terkait" : "Belum tersedia"}
+        tone={view === "expenses" || view === "approvals" || view === "books" || view === "cashflow" ? "available" : "warning"}
+        description={view === "forecast" ? "Proyeksi anggaran berbasis tren belum tersedia. RKAT hanya menampilkan alokasi dan realisasi yang tercatat." : view === "expenses" ? "Pengeluaran tenant dicatat dan ditinjau pada modul Keuangan > Pengeluaran; proyeksi terhadap anggaran otomatis belum tersedia." : view === "approvals" ? "Persetujuan rancangan RKAT dilakukan pada tab Budget & RKAT. Tidak tersedia antrian persetujuan terpisah." : view === "books" ? "Buku besar dan unit dikelola pada modul Keuangan. Pembukuan berpasangan multi-entitas belum tersedia." : view === "statements" ? "Laporan keuangan formal belum disusun dari buku besar. Ringkasan ini bukan laporan akuntansi resmi." : "Arus kas tercatat dapat dilihat pada ringkasan utama. Analisis arus kas per anggaran belum tersedia."}
+      />}
     </main>
   );
 }

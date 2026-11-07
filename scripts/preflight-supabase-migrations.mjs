@@ -268,6 +268,14 @@ export function canonicalizeMigrationStatements(sql) {
   return splitSqlStatements(sql).map(canonicalizeSqlStatement).filter(Boolean);
 }
 
+function canonicalizeAppliedStatements(statements) {
+  return statements.flatMap((statement) => {
+    if (typeof statement !== 'string') return [null];
+    const parsed = canonicalizeMigrationStatements(statement);
+    return parsed.length > 0 ? parsed : [''];
+  });
+}
+
 export function listLocalMigrations(fileNames, readMigrationSql = null) {
   const sqlFiles = fileNames.filter((fileName) => fileName.toLowerCase().endsWith('.sql'));
   const migrations = sqlFiles.map((fileName) => {
@@ -304,7 +312,7 @@ export function parseAppliedMigrationsOutput(output) {
     version: typeof row?.version === 'string' ? row.version.trim() : '',
     name: typeof row?.name === 'string' ? row.name.trim() : null,
     statements: Array.isArray(row?.statements)
-      ? row.statements.map((statement) => typeof statement === 'string' ? canonicalizeSqlStatement(statement) : null)
+      ? canonicalizeAppliedStatements(row.statements)
       : null,
   }));
 }
@@ -316,7 +324,7 @@ export function compareMigrationVersions(migrations, appliedMigrations) {
       version: typeof row?.version === 'string' ? row.version.trim() : '',
       name: typeof row?.name === 'string' ? row.name.trim() : null,
       statements: Array.isArray(row?.statements)
-        ? row.statements.map((statement) => typeof statement === 'string' ? canonicalizeSqlStatement(statement) : null)
+        ? canonicalizeAppliedStatements(row.statements)
         : null,
     });
   const appliedVersions = applied.map(({ version }) => version);

@@ -20,6 +20,25 @@ export interface SupabaseStructureRecord {
   [key: string]: unknown;
 }
 
+export type SupabaseMasterDataAuditEntry = {
+  id: string;
+  actorUserId: string | null;
+  entityType: "student" | "structure";
+  entityCategory: "Gedung" | "Kamar" | "Kelas" | null;
+  entityId: string;
+  action: "created" | "updated" | "archived" | "deleted";
+  changedFields: string[];
+  changeSource: "master_data" | "master_data_import" | "ppdb_onboarding" | "boarding_runtime" | "legacy_import" | "system";
+  occurredAt: string;
+};
+
+export type SupabaseMasterDataAuditPage = {
+  records: SupabaseMasterDataAuditEntry[];
+  pageSize: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+};
+
 async function requestMasterData<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getAccessToken();
   if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
@@ -36,6 +55,19 @@ async function requestMasterData<T>(path: string, init: RequestInit = {}): Promi
 export async function listSupabaseMasterDataStructures() {
   const result = await requestMasterData<{ records: SupabaseStructureRecord[] }>("/api/master-data/structures");
   return Array.isArray(result.records) ? result.records : [];
+}
+
+export async function listSupabaseMasterDataAuditPage(options: {
+  cursor?: string | null;
+  pageSize?: number;
+  action?: string;
+  entityType?: string;
+} = {}) {
+  const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 50) });
+  if (options.cursor) params.set("cursor", options.cursor);
+  if (options.action && options.action !== "all") params.set("action", options.action);
+  if (options.entityType && options.entityType !== "all") params.set("entityType", options.entityType);
+  return requestMasterData<SupabaseMasterDataAuditPage>("/api/master-data/audit?" + params.toString());
 }
 
 export async function upsertSupabaseMasterDataStructure(
@@ -218,6 +250,29 @@ export type SupabaseMasterDataStudentPageOptions = {
   completeness?: "ALL" | "WITH_NIK" | "WITH_WALI" | "WITHOUT_WALI";
 };
 
+export type MasterDataTransferKind = "students" | "structures";
+export type MasterDataTransferPreviewItem = {
+  row: number;
+  id: string;
+  name: string;
+  status: "ready" | "skip" | "error";
+  messages: string[];
+};
+export type MasterDataTransferPreview = {
+  rowCount: number;
+  readyCount: number;
+  skippedCount: number;
+  errorCount: number;
+  items: MasterDataTransferPreviewItem[];
+};
+export type MasterDataTransferResult = {
+  rowCount: number;
+  imported: number;
+  skipped: number;
+  errorCount: number;
+  errors: Array<{ row: number; id: string; message: string }>;
+};
+
 export async function listSupabaseMasterDataStudentsPage(
   options: SupabaseMasterDataStudentPageOptions,
 ): Promise<{ records: SupabaseMasterDataStudentRecord[]; page: number; pageSize: number; hasMore: boolean; nextCursor: string | null }> {
@@ -278,4 +333,51 @@ export async function archiveSupabaseMasterDataStudent(record: Pick<SupabaseMast
     "/api/master-data/students/" + encodeURIComponent(identifier),
     { method: "DELETE" }
   );
+}
+
+export async function exportSupabaseMasterDataStudents(includeSensitive: boolean) {
+  const params = new URLSearchParams({ includeSensitive: includeSensitive ? "true" : "false" });
+  const result = await requestMasterData<{ records: SupabaseMasterDataStudentRecord[] }>(
+    "/api/master-data/students/export?" + params.toString(),
+  );
+  if (!Array.isArray(result.records)) throw new Error("Data ekspor santri dari server tidak valid.");
+  return result.records;
+}
+
+export async function previewSupabaseMasterDataImport(
+  kind: MasterDataTransferKind,
+  rows: Array<Record<string, string>>,
+  category?: SupabaseStructureCategory,
+) {
+  const isStructure = kind === "structures";
+  const result = await requestMasterData<MasterDataTransferPreview>(
+    isStructure ? "/api/master-data/structures/import/preview" : "/api/master-data/students/import/preview",
+    {
+      method: "POST",
+      body: JSON.stringify(isStructure ? { category, rows } : { rows }),
+    },
+  );
+  if (!Array.isArray(result.items) || !Number.isFinite(result.errorCount)) {
+    throw new Error("Hasil pratinjau impor dari server tidak valid.");
+  }
+  return result;
+}
+
+export async function applySupabaseMasterDataImport(
+  kind: MasterDataTransferKind,
+  rows: Array<Record<string, string>>,
+  category?: SupabaseStructureCategory,
+) {
+  const isStructure = kind === "structures";
+  const result = await requestMasterData<MasterDataTransferResult>(
+    isStructure ? "/api/master-data/structures/import/apply" : "/api/master-data/students/import/apply",
+    {
+      method: "POST",
+      body: JSON.stringify(isStructure ? { category, rows } : { rows }),
+    },
+  );
+  if (!Array.isArray(result.errors) || !Number.isFinite(result.imported)) {
+    throw new Error("Hasil impor dari server tidak valid.");
+  }
+  return result;
 }

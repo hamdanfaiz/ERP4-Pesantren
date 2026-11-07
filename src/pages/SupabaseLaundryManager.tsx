@@ -3,6 +3,7 @@ import { AlertCircle, Check, Clock3, Loader2, Plus, RefreshCw, Shirt, Settings2,
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type Student = { id: string; name: string; nis: string; room: string };
 type Order = { id: string; orderNumber: string; studentId: string; student: string; nis: string; room: string; weightKg: number; pieces: number; status: string; receivedAt: string; collectedAt: string | null };
@@ -33,7 +34,7 @@ async function requestLaundry(path: string, init: RequestInit = {}) {
 export function SupabaseLaundryManager() {
   const { role, user } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
-  const [tab, setTab] = useState<"orders" | "history" | "quotas" | "settings">("orders");
+  const [tab, setTab] = useState<"scan" | "orders" | "quotas" | "labels" | "history" | "settings">("orders");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -120,10 +121,12 @@ export function SupabaseLaundryManager() {
   if (role !== "Admin" && role !== "SuperAdmin") return <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">Modul Laundry Supabase saat ini tersedia untuk Admin tenant dengan izin Laundry.</div>;
 
   const tabs = [
+    { id: "scan" as const, label: "Pindai Label", icon: WashingMachine },
     { id: "orders" as const, label: "Pesanan aktif", icon: WashingMachine },
-    { id: "history" as const, label: "Riwayat", icon: Clock3 },
     { id: "quotas" as const, label: "Kuota santri", icon: Shirt },
-    { id: "settings" as const, label: "Pengaturan", icon: Settings2 },
+    { id: "labels" as const, label: "Label & Penandaan", icon: Shirt },
+    { id: "history" as const, label: "Riwayat", icon: Clock3 },
+    { id: "settings" as const, label: "Penetapan Tarif", icon: Settings2 },
   ];
 
   return <main className="mx-auto max-w-7xl space-y-6 pb-10">
@@ -147,9 +150,11 @@ export function SupabaseLaundryManager() {
     </section>
 
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <nav className="flex gap-2 overflow-x-auto border-b border-slate-200 p-2 dark:border-slate-800">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)} className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${tab === id ? "bg-violet-50 text-violet-700 dark:bg-violet-400/10 dark:text-violet-200" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"}`}><Icon className="h-4 w-4" />{label}</button>)}</nav>
+      <div className="border-b border-slate-200 p-3 dark:border-slate-800"><ERPTabs tabs={tabs.map(({ id, label, icon: Icon }) => ({ id, label, icon: <Icon className="h-4 w-4" /> }))} value={tab} onChange={(id) => setTab(id as typeof tab)} ariaLabel="Bagian modul Laundry" /></div>
 
-      {tab === "settings" ? <form onSubmit={submitSettings} className="max-w-2xl space-y-4 p-4 sm:p-6">
+      {tab === "scan" ? <div className="p-4 sm:p-5"><ERPFeatureStatus title="Pindai Label" description="Pindai QR atau kode label belum terhubung ke alur pesanan Laundry tenant. Form penerimaan manual tetap tersedia pada tab Pesanan Aktif." /></div>
+        : tab === "labels" ? <div className="p-4 sm:p-5"><ERPFeatureStatus title="Label & Penandaan" description="Pembuatan, pencetakan, dan pencocokan label belum memiliki template serta API penyimpanan yang terhubung. Tidak ada label contoh yang ditampilkan." /></div>
+        : tab === "settings" ? <form onSubmit={submitSettings} className="max-w-2xl space-y-4 p-4 sm:p-6">
         <div><h2 className="font-semibold text-slate-900 dark:text-white">Kebijakan kuota per bulan</h2><p className="mt-1 text-sm text-slate-500">Berlaku untuk seluruh santri aktif dalam tenant ini.</p></div>
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Kuota standar (kg)<input type="number" min="0" max="1000" step="0.5" required value={monthlyQuotaKg} onChange={(e) => setMonthlyQuotaKg(e.target.value)} className={inputClass} /></label>
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tarif estimasi kelebihan per kg (Rp)<input type="number" min="0" max="10000000" step="1" required value={excessRatePerKg} onChange={(e) => setExcessRatePerKg(e.target.value)} className={inputClass} /></label>

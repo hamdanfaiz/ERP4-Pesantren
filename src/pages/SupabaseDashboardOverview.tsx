@@ -5,8 +5,10 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { calculateDashboardNetCashflow } from "../utils/dashboardCashflow";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type DashboardPeriod = "today" | "week" | "month" | "year";
+type IntelligenceTab = "executive" | "predictive" | "tahfidz-ai" | "warehouse" | "knowledge";
 type DashboardSnapshot = {
   ppdb: { enabled: boolean; total?: number; accepted?: number; pending?: number; stages?: Array<{ stage: string; count: number }> };
   masterData: { enabled: boolean; activeStudents?: number; maleStudents?: number; femaleStudents?: number };
@@ -57,6 +59,7 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [intelligenceTab, setIntelligenceTab] = useState<IntelligenceTab>("executive");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -137,6 +140,24 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     <div role="note" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">{isIntelligence ? "Indikator ini dihitung dengan aturan transparan dari catatan Supabase; halaman ini tidak membuat prediksi AI. Data tiap modul hanya ditampilkan bila akun memiliki izinnya." : "Ringkasan dihitung dari catatan Supabase pada tenant ini. Tenant baru dimulai tanpa data contoh; tambahkan data melalui modul terkait untuk mengisi indikator."}</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
 
+    {isIntelligence && <ERPTabs tabs={[
+      { id: "executive", label: "Dasbor Eksekutif" },
+      { id: "predictive", label: "Analitik Prediktif" },
+      { id: "tahfidz-ai", label: "Mesin AI Tahfidz" },
+      { id: "warehouse", label: "Gudang Data" },
+      { id: "knowledge", label: "Pusat Pengetahuan" },
+    ]} value={intelligenceTab} onChange={(id) => setIntelligenceTab(id as IntelligenceTab)} ariaLabel="Bagian pusat data analitik" />}
+
+    {isIntelligence && intelligenceTab !== "executive" ? <ERPFeatureStatus
+      title={({ predictive: "Analitik Prediktif", "tahfidz-ai": "Mesin AI Tahfidz", warehouse: "Gudang Data", knowledge: "Pusat Pengetahuan" } as Record<Exclude<IntelligenceTab, "executive">, string>)[intelligenceTab]}
+      description={({
+        predictive: "Analitik prediktif belum memiliki model, data latih, evaluasi, dan batas keputusan yang tervalidasi. Dashboard saat ini hanya menampilkan agregat operasional Supabase.",
+        "tahfidz-ai": "Mesin AI Tahfidz belum terhubung ke model dan alur evaluasi yang tervalidasi. Ringkasan Tahfidz yang tersedia tetap berbasis aturan dan data tenant.",
+        warehouse: "Gudang data terpisah, alur pemuatan data, serta model analitik belum disiapkan. Data pada dashboard tetap dibaca langsung melalui ringkasan tenant Supabase.",
+        knowledge: "Pusat pengetahuan belum memiliki sumber dokumen, proses indeksasi, izin pencarian, dan API. Konten tenant tidak ditampilkan dari penyimpanan contoh.",
+      } as Record<Exclude<IntelligenceTab, "executive">, string>)[intelligenceTab]}
+    /> : <>
+
     {isIntelligence && <section aria-labelledby="operational-signals-heading" className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start justify-between gap-3"><div><h2 id="operational-signals-heading" className="font-semibold text-slate-900 dark:text-white">Hal yang perlu diperhatikan</h2><p className="mt-1 text-xs text-slate-500">Antrian dan tagihan menunjukkan kondisi saat ini; arus kas mengikuti rentang yang dipilih.</p></div><Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-300" /></div>
       {loading ? <p className="mt-5 text-sm text-slate-500">Menghitung indikator…</p> : operationalSignals.length > 0 ? <ul className="mt-4 grid gap-3 md:grid-cols-2">{operationalSignals.map((signal) => <li key={signal.title} className={`rounded-lg border p-4 ${signal.tone === "rose" ? "border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/20" : signal.tone === "amber" ? "border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/20" : "border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/20"}`}><p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{signal.title}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{signal.detail}</p></li>)}</ul> : <p className="mt-5 text-sm text-slate-600 dark:text-slate-300">Belum ada hal yang memerlukan tindak lanjut pada data dan modul yang dapat Anda lihat.</p>}
@@ -165,5 +186,6 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     {finance.enabled && <section className="grid gap-4 sm:grid-cols-3">
       {[{ label: "Belum dibayar", value: finance.unpaidCount || 0 }, { label: "Pembayaran sebagian", value: finance.partialCount || 0 }, { label: "Menunggu verifikasi", value: finance.verificationCount || 0 }].map((item) => <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs font-medium text-slate-500">{item.label}</p><p className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{loading ? "—" : item.value}</p></div>)}
     </section>}
+    </>}
   </main>;
 }

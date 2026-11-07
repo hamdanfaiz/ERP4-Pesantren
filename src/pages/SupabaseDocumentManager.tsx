@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabase";
 import { pendingMutationIds } from "../utils/pendingMutationId";
 import { tenantBusinessDate } from "../utils/businessDate";
+import { ERPFeatureStatus } from "../components/ERPDesignSystem";
 
 type Direction = "incoming" | "outgoing" | "internal";
 type Status = "registered" | "in_review" | "approved" | "rejected" | "archived";
@@ -16,10 +17,10 @@ type DocumentRecord = {
 };
 type Draft = { documentNumber: string; direction: Direction; subject: string; senderName: string; recipientName: string; documentDate: string; summary: string };
 type PageResult = { documents: DocumentRecord[]; nextCursor: string | null };
-type ViewTab = "all" | Direction;
+type ViewTab = "all" | Direction | "approval" | "archive" | "ocr";
 
 const INITIAL_DRAFT: Draft = { documentNumber: "", direction: "incoming", subject: "", senderName: "", recipientName: "", documentDate: tenantBusinessDate(), summary: "" };
-const TAB_LABEL: Record<ViewTab, string> = { all: "Semua dokumen", incoming: "Surat masuk", outgoing: "Surat keluar", internal: "Internal" };
+const TAB_LABEL: Record<ViewTab, string> = { all: "Semua dokumen", incoming: "Surat masuk", outgoing: "Surat keluar", internal: "Internal", approval: "Persetujuan elektronik", archive: "Arsip Digital", ocr: "Pemindai OCR" };
 const DIRECTION_LABEL: Record<Direction, string> = { incoming: "Masuk", outgoing: "Keluar", internal: "Internal" };
 const STATUS_LABEL: Record<Status, string> = { registered: "Terdaftar", in_review: "Dalam telaah", approved: "Disetujui", rejected: "Perlu perbaikan", archived: "Diarsipkan" };
 const STATUS_STYLE: Record<Status, string> = {
@@ -99,9 +100,15 @@ export function SupabaseDocumentManager() {
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("id-ID");
-    return documents.filter((item) => (tab === "all" || item.direction === tab)
+    return documents.filter((item) => {
+      const matchesTab = tab === "all"
+        || tab === "approval" && ["registered", "in_review", "approved", "rejected"].includes(item.status)
+        || tab === "archive" && item.status === "archived"
+        || (tab === "incoming" || tab === "outgoing" || tab === "internal") && item.direction === tab;
+      return matchesTab
       && (!needle || [item.documentNumber, item.subject, item.senderName || "", item.recipientName || "", item.summary || ""]
-        .some((value) => value.toLocaleLowerCase("id-ID").includes(needle))));
+        .some((value) => value.toLocaleLowerCase("id-ID").includes(needle)));
+    });
   }, [documents, query, tab]);
 
   const createDocument = async (event: React.FormEvent) => {
@@ -180,7 +187,7 @@ export function SupabaseDocumentManager() {
     finally { setLoadingMore(false); }
   };
 
-  const tabs: ViewTab[] = ["all", "incoming", "outgoing", "internal"];
+  const tabs: ViewTab[] = ["all", "incoming", "outgoing", "approval", "archive", "ocr", "internal"];
   const statusActions = (document: DocumentRecord): Array<{ label: string; status: Status; icon: React.ReactNode }> => {
     if (document.status === "registered") return [
       { label: "Mulai telaah", status: "in_review", icon: <ShieldCheck className="h-4 w-4" /> },
@@ -234,7 +241,8 @@ export function SupabaseDocumentManager() {
           <span className="text-xs text-slate-500 dark:text-slate-400">Data dibatasi pada tenant aktif</span>
         </div>
 
-        {loading ? <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="h-5 w-5 animate-spin" /> Memuat daftar dokumen...</div>
+        {tab === "ocr" ? <ERPFeatureStatus title="Pemindai OCR" description="Menu OCR tetap terlihat mengikuti acuan. Pembacaan otomatis belum terhubung ke layanan Supabase; unggah dan ekstraksi teks tidak dijalankan." />
+          : loading ? <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="h-5 w-5 animate-spin" /> Memuat daftar dokumen...</div>
           : error && documents.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center"><FileText className="h-9 w-9 text-slate-300 dark:text-slate-600" /><h2 className="mt-3 font-medium text-slate-800 dark:text-slate-200">Dokumen belum dapat dimuat</h2><p className="mt-1 max-w-lg text-sm text-slate-500">Periksa koneksi atau kesiapan layanan Supabase, lalu coba muat ulang.</p><button type="button" onClick={() => void refresh()} className="mt-4 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Coba lagi</button></div>
           : filtered.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center"><FileText className="h-9 w-9 text-slate-300 dark:text-slate-600" /><h2 className="mt-3 font-medium text-slate-800 dark:text-slate-200">Belum ada dokumen</h2><p className="mt-1 max-w-lg text-sm text-slate-500">Catat surat atau dokumen pertama. Data contoh tidak ditampilkan pada runtime Supabase.</p>{canManage && <button type="button" onClick={() => setFormOpen(true)} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"><Plus className="h-4 w-4" /> Catat dokumen</button>}</div>
           : <div className="divide-y divide-slate-100 dark:divide-white/5">

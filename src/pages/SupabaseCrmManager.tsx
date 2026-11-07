@@ -3,6 +3,15 @@ import { Activity, ArrowDown, ArrowUp, Building2, Check, ChevronDown, Loader2, M
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+
+type CrmTab = "directory" | "pipeline" | "broadcast" | "analytics";
+const CRM_TABS: Array<{ id: CrmTab; label: string }> = [
+  { id: "directory", label: "Direktori" },
+  { id: "pipeline", label: "Alur Prospek" },
+  { id: "broadcast", label: "Siaran" },
+  { id: "analytics", label: "Analitik" },
+];
 
 type ContactType = "parent" | "prospect" | "alumni" | "donor" | "partner";
 type LifecycleStage = "lead" | "qualified" | "engaged" | "active" | "lost";
@@ -53,6 +62,7 @@ function stageLabel(value: LifecycleStage) { return STAGES.find(([key]) => key =
 
 export function SupabaseCrmManager() {
   const { role, user } = useAuth();
+  const [tab, setTab] = useState<CrmTab>("directory");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -192,6 +202,12 @@ export function SupabaseCrmManager() {
       </div>
     </header>
 
+    <ERPTabs tabs={CRM_TABS} value={tab} onChange={(id) => { setTab(id as CrmTab); setFormOpen(false); setError(""); }} ariaLabel="Bagian Relasi Wali dan Donatur" />
+
+    {tab === "broadcast" && <ERPFeatureStatus title="Siaran" description="Pengiriman siaran belum terhubung ke penyedia pesan dan alur persetujuan. CRM saat ini hanya mencatat relasi serta persetujuan menerima informasi; tidak ada pesan yang dikirim." />}
+    {tab === "analytics" && <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[[Users, "Total relasi", summary.totalContacts], [Activity, "Prospek terbuka", summary.openLeads], [MessageSquareText, "Interaksi 30 hari", summary.interactionsLast30Days], [ShieldCheck, "Setuju menerima informasi", summary.marketingConsentedContacts]].map(([Icon, label, value]: any) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900/70"><div className="flex items-center justify-between"><span className="text-sm text-slate-500 dark:text-slate-400">{label}</span><Icon className="h-4 w-4 text-emerald-700 dark:text-emerald-300" /></div><p className="mt-3 text-2xl font-semibold text-slate-900 dark:text-white">{loading ? "—" : Number(value).toLocaleString("id-ID")}</p></article>)}</section>}
+
+    {(tab === "directory" || tab === "pipeline") && <>
     {(error || notice) && <div role={error ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${error ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-950/30 dark:text-rose-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-200"}`}>{error || notice}</div>}
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -254,6 +270,7 @@ export function SupabaseCrmManager() {
         </> : <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-white/15"><Users className="mx-auto h-8 w-8 text-slate-400" /><p className="mt-3 font-medium text-slate-800 dark:text-white">Pilih kontak</p><p className="mt-1 text-sm text-slate-500">Rincian dan catatan interaksi akan tampil di sini.</p></div>}
       </aside>
     </div>
+    </>}
 
     {formOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
       <form onSubmit={saveContact} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">

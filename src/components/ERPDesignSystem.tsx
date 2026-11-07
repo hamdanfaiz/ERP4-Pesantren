@@ -119,6 +119,34 @@ export function ERPErrorState({
   );
 }
 
+export function ERPFeatureStatus({
+  title,
+  status = "Belum terhubung",
+  description,
+  action,
+  tone = "warning",
+}: {
+  title: ReactNode;
+  status?: string;
+  description: ReactNode;
+  action?: ReactNode;
+  tone?: "warning" | "available";
+}) {
+  const statusClass = tone === "available"
+    ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-200"
+    : "bg-amber-100 text-amber-900 dark:bg-amber-400/10 dark:text-amber-200";
+  return (
+    <section className="erp-panel space-y-3 p-5 sm:p-6" role="status" aria-live="polite">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h2>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}>{status}</span>
+      </div>
+      <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">{description}</p>
+      {action && <div>{action}</div>}
+    </section>
+  );
+}
+
 export function ERPLoadingState({
   label = "Memuat data…",
   className = "",

@@ -1,10 +1,12 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, BookOpen, CalendarDays, Check, ClipboardList, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { AlertCircle, BookOpen, CalendarDays, Check, ClipboardList, FileText, Loader2, Plus, RefreshCw, ShieldCheck, Users, Wrench } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { SupabaseAcademicPortal } from "./SupabaseAcademicPortal";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { findAcademicScheduleConflicts } from "../lib/academicScheduleConflicts";
 
 type RecordRow = Record<string, any> & { id: string };
 type Student = { id: string; name: string; nis: string; className: string; organizationUnitId?: string | null; organizationUnitName?: string | null };
@@ -14,7 +16,9 @@ type AcademicClass = { id: string; name: string; organizationUnitId?: string | n
 type UnmappedAcademicClass = { id: string; name: string; status: string };
 type UnmappedAcademicClassSnapshot = { classes: UnmappedAcademicClass[]; classCount: number; limit: number; offset: number };
 type Snapshot = { schedules: RecordRow[]; journals: RecordRow[]; assessments: RecordRow[]; students: Student[]; teachers: Teacher[]; classes: AcademicClass[]; units: Unit[]; unitsEnabled: boolean };
-type Tab = "schedule" | "journal" | "assessment";
+type Tab = "schedule" | "journal" | "assessment" | "report-card" | "conflict-resolver" | "teachers" | "subjects" | "curricula";
+type SubjectReference = { name: string; schedules: number; journals: number; assessments: number };
+type CurriculumReference = { name: string; schedules: number };
 
 const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], students: [], teachers: [], classes: [], units: [], unitsEnabled: false };
 const EMPTY_UNMAPPED_CLASSES: UnmappedAcademicClassSnapshot = { classes: [], classCount: 0, limit: 100, offset: 0 };
@@ -31,6 +35,11 @@ const TABS: Array<{ id: Tab; label: string; icon: React.ElementType }> = [
   { id: "schedule", label: "Jadwal KBM", icon: CalendarDays },
   { id: "journal", label: "Jurnal KBM", icon: ClipboardList },
   { id: "assessment", label: "Penilaian", icon: BookOpen },
+  { id: "report-card", label: "E-Rapor", icon: FileText },
+  { id: "conflict-resolver", label: "Konflik Jadwal", icon: Wrench },
+  { id: "teachers", label: "Pengajar", icon: Users },
+  { id: "subjects", label: "Mata Pelajaran", icon: BookOpen },
+  { id: "curricula", label: "Kurikulum", icon: FileText },
 ];
 
 async function requestAcademic(path: string, init: RequestInit = {}) {
@@ -72,6 +81,7 @@ export function SupabaseAcademicManager() {
   const [classMappingRequest, setClassMappingRequest] = useState("");
   const [classMappingSelections, setClassMappingSelections] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState({ day: "Senin", time: "07:30 - 09:00", subject: "", teacherUserId: "", teacherName: "", className: "", room: "", curriculum: "Formal", organizationUnitId: "" });
+  const [editingScheduleId, setEditingScheduleId] = useState("");
   const [journal, setJournal] = useState({ date: today(), className: "", subject: "", topic: "", competency: "", attendancePresent: "", attendanceAbsent: "", attendanceExcused: "", teacherUserId: "", teacherName: "", organizationUnitId: "" });
   const [assessment, setAssessment] = useState({ studentId: "", studentName: "", className: "", teacherUserId: "", subject: "", assessmentType: "Tugas Harian", category: "Formative", score: "" });
 
@@ -86,6 +96,7 @@ export function SupabaseAcademicManager() {
 
   const isAdmin = role === "Admin" || role === "SuperAdmin";
   const canManage = isAdmin || role === "Ustadz";
+  const scheduleConflictReport = useMemo(() => findAcademicScheduleConflicts(snapshot.schedules), [snapshot.schedules]);
   const activeUnits = useMemo(() => snapshot.units.filter((unit) => unit.status === "active"), [snapshot.units]);
   const refreshUnmappedClasses = useCallback(async (offset = 0) => {
     setClassMappingLoading(true);
@@ -122,6 +133,33 @@ export function SupabaseAcademicManager() {
   const journalTeachers = useMemo(() => snapshot.unitsEnabled && isAdmin
     ? snapshot.teachers.filter((teacher) => teacher.organizationUnitId === journalUnitId)
     : snapshot.teachers, [snapshot.teachers, snapshot.unitsEnabled, isAdmin, journalUnitId]);
+  const subjectReferences = useMemo(() => {
+    const references = new Map<string, SubjectReference>();
+    const add = (value: unknown, source: "schedules" | "journals" | "assessments") => {
+      const name = String(value || "").trim();
+      if (!name) return;
+      const key = name.toLocaleLowerCase("id-ID");
+      const reference = references.get(key) || { name, schedules: 0, journals: 0, assessments: 0 };
+      reference[source] += 1;
+      references.set(key, reference);
+    };
+    snapshot.schedules.forEach((row) => add(row.subject, "schedules"));
+    snapshot.journals.forEach((row) => add(row.subject, "journals"));
+    snapshot.assessments.forEach((row) => add(row.subject, "assessments"));
+    return [...references.values()].sort((a, b) => a.name.localeCompare(b.name, "id"));
+  }, [snapshot.schedules, snapshot.journals, snapshot.assessments]);
+  const curriculumReferences = useMemo(() => {
+    const references = new Map<string, CurriculumReference>();
+    snapshot.schedules.forEach((row) => {
+      const name = String(row.curriculum || "").trim();
+      if (!name) return;
+      const key = name.toLocaleLowerCase("id-ID");
+      const reference = references.get(key) || { name, schedules: 0 };
+      reference.schedules += 1;
+      references.set(key, reference);
+    });
+    return [...references.values()].sort((a, b) => a.name.localeCompare(b.name, "id"));
+  }, [snapshot.schedules]);
 
   const refresh = useCallback(async () => {
     if (!canManage || !user?.tenantId) { setSnapshot(EMPTY); return; }
@@ -155,15 +193,20 @@ export function SupabaseAcademicManager() {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
     try {
       const form = activeTab === "schedule" ? schedule : activeTab === "journal" ? journal : assessment;
+      const editingId = activeTab === "schedule" ? editingScheduleId : "";
       const payload = {
         ...form,
+        ...(editingId ? { id: editingId } : {}),
         ...(snapshot.unitsEnabled && activeTab === "schedule" && isAdmin ? { organizationUnitId: scheduleUnitId } : {}),
         ...(snapshot.unitsEnabled && activeTab === "journal" && isAdmin ? { organizationUnitId: journalUnitId } : {}),
         clientRequestId: crypto.randomUUID(),
       };
       await requestAcademic(`/api/academic/${activeTab}`, { method: "POST", body: JSON.stringify({ record: payload }) });
-      setNotice("Data tersimpan di tenant Supabase.");
-      if (activeTab === "schedule") setSchedule((current) => ({ ...current, organizationUnitId: scheduleUnitId, subject: "", room: "" }));
+      setNotice(editingId ? "Jadwal berhasil diperbarui di tenant Supabase." : "Data tersimpan di tenant Supabase.");
+      if (activeTab === "schedule") {
+        setEditingScheduleId("");
+        setSchedule({ day: "Senin", time: "07:30 - 09:00", subject: "", teacherUserId: "", teacherName: "", className: "", room: "", curriculum: "Formal", organizationUnitId: scheduleUnitId });
+      }
       if (activeTab === "journal") setJournal((current) => ({ ...current, organizationUnitId: journalUnitId, topic: "", competency: "", attendancePresent: "", attendanceAbsent: "", attendanceExcused: "" }));
       if (activeTab === "assessment") setAssessment((current) => ({ ...current, score: "" }));
       await refresh();
@@ -192,6 +235,31 @@ export function SupabaseAcademicManager() {
     setSchedule((current) => ({ ...current, teacherUserId: teacherId, teacherName: teacher?.name || "" }));
   };
   const setAssessmentTeacher = (teacherId: string) => setAssessment((current) => ({ ...current, teacherUserId: teacherId }));
+
+  const editConflictedSchedule = (record: RecordRow) => {
+    if (snapshot.unitsEnabled && !record.organizationUnitId) {
+      setError("Jadwal belum dipetakan ke unit organisasi. Petakan data jadwal terlebih dahulu sebelum mengubahnya.");
+      setActiveTab("schedule");
+      return;
+    }
+    setSchedule({
+      day: String(record.day || "Senin"), time: String(record.time || ""), subject: String(record.subject || ""),
+      teacherUserId: String(record.teacherUserId || ""), teacherName: String(record.teacherName || ""),
+      className: String(record.className || ""), room: String(record.room || ""),
+      curriculum: String(record.curriculum || "Formal"), organizationUnitId: String(record.organizationUnitId || ""),
+    });
+    setEditingScheduleId(String(record.id));
+    setActiveTab("schedule");
+    setError("");
+    setNotice("Ubah waktu, ruang, kelas, atau pengajar lalu simpan. Bentrok akan diperiksa ulang secara transaksional.");
+  };
+
+  const cancelScheduleEdit = () => {
+    setEditingScheduleId("");
+    setSchedule({ day: "Senin", time: "07:30 - 09:00", subject: "", teacherUserId: "", teacherName: "", className: "", room: "", curriculum: "Formal", organizationUnitId: scheduleUnitId });
+    setError("");
+    setNotice("");
+  };
 
   const assignClassUnit = async (classId: string, unitId: string) => {
     setClassMappingRequest(classId);
@@ -308,18 +376,28 @@ export function SupabaseAcademicManager() {
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
-    <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-slate-900" aria-label="Bagian akademik">
-      {TABS.filter((tab) => tab.id !== "schedule" || isAdmin).map((tab) => <button key={tab.id} type="button" onClick={() => { setActiveTab(tab.id); setError(""); setNotice(""); }} className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${activeTab === tab.id ? "bg-emerald-700 text-white" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5"}`}><tab.icon className="h-4 w-4" />{tab.label}</button>)}
-    </nav>
+    <ERPTabs tabs={TABS.filter((tab) => !["schedule", "conflict-resolver", "teachers", "subjects", "curricula"].includes(tab.id) || isAdmin).map((tab) => ({ ...tab, icon: <tab.icon className="h-4 w-4" /> }))} value={activeTab} onChange={(id) => { setActiveTab(id as Tab); if (id !== "schedule") setEditingScheduleId(""); setError(""); setNotice(""); }} ariaLabel="Bagian akademik" />
 
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
+    {activeTab === "report-card" ? <ERPFeatureStatus
+      title="E-Rapor"
+      description="Menu E-Rapor dari referensi kini terlihat. Penyimpanan nilai harian sudah tersedia pada Penilaian, tetapi penyusunan rapor semester, validasi wali kelas, pengesahan, dan penerbitan rapor belum memiliki alur Supabase tersendiri."
+    /> : activeTab === "conflict-resolver" ? <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Penyelesaian konflik jadwal</h2><p className="mt-1 text-sm text-slate-500">Bentrok pengajar, ruang, atau kelas ditampilkan dari jadwal tenant yang termuat. Perubahan jadwal akan divalidasi ulang oleh transaksi Supabase.</p></div><button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button></div>
+      {loading ? <div className="flex items-center gap-2 py-8 text-sm text-slate-500" role="status"><Loader2 className="h-4 w-4 animate-spin" />Memeriksa jadwal tenant…</div> : scheduleConflictReport.conflicts.length === 0 ? scheduleConflictReport.invalidRecordIds.length ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Belum dapat memastikan tidak ada bentrok karena ada jadwal yang formatnya tidak valid.</div> : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100">Tidak ada konflik pada jadwal yang berhasil dimuat.</div> : <div className="space-y-3">{scheduleConflictReport.conflicts.map((conflict) => <article key={`${conflict.first.id}:${conflict.second.id}`} className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-400/20 dark:bg-amber-400/5"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-amber-950 dark:text-amber-100">{conflict.day} · {conflict.overlapStart}–{conflict.overlapEnd} · bentrok {conflict.reasons.join(", ").toLocaleLowerCase("id-ID")}</p><div className="mt-3 grid gap-3 md:grid-cols-2">{[conflict.first, conflict.second].map((record) => <div key={record.id} className="rounded-lg border border-amber-200/70 bg-white/80 p-3 text-sm dark:border-white/10 dark:bg-slate-950/50"><p className="font-semibold text-slate-900 dark:text-white">{record.subject || "Mata pelajaran belum diisi"}</p><p className="mt-1 text-slate-600 dark:text-slate-300">{record.time} · {record.className || "Kelas belum diisi"}</p><p className="mt-1 text-xs text-slate-500">{record.teacherName || "Pengajar belum dipetakan"}{record.room ? ` · ${record.room}` : ""}{record.organizationUnitName ? ` · ${record.organizationUnitName}` : ""}</p></div>)}</div></div><div className="flex shrink-0 flex-col gap-2">{[conflict.first, conflict.second].map((record) => { const unitMissing = snapshot.unitsEnabled && !record.organizationUnitId; return <button key={`edit-${record.id}`} type="button" disabled={unitMissing} title={unitMissing ? "Petakan jadwal ke unit sebelum mengubahnya." : `Ubah jadwal ${record.subject || "tanpa nama"}`} onClick={() => editConflictedSchedule(record as RecordRow)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Perbaiki {record.subject || "jadwal"}</button>; })}</div></div></article>)}</div>}
+      {scheduleConflictReport.truncated && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Daftar dibatasi hingga 500 konflik agar pemeriksaan tetap responsif. Perbaiki sebagian jadwal, lalu muat ulang untuk melihat sisanya.</div>}
+      {scheduleConflictReport.invalidRecordIds.length > 0 && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100"><strong>{scheduleConflictReport.invalidRecordIds.length} jadwal tidak dapat diperiksa.</strong> Format hari/waktunya tidak valid. Tinjau record sebelum menganggap tidak ada bentrok.</div>}
+      {snapshot.unitsEnabled && <p className="text-xs text-slate-500">Jadwal tanpa unit organisasi tetap terdeteksi sebagai kemungkinan bentrok, tetapi harus dipetakan sebelum dapat diubah. Perbedaan unit aktif mengikuti batas konflik yang sama dengan penyimpanan jadwal.</p>}
+    </section> : activeTab === "teachers" ? <TeacherDirectory loading={loading} teachers={snapshot.teachers} />
+      : activeTab === "subjects" ? <SubjectReferenceList loading={loading} items={subjectReferences} />
+      : activeTab === "curricula" ? <CurriculumReferenceList loading={loading} items={curriculumReferences} />
+      : <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">{activeTab === "schedule" ? "Jadwal tersimpan" : activeTab === "journal" ? "Jurnal terbaru" : "Penilaian terbaru"}</h2></div>
         {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat data tenant…</div> : activeTab === "schedule" ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.schedules.length ? snapshot.schedules.map((row) => <article key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{row.subject}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{row.day} · {row.time}</span></div><p className="mt-1 text-sm text-slate-500">{row.className} · {row.teacherName}{row.room ? ` · ${row.room}` : ""}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</article>) : <Empty label="Belum ada jadwal KBM di tenant ini." />}</div> : activeTab === "journal" ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.journals.length ? snapshot.journals.map((row) => <article key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{row.subject} · {row.className}</h3><span className="text-xs text-slate-500">{row.date}</span></div><p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{row.topic}</p><p className="mt-1 text-xs text-slate-500">Pengajar: {row.teacherName} · {journalAttendanceLabel(row.attendance)}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</article>) : <Empty label="Belum ada jurnal KBM di tenant ini." />}</div> : <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.assessments.length ? snapshot.assessments.map((row) => <article key={row.id} className="flex flex-wrap items-center justify-between gap-2 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{row.studentName}</h3><p className="mt-1 text-sm text-slate-500">{row.className} · {row.subject} · {row.assessmentType}</p>{snapshot.unitsEnabled && <p className="mt-1 text-xs text-slate-500">Unit: {row.organizationUnitName || "Belum dipetakan"}</p>}</div><span className={`rounded-lg px-3 py-1 text-sm font-bold ${Number(row.score) < 75 ? "bg-amber-100 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"}`}>{row.score}</span></article>) : <Empty label="Belum ada penilaian di tenant ini." />}</div>}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-        <div className="mb-4 flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-700" /><h2 className="font-semibold text-slate-900 dark:text-white">{activeTab === "schedule" ? "Tambah jadwal" : activeTab === "journal" ? "Catat jurnal KBM" : "Input penilaian"}</h2></div>
+        <div className="mb-4 flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-700" /><h2 className="font-semibold text-slate-900 dark:text-white">{activeTab === "schedule" ? editingScheduleId ? "Perbaiki jadwal" : "Tambah jadwal" : activeTab === "journal" ? "Catat jurnal KBM" : "Input penilaian"}</h2></div>
         {loading ? <p className="text-sm text-slate-500">Menunggu data tenant…</p> : <form onSubmit={submit} className="space-y-4">
           {activeTab === "schedule" && <>
             {snapshot.unitsEnabled && isAdmin && <Field label="Unit organisasi"><select required className={fieldClass} value={scheduleUnitId} onChange={(e) => setSchedule((current) => ({ ...current, organizationUnitId: e.target.value, teacherUserId: "", teacherName: "" }))}><option value="">Pilih unit aktif</option>{activeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select></Field>}
@@ -349,19 +427,42 @@ export function SupabaseAcademicManager() {
             <Field label="Jenis penilaian"><input required maxLength={100} className={fieldClass} value={assessment.assessmentType} onChange={(e) => setAssessment({ ...assessment, assessmentType: e.target.value })} /></Field>
             <div className="grid grid-cols-2 gap-3"><Field label="Kategori"><select className={fieldClass} value={assessment.category} onChange={(e) => setAssessment({ ...assessment, category: e.target.value })}><option value="Formative">Formatif</option><option value="Summative">Sumatif</option></select></Field><Field label="Nilai (0–100)"><input type="number" required min="0" max="100" step="any" className={fieldClass} value={assessment.score} onChange={(e) => setAssessment({ ...assessment, score: e.target.value })} /></Field></div>
           </>}
-          <button type="submit" disabled={saving || loading || !creatingAcademicRecord || !hasUnitForWrite || (activeTab === "assessment" && (snapshot.students.length === 0 || (snapshot.unitsEnabled && !selectedStudent?.organizationUnitId)))} className={`${buttonClass} w-full`}><Plus className="h-4 w-4" />{saving ? "Menyimpan…" : "Simpan ke Supabase"}</button>
+          <button type="submit" disabled={saving || loading || !creatingAcademicRecord || !hasUnitForWrite || (activeTab === "assessment" && (snapshot.students.length === 0 || (snapshot.unitsEnabled && !selectedStudent?.organizationUnitId)))} className={`${buttonClass} w-full`}><Plus className="h-4 w-4" />{saving ? "Menyimpan…" : editingScheduleId && activeTab === "schedule" ? "Simpan perubahan" : "Simpan ke Supabase"}</button>
+          {editingScheduleId && activeTab === "schedule" && <button type="button" onClick={cancelScheduleEdit} disabled={saving} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Batalkan perubahan</button>}
           {activeTab === "assessment" && snapshot.students.length === 0 && <p className="text-xs text-amber-700 dark:text-amber-200">Roster tenant belum tersedia, sehingga input nilai dinonaktifkan.</p>}
           {snapshot.unitsEnabled && isAdmin && activeUnits.length === 0 && <p className="text-xs text-amber-700 dark:text-amber-200">Belum ada unit aktif. Admin perlu menyiapkan unit sebelum pencatatan akademik.</p>}
           {snapshot.unitsEnabled && activeTab === "assessment" && selectedStudent && !selectedStudent.organizationUnitId && <p className="text-xs text-amber-700 dark:text-amber-200">Santri ini belum dipetakan ke unit; nilai belum dapat disimpan agar cakupan unit tetap konsisten.</p>}
           {role === "Ustadz" && <p className="flex items-start gap-2 text-xs text-slate-500"><Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />Akses roster dibatasi pada kelas yang memiliki jadwal dengan pengajar ini.</p>}
         </form>}
       </section>
-    </div>
+    </div>}
   </main>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className={labelClass}>{label}{children}</label>; }
 function Empty({ label }: { label: string }) { return <div className="flex min-h-36 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-slate-500"><BookOpen className="h-5 w-5 opacity-50" />{label}</div>; }
+function ReferenceNotice() { return <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Ringkasan ini bersumber dari catatan operasional tenant dan bersifat baca-saja. Katalog yang dapat dikelola melalui API Akademik belum tersedia.</p>; }
+function TeacherDirectory({ loading, teachers }: { loading: boolean; teachers: Teacher[] }) {
+  return <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+    <div><h2 className="font-semibold text-slate-900 dark:text-white">Pengajar dan Asatidz</h2><p className="mt-1 text-sm text-slate-500">Profil pengajar yang disediakan API Akademik untuk tenant aktif.</p></div>
+    <ReferenceNotice />
+    {loading ? <p role="status" className="py-8 text-sm text-slate-500">Memuat profil pengajar…</p> : teachers.length === 0 ? <Empty label="Belum ada profil pengajar pada tenant ini." /> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{teachers.map((teacher) => <article key={teacher.id} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><h3 className="font-medium text-slate-900 dark:text-white">{teacher.name}</h3><p className="mt-1 text-xs text-slate-500">{teacher.organizationUnitName || "Unit belum dipetakan"}</p></article>)}</div>}
+  </section>;
+}
+function SubjectReferenceList({ loading, items }: { loading: boolean; items: SubjectReference[] }) {
+  return <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+    <div><h2 className="font-semibold text-slate-900 dark:text-white">Mata Pelajaran</h2><p className="mt-1 text-sm text-slate-500">Daftar nama yang digunakan pada catatan akademik tenant.</p></div>
+    <ReferenceNotice />
+    {loading ? <p role="status" className="py-8 text-sm text-slate-500">Memuat mata pelajaran…</p> : items.length === 0 ? <Empty label="Belum ada mata pelajaran yang tercatat." /> : <div className="divide-y divide-slate-100 dark:divide-white/5">{items.map((item) => <article key={item.name} className="flex flex-wrap items-center justify-between gap-2 py-3"><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3><p className="text-xs text-slate-500">Jadwal {item.schedules} · Jurnal {item.journals} · Penilaian {item.assessments}</p></article>)}</div>}
+  </section>;
+}
+function CurriculumReferenceList({ loading, items }: { loading: boolean; items: CurriculumReference[] }) {
+  return <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+    <div><h2 className="font-semibold text-slate-900 dark:text-white">Kurikulum</h2><p className="mt-1 text-sm text-slate-500">Kurikulum yang tercatat pada jadwal KBM tenant.</p></div>
+    <ReferenceNotice />
+    {loading ? <p role="status" className="py-8 text-sm text-slate-500">Memuat kurikulum…</p> : items.length === 0 ? <Empty label="Belum ada kurikulum yang tercatat pada jadwal." /> : <div className="divide-y divide-slate-100 dark:divide-white/5">{items.map((item) => <article key={item.name} className="flex flex-wrap items-center justify-between gap-2 py-3"><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3><p className="text-xs text-slate-500">Digunakan pada {item.schedules} jadwal</p></article>)}</div>}
+  </section>;
+}
 function academicImportIssueLabel(code: string) {
   const labels: Record<string, string> = {
     record_limit_exceeded: "Jumlah arsip melebihi batas 3.000 record.",
@@ -393,3 +494,4 @@ function journalAttendanceLabel(attendance: Record<string, any> | undefined) {
   }
   return "Hadir " + Number(attendance?.present || 0) + ", izin/sakit " + Number(attendance?.excused || 0) + ", absen " + Number(attendance?.absent || 0);
 }
+

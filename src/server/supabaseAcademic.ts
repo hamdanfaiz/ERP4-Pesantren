@@ -398,11 +398,12 @@ export async function saveSupabaseAcademicRecord(
     const time = text(item.time, "Waktu", 40, true);
     if (!/^([01]\d|2[0-3]):[0-5]\d\s-\s([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new SupabaseAcademicError(400, "Waktu harus memakai format HH:MM - HH:MM.");
     const teacherUserId = text(item.teacherUserId, "Pengajar", 36);
-    if (teacherUserId && !isUuid(teacherUserId)) throw new SupabaseAcademicError(400, "ID pengajar tidak valid.");
+    if (!teacherUserId) throw new SupabaseAcademicError(400, "Pengajar aktif wajib dipilih agar bentrok jadwal dapat dicegah.");
+    if (!isUuid(teacherUserId)) throw new SupabaseAcademicError(400, "ID pengajar tidak valid.");
     record = {
       day, time, subject: text(item.subject, "Mata pelajaran", 150, true),
       teacherName: text(item.teacherName, "Nama pengajar", 180, true),
-      teacherUserId: teacherUserId || null,
+      teacherUserId,
       className: text(item.className, "Kelas", 100, true),
       room: text(item.room, "Ruang", 100), curriculum: text(item.curriculum, "Kurikulum", 100),
     };
@@ -463,3 +464,4 @@ export async function saveSupabaseAcademicRecord(
 }
 
 export { request as academicSupabaseRequest, resolveTenantId as resolveAcademicTenantId };
+

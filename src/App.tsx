@@ -2,11 +2,11 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { useAuth } from './contexts/AuthContext';
-import { FrontendOverview } from './pages/FrontendOverview';
-import { LoginView } from './pages/LoginView';
-import { GuardianInvitationActivationView } from './pages/GuardianInvitationActivationView';
-import { GuardianSelfRegistrationView } from './pages/GuardianSelfRegistrationView';
-import { PasswordRecoveryView } from './pages/PasswordRecoveryView';
+const FrontendOverview = React.lazy(() => import('./pages/FrontendOverview').then((module) => ({ default: module.FrontendOverview })));
+const LoginView = React.lazy(() => import('./pages/LoginView').then((module) => ({ default: module.LoginView })));
+const GuardianInvitationActivationView = React.lazy(() => import('./pages/GuardianInvitationActivationView').then((module) => ({ default: module.GuardianInvitationActivationView })));
+const GuardianSelfRegistrationView = React.lazy(() => import('./pages/GuardianSelfRegistrationView').then((module) => ({ default: module.GuardianSelfRegistrationView })));
+const PasswordRecoveryView = React.lazy(() => import('./pages/PasswordRecoveryView').then((module) => ({ default: module.PasswordRecoveryView })));
 
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
@@ -58,6 +58,11 @@ export default function App() {
     logoUrl: '',
     schoolName: 'ERP4 Pesantren'
   });
+  const routeLoadingFallback = (
+    <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-sm text-slate-400" role="status" aria-live="polite">
+      Memuat halaman…
+    </div>
+  );
 
   useEffect(() => {
     if (role !== 'Public') {
@@ -205,11 +210,11 @@ export default function App() {
   };
 
   if (guardianInviteToken) {
-    return <GuardianInvitationActivationView token={guardianInviteToken} onActivated={() => { completeGuardianInvitation(); setGuardianInviteToken(''); }} />;
+    return <Suspense fallback={routeLoadingFallback}><GuardianInvitationActivationView token={guardianInviteToken} onActivated={() => { completeGuardianInvitation(); setGuardianInviteToken(''); }} /></Suspense>;
   }
 
   if (guardianRegistrationRoute) {
-    return <GuardianSelfRegistrationView callback onActivated={() => {
+    return <Suspense fallback={routeLoadingFallback}><GuardianSelfRegistrationView callback onActivated={() => {
       completeGuardianRegistration();
       window.history.replaceState(null, '', window.location.pathname);
       setGuardianRegistrationRoute(false);
@@ -218,7 +223,7 @@ export default function App() {
       window.history.replaceState(null, '', window.location.pathname);
       setGuardianRegistrationRoute(false);
       setShowLogin(true);
-    }} />;
+    }} /></Suspense>;
   }
 
   if (passwordRecoveryRoute) {
@@ -228,14 +233,14 @@ export default function App() {
       setPasswordRecoveryRoute(false);
       setShowLogin(true);
     };
-    return <PasswordRecoveryView onCompleted={finishPasswordRecovery} onBack={finishPasswordRecovery} />;
+    return <Suspense fallback={routeLoadingFallback}><PasswordRecoveryView onCompleted={finishPasswordRecovery} onBack={finishPasswordRecovery} /></Suspense>;
   }
 
   if (role === 'Public') {
     if (showLogin) {
-      return <LoginView onBack={() => setShowLogin(false)} />;
+      return <Suspense fallback={routeLoadingFallback}><LoginView onBack={() => setShowLogin(false)} /></Suspense>;
     }
-    return <FrontendOverview onLoginClick={() => setShowLogin(true)} branding={branding} />;
+    return <Suspense fallback={routeLoadingFallback}><FrontendOverview onLoginClick={() => setShowLogin(true)} branding={branding} /></Suspense>;
   }
 
   return (
@@ -261,4 +266,5 @@ export default function App() {
     </div>
   );
 }
+
 

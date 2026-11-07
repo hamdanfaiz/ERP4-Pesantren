@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { AlertCircle, LogIn, ShieldCheck, UserCheck } from 'lucide-react';
-import { GuardianSelfRegistrationView } from './GuardianSelfRegistrationView';
+const GuardianSelfRegistrationView = React.lazy(() => import('./GuardianSelfRegistrationView').then((module) => ({ default: module.GuardianSelfRegistrationView })));
 import { supabase, supabaseClientConfigured } from '../utils/supabase';
 import { passwordRecoveryErrorMessage } from '../utils/passwordRecoveryErrorMessage';
 
@@ -17,7 +17,11 @@ export function LoginView({ onBack }: { onBack: () => void }) {
   const [isSendingRecovery, setIsSendingRecovery] = useState(false);
 
   if (showGuardianRegistration) {
-    return <GuardianSelfRegistrationView onBack={() => setShowGuardianRegistration(false)} />;
+    return (
+      <React.Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-sm text-slate-400" role="status">Memuat pendaftaran wali…</div>}>
+        <GuardianSelfRegistrationView onBack={() => setShowGuardianRegistration(false)} />
+      </React.Suspense>
+    );
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -159,4 +163,5 @@ export function LoginView({ onBack }: { onBack: () => void }) {
     </div>
   );
 }
+
 

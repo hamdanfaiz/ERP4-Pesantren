@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CalendarClock, CheckCircle2, ClipboardCheck, Loader2, Plus, RefreshCw, Search, Users, X } from "lucide-react";
+import { Activity, AlertCircle, Award, CalendarClock, CalendarDays, CheckCircle2, ClipboardCheck, Loader2, MapPin, Plus, RefreshCw, Search, UserPlus, Users, Wallet, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type Employee = {
   id: string; employeeNumber: string; fullName: string; jobTitle: string; department: string;
@@ -19,6 +20,26 @@ type LeaveRequest = {
 type Snapshot = { employees: Employee[]; attendance: Attendance[]; leaveRequests: LeaveRequest[] };
 type EmployeeDraft = Omit<Employee, "id"> & { id?: string };
 type LeaveDraft = { employeeId: string; leaveType: LeaveRequest["leaveType"]; startsOn: string; endsOn: string; reason: string };
+type HrisTab = "employees" | "attendance" | "leave" | "tracking" | "shifts" | "payroll" | "performance" | "hiring" | "analytics";
+const HRIS_TABS: Array<{ id: HrisTab; label: string; icon: React.ReactNode }> = [
+  { id: "employees", label: "Direktori Pegawai", icon: <Users className="h-4 w-4" /> },
+  { id: "attendance", label: "Kehadiran", icon: <CalendarClock className="h-4 w-4" /> },
+  { id: "leave", label: "Cuti", icon: <ClipboardCheck className="h-4 w-4" /> },
+  { id: "tracking", label: "Pelacakan Langsung", icon: <MapPin className="h-4 w-4" /> },
+  { id: "shifts", label: "Jadwal Shift", icon: <CalendarDays className="h-4 w-4" /> },
+  { id: "payroll", label: "Penggajian", icon: <Wallet className="h-4 w-4" /> },
+  { id: "performance", label: "Kinerja", icon: <Award className="h-4 w-4" /> },
+  { id: "hiring", label: "Rekrutmen", icon: <UserPlus className="h-4 w-4" /> },
+  { id: "analytics", label: "Analitik SDM", icon: <Activity className="h-4 w-4" /> },
+];
+const HRIS_PENDING: Partial<Record<HrisTab, string>> = {
+  tracking: "Pelacakan lokasi pegawai belum tersedia. Fitur ini memerlukan kebijakan persetujuan, batas retensi lokasi, dan kontrol akses sebelum integrasi dibuat.",
+  shifts: "Perencanaan shift, pemeriksaan bentrok, dan pertukaran jadwal belum tersambung ke backend Supabase.",
+  payroll: "Penggajian, komponen upah, potongan, penguncian periode, dan bukti pembayaran belum tersedia.",
+  performance: "Sasaran kerja, penilaian berkala, dan persetujuan kinerja belum memiliki alur tersimpan.",
+  hiring: "Lowongan, kandidat, tahapan seleksi, dan persetujuan perekrutan belum tersedia.",
+  analytics: "Analitik SDM per periode dan unit belum disediakan oleh API tenant.",
+};
 const EMPTY_DRAFT: EmployeeDraft = {
   employeeNumber: "", fullName: "", jobTitle: "", department: "", email: "", phone: "", hireDate: "", employmentStatus: "active",
 };
@@ -63,7 +84,7 @@ async function hrisRequest<T>(path: string, init: RequestInit = {}): Promise<T> 
 
 export function SupabaseHrisManager() {
   const [snapshot, setSnapshot] = useState<Snapshot>({ employees: [], attendance: [], leaveRequests: [] });
-  const [tab, setTab] = useState<"employees" | "attendance" | "leave">("employees");
+  const [tab, setTab] = useState<HrisTab>("employees");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -177,13 +198,10 @@ export function SupabaseHrisManager() {
       {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
-      <nav aria-label="Modul SDM" className="flex gap-2 border-b border-slate-200 dark:border-white/10">
-        <button type="button" aria-pressed={tab === "employees"} onClick={() => setTab("employees")} className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium ${tab === "employees" ? "border-emerald-600 text-emerald-700 dark:text-emerald-300" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"}`}><Users className="h-4 w-4" />Direktori Pegawai</button>
-        <button type="button" aria-pressed={tab === "attendance"} onClick={() => setTab("attendance")} className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium ${tab === "attendance" ? "border-emerald-600 text-emerald-700 dark:text-emerald-300" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"}`}><CalendarClock className="h-4 w-4" />Kehadiran</button>
-        <button type="button" aria-pressed={tab === "leave"} onClick={() => setTab("leave")} className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium ${tab === "leave" ? "border-emerald-600 text-emerald-700 dark:text-emerald-300" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"}`}><ClipboardCheck className="h-4 w-4" />Cuti</button>
-      </nav>
+      <ERPTabs tabs={HRIS_TABS} value={tab} onChange={(id) => setTab(id as HrisTab)} ariaLabel="Bagian Sumber Daya Manusia" />
 
       {loading ? <div role="status" className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 p-12 text-sm text-slate-500 dark:border-white/10"><Loader2 className="h-4 w-4 animate-spin" />Memuat data tenant…</div> : <>
+        {HRIS_PENDING[tab] && <ERPFeatureStatus title={HRIS_TABS.find((item) => item.id === tab)?.label || "Fitur SDM"} description={HRIS_PENDING[tab]!} />}
         {tab === "employees" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:max-w-md"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari nama, nomor, jabatan, atau unit" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm dark:border-white/10 dark:bg-slate-950" /></div>

@@ -88,6 +88,10 @@ function cleanup(dbUrl) {
       );
     DELETE FROM public.students
     WHERE tenant_id = '${tenantId}'::uuid AND source_record_id IN ('race-a', 'race-b');
+    -- Synthetic test cleanup only: erase audit rows before deleting this tenant.
+    ALTER TABLE public.master_data_audit_events DISABLE TRIGGER master_data_audit_events_immutable_rows;
+    DELETE FROM public.master_data_audit_events WHERE tenant_id = '${tenantId}'::uuid;
+    ALTER TABLE public.master_data_audit_events ENABLE TRIGGER master_data_audit_events_immutable_rows;
     DELETE FROM public.tenants WHERE id = '${tenantId}'::uuid;
   `);
 }

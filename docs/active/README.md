@@ -7,9 +7,12 @@ Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `compl
 ## Kesiapan produk
 - [Kesiapan Komersial dan Go-Live](00_PRODUCT/COMMERCIAL_READINESS.md) — kontrak produk self-hosted, bukti teknis, dan tahapan pilot/deploy.
 - [Progres penyelesaian pengembangan — 30 Okt 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — estimasi progres pengembangan sekitar 73%, tidak termasuk pelaksanaan deployment dan UAT oleh tim penerapan.
+- [Checkpoint penempatan menu — 1 Nov 2026](00_PRODUCT/MODULE_OWNERSHIP_CHECKPOINT_2026-11-01.md) — lokasi menu pada modul pemilik, batas katalog baca-saja, hasil pemeriksaan lokal, dan gate yang masih terbuka.
 
 ## Referensi aktif
 - [Checkpoint terkini PR #38 — PPDB Wali di VQE](06_DATABASE/CHECKPOINT_GUARDIAN_PPDB_STAGING_2026-10-31.md) — 112 migrasi staging, selisih terhadap `main`, keterbatasan akses PTSAS, dan gerbang UAT.
+- [Tindak lanjut migration audit Data Induk di VQE](06_DATABASE/VQE_STAGING_MASTER_DATA_AUDIT_MIGRATION_2026-11-01.md) — alasan tidak memakai MCP `apply_migration`, status baca-saja, dan prosedur dry-run CLI tanpa membuat branch Supabase.
+- [Query verifikasi audit Data Induk di VQE](06_DATABASE/VQE_MASTER_DATA_AUDIT_POSTCHECK.sql) — pemeriksaan pascamigrasi yang hanya mengembalikan hasil pass/fail.
 - [Audit penutupan PR — 30 Okt 2026](05_ARCHITECTURE/PR_CLOSURE_AUDIT_2026-10-30.md) — status terkini PR #1–#13, bukti CI, perbandingan awal, dan syarat penutupan/penggabungan.
 - [Audit dependensi PR — 25 Okt 2026](05_ARCHITECTURE/PR_DEPENDENCY_AUDIT_2026-10-25.md) — catatan historis tentang base, stack, CI, review, dan kesiapan merge PR #1–#13.
 - [Paritas fitur PR #11 → #13](05_ARCHITECTURE/PR11_TO_PR13_FEATURE_PARITY.md) — pemetaan fitur, perubahan autentikasi, serta gap PPDB, Finance, dan dokumen.

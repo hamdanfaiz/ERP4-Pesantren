@@ -41,6 +41,7 @@
     "test:library-circulation-import": "tsx scripts/test-library-circulation-import.ts",
     "test:library-assets": "tsx scripts/test-library-assets.ts",
     "test:master-data-pagination": "tsx scripts/test-master-data-pagination.ts",
+    "test:master-data-transfer-csv": "tsx scripts/test-master-data-transfer-csv.ts",
     "test:master-data-no-browser-drafts": "node scripts/test-master-data-no-browser-drafts.mjs",
     "provision:tenant-admin": "node scripts/provision-tenant-admin.mjs",
     "test:supabase-runtime-no-firebase": "node scripts/test-supabase-runtime-no-firebase.mjs",
@@ -51,6 +52,7 @@
     "test:tahfidz-session-pagination": "tsx scripts/test-tahfidz-session-pagination.ts",
     "test:tahfidz-achievements": "tsx scripts/test-tahfidz-achievements.ts",
     "test:academic-portal": "tsx scripts/test-academic-portal.ts",
+    "test:academic-schedule-conflicts": "tsx scripts/test-academic-schedule-conflicts.ts",
     "test:public-ppdb-validation": "tsx scripts/test-public-ppdb-validation.ts",
     "test:trusted-proxy-hops": "tsx scripts/test-trusted-proxy-hops.ts",
     "test:runtime-config-http": "node scripts/test-runtime-config-http.mjs"
