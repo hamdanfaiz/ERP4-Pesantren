@@ -2537,6 +2537,23 @@ async function startServer() {
     healthcare_medicine_category: "healthcare", healthcare_medicine_unit: "healthcare",
     ga_asset_category: "ga", ga_inventory_category: "ga", ga_inventory_unit: "ga",
   };
+  const loadReferenceCatalogAdmin = async (uid: string, domainValue: unknown) => {
+    const domain = String(domainValue || "");
+    const moduleId = referenceDomainModule[domain];
+    if (!moduleId) throw new SupabaseReferenceCatalogError(400, "Jenis referensi tidak dikenal.");
+    const profile = await getUserProfile(uid);
+    const tenantId = String(profile?.tenantId || "").trim();
+    if (!profile || String(profile.status || "").toLowerCase() !== "active" || !tenantId) {
+      throw new SupabaseReferenceCatalogError(403, "Profil aktif dengan tenant valid diperlukan.");
+    }
+    if (!resolveUserModulePermissions(profile.role, profile.modulePermissions)[moduleId]) {
+      throw new SupabaseReferenceCatalogError(403, "Akses modul pemilik referensi tidak diberikan kepada akun ini.");
+    }
+    if (!["Admin", "SuperAdmin"].includes(String(profile.role))) {
+      throw new SupabaseReferenceCatalogError(403, "Perubahan referensi hanya tersedia untuk Admin tenant.");
+    }
+    return { ...profile, uid, tenantId };
+  };
   app.get("/api/master-data/references", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
@@ -2562,8 +2579,7 @@ async function startServer() {
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadMasterDataActor(uid, "master-data");
-      requireMasterDataAdmin(actor);
+      const actor = await loadReferenceCatalogAdmin(uid, req.params.domain);
       const record = await saveSupabaseReferenceItem(actor.tenantId, uid, req.params.domain, req.params.referenceId, req.body?.record);
       return res.json({ record });
     } catch (error) { return masterDataRouteError(res, error); }
@@ -2574,8 +2590,7 @@ async function startServer() {
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      const actor = await loadMasterDataActor(uid, "master-data");
-      requireMasterDataAdmin(actor);
+      const actor = await loadReferenceCatalogAdmin(uid, req.params.domain);
       const record = await saveSupabaseReferenceItem(actor.tenantId, uid, req.params.domain, null, req.body?.record);
       return res.status(201).json({ record });
     } catch (error) { return masterDataRouteError(res, error); }

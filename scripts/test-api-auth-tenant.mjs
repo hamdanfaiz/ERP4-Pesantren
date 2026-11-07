@@ -910,7 +910,131 @@ async function main() {
     assert.equal(profileReadError, null, 'Profile query for the failed synthetic account must succeed.');
     assert.equal(profileAfterFailure, null, 'A failed provisioning attempt must not leave a profile behind.');
 
-    console.log('API auth and tenant isolation passed: role/tenant denial, module denial, suspended accounts, cross-tenant query spoofing, Wali link validation, and Auth cleanup after profile failure.');
+    const referenceFinanceAdmin = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'reference-finance-only', {
+      'master-data': false,
+      finance: true,
+    });
+    users.push(referenceFinanceAdmin);
+    const referenceFinanceToken = await signIn(anon, referenceFinanceAdmin);
+
+    if (serverProcess && serverProcess.exitCode === null) {
+      serverProcess.kill('SIGTERM');
+      await Promise.race([
+        new Promise((resolve) => serverProcess.once('exit', resolve)),
+        sleep(5000),
+      ]);
+      if (serverProcess.exitCode === null) serverProcess.kill('SIGKILL');
+    }
+    serverProcess = null;
+
+    const referencePort = await availablePort();
+    const referenceApiBase = `http://127.0.0.1:${referencePort}`;
+    serverProcess = spawn('bun', ['run', 'dev'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        PORT: String(referencePort),
+        NODE_ENV: 'production',
+        SUPABASE_URL: url,
+        SUPABASE_SECRET_KEY: serviceKey,
+        SUPABASE_SERVICE_ROLE_KEY: '',
+        PII_ENCRYPTION_KEY: piiEncryptionKey,
+        PII_FINGERPRINT_KEY: piiFingerprintKey,
+        SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'true',
+        SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
+      },
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+    const referenceDeadline = Date.now() + 45000;
+    let referenceServerReady = false;
+    while (Date.now() < referenceDeadline && serverProcess.exitCode === null) {
+      try {
+        const response = await fetch(`${referenceApiBase}/api/auth/profile`);
+        if (response.status === 401) {
+          referenceServerReady = true;
+          break;
+        }
+      } catch {}
+      await sleep(250);
+    }
+    assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
+
+    const financeReferenceUrl = `${referenceApiBase}/api/master-data/references?domain=finance_fee_type`;
+    const financeReferenceRead = await fetch(financeReferenceUrl, {
+      headers: { Authorization: `Bearer ${referenceFinanceToken}` },
+    });
+    assert.equal(financeReferenceRead.status, 200,
+      'An Admin with Finance access can use its catalog even when Master Data is explicitly denied.');
+    assert.ok(Array.isArray((await financeReferenceRead.json()).records));
+
+    const deniedFinanceReferenceRead = await fetch(financeReferenceUrl, {
+      headers: { Authorization: `Bearer ${noFinanceAdminToken}` },
+    });
+    assert.equal(deniedFinanceReferenceRead.status, 403,
+      'An Admin without Finance access cannot read the Finance catalog despite having Master Data access.');
+
+    const financeReferenceInput = {
+      code: 'FEE_UJI_PERMISSION',
+      name: 'Biaya Uji Izin',
+      description: 'Kategori sintetis untuk menguji hak kelola modul keuangan.',
+      status: 'active',
+    };
+    const createFinanceReference = await fetch(`${referenceApiBase}/api/master-data/references/finance_fee_type`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${referenceFinanceToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: financeReferenceInput }),
+    });
+    assert.equal(createFinanceReference.status, 201,
+      'An Admin with Finance access can create a Finance reference without Master Data access.');
+    const createdFinanceReference = (await createFinanceReference.json()).record;
+    assert.ok(createdFinanceReference?.id, 'The Finance reference must be persisted and returned with its tenant-owned ID.');
+
+    const deniedFinanceReferenceCreate = await fetch(`${referenceApiBase}/api/master-data/references/finance_fee_type`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${noFinanceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: { ...financeReferenceInput, code: 'FEE_UJI_DENIED' } }),
+    });
+    assert.equal(deniedFinanceReferenceCreate.status, 403,
+      'Master Data permission must not let an Admin create a reference owned by a denied module.');
+
+    const updatedFinanceReferenceInput = {
+      ...financeReferenceInput,
+      code: 'FEE_UJI_PERMISSION_EDIT',
+      name: 'Biaya Uji Izin Diperbarui',
+      description: 'Kategori sintetis yang diperbarui untuk uji hak modul keuangan.',
+    };
+    const updateFinanceReference = await fetch(`${referenceApiBase}/api/master-data/references/finance_fee_type/${encodeURIComponent(createdFinanceReference.id)}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${referenceFinanceToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: updatedFinanceReferenceInput }),
+    });
+    assert.equal(updateFinanceReference.status, 200,
+      'The owning Finance Admin can update a Finance reference without Master Data permission.');
+
+    const deniedFinanceReferenceUpdate = await fetch(`${referenceApiBase}/api/master-data/references/finance_fee_type/${encodeURIComponent(createdFinanceReference.id)}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${noFinanceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: updatedFinanceReferenceInput }),
+    });
+    assert.equal(deniedFinanceReferenceUpdate.status, 403,
+      'Master Data permission must not let an Admin update a reference owned by a denied module.');
+
+    const ustadzReferenceCreate = await fetch(`${referenceApiBase}/api/master-data/references/academic_subject`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        record: {
+          code: 'SUBJECT_UJI_USTADZ',
+          name: 'Mata Pelajaran Uji',
+          description: 'Kategori sintetis untuk memastikan akun pengajar hanya dapat membaca katalog.',
+          status: 'active',
+        },
+      }),
+    });
+    assert.equal(ustadzReferenceCreate.status, 403,
+      'A Ustadz may read permitted Academic references but cannot mutate tenant catalogs.');
+
+    console.log('API auth, tenant isolation, and reference catalog module permissions passed: scope denial, owner-module access, cross-module write denial, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
