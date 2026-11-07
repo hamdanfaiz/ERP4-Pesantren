@@ -4011,10 +4011,13 @@ main().catch((error) => {
   const detail = error instanceof Error
     ? error.message
     : error?.code || 'unknown error';
+  const stack = error instanceof Error && error.stack
+    ? `\n${error.stack}`
+    : '';
   const cause = error instanceof Error && error.cause instanceof Error
     ? `; cause=${error.cause.code || error.cause.message}`
     : '';
-  console.error(`API auth and tenant integration test failed (${detail}${cause}). Check the local Supabase stack and migration state.`);
+  console.error(`API auth and tenant integration test failed (${detail}${cause}). Check the local Supabase stack and migration state.${stack}`);
   process.exitCode = 1;
 });
 
