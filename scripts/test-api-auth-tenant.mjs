@@ -148,6 +148,7 @@ async function main() {
   const piiFingerprintKey = randomBytes(32).toString('hex');
   let serverProcess;
   let serverDiagnostics = '';
+  let serverShutdownRequested = false;
   let profileFailureTriggerInstalled = false;
 
   try {
@@ -362,6 +363,9 @@ async function main() {
     };
     serverProcess.stdout.on('data', captureServerOutput);
     serverProcess.stderr.on('data', captureServerOutput);
+    serverProcess.on('exit', (code, signal) => {
+      if (!serverShutdownRequested) console.error(`API test server exited unexpectedly (code=${code ?? 'none'}, signal=${signal ?? 'none'}).\r\n${serverDiagnostics}`);
+    });
 
     const deadline = Date.now() + 45000;
     let ready = false;
@@ -3072,6 +3076,7 @@ async function main() {
         console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Healthcare, Tahfidz, Library, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
+      serverShutdownRequested = true;
       serverProcess.kill('SIGTERM');
       await Promise.race([
         new Promise((resolve) => serverProcess.once('exit', resolve)),
@@ -3250,11 +3255,7 @@ main().catch((error) => {
   const cause = error instanceof Error && error.cause instanceof Error
     ? `; cause=${error.cause.code || error.cause.message}`
     : '';
-  const serverState = serverProcess
-    ? `; API server exit=${serverProcess.exitCode ?? 'running'} signal=${serverProcess.signalCode ?? 'none'}`
-    : '';
-  const diagnostics = serverDiagnostics ? `\nRecent API server output:\n${serverDiagnostics}` : '';
-  console.error(`API auth and tenant integration test failed (${detail}${cause}${serverState}). Check the local Supabase stack and migration state.${diagnostics}`);
+  console.error(`API auth and tenant integration test failed (${detail}${cause}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
 
