@@ -1500,14 +1500,15 @@ async function main() {
         stdio: ['ignore', 'pipe', 'pipe'],
         maxBuffer: 1024 * 1024,
       });
-    } catch {
-      console.error('Unable to clean synthetic Marketplace rows through local Supabase.');
+    } catch (error) {
+      const detail = error?.stderr?.toString().trim().split(/\r?\n/).slice(-3).join(' ').slice(0, 500) || 'No PostgreSQL diagnostic available.';
+      console.error(`Unable to clean synthetic rows through local Supabase: ${detail}`);
       process.exitCode = 1;
     }
     for (const user of users) {
       const { error } = await admin.auth.admin.deleteUser(user.uid);
       if (error) {
-        console.error('Unable to clean a synthetic Auth/profile fixture.');
+        console.error(`Unable to clean a synthetic Auth/profile fixture (${error.code || error.name || 'unknown'}).`);
         process.exitCode = 1;
       }
     }
@@ -1518,8 +1519,9 @@ async function main() {
         stdio: ['ignore', 'pipe', 'pipe'],
         maxBuffer: 1024 * 1024,
       });
-    } catch {
-      console.error('Unable to clean synthetic tenant fixtures.');
+    } catch (error) {
+      const detail = error?.stderr?.toString().trim().split(/\r?\n/).slice(-3).join(' ').slice(0, 500) || 'No PostgreSQL diagnostic available.';
+      console.error(`Unable to clean synthetic tenant fixtures: ${detail}`);
       process.exitCode = 1;
     }
   }
