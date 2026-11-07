@@ -149,10 +149,10 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a'));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
-    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a'));
+    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
@@ -167,7 +167,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -1103,6 +1103,7 @@ async function main() {
         PII_FINGERPRINT_KEY: piiFingerprintKey,
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
+        SUPABASE_COMMUNICATION_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -1195,7 +1196,81 @@ async function main() {
     assert.equal(ustadzReferenceCreate.status, 403,
       'A Ustadz may read permitted Academic references but cannot mutate tenant catalogs.');
 
-    console.log('API auth, tenant isolation, CRM round-trip, and reference catalog permissions passed: authenticated save/read/update, linked interaction history, idempotency, tenant isolation, and role restrictions.');
+
+    const communicationCreate = await fetch(`${referenceApiBase}/api/communication/announcements`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Pengumuman Uji Integrasi API',
+        content: 'Isi pengumuman sintetis untuk menguji penyimpanan dan relasi audiens.',
+        target: 'Guru & Musyrif',
+        isUrgent: false,
+      }),
+    });
+    assert.equal(communicationCreate.status, 201, 'An authorized Admin can publish a tenant announcement through the application API.');
+    const communicationPayload = await communicationCreate.json();
+    const createdAnnouncement = communicationPayload.announcement;
+    assert.ok(createdAnnouncement?.id, 'The communication API returns the persisted announcement ID.');
+    assert.equal(createdAnnouncement.status, 'Sent');
+    assert.equal(createdAnnouncement.totalTarget, 1, 'The audience count is resolved from active tenant Ustadz profiles.');
+
+    const { data: communicationRow, error: communicationReadError } = await admin.from('communication_announcements')
+      .select('tenant_id,title,target_audience,status,created_by_user_id')
+      .eq('id', createdAnnouncement.id)
+      .maybeSingle();
+    assert.equal(communicationReadError, null, 'The saved communication row must be readable in the local database fixture.');
+    assert.equal(communicationRow?.tenant_id, tenantIds[0], 'An announcement is persisted under the actor tenant.');
+    assert.equal(communicationRow?.title, 'Pengumuman Uji Integrasi API');
+    assert.equal(communicationRow?.target_audience, 'Guru & Musyrif');
+    assert.equal(communicationRow?.status, 'sent');
+    assert.equal(communicationRow?.created_by_user_id, users[0].uid);
+
+    const ustadzAnnouncementList = await fetch(`${referenceApiBase}/api/communication/announcements`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(ustadzAnnouncementList.status, 200, 'An active audience member can read sent announcements.');
+    const ustadzAnnouncements = (await ustadzAnnouncementList.json()).announcements;
+    const deliveredAnnouncement = ustadzAnnouncements.find((item) => item.id === createdAnnouncement.id);
+    assert.ok(deliveredAnnouncement, 'The canonical Guru & Musyrif audience relationship makes the announcement visible to its Ustadz recipient.');
+    assert.equal(deliveredAnnouncement.totalTarget, 1);
+
+    const tenantBAnnouncementList = await fetch(`${referenceApiBase}/api/communication/announcements`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(tenantBAnnouncementList.status, 200);
+    assert.deepEqual((await tenantBAnnouncementList.json()).announcements, [], 'A different tenant cannot read another tenant announcement.');
+
+    const ustadzAnnouncementCreate = await fetch(`${referenceApiBase}/api/communication/announcements`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Pengumuman Ditolak',
+        content: 'Akun pengajar tidak boleh menerbitkan pengumuman.',
+        target: 'Guru & Musyrif',
+        isUrgent: false,
+      }),
+    });
+    assert.equal(ustadzAnnouncementCreate.status, 403, 'A Ustadz can receive announcements but cannot publish them.');
+
+    const ustadzAcknowledgement = await fetch(`${referenceApiBase}/api/communication/announcements/${encodeURIComponent(createdAnnouncement.id)}/acknowledge`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(ustadzAcknowledgement.status, 403, 'Only an eligible Wali account can acknowledge an announcement.');
+
+    const noRecipientAnnouncement = await fetch(`${referenceApiBase}/api/communication/announcements`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Audiens Kosong',
+        content: 'Pengumuman untuk audiens tanpa akun tertaut harus ditolak.',
+        target: 'Semua Wali Santri',
+        isUrgent: false,
+      }),
+    });
+    assert.equal(noRecipientAnnouncement.status, 409, 'Announcements must fail closed when the selected audience has no active linked account.');
+
+    console.log('API auth, tenant isolation, CRM and communication round-trips, and reference catalog permissions passed: persistence, audience relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -1228,7 +1303,9 @@ async function main() {
       const tenantArray = `ARRAY[${tenantIds.map((id) => `'${id}'::uuid`).join(',')}]`;
       const cleanupSql = [
         'BEGIN;',
-        `DELETE FROM public.marketplace_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.communication_announcements WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.marketplace_mutation_requests WHERE tenant_id = ANY(${tenantArray});`
         `DELETE FROM public.marketplace_order_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_stock_movements WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_order_items WHERE tenant_id = ANY(${tenantArray});`,
