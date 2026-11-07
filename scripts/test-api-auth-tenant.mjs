@@ -1366,7 +1366,7 @@ async function main() {
     });
     assert.equal(superAdminResponse.status, 200, 'An active SuperAdmin should pass the user-management role gate.');
     const superAdminPayload = await superAdminResponse.json();
-    assert.equal(superAdminPayload.total, 10, 'SuperAdmin remains scoped to the profile tenant when a foreign tenantId is requested.');
+    assert.equal(superAdminPayload.total, 12, 'SuperAdmin remains scoped to the profile tenant, including Cooperative permission fixtures, when a foreign tenantId is requested.');
     assert.ok(superAdminPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'SuperAdmin results must remain tenant-scoped.');
     assert.ok(!superAdminPayload.users.some((profile) => profile.email === users[2].email), 'SuperAdmin must not receive a foreign-tenant profile through query spoofing.');
 
