@@ -2151,7 +2151,7 @@ async function main() {
     });
     assert.equal(donationTransactionResponse.status, 201);
     const donationTransaction = await donationTransactionResponse.json();
-    assert.ok(donationTransaction.receiptNumber.startsWith('DON-'));
+    assert.match(donationTransaction.receiptNumber, /^DON\/\d{4}\/\d{7}$/, 'The transaction receives a tenant-series donation receipt number.');
     const donationTransactionRetry = await fetch(referenceApiBase + '/api/donation/transactions', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
