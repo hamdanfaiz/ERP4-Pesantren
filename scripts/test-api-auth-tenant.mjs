@@ -1523,6 +1523,7 @@ async function main() {
         SUPABASE_HEALTHCARE_RUNTIME_ENABLED: 'true',
         SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED: 'true',
         SUPABASE_GA_ASSETS_RUNTIME_ENABLED: 'true',
+        SUPABASE_LIBRARY_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -2858,12 +2859,12 @@ async function main() {
     assert.deepEqual(gaMovements.data?.map((movement) => Number(movement.quantity_delta)).sort((a, b) => a - b), [5, 10]);
     assert.ok(gaMovements.data?.some((movement) => movement.balance_after === 15));
     console.log('General Affairs API round-trip passed: linked catalogs, server-issued codes, asset opname, stock ledger, idempotency, role and tenant isolation.');
-    const libraryDenied = await fetch(`${apiBase}/api/library/snapshot`, {
+    const libraryDenied = await fetch(`${referenceApiBase}/api/library/snapshot`, {
       headers: { Authorization: `Bearer ${libraryNoPermissionToken}` },
     });
     assert.equal(libraryDenied.status, 403, 'An account without the Library module grant cannot read its snapshot.');
 
-    const libraryEmptySnapshot = await fetch(`${apiBase}/api/library/snapshot`, {
+    const libraryEmptySnapshot = await fetch(`${referenceApiBase}/api/library/snapshot`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     assert.equal(libraryEmptySnapshot.status, 200, 'A permitted Admin can read the tenant Library snapshot.');
@@ -2882,28 +2883,28 @@ async function main() {
       shelf: 'Rak Uji',
       clientRequestId: randomUUID(),
     };
-    const libraryFreeType = await fetch(`${apiBase}/api/library/books`, {
+    const libraryFreeType = await fetch(`${referenceApiBase}/api/library/books`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ book: { ...libraryBookInput, categoryReferenceId: '' } }),
     });
     assert.equal(libraryFreeType.status, 400, 'Library book categories must come from the tenant reference catalog.');
 
-    const libraryWrongTenantCategory = await fetch(`${apiBase}/api/library/books`, {
+    const libraryWrongTenantCategory = await fetch(`${referenceApiBase}/api/library/books`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ book: { ...libraryBookInput, categoryReferenceId: otherTenantLibraryCategoryId, clientRequestId: randomUUID() } }),
     });
     assert.equal(libraryWrongTenantCategory.status, 400, 'A Library category from another tenant cannot be selected.');
 
-    const libraryWrongDomainCategory = await fetch(`${apiBase}/api/library/books`, {
+    const libraryWrongDomainCategory = await fetch(`${referenceApiBase}/api/library/books`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ book: { ...libraryBookInput, categoryReferenceId: facilityReferenceId, clientRequestId: randomUUID() } }),
     });
     assert.equal(libraryWrongDomainCategory.status, 400, 'A non-Library reference cannot be used as a book category.');
 
-    const libraryBookCreate = await fetch(`${apiBase}/api/library/books`, {
+    const libraryBookCreate = await fetch(`${referenceApiBase}/api/library/books`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ book: libraryBookInput }),
@@ -2912,7 +2913,7 @@ async function main() {
     const createdLibraryBook = await libraryBookCreate.json();
     assert.ok(createdLibraryBook.bookId);
 
-    const libraryBookRetry = await fetch(`${apiBase}/api/library/books`, {
+    const libraryBookRetry = await fetch(`${referenceApiBase}/api/library/books`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ book: libraryBookInput }),
@@ -2930,7 +2931,7 @@ async function main() {
     assert.equal(persistedLibraryBook?.category, `Kategori Buku Uji ${fixtureSuffix}`);
     assert.equal(persistedLibraryBook?.created_by_user_id, users[0].uid);
 
-    const librarySnapshotAfterCreate = await fetch(`${apiBase}/api/library/snapshot`, {
+    const librarySnapshotAfterCreate = await fetch(`${referenceApiBase}/api/library/snapshot`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     assert.equal(librarySnapshotAfterCreate.status, 200);
@@ -2940,7 +2941,7 @@ async function main() {
     assert.equal(libraryAfterCreate.books[0].categoryReferenceId, libraryBookCategoryId);
     assert.equal(libraryAfterCreate.books[0].availableCopies, 1);
 
-    const otherTenantLibrarySnapshot = await fetch(`${apiBase}/api/library/snapshot`, {
+    const otherTenantLibrarySnapshot = await fetch(`${referenceApiBase}/api/library/snapshot`, {
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
     });
     assert.equal(otherTenantLibrarySnapshot.status, 200);
@@ -2958,7 +2959,7 @@ async function main() {
       dueOn: libraryDueOn,
       clientRequestId: randomUUID(),
     };
-    const libraryCheckout = await fetch(`${apiBase}/api/library/checkout`, {
+    const libraryCheckout = await fetch(`${referenceApiBase}/api/library/checkout`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ checkout: libraryCheckoutInput }),
@@ -2967,7 +2968,7 @@ async function main() {
     const createdLibraryCirculation = await libraryCheckout.json();
     assert.ok(createdLibraryCirculation.circulationId);
 
-    const libraryCheckoutRetry = await fetch(`${apiBase}/api/library/checkout`, {
+    const libraryCheckoutRetry = await fetch(`${referenceApiBase}/api/library/checkout`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ checkout: libraryCheckoutInput }),
@@ -2975,28 +2976,28 @@ async function main() {
     assert.equal(libraryCheckoutRetry.status, 200, 'Retrying a checkout does not create a second circulation.');
     assert.equal((await libraryCheckoutRetry.json()).circulationId, createdLibraryCirculation.circulationId);
 
-    const libraryExhaustedCopy = await fetch(`${apiBase}/api/library/checkout`, {
+    const libraryExhaustedCopy = await fetch(`${referenceApiBase}/api/library/checkout`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ checkout: { ...libraryCheckoutInput, clientRequestId: randomUUID() } }),
     });
     assert.equal(libraryExhaustedCopy.status, 409, 'The backend rejects a checkout after the only copy is already loaned.');
 
-    const libraryCrossTenantCheckout = await fetch(`${apiBase}/api/library/checkout`, {
+    const libraryCrossTenantCheckout = await fetch(`${referenceApiBase}/api/library/checkout`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ checkout: { ...libraryCheckoutInput, clientRequestId: randomUUID() } }),
     });
     assert.equal(libraryCrossTenantCheckout.status, 404, 'Another tenant cannot borrow a guessed foreign book ID.');
 
-    const libraryCrossTenantReturn = await fetch(`${apiBase}/api/library/returns`, {
+    const libraryCrossTenantReturn = await fetch(`${referenceApiBase}/api/library/returns`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ return: { circulationId: createdLibraryCirculation.circulationId, returnedOn: libraryBorrowedOn, clientRequestId: randomUUID() } }),
     });
     assert.equal(libraryCrossTenantReturn.status, 404, 'Another tenant cannot return a guessed foreign circulation ID.');
 
-    const libraryActiveSnapshotResponse = await fetch(`${apiBase}/api/library/snapshot`, {
+    const libraryActiveSnapshotResponse = await fetch(`${referenceApiBase}/api/library/snapshot`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     assert.equal(libraryActiveSnapshotResponse.status, 200);
@@ -3009,7 +3010,7 @@ async function main() {
     assert.equal(activeLibraryCirculation?.nis, tahfidzStudentNis);
     assert.equal(activeLibraryCirculation?.status, 'Active');
 
-    const invalidLibraryCapacityUpdate = await fetch(`${apiBase}/api/library/books`, {
+    const invalidLibraryCapacityUpdate = await fetch(`${referenceApiBase}/api/library/books`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ book: { ...libraryBookInput, id: createdLibraryBook.bookId, totalCopies: 0, clientRequestId: randomUUID() } }),
@@ -3021,7 +3022,7 @@ async function main() {
       returnedOn: libraryBorrowedOn,
       clientRequestId: randomUUID(),
     };
-    const libraryReturn = await fetch(`${apiBase}/api/library/returns`, {
+    const libraryReturn = await fetch(`${referenceApiBase}/api/library/returns`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ return: libraryReturnInput }),
@@ -3029,7 +3030,7 @@ async function main() {
     assert.equal(libraryReturn.status, 201, 'A permitted Admin can record a book return.');
     assert.equal((await libraryReturn.json()).circulationId, createdLibraryCirculation.circulationId);
 
-    const libraryReturnRetry = await fetch(`${apiBase}/api/library/returns`, {
+    const libraryReturnRetry = await fetch(`${referenceApiBase}/api/library/returns`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ return: libraryReturnInput }),
@@ -3037,7 +3038,7 @@ async function main() {
     assert.equal(libraryReturnRetry.status, 200, 'Repeating the same return request is idempotent.');
     assert.equal((await libraryReturnRetry.json()).circulationId, createdLibraryCirculation.circulationId);
 
-    const libraryDuplicateReturn = await fetch(`${apiBase}/api/library/returns`, {
+    const libraryDuplicateReturn = await fetch(`${referenceApiBase}/api/library/returns`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ return: { ...libraryReturnInput, clientRequestId: randomUUID() } }),
@@ -3051,7 +3052,7 @@ async function main() {
       totalCopies: 2,
       clientRequestId: randomUUID(),
     };
-    const libraryBookUpdate = await fetch(`${apiBase}/api/library/books`, {
+    const libraryBookUpdate = await fetch(`${referenceApiBase}/api/library/books`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ book: libraryBookUpdateInput }),
@@ -3059,7 +3060,7 @@ async function main() {
     assert.equal(libraryBookUpdate.status, 201, 'The tenant can update the existing book after returning its copy.');
     assert.equal((await libraryBookUpdate.json()).bookId, createdLibraryBook.bookId);
 
-    const libraryFinalSnapshotResponse = await fetch(`${apiBase}/api/library/snapshot`, {
+    const libraryFinalSnapshotResponse = await fetch(`${referenceApiBase}/api/library/snapshot`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     assert.equal(libraryFinalSnapshotResponse.status, 200);
