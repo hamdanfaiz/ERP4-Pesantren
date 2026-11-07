@@ -2029,22 +2029,33 @@ async function main() {
       process.exitCode = 1;
     }
     for (const user of users) {
-      const { error } = await admin.auth.admin.deleteUser(user.uid);
-      if (error) {
-        console.error(`Unable to clean a synthetic Auth/profile fixture (${error.code || error.name || 'unknown'}).`);
-        process.exitCode = 1;
+      let authDeleteError = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const { error } = await admin.auth.admin.deleteUser(user.uid);
+        authDeleteError = error;
+        if (!error) break;
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
       }
+      if (authDeleteError) console.warn(`Auth API cleanup will use the local synthetic-fixture fallback (${authDeleteError.code || authDeleteError.name || 'unknown'}).`);
     }
     try {
       const tenantArray = `ARRAY[${tenantIds.map((id) => `'${id}'::uuid`).join(',')}]`;
-      execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', `DELETE FROM public.tenants WHERE id = ANY(${tenantArray})`], {
+      const userArray = `ARRAY[${users.map((user) => `'${user.uid}'::uuid`).join(',')}]`;
+      const cleanupSql = [
+        'BEGIN;',
+        `DELETE FROM auth.users WHERE id = ANY(${userArray});`,
+        `DELETE FROM public.profiles WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenants WHERE id = ANY(${tenantArray});`,
+        'COMMIT;',
+      ].join(' ');
+      execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', cleanupSql], {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
         maxBuffer: 1024 * 1024,
       });
     } catch (error) {
       const detail = error?.stderr?.toString().trim().split(/\r?\n/).slice(-3).join(' ').slice(0, 500) || 'No PostgreSQL diagnostic available.';
-      console.error(`Unable to clean synthetic tenant fixtures: ${detail}`);
+      console.error(`Unable to clean synthetic Auth, profile, and tenant fixtures through local Supabase: ${detail}`);
       process.exitCode = 1;
     }
   }
