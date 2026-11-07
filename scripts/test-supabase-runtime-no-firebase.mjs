@@ -380,6 +380,69 @@ assert.match(facilityBookingSource, /const previewImport = async \(\) => \{\s*if
   'Facility booking preview action must fail closed when archive import is disabled.');
 assert.match(facilityBookingSource, /const applyImport = async \(\) => \{\s*if \(!SUPABASE_FACILITY_BOOKINGS_IMPORT\) return;/,
   'Facility booking apply action must fail closed when archive import is disabled.');
+
+const sessionStorageAllowlist = new Set([
+  'src/utils/pendingMutationId.ts',
+  'src/utils/supabase.ts',
+]);
+function isBrowserStorageObject(node, storageName) {
+  return (ts.isIdentifier(node) && node.text === storageName)
+    || (ts.isPropertyAccessExpression(node)
+      && node.name.text === storageName
+      && ts.isIdentifier(node.expression)
+      && ['window', 'globalThis'].includes(node.expression.text));
+}
+function containsBrowserStorageObject(node, storageName) {
+  if (isBrowserStorageObject(node, storageName)) return true;
+  if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+    return containsBrowserStorageObject(node.expression, storageName);
+  }
+  return false;
+}
+function findBrowserPersistenceViolations(relativeFile, source) {
+  const violations = [];
+  if (/\b(?:window\s*\.\s*)?sessionStorage\b/.test(source)) {
+    if (!sessionStorageAllowlist.has(relativeFile)) {
+      violations.push(`${relativeFile}:unapproved sessionStorage`);
+    }
+  }
+
+  const sourceFile = ts.createSourceFile(relativeFile, source, ts.ScriptTarget.Latest, true);
+  function inspectStorage(node) {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+      && ['setItem', 'clear'].includes(node.expression.name.text)
+      && containsBrowserStorageObject(node.expression.expression, 'localStorage')) {
+      violations.push(`${relativeFile}:${node.expression.name.text}`);
+    }
+    if (ts.isBinaryExpression(node)
+      && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment
+      && containsBrowserStorageObject(node.left, 'localStorage')) {
+      violations.push(`${relativeFile}:localStorage assignment`);
+    }
+    if (ts.isDeleteExpression(node) && containsBrowserStorageObject(node.expression, 'localStorage')) {
+      violations.push(`${relativeFile}:localStorage delete`);
+    }
+    ts.forEachChild(node, inspectStorage);
+  }
+  inspectStorage(sourceFile);
+  return violations;
+}
+const browserPersistenceViolations = [];
+for (const runtimeFile of visited) {
+  if (!runtimeFile.startsWith(path.join(root, 'src') + path.sep)) continue;
+  const relativeFile = path.relative(root, runtimeFile).replaceAll('\\', '/');
+  const source = fs.readFileSync(runtimeFile, 'utf8');
+  browserPersistenceViolations.push(...findBrowserPersistenceViolations(relativeFile, source));
+}
+assert.deepEqual(browserPersistenceViolations, [],
+  `Operational records must persist through the tenant backend, not browser localStorage:\n${browserPersistenceViolations.join('\n')}`);
+assert.deepEqual(
+  findBrowserPersistenceViolations('src/pages/Unsafe.tsx', "localStorage.setItem('students', JSON.stringify(students));"),
+  ['src/pages/Unsafe.tsx:setItem'],
+  'The browser persistence policy must reject a localStorage record-write regression.',
+);
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
+console.log('Browser persistence policy passed (no active localStorage writes; sessionStorage limited to Supabase Auth and temporary idempotency keys).');
+
 
 
