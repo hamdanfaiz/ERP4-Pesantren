@@ -181,3 +181,14 @@ Pemeriksaan baca-saja tambahan pada SQL Editor cabang Production mengonfirmasi o
 Ini membedakan dua kelas gap: efek inti migration ledger 20261205000000 dan 20261206000000 ditemukan pada katalog; tetapi DDL migration 20261031104213_master_data_import_create_only.sql dan 20261031225438_master_data_audit_feed.sql benar-benar belum ada di Production. Dua migration lama perlu diterapkan dari source melalui rencana --include-all, bukan ditandai applied. CI #1174 telah lulus replay baseline sintetis 47 versi dengan 88 gap source dan menguji penerapan out-of-order; replay itu tidak mengubah Production.
 
 Rencana cutover tetap memerlukan backup/restore yang terbukti, dry-run Production pada commit yang direview, inspeksi setiap versi yang akan diterapkan, dan persetujuan UAT/backend. Jangan menutup gap melalui perubahan ledger manual.
+
+
+## Pembaruan staging VQE dan CI — 7 November 2026
+
+- Head PR #40 saat pembaruan: `2164f78e83bc80d8f110d49ec7e64e740cd86c5b`. Perbaikan preflight mengenali alias migrasi penempatan kamar dan menambahkan uji regresi.
+- CI run [#1214](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42318538667) lulus 3/3 job. Job database menjalankan 67 berkas pgTAP (1.643 assertion), uji konkurensi NIS/Tahfidz/penempatan kamar, uji Auth/tenant dan Storage, serta smoke test backup/restore lokal.
+- VQE staging memiliki 136 entri ledger. Satu alias lama `20261106151606` (`student_room_assignment_reference_locks`) dibandingkan dengan file source `20270304000000`; SQL-nya sama persis. Versi metadata ledger direkonsiliasi ke versi source tanpa menjalankan ulang DDL.
+- Setelah rekonsiliasi, 136/136 versi ledger VQE cocok dengan 136 file migrasi pada source PR #40; tidak ada versi source yang tertinggal atau versi ledger tambahan. Ini membuktikan kesesuaian ledger, bukan perbandingan penuh DDL semua objek.
+- Tidak ada perubahan ke PTSAS Production. Bukti CI backup/restore hanya berasal dari database Supabase lokal sintetis; pemulihan backup Production tetap tugas tim backend.
+- Status PR: #40 Open/Ready for review; #38 dan #39 Open/Draft dan riwayatnya tercakup pada PR #40. UAT UI Wali serta UAT visual bertarget VQE masih belum dibuktikan. Jangan menganggap CI atau rekonsiliasi ledger sebagai pengganti UAT UI.
+
