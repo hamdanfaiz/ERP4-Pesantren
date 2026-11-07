@@ -1,7 +1,9 @@
 # Paritas Menu dan Pemindahan Data
 
-**Status:** implementasi lanjutan pada branch PR #38  
-**Tanggal:** 31 Oktober 2026
+**Status source:** PR #38–#40 dan PR #47 sudah merged ke `main` (`45230fc06f4e7baedb4ed9adadc62f7b24efb23d`). PR #47 memperbaiki permission lintas modul pada katalog referensi.  
+**Tanggal snapshot menu dan transfer:** 31 Oktober 2026
+
+> Audit dan panduan transfer di bawah ini pertama dibuat 31 Oktober 2026. Gunakan [checkpoint backend terbaru](../00_PRODUCT/BACKEND_TEAM_START_HERE.md) untuk kesiapan UAT/Production. PR #39 memulihkan menu dan menambah transfer CSV tenant; PR #40 menambah relasi tenant dan Naming Series. Katalog referensi kini dapat dikelola dari modul pemiliknya; tabel lama yang menyebut katalog Akademik hanya baca-saja adalah snapshot historis. CI #42329049029 menguji batas permission katalog pada Supabase lokal sintetis, bukan UAT browser atau Production.
 
 ## Ringkasan temuan menu
 
