@@ -147,6 +147,7 @@ async function main() {
   const piiEncryptionKey = randomBytes(32).toString('hex');
   const piiFingerprintKey = randomBytes(32).toString('hex');
   let serverProcess;
+  let serverDiagnostics = '';
   let profileFailureTriggerInstalled = false;
 
   try {
@@ -354,8 +355,13 @@ async function main() {
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'false',
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
       },
-      stdio: ['ignore', 'ignore', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+    const captureServerOutput = (chunk) => {
+      serverDiagnostics = `${serverDiagnostics}${chunk.toString()}`.slice(-8000);
+    };
+    serverProcess.stdout.on('data', captureServerOutput);
+    serverProcess.stderr.on('data', captureServerOutput);
 
     const deadline = Date.now() + 45000;
     let ready = false;
@@ -3244,7 +3250,11 @@ main().catch((error) => {
   const cause = error instanceof Error && error.cause instanceof Error
     ? `; cause=${error.cause.code || error.cause.message}`
     : '';
-  console.error(`API auth and tenant integration test failed (${detail}${cause}). Check the local Supabase stack and migration state.`);
+  const serverState = serverProcess
+    ? `; API server exit=${serverProcess.exitCode ?? 'running'} signal=${serverProcess.signalCode ?? 'none'}`
+    : '';
+  const diagnostics = serverDiagnostics ? `\nRecent API server output:\n${serverDiagnostics}` : '';
+  console.error(`API auth and tenant integration test failed (${detail}${cause}${serverState}). Check the local Supabase stack and migration state.${diagnostics}`);
   process.exitCode = 1;
 });
 
