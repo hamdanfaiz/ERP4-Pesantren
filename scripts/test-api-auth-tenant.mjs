@@ -177,10 +177,6 @@ async function main() {
     if (forcePasswordError) throw new Error('Unable to configure the synthetic forced-password-change fixture.');
     const academicUnlinkedSantri = await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'academic-unlinked-santri', { academic: true });
     users.push(academicUnlinkedSantri);
-    const cooperativeDeniedAdmin = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'cooperative-denied', { cooperative: false, finance: true });
-    users.push(cooperativeDeniedAdmin);
-    const cooperativeNoFinanceAdmin = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'cooperative-no-finance', { cooperative: true, finance: false });
-    users.push(cooperativeNoFinanceAdmin);
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -276,8 +272,6 @@ async function main() {
     const noFinanceAdminToken = await signIn(anon, users[10]);
     const otherTenantMarketplaceAdminToken = await signIn(anon, users[11]);
     const forcedPasswordToken = await signIn(anon, users[12]);
-    const cooperativeDeniedToken = await signIn(anon, cooperativeDeniedAdmin);
-    const cooperativeNoFinanceToken = await signIn(anon, cooperativeNoFinanceAdmin);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
 
@@ -560,6 +554,13 @@ async function main() {
     assert.equal(marketplaceAfterCancel.orders.find((order) => order.id === createdOrder.id)?.status, 'cancelled');
     assert.equal(marketplaceAfterCancel.products[0].stock, 8, 'Cancelling an order restores the reserved stock exactly once.');
     assert.ok(marketplaceAfterCancel.movements.some((movement) => movement.order_id === createdOrder.id && movement.product_id === createdProduct.id && movement.quantity_delta === 2), 'The stock ledger links the cancellation reversal to the order and product.');
+
+    const cooperativeDeniedAdmin = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'cooperative-denied', { cooperative: false, finance: true });
+    users.push(cooperativeDeniedAdmin);
+    const cooperativeNoFinanceAdmin = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'cooperative-no-finance', { cooperative: true, finance: false });
+    users.push(cooperativeNoFinanceAdmin);
+    const cooperativeDeniedToken = await signIn(anon, cooperativeDeniedAdmin);
+    const cooperativeNoFinanceToken = await signIn(anon, cooperativeNoFinanceAdmin);
 
     const cooperativeDeniedSnapshot = await fetch(`${apiBase}/api/cooperative/snapshot`, {
       headers: { Authorization: `Bearer ${cooperativeDeniedToken}` },
@@ -1317,7 +1318,7 @@ async function main() {
     });
     assert.equal(tenantResponse.status, 200, 'An active tenant admin should read their own tenant users.');
     const tenantPayload = await tenantResponse.json();
-    assert.equal(tenantPayload.total, 12, 'The tenant admin should only see the twelve profiles in tenant A, including Cooperative permission fixtures.');
+    assert.equal(tenantPayload.total, 10, 'The tenant admin should only see the ten profiles in tenant A.');
     assert.ok(tenantPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'The response must remain scoped to the actor tenant even when a foreign tenantId is requested.');
     assert.ok(!tenantPayload.users.some((profile) => profile.email === users[2].email), 'A profile from another tenant must never appear in the response.');
 
