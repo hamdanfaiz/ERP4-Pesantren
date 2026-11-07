@@ -1887,8 +1887,9 @@ async function main() {
     const lmsAdminSnapshot = await fetch(`${referenceApiBase}/api/lms/snapshot`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
-    assert.equal(lmsAdminSnapshot.status, 200, 'An authorized tenant Admin can open the LMS runtime.');
-    assert.deepEqual((await lmsAdminSnapshot.json()).courses, [], 'A new tenant begins without LMS courses.');
+    const lmsAdminSnapshotPayload = await lmsAdminSnapshot.json();
+    assert.equal(lmsAdminSnapshot.status, 200, `An authorized tenant Admin can open the LMS runtime: ${JSON.stringify(lmsAdminSnapshotPayload)}`);
+    assert.deepEqual(lmsAdminSnapshotPayload.courses, [], 'A new tenant begins without LMS courses.');
 
     const lmsCategoryBResponse = await fetch(`${referenceApiBase}/api/lms/catalog/category`, {
       method: 'POST',
