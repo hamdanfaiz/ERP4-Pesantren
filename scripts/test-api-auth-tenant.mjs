@@ -1498,6 +1498,9 @@ async function main() {
         `DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series WHERE tenant_id = ANY(${tenantArray});`,
+        'ALTER TABLE public.master_data_audit_events DISABLE TRIGGER master_data_audit_events_immutable_rows;',
+        `DELETE FROM public.master_data_audit_events WHERE tenant_id = ANY(${tenantArray});`,
+        'ALTER TABLE public.master_data_audit_events ENABLE TRIGGER master_data_audit_events_immutable_rows;',
         'COMMIT;',
       ].join(' ');
       execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', cleanupSql], {
