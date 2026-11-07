@@ -1318,7 +1318,7 @@ async function main() {
     });
     assert.equal(tenantResponse.status, 200, 'An active tenant admin should read their own tenant users.');
     const tenantPayload = await tenantResponse.json();
-    assert.equal(tenantPayload.total, 10, 'The tenant admin should only see the ten profiles in tenant A.');
+    assert.equal(tenantPayload.total, 12, 'The tenant admin should only see the twelve profiles in tenant A, including Cooperative permission fixtures.');
     assert.ok(tenantPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'The response must remain scoped to the actor tenant even when a foreign tenantId is requested.');
     assert.ok(!tenantPayload.users.some((profile) => profile.email === users[2].email), 'A profile from another tenant must never appear in the response.');
 
@@ -1327,10 +1327,10 @@ async function main() {
     })));
     for (const response of pageResponses) assert.equal(response.status, 200, 'Tenant user pages must be readable.');
     const pagePayloads = await Promise.all(pageResponses.map((response) => response.json()));
-    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), [3, 3, 3, 1], 'Pagination must return bounded, non-overlapping page sizes, including the final partial page.');
-    assert.ok(pagePayloads.every((payload) => payload.total === 10), 'Every page must report the filtered tenant total.');
+    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), [3, 3, 3, 3], 'Pagination must return bounded, non-overlapping page sizes across the Cooperative fixtures.');
+    assert.ok(pagePayloads.every((payload) => payload.total === 12), 'Every page must report the filtered tenant total.');
     const pagedIds = pagePayloads.flatMap((payload) => payload.users.map((profile) => profile.uid));
-    assert.equal(new Set(pagedIds).size, 10, 'Stable ordering must return every tenant profile exactly once across pages.');
+    assert.equal(new Set(pagedIds).size, 12, 'Stable ordering must return every tenant profile exactly once across pages.');
 
     const searchResponse = await fetch(`${apiBase}/api/users?q=${encodeURIComponent(users[0].email)}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
