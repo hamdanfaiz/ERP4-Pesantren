@@ -147,6 +147,8 @@ async function main() {
   const piiEncryptionKey = randomBytes(32).toString('hex');
   const piiFingerprintKey = randomBytes(32).toString('hex');
   let serverProcess;
+  let serverDiagnostics = '';
+  let serverShutdownRequested = false;
   let profileFailureTriggerInstalled = false;
 
   try {
@@ -159,10 +161,10 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
-    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, library: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
@@ -177,7 +179,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -189,6 +191,7 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-document', { users: true, document: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-healthcare', { users: true, healthcare: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-facility', { users: true, ga: false, boarding: false }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-library', { users: true, library: false }));
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -226,6 +229,15 @@ async function main() {
     ]);
     if (gaReferenceError) throw new Error('Unable to configure the synthetic General Affairs catalog.');
 
+    const { data: libraryReferenceRows, error: libraryReferenceError } = await admin.from('tenant_reference_items').insert([
+      { tenant_id: tenantIds[0], domain: 'library_book_category', code: `TEST_LIBRARY_${fixtureSuffix}`, name: `Kategori Buku Uji ${fixtureSuffix}`, description: 'Kategori perpustakaan sintetis.', status: 'active', created_by_user_id: users[0].uid, updated_by_user_id: users[0].uid },
+      { tenant_id: tenantIds[1], domain: 'library_book_category', code: `TEST_LIBRARY_OTHER_${fixtureSuffix}`, name: `Kategori Tenant Lain ${fixtureSuffix}`, description: 'Kategori tenant kedua untuk uji isolasi.', status: 'active', created_by_user_id: users[11].uid, updated_by_user_id: users[11].uid },
+    ]).select('id,tenant_id');
+    if (libraryReferenceError || libraryReferenceRows?.length !== 2) throw new Error('Unable to configure synthetic Library category references.');
+    const libraryBookCategoryId = libraryReferenceRows.find((item) => item.tenant_id === tenantIds[0])?.id;
+    const otherTenantLibraryCategoryId = libraryReferenceRows.find((item) => item.tenant_id === tenantIds[1])?.id;
+    if (!libraryBookCategoryId || !otherTenantLibraryCategoryId) throw new Error('Synthetic Library category reference IDs could not be resolved.');
+
     const { error: tahfidzCandidateError } = await admin.from('candidates').insert({
       id: tahfidzCandidateId,
       tenant_id: tenantIds[0],
@@ -237,11 +249,12 @@ async function main() {
     });
     if (tahfidzCandidateError) throw new Error('Unable to create the synthetic Tahfidz candidate.');
 
+    const tahfidzStudentNis = String(9000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000));
     const { error: tahfidzStudentError } = await admin.from('students').insert({
       id: tahfidzStudentId,
       tenant_id: tenantIds[0],
       source_candidate_id: tahfidzCandidateId,
-      nis: String(9000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000)),
+      nis: tahfidzStudentNis,
       name: 'Santri Uji Tahfidz API',
       gender: 'L',
       grade: 'VII',
@@ -303,6 +316,7 @@ async function main() {
     const documentNoPermissionToken = await signIn(anon, users[15]);
     const healthcareNoPermissionToken = await signIn(anon, users[16]);
     const facilityNoPermissionToken = await signIn(anon, users[17]);
+    const libraryNoPermissionToken = await signIn(anon, users[18]);
     const waliToken = await signIn(anon, users[6]);
     const superAdminToken = await signIn(anon, users[7]);
     const limitedAdminToken = await signIn(anon, users[8]);
@@ -335,13 +349,22 @@ async function main() {
         SUPABASE_COOPERATIVE_RUNTIME_ENABLED: 'true',
         SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
         SUPABASE_DONATION_RUNTIME_ENABLED: 'true',
+        SUPABASE_LIBRARY_RUNTIME_ENABLED: 'true',
         SUPABASE_CRM_RUNTIME_ENABLED: 'true',
         SUPABASE_DASHBOARD_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'false',
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
       },
-      stdio: ['ignore', 'ignore', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const captureServerOutput = (chunk) => {
+      serverDiagnostics = `${serverDiagnostics}${chunk.toString()}`.slice(-8000);
+    };
+    serverProcess.stdout.on('data', captureServerOutput);
+    serverProcess.stderr.on('data', captureServerOutput);
+    serverProcess.on('exit', (code, signal) => {
+      if (!serverShutdownRequested) console.error(`API test server exited unexpectedly (code=${code ?? 'none'}, signal=${signal ?? 'none'}).\r\n${serverDiagnostics}`);
     });
 
     const deadline = Date.now() + 45000;
@@ -1500,6 +1523,7 @@ async function main() {
         SUPABASE_HEALTHCARE_RUNTIME_ENABLED: 'true',
         SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED: 'true',
         SUPABASE_GA_ASSETS_RUNTIME_ENABLED: 'true',
+        SUPABASE_LIBRARY_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -2835,9 +2859,225 @@ async function main() {
     assert.deepEqual(gaMovements.data?.map((movement) => Number(movement.quantity_delta)).sort((a, b) => a - b), [5, 10]);
     assert.ok(gaMovements.data?.some((movement) => movement.balance_after === 15));
     console.log('General Affairs API round-trip passed: linked catalogs, server-issued codes, asset opname, stock ledger, idempotency, role and tenant isolation.');
-        console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Healthcare, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    const libraryDenied = await fetch(`${referenceApiBase}/api/library/snapshot`, {
+      headers: { Authorization: `Bearer ${libraryNoPermissionToken}` },
+    });
+    assert.equal(libraryDenied.status, 403, 'An account without the Library module grant cannot read its snapshot.');
+
+    const libraryEmptySnapshot = await fetch(`${referenceApiBase}/api/library/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(libraryEmptySnapshot.status, 200, 'A permitted Admin can read the tenant Library snapshot.');
+    const emptyLibrary = await libraryEmptySnapshot.json();
+    assert.deepEqual(emptyLibrary.books, []);
+    assert.deepEqual(emptyLibrary.circulations, []);
+    assert.ok(emptyLibrary.bookCategories.some((category) => category.id === libraryBookCategoryId));
+    assert.ok(emptyLibrary.students.some((student) => student.id === tahfidzStudentId && student.nis === tahfidzStudentNis));
+
+    const libraryBookInput = {
+      title: `Buku Integrasi ${fixtureSuffix}`,
+      author: 'Penulis Uji',
+      categoryReferenceId: libraryBookCategoryId,
+      isbn: '',
+      totalCopies: 1,
+      shelf: 'Rak Uji',
+      clientRequestId: randomUUID(),
+    };
+    const libraryFreeType = await fetch(`${referenceApiBase}/api/library/books`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: { ...libraryBookInput, categoryReferenceId: '' } }),
+    });
+    assert.equal(libraryFreeType.status, 400, 'Library book categories must come from the tenant reference catalog.');
+
+    const libraryWrongTenantCategory = await fetch(`${referenceApiBase}/api/library/books`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: { ...libraryBookInput, categoryReferenceId: otherTenantLibraryCategoryId, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(libraryWrongTenantCategory.status, 400, 'A Library category from another tenant cannot be selected.');
+
+    const libraryWrongDomainCategory = await fetch(`${referenceApiBase}/api/library/books`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: { ...libraryBookInput, categoryReferenceId: facilityReferenceId, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(libraryWrongDomainCategory.status, 400, 'A non-Library reference cannot be used as a book category.');
+
+    const libraryBookCreate = await fetch(`${referenceApiBase}/api/library/books`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: libraryBookInput }),
+    });
+    assert.equal(libraryBookCreate.status, 201, 'A permitted Admin can persist a book linked to a tenant category.');
+    const createdLibraryBook = await libraryBookCreate.json();
+    assert.ok(createdLibraryBook.bookId);
+
+    const libraryBookRetry = await fetch(`${referenceApiBase}/api/library/books`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: libraryBookInput }),
+    });
+    assert.equal(libraryBookRetry.status, 200, 'Repeating a book request is idempotent.');
+    assert.equal((await libraryBookRetry.json()).bookId, createdLibraryBook.bookId);
+
+    const { data: persistedLibraryBook, error: libraryBookReadError } = await admin.from('library_books')
+      .select('tenant_id,title,author,category,category_reference_id,total_copies,created_by_user_id')
+      .eq('id', createdLibraryBook.bookId)
+      .maybeSingle();
+    assert.equal(libraryBookReadError, null);
+    assert.equal(persistedLibraryBook?.tenant_id, tenantIds[0]);
+    assert.equal(persistedLibraryBook?.category_reference_id, libraryBookCategoryId, 'The category relationship is persisted as a tenant-owned FK.');
+    assert.equal(persistedLibraryBook?.category, `Kategori Buku Uji ${fixtureSuffix}`);
+    assert.equal(persistedLibraryBook?.created_by_user_id, users[0].uid);
+
+    const librarySnapshotAfterCreate = await fetch(`${referenceApiBase}/api/library/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(librarySnapshotAfterCreate.status, 200);
+    const libraryAfterCreate = await librarySnapshotAfterCreate.json();
+    assert.equal(libraryAfterCreate.books.length, 1);
+    assert.equal(libraryAfterCreate.books[0].id, createdLibraryBook.bookId);
+    assert.equal(libraryAfterCreate.books[0].categoryReferenceId, libraryBookCategoryId);
+    assert.equal(libraryAfterCreate.books[0].availableCopies, 1);
+
+    const otherTenantLibrarySnapshot = await fetch(`${referenceApiBase}/api/library/snapshot`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(otherTenantLibrarySnapshot.status, 200);
+    const otherLibrary = await otherTenantLibrarySnapshot.json();
+    assert.deepEqual(otherLibrary.books, [], 'Other tenants cannot see the persisted Library book.');
+    assert.deepEqual(otherLibrary.circulations, []);
+    assert.ok(!otherLibrary.bookCategories.some((category) => category.id === libraryBookCategoryId));
+
+    const libraryBorrowedOn = new Date().toISOString().slice(0, 10);
+    const libraryDueOn = new Date(Date.parse(`${libraryBorrowedOn}T00:00:00.000Z`) + 7 * 86400000).toISOString().slice(0, 10);
+    const libraryCheckoutInput = {
+      bookId: createdLibraryBook.bookId,
+      studentId: tahfidzStudentId,
+      borrowedOn: libraryBorrowedOn,
+      dueOn: libraryDueOn,
+      clientRequestId: randomUUID(),
+    };
+    const libraryCheckout = await fetch(`${referenceApiBase}/api/library/checkout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ checkout: libraryCheckoutInput }),
+    });
+    assert.equal(libraryCheckout.status, 201, 'A permitted Ustadz can check out an available copy to a same-tenant student.');
+    const createdLibraryCirculation = await libraryCheckout.json();
+    assert.ok(createdLibraryCirculation.circulationId);
+
+    const libraryCheckoutRetry = await fetch(`${referenceApiBase}/api/library/checkout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ checkout: libraryCheckoutInput }),
+    });
+    assert.equal(libraryCheckoutRetry.status, 200, 'Retrying a checkout does not create a second circulation.');
+    assert.equal((await libraryCheckoutRetry.json()).circulationId, createdLibraryCirculation.circulationId);
+
+    const libraryExhaustedCopy = await fetch(`${referenceApiBase}/api/library/checkout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ checkout: { ...libraryCheckoutInput, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(libraryExhaustedCopy.status, 409, 'The backend rejects a checkout after the only copy is already loaned.');
+
+    const libraryCrossTenantCheckout = await fetch(`${referenceApiBase}/api/library/checkout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ checkout: { ...libraryCheckoutInput, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(libraryCrossTenantCheckout.status, 404, 'Another tenant cannot borrow a guessed foreign book ID.');
+
+    const libraryCrossTenantReturn = await fetch(`${referenceApiBase}/api/library/returns`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ return: { circulationId: createdLibraryCirculation.circulationId, returnedOn: libraryBorrowedOn, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(libraryCrossTenantReturn.status, 404, 'Another tenant cannot return a guessed foreign circulation ID.');
+
+    const libraryActiveSnapshotResponse = await fetch(`${referenceApiBase}/api/library/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(libraryActiveSnapshotResponse.status, 200);
+    const libraryActiveSnapshot = await libraryActiveSnapshotResponse.json();
+    assert.equal(libraryActiveSnapshot.books[0].availableCopies, 0, 'A checkout decreases availability in the tenant snapshot.');
+    const activeLibraryCirculation = libraryActiveSnapshot.circulations.find((row) => row.id === createdLibraryCirculation.circulationId);
+    assert.equal(activeLibraryCirculation?.bookId, createdLibraryBook.bookId);
+    assert.equal(activeLibraryCirculation?.studentId, tahfidzStudentId);
+    assert.equal(activeLibraryCirculation?.student, 'Santri Uji Tahfidz API');
+    assert.equal(activeLibraryCirculation?.nis, tahfidzStudentNis);
+    assert.equal(activeLibraryCirculation?.status, 'Active');
+
+    const invalidLibraryCapacityUpdate = await fetch(`${referenceApiBase}/api/library/books`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: { ...libraryBookInput, id: createdLibraryBook.bookId, totalCopies: 0, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(invalidLibraryCapacityUpdate.status, 409, 'The book catalog cannot reduce copies below active loans.');
+
+    const libraryReturnInput = {
+      circulationId: createdLibraryCirculation.circulationId,
+      returnedOn: libraryBorrowedOn,
+      clientRequestId: randomUUID(),
+    };
+    const libraryReturn = await fetch(`${referenceApiBase}/api/library/returns`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ return: libraryReturnInput }),
+    });
+    assert.equal(libraryReturn.status, 201, 'A permitted Admin can record a book return.');
+    assert.equal((await libraryReturn.json()).circulationId, createdLibraryCirculation.circulationId);
+
+    const libraryReturnRetry = await fetch(`${referenceApiBase}/api/library/returns`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ return: libraryReturnInput }),
+    });
+    assert.equal(libraryReturnRetry.status, 200, 'Repeating the same return request is idempotent.');
+    assert.equal((await libraryReturnRetry.json()).circulationId, createdLibraryCirculation.circulationId);
+
+    const libraryDuplicateReturn = await fetch(`${referenceApiBase}/api/library/returns`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ return: { ...libraryReturnInput, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(libraryDuplicateReturn.status, 409, 'A new request cannot record the same circulation as returned twice.');
+
+    const libraryBookUpdateInput = {
+      ...libraryBookInput,
+      id: createdLibraryBook.bookId,
+      title: `Buku Integrasi Diperbarui ${fixtureSuffix}`,
+      totalCopies: 2,
+      clientRequestId: randomUUID(),
+    };
+    const libraryBookUpdate = await fetch(`${referenceApiBase}/api/library/books`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: libraryBookUpdateInput }),
+    });
+    assert.equal(libraryBookUpdate.status, 201, 'The tenant can update the existing book after returning its copy.');
+    assert.equal((await libraryBookUpdate.json()).bookId, createdLibraryBook.bookId);
+
+    const libraryFinalSnapshotResponse = await fetch(`${referenceApiBase}/api/library/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(libraryFinalSnapshotResponse.status, 200);
+    const libraryFinalSnapshot = await libraryFinalSnapshotResponse.json();
+    assert.equal(libraryFinalSnapshot.books[0].title, `Buku Integrasi Diperbarui ${fixtureSuffix}`);
+    assert.equal(libraryFinalSnapshot.books[0].categoryReferenceId, libraryBookCategoryId);
+    assert.equal(libraryFinalSnapshot.books[0].availableCopies, 2);
+    const returnedLibraryCirculation = libraryFinalSnapshot.circulations.find((row) => row.id === createdLibraryCirculation.circulationId);
+    assert.equal(returnedLibraryCirculation?.status, 'Returned');
+    assert.equal(returnedLibraryCirculation?.returnedDate, libraryBorrowedOn);
+    assert.equal(returnedLibraryCirculation?.bookTitle, `Buku Integrasi Diperbarui ${fixtureSuffix}`);
+
+    console.log('Library API round-trip passed: tenant category relations, book CRUD, checkout/return persistence, idempotency, copy guard, role permissions, and tenant isolation.');
+        console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Healthcare, Tahfidz, Library, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
+      serverShutdownRequested = true;
       serverProcess.kill('SIGTERM');
       await Promise.race([
         new Promise((resolve) => serverProcess.once('exit', resolve)),
@@ -2916,6 +3156,9 @@ async function main() {
         `DELETE FROM public.healthcare_medicines WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.healthcare_records WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.healthcare_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.library_write_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.library_circulations WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.library_books WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
