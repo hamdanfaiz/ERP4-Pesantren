@@ -6,6 +6,7 @@ import { FrontendOverview } from './pages/FrontendOverview';
 import { LoginView } from './pages/LoginView';
 import { GuardianInvitationActivationView } from './pages/GuardianInvitationActivationView';
 import { GuardianSelfRegistrationView } from './pages/GuardianSelfRegistrationView';
+import { PasswordRecoveryView } from './pages/PasswordRecoveryView';
 
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
@@ -41,9 +42,10 @@ const SupabaseMarketplaceManager = React.lazy(() => import('./pages/SupabaseMark
 const SupabaseEnterpriseUnitsManager = React.lazy(() => import('./pages/SupabaseEnterpriseUnitsManager').then((module) => ({ default: module.SupabaseEnterpriseUnitsManager })));
 const UserManagementView = React.lazy(() => import('./pages/UserManagementView').then((module) => ({ default: module.UserManagementView })));
 export default function App() {
-  const { role, user, completeGuardianInvitation, completeGuardianRegistration } = useAuth();
+  const { role, user, completeGuardianInvitation, completeGuardianRegistration, completePasswordRecovery } = useAuth();
   const [guardianInviteToken, setGuardianInviteToken] = useState(() => new URLSearchParams(window.location.search).get('guardianInvite') || '');
   const [guardianRegistrationRoute, setGuardianRegistrationRoute] = useState(() => new URLSearchParams(window.location.search).has('guardianRegistration'));
+  const [passwordRecoveryRoute, setPasswordRecoveryRoute] = useState(() => new URLSearchParams(window.location.search).has('passwordRecovery'));
   const currentTenant: Tenant = {
     id: user?.tenantId || '',
     name: user?.tenantName || 'Pesantren',
@@ -219,6 +221,16 @@ export default function App() {
     }} />;
   }
 
+  if (passwordRecoveryRoute) {
+    const finishPasswordRecovery = () => {
+      completePasswordRecovery();
+      window.history.replaceState(null, '', window.location.pathname);
+      setPasswordRecoveryRoute(false);
+      setShowLogin(true);
+    };
+    return <PasswordRecoveryView onCompleted={finishPasswordRecovery} onBack={finishPasswordRecovery} />;
+  }
+
   if (role === 'Public') {
     if (showLogin) {
       return <LoginView onBack={() => setShowLogin(false)} />;
@@ -249,3 +261,4 @@ export default function App() {
     </div>
   );
 }
+

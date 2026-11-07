@@ -1,4 +1,4 @@
-import { listGuardianStudentIds } from "./identityStore";
+import { listGuardianCandidateIds, listGuardianStudentIds } from "./identityStore";
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 
 type Row = Record<string, any>;
@@ -106,14 +106,26 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
       : [];
   const unitNames = new Map(unitRows.map((unit) => [String(unit.id), String(unit.name || unit.code)]));
   let guardianStudentIds: string[] = [];
+  let guardianCandidateIds: string[] = [];
   if (role === "Walisantri") {
-    try { guardianStudentIds = await listGuardianStudentIds(tenantId, actorUserId); }
-    catch { throw new SupabaseFinanceError(403, "Akun Wali belum tertaut ke santri aktif."); }
+    try {
+      [guardianStudentIds, guardianCandidateIds] = await Promise.all([
+        listGuardianStudentIds(tenantId, actorUserId, true),
+        listGuardianCandidateIds(tenantId, actorUserId),
+      ]);
+    }
+    catch { throw new SupabaseFinanceError(403, "Relasi akun Wali pada tenant ini belum dapat diverifikasi."); }
+    if (!guardianStudentIds.length && !guardianCandidateIds.length) {
+      throw new SupabaseFinanceError(403, "Akun Wali belum terhubung ke santri atau calon santri pada tenant ini.");
+    }
   }
-  const [billRows, expenseRows, ledgerRows, students, controls] = await Promise.all([
+  const [studentBillRows, candidateBillRows, expenseRows, ledgerRows, students, controls] = await Promise.all([
     role === "Walisantri" && guardianStudentIds.length > 0
-      ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type,organization_unit_id", "bill_date.desc,id.desc", { student_id: "in.(" + guardianStudentIds.join(",") + ")" })
-      : isAdmin ? tenantRows("finance_bills", tenantId, "id,student_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type,organization_unit_id", "bill_date.desc,id.desc") : Promise.resolve([]),
+      ? tenantRows("finance_bills", tenantId, "id,student_id,candidate_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type,organization_unit_id", "bill_date.desc,id.desc", { student_id: "in.(" + guardianStudentIds.join(",") + ")" })
+      : isAdmin ? tenantRows("finance_bills", tenantId, "id,student_id,candidate_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type,organization_unit_id", "bill_date.desc,id.desc") : Promise.resolve([]),
+    role === "Walisantri" && guardianCandidateIds.length > 0
+      ? tenantRows("finance_bills", tenantId, "id,student_id,candidate_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type,organization_unit_id", "bill_date.desc,id.desc", { student_id: "is.null", candidate_id: "in.(" + guardianCandidateIds.join(",") + ")" })
+      : Promise.resolve([]),
     isAdmin
       ? tenantRows("finance_expenses", tenantId, "id,unit_id,category,description,amount,expense_date,status,department,requester_user_id,requester_name,reviewed_by_user_id,reviewed_at,rejection_reason,created_at", "expense_date.desc,id.desc")
       : role === "Ustadz" && financeUnits.length === 1
@@ -123,6 +135,7 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
     isAdmin ? tenantRows("students", tenantId, "id,name,grade,status", "grade.asc,name.asc") : Promise.resolve([]),
     isAdmin ? request("/rest/v1/finance_controls?" + new URLSearchParams({ select: "finance_locked", tenant_id: "eq." + tenantId, limit: "2" }).toString()) : Promise.resolve([]),
   ]);
+  const billRows = [...studentBillRows, ...candidateBillRows];
   const normalizedExpenses = expenseRows.map((row) => ({
     id: String(row.id), category: String(row.category), description: String(row.description), amount: Number(row.amount),
     date: String(row.expense_date), status: String(row.status), department: String(row.department),
@@ -133,7 +146,7 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
     rejectionReason: row.rejection_reason || "",
   }));
   const normalizedBills = billRows.map((row) => ({
-    id: String(row.id), santriId: row.student_id ? String(row.student_id) : "", santriName: String(row.student_name), grade: String(row.grade || ""),
+    id: String(row.id), santriId: row.student_id ? String(row.student_id) : "", santriName: String(row.student_name), grade: String(row.grade || ""), isCandidate: !row.student_id && !!row.candidate_id,
     type: String(row.fee_type), period: String(row.period), amount: Number(row.amount), paidAmount: Number(row.paid_amount),
     status: String(row.status), date: String(row.bill_date), paymentMethod: row.payment_method || null,
     proofFile: row.proof_file || null, proofStoragePath: row.proof_storage_path || null, uploadedAt: row.uploaded_at || null,
@@ -156,7 +169,7 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
 export async function getSupabaseFinanceBill(tenantIdentifier: string, billId: string) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   if (!isUuid(billId)) throw new SupabaseFinanceError(400, "ID tagihan tidak valid.");
-  const params = new URLSearchParams({ select: "id,student_id,status,proof_file,proof_storage_path,proof_storage_provider,amount,paid_amount", tenant_id: "eq." + tenantId, id: "eq." + billId, limit: "2" });
+  const params = new URLSearchParams({ select: "id,student_id,candidate_id,status,proof_file,proof_storage_path,proof_storage_provider,amount,paid_amount", tenant_id: "eq." + tenantId, id: "eq." + billId, limit: "2" });
   const rows = await request("/rest/v1/finance_bills?" + params.toString());
   if (!Array.isArray(rows) || rows.length !== 1) throw new SupabaseFinanceError(404, "Tagihan tidak ditemukan pada tenant.");
   return rows[0] as Row;

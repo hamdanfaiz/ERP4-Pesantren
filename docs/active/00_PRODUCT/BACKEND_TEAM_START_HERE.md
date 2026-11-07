@@ -1,67 +1,88 @@
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
-> **Checkpoint 31 Oktober 2026:** source resmi branch `main`, commit `edd5385fee4d10db64681de9cc08ee757130eb78`, berisi 110 migration. VQE `vqemuyzveuirlkvdggjd` adalah staging yang disetujui dan sudah menerapkan 110/110 versi migration tanpa selisih set. PTSAS `ptsasgdvgrbdtgyqieie` tetap Production, GitHub auto-deploy **OFF**, dan tidak disentuh. Data Firestore dummy tidak perlu disalin. CI PR #36 lulus [2/2 job](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41153976106).
+> **Checkpoint 31 Oktober 2026, 09:32 UTC:** PR #38 head `8fecdedcfd52f50f6abb1390509cb93a4f5282ab` lulus pemeriksaan CI wajib **3/3** pada [run 41188553649](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41188553649): build frontend/guard Firebase, migrasi + API Auth/tenant + pgTAP, serta instalasi NPM bersih. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch. Login Admin berhasil, tetapi browser `/health/ready` masih 503 dan dashboard belum memuat data; pemeriksaan identity store terdahulu tidak membuktikan konfigurasi browser saat ini. File `.env` pada checkout lokal kanonis yang diperiksa sekarang menunjuk ke PTSAS Production, bukan VQE; target browser belum terverifikasi. UAT data menunggu penyelarasan backend preview. PR tetap Draft/Open. PTSAS `ptsasgdvgrbdtgyqieie` adalah Production, tidak disentuh; auto-deploy tetap OFF.
 
-**Tujuan dokumen:** memberi tim backend langkah konkret untuk melanjutkan pengujian dan menyiapkan rilis. Status ini tidak menyatakan aplikasi siap produksi atau sudah lulus UAT.
+Dokumen ini menyatakan keadaan yang terverifikasi untuk membantu tim melanjutkan pemeriksaan. Ini bukan pernyataan bahwa produk telah lulus UAT atau siap produksi.
 
-## Fakta lingkungan
+## Keadaan lingkungan
 
-| Lingkungan | Ref | Status dan batas |
+| Lingkungan | Ref | Keadaan dan batas |
 | --- | --- | --- |
-| Staging ERP | `vqemuyzveuirlkvdggjd` | Schema 110/110 migration sudah diterapkan. 160 tabel public, seluruhnya RLS-enabled dan FORCE RLS; 159 tabel tenant-scoped; 4 bucket Storage privat. Belum ada tenant maupun user Auth. Gunakan untuk data sintetis dan UAT. |
-| Production ERP | `ptsasgdvgrbdtgyqieie` | Auto-deploy tetap OFF. Snapshot lama menunjukkan 119 tabel dan 47 versi ledger, dua tanpa metadata. Konektor baca Codex menolak project ini pada checkpoint terakhir; tim harus memverifikasi ulang lewat akses resmi. Jangan menerapkan migration sebelum rekonsiliasi dan backup yang dapat dipulihkan. |
+| Staging ERP | `vqemuyzveuirlkvdggjd` | Project berstatus `ACTIVE_HEALTHY`, 115 migration diterapkan sampai `20270212000000`. Tenant sintetis aktif dengan satu profil `admin:active`; kandidat, Wali, relasi, tagihan, dan permintaan Finance masih nol. Integrasi GitHub sudah terputus. Dashboard menampilkan label internal `main / PRODUCTION`; perlakukan VQE sebagai staging ERP sesuai keputusan pemilik. Auth mengembalikan 429 untuk email recovery karena batas email bawaan. |
+| Production ERP | `ptsasgdvgrbdtgyqieie` | Auto-deploy OFF. Konektor Codex saat ini menolak pembacaan project, ledger, dan katalog. Snapshot historis mencatat 119 tabel dan 47 entri ledger (dua tanpa metadata), tetapi belum diverifikasi ulang. Jangan deploy migration atau memperbaiki ledger sebelum rekonsiliasi baca-saja dan backup yang dapat dipulihkan. |
 
-Kondisi VQE membuktikan deployment skema staging berhasil; hal itu tidak membuktikan Production sama, login berfungsi, atau seluruh alur bisnis diterima pengguna.
+`main` dan VQE memang berbeda saat ini: VQE telah menerima lima migration dari PR #38 yang belum digabung. Jangan menyebut VQE setara dengan `main` sampai PR tersebut selesai atau migrasi staging direkonsiliasi. Tidak ada data Firestore yang perlu disalin.
 
-## Langkah tim berikutnya
+## Tim dapat mulai sekarang
 
-### 1. Provisioning sintetis dan pemeriksaan konfigurasi staging
+1. **Review PR #38:** periksa perubahan akses Wali terhadap tagihan PPDB sebelum onboarding, lima migration tambahan, RLS/grants, dan CI. PR masih Draft/Open karena UAT aplikasi Wali belum dilakukan. CI hijau belum menguji login melalui UI.
+2. **Lanjutkan UAT sintetis di VQE:** tenant dan profil Admin uji sudah ada; jangan membuat tenant atau akun Admin duplikat. Login Admin melalui UI sudah berhasil, tetapi `/health/ready` pada backend yang melayani browser masih `unavailable`; selaraskan proses server dan env VQE terlebih dahulu. Pemeriksaan worktree sebelumnya tidak membuktikan env proses preview saat ini; file `.env` checkout lokal kanonis sekarang menunjuk ke PTSAS Production. Setelah readiness UI `ready`, buat profil Wali, kandidat, relasi, dan tagihan sintetis untuk skenario UAT. Jangan gunakan kredensial pelanggan atau PTSAS.
+3. **Jalankan skenario UAT:** login Wali, lihat tagihan kandidat yang cocok, upload bukti ke bucket privat, tolak akses lintas-tenant atau kandidat yang tidak valid, onboarding kandidat, dan pastikan hubungan Wali–santri kanonis berfungsi. Catat bukti, hasil, dan commit yang diuji. Hapus fixture setelah UAT.
+4. **Uji instalasi pelanggan:** ikuti runbook Docker/Compose pada VPS Linux dan VM on-premise bersih. Uji konfigurasi runtime, upgrade, backup serta restore database dan Storage. Catat hasil dan batas platform yang benar-benar diuji.
+5. **Rekonsiliasi PTSAS secara baca-saja:** pastikan dashboard memilih ref `ptsasgdvgrbdtgyqieie`, lalu jalankan [skrip inventaris baca-saja](../06_DATABASE/PTSAS_PRODUCTION_READ_ONLY_RECONCILIATION.sql) di SQL Editor. Skrip hanya membaca metadata ledger, katalog, grants, function, trigger, dan bucket; tidak membaca baris operasional dan menutup transaksi dengan `ROLLBACK`. Query-query di dalamnya sudah divalidasi sebagai SELECT pada VQE staging; skrip belum dijalankan pada PTSAS. Tim backend/operator dapat menyerahkan hasilnya kepada pengembang untuk dicocokkan dengan migration source. Auto-deploy harus tetap OFF.
 
-1. Catat commit aplikasi dan migration yang diuji; keduanya harus berasal dari `main` yang sama.
-2. Buat tenant uji melalui jalur provisioning yang disepakati dan akun sintetis untuk setiap role. Jangan menambahkan data asli.
-3. Periksa environment aplikasi menunjuk ke VQE. Pastikan publishable key hanya dipakai di klien; secret/service-role dan kunci PII berada di secret manager/server saja.
-4. Verifikasi migration ledger, tabel, function/RPC, index, constraint, grants, RLS, Storage policy, dan bucket privat di staging.
+## Konfigurasi staging dan status Auth
 
-**Keluaran:** catatan ref/commit, ringkasan inventaris, serta tenant dan akun sintetis yang dapat digunakan UAT.
+Di checkout lokal kanonis yang diperiksa, file `.env` yang diabaikan Git menunjuk ke PTSAS Production (`ptsasgdvgrbdtgyqieie`), bukan VQE. Target Supabase yang dipakai halaman `localhost:4179` belum dapat dipastikan; login sukses tidak membuktikan targetnya. Jangan gunakan halaman/checkout itu untuk UAT atau memasukkan data. Jalankan UAT hanya dari checkout terpisah yang dikonfigurasi khusus ke VQE; jangan menampilkan atau menyalin secret, kunci PII, maupun nilai Production. Email Auth bawaan VQE pernah mencapai `over_email_send_rate_limit`; untuk beberapa putaran UAT, tim dapat mengonfigurasi SMTP khusus di Authentication → Emails → SMTP Settings. Simpan kredensial SMTP hanya di dashboard/secret manager, jangan di chat atau bundle klien. Panduan rinci ada di [runbook email Auth](SUPABASE_AUTH_EMAIL_DELIVERY_RUNBOOK.md).
 
-### 2. UAT Auth, role, tenant, dan modul kritis
+Untuk alur UAT yang mencakup login Wali, tagihan, bukti, dan onboarding, konfigurasi server/browser mencakup `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `PUBLIC_PPDB_TENANT_ID`, `PII_ENCRYPTION_KEY`, dan `PII_FINGERPRINT_KEY`. Buat kedua kunci PII secara acak dan independen, masing-masing 32 byte/64 karakter hex. Atur flag server dan pasangannya yang berawalan `VITE_` sesuai skenario PPDB, dokumen, finance bill, serta onboarding; semuanya harus tetap mati di Production sampai ada rencana rilis yang disetujui. Pendaftaran Wali memakai `SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED`; `PUBLIC_PPDB_ENABLED` hanya diperlukan jika UAT juga menguji pendaftaran calon santri publik. Kunci PII dan `SUPABASE_SECRET_KEY` tidak boleh masuk bundle klien.
 
-Uji login, undangan/pembuatan akun, pemulihan akun, penonaktifan sesi, serta matriks role × permission. Buktikan pengguna satu tenant tidak dapat membaca atau mengubah tenant lain melalui UI, API, RPC, dan Storage.
+## Gerbang sebelum PR #38 siap digabung
 
-Uji alur PPDB → onboarding santri/NIS, asrama/kamar, keuangan dan pencatatan pembayaran manual, Tahfidz, komunikasi, dokumen privat, serta retry/idempotensi. Pastikan fitur yang belum siap tetap fail-closed. PPOB/payment gateway berada di luar rilis awal.
+- UAT Wali PPDB dan isolasi tenant lulus dengan fixture sintetis.
+- CI lulus 3/3 pada head source `af9db8378e91c62b682e44e994302abd24f026c2` ([run `41184875367`](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41184875367)): instalasi NPM, frontend/build/Docker guard, migrasi, API Auth/tenant, pgTAP, dan backup/restore.
+- Tim backend meninjau function/RPC, grants, RLS, Storage privat, dan dampak migration.
+- Tidak ada migration Production yang diterapkan. Rekonsiliasi PTSAS, backup/restore, dan persetujuan change window adalah pekerjaan terpisah sebelum cutover.
 
-**Keluaran:** bukti uji per alur, isu dengan tingkat dampak dan commit perbaikan, serta persetujuan UAT dari perwakilan pengguna.
+## Batas yang diketahui
 
-### 3. Backup, pemulihan, dan portabilitas pemasangan
+- Firebase tidak menjadi runtime aplikasi pada import graph aktif yang dijaga CI. Source legacy dan Firebase sebagai devDependency masih tersimpan; guard memeriksa agar keduanya tidak masuk runtime bundle.
+- Tenant sintetis dan profil Admin aktif pernah diverifikasi langsung di VQE dengan kueri baca-saja. Login Admin melalui UI berhasil, tetapi target Supabase browser belum terverifikasi; `/health/ready` mengembalikan `unavailable`. File `.env` checkout lokal kanonis yang diperiksa sekarang menunjuk ke PTSAS Production, sehingga checkout dan preview tersebut tidak aman untuk UAT. Profil Wali, kandidat, relasi, tagihan, upload, onboarding, dan isolasi tenant melalui UI belum diuji. Fixture baru dibuat setelah readiness pulih dan dihapus sesudah UAT.
+- PTSAS belum dapat diaudit ulang melalui konektor; percobaan `get_project` terbaru ditolak akses. Snapshot Production di dokumen lama tetap historis. Tidak ada perubahan Production.
+- PPOB/payment gateway dikeluarkan dari rilis awal.
+- Persentase penyelesaian keseluruhan tidak dihitung dari kemajuan schema atau CI saja.
 
-Lakukan backup lalu restore database **dan Storage** staging ke environment uji kedua. Buktikan relasi, file, dan kunci enkripsi tetap dapat digunakan. Jalankan clean install, upgrade, dan restore pada Linux VPS serta VM on-premise representatif. Catat kebutuhan DNS/TLS, reverse proxy, SMTP, volume persisten, resource minimum, dan akses jaringan.
-
-**Keluaran:** runbook install/upgrade/backup/restore serta bukti restore dan smoke test di tiap environment.
-
-### 4. Rekonsiliasi Production
-
-1. Gunakan akses baca-saja yang disediakan operator untuk membaca ledger serta katalog PTSAS.
-2. Cocokkan tiap versi ledger dengan source migration dan definisi schema. Dua baris ledger terakhir sebelumnya tidak memiliki metadata `name` maupun `statements`; jangan menandainya applied atau mengubah ledger tanpa bukti.
-3. Simpan backup Production yang dapat dipulihkan sebelum menyusun rencana perubahan.
-4. Minta tim deployment meninjau rencana, jadwal, verifikasi pascapenerapan, dan pemulihan. Biarkan auto-deploy OFF hingga persetujuan change window.
-
-**Keluaran:** rekonsiliasi yang dapat diaudit dan rencana penerapan yang disetujui. Tidak ada perintah `db push`, `migration repair`, reset, atau perubahan Production hanya untuk menyamakan jumlah migration.
-
-## Tanggung jawab
+## Kepemilikan pekerjaan
 
 | Pekerjaan | Pemilik |
 | --- | --- |
-| Source aplikasi, perbaikan, commit/PR dan CI | Pengembang aplikasi |
-| Akses Supabase, provisioning staging, backup, inventaris | Tim backend |
-| UAT, uji hosting VPS/on-premise, operasi dan runbook | Tim backend/penerapan dan perwakilan pesantren |
-| Rekonsiliasi serta deployment Production | Tim backend/penerapan setelah gerbang rilis disetujui |
+| Source aplikasi, perbaikan, PR dan CI | Pengembang aplikasi |
+| Provisioning sintetis, akses staging, inventaris, backup | Tim backend |
+| UAT fungsi pesantren dan persetujuan hasil | Tim backend dan perwakilan pesantren |
+| Instalasi VPS/on-premise, operasi, runbook | Tim backend/penerapan |
+| Rekonsiliasi serta deployment PTSAS Production | Tim backend/penerapan setelah rencana disetujui |
 
-## Status checkpoint
+Dokumen terkait: [temuan redirect Auth Production](PRODUCTION_AUTH_REDIRECT_CHECKPOINT_2026-10-31.md), [checkpoint staging PR #38](../06_DATABASE/CHECKPOINT_GUARDIAN_PPDB_STAGING_2026-10-31.md), [audit cutover Supabase](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md), [snapshot Production](../06_DATABASE/PTSAS_PRODUCTION_READINESS_SNAPSHOT_2026-10-31.md), dan [kesiapan komersial](COMMERCIAL_READINESS.md).
 
-- Deployment migration ke VQE staging: **110/110 (100%)**.
-- CI PR #36: **2/2 job lulus**.
-- Kesiapan keseluruhan fitur tidak dihitung ulang dari checkpoint schema ini.
-- UAT login dan matriks role/tenant, simulasi instalasi pelanggan, backup/restore staging yang dijalankan tim, serta rekonsiliasi Production masih harus dikerjakan.
-- PPOB/payment gateway tidak termasuk rilis awal.
+## Runbook singkat: preview login berhasil tetapi readiness 503
 
-Dokumen terkait: [Audit cutover Supabase](../06_DATABASE/SUPABASE_PROJECT_REF_CUTOVER_AUDIT_2026-10-31.md), [snapshot Production](../06_DATABASE/PTSAS_PRODUCTION_READINESS_SNAPSHOT_2026-10-31.md), dan [kesiapan komersial](COMMERCIAL_READINESS.md).
+**Temuan browser 31 Oktober 2026:** login Admin UAT berhasil, tetapi `http://localhost:4179/health/ready` mengembalikan `{"status":"unavailable"}` dan dashboard belum dapat membaca data. Checkout lokal kanonis yang diperiksa memiliki `SUPABASE_URL` dan `VITE_SUPABASE_URL` menuju PTSAS Production. Karena proses yang melayani port 4179 belum dapat diidentifikasi, target backend/client pada browser belum terbukti staging. Jangan gunakan port 4179 atau memasukkan data hingga target diverifikasi.
+
+Untuk mengisolasi API server tanpa menghentikan proses lama:
+
+1. Buka PowerShell baru pada **checkout terpisah dan bersih PR #38 khusus staging**, bukan checkout kanonis yang file `.env`-nya menunjuk ke Production. Di root repository, pastikan file lokal `.env` ada dan diabaikan Git:
+   ```powershell
+   Test-Path .env
+   git check-ignore .env
+   ```
+   Jangan tampilkan isi `.env`, jangan commit, dan pastikan `SUPABASE_URL` serta `VITE_SUPABASE_URL` menghasilkan host `vqemuyzveuirlkvdggjd.supabase.co`. Jangan gunakan URL/key PTSAS Production.
+2. Pastikan dua variabel server terbaca tanpa mencetak nilainya:
+   ```powershell
+   node -r dotenv/config -e "for (const name of ['SUPABASE_URL','SUPABASE_SECRET_KEY','VITE_SUPABASE_URL','VITE_SUPABASE_PUBLISHABLE_KEY']) { const value = process.env[name]; console.log(name + ': ' + (name.endsWith('_URL') && value ? new URL(value).host : value ? 'set' : 'missing')); }"
+   ```
+   Bila dependensi belum terpasang, jalankan `npm ci` terlebih dahulu. Perintah ini hanya memasang paket dari lockfile.
+3. Jalankan server API dari root repository pada port pemeriksaan yang terpisah:
+   ```powershell
+   $env:PORT = '4180'
+   npm run dev
+   ```
+   Skrip `dev` menjalankan `tsx server.ts`; server memuat `.env` dari direktori kerja. Biarkan terminal ini terbuka agar log readiness terlihat.
+4. Di PowerShell kedua, periksa endpoint:
+   ```powershell
+   curl.exe -i http://127.0.0.1:4180/health/ready
+   ```
+   Lulus jika respons `HTTP 200` dan `{"status":"ready"}`. Respons `503` berarti identity store masih gagal diperiksa.
+5. Jika tetap 503, lihat terminal server untuk log `Supabase identity readiness check failed`. Log hanya memuat tipe error serta penanda apakah URL dan secret tersedia, bukan nilainya. Perbaiki konfigurasi/profil/akses staging berdasarkan error tersebut; jangan tempel secret atau isi lengkap log sensitif ke tiket.
+6. Setelah health 200, buka `http://localhost:4180/` dan verifikasi lagi login serta dashboard. Jalur password-recovery tidak perlu diulang. Jika health 200 tetapi data modul tetap gagal, periksa flag runtime modul dan log API secara terpisah; readiness hanya membuktikan identity store merespons, bukan seluruh modul UAT.
+
+Port `4180` dipilih untuk menghindari perubahan atau penghentian layanan lama di `4179`. Gunakan hanya konfigurasi staging VQE. Jangan memasukkan `SUPABASE_SECRET_KEY`, kunci PII, atau nilai Production ke klien Vite.

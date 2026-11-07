@@ -38,6 +38,7 @@ interface AuthContextType {
   completeGuardianInvitation: () => void;
   beginGuardianRegistration: () => void;
   completeGuardianRegistration: () => void;
+  completePasswordRecovery: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -52,6 +53,7 @@ const AuthContext = createContext<AuthContextType>({
   completeGuardianInvitation: () => {},
   beginGuardianRegistration: () => {},
   completeGuardianRegistration: () => {},
+  completePasswordRecovery: () => {},
 });
 
 const ALLOWED_ROLES: UserRole[] = ['SuperAdmin', 'Admin', 'Ustadz', 'Santri', 'Walisantri'];
@@ -145,6 +147,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const guardianInvitationRoute = useRef(typeof window !== 'undefined' && (
     new URLSearchParams(window.location.search).has('guardianInvite')
     || new URLSearchParams(window.location.search).has('guardianRegistration')
+    || new URLSearchParams(window.location.search).has('passwordRecovery')
   ));
   const [role, setRole] = useState<UserRole>('Public');
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -272,6 +275,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const completeGuardianInvitation = () => { guardianInvitationRoute.current = false; };
   const beginGuardianRegistration = () => { guardianInvitationRoute.current = true; };
   const completeGuardianRegistration = () => { guardianInvitationRoute.current = false; };
+  const completePasswordRecovery = () => { guardianInvitationRoute.current = false; };
 
   const changeInitialPassword = async (password: string) => {
     const { data } = await supabase.auth.getSession();
@@ -305,6 +309,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       completeGuardianInvitation,
       beginGuardianRegistration,
       completeGuardianRegistration,
+      completePasswordRecovery,
     }}>
       {children}
     </AuthContext.Provider>
@@ -312,3 +317,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+

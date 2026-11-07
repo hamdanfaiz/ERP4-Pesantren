@@ -560,7 +560,11 @@ export async function setAuthDisabled(uid: string, disabled: boolean): Promise<v
 
 export async function createRecoveryLink(email: string): Promise<string> {
   const supabase = supabaseAdmin();
-  const { data, error } = await supabase.auth.admin.generateLink({ type: "recovery", email });
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: { redirectTo: configuredPublicAppUrl().toString() },
+  });
   const link = data?.properties?.action_link;
   if (error || !link) throw new IdentityUnavailableError("Gagal membuat tautan reset password.");
   return link;
@@ -852,16 +856,25 @@ export async function claimGuardianAccountInvitation(token: string, userId: stri
 
 export type GuardianStudentOption = { id: string; name: string; nis: string; className: string };
 
-export async function listGuardianStudentIds(tenantId: string, userId: string): Promise<string[]> {
+export async function listGuardianStudentIds(tenantId: string, userId: string, allowEmpty = false): Promise<string[]> {
   const supabase = supabaseAdmin();
   const profile = await supabase.from("profiles")
-    .select("role,status")
+    .select("role,status,email")
     .eq("tenant_id", tenantId)
     .eq("user_id", userId)
     .maybeSingle();
   if (profile.error) throw new IdentityUnavailableError("Profil Wali tidak dapat diverifikasi.");
   if (!profile.data || profile.data.role !== "wali_santri" || profile.data.status !== "active") {
     throw new IdentityConflictError("Akun Wali tidak aktif pada tenant ini.");
+  }
+  const authUser = await supabase.auth.admin.getUserById(userId);
+  if (authUser.error || !authUser.data.user) {
+    throw new IdentityUnavailableError("Akun autentikasi Wali tidak dapat diverifikasi.");
+  }
+  const verifiedEmail = String(authUser.data.user.email || "").trim().toLowerCase();
+  if (!authUser.data.user.email_confirmed_at || !verifiedEmail
+    || String(profile.data.email || "").trim().toLowerCase() !== verifiedEmail) {
+    return [];
   }
   const accounts = await readIdentityPages((from, to) => supabase.from("guardian_user_accounts")
     .select("guardian_id")
@@ -871,7 +884,10 @@ export async function listGuardianStudentIds(tenantId: string, userId: string): 
     .order("guardian_id", { ascending: true })
     .range(from, to), "Relasi akun Wali tidak dapat diverifikasi.");
   const guardianIds = [...new Set(accounts.map((row: any) => String(row.guardian_id || "").trim()).filter(Boolean))];
-  if (!guardianIds.length) throw new IdentityConflictError("Akun Wali belum terhubung ke data Wali.");
+  if (!guardianIds.length) {
+    if (allowEmpty) return [];
+    throw new IdentityConflictError("Akun Wali belum terhubung ke data Wali.");
+  }
   const guardianRows: any[] = [];
   for (let index = 0; index < guardianIds.length; index += 100) {
     const batch = guardianIds.slice(index, index + 100);
@@ -885,7 +901,10 @@ export async function listGuardianStudentIds(tenantId: string, userId: string): 
   const activeGuardianIds = [...new Set(guardianRows
     .filter((row: any) => ["active", "aktif"].includes(String(row.status || "").trim().toLowerCase()))
     .map((row: any) => String(row.id || "").trim()).filter(Boolean))];
-  if (!activeGuardianIds.length) throw new IdentityConflictError("Data Wali tidak aktif.");
+  if (!activeGuardianIds.length) {
+    if (allowEmpty) return [];
+    throw new IdentityConflictError("Data Wali tidak aktif.");
+  }
   const relationRows: any[] = [];
   for (let index = 0; index < activeGuardianIds.length; index += 100) {
     const batch = activeGuardianIds.slice(index, index + 100);
@@ -914,6 +933,55 @@ export async function listGuardianStudentIds(tenantId: string, userId: string): 
   return activeIds;
 }
 
+export async function listGuardianCandidateIds(tenantId: string, userId: string): Promise<string[]> {
+  const supabase = supabaseAdmin();
+  const profile = await supabase.from("profiles")
+    .select("role,status,email")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profile.error) throw new IdentityUnavailableError("Profil Wali tidak dapat diverifikasi.");
+  if (!profile.data || profile.data.role !== "wali_santri" || profile.data.status !== "active") {
+    throw new IdentityConflictError("Akun Wali tidak aktif pada tenant ini.");
+  }
+  const authUser = await supabase.auth.admin.getUserById(userId);
+  if (authUser.error || !authUser.data.user) {
+    throw new IdentityUnavailableError("Akun autentikasi Wali tidak dapat diverifikasi.");
+  }
+  const verifiedEmail = String(authUser.data.user.email || "").trim().toLowerCase();
+  if (!authUser.data.user.email_confirmed_at || !verifiedEmail
+    || String(profile.data.email || "").trim().toLowerCase() !== verifiedEmail) {
+    return [];
+  }
+
+  const accounts = await readIdentityPages((from, to) => supabase.from("guardian_candidate_accounts")
+    .select("candidate_id")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("candidate_id", { ascending: true })
+    .range(from, to), "Relasi calon santri Wali tidak dapat diverifikasi.");
+  const candidateIds = [...new Set(accounts.map((row: any) => String(row.candidate_id || "").trim()).filter(Boolean))];
+  if (!candidateIds.length) return [];
+
+  const activeIds: string[] = [];
+  for (let index = 0; index < candidateIds.length; index += 100) {
+    const batch = candidateIds.slice(index, index + 100);
+    const candidates = await readIdentityPages((from, to) => supabase.from("candidates")
+      .select("id,email,stage,master_student_id")
+      .eq("tenant_id", tenantId)
+      .in("id", batch)
+      .is("master_student_id", null)
+      .neq("stage", "Rejected")
+      .order("id", { ascending: true })
+      .range(from, to), "Status calon santri Wali tidak dapat diverifikasi.");
+    activeIds.push(...candidates
+      .filter((row: any) => String(row.email || "").trim().toLowerCase() === verifiedEmail)
+      .map((row: any) => String(row.id || "").trim()).filter(Boolean));
+  }
+  return activeIds;
+}
+
 export async function claimGuardianAccountByVerifiedEmail(tenantId: string, userId: string): Promise<boolean> {
   const supabase = supabaseAdmin();
   const authUser = await supabase.auth.admin.getUserById(userId);
@@ -937,7 +1005,7 @@ export async function claimGuardianAccountByVerifiedEmail(tenantId: string, user
 
 export async function listGuardianStudents(tenantId: string, userId: string): Promise<GuardianStudentOption[]> {
   const supabase = supabaseAdmin();
-  const studentIds = await listGuardianStudentIds(tenantId, userId);
+  const studentIds = await listGuardianStudentIds(tenantId, userId, true);
   if (!studentIds.length) return [];
   const result: GuardianStudentOption[] = [];
   for (let index = 0; index < studentIds.length; index += 100) {
@@ -962,6 +1030,16 @@ export async function guardianCanAccessStudent(tenantId: string, userId: string,
     p_student_id: studentId,
   });
   if (result.error) throw new IdentityUnavailableError("Akses santri Wali tidak dapat diverifikasi.");
+  return result.data === true;
+}
+
+export async function guardianCanAccessCandidate(tenantId: string, userId: string, candidateId: string): Promise<boolean> {
+  const result = await supabaseAdmin().rpc("guardian_can_access_candidate", {
+    p_tenant_id: tenantId,
+    p_user_id: userId,
+    p_candidate_id: candidateId,
+  });
+  if (result.error) throw new IdentityUnavailableError("Akses calon santri Wali tidak dapat diverifikasi.");
   return result.data === true;
 }
 export async function changeInitialPassword(uid: string, password: string): Promise<void> {

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { AlertCircle, LogIn, ShieldCheck, UserCheck } from 'lucide-react';
 import { GuardianSelfRegistrationView } from './GuardianSelfRegistrationView';
+import { supabase, supabaseClientConfigured } from '../utils/supabase';
+import { passwordRecoveryErrorMessage } from '../utils/passwordRecoveryErrorMessage';
 
 export function LoginView({ onBack }: { onBack: () => void }) {
   const { login, isLoading } = useAuth();
@@ -9,7 +11,10 @@ export function LoginView({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingRecovery, setIsSendingRecovery] = useState(false);
 
   if (showGuardianRegistration) {
     return <GuardianSelfRegistrationView onBack={() => setShowGuardianRegistration(false)} />;
@@ -25,6 +30,35 @@ export function LoginView({ onBack }: { onBack: () => void }) {
       setLoginError(error instanceof Error ? error.message : 'Login gagal. Silakan coba kembali.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePasswordRecovery = async () => {
+    setRecoveryError(null);
+    setRecoveryNotice(null);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setRecoveryError('Masukkan email akun terlebih dahulu.');
+      return;
+    }
+    if (!supabaseClientConfigured()) {
+      setRecoveryError('Pemulihan kata sandi belum dikonfigurasi. Hubungi administrator pesantren.');
+      return;
+    }
+
+    setIsSendingRecovery(true);
+    try {
+      const redirectTo = new URL('/?passwordRecovery=1', window.location.origin).toString();
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
+      if (error) {
+        setRecoveryError(passwordRecoveryErrorMessage(error));
+        return;
+      }
+      setRecoveryNotice('Jika email tersebut terdaftar, tautan untuk membuat kata sandi baru akan dikirim ke kotak masuknya.');
+    } catch (error) {
+      setRecoveryError(passwordRecoveryErrorMessage(error));
+    } finally {
+      setIsSendingRecovery(false);
     }
   };
 
@@ -45,6 +79,17 @@ export function LoginView({ onBack }: { onBack: () => void }) {
           <div role="alert" className="p-3 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
             <span>{loginError}</span>
+          </div>
+        )}
+        {recoveryError && (
+          <div role="alert" className="p-3 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <span>{recoveryError}</span>
+          </div>
+        )}
+        {recoveryNotice && (
+          <div role="status" aria-live="polite" className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-xs">
+            {recoveryNotice}
           </div>
         )}
 
@@ -73,6 +118,16 @@ export function LoginView({ onBack }: { onBack: () => void }) {
               onChange={(event) => setPassword(event.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
             />
+            <div className="mt-1.5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => void handlePasswordRecovery()}
+                disabled={isSendingRecovery || isSubmitting || isLoading}
+                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                {isSendingRecovery ? 'Mengirim permintaan…' : 'Lupa kata sandi?'}
+              </button>
+            </div>
           </div>
           <button
             type="submit"
@@ -104,3 +159,4 @@ export function LoginView({ onBack }: { onBack: () => void }) {
     </div>
   );
 }
+

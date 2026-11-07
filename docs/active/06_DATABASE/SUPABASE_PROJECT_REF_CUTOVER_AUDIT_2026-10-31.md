@@ -47,3 +47,16 @@ Konfigurasi repository menargetkan PTSAS, tetapi nilai `VITE_SUPABASE_URL` dan `
 3. **Firebase → Supabase:** runtime jalur aktif telah lolos guard CI dan jalur Firebase Admin/Firestore server sudah dihapus. Validasi environment hosting, provisioning tenant/Auth, login/UAT, dan uji instalasi pelanggan belum dilakukan.
 4. CI PR #36 lulus pada [run 41153976106](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41153976106), 2/2 job. Rehearsal lokal sintetis, pgTAP, pemeriksaan API/tenant, transaksi serentak NIS dan Tahfidz, Storage, backup/restore, serta smoke Docker/Compose berhasil. Ini bukti CI, bukan pengganti UAT oleh pengguna.
 5. Setelah rekonsiliasi, minta tim penerapan memvalidasi kedua variabel URL runtime pada environment mereka, lalu lakukan UAT dan smoke test. PTSAS Production tetap tidak menerima migration otomatis dari merge GitHub.
+
+
+## Addendum status terkini — 31 Oktober 2026
+
+Bagian yang lebih lama dalam dokumen ini menggambarkan keadaan sebelum VQE ditetapkan sebagai staging dan integrasi repository-nya kemudian diputus. Gunakan addendum ini untuk keadaan sekarang:
+
+- VQE `vqemuyzveuirlkvdggjd` merupakan staging ERP sesuai keputusan pemilik. Database mencatat 115 migration sampai `20270212000000`; lima migration tersebut berasal dari PR #38 yang masih Draft/Open dan belum ada di `main` (base `e9e65e3e8b9d05d126a6150ce726f720722839c5`, 110 migration sampai `20270207000000`).
+- Integrasi GitHub pada project VQE telah terputus. Dashboard masih menampilkan label branch internal `main / PRODUCTION`; label itu bukan status integrasi repo maupun penetapan VQE sebagai Production ERP.
+- CI PR #38 pada run [41166754714](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41166754714) lulus 2/2 job. PR tetap Draft/Open sampai UAT UI Wali PPDB, upload bukti, onboarding, dan isolasi tenant dilakukan.
+- VQE kosong dari tenant, profil, kandidat, akun Auth, dan record uji persisten pada checkpoint ini. Belum ada login/UAT UI yang terbukti. Jangan membuat fixture tanpa persetujuan eksplisit dan gunakan data sintetis saja.
+- PTSAS `ptsasgdvgrbdtgyqieie` tetap Production, auto-deploy OFF, dan tidak disentuh. Permintaan baca terbaru melalui konektor untuk project, migration ledger, dan katalog ditolak; angka katalog/ledger dalam bagian sebelumnya adalah snapshot historis, bukan bukti keadaan live saat ini.
+- Tidak ada data Firestore dummy yang disalin dan tidak ada perubahan pada database PTSAS. Integrasi repo VQE yang terputus tidak mengubah data database staging.
+

@@ -13,7 +13,7 @@ RETURNS INTEGER
 LANGUAGE SQL
 AS $$ SELECT 1 $$;
 
-SELECT plan(37);
+SELECT plan(53);
 
 -- Existing trigger functions must not be callable as anon, authenticated, or
 -- service_role RPCs. Their database triggers remain attached to their tables.
@@ -67,6 +67,122 @@ SELECT ok(NOT has_function_privilege('anon', 'public.api_default_acl_probe_fn()'
 SELECT ok(NOT has_function_privilege('authenticated', 'public.api_default_acl_probe_fn()', 'EXECUTE'), 'new public function is not callable by authenticated');
 SELECT ok(NOT has_function_privilege('service_role', 'public.api_default_acl_probe_fn()', 'EXECUTE'), 'new public function requires an explicit service_role grant');
 
+-- Tenant authorization helpers stay callable by authenticated RLS policies,
+-- but leave public and are not exposed to anon or service_role callers.
+SELECT ok(NOT has_schema_privilege('anon', 'private', 'USAGE'), 'anon cannot resolve objects in the internal schema');
+SELECT ok(has_schema_privilege('authenticated', 'private', 'USAGE'), 'authenticated can resolve internal RLS helpers');
+SELECT ok(NOT has_schema_privilege('service_role', 'private', 'USAGE'), 'service_role does not receive internal schema usage');
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ])),
+  0,
+  'tenant RLS helpers are absent from the exposed public schema'
+);
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ])),
+  4,
+  'all four tenant RLS helpers exist in the internal schema'
+);
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ]) AND has_function_privilege('authenticated', p.oid, 'EXECUTE')),
+  4,
+  'authenticated can execute all tenant RLS helpers used by policies'
+);
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ]) AND has_function_privilege('anon', p.oid, 'EXECUTE')),
+  0,
+  'anon cannot execute internal tenant RLS helpers'
+);
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ]) AND has_function_privilege('service_role', p.oid, 'EXECUTE')),
+  0,
+  'service_role does not receive direct execution grants on tenant RLS helpers'
+);
+SELECT is(
+  (SELECT count(*)::INTEGER FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'private' AND p.proname = ANY (ARRAY[
+     'current_tenant_id', 'current_app_role', 'has_module_access', 'is_tenant_admin'
+   ]) AND p.proconfig @> ARRAY['search_path=pg_catalog, public']),
+  4,
+  'all tenant RLS helpers keep a fixed search_path'
+);
+
+-- Cache uncorrelated authorization context with initplans instead of invoking
+-- helper functions once per candidate row in policies.
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.user_profiles'::regclass
+    AND p.polname = 'user_profiles_select_own'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT auth.uid%'
+), 'user_profiles policy evaluates auth.uid through an initplan');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.tenants'::regclass
+    AND p.polname = 'tenants_select_current_tenant'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.current_tenant_id%'
+), 'tenants policy caches the active tenant lookup');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.profiles'::regclass
+    AND p.polname = 'profiles_select_self_or_tenant_admin'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT auth.uid%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.current_tenant_id%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.is_tenant_admin%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.has_module_access%'
+), 'profiles policy caches all stable caller-context lookups');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.candidates'::regclass
+    AND p.polname = 'candidates_select_ppdb_admin'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.current_tenant_id%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.is_tenant_admin%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.has_module_access%'
+), 'candidate policy caches stable tenant and permission lookups');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_policy p
+  WHERE p.polrelid = 'public.candidate_documents'::regclass
+    AND p.polname = 'candidate_documents_select_ppdb_admin'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.current_tenant_id%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.is_tenant_admin%'
+    AND pg_get_expr(p.polqual, p.polrelid) ILIKE '%SELECT private.has_module_access%'
+), 'candidate document policy caches stable tenant and permission lookups');
+
+-- Keep high-volume tenant-scoped lookups aligned with the indexes used by the
+-- guardian identity and Tahfidz session APIs.
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_index i
+  WHERE i.indexrelid = 'public.guardian_students_tenant_student_idx'::regclass
+    AND i.indisvalid AND i.indpred IS NULL AND i.indnkeyatts = 3
+    AND i.indkey[0] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.guardian_students'::regclass AND attname = 'tenant_id')
+    AND i.indkey[1] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.guardian_students'::regclass AND attname = 'student_id')
+    AND i.indkey[2] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.guardian_students'::regclass AND attname = 'guardian_id')
+), 'guardian relation has an index for tenant-scoped student reverse lookups');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_index i
+  WHERE i.indexrelid = 'public.tahfidz_sessions_tenant_halaqah_kind_schedule_idx'::regclass
+    AND i.indisvalid AND i.indpred IS NULL AND i.indnkeyatts = 5
+    AND i.indkey[0] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'tenant_id')
+    AND i.indkey[1] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'halaqah_id')
+    AND i.indkey[2] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'kind')
+    AND i.indkey[3] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'scheduled_at')
+    AND i.indkey[4] = (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.tahfidz_sessions'::regclass AND attname = 'id')
+), 'Tahfidz session pages have an index matching tenant, halaqah, kind, and schedule order');
+
 SELECT * FROM finish();
 ROLLBACK;
+
 
