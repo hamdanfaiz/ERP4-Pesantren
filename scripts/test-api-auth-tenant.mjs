@@ -1467,7 +1467,7 @@ async function main() {
         `DELETE FROM public.tahfidz_targets WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tahfidz_halaqahs WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
-        `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`
+        `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcements WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
