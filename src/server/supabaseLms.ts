@@ -56,8 +56,13 @@ async function tenantIdFrom(value: string) {
   return value;
 }
 
-function inUuid(values: string[]) {
-  if (values.some((value) => !uuid(value))) throw new SupabaseLmsError(503, "LMS menemukan relasi tenant dengan ID tidak valid.");
+function inUuid(values: string[], relation: string) {
+  if (values.some((value) => !uuid(value))) {
+    if (process.env.SUPABASE_LMS_DIAGNOSTICS === "true") {
+      console.error("Supabase LMS relation IDs are invalid:", { relation, count: values.length });
+    }
+    throw new SupabaseLmsError(503, "LMS menemukan relasi tenant dengan ID tidak valid.");
+  }
   return "in.(" + values.join(",") + ")";
 }
 
@@ -126,7 +131,7 @@ export async function getSupabaseLmsSnapshot(tenantIdentifier: string, actorId: 
   if (isStudent) {
     const courseIds = [...new Set(enrollments.map((row) => String(row.course_id)))];
     if (!courseIds.length) return emptySnapshot();
-    courseQuery.set("id", inUuid(courseIds));
+    courseQuery.set("id", inUuid(courseIds, "student course filter"));
     courseQuery.set("status", "eq.published");
   }
   const [courseRows, categoryRows, instructorRows, gradeLevelRows] = await Promise.all([
@@ -140,24 +145,24 @@ export async function getSupabaseLmsSnapshot(tenantIdentifier: string, actorId: 
   if (!courseIds.length) return { ...emptySnapshot(), categories: categoryRows, instructors: instructorRows, gradeLevels };
 
   const [enrollmentRows, moduleRows, assignmentRows] = await Promise.all([
-    isStudent ? Promise.resolve(enrollments) : rows("/rest/v1/lms_enrollments?" + new URLSearchParams({ select: "id,course_id,student_id,status,enrolled_at", tenant_id: "eq." + tenantId, course_id: inUuid(courseIds), status: "eq.active", order: "enrolled_at.desc", limit: "5001" }).toString(), 5000, "enrollment"),
-    rows("/rest/v1/lms_course_modules?" + new URLSearchParams({ select: "id,course_id,title,description,display_order", tenant_id: "eq." + tenantId, course_id: inUuid(courseIds), order: "display_order.asc", limit: "2001" }).toString(), 2000, "module"),
-    rows("/rest/v1/lms_assignments?" + new URLSearchParams({ select: "id,course_id,module_id,title,instructions,due_at,allow_late,max_score,status", tenant_id: "eq." + tenantId, course_id: inUuid(courseIds), ...(isStudent ? { status: "eq.published" } : {}), order: "due_at.asc.nullslast,created_at.desc", limit: "2001" }).toString(), 2000, "assignment"),
+    isStudent ? Promise.resolve(enrollments) : rows("/rest/v1/lms_enrollments?" + new URLSearchParams({ select: "id,course_id,student_id,status,enrolled_at", tenant_id: "eq." + tenantId, course_id: inUuid(courseIds, "course enrollment"), status: "eq.active", order: "enrolled_at.desc", limit: "5001" }).toString(), 5000, "enrollment"),
+    rows("/rest/v1/lms_course_modules?" + new URLSearchParams({ select: "id,course_id,title,description,display_order", tenant_id: "eq." + tenantId, course_id: inUuid(courseIds, "course module"), order: "display_order.asc", limit: "2001" }).toString(), 2000, "module"),
+    rows("/rest/v1/lms_assignments?" + new URLSearchParams({ select: "id,course_id,module_id,title,instructions,due_at,allow_late,max_score,status", tenant_id: "eq." + tenantId, course_id: inUuid(courseIds, "course assignment"), ...(isStudent ? { status: "eq.published" } : {}), order: "due_at.asc.nullslast,created_at.desc", limit: "2001" }).toString(), 2000, "assignment"),
   ]);
   const moduleIds = moduleRows.map((row) => String(row.id));
   const assignmentIds = assignmentRows.map((row) => String(row.id));
   const [materialRows, studentRows, submissionRows, progressRows, noteRows] = await Promise.all([
-    moduleIds.length ? rows("/rest/v1/lms_materials?" + new URLSearchParams({ select: "id,module_id,title,material_type,resource_url,body,duration_seconds,display_order", tenant_id: "eq." + tenantId, module_id: inUuid(moduleIds), order: "display_order.asc", limit: "5001" }).toString(), 5000, "material") : Promise.resolve([]),
-    isStudent ? Promise.resolve([]) : (!isTeacher ? rows("/rest/v1/students?" + new URLSearchParams({ select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, limit: "2001" }).toString(), 2000, "student roster") : [...new Set(enrollmentRows.map((row) => String(row.student_id)))].length ? rows("/rest/v1/students?" + new URLSearchParams({ select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, id: inUuid([...new Set(enrollmentRows.map((row) => String(row.student_id)))]) , limit: "2001" }).toString(), 2000, "student roster") : Promise.resolve([])),
-    assignmentIds.length ? rows("/rest/v1/lms_submissions?" + new URLSearchParams({ select: "id,assignment_id,student_id,response_text,resource_url,submitted_at,score,feedback,graded_by,graded_at", tenant_id: "eq." + tenantId, assignment_id: inUuid(assignmentIds), ...(isStudent ? { student_id: "eq." + studentId } : {}), order: "submitted_at.desc", limit: "5001" }).toString(), 5000, "submission") : Promise.resolve([]),
+    moduleIds.length ? rows("/rest/v1/lms_materials?" + new URLSearchParams({ select: "id,module_id,title,material_type,resource_url,body,duration_seconds,display_order", tenant_id: "eq." + tenantId, module_id: inUuid(moduleIds, "module material"), order: "display_order.asc", limit: "5001" }).toString(), 5000, "material") : Promise.resolve([]),
+    isStudent ? Promise.resolve([]) : (!isTeacher ? rows("/rest/v1/students?" + new URLSearchParams({ select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, limit: "2001" }).toString(), 2000, "student roster") : [...new Set(enrollmentRows.map((row) => String(row.student_id)))].length ? rows("/rest/v1/students?" + new URLSearchParams({ select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, id: inUuid([...new Set(enrollmentRows.map((row) => String(row.student_id)))], "enrolled student roster") , limit: "2001" }).toString(), 2000, "student roster") : Promise.resolve([])),
+    assignmentIds.length ? rows("/rest/v1/lms_submissions?" + new URLSearchParams({ select: "id,assignment_id,student_id,response_text,resource_url,submitted_at,score,feedback,graded_by,graded_at", tenant_id: "eq." + tenantId, assignment_id: inUuid(assignmentIds, "assignment submission"), ...(isStudent ? { student_id: "eq." + studentId } : {}), order: "submitted_at.desc", limit: "5001" }).toString(), 5000, "submission") : Promise.resolve([]),
     isStudent ? rows("/rest/v1/lms_material_progress?" + new URLSearchParams({ select: "material_id,position_seconds,completed_at,updated_at", tenant_id: "eq." + tenantId, student_id: "eq." + studentId, limit: "2001" }).toString(), 2000, "progress") : Promise.resolve([]),
     isStudent ? rows("/rest/v1/lms_student_notes?" + new URLSearchParams({ select: "id,material_id,timestamp_seconds,note,created_at", tenant_id: "eq." + tenantId, student_id: "eq." + studentId, order: "created_at.desc", limit: "2001" }).toString(), 2000, "notes") : Promise.resolve([]),
   ]);
   const commentRows = isStudent && materialRows.length
-    ? await rows("/rest/v1/lms_material_comments?" + new URLSearchParams({ select: "id,material_id,student_id,timestamp_seconds,comment,created_at", tenant_id: "eq." + tenantId, material_id: inUuid(materialRows.map((row) => String(row.id))), order: "created_at.asc", limit: "5001" }).toString(), 5000, "comments")
+    ? await rows("/rest/v1/lms_material_comments?" + new URLSearchParams({ select: "id,material_id,student_id,timestamp_seconds,comment,created_at", tenant_id: "eq." + tenantId, material_id: inUuid(materialRows.map((row) => String(row.id)), "material comment"), order: "created_at.asc", limit: "5001" }).toString(), 5000, "comments")
     : [];
   const classIds = [...new Set(studentRows.map((row) => String(row.class_id || "")).filter(Boolean))];
-  const classRows = classIds.length ? await rows("/rest/v1/master_data_records?" + new URLSearchParams({ select: "id,name", tenant_id: "eq." + tenantId, id: inUuid(classIds), category: "eq.Kelas", limit: "501" }).toString(), 500, "classes") : [];
+  const classRows = classIds.length ? await rows("/rest/v1/master_data_records?" + new URLSearchParams({ select: "id,name", tenant_id: "eq." + tenantId, id: inUuid(classIds, "student class"), category: "eq.Kelas", limit: "501" }).toString(), 500, "classes") : [];
   const classNames = new Map<string, string>(classRows.map((row): [string, string] => [String(row.id), String(row.name || "")]));
   const students = studentRows.filter((row) => !["archived","alumni","graduated","inactive","nonaktif","dikeluarkan"].includes(String(row.status || "").toLowerCase()))
     .map((row) => ({ id: String(row.id), name: String(row.name || ""), grade: String(row.grade || ""), className: classNames.get(String(row.class_id || "")) || "" }));
