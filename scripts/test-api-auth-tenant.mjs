@@ -1,10 +1,54 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
+import { auditServerApiAuthRoutes } from './api-route-auth-policy.mjs';
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function verifyAllPrivateApiRoutesRejectAnonymousRequests(apiBase) {
+  const source = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
+  const policy = auditServerApiAuthRoutes(source);
+
+  const cases = policy.privateRoutes.map((route) => {
+    const path = route.path.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, () => randomUUID());
+    const method = route.method === 'ALL' ? 'GET' : route.method;
+    const init = { method };
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+      init.headers = { 'Content-Type': 'application/json' };
+      init.body = '{}';
+    }
+    return { key: `${route.method} ${route.path}`, url: `${apiBase}${path}`, init };
+  });
+
+  for (let offset = 0; offset < cases.length; offset += 12) {
+    const batch = cases.slice(offset, offset + 12);
+    const responses = await Promise.all(batch.map(({ url, init }) => fetch(url, init)));
+    for (let index = 0; index < batch.length; index++) {
+      assert.equal(responses[index].status, 401, `${batch[index].key} must reject anonymous requests before evaluating module state.`);
+      await responses[index].body?.cancel();
+    }
+  }
+
+  const closedResponses = await Promise.all(policy.closedRoutes.map(async (route) => {
+    const path = route.path.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, () => randomUUID());
+    const response = await fetch(`${apiBase}${path}`, {
+      method: route.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    const payload = await response.json();
+    return { key: `${route.method} ${route.path}`, response, payload };
+  }));
+  for (const { key, response, payload } of closedResponses) {
+    assert.equal(response.status, 503, `${key} must remain unavailable until authenticated AI/OCR access is implemented.`);
+    assert.equal(payload.code, 'AI_ENDPOINTS_UNAVAILABLE', `${key} must return the explicit deny-only response.`);
+  }
+
+  return { privateCount: policy.privateRoutes.length, publicCount: policy.publicCount, closedCount: policy.closedRoutes.length };
+}
 
 function localSupabaseEnvironment() {
   const output = execFileSync('supabase', ['status', '-o', 'env'], {
@@ -195,6 +239,9 @@ async function main() {
       await sleep(250);
     }
     assert.ok(ready, 'API server did not become ready on its configured test port.');
+
+    const routeAuthCoverage = await verifyAllPrivateApiRoutesRejectAnonymousRequests(apiBase);
+    console.log(`Verified anonymous rejection for ${routeAuthCoverage.privateCount} private API routes; ${routeAuthCoverage.publicCount} explicit public and ${routeAuthCoverage.closedCount} deny-only routes are allowlisted.`);
 
     const liveResponse = await fetch(`${apiBase}/health/live`);
     assert.equal(liveResponse.status, 200, 'Liveness must report a running API without exposing diagnostics.');
