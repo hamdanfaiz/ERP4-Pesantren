@@ -149,7 +149,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a'));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a'));
@@ -167,7 +167,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -218,6 +218,7 @@ async function main() {
         SUPABASE_PPDB_FINANCE_BILLS_ENABLED: 'false',
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_MARKETPLACE_RUNTIME_ENABLED: 'true',
+        SUPABASE_CRM_RUNTIME_ENABLED: 'true',
         SUPABASE_DASHBOARD_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'false',
@@ -478,6 +479,119 @@ async function main() {
     assert.equal(marketplaceAfterCancel.orders.find((order) => order.id === createdOrder.id)?.status, 'cancelled');
     assert.equal(marketplaceAfterCancel.products[0].stock, 8, 'Cancelling an order restores the reserved stock exactly once.');
     assert.ok(marketplaceAfterCancel.movements.some((movement) => movement.order_id === createdOrder.id && movement.product_id === createdProduct.id && movement.quantity_delta === 2), 'The stock ledger links the cancellation reversal to the order and product.');
+    const crmContactInput = {
+      clientRequestId: randomUUID(),
+      contactType: 'prospect',
+      name: 'Kontak CRM Uji',
+      organizationName: 'Pesantren Contoh',
+      email: `crm-${fixtureSuffix}@example.test`,
+      phone: '081234567890',
+      lifecycleStage: 'lead',
+      marketingConsent: 'unknown',
+      consentSource: '',
+    };
+    const crmContactCreate = await fetch(`${apiBase}/api/crm/contacts`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contact: crmContactInput }),
+    });
+    assert.equal(crmContactCreate.status, 201, 'An Admin with CRM access can create a tenant contact through the application API.');
+    const createdCrmContact = await crmContactCreate.json();
+    assert.ok(createdCrmContact.contactId, 'The CRM create response returns the persisted contact ID.');
+
+    const crmContactRetry = await fetch(`${apiBase}/api/crm/contacts`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contact: crmContactInput }),
+    });
+    assert.equal(crmContactRetry.status, 200, 'Retrying a CRM create with the same request ID is idempotent.');
+    const retriedCrmContact = await crmContactRetry.json();
+    assert.equal(retriedCrmContact.contactId, createdCrmContact.contactId);
+    assert.equal(retriedCrmContact.alreadyApplied, true);
+
+    const crmContactList = await fetch(`${apiBase}/api/crm/contacts?search=${encodeURIComponent('Kontak CRM Uji')}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(crmContactList.status, 200, 'The same tenant can read CRM contacts after saving.');
+    const crmContactListPayload = await crmContactList.json();
+    assert.equal(crmContactListPayload.contacts.length, 1);
+    assert.equal(crmContactListPayload.contacts[0].id, createdCrmContact.contactId);
+
+    const crmContactListTenantB = await fetch(`${apiBase}/api/crm/contacts?search=${encodeURIComponent('Kontak CRM Uji')}`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(crmContactListTenantB.status, 200);
+    assert.deepEqual((await crmContactListTenantB.json()).contacts, [], 'A different tenant cannot see the saved CRM contact.');
+
+    const crmUpdateInput = {
+      ...crmContactInput,
+      clientRequestId: randomUUID(),
+      name: 'Kontak CRM Uji Diperbarui',
+      lifecycleStage: 'qualified',
+      marketingConsent: 'granted',
+      consentSource: 'Formulir tertulis',
+    };
+    const crmContactUpdate = await fetch(`${apiBase}/api/crm/contacts/${encodeURIComponent(createdCrmContact.contactId)}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contact: crmUpdateInput }),
+    });
+    assert.equal(crmContactUpdate.status, 201, 'The same tenant can update a CRM contact and record consent evidence.');
+
+    const crmCrossTenantUpdate = await fetch(`${apiBase}/api/crm/contacts/${encodeURIComponent(createdCrmContact.contactId)}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contact: { ...crmUpdateInput, clientRequestId: randomUUID(), name: 'Lintas Tenant' } }),
+    });
+    assert.equal(crmCrossTenantUpdate.status, 404, 'A different tenant cannot update the CRM contact by guessing its ID.');
+
+    const { data: persistedCrmContact, error: crmContactReadError } = await admin.from('crm_contacts')
+      .select('tenant_id,name,lifecycle_stage,marketing_consent,consent_source')
+      .eq('id', createdCrmContact.contactId)
+      .maybeSingle();
+    assert.equal(crmContactReadError, null, 'The synthetic database can verify the CRM row persisted behind the API.');
+    assert.equal(persistedCrmContact?.tenant_id, tenantIds[0]);
+    assert.equal(persistedCrmContact?.name, 'Kontak CRM Uji Diperbarui');
+    assert.equal(persistedCrmContact?.lifecycle_stage, 'qualified');
+    assert.equal(persistedCrmContact?.marketing_consent, 'granted');
+    assert.equal(persistedCrmContact?.consent_source, 'Formulir tertulis');
+
+    const crmInteractionInput = {
+      clientRequestId: randomUUID(),
+      contactId: createdCrmContact.contactId,
+      interactionType: 'meeting',
+      direction: 'outbound',
+      subject: 'Pertemuan tindak lanjut',
+      summary: 'Membahas penerimaan santri baru.',
+    };
+    const crmInteractionCreate = await fetch(`${apiBase}/api/crm/interactions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interaction: crmInteractionInput }),
+    });
+    assert.equal(crmInteractionCreate.status, 201, 'An Admin can append a CRM interaction linked to their tenant contact.');
+    const createdCrmInteraction = await crmInteractionCreate.json();
+
+    const crmInteractions = await fetch(`${apiBase}/api/crm/contacts/${encodeURIComponent(createdCrmContact.contactId)}/interactions`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(crmInteractions.status, 200, 'The saved CRM interaction can be read through its parent contact.');
+    const crmInteractionsPayload = await crmInteractions.json();
+    assert.equal(crmInteractionsPayload.interactions.length, 1);
+    assert.equal(crmInteractionsPayload.interactions[0].id, createdCrmInteraction.interactionId);
+    assert.equal(crmInteractionsPayload.interactions[0].contactId, createdCrmContact.contactId);
+
+    const crmCrossTenantInteractions = await fetch(`${apiBase}/api/crm/contacts/${encodeURIComponent(createdCrmContact.contactId)}/interactions`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(crmCrossTenantInteractions.status, 404, 'A different tenant cannot read the contact interaction history.');
+
+    const crmDeniedRole = await fetch(`${apiBase}/api/crm/contacts`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(crmDeniedRole.status, 403, 'A Ustadz without CRM permission cannot read the CRM directory.');
+
+
 
     const anonymousRoomHistory = await fetch(apiBase + "/api/master-data/students/" + randomUUID() + "/room-history");
     assert.equal(anonymousRoomHistory.status, 401, "Room history must reject anonymous callers.");
@@ -1081,7 +1195,7 @@ async function main() {
     assert.equal(ustadzReferenceCreate.status, 403,
       'A Ustadz may read permitted Academic references but cannot mutate tenant catalogs.');
 
-    console.log('API auth, tenant isolation, and reference catalog module permissions passed: scope denial, owner-module access, cross-module write denial, and role restrictions.');
+    console.log('API auth, tenant isolation, CRM round-trip, and reference catalog permissions passed: authenticated save/read/update, linked interaction history, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -1121,6 +1235,17 @@ async function main() {
         `DELETE FROM public.marketplace_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_orders WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_products WHERE tenant_id = ANY(${tenantArray});`,
+        'ALTER TABLE public.crm_contact_audit_events DISABLE TRIGGER crm_contact_audit_immutable;',
+        'ALTER TABLE public.crm_interactions DISABLE TRIGGER crm_interactions_immutable;',
+        'ALTER TABLE public.crm_mutation_requests DISABLE TRIGGER crm_mutation_requests_immutable;',
+        `DELETE FROM public.crm_contact_audit_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.crm_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.crm_interactions WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.crm_contacts WHERE tenant_id = ANY(${tenantArray});`,
+        'ALTER TABLE public.crm_contact_audit_events ENABLE TRIGGER crm_contact_audit_immutable;',
+        'ALTER TABLE public.crm_interactions ENABLE TRIGGER crm_interactions_immutable;',
+        'ALTER TABLE public.crm_mutation_requests ENABLE TRIGGER crm_mutation_requests_immutable;',
+
         `DELETE FROM public.tenant_reference_items WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_allocations WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = ANY(${tenantArray});`,
