@@ -142,6 +142,8 @@ async function main() {
   const tenantIds = [randomUUID(), randomUUID(), randomUUID()];
   const tahfidzCandidateId = randomUUID();
   const tahfidzStudentId = randomUUID();
+  const otherTenantCbtCandidateId = randomUUID();
+  const otherTenantCbtStudentId = randomUUID();
   const hrisOrganizationUnitId = randomUUID();
   const profileFailureEmail = `provision-failure-${fixtureSuffix}@example.test`;
   const users = [];
@@ -162,10 +164,10 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
-    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, library: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true, cbt: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b', { cbt: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, cbt: true, library: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
@@ -177,10 +179,11 @@ async function main() {
       ppdb: false,
       'master-data': false,
       finance: false,
+      cbt: false,
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -195,7 +198,7 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-library', { users: true, library: false }));
     const hrisNoPermissionUser = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-hris', { users: true, hris: false });
     users.push(hrisNoPermissionUser);
-    const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
+    const { data: gradeReferenceRows, error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
       code: 'TEST_GRADE_VII',
@@ -205,8 +208,9 @@ async function main() {
       nis_grade_code: '07',
       created_by_user_id: users[0].uid,
       updated_by_user_id: users[0].uid,
-    });
-    if (gradeReferenceError) throw new Error('Unable to configure the synthetic tenant grade catalog.');
+    }).select('id');
+    if (gradeReferenceError || gradeReferenceRows?.length !== 1) throw new Error('Unable to configure the synthetic tenant grade catalog.');
+    const gradeLevelReferenceId = gradeReferenceRows[0].id;
 
     const { error: hrisUnitError } = await admin.from('organization_units').insert({
       id: hrisOrganizationUnitId,
@@ -291,6 +295,31 @@ async function main() {
     });
     if (tahfidzStudentError) throw new Error('Unable to create the synthetic Tahfidz student.');
 
+    const { error: otherTenantCbtCandidateError } = await admin.from('candidates').insert({
+      id: otherTenantCbtCandidateId,
+      tenant_id: tenantIds[1],
+      registration_id: `CBT-${fixtureSuffix}`,
+      name: `Santri Tenant B CBT ${fixtureSuffix}`,
+      grade: 'VII',
+      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
+      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+    });
+    if (otherTenantCbtCandidateError) throw new Error('Unable to create the synthetic CBT student in the second tenant.');
+    const otherTenantCbtNis = String(8000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000));
+    const { error: otherTenantCbtStudentError } = await admin.from('students').insert({
+      id: otherTenantCbtStudentId,
+      tenant_id: tenantIds[1],
+      source_candidate_id: otherTenantCbtCandidateId,
+      nis: otherTenantCbtNis,
+      name: `Santri Tenant B CBT ${fixtureSuffix}`,
+      gender: 'L',
+      grade: 'VII',
+      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
+      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+      status: 'active',
+    });
+    if (otherTenantCbtStudentError) throw new Error('Unable to create the synthetic CBT student roster in the second tenant.');
+
     const academicClassId = `CLASS-${fixtureSuffix}`;
     const { error: academicClassError } = await admin.from('master_data_records').insert({
       tenant_id: tenantIds[0],
@@ -311,10 +340,16 @@ async function main() {
       .eq('tenant_id', tenantIds[0])
       .eq('user_id', users[1].uid);
     if (academicStudentLinkError) throw new Error('Unable to link the synthetic Santri portal profile.');
+    const { error: otherTenantCbtStudentLinkError } = await admin.from('profiles')
+      .update({ linked_santri_id: otherTenantCbtStudentId })
+      .eq('tenant_id', tenantIds[1])
+      .eq('user_id', users[2].uid);
+    if (otherTenantCbtStudentLinkError) throw new Error('Unable to link the synthetic second-tenant Santri CBT profile.');
     const academicReferenceRows = [
       { domain: 'academic_subject', code: `API_SUBJECT_${fixtureSuffix}`, name: `Matematika API ${fixtureSuffix}` },
       { domain: 'academic_curriculum', code: `API_CURRICULUM_${fixtureSuffix}`, name: `Kurikulum API ${fixtureSuffix}` },
       { domain: 'academic_assessment_type', code: `API_ASSESSMENT_${fixtureSuffix}`, name: `Penilaian API ${fixtureSuffix}` },
+      { domain: 'cbt_question_template', code: `API_CBT_TEMPLATE_${fixtureSuffix}`, name: `Paket Soal API ${fixtureSuffix}` },
     ].map((reference) => ({
       tenant_id: tenantIds[0],
       ...reference,
@@ -332,7 +367,8 @@ async function main() {
     const academicSubjectId = academicReferences.find((reference) => reference.domain === 'academic_subject')?.id;
     const academicCurriculumId = academicReferences.find((reference) => reference.domain === 'academic_curriculum')?.id;
     const academicAssessmentTypeId = academicReferences.find((reference) => reference.domain === 'academic_assessment_type')?.id;
-    if (!academicSubjectId || !academicCurriculumId || !academicAssessmentTypeId) {
+    const cbtQuestionTemplateId = academicReferences.find((reference) => reference.domain === 'cbt_question_template')?.id;
+    if (!academicSubjectId || !academicCurriculumId || !academicAssessmentTypeId || !cbtQuestionTemplateId || !gradeLevelReferenceId) {
       throw new Error('The synthetic Academic choice reference IDs could not be resolved.');
     }
 
@@ -1616,6 +1652,7 @@ async function main() {
         SUPABASE_GA_ASSETS_RUNTIME_ENABLED: 'true',
         SUPABASE_LIBRARY_RUNTIME_ENABLED: 'true',
         SUPABASE_HRIS_RUNTIME_ENABLED: 'true',
+        SUPABASE_CBT_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -1632,6 +1669,190 @@ async function main() {
       await sleep(250);
     }
     assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
+
+    const cbtSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/admin`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtSnapshotResponse.status, 200, 'An authorized tenant Admin can load the CBT snapshot from Supabase.');
+    const cbtInitialSnapshot = await cbtSnapshotResponse.json();
+    assert.ok(cbtInitialSnapshot.references.subjects.some((item) => item.id === academicSubjectId),
+      'CBT subject choices resolve from the tenant-owned Academic catalog.');
+    assert.ok(cbtInitialSnapshot.references.gradeLevels.some((item) => item.id === gradeLevelReferenceId),
+      'CBT grade choices resolve from the tenant-owned grade catalog.');
+    assert.ok(cbtInitialSnapshot.references.templates.some((item) => item.id === cbtQuestionTemplateId),
+      'CBT template choices resolve from the tenant-owned CBT catalog.');
+
+    const cbtPermissionDenied = await fetch(`${referenceApiBase}/api/cbt/admin`, {
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
+    });
+    assert.equal(cbtPermissionDenied.status, 403, 'An Admin without CBT permission cannot read the CBT module.');
+    const cbtRoleDenied = await fetch(`${referenceApiBase}/api/cbt/admin`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(cbtRoleDenied.status, 403, 'A non-admin with CBT permission cannot manage the question bank or exam.');
+    const otherTenantCbtSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/admin`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(otherTenantCbtSnapshotResponse.status, 200, 'A separately authorized Admin can read only their own tenant CBT snapshot.');
+    const otherTenantCbtSnapshot = await otherTenantCbtSnapshotResponse.json();
+    assert.equal(otherTenantCbtSnapshot.questions.length, 0, 'Tenant B must not see Tenant A CBT questions.');
+    assert.equal(otherTenantCbtSnapshot.exams.length, 0, 'Tenant B must not see Tenant A exams.');
+
+    const cbtQuestionRequestId = randomUUID();
+    const cbtQuestionPayload = {
+      clientRequestId: cbtQuestionRequestId,
+      question: {
+        subjectReferenceId: academicSubjectId,
+        gradeLevelReferenceId,
+        templateReferenceId: cbtQuestionTemplateId,
+        text: `Berapakah hasil 2 + 3? ${fixtureSuffix}`,
+        options: ['4', '5', '6', '7'],
+        correctAnswer: 1,
+        explanation: 'Dua ditambah tiga sama dengan lima.',
+        difficulty: 'Easy',
+        tags: ['integrasi-api'],
+      },
+    };
+    const cbtQuestionCreate = await fetch(`${referenceApiBase}/api/cbt/questions`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cbtQuestionPayload),
+    });
+    assert.equal(cbtQuestionCreate.status, 201, 'The Admin can persist a CBT question with tenant catalog relationships.');
+    const cbtQuestion = await cbtQuestionCreate.json();
+    const cbtQuestionRetry = await fetch(`${referenceApiBase}/api/cbt/questions`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cbtQuestionPayload),
+    });
+    assert.equal(cbtQuestionRetry.status, 200, 'Retrying the same CBT question request is idempotent.');
+    assert.deepEqual(await cbtQuestionRetry.json(), { id: cbtQuestion.id, alreadyApplied: true });
+
+    const foreignCbtReference = await fetch(`${referenceApiBase}/api/cbt/questions`, {
+      method: 'POST', headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...cbtQuestionPayload, clientRequestId: randomUUID() }),
+    });
+    assert.equal(foreignCbtReference.status, 400, 'CBT must reject a reference catalog ID owned by another tenant.');
+
+    const examRequestId = randomUUID();
+    const cbtExamPayload = {
+      exam: {
+        clientRequestId: examRequestId,
+        title: `Ujian API CBT ${fixtureSuffix}`,
+        subjectReferenceId: academicSubjectId,
+        gradeLevelReferenceId,
+        startsAt: new Date(Date.now() - 60_000).toISOString(),
+        endsAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        durationMinutes: 10,
+        passingScore: 100,
+        correctPoints: 1,
+        wrongPoints: 0,
+        blankPoints: 0,
+        shuffleQuestions: false,
+        status: 'published',
+        questionIds: [cbtQuestion.id],
+        studentIds: [tahfidzStudentId],
+      },
+    };
+    const cbtExamCreate = await fetch(`${referenceApiBase}/api/cbt/exams`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cbtExamPayload),
+    });
+    assert.equal(cbtExamCreate.status, 201, 'The Admin can persist an exam and its question/student relationships.');
+    const cbtExam = await cbtExamCreate.json();
+    const cbtExamRetry = await fetch(`${referenceApiBase}/api/cbt/exams`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cbtExamPayload),
+    });
+    assert.equal(cbtExamRetry.status, 200, 'Retrying the same CBT exam request is idempotent.');
+    assert.deepEqual(await cbtExamRetry.json(), { id: cbtExam.id, alreadyApplied: true });
+
+    const tenantBStudentToken = await signIn(anon, users[2]);
+    const tenantBStudentSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/student`, {
+      headers: { Authorization: `Bearer ${tenantBStudentToken}` },
+    });
+    assert.equal(tenantBStudentSnapshotResponse.status, 200, 'A linked Santri from a second tenant can read their own CBT portal.');
+    assert.deepEqual((await tenantBStudentSnapshotResponse.json()).exams, [], 'Tenant B Santri must not see the exam assigned to Tenant A.');
+    const crossTenantCbtStart = await fetch(`${referenceApiBase}/api/cbt/exams/${encodeURIComponent(cbtExam.id)}/start`, {
+      method: 'POST', headers: { Authorization: `Bearer ${tenantBStudentToken}` },
+    });
+    assert.equal(crossTenantCbtStart.status, 404, 'A Santri in another tenant cannot start the foreign tenant exam.');
+
+    const studentCbtSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/student`, {
+      headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(studentCbtSnapshotResponse.status, 200, 'The linked Santri can load their assigned CBT exams.');
+    const studentCbtSnapshot = await studentCbtSnapshotResponse.json();
+    assert.equal(studentCbtSnapshot.exams.length, 1, 'A Santri sees only their assigned exam.');
+    assert.equal(studentCbtSnapshot.exams[0].id, cbtExam.id);
+
+    const cbtStart = await fetch(`${referenceApiBase}/api/cbt/exams/${encodeURIComponent(cbtExam.id)}/start`, {
+      method: 'POST', headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(cbtStart.status, 200, 'The assigned Santri can start a published exam.');
+    const cbtAttempt = await cbtStart.json();
+    assert.equal(cbtAttempt.questions.length, 1);
+    assert.equal(Object.hasOwn(cbtAttempt.questions[0], 'correctAnswer'), false, 'The student start response must not expose the answer key.');
+    assert.ok(cbtAttempt.serverNow, 'The attempt response includes the authoritative database clock.');
+    const cbtStartRetry = await fetch(`${referenceApiBase}/api/cbt/exams/${encodeURIComponent(cbtExam.id)}/start`, {
+      method: 'POST', headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(cbtStartRetry.status, 200, 'Starting an active exam again resumes the existing attempt.');
+    assert.equal((await cbtStartRetry.json()).attemptId, cbtAttempt.attemptId);
+
+    const cbtInvalidAnswer = await fetch(`${referenceApiBase}/api/cbt/attempts/${encodeURIComponent(cbtAttempt.attemptId)}/answers`, {
+      method: 'PUT', headers: { Authorization: `Bearer ${santriToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers: { [cbtQuestion.id]: 99 } }),
+    });
+    assert.equal(cbtInvalidAnswer.status, 400, 'CBT rejects answers that reference an option outside the question.');
+    const cbtAnswerSave = await fetch(`${referenceApiBase}/api/cbt/attempts/${encodeURIComponent(cbtAttempt.attemptId)}/answers`, {
+      method: 'PUT', headers: { Authorization: `Bearer ${santriToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers: { [cbtQuestion.id]: 1 } }),
+    });
+    assert.equal(cbtAnswerSave.status, 200, 'A valid student answer persists through the server API.');
+    assert.equal((await cbtAnswerSave.json()).saved, true);
+
+    const cbtSubmit = await fetch(`${referenceApiBase}/api/cbt/attempts/${encodeURIComponent(cbtAttempt.attemptId)}/submit`, {
+      method: 'POST', headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(cbtSubmit.status, 200, 'The student can submit an active attempt for server-side scoring.');
+    const cbtResult = await cbtSubmit.json();
+    assert.equal(cbtResult.score, 100);
+    assert.equal(cbtResult.passed, true);
+    assert.equal(cbtResult.correct, 1);
+    const cbtSubmitRetry = await fetch(`${referenceApiBase}/api/cbt/attempts/${encodeURIComponent(cbtAttempt.attemptId)}/submit`, {
+      method: 'POST', headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(cbtSubmitRetry.status, 200, 'Retrying submission returns the already persisted result.');
+    assert.deepEqual(await cbtSubmitRetry.json(), cbtResult);
+
+    const { data: persistedCbtAttempt, error: persistedCbtAttemptError } = await admin.from('cbt_attempts')
+      .select('tenant_id,student_id,exam_id,answers,score,passed,correct_count,submitted_at')
+      .eq('tenant_id', tenantIds[0]).eq('id', cbtAttempt.attemptId).single();
+    assert.equal(persistedCbtAttemptError, null, 'The CBT result is readable from the test database after the API round trip.');
+    assert.equal(persistedCbtAttempt.student_id, tahfidzStudentId, 'The attempt retains the same-tenant student relationship.');
+    assert.equal(persistedCbtAttempt.exam_id, cbtExam.id, 'The attempt retains the exam relationship.');
+    assert.equal(persistedCbtAttempt.answers[cbtQuestion.id], 1, 'The saved answer is persisted in the database.');
+    assert.equal(Number(persistedCbtAttempt.score), 100, 'Scoring is persisted server-side.');
+    assert.equal(persistedCbtAttempt.passed, true);
+
+    const cbtStudentAfterSubmitResponse = await fetch(`${referenceApiBase}/api/cbt/student`, {
+      headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(cbtStudentAfterSubmitResponse.status, 200);
+    const cbtStudentAfterSubmit = await cbtStudentAfterSubmitResponse.json();
+    assert.equal(cbtStudentAfterSubmit.exams[0].score, 100, 'The Santri snapshot reads the stored result after submission.');
+    assert.equal(cbtStudentAfterSubmit.exams[0].passed, true);
+
+    const cbtAdminAfterSubmitResponse = await fetch(`${referenceApiBase}/api/cbt/admin`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtAdminAfterSubmitResponse.status, 200);
+    const cbtAdminAfterSubmit = await cbtAdminAfterSubmitResponse.json();
+    assert.equal(cbtAdminAfterSubmit.questions.find((item) => item.id === cbtQuestion.id)?.correctAnswer, 1,
+      'The answer key remains available only in the authorized Admin snapshot.');
+    assert.equal(cbtAdminAfterSubmit.exams.find((item) => item.id === cbtExam.id)?.completedCount, 1,
+      'Admin analytics reflect the completed assignment.');
+    assert.equal(cbtAdminAfterSubmit.results.find((item) => item.examTitle === cbtExamPayload.exam.title)?.score, 100,
+      'Admin results include the persisted score.');
 
     const hrisHeaders = { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' };
     const hrisSnapshotResponse = await fetch(`${referenceApiBase}/api/hris/snapshot`, {
@@ -3383,6 +3604,12 @@ async function main() {
         `DELETE FROM public.library_write_requests WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.library_circulations WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.library_books WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cbt_attempts WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cbt_exam_assignments WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cbt_exam_questions WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cbt_exams WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cbt_questions WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cbt_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
