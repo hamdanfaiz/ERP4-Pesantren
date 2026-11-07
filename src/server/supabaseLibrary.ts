@@ -180,11 +180,11 @@ export async function upsertSupabaseLibraryBook(tenantIdentifier: string, actorI
     || !Number.isInteger(totalCopies) || totalCopies < 0 || totalCopies > 100000) {
     throw new SupabaseLibraryError(400, "Judul, penulis, kategori, eksemplar, atau kunci permintaan buku tidak valid.");
   }
-  return request("/rest/v1/rpc/upsert_tenant_library_book", {
+  return request("/rest/v1/rpc/upsert_tenant_library_book_with_reference", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId, p_book_id: id, p_title: title, p_author: author, p_category: category,
-      p_isbn: isbn || null, p_total_copies: totalCopies, p_shelf: shelf || null,
+      p_category_reference_id: categoryReferenceId, p_isbn: isbn || null, p_total_copies: totalCopies, p_shelf: shelf || null,
       p_actor_user_id: actorId, p_expected_role: role === "SuperAdmin" ? "super_admin" : role.toLowerCase(),
       p_client_request_id: requestId,
     }),
