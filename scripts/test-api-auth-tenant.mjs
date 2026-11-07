@@ -159,7 +159,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true }));
@@ -185,6 +185,7 @@ async function main() {
     if (forcePasswordError) throw new Error('Unable to configure the synthetic forced-password-change fixture.');
     const academicUnlinkedSantri = await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'academic-unlinked-santri', { academic: true });
     users.push(academicUnlinkedSantri);
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-donation', { users: true, donation: false }));
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -279,6 +280,7 @@ async function main() {
     const noPpdbAdminToken = await signIn(anon, users[9]);
     const noFinanceAdminToken = await signIn(anon, users[10]);
     const otherTenantMarketplaceAdminToken = await signIn(anon, users[11]);
+    const donationNoPermissionToken = await signIn(anon, users[14]);
     const forcedPasswordToken = await signIn(anon, users[12]);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
@@ -1459,6 +1461,7 @@ async function main() {
         SUPABASE_COMMUNICATION_RUNTIME_ENABLED: 'true',
         SUPABASE_TAHFIDZ_RUNTIME_ENABLED: 'true',
         SUPABASE_ACADEMIC_RUNTIME_ENABLED: 'true',
+        SUPABASE_DONATION_RUNTIME_ENABLED: 'true',
         SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
@@ -2093,6 +2096,13 @@ async function main() {
         `DELETE FROM public.laundry_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.laundry_orders WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.laundry_settings WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_audit_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donations WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_receipt_counters WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.waqf_assets WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_donors WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_campaigns WHERE tenant_id = ANY(${tenantArray});`
         'ALTER TABLE public.cooperative_supplier_mutation_requests DISABLE TRIGGER cooperative_supplier_requests_immutable;',
         `DELETE FROM public.cooperative_supplier_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests ENABLE TRIGGER cooperative_supplier_requests_immutable;',
