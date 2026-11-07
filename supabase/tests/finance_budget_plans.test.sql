@@ -27,6 +27,14 @@ VALUES
   ('e7000000-0000-4000-8000-000000000012', 'e7000000-0000-4000-8000-000000000005', 'budget-ustadz@test.invalid', 'Ustadz Budget', 'ustadz', 'active', '{"finance":true}'),
   ('f8000000-0000-4000-8000-000000000021', 'f8000000-0000-4000-8000-000000000006', 'budget-b@test.invalid', 'Admin Budget B', 'admin', 'active', '{"erp":true,"finance":true}');
 
+INSERT INTO public.tenant_reference_items (
+  tenant_id, domain, code, name, description, created_by_user_id, updated_by_user_id
+)
+VALUES
+  ('e7000000-0000-4000-8000-000000000005', 'finance_expense_category', 'PGTAP_LISTRIK', 'Listrik', 'Biaya listrik untuk skenario anggaran uji.', 'e7000000-0000-4000-8000-000000000011', 'e7000000-0000-4000-8000-000000000011'),
+  ('e7000000-0000-4000-8000-000000000005', 'finance_expense_category', 'PGTAP_BAHAN_AJAR', 'Bahan ajar', 'Biaya bahan ajar untuk skenario anggaran uji.', 'e7000000-0000-4000-8000-000000000011', 'e7000000-0000-4000-8000-000000000011'),
+  ('f8000000-0000-4000-8000-000000000006', 'finance_expense_category', 'PGTAP_LISTRIK', 'Listrik', 'Biaya listrik untuk skenario anggaran uji.', 'f8000000-0000-4000-8000-000000000021', 'f8000000-0000-4000-8000-000000000021');
+
 INSERT INTO public.organization_units (tenant_id, id, code, name, unit_type, status, created_by_user_id, updated_by_user_id)
 VALUES
   ('e7000000-0000-4000-8000-000000000005', 'e7000000-0000-4000-8000-000000000031', 'PUSAT', 'Pesantren Pusat', 'pesantren', 'active', 'e7000000-0000-4000-8000-000000000011', 'e7000000-0000-4000-8000-000000000011'),

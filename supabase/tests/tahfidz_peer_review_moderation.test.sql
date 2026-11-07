@@ -29,6 +29,7 @@ VALUES
   ('d3800000-0000-4000-8000-000000000014', 'd3800000-0000-4000-8000-000000000009', 'peer-ustadz-a@test.invalid', 'Ustadz A', 'ustadz', 'active', '{}', NULL),
   ('d3800000-0000-4000-8000-000000000015', 'd3800000-0000-4000-8000-000000000009', 'peer-ustadz-b@test.invalid', 'Ustadz B', 'ustadz', 'active', '{}', NULL),
   ('d3800000-0000-4000-8000-000000000016', 'd3800000-0000-4000-8000-000000000009', 'peer-denied@test.invalid', 'Santri Ditolak', 'santri', 'active', '{"tahfidz":false}', 'd3800000-0000-4000-8000-000000000104');
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 INSERT INTO public.students (
   id, tenant_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status,

@@ -1,5 +1,7 @@
 type Row = Record<string, any>;
 
+import { listSupabaseReferenceItems } from "./supabaseReferenceCatalog";
+
 export class SupabaseFinanceBudgetError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -90,11 +92,13 @@ export async function getSupabaseFinanceBudgetSnapshot(tenantIdentifier: string,
   const tenantId = await resolveTenantId(tenantIdentifier);
   const expected = expectedRole(role);
   if (!expected || !isUuid(actorUserId)) throw new SupabaseFinanceBudgetError(403, "Akun ini tidak dapat membaca anggaran tenant.");
-  return callBudgetRpc("get_tenant_finance_budget_snapshot", {
+  const snapshot = await callBudgetRpc("get_tenant_finance_budget_snapshot", {
     p_tenant_id: tenantId,
     p_actor_user_id: actorUserId,
     p_expected_role: expected,
   });
+  const budgetCategories = await listSupabaseReferenceItems(tenantId, "finance_expense_category");
+  return { ...snapshot, budgetCategories: budgetCategories.filter((item) => item.status === "active").map(({ id, code, name, description }) => ({ id, code, name, description })) };
 }
 
 export async function mutateSupabaseFinanceBudget(
@@ -118,12 +122,31 @@ export async function mutateSupabaseFinanceBudget(
   if (!("save_draft" === action || "approve" === action || "close" === action || "map_legacy_unit" === action)) {
     throw new SupabaseFinanceBudgetError(400, "Tindakan anggaran tidak didukung.");
   }
-  const payload = action === "save_draft" || action === "map_legacy_unit" ? input.plan : {};
+  let payload = action === "save_draft" || action === "map_legacy_unit" ? input.plan : {};
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new SupabaseFinanceBudgetError(400, "Isi rencana anggaran tidak valid.");
   }
   if ((action === "save_draft" || action === "map_legacy_unit") && !isUuid(String((payload as Row).unitId || ""))) {
     throw new SupabaseFinanceBudgetError(400, "Pilih unit pesantren yang valid untuk rencana anggaran.");
+  }
+  if (action === "save_draft") {
+    const draft = payload as Row;
+    if (!Array.isArray(draft.lines) || draft.lines.length < 1 || draft.lines.length > 500) {
+      throw new SupabaseFinanceBudgetError(400, "Daftar alokasi anggaran tidak valid.");
+    }
+    const unitParams = new URLSearchParams({ select: "id,name", tenant_id: "eq." + tenantId, id: "eq." + draft.unitId, status: "eq.active", limit: "2" });
+    const units = await request("/rest/v1/organization_units?" + unitParams.toString());
+    if (!Array.isArray(units) || units.length !== 1) throw new SupabaseFinanceBudgetError(400, "Unit aktif rencana anggaran tidak ditemukan.");
+    const references = await listSupabaseReferenceItems(tenantId, "finance_expense_category");
+    const byId = new Map(references.filter((item) => item.status === "active").map((item) => [item.id, item]));
+    const lines = draft.lines.map((line: Row) => {
+      const categoryReferenceId = String(line?.categoryReferenceId || "");
+      if (!isUuid(categoryReferenceId) || !byId.has(categoryReferenceId)) throw new SupabaseFinanceBudgetError(400, "Setiap alokasi harus memakai kategori pengeluaran aktif tenant.");
+      const allocatedAmount = Number(line.allocatedAmount);
+      if (!Number.isSafeInteger(allocatedAmount) || allocatedAmount <= 0) throw new SupabaseFinanceBudgetError(400, "Nilai alokasi anggaran tidak valid.");
+      return { categoryReferenceId, category: byId.get(categoryReferenceId)!.name, department: String(units[0].name), allocatedAmount };
+    });
+    payload = { ...draft, lines };
   }
   return callBudgetRpc("manage_tenant_finance_budget", {
     p_tenant_id: tenantId,

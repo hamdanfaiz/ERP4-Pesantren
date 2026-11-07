@@ -86,9 +86,9 @@ async function listTenantRows(table: string, tenantId: string, select: string, o
 
 export async function listSupabaseHrisSnapshot(tenantIdentifier: string) {
   const tenantId = await resolveTenantId(tenantIdentifier);
-  const [employees, attendance, leaveRequests] = await Promise.all([
+  const [employees, attendance, leaveRequests, organizationUnits, referenceRows] = await Promise.all([
     listTenantRows("hris_employees", tenantId,
-      "id,employee_number,full_name,job_title,department,email,phone,hire_date,employment_status,created_at,updated_at",
+      "id,employee_number,full_name,job_title,job_title_reference_id,department,organization_unit_id,email,phone,hire_date,employment_status,created_at,updated_at",
       "full_name.asc,id.asc"),
     listTenantRows("hris_attendance", tenantId,
       "id,employee_id,work_date,attendance_status,check_in_at,check_out_at,recorded_by_user_id,created_at,updated_at",
@@ -96,14 +96,23 @@ export async function listSupabaseHrisSnapshot(tenantIdentifier: string) {
     listTenantRows("hris_leave_requests", tenantId,
       "id,employee_id,leave_type,starts_on,ends_on,reason,status,requested_by_user_id,reviewed_by_user_id,review_note,reviewed_at,created_at,updated_at",
       "created_at.desc,id.desc"),
+    listTenantRows("organization_units", tenantId, "id,code,name,unit_type,status", "name.asc,id.asc"),
+    listTenantRows("tenant_reference_items", tenantId, "id,code,name,description,status,domain", "name.asc,id.asc"),
   ]);
+  const jobTitleOptions = referenceRows.filter((row) => row.domain === "hris_job_title" && row.status === "active")
+    .map((row) => ({ id: String(row.id), code: String(row.code), name: String(row.name), description: String(row.description || "") }));
   return {
     employees: employees.map((row) => ({
       id: String(row.id), employeeNumber: String(row.employee_number), fullName: String(row.full_name),
-      jobTitle: String(row.job_title), department: String(row.department), email: row.email || "",
+      jobTitle: String(row.job_title), jobTitleReferenceId: row.job_title_reference_id == null ? "" : String(row.job_title_reference_id),
+      department: String(row.department), organizationUnitId: row.organization_unit_id == null ? null : String(row.organization_unit_id), email: row.email || "",
       phone: row.phone || "", hireDate: row.hire_date || null, employmentStatus: String(row.employment_status),
       createdAt: row.created_at, updatedAt: row.updated_at,
     })),
+    organizationUnits: organizationUnits.filter((row) => row.status === "active").map((row) => ({
+      id: String(row.id), code: String(row.code), name: String(row.name), unitType: String(row.unit_type),
+    })),
+    jobTitleOptions,
     attendance: attendance.map((row) => ({
       id: String(row.id), employeeId: String(row.employee_id), workDate: String(row.work_date),
       status: String(row.attendance_status), checkInAt: row.check_in_at || null, checkOutAt: row.check_out_at || null,
@@ -164,6 +173,17 @@ function requiredText(value: unknown, label: string, maxLength: number) {
   return text;
 }
 
+async function activeJobTitleName(tenantId: string, referenceIdValue: unknown) {
+  const referenceId = typeof referenceIdValue === "string" ? referenceIdValue.trim() : "";
+  if (!isUuid(referenceId)) throw new SupabaseHrisError(400, "Pilih jabatan dari katalog tenant.");
+  const rows = await request("/rest/v1/tenant_reference_items?" + new URLSearchParams({
+    select: "id,name", tenant_id: "eq." + tenantId, domain: "eq.hris_job_title",
+    id: "eq." + referenceId, status: "eq.active", limit: "2",
+  }).toString());
+  if (!Array.isArray(rows) || rows.length !== 1) throw new SupabaseHrisError(400, "Jabatan tidak aktif atau bukan milik tenant ini.");
+  return String(rows[0].name);
+}
+
 function dateOnly(value: unknown) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(value + "T00:00:00.000Z");
@@ -178,6 +198,13 @@ export async function upsertSupabaseHrisEmployee(tenantIdentifier: string, actor
   const employeeId = requiredText(input.id, "ID pegawai", 64);
   const requestId = requiredText(input.clientRequestId, "ID permintaan", 64);
   if (!isUuid(actorId) || !isUuid(employeeId) || !isUuid(requestId)) throw new SupabaseHrisError(400, "Identitas permintaan tidak valid.");
+  const organizationUnitId = requiredText(input.organizationUnitId, "Unit kerja", 64);
+  if (!isUuid(organizationUnitId)) throw new SupabaseHrisError(400, "Pilih unit kerja yang valid.");
+  const employeeNumber = typeof input.employeeNumber === "string" ? input.employeeNumber.trim() : "";
+  if (employeeNumber.length > 40 || (employeeNumber && !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,39}$/.test(employeeNumber))) {
+    throw new SupabaseHrisError(400, "Nomor pegawai lama tidak valid.");
+  }
+  const jobTitle = await activeJobTitleName(tenantId, input.jobTitleReferenceId);
   const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
   const phone = typeof input.phone === "string" ? input.phone.trim() : "";
   let hireDate: string | null = null;
@@ -185,14 +212,14 @@ export async function upsertSupabaseHrisEmployee(tenantIdentifier: string, actor
     if (!dateOnly(input.hireDate)) throw new SupabaseHrisError(400, "Tanggal mulai tidak valid.");
     hireDate = String(input.hireDate);
   }
-  const result = await request("/rest/v1/rpc/upsert_hris_employee", {
+  const result = await request("/rest/v1/rpc/upsert_hris_employee_with_unit", {
     method: "POST",
     body: JSON.stringify({
       p_tenant_id: tenantId, p_actor_user_id: actorId, p_employee_id: employeeId,
-      p_employee_number: requiredText(input.employeeNumber, "Nomor pegawai", 40),
+      p_employee_number: employeeNumber || null,
       p_full_name: requiredText(input.fullName, "Nama pegawai", 180),
-      p_job_title: requiredText(input.jobTitle, "Jabatan", 120),
-      p_department: requiredText(input.department, "Unit kerja", 120),
+      p_job_title: requiredText(jobTitle, "Jabatan", 120),
+      p_organization_unit_id: organizationUnitId,
       p_email: email || null, p_phone: phone || null, p_hire_date: hireDate,
       p_employment_status: requiredText(input.employmentStatus, "Status kerja", 20),
       p_client_request_id: requestId,

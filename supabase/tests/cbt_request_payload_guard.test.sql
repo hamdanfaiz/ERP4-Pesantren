@@ -25,9 +25,10 @@ VALUES
   ('e2300000-0000-4000-8000-000000000013','e2300000-0000-4000-8000-000000000009',
    'cbt-answer-limit-student@test.invalid','CBT Answer Limit Student','santri','active','{"cbt":true}',
    'e2300000-0000-4000-8000-000000000201');
-INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint)
+\ir test_support/seed_tenant_reference_catalogs.psql
+INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint, grade)
 VALUES ('e2300000-0000-4000-8000-000000000101','e2300000-0000-4000-8000-000000000009',
-  'CID001','CBT Test Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'));
+  'CID001','CBT Test Student',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII');
 INSERT INTO public.students(
   id,tenant_id,source_candidate_id,nis,name,gender,grade,nik_ciphertext,nik_fingerprint,status
 ) VALUES (

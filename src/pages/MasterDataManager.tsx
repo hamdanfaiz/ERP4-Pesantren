@@ -33,9 +33,9 @@ import {
   SlidersHorizontal,
   FileSpreadsheet,
   Upload,
-  Layers,
   BookOpen,
-  FilterX
+  FilterX,
+  Hash
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Scanner } from "@yudiel/react-qr-scanner";
@@ -43,7 +43,9 @@ import { cn, generateUniqueId } from "../lib/utils";
 import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
 import { MasterDataTransferModal } from "../components/MasterDataTransferModal";
+import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseMasterDataAuditPanel } from "../components/SupabaseMasterDataAuditPanel";
+import { SupabaseNamingSeriesManager } from "../components/SupabaseNamingSeriesManager";
 import { downloadTransferCsv } from "../utils/dataTransferCsv";
 import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBackend";
 import {
@@ -76,12 +78,14 @@ const SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES = new Set(["Gedung", "Kamar", "K
 const TABS = [
   { id: "entities", label: "Data Entitas", icon: Users },
   { id: "structure", label: "Struktur", icon: Building },
+  { id: "naming", label: "Aturan Penomoran", icon: Hash },
   { id: "audit", label: "Jejak Audit", icon: Activity },
 ];
 
 const SUB_TABS: Record<string, string[]> = {
   entities: ["Santri"],
   structure: ["Gedung", "Kamar", "Kelas", "Peta Struktur"],
+  naming: ["Aturan Penomoran"],
   audit: ["Semua Aktivitas"],
 };
 
@@ -188,16 +192,20 @@ function masterAuditActionLabel(action: string) {
 
 export function MasterDataManager() {
   const { user } = useAuth();
+  // Naming Series stays discoverable even when this preview has no Supabase
+  // runtime. Its configuration screen then shows a clear unavailable state;
+  // it must never fall through to mock CRUD actions.
   const visibleTabs = TABS;
   // Keep legacy state variants typed for the retained non-Supabase branches;
   // only the three owner tabs below are exposed in the current navigation.
-  const [activeTab, setActiveTab] = useState<"entities" | "structure" | "academic" | "booking" | "audit">("entities");
+  const [activeTab, setActiveTab] = useState<"entities" | "structure" | "naming" | "academic" | "booking" | "audit">("entities");
   const [activeSubTab, setActiveSubTab] = useState("Santri");
   const visibleSubTabs = SUB_TABS[activeTab] || [];
   const isSupabaseTransferView = SUPABASE_MASTER_DATA_RUNTIME
     && (activeTab === "entities" && activeSubTab === "Santri"
       || activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab));
   const isSupabaseStructureMap = SUPABASE_MASTER_DATA_RUNTIME && activeTab === "structure" && activeSubTab === "Peta Struktur";
+  const isTenantConfigurationTab = activeTab === "naming";
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [roomHistory, setRoomHistory] = useState<SupabaseStudentRoomAssignmentHistoryEntry[]>([]);
   const [roomHistoryStudentId, setRoomHistoryStudentId] = useState("");
@@ -515,7 +523,7 @@ export function MasterDataManager() {
   const handleTabChange = (
     tabId: string,
   ) => {
-    setActiveTab(tabId as "entities" | "structure" | "academic" | "booking" | "audit");
+    setActiveTab(tabId as "entities" | "structure" | "naming" | "academic" | "booking" | "audit");
     const nextSubTabs = SUB_TABS[tabId] || [];
     setActiveSubTab(nextSubTabs[0] || "Santri");
     setSelectedRecord(null);
@@ -1591,7 +1599,7 @@ export function MasterDataManager() {
         </div>
 
         <div className="flex items-center gap-3">
-          {(!SUPABASE_MASTER_DATA_RUNTIME || isSupabaseTransferView) && <button
+          {!isTenantConfigurationTab && (!SUPABASE_MASTER_DATA_RUNTIME || isSupabaseTransferView) && <button
             onClick={handleDownloadTemplate}
             className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-3.5 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-slate-200 dark:bg-white/10"
             title={`Unduh templat CSV terstruktur untuk ${activeSubTab}`}
@@ -1618,7 +1626,7 @@ export function MasterDataManager() {
                 <span>Ekspor Data</span>
               </button>
             </>
-          ) : !SUPABASE_MASTER_DATA_RUNTIME ? (
+          ) : !SUPABASE_MASTER_DATA_RUNTIME && !isTenantConfigurationTab ? (
             <button
               onClick={() => setIsExportModalOpen(true)}
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
@@ -1628,14 +1636,14 @@ export function MasterDataManager() {
               <span>Ekspor Data</span>
             </button>
           ) : null}
-          {(!SUPABASE_MASTER_DATA_RUNTIME || isSupabaseTransferView) && activeTab !== "booking" && activeSubTab !== "Peta Struktur" && <button
+          {!isTenantConfigurationTab && (!SUPABASE_MASTER_DATA_RUNTIME || isSupabaseTransferView) && activeTab !== "booking" && activeSubTab !== "Peta Struktur" && <button
             onClick={() => setShowScanner(true)}
             className="flex items-center gap-2 bg-emerald-900/40 text-emerald-400 border border-emerald-500/30 shadow-inner px-4 py-2 rounded-lg font-medium text-sm transition-colors hover:bg-emerald-900/60"
           >
             <QrCode className="w-4 h-4" />
             Scan QR
           </button>}
-          {(!SUPABASE_MASTER_DATA_RUNTIME || isSupabaseTransferView) && activeTab !== 'audit' && activeTab !== 'booking' && activeSubTab !== "Peta Struktur" && (
+          {!isTenantConfigurationTab && (!SUPABASE_MASTER_DATA_RUNTIME || isSupabaseTransferView) && activeTab !== 'audit' && activeTab !== 'booking' && activeSubTab !== "Peta Struktur" && (
             <button
               onClick={handleAddClick}
               className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors"
@@ -1647,28 +1655,26 @@ export function MasterDataManager() {
         </div>
       </div>
 
-      <div className="flex gap-2 text-sm bg-black/20 border border-slate-200 dark:border-white/5 rounded-lg p-1 w-fit mb-6 print:hidden">
-        {visibleTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button aria-pressed={isActive}
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id as any)}
-              className={`erp-tab-control flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${
-                isActive
-                  ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 shadow-inner"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-white/5 hover:text-slate-700 dark:text-slate-300"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <ERPTabs
+        tabs={visibleTabs.map(({ id, label, icon: Icon }) => ({ id, label, icon: <Icon className="w-4 h-4" /> }))}
+        value={activeTab}
+        onChange={handleTabChange}
+        ariaLabel="Bagian Data Induk"
+        className="mb-6 print:hidden"
+      />
 
-      <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col md:flex-row min-h-[600px] relative print:border-none print:shadow-none print:bg-transparent print:min-h-0 print:block">
+      {activeTab === "naming" ? (SUPABASE_MASTER_DATA_RUNTIME ? <SupabaseNamingSeriesManager /> : <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-8">
+        <header className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"><Hash className="h-5 w-5" /></span>
+          <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">ID teknis dibuat otomatis oleh basis data. Nomor yang dibaca pengguna, seperti NIS dan kode operasional, diterbitkan otomatis melalui Naming Series tenant.</p></div>
+        </header>
+        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+          Pengaturan seri belum dapat dimuat di pratinjau ini karena koneksi runtime Supabase belum diaktifkan. Menu dan fungsi penomoran tersedia setelah backend staging dikonfigurasi. Tidak ada data contoh atau perubahan lokal yang ditampilkan di sini.
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {["NIS dan nomor pendaftaran", "Nomor pegawai", "Gedung, kamar, dan kelas", "Dokumen dan kuitansi", "Aset, persediaan, dan wakaf", "Laundry, koperasi, dan marketplace"].map((label) => <div key={label} className="rounded-xl border border-slate-200 p-4 text-sm font-medium text-slate-700 dark:border-white/10 dark:text-slate-200">{label}</div>)}
+        </div>
+      </section>) : <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col md:flex-row min-h-[600px] relative print:border-none print:shadow-none print:bg-transparent print:min-h-0 print:block">
         {/* Left Sidebar / Sub-nav */}
         <div className="w-full md:w-56 border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/5 bg-black/20 p-4 print:hidden">
           <div className="text-[10px] uppercase font-semibold text-slate-500 tracking-widest mb-3 px-2">
@@ -3203,7 +3209,7 @@ export function MasterDataManager() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
       {selectedRows.length > 0 && (
         <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/95 p-2 shadow-xl print:hidden">
           <span className="rounded-lg border border-emerald-500/30 bg-emerald-900/40 px-3 py-1 text-xs font-medium text-emerald-300">

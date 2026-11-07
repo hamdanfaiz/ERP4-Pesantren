@@ -26,6 +26,13 @@ VALUES (
   'f2100000-0000-4000-8000-000000000001',
   'facility-admin@test.invalid', 'Admin Fasilitas Uji', 'admin', 'active', '{"ga":true}'
 );
+INSERT INTO public.tenant_reference_items (
+  tenant_id, domain, code, name, description, created_by_user_id, updated_by_user_id
+) VALUES (
+  'f2100000-0000-4000-8000-000000000001', 'facility_resource', 'AULA_UJI', 'Aula Uji',
+  'Ruang pertemuan uji untuk pemesanan fasilitas.',
+  'f2100000-0000-4000-8000-000000000011', 'f2100000-0000-4000-8000-000000000011'
+);
 
 SET LOCAL ROLE service_role;
 

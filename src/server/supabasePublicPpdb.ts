@@ -81,6 +81,20 @@ export async function getSupabasePublicPpdbConfig(tenantIdentifier: string) {
     throw new SupabasePublicPpdbError(503, "Tenant PPDB belum aktif atau belum dipetakan ke Supabase.");
   }
   const tenantId = String(tenants[0].id);
+  const gradeParams = new URLSearchParams({
+    select: "id,name",
+    tenant_id: `eq.${tenantId}`,
+    domain: "eq.academic_grade_level",
+    status: "eq.active",
+    order: "name.asc,id.asc",
+    limit: "501",
+  });
+  const gradeRows = await request(`/rest/v1/tenant_reference_items?${gradeParams.toString()}`);
+  if (!Array.isArray(gradeRows) || gradeRows.length > 500) throw new SupabasePublicPpdbError(503, "Katalog jenjang PPDB belum dapat diverifikasi.");
+  const gradeLevels = gradeRows
+    .filter((row: JsonObject) => isUuid(String(row.id || "")) && typeof row.name === "string" && row.name.trim())
+    .map((row: JsonObject) => ({ id: String(row.id), name: String(row.name).trim() }));
+  if (!gradeLevels.length) throw new SupabasePublicPpdbError(503, "Jenjang PPDB belum disiapkan oleh Admin pesantren.");
   const settingsParams = new URLSearchParams({ select: "settings", tenant_id: `eq.${tenantId}`, limit: "2" });
   const settingsRows = await request(`/rest/v1/tenant_settings?${settingsParams.toString()}`);
   if (!Array.isArray(settingsRows) || settingsRows.length !== 1) throw new SupabasePublicPpdbError(503, "Pengaturan tahun ajaran PPDB belum dimigrasikan ke Supabase.");
@@ -91,6 +105,7 @@ export async function getSupabasePublicPpdbConfig(tenantIdentifier: string) {
   if (!/^(20\d{2})/.test(academicYear)) throw new SupabasePublicPpdbError(503, "Tahun ajaran PPDB Supabase belum memakai tahun kalender yang didukung.");
   return {
     tenantId,
+    gradeLevels,
     tenantName: cleanText(tenants[0].name, "nama pesantren", 180) || "Pesantren",
     academicYear,
     orgInfo: {
@@ -239,7 +254,13 @@ export async function submitSupabasePublicPpdbRegistration(tenantIdentifier: str
   if (!isUuid(clientRequestId)) throw new SupabasePublicPpdbError(400, "ID permintaan pendaftaran tidak valid.");
   const name = cleanText(raw.name, "nama", 120, true);
   const gender = cleanText(raw.gender, "jenis kelamin", 1, true);
-  const grade = cleanText(raw.grade, "jenjang", 40, true);
+  const requestedGrade = cleanText(raw.grade, "jenjang", 180, true);
+  const gradeLevelReferenceId = cleanText(raw.gradeLevelReferenceId, "referensi jenjang", 36, true);
+  const selectedGrade = config.gradeLevels.find((item: { id: string; name: string }) => item.id === gradeLevelReferenceId);
+  if (!selectedGrade || selectedGrade.name.toLocaleLowerCase("id-ID") !== requestedGrade.toLocaleLowerCase("id-ID")) {
+    throw new SupabasePublicPpdbError(400, "Pilih jenjang dari daftar jenjang aktif pesantren.");
+  }
+  const grade = selectedGrade.name;
   const previousSchool = cleanText(raw.previousSchool, "asal sekolah", 160, true);
   const nik = cleanText(raw.nik, "NIK", 16, true).replace(/\D/g, "");
   const nisn = cleanText(raw.nisn, "NISN", 10).replace(/\D/g, "");
@@ -294,7 +315,7 @@ export async function submitSupabasePublicPpdbRegistration(tenantIdentifier: str
   }
   const candidateId = clientRequestId;
   const requestFingerprintHex = fingerprintPublicPpdbSubmission(config.tenantId, admissionYear, {
-    name, gender, grade, previousSchool, phone, whatsappPhone, email, pob, dob, address,
+    name, gender, grade, gradeLevelReferenceId, previousSchool, phone, whatsappPhone, email, pob, dob, address,
     province, regency, district, village, fatherName, motherName, fatherJob, motherJob,
     fatherEducation, motherEducation, familyIncome,
     nikFingerprint: protectedIdentity.nikFingerprintHex,

@@ -21,21 +21,22 @@ VALUES (
   'e2800000-0000-4000-8000-000000000011','e2800000-0000-4000-8000-000000000009',
   'boarding-active-admin@test.invalid','Boarding Admin','admin','active','{"boarding":true}'
 );
+\ir test_support/seed_tenant_reference_catalogs.psql
 
-INSERT INTO public.candidates(id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates(id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
   ('e2800000-0000-4000-8000-000000000101','e2800000-0000-4000-8000-000000000009','BA001','Active Student',
-   decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex')),
+   decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII'),
   ('e2800000-0000-4000-8000-000000000102','e2800000-0000-4000-8000-000000000009','BA002','Inactive Student',
-   decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex')),
+   decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex'), 'VII'),
   ('e2800000-0000-4000-8000-000000000103','e2800000-0000-4000-8000-000000000009','BA003','Alumni Student',
-   decode(repeat('ad',44),'hex'),decode(repeat('cf',32),'hex')),
+   decode(repeat('ad',44),'hex'),decode(repeat('cf',32),'hex'), 'VII'),
   ('e2800000-0000-4000-8000-000000000104','e2800000-0000-4000-8000-000000000009','BA004','Graduated Student',
-   decode(repeat('ae',44),'hex'),decode(repeat('d0',32),'hex')),
+   decode(repeat('ae',44),'hex'),decode(repeat('d0',32),'hex'), 'VII'),
   ('e2800000-0000-4000-8000-000000000105','e2800000-0000-4000-8000-000000000009','BA005','Nonactive Student',
-   decode(repeat('af',44),'hex'),decode(repeat('d1',32),'hex')),
+   decode(repeat('af',44),'hex'),decode(repeat('d1',32),'hex'), 'VII'),
   ('e2800000-0000-4000-8000-000000000106','e2800000-0000-4000-8000-000000000009','BA006','Withdrawn Student',
-   decode(repeat('b0',44),'hex'),decode(repeat('d2',32),'hex'));
+   decode(repeat('b0',44),'hex'),decode(repeat('d2',32),'hex'), 'VII');
 
 INSERT INTO public.students(id, tenant_id, source_candidate_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status)
 VALUES

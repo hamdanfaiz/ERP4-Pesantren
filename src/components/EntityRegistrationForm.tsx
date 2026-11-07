@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
-import React, { useState } from 'react';
-import { upsertSupabaseMasterDataStudent } from '../services/masterDataApi';
+import React, { useEffect, useState } from 'react';
+import { listSupabaseReferenceItems, upsertSupabaseMasterDataStudent, type SupabaseReferenceItem } from '../services/masterDataApi';
 import { Users, Save, X, CheckCircle2, AlertTriangle, Loader2, Link2, UserCheck, Building2, Home, BookOpen, UserPlus, ShieldAlert, ShieldCheck } from 'lucide-react';
 
 interface EntityRegistrationFormProps {
@@ -35,12 +35,13 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
   availableStructure,
 }) => {
   const { user } = useAuth();
+  const [gradeLevels, setGradeLevels] = useState<SupabaseReferenceItem[]>([]);
   const [formData, setFormData] = useState({
     id: initialData?.id || '',
     name: initialData?.name || '',
     type: 'Santri',
     status: initialData?.status || 'Active',
-    identifier: initialData?.identifier || '',
+    identifier: initialData?.nis || initialData?.identifier || '',
     contact: initialData?.contact || '',
     gradeOrDepartment: initialData?.gradeOrDepartment || '',
     nik: initialData?.nik || '',
@@ -70,6 +71,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     studentName: initialData?.studentName || '',
     studentGrade: initialData?.studentGrade || '',
     grade: initialData?.grade || '',
+    gradeLevelReferenceId: initialData?.gradeLevelReferenceId || '',
     classId: initialData?.classId || '',
     dormitory: initialData?.dormitory || '',
     dormitoryId: initialData?.dormitoryId || '',
@@ -90,6 +92,16 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     graduationYear: initialData?.graduationYear || '',
     currentActivity: initialData?.currentActivity || '',
   });
+
+  useEffect(() => {
+    let active = true;
+    listSupabaseReferenceItems('academic_grade_level')
+      .then((items) => { if (active) setGradeLevels(items.filter((item) => item.status === 'active')); })
+      .catch((error) => {
+        if (active) setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Katalog jenjang belum dapat dimuat.' });
+      });
+    return () => { active = false; };
+  }, [user?.tenantId, user?.uid]);
 
   const [useCustomParent, setUseCustomParent] = useState(
     !initialData?.waliSantriId && (initialData?.parentName || initialData?.fatherName) ? true : false
@@ -121,6 +133,9 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     });
   };
   const classOptions = activeStructures("Kelas");
+  const classOptionsForGrade = formData.grade
+    ? classOptions.filter((item) => String(item.grade || '') === String(formData.grade))
+    : classOptions;
   const buildingOptions = activeStructures("Gedung");
   const roomOptions = activeStructures("Kamar");
   const selectedBuildingId = String(formData.dormitoryId || "");
@@ -238,14 +253,18 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
       if (formData.type !== 'Santri') {
         throw new Error('Kategori ini belum tersedia pada runtime Supabase.');
       }
-      const savedData = await upsertSupabaseMasterDataStudent({
+      const studentPayload = {
         ...result.data,
-        id: result.data.id || initialData?.id || `SAN-${globalThis.crypto.randomUUID()}`,
+        nis: isEdit ? String(initialData?.nis || formData.identifier || '').trim() || null : null,
+      };
+      const savedData = await upsertSupabaseMasterDataStudent({
+        ...studentPayload,
+        id: isEdit ? result.data.id || initialData?.id || '' : '',
         supabaseId: initialData?.supabaseId,
         type: 'Santri',
         tenantId: user?.tenantId,
       });
-      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" berhasil disimpan dengan validasi skema ketat.` });
+      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" tersimpan dengan NIS ${savedData.nis || 'otomatis'} dan pemeriksaan keunikan backend.` });
       if (onSuccess) onSuccess(savedData);
     } catch (error) {
       console.error("Error adding document: ", error);
@@ -323,24 +342,39 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nomor Identitas (NIS/NIP/NIK)</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nomor Induk Santri (NIS)</label>
               <input
                 type="text"
                 value={formData.identifier}
-                onChange={(e) => handleFieldChange('identifier', e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                placeholder="Contoh: 1234567890"
+                readOnly
+                className="w-full cursor-not-allowed bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm opacity-80"
+                placeholder="Diterbitkan backend saat data santri disimpan"
               />
+              <p className="mt-1 text-xs text-slate-500">NIS baru dibuat otomatis setelah jenjang dipilih; NIS yang sudah terbit tidak dapat diubah dari formulir ini.</p>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenjang / Bagian</label>
-              <input
-                type="text"
-                value={formData.gradeOrDepartment}
-                onChange={(e) => handleFieldChange('gradeOrDepartment', e.target.value)}
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Jenjang pendidikan</label>
+              <select
+                required
+                value={formData.gradeLevelReferenceId || gradeLevels.find((item) => item.name === formData.grade)?.id || ''}
+                onChange={(e) => {
+                  const selected = gradeLevels.find((item) => item.id === e.target.value);
+                  const selectedClass = classOptions.find((item) => String(item.id) === String(formData.classId));
+                  const clearClass = Boolean(selectedClass && selectedClass.grade !== selected?.name);
+                  setFormData((current) => ({
+                    ...current,
+                    grade: selected?.name || '',
+                    gradeLevelReferenceId: selected?.id || '',
+                    gradeOrDepartment: selected?.name || '',
+                    ...(clearClass ? { classId: '' } : {}),
+                  }));
+                }}
                 className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                placeholder="Contoh: Kelas 10A atau Akademik"
-              />
+              >
+                <option value="">Pilih jenjang aktif</option>
+                {gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              {!gradeLevels.length && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Atur jenjang pada Pengaturan kategori modul Akademik.</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kontak / Nomor Telepon</label>
@@ -527,17 +561,18 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                                 ...prev,
                                 classId: val,
                                 grade: gradeName,
+                                gradeLevelReferenceId: selectedClass?.gradeLevelReferenceId || '',
                                 gradeOrDepartment: gradeName,
                               }));
                             }}
                             className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                           >
                             <option value="">{classOptions.length ? "-- Pilih kelas --" : "Belum ada kelas tersedia"}</option>
-                            {classOptions.map((item) => (
+                            {classOptionsForGrade.map((item) => (
                               <option key={item.id} value={item.id}>{item.name} ({item.id})</option>
                             ))}
                           </select>
-                          {!classOptions.length && <p className="mt-1 text-xs text-amber-300">Tambahkan kelas pada tab Struktur terlebih dahulu.</p>}
+                          {!classOptionsForGrade.length && <p className="mt-1 text-xs text-amber-300">Tambahkan kelas aktif pada jenjang terpilih di tab Struktur terlebih dahulu.</p>}
                         </div>
 
                         <div>

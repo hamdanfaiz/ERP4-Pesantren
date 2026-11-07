@@ -23,7 +23,7 @@ export function ERPTabs({
   className?: string;
 }) {
   return (
-    <div className={"erp-tabs " + className} aria-label={ariaLabel}>
+    <div className={"erp-tabs " + className} role="group" aria-label={ariaLabel}>
       {tabs.map((tab) => {
         const selected = value === tab.id;
         return (

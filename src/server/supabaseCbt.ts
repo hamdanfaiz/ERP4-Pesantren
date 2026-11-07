@@ -57,12 +57,26 @@ function boundedText(value: unknown, label: string, max: number, required = fals
 function mapQuestion(row: Row) {
   return {
     id: String(row.id), subject: String(row.subject || ""), grade: String(row.grade || ""),
+    subjectReferenceId: row.subject_reference_id == null ? "" : String(row.subject_reference_id),
+    gradeLevelReferenceId: row.grade_level_reference_id == null ? "" : String(row.grade_level_reference_id),
+    templateReferenceId: row.template_reference_id == null ? "" : String(row.template_reference_id),
     template: String(row.template || ""), text: String(row.question_html || ""),
     options: Array.isArray(row.options) ? row.options : [], correctAnswer: Number(row.correct_answer),
     explanation: String(row.explanation || ""), difficulty: String(row.difficulty || "Medium"),
     tags: Array.isArray(row.tags) ? row.tags : [], status: String(row.status || "active"),
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
+}
+
+async function activeReferenceName(tenantId: string, domain: string, referenceId: unknown, label: string) {
+  if (!isUuid(referenceId)) throw new SupabaseCbtError(400, `Pilih ${label} dari katalog tenant.`);
+  const params = new URLSearchParams({
+    select: "id,name", tenant_id: "eq." + tenantId, domain: "eq." + domain,
+    id: "eq." + referenceId, status: "eq.active", limit: "2",
+  });
+  const rows = await request("/rest/v1/tenant_reference_items?" + params.toString());
+  if (!Array.isArray(rows) || rows.length !== 1) throw new SupabaseCbtError(400, `${label} tidak aktif atau bukan milik tenant ini.`);
+  return String(rows[0].name);
 }
 
 async function tenantIdFrom(identifier: string) {
@@ -76,16 +90,20 @@ async function tenantIdFrom(identifier: string) {
 
 export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
-  const [questionRows, examRows, assignmentRows, attemptRows, studentRows, classRows, settingsRows] = await Promise.all([
+  const referenceRows = (domain: string) => request("/rest/v1/tenant_reference_items?" + new URLSearchParams({
+    select: "id,name,description", tenant_id: "eq." + tenantId, domain: "eq." + domain,
+    status: "eq.active", order: "name.asc,id.asc", limit: "1001",
+  }).toString());
+  const [questionRows, examRows, assignmentRows, attemptRows, studentRows, classRows, settingsRows, subjectReferences, gradeLevelReferences, templateReferences] = await Promise.all([
     readPostgrestRowsInPages<Row>({
       request,
-      path: `/rest/v1/cbt_questions?${new URLSearchParams({ select: "id,subject,grade,template,question_html,options,correct_answer,explanation,difficulty,tags,status,created_at,updated_at", tenant_id: "eq." + tenantId, order: "updated_at.desc,id.asc" })}`,
+      path: `/rest/v1/cbt_questions?${new URLSearchParams({ select: "id,subject,grade,template,subject_reference_id,grade_level_reference_id,template_reference_id,question_html,options,correct_answer,explanation,difficulty,tags,status,created_at,updated_at", tenant_id: "eq." + tenantId, order: "updated_at.desc,id.asc" })}`,
       maxRows: 2000,
       onIncomplete: () => new SupabaseCbtError(503, "Bank soal CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
     }),
     readPostgrestRowsInPages<Row>({
       request,
-      path: `/rest/v1/cbt_exams?${new URLSearchParams({ select: "id,title,subject,grade,starts_at,ends_at,duration_minutes,passing_score,correct_points,wrong_points,blank_points,shuffle_questions,status,created_at", tenant_id: "eq." + tenantId, order: "starts_at.desc,id.asc" })}`,
+      path: `/rest/v1/cbt_exams?${new URLSearchParams({ select: "id,title,subject,grade,subject_reference_id,grade_level_reference_id,starts_at,ends_at,duration_minutes,passing_score,correct_points,wrong_points,blank_points,shuffle_questions,status,created_at", tenant_id: "eq." + tenantId, order: "starts_at.desc,id.asc" })}`,
       maxRows: 500,
       onIncomplete: () => new SupabaseCbtError(503, "Daftar ujian CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
     }),
@@ -114,18 +132,20 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
       onIncomplete: () => new SupabaseCbtError(503, "Daftar kelas CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
     }),
     request("/rest/v1/cbt_tenant_settings?" + new URLSearchParams({
-      select: "subjects,grades,templates,auto_grading,shuffle_questions,correct_points,wrong_points,blank_points,source_system",
+      // Subject, grade, and question-template choices are sourced from the tenant
+      // reference catalog below. Legacy imported text arrays are provenance only.
+      select: "auto_grading,shuffle_questions,correct_points,wrong_points,blank_points,source_system",
       tenant_id: "eq." + tenantId, limit: "2",
     }).toString()),
+    referenceRows("academic_subject"),
+    referenceRows("academic_grade_level"),
+    referenceRows("cbt_question_template"),
   ]);
   if (!Array.isArray(settingsRows) || settingsRows.length > 1) {
     throw new SupabaseCbtError(503, "Pengaturan CBT tenant belum dapat diverifikasi.");
   }
   const storedSettings = settingsRows[0] as Row | undefined;
   const settings = {
-    subjects: Array.isArray(storedSettings?.subjects) ? storedSettings.subjects : [],
-    grades: Array.isArray(storedSettings?.grades) ? storedSettings.grades : [],
-    templates: Array.isArray(storedSettings?.templates) ? storedSettings.templates : [],
     autoGrading: storedSettings?.auto_grading == null ? true : Boolean(storedSettings.auto_grading),
     shuffleQuestions: storedSettings?.shuffle_questions == null ? false : Boolean(storedSettings.shuffle_questions),
     correctPoints: storedSettings?.correct_points == null ? 1 : Number(storedSettings.correct_points),
@@ -155,6 +175,8 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   }));
   const exams = (examRows as Row[]).map((exam) => ({
     id: String(exam.id), title: String(exam.title), subject: String(exam.subject), grade: String(exam.grade),
+    subjectReferenceId: exam.subject_reference_id == null ? "" : String(exam.subject_reference_id),
+    gradeLevelReferenceId: exam.grade_level_reference_id == null ? "" : String(exam.grade_level_reference_id),
     startsAt: exam.starts_at, endsAt: exam.ends_at, durationMinutes: Number(exam.duration_minutes),
     passingScore: Number(exam.passing_score), correctPoints: Number(exam.correct_points),
     wrongPoints: Number(exam.wrong_points), blankPoints: Number(exam.blank_points),
@@ -180,6 +202,11 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   return {
     questions: (questionRows as Row[]).map(mapQuestion),
     exams, results, students, settings,
+    references: {
+      subjects: Array.isArray(subjectReferences) ? subjectReferences : [],
+      gradeLevels: Array.isArray(gradeLevelReferences) ? gradeLevelReferences : [],
+      templates: Array.isArray(templateReferences) ? templateReferences : [],
+    },
     classes: [...new Set(students.map((student) => student.className).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id")),
   };
 }
@@ -199,10 +226,15 @@ export async function upsertSupabaseCbtQuestion(
   if (options.length < 2 || options.length > 8 || !Number.isInteger(correctAnswer) || correctAnswer < 0 || correctAnswer >= options.length || tags.length > 30) {
     throw new SupabaseCbtError(400, "Pilihan atau kunci jawaban tidak valid.");
   }
+  const [subject, grade, template] = await Promise.all([
+    activeReferenceName(tenantId, "academic_subject", item.subjectReferenceId, "mata pelajaran"),
+    activeReferenceName(tenantId, "academic_grade_level", item.gradeLevelReferenceId, "jenjang pendidikan"),
+    activeReferenceName(tenantId, "cbt_question_template", item.templateReferenceId, "paket soal"),
+  ]);
   const question = {
-    subject: boundedText(item.subject, "Mata pelajaran", 150, true),
-    grade: boundedText(item.grade, "Jenjang", 40, true),
-    template: boundedText(item.template, "Paket soal", 80, true),
+    subject,
+    grade,
+    template,
     questionHtml: boundedText(item.text ?? item.questionHtml, "Teks soal", 12000, true),
     options, correctAnswer,
     explanation: boundedText(item.explanation, "Pembahasan", 4000),
@@ -230,10 +262,14 @@ export async function createSupabaseCbtExam(tenantIdentifier: string, actorId: s
     || studentIds.some((id: string) => !isUuid(id))) {
     throw new SupabaseCbtError(400, "Pilih 1–500 soal dan santri yang valid.");
   }
+  const [subject, grade] = await Promise.all([
+    activeReferenceName(tenantId, "academic_subject", item.subjectReferenceId, "mata pelajaran"),
+    activeReferenceName(tenantId, "academic_grade_level", item.gradeLevelReferenceId, "jenjang pendidikan"),
+  ]);
   const exam = {
     title: boundedText(item.title, "Judul ujian", 180, true),
-    subject: boundedText(item.subject, "Mata pelajaran", 150, true),
-    grade: boundedText(item.grade, "Jenjang", 40, true),
+    subject,
+    grade,
     startsAt: String(item.startsAt || ""), endsAt: String(item.endsAt || ""),
     durationMinutes: Number(item.durationMinutes), passingScore: Number(item.passingScore ?? 75),
     correctPoints: Number(item.correctPoints ?? 1), wrongPoints: Number(item.wrongPoints ?? 0), blankPoints: Number(item.blankPoints ?? 0),

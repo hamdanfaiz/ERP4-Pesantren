@@ -76,18 +76,46 @@ function ppdbRequestFingerprintKey() {
   return Buffer.from(key, "hex");
 }
 
-function prepareAdminPpdbCandidate(raw: unknown, index: number) {
+type GradeLevelChoice = { id: string; name: string };
+
+async function listActiveTenantGradeLevels(tenantId: string): Promise<GradeLevelChoice[]> {
+  const params = new URLSearchParams({
+    select: "id,name",
+    tenant_id: `eq.${tenantId}`,
+    domain: "eq.academic_grade_level",
+    status: "eq.active",
+    order: "name.asc,id.asc",
+    limit: "501",
+  });
+  const rows = await request(`/rest/v1/tenant_reference_items?${params.toString()}`);
+  if (!Array.isArray(rows) || rows.length > 500) {
+    throw new SupabasePpdbError(503, "Katalog jenjang tenant belum dapat diverifikasi.");
+  }
+  return rows
+    .filter((row: JsonObject) => /^[0-9a-f-]{36}$/i.test(String(row.id || "")) && String(row.name || "").trim())
+    .map((row: JsonObject) => ({ id: String(row.id), name: String(row.name).trim() }));
+}
+
+function prepareAdminPpdbCandidate(raw: unknown, index: number, gradeLevels: GradeLevelChoice[], allowAutoRegistrationId = false) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new SupabasePpdbError(400, `Data calon santri ke-${index + 1} tidak valid.`);
   }
   const candidate = raw as JsonObject;
-  const registrationId = cleanCandidateText(candidate.registrationId, "Nomor pendaftaran", 50, true).toLocaleUpperCase("id-ID");
-  if (!/^[A-Z0-9][A-Z0-9./-]{0,49}$/.test(registrationId)) {
+  const registrationId = cleanCandidateText(candidate.registrationId, "Nomor pendaftaran", 50, !allowAutoRegistrationId).toLocaleUpperCase("id-ID");
+  if (registrationId && !/^[A-Z0-9][A-Z0-9./-]{0,49}$/.test(registrationId)) {
     throw new SupabasePpdbError(400, "Nomor pendaftaran hanya boleh berisi huruf, angka, titik, garis miring, dan tanda hubung.");
   }
   const name = cleanCandidateText(candidate.name, "Nama calon santri", 120, true);
   const gender = cleanCandidateText(candidate.gender, "Jenis kelamin", 1, true).toUpperCase();
-  const grade = cleanCandidateText(candidate.grade, "Jenjang", 40, true);
+  const requestedGrade = cleanCandidateText(candidate.grade, "Jenjang", 180, true);
+  const requestedGradeId = cleanCandidateText(candidate.gradeLevelReferenceId, "Referensi jenjang", 36);
+  const selectedGrade = requestedGradeId
+    ? gradeLevels.find((item) => item.id === requestedGradeId)
+    : gradeLevels.find((item) => item.name.toLocaleLowerCase("id-ID") === requestedGrade.toLocaleLowerCase("id-ID"));
+  if (!selectedGrade || selectedGrade.name.toLocaleLowerCase("id-ID") !== requestedGrade.toLocaleLowerCase("id-ID")) {
+    throw new SupabasePpdbError(400, "Jenjang harus dipilih dari referensi tenant yang aktif.");
+  }
+  const grade = selectedGrade.name;
   const previousSchool = cleanCandidateText(candidate.previousSchool, "Asal sekolah", 160, true);
   const phone = cleanCandidateText(candidate.phone, "Nomor telepon", 24, true);
   const whatsappPhone = cleanCandidateText(candidate.whatsappPhone, "Nomor WhatsApp", 24, true);
@@ -175,10 +203,12 @@ export async function previewSupabasePpdbCandidates(
     throw new SupabasePpdbError(400, "Pratinjau harus berisi 1 sampai 100 calon santri.");
   }
   await requireActiveTenant(tenantId);
+  const gradeLevels = await listActiveTenantGradeLevels(tenantId);
+  if (!gradeLevels.length) throw new SupabasePpdbError(409, "Atur jenjang aktif pada modul Akademik → Pengaturan kategori dan referensi sebelum meninjau pendaftar.");
 
   const rows = payload.candidates.map((raw: unknown, index: number) => {
     try {
-      const prepared = prepareAdminPpdbCandidate(raw, index);
+      const prepared = prepareAdminPpdbCandidate(raw, index, gradeLevels);
       return {
         row: index + 1,
         registrationId: prepared.registrationId,
@@ -278,7 +308,9 @@ export async function createSupabasePpdbCandidates(
   }
 
   const fingerprintKey = ppdbRequestFingerprintKey();
-  const candidates = payload.candidates.map(prepareAdminPpdbCandidate);
+  const gradeLevels = await listActiveTenantGradeLevels(tenantId);
+  if (!gradeLevels.length) throw new SupabasePpdbError(409, "Atur jenjang aktif pada modul Akademik → Pengaturan kategori dan referensi sebelum menyimpan pendaftar.");
+  const candidates = payload.candidates.map((raw: unknown, index: number) => prepareAdminPpdbCandidate(raw, index, gradeLevels, true));
   // Fingerprint stable normalized plaintext before randomized encryption. Only the HMAC is stored.
   const canonical = JSON.stringify(candidates.map((entry) => entry.requestFingerprintMaterial));
   const payloadFingerprint = createHmac("sha256", fingerprintKey).update(canonical, "utf8").digest("hex");
@@ -301,7 +333,8 @@ export async function createSupabasePpdbCandidates(
     const id = String(item.id || "");
     const registrationId = String(item.registrationId || "");
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
-      || registrationId !== candidates[index].registrationId) {
+      || (candidates[index].registrationId && registrationId !== candidates[index].registrationId)
+      || !/^[A-Z0-9][A-Z0-9./-]{0,49}$/.test(registrationId)) {
       throw new SupabasePpdbError(503, "Backend belum mengonfirmasi identitas calon santri yang tersimpan.");
     }
     return { id, registrationId };
@@ -444,6 +477,7 @@ export async function listSupabasePpdbCandidates(
   if (!result || typeof result !== "object" || !Array.isArray(result.candidates)) {
     throw new SupabasePpdbError(503, "Daftar PPDB belum dapat dimuat.");
   }
+  const gradeLevels = await listActiveTenantGradeLevels(tenantId);
   const rows = result.candidates as JsonObject[];
   const ids = rows.map((row: JsonObject) => String(row.id)).filter((id: string) => /^[0-9a-f-]{36}$/i.test(id));
   let documentByCandidate = new Map<string, JsonObject>();
@@ -490,6 +524,7 @@ export async function listSupabasePpdbCandidates(
     }
   }
   return {
+    gradeLevels,
     candidates: rows.map((row: JsonObject) => toCandidate(
       row,
       documentByCandidate.get(String(row.id)),

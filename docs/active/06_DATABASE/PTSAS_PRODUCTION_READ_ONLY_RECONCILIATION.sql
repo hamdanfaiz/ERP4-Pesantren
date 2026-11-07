@@ -71,7 +71,7 @@ FROM pg_trigger t
 JOIN pg_class c ON c.oid = t.tgrelid
 JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE NOT t.tgisinternal AND n.nspname = 'public'
-ORDER BY table_name::text, trigger_name;
+ORDER BY t.tgrelid::regclass::text, t.tgname;
 
 -- 9. Storage bucket names and visibility only; no object names/content.
 SELECT id, name, public, file_size_limit, allowed_mime_types

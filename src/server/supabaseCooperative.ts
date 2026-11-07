@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { businessDateForInstant, DEFAULT_TENANT_TIME_ZONE, tenantBusinessDate } from "../utils/businessDate";
 import { readTenantRowsInPages } from "./paginatedTenantRows";
+import { listSupabaseReferenceItems } from "./supabaseReferenceCatalog";
 
 type Row = Record<string, any>;
 
@@ -94,7 +95,7 @@ async function callRpc<T = any>(name: string, args: Row): Promise<T> {
 
 export async function getSupabaseCooperativeSnapshot(tenantId: string) {
   assertUuid(tenantId, "Tenant");
-  const [tenantResult, products, suppliers, wallets, sales, saleItems, ledger] = await Promise.all([
+  const [tenantResult, products, suppliers, wallets, sales, saleItems, ledger, productCategories, supplierCategories] = await Promise.all([
     client().from("tenants").select("time_zone").eq("id", tenantId).eq("status", "active").maybeSingle(),
     rows("cooperative_products", tenantId, "id,sku,name,category,stock_quantity,cost_price,unit_price,reorder_point,expiry_date,status,updated_at", "name.asc"),
     rows("cooperative_suppliers", tenantId, "id,name,category,contact,pic,status,updated_at", "name.asc"),
@@ -102,6 +103,8 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
     rows("cooperative_sales", tenantId, "id,wallet_id,student_id,total_amount,status,client_request_id,created_at", "created_at.desc", 1000),
     rows("cooperative_sale_items", tenantId, "id,sale_id,product_id,sku_snapshot,name_snapshot,quantity,cost_price,unit_price,line_total,created_at", "created_at.asc", 20000),
     rows("cooperative_wallet_ledger", tenantId, "id,wallet_id,student_id,sale_id,entry_type,amount_delta,balance_after,reference,created_at", "created_at.desc", 5000),
+    listSupabaseReferenceItems(tenantId, "cooperative_product_category"),
+    listSupabaseReferenceItems(tenantId, "cooperative_supplier_category"),
   ]);
   if (tenantResult.error) mapStoreError(tenantResult.error);
   if (!tenantResult.data) throw new SupabaseCooperativeError(403, "Tenant aktif tidak ditemukan.");
@@ -155,6 +158,8 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
     businessDate,
     products: products.map((item) => ({ ...item, stock: Number(item.stock_quantity), costPrice: Number(item.cost_price), price: Number(item.unit_price), reorderPoint: Number(item.reorder_point), expiryDate: item.expiry_date || "" })),
     suppliers,
+    productCategories: productCategories.filter((item) => item.status === "active").map(({ id, code, name, description }) => ({ id, code, name, description })),
+    supplierCategories: supplierCategories.filter((item) => item.status === "active").map(({ id, code, name, description }) => ({ id, code, name, description })),
     wallets: wallets.map((wallet) => {
       const student = studentById.get(String(wallet.student_id));
       return {
@@ -288,7 +293,15 @@ export async function applySupabaseCooperativeFinancialHistoryRpc(
 export async function manageSupabaseCooperativeProduct(tenantId: string, actorId: string, item: Row) {
   assertUuid(tenantId, "Tenant"); assertUuid(actorId, "Aktor"); assertUuid(item?.clientRequestId, "Request ID");
   if (item?.id != null) assertUuid(item.id, "Produk");
-  return callRpc("manage_cooperative_product", { p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: item });
+  const payload = { ...item };
+  if (payload.action !== "archive") {
+    assertUuid(payload.categoryReferenceId, "Kategori produk");
+    const references = await listSupabaseReferenceItems(tenantId, "cooperative_product_category");
+    const selected = references.find((reference) => reference.id === payload.categoryReferenceId && reference.status === "active");
+    if (!selected) throw new SupabaseCooperativeError(400, "Pilih kategori produk aktif milik tenant ini.");
+    payload.category = selected.name;
+  }
+  return callRpc("manage_cooperative_product", { p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: payload });
 }
 
 export async function adjustSupabaseCooperativeStock(tenantId: string, actorId: string, input: Row) {
@@ -300,7 +313,15 @@ export async function adjustSupabaseCooperativeStock(tenantId: string, actorId: 
 export async function manageSupabaseCooperativeSupplier(tenantId: string, actorId: string, item: Row) {
   assertUuid(tenantId, "Tenant"); assertUuid(actorId, "Aktor"); assertUuid(item?.clientRequestId, "Request ID");
   if (item?.id != null) assertUuid(item.id, "Pemasok");
-  return callRpc("manage_cooperative_supplier", { p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: item });
+  const payload = { ...item };
+  if (!["deactivate"].includes(String(payload.action || ""))) {
+    assertUuid(payload.categoryReferenceId, "Kategori pemasok");
+    const references = await listSupabaseReferenceItems(tenantId, "cooperative_supplier_category");
+    const selected = references.find((reference) => reference.id === payload.categoryReferenceId && reference.status === "active");
+    if (!selected) throw new SupabaseCooperativeError(400, "Pilih kategori pemasok aktif milik tenant ini.");
+    payload.category = selected.name;
+  }
+  return callRpc("manage_cooperative_supplier", { p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: payload });
 }
 
 export async function setSupabaseCooperativeWalletPolicy(tenantId: string, actorId: string, input: Row) {

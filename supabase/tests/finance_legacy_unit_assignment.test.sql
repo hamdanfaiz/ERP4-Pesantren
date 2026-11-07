@@ -27,6 +27,12 @@ INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, stat
   ('e5300000-0000-4000-8000-000000000014', 'e5300000-0000-4000-8000-000000000001', 'legacy-finance-inactive@test.invalid', 'Suspended Finance Admin', 'admin', 'suspended', '{"finance":true}'),
   ('f5300000-0000-4000-8000-000000000021', 'f5300000-0000-4000-8000-000000000002', 'legacy-finance-other@test.invalid', 'Other Tenant Admin', 'admin', 'active', '{"finance":true}');
 
+INSERT INTO public.tenant_reference_items (
+  tenant_id, domain, code, name, description, created_by_user_id, updated_by_user_id
+) VALUES
+  ('e5300000-0000-4000-8000-000000000001', 'finance_expense_category', 'PGTAP_UTILITAS', 'Utilitas', 'Pengeluaran utilitas untuk fixture migrasi uji.', 'e5300000-0000-4000-8000-000000000011', 'e5300000-0000-4000-8000-000000000011'),
+  ('e5300000-0000-4000-8000-000000000001', 'finance_expense_category', 'PGTAP_PERBAIKAN', 'Perbaikan', 'Pengeluaran perbaikan untuk fixture migrasi uji.', 'e5300000-0000-4000-8000-000000000011', 'e5300000-0000-4000-8000-000000000011');
+
 INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id) VALUES
   ('e5300000-0000-4000-8000-000000000101', 'e5300000-0000-4000-8000-000000000001', 'PUSAT', 'Pusat', 'pesantren', 'active', 'e5300000-0000-4000-8000-000000000011', 'e5300000-0000-4000-8000-000000000011'),
   ('e5300000-0000-4000-8000-000000000102', 'e5300000-0000-4000-8000-000000000001', 'MADRASAH', 'Madrasah', 'sekolah', 'active', 'e5300000-0000-4000-8000-000000000011', 'e5300000-0000-4000-8000-000000000011'),
@@ -37,11 +43,30 @@ INSERT INTO public.finance_expenses (
   id, tenant_id, unit_id, category, description, amount, expense_date, status, department,
   requester_user_id, requester_name, reviewed_by_user_id, reviewed_at
 ) VALUES
-  ('e5300000-0000-4000-8000-000000000301', 'e5300000-0000-4000-8000-000000000001', NULL, 'Operasional', 'Pengeluaran lama tertunda', 100000, DATE '2026-10-01', 'pending', 'Umum', 'e5300000-0000-4000-8000-000000000011', 'Finance Admin', NULL, NULL),
-  ('e5300000-0000-4000-8000-000000000302', 'e5300000-0000-4000-8000-000000000001', NULL, 'Utilitas', 'Pengeluaran lama disetujui', 250000, DATE '2026-10-02', 'approved', 'Operasional', 'e5300000-0000-4000-8000-000000000011', 'Finance Admin', 'e5300000-0000-4000-8000-000000000011', now()),
-  ('e5300000-0000-4000-8000-000000000303', 'e5300000-0000-4000-8000-000000000001', NULL, 'Perbaikan', 'Pengeluaran ledger berbeda unit', 300000, DATE '2026-10-03', 'approved', 'Pemeliharaan', 'e5300000-0000-4000-8000-000000000011', 'Finance Admin', 'e5300000-0000-4000-8000-000000000011', now()),
+  ('e5300000-0000-4000-8000-000000000301', 'e5300000-0000-4000-8000-000000000001', 'e5300000-0000-4000-8000-000000000101', 'Operasional', 'Pengeluaran lama tertunda', 100000, DATE '2026-10-01', 'pending', 'Umum', 'e5300000-0000-4000-8000-000000000011', 'Finance Admin', NULL, NULL),
+  ('e5300000-0000-4000-8000-000000000302', 'e5300000-0000-4000-8000-000000000001', 'e5300000-0000-4000-8000-000000000101', 'Utilitas', 'Pengeluaran lama disetujui', 250000, DATE '2026-10-02', 'approved', 'Operasional', 'e5300000-0000-4000-8000-000000000011', 'Finance Admin', 'e5300000-0000-4000-8000-000000000011', now()),
+  ('e5300000-0000-4000-8000-000000000303', 'e5300000-0000-4000-8000-000000000001', 'e5300000-0000-4000-8000-000000000101', 'Perbaikan', 'Pengeluaran ledger berbeda unit', 300000, DATE '2026-10-03', 'approved', 'Pemeliharaan', 'e5300000-0000-4000-8000-000000000011', 'Finance Admin', 'e5300000-0000-4000-8000-000000000011', now()),
   ('e5300000-0000-4000-8000-000000000304', 'e5300000-0000-4000-8000-000000000001', 'e5300000-0000-4000-8000-000000000101', 'Konsumsi', 'Pengeluaran sudah dipetakan', 50000, DATE '2026-10-04', 'pending', 'Dapur', 'e5300000-0000-4000-8000-000000000011', 'Finance Admin', NULL, NULL),
-  ('f5300000-0000-4000-8000-000000000305', 'f5300000-0000-4000-8000-000000000002', NULL, 'Operasional', 'Data tenant lain', 60000, DATE '2026-10-05', 'pending', 'Umum', 'f5300000-0000-4000-8000-000000000021', 'Other Tenant Admin', NULL, NULL);
+  ('f5300000-0000-4000-8000-000000000305', 'f5300000-0000-4000-8000-000000000002', 'f5300000-0000-4000-8000-000000000201', 'Operasional', 'Data tenant lain', 60000, DATE '2026-10-05', 'pending', 'Umum', 'f5300000-0000-4000-8000-000000000021', 'Other Tenant Admin', NULL, NULL);
+
+-- Recreate pre-migration rows: historic expenses may lack a unit mapping and catalog link.
+ALTER TABLE public.finance_expenses DISABLE TRIGGER finance_expenses_link_category;
+ALTER TABLE public.finance_expenses DISABLE TRIGGER finance_expenses_unit_immutable;
+UPDATE public.finance_expenses
+SET unit_id = NULL, category_reference_id = NULL,
+  department = CASE id
+    WHEN 'e5300000-0000-4000-8000-000000000301' THEN 'Umum'
+    WHEN 'e5300000-0000-4000-8000-000000000302' THEN 'Operasional'
+    ELSE 'Pemeliharaan'
+  END
+WHERE tenant_id = 'e5300000-0000-4000-8000-000000000001'
+  AND id IN ('e5300000-0000-4000-8000-000000000301','e5300000-0000-4000-8000-000000000302','e5300000-0000-4000-8000-000000000303');
+UPDATE public.finance_expenses
+SET unit_id = NULL, category_reference_id = NULL, department = 'Umum'
+WHERE tenant_id = 'f5300000-0000-4000-8000-000000000002'
+  AND id = 'f5300000-0000-4000-8000-000000000305';
+ALTER TABLE public.finance_expenses ENABLE TRIGGER finance_expenses_link_category;
+ALTER TABLE public.finance_expenses ENABLE TRIGGER finance_expenses_unit_immutable;
 
 INSERT INTO public.finance_ledger (id, tenant_id, unit_id, entry_type, source_type, source_id, description, amount, actor_user_id)
 VALUES

@@ -1,6 +1,56 @@
 import { getAccessToken } from "../authSession";
+import { isCompleteTenantNamingSeriesCatalog } from "../lib/namingSeriesCatalog.js";
+
+export { isCompleteTenantNamingSeriesCatalog, TENANT_NAMING_SERIES_KEYS } from "../lib/namingSeriesCatalog.js";
 
 export type SupabaseStructureCategory = "Gedung" | "Kamar" | "Kelas";
+
+export type SupabaseReferenceDomain =
+  | "academic_subject"
+  | "academic_curriculum"
+  | "academic_assessment_type"
+  | "academic_grade_level"
+  | "cbt_question_template"
+  | "hris_job_title"
+  | "facility_resource"
+  | "finance_fee_type"
+  | "finance_expense_category"
+  | "marketplace_product_category"
+  | "cooperative_product_category"
+  | "cooperative_supplier_category"
+  | "library_book_category"
+  | "healthcare_medicine_category"
+  | "healthcare_medicine_unit"
+  | "ga_asset_category"
+  | "ga_inventory_category"
+  | "ga_inventory_unit";
+
+export type SupabaseReferenceItem = {
+  id: string;
+  domain: SupabaseReferenceDomain;
+  code: string;
+  name: string;
+  nisGradeCode: string | null;
+  description: string;
+  status: "active" | "inactive";
+  organizationUnitId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TenantNamingSeriesKey = "nis" | "ppdb_registration" | "employee_number" | "building_code" | "room_code" | "class_code" | "document_number" | "finance_receipt" | "asset_code" | "inventory_item_code" | "donation_receipt" | "waqf_asset_code" | "laundry_order_number" | "cooperative_product_sku" | "marketplace_product_sku";
+export type TenantNamingSeries = {
+  seriesKey: TenantNamingSeriesKey;
+  moduleId: "master-data" | "ppdb" | "hris" | "document" | "finance" | "ga" | "donation" | "laundry" | "cooperative" | "marketplace";
+  displayName: string;
+  description: string;
+  formatTemplate: string;
+  sequenceWidth: number;
+  resetPeriod: "never" | "yearly" | "monthly";
+  startNumber: number;
+  isActive: boolean;
+  updatedAt: string;
+};
 
 export interface SupabaseStructureRecord {
   id: string;
@@ -11,6 +61,7 @@ export interface SupabaseStructureRecord {
   parentId?: string;
   parentCode?: string;
   grade?: string;
+  gradeLevelReferenceId?: string;
   capacity?: number | string;
   occupied?: number;
   gender?: string;
@@ -52,6 +103,52 @@ async function requestMasterData<T>(path: string, init: RequestInit = {}): Promi
   return payload as T;
 }
 
+export async function listSupabaseTenantNamingSeries(): Promise<TenantNamingSeries[]> {
+  const result = await requestMasterData<{ records: TenantNamingSeries[] }>("/api/master-data/naming-series");
+  if (!isCompleteTenantNamingSeriesCatalog(result.records)) {
+    throw new Error("Seri penomoran tenant belum lengkap.");
+  }
+  return result.records;
+}
+
+export async function saveSupabaseTenantNamingSeries(
+  input: Pick<TenantNamingSeries, "seriesKey" | "formatTemplate" | "sequenceWidth" | "resetPeriod" | "startNumber" | "isActive">,
+): Promise<TenantNamingSeries> {
+  const result = await requestMasterData<{ record: TenantNamingSeries }>(
+    "/api/master-data/naming-series/" + encodeURIComponent(input.seriesKey),
+    {
+      method: "PUT",
+      body: JSON.stringify({ ...input, clientRequestId: crypto.randomUUID() }),
+    },
+  );
+  if (!result.record || result.record.seriesKey !== input.seriesKey) {
+    throw new Error("Perubahan seri penomoran belum dapat diverifikasi.");
+  }
+  return result.record;
+}
+
+export async function listSupabaseReferenceItems(domain: SupabaseReferenceDomain, includeInactive = false) {
+  const params = new URLSearchParams({ domain });
+  if (includeInactive) params.set("includeInactive", "true");
+  const result = await requestMasterData<{ records: SupabaseReferenceItem[] }>("/api/master-data/references?" + params.toString());
+  return Array.isArray(result.records) ? result.records : [];
+}
+
+export async function saveSupabaseReferenceItem(
+  domain: SupabaseReferenceDomain,
+  record: Pick<SupabaseReferenceItem, "code" | "name" | "description" | "status" | "organizationUnitId" | "nisGradeCode">,
+  id?: string,
+) {
+  const path = id
+    ? "/api/master-data/references/" + encodeURIComponent(domain) + "/" + encodeURIComponent(id)
+    : "/api/master-data/references/" + encodeURIComponent(domain);
+  const result = await requestMasterData<{ record: SupabaseReferenceItem }>(path, {
+    method: id ? "PUT" : "POST",
+    body: JSON.stringify({ record }),
+  });
+  return result.record;
+}
+
 export async function listSupabaseMasterDataStructures() {
   const result = await requestMasterData<{ records: SupabaseStructureRecord[] }>("/api/master-data/structures");
   return Array.isArray(result.records) ? result.records : [];
@@ -75,10 +172,12 @@ export async function upsertSupabaseMasterDataStructure(
   record: Record<string, unknown>
 ) {
   const id = typeof record.id === "string" ? record.id.trim() : "";
-  if (!id) throw new Error("ID struktur wajib diisi.");
+  const path = id
+    ? "/api/master-data/structures/" + encodeURIComponent(category) + "/" + encodeURIComponent(id)
+    : "/api/master-data/structures/" + encodeURIComponent(category);
   const result = await requestMasterData<{ record: SupabaseStructureRecord }>(
-    "/api/master-data/structures/" + encodeURIComponent(category) + "/" + encodeURIComponent(id),
-    { method: "PUT", body: JSON.stringify({ record }) }
+    path,
+    { method: id ? "PUT" : "POST", body: JSON.stringify({ record }) }
   );
   return result.record;
 }
@@ -318,10 +417,9 @@ export async function upsertSupabaseMasterDataStudent(
   const sourceId = typeof record.id === "string" ? record.id.trim() : "";
   const supabaseId = typeof record.supabaseId === "string" ? record.supabaseId.trim() : "";
   const identifier = supabaseId || sourceId;
-  if (!identifier) throw new Error("ID santri wajib diisi.");
   const result = await requestMasterData<{ record: SupabaseMasterDataStudentRecord }>(
-    "/api/master-data/students/" + encodeURIComponent(identifier),
-    { method: "PUT", body: JSON.stringify({ record }) }
+    identifier ? "/api/master-data/students/" + encodeURIComponent(identifier) : "/api/master-data/students",
+    { method: identifier ? "PUT" : "POST", body: JSON.stringify({ record }) }
   );
   return result.record;
 }

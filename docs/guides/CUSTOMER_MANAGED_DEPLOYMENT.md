@@ -43,13 +43,26 @@ SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED=false
 SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED=false
 ```
 
+### Arti pesan “Runtime Supabase belum diaktifkan operator”
+
+Pesan seperti “Runtime Master Data Supabase belum diaktifkan operator” muncul ketika flag server `SUPABASE_MASTER_DATA_RUNTIME_ENABLED` tidak disetel ke `true`. Ini adalah gerbang fail-closed pada server; pesan itu sendiri tidak menyatakan bahwa migration gagal atau bahwa uji integrasi sudah selesai. Migration, profil Admin, tenant, role, dan uji API tetap harus diverifikasi tersendiri.
+
+Untuk membuka modul Master Data pada environment staging, set kedua flag berikut ke `true`, lalu mulai ulang layanan:
+
+```dotenv
+SUPABASE_MASTER_DATA_RUNTIME_ENABLED=true
+VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED=true
+```
+
+Flag tanpa awalan `VITE_` mengendalikan endpoint server; flag `VITE_` mengendalikan fitur yang diumumkan ke browser melalui `/runtime-config.json`. Berkas `.env.example` mencantumkan flag semua modul dan pasangan browser yang tersedia; nilai bawaan tetap `false`. Salin konfigurasi itu ke `.env` yang diabaikan Git dan aktifkan modul satu per satu hanya setelah migration, akses tenant/role, dan alur modul terkait lolos di staging. Jangan mengaktifkan flag Production sebelum persetujuan rilis dan UAT.
+
 `VITE_SUPABASE_URL` must be reachable from each user's browser. `SUPABASE_URL` must be reachable from the container and may use a private address. The browser bootstrap fetches an allowlisted `/runtime-config.json` before loading the application. The Supabase URL, publishable key, and public feature flags are read when the container starts, not baked into the image. The publishable key is public by design; the secret key is passed only to the server container. Never put a secret key in a `VITE_` variable or commit `.env`.
 
 ## Provision the first tenant and Admin
 
 For a fresh database, apply and verify the reviewed migrations first. Migration `20270121000000_tenant_admin_bootstrap.sql` adds a server-only RPC; it does not import Firestore records, create sample operational data, or enable runtime flags.
 
-The trusted operator needs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the ignored `.env` file or the host's secret manager. Configure Supabase Auth email delivery and allowlist the application's invite redirect URL before sending an invitation. Optionally set `SUPABASE_AUTH_REDIRECT_URL`, `BOOTSTRAP_TENANT_TYPE`, and `BOOTSTRAP_TENANT_TIME_ZONE` in that operator environment. The default time zone is `Asia/Jakarta`.
+The trusted operator needs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the ignored `.env` file or the host's secret manager. Configure Supabase Auth email delivery and allowlist the application's invite redirect URL before sending an invitation. Set the Auth server's minimum password length to 12 or greater in every environment; the application validates this for registration, invitation activation, password recovery, and Admin-created credentials, while the Auth setting also protects direct Auth API requests. Optionally enable leaked-password protection when the Auth plan supports it; Supabase Cloud documents this feature for Pro and higher plans. Optionally set `SUPABASE_AUTH_REDIRECT_URL`, `BOOTSTRAP_TENANT_TYPE`, and `BOOTSTRAP_TENANT_TIME_ZONE` in that operator environment. The default time zone is `Asia/Jakarta`.
 
 Run once from the repository root:
 

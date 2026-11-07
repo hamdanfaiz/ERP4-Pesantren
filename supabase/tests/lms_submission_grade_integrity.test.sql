@@ -28,12 +28,13 @@ VALUES
    'lms-workflow-admin-one@test.invalid','LMS Admin One','admin','active','{"lms":true}',NULL),
   ('e2500000-0000-4000-8000-000000000014','e2500000-0000-4000-8000-000000000009',
    'lms-workflow-admin-two@test.invalid','LMS Admin Two','admin','active','{"lms":true}',NULL);
-INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint)
+\ir test_support/seed_tenant_reference_catalogs.psql
+INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint, grade)
 VALUES
   ('e2500000-0000-4000-8000-000000000101','e2500000-0000-4000-8000-000000000009',
-   'LSI001','LMS Student One',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex')),
+   'LSI001','LMS Student One',decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII'),
   ('e2500000-0000-4000-8000-000000000102','e2500000-0000-4000-8000-000000000009',
-   'LSI002','LMS Student Two',decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex'));
+   'LSI002','LMS Student Two',decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex'), 'VII');
 INSERT INTO public.students(
   id,tenant_id,source_candidate_id,nis,name,gender,grade,nik_ciphertext,nik_fingerprint,status
 ) VALUES
@@ -45,10 +46,11 @@ INSERT INTO public.students(
    decode(repeat('35',44),'hex'),decode(repeat('57',32),'hex'),'active');
 
 INSERT INTO public.lms_courses(
-  id,tenant_id,category_name,title,description,grade,instructor_user_id,status,color,
+  id,tenant_id,category_id,category_name,title,description,grade,instructor_user_id,status,color,
   client_request_id,created_by,updated_by
 ) VALUES (
   'e2500000-0000-4000-8000-000000000301','e2500000-0000-4000-8000-000000000009',
+  (SELECT id FROM public.lms_categories WHERE tenant_id='e2500000-0000-4000-8000-000000000009' AND name='Umum'),
   'Umum','Kelas LMS','Tugas','VII','e2500000-0000-4000-8000-000000000013','published','indigo',
   'e2500000-0000-4000-8000-000000000302',
   'e2500000-0000-4000-8000-000000000013','e2500000-0000-4000-8000-000000000013'

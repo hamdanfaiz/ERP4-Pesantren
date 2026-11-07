@@ -1,6 +1,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createHash, randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
+import {
+  buildDocumentListLogicFilter,
+  documentListFilterFingerprint,
+  parseDocumentListFilters,
+  type DocumentListFilters,
+} from "./supabaseDocumentFilters";
 
 const BUCKET = "erp4-private-document-attachments";
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -66,7 +72,6 @@ function isCalendarDate(value: unknown): value is string {
 
 export type DocumentDraft = {
   clientRequestId: string;
-  documentNumber: string;
   direction: "incoming" | "outgoing" | "internal";
   subject: string;
   senderName?: string | null;
@@ -84,7 +89,6 @@ function validateDocumentDraft(input: DocumentDraft) {
   if (!isCalendarDate(input.documentDate)) throw new SupabaseDocumentError(400, "Tanggal dokumen tidak valid.");
   return {
     clientRequestId: input.clientRequestId,
-    documentNumber: requiredText(input.documentNumber, 80, "Nomor dokumen"),
     direction,
     subject: requiredText(input.subject, 240, "Perihal"),
     senderName: optionalText(input.senderName, 200, "Pengirim"),
@@ -106,7 +110,7 @@ export async function createSupabaseDocumentRecord(
     p_expected_role: String(role || "").toLowerCase(),
     p_client_request_id: input.clientRequestId,
     p_document_id: documentId,
-    p_document_number: input.documentNumber,
+    p_document_number: null,
     p_direction: input.direction,
     p_subject: input.subject,
     p_sender_name: input.senderName,
@@ -141,12 +145,13 @@ export async function transitionSupabaseDocument(
   return { documentId: result.documentId, status: result.status, alreadyApplied: result.alreadyApplied === true };
 }
 
-type DocumentCursor = { createdAt: string; id: string };
-function decodeCursor(raw: unknown): DocumentCursor | null {
+type DocumentCursor = { createdAt: string; id: string; filterFingerprint: string };
+function decodeCursor(raw: unknown, expectedFingerprint: string): DocumentCursor | null {
   if (typeof raw !== "string" || !raw || raw.length > 500) return null;
   try {
     const decoded = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as DocumentCursor;
     if (!decoded || typeof decoded.createdAt !== "string" || !isUuid(decoded.id)
+      || decoded.filterFingerprint !== expectedFingerprint
       || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|\+00:00)$/.test(decoded.createdAt)) return null;
     return decoded;
   } catch { return null; }
@@ -155,16 +160,31 @@ function encodeCursor(cursor: DocumentCursor) {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
-export async function listSupabaseDocumentRecords(tenantId: string, rawCursor?: unknown) {
+export async function listSupabaseDocumentRecords(
+  tenantId: string,
+  rawCursor?: unknown,
+  rawFilters: { search?: unknown; direction?: unknown; statusGroup?: unknown } = {},
+) {
   if (!isUuid(tenantId)) throw new SupabaseDocumentError(403, "Tenant Dokumen Digital tidak valid.");
-  const cursor = rawCursor ? decodeCursor(rawCursor) : null;
+  let filters: DocumentListFilters;
+  try { filters = parseDocumentListFilters(rawFilters); }
+  catch (error: any) { throw new SupabaseDocumentError(400, error?.message || "Filter daftar dokumen tidak valid."); }
+  const filterFingerprint = documentListFilterFingerprint(filters, tenantId);
+  const cursor = rawCursor ? decodeCursor(rawCursor, filterFingerprint) : null;
   if (rawCursor && !cursor) throw new SupabaseDocumentError(400, "Penanda halaman dokumen tidak valid.");
   const client = getClient();
   let query = client.from("document_records")
     .select("id,document_number,direction,subject,sender_name,recipient_name,document_date,summary,status,created_at,updated_at")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false }).order("id", { ascending: false }).limit(101);
-  if (cursor) query = query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
+  if (filters.direction) query = query.eq("direction", filters.direction);
+  if (filters.statusGroup === "approval") query = query.in("status", ["registered", "in_review", "approved", "rejected"]);
+  if (filters.statusGroup === "archive") query = query.eq("status", "archived");
+  const cursorCondition = cursor
+    ? `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`
+    : undefined;
+  const logicFilter = buildDocumentListLogicFilter(filters.search, cursorCondition);
+  if (logicFilter) query = query.or(logicFilter);
   const { data: rows, error } = await query;
   if (error) throwServiceError(error, "Daftar dokumen belum dapat dimuat.");
   const fetched = rows || [];
@@ -198,7 +218,9 @@ export async function listSupabaseDocumentRecords(tenantId: string, rawCursor?: 
       status: String(row.status), createdAt: String(row.created_at), updatedAt: String(row.updated_at),
       attachments: byDocument.get(String(row.id)) || [],
     })),
-    nextCursor: fetched.length > 100 ? encodeCursor({ createdAt: String(page[page.length - 1].created_at), id: String(page[page.length - 1].id) }) : null,
+    nextCursor: fetched.length > 100 ? encodeCursor({
+      createdAt: String(page[page.length - 1].created_at), id: String(page[page.length - 1].id), filterFingerprint,
+    }) : null,
   };
 }
 

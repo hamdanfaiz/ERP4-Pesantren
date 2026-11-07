@@ -30,15 +30,16 @@ VALUES
    'lms-record-inactive-student@test.invalid','Inactive Student','santri','active','{"lms":true}','e2600000-0000-4000-8000-000000000203'),
   ('e2600000-0000-4000-8000-000000000014','e2600000-0000-4000-8000-000000000009',
    'lms-record-teacher@test.invalid','LMS Teacher','ustadz','active','{"lms":true}',NULL);
+\ir test_support/seed_tenant_reference_catalogs.psql
 
-INSERT INTO public.candidates(id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates(id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
   ('e2600000-0000-4000-8000-000000000101','e2600000-0000-4000-8000-000000000009','LR001','Student One',
-   decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex')),
+   decode(repeat('ab',44),'hex'),decode(repeat('cd',32),'hex'), 'VII'),
   ('e2600000-0000-4000-8000-000000000102','e2600000-0000-4000-8000-000000000009','LR002','Student Two',
-   decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex')),
+   decode(repeat('ac',44),'hex'),decode(repeat('ce',32),'hex'), 'VII'),
   ('e2600000-0000-4000-8000-000000000103','e2600000-0000-4000-8000-000000000009','LR003','Inactive Student',
-   decode(repeat('ad',44),'hex'),decode(repeat('cf',32),'hex'));
+   decode(repeat('ad',44),'hex'),decode(repeat('cf',32),'hex'), 'VII');
 
 INSERT INTO public.students(id, tenant_id, source_candidate_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status)
 VALUES
@@ -53,10 +54,11 @@ VALUES
    decode(repeat('36',44),'hex'),decode(repeat('58',32),'hex'),'inactive');
 
 INSERT INTO public.lms_courses(
-  id, tenant_id, category_name, title, description, grade, instructor_user_id, status, color,
+  id, tenant_id, category_id, category_name, title, description, grade, instructor_user_id, status, color,
   client_request_id, created_by, updated_by
 ) VALUES (
   'e2600000-0000-4000-8000-000000000301','e2600000-0000-4000-8000-000000000009',
+  (SELECT id FROM public.lms_categories WHERE tenant_id='e2600000-0000-4000-8000-000000000009' AND name='Umum'),
   'Umum','Kelas LMS','Materi pembelajaran','VII','e2600000-0000-4000-8000-000000000014','published','indigo',
   'e2600000-0000-4000-8000-000000000304','e2600000-0000-4000-8000-000000000014',
   'e2600000-0000-4000-8000-000000000014'

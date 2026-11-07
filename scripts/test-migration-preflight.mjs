@@ -6,6 +6,7 @@ import {
   canonicalizeSqlStatement,
   databaseUrlFromSupabaseStatus,
   databaseUrlFromEnvironment,
+  assertDatabaseTargetMatchesEnvironment,
   formatReport,
   listLocalMigrations,
   parseAppliedMigrationsOutput,
@@ -23,6 +24,48 @@ assert.equal(
   'postgresql://direct.example.invalid/postgres'
 );
 assert.equal(databaseUrlFromEnvironment({}), '');
+
+const stagingRef = 'vqemuyzveuirlkvdggjd';
+const stagingEnvironment = {
+  SUPABASE_PROJECT_REF: stagingRef,
+  SUPABASE_URL: `https://${stagingRef}.supabase.co`,
+};
+assert.equal(assertDatabaseTargetMatchesEnvironment(
+  `postgresql://postgres.${stagingRef}:placeholder@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres`,
+  stagingEnvironment,
+), stagingRef);
+assert.throws(
+  () => assertDatabaseTargetMatchesEnvironment(
+    `https://postgres.${stagingRef}:placeholder@db.${stagingRef}.supabase.co/postgres`,
+    stagingEnvironment,
+  ),
+  /bukan koneksi PostgreSQL/,
+);
+assert.equal(assertDatabaseTargetMatchesEnvironment(
+  `postgresql://postgres:placeholder@db.${stagingRef}.supabase.co:5432/postgres`,
+  stagingEnvironment,
+), stagingRef);
+assert.throws(
+  () => assertDatabaseTargetMatchesEnvironment(
+    'postgresql://postgres.ptsasgdvgrbdtgyqieie:placeholder@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres',
+    stagingEnvironment,
+  ),
+  /tidak cocok/,
+);
+assert.throws(
+  () => assertDatabaseTargetMatchesEnvironment(
+    'postgresql://postgres:placeholder@db.ptsasgdvgrbdtgyqieie.supabase.co:5432/postgres',
+    stagingEnvironment,
+  ),
+  /tidak cocok/,
+);
+assert.throws(
+  () => assertDatabaseTargetMatchesEnvironment(
+    `postgresql://postgres.${stagingRef}:placeholder@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres`,
+    { SUPABASE_URL: `https://${stagingRef}.supabase.co` },
+  ),
+  /tidak dapat diverifikasi/,
+);
 
 const local = listLocalMigrations([
   '20270102000000_guardians.sql',
@@ -68,7 +111,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 117);
+assert.equal(sourceMigrationsWithSql.length, 136);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -78,7 +121,57 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202702100000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270211000000_optimize_profile_rls_initplans.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270212000000_optimize_core_tenant_query_indexes.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20261031225438_master_data_audit_feed.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270214120000_tenant_reference_relationships.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270215000000_harden_reference_relationship_contract.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270216000000_tenant_operational_choice_relationships.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270217000000_index_tenant_choice_foreign_keys.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270218000000_operational_relationships_and_naming_series.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270225000000_restore_idempotency_for_generated_identifiers.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270219000000_naming_series_master_data_ids.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270220000000_student_nis_source_idempotency.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270221000000_enforce_auto_business_identifiers.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270222000000_extend_naming_series_business_identifiers.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270223000000_additional_operational_naming_series.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270224000000_ga_business_identifier_update_guard.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270228000000_academic_record_cursor_indexes.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270301000000_academic_student_roster_pagination.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270302000000_academic_class_reference_pagination.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270303000000_master_data_student_import_relationships.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270304000000_student_room_assignment_reference_locks.sql'));
+const roomAssignmentLockMigration = sourceMigrationsWithSql.find(
+  ({ fileName }) => fileName === '20270304000000_student_room_assignment_reference_locks.sql'
+);
+assert.match(roomAssignmentLockMigration.statements.join('\n'), /WHERE id = p_tenant_id AND status = 'active'\s+FOR SHARE/i);
+assert.match(roomAssignmentLockMigration.statements.join('\n'), /SELECT \* INTO v_building[\s\S]*?WHERE tenant_id = p_tenant_id AND category = 'Gedung' AND id = v_building_id[\s\S]*?FOR SHARE/i);
+assert.doesNotMatch(roomAssignmentLockMigration.statements.join('\n'), /FOR KEY SHARE/i);
+const ppdbRoomLockFunction = roomAssignmentLockMigration.statements
+  .filter((statement) => statement.includes('CREATE OR REPLACE FUNCTION public.onboard_accepted_ppdb_candidate('))
+  .join('\n');
+assert.match(ppdbRoomLockFunction, /WHERE id = p_tenant_id AND status = 'active'[\s\S]*?FOR SHARE/i);
+assert.equal([...ppdbRoomLockFunction.matchAll(/\bFOR SHARE\b/gi)].length, 4);
+assert.match(
+  sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270302000000_academic_class_reference_pagination.sql').statements.join('\n'),
+  /lower\(name\) text_pattern_ops/i
+);
 assert(sourceMigrationsWithSql.every(({ statements }) => Array.isArray(statements) && statements.length > 0));
+
+const migrationIndex = (fileName) => sourceMigrationsWithSql.findIndex((migration) => migration.fileName === fileName);
+const tenantReferencesIndex = migrationIndex('20270214120000_tenant_reference_relationships.sql');
+const requiredPredecessors = [
+  '20270126000000_tenant_enterprise_units.sql',
+  '20270128000000_finance_expense_unit_scope.sql',
+  '20270129000000_finance_budget_unit_scope.sql',
+  '20270130000000_master_data_unit_assignment.sql',
+  '20270201000000_academic_unit_scope.sql',
+];
+for (const fileName of requiredPredecessors) {
+  const index = migrationIndex(fileName);
+  assert(index >= 0, `Migration prasyarat tidak ditemukan: ${fileName}`);
+  assert(tenantReferencesIndex > index, `${fileName} harus dijalankan sebelum migrasi katalog tenant`);
+}
+const referenceContractIndex = migrationIndex('20270215000000_harden_reference_relationship_contract.sql');
+assert(referenceContractIndex >= 0);
+assert(tenantReferencesIndex < referenceContractIndex);
 
 const sqlLocal = listLocalMigrations(
   ['20270101000000_profiles.sql'],
@@ -138,6 +231,120 @@ const absentSql = compareMigrationVersions(sqlLocal, [{ version: '20270101000000
 assert.equal(absentSql.statementMismatches[0].reason, 'missing');
 assert.equal(absentSql.canContinueToStagingReview, false);
 
+const tenantReferenceMigration = sourceMigrationsWithSql.find(({ fileName }) =>
+  fileName === '20270214120000_tenant_reference_relationships.sql'
+);
+const oldTenantReferenceAlias = compareMigrationVersions([tenantReferenceMigration], [{
+  version: '20261101015832',
+  name: 'tenant_reference_relationships',
+  statements: tenantReferenceMigration.statements,
+}]);
+assert.deepEqual(oldTenantReferenceAlias.unknownApplied, []);
+assert.equal(oldTenantReferenceAlias.pending.length, 0);
+assert.equal(oldTenantReferenceAlias.statementMismatches.length, 0);
+assert.deepEqual(oldTenantReferenceAlias.migrationAliasesPendingRepair, [{
+  from: '20261101015832', to: '20270214120000', name: 'tenant_reference_relationships',
+}]);
+assert.deepEqual(oldTenantReferenceAlias.validatedMigrationAliases, [{
+  from: '20261101015832', to: '20270214120000', name: 'tenant_reference_relationships',
+}]);
+assert.equal(oldTenantReferenceAlias.canContinueToStagingReview, false);
+assert.match(formatReport(oldTenantReferenceAlias), /riwayat migrasi staging masih memakai versi lama/);
+assert.match(formatReport(oldTenantReferenceAlias), /SQL cocok persis/);
+
+const academicClassReferenceMigration = sourceMigrationsWithSql.find(({ fileName }) =>
+  fileName === '20270302000000_academic_class_reference_pagination.sql'
+);
+const oldAcademicClassReferenceAlias = compareMigrationVersions([academicClassReferenceMigration], [{
+  version: '20261105070231',
+  name: 'academic_class_reference_pagination',
+  statements: academicClassReferenceMigration.statements,
+}]);
+assert.deepEqual(oldAcademicClassReferenceAlias.unknownApplied, []);
+assert.equal(oldAcademicClassReferenceAlias.pending.length, 0);
+assert.equal(oldAcademicClassReferenceAlias.statementMismatches.length, 0);
+assert.deepEqual(oldAcademicClassReferenceAlias.migrationAliasesPendingRepair, [{
+  from: '20261105070231', to: '20270302000000', name: 'academic_class_reference_pagination',
+}]);
+assert.deepEqual(oldAcademicClassReferenceAlias.validatedMigrationAliases, [{
+  from: '20261105070231', to: '20270302000000', name: 'academic_class_reference_pagination',
+}]);
+assert.equal(oldAcademicClassReferenceAlias.canContinueToStagingReview, false);
+assert.match(formatReport(oldAcademicClassReferenceAlias), /SQL cocok persis/);
+
+const roomAssignmentReferenceMigration = sourceMigrationsWithSql.find(({ fileName }) =>
+  fileName === '20270304000000_student_room_assignment_reference_locks.sql'
+);
+const oldRoomAssignmentReferenceAlias = compareMigrationVersions([roomAssignmentReferenceMigration], [{
+  version: '20261106151606',
+  name: 'student_room_assignment_reference_locks',
+  statements: roomAssignmentReferenceMigration.statements,
+}]);
+assert.deepEqual(oldRoomAssignmentReferenceAlias.unknownApplied, []);
+assert.equal(oldRoomAssignmentReferenceAlias.pending.length, 0);
+assert.equal(oldRoomAssignmentReferenceAlias.statementMismatches.length, 0);
+assert.deepEqual(oldRoomAssignmentReferenceAlias.migrationAliasesPendingRepair, [{
+  from: '20261106151606', to: '20270304000000', name: 'student_room_assignment_reference_locks',
+}]);
+assert.deepEqual(oldRoomAssignmentReferenceAlias.validatedMigrationAliases, [{
+  from: '20261106151606', to: '20270304000000', name: 'student_room_assignment_reference_locks',
+}]);
+assert.equal(oldRoomAssignmentReferenceAlias.canContinueToStagingReview, false);
+assert.match(formatReport(oldRoomAssignmentReferenceAlias), /SQL cocok persis/);
+
+const changedAcademicClassReferenceAlias = compareMigrationVersions([academicClassReferenceMigration], [{
+  version: '20261105070231',
+  name: 'academic_class_reference_pagination',
+  statements: ['CREATE TABLE public.academic_class_alias_mismatch (id UUID PRIMARY KEY)'],
+}]);
+assert.equal(changedAcademicClassReferenceAlias.statementMismatches.length, 1);
+assert.equal(changedAcademicClassReferenceAlias.canContinueToStagingReview, false);
+
+const repairedAcademicClassReferenceAlias = compareMigrationVersions([academicClassReferenceMigration], [{
+  version: '20270302000000',
+  name: null,
+  statements: null,
+}]);
+assert.equal(repairedAcademicClassReferenceAlias.statementMismatches.length, 0);
+assert.deepEqual(repairedAcademicClassReferenceAlias.repairedMigrationAliases, [{
+  version: '20270302000000', name: 'academic_class_reference_pagination',
+}]);
+assert.equal(repairedAcademicClassReferenceAlias.canContinueToStagingReview, true);
+
+const changedTenantReferenceAlias = compareMigrationVersions([tenantReferenceMigration], [{
+  version: '20261101015832',
+  name: 'tenant_reference_relationships',
+  statements: ['CREATE TABLE public.tenant_reference_items (id text PRIMARY KEY)'],
+}]);
+assert.equal(changedTenantReferenceAlias.statementMismatches.length, 1);
+assert.equal(changedTenantReferenceAlias.canContinueToStagingReview, false);
+
+const repairedTenantReferenceAlias = compareMigrationVersions([tenantReferenceMigration], [{
+  version: '20270214120000',
+  name: null,
+  statements: null,
+}]);
+assert.equal(repairedTenantReferenceAlias.unknownApplied.length, 0);
+assert.equal(repairedTenantReferenceAlias.nameMismatches.length, 0);
+assert.equal(repairedTenantReferenceAlias.statementMismatches.length, 0);
+assert.deepEqual(repairedTenantReferenceAlias.repairedMigrationAliases, [{
+  version: '20270214120000', name: 'tenant_reference_relationships',
+}]);
+assert.equal(repairedTenantReferenceAlias.canContinueToStagingReview, true);
+assert.match(formatReport(repairedTenantReferenceAlias), /telah direkonsiliasi dengan migration repair/);
+
+const changedRepairedTenantReferenceAlias = compareMigrationVersions([tenantReferenceMigration], [{
+  version: '20270214120000',
+  name: 'tenant_reference_relationships',
+  statements: ['CREATE TABLE public.tenant_reference_items (id text PRIMARY KEY)'],
+}]);
+assert.equal(changedRepairedTenantReferenceAlias.statementMismatches.length, 1);
+assert.equal(changedRepairedTenantReferenceAlias.canContinueToStagingReview, false);
+assert.throws(() => compareMigrationVersions([tenantReferenceMigration], [
+  { version: '20261101015832', name: 'tenant_reference_relationships', statements: tenantReferenceMigration.statements },
+  { version: '20270214120000', name: 'tenant_reference_relationships', statements: tenantReferenceMigration.statements },
+]), /duplikat/);
+
 const normal = compareMigrationVersions(local, [{ version: '20270101000000', name: 'profiles' }]);
 assert.equal(normal.appliedCount, 1);
 assert.equal(normal.pending.length, 1);
@@ -155,9 +362,9 @@ const outOfOrder = compareMigrationVersions(local, [{ version: '20270102000000',
 assert.deepEqual(outOfOrder.outOfOrderPending.map(({ version }) => version), ['20270101000000']);
 assert.equal(outOfOrder.canContinueToStagingReview, false);
 
-// Regression fixture from the read-only VQE staging ledger observed on 2026-10-31.
-// It models the applied prefix through 20261206000000, including the migration
-// Supabase recorded as 20261031104213. This validates planning output only.
+// Regression fixture for the local upgrade-rehearsal boundary through
+// 20261206000000, including the migration Supabase recorded as 20261031104213.
+// The already-applied staging alias is covered separately below.
 const missingStagingMetadataVersions = new Set(['20261205000000', '20261206000000']);
 const observedStagingMigrations = sourceMigrationsWithSql
   .filter(({ version }) => version <= '20261206000000')
@@ -170,13 +377,14 @@ const observedStagingMigrations = sourceMigrationsWithSql
     statements: missingStagingMetadataVersions.has(version) ? null : statements,
   }));
 assert.equal(observedStagingMigrations.length, 49);
-assert.equal(sourceMigrationsWithSql.length, 117);
-const stagingBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedStagingMigrations);
+const stagingBaselineSource = sourceMigrationsWithSql.filter(({ version }) => version <= '20270302000000');
+assert.equal(stagingBaselineSource.length, 134);
+const stagingBaseline = compareMigrationVersions(stagingBaselineSource, observedStagingMigrations);
 assert.equal(stagingBaseline.appliedCount, 49);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(stagingBaseline.pending.length, 68);
+assert.equal(stagingBaseline.pending.length, 85);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
-assert.equal(stagingBaseline.pending.at(-1).version, '20270212000000');
+assert.equal(stagingBaseline.pending.at(-1).version, '20270302000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
 assert.equal(stagingBaseline.unknownApplied.length, 0);
 assert.deepEqual(stagingBaseline.nameMismatches.map(({ version }) => version), [...missingStagingMetadataVersions]);
@@ -186,6 +394,53 @@ assert.deepEqual(stagingBaseline.statementMismatches.map(({ version, reason }) =
 ]);
 assert.equal(stagingBaseline.canContinueToStagingReview, false);
 assert.match(formatReport(stagingBaseline), /HENTIKAN/);
+
+// Regression fixture for the read-only PTSAS Production inventory captured on
+// 2026-11-06: 47 applied versions through 20261206000000, two missing older
+// migrations, and two existing rows with missing name/statement metadata.
+const productionMissingMigrationVersions = new Set([
+  '20261031104213',
+  '20261031225438',
+]);
+const productionMissingMetadataVersions = new Set([
+  '20261205000000',
+  '20261206000000',
+]);
+const productionSourceAtBoundary = sourceMigrationsWithSql
+  .filter(({ version }) => version <= '20261206000000');
+assert.equal(productionSourceAtBoundary.length, 49);
+const observedProductionMigrations = productionSourceAtBoundary
+  .filter(({ version }) => !productionMissingMigrationVersions.has(version))
+  .map(({ version, fileName, statements }) => ({
+    version,
+    name: productionMissingMetadataVersions.has(version)
+      ? null
+      : fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, ''),
+    statements: productionMissingMetadataVersions.has(version) ? null : statements,
+  }));
+assert.equal(observedProductionMigrations.length, 47);
+const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
+assert.equal(productionBaseline.appliedCount, 47);
+assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
+assert.equal(productionBaseline.pending.length, 89);
+assert.deepEqual(
+  productionBaseline.outOfOrderPending.map(({ version }) => version),
+  [...productionMissingMigrationVersions],
+);
+assert.equal(productionBaseline.unknownApplied.length, 0);
+assert.deepEqual(
+  productionBaseline.nameMismatches.map(({ version }) => version),
+  [...productionMissingMetadataVersions],
+);
+assert.deepEqual(
+  productionBaseline.statementMismatches.map(({ version, reason }) => ({ version, reason })),
+  [...productionMissingMetadataVersions].map((version) => ({ version, reason: 'missing' })),
+);
+assert.equal(productionBaseline.canContinueToStagingReview, false);
+assert.match(formatReport(productionBaseline), /lebih lama dari versi terakhir database/);
+assert.match(formatReport(productionBaseline), /20261031104213.*master_data_import_create_only/);
+assert.match(formatReport(productionBaseline), /20261031225438.*master_data_audit_feed/);
+assert.match(formatReport(productionBaseline), /statement SQL pada ledger kosong/);
 
 const twoMetadataMissingMigrations = sourceMigrationsWithSql.filter(({ version }) =>
   ['20261205000000', '20261206000000'].includes(version)
@@ -250,4 +505,3 @@ assert.match(READ_ONLY_LEDGER_QUERY, /COMMIT/);
 assert.doesNotMatch(READ_ONLY_LEDGER_QUERY, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE)\b/i);
 
 console.log('Supabase migration preflight logic passed: version/name/SQL lineage comparison, safe SQL parsing, duplicate/unknown versions, TLS enforcement, and read-only SQL.');
-

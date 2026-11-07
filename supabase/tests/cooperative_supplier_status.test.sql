@@ -39,7 +39,7 @@ INSERT INTO public.cooperative_suppliers (
   id, tenant_id, name, category, contact, pic, status, client_request_id, created_by, updated_by
 ) VALUES (
   'd9000000-0000-4000-8000-000000000031', 'd9000000-0000-4000-8000-000000000009',
-  'Legacy Supplier', 'ATK', '', '', 'active', 'd9000000-0000-4000-8000-000000000031',
+  'Legacy Supplier', 'Pemasok Barang', '', '', 'active', 'd9000000-0000-4000-8000-000000000031',
   'd9000000-0000-4000-8000-000000000011', 'd9000000-0000-4000-8000-000000000011'
 );
 INSERT INTO public.cooperative_supplier_mutation_requests (
@@ -54,7 +54,7 @@ SET LOCAL ROLE service_role;
 SELECT lives_ok(
   $$SELECT public.manage_cooperative_supplier(
     'd9000000-0000-4000-8000-000000000009', 'd9000000-0000-4000-8000-000000000011',
-    '{"action":"create","clientRequestId":"d9000000-0000-4000-8000-000000000021","name":"Pemasok Nonaktif","category":"ATK","status":"inactive"}'::jsonb
+    '{"action":"create","clientRequestId":"d9000000-0000-4000-8000-000000000021","name":"Pemasok Nonaktif","category":"Pemasok Barang","status":"inactive"}'::jsonb
   )$$,
   'legacy supplier can be created with inactive status'
 );
@@ -73,7 +73,7 @@ SELECT is(
 SELECT is(
   (public.manage_cooperative_supplier(
     'd9000000-0000-4000-8000-000000000009', 'd9000000-0000-4000-8000-000000000011',
-    '{"action":"create","clientRequestId":"d9000000-0000-4000-8000-000000000021","name":"Pemasok Nonaktif","category":"ATK","status":"inactive"}'::jsonb
+    '{"action":"create","clientRequestId":"d9000000-0000-4000-8000-000000000021","name":"Pemasok Nonaktif","category":"Pemasok Barang","status":"inactive"}'::jsonb
   )->>'id'),
   current_setting('erp4.cooperative_supplier_test_id'),
   'identical request replays the original supplier'
@@ -81,7 +81,7 @@ SELECT is(
 SELECT is(
   (public.manage_cooperative_supplier(
     'd9000000-0000-4000-8000-000000000009', 'd9000000-0000-4000-8000-000000000011',
-    '{"action":"create","clientRequestId":"d9000000-0000-4000-8000-000000000021","name":"Pemasok Nonaktif","category":"ATK","status":"inactive"}'::jsonb
+    '{"action":"create","clientRequestId":"d9000000-0000-4000-8000-000000000021","name":"Pemasok Nonaktif","category":"Pemasok Barang","status":"inactive"}'::jsonb
   )->>'replayed'),
   'true',
   'identical request is marked as replayed'
@@ -98,7 +98,7 @@ SELECT throws_ok(
   $$SELECT public.manage_cooperative_supplier(
     'd9000000-0000-4000-8000-000000000009', 'd9000000-0000-4000-8000-000000000011',
     jsonb_build_object('action','update','clientRequestId','d9000000-0000-4000-8000-000000000021',
-      'id',current_setting('erp4.cooperative_supplier_test_id'),'name','Changed operation','category','ATK')
+      'id',current_setting('erp4.cooperative_supplier_test_id'),'name','Changed operation','category','Pemasok Barang')
   )$$,
   '23505', 'ID permintaan pemasok sudah digunakan untuk perubahan berbeda',
   'different operation cannot reuse the supplier request ID'
@@ -106,7 +106,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.manage_cooperative_supplier(
     'd9000000-0000-4000-8000-000000000009', 'd9000000-0000-4000-8000-000000000012',
-    '{"action":"create","clientRequestId":"d9000000-0000-4000-8000-000000000021","name":"Pemasok Nonaktif","category":"ATK","status":"inactive"}'::jsonb
+    '{"action":"create","clientRequestId":"d9000000-0000-4000-8000-000000000021","name":"Pemasok Nonaktif","category":"Pemasok Barang","status":"inactive"}'::jsonb
   )$$,
   '23505', 'ID permintaan pemasok sudah digunakan untuk perubahan berbeda',
   'another actor cannot reuse the supplier request ID'
@@ -114,7 +114,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.manage_cooperative_supplier(
     'd9000000-0000-4000-8000-000000000009', 'd9000000-0000-4000-8000-000000000011',
-    '{"action":"update","clientRequestId":"d9000000-0000-4000-8000-000000000031","id":"d9000000-0000-4000-8000-000000000031","name":"Legacy retry","category":"ATK"}'::jsonb
+    '{"action":"update","clientRequestId":"d9000000-0000-4000-8000-000000000031","id":"d9000000-0000-4000-8000-000000000031","name":"Legacy retry","category":"Pemasok Barang"}'::jsonb
   )$$,
   '23505', 'ID permintaan pemasok sudah digunakan untuk perubahan berbeda',
   'legacy request with unavailable original payload is reserved and rejected'
@@ -123,7 +123,7 @@ SELECT is(
   (public.manage_cooperative_supplier(
     'd9000000-0000-4000-8000-000000000009', 'd9000000-0000-4000-8000-000000000011',
     jsonb_build_object('action','update','clientRequestId','d9000000-0000-4000-8000-000000000023',
-      'id',current_setting('erp4.cooperative_supplier_test_id'),'name','Pemasok Diperbarui','category','ATK')
+      'id',current_setting('erp4.cooperative_supplier_test_id'),'name','Pemasok Diperbarui','category','Pemasok Barang')
   )->>'replayed'),
   'false',
   'a new request ID performs a valid supplier update'

@@ -1,6 +1,7 @@
 import { tenantBusinessDate } from "../utils/businessDate";
 
 import { readPostgrestRowsInPages } from "./postgrestPagination";
+import { listSupabaseReferenceItems } from "./supabaseReferenceCatalog";
 
 type Row = Record<string, any>;
 
@@ -116,10 +117,11 @@ export async function listSupabaseLibrarySnapshot(tenantIdentifier: string) {
   const tenant = await resolveTenant(tenantIdentifier);
   const tenantId = tenant.id;
   const businessDate = tenantBusinessDate(new Date(), tenant.timeZone);
-  const [books, circulations, students] = await Promise.all([
-    tenantRows("library_books", tenantId, "id,title,author,category,isbn,total_copies,shelf,status", "title.asc,id.asc", { status: "eq.active" }),
+  const [books, circulations, students, bookCategories] = await Promise.all([
+    tenantRows("library_books", tenantId, "id,title,author,category,category_reference_id,isbn,total_copies,shelf,status", "title.asc,id.asc", { status: "eq.active" }),
     tenantRows("library_circulations", tenantId, "id,book_id,student_id,borrowed_on,due_on,returned_on,status", "borrowed_on.desc,id.desc"),
     tenantRows("students", tenantId, "id,name,nis,status", "name.asc,id.asc", { status: "neq.Archived" }),
+    listSupabaseReferenceItems(tenantId, "library_book_category"),
   ]);
   const inactiveStatuses = new Set(["archived", "archive", "arsip", "alumni", "graduated", "lulus", "inactive", "nonaktif", "tidak aktif", "dikeluarkan"]);
   const activeStudents = students.filter((student) => !inactiveStatuses.has(String(student.status || "").trim().toLowerCase()));
@@ -133,9 +135,11 @@ export async function listSupabaseLibrarySnapshot(tenantIdentifier: string) {
     businessDate,
     books: books.map((book) => ({
       id: String(book.id), title: String(book.title), author: String(book.author), category: String(book.category),
+      categoryReferenceId: String(book.category_reference_id || ""),
       isbn: String(book.isbn || ""), totalCopies: Number(book.total_copies), shelf: String(book.shelf || ""),
       availableCopies: Math.max(0, Number(book.total_copies) - (counts.get(String(book.id)) || 0)),
     })),
+    bookCategories: bookCategories.filter((item) => item.status === "active").map(({ id, code, name, description }) => ({ id, code, name, description })),
     circulations: circulations.map((item) => {
       const book = booksById.get(String(item.book_id));
       const student = studentsById.get(String(item.student_id));
@@ -160,7 +164,14 @@ export async function upsertSupabaseLibraryBook(tenantIdentifier: string, actorI
   const requestId = String(item.clientRequestId || "").trim();
   const title = String(item.title || "").trim();
   const author = String(item.author || "").trim();
-  const category = String(item.category || "").trim();
+  const categoryReferenceId = String(item.categoryReferenceId || "").trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(categoryReferenceId)) {
+    throw new SupabaseLibraryError(400, "Pilih kategori buku yang valid.");
+  }
+  const categories = await listSupabaseReferenceItems(tenantId, "library_book_category");
+  const selectedCategory = categories.find((candidate) => candidate.id === categoryReferenceId && candidate.status === "active");
+  if (!selectedCategory) throw new SupabaseLibraryError(400, "Kategori buku tidak aktif atau bukan milik tenant ini.");
+  const category = selectedCategory.name;
   const isbn = canonicalIsbn(item.isbn);
   const shelf = String(item.shelf || "").trim();
   const totalCopies = Number(item.totalCopies);

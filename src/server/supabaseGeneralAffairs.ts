@@ -1,4 +1,5 @@
 type Row = Record<string, any>;
+import { listSupabaseReferenceItems } from "./supabaseReferenceCatalog";
 
 export class SupabaseGeneralAffairsError extends Error {
   status: number;
@@ -63,27 +64,45 @@ async function boundedRows(table: string, tenantId: string, select: string, orde
 
 export async function getSupabaseGeneralAffairsSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
-  const [facilities, inventory, movements] = await Promise.all([
-    boundedRows("ga_facilities", tenantId, "id,asset_code,name,category,location,custodian,condition,acquisition_value,acquired_on,status,last_opname_on,created_at,updated_at", "status.asc,name.asc,id.asc", 5000),
-    boundedRows("ga_inventory_items", tenantId, "id,item_code,name,category,quantity,minimum_quantity,unit,unit_cost,location,status,created_at,updated_at", "status.asc,name.asc,id.asc", 5000),
+  const [facilities, inventory, movements, assetCategories, inventoryCategories, inventoryUnits] = await Promise.all([
+    boundedRows("ga_facilities", tenantId, "id,asset_code,name,category,category_reference_id,location,custodian,condition,acquisition_value,acquired_on,status,last_opname_on,created_at,updated_at", "status.asc,name.asc,id.asc", 5000),
+    boundedRows("ga_inventory_items", tenantId, "id,item_code,name,category,category_reference_id,quantity,minimum_quantity,unit,unit_reference_id,unit_cost,location,status,created_at,updated_at", "status.asc,name.asc,id.asc", 5000),
     boundedRows("ga_inventory_movements", tenantId, "id,item_id,quantity_delta,balance_after,reason,created_by,created_at", "created_at.desc,id.desc", 1000),
+    listSupabaseReferenceItems(tenantId, "ga_asset_category"),
+    listSupabaseReferenceItems(tenantId, "ga_inventory_category"),
+    listSupabaseReferenceItems(tenantId, "ga_inventory_unit"),
   ]);
   const itemById = new Map<string, Row>(inventory.map((item): [string, Row] => [String(item.id), item]));
   return {
     facilities: facilities.map((item) => ({ ...item, estimatedValue: Number(item.acquisition_value) || 0 })),
     inventory: inventory.map((item) => ({ ...item, quantity: Number(item.quantity) || 0, minimum_quantity: Number(item.minimum_quantity) || 0, unit_cost: Number(item.unit_cost) || 0, stockStatus: Number(item.quantity) <= 0 ? "Out of Stock" : Number(item.quantity) <= Number(item.minimum_quantity) ? "Low Stock" : "In Stock" })),
     movements: movements.map((movement) => ({ ...movement, itemName: itemById.get(String(movement.item_id))?.name || "Barang diarsipkan" })),
+    assetCategories,
+    inventoryCategories,
+    inventoryUnits,
   };
 }
 
 export async function manageSupabaseGeneralAffairsFacility(tenantId: string, actorId: string, item: Row) {
   if (!uuid(tenantId) || !uuid(actorId) || !uuid(item?.clientRequestId)) throw new SupabaseGeneralAffairsError(400, "Data aset General Affairs tidak valid.");
-  return request("/rest/v1/rpc/manage_ga_facility", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: item }) });
+  if (!uuid(item?.categoryReferenceId)) throw new SupabaseGeneralAffairsError(400, "Pilih kategori aset dari katalog tenant.");
+  const categories = await listSupabaseReferenceItems(tenantId, "ga_asset_category");
+  const category = categories.find((reference) => reference.id === item.categoryReferenceId);
+  if (!category) throw new SupabaseGeneralAffairsError(400, "Kategori aset tidak aktif pada tenant ini.");
+  return request("/rest/v1/rpc/manage_ga_facility", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: { ...item, category: category.name } }) });
 }
 
 export async function manageSupabaseGeneralAffairsInventory(tenantId: string, actorId: string, item: Row) {
   if (!uuid(tenantId) || !uuid(actorId) || !uuid(item?.clientRequestId)) throw new SupabaseGeneralAffairsError(400, "Data inventaris General Affairs tidak valid.");
-  return request("/rest/v1/rpc/manage_ga_inventory_item", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: item }) });
+  if (!uuid(item?.categoryReferenceId) || !uuid(item?.unitReferenceId)) throw new SupabaseGeneralAffairsError(400, "Pilih kategori dan satuan inventaris dari katalog tenant.");
+  const [categories, units] = await Promise.all([
+    listSupabaseReferenceItems(tenantId, "ga_inventory_category"),
+    listSupabaseReferenceItems(tenantId, "ga_inventory_unit"),
+  ]);
+  const category = categories.find((reference) => reference.id === item.categoryReferenceId);
+  const unit = units.find((reference) => reference.id === item.unitReferenceId);
+  if (!category || !unit) throw new SupabaseGeneralAffairsError(400, "Kategori atau satuan inventaris tidak aktif pada tenant ini.");
+  return request("/rest/v1/rpc/manage_ga_inventory_item", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: { ...item, category: category.name, unit: unit.name } }) });
 }
 
 export async function adjustSupabaseGeneralAffairsStock(tenantId: string, actorId: string, item: Row) {

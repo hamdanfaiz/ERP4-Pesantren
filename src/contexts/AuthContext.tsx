@@ -103,44 +103,29 @@ function profileToAuthUser(uid: string, email: string | null, profile: Record<st
   };
 }
 
-async function loadUserProfile(authUser: SupabaseAuthUser): Promise<{ user: AuthUser; role: UserRole }> {
-  const roleByDatabaseValue: Record<string, UserRole> = {
-    super_admin: 'SuperAdmin',
-    admin: 'Admin',
-    ustadz: 'Ustadz',
-    santri: 'Santri',
-    wali_santri: 'Walisantri',
-  };
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('user_id,tenant_id,email,display_name,username,role,status,must_change_password,module_permissions,unit_id,linked_santri_id,linked_santri_name,linked_santri_nis,linked_santri_class,linked_santri_room,tenants(name,tenant_type,status,time_zone)')
-    .eq('user_id', authUser.id)
-    .maybeSingle();
-  if (error) throw new Error('Profil akun tidak dapat dibaca. Silakan coba kembali.');
-  if (!data) throw new Error('Profil akun belum diprovisikan. Hubungi administrator pesantren.');
-  const tenant = Array.isArray(data.tenants) ? data.tenants[0] : data.tenants;
-  const profile = {
-    role: roleByDatabaseValue[String(data.role || '').toLowerCase()] || data.role,
-    tenantId: data.tenant_id,
-    tenantName: tenant?.name,
-    tenantTimeZone: tenant?.time_zone,
-    tenantType: tenant?.tenant_type,
-    unitId: data.unit_id,
-    status: tenant?.status !== 'active' ? 'disabled' : data.status === 'suspended' ? 'disabled' : data.status === 'invited' ? 'inactive' : data.status,
-    name: data.display_name,
-    email: data.email,
-    username: data.username,
-    mustChangePassword: data.must_change_password,
-    modulePermissions: data.module_permissions,
-    linkedSantriId: data.linked_santri_id,
-    linkedSantriName: data.linked_santri_name,
-    linkedSantriNis: data.linked_santri_nis,
-    linkedSantriClass: data.linked_santri_class,
-    linkedSantriRoom: data.linked_santri_room,
-  };
-  const role = profile.role as UserRole;
+async function loadUserProfile(authUser: SupabaseAuthUser, accessToken: string): Promise<{ user: AuthUser; role: UserRole }> {
+  const response = await fetch('/api/auth/profile', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  });
+  if (response.status === 404) {
+    throw new Error('Profil akun belum diprovisikan. Hubungi administrator pesantren.');
+  }
+  if (response.status === 401) {
+    throw new Error('Sesi tidak valid atau sudah berakhir. Silakan masuk kembali.');
+  }
+  if (!response.ok) {
+    throw new Error('Profil akun tidak dapat diverifikasi. Silakan coba kembali.');
+  }
+
+  const payload = await response.json().catch(() => null);
+  const profile = payload?.profile;
+  if (!profile || profile.uid !== authUser.id) {
+    throw new Error('Profil akun tidak dapat diverifikasi. Silakan coba kembali.');
+  }
+
   const user = profileToAuthUser(authUser.id, authUser.email ?? null, profile);
-  return { user, role };
+  return { user, role: user.role };
 }
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -182,7 +167,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setIsLoading(true);
           window.setTimeout(async () => {
             try {
-              const session = await loadUserProfile(authUser);
+              const session = await loadUserProfile(authUser, authSession.access_token);
               if (!mounted || currentRevision !== revision) return;
               setUser(session.user);
               setRole(session.role);
@@ -240,7 +225,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email: data.user.email ?? null,
         accessToken: data.session.access_token,
       });
-      const session = await loadUserProfile(data.user);
+      const session = await loadUserProfile(data.user, data.session.access_token);
       setUser(session.user);
       setRole(session.role);
     } catch (error: any) {
@@ -267,7 +252,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshProfile = async () => {
     const { data } = await supabase.auth.getSession();
     if (!data.session?.user) return;
-    const session = await loadUserProfile(data.session.user);
+    const session = await loadUserProfile(data.session.user, data.session.access_token);
     setUser(session.user);
     setRole(session.role);
   };

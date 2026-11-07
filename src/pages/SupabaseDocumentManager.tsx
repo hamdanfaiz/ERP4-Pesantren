@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabase";
 import { pendingMutationIds } from "../utils/pendingMutationId";
 import { tenantBusinessDate } from "../utils/businessDate";
-import { ERPFeatureStatus } from "../components/ERPDesignSystem";
+import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 
 type Direction = "incoming" | "outgoing" | "internal";
 type Status = "registered" | "in_review" | "approved" | "rejected" | "archived";
@@ -15,12 +15,14 @@ type DocumentRecord = {
   senderName: string | null; recipientName: string | null; documentDate: string;
   summary: string | null; status: Status; createdAt: string; updatedAt: string; attachments: Attachment[];
 };
-type Draft = { documentNumber: string; direction: Direction; subject: string; senderName: string; recipientName: string; documentDate: string; summary: string };
+type Draft = { direction: Direction; subject: string; senderName: string; recipientName: string; documentDate: string; summary: string };
 type PageResult = { documents: DocumentRecord[]; nextCursor: string | null };
-type ViewTab = "all" | Direction | "approval" | "archive" | "ocr";
+type ViewTab = "all" | "incoming" | "outgoing" | "approval" | "archive" | "ocr";
+type DirectionFilter = "all" | Direction;
+type StatusGroup = "all" | "approval" | "archive";
 
-const INITIAL_DRAFT: Draft = { documentNumber: "", direction: "incoming", subject: "", senderName: "", recipientName: "", documentDate: tenantBusinessDate(), summary: "" };
-const TAB_LABEL: Record<ViewTab, string> = { all: "Semua dokumen", incoming: "Surat masuk", outgoing: "Surat keluar", internal: "Internal", approval: "Persetujuan elektronik", archive: "Arsip Digital", ocr: "Pemindai OCR" };
+const INITIAL_DRAFT: Draft = { direction: "incoming", subject: "", senderName: "", recipientName: "", documentDate: tenantBusinessDate(), summary: "" };
+const TAB_LABEL: Record<ViewTab, string> = { all: "Semua dokumen", incoming: "Surat Masuk", outgoing: "Surat Keluar", approval: "Persetujuan elektronik", archive: "Arsip Digital", ocr: "Pemindai OCR" };
 const DIRECTION_LABEL: Record<Direction, string> = { incoming: "Masuk", outgoing: "Keluar", internal: "Internal" };
 const STATUS_LABEL: Record<Status, string> = { registered: "Terdaftar", in_review: "Dalam telaah", approved: "Disetujui", rejected: "Perlu perbaikan", archived: "Diarsipkan" };
 const STATUS_STYLE: Record<Status, string> = {
@@ -58,6 +60,7 @@ export function SupabaseDocumentManager() {
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [tab, setTab] = useState<ViewTab>("all");
+  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>("all");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -69,14 +72,29 @@ export function SupabaseDocumentManager() {
   const [draft, setDraft] = useState<Draft>(INITIAL_DRAFT);
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState("");
+  const listRequestSequence = useRef(0);
   const canManage = (role === "Admin" || role === "SuperAdmin") && user?.modulePermissions?.document !== false;
 
   const fetchPage = useCallback(async (cursor?: string | null, append = false) => {
-    const suffix = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-    const result = await documentRequest<PageResult>(`/api/documents${suffix}`);
+    const sequence = ++listRequestSequence.current;
+    const params = new URLSearchParams();
+    const effectiveDirection = tab === "incoming" || tab === "outgoing" ? tab : directionFilter;
+    const statusGroup: StatusGroup = tab === "approval" || tab === "archive" ? tab : "all";
+    if (cursor) params.set("cursor", cursor);
+    if (query.trim()) params.set("search", query.trim());
+    if (effectiveDirection !== "all") params.set("direction", effectiveDirection);
+    if (statusGroup !== "all") params.set("statusGroup", statusGroup);
+    const suffix = params.size ? `?${params.toString()}` : "";
+    let result: PageResult;
+    try { result = await documentRequest<PageResult>(`/api/documents${suffix}`); }
+    catch (error) {
+      if (sequence !== listRequestSequence.current) return;
+      throw error;
+    }
+    if (sequence !== listRequestSequence.current) return;
     setDocuments((current) => append ? [...current, ...(Array.isArray(result.documents) ? result.documents : [])] : (Array.isArray(result.documents) ? result.documents : []));
     setNextCursor(typeof result.nextCursor === "string" ? result.nextCursor : null);
-  }, []);
+  }, [directionFilter, query, tab]);
 
   const refresh = useCallback(async () => {
     setError("");
@@ -86,37 +104,32 @@ export function SupabaseDocumentManager() {
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true); setError("");
-    documentRequest<PageResult>("/api/documents")
-      .then((result) => {
-        if (!mounted) return;
-        setDocuments(Array.isArray(result.documents) ? result.documents : []);
-        setNextCursor(typeof result.nextCursor === "string" ? result.nextCursor : null);
-      })
-      .catch((loadError: any) => { if (mounted) setError(loadError?.message || "Daftar dokumen belum dapat dimuat."); })
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => { mounted = false; };
-  }, [user?.tenantId, user?.uid]);
+    const timer = window.setTimeout(() => {
+      setLoading(true); setError("");
+      void fetchPage(null, false)
+        .catch((loadError: any) => { if (mounted) setError(loadError?.message || "Daftar dokumen belum dapat dimuat."); })
+        .finally(() => { if (mounted) setLoading(false); });
+    }, query.trim() ? 250 : 0);
+    return () => { mounted = false; window.clearTimeout(timer); listRequestSequence.current += 1; };
+  }, [fetchPage, user?.tenantId, user?.uid]);
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase("id-ID");
     return documents.filter((item) => {
       const matchesTab = tab === "all"
         || tab === "approval" && ["registered", "in_review", "approved", "rejected"].includes(item.status)
         || tab === "archive" && item.status === "archived"
-        || (tab === "incoming" || tab === "outgoing" || tab === "internal") && item.direction === tab;
-      return matchesTab
-      && (!needle || [item.documentNumber, item.subject, item.senderName || "", item.recipientName || "", item.summary || ""]
-        .some((value) => value.toLocaleLowerCase("id-ID").includes(needle)));
+        || (tab === "incoming" || tab === "outgoing") && item.direction === tab;
+      const matchesDirection = tab !== "all" || directionFilter === "all" || item.direction === directionFilter;
+      return matchesTab && matchesDirection;
     });
-  }, [documents, query, tab]);
+  }, [documents, directionFilter, tab]);
 
   const createDocument = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!canManage) { setError("Akses pengelolaan Dokumen Digital hanya tersedia untuk Admin tenant."); return; }
     setSaving(true); setError(""); setNotice("");
     try {
-      const payload = { ...draft, documentNumber: draft.documentNumber.trim(), subject: draft.subject.trim(), senderName: draft.senderName.trim(), recipientName: draft.recipientName.trim(), summary: draft.summary.trim() };
+      const payload = { ...draft, subject: draft.subject.trim(), senderName: draft.senderName.trim(), recipientName: draft.recipientName.trim(), summary: draft.summary.trim() };
       const lease = await pendingMutationIds.acquire("document:register", { tenantId: user?.tenantId || "", actorId: user?.uid || "", payload });
       await documentRequest("/api/documents", { method: "POST", body: JSON.stringify({ document: { ...payload, clientRequestId: lease.requestId } }) });
       lease.clear();
@@ -187,7 +200,14 @@ export function SupabaseDocumentManager() {
     finally { setLoadingMore(false); }
   };
 
-  const tabs: ViewTab[] = ["all", "incoming", "outgoing", "approval", "archive", "ocr", "internal"];
+  const tabs: { id: ViewTab; label: string; icon: React.ReactNode }[] = [
+    { id: "all", label: TAB_LABEL.all, icon: <FileText className="h-4 w-4" /> },
+    { id: "incoming", label: TAB_LABEL.incoming, icon: <Inbox className="h-4 w-4" /> },
+    { id: "outgoing", label: TAB_LABEL.outgoing, icon: <Send className="h-4 w-4" /> },
+    { id: "approval", label: TAB_LABEL.approval, icon: <ShieldCheck className="h-4 w-4" /> },
+    { id: "archive", label: TAB_LABEL.archive, icon: <Archive className="h-4 w-4" /> },
+    { id: "ocr", label: TAB_LABEL.ocr, icon: <Search className="h-4 w-4" /> },
+  ];
   const statusActions = (document: DocumentRecord): Array<{ label: string; status: Status; icon: React.ReactNode }> => {
     if (document.status === "registered") return [
       { label: "Mulai telaah", status: "in_review", icon: <ShieldCheck className="h-4 w-4" /> },
@@ -213,7 +233,7 @@ export function SupabaseDocumentManager() {
           <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">Dokumen Digital</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Catat surat masuk, surat keluar, dan dokumen internal dengan alur telaah serta arsip per tenant.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => void refresh()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10" aria-label="Muat ulang dokumen">
             <RefreshCw className="h-4 w-4" /> Muat ulang
           </button>
@@ -230,21 +250,28 @@ export function SupabaseDocumentManager() {
         })}
       </div>
 
+      <ERPTabs
+        tabs={tabs}
+        value={tab}
+        onChange={(value) => { setTab(value as ViewTab); setDirectionFilter("all"); }}
+        ariaLabel="Bagian Dokumen Digital"
+      />
+
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/60">
-        <div className="border-b border-slate-200 px-4 pt-3 dark:border-white/10 sm:px-5">
-          <div role="tablist" aria-label="Jenis dokumen" className="flex gap-2 overflow-x-auto">
-            {tabs.map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} onClick={() => setTab(item)} className={`shrink-0 border-b-2 px-3 py-3 text-sm font-medium transition ${tab === item ? "border-emerald-600 text-emerald-700 dark:text-emerald-300" : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"}`}>{TAB_LABEL[item]}</button>)}
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 xl:flex-row xl:items-center xl:justify-between xl:px-5">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:max-w-xl sm:flex-row">
+            <div className="relative w-full min-w-0 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} maxLength={120} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nomor, perihal, nama, atau ringkasan..." className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:border-white/10 dark:bg-slate-950/40 dark:text-white" /></div>
           </div>
-        </div>
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div className="relative w-full sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nomor, perihal, pengirim..." className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:border-white/10 dark:bg-slate-950/40 dark:text-white" /></div>
-          <span className="text-xs text-slate-500 dark:text-slate-400">Data dibatasi pada tenant aktif</span>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            {tab === "all" && <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"><span>Jenis dokumen</span><select value={directionFilter} onChange={(event) => setDirectionFilter(event.target.value as DirectionFilter)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-200"><option value="all">Semua jenis</option><option value="incoming">Surat masuk</option><option value="outgoing">Surat keluar</option><option value="internal">Dokumen internal</option></select></label>}
+            <span className="text-xs text-slate-500 dark:text-slate-400">Data dibatasi pada tenant aktif</span>
+          </div>
         </div>
 
         {tab === "ocr" ? <ERPFeatureStatus title="Pemindai OCR" description="Menu OCR tetap terlihat mengikuti acuan. Pembacaan otomatis belum terhubung ke layanan Supabase; unggah dan ekstraksi teks tidak dijalankan." />
           : loading ? <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="h-5 w-5 animate-spin" /> Memuat daftar dokumen...</div>
           : error && documents.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center"><FileText className="h-9 w-9 text-slate-300 dark:text-slate-600" /><h2 className="mt-3 font-medium text-slate-800 dark:text-slate-200">Dokumen belum dapat dimuat</h2><p className="mt-1 max-w-lg text-sm text-slate-500">Periksa koneksi atau kesiapan layanan Supabase, lalu coba muat ulang.</p><button type="button" onClick={() => void refresh()} className="mt-4 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Coba lagi</button></div>
-          : filtered.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center"><FileText className="h-9 w-9 text-slate-300 dark:text-slate-600" /><h2 className="mt-3 font-medium text-slate-800 dark:text-slate-200">Belum ada dokumen</h2><p className="mt-1 max-w-lg text-sm text-slate-500">Catat surat atau dokumen pertama. Data contoh tidak ditampilkan pada runtime Supabase.</p>{canManage && <button type="button" onClick={() => setFormOpen(true)} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"><Plus className="h-4 w-4" /> Catat dokumen</button>}</div>
+          : filtered.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center"><FileText className="h-9 w-9 text-slate-300 dark:text-slate-600" /><h2 className="mt-3 font-medium text-slate-800 dark:text-slate-200">{query.trim() || directionFilter !== "all" || tab !== "all" ? "Dokumen tidak ditemukan" : "Belum ada dokumen"}</h2><p className="mt-1 max-w-lg text-sm text-slate-500">{query.trim() || directionFilter !== "all" || tab !== "all" ? "Ubah kata pencarian atau filter untuk melihat hasil lain." : "Catat surat atau dokumen pertama. Data contoh tidak ditampilkan pada runtime Supabase."}</p>{canManage && !query.trim() && directionFilter === "all" && tab === "all" && <button type="button" onClick={() => setFormOpen(true)} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"><Plus className="h-4 w-4" /> Catat dokumen</button>}</div>
           : <div className="divide-y divide-slate-100 dark:divide-white/5">
             {filtered.map((document) => <article key={document.id} className="p-4 sm:px-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -270,11 +297,11 @@ export function SupabaseDocumentManager() {
 
       {formOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setFormOpen(false); }}>
         <form onSubmit={createDocument} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="document-dialog-title">
-          <div className="flex items-start justify-between gap-3"><div><h2 id="document-dialog-title" className="text-lg font-semibold text-slate-900 dark:text-white">Catat dokumen</h2><p className="mt-1 text-sm text-slate-500">Nomor dokumen harus unik dalam pesantren ini.</p></div><button type="button" disabled={saving} onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5" aria-label="Tutup"><X className="h-5 w-5" /></button></div>
+          <div className="flex items-start justify-between gap-3"><div><h2 id="document-dialog-title" className="text-lg font-semibold text-slate-900 dark:text-white">Catat dokumen</h2><p className="mt-1 text-sm text-slate-500">Nomor unik dibuat otomatis saat dokumen tersimpan.</p></div><button type="button" disabled={saving} onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5" aria-label="Tutup"><X className="h-5 w-5" /></button></div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Jenis dokumen<select value={draft.direction} onChange={(event) => setDraft((item) => ({ ...item, direction: event.target.value as Direction }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white"><option value="incoming">Surat masuk</option><option value="outgoing">Surat keluar</option><option value="internal">Dokumen internal</option></select></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal dokumen<input required type="date" value={draft.documentDate} onChange={(event) => setDraft((item) => ({ ...item, documentDate: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
-            <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">Nomor dokumen<input required maxLength={80} value={draft.documentNumber} onChange={(event) => setDraft((item) => ({ ...item, documentNumber: event.target.value }))} placeholder="Contoh: 012/PP/2026" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
+            <div role="note" className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-800 dark:border-sky-400/20 dark:bg-sky-400/5 dark:text-sky-200 sm:col-span-2">Nomor dokumen mengikuti aturan Naming Series tenant dan tidak perlu diketik.</div>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">Perihal<input required maxLength={240} value={draft.subject} onChange={(event) => setDraft((item) => ({ ...item, subject: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Pengirim<input maxLength={200} value={draft.senderName} onChange={(event) => setDraft((item) => ({ ...item, senderName: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Penerima<input maxLength={200} value={draft.recipientName} onChange={(event) => setDraft((item) => ({ ...item, recipientName: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
@@ -287,3 +314,4 @@ export function SupabaseDocumentManager() {
     </section>
   );
 }
+

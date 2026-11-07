@@ -28,6 +28,12 @@ INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, stat
   ('e5200000-0000-4000-8000-000000000014', 'e5200000-0000-4000-8000-000000000001', 'unit-unassigned@test.invalid', 'Unassigned Ustadz', 'ustadz', 'active', NULL, NULL, '{"finance":true}'),
   ('f5200000-0000-4000-8000-000000000021', 'f5200000-0000-4000-8000-000000000002', 'unit-other-tenant@test.invalid', 'Other Tenant Admin', 'admin', 'active', NULL, NULL, '{"finance":true}');
 
+INSERT INTO public.tenant_reference_items (
+  tenant_id, domain, code, name, description, created_by_user_id, updated_by_user_id
+) VALUES
+  ('e5200000-0000-4000-8000-000000000001', 'finance_expense_category', 'PGTAP_UTILITAS', 'Utilitas', 'Biaya utilitas untuk skenario unit uji.', 'e5200000-0000-4000-8000-000000000011', 'e5200000-0000-4000-8000-000000000011'),
+  ('e5200000-0000-4000-8000-000000000001', 'finance_expense_category', 'PGTAP_KEGIATAN', 'Kegiatan', 'Biaya kegiatan untuk skenario unit uji.', 'e5200000-0000-4000-8000-000000000011', 'e5200000-0000-4000-8000-000000000011');
+
 INSERT INTO public.organization_units (id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id) VALUES
   ('e5200000-0000-4000-8000-000000000101', 'e5200000-0000-4000-8000-000000000001', 'MADRASAH', 'Madrasah', 'sekolah', 'active', 'e5200000-0000-4000-8000-000000000011', 'e5200000-0000-4000-8000-000000000011'),
   ('e5200000-0000-4000-8000-000000000102', 'e5200000-0000-4000-8000-000000000001', 'KLINIK', 'Klinik', 'klinik', 'active', 'e5200000-0000-4000-8000-000000000011', 'e5200000-0000-4000-8000-000000000011'),

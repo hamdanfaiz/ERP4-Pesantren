@@ -19,6 +19,30 @@ const SUPABASE_STATUS_DB_URL_PATTERN = /^\s*(?:export\s+)?DB_URL=/;
 const VERSION_PATTERN = /^\d{14}$/;
 const MIGRATION_FILE_PATTERN = /^(\d{14})_(.+)\.sql$/;
 
+// This migration was originally applied on staging before its unit/finance
+// prerequisites existed in the timestamped chain. Its SQL is preserved byte for
+// byte under the correct timestamp. During ledger reconciliation, the read-only
+// preflight recognizes the old version only when its stored SQL exactly matches.
+// `migration repair` records the replacement version without SQL metadata, so the
+// replacement version is the only allowlisted exception for missing statements.
+const MIGRATION_VERSION_ALIASES = Object.freeze([
+  Object.freeze({
+    from: '20261101015832',
+    to: '20270214120000',
+    name: 'tenant_reference_relationships',
+  }),
+  Object.freeze({
+    from: '20261105070231',
+    to: '20270302000000',
+    name: 'academic_class_reference_pagination',
+  }),
+  Object.freeze({
+    from: '20261106151606',
+    to: '20270304000000',
+    name: 'student_room_assignment_reference_locks',
+  }),
+]);
+
 function hasEscapeStringPrefix(value) {
   return /(?:^|[^A-Za-z0-9_$])[Ee]$/.test(value);
 }
@@ -318,6 +342,8 @@ export function parseAppliedMigrationsOutput(output) {
 }
 
 export function compareMigrationVersions(migrations, appliedMigrations) {
+  const aliasesByOldVersion = new Map(MIGRATION_VERSION_ALIASES.map((alias) => [alias.from, alias]));
+  const aliasesByNewVersion = new Map(MIGRATION_VERSION_ALIASES.map((alias) => [alias.to, alias]));
   const applied = appliedMigrations.map((row) => typeof row === 'string'
     ? { version: row.trim(), name: null, statements: null }
     : {
@@ -326,7 +352,12 @@ export function compareMigrationVersions(migrations, appliedMigrations) {
       statements: Array.isArray(row?.statements)
         ? canonicalizeAppliedStatements(row.statements)
         : null,
-    });
+    }).map((row) => ({
+      ...row,
+      ledgerVersion: row.version,
+      version: aliasesByOldVersion.get(row.version)?.to ?? row.version,
+      alias: aliasesByOldVersion.get(row.version) ?? aliasesByNewVersion.get(row.version) ?? null,
+    }));
   const appliedVersions = applied.map(({ version }) => version);
   const invalidApplied = appliedVersions.filter((version) => !VERSION_PATTERN.test(version));
   if (invalidApplied.length > 0) {
@@ -343,12 +374,18 @@ export function compareMigrationVersions(migrations, appliedMigrations) {
     if (!local) return [];
     const expectedName = local.fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, '');
     if (row.name === expectedName) return [];
+    if (row.alias && row.version === row.alias.to && row.name === null) return [];
     return [{ version: row.version, appliedName: row.name, expectedName, fileName: local.fileName }];
   });
   const statementMismatches = applied.flatMap((row) => {
     const local = localByVersion.get(row.version);
     if (!local || !Array.isArray(local.statements)) return [];
     const actual = row.statements;
+    if (row.alias && row.ledgerVersion === row.alias.to
+      && (!Array.isArray(actual) || actual.length === 0
+        || actual.some((statement) => typeof statement !== 'string' || statement.length === 0))) {
+      return [];
+    }
     if (!Array.isArray(actual) || actual.some((statement) => typeof statement !== 'string' || statement.length === 0)) {
       return [{ version: row.version, reason: 'missing', expectedCount: local.statements.length }];
     }
@@ -364,6 +401,19 @@ export function compareMigrationVersions(migrations, appliedMigrations) {
   });
   const latestAppliedVersion = [...appliedVersions].sort().at(-1) || null;
   const pending = migrations.filter((migration) => !appliedSet.has(migration.version));
+  const migrationAliasesPendingRepair = applied
+    .filter((row) => row.alias && row.ledgerVersion === row.alias.from)
+    .map((row) => ({ from: row.alias.from, to: row.alias.to, name: row.alias.name }));
+  const repairedMigrationAliases = applied
+    .filter((row) => row.alias && row.ledgerVersion === row.alias.to
+      && (!Array.isArray(row.statements) || row.statements.length === 0
+        || row.statements.some((statement) => typeof statement !== 'string' || statement.length === 0)))
+    .map((row) => ({ version: row.alias.to, name: row.alias.name }));
+  const validatedMigrationAliases = applied
+    .filter((row) => row.alias && row.ledgerVersion === row.alias.from
+      && !statementMismatches.some((mismatch) => mismatch.version === row.version)
+      && !nameMismatches.some((mismatch) => mismatch.version === row.version))
+    .map((row) => ({ from: row.alias.from, to: row.alias.to, name: row.alias.name }));
   const outOfOrderPending = latestAppliedVersion
     ? pending.filter((migration) => migration.version < latestAppliedVersion)
     : [];
@@ -378,8 +428,12 @@ export function compareMigrationVersions(migrations, appliedMigrations) {
     outOfOrderPending,
     nameMismatches,
     statementMismatches,
+    migrationAliasesPendingRepair,
+    repairedMigrationAliases,
+    validatedMigrationAliases,
     canContinueToStagingReview: unknownApplied.length === 0
       && outOfOrderPending.length === 0
+      && migrationAliasesPendingRepair.length === 0
       && nameMismatches.length === 0
       && statementMismatches.length === 0,
   };
@@ -459,6 +513,43 @@ export function databaseUrlFromEnvironment(env = process.env) {
   return env.SUPABASE_DB_POOLER_URL || env.SUPABASE_DB_URL || '';
 }
 
+export function assertDatabaseTargetMatchesEnvironment(databaseUrl, env = process.env) {
+  const projectRef = String(env.SUPABASE_PROJECT_REF || '').trim().toLowerCase();
+  const apiUrl = String(env.SUPABASE_URL || '').trim();
+  if (!/^[a-z0-9]{20}$/.test(projectRef) || !apiUrl) {
+    throw new Error('Target database tidak dapat diverifikasi; set SUPABASE_PROJECT_REF dan SUPABASE_URL.');
+  }
+
+  let api;
+  let database;
+  try {
+    api = new URL(apiUrl);
+    database = new URL(databaseUrl);
+  } catch {
+    throw new Error('Target database tidak dapat diverifikasi dari konfigurasi Supabase.');
+  }
+
+  if (api.protocol !== 'https:' || api.hostname.toLowerCase() !== `${projectRef}.supabase.co`) {
+    throw new Error('SUPABASE_PROJECT_REF tidak cocok dengan SUPABASE_URL.');
+  }
+  if (!['postgres:', 'postgresql:'].includes(database.protocol)) {
+    throw new Error('URL target bukan koneksi PostgreSQL; preflight dihentikan.');
+  }
+
+  const host = database.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  const username = decodeURIComponent(database.username);
+  const directProjectRef = host.match(/^db\.([a-z0-9]{20})\.supabase\.co$/)?.[1];
+  const poolerProjectRef = host.endsWith('.pooler.supabase.com')
+    ? username.match(/^postgres\.([a-z0-9]{20})$/)?.[1]
+    : null;
+  const databaseProjectRef = directProjectRef || poolerProjectRef;
+
+  if (!databaseProjectRef || databaseProjectRef !== projectRef) {
+    throw new Error('URL database tidak cocok dengan SUPABASE_PROJECT_REF; preflight dihentikan.');
+  }
+  return projectRef;
+}
+
 function readAppliedMigrations(databaseUrl) {
   const result = execFileSync('psql', [
     '-X', '-A', '-t', '-q', '-v', 'ON_ERROR_STOP=1', '-c', READ_ONLY_LEDGER_QUERY,
@@ -487,6 +578,21 @@ export function formatReport(report) {
     lines.push('HENTIKAN: ada migration lokal yang lebih lama dari versi terakhir database dan belum tercatat:');
     for (const migration of report.outOfOrderPending) {
       lines.push(`  ${migration.version}  ${migration.fileName}`);
+    }
+  }
+  if (report.migrationAliasesPendingRepair.length > 0) {
+    lines.push('HENTIKAN: riwayat migrasi staging masih memakai versi lama; cocokkan SQL lalu rekonsiliasi ledger sebelum db push:');
+    for (const alias of report.validatedMigrationAliases) {
+      lines.push(`  SQL cocok persis: ${alias.from} → ${alias.to}  ${alias.name}`);
+    }
+    for (const alias of report.migrationAliasesPendingRepair) {
+      lines.push(`  ${alias.from} → ${alias.to}  ${alias.name}`);
+    }
+  }
+  if (report.repairedMigrationAliases.length > 0) {
+    lines.push('Riwayat migrasi berikut telah direkonsiliasi dengan migration repair; SQL tidak dijalankan ulang:');
+    for (const alias of report.repairedMigrationAliases) {
+      lines.push(`  ${alias.version}  ${alias.name}`);
     }
   }
   if (report.nameMismatches.length > 0) {
@@ -531,6 +637,7 @@ export function main({ env = process.env, repoRoot = getRepoRoot(), useLocalStac
       console.error('Atur SUPABASE_DB_POOLER_URL atau SUPABASE_DB_URL pada environment untuk database target. Nilainya tidak akan dicetak.');
       return 2;
     }
+    if (!useLocalStack) assertDatabaseTargetMatchesEnvironment(databaseUrl, env);
 
     const migrationDirectory = path.join(repoRoot, 'supabase', 'migrations');
     const migrations = listLocalMigrations(

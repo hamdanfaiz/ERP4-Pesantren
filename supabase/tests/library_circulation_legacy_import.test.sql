@@ -18,17 +18,25 @@ VALUES (
   'e3000000-0000-4000-8000-000000000011', '00000000-0000-0000-0000-000000000000',
   'authenticated', 'authenticated', 'library-circ-admin@test.invalid', '', now(),
   '{"provider":"email","providers":["email"]}', '{}', now(), now()
+), (
+  'e3000000-0000-4000-8000-000000000012', '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated', 'library-circ-other-admin@test.invalid', '', now(),
+  '{"provider":"email","providers":["email"]}', '{}', now(), now()
 );
 INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, status, module_permissions)
 VALUES (
   'e3000000-0000-4000-8000-000000000011', 'e3000000-0000-4000-8000-000000000001',
   'library-circ-admin@test.invalid', 'Library Circulation Admin', 'admin', 'active', '{"library":true}'
+), (
+  'e3000000-0000-4000-8000-000000000012', 'e3000000-0000-4000-8000-000000000002',
+  'library-circ-other-admin@test.invalid', 'Other Tenant Admin', 'admin', 'active', '{"library":true}'
 );
+\ir test_support/seed_tenant_reference_catalogs.psql
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
-  ('e3000000-0000-4000-8000-000000000101', 'e3000000-0000-4000-8000-000000000001', 'LCI001', 'Santri Satu', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex')),
-  ('e3000000-0000-4000-8000-000000000102', 'e3000000-0000-4000-8000-000000000002', 'LCI002', 'Santri Tenant Lain', decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'));
+  ('e3000000-0000-4000-8000-000000000101', 'e3000000-0000-4000-8000-000000000001', 'LCI001', 'Santri Satu', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex'), 'VII'),
+  ('e3000000-0000-4000-8000-000000000102', 'e3000000-0000-4000-8000-000000000002', 'LCI002', 'Santri Tenant Lain', decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'VII');
 INSERT INTO public.students (
   id, tenant_id, source_candidate_id, nis, name, gender, grade, nik_ciphertext, nik_fingerprint, status
 )

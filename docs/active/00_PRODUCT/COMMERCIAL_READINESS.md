@@ -1,4 +1,38 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
+> **Bukti terbaru — 7 November 2026, 04.56 WIB.** PR #40 masih Open dan belum merged; head dokumentasi `2aa0099dddc8501bd41f767dbe2bf8a16fbe59f9`, sedangkan source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. CI [#1201](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42299718397) lulus 3/3 pada head tersebut. CI mencakup migrasi baseline sintetis, bukan UAT browser atau Production live.
+>
+> VQE staging memiliki 136 ledger rows; satu alias untuk migrasi kamar masih perlu rekonsiliasi metadata. Jangan jalankan DDL-nya ulang. Snapshot CSV Production 6 November, dibanding source PR, berisi 47 versi cocok, 89 versi source tidak ada, dan tidak ada versi ekstra. Snapshot itu juga punya 29 tanggal migrasi setelah 7 November serta dua nilai nama literal `null`; konektor tetap menolak baca live. Minta inventaris baca-saja baru dan konfirmasi anomali sebelum merencanakan migrasi. Tidak ada perubahan Production.
+>
+> UAT Admin/Wali, tinjauan backend, inventaris Production terbaru, backup/restore Production, serta rehearsal/dry-run live belum selesai. Audit paritas masih mencatat fitur yang belum tersedia; status/menu bukan bukti fungsi lengkap. Perkiraan kemajuan pengembangan sekitar **72%**, bukan persentase fitur yang lulus UAT. ERP belum siap deploy/cutover atau dinyatakan layak komersial. Lihat [checkpoint handoff terbaru](BACKEND_TEAM_START_HERE.md), [audit paritas fitur](AI_STUDIO_REFERENCE_PARITY_AUDIT_2026-10-31.md), dan [laporan Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-06.md).
+
+> **Pembaruan checkpoint — 6 November 2026, 23.08 WIB.** CI #1191 lulus 3/3 job pada source dokumen PR `602926c548410e2f6af2d0001701d5cf23fd0ece`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. UAT browser, inventaris penuh Production, backup/restore yang terbukti, dan rehearsal/dry-run masih terbuka.
+>
+> VQE memiliki 136 migration ledger rows, dengan migration kamar aktif pada alias `20261106151606`; jangan menjalankan DDL ulang. MCP masih menolak baca ledger Production, dan tidak ada perubahan Production.
+> [Checkpoint terbaru dan langkah operator](CHECKPOINT_2026-11-06_RESUME_STAGING.md).
+
+> **Status terbaru — 6 November 2026, 22.58 WIB.** CI #1188 lulus 3/3 job pada head review `dfff6bbd13c10f115cf17b845f087b6ebcf84421`; bukti tersebut mencakup build/runtime, instalasi NPM, migration replay sintetis, API/Auth, pgTAP, Storage, dan backup/restore lokal CI. UAT browser dan cutover Production belum lulus.
+>
+> Read-only MCP terbaru mengonfirmasi VQE memiliki 136 ledger rows, dengan migration `student_room_assignment_reference_locks` tercatat sebagai alias `20261106151606` (source `20270304000000`); jangan mengulang DDL. PTSAS Production tidak disentuh, dan permintaan baca ledger terbaru ditolak connector. Operator perlu memberikan inventaris baca-saja terkini.
+>
+> Uji lokal tambahan lulus pada integration worktree yang berbeda dari head PR dan mengandung perubahan belum commit; karena itu hasilnya bersifat pendukung, bukan verifikasi release head. Build lokal lulus dengan peringatan ukuran chunk PDF sekitar 1,46 MB.
+> [Checkpoint terbaru dan urutan tindakan](CHECKPOINT_2026-11-06_RESUME_STAGING.md).
+
+> **Status terbaru — 6 November 2026, 22.50 WIB.** PR #40 masih terbuka untuk review. Source aplikasi terakhir yang diuji adalah `c61825935c49b642d8bed08b16e7c428a73add15`; CI #1187 lulus 3/3 pada head dokumentasi `58553c2e493d10cf35e0268a2d1e40a7bed064c8`. Run #1187 menguji build/runtime, instalasi NPM, migration replay sintetis, API/auth, pgTAP, Storage, backup/restore lokal CI, dan konkurensi. Hasil CI ini tidak sama dengan UAT browser atau verifikasi Production.
+>
+> Preview lokal 4179/3000 tidak aktif saat diperiksa. UAT login Admin/Wali dan modul di browser masih terbuka. VQE sudah menjalankan migration `20270304000000`, tetapi satu versi ledger masih alias `20261106151606`; jangan jalankan ulang DDL. PTSAS Production tidak disentuh, dan tetap menunggu inventaris penuh, backup/restore yang terbukti, rehearsal serta dry-run yang disetujui.
+> [Checkpoint terbaru dan urutan tindakan](CHECKPOINT_2026-11-06_RESUME_STAGING.md).
+
+
+> **Status terkini — 6 November 2026, 22.45 WIB.** Data operasional/angka di bagian bertanggal di bawah adalah snapshot historis dan tidak menggantikan status terbaru ini.
+>
+> - PR #40 `codex/menu-owner-placement-20261101` adalah source review aktif; kode terakhir diuji pada `c61825935c49b642d8bed08b16e7c428a73add15`. CI #1186 lulus 3/3 pada head dokumentasi terbaru `80990bca4f29ae71f6d2a1e0a1e6f4bd20d9f0d3`. PR #40 terbuka, siap ditinjau backend, belum merged.
+> - Sidebar source memuat 25 modul rilis awal; PPOB/payment provider tetap dikecualikan. Izin role dapat menyembunyikan menu yang tidak diizinkan, dan gerbang runtime server tetap default mati. Menu atau rute yang terlihat tidak membuktikan API modul sudah UAT.
+> - Migration `20270304000000_student_room_assignment_reference_locks` sudah aktif di VQE staging `vqemuyzveuirlkvdggjd`; ledger memakai alias `20261106151606`. Jangan jalankan ulang SQL. Rekonsiliasi metadata satu baris belum dilakukan.
+> - VQE berpaket Supabase Free. Leaked-password protection memerlukan Pro menurut [dokumentasi Auth Supabase](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection); tidak ada upgrade atau biaya dilakukan.
+> - PTSAS Production `ptsasgdvgrbdtgyqieie` tidak diubah. Snapshot yang tersedia memiliki 47 ledger version versus 136 file migration source; dua migration 20261031 terbukti memiliki objek DDL yang belum ada. Selisih 89 ledger bukan bukti bahwa semua DDL hilang, dan inventaris skema penuh, backup/restore, dry-run, serta rehearsal Production belum selesai.
+> - UAT internal UI belum selesai: referensi AI Studio yang dapat dibuka menampilkan beranda PPDB dan login; tidak ada sesi Admin aktif untuk menguji dashboard/modul. Local preview `localhost:4179` dan `:3000` tidak sedang listening.
+> - [Checkpoint terbaru, bukti, dan langkah berikut](CHECKPOINT_2026-11-06_RESUME_STAGING.md). Persentase yang dapat dibuktikan adalah CI 3/3; produk belum dinyatakan siap komersial atau Production cutover.
+>
 
 **Status:** dokumen penerimaan internal. Dokumen ini tidak menyatakan produk siap dijual atau siap produksi.
 **Diperbarui:** 31 Oktober 2026

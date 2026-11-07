@@ -21,17 +21,17 @@ VALUES
   ('e2000000-0000-4000-8000-000000000012','e2000000-0000-4000-8000-000000000009',
    'inventory-admin-two@test.invalid','Inventory Admin Two','admin','active','{"healthcare":true,"ga":true}');
 INSERT INTO public.healthcare_medicines(
-  id,tenant_id,name,stock_quantity,min_stock,client_request_id,created_by,updated_by
+  id,tenant_id,name,category,unit,stock_quantity,min_stock,client_request_id,created_by,updated_by
 ) VALUES (
   'e2000000-0000-4000-8000-000000000101','e2000000-0000-4000-8000-000000000009',
-  'Obat Uji',10,2,'e2000000-0000-4000-8000-000000000501',
+  'Obat Uji','Analgesik dan Antipiretik','Tablet',10,2,'e2000000-0000-4000-8000-000000000501',
   'e2000000-0000-4000-8000-000000000011','e2000000-0000-4000-8000-000000000011'
 );
 INSERT INTO public.ga_inventory_items(
-  id,tenant_id,item_code,name,quantity,minimum_quantity,client_request_id,created_by,updated_by
+  id,tenant_id,item_code,name,category,unit,quantity,minimum_quantity,client_request_id,created_by,updated_by
 ) VALUES (
   'e2000000-0000-4000-8000-000000000201','e2000000-0000-4000-8000-000000000009',
-  'INV-TEST-1','Inventaris Uji',10,2,'e2000000-0000-4000-8000-000000000502',
+  'INV-TEST-1','Inventaris Uji','Alat Tulis Kantor','Pcs',10,2,'e2000000-0000-4000-8000-000000000502',
   'e2000000-0000-4000-8000-000000000011','e2000000-0000-4000-8000-000000000011'
 );
 

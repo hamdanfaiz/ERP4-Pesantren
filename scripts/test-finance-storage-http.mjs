@@ -1,32 +1,14 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseTestEnvironment } from './supabase-test-environment.mjs';
+import { isolateSyntheticTenantFixture } from './synthetic-tenant-fixture.mjs';
 
 const BUCKET = 'erp4-private-finance-proofs';
 const PPDB_BUCKET = 'ppdb-documents';
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-
-function localSupabaseEnvironment() {
-  const output = execFileSync('supabase', ['status', '-o', 'env'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1024 * 1024,
-  });
-  const values = {};
-  for (const line of output.split(/\r?\n/)) {
-    const match = line.match(/^\s*(?:export\s+)?([A-Z0-9_]+)=(.*)$/);
-    if (match) values[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-  }
-  const url = values.API_URL || values.SUPABASE_URL;
-  const anonKey = values.ANON_KEY || values.SUPABASE_ANON_KEY;
-  const serviceKey = values.SERVICE_ROLE_KEY || values.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !anonKey || !serviceKey) {
-    throw new Error('Supabase local status did not expose the local API URL and test keys.');
-  }
-  return { url, anonKey, serviceKey };
-}
 
 async function availablePort() {
   const listener = createServer();
@@ -37,6 +19,23 @@ async function availablePort() {
   const { port } = listener.address();
   await new Promise((resolve, reject) => listener.close((error) => error ? reject(error) : resolve()));
   return port;
+}
+
+async function cleanupStep(errors, label, operation) {
+  try {
+    const result = await operation();
+    if (result?.error) throw result.error;
+  } catch (error) {
+    const rawCode = typeof error?.code === 'string'
+      ? error.code
+      : typeof error?.name === 'string'
+        ? error.name
+        : typeof error?.status === 'number'
+          ? `HTTP_${error.status}`
+          : 'unknown';
+    const safeCode = rawCode.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 80) || 'unknown';
+    errors.push(`${label} (${safeCode})`);
+  }
 }
 
 async function createUser(admin, tenantId, role, label) {
@@ -73,12 +72,45 @@ async function signIn(anon, user) {
   return data.session.access_token;
 }
 
+function jakartaBusinessDate() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+async function allocateSeries(admin, tenantId, seriesKey, context = {}) {
+  const { data, error } = await admin.rpc('allocate_tenant_naming_series', {
+    p_tenant_id: tenantId,
+    p_series_key: seriesKey,
+    p_effective_date: jakartaBusinessDate(),
+    p_context: context,
+  });
+  if (error || typeof data !== 'string' || !data) {
+    throw new Error(`Unable to allocate synthetic ${seriesKey} identifier${error?.code ? ` (${error.code})` : ''}.`);
+  }
+  return data;
+}
+
+async function allocateStructureCode(admin, tenantId, seriesKey) {
+  const { data, error } = await admin.rpc('allocate_tenant_structure_naming_series', {
+    p_tenant_id: tenantId,
+    p_series_key: seriesKey,
+    p_effective_date: jakartaBusinessDate(),
+  });
+  if (error || typeof data !== 'string' || !data) {
+    throw new Error(`Unable to allocate synthetic ${seriesKey} identifier${error?.code ? ` (${error.code})` : ''}.`);
+  }
+  return data;
+}
+
 function assertNoError(result, message) {
   if (result?.error) throw new Error(message);
 }
 
 async function main() {
-  const { url, anonKey, serviceKey } = localSupabaseEnvironment();
+  const { url, anonKey, serviceKey, target } = getSupabaseTestEnvironment({ allowStagingWrites: true });
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const anon = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const tenantId = randomUUID();
@@ -90,9 +122,11 @@ async function main() {
   const otherStudentId = randomUUID();
   const billRequestId = randomUUID();
   const fixtureSuffix = randomUUID().slice(0, 10);
-  const classId = `storage-class-${fixtureSuffix}`;
-  const roomId = `storage-room-${fixtureSuffix}`;
+  let classId = '';
+  let roomId = '';
+  let buildingId = '';
   const users = [];
+  const createdTenantIds = [];
   let serverProcess;
   let uploadedPath = '';
   let ppdbDocumentPath = '';
@@ -107,6 +141,7 @@ async function main() {
       status: 'active',
     });
     if (tenantError) throw new Error('Unable to create a synthetic finance tenant.');
+    createdTenantIds.push(tenantId);
     const { error: foreignTenantError } = await admin.from('tenants').insert({
       id: foreignTenantId,
       slug: `storage-foreign-${fixtureSuffix}`,
@@ -114,30 +149,69 @@ async function main() {
       status: 'active',
     });
     if (foreignTenantError) throw new Error('Unable to create a foreign synthetic tenant.');
+    createdTenantIds.push(foreignTenantId);
 
     const financeAdmin = await createUser(admin, tenantId, 'admin', 'finance-admin');
     users.push(financeAdmin);
     const rateLimitAdmin = await createUser(admin, tenantId, 'admin', 'finance-rate-limit');
     users.push(rateLimitAdmin);
+    const foreignAdmin = await createUser(admin, foreignTenantId, 'admin', 'foreign-tenant-admin');
+    users.push(foreignAdmin);
+    const { data: gradeReference, error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: tenantId,
+      domain: 'academic_grade_level',
+      code: `STORAGE_GRADE_${fixtureSuffix}`,
+      name: 'VII',
+      description: 'Jenjang untuk fixture pengujian Storage.',
+      status: 'active',
+      nis_grade_code: '07',
+      created_by_user_id: financeAdmin.uid,
+      updated_by_user_id: financeAdmin.uid,
+    }).select('id').single();
+    if (gradeReferenceError || !gradeReference?.id) throw new Error('Unable to seed the tenant grade reference for Storage tests.');
+    const { data: foreignGradeReference, error: foreignGradeReferenceError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: foreignTenantId,
+      domain: 'academic_grade_level',
+      code: `FOREIGN_STORAGE_GRADE_${fixtureSuffix}`,
+      name: 'VII',
+      description: 'Jenjang tenant asing untuk fixture pengujian Storage.',
+      status: 'active',
+      nis_grade_code: '07',
+      created_by_user_id: foreignAdmin.uid,
+      updated_by_user_id: foreignAdmin.uid,
+    }).select('id').single();
+    if (foreignGradeReferenceError || !foreignGradeReference?.id) throw new Error('Unable to seed the foreign tenant grade reference for Storage tests.');
+    [buildingId, roomId, classId] = await Promise.all([
+      allocateStructureCode(admin, tenantId, 'building_code'),
+      allocateStructureCode(admin, tenantId, 'room_code'),
+      allocateStructureCode(admin, tenantId, 'class_code'),
+    ]);
     const { error: structuresError } = await admin.from('master_data_records').insert([
-      { tenant_id: tenantId, category: 'Kelas', id: classId, name: 'Kelas storage test' },
-      { tenant_id: tenantId, category: 'Kamar', id: roomId, name: 'Kamar storage test', capacity: 10 },
+      { tenant_id: tenantId, category: 'Gedung', id: buildingId, name: 'Gedung storage test', status: 'active' },
+      { tenant_id: tenantId, category: 'Kamar', id: roomId, name: 'Kamar storage test', parent_id: buildingId, capacity: 10, status: 'active' },
+      { tenant_id: tenantId, category: 'Kelas', id: classId, name: 'Kelas storage test', grade: 'VII', grade_level_reference_id: gradeReference.id, status: 'active' },
     ]);
     if (structuresError) throw new Error('Unable to create synthetic student structures.');
 
+    const candidateRegistrationId = await allocateSeries(admin, tenantId, 'ppdb_registration');
     const { error: candidateError } = await admin.from('candidates').insert({
       id: candidateId,
       tenant_id: tenantId,
-      registration_id: `ST-${fixtureSuffix}`,
+      registration_id: candidateRegistrationId,
       name: 'Santri Storage Test',
+      grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
     });
     if (candidateError) throw new Error('Unable to create a synthetic candidate.');
 
+    const foreignRegistrationId = await allocateSeries(admin, foreignTenantId, 'ppdb_registration');
     const { error: foreignCandidateError } = await admin.from('candidates').insert({
       id: foreignCandidateId,
       tenant_id: foreignTenantId,
-      registration_id: `FOREIGN-${fixtureSuffix}`,
+      registration_id: foreignRegistrationId,
       name: 'Foreign tenant candidate',
+      grade: 'VII',
+      grade_level_reference_id: foreignGradeReference.id,
     });
     if (foreignCandidateError) throw new Error('Unable to create a foreign tenant candidate.');
     const ppdbDocumentBytes = Buffer.from('%PDF-1.7\n% ERP4 synthetic PPDB candidate document\n%%EOF\n', 'utf8');
@@ -162,14 +236,16 @@ async function main() {
     });
     if (foreignCandidateDocumentsError) throw new Error('Unable to link the foreign synthetic PPDB document.');
 
+    const studentNis = await allocateSeries(admin, tenantId, 'nis', { grade: '07' });
     const { error: studentError } = await admin.from('students').insert({
       id: studentId,
       tenant_id: tenantId,
       source_candidate_id: candidateId,
-      nis: `98${randomUUID().replace(/\D/g, '').slice(0, 8).padEnd(8, '0')}`,
+      nis: studentNis,
       name: 'Santri Storage Test',
       gender: 'L',
       grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
       nik_ciphertext: `\\x${'ab'.repeat(44)}`,
       nik_fingerprint: `\\x${'cd'.repeat(32)}`,
       class_id: classId,
@@ -182,22 +258,27 @@ async function main() {
     const otherGuardian = await createUser(admin, tenantId, 'wali_santri', 'other-guardian');
     users.push(otherGuardian);
 
+    const otherCandidateRegistrationId = await allocateSeries(admin, tenantId, 'ppdb_registration');
     const { error: otherCandidateError } = await admin.from('candidates').insert({
       id: otherCandidateId,
       tenant_id: tenantId,
-      registration_id: `ST-${fixtureSuffix}-OTHER`,
+      registration_id: otherCandidateRegistrationId,
       name: 'Santri Storage Test Other',
+      grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
     });
     if (otherCandidateError) throw new Error('Unable to create the unrelated guardian candidate.');
 
+    const otherStudentNis = await allocateSeries(admin, tenantId, 'nis', { grade: '07' });
     const { error: otherStudentError } = await admin.from('students').insert({
       id: otherStudentId,
       tenant_id: tenantId,
       source_candidate_id: otherCandidateId,
-      nis: `97${randomUUID().replace(/\D/g, '').slice(0, 8).padEnd(8, '0')}`,
+      nis: otherStudentNis,
       name: 'Santri Storage Test Other',
       gender: 'L',
       grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
       nik_ciphertext: `\\x${'ef'.repeat(44)}`,
       nik_fingerprint: `\\x${'12'.repeat(32)}`,
       class_id: classId,
@@ -225,11 +306,20 @@ async function main() {
     ]);
     if (guardianAccountsError) throw new Error('Unable to create canonical guardian account links.');
 
+    const { data: feeTypeReference, error: feeTypeReferenceError } = await admin.from('tenant_reference_items')
+      .select('name')
+      .eq('tenant_id', tenantId)
+      .eq('domain', 'finance_fee_type')
+      .eq('code', 'SPP_BULANAN')
+      .eq('status', 'active')
+      .single();
+    if (feeTypeReferenceError || !feeTypeReference?.name) throw new Error('Unable to find the tenant SPP fee type reference.');
+
     const { data: billResult, error: billError } = await admin.rpc('create_tenant_finance_bills', {
       p_tenant_id: tenantId,
       p_actor_user_id: financeAdmin.uid,
       p_expected_role: 'admin',
-      p_items: [{ studentId, feeType: 'SPP', period: `storage-${fixtureSuffix}`, amount: 50000 }],
+      p_items: [{ studentId, feeType: feeTypeReference.name, period: `storage-${fixtureSuffix}`, amount: 50000 }],
       p_client_request_id: billRequestId,
     });
     if (billError || billResult?.created !== 1) throw new Error('Unable to create a synthetic Finance bill.');
@@ -238,7 +328,7 @@ async function main() {
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('student_id', studentId)
-      .eq('fee_type', 'SPP')
+      .eq('fee_type', feeTypeReference.name)
       .eq('period', `storage-${fixtureSuffix}`)
       .single();
     if (billLookupError || !bill?.id) throw new Error('Unable to find the synthetic Finance bill.');
@@ -249,7 +339,7 @@ async function main() {
     const rateLimitToken = await signIn(anon, rateLimitAdmin);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
-    serverProcess = spawn('bun', ['run', 'dev'], {
+    serverProcess = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server.ts'], {
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -515,7 +605,7 @@ async function main() {
     assertNoError({ error: listError }, 'Unable to inspect the synthetic private proof directory.');
     assert.equal(storedObjects.length, 1, 'The idempotent retry must not leave an orphan duplicate object.');
 
-    console.log('Storage HTTP tests passed: shared finance upload rate limit, Finance proof upload/download, PPDB Admin document download, private-bucket isolation, tenant/RBAC boundaries, audit logging, idempotency, and cleanup.');
+    console.log(`Storage HTTP tests passed (${target}): shared finance upload rate limit, Finance proof upload/download, PPDB Admin document download, private-bucket isolation, tenant/RBAC boundaries, and idempotency.`);
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -526,31 +616,34 @@ async function main() {
       if (serverProcess.exitCode === null) serverProcess.kill('SIGKILL');
     }
 
-    if (uploadedPath) {
-      try { await admin.storage.from(BUCKET).remove([uploadedPath]); } catch {}
-    }
+    const cleanupErrors = [];
+    await cleanupStep(cleanupErrors, 'synthetic fixture isolation', () => isolateSyntheticTenantFixture(admin, {
+      tenantIds: createdTenantIds,
+      userIds: users.map((user) => user.uid),
+    }));
+    if (uploadedPath) await cleanupStep(cleanupErrors, 'Finance proof object', () => admin.storage.from(BUCKET).remove([uploadedPath]));
     const ppdbObjects = [ppdbDocumentPath, ppdbUploadPath, foreignDocumentPath].filter(Boolean);
-    if (ppdbObjects.length) {
-      try { await admin.storage.from(PPDB_BUCKET).remove(ppdbObjects); } catch {}
+    if (ppdbObjects.length) await cleanupStep(cleanupErrors, 'PPDB document objects', () => admin.storage.from(PPDB_BUCKET).remove(ppdbObjects));
+    for (const table of ['finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'candidate_documents']) {
+      await cleanupStep(cleanupErrors, `${table} tenant rows`, () => admin.from(table).delete().eq('tenant_id', tenantId));
     }
-    for (const table of ['ppdb_document_access_events', 'ppdb_document_upload_events', 'ppdb_document_upload_requests', 'finance_write_requests', 'finance_controls', 'finance_bills', 'nis_reservations', 'cooperative_wallets', 'guardian_user_accounts', 'guardian_students', 'guardians', 'students', 'candidate_documents', 'candidates', 'master_data_records']) {
-      try { await admin.from(table).delete().eq('tenant_id', tenantId); } catch {}
+    for (const table of ['candidate_documents']) {
+      await cleanupStep(cleanupErrors, `${table} foreign tenant rows`, () => admin.from(table).delete().eq('tenant_id', foreignTenantId));
     }
-    for (const table of ['ppdb_document_access_events', 'candidate_documents', 'candidates']) {
-      try { await admin.from(table).delete().eq('tenant_id', foreignTenantId); } catch {}
+    if (cleanupErrors.length) {
+      console.error(`Staging/local fixture cleanup incomplete: ${cleanupErrors.join(', ')}.`);
+      process.exitCode = 1;
+    } else {
+      console.log(`Synthetic ${target} tenant fixtures are suspended; Auth users are banned and append-only references remain available for audit.`);
     }
-    for (const user of users) {
-      try { await admin.auth.admin.deleteUser(user.uid); } catch {}
-    }
-    try { await admin.from('tenants').delete().eq('id', foreignTenantId); } catch {}
-    try { await admin.from('tenants').delete().eq('id', tenantId); } catch {}
   }
 }
 
 main().catch((error) => {
   const detail = error instanceof assert.AssertionError
     ? error.message
-    : error?.code || error?.name || 'unknown error';
-  console.error(`Finance Storage HTTP test failed (${detail}). Check the local Supabase stack and migration state.`);
+    : error?.message || error?.code || error?.name || 'unknown error';
+  console.error(`Finance Storage HTTP test failed (${detail}). Check the selected Supabase test project and migration state.`);
   process.exitCode = 1;
 });
+

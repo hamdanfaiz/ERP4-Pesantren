@@ -6,7 +6,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(8);
+SELECT plan(9);
 
 WITH app_tables AS (
   SELECT c.oid, c.relname, c.relrowsecurity, c.relforcerowsecurity
@@ -132,6 +132,42 @@ SELECT is(
   ),
   0,
   'authenticated users cannot write application tables directly'
+);
+
+WITH app_tables AS (
+  SELECT c.oid
+  FROM pg_class AS c
+  JOIN pg_namespace AS n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relkind IN ('r', 'p')
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_depend AS d
+      WHERE d.classid = 'pg_class'::regclass
+        AND d.objid = c.oid
+        AND d.deptype = 'e'
+    )
+)
+SELECT is(
+  (
+    SELECT count(*)::int
+    FROM app_tables AS t
+    WHERE NOT EXISTS (
+      SELECT 1 FROM pg_policy AS p WHERE p.polrelid = t.oid
+    )
+      AND (
+        has_table_privilege('anon', t.oid, 'SELECT')
+        OR has_table_privilege('anon', t.oid, 'INSERT')
+        OR has_table_privilege('anon', t.oid, 'UPDATE')
+        OR has_table_privilege('anon', t.oid, 'DELETE')
+        OR has_table_privilege('authenticated', t.oid, 'SELECT')
+        OR has_table_privilege('authenticated', t.oid, 'INSERT')
+        OR has_table_privilege('authenticated', t.oid, 'UPDATE')
+        OR has_table_privilege('authenticated', t.oid, 'DELETE')
+      )
+  ),
+  0,
+  'tables without RLS policies are not directly accessible to browser roles'
 );
 
 SELECT is(
@@ -261,3 +297,4 @@ SELECT is(
 
 SELECT * FROM finish();
 ROLLBACK;
+

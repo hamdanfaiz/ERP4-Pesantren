@@ -111,7 +111,7 @@ export async function getSupabaseLmsSnapshot(tenantIdentifier: string, actorId: 
   }), 500, "enrollment");
 
   const courseQuery = new URLSearchParams({
-    select: "id,category_id,category_name,title,description,grade,instructor_user_id,status,color,created_at,updated_at",
+    select: "id,category_id,category_name,title,description,grade,grade_level_reference_id,instructor_user_id,status,color,created_at,updated_at",
     tenant_id: "eq." + tenantId, order: "updated_at.desc,id.asc", limit: "501",
   });
   if (isTeacher) courseQuery.set("instructor_user_id", "eq." + actorId);
@@ -121,13 +121,15 @@ export async function getSupabaseLmsSnapshot(tenantIdentifier: string, actorId: 
     courseQuery.set("id", inUuid(courseIds));
     courseQuery.set("status", "eq.published");
   }
-  const [courseRows, categoryRows, instructorRows] = await Promise.all([
+  const [courseRows, categoryRows, instructorRows, gradeLevelRows] = await Promise.all([
     rows("/rest/v1/lms_courses?" + courseQuery.toString(), 500, "course"),
     rows("/rest/v1/lms_categories?" + new URLSearchParams({ select: "id,name,description,status", tenant_id: "eq." + tenantId, status: "eq.active", order: "name.asc", limit: "501" }).toString(), 500, "category"),
     !isTeacher && !isStudent ? rows("/rest/v1/profiles?" + new URLSearchParams({ select: "user_id,display_name", tenant_id: "eq." + tenantId, role: "eq.ustadz", status: "eq.active", order: "display_name.asc", limit: "501" }).toString(), 500, "teacher profile") : Promise.resolve([]),
+    rows("/rest/v1/tenant_reference_items?" + new URLSearchParams({ select: "id,name,description", tenant_id: "eq." + tenantId, domain: "eq.academic_grade_level", status: "eq.active", order: "name.asc,id.asc", limit: "501" }).toString(), 500, "grade level reference"),
   ]);
   const courseIds = courseRows.map((row) => String(row.id));
-  if (!courseIds.length) return { ...emptySnapshot(), categories: categoryRows, instructors: instructorRows };
+  const gradeLevels = gradeLevelRows.map((row) => ({ id: String(row.id), name: String(row.name), description: String(row.description || "") }));
+  if (!courseIds.length) return { ...emptySnapshot(), categories: categoryRows, instructors: instructorRows, gradeLevels };
 
   const [enrollmentRows, moduleRows, assignmentRows] = await Promise.all([
     isStudent ? Promise.resolve(enrollments) : rows("/rest/v1/lms_enrollments?" + new URLSearchParams({ select: "id,course_id,student_id,status,enrolled_at", tenant_id: "eq." + tenantId, course_id: inUuid(courseIds), status: "eq.active", order: "enrolled_at.desc", limit: "5001" }).toString(), 5000, "enrollment"),
@@ -160,6 +162,7 @@ export async function getSupabaseLmsSnapshot(tenantIdentifier: string, actorId: 
   const categoryById = new Map<string, string>(categories.map((row): [string, string] => [row.id, row.name]));
   const courses = courseRows.map((row) => ({
     id: String(row.id), title: String(row.title), description: String(row.description || ""), grade: String(row.grade || ""),
+    gradeLevelReferenceId: row.grade_level_reference_id == null ? "" : String(row.grade_level_reference_id),
     categoryId: row.category_id || null, category: String(row.category_name || categoryById.get(String(row.category_id || "")) || "Umum"),
     instructorUserId: String(row.instructor_user_id), status: String(row.status), color: String(row.color || "indigo"),
     modules: modulesByCourse.get(String(row.id)) || [],
@@ -177,15 +180,48 @@ export async function getSupabaseLmsSnapshot(tenantIdentifier: string, actorId: 
   const progress = progressRows.map((row) => ({ materialId: String(row.material_id), positionSeconds: Number(row.position_seconds), completedAt: row.completed_at || null }));
   const notes = noteRows.map((row) => ({ id: String(row.id), materialId: String(row.material_id), timestampSeconds: Number(row.timestamp_seconds), note: String(row.note), createdAt: row.created_at }));
   const comments = commentRows.map((row) => ({ id: String(row.id), materialId: String(row.material_id), studentName: studentById.get(String(row.student_id))?.name || "Santri", timestampSeconds: Number(row.timestamp_seconds), comment: String(row.comment), createdAt: row.created_at }));
-  return { courses, categories, instructors: instructorRows.map((row) => ({ id: String(row.user_id), name: String(row.display_name || "Pengajar") })), students, enrollments: enrollmentRows, assignments, submissions, progress, notes, comments };
+  return { courses, categories, gradeLevels, instructors: instructorRows.map((row) => ({ id: String(row.user_id), name: String(row.display_name || "Pengajar") })), students, enrollments: enrollmentRows, assignments, submissions, progress, notes, comments };
 }
 
-function emptySnapshot() { return { courses: [], categories: [], instructors: [], students: [], enrollments: [], assignments: [], submissions: [], progress: [], notes: [], comments: [] }; }
+function emptySnapshot() { return { courses: [], categories: [], gradeLevels: [], instructors: [], students: [], enrollments: [], assignments: [], submissions: [], progress: [], notes: [], comments: [] }; }
+
+async function activeGradeLevelName(tenantId: string, referenceIdValue: unknown) {
+  const referenceId = typeof referenceIdValue === "string" ? referenceIdValue.trim() : "";
+  if (!referenceId) return "";
+  if (!uuid(referenceId)) throw new SupabaseLmsError(400, "Pilih jenjang dari katalog tenant.");
+  const rows = await request("/rest/v1/tenant_reference_items?" + new URLSearchParams({
+    select: "id,name", tenant_id: "eq." + tenantId, domain: "eq.academic_grade_level",
+    id: "eq." + referenceId, status: "eq.active", limit: "2",
+  }).toString());
+  if (!Array.isArray(rows) || rows.length !== 1) throw new SupabaseLmsError(400, "Jenjang tidak aktif atau bukan milik tenant ini.");
+  return String(rows[0].name);
+}
 
 export async function manageSupabaseLmsCatalog(tenantId: string, actorId: string, action: string, item: unknown) {
   if (!uuid(tenantId) || !uuid(actorId) || !item || typeof item !== "object" || Array.isArray(item)) throw new SupabaseLmsError(400, "Data LMS tidak valid.");
   if (!["category","course","module","material","assignment","enroll"].includes(action)) throw new SupabaseLmsError(400, "Aksi katalog LMS tidak didukung.");
-  return request("/rest/v1/rpc/manage_lms_catalog", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_action: action, p_item: item }) });
+  const payload = { ...(item as Row) };
+  if (action === "category") {
+    const name = typeof payload.name === "string" ? payload.name.trim() : "";
+    const description = typeof payload.description === "string" ? payload.description.trim() : "";
+    if (!name || name.length > 100 || description.length < 8 || description.length > 1000
+      || description.toLocaleLowerCase("id-ID") === name.toLocaleLowerCase("id-ID")) {
+      throw new SupabaseLmsError(400, "Nama kategori harus jelas dan deskripsinya wajib menjelaskan arti atau cakupan yang berbeda (8–1.000 karakter).");
+    }
+    payload.name = name;
+    payload.description = description;
+  }
+  if (action === "course") {
+    const categoryId = typeof payload.categoryId === "string" ? payload.categoryId.trim() : "";
+    if (!uuid(categoryId)) throw new SupabaseLmsError(400, "Pilih kategori kursus dari daftar kategori tenant.");
+    const gradeLevelReferenceId = typeof payload.gradeLevelReferenceId === "string" ? payload.gradeLevelReferenceId.trim() : "";
+    const grade = await activeGradeLevelName(tenantId, gradeLevelReferenceId);
+    payload.categoryId = categoryId;
+    payload.gradeLevelReferenceId = gradeLevelReferenceId || null;
+    payload.grade = grade;
+    delete payload.categoryName;
+  }
+  return request("/rest/v1/rpc/manage_lms_catalog", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_action: action, p_item: payload }) });
 }
 
 export async function saveSupabaseLmsProgress(tenantId: string, actorId: string, item: any) {

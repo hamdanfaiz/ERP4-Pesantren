@@ -13,7 +13,7 @@ import {
 import { downloadTransferCsv, parseTransferCsv } from "../utils/dataTransferCsv";
 
 const STUDENT_HEADERS = [
-  "id", "name", "nis", "gender", "grade", "nik", "nisn", "phone", "email",
+  "id", "name", "nis", "gender", "grade", "className", "nik", "nisn", "phone", "email",
   "parentName", "parentPhone", "address", "dormitory", "room", "status",
 ];
 const STRUCTURE_HEADERS = [
@@ -56,7 +56,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
         ? await exportSupabaseMasterDataStudents(includeSensitive)
         : (await listSupabaseMasterDataStructures()).filter((record) => record.category === structureCategory);
       const exportHeaders = kind === "students"
-        ? includeSensitive ? STUDENT_HEADERS : ["id", "name", "nis", "gender", "grade", "room", "dormitory", "status"]
+        ? includeSensitive ? STUDENT_HEADERS : ["id", "name", "nis", "gender", "grade", "className", "room", "dormitory", "status"]
         : STRUCTURE_HEADERS;
       const filename = "erp4-" + safeFilePart(label) + "-" + new Date().toISOString().slice(0, 10) + ".csv";
       downloadTransferCsv(filename, exportHeaders, records);

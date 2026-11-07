@@ -30,20 +30,21 @@ INSERT INTO public.profiles (
   ('c7100000-0000-4000-8000-000000000014', 'c7100000-0000-4000-8000-000000000007', 'communication-wali-suspended@test.invalid', 'Wali Tersuspensi', 'wali_santri', 'active', '{}', 'VII - A'),
   ('c7100000-0000-4000-8000-000000000015', 'c7100000-0000-4000-8000-000000000007', 'communication-ustadz@test.invalid', 'Ustadz Uji', 'ustadz', 'active', '{}', NULL),
   ('c7100000-0000-4000-8000-000000000016', 'c7100000-0000-4000-8000-000000000007', 'communication-santri@test.invalid', 'Santri Uji', 'santri', 'active', '{}', NULL);
+\ir test_support/seed_tenant_reference_catalogs.psql
 
-INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint)
+INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
-  ('c7100000-0000-4000-8000-000000000101', 'c7100000-0000-4000-8000-000000000007', 'COMM-STUDENT-1', 'Santri VII A', decode(repeat('a1', 44), 'hex'), decode(repeat('b1', 32), 'hex')),
-  ('c7100000-0000-4000-8000-000000000102', 'c7100000-0000-4000-8000-000000000007', 'COMM-STUDENT-2', 'Santri VIII B', decode(repeat('a2', 44), 'hex'), decode(repeat('b2', 32), 'hex')),
-  ('c7100000-0000-4000-8000-000000000103', 'c7100000-0000-4000-8000-000000000007', 'COMM-GUARDIAN-1', 'Wali Kanonis', decode(repeat('a3', 44), 'hex'), decode(repeat('b3', 32), 'hex')),
-  ('c7100000-0000-4000-8000-000000000104', 'c7100000-0000-4000-8000-000000000007', 'COMM-GUARDIAN-2', 'Wali Snapshot Usang', decode(repeat('a4', 44), 'hex'), decode(repeat('b4', 32), 'hex')),
-  ('c7100000-0000-4000-8000-000000000105', 'c7100000-0000-4000-8000-000000000007', 'COMM-GUARDIAN-3', 'Wali Tersuspensi', decode(repeat('a5', 44), 'hex'), decode(repeat('b5', 32), 'hex'));
+  ('c7100000-0000-4000-8000-000000000101', 'c7100000-0000-4000-8000-000000000007', 'COMM-STUDENT-1', 'Santri VII A', decode(repeat('a1', 44), 'hex'), decode(repeat('b1', 32), 'hex'), 'VII'),
+  ('c7100000-0000-4000-8000-000000000102', 'c7100000-0000-4000-8000-000000000007', 'COMM-STUDENT-2', 'Santri VIII B', decode(repeat('a2', 44), 'hex'), decode(repeat('b2', 32), 'hex'), 'VIII'),
+  ('c7100000-0000-4000-8000-000000000103', 'c7100000-0000-4000-8000-000000000007', 'COMM-GUARDIAN-1', 'Wali Kanonis', decode(repeat('a3', 44), 'hex'), decode(repeat('b3', 32), 'hex'), 'VII'),
+  ('c7100000-0000-4000-8000-000000000104', 'c7100000-0000-4000-8000-000000000007', 'COMM-GUARDIAN-2', 'Wali Snapshot Usang', decode(repeat('a4', 44), 'hex'), decode(repeat('b4', 32), 'hex'), 'VII'),
+  ('c7100000-0000-4000-8000-000000000105', 'c7100000-0000-4000-8000-000000000007', 'COMM-GUARDIAN-3', 'Wali Tersuspensi', decode(repeat('a5', 44), 'hex'), decode(repeat('b5', 32), 'hex'), 'VII');
 
-INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity)
+INSERT INTO public.master_data_records (tenant_id, category, id, name, capacity, grade)
 VALUES
-  ('c7100000-0000-4000-8000-000000000007', 'Kelas', 'communication-class-vii-a', 'VII - A', NULL),
-  ('c7100000-0000-4000-8000-000000000007', 'Kelas', 'communication-class-viii-b', 'VIII - B', NULL),
-  ('c7100000-0000-4000-8000-000000000007', 'Kamar', 'communication-room', 'Kamar Uji', 10);
+  ('c7100000-0000-4000-8000-000000000007', 'Kelas', 'communication-class-vii-a', 'VII - A', NULL, 'VII'),
+  ('c7100000-0000-4000-8000-000000000007', 'Kelas', 'communication-class-viii-b', 'VIII - B', NULL, 'VIII'),
+  ('c7100000-0000-4000-8000-000000000007', 'Kamar', 'communication-room', 'Kamar Uji', 10, NULL);
 
 INSERT INTO public.students (
   id, tenant_id, source_candidate_id, nis, name, gender, grade,

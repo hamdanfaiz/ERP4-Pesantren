@@ -24,11 +24,14 @@ VALUES
    'lms-idempotency-two@test.invalid','LMS Admin Two','admin','active','{"lms":true}'),
   ('e2400000-0000-4000-8000-000000000013','e2400000-0000-4000-8000-000000000009',
    'lms-idempotency-teacher@test.invalid','LMS Teacher','ustadz','active','{"lms":true}');
+\ir test_support/seed_tenant_reference_catalogs.psql
 
 CREATE TEMP TABLE lms_course_payload AS
 SELECT jsonb_build_object(
   'clientRequestId','e2400000-0000-4000-8000-000000000101',
   'instructorUserId','e2400000-0000-4000-8000-000000000013',
+  'categoryId',(SELECT id::text FROM public.lms_categories
+    WHERE tenant_id='e2400000-0000-4000-8000-000000000009' AND name='Umum'),
   'categoryName','Umum','title','Kelas Fikih','description','Materi dasar',
   'grade','VII','status','draft','color','indigo'
 ) AS payload;

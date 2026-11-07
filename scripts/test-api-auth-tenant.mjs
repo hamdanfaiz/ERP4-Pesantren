@@ -129,6 +129,18 @@ async function main() {
       .update({ must_change_password: true })
       .eq('user_id', users[12].uid);
     if (forcePasswordError) throw new Error('Unable to configure the synthetic forced-password-change fixture.');
+    const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: tenantIds[0],
+      domain: 'academic_grade_level',
+      code: 'TEST_GRADE_VII',
+      name: 'VII',
+      description: 'Jenjang uji integrasi PPDB tenant.',
+      status: 'active',
+      nis_grade_code: '07',
+      created_by_user_id: users[0].uid,
+      updated_by_user_id: users[0].uid,
+    });
+    if (gradeReferenceError) throw new Error('Unable to configure the synthetic tenant grade catalog.');
 
     const adminToken = await signIn(anon, users[0]);
     const santriToken = await signIn(anon, users[1]);
@@ -192,6 +204,38 @@ async function main() {
     const readyResponse = await fetch(`${apiBase}/health/ready`);
     assert.equal(readyResponse.status, 200, 'Readiness must verify the local Supabase profile store.');
     assert.equal((await readyResponse.json()).status, 'ready');
+    const unauthenticatedProfile = await fetch(`${apiBase}/api/auth/profile`);
+    assert.equal(unauthenticatedProfile.status, 401, 'The authenticated profile endpoint must reject requests without a bearer token.');
+
+    const invalidTokenProfile = await fetch(`${apiBase}/api/auth/profile`, {
+      headers: { Authorization: 'Bearer invalid-token' },
+    });
+    assert.equal(invalidTokenProfile.status, 401, 'The profile endpoint must verify bearer tokens before reading a profile.');
+
+    const ownProfileResponse = await fetch(`${apiBase}/api/auth/profile`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(ownProfileResponse.status, 200, 'A valid user can load their own profile through the trusted server.');
+    assert.equal(ownProfileResponse.headers.get('cache-control'), 'private, no-store');
+    const ownProfilePayload = await ownProfileResponse.json();
+    assert.equal(ownProfilePayload.profile.uid, users[0].uid);
+    assert.equal(ownProfilePayload.profile.tenantId, tenantIds[0]);
+    assert.equal(ownProfilePayload.profile.role, 'Admin');
+    assert.equal(ownProfilePayload.profile.status, 'active');
+    assert.equal(Object.hasOwn(ownProfilePayload.profile, 'createdByUid'), false, 'The profile endpoint must return only fields needed by the client.');
+
+    const ignoredProfileSelector = await fetch(`${apiBase}/api/auth/profile?userId=${encodeURIComponent(users[2].uid)}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(ignoredProfileSelector.status, 200);
+    assert.equal((await ignoredProfileSelector.json()).profile.uid, users[0].uid, 'Profile selection must come from the verified token, not a caller-supplied user ID.');
+
+    const inactiveProfileResponse = await fetch(`${apiBase}/api/auth/profile`, {
+      headers: { Authorization: `Bearer ${inactiveAdminToken}` },
+    });
+    assert.equal(inactiveProfileResponse.status, 200);
+    assert.equal((await inactiveProfileResponse.json()).profile.status, 'disabled', 'Inactive profiles must be explicitly marked for client-side fail-closed validation.');
+
     assert.equal(readyResponse.headers.get('cache-control'), 'no-store');
 
     const dashboardSnapshot = await fetch(`${apiBase}/api/dashboard/snapshot?surface=dashboard&period=month`, {
@@ -287,6 +331,16 @@ async function main() {
     assert.deepEqual(emptyMarketplace.orders, [], 'A new tenant starts with no orders.');
     assert.deepEqual(emptyMarketplace.movements, [], 'A new tenant starts with no stock movements.');
 
+    const { data: marketplaceCategory, error: marketplaceCategoryError } = await admin.from('tenant_reference_items')
+      .select('id,name')
+      .eq('tenant_id', tenantIds[0])
+      .eq('domain', 'marketplace_product_category')
+      .eq('name', 'Perlengkapan Santri')
+      .eq('status', 'active')
+      .maybeSingle();
+    assert.equal(marketplaceCategoryError, null, 'The product fixture must read the tenant-owned Marketplace category.');
+    assert.ok(marketplaceCategory?.id, 'An Admin tenant starts with an active default product category.');
+
     const productResponse = await fetch(`${apiBase}/api/marketplace/products`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
@@ -294,7 +348,7 @@ async function main() {
         action: 'create',
         sku: `MKT-${fixtureSuffix}`,
         name: 'Produk Uji Tanpa Impor',
-        category: 'Perlengkapan',
+        categoryReferenceId: marketplaceCategory.id,
         unitPrice: 12500,
         initialStock: 8,
         seller: 'Koperasi',
@@ -847,6 +901,11 @@ async function main() {
         `DELETE FROM public.marketplace_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_orders WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_products WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_reference_items WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_naming_series_allocations WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_naming_series_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tenant_naming_series WHERE tenant_id = ANY(${tenantArray});`,
         'COMMIT;',
       ].join(' ');
       execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', cleanupSql], {

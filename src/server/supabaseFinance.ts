@@ -85,6 +85,21 @@ async function tenantRows(table: string, tenantId: string, select: string, order
   });
 }
 
+async function activeReferenceItems(tenantId: string, domain: "finance_fee_type" | "finance_expense_category", ids?: string[]) {
+  const params = new URLSearchParams({
+    select: "id,code,name,description,organization_unit_id",
+    tenant_id: "eq." + tenantId,
+    domain: "eq." + domain,
+    status: "eq.active",
+    order: "name.asc,id.asc",
+    limit: "1001",
+  });
+  if (ids) params.set("id", "in.(" + ids.join(",") + ")");
+  const rows = await request("/rest/v1/tenant_reference_items?" + params.toString());
+  if (!Array.isArray(rows) || rows.length > 1000) throw new SupabaseFinanceError(503, "Kategori keuangan tenant belum dapat dimuat dengan aman.");
+  return rows as Row[];
+}
+
 export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, actorUserId: string, role: string) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   const expected = expectedRole(role);
@@ -119,7 +134,7 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
       throw new SupabaseFinanceError(403, "Akun Wali belum terhubung ke santri atau calon santri pada tenant ini.");
     }
   }
-  const [studentBillRows, candidateBillRows, expenseRows, ledgerRows, students, controls] = await Promise.all([
+  const [studentBillRows, candidateBillRows, expenseRows, ledgerRows, students, controls, feeTypes, expenseCategories] = await Promise.all([
     role === "Walisantri" && guardianStudentIds.length > 0
       ? tenantRows("finance_bills", tenantId, "id,student_id,candidate_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type,organization_unit_id", "bill_date.desc,id.desc", { student_id: "in.(" + guardianStudentIds.join(",") + ")" })
       : isAdmin ? tenantRows("finance_bills", tenantId, "id,student_id,candidate_id,student_name,grade,fee_type,period,amount,paid_amount,status,bill_date,payment_method,proof_file,proof_storage_path,uploaded_at,rejection_reason,receipt_no,paid_at,payment_type,organization_unit_id", "bill_date.desc,id.desc") : Promise.resolve([]),
@@ -134,6 +149,8 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
     isAdmin ? tenantRows("finance_ledger", tenantId, "id,unit_id,entry_type,source_type,source_id,description,amount,payment_method,receipt_no,actor_user_id,posted_at", "posted_at.desc,id.desc") : Promise.resolve([]),
     isAdmin ? tenantRows("students", tenantId, "id,name,grade,status", "grade.asc,name.asc") : Promise.resolve([]),
     isAdmin ? request("/rest/v1/finance_controls?" + new URLSearchParams({ select: "finance_locked", tenant_id: "eq." + tenantId, limit: "2" }).toString()) : Promise.resolve([]),
+    isAdmin ? activeReferenceItems(tenantId, "finance_fee_type") : Promise.resolve([]),
+    isAdmin || role === "Ustadz" ? activeReferenceItems(tenantId, "finance_expense_category") : Promise.resolve([]),
   ]);
   const billRows = [...studentBillRows, ...candidateBillRows];
   const normalizedExpenses = expenseRows.map((row) => ({
@@ -163,6 +180,8 @@ export async function listSupabaseFinanceSnapshot(tenantIdentifier: string, acto
       .filter((row) => !["archived", "archive", "arsip", "inactive", "nonaktif", "tidak aktif", "alumni", "graduated", "lulus", "dikeluarkan"].includes(String(row.status || "").trim().toLowerCase()))
       .map((row) => ({ id: String(row.id), name: String(row.name || ""), grade: String(row.grade || "") })),
     financeLocked: Array.isArray(controls) && controls.length === 1 ? controls[0].finance_locked === true : false,
+    feeTypes: (feeTypes as Row[]).map((row) => ({ id: String(row.id), code: String(row.code), name: String(row.name), description: String(row.description || "") })),
+    expenseCategories: (expenseCategories as Row[]).map((row) => ({ id: String(row.id), code: String(row.code), name: String(row.name), description: String(row.description || "") })),
   };
 }
 
@@ -196,13 +215,18 @@ export async function createSupabaseFinanceBills(tenantIdentifier: string, actor
   if (!Array.isArray(input.items) || input.items.length < 1 || input.items.length > 500) throw new SupabaseFinanceError(400, "Jumlah tagihan harus 1 sampai 500.");
   const items = input.items.map((entry: any) => {
     const studentId = String(entry?.studentId || "").trim();
-    const feeType = String(entry?.feeType || "").trim();
+    const feeTypeReferenceId = String(entry?.feeTypeReferenceId || "").trim();
     const period = String(entry?.period || "").trim();
     const amount = Number(entry?.amount);
-    if (!isUuid(studentId) || !feeType || feeType.length > 160 || !period || period.length > 80 || !Number.isSafeInteger(amount) || amount <= 0) throw new SupabaseFinanceError(400, "Santri, jenis, periode, atau nominal tagihan tidak valid.");
-    return { studentId, feeType, period, amount };
+    if (!isUuid(studentId) || !isUuid(feeTypeReferenceId) || !period || period.length > 80 || !Number.isSafeInteger(amount) || amount <= 0) throw new SupabaseFinanceError(400, "Santri, kategori jenis tagihan, periode, atau nominal tidak valid.");
+    return { studentId, feeTypeReferenceId, period, amount };
   });
-  return rpc("create_tenant_finance_bills", { p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: expected, p_items: items, p_client_request_id: requestId });
+  const feeTypeIds = [...new Set(items.map((item) => item.feeTypeReferenceId))];
+  const references = await activeReferenceItems(tenantId, "finance_fee_type", feeTypeIds);
+  const namesById = new Map(references.map((row) => [String(row.id), String(row.name)]));
+  if (namesById.size !== feeTypeIds.length) throw new SupabaseFinanceError(400, "Pilih jenis tagihan aktif yang tersedia pada tenant ini.");
+  const normalizedItems = items.map((item) => ({ studentId: item.studentId, feeType: namesById.get(item.feeTypeReferenceId)!, period: item.period, amount: item.amount }));
+  return rpc("create_tenant_finance_bills", { p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: expected, p_items: normalizedItems, p_client_request_id: requestId });
 }
 
 export async function createSupabaseFinanceExpense(tenantIdentifier: string, actorId: string, role: string, requesterName: string, actorUnitKey: string | undefined, value: unknown) {
@@ -210,24 +234,28 @@ export async function createSupabaseFinanceExpense(tenantIdentifier: string, act
   const expected = expectedRole(role);
   if (!expected || !["admin", "super_admin", "ustadz"].includes(expected) || !value || typeof value !== "object" || Array.isArray(value)) throw new SupabaseFinanceError(403, "Role ini tidak dapat mengajukan pengeluaran.");
   const item = value as Row;
-  const category = String(item.category || "").trim();
+  const categoryReferenceId = String(item.categoryReferenceId || "").trim();
   const description = String(item.description || "").trim();
-  const department = String(item.department || "").trim();
   const requestedUnitId = String(item.unitId || "").trim();
   const amount = Number(item.amount);
   const expenseDate = String(item.expenseDate || "").trim();
-  if (!category || category.length > 100 || !description || description.length > 1000 || !department || department.length > 120 || !Number.isSafeInteger(amount) || amount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(expenseDate)) throw new SupabaseFinanceError(400, "Kategori, uraian, unit, nominal, atau tanggal tidak valid.");
+  if (!isUuid(categoryReferenceId) || !description || description.length > 1000 || !Number.isSafeInteger(amount) || amount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(expenseDate)) throw new SupabaseFinanceError(400, "Kategori, uraian, unit, nominal, atau tanggal tidak valid.");
   const unitKey = role === "Ustadz" ? String(actorUnitKey || "").trim() : requestedUnitId;
   if (!unitKey) throw new SupabaseFinanceError(403, "Unit kerja belum ditetapkan pada profil akun ini.");
   const unitFilter = isUuid(unitKey)
     ? { id: "eq." + unitKey }
     : { code: "eq." + unitKey.toUpperCase() };
-  const unitParams = new URLSearchParams({ select: "id", tenant_id: "eq." + tenantId, status: "eq.active", limit: "2", ...unitFilter });
+  const unitParams = new URLSearchParams({ select: "id,name", tenant_id: "eq." + tenantId, status: "eq.active", limit: "2", ...unitFilter });
   const units = await request("/rest/v1/organization_units?" + unitParams.toString());
   if (!Array.isArray(units) || units.length !== 1 || !isUuid(String(units[0]?.id || ""))) {
     throw new SupabaseFinanceError(403, "Pilih satu unit organisasi yang aktif pada tenant ini.");
   }
   const unitId = String(units[0].id);
+  const department = String(units[0].name || "").trim();
+  if (!department) throw new SupabaseFinanceError(409, "Nama unit organisasi belum tersedia untuk pencatatan pengeluaran.");
+  const categoryRows = await activeReferenceItems(tenantId, "finance_expense_category", [categoryReferenceId]);
+  if (categoryRows.length !== 1) throw new SupabaseFinanceError(400, "Pilih kategori pengeluaran aktif pada tenant ini.");
+  const category = String(categoryRows[0].name);
   return rpc("create_tenant_finance_expense_for_unit", {
     p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: expected, p_unit_id: unitId, p_category: category,
     p_description: description, p_department: department, p_amount: amount, p_expense_date: expenseDate,
