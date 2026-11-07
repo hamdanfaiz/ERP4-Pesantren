@@ -122,7 +122,7 @@ async function createUserFixture(admin, tenantId, role, status, label, modulePer
     throw new Error(`Unable to create synthetic profile (${label}).`);
   }
 
-  return { uid: data.user.id, email, password };
+  return { uid: data.user.id, email, password, tenantId };
 }
 
 async function signIn(anon, user) {
@@ -159,7 +159,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true }));
@@ -177,7 +177,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -185,6 +185,7 @@ async function main() {
     if (forcePasswordError) throw new Error('Unable to configure the synthetic forced-password-change fixture.');
     const academicUnlinkedSantri = await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'academic-unlinked-santri', { academic: true });
     users.push(academicUnlinkedSantri);
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-donation', { users: true, donation: false }));
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -271,6 +272,7 @@ async function main() {
     const adminToken = await signIn(anon, users[0]);
     const santriToken = await signIn(anon, users[1]);
     const ustadzToken = await signIn(anon, users[3]);
+    const donationNoPermissionToken = await signIn(anon, users[14]);
     const waliToken = await signIn(anon, users[6]);
     const superAdminToken = await signIn(anon, users[7]);
     const limitedAdminToken = await signIn(anon, users[8]);
@@ -302,6 +304,7 @@ async function main() {
         SUPABASE_MARKETPLACE_RUNTIME_ENABLED: 'true',
         SUPABASE_COOPERATIVE_RUNTIME_ENABLED: 'true',
         SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
+        SUPABASE_DONATION_RUNTIME_ENABLED: 'true',
         SUPABASE_CRM_RUNTIME_ENABLED: 'true',
         SUPABASE_DASHBOARD_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
@@ -1327,19 +1330,21 @@ async function main() {
     });
     assert.equal(tenantResponse.status, 200, 'An active tenant admin should read their own tenant users.');
     const tenantPayload = await tenantResponse.json();
-    assert.equal(tenantPayload.total, 12, 'The tenant admin should only see the twelve profiles in tenant A, including Cooperative permission fixtures.');
+    const expectedTenantProfileCount = users.filter((profile) => profile.tenantId === tenantIds[0]).length;
+    assert.equal(tenantPayload.total, expectedTenantProfileCount, 'The tenant admin should only see profiles belonging to tenant A.');
     assert.ok(tenantPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'The response must remain scoped to the actor tenant even when a foreign tenantId is requested.');
     assert.ok(!tenantPayload.users.some((profile) => profile.email === users[2].email), 'A profile from another tenant must never appear in the response.');
 
-    const pageResponses = await Promise.all([0, 3, 6, 9].map((offset) => fetch(`${apiBase}/api/users?limit=3&offset=${offset}`, {
+    const pageOffsets = Array.from({ length: Math.ceil(expectedTenantProfileCount / 3) }, (_, index) => index * 3);
+    const pageResponses = await Promise.all(pageOffsets.map((offset) => fetch(`${apiBase}/api/users?limit=3&offset=${offset}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     })));
     for (const response of pageResponses) assert.equal(response.status, 200, 'Tenant user pages must be readable.');
     const pagePayloads = await Promise.all(pageResponses.map((response) => response.json()));
-    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), [3, 3, 3, 3], 'Pagination must return bounded, non-overlapping page sizes across the Cooperative fixtures.');
-    assert.ok(pagePayloads.every((payload) => payload.total === 12), 'Every page must report the filtered tenant total.');
+    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), pageOffsets.map((_, index) => Math.min(3, expectedTenantProfileCount - index * 3)), 'Pagination must return bounded, non-overlapping page sizes across all tenant fixtures.');
+    assert.ok(pagePayloads.every((payload) => payload.total === expectedTenantProfileCount), 'Every page must report the filtered tenant total.');
     const pagedIds = pagePayloads.flatMap((payload) => payload.users.map((profile) => profile.uid));
-    assert.equal(new Set(pagedIds).size, 12, 'Stable ordering must return every tenant profile exactly once across pages.');
+    assert.equal(new Set(pagedIds).size, expectedTenantProfileCount, 'Stable ordering must return every tenant profile exactly once across pages.');
 
     const searchResponse = await fetch(`${apiBase}/api/users?q=${encodeURIComponent(users[0].email)}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
@@ -1375,7 +1380,7 @@ async function main() {
     });
     assert.equal(superAdminResponse.status, 200, 'An active SuperAdmin should pass the user-management role gate.');
     const superAdminPayload = await superAdminResponse.json();
-    assert.equal(superAdminPayload.total, 12, 'SuperAdmin remains scoped to the profile tenant, including Cooperative permission fixtures, when a foreign tenantId is requested.');
+    assert.equal(superAdminPayload.total, expectedTenantProfileCount, 'SuperAdmin remains scoped to the profile tenant when a foreign tenantId is requested.');
     assert.ok(superAdminPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'SuperAdmin results must remain tenant-scoped.');
     assert.ok(!superAdminPayload.users.some((profile) => profile.email === users[2].email), 'SuperAdmin must not receive a foreign-tenant profile through query spoofing.');
 
@@ -1460,6 +1465,7 @@ async function main() {
         SUPABASE_TAHFIDZ_RUNTIME_ENABLED: 'true',
         SUPABASE_ACADEMIC_RUNTIME_ENABLED: 'true',
         SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
+        SUPABASE_DONATION_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -2048,7 +2054,170 @@ async function main() {
     });
     assert.equal(laundryCrossTenantTransition.status, 404, 'A different tenant cannot transition an order by guessing its ID.');
 
-    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    const donationSnapshotUrl = referenceApiBase + '/api/donation/snapshot';
+    const donationUstadz = await fetch(donationSnapshotUrl, { headers: { Authorization: 'Bearer ' + ustadzToken } });
+    assert.equal(donationUstadz.status, 403, 'Ustadz without Donation permission is denied.');
+    const donationLimitedAdmin = await fetch(donationSnapshotUrl, { headers: { Authorization: 'Bearer ' + donationNoPermissionToken } });
+    assert.equal(donationLimitedAdmin.status, 403, 'Admin without Donation permission is denied.');
+    const donationInitialResponse = await fetch(donationSnapshotUrl, { headers: { Authorization: 'Bearer ' + adminToken } });
+    assert.equal(donationInitialResponse.status, 200);
+    const donationInitial = await donationInitialResponse.json();
+    assert.deepEqual(donationInitial.campaigns, []);
+    assert.deepEqual(donationInitial.donors, []);
+    assert.deepEqual(donationInitial.donations, []);
+    assert.deepEqual(donationInitial.waqfAssets, []);
+
+    const donationCampaignInput = {
+      action: 'create',
+      title: 'Kampanye Uji ' + fixtureSuffix,
+      fundType: 'infaq',
+      description: 'Kampanye sintetis API.',
+      targetAmount: 1000000,
+      endDate: null,
+      status: 'active',
+      clientRequestId: randomUUID(),
+    };
+    const donationCampaignResponse = await fetch(referenceApiBase + '/api/donation/campaigns', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationCampaignInput),
+    });
+    assert.equal(donationCampaignResponse.status, 201);
+    const donationCampaign = await donationCampaignResponse.json();
+    assert.equal(donationCampaign.replayed, false);
+    const donationCampaignRetry = await fetch(referenceApiBase + '/api/donation/campaigns', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationCampaignInput),
+    });
+    assert.equal(donationCampaignRetry.status, 201);
+    assert.equal((await donationCampaignRetry.json()).id, donationCampaign.id);
+
+    const donationDonorInput = {
+      action: 'create',
+      fullName: 'Donatur Uji ' + fixtureSuffix,
+      donorType: 'community',
+      email: 'donatur-' + fixtureSuffix + '@example.test',
+      phone: '081234567890',
+      notes: 'Fixture sintetis.',
+      status: 'active',
+      clientRequestId: randomUUID(),
+    };
+    const donationDonorResponse = await fetch(referenceApiBase + '/api/donation/donors', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationDonorInput),
+    });
+    assert.equal(donationDonorResponse.status, 201);
+    const donationDonor = await donationDonorResponse.json();
+
+    const waqfAssetInput = {
+      action: 'create',
+      assetCode: 'WAKAF-' + fixtureSuffix,
+      name: 'Aset Wakaf Uji ' + fixtureSuffix,
+      assetType: 'building',
+      location: 'Komplek uji',
+      estimatedValue: 50000000,
+      conditionLabel: 'Baik',
+      wakifName: 'Wakif Uji',
+      acquiredOn: new Date().toISOString().slice(0, 10),
+      status: 'active',
+      notes: 'Fixture sintetis.',
+      clientRequestId: randomUUID(),
+    };
+    const waqfAssetResponse = await fetch(referenceApiBase + '/api/donation/waqf-assets', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(waqfAssetInput),
+    });
+    assert.equal(waqfAssetResponse.status, 201);
+    const waqfAsset = await waqfAssetResponse.json();
+
+    const donationTransactionInput = {
+      donorId: donationDonor.id,
+      campaignId: donationCampaign.id,
+      donorName: 'Nama harus berasal dari relasi donatur',
+      amount: 250000,
+      fundType: 'other',
+      paymentMethod: 'bank_transfer',
+      receivedAt: new Date().toISOString(),
+      referenceNote: 'Uji relasi dan simpan-baca.',
+      clientRequestId: randomUUID(),
+    };
+    const donationTransactionResponse = await fetch(referenceApiBase + '/api/donation/transactions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationTransactionInput),
+    });
+    assert.equal(donationTransactionResponse.status, 201);
+    const donationTransaction = await donationTransactionResponse.json();
+    assert.match(donationTransaction.receiptNumber, /^DON\/\d{4}\/\d{7}$/, 'The transaction receives a tenant-series donation receipt number.');
+    const donationTransactionRetry = await fetch(referenceApiBase + '/api/donation/transactions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationTransactionInput),
+    });
+    assert.equal(donationTransactionRetry.status, 201);
+    assert.equal((await donationTransactionRetry.json()).id, donationTransaction.id);
+
+    const [savedDonation, savedWaqfAsset] = await Promise.all([
+      admin.from('donations').select('tenant_id,donor_id,campaign_id,donor_name_snapshot,amount,fund_type,status').eq('id', donationTransaction.id).single(),
+      admin.from('waqf_assets').select('tenant_id,name').eq('id', waqfAsset.id).single(),
+    ]);
+    assert.equal(savedDonation.error, null);
+    assert.equal(savedDonation.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedDonation.data?.donor_id, donationDonor.id);
+    assert.equal(savedDonation.data?.campaign_id, donationCampaign.id);
+    assert.equal(savedDonation.data?.donor_name_snapshot, donationDonorInput.fullName);
+    assert.equal(Number(savedDonation.data?.amount), 250000);
+    assert.equal(savedDonation.data?.fund_type, 'infaq');
+    assert.equal(savedDonation.data?.status, 'confirmed');
+    assert.equal(savedWaqfAsset.error, null);
+    assert.equal(savedWaqfAsset.data?.tenant_id, tenantIds[0]);
+
+    const donationReadbackResponse = await fetch(donationSnapshotUrl, {
+      headers: { Authorization: 'Bearer ' + adminToken },
+    });
+    assert.equal(donationReadbackResponse.status, 200);
+    const donationReadback = await donationReadbackResponse.json();
+    assert.equal(donationReadback.campaigns.find((item) => item.id === donationCampaign.id)?.current, 250000);
+    assert.equal(donationReadback.donors.find((item) => item.id === donationDonor.id)?.lifetime, 250000);
+    assert.equal(donationReadback.donations.find((item) => item.id === donationTransaction.id)?.campaignTitle, donationCampaignInput.title);
+    assert.equal(donationReadback.summary.totalConfirmed, 250000);
+    assert.equal(donationReadback.summary.waqfAssetValue, 50000000);
+
+    const tenantBDonationResponse = await fetch(donationSnapshotUrl, {
+      headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken },
+    });
+    assert.equal(tenantBDonationResponse.status, 200);
+    const tenantBDonation = await tenantBDonationResponse.json();
+    assert.deepEqual(tenantBDonation.campaigns, []);
+    assert.deepEqual(tenantBDonation.donors, []);
+    assert.deepEqual(tenantBDonation.donations, []);
+    assert.deepEqual(tenantBDonation.waqfAssets, []);
+
+    const donationVoidUrl = referenceApiBase + '/api/donation/transactions/' + encodeURIComponent(donationTransaction.id) + '/void';
+    const donationVoidInput = { reason: 'Pembatalan uji sintetis.', clientRequestId: randomUUID() };
+    const donationVoidResponse = await fetch(donationVoidUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationVoidInput),
+    });
+    assert.equal(donationVoidResponse.status, 200);
+    const donationVoidRetry = await fetch(donationVoidUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(donationVoidInput),
+    });
+    assert.equal(donationVoidRetry.status, 200);
+    assert.equal((await donationVoidRetry.json()).replayed, true);
+    const crossTenantDonationVoid = await fetch(donationVoidUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'Tenant berbeda uji.', clientRequestId: randomUUID() }),
+    });
+    assert.equal(crossTenantDonationVoid.status, 404);
+    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -2093,6 +2262,13 @@ async function main() {
         `DELETE FROM public.laundry_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.laundry_orders WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.laundry_settings WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_audit_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donations WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_receipt_counters WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.waqf_assets WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_donors WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.donation_campaigns WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests DISABLE TRIGGER cooperative_supplier_requests_immutable;',
         `DELETE FROM public.cooperative_supplier_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests ENABLE TRIGGER cooperative_supplier_requests_immutable;',
