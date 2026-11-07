@@ -1,3 +1,23 @@
+## Checkpoint otoritatif — 7 November 2026, sesudah PR #49–#50
+
+### Source dan pengujian yang terbukti
+
+- `main` berada pada `cac0ca69ed6135b545f9f21f9c733de7411aedef`. PR #49 dan #50 sudah merged; PR #1–#11 berstatus closed tanpa merge. Tidak ada PR terbuka pada checkpoint terakhir.
+- CI PR #49 lulus 3/3 job pada run [#42332200376](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332200376); CI PR #50 lulus 3/3 pada run [#42332878921](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332878921). PR #49 menambahkan pengujian kebijakan autentikasi pada 201 route privat dan probe anonim; PR #50 memperbarui dokumentasi.
+- Bukti CI dan staging mencakup pemeriksaan keamanan, isolasi tenant/role pada jalur tertentu, replay migrasi sintetis, serta beberapa tes API. Bukti ini **bukan** UAT CRUD setiap modul, bukan pembuktian semua relasi operasional, dan bukan bukti browser bahwa semua data tersimpan lintas login/perangkat.
+- Pemeriksaan lokal terbaru pada branch `codex/browser-persistence-guard-20261107` melaporkan 154 modul runtime, 26 route Supabase, serta kebijakan browser persistence lulus. Perubahan guard ini masih lokal dan **belum** menjadi bagian `main` atau CI release.
+
+### Backend, staging, dan Production
+
+- Source aplikasi memakai runtime Supabase; Firebase tidak menjadi backend runtime aktif menurut guard import. Supabase Production dapat dibaca untuk metadata melalui MCP Desktop sebagaimana dilaporkan operator, tetapi itu tidak membuktikan semua API modul berjalan atau dapat menulis data.
+- VQE staging pernah digunakan untuk penerapan schema dan beberapa verifikasi terbatas. Belum ada bukti UAT menyeluruh atas menu, form, relasi, upload, serta siklus simpan-baca seluruh modul pada browser.
+- PTSAS Production tidak diubah. Inventaris baca-saja yang tersedia melaporkan 119 tabel public dengan RLS + FORCE RLS dan 47 entri ledger. DDL aktual, urutan migrasi, serta backup/restore Production belum diverifikasi; selisih ledger bukan instruksi untuk menerapkan migrasi massal.
+- Tim backend masih perlu melakukan schema diff, backup/restore rehearsal, tinjauan urutan migrasi, dan UAT hosting sesuai checkpoint Production. Ini adalah gerbang release terpisah dari uji source yang dilakukan di sini.
+
+**Kesimpulan:** source dapat direview tim, tetapi saya belum menyelesaikan pengujian fitur/fungsi seluruh modul dan belum menyatakan produk siap deploy. Jangan menafsirkan 3/3 CI, jumlah route, atau RLS aktif sebagai kelulusan penuh fungsi dan relasi.
+
+---
+
 ## Checkpoint terbaru — setelah merge PR #38–#40, PR #43, dan PR #47, 7 November 2026
 
 ### Source dan verifikasi
@@ -267,3 +287,4 @@ Server menghormati `HOST`; jika tidak diatur, default tetap `0.0.0.0` untuk depl
 ## Status Advisor staging VQE terbaru — 1 November 2026
 
 Performance Advisor saat ini mencatat 258 foreign key tanpa indeks penutup penuh, 98 indeks yang belum terpakai, dan satu indeks duplikat pada `document_records`. Pemeriksaan katalog menemukan 522 FK pada 148 tabel; 27 dari 285 FK tanpa indeks penuh hanya memiliki partial index yang cocok. Temuan ini belum menjadi alasan untuk menambah ratusan indeks atau menghapus indeks, karena workload staging belum representatif. Lihat [tinjauan Performance Advisor VQE](../06_DATABASE/VQE_PERFORMANCE_ADVISOR_REVIEW_2026-11-01.md) untuk metodologi, migration duplikat yang belum diterapkan, gate benchmark, serta tindak lanjut keamanan. PR #40 masih Draft; CI terakhir lulus 3/3 job, sementara UAT antarmuka Admin staging menunggu konfigurasi secret VQE lokal. PTSAS Production tidak disentuh.
+
