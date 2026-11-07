@@ -1671,8 +1671,9 @@ async function main() {
         SUPABASE_HRIS_RUNTIME_ENABLED: 'true',
         SUPABASE_CBT_RUNTIME_ENABLED: 'true',
         SUPABASE_LMS_RUNTIME_ENABLED: 'true',
+        SUPABASE_LMS_DIAGNOSTICS: 'true',
       },
-      stdio: ['ignore', 'ignore', 'ignore'],
+      stdio: ['ignore', 'ignore', 'inherit'],
     });
     const referenceDeadline = Date.now() + 45000;
     let referenceServerReady = false;
@@ -1980,8 +1981,9 @@ async function main() {
     const lmsTeacherSnapshotResponse = await fetch(`${referenceApiBase}/api/lms/snapshot`, {
       headers: { Authorization: `Bearer ${ustadzToken}` },
     });
-    assert.equal(lmsTeacherSnapshotResponse.status, 200);
-    const lmsTeacherSnapshot = await lmsTeacherSnapshotResponse.json();
+    const lmsTeacherSnapshotPayload = await lmsTeacherSnapshotResponse.json();
+    assert.equal(lmsTeacherSnapshotResponse.status, 200, `The assigned Ustadz can load the LMS snapshot: ${JSON.stringify(lmsTeacherSnapshotPayload)}`);
+    const lmsTeacherSnapshot = lmsTeacherSnapshotPayload;
     assert.ok(lmsTeacherSnapshot.courses.some((course) => course.id === lmsCourse.id), 'The assigned Ustadz sees the course they teach.');
     assert.ok(lmsTeacherSnapshot.assignments.some((assignment) => assignment.id === lmsAssignment.id), 'The Ustadz snapshot includes the related assignment.');
     assert.ok(lmsTeacherSnapshot.students.some((student) => student.id === tahfidzStudentId), 'The Ustadz sees enrolled students for the course.');

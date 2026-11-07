@@ -28,6 +28,14 @@ async function request(path: string, init: RequestInit = {}) {
   if (raw) { try { body = JSON.parse(raw); } catch { body = null; } }
   if (!response.ok) {
     const code = String(body?.code || "");
+    if (process.env.SUPABASE_LMS_DIAGNOSTICS === "true") {
+      console.error("Supabase LMS request failed:", {
+        resource: path.split("?")[0],
+        status: response.status,
+        code,
+        message: String(body?.message || "").slice(0, 300),
+      });
+    }
     if (["23505", "23503", "23514"].includes(code) || response.status === 409) throw new SupabaseLmsError(409, body?.message || "Data LMS bertentangan dengan record tenant.");
     if (code === "P0002" || response.status === 404) throw new SupabaseLmsError(404, body?.message || "Record LMS tidak ditemukan.");
     if (code === "42501" || response.status === 403) throw new SupabaseLmsError(403, "Operasi LMS ditolak oleh kebijakan role atau tenant.");
