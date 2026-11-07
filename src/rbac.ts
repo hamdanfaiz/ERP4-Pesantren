@@ -97,3 +97,30 @@ export function getAllowedModulesForUser(
     isModuleAccessible(role, modId, userPermissions)
   );
 }
+
+
+/**
+ * Modules that would become newly accessible to a target but are outside the
+ * acting administrator's own scope. Existing grants are preserved so a
+ * restricted Admin can edit or disable an existing account; new grants must
+ * remain within the actor's current authority.
+ */
+export function findUnauthorizedModuleGrants(
+  actorRole: UserRole,
+  actorPermissions: Record<string, boolean> | null | undefined,
+  targetRole: UserRole,
+  targetPermissions: Record<string, boolean> | null | undefined,
+  previousTargetRole?: UserRole | null,
+  previousTargetPermissions?: Record<string, boolean> | null,
+): ModuleId[] {
+  if (actorRole === "SuperAdmin") return [];
+
+  const actorAllowed = new Set(getAllowedModulesForUser(actorRole, actorPermissions));
+  const previousTargetAllowed = previousTargetRole
+    ? new Set(getAllowedModulesForUser(previousTargetRole, previousTargetPermissions))
+    : new Set<ModuleId>();
+
+  return getAllowedModulesForUser(targetRole, targetPermissions).filter(
+    (moduleId) => !actorAllowed.has(moduleId) && !previousTargetAllowed.has(moduleId),
+  );
+}
