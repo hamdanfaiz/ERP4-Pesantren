@@ -211,6 +211,21 @@ async function main() {
     }).select('id');
     if (gradeReferenceError || gradeReferenceRows?.length !== 1) throw new Error('Unable to configure the synthetic tenant grade catalog.');
     const gradeLevelReferenceId = gradeReferenceRows[0].id;
+    const { data: otherTenantGradeReferenceRows, error: otherTenantGradeReferenceError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: tenantIds[1],
+      domain: 'academic_grade_level',
+      code: `TEST_GRADE_VII_B_${fixtureSuffix}`,
+      name: 'VII',
+      description: 'Jenjang uji integrasi CBT tenant kedua.',
+      status: 'active',
+      nis_grade_code: '07',
+      created_by_user_id: users[11].uid,
+      updated_by_user_id: users[11].uid,
+    }).select('id');
+    if (otherTenantGradeReferenceError || otherTenantGradeReferenceRows?.length !== 1) {
+      throw new Error('Unable to configure the synthetic grade catalog in the second tenant.');
+    }
+    const otherTenantGradeLevelReferenceId = otherTenantGradeReferenceRows[0].id;
 
     const { error: hrisUnitError } = await admin.from('organization_units').insert({
       id: hrisOrganizationUnitId,
@@ -301,6 +316,7 @@ async function main() {
       registration_id: `CBT-${fixtureSuffix}`,
       name: `Santri Tenant B CBT ${fixtureSuffix}`,
       grade: 'VII',
+      grade_level_reference_id: otherTenantGradeLevelReferenceId,
       nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
       nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
     });
@@ -314,6 +330,7 @@ async function main() {
       name: `Santri Tenant B CBT ${fixtureSuffix}`,
       gender: 'L',
       grade: 'VII',
+      grade_level_reference_id: otherTenantGradeLevelReferenceId,
       nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
       nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
       status: 'active',
