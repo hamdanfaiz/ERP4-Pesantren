@@ -2402,8 +2402,9 @@ async function main() {
       body: JSON.stringify(healthcareVisitInput),
     });
     assert.equal(healthcareVisitRetry.status, 201);
-    assert.equal((await healthcareVisitRetry.json()).id, healthcareVisit.id);
-    assert.equal((await healthcareVisitRetry.json()).alreadyApplied, true);
+    const replayedHealthcareVisit = await healthcareVisitRetry.json();
+    assert.equal(replayedHealthcareVisit.id, healthcareVisit.id);
+    assert.equal(replayedHealthcareVisit.alreadyApplied, true);
 
     const healthcareMedicineInput = {
       name: 'Obat Uji ' + fixtureSuffix,
@@ -2428,7 +2429,9 @@ async function main() {
       body: JSON.stringify(healthcareMedicineInput),
     });
     assert.equal(healthcareMedicineRetry.status, 201);
-    assert.equal((await healthcareMedicineRetry.json()).id, healthcareMedicine.id);
+    const replayedHealthcareMedicine = await healthcareMedicineRetry.json();
+    assert.equal(replayedHealthcareMedicine.id, healthcareMedicine.id);
+    assert.equal(replayedHealthcareMedicine.alreadyApplied, true);
 
     const healthcareStockInput = {
       medicineId: healthcareMedicine.id,
@@ -2450,8 +2453,9 @@ async function main() {
       body: JSON.stringify(healthcareStockInput),
     });
     assert.equal(healthcareStockRetry.status, 201);
-    assert.equal((await healthcareStockRetry.json()).id, healthcareStock.id);
-    assert.equal((await healthcareStockRetry.json()).alreadyApplied, true);
+    const replayedHealthcareStock = await healthcareStockRetry.json();
+    assert.equal(replayedHealthcareStock.id, healthcareStock.id);
+    assert.equal(replayedHealthcareStock.alreadyApplied, true);
 
     const [savedHealthcareRecord, savedHealthcareVisit, savedHealthcareMedicine, savedHealthcareMovements] = await Promise.all([
       admin.from('healthcare_records').select('tenant_id,student_id,blood_type,height_cm,weight_kg').eq('id', healthcareRecord.id).single(),
