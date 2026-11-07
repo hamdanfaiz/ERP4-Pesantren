@@ -1,14 +1,15 @@
-> **Checkpoint otoritatif — 7 November 2026, sesudah PR #38–#40.** Source utama ada di `main` pada `aa2c6414dd9f02933c44c82fc81da3fad2b20363`; GitHub Actions [run #42321601373](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42321601373) lulus 3/3. PR #1–#11 berstatus closed tanpa merge; audit ulang PR #1–#11 menemukan gap batas pemberian permission Admin; koreksinya tercakup pada PR #43 dan CI [run #42324118824](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42324118824) lulus 3/3 job. Rincian dan matriks audit: [audit paritas PR #1–#11](../05_ARCHITECTURE/PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
+> **Checkpoint otoritatif — 7 November 2026, sesudah PR #43.** `main` berada pada commit merge `f4e54f1229cf9f97433d725b7aa65e96481d65e2`. PR #1–#11 tetap closed tanpa merge; cakupan utamanya dipetakan ke source yang lebih baru. Audit menemukan dan menutup gap batas pemberian permission Admin melalui PR #43.
 >
-> **Staging:** VQE `vqemuyzveuirlkvdggjd` mempunyai 136/136 versi migration yang cocok dengan source main sampai `20270304000000_student_room_assignment_reference_locks`. Ini membuktikan ledger version/name, bukan kesetaraan DDL atau keberhasilan UAT.
+> **CI:** run [#42324842742](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42324842742) lulus 3/3 job pada head PR #43 tepat sebelum merge. CI mencakup pemeriksaan kode, migrasi/pgTAP sintetis, API/Auth/tenant, Storage, backup/restore lokal, Docker, dan NPM. CI bukan UAT browser atau bukti Production.
 >
-> **Production:** PTSAS `ptsasgdvgrbdtgyqieie` tidak diubah. Snapshot metadata baca-saja dari operator mencatat 47 versi ledger dibanding 136 file source; selisih 89 tidak boleh diterapkan massal. Kesetaraan DDL, urutan, backup/restore Production, dan izin change window dikerjakan tim backend.
+> **Staging:** VQE `vqemuyzveuirlkvdggjd` memiliki 136/136 versi/nama ledger yang cocok dengan source, terakhir `20270304000000_student_room_assignment_reference_locks`; PR #43 tidak mengubah migration.
 >
-> **Kesiapan:** CI lokal sintetis bukan UAT browser atau bukti Production. Login Admin/Wali, matriks role/tenant, fungsi modul/menu, Storage, dan responsif pada hosting sasaran tetap perlu UAT. Build/CI sudah dapat ditinjau tim; aplikasi belum dinyatakan siap deploy atau komersial. Estimasi 72–73% di catatan historis tidak diperbarui sebagai angka baru karena belum ada WBS berbobot yang mengukur scope terkini.
+> **Production:** PTSAS `ptsasgdvgrbdtgyqieie` tidak diubah. Snapshot operator yang tersedia mencatat 47 versi ledger dibanding 136 file source. Jangan menerapkan selisih 89 secara massal; kesetaraan DDL, urutan migration, dan backup/restore Production harus diperiksa tim backend.
 >
-> Catatan status bertanggal lama di bawah adalah riwayat, bukan status operasional terkini.
+> **Kesiapan:** source dapat ditinjau tim sekarang, tetapi aplikasi belum dinyatakan siap deploy/go-live. Login, role/tenant, fungsi modul, Storage, responsif, dan UAT hosting masih perlu dibuktikan tim backend. Data Firestore dummy tidak disalin; PPOB/payment gateway tidak termasuk rilis awal; Peer Review Tahfidz dibatasi pada teks.
 >
-
+> Catatan berikutnya yang bertanggal lebih lama adalah riwayat, bukan status operasional terkini.
+>
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 > **Bukti terbaru — 7 November 2026, 04.56 WIB.** PR #40 masih Open dan belum merged; head dokumentasi `2aa0099dddc8501bd41f767dbe2bf8a16fbe59f9`, sedangkan source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. CI [#1201](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42299718397) lulus 3/3 pada head tersebut. CI mencakup migrasi baseline sintetis, bukan UAT browser atau Production live.
 >
