@@ -1,3 +1,14 @@
+> **Checkpoint otoritatif — 7 November 2026, sesudah PR #38–#40.** Source utama ada di `main` pada `aa2c6414dd9f02933c44c82fc81da3fad2b20363`; GitHub Actions [run #42321601373](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42321601373) lulus 3/3. PR #1–#11 berstatus closed tanpa merge; audit ulang pemetaan fitur ke source `main` sedang mencatat satu gap batas pemberian permission Admin yang sedang diperbaiki. Rincian dan matriks terbaru: [audit paritas PR #1–#11](../05_ARCHITECTURE/PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
+>
+> **Staging:** VQE `vqemuyzveuirlkvdggjd` mempunyai 136/136 versi migration yang cocok dengan source main sampai `20270304000000_student_room_assignment_reference_locks`. Ini membuktikan ledger version/name, bukan kesetaraan DDL atau keberhasilan UAT.
+>
+> **Production:** PTSAS `ptsasgdvgrbdtgyqieie` tidak diubah. Snapshot metadata baca-saja dari operator mencatat 47 versi ledger dibanding 136 file source; selisih 89 tidak boleh diterapkan massal. Kesetaraan DDL, urutan, backup/restore Production, dan izin change window dikerjakan tim backend.
+>
+> **Kesiapan:** CI lokal sintetis bukan UAT browser atau bukti Production. Login Admin/Wali, matriks role/tenant, fungsi modul/menu, Storage, dan responsif pada hosting sasaran tetap perlu UAT. Build/CI sudah dapat ditinjau tim; aplikasi belum dinyatakan siap deploy atau komersial. Estimasi 72–73% di catatan historis tidak diperbarui sebagai angka baru karena belum ada WBS berbobot yang mengukur scope terkini.
+>
+> Catatan status bertanggal lama di bawah adalah riwayat, bukan status operasional terkini.
+>
+
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 > **Bukti terbaru — 7 November 2026, 04.56 WIB.** PR #40 masih Open dan belum merged; head dokumentasi `2aa0099dddc8501bd41f767dbe2bf8a16fbe59f9`, sedangkan source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. CI [#1201](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42299718397) lulus 3/3 pada head tersebut. CI mencakup migrasi baseline sintetis, bukan UAT browser atau Production live.
 >
