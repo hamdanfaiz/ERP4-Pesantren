@@ -1,3 +1,27 @@
+## Checkpoint terbaru setelah merge PR #38–#40 — 7 November 2026
+
+Bagian ini adalah status utama terbaru untuk handoff. Catatan bertanggal lebih lama di bawah dipertahankan sebagai riwayat.
+
+### Source dan verifikasi
+
+- PR #38, #39, dan #40 sudah merged ke `main`. Commit saat checkpoint ini: `bab8a6359aac4c0560a53a796b33f79eea8fe55f`. Tidak ada PR terbuka saat pemeriksaan.
+- GitHub Actions pada merge commit lulus **3/3 job** pada run [#42320546964](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42320546964), termasuk build/Firebase runtime guard, migration replay sintetis, API/Auth dan isolasi tenant, pgTAP, Storage, transaksi paralel, backup/restore lokal CI, Docker smoke test, dan instalasi NPM pelanggan.
+- CI hijau bukan bukti UAT browser, kesetaraan DDL Production, atau backup/restore Production.
+
+### VQE staging
+
+- VQE `vqemuyzveuirlkvdggjd` memiliki **136/136 migration** yang cocok persis versi dan namanya dengan 136 file source di `main`, sampai `20270304000000_student_room_assignment_reference_locks`. Alias ledger lama sudah direkonsiliasi; DDL tidak dijalankan ulang.
+- Advisor terbaru menemukan 162 tabel RLS tanpa policy (INFO/default-deny untuk akses Data API), 258 foreign key tanpa covering index, dan 95 indeks belum terpakai. Pastikan API server tetap memvalidasi identitas, role, dan tenant; tinjau indeks dengan workload representatif dan jangan mengubahnya secara massal pada staging kosong.
+- Advisor Auth menemukan **Leaked Password Protection nonaktif**. Organisasi VQE saat ini menggunakan paket Free. Supabase menyatakan fitur ini tersedia pada Pro Plan ke atas ([panduan password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)). Putuskan apakah staging perlu upgrade untuk UAT keamanan. Verifikasi paket Production secara terpisah; status plan VQE tidak membuktikan plan PTSAS.
+
+### PTSAS Production dan batas rilis
+
+- PTSAS Production tidak diubah. Snapshot baca-saja yang diberikan operator pada 7 November menyebut 119 tabel `public` dengan RLS + FORCE RLS, 5 policy SELECT, tanpa grant tabel langsung untuk `PUBLIC`, `anon`, atau `authenticated`, dan 47 versi ledger. Dari 136 versi source, 89 belum tercatat di ledger. Ini metadata/katalog; bukan bukti kesetaraan DDL atau izin menerapkan migration.
+- Jangan menerapkan 89 migration secara massal. Tim backend perlu membandingkan schema aktual, menelusuri efek migration dan ketergantungannya, serta membuat rencana koreksi/urutan tersendiri setelah backup/restore rehearsal berhasil.
+- **Source siap ditinjau dan CI otomatis lulus; ERP belum dinyatakan siap deploy/go-live.** Tim backend masih perlu menjalankan UAT pada environment hosting sasaran (login, menu/submenu, matriks role/tenant, PPDB, NIS/Naming Series, asrama, Tahfidz, Finance, import/export, Storage, responsif), memeriksa DDL Production, membuktikan backup dan restore, lalu menyetujui urutan migrasi dan cutover. Tidak ada perubahan Production dalam checkpoint ini.
+
+---
+
 # Titik Mulai Tim Backend — ERP4 Pesantren
 
 ## Pembaruan source — 7 November 2026, CI #1212
