@@ -2,10 +2,10 @@
 
 > **Perubahan ruang lingkup 27 Oktober 2026:** data Firestore proyek ini dummy dan tidak perlu disalin. Pernyataan historis yang menjadikan impor/rekonsiliasi seluruh arsip sebagai gerbang rilis tidak lagi berlaku. Gunakan fixture sintetis untuk membuktikan logika, relasi, transaksi, serta isolasi tenant/role; data contoh dapat dimasukkan manual kemudian. Syarat migrasi schema, runtime Supabase-only, login/UAT, backup/restore, rotasi secret, dan kesiapan environment pelanggan tetap berlaku.
 
-## Status terverifikasi pada main — setelah PR #43 dan #44, 7 November 2026
+## Status runtime terverifikasi — source PR #43, checkpoint 7 November 2026
 
-- `main` berada pada commit `3da8346c8bf72dce91ed17d4eec1135b4939aa03`. PR #43 menutup temuan RBAC Admin; PR #44 memperbarui handoff. Keduanya sudah merged.
-- GitHub Actions [run #42325691912](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42325691912) lulus 3/3 job pada head PR #44, yang berbasis commit `main` saat ini dan hanya membawa perubahan dokumentasi. CI memverifikasi build/runtime tanpa Firebase, instalasi NPM, migrasi/pgTAP serta uji API/tenant/Storage pada stack lokal sintetis.
+- Baseline kode runtime adalah merge commit PR #43 `f4e54f1229cf9f97433d725b7aa65e96481d65e2`, yang menutup temuan RBAC Admin. PR #44 dan PR #45 sesudahnya hanya mengubah dokumentasi; tidak mengubah runtime atau migration.
+- GitHub Actions [run #42326482705](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42326482705) lulus 3/3 job pada head dokumentasi PR #45 `656e6323cd4b19737b14ca61a2a32dbdc0410d9e`, yang berbasis source main dan hanya mengubah dokumentasi. CI memverifikasi build/runtime tanpa Firebase, instalasi NPM, migrasi/pgTAP serta uji API/tenant/Storage pada stack lokal sintetis.
 - Guard `scripts/test-supabase-runtime-no-firebase.mjs` menelusuri import graph dari `src/main.tsx` dan `server.ts`, menolak paket Firebase pada graph aktif, memeriksa 26 tujuan rute Supabase, dan memastikan endpoint arsip legacy tertutup dengan HTTP 410. `src/runtimeBackend.ts` menetapkan `SUPABASE_ONLY_RUNTIME = true`; `src/firebase.ts` melempar error alih-alih menginisialisasi Firebase.
 - `firebase` masih tercantum sebagai development dependency dan beberapa file layar/utility legacy tetap ada di repo untuk kompatibilitas/typecheck. Guard CI membuktikan paket tersebut tidak berada di production dependencies dan tidak masuk ke graph runtime aktif. Ini kode dormant, bukan fallback operasional.
 - Firestore archive import dinonaktifkan secara eksplisit karena data pemilik dinyatakan dummy. Tidak ada migrasi data Firestore ke Supabase yang diperlukan.
