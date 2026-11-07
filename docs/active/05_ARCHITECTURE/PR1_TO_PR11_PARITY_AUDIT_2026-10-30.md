@@ -1,10 +1,20 @@
 # Audit paritas sumber PR #1–#11 dengan PR #13
 
-## Re-audit terhadap `main` setelah PR #38–#40 — 7 November 2026
+## Revalidasi terkini — 7 November 2026, 18.36 WIB
+
+- `main` saat ini berada pada `de5c9a26bcfaa79bba8d989bcf1434f11549bd90`, hasil merge PR #65. Metadata GitHub saat diperiksa menunjukkan PR #1–#11 seluruhnya `Closed`, `merged=false`, dan tidak ada PR terbuka. Jangan merge branch lama satu per satu: semuanya adalah jalur historis yang digantikan implementasi pada `main`.
+- Matriks paritas di bawah tetap menjadi peta pengganti fitur PR #1–#11. Pemeriksaan source setelah baseline `0e3e730` mencakup 19 commit, dengan round-trip API tambahan untuk CRM, komunikasi, Tahfidz, Akademik, Koperasi, Laundry, Donasi, Dokumen, Kesehatan, pemesanan fasilitas, urusan umum, dan Perpustakaan. PR #65 secara khusus menguji penyimpanan relasi kategori, CRUD buku, peminjaman/pengembalian, retry idempoten, batas eksemplar, role, dan isolasi tenant.
+- CI pada merge commit PR #65 lulus tiga job: migrasi/API/pgTAP, build frontend/Firebase bundle guard, serta instalasi NPM pelanggan. [Run #42366639181](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42366639181). CI menggunakan backend/database Supabase sintetis; ini bukan UAT browser seluruh alur dan bukan pemeriksaan tulis Production.
+- Guard CI memastikan semua skrip `test:*` pada package manifest dijadwalkan pada workflow. Hal itu membuktikan cakupan eksekusi skrip yang dideklarasikan, bukan kelengkapan kasus uji atau bahwa setiap fitur setiap modul sudah lulus.
+- Pengujian database/pgTAP dan round-trip API pada workflow mencakup sejumlah domain dan operasi spesifik; round-trip yang disebut di atas meliputi CRM, komunikasi, Tahfidz, Akademik, Koperasi, Laundry, Donasi, Dokumen, Kesehatan, pemesanan fasilitas, urusan umum, dan Perpustakaan. Modul lain memiliki tes aturan/database tertentu, tetapi itu bukan bukti bahwa semua create/read/update/delete dari seluruh layar telah diuji.
+- Pemeriksaan source/konfigurasi lokal lulus untuk jadwal 54 skrip CI, schema privat, kontrak fixture sintetis, deployment flags, dan PII Master Data. Pengulangan suite DB terhambat karena Docker/Supabase CLI tidak tersedia; `npm ci` tidak selesai sehingga typecheck/build dan skrip yang memerlukan dependency tidak dapat dijalankan. Ini bukan kegagalan fitur aplikasi, tetapi juga bukan hasil lulus; referensi integrasi terbaru tetap CI sukses pada `de5c9a2`.
+- Source `main` memiliki 138 migration files. Snapshot operator terakhir mencatat 47 entri ledger Production dan 136 entri VQE; snapshot staging belum diperiksa ulang terhadap dua migration terakhir. Production tidak diubah. DDL/urutan migration Production, backup/restore Production, login/UAT browser, dan alur simpan-baca semua UI tetap belum terbukti.
+
+## Snapshot audit historis terhadap `main` setelah PR #38–#40 — 7 November 2026
 
 **Hasil GitHub:** PR #1–#11 semuanya `Closed`, tidak ada yang `Merged`. PR tersebut tidak perlu digabung satu per satu: source berikutnya mengganti path, versi migration, dan sebagian arsitektur. Baseline audit saat itu adalah `main` pada `aa2c6414dd9f02933c44c82fc81da3fad2b20363`; CI run [#42321601373](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42321601373) lulus 3/3 job. Ini membuktikan build dan suite lokal sintetis, bukan UAT Production. **Tindak lanjut:** gap pemberian permission pada PR #3 sudah diperbaiki pada PR #43; CI [run #42324118824](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42324118824) lulus 3/3 job, termasuk tes RBAC/API, build, migrasi dan pgTAP sintetis. Tidak ada perubahan Production.
 
-### Pemeriksaan lanjutan pada `main` — 7 November 2026
+### Baseline revalidasi terdahulu — `main` 0e3e730 — 7 November 2026
 
 Source terkini yang ditinjau berbasis `main` `0e3e73006d6664a266dce2f90ac5fb707bcc911a` (PR #49 menambahkan guard autentikasi route; PR #48 hanya memperbarui dokumen handoff setelah baseline kode PR #47). Status PR #1–#11 dikonfirmasi lagi lewat metadata GitHub: semuanya ditutup tanpa merge. Matriks di bawah tetap menunjukkan padanan source saat ini; branch lama tidak perlu digabung dan tidak ditemukan fitur baru yang hanya tersedia di branch #1–#11.
 
@@ -31,11 +41,15 @@ Hasil ini tetap bukan UAT setiap workflow bisnis, login browser pada host pelang
 - Perbandingan path menunjukkan banyak file lama tidak berada lagi pada nama asal: API berpindah dari `server/` ke `src/server/`, dan migration awal `202606...` diganti migration forward-only setelah baseline historis. Path lama yang tidak ada bukan bukti kehilangan fitur; padanannya harus dinilai dari kontrak dan test di tabel.
 - PR #1–#11 tidak merged. Jangan menggabungkan branch lama; itu dapat membawa desain Firebase/transisi atau migration dengan lineage yang salah.
 - Pengujian CI berjalan pada Supabase lokal dan data sintetis. Belum membuktikan login browser Admin/Wali, semua tombol/menu pada host pelanggan, DDL Production, backup/restore Production, atau sequencing cutover.
-- Snapshot operator PTSAS terakhir mencatat 47 versi ledger sedangkan source memiliki 136 migration; selisih metadata tidak boleh diperlakukan sebagai daftar `db push`. Production tidak diubah.
+- Snapshot operator PTSAS terakhir mencatat 47 versi ledger sedangkan source memiliki 138 migration; selisih metadata tidak boleh diperlakukan sebagai daftar `db push`. Production tidak diubah.
 - **Kesimpulan audit source:** cakupan utama PR #1–#11 memiliki padanan di source yang lebih baru, dan gap material batas pemberian permission Admin telah diperbaiki serta lulus CI pada PR #43. PR lama tetap tidak perlu di-merge. Ini menutup gap source yang ditemukan audit, tetapi tidak menyatakan kesetaraan data/DDL Production, UAT browser, backup/restore Production, atau kesiapan deploy; itu tetap gerbang tim backend.
 
 ---
 
+
+### Status paritas PR #1–#11
+
+Tidak ditemukan dasar untuk menggabungkan PR #1–#11 secara langsung: padanan source dan tes yang relevan tercantum pada matriks berikut. Keputusan ini tidak sama dengan menyatakan semua fitur produk telah lulus UAT atau Production siap cutover.
 
 Tanggal audit: 30 Oktober 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
