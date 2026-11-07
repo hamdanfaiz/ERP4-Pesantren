@@ -7,6 +7,14 @@ import { createClient } from '@supabase/supabase-js';
 import { auditServerApiAuthRoutes } from './api-route-auth-policy.mjs';
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const fetch = async (input, init) => {
+  try {
+    return await globalThis.fetch(input, init);
+  } catch (error) {
+    const url = typeof input === 'string' ? input : String(input?.url || input);
+    throw new Error(`HTTP fetch failed for ${url}`, { cause: error });
+  }
+};
 
 async function verifyAllPrivateApiRoutesRejectAnonymousRequests(apiBase) {
   const source = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
@@ -151,7 +159,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true }));
@@ -169,7 +177,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -293,6 +301,7 @@ async function main() {
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_MARKETPLACE_RUNTIME_ENABLED: 'true',
         SUPABASE_COOPERATIVE_RUNTIME_ENABLED: 'true',
+        SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
         SUPABASE_CRM_RUNTIME_ENABLED: 'true',
         SUPABASE_DASHBOARD_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
@@ -1450,6 +1459,7 @@ async function main() {
         SUPABASE_COMMUNICATION_RUNTIME_ENABLED: 'true',
         SUPABASE_TAHFIDZ_RUNTIME_ENABLED: 'true',
         SUPABASE_ACADEMIC_RUNTIME_ENABLED: 'true',
+        SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -1922,7 +1932,123 @@ async function main() {
     });
     assert.equal(santriRecordWrite.status, 403, 'A Santri cannot create setoran even when granted module read access.');
 
-    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    const laundryDeniedRole = await fetch(`${referenceApiBase}/api/laundry/snapshot`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(laundryDeniedRole.status, 403, 'Laundry management is restricted to an authorized tenant Admin.');
+
+    const laundryEmptyResponse = await fetch(`${referenceApiBase}/api/laundry/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(laundryEmptyResponse.status, 200, 'An authorized Admin can read the initial Laundry snapshot.');
+    const laundryEmpty = await laundryEmptyResponse.json();
+    assert.deepEqual(laundryEmpty.orders, [], 'A new tenant begins without Laundry orders.');
+    assert.equal(laundryEmpty.settings.monthlyQuotaKg, 20, 'Laundry starts with the documented tenant default quota.');
+    assert.ok(laundryEmpty.students.some((student) => student.id === tahfidzStudentId), 'Laundry resolves its roster from the same-tenant student records.');
+
+    const laundrySettingsInput = {
+      monthlyQuotaKg: 2,
+      excessRatePerKg: 5000,
+      clientRequestId: randomUUID(),
+    };
+    const laundrySettingsSave = await fetch(`${referenceApiBase}/api/laundry/settings`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundrySettingsInput),
+    });
+    assert.equal(laundrySettingsSave.status, 200, 'An authorized Admin can save tenant Laundry quota settings.');
+    assert.equal((await laundrySettingsSave.json()).replayed, false);
+    const laundrySettingsRetry = await fetch(`${referenceApiBase}/api/laundry/settings`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundrySettingsInput),
+    });
+    assert.equal(laundrySettingsRetry.status, 200);
+    assert.equal((await laundrySettingsRetry.json()).replayed, true, 'A repeated settings request is idempotent.');
+
+    const laundryOrderInput = {
+      studentId: tahfidzStudentId,
+      weightKg: 3.25,
+      pieces: 4,
+      clientRequestId: randomUUID(),
+    };
+    const laundryOrderCreate = await fetch(`${referenceApiBase}/api/laundry/orders`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundryOrderInput),
+    });
+    assert.equal(laundryOrderCreate.status, 201, 'An authorized Admin can create a Laundry order linked to a student.');
+    const createdLaundryOrder = await laundryOrderCreate.json();
+    assert.ok(createdLaundryOrder.id && createdLaundryOrder.orderNumber);
+    assert.equal(createdLaundryOrder.replayed, false);
+    const laundryOrderRetry = await fetch(`${referenceApiBase}/api/laundry/orders`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundryOrderInput),
+    });
+    assert.equal(laundryOrderRetry.status, 200, 'An identical Laundry order request replays the prior outcome.');
+    assert.equal((await laundryOrderRetry.json()).id, createdLaundryOrder.id, 'Laundry order retry does not create a duplicate.');
+
+    const savedLaundryOrder = await admin.from('laundry_orders')
+      .select('tenant_id,student_id,order_number,weight_kg,pieces,status')
+      .eq('id', createdLaundryOrder.id)
+      .single();
+    assert.equal(savedLaundryOrder.error, null);
+    assert.equal(savedLaundryOrder.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedLaundryOrder.data?.student_id, tahfidzStudentId, 'The persisted order keeps its same-tenant student relation.');
+    assert.equal(savedLaundryOrder.data?.order_number, createdLaundryOrder.orderNumber);
+
+    const laundryAfterCreateResponse = await fetch(`${referenceApiBase}/api/laundry/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(laundryAfterCreateResponse.status, 200);
+    const laundryAfterCreate = await laundryAfterCreateResponse.json();
+    const laundryOrderInSnapshot = laundryAfterCreate.orders.find((order) => order.id === createdLaundryOrder.id);
+    assert.ok(laundryOrderInSnapshot, 'The order is readable through the tenant API after it is saved.');
+    assert.equal(laundryOrderInSnapshot.studentId, tahfidzStudentId);
+    assert.equal(laundryOrderInSnapshot.student, 'Santri Uji Tahfidz API');
+    const laundryQuota = laundryAfterCreate.quotas.find((quota) => quota.id === tahfidzStudentId);
+    assert.equal(laundryQuota.usedKg, 3.25);
+    assert.equal(laundryQuota.remainingKg, 0);
+    assert.equal(laundryQuota.excessKg, 1.25);
+    assert.equal(laundryQuota.estimatedCharge, 6250, 'Quota charge uses the saved rate and same-month order weight.');
+
+    const invalidLaundryTransition = await fetch(`${referenceApiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'collected', clientRequestId: randomUUID() }),
+    });
+    assert.equal(invalidLaundryTransition.status, 409, 'Laundry rejects an invalid status jump.');
+
+    const laundryTransitionInput = { status: 'washing', clientRequestId: randomUUID() };
+    const laundryTransition = await fetch(`${referenceApiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundryTransitionInput),
+    });
+    assert.equal(laundryTransition.status, 200);
+    assert.equal((await laundryTransition.json()).status, 'washing');
+    const laundryTransitionRetry = await fetch(`${referenceApiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundryTransitionInput),
+    });
+    assert.equal(laundryTransitionRetry.status, 200);
+    assert.equal((await laundryTransitionRetry.json()).replayed, true, 'A repeated status request does not append a second transition.');
+
+    const laundryTenantBResponse = await fetch(`${referenceApiBase}/api/laundry/snapshot`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(laundryTenantBResponse.status, 200);
+    assert.deepEqual((await laundryTenantBResponse.json()).orders, [], 'Laundry snapshots do not expose another tenant\'s orders.');
+    const laundryCrossTenantTransition = await fetch(`${referenceApiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ready', clientRequestId: randomUUID() }),
+    });
+    assert.equal(laundryCrossTenantTransition.status, 404, 'A different tenant cannot transition an order by guessing its ID.');
+
+    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -1963,6 +2089,10 @@ async function main() {
         `DELETE FROM public.academic_records WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.finance_controls WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.finance_ledger WHERE tenant_id = ANY(${tenantArray}) AND source_type IN ('cooperative_wallet', 'cooperative_sale');`,
+        `DELETE FROM public.laundry_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.laundry_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.laundry_orders WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.laundry_settings WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests DISABLE TRIGGER cooperative_supplier_requests_immutable;',
         `DELETE FROM public.cooperative_supplier_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests ENABLE TRIGGER cooperative_supplier_requests_immutable;',
@@ -2066,7 +2196,10 @@ main().catch((error) => {
   const detail = error instanceof Error
     ? error.message
     : error?.code || 'unknown error';
-  console.error(`API auth and tenant integration test failed (${detail}). Check the local Supabase stack and migration state.`);
+  const cause = error instanceof Error && error.cause instanceof Error
+    ? `; cause=${error.cause.code || error.cause.message}`
+    : '';
+  console.error(`API auth and tenant integration test failed (${detail}${cause}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
 
