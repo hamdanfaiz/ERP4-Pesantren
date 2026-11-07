@@ -1,11 +1,11 @@
-## Checkpoint otoritatif — 7 November 2026, sesudah PR #49–#50
+## Checkpoint otoritatif — 7 November 2026, sesudah PR #49–#51
 
 ### Source dan pengujian yang terbukti
 
-- `main` berada pada `cac0ca69ed6135b545f9f21f9c733de7411aedef`. PR #49 dan #50 sudah merged; PR #1–#11 berstatus closed tanpa merge. Tidak ada PR terbuka pada checkpoint terakhir.
-- CI PR #49 lulus 3/3 job pada run [#42332200376](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332200376); CI PR #50 lulus 3/3 pada run [#42332878921](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332878921). PR #49 menambahkan pengujian kebijakan autentikasi pada 201 route privat dan probe anonim; PR #50 memperbarui dokumentasi.
+- `main` berada pada merge commit PR #51 `3655344d5ba4ce44deac57129b791238bcfe70bb`. PR #49–#51 sudah merged; PR #1–#11 berstatus closed tanpa merge karena cakupannya telah digantikan. Tidak ada PR terbuka pada checkpoint terakhir.
+- CI PR #49 lulus 3/3 job pada run [#42332200376](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332200376); PR #50 lulus 3/3 pada [#42332878921](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332878921); PR #51 lulus 3/3 pada [#42334687865](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42334687865). PR #49 menguji kebijakan autentikasi 201 route privat; PR #51 menambahkan guard agar data operasional tidak ditulis ke `localStorage`; PR #50 memperbarui dokumentasi.
 - Bukti CI dan staging mencakup pemeriksaan keamanan, isolasi tenant/role pada jalur tertentu, replay migrasi sintetis, serta beberapa tes API. Bukti ini **bukan** UAT CRUD setiap modul, bukan pembuktian semua relasi operasional, dan bukan bukti browser bahwa semua data tersimpan lintas login/perangkat.
-- Pemeriksaan lokal terbaru pada branch `codex/browser-persistence-guard-20261107` melaporkan 154 modul runtime, 26 route Supabase, serta kebijakan browser persistence lulus. Perubahan guard ini masih lokal dan **belum** menjadi bagian `main` atau CI release.
+- Guard runtime yang kini merged pada PR #51 melaporkan 154 modul dan 26 route Supabase, tanpa Firebase runtime aktif atau penulisan data operasional ke `localStorage`. `sessionStorage` dibatasi untuk sesi Supabase dan kunci idempotensi sementara.
 
 ### Backend, staging, dan Production
 
