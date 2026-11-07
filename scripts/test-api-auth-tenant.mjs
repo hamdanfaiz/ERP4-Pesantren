@@ -203,7 +203,7 @@ async function main() {
       id: tahfidzStudentId,
       tenant_id: tenantIds[0],
       source_candidate_id: tahfidzCandidateId,
-      nis: `TAHFIDZ-${fixtureSuffix}`,
+      nis: String(9000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000)),
       name: 'Santri Uji Tahfidz API',
       gender: 'L',
       grade: 'VII',
