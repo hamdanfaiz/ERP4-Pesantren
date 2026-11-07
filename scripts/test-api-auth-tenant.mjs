@@ -1373,6 +1373,13 @@ async function main() {
     assert.equal(academicScheduleRetry.status, 200, 'Retrying the same Academic schedule request is idempotent.');
     assert.deepEqual(await academicScheduleRetry.json(), { id: academicSchedule.id, alreadyApplied: true });
 
+    const reusedAcademicScheduleKey = await fetch(`${referenceApiBase}/api/academic/schedule`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: { ...academicScheduleInput, day: 'Selasa' } }),
+    });
+    assert.equal(reusedAcademicScheduleKey.status, 409, 'An Academic idempotency key cannot be reused with a different schedule payload.');
+
     const { data: academicScheduleRow, error: academicScheduleReadError } = await admin.from('academic_records')
       .select('tenant_id,kind,teacher_user_id,class_reference_id,subject_reference_id,curriculum_reference_id')
       .eq('id', academicSchedule.id)
