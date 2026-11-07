@@ -122,7 +122,7 @@ async function createUserFixture(admin, tenantId, role, status, label, modulePer
     throw new Error(`Unable to create synthetic profile (${label}).`);
   }
 
-  return { uid: data.user.id, email, password };
+  return { uid: data.user.id, email, password, tenantId };
 }
 
 async function signIn(anon, user) {
@@ -1329,19 +1329,21 @@ async function main() {
     });
     assert.equal(tenantResponse.status, 200, 'An active tenant admin should read their own tenant users.');
     const tenantPayload = await tenantResponse.json();
-    assert.equal(tenantPayload.total, 12, 'The tenant admin should only see the twelve profiles in tenant A, including Cooperative permission fixtures.');
+    const expectedTenantProfileCount = users.filter((profile) => profile.tenantId === tenantIds[0]).length;
+    assert.equal(tenantPayload.total, expectedTenantProfileCount, 'The tenant admin should only see profiles belonging to tenant A.');
     assert.ok(tenantPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'The response must remain scoped to the actor tenant even when a foreign tenantId is requested.');
     assert.ok(!tenantPayload.users.some((profile) => profile.email === users[2].email), 'A profile from another tenant must never appear in the response.');
 
-    const pageResponses = await Promise.all([0, 3, 6, 9].map((offset) => fetch(`${apiBase}/api/users?limit=3&offset=${offset}`, {
+    const pageOffsets = Array.from({ length: Math.ceil(expectedTenantProfileCount / 3) }, (_, index) => index * 3);
+    const pageResponses = await Promise.all(pageOffsets.map((offset) => fetch(`${apiBase}/api/users?limit=3&offset=${offset}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     })));
     for (const response of pageResponses) assert.equal(response.status, 200, 'Tenant user pages must be readable.');
     const pagePayloads = await Promise.all(pageResponses.map((response) => response.json()));
-    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), [3, 3, 3, 3], 'Pagination must return bounded, non-overlapping page sizes across the Cooperative fixtures.');
-    assert.ok(pagePayloads.every((payload) => payload.total === 12), 'Every page must report the filtered tenant total.');
+    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), pageOffsets.map((_, index) => Math.min(3, expectedTenantProfileCount - index * 3)), 'Pagination must return bounded, non-overlapping page sizes across all tenant fixtures.');
+    assert.ok(pagePayloads.every((payload) => payload.total === expectedTenantProfileCount), 'Every page must report the filtered tenant total.');
     const pagedIds = pagePayloads.flatMap((payload) => payload.users.map((profile) => profile.uid));
-    assert.equal(new Set(pagedIds).size, 12, 'Stable ordering must return every tenant profile exactly once across pages.');
+    assert.equal(new Set(pagedIds).size, expectedTenantProfileCount, 'Stable ordering must return every tenant profile exactly once across pages.');
 
     const searchResponse = await fetch(`${apiBase}/api/users?q=${encodeURIComponent(users[0].email)}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
@@ -1377,7 +1379,7 @@ async function main() {
     });
     assert.equal(superAdminResponse.status, 200, 'An active SuperAdmin should pass the user-management role gate.');
     const superAdminPayload = await superAdminResponse.json();
-    assert.equal(superAdminPayload.total, 12, 'SuperAdmin remains scoped to the profile tenant, including Cooperative permission fixtures, when a foreign tenantId is requested.');
+    assert.equal(superAdminPayload.total, expectedTenantProfileCount, 'SuperAdmin remains scoped to the profile tenant when a foreign tenantId is requested.');
     assert.ok(superAdminPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'SuperAdmin results must remain tenant-scoped.');
     assert.ok(!superAdminPayload.users.some((profile) => profile.email === users[2].email), 'SuperAdmin must not receive a foreign-tenant profile through query spoofing.');
 
