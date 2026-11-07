@@ -1465,6 +1465,7 @@ async function main() {
         SUPABASE_TAHFIDZ_RUNTIME_ENABLED: 'true',
         SUPABASE_ACADEMIC_RUNTIME_ENABLED: 'true',
         SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
+        SUPABASE_DONATION_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
