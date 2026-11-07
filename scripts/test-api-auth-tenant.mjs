@@ -151,10 +151,10 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
-    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
@@ -169,12 +169,14 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
       .eq('user_id', users[12].uid);
     if (forcePasswordError) throw new Error('Unable to configure the synthetic forced-password-change fixture.');
+    const academicUnlinkedSantri = await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'academic-unlinked-santri', { academic: true });
+    users.push(academicUnlinkedSantri);
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -212,6 +214,51 @@ async function main() {
       status: 'active',
     });
     if (tahfidzStudentError) throw new Error('Unable to create the synthetic Tahfidz student.');
+
+    const academicClassId = `CLASS-${fixtureSuffix}`;
+    const { error: academicClassError } = await admin.from('master_data_records').insert({
+      tenant_id: tenantIds[0],
+      category: 'Kelas',
+      id: academicClassId,
+      name: `Kelas Akademik API ${fixtureSuffix}`,
+      status: 'Active',
+      grade: 'VII',
+    });
+    if (academicClassError) throw new Error('Unable to create the synthetic Academic class reference.');
+    const { error: academicStudentClassError } = await admin.from('students')
+      .update({ class_id: academicClassId })
+      .eq('tenant_id', tenantIds[0])
+      .eq('id', tahfidzStudentId);
+    if (academicStudentClassError) throw new Error('Unable to link the synthetic Academic student to its class.');
+    const { error: academicStudentLinkError } = await admin.from('profiles')
+      .update({ linked_santri_id: tahfidzStudentId })
+      .eq('tenant_id', tenantIds[0])
+      .eq('user_id', users[1].uid);
+    if (academicStudentLinkError) throw new Error('Unable to link the synthetic Santri portal profile.');
+    const academicReferenceRows = [
+      { domain: 'academic_subject', code: `API_SUBJECT_${fixtureSuffix}`, name: `Matematika API ${fixtureSuffix}` },
+      { domain: 'academic_curriculum', code: `API_CURRICULUM_${fixtureSuffix}`, name: `Kurikulum API ${fixtureSuffix}` },
+      { domain: 'academic_assessment_type', code: `API_ASSESSMENT_${fixtureSuffix}`, name: `Penilaian API ${fixtureSuffix}` },
+    ].map((reference) => ({
+      tenant_id: tenantIds[0],
+      ...reference,
+      description: 'Referensi tenant sintetis untuk pengujian integrasi Akademik.',
+      status: 'active',
+      created_by_user_id: users[0].uid,
+      updated_by_user_id: users[0].uid,
+    }));
+    const { data: academicReferences, error: academicReferenceError } = await admin.from('tenant_reference_items')
+      .insert(academicReferenceRows)
+      .select('id,domain,code,name');
+    if (academicReferenceError || academicReferences?.length !== academicReferenceRows.length) {
+      throw new Error('Unable to create the synthetic Academic choice references.');
+    }
+    const academicSubjectId = academicReferences.find((reference) => reference.domain === 'academic_subject')?.id;
+    const academicCurriculumId = academicReferences.find((reference) => reference.domain === 'academic_curriculum')?.id;
+    const academicAssessmentTypeId = academicReferences.find((reference) => reference.domain === 'academic_assessment_type')?.id;
+    if (!academicSubjectId || !academicCurriculumId || !academicAssessmentTypeId) {
+      throw new Error('The synthetic Academic choice reference IDs could not be resolved.');
+    }
 
     const adminToken = await signIn(anon, users[0]);
     const santriToken = await signIn(anon, users[1]);
@@ -1132,6 +1179,7 @@ async function main() {
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
         SUPABASE_COMMUNICATION_RUNTIME_ENABLED: 'true',
         SUPABASE_TAHFIDZ_RUNTIME_ENABLED: 'true',
+        SUPABASE_ACADEMIC_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -1298,6 +1346,176 @@ async function main() {
     });
     assert.equal(noRecipientAnnouncement.status, 409, 'Announcements must fail closed when the selected audience has no active linked account.');
 
+    const academicScheduleInput = {
+      clientRequestId: randomUUID(),
+      day: 'Senin',
+      time: '09:30 - 10:15',
+      teacherUserId: users[3].uid,
+      classReferenceId: academicClassId,
+      subjectReferenceId: academicSubjectId,
+      curriculumReferenceId: academicCurriculumId,
+    };
+    const academicScheduleCreate = await fetch(`${referenceApiBase}/api/academic/schedule`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: academicScheduleInput }),
+    });
+    assert.equal(academicScheduleCreate.status, 201, 'An Academic Admin can create a tenant schedule through the application API.');
+    const academicSchedule = await academicScheduleCreate.json();
+    assert.ok(academicSchedule.id);
+    assert.equal(academicSchedule.alreadyApplied, false);
+
+    const academicScheduleRetry = await fetch(`${referenceApiBase}/api/academic/schedule`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: academicScheduleInput }),
+    });
+    assert.equal(academicScheduleRetry.status, 200, 'Retrying the same Academic schedule request is idempotent.');
+    assert.deepEqual(await academicScheduleRetry.json(), { id: academicSchedule.id, alreadyApplied: true });
+
+    const { data: academicScheduleRow, error: academicScheduleReadError } = await admin.from('academic_records')
+      .select('tenant_id,kind,teacher_user_id,class_reference_id,subject_reference_id,curriculum_reference_id')
+      .eq('id', academicSchedule.id)
+      .maybeSingle();
+    assert.equal(academicScheduleReadError, null, 'The Academic schedule row must persist in Supabase.');
+    assert.equal(academicScheduleRow?.tenant_id, tenantIds[0]);
+    assert.equal(academicScheduleRow?.kind, 'schedule');
+    assert.equal(academicScheduleRow?.teacher_user_id, users[3].uid);
+    assert.equal(academicScheduleRow?.class_reference_id, academicClassId);
+    assert.equal(academicScheduleRow?.subject_reference_id, academicSubjectId);
+    assert.equal(academicScheduleRow?.curriculum_reference_id, academicCurriculumId);
+
+    const adminAcademicSchedules = await fetch(`${referenceApiBase}/api/academic/records?kind=schedule`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(adminAcademicSchedules.status, 200, 'The Admin can read the saved Academic schedule through the API.');
+    const adminSchedulePage = await adminAcademicSchedules.json();
+    assert.ok(adminSchedulePage.records.some((record) => record.id === academicSchedule.id
+      && record.classReferenceId === academicClassId
+      && record.subjectReferenceId === academicSubjectId
+      && record.curriculumReferenceId === academicCurriculumId),
+    'The read response preserves the saved class, subject, and curriculum relationships.');
+
+    const ustadzAcademicSchedules = await fetch(`${referenceApiBase}/api/academic/records?kind=schedule`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(ustadzAcademicSchedules.status, 200, 'The assigned Ustadz can read their own schedule.');
+    assert.ok((await ustadzAcademicSchedules.json()).records.some((record) => record.id === academicSchedule.id));
+
+    const foreignAcademicSchedules = await fetch(`${referenceApiBase}/api/academic/records?kind=schedule`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(foreignAcademicSchedules.status, 200);
+    assert.deepEqual((await foreignAcademicSchedules.json()).records, [], 'A different tenant cannot read Academic schedules.');
+
+    const deniedUstadzSchedule = await fetch(`${referenceApiBase}/api/academic/schedule`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: { ...academicScheduleInput, clientRequestId: randomUUID(), time: '10:30 - 11:15' } }),
+    });
+    assert.equal(deniedUstadzSchedule.status, 403, 'An Ustadz cannot create or reassign tenant schedules.');
+
+    const academicJournalInput = {
+      clientRequestId: randomUUID(),
+      date: new Date().toISOString().slice(0, 10),
+      classReferenceId: academicClassId,
+      subjectReferenceId: academicSubjectId,
+      topic: 'Materi uji integrasi tersimpan.',
+      competency: 'Santri memahami materi uji.',
+      attendancePresent: 1,
+      attendanceAbsent: 0,
+      attendanceExcused: 0,
+    };
+    const academicJournalCreate = await fetch(`${referenceApiBase}/api/academic/journal`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: academicJournalInput }),
+    });
+    assert.equal(academicJournalCreate.status, 201, 'An Ustadz can save a teaching journal for an assigned class.');
+    const academicJournal = await academicJournalCreate.json();
+    const { data: academicJournalRow, error: academicJournalReadError } = await admin.from('academic_records')
+      .select('tenant_id,kind,teacher_user_id,class_reference_id,subject_reference_id,record_data')
+      .eq('id', academicJournal.id)
+      .maybeSingle();
+    assert.equal(academicJournalReadError, null);
+    assert.equal(academicJournalRow?.tenant_id, tenantIds[0]);
+    assert.equal(academicJournalRow?.kind, 'journal');
+    assert.equal(academicJournalRow?.teacher_user_id, users[3].uid);
+    assert.equal(academicJournalRow?.class_reference_id, academicClassId);
+    assert.equal(academicJournalRow?.subject_reference_id, academicSubjectId);
+    assert.deepEqual(academicJournalRow?.record_data?.attendance, { present: 1, absent: 0, excused: 0 });
+    const ustadzAcademicJournals = await fetch(`${referenceApiBase}/api/academic/records?kind=journal`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(ustadzAcademicJournals.status, 200);
+    assert.ok((await ustadzAcademicJournals.json()).records.some((record) => record.id === academicJournal.id));
+
+    const academicAssessmentInput = {
+      clientRequestId: randomUUID(),
+      studentId: tahfidzStudentId,
+      teacherUserId: users[3].uid,
+      subjectReferenceId: academicSubjectId,
+      assessmentTypeReferenceId: academicAssessmentTypeId,
+      score: 88,
+      category: 'Summative',
+    };
+    const academicAssessmentCreate = await fetch(`${referenceApiBase}/api/academic/assessment`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: academicAssessmentInput }),
+    });
+    assert.equal(academicAssessmentCreate.status, 201, 'An Academic Admin can create a student assessment through the application API.');
+    const academicAssessment = await academicAssessmentCreate.json();
+    const academicAssessmentRetry = await fetch(`${referenceApiBase}/api/academic/assessment`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: academicAssessmentInput }),
+    });
+    assert.equal(academicAssessmentRetry.status, 200, 'Retrying an identical assessment does not create a duplicate.');
+    assert.deepEqual(await academicAssessmentRetry.json(), { id: academicAssessment.id, alreadyApplied: true });
+
+    const { data: academicAssessmentRow, error: academicAssessmentReadError } = await admin.from('academic_records')
+      .select('tenant_id,kind,student_id,teacher_user_id,class_reference_id,subject_reference_id,assessment_type_reference_id,record_data')
+      .eq('id', academicAssessment.id)
+      .maybeSingle();
+    assert.equal(academicAssessmentReadError, null);
+    assert.equal(academicAssessmentRow?.tenant_id, tenantIds[0]);
+    assert.equal(academicAssessmentRow?.kind, 'assessment');
+    assert.equal(academicAssessmentRow?.student_id, tahfidzStudentId);
+    assert.equal(academicAssessmentRow?.teacher_user_id, users[3].uid);
+    assert.equal(academicAssessmentRow?.class_reference_id, academicClassId);
+    assert.equal(academicAssessmentRow?.subject_reference_id, academicSubjectId);
+    assert.equal(academicAssessmentRow?.assessment_type_reference_id, academicAssessmentTypeId);
+
+    const studentAcademicPortal = await fetch(`${referenceApiBase}/api/academic/portal`, {
+      headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(studentAcademicPortal.status, 200, 'A linked Santri can read their academic portal after the Admin saves an assessment.');
+    const studentAcademicPortalPayload = await studentAcademicPortal.json();
+    assert.equal(studentAcademicPortalPayload.selectedStudentId, tahfidzStudentId);
+    assert.ok(studentAcademicPortalPayload.assessments.some((assessment) => assessment.id === academicAssessment.id
+      && assessment.subject === academicReferenceRows.find((reference) => reference.domain === 'academic_subject').name
+      && assessment.score === 88), 'The portal read-back resolves the saved score through the linked Santri relationship.');
+
+    const unlinkedAcademicPortal = await fetch(`${referenceApiBase}/api/academic/portal`, {
+      headers: { Authorization: `Bearer ${await signIn(anon, academicUnlinkedSantri)}` },
+    });
+    assert.equal(unlinkedAcademicPortal.status, 403, 'A Santri without a tenant student link cannot read another student assessment.');
+
+    const foreignAcademicAssessment = await fetch(`${referenceApiBase}/api/academic/assessment`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: { ...academicAssessmentInput, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(foreignAcademicAssessment.status, 400, 'A different tenant cannot create an assessment by supplying a foreign student or reference ID.');
+
+    const santriAcademicWrite = await fetch(`${referenceApiBase}/api/academic/assessment`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${santriToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: { ...academicAssessmentInput, clientRequestId: randomUUID() } }),
+    });
+    assert.equal(santriAcademicWrite.status, 403, 'A Santri cannot write academic assessments through the management API.');
+
 
     const halaqahPayload = {
       name: `Halaqah API ${fixtureSuffix}`,
@@ -1427,7 +1645,7 @@ async function main() {
     });
     assert.equal(santriRecordWrite.status, 403, 'A Santri cannot create setoran even when granted module read access.');
 
-    console.log('API auth, tenant isolation, CRM, communication, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    console.log('API auth, tenant isolation, Academic, CRM, communication, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -1465,12 +1683,14 @@ async function main() {
         `DELETE FROM public.tahfidz_records WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tahfidz_memberships WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tahfidz_targets WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.academic_records WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cooperative_wallet_ledger WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cooperative_sale_items WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cooperative_sales WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cooperative_wallet_policy_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cooperative_wallets WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tahfidz_halaqahs WHERE tenant_id = ANY(${tenantArray});`,
+        `UPDATE public.profiles SET linked_santri_id = NULL WHERE tenant_id = ANY(${tenantArray}) AND linked_santri_id = '${tahfidzStudentId}';`,
         `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
@@ -1493,6 +1713,7 @@ async function main() {
         'ALTER TABLE public.crm_interactions ENABLE TRIGGER crm_interactions_immutable;',
         'ALTER TABLE public.crm_mutation_requests ENABLE TRIGGER crm_mutation_requests_immutable;',
 
+        `DELETE FROM public.master_data_records WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_reference_items WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_allocations WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = ANY(${tenantArray});`,
