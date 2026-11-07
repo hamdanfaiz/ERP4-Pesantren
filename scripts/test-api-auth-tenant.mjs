@@ -159,7 +159,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true }));
@@ -177,7 +177,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -186,6 +186,7 @@ async function main() {
     const academicUnlinkedSantri = await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'academic-unlinked-santri', { academic: true });
     users.push(academicUnlinkedSantri);
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-donation', { users: true, donation: false }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-document', { users: true, document: false }));
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -273,6 +274,7 @@ async function main() {
     const santriToken = await signIn(anon, users[1]);
     const ustadzToken = await signIn(anon, users[3]);
     const donationNoPermissionToken = await signIn(anon, users[14]);
+    const documentNoPermissionToken = await signIn(anon, users[15]);
     const waliToken = await signIn(anon, users[6]);
     const superAdminToken = await signIn(anon, users[7]);
     const limitedAdminToken = await signIn(anon, users[8]);
@@ -1466,6 +1468,7 @@ async function main() {
         SUPABASE_ACADEMIC_RUNTIME_ENABLED: 'true',
         SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
         SUPABASE_DONATION_RUNTIME_ENABLED: 'true',
+        SUPABASE_DOCUMENT_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -2217,7 +2220,124 @@ async function main() {
       body: JSON.stringify({ reason: 'Tenant berbeda uji.', clientRequestId: randomUUID() }),
     });
     assert.equal(crossTenantDonationVoid.status, 404);
-    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    const documentListUrl = referenceApiBase + '/api/documents';
+    const ustadzDocumentResponse = await fetch(documentListUrl, { headers: { Authorization: 'Bearer ' + ustadzToken } });
+    assert.equal(ustadzDocumentResponse.status, 403, 'Ustadz without document role access is denied.');
+    const limitedDocumentResponse = await fetch(documentListUrl, { headers: { Authorization: 'Bearer ' + documentNoPermissionToken } });
+    assert.equal(limitedDocumentResponse.status, 403, 'Admin without Document permission is denied.');
+    const documentInitialResponse = await fetch(documentListUrl, { headers: { Authorization: 'Bearer ' + adminToken } });
+    assert.equal(documentInitialResponse.status, 200);
+    const documentInitial = await documentInitialResponse.json();
+    assert.deepEqual(documentInitial.documents, []);
+
+    const documentDraft = {
+      clientRequestId: randomUUID(),
+      direction: 'outgoing',
+      subject: 'Surat uji API ' + fixtureSuffix,
+      senderName: 'Administrasi Pesantren',
+      recipientName: 'Mitra Uji',
+      documentDate: new Date().toISOString().slice(0, 10),
+      summary: 'Dokumen sintetis untuk verifikasi API dan relasi tenant.',
+    };
+    const documentCreateResponse = await fetch(documentListUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ document: documentDraft }),
+    });
+    assert.equal(documentCreateResponse.status, 201);
+    const createdDocument = await documentCreateResponse.json();
+    assert.equal(createdDocument.alreadyApplied, false);
+    assert.match(createdDocument.documentId, /^[0-9a-f-]{36}$/i);
+
+    const documentCreateRetry = await fetch(documentListUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ document: documentDraft }),
+    });
+    assert.equal(documentCreateRetry.status, 200);
+    const replayedDocument = await documentCreateRetry.json();
+    assert.equal(replayedDocument.documentId, createdDocument.documentId);
+    assert.equal(replayedDocument.alreadyApplied, true);
+
+    const documentFilteredResponse = await fetch(
+      documentListUrl + '?direction=outgoing&statusGroup=approval&search=' + encodeURIComponent(documentDraft.subject),
+      { headers: { Authorization: 'Bearer ' + adminToken } },
+    );
+    assert.equal(documentFilteredResponse.status, 200);
+    const documentFiltered = await documentFilteredResponse.json();
+    const listedDocument = documentFiltered.documents.find((item) => item.id === createdDocument.documentId);
+    assert.ok(listedDocument, 'Filtered read returns the saved document.');
+    assert.match(listedDocument.documentNumber, /^DOC\/\d{4}\/\d{5}$/);
+    assert.equal(listedDocument.subject, documentDraft.subject);
+    assert.equal(listedDocument.direction, 'outgoing');
+    assert.equal(listedDocument.status, 'registered');
+    assert.deepEqual(listedDocument.attachments, []);
+
+    const savedDocument = await admin.from('document_records')
+      .select('tenant_id,created_by_user_id,document_number,direction,subject,status')
+      .eq('id', createdDocument.documentId).single();
+    assert.equal(savedDocument.error, null);
+    assert.equal(savedDocument.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedDocument.data?.created_by_user_id, users[0].uid);
+    assert.equal(savedDocument.data?.document_number, listedDocument.documentNumber);
+    assert.equal(savedDocument.data?.subject, documentDraft.subject);
+
+    const invalidDocumentFilter = await fetch(documentListUrl + '?direction=invalid', {
+      headers: { Authorization: 'Bearer ' + adminToken },
+    });
+    assert.equal(invalidDocumentFilter.status, 400, 'Invalid document filters are rejected.');
+
+    const documentStatusUrl = documentListUrl + '/' + encodeURIComponent(createdDocument.documentId) + '/status';
+    const invalidDocumentTransition = await fetch(documentStatusUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'approved', note: 'Harus ditolak dari status terdaftar.' }),
+    });
+    assert.equal(invalidDocumentTransition.status, 409, 'An invalid document workflow transition is rejected.');
+
+    const documentTransitionResponse = await fetch(documentStatusUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'in_review', note: 'Pemeriksaan administrasi dimulai.' }),
+    });
+    assert.equal(documentTransitionResponse.status, 201);
+    const transitionedDocument = await documentTransitionResponse.json();
+    assert.equal(transitionedDocument.status, 'in_review');
+    assert.equal(transitionedDocument.alreadyApplied, false);
+
+    const documentTransitionRetry = await fetch(documentStatusUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'in_review', note: 'Diabaikan pada retry status identik.' }),
+    });
+    assert.equal(documentTransitionRetry.status, 200);
+    assert.equal((await documentTransitionRetry.json()).alreadyApplied, true);
+
+    const savedDocumentAfterTransition = await admin.from('document_records')
+      .select('tenant_id,status').eq('id', createdDocument.documentId).single();
+    assert.equal(savedDocumentAfterTransition.error, null);
+    assert.equal(savedDocumentAfterTransition.data?.status, 'in_review');
+    const documentEvents = await admin.from('document_workflow_events')
+      .select('event_type,previous_status,next_status').eq('document_id', createdDocument.documentId);
+    assert.equal(documentEvents.error, null);
+    assert.equal(documentEvents.data?.length, 2);
+    assert.ok(documentEvents.data?.some((event) => event.event_type === 'registered' && event.next_status === 'registered'));
+    assert.ok(documentEvents.data?.some((event) => event.event_type === 'status_changed' && event.previous_status === 'registered' && event.next_status === 'in_review'));
+
+    const tenantBDocumentsResponse = await fetch(documentListUrl, {
+      headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken },
+    });
+    assert.equal(tenantBDocumentsResponse.status, 200);
+    assert.deepEqual((await tenantBDocumentsResponse.json()).documents, []);
+    const crossTenantDocumentTransition = await fetch(documentStatusUrl, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'archived', note: 'Percobaan tenant lain.' }),
+    });
+    assert.equal(crossTenantDocumentTransition.status, 404, 'A different tenant cannot transition a document by guessing its ID.');
+
+    console.log('Document API round-trip passed: registration, generated number, filtered readback, workflow audit, idempotency, role denial, tenant isolation, and transition validation.');
+    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -2315,6 +2435,10 @@ async function main() {
         'ALTER TABLE public.crm_mutation_requests ENABLE TRIGGER crm_mutation_requests_immutable;',
 
         `DELETE FROM public.master_data_records WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.document_attachment_upload_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.document_attachments WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.document_workflow_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.document_records WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_reference_items WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_allocations WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = ANY(${tenantArray});`,
