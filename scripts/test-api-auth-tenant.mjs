@@ -1305,7 +1305,7 @@ async function main() {
         'BEGIN;',
         `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcements WHERE tenant_id = ANY(${tenantArray});`,
-        `DELETE FROM public.marketplace_mutation_requests WHERE tenant_id = ANY(${tenantArray});`
+        `DELETE FROM public.marketplace_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_order_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_stock_movements WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_order_items WHERE tenant_id = ANY(${tenantArray});`,
