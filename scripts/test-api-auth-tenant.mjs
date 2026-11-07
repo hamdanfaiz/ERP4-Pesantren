@@ -7,6 +7,14 @@ import { createClient } from '@supabase/supabase-js';
 import { auditServerApiAuthRoutes } from './api-route-auth-policy.mjs';
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const fetch = async (input, init) => {
+  try {
+    return await globalThis.fetch(input, init);
+  } catch (error) {
+    const url = typeof input === 'string' ? input : String(input?.url || input);
+    throw new Error(`HTTP fetch failed for ${url}`, { cause: error });
+  }
+};
 
 async function verifyAllPrivateApiRoutesRejectAnonymousRequests(apiBase) {
   const source = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
@@ -2187,7 +2195,10 @@ main().catch((error) => {
   const detail = error instanceof Error
     ? error.message
     : error?.code || 'unknown error';
-  console.error(`API auth and tenant integration test failed (${detail}). Check the local Supabase stack and migration state.`);
+  const cause = error instanceof Error && error.cause instanceof Error
+    ? `; cause=${error.cause.code || error.cause.message}`
+    : '';
+  console.error(`API auth and tenant integration test failed (${detail}${cause}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
 
