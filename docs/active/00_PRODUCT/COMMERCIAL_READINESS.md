@@ -1,8 +1,8 @@
-> **Checkpoint otoritatif — 7 November 2026, sesudah PR #43.** `main` berada pada commit merge `f4e54f1229cf9f97433d725b7aa65e96481d65e2`. PR #1–#11 tetap closed tanpa merge; cakupan utamanya dipetakan ke source yang lebih baru. Audit menemukan dan menutup gap batas pemberian permission Admin melalui PR #43.
+> **Checkpoint otoritatif — 7 November 2026, sesudah PR #47.** `main` berada pada commit merge `45230fc06f4e7baedb4ed9adadc62f7b24efb23d`. PR #1–#11 tetap closed tanpa merge; cakupan utamanya dipetakan ke source yang lebih baru. PR #43 membatasi pemberian permission oleh Admin; PR #47 menegakkan permission modul pemilik pada perubahan katalog referensi.
 >
-> **CI:** run [#42324842742](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42324842742) lulus 3/3 job pada head PR #43 tepat sebelum merge. CI mencakup pemeriksaan kode, migrasi/pgTAP sintetis, API/Auth/tenant, Storage, backup/restore lokal, Docker, dan NPM. CI bukan UAT browser atau bukti Production.
+> **CI:** PR #47 lulus 3/3 job pada [run #42329049029](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42329049029), termasuk build, pemeriksaan tipe, migrasi/pgTAP dan uji API katalog lintas permission modul. CI memakai Supabase lokal sintetis; hasilnya bukan UAT browser atau bukti Production.
 >
-> **Staging:** VQE `vqemuyzveuirlkvdggjd` memiliki 136/136 versi/nama ledger yang cocok dengan source, terakhir `20270304000000_student_room_assignment_reference_locks`; PR #43 tidak mengubah migration.
+> **Staging:** VQE `vqemuyzveuirlkvdggjd` memiliki 136/136 versi/nama ledger yang cocok dengan source, terakhir `20270304000000_student_room_assignment_reference_locks`; PR #47 tidak mengubah migration.
 >
 > **Production:** PTSAS `ptsasgdvgrbdtgyqieie` tidak diubah. Snapshot operator yang tersedia mencatat 47 versi ledger dibanding 136 file source. Jangan menerapkan selisih 89 secara massal; kesetaraan DDL, urutan migration, dan backup/restore Production harus diperiksa tim backend.
 >
