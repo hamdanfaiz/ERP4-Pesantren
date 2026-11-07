@@ -2,7 +2,15 @@
 
 ## Re-audit terhadap `main` setelah PR #38–#40 — 7 November 2026
 
-**Hasil GitHub:** PR #1–#11 semuanya `Closed`, tidak ada yang `Merged`. PR tersebut tidak perlu digabung satu per satu: source berikutnya mengganti path, versi migration, dan sebagian arsitektur. Baseline saat pemeriksaan adalah `main` pada `aa2c6414dd9f02933c44c82fc81da3fad2b20363`; CI run [#42321601373](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42321601373) lulus 3/3 job. Ini membuktikan build dan suite lokal sintetis, bukan UAT Production. **Tindak lanjut:** gap pemberian permission pada PR #3 sudah diperbaiki pada PR #43; CI [run #42324118824](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42324118824) lulus 3/3 job, termasuk tes RBAC/API, build, migrasi dan pgTAP sintetis. Tidak ada perubahan Production.
+**Hasil GitHub:** PR #1–#11 semuanya `Closed`, tidak ada yang `Merged`. PR tersebut tidak perlu digabung satu per satu: source berikutnya mengganti path, versi migration, dan sebagian arsitektur. Baseline audit saat itu adalah `main` pada `aa2c6414dd9f02933c44c82fc81da3fad2b20363`; CI run [#42321601373](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42321601373) lulus 3/3 job. Ini membuktikan build dan suite lokal sintetis, bukan UAT Production. **Tindak lanjut:** gap pemberian permission pada PR #3 sudah diperbaiki pada PR #43; CI [run #42324118824](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42324118824) lulus 3/3 job, termasuk tes RBAC/API, build, migrasi dan pgTAP sintetis. Tidak ada perubahan Production.
+
+### Pemeriksaan lanjutan pada `main` — 7 November 2026
+
+Source terkini yang ditinjau berbasis `main` `d062b5d0cec5ae6d1d24797a247ba0aefab89026` (PR #48 hanya memperbarui dokumen handoff setelah baseline kode PR #47). Status PR #1–#11 dikonfirmasi lagi lewat metadata GitHub: semuanya ditutup tanpa merge. Matriks di bawah tetap menunjukkan padanan source saat ini; branch lama tidak perlu digabung dan tidak ditemukan fitur baru yang hanya tersedia di branch #1–#11.
+
+Audit tambahan menemukan celah **pada bukti regresi keamanan**, bukan fitur bisnis yang hilang: sebelumnya pemeriksaan API anonim hanya menyentuh beberapa route pilihan. Perubahan audit menambahkan inventarisasi seluruh deklarasi `/api`, mutation check yang memastikan guard mendeteksi route privat tanpa `requireAuth`, serta probe anonim untuk tiap route privat dan probe deny-only AI/OCR pada suite API Supabase lokal. Cakupan statis lokal terverifikasi: 201 route privat, 9 route publik yang diizinkan, dan 3 route AI/OCR yang harus tetap memberi penolakan. Probe runtime belum dianggap lulus sampai job CI Supabase lokal menyelesaikannya.
+
+Hasil ini tetap bukan UAT setiap workflow bisnis, login browser pada host pelanggan, pembuktian DDL/backup Production, atau bukti kesiapan deploy. Tidak ada database live yang dibaca atau diubah selama pemeriksaan ini.
 
 | PR | Padanan yang ditemukan di `main` | Bukti uji/source | Kesimpulan audit |
 |---|---|---|---|

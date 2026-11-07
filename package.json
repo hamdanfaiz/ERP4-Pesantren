@@ -19,6 +19,7 @@
     "preflight:db-migrations": "node scripts/preflight-supabase-migrations.mjs",
     "preflight:db-migrations:local": "node scripts/preflight-supabase-migrations.mjs --local",
     "test:api:auth-tenant": "node scripts/test-api-auth-tenant.mjs",
+    "test:api-route-auth-policy": "node scripts/test-api-route-auth-policy.mjs",
     "test:api:finance-storage": "node scripts/test-finance-storage-http.mjs",
     "test:api:library-storage": "node scripts/test-library-storage-http.mjs",
     "test:db:backup-restore": "node scripts/test-database-backup-restore.mjs",
