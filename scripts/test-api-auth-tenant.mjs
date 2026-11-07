@@ -142,6 +142,7 @@ async function main() {
   const tenantIds = [randomUUID(), randomUUID(), randomUUID()];
   const tahfidzCandidateId = randomUUID();
   const tahfidzStudentId = randomUUID();
+  const hrisOrganizationUnitId = randomUUID();
   const profileFailureEmail = `provision-failure-${fixtureSuffix}@example.test`;
   const users = [];
   const piiEncryptionKey = randomBytes(32).toString('hex');
@@ -161,7 +162,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, library: true }));
@@ -179,7 +180,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -192,6 +193,8 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-healthcare', { users: true, healthcare: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-facility', { users: true, ga: false, boarding: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-library', { users: true, library: false }));
+    const hrisNoPermissionUser = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-hris', { users: true, hris: false });
+    users.push(hrisNoPermissionUser);
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -204,6 +207,30 @@ async function main() {
       updated_by_user_id: users[0].uid,
     });
     if (gradeReferenceError) throw new Error('Unable to configure the synthetic tenant grade catalog.');
+
+    const { error: hrisUnitError } = await admin.from('organization_units').insert({
+      id: hrisOrganizationUnitId,
+      tenant_id: tenantIds[0],
+      code: `HRIS_${fixtureSuffix.toUpperCase()}`,
+      name: `Unit HRIS Uji ${fixtureSuffix}`,
+      unit_type: 'pesantren',
+      created_by_user_id: users[0].uid,
+      updated_by_user_id: users[0].uid,
+    });
+    if (hrisUnitError) throw new Error('Unable to configure the synthetic HRIS organization unit.');
+
+    const { data: hrisJobTitleRows, error: hrisJobTitleError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: tenantIds[0],
+      domain: 'hris_job_title',
+      code: `HRIS_STAFF_${fixtureSuffix.toUpperCase()}`,
+      name: `Staf HRIS Uji ${fixtureSuffix}`,
+      description: 'Jabatan sintetis untuk pengujian API HRIS.',
+      status: 'active',
+      created_by_user_id: users[0].uid,
+      updated_by_user_id: users[0].uid,
+    }).select('id');
+    if (hrisJobTitleError || hrisJobTitleRows?.length !== 1) throw new Error('Unable to configure the synthetic HRIS job-title reference.');
+    const hrisJobTitleReferenceId = hrisJobTitleRows[0].id;
 
     const facilityReferenceId = randomUUID();
     const { error: facilityReferenceError } = await admin.from('tenant_reference_items').insert({
@@ -325,6 +352,7 @@ async function main() {
     const noPpdbAdminToken = await signIn(anon, users[9]);
     const noFinanceAdminToken = await signIn(anon, users[10]);
     const otherTenantMarketplaceAdminToken = await signIn(anon, users[11]);
+    const hrisNoPermissionToken = await signIn(anon, hrisNoPermissionUser);
     const forcedPasswordToken = await signIn(anon, users[12]);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
@@ -1524,6 +1552,7 @@ async function main() {
         SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED: 'true',
         SUPABASE_GA_ASSETS_RUNTIME_ENABLED: 'true',
         SUPABASE_LIBRARY_RUNTIME_ENABLED: 'true',
+        SUPABASE_HRIS_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -1540,6 +1569,138 @@ async function main() {
       await sleep(250);
     }
     assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
+
+    const hrisHeaders = { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' };
+    const hrisSnapshotResponse = await fetch(`${referenceApiBase}/api/hris/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(hrisSnapshotResponse.status, 200, 'A permitted Admin can load the tenant HRIS snapshot.');
+    const hrisInitialSnapshot = await hrisSnapshotResponse.json();
+    assert.ok(hrisInitialSnapshot.organizationUnits.some((unit) => unit.id === hrisOrganizationUnitId),
+      'The HRIS snapshot exposes the tenant-owned organization unit used by employee forms.');
+    assert.ok(hrisInitialSnapshot.jobTitleOptions.some((item) => item.id === hrisJobTitleReferenceId),
+      'The HRIS snapshot exposes active tenant-owned job-title options.');
+
+    const hrisDeniedSnapshot = await fetch(`${referenceApiBase}/api/hris/snapshot`, {
+      headers: { Authorization: `Bearer ${hrisNoPermissionToken}` },
+    });
+    assert.equal(hrisDeniedSnapshot.status, 403, 'An Admin without HRIS permission cannot read HRIS records.');
+
+    const hrisEmployeeId = randomUUID();
+    const hrisEmployeeInput = {
+      id: hrisEmployeeId,
+      clientRequestId: randomUUID(),
+      employeeNumber: '',
+      fullName: `Pegawai HRIS Uji ${fixtureSuffix}`,
+      jobTitleReferenceId: hrisJobTitleReferenceId,
+      organizationUnitId: hrisOrganizationUnitId,
+      email: `hris-${fixtureSuffix}@example.test`,
+      phone: '081234567890',
+      hireDate: '2026-11-01',
+      employmentStatus: 'active',
+    };
+    const hrisEmployeeCreate = await fetch(`${referenceApiBase}/api/hris/employees`, {
+      method: 'POST', headers: hrisHeaders,
+      body: JSON.stringify({ employee: hrisEmployeeInput }),
+    });
+    assert.equal(hrisEmployeeCreate.status, 200, 'A permitted Admin can save an employee through the HRIS API.');
+    const createdHrisEmployee = await hrisEmployeeCreate.json();
+    assert.equal(createdHrisEmployee.id, hrisEmployeeId);
+    assert.equal(createdHrisEmployee.employeeNumber, 'PEG-2026-00001', 'The backend assigns the configured tenant employee number.');
+    assert.equal(createdHrisEmployee.replayed, false);
+
+    const hrisEmployeeRetry = await fetch(`${referenceApiBase}/api/hris/employees`, {
+      method: 'POST', headers: hrisHeaders,
+      body: JSON.stringify({ employee: hrisEmployeeInput }),
+    });
+    assert.equal(hrisEmployeeRetry.status, 200, 'Retrying the same employee mutation succeeds.');
+    const retriedHrisEmployee = await hrisEmployeeRetry.json();
+    assert.equal(retriedHrisEmployee.id, hrisEmployeeId);
+    assert.equal(retriedHrisEmployee.employeeNumber, createdHrisEmployee.employeeNumber);
+    assert.equal(retriedHrisEmployee.replayed, true, 'The same client request ID is idempotent.');
+
+    const otherTenantHrisSnapshotResponse = await fetch(`${referenceApiBase}/api/hris/snapshot`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(otherTenantHrisSnapshotResponse.status, 200, 'A second tenant with HRIS permission can load its own empty snapshot.');
+    const otherTenantHrisSnapshot = await otherTenantHrisSnapshotResponse.json();
+    assert.equal(otherTenantHrisSnapshot.employees.length, 0, 'An employee saved in tenant A is not visible in tenant B.');
+    assert.equal(otherTenantHrisSnapshot.jobTitleOptions.length, 0, 'Tenant B cannot see tenant A job-title references.');
+
+    const hrisAttendanceInput = {
+      employeeId: hrisEmployeeId,
+      workDate: '2026-11-06',
+      status: 'present',
+      checkInAt: '2026-11-06T08:00:00.000Z',
+      checkOutAt: '2026-11-06T16:00:00.000Z',
+      clientRequestId: randomUUID(),
+    };
+    const hrisAttendance = await fetch(`${referenceApiBase}/api/hris/attendance`, {
+      method: 'POST', headers: hrisHeaders, body: JSON.stringify(hrisAttendanceInput),
+    });
+    assert.equal(hrisAttendance.status, 200, 'A permitted Admin can persist employee attendance.');
+    const createdHrisAttendance = await hrisAttendance.json();
+    assert.equal(createdHrisAttendance.status, 'present');
+    const hrisAttendanceRetry = await fetch(`${referenceApiBase}/api/hris/attendance`, {
+      method: 'POST', headers: hrisHeaders, body: JSON.stringify(hrisAttendanceInput),
+    });
+    assert.equal(hrisAttendanceRetry.status, 200);
+    assert.equal((await hrisAttendanceRetry.json()).replayed, true, 'Attendance retries are idempotent.');
+
+    const foreignHrisAttendance = await fetch(`${referenceApiBase}/api/hris/attendance`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...hrisAttendanceInput, clientRequestId: randomUUID() }),
+    });
+    assert.equal(foreignHrisAttendance.status, 404, 'An Admin cannot record attendance against another tenant employee.');
+
+    const hrisLeaveInput = {
+      employeeId: hrisEmployeeId,
+      leaveType: 'annual',
+      startsOn: '2026-11-20',
+      endsOn: '2026-11-21',
+      reason: 'Cuti sintetis untuk uji alur HRIS.',
+      clientRequestId: randomUUID(),
+    };
+    const hrisLeaveRequest = await fetch(`${referenceApiBase}/api/hris/leave-requests`, {
+      method: 'POST', headers: hrisHeaders, body: JSON.stringify({ leaveRequest: hrisLeaveInput }),
+    });
+    assert.equal(hrisLeaveRequest.status, 201, 'A permitted Admin can submit an employee leave request.');
+    const createdHrisLeave = await hrisLeaveRequest.json();
+    assert.equal(createdHrisLeave.status, 'pending');
+    const hrisLeaveRetry = await fetch(`${referenceApiBase}/api/hris/leave-requests`, {
+      method: 'POST', headers: hrisHeaders, body: JSON.stringify({ leaveRequest: hrisLeaveInput }),
+    });
+    assert.equal(hrisLeaveRetry.status, 201);
+    assert.equal((await hrisLeaveRetry.json()).replayed, true, 'Leave request retries are idempotent.');
+
+    const hrisLeaveReviewInput = {
+      status: 'approved', reviewNote: 'Disetujui untuk uji sintetis.', clientRequestId: randomUUID(),
+    };
+    const hrisLeaveReview = await fetch(`${referenceApiBase}/api/hris/leave-requests/${encodeURIComponent(createdHrisLeave.id)}/review`, {
+      method: 'POST', headers: hrisHeaders, body: JSON.stringify(hrisLeaveReviewInput),
+    });
+    assert.equal(hrisLeaveReview.status, 200, 'A permitted Admin can approve a pending leave request.');
+    assert.equal((await hrisLeaveReview.json()).status, 'approved');
+    const hrisLeaveReviewRetry = await fetch(`${referenceApiBase}/api/hris/leave-requests/${encodeURIComponent(createdHrisLeave.id)}/review`, {
+      method: 'POST', headers: hrisHeaders, body: JSON.stringify(hrisLeaveReviewInput),
+    });
+    assert.equal(hrisLeaveReviewRetry.status, 200);
+    assert.equal((await hrisLeaveReviewRetry.json()).replayed, true, 'Leave review retries are idempotent.');
+
+    const hrisFinalSnapshotResponse = await fetch(`${referenceApiBase}/api/hris/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(hrisFinalSnapshotResponse.status, 200);
+    const hrisFinalSnapshot = await hrisFinalSnapshotResponse.json();
+    const persistedHrisEmployee = hrisFinalSnapshot.employees.find((employee) => employee.id === hrisEmployeeId);
+    assert.equal(persistedHrisEmployee?.employeeNumber, 'PEG-2026-00001');
+    assert.equal(persistedHrisEmployee?.organizationUnitId, hrisOrganizationUnitId);
+    assert.equal(persistedHrisEmployee?.jobTitleReferenceId, hrisJobTitleReferenceId);
+    assert.equal(persistedHrisEmployee?.department, `Unit HRIS Uji ${fixtureSuffix}`);
+    assert.equal(hrisFinalSnapshot.attendance.find((record) => record.id === createdHrisAttendance.id)?.employeeId, hrisEmployeeId);
+    assert.equal(hrisFinalSnapshot.leaveRequests.find((request) => request.id === createdHrisLeave.id)?.status, 'approved');
+    console.log('HRIS API round-trip passed: automatic employee number, tenant-owned references, employee persistence, attendance, leave review, idempotency, role permission, and tenant isolation.');
 
     const financeReferenceUrl = `${referenceApiBase}/api/master-data/references?domain=finance_fee_type`;
     const financeReferenceRead = await fetch(financeReferenceUrl, {
@@ -3190,6 +3351,13 @@ async function main() {
         `DELETE FROM public.facility_booking_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.facility_bookings WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.facility_booking_import_batches WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.hris_leave_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.hris_leave_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.hris_attendance_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.hris_attendance WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.hris_employee_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.hris_employees WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.organization_units WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.ga_facility_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.ga_inventory_movements WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.ga_inventory_item_events WHERE tenant_id = ANY(${tenantArray});`,
