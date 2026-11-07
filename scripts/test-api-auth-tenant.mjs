@@ -1526,9 +1526,9 @@ async function main() {
 }
 
 main().catch((error) => {
-  const detail = error instanceof assert.AssertionError
+  const detail = error instanceof Error
     ? error.message
-    : error?.code || error?.name || 'unknown error';
+    : error?.code || 'unknown error';
   console.error(`API auth and tenant integration test failed (${detail}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
