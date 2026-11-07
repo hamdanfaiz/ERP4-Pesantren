@@ -188,6 +188,7 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-donation', { users: true, donation: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-document', { users: true, document: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-healthcare', { users: true, healthcare: false }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-facility', { users: true, ga: false, boarding: false }));
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -200,6 +201,20 @@ async function main() {
       updated_by_user_id: users[0].uid,
     });
     if (gradeReferenceError) throw new Error('Unable to configure the synthetic tenant grade catalog.');
+
+    const facilityReferenceId = randomUUID();
+    const { error: facilityReferenceError } = await admin.from('tenant_reference_items').insert({
+      id: facilityReferenceId,
+      tenant_id: tenantIds[0],
+      domain: 'facility_resource',
+      code: `TEST_FACILITY_${fixtureSuffix}`,
+      name: `Aula Uji ${fixtureSuffix}`,
+      description: 'Fasilitas sintetis untuk uji pemesanan.',
+      status: 'active',
+      created_by_user_id: users[0].uid,
+      updated_by_user_id: users[0].uid,
+    });
+    if (facilityReferenceError) throw new Error('Unable to configure the synthetic facility catalog.');
 
     const { error: tahfidzCandidateError } = await admin.from('candidates').insert({
       id: tahfidzCandidateId,
@@ -277,6 +292,7 @@ async function main() {
     const donationNoPermissionToken = await signIn(anon, users[14]);
     const documentNoPermissionToken = await signIn(anon, users[15]);
     const healthcareNoPermissionToken = await signIn(anon, users[16]);
+    const facilityNoPermissionToken = await signIn(anon, users[17]);
     const waliToken = await signIn(anon, users[6]);
     const superAdminToken = await signIn(anon, users[7]);
     const limitedAdminToken = await signIn(anon, users[8]);
@@ -1472,6 +1488,7 @@ async function main() {
         SUPABASE_DONATION_RUNTIME_ENABLED: 'true',
         SUPABASE_DOCUMENT_RUNTIME_ENABLED: 'true',
         SUPABASE_HEALTHCARE_RUNTIME_ENABLED: 'true',
+        SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -2508,6 +2525,103 @@ async function main() {
       body: JSON.stringify({ ...healthcareVisitInput, clientRequestId: randomUUID() }),
     });
     assert.equal(crossTenantHealthcareVisit.status, 400, 'A different tenant cannot create a healthcare visit against a foreign student.');
+    const facilityBookingsUrl = referenceApiBase + '/api/facility-bookings';
+    const facilityNoPermissionResponse = await fetch(facilityBookingsUrl, { headers: { Authorization: 'Bearer ' + facilityNoPermissionToken } });
+    assert.equal(facilityNoPermissionResponse.status, 403, 'An Admin denied both General Affairs and Boarding cannot read facility bookings.');
+
+    const facilityInitialResponse = await fetch(facilityBookingsUrl, { headers: { Authorization: 'Bearer ' + adminToken } });
+    assert.equal(facilityInitialResponse.status, 200);
+    const facilityInitial = await facilityInitialResponse.json();
+    assert.deepEqual(facilityInitial.bookings, []);
+    assert.ok(facilityInitial.resources.some((item) => item.id === facilityReferenceId));
+
+    const facilityBookingDraft = {
+      action: 'create',
+      clientRequestId: randomUUID(),
+      facilityReferenceId,
+      date: '2099-05-19',
+      startTime: '08:00',
+      endTime: '09:00',
+      purpose: 'Rapat wali santri uji API',
+      booker: 'Admin Uji',
+    };
+    const freeTypeFacilityResponse = await fetch(facilityBookingsUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...facilityBookingDraft, facilityReferenceId: '' }),
+    });
+    assert.equal(freeTypeFacilityResponse.status, 400, 'Facility bookings must select a tenant catalog resource.');
+
+    const facilityCreateResponse = await fetch(facilityBookingsUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(facilityBookingDraft),
+    });
+    assert.equal(facilityCreateResponse.status, 201);
+    const createdFacilityBooking = await facilityCreateResponse.json();
+    assert.equal(createdFacilityBooking.replayed, false);
+    assert.ok(createdFacilityBooking.id);
+
+    const facilityCreateRetry = await fetch(facilityBookingsUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(facilityBookingDraft),
+    });
+    assert.equal(facilityCreateRetry.status, 201);
+    assert.deepEqual(await facilityCreateRetry.json(), { id: createdFacilityBooking.id, replayed: true });
+
+    const facilityOverlapResponse = await fetch(facilityBookingsUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...facilityBookingDraft, clientRequestId: randomUUID(), startTime: '08:30', endTime: '09:30' }),
+    });
+    assert.equal(facilityOverlapResponse.status, 409, 'A resource cannot have overlapping confirmed bookings.');
+
+    const facilitySavedRow = await admin.from('facility_bookings')
+      .select('tenant_id,facility_reference_id,room_name,booking_date,start_time,end_time,status')
+      .eq('id', createdFacilityBooking.id).single();
+    assert.equal(facilitySavedRow.error, null);
+    assert.equal(facilitySavedRow.data?.tenant_id, tenantIds[0]);
+    assert.equal(facilitySavedRow.data?.facility_reference_id, facilityReferenceId);
+    assert.equal(facilitySavedRow.data?.room_name, `Aula Uji ${fixtureSuffix}`);
+    assert.equal(facilitySavedRow.data?.booking_date, '2099-05-19');
+    assert.equal(facilitySavedRow.data?.status, 'confirmed');
+
+    const facilityTenantBResponse = await fetch(facilityBookingsUrl, { headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken } });
+    assert.equal(facilityTenantBResponse.status, 200);
+    assert.deepEqual((await facilityTenantBResponse.json()).bookings, []);
+    const crossTenantFacilityCancel = await fetch(facilityBookingsUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'cancel', id: createdFacilityBooking.id, clientRequestId: randomUUID(), reason: 'Uji isolasi tenant.' }),
+    });
+    assert.equal(crossTenantFacilityCancel.status, 404, 'A different tenant cannot cancel a booking by guessing its ID.');
+
+    const facilityCancelPayload = { action: 'cancel', id: createdFacilityBooking.id, clientRequestId: randomUUID(), reason: 'Fixture selesai.' };
+    const facilityCancelResponse = await fetch(facilityBookingsUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(facilityCancelPayload),
+    });
+    assert.equal(facilityCancelResponse.status, 201);
+    assert.equal((await facilityCancelResponse.json()).replayed, false);
+    const facilityCancelRetry = await fetch(facilityBookingsUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(facilityCancelPayload),
+    });
+    assert.equal(facilityCancelRetry.status, 201);
+    assert.equal((await facilityCancelRetry.json()).replayed, true);
+
+    const facilityFinalSnapshotResponse = await fetch(facilityBookingsUrl, { headers: { Authorization: 'Bearer ' + adminToken } });
+    assert.equal(facilityFinalSnapshotResponse.status, 200);
+    const facilityFinalSnapshot = await facilityFinalSnapshotResponse.json();
+    assert.equal(facilityFinalSnapshot.bookings.find((item) => item.id === createdFacilityBooking.id)?.status, 'Cancelled');
+    const facilityEvents = await admin.from('facility_booking_events')
+      .select('event_type').eq('booking_id', createdFacilityBooking.id);
+    assert.equal(facilityEvents.error, null);
+    assert.deepEqual(facilityEvents.data?.map((event) => event.event_type).sort(), ['cancelled', 'created']);
+    console.log('Facility booking API round-trip passed: tenant catalog relation, persistence, overlap rejection, idempotency, cancellation audit, permission, and tenant isolation.');
     console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Healthcare, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
@@ -2617,6 +2731,9 @@ async function main() {
         `DELETE FROM public.document_attachments WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.document_workflow_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.document_records WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.facility_booking_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.facility_bookings WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.facility_booking_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_reference_items WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_allocations WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = ANY(${tenantArray});`,
