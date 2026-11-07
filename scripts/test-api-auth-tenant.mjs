@@ -151,7 +151,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true }));
@@ -169,7 +169,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -177,6 +177,10 @@ async function main() {
     if (forcePasswordError) throw new Error('Unable to configure the synthetic forced-password-change fixture.');
     const academicUnlinkedSantri = await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'academic-unlinked-santri', { academic: true });
     users.push(academicUnlinkedSantri);
+    const cooperativeDeniedAdmin = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'cooperative-denied', { cooperative: false, finance: true });
+    users.push(cooperativeDeniedAdmin);
+    const cooperativeNoFinanceAdmin = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'cooperative-no-finance', { cooperative: true, finance: false });
+    users.push(cooperativeNoFinanceAdmin);
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -272,6 +276,8 @@ async function main() {
     const noFinanceAdminToken = await signIn(anon, users[10]);
     const otherTenantMarketplaceAdminToken = await signIn(anon, users[11]);
     const forcedPasswordToken = await signIn(anon, users[12]);
+    const cooperativeDeniedToken = await signIn(anon, cooperativeDeniedAdmin);
+    const cooperativeNoFinanceToken = await signIn(anon, cooperativeNoFinanceAdmin);
     const port = await availablePort();
     const apiBase = `http://127.0.0.1:${port}`;
 
@@ -292,6 +298,7 @@ async function main() {
         SUPABASE_PPDB_FINANCE_BILLS_ENABLED: 'false',
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_MARKETPLACE_RUNTIME_ENABLED: 'true',
+        SUPABASE_COOPERATIVE_RUNTIME_ENABLED: 'true',
         SUPABASE_CRM_RUNTIME_ENABLED: 'true',
         SUPABASE_DASHBOARD_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
@@ -553,6 +560,268 @@ async function main() {
     assert.equal(marketplaceAfterCancel.orders.find((order) => order.id === createdOrder.id)?.status, 'cancelled');
     assert.equal(marketplaceAfterCancel.products[0].stock, 8, 'Cancelling an order restores the reserved stock exactly once.');
     assert.ok(marketplaceAfterCancel.movements.some((movement) => movement.order_id === createdOrder.id && movement.product_id === createdProduct.id && movement.quantity_delta === 2), 'The stock ledger links the cancellation reversal to the order and product.');
+
+    const cooperativeDeniedSnapshot = await fetch(`${apiBase}/api/cooperative/snapshot`, {
+      headers: { Authorization: `Bearer ${cooperativeDeniedToken}` },
+    });
+    assert.equal(cooperativeDeniedSnapshot.status, 403, 'An Admin without Cooperative permission cannot read its API.');
+
+    const cooperativeEmptySnapshot = await fetch(`${apiBase}/api/cooperative/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cooperativeEmptySnapshot.status, 200, 'An authorized Admin can read the initial Cooperative snapshot.');
+    const cooperativeEmpty = await cooperativeEmptySnapshot.json();
+    assert.deepEqual(cooperativeEmpty.products, [], 'A new tenant begins without Cooperative products.');
+    assert.deepEqual(cooperativeEmpty.suppliers, [], 'A new tenant begins without Cooperative suppliers.');
+    assert.deepEqual(cooperativeEmpty.sales, [], 'A new tenant begins without Cooperative sales.');
+
+    const cooperativeCategoryResult = await admin.from('tenant_reference_items')
+      .select('id,name')
+      .eq('tenant_id', tenantIds[0])
+      .eq('domain', 'cooperative_product_category')
+      .eq('code', 'PERLENGKAPAN_SANTRI')
+      .eq('status', 'active')
+      .maybeSingle();
+    assert.equal(cooperativeCategoryResult.error, null, 'The tenant owns an active Cooperative product category.');
+    assert.ok(cooperativeCategoryResult.data?.id, 'The tenant category is available to the Cooperative API.');
+    const foreignCooperativeCategoryResult = await admin.from('tenant_reference_items')
+      .select('id')
+      .eq('tenant_id', tenantIds[1])
+      .eq('domain', 'cooperative_product_category')
+      .eq('code', 'PERLENGKAPAN_SANTRI')
+      .eq('status', 'active')
+      .maybeSingle();
+    assert.equal(foreignCooperativeCategoryResult.error, null);
+    assert.ok(foreignCooperativeCategoryResult.data?.id, 'Tenant B has a separately owned category fixture.');
+
+    const cooperativeProductInput = {
+      action: 'create',
+      sku: `KOP-${fixtureSuffix}`,
+      name: 'Perlengkapan Uji Koperasi',
+      categoryReferenceId: cooperativeCategoryResult.data.id,
+      initialStock: 5,
+      costPrice: 1000,
+      unitPrice: 2000,
+      reorderPoint: 1,
+      clientRequestId: randomUUID(),
+    };
+    const cooperativeProductCreate = await fetch(`${apiBase}/api/cooperative/products`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cooperativeProductInput),
+    });
+    assert.equal(cooperativeProductCreate.status, 201, 'An authorized Admin can persist a Cooperative product through the API.');
+    const createdCooperativeProduct = await cooperativeProductCreate.json();
+    assert.ok(createdCooperativeProduct.id, 'The product API returns the saved ID.');
+    const cooperativeProductRetry = await fetch(`${apiBase}/api/cooperative/products`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cooperativeProductInput),
+    });
+    assert.equal(cooperativeProductRetry.status, 201, 'A repeated product request returns the original success.');
+    assert.equal((await cooperativeProductRetry.json()).id, createdCooperativeProduct.id, 'Product retries do not duplicate the row.');
+    const savedCooperativeProduct = await admin.from('cooperative_products')
+      .select('tenant_id,category_reference_id,stock_quantity')
+      .eq('id', createdCooperativeProduct.id)
+      .single();
+    assert.equal(savedCooperativeProduct.error, null);
+    assert.equal(savedCooperativeProduct.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedCooperativeProduct.data?.category_reference_id, cooperativeCategoryResult.data.id, 'The product persists its same-tenant category relation.');
+    assert.equal(savedCooperativeProduct.data?.stock_quantity, 5);
+
+    const foreignCategoryProduct = await fetch(`${apiBase}/api/cooperative/products`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...cooperativeProductInput,
+        sku: `KOP-FOREIGN-${fixtureSuffix}`,
+        categoryReferenceId: foreignCooperativeCategoryResult.data.id,
+        clientRequestId: randomUUID(),
+      }),
+    });
+    assert.equal(foreignCategoryProduct.status, 400, 'A product cannot reference a category owned by another tenant.');
+
+    const supplierCategoryResult = await admin.from('tenant_reference_items')
+      .select('id,name')
+      .eq('tenant_id', tenantIds[0])
+      .eq('domain', 'cooperative_supplier_category')
+      .eq('code', 'BARANG_UMUM')
+      .eq('status', 'active')
+      .maybeSingle();
+    assert.equal(supplierCategoryResult.error, null);
+    assert.ok(supplierCategoryResult.data?.id, 'The tenant owns an active supplier category.');
+    const cooperativeSupplierInput = {
+      action: 'create',
+      name: 'Pemasok Uji Koperasi',
+      categoryReferenceId: supplierCategoryResult.data.id,
+      contact: '081234567890',
+      pic: 'Petugas Uji',
+      clientRequestId: randomUUID(),
+    };
+    const cooperativeSupplierCreate = await fetch(`${apiBase}/api/cooperative/suppliers`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cooperativeSupplierInput),
+    });
+    assert.equal(cooperativeSupplierCreate.status, 201, 'A tenant Admin can save a supplier with its reference relation.');
+    const createdCooperativeSupplier = await cooperativeSupplierCreate.json();
+    assert.ok(createdCooperativeSupplier.id);
+    const cooperativeSupplierRetry = await fetch(`${apiBase}/api/cooperative/suppliers`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cooperativeSupplierInput),
+    });
+    assert.equal(cooperativeSupplierRetry.status, 201, 'A repeated supplier request returns success.');
+    assert.equal((await cooperativeSupplierRetry.json()).id, createdCooperativeSupplier.id, 'Supplier retries do not duplicate the row.');
+    const savedCooperativeSupplier = await admin.from('cooperative_suppliers')
+      .select('tenant_id,category_reference_id,name')
+      .eq('id', createdCooperativeSupplier.id)
+      .single();
+    assert.equal(savedCooperativeSupplier.error, null);
+    assert.equal(savedCooperativeSupplier.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedCooperativeSupplier.data?.category_reference_id, supplierCategoryResult.data.id, 'The supplier persists its same-tenant category relation.');
+    assert.equal(savedCooperativeSupplier.data?.name, 'Pemasok Uji Koperasi');
+
+    const cooperativeStockInput = {
+      productId: createdCooperativeProduct.id,
+      delta: 2,
+      reason: 'Penambahan stok uji',
+      clientRequestId: randomUUID(),
+    };
+    const cooperativeStockAdjust = await fetch(`${apiBase}/api/cooperative/stock-adjustments`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cooperativeStockInput),
+    });
+    assert.equal(cooperativeStockAdjust.status, 201, 'An authorized Admin can adjust tenant product stock.');
+    const createdStockMovement = await cooperativeStockAdjust.json();
+    assert.equal(createdStockMovement.balanceAfter, 7);
+    const cooperativeStockRetry = await fetch(`${apiBase}/api/cooperative/stock-adjustments`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cooperativeStockInput),
+    });
+    assert.equal(cooperativeStockRetry.status, 201, 'A repeated stock adjustment returns success.');
+    assert.equal((await cooperativeStockRetry.json()).id, createdStockMovement.id, 'A stock retry reuses its movement.');
+
+    const cooperativeSnapshotTenantB = await fetch(`${apiBase}/api/cooperative/snapshot`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(cooperativeSnapshotTenantB.status, 200, 'A Cooperative-enabled Admin can read its own tenant snapshot.');
+    const cooperativeTenantB = await cooperativeSnapshotTenantB.json();
+    assert.deepEqual(cooperativeTenantB.products, [], 'Tenant B cannot read Tenant A products.');
+    assert.deepEqual(cooperativeTenantB.suppliers, [], 'Tenant B cannot read Tenant A suppliers.');
+    assert.deepEqual(cooperativeTenantB.sales, [], 'Tenant B cannot read Tenant A sales.');
+    const crossTenantCooperativeStock = await fetch(`${apiBase}/api/cooperative/stock-adjustments`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...cooperativeStockInput, delta: 1, clientRequestId: randomUUID() }),
+    });
+    assert.equal(crossTenantCooperativeStock.status, 404, 'Tenant B cannot mutate Tenant A stock by guessing a product ID.');
+
+    const studentWallet = cooperativeEmpty.wallets.find((wallet) => wallet.studentId === tahfidzStudentId);
+    assert.ok(studentWallet?.id, 'An active student has a tenant-owned cooperative wallet.');
+    const walletPolicyInput = { dailyLimit: 20000, status: 'active', clientRequestId: randomUUID() };
+    const walletPolicyUpdate = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/policy`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(walletPolicyInput),
+    });
+    assert.equal(walletPolicyUpdate.status, 200, 'A tenant Admin can save the student wallet policy.');
+    const walletPolicyResult = await walletPolicyUpdate.json();
+    assert.equal(walletPolicyResult.replayed, false);
+    const walletPolicyRetry = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/policy`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(walletPolicyInput),
+    });
+    assert.equal(walletPolicyRetry.status, 200, 'A repeated wallet policy request returns success.');
+    assert.equal((await walletPolicyRetry.json()).replayed, true, 'A repeated wallet policy request is recognized as an idempotent replay.');
+    const topUpInput = {
+      amount: 10000,
+      reference: `Top-up API ${fixtureSuffix}`,
+      clientRequestId: randomUUID(),
+    };
+    const deniedWalletTopUp = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/top-ups`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cooperativeNoFinanceToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...topUpInput, clientRequestId: randomUUID() }),
+    });
+    assert.equal(deniedWalletTopUp.status, 403, 'A Cooperative Admin without Finance permission cannot top up a wallet.');
+    const cooperativeTopUp = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/top-ups`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(topUpInput),
+    });
+    assert.equal(cooperativeTopUp.status, 201, 'A Finance-enabled Cooperative Admin can fund a student wallet.');
+    const topUpResult = await cooperativeTopUp.json();
+    assert.equal(topUpResult.balanceAfter, 10000);
+    const cooperativeTopUpRetry = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/top-ups`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(topUpInput),
+    });
+    assert.equal(cooperativeTopUpRetry.status, 201, 'A repeated wallet funding request returns success.');
+    assert.equal((await cooperativeTopUpRetry.json()).id, topUpResult.id, 'Wallet top-up retries do not create a second ledger entry.');
+
+    const saleInput = {
+      walletId: studentWallet.id,
+      items: [{ productId: createdCooperativeProduct.id, quantity: 2 }],
+      clientRequestId: randomUUID(),
+    };
+    const cooperativeSale = await fetch(`${apiBase}/api/cooperative/sales`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(saleInput),
+    });
+    assert.equal(cooperativeSale.status, 201, 'A tenant Admin can complete a wallet-backed cooperative sale.');
+    const createdCooperativeSale = await cooperativeSale.json();
+    assert.equal(createdCooperativeSale.totalAmount, 4000);
+    assert.equal(createdCooperativeSale.balanceAfter, 6000);
+    const cooperativeSaleRetry = await fetch(`${apiBase}/api/cooperative/sales`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(saleInput),
+    });
+    assert.equal(cooperativeSaleRetry.status, 201, 'A repeated sale request returns success.');
+    assert.equal((await cooperativeSaleRetry.json()).id, createdCooperativeSale.id, 'Sale retries do not debit funds or stock twice.');
+
+    const cooperativeSnapshotAfterSale = await fetch(`${apiBase}/api/cooperative/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cooperativeSnapshotAfterSale.status, 200);
+    const cooperativeAfterSale = await cooperativeSnapshotAfterSale.json();
+    assert.equal(cooperativeAfterSale.products.length, 1);
+    assert.equal(cooperativeAfterSale.products[0].stock, 5, 'The snapshot reflects initial stock, manual adjustment, and one sale.');
+    assert.equal(cooperativeAfterSale.suppliers.length, 1);
+    assert.equal(cooperativeAfterSale.suppliers[0].id, createdCooperativeSupplier.id);
+    assert.equal(cooperativeAfterSale.wallets.find((wallet) => wallet.studentId === tahfidzStudentId)?.balance, 6000);
+    assert.equal(cooperativeAfterSale.wallets.find((wallet) => wallet.studentId === tahfidzStudentId)?.limit, 20000);
+    const savedCooperativeSale = cooperativeAfterSale.sales.find((sale) => sale.id === createdCooperativeSale.id);
+    assert.ok(savedCooperativeSale, 'A persisted sale appears in the same tenant snapshot.');
+    assert.equal(savedCooperativeSale.studentId, tahfidzStudentId, 'The sale retains its same-tenant student relationship.');
+    assert.equal(savedCooperativeSale.items.length, 1, 'The snapshot includes the relational sale line.');
+    assert.equal(savedCooperativeSale.items[0].productId, createdCooperativeProduct.id);
+    assert.equal(savedCooperativeSale.items[0].quantity, 2);
+    assert.ok(cooperativeAfterSale.walletLedger.some((entry) => entry.type === 'top_up' && entry.amount === 10000));
+    assert.ok(cooperativeAfterSale.walletLedger.some((entry) => entry.type === 'purchase' && entry.amount === -4000));
+
+    const cooperativeFinanceEntries = await admin.from('finance_ledger')
+      .select('tenant_id,entry_type,source_type,amount,actor_user_id')
+      .eq('tenant_id', tenantIds[0])
+      .in('source_type', ['cooperative_wallet', 'cooperative_sale']);
+    assert.equal(cooperativeFinanceEntries.error, null, 'Cooperative custodial activity must be linked to the tenant Finance ledger.');
+    assert.equal(cooperativeFinanceEntries.data.filter((entry) => entry.source_type === 'cooperative_wallet').length, 1);
+    assert.equal(cooperativeFinanceEntries.data.filter((entry) => entry.source_type === 'cooperative_sale').length, 1);
+    assert.ok(cooperativeFinanceEntries.data.every((entry) => entry.tenant_id === tenantIds[0]));
+    const walletPolicyEvents = await admin.from('cooperative_wallet_policy_events')
+      .select('tenant_id,wallet_id,next_daily_limit,next_status,client_request_id')
+      .eq('tenant_id', tenantIds[0])
+      .eq('wallet_id', studentWallet.id);
+    assert.equal(walletPolicyEvents.error, null);
+    assert.equal(walletPolicyEvents.data.length, 1, 'The saved wallet policy has one immutable audit event.');
+    assert.equal(walletPolicyEvents.data[0].next_daily_limit, 20000);
+
     const crmContactInput = {
       clientRequestId: randomUUID(),
       contactType: 'prospect',
@@ -1652,7 +1921,7 @@ async function main() {
     });
     assert.equal(santriRecordWrite.status, 403, 'A Santri cannot create setoran even when granted module read access.');
 
-    console.log('API auth, tenant isolation, Academic, CRM, communication, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -1691,11 +1960,28 @@ async function main() {
         `DELETE FROM public.tahfidz_memberships WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tahfidz_targets WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.academic_records WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.finance_ledger WHERE tenant_id = ANY(${tenantArray}) AND source_type IN ('cooperative_wallet', 'cooperative_sale');`,
+        'ALTER TABLE public.cooperative_supplier_mutation_requests DISABLE TRIGGER cooperative_supplier_requests_immutable;',
+        `DELETE FROM public.cooperative_supplier_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
+        'ALTER TABLE public.cooperative_supplier_mutation_requests ENABLE TRIGGER cooperative_supplier_requests_immutable;',
+        'ALTER TABLE public.cooperative_sales DISABLE TRIGGER cooperative_sales_immutable;',
+        'ALTER TABLE public.cooperative_sale_items DISABLE TRIGGER cooperative_sale_items_immutable;',
+        'ALTER TABLE public.cooperative_wallet_ledger DISABLE TRIGGER cooperative_wallet_ledger_immutable;',
+        'ALTER TABLE public.cooperative_stock_movements DISABLE TRIGGER cooperative_stock_movements_immutable;',
+        'ALTER TABLE public.cooperative_wallet_policy_events DISABLE TRIGGER cooperative_wallet_policy_events_immutable;',
         `DELETE FROM public.cooperative_wallet_ledger WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cooperative_sale_items WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cooperative_stock_movements WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cooperative_sales WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cooperative_wallet_policy_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cooperative_wallets WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cooperative_suppliers WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cooperative_products WHERE tenant_id = ANY(${tenantArray});`,
+        'ALTER TABLE public.cooperative_sales ENABLE TRIGGER cooperative_sales_immutable;',
+        'ALTER TABLE public.cooperative_sale_items ENABLE TRIGGER cooperative_sale_items_immutable;',
+        'ALTER TABLE public.cooperative_wallet_ledger ENABLE TRIGGER cooperative_wallet_ledger_immutable;',
+        'ALTER TABLE public.cooperative_stock_movements ENABLE TRIGGER cooperative_stock_movements_immutable;',
+        'ALTER TABLE public.cooperative_wallet_policy_events ENABLE TRIGGER cooperative_wallet_policy_events_immutable;',
         `DELETE FROM public.tahfidz_halaqahs WHERE tenant_id = ANY(${tenantArray});`,
         `UPDATE public.profiles SET linked_santri_id = NULL WHERE tenant_id = ANY(${tenantArray}) AND linked_santri_id = '${tahfidzStudentId}';`,
         `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
