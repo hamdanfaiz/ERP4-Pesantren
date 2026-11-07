@@ -1,5 +1,7 @@
 # Audit Kesesuaian Menu dan Fitur terhadap AI Studio
 
+> **Snapshot historis 31 Oktober 2026.** Tabel di bawah menggambarkan source pada tanggal tersebut, bukan status terkini. PR #38–#40 dan PR #47 sudah merged ke `main`; katalog Mata Pelajaran, Kurikulum, dan jenis referensi lain kini memiliki pengelolaan tenant dari modul pemiliknya. Pernyataan lama bahwa katalog Akademik hanya baca-saja sudah tidak berlaku. Gunakan [checkpoint backend terbaru](BACKEND_TEAM_START_HERE.md) dan [panduan paritas menu/transfer](../05_ARCHITECTURE/MENU_PARITY_AND_MASTER_DATA_TRANSFER.md) untuk source serta gate terbaru. Kehadiran menu/API tetap tidak membuktikan UAT browser atau Production.
+
 **Tanggal pemeriksaan:** 31 Oktober 2026
 **Referensi antarmuka:** `https://erp4-pesantren.ai.studio/` (dibuka pada sesi Super Admin)
 **Sumber implementasi yang dibandingkan:** branch `codex/menu-parity-import-export-20261031` dan komponen runtime Supabase.
