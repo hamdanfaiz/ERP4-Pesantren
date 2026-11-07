@@ -2681,8 +2681,9 @@ async function main() {
       headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
       body: JSON.stringify(gaAssetDraft),
     });
-    assert.equal(gaAssetCreateResponse.status, 201);
-    const createdGaAsset = await gaAssetCreateResponse.json();
+    const gaAssetCreateBody = await gaAssetCreateResponse.json();
+    assert.equal(gaAssetCreateResponse.status, 201, `GA asset create failed: ${JSON.stringify(gaAssetCreateBody)}`);
+    const createdGaAsset = gaAssetCreateBody;
     assert.equal(createdGaAsset.replayed, false);
     assert.ok(createdGaAsset.id);
     const gaAssetCreateRetry = await fetch(referenceApiBase + '/api/ga/assets', {
@@ -2710,7 +2711,8 @@ async function main() {
       headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
       body: JSON.stringify(gaOpnamePayload),
     });
-    assert.equal(gaOpnameResponse.status, 201);
+    const gaOpnameBody = await gaOpnameResponse.json();
+    assert.equal(gaOpnameResponse.status, 201, `GA asset opname failed: ${JSON.stringify(gaOpnameBody)}`);
     const gaAssetEvents = await admin.from('ga_facility_events').select('event_type').eq('facility_id', createdGaAsset.id);
     assert.equal(gaAssetEvents.error, null);
     assert.deepEqual(gaAssetEvents.data?.map((event) => event.event_type).sort(), ['created', 'opname']);
@@ -2734,8 +2736,9 @@ async function main() {
       headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
       body: JSON.stringify(gaInventoryDraft),
     });
-    assert.equal(gaInventoryCreateResponse.status, 201);
-    const createdGaInventory = await gaInventoryCreateResponse.json();
+    const gaInventoryCreateBody = await gaInventoryCreateResponse.json();
+    assert.equal(gaInventoryCreateResponse.status, 201, `GA inventory create failed: ${JSON.stringify(gaInventoryCreateBody)}`);
+    const createdGaInventory = gaInventoryCreateBody;
     assert.equal(createdGaInventory.replayed, false);
     assert.ok(createdGaInventory.id);
     const gaInventoryCreateRetry = await fetch(referenceApiBase + '/api/ga/inventory', {
