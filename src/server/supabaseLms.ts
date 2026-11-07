@@ -66,6 +66,17 @@ function inUuid(values: string[], relation: string) {
   return "in.(" + values.join(",") + ")";
 }
 
+function inText(values: string[], relation: string) {
+  if (values.some((value) => typeof value !== "string" || !value.trim() || value.length > 160)) {
+    if (process.env.SUPABASE_LMS_DIAGNOSTICS === "true") {
+      console.error("Supabase LMS text relation IDs are invalid:", { relation, count: values.length });
+    }
+    throw new SupabaseLmsError(503, "LMS menemukan relasi tenant dengan ID tidak valid.");
+  }
+  const quoted = values.map((value) => `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`);
+  return "in.(" + quoted.join(",") + ")";
+}
+
 async function rows(path: string, limit: number, label: string) {
   const resource = path.slice(0, path.indexOf("?")).split("/").pop();
   const uniqueOrderColumn = resource === "profiles" ? "user_id" : resource === "lms_material_progress" ? "material_id" : "id";
@@ -162,7 +173,7 @@ export async function getSupabaseLmsSnapshot(tenantIdentifier: string, actorId: 
     ? await rows("/rest/v1/lms_material_comments?" + new URLSearchParams({ select: "id,material_id,student_id,timestamp_seconds,comment,created_at", tenant_id: "eq." + tenantId, material_id: inUuid(materialRows.map((row) => String(row.id)), "material comment"), order: "created_at.asc", limit: "5001" }).toString(), 5000, "comments")
     : [];
   const classIds = [...new Set(studentRows.map((row) => String(row.class_id || "")).filter(Boolean))];
-  const classRows = classIds.length ? await rows("/rest/v1/master_data_records?" + new URLSearchParams({ select: "id,name", tenant_id: "eq." + tenantId, id: inUuid(classIds, "student class"), category: "eq.Kelas", limit: "501" }).toString(), 500, "classes") : [];
+  const classRows = classIds.length ? await rows("/rest/v1/master_data_records?" + new URLSearchParams({ select: "id,name", tenant_id: "eq." + tenantId, id: inText(classIds, "student class"), category: "eq.Kelas", limit: "501" }).toString(), 500, "classes") : [];
   const classNames = new Map<string, string>(classRows.map((row): [string, string] => [String(row.id), String(row.name || "")]));
   const students = studentRows.filter((row) => !["archived","alumni","graduated","inactive","nonaktif","dikeluarkan"].includes(String(row.status || "").toLowerCase()))
     .map((row) => ({ id: String(row.id), name: String(row.name || ""), grade: String(row.grade || ""), className: classNames.get(String(row.class_id || "")) || "" }));
