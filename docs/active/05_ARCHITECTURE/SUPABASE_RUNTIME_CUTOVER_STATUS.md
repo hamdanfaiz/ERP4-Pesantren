@@ -2,7 +2,20 @@
 
 > **Perubahan ruang lingkup 27 Oktober 2026:** data Firestore proyek ini dummy dan tidak perlu disalin. Pernyataan historis yang menjadikan impor/rekonsiliasi seluruh arsip sebagai gerbang rilis tidak lagi berlaku. Gunakan fixture sintetis untuk membuktikan logika, relasi, transaksi, serta isolasi tenant/role; data contoh dapat dimasukkan manual kemudian. Syarat migrasi schema, runtime Supabase-only, login/UAT, backup/restore, rotasi secret, dan kesiapan environment pelanggan tetap berlaku.
 
-## Status diverifikasi setelah PR #17 — 31 Oktober 2026
+## Status terverifikasi pada main — setelah PR #43 dan #44, 7 November 2026
+
+- `main` berada pada commit `3da8346c8bf72dce91ed17d4eec1135b4939aa03`. PR #43 menutup temuan RBAC Admin; PR #44 memperbarui handoff. Keduanya sudah merged.
+- GitHub Actions [run #42325691912](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42325691912) lulus 3/3 job pada head PR #44, yang berbasis commit `main` saat ini dan hanya membawa perubahan dokumentasi. CI memverifikasi build/runtime tanpa Firebase, instalasi NPM, migrasi/pgTAP serta uji API/tenant/Storage pada stack lokal sintetis.
+- Guard `scripts/test-supabase-runtime-no-firebase.mjs` menelusuri import graph dari `src/main.tsx` dan `server.ts`, menolak paket Firebase pada graph aktif, memeriksa 26 tujuan rute Supabase, dan memastikan endpoint arsip legacy tertutup dengan HTTP 410. `src/runtimeBackend.ts` menetapkan `SUPABASE_ONLY_RUNTIME = true`; `src/firebase.ts` melempar error alih-alih menginisialisasi Firebase.
+- `firebase` masih tercantum sebagai development dependency dan beberapa file layar/utility legacy tetap ada di repo untuk kompatibilitas/typecheck. Guard CI membuktikan paket tersebut tidak berada di production dependencies dan tidak masuk ke graph runtime aktif. Ini kode dormant, bukan fallback operasional.
+- Firestore archive import dinonaktifkan secara eksplisit karena data pemilik dinyatakan dummy. Tidak ada migrasi data Firestore ke Supabase yang diperlukan.
+- VQE staging `vqemuyzveuirlkvdggjd` terakhir tercatat memiliki 136/136 versi dan nama ledger sesuai file source sampai `20270304000000_student_room_assignment_reference_locks`. Kecocokan nama/versi ledger bukan bukti kesetaraan DDL atau UAT.
+- PTSAS Production `ptsasgdvgrbdtgyqieie` tidak diubah. Snapshot operator mencatat 47 versi ledger dibanding 136 migration source; selisih 89 bukan daftar migrasi siap terapkan. Perbandingan DDL aktual, rencana urutan, dan rehearsal backup/restore Production tetap tugas tim backend.
+- CI belum menguji login browser Admin/Wali, feature flags pada environment pelanggan, semua menu dan proses modul pada hosting, atau Production. Aktifkan fitur hanya setelah konfigurasi target dan UAT tenant/role sesuai; ERP belum dinyatakan siap go-live.
+
+> Bagian di bawah ini adalah catatan historis per checkpoint. Gunakan status terverifikasi di atas untuk keadaan sekarang.
+
+## Arsip status diverifikasi setelah PR #17 — 31 Oktober 2026
 
 - Branch `main` kini memuat merge commit PR #17 `3e752f8d6c1961130b9baa108736c51ffc702eb7`. Perubahan menghapus Firebase Admin dan jalur Firestore server, mempertahankan 26 endpoint impor arsip sebagai tombstone HTTP `410`, serta mengeluarkan PPOB/payment gateway dari rilis awal.
 - GitHub Actions run [41136728382](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41136728382) lulus **2/2 job** pada head PR `2db27071d3e84ec1cc55c10fff3e3912d8a34c00`: typecheck/build/Docker smoke test dan migrasi, pgTAP, autentikasi/isolasi tenant, Storage, backup/restore pada Supabase lokal sintetis. Supabase Preview dilewati karena branch tidak terkait ke Supabase Branch.
