@@ -85,11 +85,15 @@ export async function getSupabaseGeneralAffairsSnapshot(tenantIdentifier: string
 
 export async function manageSupabaseGeneralAffairsFacility(tenantId: string, actorId: string, item: Row) {
   if (!uuid(tenantId) || !uuid(actorId) || !uuid(item?.clientRequestId)) throw new SupabaseGeneralAffairsError(400, "Data aset General Affairs tidak valid.");
-  if (!uuid(item?.categoryReferenceId)) throw new SupabaseGeneralAffairsError(400, "Pilih kategori aset dari katalog tenant.");
-  const categories = await listSupabaseReferenceItems(tenantId, "ga_asset_category");
-  const category = categories.find((reference) => reference.id === item.categoryReferenceId);
-  if (!category) throw new SupabaseGeneralAffairsError(400, "Kategori aset tidak aktif pada tenant ini.");
-  return request("/rest/v1/rpc/manage_ga_facility", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: { ...item, category: category.name } }) });
+  let normalizedItem = item;
+  if (item.action === "create" || item.action === "update") {
+    if (!uuid(item?.categoryReferenceId)) throw new SupabaseGeneralAffairsError(400, "Pilih kategori aset dari katalog tenant.");
+    const categories = await listSupabaseReferenceItems(tenantId, "ga_asset_category");
+    const category = categories.find((reference) => reference.id === item.categoryReferenceId);
+    if (!category) throw new SupabaseGeneralAffairsError(400, "Kategori aset tidak aktif pada tenant ini.");
+    normalizedItem = { ...item, category: category.name };
+  }
+  return request("/rest/v1/rpc/manage_ga_facility", { method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_item: normalizedItem }) });
 }
 
 export async function manageSupabaseGeneralAffairsInventory(tenantId: string, actorId: string, item: Row) {

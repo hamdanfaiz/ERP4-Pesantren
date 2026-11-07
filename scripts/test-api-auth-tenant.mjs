@@ -216,6 +216,16 @@ async function main() {
     });
     if (facilityReferenceError) throw new Error('Unable to configure the synthetic facility catalog.');
 
+    const gaAssetCategoryId = randomUUID();
+    const gaInventoryCategoryId = randomUUID();
+    const gaInventoryUnitId = randomUUID();
+    const { error: gaReferenceError } = await admin.from('tenant_reference_items').insert([
+      { id: gaAssetCategoryId, tenant_id: tenantIds[0], domain: 'ga_asset_category', code: `TEST_ASSET_CAT_${fixtureSuffix}`, name: 'Elektronik Uji', description: 'Kategori aset sintetis.', status: 'active', created_by_user_id: users[0].uid, updated_by_user_id: users[0].uid },
+      { id: gaInventoryCategoryId, tenant_id: tenantIds[0], domain: 'ga_inventory_category', code: `TEST_INV_CAT_${fixtureSuffix}`, name: 'Perlengkapan Uji', description: 'Kategori inventaris sintetis.', status: 'active', created_by_user_id: users[0].uid, updated_by_user_id: users[0].uid },
+      { id: gaInventoryUnitId, tenant_id: tenantIds[0], domain: 'ga_inventory_unit', code: `TEST_INV_UNIT_${fixtureSuffix}`, name: 'Kotak Uji', description: 'Satuan inventaris sintetis.', status: 'active', created_by_user_id: users[0].uid, updated_by_user_id: users[0].uid },
+    ]);
+    if (gaReferenceError) throw new Error('Unable to configure the synthetic General Affairs catalog.');
+
     const { error: tahfidzCandidateError } = await admin.from('candidates').insert({
       id: tahfidzCandidateId,
       tenant_id: tenantIds[0],
@@ -1489,6 +1499,7 @@ async function main() {
         SUPABASE_DOCUMENT_RUNTIME_ENABLED: 'true',
         SUPABASE_HEALTHCARE_RUNTIME_ENABLED: 'true',
         SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED: 'true',
+        SUPABASE_GA_ASSETS_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -2622,7 +2633,209 @@ async function main() {
     assert.equal(facilityEvents.error, null);
     assert.deepEqual(facilityEvents.data?.map((event) => event.event_type).sort(), ['cancelled', 'created']);
     console.log('Facility booking API round-trip passed: tenant catalog relation, persistence, overlap rejection, idempotency, cancellation audit, permission, and tenant isolation.');
-    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Healthcare, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    const gaSnapshotUrl = referenceApiBase + '/api/ga/assets-snapshot';
+    const noPermissionGaResponse = await fetch(gaSnapshotUrl, { headers: { Authorization: 'Bearer ' + facilityNoPermissionToken } });
+    assert.equal(noPermissionGaResponse.status, 403, 'An Admin without General Affairs permission cannot access its assets or inventory.');
+
+    const gaInitialResponse = await fetch(gaSnapshotUrl, { headers: { Authorization: 'Bearer ' + adminToken } });
+    assert.equal(gaInitialResponse.status, 200);
+    const gaInitial = await gaInitialResponse.json();
+    assert.deepEqual(gaInitial.facilities, []);
+    assert.deepEqual(gaInitial.inventory, []);
+    assert.deepEqual(gaInitial.movements, []);
+    assert.ok(gaInitial.assetCategories.some((item) => item.id === gaAssetCategoryId));
+    assert.ok(gaInitial.inventoryCategories.some((item) => item.id === gaInventoryCategoryId));
+    assert.ok(gaInitial.inventoryUnits.some((item) => item.id === gaInventoryUnitId));
+
+    const gaFreeTypeInventoryResponse = await fetch(referenceApiBase + '/api/ga/inventory', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create',
+        clientRequestId: randomUUID(),
+        itemCode: 'FREE-TYPE',
+        name: 'Barang dengan kategori bebas',
+        category: 'Kategori buatan sendiri',
+        unit: 'Satuan bebas',
+        initialQuantity: 1,
+        minimumQuantity: 0,
+      }),
+    });
+    assert.equal(gaFreeTypeInventoryResponse.status, 400, 'Inventory requires tenant-owned category and unit references.');
+
+    const gaAssetDraft = {
+      action: 'create',
+      clientRequestId: randomUUID(),
+      categoryReferenceId: gaAssetCategoryId,
+      assetCode: `REQUEST-ASSET-${fixtureSuffix}`,
+      name: `Laptop Aset Uji ${fixtureSuffix}`,
+      category: 'Kategori bebas yang harus diabaikan',
+      location: 'Ruang Uji',
+      custodian: 'Admin Uji',
+      condition: 'Baik',
+      acquisitionValue: 12500000,
+      acquiredOn: '2026-01-01',
+    };
+    const gaAssetCreateResponse = await fetch(referenceApiBase + '/api/ga/assets', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(gaAssetDraft),
+    });
+    const gaAssetCreateBody = await gaAssetCreateResponse.json();
+    assert.equal(gaAssetCreateResponse.status, 201, `GA asset create failed: ${JSON.stringify(gaAssetCreateBody)}`);
+    const createdGaAsset = gaAssetCreateBody;
+    assert.equal(createdGaAsset.replayed, false);
+    assert.ok(createdGaAsset.id);
+    const gaAssetCreateRetry = await fetch(referenceApiBase + '/api/ga/assets', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(gaAssetDraft),
+    });
+    assert.equal(gaAssetCreateRetry.status, 201);
+    assert.deepEqual(await gaAssetCreateRetry.json(), { id: createdGaAsset.id, replayed: true });
+
+    const savedGaAsset = await admin.from('ga_facilities')
+      .select('tenant_id,asset_code,name,category,category_reference_id,status,condition,acquisition_value')
+      .eq('id', createdGaAsset.id).single();
+    assert.equal(savedGaAsset.error, null);
+    assert.equal(savedGaAsset.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedGaAsset.data?.category_reference_id, gaAssetCategoryId);
+    assert.equal(savedGaAsset.data?.category, 'Elektronik Uji');
+    assert.match(savedGaAsset.data?.asset_code || '', /^AST-\d{5}$/);
+    assert.equal(savedGaAsset.data?.name, gaAssetDraft.name);
+    assert.equal(Number(savedGaAsset.data?.acquisition_value), 12500000);
+
+    const gaOpnamePayload = { action: 'opname', id: createdGaAsset.id, clientRequestId: randomUUID(), condition: 'Perlu Servis' };
+    const gaOpnameResponse = await fetch(referenceApiBase + '/api/ga/assets', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(gaOpnamePayload),
+    });
+    const gaOpnameBody = await gaOpnameResponse.json();
+    assert.equal(gaOpnameResponse.status, 201, `GA asset opname failed: ${JSON.stringify(gaOpnameBody)}`);
+    const gaDisposeResponse = await fetch(referenceApiBase + '/api/ga/assets', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'dispose', id: createdGaAsset.id, clientRequestId: randomUUID() }),
+    });
+    const gaDisposeBody = await gaDisposeResponse.json();
+    assert.equal(gaDisposeResponse.status, 201, `GA asset disposal failed: ${JSON.stringify(gaDisposeBody)}`);
+
+    const gaAssetEvents = await admin.from('ga_facility_events').select('event_type').eq('facility_id', createdGaAsset.id);
+    assert.equal(gaAssetEvents.error, null);
+    assert.deepEqual(gaAssetEvents.data?.map((event) => event.event_type).sort(), ['created', 'disposed', 'opname']);
+
+    const gaInventoryDraft = {
+      action: 'create',
+      clientRequestId: randomUUID(),
+      categoryReferenceId: gaInventoryCategoryId,
+      unitReferenceId: gaInventoryUnitId,
+      itemCode: `REQUEST-INVENTORY-${fixtureSuffix}`,
+      name: `Peralatan Inventaris Uji ${fixtureSuffix}`,
+      category: 'Kategori bebas yang harus diabaikan',
+      unit: 'Satuan bebas yang harus diabaikan',
+      initialQuantity: 10,
+      minimumQuantity: 3,
+      unitCost: 25000,
+      location: 'Gudang Uji',
+    };
+    const gaInventoryCreateResponse = await fetch(referenceApiBase + '/api/ga/inventory', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(gaInventoryDraft),
+    });
+    const gaInventoryCreateBody = await gaInventoryCreateResponse.json();
+    assert.equal(gaInventoryCreateResponse.status, 201, `GA inventory create failed: ${JSON.stringify(gaInventoryCreateBody)}`);
+    const createdGaInventory = gaInventoryCreateBody;
+    assert.equal(createdGaInventory.replayed, false);
+    assert.ok(createdGaInventory.id);
+    const gaInventoryCreateRetry = await fetch(referenceApiBase + '/api/ga/inventory', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(gaInventoryDraft),
+    });
+    assert.equal(gaInventoryCreateRetry.status, 201);
+    assert.deepEqual(await gaInventoryCreateRetry.json(), { id: createdGaInventory.id, replayed: true });
+
+    const savedGaInventory = await admin.from('ga_inventory_items')
+      .select('tenant_id,item_code,name,category,category_reference_id,unit,unit_reference_id,quantity,minimum_quantity,status')
+      .eq('id', createdGaInventory.id).single();
+    assert.equal(savedGaInventory.error, null);
+    assert.equal(savedGaInventory.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedGaInventory.data?.category_reference_id, gaInventoryCategoryId);
+    assert.equal(savedGaInventory.data?.unit_reference_id, gaInventoryUnitId);
+    assert.equal(savedGaInventory.data?.category, 'Perlengkapan Uji');
+    assert.equal(savedGaInventory.data?.unit, 'Kotak Uji');
+    assert.match(savedGaInventory.data?.item_code || '', /^BRG-\d{5}$/);
+    assert.equal(savedGaInventory.data?.quantity, 10);
+
+    const gaStockAdjustmentPayload = {
+      itemId: createdGaInventory.id,
+      delta: 5,
+      reason: 'Penerimaan barang uji.',
+      clientRequestId: randomUUID(),
+    };
+    const gaStockAdjustmentResponse = await fetch(referenceApiBase + '/api/ga/stock-adjustments', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(gaStockAdjustmentPayload),
+    });
+    assert.equal(gaStockAdjustmentResponse.status, 201);
+    const gaStockAdjustment = await gaStockAdjustmentResponse.json();
+    assert.equal(gaStockAdjustment.balance, 15);
+    assert.equal(gaStockAdjustment.replayed, false);
+
+    const gaNegativeStockResponse = await fetch(referenceApiBase + '/api/ga/stock-adjustments', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: createdGaInventory.id, delta: -99, reason: 'Uji larangan stok negatif.', clientRequestId: randomUUID() }),
+    });
+    assert.equal(gaNegativeStockResponse.status, 409, 'Inventory stock cannot become negative.');
+
+    const gaStockAdjustmentRetry = await fetch(referenceApiBase + '/api/ga/stock-adjustments', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(gaStockAdjustmentPayload),
+    });
+    assert.equal(gaStockAdjustmentRetry.status, 201);
+    assert.equal((await gaStockAdjustmentRetry.json()).replayed, true);
+
+    const tenantBGaSnapshotResponse = await fetch(gaSnapshotUrl, { headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken } });
+    assert.equal(tenantBGaSnapshotResponse.status, 200);
+    const tenantBGaSnapshot = await tenantBGaSnapshotResponse.json();
+    assert.deepEqual(tenantBGaSnapshot.facilities, []);
+    assert.deepEqual(tenantBGaSnapshot.inventory, []);
+    assert.deepEqual(tenantBGaSnapshot.movements, []);
+    const crossTenantGaStockResponse = await fetch(referenceApiBase + '/api/ga/stock-adjustments', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: createdGaInventory.id, delta: 1, reason: 'Uji isolasi tenant.', clientRequestId: randomUUID() }),
+    });
+    assert.equal(crossTenantGaStockResponse.status, 404, 'A different tenant cannot change a guessed inventory item ID.');
+
+    const gaFinalSnapshotResponse = await fetch(gaSnapshotUrl, { headers: { Authorization: 'Bearer ' + adminToken } });
+    assert.equal(gaFinalSnapshotResponse.status, 200);
+    const gaFinalSnapshot = await gaFinalSnapshotResponse.json();
+    const listedGaAsset = gaFinalSnapshot.facilities.find((item) => item.id === createdGaAsset.id);
+    const listedGaInventory = gaFinalSnapshot.inventory.find((item) => item.id === createdGaInventory.id);
+    assert.equal(listedGaAsset?.category_reference_id, gaAssetCategoryId);
+    assert.equal(listedGaAsset?.condition, 'Perlu Servis');
+    assert.equal(listedGaAsset?.status, 'disposed');
+    assert.ok(listedGaAsset?.last_opname_on);
+    assert.equal(listedGaInventory?.category_reference_id, gaInventoryCategoryId);
+    assert.equal(listedGaInventory?.unit_reference_id, gaInventoryUnitId);
+    assert.equal(listedGaInventory?.category, 'Perlengkapan Uji');
+    assert.equal(listedGaInventory?.unit, 'Kotak Uji');
+    assert.equal(listedGaInventory?.quantity, 15);
+    assert.equal(listedGaInventory?.stockStatus, 'In Stock');
+    const gaMovements = await admin.from('ga_inventory_movements')
+      .select('quantity_delta,balance_after').eq('item_id', createdGaInventory.id);
+    assert.equal(gaMovements.error, null);
+    assert.equal(gaMovements.data?.length, 2);
+    assert.deepEqual(gaMovements.data?.map((movement) => Number(movement.quantity_delta)).sort((a, b) => a - b), [5, 10]);
+    assert.ok(gaMovements.data?.some((movement) => movement.balance_after === 15));
+    console.log('General Affairs API round-trip passed: linked catalogs, server-issued codes, asset opname, stock ledger, idempotency, role and tenant isolation.');
+        console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Healthcare, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -2734,6 +2947,12 @@ async function main() {
         `DELETE FROM public.facility_booking_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.facility_bookings WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.facility_booking_import_batches WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.ga_facility_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.ga_inventory_movements WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.ga_inventory_item_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.ga_facilities WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.ga_inventory_items WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.ga_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_reference_items WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_allocations WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = ANY(${tenantArray});`,
