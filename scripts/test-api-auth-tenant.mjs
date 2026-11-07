@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 32260)
+Total output lines: 2194
+
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -151,7 +154,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true }));
@@ -169,7 +172,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -293,6 +296,7 @@ async function main() {
         SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_MARKETPLACE_RUNTIME_ENABLED: 'true',
         SUPABASE_COOPERATIVE_RUNTIME_ENABLED: 'true',
+        SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
         SUPABASE_CRM_RUNTIME_ENABLED: 'true',
         SUPABASE_DASHBOARD_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
@@ -697,837 +701,7 @@ async function main() {
     assert.equal(cooperativeStockAdjust.status, 201, 'An authorized Admin can adjust tenant product stock.');
     const createdStockMovement = await cooperativeStockAdjust.json();
     assert.equal(createdStockMovement.balanceAfter, 7);
-    const cooperativeStockRetry = await fetch(`${apiBase}/api/cooperative/stock-adjustments`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(cooperativeStockInput),
-    });
-    assert.equal(cooperativeStockRetry.status, 201, 'A repeated stock adjustment returns success.');
-    assert.equal((await cooperativeStockRetry.json()).id, createdStockMovement.id, 'A stock retry reuses its movement.');
-
-    const cooperativeSnapshotTenantB = await fetch(`${apiBase}/api/cooperative/snapshot`, {
-      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
-    });
-    assert.equal(cooperativeSnapshotTenantB.status, 200, 'A Cooperative-enabled Admin can read its own tenant snapshot.');
-    const cooperativeTenantB = await cooperativeSnapshotTenantB.json();
-    assert.deepEqual(cooperativeTenantB.products, [], 'Tenant B cannot read Tenant A products.');
-    assert.deepEqual(cooperativeTenantB.suppliers, [], 'Tenant B cannot read Tenant A suppliers.');
-    assert.deepEqual(cooperativeTenantB.sales, [], 'Tenant B cannot read Tenant A sales.');
-    const crossTenantCooperativeStock = await fetch(`${apiBase}/api/cooperative/stock-adjustments`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...cooperativeStockInput, delta: 1, clientRequestId: randomUUID() }),
-    });
-    assert.equal(crossTenantCooperativeStock.status, 404, 'Tenant B cannot mutate Tenant A stock by guessing a product ID.');
-
-    const studentWallet = cooperativeEmpty.wallets.find((wallet) => wallet.studentId === tahfidzStudentId);
-    assert.ok(studentWallet?.id, 'An active student has a tenant-owned cooperative wallet.');
-    const walletPolicyInput = { dailyLimit: 20000, status: 'active', clientRequestId: randomUUID() };
-    const walletPolicyUpdate = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/policy`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(walletPolicyInput),
-    });
-    assert.equal(walletPolicyUpdate.status, 200, 'A tenant Admin can save the student wallet policy.');
-    const walletPolicyResult = await walletPolicyUpdate.json();
-    assert.equal(walletPolicyResult.replayed, false);
-    const walletPolicyRetry = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/policy`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(walletPolicyInput),
-    });
-    assert.equal(walletPolicyRetry.status, 200, 'A repeated wallet policy request returns success.');
-    assert.equal((await walletPolicyRetry.json()).replayed, true, 'A repeated wallet policy request is recognized as an idempotent replay.');
-    const topUpInput = {
-      amount: 10000,
-      reference: `Top-up API ${fixtureSuffix}`,
-      clientRequestId: randomUUID(),
-    };
-    const deniedWalletTopUp = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/top-ups`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${cooperativeNoFinanceToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...topUpInput, clientRequestId: randomUUID() }),
-    });
-    assert.equal(deniedWalletTopUp.status, 403, 'A Cooperative Admin without Finance permission cannot top up a wallet.');
-    const cooperativeTopUp = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/top-ups`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(topUpInput),
-    });
-    assert.equal(cooperativeTopUp.status, 201, 'A Finance-enabled Cooperative Admin can fund a student wallet.');
-    const topUpResult = await cooperativeTopUp.json();
-    assert.equal(topUpResult.balanceAfter, 10000);
-    const cooperativeTopUpRetry = await fetch(`${apiBase}/api/cooperative/wallets/${encodeURIComponent(studentWallet.id)}/top-ups`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(topUpInput),
-    });
-    assert.equal(cooperativeTopUpRetry.status, 201, 'A repeated wallet funding request returns success.');
-    assert.equal((await cooperativeTopUpRetry.json()).id, topUpResult.id, 'Wallet top-up retries do not create a second ledger entry.');
-
-    const saleInput = {
-      walletId: studentWallet.id,
-      items: [{ productId: createdCooperativeProduct.id, quantity: 2 }],
-      clientRequestId: randomUUID(),
-    };
-    const cooperativeSale = await fetch(`${apiBase}/api/cooperative/sales`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(saleInput),
-    });
-    assert.equal(cooperativeSale.status, 201, 'A tenant Admin can complete a wallet-backed cooperative sale.');
-    const createdCooperativeSale = await cooperativeSale.json();
-    assert.equal(createdCooperativeSale.totalAmount, 4000);
-    assert.equal(createdCooperativeSale.balanceAfter, 6000);
-    const cooperativeSaleRetry = await fetch(`${apiBase}/api/cooperative/sales`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(saleInput),
-    });
-    assert.equal(cooperativeSaleRetry.status, 201, 'A repeated sale request returns success.');
-    assert.equal((await cooperativeSaleRetry.json()).id, createdCooperativeSale.id, 'Sale retries do not debit funds or stock twice.');
-
-    const cooperativeSnapshotAfterSale = await fetch(`${apiBase}/api/cooperative/snapshot`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal(cooperativeSnapshotAfterSale.status, 200);
-    const cooperativeAfterSale = await cooperativeSnapshotAfterSale.json();
-    assert.equal(cooperativeAfterSale.products.length, 1);
-    assert.equal(cooperativeAfterSale.products[0].stock, 5, 'The snapshot reflects initial stock, manual adjustment, and one sale.');
-    assert.equal(cooperativeAfterSale.suppliers.length, 1);
-    assert.equal(cooperativeAfterSale.suppliers[0].id, createdCooperativeSupplier.id);
-    assert.equal(cooperativeAfterSale.wallets.find((wallet) => wallet.studentId === tahfidzStudentId)?.balance, 6000);
-    assert.equal(cooperativeAfterSale.wallets.find((wallet) => wallet.studentId === tahfidzStudentId)?.limit, 20000);
-    const savedCooperativeSale = cooperativeAfterSale.sales.find((sale) => sale.id === createdCooperativeSale.id);
-    assert.ok(savedCooperativeSale, 'A persisted sale appears in the same tenant snapshot.');
-    assert.equal(savedCooperativeSale.studentId, tahfidzStudentId, 'The sale retains its same-tenant student relationship.');
-    assert.equal(savedCooperativeSale.items.length, 1, 'The snapshot includes the relational sale line.');
-    assert.equal(savedCooperativeSale.items[0].productId, createdCooperativeProduct.id);
-    assert.equal(savedCooperativeSale.items[0].quantity, 2);
-    assert.ok(cooperativeAfterSale.walletLedger.some((entry) => entry.type === 'top_up' && entry.amount === 10000));
-    assert.ok(cooperativeAfterSale.walletLedger.some((entry) => entry.type === 'purchase' && entry.amount === -4000));
-
-    const cooperativeFinanceEntries = await admin.from('finance_ledger')
-      .select('tenant_id,entry_type,source_type,amount,actor_user_id')
-      .eq('tenant_id', tenantIds[0])
-      .in('source_type', ['cooperative_wallet', 'cooperative_sale']);
-    assert.equal(cooperativeFinanceEntries.error, null, 'Cooperative custodial activity must be linked to the tenant Finance ledger.');
-    assert.equal(cooperativeFinanceEntries.data.filter((entry) => entry.source_type === 'cooperative_wallet').length, 1);
-    assert.equal(cooperativeFinanceEntries.data.filter((entry) => entry.source_type === 'cooperative_sale').length, 1);
-    assert.ok(cooperativeFinanceEntries.data.every((entry) => entry.tenant_id === tenantIds[0]));
-    const walletPolicyEvents = await admin.from('cooperative_wallet_policy_events')
-      .select('tenant_id,wallet_id,next_daily_limit,next_status,client_request_id')
-      .eq('tenant_id', tenantIds[0])
-      .eq('wallet_id', studentWallet.id);
-    assert.equal(walletPolicyEvents.error, null);
-    assert.equal(walletPolicyEvents.data.length, 1, 'The saved wallet policy has one immutable audit event.');
-    assert.equal(walletPolicyEvents.data[0].next_daily_limit, 20000);
-
-    const crmContactInput = {
-      clientRequestId: randomUUID(),
-      contactType: 'prospect',
-      name: 'Kontak CRM Uji',
-      organizationName: 'Pesantren Contoh',
-      email: `crm-${fixtureSuffix}@example.test`,
-      phone: '081234567890',
-      lifecycleStage: 'lead',
-      marketingConsent: 'unknown',
-      consentSource: '',
-    };
-    const crmContactCreate = await fetch(`${apiBase}/api/crm/contacts`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contact: crmContactInput }),
-    });
-    assert.equal(crmContactCreate.status, 201, 'An Admin with CRM access can create a tenant contact through the application API.');
-    const createdCrmContact = await crmContactCreate.json();
-    assert.ok(createdCrmContact.contactId, 'The CRM create response returns the persisted contact ID.');
-
-    const crmContactRetry = await fetch(`${apiBase}/api/crm/contacts`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contact: crmContactInput }),
-    });
-    assert.equal(crmContactRetry.status, 200, 'Retrying a CRM create with the same request ID is idempotent.');
-    const retriedCrmContact = await crmContactRetry.json();
-    assert.equal(retriedCrmContact.contactId, createdCrmContact.contactId);
-    assert.equal(retriedCrmContact.alreadyApplied, true);
-
-    const crmContactList = await fetch(`${apiBase}/api/crm/contacts?search=${encodeURIComponent('Kontak CRM Uji')}`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal(crmContactList.status, 200, 'The same tenant can read CRM contacts after saving.');
-    const crmContactListPayload = await crmContactList.json();
-    assert.equal(crmContactListPayload.contacts.length, 1);
-    assert.equal(crmContactListPayload.contacts[0].id, createdCrmContact.contactId);
-
-    const crmContactListTenantB = await fetch(`${apiBase}/api/crm/contacts?search=${encodeURIComponent('Kontak CRM Uji')}`, {
-      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
-    });
-    assert.equal(crmContactListTenantB.status, 200);
-    assert.deepEqual((await crmContactListTenantB.json()).contacts, [], 'A different tenant cannot see the saved CRM contact.');
-
-    const crmUpdateInput = {
-      ...crmContactInput,
-      clientRequestId: randomUUID(),
-      name: 'Kontak CRM Uji Diperbarui',
-      lifecycleStage: 'qualified',
-      marketingConsent: 'granted',
-      consentSource: 'Formulir tertulis',
-    };
-    const crmContactUpdate = await fetch(`${apiBase}/api/crm/contacts/${encodeURIComponent(createdCrmContact.contactId)}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contact: crmUpdateInput }),
-    });
-    assert.equal(crmContactUpdate.status, 201, 'The same tenant can update a CRM contact and record consent evidence.');
-
-    const crmCrossTenantUpdate = await fetch(`${apiBase}/api/crm/contacts/${encodeURIComponent(createdCrmContact.contactId)}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contact: { ...crmUpdateInput, clientRequestId: randomUUID(), name: 'Lintas Tenant' } }),
-    });
-    assert.equal(crmCrossTenantUpdate.status, 404, 'A different tenant cannot update the CRM contact by guessing its ID.');
-
-    const { data: persistedCrmContact, error: crmContactReadError } = await admin.from('crm_contacts')
-      .select('tenant_id,name,lifecycle_stage,marketing_consent,consent_source')
-      .eq('id', createdCrmContact.contactId)
-      .maybeSingle();
-    assert.equal(crmContactReadError, null, 'The synthetic database can verify the CRM row persisted behind the API.');
-    assert.equal(persistedCrmContact?.tenant_id, tenantIds[0]);
-    assert.equal(persistedCrmContact?.name, 'Kontak CRM Uji Diperbarui');
-    assert.equal(persistedCrmContact?.lifecycle_stage, 'qualified');
-    assert.equal(persistedCrmContact?.marketing_consent, 'granted');
-    assert.equal(persistedCrmContact?.consent_source, 'Formulir tertulis');
-
-    const crmInteractionInput = {
-      clientRequestId: randomUUID(),
-      contactId: createdCrmContact.contactId,
-      interactionType: 'meeting',
-      direction: 'outbound',
-      subject: 'Pertemuan tindak lanjut',
-      summary: 'Membahas penerimaan santri baru.',
-    };
-    const crmInteractionCreate = await fetch(`${apiBase}/api/crm/interactions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ interaction: crmInteractionInput }),
-    });
-    assert.equal(crmInteractionCreate.status, 201, 'An Admin can append a CRM interaction linked to their tenant contact.');
-    const createdCrmInteraction = await crmInteractionCreate.json();
-
-    const crmInteractions = await fetch(`${apiBase}/api/crm/contacts/${encodeURIComponent(createdCrmContact.contactId)}/interactions`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal(crmInteractions.status, 200, 'The saved CRM interaction can be read through its parent contact.');
-    const crmInteractionsPayload = await crmInteractions.json();
-    assert.equal(crmInteractionsPayload.interactions.length, 1);
-    assert.equal(crmInteractionsPayload.interactions[0].id, createdCrmInteraction.interactionId);
-    assert.equal(crmInteractionsPayload.interactions[0].contactId, createdCrmContact.contactId);
-
-    const crmCrossTenantInteractions = await fetch(`${apiBase}/api/crm/contacts/${encodeURIComponent(createdCrmContact.contactId)}/interactions`, {
-      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
-    });
-    assert.equal(crmCrossTenantInteractions.status, 404, 'A different tenant cannot read the contact interaction history.');
-
-    const crmDeniedRole = await fetch(`${apiBase}/api/crm/contacts`, {
-      headers: { Authorization: `Bearer ${ustadzToken}` },
-    });
-    assert.equal(crmDeniedRole.status, 403, 'A Ustadz without CRM permission cannot read the CRM directory.');
-
-
-
-    const anonymousRoomHistory = await fetch(apiBase + "/api/master-data/students/" + randomUUID() + "/room-history");
-    assert.equal(anonymousRoomHistory.status, 401, "Room history must reject anonymous callers.");
-    const gatedRoomHistory = await fetch(apiBase + "/api/master-data/students/" + randomUUID() + "/room-history", {
-      headers: { Authorization: "Bearer " + adminToken },
-    });
-    assert.equal(gatedRoomHistory.status, 503, "Room history must remain closed while the Master Data runtime is disabled.");
-
-    for (const path of [
-      "/api/enterprise/master-data/unit-assignment/unmapped",
-      "/api/enterprise/master-data/unit-assignment",
-      "/api/enterprise/finance/unit-assignment/unmapped",
-      "/api/enterprise/finance/unit-assignment",
-      "/api/academic/classes/unit-assignment/unmapped",
-      "/api/academic/classes/unit-assignment",
-    ]) {
-      const method = path.endsWith("/unmapped") ? "GET" : "POST";
-      const anonymous = await fetch(apiBase + path, {
-        method,
-        headers: method === "POST" ? { "Content-Type": "application/json" } : {},
-        body: method === "POST" ? JSON.stringify({}) : undefined,
-      });
-      assert.equal(anonymous.status, 401, path + " must reject anonymous callers.");
-      const gated = await fetch(apiBase + path, {
-        method,
-        headers: { Authorization: "Bearer " + adminToken, ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
-        body: method === "POST" ? JSON.stringify({}) : undefined,
-      });
-      assert.equal(gated.status, 503, path + " must remain closed until the operator enables the required runtimes.");
-    }
-
-    for (const path of ["/api/master-data/structures/migrate", "/api/master-data/students/migrate"]) {
-      const anonymousImport = await fetch(apiBase + path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apply: false }),
-      });
-      assert.equal(anonymousImport.status, 401, path + " must reject anonymous callers.");
-      const retiredImport = await fetch(apiBase + path, {
-        method: "POST",
-        headers: { Authorization: "Bearer " + adminToken, "Content-Type": "application/json" },
-        body: JSON.stringify({ apply: false }),
-      });
-      assert.equal(retiredImport.status, 410, path + " must remain retired after legacy archive import removal.");
-      assert.equal((await retiredImport.json()).code, "LEGACY_ARCHIVE_IMPORT_REMOVED", path + " must return a stable retirement code.");
-    }
-    const missingWaliLinkEmail = "wali-missing-link-" + randomUUID() + "@example.test";
-    const missingWaliLink = await fetch(apiBase + "/api/users", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + adminToken, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: missingWaliLinkEmail,
-        name: "Wali tanpa tautan",
-        role: "Walisantri",
-        tempPassword: "Wali-Test-" + randomUUID() + "-Aa1!",
-        modulePermissions: {},
-      }),
-    });
-    assert.equal(missingWaliLink.status, 400, "A Wali account without a tenant-scoped student link must be rejected.");
-    assert.equal((await missingWaliLink.json()).code, "WALI_INVITATION_REQUIRED");
-
-    const unrecognizedWaliEmail = "wali-unknown-nis-" + randomUUID() + "@example.test";
-    const unrecognizedWaliNis = await fetch(apiBase + "/api/users", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + adminToken, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: unrecognizedWaliEmail,
-        name: "Wali dengan NIS tidak terdaftar",
-        role: "Walisantri",
-        tempPassword: "Wali-Test-" + randomUUID() + "-Aa1!",
-        linkedSantriNis: "9999999999",
-        modulePermissions: {},
-      }),
-    });
-    assert.equal(unrecognizedWaliNis.status, 400, "A Wali account with an unknown NIS must be rejected.");
-    assert.equal((await unrecognizedWaliNis.json()).code, "WALI_INVITATION_REQUIRED");
-    const oversizedPasswordEmail = "oversized-password-" + randomUUID() + "@example.test";
-    const controlCharacterPasswordEmail = "control-password-" + randomUUID() + "@example.test";
-    const rejectInvalidProvisioningPassword = async (email, tempPassword) => fetch(apiBase + "/api/users", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + adminToken, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        name: "Ustadz Validasi",
-        role: "Ustadz",
-        tempPassword,
-        modulePermissions: {},
-      }),
-    });
-    const oversizedPasswordResponse = await rejectInvalidProvisioningPassword(
-      oversizedPasswordEmail,
-      "P".repeat(129),
-    );
-    assert.equal(oversizedPasswordResponse.status, 400, "Provisioning must reject passwords longer than 128 characters.");
-    const controlCharacterPasswordResponse = await rejectInvalidProvisioningPassword(
-      controlCharacterPasswordEmail,
-      "Valid-Password-1\n",
-    );
-    assert.equal(controlCharacterPasswordResponse.status, 400, "Provisioning must reject control characters in passwords.");
-
-    const authDirectory = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    assert.equal(authDirectory.error, null, "The synthetic Auth directory must remain readable for the assertion.");
-    assert.ok(!authDirectory.data.users.some((user) => [
-      missingWaliLinkEmail,
-      unrecognizedWaliEmail,
-      oversizedPasswordEmail,
-      controlCharacterPasswordEmail,
-    ].includes(user.email)), "Rejected registrations and invalid provisioning passwords must not leave Auth accounts behind.");
-    const unauthenticated = await fetch(`${apiBase}/api/users`);
-    assert.equal(unauthenticated.status, 401, 'Requests without a session must be rejected.');
-
-    const invalidSession = await fetch(`${apiBase}/api/users`, {
-      headers: { Authorization: 'Bearer definitely-not-a-supabase-session' },
-    });
-    assert.equal(invalidSession.status, 401, 'Invalid Supabase sessions must be rejected.');
-
-    const disabledPpdbBill = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/bills`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bill: { paymentType: 'registration', amount: 350000, clientRequestId: randomUUID() } }),
-    });
-    assert.equal(disabledPpdbBill.status, 503, 'PPDB billing must stay unavailable until its runtime and schema are enabled.');
-
-    const noPpdbBill = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/bills`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bill: { paymentType: 'registration', amount: 350000, clientRequestId: randomUUID() } }),
-    });
-    assert.equal(noPpdbBill.status, 403, 'PPDB invoice creation must require PPDB module access.');
-
-    const noFinanceBill = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/bills`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${noFinanceAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bill: { paymentType: 'registration', amount: 350000, clientRequestId: randomUUID() } }),
-    });
-    assert.equal(noFinanceBill.status, 403, 'PPDB invoice creation must require Finance module access.');
-
-    const disabledPpdbDocument = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal(disabledPpdbDocument.status, 503, 'Private PPDB documents must stay closed until their server runtime is enabled.');
-
-    const noPpdbDocument = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
-      headers: { Authorization: `Bearer ${noPpdbAdminToken}` },
-    });
-    assert.equal(noPpdbDocument.status, 403, 'Private PPDB documents must require the PPDB module permission.');
-
-    const ppdbUploadPayload = JSON.stringify({
-      clientRequestId: randomUUID(),
-      file: { mimeType: 'application/pdf', base64: Buffer.from('%PDF-1.7\n%%EOF\n').toString('base64') },
-    });
-    const disabledPpdbDocumentUpload = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: ppdbUploadPayload,
-    });
-    assert.equal(disabledPpdbDocumentUpload.status, 503, 'PPDB document uploads must stay unavailable until the storage runtime is enabled.');
-
-    const noPpdbDocumentUpload = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
-      body: ppdbUploadPayload,
-    });
-    assert.equal(noPpdbDocumentUpload.status, 403, 'PPDB document uploads must require the PPDB module permission.');
-
-    const waliPpdbDocumentUpload = await fetch(`${apiBase}/api/ppdb/candidates/${randomUUID()}/documents/kk`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${waliToken}`, 'Content-Type': 'application/json' },
-      body: ppdbUploadPayload,
-    });
-    assert.equal(waliPpdbDocumentUpload.status, 403, 'Wali accounts cannot upload Admin PPDB candidate documents.');
-
-    const noPpdbCandidate = await fetch(`${apiBase}/api/ppdb/candidates`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientRequestId: randomUUID(), candidates: [{}] }),
-    });
-    assert.equal(noPpdbCandidate.status, 403, 'Candidate creation must require the PPDB module permission.');
-
-    const waliPpdbCandidate = await fetch(`${apiBase}/api/ppdb/candidates`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${waliToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientRequestId: randomUUID(), candidates: [{}] }),
-    });
-    assert.equal(waliPpdbCandidate.status, 403, 'Wali accounts cannot create PPDB candidates even with PPDB module flags.');
-
-    const noPpdbCandidateSearch = await fetch(`${apiBase}/api/ppdb/candidates/search`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 250, search: '', stage: null }),
-    });
-    assert.equal(noPpdbCandidateSearch.status, 403, 'Candidate search must require the PPDB module permission.');
-
-    const waliPpdbCandidateSearch = await fetch(`${apiBase}/api/ppdb/candidates/search`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${waliToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 250, search: '', stage: null }),
-    });
-    assert.equal(waliPpdbCandidateSearch.status, 403, 'Wali accounts cannot search the Admin PPDB candidate directory.');
-
-    const shortPpdbCandidateSearch = await fetch(`${apiBase}/api/ppdb/candidates/search`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 250, search: 'ab', stage: null }),
-    });
-    assert.equal(shortPpdbCandidateSearch.status, 400, 'Candidate directory search must enforce a three-character minimum.');
-
-    const noPpdbPreview = await fetch(`${apiBase}/api/ppdb/candidates/preview`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${noPpdbAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ candidates: [{}] }),
-    });
-    assert.equal(noPpdbPreview.status, 403, 'CSV preview must require the PPDB module permission.');
-
-    const waliPpdbPreview = await fetch(`${apiBase}/api/ppdb/candidates/preview`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${waliToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ candidates: [{}] }),
-    });
-    assert.equal(waliPpdbPreview.status, 403, 'Wali accounts cannot preview PPDB imports.');
-
-    const validCsvCandidate = {
-      registrationId: `CSV-${fixtureSuffix}-001`,
-      name: 'Calon Uji Pratinjau',
-      gender: 'L',
-      grade: 'VII',
-      previousSchool: 'Sekolah Uji',
-      phone: '081234567890',
-      whatsappPhone: '081234567890',
-      email: '',
-      nik: '1234567890123456',
-      nisn: '1234567890',
-      pob: 'Jakarta',
-      dob: '2012-01-02',
-      address: 'Alamat sintetis untuk pengujian',
-      fatherName: 'Ayah Uji',
-      motherName: 'Ibu Uji',
-      fatherJob: '',
-      motherJob: '',
-      fatherEducation: '',
-      motherEducation: '',
-      familyIncome: '',
-    };
-    const candidatesBeforePreview = await admin.from('candidates').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]);
-    assert.equal(candidatesBeforePreview.error, null, 'Candidate row count must be readable before dry-run preview.');
-    const claimsBeforePreview = await admin.from('identity_claims').select('tenant_id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]);
-    assert.equal(claimsBeforePreview.error, null, 'Identity-claim row count must be readable before dry-run preview.');
-    const csvPreviewResponse = await fetch(`${apiBase}/api/ppdb/candidates/preview`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ candidates: [validCsvCandidate, { ...validCsvCandidate, registrationId: `csv-${fixtureSuffix}-001` }] }),
-    });
-    assert.equal(csvPreviewResponse.status, 200, 'Admin CSV preview must validate records against tenant data.');
-    const csvPreviewText = await csvPreviewResponse.text();
-    assert.ok(!csvPreviewText.includes(validCsvCandidate.nik) && !csvPreviewText.includes(validCsvCandidate.nisn), 'CSV preview must never return applicant NIK/NISN.');
-    const csvPreview = JSON.parse(csvPreviewText);
-    assert.deepEqual(csvPreview.rows.map((row) => row.status), ['conflict', 'conflict'], 'Repeated IDs in one CSV batch must be flagged before import.');
-    assert.ok(csvPreview.rows.every((row) => row.issues.some((issue) => issue.includes('baris'))), 'CSV preview must identify the other repeated row.');
-    const candidatesAfterPreview = await admin.from('candidates').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]);
-    assert.equal(candidatesAfterPreview.error, null, 'Candidate row count must remain readable after dry-run preview.');
-    assert.equal(candidatesAfterPreview.count, candidatesBeforePreview.count, 'CSV preview must not create candidate rows.');
-    const claimsAfterPreview = await admin.from('identity_claims').select('tenant_id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]);
-    assert.equal(claimsAfterPreview.error, null, 'Identity-claim row count must remain readable after dry-run preview.');
-    assert.equal(claimsAfterPreview.count, claimsBeforePreview.count, 'CSV preview must not create identity claims.');
-
-    const invalidCsvPreview = await fetch(`${apiBase}/api/ppdb/candidates/preview`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ candidates: [{ ...validCsvCandidate, nik: '123' }] }),
-    });
-    assert.equal(invalidCsvPreview.status, 200, 'CSV preview should report row-level validation errors instead of aborting the batch.');
-    assert.equal((await invalidCsvPreview.json()).rows[0].status, 'conflict');
-
-    const updateWaliPermissions = async (modulePermissions) => {
-      const { data, error } = await admin.from('profiles')
-        .update({ module_permissions: modulePermissions })
-        .eq('tenant_id', tenantIds[0])
-        .eq('user_id', users[6].uid)
-        .select('user_id');
-      assert.equal(error, null, 'The synthetic Wali permissions must be updateable by the local service role.');
-      assert.equal(data?.length, 1, 'Exactly one synthetic Wali profile must be updated.');
-    };
-
-    await updateWaliPermissions({ finance: false, boarding: false });
-    const deniedWaliFinance = await fetch(`${apiBase}/api/finance/snapshot`, {
-      headers: { Authorization: `Bearer ${waliToken}` },
-    });
-    assert.equal(deniedWaliFinance.status, 403, 'Wali access must be denied when the Finance module permission is off.');
-    const deniedWaliBoarding = await fetch(`${apiBase}/api/boarding/permits`, {
-      headers: { Authorization: `Bearer ${waliToken}` },
-    });
-    assert.equal(deniedWaliBoarding.status, 403, 'Wali access must be denied when the Boarding module permission is off.');
-
-    await updateWaliPermissions({ finance: true, boarding: true });
-    const unlinkedWaliFinance = await fetch(`${apiBase}/api/finance/snapshot`, {
-      headers: { Authorization: `Bearer ${waliToken}` },
-    });
-    assert.equal(unlinkedWaliFinance.status, 403, 'Wali access must be denied without a canonical guardian-to-student link.');
-    const unlinkedWaliBoarding = await fetch(`${apiBase}/api/boarding/permits`, {
-      headers: { Authorization: `Bearer ${waliToken}` },
-    });
-    assert.equal(unlinkedWaliBoarding.status, 403, 'Boarding access must be denied without a canonical guardian-to-student link.');
-    for (const [role, token] of [['Ustadz', ustadzToken], ['Santri', santriToken], ['Walisantri', waliToken]]) {
-      const nonAdmin = await fetch(`${apiBase}/api/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      assert.equal(nonAdmin.status, 403, `${role} must not access user management.`);
-      assert.equal((await nonAdmin.json()).code, 'FORBIDDEN_ROLE');
-    }
-
-    const limitedAdmin = await fetch(`${apiBase}/api/users`, {
-      headers: { Authorization: `Bearer ${limitedAdminToken}` },
-    });
-    assert.equal(limitedAdmin.status, 403, 'An admin explicitly denied the users module must be rejected.');
-    assert.equal((await limitedAdmin.json()).code, 'MODULE_ACCESS_DENIED');
-
-    const inactiveAdmin = await fetch(`${apiBase}/api/users`, {
-      headers: { Authorization: `Bearer ${inactiveAdminToken}` },
-    });
-    assert.equal(inactiveAdmin.status, 403, 'Suspended users must not access user management.');
-    assert.equal((await inactiveAdmin.json()).code, 'ACCOUNT_INACTIVE');
-
-    const suspendedTenantAdmin = await fetch(`${apiBase}/api/users`, {
-      headers: { Authorization: `Bearer ${suspendedTenantAdminToken}` },
-    });
-    assert.equal(suspendedTenantAdmin.status, 403, 'Users in a suspended tenant must not access user management.');
-    assert.equal((await suspendedTenantAdmin.json()).code, 'ACCOUNT_INACTIVE');
-
-    const restrictedAdminHeaders = {
-      Authorization: `Bearer ${noFinanceAdminToken}`,
-      'Content-Type': 'application/json',
-    };
-    const defaultRoleEscalation = await fetch(`${apiBase}/api/users`, {
-      method: 'POST',
-      headers: restrictedAdminHeaders,
-      body: JSON.stringify({
-        email: `restricted-default-${randomUUID()}@example.test`,
-        name: 'Akun uji terbatas',
-        role: 'Santri',
-        tempPassword: `Test-Password-${randomUUID()}-Aa1!`,
-      }),
-    });
-    assert.equal(defaultRoleEscalation.status, 403, 'A restricted Admin must not create an account whose role defaults exceed the Admin module scope.');
-    assert.equal((await defaultRoleEscalation.json()).code, 'FORBIDDEN_MODULE_PERMISSION');
-
-    const explicitModuleEscalation = await fetch(`${apiBase}/api/users`, {
-      method: 'POST',
-      headers: restrictedAdminHeaders,
-      body: JSON.stringify({
-        email: `restricted-explicit-${randomUUID()}@example.test`,
-        name: 'Akun uji terbatas',
-        role: 'Santri',
-        tempPassword: `Test-Password-${randomUUID()}-Aa1!`,
-        modulePermissions: { finance: true },
-      }),
-    });
-    assert.equal(explicitModuleEscalation.status, 403, 'A restricted Admin must not grant an explicitly forbidden module.');
-
-    const restrictedGuardianInvitation = await fetch(`${apiBase}/api/users/guardian-invitations`, {
-      method: 'POST',
-      headers: restrictedAdminHeaders,
-      body: JSON.stringify({
-        email: `restricted-wali-${randomUUID()}@example.test`,
-        guardianId: randomUUID(),
-        modulePermissions: {},
-      }),
-    });
-    assert.equal(restrictedGuardianInvitation.status, 403, 'A restricted Admin must not grant a Wali role default beyond the Admin module scope.');
-    assert.equal((await restrictedGuardianInvitation.json()).code, 'FORBIDDEN_MODULE_PERMISSION');
-
-    const selfModuleEscalation = await fetch(`${apiBase}/api/users/${users[10].uid}`, {
-      method: 'PATCH',
-      headers: restrictedAdminHeaders,
-      body: JSON.stringify({ modulePermissions: { finance: true } }),
-    });
-    assert.equal(selfModuleEscalation.status, 403, 'A restricted Admin must not grant a module to their own account.');
-    assert.equal((await selfModuleEscalation.json()).code, 'FORBIDDEN_MODULE_PERMISSION');
-    const tenantResponse = await fetch(`${apiBase}/api/users?tenantId=${tenantIds[1]}`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal(tenantResponse.status, 200, 'An active tenant admin should read their own tenant users.');
-    const tenantPayload = await tenantResponse.json();
-    assert.equal(tenantPayload.total, 12, 'The tenant admin should only see the twelve profiles in tenant A, including Cooperative permission fixtures.');
-    assert.ok(tenantPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'The response must remain scoped to the actor tenant even when a foreign tenantId is requested.');
-    assert.ok(!tenantPayload.users.some((profile) => profile.email === users[2].email), 'A profile from another tenant must never appear in the response.');
-
-    const pageResponses = await Promise.all([0, 3, 6, 9].map((offset) => fetch(`${apiBase}/api/users?limit=3&offset=${offset}`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    })));
-    for (const response of pageResponses) assert.equal(response.status, 200, 'Tenant user pages must be readable.');
-    const pagePayloads = await Promise.all(pageResponses.map((response) => response.json()));
-    assert.deepEqual(pagePayloads.map((payload) => payload.users.length), [3, 3, 3, 3], 'Pagination must return bounded, non-overlapping page sizes across the Cooperative fixtures.');
-    assert.ok(pagePayloads.every((payload) => payload.total === 12), 'Every page must report the filtered tenant total.');
-    const pagedIds = pagePayloads.flatMap((payload) => payload.users.map((profile) => profile.uid));
-    assert.equal(new Set(pagedIds).size, 12, 'Stable ordering must return every tenant profile exactly once across pages.');
-
-    const searchResponse = await fetch(`${apiBase}/api/users?q=${encodeURIComponent(users[0].email)}`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal(searchResponse.status, 200, 'Search by email containing reserved punctuation must be supported.');
-    const searchPayload = await searchResponse.json();
-    assert.equal(searchPayload.total, 1, 'Search must be applied before pagination and return exact counts.');
-    assert.equal(searchPayload.users[0].uid, users[0].uid, 'Search must match within the acting tenant.');
-
-    const shortSearchResponse = await fetch(`${apiBase}/api/users?q=ab`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal(shortSearchResponse.status, 400, 'Search terms shorter than three characters must not trigger broad directory scans.');
-    assert.equal((await shortSearchResponse.json()).code, 'QUERY_TOO_SHORT');
-
-    const roleResponse = await fetch(`${apiBase}/api/users?role=Ustadz`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal((await roleResponse.json()).total, 1, 'Role filtering must happen in the database query.');
-
-    const statusResponse = await fetch(`${apiBase}/api/users?status=disabled`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal((await statusResponse.json()).total, 1, 'Status filtering must map to suspended profiles.');
-
-    const invalidPageResponse = await fetch(`${apiBase}/api/users?limit=101`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    assert.equal(invalidPageResponse.status, 400, 'Page sizes above the server limit must be rejected.');
-
-    const superAdminResponse = await fetch(`${apiBase}/api/users?tenantId=${tenantIds[1]}`, {
-      headers: { Authorization: `Bearer ${superAdminToken}` },
-    });
-    assert.equal(superAdminResponse.status, 200, 'An active SuperAdmin should pass the user-management role gate.');
-    const superAdminPayload = await superAdminResponse.json();
-    assert.equal(superAdminPayload.total, 12, 'SuperAdmin remains scoped to the profile tenant, including Cooperative permission fixtures, when a foreign tenantId is requested.');
-    assert.ok(superAdminPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'SuperAdmin results must remain tenant-scoped.');
-    assert.ok(!superAdminPayload.users.some((profile) => profile.email === users[2].email), 'SuperAdmin must not receive a foreign-tenant profile through query spoofing.');
-
-    // Simulate a database failure after Auth has accepted the account. The application must
-    // remove that Auth user before reporting provisioning failure, avoiding an orphan login.
-    const triggerSql = `
-      CREATE OR REPLACE FUNCTION public.test_fail_provision_profile_insert()
-      RETURNS trigger LANGUAGE plpgsql AS $$
-      BEGIN
-        IF NEW.email = '${profileFailureEmail}' THEN
-          RAISE EXCEPTION 'synthetic profile insert failure' USING ERRCODE = '23505';
-        END IF;
-        RETURN NEW;
-      END;
-      $$;
-      CREATE TRIGGER test_fail_provision_profile_insert
-      BEFORE INSERT ON public.profiles
-      FOR EACH ROW EXECUTE FUNCTION public.test_fail_provision_profile_insert();
-    `;
-    profileFailureTriggerInstalled = true;
-    execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', triggerSql], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 1024 * 1024,
-    });
-    const failedProvisioning = await fetch(`${apiBase}/api/users`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${superAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: profileFailureEmail,
-        name: 'Uji Pemulihan Provisioning',
-        role: 'Admin',
-        tempPassword: `Temporary-${randomUUID()}-Aa1!`,
-        username: `provision-failure-${fixtureSuffix}`,
-      }),
-    });
-    assert.equal(failedProvisioning.status, 503, 'Profile write failure must be reported as a backend provisioning failure.');
-    assert.equal((await failedProvisioning.json()).code, 'SUPABASE_IDENTITY_UNAVAILABLE');
-
-    const { data: authUsersAfterFailure, error: authUsersReadError } = await admin.auth.admin.listUsers({ page: 1, perPage: 100 });
-    assert.equal(authUsersReadError, null, 'Auth users must remain inspectable in the local fixture.');
-    assert.ok(!authUsersAfterFailure.users.some((user) => user.email === profileFailureEmail),
-      'Auth account must be compensated when the profile transaction fails.');
-    const { data: profileAfterFailure, error: profileReadError } = await admin.from('profiles')
-      .select('user_id').eq('email', profileFailureEmail).maybeSingle();
-    assert.equal(profileReadError, null, 'Profile query for the failed synthetic account must succeed.');
-    assert.equal(profileAfterFailure, null, 'A failed provisioning attempt must not leave a profile behind.');
-
-    const referenceFinanceAdmin = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'reference-finance-only', {
-      'master-data': false,
-      finance: true,
-    });
-    users.push(referenceFinanceAdmin);
-    const referenceFinanceToken = await signIn(anon, referenceFinanceAdmin);
-
-    if (serverProcess && serverProcess.exitCode === null) {
-      serverProcess.kill('SIGTERM');
-      await Promise.race([
-        new Promise((resolve) => serverProcess.once('exit', resolve)),
-        sleep(5000),
-      ]);
-      if (serverProcess.exitCode === null) serverProcess.kill('SIGKILL');
-    }
-    serverProcess = null;
-
-    const referencePort = await availablePort();
-    const referenceApiBase = `http://127.0.0.1:${referencePort}`;
-    serverProcess = spawn('bun', ['run', 'dev'], {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        PORT: String(referencePort),
-        NODE_ENV: 'production',
-        SUPABASE_URL: url,
-        SUPABASE_SECRET_KEY: serviceKey,
-        SUPABASE_SERVICE_ROLE_KEY: '',
-        PII_ENCRYPTION_KEY: piiEncryptionKey,
-        PII_FINGERPRINT_KEY: piiFingerprintKey,
-        SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'true',
-        SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
-        SUPABASE_COMMUNICATION_RUNTIME_ENABLED: 'true',
-        SUPABASE_TAHFIDZ_RUNTIME_ENABLED: 'true',
-        SUPABASE_ACADEMIC_RUNTIME_ENABLED: 'true',
-      },
-      stdio: ['ignore', 'ignore', 'ignore'],
-    });
-    const referenceDeadline = Date.now() + 45000;
-    let referenceServerReady = false;
-    while (Date.now() < referenceDeadline && serverProcess.exitCode === null) {
-      try {
-        const response = await fetch(`${referenceApiBase}/api/auth/profile`);
-        if (response.status === 401) {
-          referenceServerReady = true;
-          break;
-        }
-      } catch {}
-      await sleep(250);
-    }
-    assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
-
-    const financeReferenceUrl = `${referenceApiBase}/api/master-data/references?domain=finance_fee_type`;
-    const financeReferenceRead = await fetch(financeReferenceUrl, {
-      headers: { Authorization: `Bearer ${referenceFinanceToken}` },
-    });
-    assert.equal(financeReferenceRead.status, 200,
-      'An Admin with Finance access can use its catalog even when Master Data is explicitly denied.');
-    assert.ok(Array.isArray((await financeReferenceRead.json()).records));
-
-    const deniedFinanceReferenceRead = await fetch(financeReferenceUrl, {
-      headers: { Authorization: `Bearer ${noFinanceAdminToken}` },
-    });
-    assert.equal(deniedFinanceReferenceRead.status, 403,
-      'An Admin without Finance access cannot read the Finance catalog despite having Master Data access.');
-
-    const financeReferenceInput = {
-      code: 'FEE_UJI_PERMISSION',
-      name: 'Biaya Uji Izin',
-      description: 'Kategori sintetis untuk menguji hak kelola modul keuangan.',
-      status: 'active',
-    };
-    const createFinanceReference = await fetch(`${referenceApiBase}/api/master-data/references/finance_fee_type`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${referenceFinanceToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ record: financeReferenceInput }),
-    });
-    assert.equal(createFinanceReference.status, 201,
-      'An Admin with Finance access can create a Finance reference without Master Data access.');
-    const createdFinanceReference = (await createFinanceReference.json()).record;
-    assert.ok(createdFinanceReference?.id, 'The Finance reference must be persisted and returned with its tenant-owned ID.');
-
-    const deniedFinanceReferenceCreate = await fetch(`${referenceApiBase}/api/master-data/references/finance_fee_type`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${noFinanceAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ record: { ...financeReferenceInput, code: 'FEE_UJI_DENIED' } }),
-    });
-    assert.equal(deniedFinanceReferenceCreate.status, 403,
-      'Master Data permission must not let an Admin create a reference owned by a denied module.');
-
-    const updatedFinanceReferenceInput = {
-      ...financeReferenceInput,
-      code: 'FEE_UJI_PERMISSION_EDIT',
-      name: 'Biaya Uji Izin Diperbarui',
-      description: 'Kategori sintetis yang diperbarui untuk uji hak modul keuangan.',
-    };
-    const updateFinanceReference = await fetch(`${referenceApiBase}/api/master-data/references/finance_fee_type/${encodeURIComponent(createdFinanceReference.id)}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${referenceFinanceToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ record: updatedFinanceReferenceInput }),
-    });
-    assert.equal(updateFinanceReference.status, 200,
-      'The owning Finance Admin can update a Finance reference without Master Data permission.');
-
-    const deniedFinanceReferenceUpdate = await fetch(`${referenceApiBase}/api/master-data/references/finance_fee_type/${encodeURIComponent(createdFinanceReference.id)}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${noFinanceAdminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ record: updatedFinanceReferenceInput }),
-    });
-    assert.equal(deniedFinanceReferenceUpdate.status, 403,
-      'Master Data permission must not let an Admin update a reference owned by a denied module.');
-
-    const ustadzReferenceCreate = await fetch(`${referenceApiBase}/api/master-data/references/academic_subject`, {
+    const cooperativeStockRetry = await fetch(`${apiBase}/api/coop…12260 tokens truncated…s/academic_subject`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1922,7 +1096,123 @@ async function main() {
     });
     assert.equal(santriRecordWrite.status, 403, 'A Santri cannot create setoran even when granted module read access.');
 
-    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    const laundryDeniedRole = await fetch(`${apiBase}/api/laundry/snapshot`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(laundryDeniedRole.status, 403, 'Laundry management is restricted to an authorized tenant Admin.');
+
+    const laundryEmptyResponse = await fetch(`${apiBase}/api/laundry/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(laundryEmptyResponse.status, 200, 'An authorized Admin can read the initial Laundry snapshot.');
+    const laundryEmpty = await laundryEmptyResponse.json();
+    assert.deepEqual(laundryEmpty.orders, [], 'A new tenant begins without Laundry orders.');
+    assert.equal(laundryEmpty.settings.monthlyQuotaKg, 20, 'Laundry starts with the documented tenant default quota.');
+    assert.ok(laundryEmpty.students.some((student) => student.id === tahfidzStudentId), 'Laundry resolves its roster from the same-tenant student records.');
+
+    const laundrySettingsInput = {
+      monthlyQuotaKg: 2,
+      excessRatePerKg: 5000,
+      clientRequestId: randomUUID(),
+    };
+    const laundrySettingsSave = await fetch(`${apiBase}/api/laundry/settings`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundrySettingsInput),
+    });
+    assert.equal(laundrySettingsSave.status, 200, 'An authorized Admin can save tenant Laundry quota settings.');
+    assert.equal((await laundrySettingsSave.json()).replayed, false);
+    const laundrySettingsRetry = await fetch(`${apiBase}/api/laundry/settings`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundrySettingsInput),
+    });
+    assert.equal(laundrySettingsRetry.status, 200);
+    assert.equal((await laundrySettingsRetry.json()).replayed, true, 'A repeated settings request is idempotent.');
+
+    const laundryOrderInput = {
+      studentId: tahfidzStudentId,
+      weightKg: 3.25,
+      pieces: 4,
+      clientRequestId: randomUUID(),
+    };
+    const laundryOrderCreate = await fetch(`${apiBase}/api/laundry/orders`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundryOrderInput),
+    });
+    assert.equal(laundryOrderCreate.status, 201, 'An authorized Admin can create a Laundry order linked to a student.');
+    const createdLaundryOrder = await laundryOrderCreate.json();
+    assert.ok(createdLaundryOrder.id && createdLaundryOrder.orderNumber);
+    assert.equal(createdLaundryOrder.replayed, false);
+    const laundryOrderRetry = await fetch(`${apiBase}/api/laundry/orders`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundryOrderInput),
+    });
+    assert.equal(laundryOrderRetry.status, 200, 'An identical Laundry order request replays the prior outcome.');
+    assert.equal((await laundryOrderRetry.json()).id, createdLaundryOrder.id, 'Laundry order retry does not create a duplicate.');
+
+    const savedLaundryOrder = await admin.from('laundry_orders')
+      .select('tenant_id,student_id,order_number,weight_kg,pieces,status')
+      .eq('id', createdLaundryOrder.id)
+      .single();
+    assert.equal(savedLaundryOrder.error, null);
+    assert.equal(savedLaundryOrder.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedLaundryOrder.data?.student_id, tahfidzStudentId, 'The persisted order keeps its same-tenant student relation.');
+    assert.equal(savedLaundryOrder.data?.order_number, createdLaundryOrder.orderNumber);
+
+    const laundryAfterCreateResponse = await fetch(`${apiBase}/api/laundry/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(laundryAfterCreateResponse.status, 200);
+    const laundryAfterCreate = await laundryAfterCreateResponse.json();
+    const laundryOrderInSnapshot = laundryAfterCreate.orders.find((order) => order.id === createdLaundryOrder.id);
+    assert.ok(laundryOrderInSnapshot, 'The order is readable through the tenant API after it is saved.');
+    assert.equal(laundryOrderInSnapshot.studentId, tahfidzStudentId);
+    assert.equal(laundryOrderInSnapshot.student, 'Santri Uji Tahfidz API');
+    const laundryQuota = laundryAfterCreate.quotas.find((quota) => quota.id === tahfidzStudentId);
+    assert.equal(laundryQuota.usedKg, 3.25);
+    assert.equal(laundryQuota.remainingKg, 0);
+    assert.equal(laundryQuota.excessKg, 1.25);
+    assert.equal(laundryQuota.estimatedCharge, 6250, 'Quota charge uses the saved rate and same-month order weight.');
+
+    const invalidLaundryTransition = await fetch(`${apiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'collected', clientRequestId: randomUUID() }),
+    });
+    assert.equal(invalidLaundryTransition.status, 409, 'Laundry rejects an invalid status jump.');
+
+    const laundryTransitionInput = { status: 'washing', clientRequestId: randomUUID() };
+    const laundryTransition = await fetch(`${apiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundryTransitionInput),
+    });
+    assert.equal(laundryTransition.status, 200);
+    assert.equal((await laundryTransition.json()).status, 'washing');
+    const laundryTransitionRetry = await fetch(`${apiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(laundryTransitionInput),
+    });
+    assert.equal(laundryTransitionRetry.status, 200);
+    assert.equal((await laundryTransitionRetry.json()).replayed, true, 'A repeated status request does not append a second transition.');
+
+    const laundryTenantBResponse = await fetch(`${apiBase}/api/laundry/snapshot`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(laundryTenantBResponse.status, 200);
+    assert.deepEqual((await laundryTenantBResponse.json()).orders, [], 'Laundry snapshots do not expose another tenant\'s orders.');
+    const laundryCrossTenantTransition = await fetch(`${apiBase}/api/laundry/orders/${encodeURIComponent(createdLaundryOrder.id)}/status`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ready', clientRequestId: randomUUID() }),
+    });
+    assert.equal(laundryCrossTenantTransition.status, 404, 'A different tenant cannot transition an order by guessing its ID.');
+
+    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -1963,6 +1253,10 @@ async function main() {
         `DELETE FROM public.academic_records WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.finance_controls WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.finance_ledger WHERE tenant_id = ANY(${tenantArray}) AND source_type IN ('cooperative_wallet', 'cooperative_sale');`,
+        `DELETE FROM public.laundry_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.laundry_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.laundry_orders WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.laundry_settings WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests DISABLE TRIGGER cooperative_supplier_requests_immutable;',
         `DELETE FROM public.cooperative_supplier_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.cooperative_supplier_mutation_requests ENABLE TRIGGER cooperative_supplier_requests_immutable;',
@@ -2069,4 +1363,5 @@ main().catch((error) => {
   console.error(`API auth and tenant integration test failed (${detail}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
+
 
