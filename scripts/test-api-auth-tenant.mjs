@@ -132,6 +132,8 @@ async function main() {
   const anon = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const fixtureSuffix = randomUUID().slice(0, 12);
   const tenantIds = [randomUUID(), randomUUID(), randomUUID()];
+  const tahfidzCandidateId = randomUUID();
+  const tahfidzStudentId = randomUUID();
   const profileFailureEmail = `provision-failure-${fixtureSuffix}@example.test`;
   const users = [];
   const piiEncryptionKey = randomBytes(32).toString('hex');
@@ -149,10 +151,10 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a'));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
-    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
@@ -167,7 +169,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -185,6 +187,31 @@ async function main() {
       updated_by_user_id: users[0].uid,
     });
     if (gradeReferenceError) throw new Error('Unable to configure the synthetic tenant grade catalog.');
+
+    const { error: tahfidzCandidateError } = await admin.from('candidates').insert({
+      id: tahfidzCandidateId,
+      tenant_id: tenantIds[0],
+      registration_id: `TAHFIDZ-${fixtureSuffix}`,
+      name: 'Santri Uji Tahfidz API',
+      grade: 'VII',
+      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
+      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+    });
+    if (tahfidzCandidateError) throw new Error('Unable to create the synthetic Tahfidz candidate.');
+
+    const { error: tahfidzStudentError } = await admin.from('students').insert({
+      id: tahfidzStudentId,
+      tenant_id: tenantIds[0],
+      source_candidate_id: tahfidzCandidateId,
+      nis: String(9000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000)),
+      name: 'Santri Uji Tahfidz API',
+      gender: 'L',
+      grade: 'VII',
+      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
+      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+      status: 'active',
+    });
+    if (tahfidzStudentError) throw new Error('Unable to create the synthetic Tahfidz student.');
 
     const adminToken = await signIn(anon, users[0]);
     const santriToken = await signIn(anon, users[1]);
@@ -1104,6 +1131,7 @@ async function main() {
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
         SUPABASE_COMMUNICATION_RUNTIME_ENABLED: 'true',
+        SUPABASE_TAHFIDZ_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -1270,7 +1298,136 @@ async function main() {
     });
     assert.equal(noRecipientAnnouncement.status, 409, 'Announcements must fail closed when the selected audience has no active linked account.');
 
-    console.log('API auth, tenant isolation, CRM and communication round-trips, and reference catalog permissions passed: persistence, audience relations, idempotency, tenant isolation, and role restrictions.');
+
+    const halaqahPayload = {
+      name: `Halaqah API ${fixtureSuffix}`,
+      ustadzUserId: users[3].uid,
+      schedule: 'Senin 08.00',
+      room: 'Ruang Uji API',
+      dailyTargetPages: 1,
+      status: 'active',
+      clientRequestId: randomUUID(),
+    };
+    const halaqahCreate = await fetch(`${referenceApiBase}/api/tahfidz/halaqahs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ halaqah: halaqahPayload }),
+    });
+    assert.equal(halaqahCreate.status, 201, 'An authorized Admin can create a halaqah through the application API.');
+    const halaqah = await halaqahCreate.json();
+    assert.equal(halaqah.success, true);
+    assert.ok(halaqah.halaqahId);
+
+    const halaqahRetry = await fetch(`${referenceApiBase}/api/tahfidz/halaqahs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ halaqah: halaqahPayload }),
+    });
+    assert.equal(halaqahRetry.status, 200, 'An identical halaqah request is idempotent.');
+    assert.equal((await halaqahRetry.json()).halaqahId, halaqah.halaqahId);
+
+    const { data: halaqahRow, error: halaqahReadError } = await admin.from('tahfidz_halaqahs')
+      .select('tenant_id,ustadz_user_id,status')
+      .eq('id', halaqah.halaqahId)
+      .maybeSingle();
+    assert.equal(halaqahReadError, null);
+    assert.equal(halaqahRow?.tenant_id, tenantIds[0]);
+    assert.equal(halaqahRow?.ustadz_user_id, users[3].uid, 'The assigned Ustadz relationship is persisted.');
+
+    const membershipPayload = {
+      studentId: tahfidzStudentId,
+      halaqahId: halaqah.halaqahId,
+      startsOn: new Date().toISOString().slice(0, 10),
+      clientRequestId: randomUUID(),
+    };
+    const membershipCreate = await fetch(`${referenceApiBase}/api/tahfidz/memberships`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ membership: membershipPayload }),
+    });
+    assert.equal(membershipCreate.status, 201, 'An authorized Admin can assign a student to a halaqah through the API.');
+    const membership = await membershipCreate.json();
+    assert.equal(membership.success, true);
+    assert.equal(membership.alreadyApplied, false);
+
+    const membershipRetry = await fetch(`${referenceApiBase}/api/tahfidz/memberships`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ membership: membershipPayload }),
+    });
+    assert.equal(membershipRetry.status, 200, 'An identical membership request is idempotent.');
+    assert.equal((await membershipRetry.json()).membershipId, membership.membershipId);
+
+    const { data: membershipRow, error: membershipReadError } = await admin.from('tahfidz_memberships')
+      .select('tenant_id,student_id,halaqah_id,status')
+      .eq('id', membership.membershipId)
+      .maybeSingle();
+    assert.equal(membershipReadError, null);
+    assert.equal(membershipRow?.tenant_id, tenantIds[0]);
+    assert.equal(membershipRow?.student_id, tahfidzStudentId);
+    assert.equal(membershipRow?.halaqah_id, halaqah.halaqahId);
+    assert.equal(membershipRow?.status, 'active');
+
+    const setoranPayload = {
+      studentId: tahfidzStudentId,
+      halaqahId: halaqah.halaqahId,
+      activityType: 'Ziyadah',
+      surahName: 'Al-Baqarah',
+      ayahRange: '1-5',
+      fluencyGrade: 'A',
+      tajweedGrade: 'A',
+      notes: 'Catatan sintetis uji integrasi API.',
+      performedAt: new Date().toISOString(),
+      clientRequestId: randomUUID(),
+    };
+    const setoranCreate = await fetch(`${referenceApiBase}/api/tahfidz/records`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: setoranPayload }),
+    });
+    assert.equal(setoranCreate.status, 201, 'The assigned Ustadz can record setoran through the application API.');
+    assert.equal((await setoranCreate.json()).alreadyRecorded, false);
+
+    const setoranRetry = await fetch(`${referenceApiBase}/api/tahfidz/records`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: setoranPayload }),
+    });
+    assert.equal(setoranRetry.status, 200, 'An identical setoran request does not create a duplicate.');
+    assert.equal((await setoranRetry.json()).alreadyRecorded, true);
+
+    const { data: setoranRows, error: setoranReadError } = await admin.from('tahfidz_records')
+      .select('tenant_id,student_id,halaqah_id,recorded_by_user_id,client_request_id')
+      .eq('tenant_id', tenantIds[0])
+      .eq('client_request_id', setoranPayload.clientRequestId);
+    assert.equal(setoranReadError, null);
+    assert.equal(setoranRows?.length, 1, 'The idempotent setoran is stored exactly once.');
+    assert.equal(setoranRows[0].student_id, tahfidzStudentId);
+    assert.equal(setoranRows[0].halaqah_id, halaqah.halaqahId);
+    assert.equal(setoranRows[0].recorded_by_user_id, users[3].uid);
+
+    const ustadzRecordsResponse = await fetch(`${referenceApiBase}/api/tahfidz/records`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(ustadzRecordsResponse.status, 200, 'The assigned Ustadz can read halaqah setoran through the API.');
+    const ustadzRecords = (await ustadzRecordsResponse.json()).records;
+    assert.ok(ustadzRecords.some((record) => record.studentId === tahfidzStudentId && record.halaqahId === halaqah.halaqahId),
+      'The read response includes the record linked to its student and halaqah.');
+
+    const tenantBTahfidzResponse = await fetch(`${referenceApiBase}/api/tahfidz/records`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(tenantBTahfidzResponse.status, 200);
+    assert.deepEqual((await tenantBTahfidzResponse.json()).records, [], 'A different tenant cannot read Tahfidz records.');
+
+    const santriRecordWrite = await fetch(`${referenceApiBase}/api/tahfidz/records`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${santriToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: setoranPayload }),
+    });
+    assert.equal(santriRecordWrite.status, 403, 'A Santri cannot create setoran even when granted module read access.');
+
+    console.log('API auth, tenant isolation, CRM, communication, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -1303,6 +1460,19 @@ async function main() {
       const tenantArray = `ARRAY[${tenantIds.map((id) => `'${id}'::uuid`).join(',')}]`;
       const cleanupSql = [
         'BEGIN;',
+        `DELETE FROM public.tahfidz_membership_write_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tahfidz_halaqah_write_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tahfidz_records WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tahfidz_memberships WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tahfidz_targets WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cooperative_wallet_ledger WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cooperative_sale_items WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cooperative_sales WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cooperative_wallet_policy_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.cooperative_wallets WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.tahfidz_halaqahs WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcements WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
@@ -1328,6 +1498,9 @@ async function main() {
         `DELETE FROM public.tenant_naming_series_counters WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenant_naming_series WHERE tenant_id = ANY(${tenantArray});`,
+        'ALTER TABLE public.master_data_audit_events DISABLE TRIGGER master_data_audit_events_immutable_rows;',
+        `DELETE FROM public.master_data_audit_events WHERE tenant_id = ANY(${tenantArray});`,
+        'ALTER TABLE public.master_data_audit_events ENABLE TRIGGER master_data_audit_events_immutable_rows;',
         'COMMIT;',
       ].join(' ');
       execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', cleanupSql], {
@@ -1335,14 +1508,15 @@ async function main() {
         stdio: ['ignore', 'pipe', 'pipe'],
         maxBuffer: 1024 * 1024,
       });
-    } catch {
-      console.error('Unable to clean synthetic Marketplace rows through local Supabase.');
+    } catch (error) {
+      const detail = error?.stderr?.toString().trim().split(/\r?\n/).slice(-3).join(' ').slice(0, 500) || 'No PostgreSQL diagnostic available.';
+      console.error(`Unable to clean synthetic rows through local Supabase: ${detail}`);
       process.exitCode = 1;
     }
     for (const user of users) {
       const { error } = await admin.auth.admin.deleteUser(user.uid);
       if (error) {
-        console.error('Unable to clean a synthetic Auth/profile fixture.');
+        console.error(`Unable to clean a synthetic Auth/profile fixture (${error.code || error.name || 'unknown'}).`);
         process.exitCode = 1;
       }
     }
@@ -1353,17 +1527,18 @@ async function main() {
         stdio: ['ignore', 'pipe', 'pipe'],
         maxBuffer: 1024 * 1024,
       });
-    } catch {
-      console.error('Unable to clean synthetic tenant fixtures.');
+    } catch (error) {
+      const detail = error?.stderr?.toString().trim().split(/\r?\n/).slice(-3).join(' ').slice(0, 500) || 'No PostgreSQL diagnostic available.';
+      console.error(`Unable to clean synthetic tenant fixtures: ${detail}`);
       process.exitCode = 1;
     }
   }
 }
 
 main().catch((error) => {
-  const detail = error instanceof assert.AssertionError
+  const detail = error instanceof Error
     ? error.message
-    : error?.code || error?.name || 'unknown error';
+    : error?.code || 'unknown error';
   console.error(`API auth and tenant integration test failed (${detail}). Check the local Supabase stack and migration state.`);
   process.exitCode = 1;
 });
