@@ -1,3 +1,9 @@
+> **Status otoritatif — 7 November 2026, sesudah PR #49–#50.** `main` berada pada `cac0ca69ed6135b545f9f21f9c733de7411aedef`; PR #49–#50 merged. CI masing-masing lulus 3/3 job ([PR #49](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332200376), [PR #50](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42332878921)). PR #49 menguji kebijakan autentikasi route privat; PR #50 dokumentasi.
+>
+> Pengujian tersebut tidak berarti seluruh fitur, fungsi, relasi, dan penyimpanan semua modul sudah lulus UAT. Runtime Supabase dan kontrak keamanan memiliki bukti otomatis serta verifikasi terbatas, tetapi end-to-end simpan-baca untuk setiap modul belum selesai. Backend Supabase tersedia sebagai target yang dikonfigurasi; health dan alur tulis setiap modul pada environment hosting belum dibuktikan secara menyeluruh.
+>
+> Production tidak diubah. Tim backend masih bertanggung jawab atas perbandingan DDL aktual, urutan migrasi, backup/restore Production, dan UAT di hosting. Source siap ditinjau; produk belum dinyatakan siap deploy atau komersial. Rincian status dan daftar bukti ada di [handoff backend](BACKEND_TEAM_START_HERE.md).
+
 > **Checkpoint otoritatif — 7 November 2026, sesudah PR #47.** `main` berada pada commit merge `45230fc06f4e7baedb4ed9adadc62f7b24efb23d`. PR #1–#11 tetap closed tanpa merge; cakupan utamanya dipetakan ke source yang lebih baru. PR #43 membatasi pemberian permission oleh Admin; PR #47 menegakkan permission modul pemilik pada perubahan katalog referensi.
 >
 > **CI:** PR #47 lulus 3/3 job pada [run #42329049029](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42329049029), termasuk build, pemeriksaan tipe, migrasi/pgTAP dan uji API katalog lintas permission modul. CI memakai Supabase lokal sintetis; hasilnya bukan UAT browser atau bukti Production.
