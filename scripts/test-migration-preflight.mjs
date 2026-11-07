@@ -272,6 +272,26 @@ assert.deepEqual(oldAcademicClassReferenceAlias.validatedMigrationAliases, [{
 assert.equal(oldAcademicClassReferenceAlias.canContinueToStagingReview, false);
 assert.match(formatReport(oldAcademicClassReferenceAlias), /SQL cocok persis/);
 
+const roomAssignmentReferenceMigration = sourceMigrationsWithSql.find(({ fileName }) =>
+  fileName === '20270304000000_student_room_assignment_reference_locks.sql'
+);
+const oldRoomAssignmentReferenceAlias = compareMigrationVersions([roomAssignmentReferenceMigration], [{
+  version: '20261106151606',
+  name: 'student_room_assignment_reference_locks',
+  statements: roomAssignmentReferenceMigration.statements,
+}]);
+assert.deepEqual(oldRoomAssignmentReferenceAlias.unknownApplied, []);
+assert.equal(oldRoomAssignmentReferenceAlias.pending.length, 0);
+assert.equal(oldRoomAssignmentReferenceAlias.statementMismatches.length, 0);
+assert.deepEqual(oldRoomAssignmentReferenceAlias.migrationAliasesPendingRepair, [{
+  from: '20261106151606', to: '20270304000000', name: 'student_room_assignment_reference_locks',
+}]);
+assert.deepEqual(oldRoomAssignmentReferenceAlias.validatedMigrationAliases, [{
+  from: '20261106151606', to: '20270304000000', name: 'student_room_assignment_reference_locks',
+}]);
+assert.equal(oldRoomAssignmentReferenceAlias.canContinueToStagingReview, false);
+assert.match(formatReport(oldRoomAssignmentReferenceAlias), /SQL cocok persis/);
+
 const changedAcademicClassReferenceAlias = compareMigrationVersions([academicClassReferenceMigration], [{
   version: '20261105070231',
   name: 'academic_class_reference_pagination',
