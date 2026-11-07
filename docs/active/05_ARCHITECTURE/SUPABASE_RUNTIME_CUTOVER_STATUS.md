@@ -14,6 +14,7 @@
 - CI belum menguji login browser Admin/Wali, feature flags pada environment pelanggan, semua menu dan proses modul pada hosting, atau Production. Aktifkan fitur hanya setelah konfigurasi target dan UAT tenant/role sesuai; ERP belum dinyatakan siap go-live.
 
 > Bagian di bawah ini adalah catatan historis per checkpoint. Gunakan status terverifikasi di atas untuk keadaan sekarang.
+
 ## Arsip status diverifikasi setelah PR #17 — 31 Oktober 2026
 
 - Branch `main` kini memuat merge commit PR #17 `3e752f8d6c1961130b9baa108736c51ffc702eb7`. Perubahan menghapus Firebase Admin dan jalur Firestore server, mempertahankan 26 endpoint impor arsip sebagai tombstone HTTP `410`, serta mengeluarkan PPOB/payment gateway dari rilis awal.
