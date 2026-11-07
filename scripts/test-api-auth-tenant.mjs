@@ -159,7 +159,7 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b'));
     users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true }));
@@ -177,7 +177,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -187,6 +187,7 @@ async function main() {
     users.push(academicUnlinkedSantri);
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-donation', { users: true, donation: false }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-document', { users: true, document: false }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-healthcare', { users: true, healthcare: false }));
     const { error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -275,6 +276,7 @@ async function main() {
     const ustadzToken = await signIn(anon, users[3]);
     const donationNoPermissionToken = await signIn(anon, users[14]);
     const documentNoPermissionToken = await signIn(anon, users[15]);
+    const healthcareNoPermissionToken = await signIn(anon, users[16]);
     const waliToken = await signIn(anon, users[6]);
     const superAdminToken = await signIn(anon, users[7]);
     const limitedAdminToken = await signIn(anon, users[8]);
@@ -1469,6 +1471,7 @@ async function main() {
         SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
         SUPABASE_DONATION_RUNTIME_ENABLED: 'true',
         SUPABASE_DOCUMENT_RUNTIME_ENABLED: 'true',
+        SUPABASE_HEALTHCARE_RUNTIME_ENABLED: 'true',
       },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -2337,7 +2340,171 @@ async function main() {
     assert.equal(crossTenantDocumentTransition.status, 404, 'A different tenant cannot transition a document by guessing its ID.');
 
     console.log('Document API round-trip passed: registration, generated number, filtered readback, workflow audit, idempotency, role denial, tenant isolation, and transition validation.');
-    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+    const healthcareSnapshotUrl = referenceApiBase + '/api/healthcare/snapshot';
+    const ustadzHealthcareResponse = await fetch(healthcareSnapshotUrl, { headers: { Authorization: 'Bearer ' + ustadzToken } });
+    assert.equal(ustadzHealthcareResponse.status, 403, 'Ustadz without healthcare role access is denied.');
+    const limitedHealthcareResponse = await fetch(healthcareSnapshotUrl, { headers: { Authorization: 'Bearer ' + healthcareNoPermissionToken } });
+    assert.equal(limitedHealthcareResponse.status, 403, 'Admin without Healthcare permission is denied.');
+    const healthcareInitialResponse = await fetch(healthcareSnapshotUrl, { headers: { Authorization: 'Bearer ' + adminToken } });
+    assert.equal(healthcareInitialResponse.status, 200);
+    const healthcareInitial = await healthcareInitialResponse.json();
+    assert.ok(healthcareInitial.students.some((student) => student.id === tahfidzStudentId), 'The UKS roster resolves the tenant student.');
+    assert.deepEqual(healthcareInitial.records, []);
+    assert.deepEqual(healthcareInitial.visits, []);
+    assert.deepEqual(healthcareInitial.medicines, []);
+    assert.deepEqual(healthcareInitial.movements, []);
+    const medicineCategory = healthcareInitial.medicineCategories.find((item) => item.code === 'ANALGESIK_ANTIPIRETIK');
+    const medicineUnit = healthcareInitial.medicineUnits.find((item) => item.code === 'TABLET');
+    assert.ok(medicineCategory?.id, 'Tenant medicine category is available from the reference catalog.');
+    assert.ok(medicineUnit?.id, 'Tenant medicine unit is available from the reference catalog.');
+    const healthcareDate = new Date().toISOString().slice(0, 10);
+
+    const healthcareRecordInput = {
+      studentId: tahfidzStudentId,
+      bloodType: 'O',
+      heightCm: 143,
+      weightKg: 38,
+      allergies: 'Tidak ada',
+      chronicConditions: '',
+      lastCheck: healthcareDate,
+    };
+    const healthcareRecordResponse = await fetch(referenceApiBase + '/api/healthcare/records', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(healthcareRecordInput),
+    });
+    assert.equal(healthcareRecordResponse.status, 201);
+    const healthcareRecord = await healthcareRecordResponse.json();
+    assert.match(healthcareRecord.id, /^[0-9a-f-]{36}$/i);
+
+    const healthcareVisitInput = {
+      studentId: tahfidzStudentId,
+      visitDate: healthcareDate,
+      visitTime: '08:30',
+      complaint: 'Demam ringan dalam pemeriksaan sintetis.',
+      temperatureC: 37.7,
+      diagnosis: 'Observasi kesehatan.',
+      actionTaken: 'Istirahat dan pemantauan.',
+      status: 'monitoring',
+      clientRequestId: randomUUID(),
+    };
+    const healthcareVisitResponse = await fetch(referenceApiBase + '/api/healthcare/visits', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(healthcareVisitInput),
+    });
+    assert.equal(healthcareVisitResponse.status, 201);
+    const healthcareVisit = await healthcareVisitResponse.json();
+    assert.equal(healthcareVisit.alreadyApplied, false);
+    const healthcareVisitRetry = await fetch(referenceApiBase + '/api/healthcare/visits', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(healthcareVisitInput),
+    });
+    assert.equal(healthcareVisitRetry.status, 201);
+    assert.equal((await healthcareVisitRetry.json()).id, healthcareVisit.id);
+    assert.equal((await healthcareVisitRetry.json()).alreadyApplied, true);
+
+    const healthcareMedicineInput = {
+      name: 'Obat Uji ' + fixtureSuffix,
+      categoryReferenceId: medicineCategory.id,
+      unitReferenceId: medicineUnit.id,
+      initialStock: 20,
+      minStock: 5,
+      expiresOn: healthcareDate,
+      clientRequestId: randomUUID(),
+    };
+    const healthcareMedicineResponse = await fetch(referenceApiBase + '/api/healthcare/medicines', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(healthcareMedicineInput),
+    });
+    assert.equal(healthcareMedicineResponse.status, 201);
+    const healthcareMedicine = await healthcareMedicineResponse.json();
+    assert.equal(healthcareMedicine.alreadyApplied, false);
+    const healthcareMedicineRetry = await fetch(referenceApiBase + '/api/healthcare/medicines', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(healthcareMedicineInput),
+    });
+    assert.equal(healthcareMedicineRetry.status, 201);
+    assert.equal((await healthcareMedicineRetry.json()).id, healthcareMedicine.id);
+
+    const healthcareStockInput = {
+      medicineId: healthcareMedicine.id,
+      delta: -2,
+      reason: 'Pengeluaran sintetis untuk uji pencatatan.',
+      requestId: randomUUID(),
+    };
+    const healthcareStockResponse = await fetch(referenceApiBase + '/api/healthcare/stock-adjustments', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(healthcareStockInput),
+    });
+    assert.equal(healthcareStockResponse.status, 201);
+    const healthcareStock = await healthcareStockResponse.json();
+    assert.equal(healthcareStock.alreadyApplied, false);
+    const healthcareStockRetry = await fetch(referenceApiBase + '/api/healthcare/stock-adjustments', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(healthcareStockInput),
+    });
+    assert.equal(healthcareStockRetry.status, 201);
+    assert.equal((await healthcareStockRetry.json()).id, healthcareStock.id);
+    assert.equal((await healthcareStockRetry.json()).alreadyApplied, true);
+
+    const [savedHealthcareRecord, savedHealthcareVisit, savedHealthcareMedicine, savedHealthcareMovements] = await Promise.all([
+      admin.from('healthcare_records').select('tenant_id,student_id,blood_type,height_cm,weight_kg').eq('id', healthcareRecord.id).single(),
+      admin.from('healthcare_visits').select('tenant_id,student_id,complaint,status').eq('id', healthcareVisit.id).single(),
+      admin.from('healthcare_medicines').select('tenant_id,category_reference_id,unit_reference_id,stock_quantity,min_stock').eq('id', healthcareMedicine.id).single(),
+      admin.from('healthcare_stock_movements').select('tenant_id,medicine_id,quantity_delta,reason').eq('medicine_id', healthcareMedicine.id),
+    ]);
+    assert.equal(savedHealthcareRecord.error, null);
+    assert.equal(savedHealthcareRecord.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedHealthcareRecord.data?.student_id, tahfidzStudentId);
+    assert.equal(savedHealthcareRecord.data?.blood_type, 'O');
+    assert.equal(Number(savedHealthcareRecord.data?.height_cm), 143);
+    assert.equal(Number(savedHealthcareRecord.data?.weight_kg), 38);
+    assert.equal(savedHealthcareVisit.error, null);
+    assert.equal(savedHealthcareVisit.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedHealthcareVisit.data?.student_id, tahfidzStudentId);
+    assert.equal(savedHealthcareVisit.data?.status, 'monitoring');
+    assert.equal(savedHealthcareMedicine.error, null);
+    assert.equal(savedHealthcareMedicine.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedHealthcareMedicine.data?.category_reference_id, medicineCategory.id);
+    assert.equal(savedHealthcareMedicine.data?.unit_reference_id, medicineUnit.id);
+    assert.equal(Number(savedHealthcareMedicine.data?.stock_quantity), 18);
+    assert.equal(savedHealthcareMedicine.data?.min_stock, 5);
+    assert.equal(savedHealthcareMovements.error, null);
+    assert.equal(savedHealthcareMovements.data?.length, 2);
+    assert.deepEqual(savedHealthcareMovements.data?.map((movement) => movement.quantity_delta).sort((a, b) => a - b), [-2, 20]);
+
+    const healthcareReadbackResponse = await fetch(healthcareSnapshotUrl, { headers: { Authorization: 'Bearer ' + adminToken } });
+    assert.equal(healthcareReadbackResponse.status, 200);
+    const healthcareReadback = await healthcareReadbackResponse.json();
+    assert.equal(healthcareReadback.records.find((item) => item.id === healthcareRecord.id)?.student?.id, tahfidzStudentId);
+    assert.equal(healthcareReadback.visits.find((item) => item.id === healthcareVisit.id)?.student?.id, tahfidzStudentId);
+    const readbackMedicine = healthcareReadback.medicines.find((item) => item.id === healthcareMedicine.id);
+    assert.equal(readbackMedicine?.category_reference_id, medicineCategory.id);
+    assert.equal(readbackMedicine?.unit_reference_id, medicineUnit.id);
+    assert.equal(readbackMedicine?.stock_quantity, 18);
+    assert.equal(readbackMedicine?.stockStatus, 'Sufficient');
+    assert.equal(healthcareReadback.movements.find((item) => item.quantity_delta === -2)?.medicineName, healthcareMedicineInput.name);
+
+    const tenantBHealthcareResponse = await fetch(healthcareSnapshotUrl, { headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken } });
+    assert.equal(tenantBHealthcareResponse.status, 200);
+    const tenantBHealthcare = await tenantBHealthcareResponse.json();
+    assert.deepEqual(tenantBHealthcare.records, []);
+    assert.deepEqual(tenantBHealthcare.visits, []);
+    assert.deepEqual(tenantBHealthcare.medicines, []);
+    assert.deepEqual(tenantBHealthcare.movements, []);
+    const crossTenantHealthcareVisit = await fetch(referenceApiBase + '/api/healthcare/visits', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + otherTenantMarketplaceAdminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...healthcareVisitInput, clientRequestId: randomUUID() }),
+    });
+    assert.equal(crossTenantHealthcareVisit.status, 400, 'A different tenant cannot create a healthcare visit against a foreign student.');
+    console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Healthcare, Tahfidz, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverProcess.kill('SIGTERM');
@@ -2435,6 +2602,12 @@ async function main() {
         'ALTER TABLE public.crm_mutation_requests ENABLE TRIGGER crm_mutation_requests_immutable;',
 
         `DELETE FROM public.master_data_records WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.healthcare_record_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.healthcare_visits WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.healthcare_stock_movements WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.healthcare_medicines WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.healthcare_records WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.healthcare_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.document_attachment_upload_requests WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.document_attachments WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.document_workflow_events WHERE tenant_id = ANY(${tenantArray});`,
