@@ -43,6 +43,7 @@ import {
   ALL_SYSTEM_MODULE_IDS as ALL_SYSTEM_MODULES,
   PLATFORM_ONLY_MODULES,
   isModuleAccessible,
+  findUnauthorizedModuleGrants,
   isValidModulePermissions,
   type UserRole,
 } from "./src/rbac";
@@ -3636,6 +3637,18 @@ async function startServer() {
     }
     const permissions = resolveUserModulePermissions("Walisantri", requestedPermissions || undefined);
     permissions.settings = false;
+    const unauthorizedGrants = findUnauthorizedModuleGrants(
+      actor.role,
+      actor.modulePermissions,
+      "Walisantri",
+      permissions,
+    );
+    if (unauthorizedGrants.length) {
+      return res.status(403).json({
+        code: "FORBIDDEN_MODULE_PERMISSION",
+        error: "Admin hanya dapat memberikan akses modul yang juga dimiliki akun sendiri.",
+      });
+    }
     try {
       const invitation = await createGuardianAccountInvitation({
         tenantId: actor.tenantId,
@@ -3852,6 +3865,18 @@ async function startServer() {
     if (actor.role === "Admin") {
       finalPermissions["settings"] = false;
     }
+    const unauthorizedGrants = findUnauthorizedModuleGrants(
+      actor.role,
+      actor.modulePermissions,
+      role as UserRole,
+      finalPermissions,
+    );
+    if (unauthorizedGrants.length) {
+      return res.status(403).json({
+        code: "FORBIDDEN_MODULE_PERMISSION",
+        error: "Admin hanya dapat memberikan akses modul yang juga dimiliki akun sendiri.",
+      });
+    }
 
     try {
       const userProfile = await createAuthUserWithProfile({
@@ -3984,6 +4009,24 @@ async function startServer() {
           merged["settings"] = false;
         }
         updates.modulePermissions = merged;
+      } else if (role && newRole !== targetData.role) {
+        updates.modulePermissions = resolveUserModulePermissions(newRole, targetData.modulePermissions);
+      }
+
+      const nextPermissions = updates.modulePermissions || targetData.modulePermissions;
+      const unauthorizedGrants = findUnauthorizedModuleGrants(
+        actor.role,
+        actor.modulePermissions,
+        newRole as UserRole,
+        nextPermissions,
+        targetData.role as UserRole,
+        targetData.modulePermissions,
+      );
+      if (unauthorizedGrants.length) {
+        return res.status(403).json({
+          code: "FORBIDDEN_MODULE_PERMISSION",
+          error: "Admin hanya dapat memberikan akses modul yang juga dimiliki akun sendiri.",
+        });
       }
 
       const statusChanged = typeof updates.status === "string";

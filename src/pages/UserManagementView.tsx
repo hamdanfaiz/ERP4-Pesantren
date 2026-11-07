@@ -65,6 +65,15 @@ interface OrganizationUnitOption {
 
 const USER_DIRECTORY_PAGE_SIZE = 50;
 
+function actorCanGrantModule(
+  actorRole: UserRole | null | undefined,
+  actorPermissions: Record<string, boolean> | null | undefined,
+  moduleId: ModuleId,
+): boolean {
+  if (actorRole === "SuperAdmin") return true;
+  return actorRole === "Admin" && isModuleAccessible(actorRole, moduleId, actorPermissions);
+}
+
 export function UserManagementView() {
   const { user: currentActor, role: currentRole } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -122,10 +131,11 @@ export function UserManagementView() {
   useEffect(() => {
     const perms: Record<string, boolean> = {};
     ALL_MODULE_LIST.forEach((m) => {
-      perms[m.id] = isModuleAccessible(createRole, m.id, null);
+      perms[m.id] = isModuleAccessible(createRole, m.id, null)
+        && actorCanGrantModule(currentRole, currentActor?.modulePermissions, m.id);
     });
     setCreatePermissions(perms);
-  }, [createRole]);
+  }, [createRole, currentRole, currentActor?.modulePermissions]);
 
   const generateRandomPassword = () => {
     const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
@@ -1260,7 +1270,8 @@ export function UserManagementView() {
                         onClick={() => {
                           const all: Record<string, boolean> = {};
                           ALL_MODULE_LIST.forEach((m) => {
-                            all[m.id] = currentRole === 'SuperAdmin' ? true : !PLATFORM_ONLY_MODULES.includes(m.id);
+                            all[m.id] = !PLATFORM_ONLY_MODULES.includes(m.id)
+                              && actorCanGrantModule(currentRole, currentActor?.modulePermissions, m.id);
                           });
                           setCreatePermissions(all);
                         }}
@@ -1274,7 +1285,8 @@ export function UserManagementView() {
                         onClick={() => {
                           const perms: Record<string, boolean> = {};
                           ALL_MODULE_LIST.forEach((m) => {
-                            perms[m.id] = isModuleAccessible(createRole, m.id, null);
+                            perms[m.id] = isModuleAccessible(createRole, m.id, null)
+                              && actorCanGrantModule(currentRole, currentActor?.modulePermissions, m.id);
                           });
                           setCreatePermissions(perms);
                         }}
@@ -1294,8 +1306,9 @@ export function UserManagementView() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 max-h-52 overflow-y-auto">
                     {ALL_MODULE_LIST.map((mod) => {
                       const isPlatformOnly = PLATFORM_ONLY_MODULES.includes(mod.id);
-                      const isLockedForActor = isPlatformOnly && currentRole !== 'SuperAdmin';
-                      const isChecked = isLockedForActor ? false : !!createPermissions[mod.id];
+                      const isChecked = isPlatformOnly ? false : !!createPermissions[mod.id];
+                      const isLockedForActor = isPlatformOnly
+                        || (!actorCanGrantModule(currentRole, currentActor?.modulePermissions, mod.id) && !isChecked);
 
                       return (
                         <label
@@ -1489,7 +1502,8 @@ export function UserManagementView() {
                         onClick={() => {
                           const all: Record<string, boolean> = {};
                           ALL_MODULE_LIST.forEach((m) => {
-                            all[m.id] = currentRole === 'SuperAdmin' ? true : !PLATFORM_ONLY_MODULES.includes(m.id);
+                            all[m.id] = !PLATFORM_ONLY_MODULES.includes(m.id)
+                              && actorCanGrantModule(currentRole, currentActor?.modulePermissions, m.id);
                           });
                           setEditPermissions(all);
                         }}
@@ -1503,7 +1517,8 @@ export function UserManagementView() {
                         onClick={() => {
                           const perms: Record<string, boolean> = {};
                           ALL_MODULE_LIST.forEach((m) => {
-                            perms[m.id] = isModuleAccessible(editRole, m.id, null);
+                            perms[m.id] = isModuleAccessible(editRole, m.id, null)
+                              && actorCanGrantModule(currentRole, currentActor?.modulePermissions, m.id);
                           });
                           setEditPermissions(perms);
                         }}
@@ -1523,8 +1538,9 @@ export function UserManagementView() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 max-h-56 overflow-y-auto">
                     {ALL_MODULE_LIST.map((mod) => {
                       const isPlatformOnly = PLATFORM_ONLY_MODULES.includes(mod.id);
-                      const isLockedForActor = isPlatformOnly && currentRole !== 'SuperAdmin';
-                      const isChecked = isLockedForActor ? false : !!editPermissions[mod.id];
+                      const isChecked = isPlatformOnly ? false : !!editPermissions[mod.id];
+                      const isLockedForActor = isPlatformOnly
+                        || (!actorCanGrantModule(currentRole, currentActor?.modulePermissions, mod.id) && !isChecked);
 
                       return (
                         <label
@@ -1543,6 +1559,7 @@ export function UserManagementView() {
                             checked={isChecked}
                             onChange={(e) => {
                               if (isLockedForActor) return;
+                              if (e.target.checked && !actorCanGrantModule(currentRole, currentActor?.modulePermissions, mod.id)) return;
                               setEditPermissions({ ...editPermissions, [mod.id]: e.target.checked });
                             }}
                             className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50"

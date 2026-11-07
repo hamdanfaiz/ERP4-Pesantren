@@ -759,6 +759,55 @@ async function main() {
     assert.equal(suspendedTenantAdmin.status, 403, 'Users in a suspended tenant must not access user management.');
     assert.equal((await suspendedTenantAdmin.json()).code, 'ACCOUNT_INACTIVE');
 
+    const restrictedAdminHeaders = {
+      Authorization: `Bearer ${noFinanceAdminToken}`,
+      'Content-Type': 'application/json',
+    };
+    const defaultRoleEscalation = await fetch(`${apiBase}/api/users`, {
+      method: 'POST',
+      headers: restrictedAdminHeaders,
+      body: JSON.stringify({
+        email: `restricted-default-${randomUUID()}@example.test`,
+        name: 'Akun uji terbatas',
+        role: 'Santri',
+        tempPassword: `Test-Password-${randomUUID()}-Aa1!`,
+      }),
+    });
+    assert.equal(defaultRoleEscalation.status, 403, 'A restricted Admin must not create an account whose role defaults exceed the Admin module scope.');
+    assert.equal((await defaultRoleEscalation.json()).code, 'FORBIDDEN_MODULE_PERMISSION');
+
+    const explicitModuleEscalation = await fetch(`${apiBase}/api/users`, {
+      method: 'POST',
+      headers: restrictedAdminHeaders,
+      body: JSON.stringify({
+        email: `restricted-explicit-${randomUUID()}@example.test`,
+        name: 'Akun uji terbatas',
+        role: 'Santri',
+        tempPassword: `Test-Password-${randomUUID()}-Aa1!`,
+        modulePermissions: { finance: true },
+      }),
+    });
+    assert.equal(explicitModuleEscalation.status, 403, 'A restricted Admin must not grant an explicitly forbidden module.');
+
+    const restrictedGuardianInvitation = await fetch(`${apiBase}/api/users/guardian-invitations`, {
+      method: 'POST',
+      headers: restrictedAdminHeaders,
+      body: JSON.stringify({
+        email: `restricted-wali-${randomUUID()}@example.test`,
+        guardianId: randomUUID(),
+        modulePermissions: {},
+      }),
+    });
+    assert.equal(restrictedGuardianInvitation.status, 403, 'A restricted Admin must not grant a Wali role default beyond the Admin module scope.');
+    assert.equal((await restrictedGuardianInvitation.json()).code, 'FORBIDDEN_MODULE_PERMISSION');
+
+    const selfModuleEscalation = await fetch(`${apiBase}/api/users/${users[10].uid}`, {
+      method: 'PATCH',
+      headers: restrictedAdminHeaders,
+      body: JSON.stringify({ modulePermissions: { finance: true } }),
+    });
+    assert.equal(selfModuleEscalation.status, 403, 'A restricted Admin must not grant a module to their own account.');
+    assert.equal((await selfModuleEscalation.json()).code, 'FORBIDDEN_MODULE_PERMISSION');
     const tenantResponse = await fetch(`${apiBase}/api/users?tenantId=${tenantIds[1]}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
