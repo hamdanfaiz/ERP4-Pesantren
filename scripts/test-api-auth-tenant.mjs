@@ -1465,6 +1465,69 @@ async function main() {
     assert.ok(superAdminPayload.users.every((profile) => profile.tenantId === tenantIds[0]), 'SuperAdmin results must remain tenant-scoped.');
     assert.ok(!superAdminPayload.users.some((profile) => profile.email === users[2].email), 'SuperAdmin must not receive a foreign-tenant profile through query spoofing.');
 
+    const provisionedEmail = `provisioned-admin-${fixtureSuffix}@example.test`;
+    const provisionedPassword = `Provisioned-${randomUUID()}-Aa1!`;
+    const provisionedUsername = `provisioned-${fixtureSuffix}`;
+    const provisionedResponse = await fetch(`${apiBase}/api/users`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${superAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: provisionedEmail,
+        name: 'Admin Uji Provisioning',
+        username: provisionedUsername,
+        role: 'Admin',
+        tempPassword: provisionedPassword,
+        modulePermissions: { users: true, academic: true, finance: true },
+      }),
+    });
+    assert.equal(provisionedResponse.status, 201, 'A SuperAdmin can provision a tenant Admin account through the API.');
+    const provisionedPayload = await provisionedResponse.json();
+    assert.equal(provisionedPayload.success, true);
+    assert.equal(provisionedPayload.user.email, provisionedEmail);
+    assert.equal(provisionedPayload.user.name, 'Admin Uji Provisioning');
+    assert.equal(provisionedPayload.user.username, provisionedUsername);
+    assert.equal(provisionedPayload.user.role, 'Admin');
+    assert.equal(provisionedPayload.user.tenantId, tenantIds[0], 'The server assigns the actor tenant rather than trusting request data.');
+    assert.equal(provisionedPayload.user.mustChangePassword, true, 'Provisioned accounts must change the temporary password at first use.');
+    assert.equal(provisionedPayload.user.modulePermissions.users, true);
+    assert.equal(provisionedPayload.user.modulePermissions.academic, true);
+    assert.equal(provisionedPayload.user.modulePermissions.settings, false, 'Tenant Admin provisioning cannot grant platform settings access.');
+
+    const provisionedUser = {
+      uid: provisionedPayload.user.uid,
+      email: provisionedEmail,
+      password: provisionedPassword,
+      tenantId: tenantIds[0],
+    };
+    assert.ok(provisionedUser.uid, 'The successful provisioning response must return the new Auth identity.');
+    users.push(provisionedUser);
+
+    const provisionedToken = await signIn(anon, provisionedUser);
+    const provisionedProfileResponse = await fetch(`${apiBase}/api/auth/profile`, {
+      headers: { Authorization: `Bearer ${provisionedToken}` },
+    });
+    assert.equal(provisionedProfileResponse.status, 200, 'The new Auth identity can establish a session and load its profile.');
+    const provisionedProfilePayload = await provisionedProfileResponse.json();
+    assert.equal(provisionedProfilePayload.profile.uid, provisionedUser.uid);
+    assert.equal(provisionedProfilePayload.profile.tenantId, tenantIds[0]);
+    assert.equal(provisionedProfilePayload.profile.role, 'Admin');
+    assert.equal(provisionedProfilePayload.profile.mustChangePassword, true);
+
+    const { data: persistedProvisionedProfile, error: provisionedProfileError } = await admin.from('profiles')
+      .select('email,display_name,username,role,status,tenant_id,must_change_password,module_permissions,organization_unit_id,created_by_uid')
+      .eq('user_id', provisionedUser.uid)
+      .maybeSingle();
+    assert.equal(provisionedProfileError, null, 'The provisioned profile must be readable from the local Supabase database.');
+    assert.equal(persistedProvisionedProfile?.role, 'admin');
+    assert.equal(persistedProvisionedProfile?.status, 'active');
+    assert.equal(persistedProvisionedProfile?.tenant_id, tenantIds[0]);
+    assert.equal(persistedProvisionedProfile?.must_change_password, true);
+    assert.equal(persistedProvisionedProfile?.organization_unit_id, null);
+    assert.equal(persistedProvisionedProfile?.created_by_uid, users[7].uid);
+    assert.equal(persistedProvisionedProfile?.module_permissions?.users, true);
+    assert.equal(persistedProvisionedProfile?.module_permissions?.academic, true);
+    assert.equal(persistedProvisionedProfile?.module_permissions?.settings, false);
+
     // Simulate a database failure after Auth has accepted the account. The application must
     // remove that Auth user before reporting provisioning failure, avoiding an orphan login.
     const triggerSql = `

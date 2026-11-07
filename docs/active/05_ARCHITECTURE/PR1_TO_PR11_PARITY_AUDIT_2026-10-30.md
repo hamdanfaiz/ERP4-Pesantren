@@ -1,8 +1,19 @@
 # Audit paritas sumber PR #1–#11 dengan PR #13
 
-## Revalidasi terkini — 7 November 2026, 18.36 WIB
+## Revalidasi — 8 November 2026
 
-- `main` saat ini berada pada `de5c9a26bcfaa79bba8d989bcf1434f11549bd90`, hasil merge PR #65. Metadata GitHub saat diperiksa menunjukkan PR #1–#11 seluruhnya `Closed`, `merged=false`, dan tidak ada PR terbuka. Jangan merge branch lama satu per satu: semuanya adalah jalur historis yang digantikan implementasi pada `main`.
+- Baseline source yang diaudit adalah `main` commit `148b0c670ea4960e43393b34704c2ca8748c4ce3`. Metadata GitHub mengonfirmasi PR #1–#11 semuanya Draft yang ditutup, `merged=false`, dan `merged_at=null`; tidak ada review submission maupun review thread. “Closed” tidak berarti perubahan digabung atau diverifikasi.
+- PR lama #3 dan #5–#11 bertumpuk pada branch lama. Source kini menggunakan migrasi forward-only dan arsitektur yang lebih baru; migrasi `202606...` lama yang diperiksa tidak ada pada `main`. Jangan merge atau menerapkan migrasi branch lama.
+- Matriks di bawah memetakan seluruh cakupan utama #1–#11 ke source, migrasi, dokumentasi, dan tes terkini. Tidak ditemukan fitur produk utama yang hanya tersedia pada branch lama; pengecualian dan batas rilis tetap dicatat per area.
+- Pengujian HTTP pada **VQE staging** dengan fixture sintetis memeriksa PPDB publik, empat dokumen privat, workflow kandidat hingga diterima, tagihan pendaftaran/tuition, onboarding santri/wali serta relasi kelas/gedung/kamar, NIS dan klaim identitas, okupansi, tautan tagihan, retry idempoten, dan penolakan konflik. Finance proof upload/download serta batas role/tenant/rate limit juga lulus. Production tidak disentuh.
+- Tes tersebut menemukan route konfigurasi PPDB tidak mengirim `gradeLevels` ke formulir. Perbaikan pada `server.ts` dan regresi test masuk Draft PR #68, head `8c6ad6d33d5ed68f5e49aac6f6c23c94f118089e`; GitHub Actions [run #42418159869](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42418159869) lulus 3/3 job. PR #68 masih Draft dan belum masuk `main`.
+- Cleanup staging menghapus objek Storage, memblokir akun sintetis, dan menangguhkan tenant uji. Record wali/santri yang dirujuk audit onboarding tetap tersimpan di tenant yang disuspensi.
+- Di worktree lokal, `npm ci`, `npm run lint`, dan `npm run build` lulus. Tes fungsi lokal tambahan juga lulus; rincian modul dan batas bukti ada di [MODULE_TEST_COVERAGE_2026-11-07.md](./MODULE_TEST_COVERAGE_2026-11-07.md).
+- Bukti ini bukan UAT UI seluruh modul, pembuktian DDL/urutan migrasi PTSAS Production, atau rehearsal backup-restore Production. Gerbang tersebut tetap memerlukan tim backend.
+
+
+
+- Pada saat snapshot ini dibuat, `main` berada pada `de5c9a26bcfaa79bba8d989bcf1434f11549bd90`, hasil merge PR #65. Metadata GitHub saat diperiksa menunjukkan PR #1–#11 seluruhnya `Closed`, `merged=false`, dan tidak ada PR terbuka. Jangan merge branch lama satu per satu: semuanya adalah jalur historis yang digantikan implementasi pada `main`.
 - Matriks paritas di bawah tetap menjadi peta pengganti fitur PR #1–#11. Pemeriksaan source setelah baseline `0e3e730` mencakup 19 commit, dengan round-trip API tambahan untuk CRM, komunikasi, Tahfidz, Akademik, Koperasi, Laundry, Donasi, Dokumen, Kesehatan, pemesanan fasilitas, urusan umum, dan Perpustakaan. PR #65 secara khusus menguji penyimpanan relasi kategori, CRUD buku, peminjaman/pengembalian, retry idempoten, batas eksemplar, role, dan isolasi tenant.
 - CI pada merge commit PR #65 lulus tiga job: migrasi/API/pgTAP, build frontend/Firebase bundle guard, serta instalasi NPM pelanggan. [Run #42366639181](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42366639181). CI menggunakan backend/database Supabase sintetis; ini bukan UAT browser seluruh alur dan bukan pemeriksaan tulis Production.
 - Guard CI memastikan semua skrip `test:*` pada package manifest dijadwalkan pada workflow. Hal itu membuktikan cakupan eksekusi skrip yang dideklarasikan, bukan kelengkapan kasus uji atau bahwa setiap fitur setiap modul sudah lulus.
@@ -109,4 +120,3 @@ Pada checkpoint kode PR #13 `430929f15f36ba3b238c5809d6252d60c0055c41`, GitHub A
 - Pemeriksaan memakai Supabase lokal dan data sintetis. Supabase Preview tidak berjalan karena branch preview tidak terhubung. Tidak ada migration/data yang diterapkan ke Supabase live, login pelanggan, deployment, atau UAT yang diklaim.
 - Tidak ada review submission atau inline review thread pada PR #13 saat diperiksa.
 - `mergeable: true` hanya berarti GitHub tidak menemukan konflik merge; bukan persetujuan atau bukti kelengkapan fitur.
-
