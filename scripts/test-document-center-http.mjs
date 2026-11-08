@@ -116,9 +116,11 @@ async function main() {
     createdTenantIds.push(foreignTenantId);
 
     const documentAdmin = await createUser(admin, tenantId, 'admin', true);
+    users.push(documentAdmin);
     const noDocumentAccess = await createUser(admin, tenantId, 'denied', false);
+    users.push(noDocumentAccess);
     const foreignAdmin = await createUser(admin, foreignTenantId, 'foreign', true);
-    users.push(documentAdmin, noDocumentAccess, foreignAdmin);
+    users.push(foreignAdmin);
     const [adminToken, deniedToken, foreignToken] = await Promise.all([
       signIn(anon, documentAdmin), signIn(anon, noDocumentAccess), signIn(anon, foreignAdmin),
     ]);
@@ -244,6 +246,36 @@ async function main() {
     const finalizeRetryResponse = await requestJson(`${apiBase}/api/documents/attachments/finalize`, adminToken, { clientRequestId: uploadRequestId });
     const finalizeRetry = await expectJson(finalizeRetryResponse, 200, 'Attachment finalization retry should be idempotent');
     assert.equal(finalizeRetry.alreadyApplied, true);
+
+    const tamperedBytes = Buffer.from(pdfBytes);
+    tamperedBytes[tamperedBytes.length - 2] ^= 1;
+    const tamperedRequestId = randomUUID();
+    const tamperedReservationResponse = await requestJson(
+      `${apiBase}/api/documents/${created.documentId}/attachments/upload-url`, adminToken,
+      { attachment: {
+        clientRequestId: tamperedRequestId,
+        fileName: 'berkas-terubah.pdf',
+        contentType: 'application/pdf',
+        fileSize: pdfBytes.length,
+        contentSha256: createHash('sha256').update(pdfBytes).digest('hex'),
+      } },
+    );
+    const tamperedReservation = await expectJson(tamperedReservationResponse, 201, 'A second synthetic upload reservation should be created');
+    storagePaths.add(tamperedReservation.storagePath);
+    const tamperedUpload = await anon.storage.from(BUCKET).uploadToSignedUrl(
+      tamperedReservation.storagePath, tamperedReservation.uploadToken, tamperedBytes, { contentType: 'application/pdf' },
+    );
+    if (tamperedUpload.error) throw new Error('Unable to upload the tampered synthetic PDF.');
+    const tamperedFinalizeResponse = await requestJson(
+      `${apiBase}/api/documents/attachments/finalize`, adminToken, { clientRequestId: tamperedRequestId },
+    );
+    await expectJson(tamperedFinalizeResponse, 422, 'Finalization must reject a PDF whose SHA-256 differs from its reservation');
+    const rejectedObjectList = await admin.storage.from(BUCKET).list(`${tenantId}/${created.documentId}`, {
+      limit: 20, search: tamperedReservation.attachmentId,
+    });
+    if (rejectedObjectList.error) throw new Error('Unable to verify cleanup of a rejected document attachment.');
+    assert.ok(!(rejectedObjectList.data || []).some((object) => object.name === `${tamperedReservation.attachmentId}.pdf`),
+      'A rejected tampered object must be removed from private Storage.');
 
     const listResponse = await fetch(`${apiBase}/api/documents?direction=incoming&statusGroup=approval&search=${encodeURIComponent('koordinasi')}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
