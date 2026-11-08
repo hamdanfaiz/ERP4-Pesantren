@@ -54,8 +54,10 @@ assert.doesNotMatch(server, /error:\s*"[^"]*belum diaktifkan operator\./i,
   "API responses must not expose operator-only feature-flag guidance");
 assert.doesNotMatch(serverSource, /Konfigurasi .*Supabase belum lengkap\.|Supabase belum dikonfigurasi di server\./i,
   "API errors must not expose internal Supabase configuration details");
-assert.match(server, /function customerApiErrorMessage\(status: number, message: string\): string\s*\{\s*if \(status >= 500\) return "Layanan ini sedang mengalami kendala\./,
-  "Server-side failures must be translated into a customer-facing message");
+assert.match(server, /const INTERNAL_API_ERROR_DETAILS[\s\S]{0,500}sqlstate/i,
+  "Backend and database details must be recognized before returning error messages to customers");
+assert.match(server, /if \(status >= 500 \|\| INTERNAL_API_ERROR_DETAILS\.test\(message\)\)\s*\{\s*return "Layanan ini sedang mengalami kendala\./,
+  "Server-side and internal-detail errors must be translated into customer-facing copy");
 assert.doesNotMatch(server, /return res\.status\(error\.status\)\.json\(\{\s*error:\s*error\.message\s*\}\)/,
   "Typed server failures must not return raw internal messages to clients");
 assert.doesNotMatch(server, /error:\s*["'`][^"'`]*(?:Supabase|runtime|migration|konfigurasi|flag runtime|belum disiapkan|menunggu audit|diaktifkan oleh pengelola)/i,

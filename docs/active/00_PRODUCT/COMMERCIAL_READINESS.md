@@ -1,14 +1,14 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 8 November 2026, 21.30 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #90 sudah merged. PR #91 masih **open/draft**, head `de5ed5c55dd944d1e73ceebc4e26d39bd01a04b6`. CI [run #42489595934](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42489595934) lulus 3/3 job pada head itu.
+> **Status otoritatif — 8 November 2026, 22.04 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #90 sudah merged. PR #91 tetap **open/draft**; kandidat lokal terbaru `a20c2c5390e0cfe7f39f305fa2a926e3658026d6`. Pemeriksaan lokal (uji regresi copy, TypeScript, build, dan diff) lulus. CI [run #42492291155](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42492291155) lulus 3/3 pada source pendahulu `d1ba2216`; run kandidat terbaru akan berjalan setelah push.
 >
-> Pembacaan staging VQE `vqemuyzveuirlkvdggjd` sebelumnya memastikan 140/140 versi dan nama ledger cocok dengan source; migrasi terakhir yang tercatat `20270308000000_academic_class_unit_admin_role_baseline`. Bukti ini tidak membuktikan kesamaan seluruh DDL. Pemeriksaan visual desktop menunjukkan scrollbar Tahfidz terlihat di dalam frame dan container Asrama konsisten. Namun port `localhost:4180` belum dipastikan melayani head PR terbaru; layar Akademik masih menampilkan copy operator lama. Source PR terbaru telah menyamarkan pesan API itu, tetapi UAT visual ulang dan viewport ponsel belum selesai.
+> Pembacaan staging VQE `vqemuyzveuirlkvdggjd` sebelumnya memastikan 140/140 versi dan nama ledger cocok dengan source; migrasi terakhir yang tercatat `20270308000000_academic_class_unit_admin_role_baseline`. Bukti ini tidak membuktikan kesamaan seluruh DDL. Pemeriksaan visual sebelumnya menunjukkan scrollbar Tahfidz di dalam frame dan container Asrama gelap; source PR terbaru belum diverifikasi lewat browser, dan port preview lokal sekarang tidak mendengarkan. UAT visual source-matched dan viewport ponsel masih terbuka.
 >
 > Konektor menolak pembacaan PTSAS Production dan tidak ada perubahan Production. Schema diff dan urutan migrasi Production, backup/restore, UAT Wali, UAT CRUD modul, serta pengujian clean install/upgrade VPS/on-premise tetap menjadi gerbang sebelum produk dinyatakan siap deploy atau komersial.
 >
 > Produk **belum dinyatakan siap deploy atau komersial**. Gunakan [checkpoint pengujian terkini](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
 >
-> Persentase terukur untuk run PR #91 adalah 3/3 job CI (100% dari job pada run tersebut), bukan persentase penyelesaian ERP. Persentase keseluruhan tidak dihitung karena UAT, Production, dan penerimaan komersial belum memiliki denominator berbukti yang sama.
+> Run CI #42492291155 lulus 3/3 pada source pendahulu `d1ba2216`; belum ada hasil CI untuk kandidat lokal `a20c2c5` sampai perubahan didorong. Persentase keseluruhan pengembangan tidak dihitung karena UAT, Production, dan penerimaan komersial belum memiliki denominator berbukti yang sama.
 
 > Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
 

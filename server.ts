@@ -313,8 +313,12 @@ function resolveUserModulePermissions(role: string, perms?: Record<string, boole
   return result;
 }
 
+const INTERNAL_API_ERROR_DETAILS = /supabase|backend|runtime|migration|migrasi database|sqlstate|postgrest|pgrst|schema cache|duplicate key|foreign key constraint|violates .*constraint|permission denied for (?:schema|table|function)|relation .* does not exist|column .* does not exist|function .* does not exist/i;
+
 function customerApiErrorMessage(status: number, message: string): string {
-  if (status >= 500) return "Layanan ini sedang mengalami kendala. Silakan coba kembali beberapa saat lagi.";
+  if (status >= 500 || INTERNAL_API_ERROR_DETAILS.test(message)) {
+    return "Layanan ini sedang mengalami kendala. Silakan coba kembali beberapa saat lagi.";
+  }
   return message;
 }
 
