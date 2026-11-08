@@ -2296,8 +2296,9 @@ async function main() {
     const sensitiveMasterDataExportResponse = await fetch(`${referenceApiBase}/api/master-data/students/export?includeSensitive=true`, {
       headers: masterDataAuthHeaders,
     });
-    assert.equal(sensitiveMasterDataExportResponse.status, 200);
     const sensitiveMasterDataExport = await sensitiveMasterDataExportResponse.json();
+    assert.equal(sensitiveMasterDataExportResponse.status, 200,
+      `Explicit sensitive export must be available to an authorized tenant Admin: ${JSON.stringify(sensitiveMasterDataExport)}`);
     const sensitiveExportedStudent = sensitiveMasterDataExport.records.find((record) => record.id === masterDataImportSourceId);
     assert.equal(sensitiveExportedStudent?.nik, masterDataImportNik,
       'An explicitly requested sensitive export decrypts NIK for authorized tenant migration.');
