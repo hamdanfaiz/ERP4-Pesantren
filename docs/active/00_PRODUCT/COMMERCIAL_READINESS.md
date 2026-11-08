@@ -1,14 +1,14 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 8 November 2026, sesudah PR #90.** `origin/main` pada pemeriksaan lokal berada di `ef8ce28e9541137e2154d025211db574dc2eef94`. PR #90 masih open pada head `33268c3ecd18a2d09c93fc498b5615dc77d0038f`; CI [run #42468708677](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42468708677) lulus 3/3 job. UAT Admin staging membuktikan login dan akses 25 modul, tetapi belum menguji semua CRUD UI, role, atau tenant. PR #1–#11 tetap closed tanpa merge karena implementasi intinya digantikan source yang lebih baru.
+> **Status otoritatif — 8 November 2026, 20.50 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #90 sudah merged. PR #91 masih **open/draft**, head `071294317c4ec826a1e91c2d32aa1e4e69abb638`; perubahan UI terbaru mencakup tab responsif pada Tahfidz dan modul lain. CI [run #42486581462](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42486581462) sedang berjalan pada commit tersebut: instalasi NPM lulus, sedangkan build Docker dan migrations/API/pgTAP masih berlangsung.
 >
-> Pembacaan staging VQE `vqemuyzveuirlkvdggjd` memastikan 140/140 versi dan nama ledger cocok dengan source; migrasi terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Bukti ini tidak membuktikan kesamaan seluruh DDL. Patch UI bahasa/tema sesudah PR #90 masih berupa perubahan lokal belum di-commit.
+> Pembacaan staging VQE `vqemuyzveuirlkvdggjd` sebelumnya memastikan 140/140 versi dan nama ledger cocok dengan source; migrasi terakhir yang tercatat `20270308000000_academic_class_unit_admin_role_baseline`. Bukti ini tidak membuktikan kesamaan seluruh DDL. Perubahan PR #91 sudah di-commit dan dipush; `git diff --check` lulus. UAT visual terhadap commit terbaru belum terkonfirmasi.
 >
 > Konektor menolak pembacaan PTSAS Production dan tidak ada perubahan Production. Schema diff dan urutan migrasi Production, backup/restore, UAT Wali, UAT CRUD modul, serta pengujian clean install/upgrade VPS/on-premise tetap menjadi gerbang sebelum produk dinyatakan siap deploy atau komersial.
 >
 > Produk **belum dinyatakan siap deploy atau komersial**. Gunakan [checkpoint pengujian terkini](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
 >
-> Persentase terukur adalah CI **3/3 job (100% dari job wajib pada run PR #90)**, bukan persentase seluruh ERP. Persentase keseluruhan tidak dihitung karena UAT, Production, dan penerimaan komersial belum memiliki denominator berbukti yang sama.
+> Persentase terukur saat ini: run PR #91 memiliki 1 dari 3 job selesai dan lulus, sementara 2 job masih berjalan. Ini bukan persentase seluruh ERP. Persentase keseluruhan tidak dihitung karena UAT, Production, dan penerimaan komersial belum memiliki denominator berbukti yang sama.
 
 > Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
 
