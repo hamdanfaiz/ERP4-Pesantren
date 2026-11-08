@@ -5,7 +5,7 @@ Status diperbarui: 8 November 2026
 Baseline `main`: `ef8ce28e9541137e2154d025211db574dc2eef94`; perbaikan UAT saat ini disiapkan pada branch PR #90.
 CI `main` terbaru yang diverifikasi: [GitHub Actions run #42462549477](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42462549477), lulus. CI PR #90 sebelumnya juga lulus sebelum penambahan regresi Akademik; regresi baru harus lulus kembali sebelum dianggap siap.
 Staging VQE `vqemuyzveuirlkvdggjd`: 139 baris ledger migrasi; dibandingkan dengan `main`, **139/139 versi dan nama cocok**, sampai `20270307000000_tenant_settings_conflict_http_409`. Pemeriksaan ini hanya ledger metadata, bukan diff seluruh DDL.
-CI memakai Supabase lokal terisolasi dan fixture sintetis. Bukti API staging yang tercatat di bagian historis hanya mencakup alur tertentu. UAT browser Admin sedang berjalan; navigasi 25 modul sudah diperiksa dan menemukan satu kegagalan akses Akademik yang sedang diperbaiki. Production tidak diubah.
+CI memakai Supabase lokal terisolasi dan fixture sintetis. Bukti API staging yang tercatat di bagian historis hanya mencakup alur tertentu. UAT browser Admin mencakup login, navigasi 25 modul, dua entitas sintetis, dan verifikasi perbaikan akses antrean Akademik. Production tidak diubah.
 Template `.env.example` dan default Compose menetapkan gerbang runtime modul `false`; operator harus mengaktifkan konfigurasi server/browser yang cocok per modul hanya setelah prasyarat skema, Auth, tenant, role, RLS, dan Storage diverifikasi. Keadaan template tidak membuktikan nilai environment live.
 Production PTSAS belum diverifikasi ulang dalam audit ini. Schema diff, urutan migrasi, backup/restore Production, serta UAT hosting tetap menjadi gerbang tim backend.
 
@@ -146,6 +146,7 @@ Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sint
 
 - Login Admin UAT pada VQE berhasil; 25 modul utama dapat dibuka tanpa halaman kosong atau error tampak. Ini smoke test navigasi, bukan verifikasi seluruh fitur dan penyimpanan.
 - Unit organisasi serta referensi jenjang sintetis berhasil dibuat dan ditampilkan kembali.
-- Akademik gagal memuat kelas yang belum dipetakan karena dua RPC meminta permission `academic` eksplisit. Profil Admin memiliki permission kosong; ini bertentangan dengan baseline Admin tenant dalam `src/rbac.ts`.
-- Migrasi korektif `20270308000000_academic_class_unit_admin_role_baseline.sql` dan regresi pgTAP sedang disiapkan. Perlu lulus CI, diterapkan dan diverifikasi ulang di VQE sebelum temuan ditutup. Production tidak disentuh.
+- Akademik sebelumnya gagal memuat antrean pemetaan karena dua RPC meminta permission `academic` eksplisit. Profil Admin memiliki permission kosong; ini bertentangan dengan baseline Admin tenant dalam `src/rbac.ts`.
+- Migrasi korektif `20270308000000_academic_class_unit_admin_role_baseline.sql` lulus replay migrasi dan pgTAP di [CI run #42468708677](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42468708677), lalu diterapkan ke VQE staging. Ledger staging kini cocok dengan source **140/140 versi dan nama**; UI berhasil memuat antrean tanpa error. Tidak ada kelas belum terpetakan pada tenant sintetis, jadi assignment aktual melalui UI masih belum teruji.
+- Perubahan tidak menyentuh PTSAS Production. UAT lintas role dan alur simpan-baca UI untuk semua modul masih belum lengkap; status tabel di atas tetap membatasi klaim pada cakupan tes yang benar-benar dijalankan.
 - UAT lintas role dan alur simpan-baca UI untuk semua modul masih belum lengkap; status tabel di atas tetap membatasi klaim pada cakupan tes yang benar-benar dijalankan.

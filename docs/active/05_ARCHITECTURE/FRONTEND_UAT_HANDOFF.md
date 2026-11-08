@@ -1,7 +1,7 @@
 # Panduan UAT Antarmuka dan Alur Lintas Modul ERP4 Pesantren
 
 Tanggal: 8 November 2026  
-Status: **UAT browser sedang berjalan. Login Admin staging dan navigasi awal selesai; ditemukan kegagalan akses Akademik yang harus diperbaiki dan diuji ulang.**
+Status: **UAT browser sedang berjalan. Login Admin staging, navigasi awal, dan pemulihan antrean Akademik selesai; UAT lintas role dan transaksi UI masih terbuka.**
 Baseline kode utama: `main` commit `ef8ce28e9541137e2154d025211db574dc2eef94`; perbaikan UAT saat ini disiapkan pada branch PR #90.
 Bukti otomatis baseline: [GitHub Actions run 42445243553](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42445243553).
 
@@ -129,7 +129,8 @@ Untuk setiap skenario, isi:
 - Navigasi ke 25 modul utama berhasil dibuka; tidak ditemukan halaman kosong atau error aplikasi yang tampak di browser. Pemeriksaan ini hanya smoke test navigasi, bukan bukti semua tindakan pada setiap modul berfungsi.
 - Unit organisasi sintetis `UAT01` dan referensi jenjang sintetis `Jenjang UAT` dengan kode NIS `91` berhasil disimpan dan ditampilkan kembali di UI.
 - Saat Akademik memuat antrean kelas lama yang belum memiliki unit, backend menolak akses. Profil Admin staging memiliki `module_permissions = {}`; aplikasi menetapkan Admin mendapat semua modul tenant sebagai baseline, tetapi RPC `get_tenant_unmapped_academic_classes` dan `assign_tenant_academic_class_unit` pada migrasi lama menuntut nilai eksplisit `academic: true`.
-- Perbaikan sumber disiapkan dalam migrasi forward `20270308000000_academic_class_unit_admin_role_baseline.sql`: kunci izin yang tidak ada mengikuti baseline role; nilai eksplisit selain `true` tetap ditolak. Regresi pgTAP mencakup baseline Admin dan override `academic: false`.
-- Perbaikan belum dianggap lulus sampai replay migrasi dan pgTAP CI sukses, migrasi diterapkan ke VQE staging, lalu daftar/pemetaan kelas diverifikasi ulang melalui UI. Tidak ada migrasi ke Production.
+- Perbaikan sumber pada `20270308000000_academic_class_unit_admin_role_baseline.sql` membuat kunci izin yang tidak ada mengikuti baseline role dan tetap menolak nilai eksplisit selain `true`. Replay migrasi dan regresi pgTAP lulus di [CI run #42468708677](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42468708677).
+- Migrasi diterapkan ke VQE staging saja. Ledger staging cocok dengan source pada **140/140 versi dan nama**. Setelah refresh UI, antrean kelas berhasil dimuat dan menampilkan “Semua kelas tenant sudah memiliki unit”; karena tenant sintetis tidak memiliki kelas belum terpetakan, UAT UI belum menguji pemetaan kelas aktual. PgTAP mencakup simpan-pemetaan dan penolakan eksplisit `academic: false`.
+- PTSAS Production tidak disentuh. Tidak ada migrasi ke Production.
 - UAT lintas role, CRUD dan baca-ulang seluruh modul, responsivitas, serta seluruh skenario pada bagian 2–7 masih belum selesai.
 
