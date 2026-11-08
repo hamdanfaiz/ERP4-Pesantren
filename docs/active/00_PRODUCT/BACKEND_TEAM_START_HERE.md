@@ -1,21 +1,20 @@
-## Checkpoint otoritatif — 7 November 2026, sesudah PR #65 (18.36 WIB)
+## Checkpoint otoritatif — 8 November 2026, sesudah PR #86
 
 ### Source dan pengujian yang terbukti
 
-- Main berada pada commit de5c9a26bcfaa79bba8d989bcf1434f11549bd90, hasil merge PR #65 pada 7 November 2026 pukul 18.04 WIB. PR #1–#11 tetap Closed tanpa merge karena source yang lebih baru menggantikan implementasinya; pada pemeriksaan terbaru tidak ada PR terbuka.
-- CI pada commit tersebut lulus tiga job: Migrations, API auth, and pgTAP; build frontend/Firebase bundle guard; dan instalasi NPM pelanggan. [Hasil CI](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42366639181). PR #65 menambah round-trip API Perpustakaan untuk relasi kategori, CRUD buku, peminjaman/pengembalian, idempotensi, batas eksemplar, role, dan isolasi tenant.
-- Sejak baseline audit 0e3e730, 19 commit menambah bukti round-trip API untuk CRM, komunikasi, Tahfidz, Akademik, Koperasi, Laundry, Donasi, Dokumen, Kesehatan, pemesanan fasilitas, urusan umum, dan Perpustakaan. CI juga memastikan setiap skrip test:* di package.json dijadwalkan pada workflow database. [Perubahan sejak baseline](https://github.com/hamdanfaiz/ERP4-Pesantren/compare/0e3e73006d6664a266dce2f90ac5fb707bcc911a...de5c9a26bcfaa79bba8d989bcf1434f11549bd90).
-- Suite memakai Supabase lokal/CI dan data sintetis. Build frontend bukan uji browser menyeluruh; hasil ini bukan UAT CRUD semua tampilan, bukti semua relasi operasional lintas modul, maupun bukti semua record tersimpan lintas sesi/perangkat.
-- Pada worktree audit, pemeriksaan murni source/konfigurasi lulus: cakupan workflow (54 skrip test package terjadwal), schema privat tidak terekspos, kontrak fixture sintetis, fail-closed deployment flags, dan larangan menyimpan PII Master Data di browser. Pengulangan suite database tidak dapat dilakukan karena Docker/Supabase CLI tidak tersedia. `npm ci` tidak selesai; dependency tree lokal tidak lengkap sehingga typecheck, build, dan beberapa skrip yang memerlukan `typescript`/`dotenv` tidak dapat dijalankan. CI pada commit `de5c9a2` tetap menjadi bukti eksekusi terintegrasi terkini; percobaan lokal yang terhalang bukan hasil lulus.
+- `main` berada pada merge commit `c219bbb467e1d2db3385abcaa7b8b1ee14ef0ad9`. PR #86, perbaikan HTTP 409 pada simpan Pengaturan Tenant, sudah merged. PR #1–#11 tetap closed tanpa merge karena implementasi utamanya digantikan source lebih baru.
+- Kandidat PR #86 `c34fed60a41c0e13e37e03281b650abffcd58fc7` lulus CI 3/3: migration/API/pgTAP, frontend/runtime Docker, dan instalasi NPM. [Run #42459060708](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42459060708). Supabase Preview dilewati. Belum ditemukan run terpisah pasca-merge ke `main`.
+- Job database memakai Supabase lokal terisolasi dan fixture sintetis. Log membuktikan API round-trip terpilih, relasi, persistence, idempotensi, role dan isolasi tenant lintas Akademik, CBT, LMS, HRIS, Koperasi, CRM, komunikasi, Laundry, Donasi/Wakaf, Dokumen, Kesehatan, Tahfidz, Perpustakaan, fasilitas, Urusan Umum, PPDB dan Finance; juga Storage, konkurensi NIS/asrama/Tahfidz, serta backup/restore satu record sintetis.
+- Bukti itu bukan UAT browser semua menu, form, role dan modul, bukan backup/restore Production, dan bukan bukti instalasi/upgrade/restore pada host pelanggan.
 
 ### Backend, staging, dan Production
 
-- Source aktif memakai backend Supabase; guard CI memastikan graph runtime frontend tidak memuat Firebase. Uji CI membuat backend/database lokal terisolasi, bukan koneksi tulis ke Production.
-- Snapshot operator VQE sebelumnya mencatat 136 entri ledger sampai migration 20270304000000; satu nama tercatat sebagai alias 20261106151606. Snapshot itu belum diulang pada checkpoint ini. Source main kini memiliki 138 file migration, termasuk 20270305000000 dan 20270306000000; verifikasi ledger staging sebelum db push dan jangan jalankan ulang DDL berdasarkan hitungan saja.
-- PTSAS Production tidak diubah. Snapshot baca-saja operator terakhir yang tersedia mencatat 119 tabel public dengan RLS + FORCE RLS dan 47 entri ledger. DDL aktual, urutan migrasi, serta backup/restore Production belum diverifikasi. Selisih ledger bukan instruksi untuk menerapkan migrasi massal.
-- Tim backend masih perlu melakukan schema diff, backup/restore rehearsal, tinjauan urutan migrasi, dan UAT hosting. Gerbang itu terpisah dari uji source sintetis.
+- VQE `vqemuyzveuirlkvdggjd` terdeteksi `ACTIVE_HEALTHY` dengan PostgreSQL 17.11.0.003. `list_migrations` menunjukkan 139 entri sampai `20270307000000_tenant_settings_conflict_http_409`. Query metadata baca-saja mengonfirmasi versi/nama ledger dan definisi `save_tenant_system_settings` yang memakai `PT409`.
+- Pemeriksaan tersebut membuktikan keberadaan migrasi Pengaturan Tenant di VQE, bukan kecocokan penuh seluruh DDL atau UAT setiap modul. Jalankan preflight versi/nama/SQL terhadap seluruh source yang sama sebelum langkah staging berikutnya.
+- Konektor sesi ini masih menolak baca PTSAS Production. Snapshot operator terdahulu menyebut 47 entri ledger dan 119 tabel public ber-RLS + FORCE RLS; angka itu belum diverifikasi ulang dan bukan bukti DDL cocok dengan source `main`. Tidak ada perubahan Production.
+- Tim backend menangani schema diff Production, review dependensi/urutan migration, backup/restore rehearsal, dry-run dan UAT hosting. Jangan menjalankan migration Production hanya untuk menyamakan jumlah ledger.
 
-**Kesimpulan:** source terbaru dapat ditinjau tim sekarang, tetapi pengujian fitur/fungsi seluruh modul belum selesai dan produk belum dinyatakan siap deploy. Jangan menafsirkan 3/3 CI, jumlah route, atau RLS aktif sebagai kelulusan penuh fungsi dan relasi.
+**Kesimpulan:** source `main` tersedia untuk review tim backend; pengujian otomatis sintetis lulus pada kandidat PR #86, tetapi seluruh fitur/fungsi belum selesai diuji dan produk belum dinyatakan siap deploy. Persentase terukur checkpoint ini adalah 3/3 job CI (100% dari job run itu), bukan persentase keseluruhan ERP. Lihat [checkpoint CI dan staging](CHECKPOINT_2026-11-08_CI_AND_STAGING.md).
 ---
 
 ## Checkpoint historis — setelah merge PR #38–#40, PR #43, dan PR #47, 7 November 2026
