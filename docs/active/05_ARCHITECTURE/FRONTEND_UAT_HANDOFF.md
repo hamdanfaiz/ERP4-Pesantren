@@ -1,8 +1,8 @@
 # Panduan UAT Antarmuka dan Alur Lintas Modul ERP4 Pesantren
 
 Tanggal: 8 November 2026  
-Status: **Belum dijalankan sebagai UAT browser oleh operator.**  
-Baseline kode: `main` commit `789cd19ee958ac2b7d69bd99daf2fa41bd4001a7` (PR #79).  
+Status: **UAT browser sedang berjalan. Login Admin staging dan navigasi awal selesai; ditemukan kegagalan akses Akademik yang harus diperbaiki dan diuji ulang.**
+Baseline kode utama: `main` commit `ef8ce28e9541137e2154d025211db574dc2eef94`; perbaikan UAT saat ini disiapkan pada branch PR #90.
 Bukti otomatis baseline: [GitHub Actions run 42445243553](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42445243553).
 
 Dokumen ini menjadi panduan eksekusi untuk tim backend/operator. CI yang lulus membuktikan build, migrasi lokal, tes database/API sintetis, instalasi paket, dan uji image pelanggan. Itu belum menggantikan UAT melalui browser dengan akun dan tenant uji.
@@ -119,7 +119,17 @@ Untuk setiap skenario, isi:
 - `npm run lint` dan `npm run build` lulus pada checkout tersebut. Build memberi peringatan bahwa chunk `react-pdf.browser` sekitar 1,46 MB; build tidak gagal, tetapi pemecahan chunk masih disarankan.
 - VQE staging (`vqemuyzveuirlkvdggjd`) merespons API. Ledger migrasi staging cocok dengan 139 file migrasi source (versi dan nama); ini tidak membuktikan kesetaraan DDL Production.
 - Tiga suite simpan-baca API dijalankan langsung terhadap VQE dengan fixture sintetis: `test:api:finance-storage` lulus (Finance/PPDB, onboarding dan relasinya, Storage privat, transaksi/idempotensi, role/tenant); `test:api:library-storage` lulus (unggah/unduh bertanda tangan, integritas konten, role/tenant); `test:api:document-center` lulus (nomor, alur dokumen, audit, lampiran PDF privat, tenant/permission). Ketiganya melaporkan cleanup sukses; tenant fixture disuspensi dan akun Auth sintetis diblokir.
-- Preview build menampilkan halaman beranda pada `http://localhost:4179/`. Belum ada sesi login browser yang digunakan; karena itu seluruh skenario role, navigasi operasional, dan form UI pada bagian di atas tetap **belum diuji**.
+- Pada saat snapshot source tersebut dicatat, sesi login browser belum tersedia; seluruh skenario role, navigasi operasional, dan form UI tetap **belum diuji** pada snapshot itu.
 - Untuk pratinjau UAT ini saja, runtime flags diaktifkan pada proses server sementara agar menu Supabase dapat dibuka; `.env.example`, Compose, staging, dan Production tidak diubah. Server preview yang masih aktif mengarah ke VQE staging dan dapat menulis data jika pengguna melakukan aksi. Gunakan hanya record sintetis dan hentikan server setelah UAT.
 - Langkah berikutnya: pemilik akun login sendiri ke preview dan menjalankan skenario browser pada bagian 2–7. Tim backend tetap memegang verifikasi DDL/urutan migrasi Production, backup-restore Production, deployment, dan UAT hosting.
+
+## UAT browser Admin staging — 8 November 2026
+
+- Operator berhasil login pada preview lokal `http://localhost:4179/` sebagai Admin UAT untuk tenant sintetis VQE. Production tidak digunakan.
+- Navigasi ke 25 modul utama berhasil dibuka; tidak ditemukan halaman kosong atau error aplikasi yang tampak di browser. Pemeriksaan ini hanya smoke test navigasi, bukan bukti semua tindakan pada setiap modul berfungsi.
+- Unit organisasi sintetis `UAT01` dan referensi jenjang sintetis `Jenjang UAT` dengan kode NIS `91` berhasil disimpan dan ditampilkan kembali di UI.
+- Saat Akademik memuat antrean kelas lama yang belum memiliki unit, backend menolak akses. Profil Admin staging memiliki `module_permissions = {}`; aplikasi menetapkan Admin mendapat semua modul tenant sebagai baseline, tetapi RPC `get_tenant_unmapped_academic_classes` dan `assign_tenant_academic_class_unit` pada migrasi lama menuntut nilai eksplisit `academic: true`.
+- Perbaikan sumber disiapkan dalam migrasi forward `20270308000000_academic_class_unit_admin_role_baseline.sql`: kunci izin yang tidak ada mengikuti baseline role; nilai eksplisit selain `true` tetap ditolak. Regresi pgTAP mencakup baseline Admin dan override `academic: false`.
+- Perbaikan belum dianggap lulus sampai replay migrasi dan pgTAP CI sukses, migrasi diterapkan ke VQE staging, lalu daftar/pemetaan kelas diverifikasi ulang melalui UI. Tidak ada migrasi ke Production.
+- UAT lintas role, CRUD dan baca-ulang seluruh modul, responsivitas, serta seluruh skenario pada bagian 2–7 masih belum selesai.
 
