@@ -1976,6 +1976,210 @@ async function main() {
     }
     assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
 
+    const masterDataAuthHeaders = { Authorization: `Bearer ${adminToken}` };
+    const namingSeriesResponse = await fetch(`${referenceApiBase}/api/master-data/naming-series`, {
+      headers: masterDataAuthHeaders,
+    });
+    assert.equal(namingSeriesResponse.status, 200, 'A tenant Admin with Master Data access can read the tenant naming-series catalog.');
+    const namingSeriesPayload = await namingSeriesResponse.json();
+    assert.equal(namingSeriesPayload.records.length, 15, 'The tenant receives all configured business-number series.');
+    const initialNisSeries = namingSeriesPayload.records.find((series) => series.seriesKey === 'nis');
+    assert.ok(initialNisSeries, 'The NIS series is present in the tenant catalog.');
+    assert.equal(initialNisSeries.formatTemplate, '{{YEAR}}{{GRADE}}{{SEQ}}');
+    assert.equal(initialNisSeries.sequenceWidth, 4);
+    assert.equal(initialNisSeries.resetPeriod, 'yearly');
+
+    const namingSeriesTenantBResponse = await fetch(`${referenceApiBase}/api/master-data/naming-series`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(namingSeriesTenantBResponse.status, 200, 'An Admin in another tenant can read that tenant’s own naming-series settings.');
+    const namingSeriesTenantB = await namingSeriesTenantBResponse.json();
+    assert.equal(namingSeriesTenantB.records.find((series) => series.seriesKey === 'nis')?.startNumber, 1,
+      'Tenant B starts from its own default NIS numbering settings.');
+
+    const namingSeriesPermissionDenied = await fetch(`${referenceApiBase}/api/master-data/naming-series`, {
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
+    });
+    assert.equal(namingSeriesPermissionDenied.status, 403, 'An Admin explicitly denied Master Data cannot read naming-series settings.');
+    const namingSeriesRoleDenied = await fetch(`${referenceApiBase}/api/master-data/naming-series`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(namingSeriesRoleDenied.status, 403, 'A non-admin role cannot manage tenant naming-series settings.');
+
+    const testNisGradeName = `Jenjang Uji NIS ${fixtureSuffix}`;
+    const { data: testNisGradeRows, error: testNisGradeError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: tenantIds[0],
+      domain: 'academic_grade_level',
+      code: `TEST_NIS_GRADE_${fixtureSuffix}`,
+      name: testNisGradeName,
+      description: 'Jenjang sintetis untuk menguji penomoran NIS otomatis.',
+      status: 'active',
+      nis_grade_code: '97',
+      created_by_user_id: users[0].uid,
+      updated_by_user_id: users[0].uid,
+    }).select('id');
+    assert.equal(testNisGradeError, null, 'The synthetic grade used by the numbering test is tenant-owned and active.');
+    assert.equal(testNisGradeRows?.length, 1);
+
+    const namingSeriesRequestId = randomUUID();
+    const namingSeriesUpdate = {
+      seriesKey: 'nis',
+      formatTemplate: '{{YEAR}}{{GRADE}}{{SEQ}}',
+      sequenceWidth: 4,
+      resetPeriod: 'yearly',
+      startNumber: 7,
+      isActive: true,
+      clientRequestId: namingSeriesRequestId,
+    };
+    const namingSeriesSaveResponse = await fetch(`${referenceApiBase}/api/master-data/naming-series/nis`, {
+      method: 'PUT',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify(namingSeriesUpdate),
+    });
+    assert.equal(namingSeriesSaveResponse.status, 200, 'The Admin can save the tenant NIS sequence configuration.');
+    const namingSeriesSaved = await namingSeriesSaveResponse.json();
+    assert.equal(namingSeriesSaved.record.seriesKey, 'nis');
+    assert.equal(namingSeriesSaved.record.startNumber, 7);
+    assert.equal(namingSeriesSaved.record.isActive, true);
+
+    const namingSeriesTenantBAfterSaveResponse = await fetch(`${referenceApiBase}/api/master-data/naming-series`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(namingSeriesTenantBAfterSaveResponse.status, 200);
+    const namingSeriesTenantBAfterSave = await namingSeriesTenantBAfterSaveResponse.json();
+    assert.equal(namingSeriesTenantBAfterSave.records.find((series) => series.seriesKey === 'nis')?.startNumber, 1,
+      'Changing Tenant A numbering settings does not alter Tenant B defaults.');
+
+    const namingSeriesRetryResponse = await fetch(`${referenceApiBase}/api/master-data/naming-series/nis`, {
+      method: 'PUT',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify(namingSeriesUpdate),
+    });
+    assert.equal(namingSeriesRetryResponse.status, 200, 'Retrying an identical series-setting request is idempotent.');
+    assert.equal((await namingSeriesRetryResponse.json()).record.startNumber, 7);
+
+    const namingSeriesConflictingRetryResponse = await fetch(`${referenceApiBase}/api/master-data/naming-series/nis`, {
+      method: 'PUT',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...namingSeriesUpdate, startNumber: 8 }),
+    });
+    assert.equal(namingSeriesConflictingRetryResponse.status, 409,
+      'Reusing a naming-series request ID with a different payload is rejected.');
+
+    const invalidNisSeriesResponse = await fetch(`${referenceApiBase}/api/master-data/naming-series/nis`, {
+      method: 'PUT',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...namingSeriesUpdate, clientRequestId: randomUUID(), startNumber: 10000 }),
+    });
+    assert.equal(invalidNisSeriesResponse.status, 400, 'NIS rules that exceed the four-digit sequence limit are rejected.');
+
+    const { data: namingSeriesEventRows, error: namingSeriesEventError } = await admin.from('tenant_naming_series_events')
+      .select('tenant_id, client_request_id, series_key, actor_user_id, operation, payload')
+      .eq('tenant_id', tenantIds[0])
+      .eq('client_request_id', namingSeriesRequestId)
+      .single();
+    assert.equal(namingSeriesEventError, null, 'The naming-series update is recorded in the audit/event relation.');
+    assert.equal(namingSeriesEventRows.actor_user_id, users[0].uid);
+    assert.equal(namingSeriesEventRows.series_key, 'nis');
+    assert.equal(namingSeriesEventRows.payload.startNumber, 7);
+
+    const masterDataStudentInputs = [
+      { sourceRecordId: `NIS-RACE-A-${fixtureSuffix}`, name: `Santri Uji NIS A ${fixtureSuffix}`, gender: 'L', grade: testNisGradeName, nis: '9999999999' },
+      { sourceRecordId: `NIS-RACE-B-${fixtureSuffix}`, name: `Santri Uji NIS B ${fixtureSuffix}`, gender: 'P', grade: testNisGradeName, nis: '9999999998' },
+    ];
+    const concurrentMasterDataCreates = await Promise.all(masterDataStudentInputs.map((record) => fetch(`${referenceApiBase}/api/master-data/students`, {
+      method: 'POST',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record }),
+    })));
+    assert.deepEqual(concurrentMasterDataCreates.map((response) => response.status), [201, 201],
+      'Two concurrent Admin requests can create students using the active tenant grade catalog.');
+    const concurrentMasterDataRecords = await Promise.all(concurrentMasterDataCreates.map(async (response) => (await response.json()).record));
+    const generatedNisValues = concurrentMasterDataRecords.map((record) => record.nis);
+    assert.equal(new Set(generatedNisValues).size, 2, 'Concurrent student creation allocates unique NIS values.');
+    assert.ok(generatedNisValues.every((nis) => /^\d{4}97000[78]$/.test(nis)),
+      'NIS values follow the configured year + tenant grade code + sequence format and ignore client-supplied NIS values.');
+    assert.deepEqual(generatedNisValues.map((nis) => nis.slice(-4)).sort(), ['0007', '0008'],
+      'Concurrent allocations honor the configured start number without a lost or duplicated sequence.');
+    assert.equal(new Set(concurrentMasterDataRecords.map((record) => record.supabaseId)).size, 2,
+      'Each new student receives a unique persistent Supabase ID.');
+
+    const masterDataReadbacks = await Promise.all(concurrentMasterDataRecords.map(async (createdRecord, index) => {
+      const response = await fetch(`${referenceApiBase}/api/master-data/students/${encodeURIComponent(createdRecord.supabaseId)}`, {
+        headers: masterDataAuthHeaders,
+      });
+      assert.equal(response.status, 200, 'A created student can be read back by its persistent Supabase ID.');
+      const { record } = await response.json();
+      assert.equal(record.supabaseId, createdRecord.supabaseId);
+      assert.equal(record.sourceRecordId, masterDataStudentInputs[index].sourceRecordId);
+      assert.equal(record.grade, testNisGradeName);
+      assert.equal(record.nis, createdRecord.nis);
+      return record;
+    }));
+
+    const { data: persistedNisStudentRows, error: persistedNisStudentError } = await admin.from('students')
+      .select('id, tenant_id, source_record_id, nis, grade, status')
+      .eq('tenant_id', tenantIds[0])
+      .in('source_record_id', masterDataStudentInputs.map((record) => record.sourceRecordId));
+    assert.equal(persistedNisStudentError, null, 'Both created student rows are persisted in the expected tenant.');
+    assert.equal(persistedNisStudentRows?.length, 2);
+    assert.ok(persistedNisStudentRows.every((row) => row.tenant_id === tenantIds[0] && row.status === 'Active'));
+    assert.deepEqual(persistedNisStudentRows.map((row) => row.nis).sort(), [...generatedNisValues].sort());
+
+    const { data: nisAllocationRows, error: nisAllocationError } = await admin.from('tenant_naming_series_allocations')
+      .select('tenant_id, series_key, sequence_number, business_code')
+      .eq('tenant_id', tenantIds[0])
+      .eq('series_key', 'nis')
+      .in('business_code', generatedNisValues);
+    assert.equal(nisAllocationError, null, 'Each generated NIS has a corresponding transactional allocation record.');
+    assert.equal(nisAllocationRows?.length, 2);
+    assert.ok(nisAllocationRows.every((row) => row.tenant_id === tenantIds[0] && row.series_key === 'nis'));
+    assert.deepEqual(nisAllocationRows.map((row) => Number(row.sequence_number)).sort((a, b) => a - b), [7, 8]);
+
+    const masterDataStudentRetryResponse = await fetch(`${referenceApiBase}/api/master-data/students`, {
+      method: 'POST',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: masterDataStudentInputs[0] }),
+    });
+    assert.equal(masterDataStudentRetryResponse.status, 201);
+    const masterDataStudentRetry = (await masterDataStudentRetryResponse.json()).record;
+    assert.equal(masterDataStudentRetry.supabaseId, concurrentMasterDataRecords[0].supabaseId,
+      'Retrying a student create with the same tenant source ID does not create a second Supabase student.');
+    assert.equal(masterDataStudentRetry.nis, concurrentMasterDataRecords[0].nis,
+      'A retry retains the previously issued NIS.');
+
+    const immutableNisUpdateResponse = await fetch(`${referenceApiBase}/api/master-data/students/${encodeURIComponent(masterDataStudentRetry.supabaseId)}`, {
+      method: 'PUT',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: {
+        ...masterDataStudentInputs[0],
+        supabaseId: masterDataStudentRetry.supabaseId,
+        name: `Santri Uji NIS Diperbarui ${fixtureSuffix}`,
+        nis: '0000000001',
+      } }),
+    });
+    assert.equal(immutableNisUpdateResponse.status, 200, 'The Admin can update student details through the tenant API.');
+    const immutableNisUpdate = (await immutableNisUpdateResponse.json()).record;
+    assert.equal(immutableNisUpdate.name, `Santri Uji NIS Diperbarui ${fixtureSuffix}`);
+    assert.equal(immutableNisUpdate.nis, masterDataStudentRetry.nis,
+      'An issued NIS is immutable when student details are edited.');
+
+    const masterDataSourceRetryRows = await admin.from('students')
+      .select('id, nis')
+      .eq('tenant_id', tenantIds[0])
+      .eq('source_record_id', masterDataStudentInputs[0].sourceRecordId);
+    assert.equal(masterDataSourceRetryRows.error, null);
+    assert.equal(masterDataSourceRetryRows.data?.length, 1,
+      'A retried source identifier continues to map to exactly one student row.');
+
+    const foreignTenantMasterDataRead = await fetch(`${referenceApiBase}/api/master-data/students/${encodeURIComponent(concurrentMasterDataRecords[0].supabaseId)}`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(foreignTenantMasterDataRead.status, 404,
+      'An Admin in another tenant cannot read a student by a known Supabase ID.');
+
+    assert.equal(masterDataReadbacks.length, 2);
+
     const alumniInitialSnapshotResponse = await fetch(`${referenceApiBase}/api/alumni`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
