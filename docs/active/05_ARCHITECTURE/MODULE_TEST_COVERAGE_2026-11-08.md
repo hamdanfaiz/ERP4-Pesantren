@@ -2,15 +2,15 @@
 
 Tanggal audit awal: 7 November 2026
 Status diperbarui: 8 November 2026
-Baseline terbaru: `main` commit `5ead22585bc80691f255955c8b77d93e01d10a3c`, setelah PR #72 merged
-Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42431333842)
+Baseline terbaru: `main` commit `bcb5e1dbdcfc25f01ff0c50b7fd7588a091b7127`, setelah PR #74 merged
+Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42433521043)
 
 ## Cara membaca status
 
 - **API round-trip CI**: request melalui server aplikasi terhubung ke Supabase lokal sintetis, lalu data dibaca kembali dan relasi/izin diperiksa.
 - **Database/unit CI**: prosedur, constraint, RLS, validasi, atau logika modul diuji, tetapi belum membuktikan alur antarmuka dan API penuh.
 - **Belum end-to-end**: belum ditemukan bukti positif yang menuntaskan alur pengguna dari antarmuka sampai data tersimpan dan dibaca kembali.
-- Bukti pada baseline terbaru mencakup PR #68 dan PR #72. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
+- Bukti pada baseline terbaru mencakup PR #68, #72, dan #74. PR #73 memperbarui dokumentasi audit. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
 
 ## Cakupan per modul
 
@@ -39,12 +39,12 @@ Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/ac
 | General Affairs dan aset | API katalog terkait, kode otomatis, opname, mutasi stok; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Inventaris fisik belum dicocokkan dengan data nyata. |
 | Pemesanan fasilitas | API relasi katalog, pemesanan, overlap, pembatalan, retry dan isolasi tenant | **API round-trip lulus di CI.** Kalender multi-pengguna dan UAT browser belum dilakukan. |
 | HRIS | API pegawai, nomor otomatis, referensi unit/jabatan, absensi, cuti, persetujuan, retry dan isolasi tenant | **API round-trip lulus di CI pada baseline.** Tes baru Admin provisioning belum termasuk baseline. |
-| Alumni | Tes logika kelulusan dan impor legacy | **Logika diuji.** Belum ditemukan round-trip API/UI alumni lengkap. |
+| Alumni | Tes logika kelulusan; API round-trip kelulusan, arsip santri, relasi request/profil, readback, idempotensi, duplikasi, role dan isolasi tenant pada PR #74 | **Database dan API round-trip lulus di CI** terhadap Supabase lokal sintetis. Belum UAT UI/browser dan belum rekonsiliasi alumni pada data Production. |
 | Pengaturan sistem, multi-unit, pencarian/umpan balik | Tes schema/keamanan, tenant enterprise units, konfigurasi runtime, dan validasi beberapa logika | **Database/configuration sebagian diuji.** UAT API/UI dengan tenant multi-unit dan operator belum menyeluruh. |
 
 ## Gerbang yang masih tersisa
 
-1. PR #68 (provisioning positif, PPDB, onboarding) dan PR #72 (asrama) sudah merged ke `main`; CI untuk kedua perubahan lulus.
+1. PR #68 (provisioning positif, PPDB, onboarding), PR #72 (asrama), dan PR #74 (Alumni) sudah merged ke `main`; CI untuk perubahan tersebut lulus.
 2. Jalankan UAT browser pada staging untuk role Admin, Ustadz, Santri, dan Wali, termasuk navigasi, validasi form, status loading/error/kosong, serta penyimpanan lintas modul.
 3. Tim backend melakukan pembandingan DDL/urutan migrasi Production, backup-restore rehearsal, lalu deployment dan UAT hosting. Tes staging/CI tidak menggantikan bukti tersebut.
 
@@ -76,4 +76,11 @@ Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sint
 - Workflow juga menjalankan pemeriksaan cakupan yang memastikan 54 skrip test pada `package.json` dijadwalkan di CI. Ini bukan bukti bahwa setiap fitur UI atau setiap variasi bisnis dari tiap modul telah diuji manual.
 - Build lokal terbaru lulus. Uji integrasi API penuh tidak dapat dijalankan pada workstation karena Supabase CLI lokal tidak tersedia; CI menjalankan suite tersebut pada backend Supabase ephemeral.
 
-**Kesimpulan status:** cakupan otomatis backend makin kuat dan PR #72 telah masuk ke `main`, tetapi seluruh produk belum dapat disebut lulus pengujian menyeluruh. UAT browser lintas role, pemeriksaan lingkungan hosting pelanggan, dan pembuktian Production tetap menjadi gerbang tersendiri.
+## Pembaruan cakupan CI — PR #74, 8 November 2026
+
+- PR #74 merged ke `main` pada commit `bcb5e1dbdcfc25f01ff0c50b7fd7588a091b7127`. Perubahan hanya memperluas suite uji API Alumni; tidak mengubah runtime, schema, atau database live.
+- Workflow [run 42433521043](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42433521043) lulus seluruh job wajib: migrasi/API/pgTAP, build/Firebase bundle guard, dan pemasangan NPM pelanggan. Supabase Preview dilewati karena branch Preview dinonaktifkan.
+- Suite API membuktikan daftar calon Alumni, kelulusan dan pengarsipan santri, relasi tenant/santri/pemohon pada data tersimpan, pembacaan ulang, idempotensi retry, penolakan reuse ID dengan payload berbeda, penolakan kelulusan ganda, pembatasan izin/role, dan penolakan akses lintas tenant.
+- Fixture hanya dipakai pada Supabase lokal sintetis CI dan dibersihkan oleh suite. Tidak ada baris aplikasi Production yang dibaca atau ditulis.
+
+**Kesimpulan status terbaru:** pengujian otomatis mencakup round-trip API dan simpan-baca pada banyak modul, tetapi belum membuktikan seluruh produk lulus pengujian menyeluruh. UAT browser lintas role, verifikasi Production/hosting, dan pemeriksaan migrasi serta backup-restore Production tetap menjadi gerbang tersendiri.

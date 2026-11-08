@@ -2,7 +2,7 @@
 
 Tanggal pemeriksaan: 8 November 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Baseline saat pemetaan fitur: `38f556e38bcb19c9dde6773da708bde24a8f6fd4`; setelah PR #70, baseline saat audit PR #1–#11 adalah `b1a5d0211c4748eee4389cce4b8e92ace4534969`. Snapshot kode terbaru setelah PR #72 merged: `5ead22585bc80691f255955c8b77d93e01d10a3c`.
+Baseline saat pemetaan fitur: `38f556e38bcb19c9dde6773da708bde24a8f6fd4`; setelah PR #70, baseline saat audit PR #1–#11 adalah `b1a5d0211c4748eee4389cce4b8e92ace4534969`. Snapshot kode terbaru setelah PR #74 merged: `bcb5e1dbdcfc25f01ff0c50b7fd7588a091b7127`.
 
 ## Kesimpulan
 
@@ -34,11 +34,13 @@ Cakupan produk utama PR #1–#11 memiliki padanan pada source penerus di `main`,
 - PR #68 (koreksi PPDB/onboarding dan bukti pengujiannya) serta PR #69 (tes round-trip CBT) tercatat merged pada pemeriksaan.
 - PR #70 kemudian ditandai siap dan merged ke `main` pada commit `b1a5d0211c4748eee4389cce4b8e92ace4534969`; tiga job CI wajib lulus pada head PR, sedangkan Supabase Preview dilewati. Perubahan LMS tersebut tidak mengubah status historis PR #1–#11.
 - PR #72 merged ke `main` pada 8 November 2026 dengan uji round-trip API asrama. Ini memperluas bukti untuk izin, disiplin, dan absensi; tidak mengubah produk ataupun status PR #1–#11. Workflow CI PR #72 lulus seluruh job wajib.
+- PR #73 merged sebagai pembaruan dokumentasi status audit dan cakupan modul.
+- PR #74 merged ke `main` pada 8 November 2026 dengan uji round-trip API Alumni. CI lulus seluruh job wajib; pengujian meliputi penyimpanan kelulusan, arsip santri, relasi audit, readback, idempotensi, role, dan tenant. Tidak mengubah runtime/schema atau data live.
 - PR lama #1–#11 tetap closed dan tidak merged. Tidak ada alasan untuk membuka kembali atau menggabungkan branch lamanya hanya demi mengubah label status.
 
 ## Yang dibuktikan dan yang belum
 
-Bukti source dan CI/staging menunjukkan bahwa fungsi utama yang menjadi cakupan PR lama memiliki implementasi penerus dan pengujian terpilih, termasuk tenant/RLS, PPDB, onboarding/NIS/asrama, Finance/Storage, dan sebagian besar alur Tahfidz. Detail cakupan per modul serta batas bukti terbaru ada di [Matriks Cakupan Pengujian Modul](./MODULE_TEST_COVERAGE_2026-11-08.md).
+Bukti source dan CI/staging menunjukkan bahwa fungsi utama yang menjadi cakupan PR lama memiliki implementasi penerus dan pengujian terpilih, termasuk tenant/RLS, PPDB, onboarding/NIS/asrama, Finance/Storage, sebagian besar alur Tahfidz, serta round-trip Alumni. Detail cakupan per modul serta batas bukti terbaru ada di [Matriks Cakupan Pengujian Modul](./MODULE_TEST_COVERAGE_2026-11-08.md).
 
 Audit ini **tidak** membuktikan:
 
