@@ -1,14 +1,14 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 7 November 2026, 18.36 WIB.** Source utama adalah main `de5c9a26bcfaa79bba8d989bcf1434f11549bd90` setelah PR #65 merged. PR #1–#11 tetap closed tanpa merge; tidak ada PR terbuka pada pemeriksaan GitHub terakhir.
+> **Status otoritatif — 8 November 2026.** Source utama adalah `main` commit `5a83701cf04d7e501c2a44d6b6276f92820e03c3` setelah PR #77 merged. PR #1–#11 tetap closed tanpa merge; cakupan utamanya digantikan PR #13 dan perubahan source sesudahnya. PR #68, #72, #74, dan #77 sudah merged.
 >
-> CI pada commit ini lulus tiga job: migrasi/API/pgTAP, build frontend dan guard bundel Firebase, serta instalasi NPM untuk lingkungan pelanggan. [Hasil CI](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42366639181). CI menjalankan backend Supabase lokal dengan data sintetis dan beberapa round-trip API lintas modul; ini bukan UAT browser seluruh sistem atau bukti Production.
+> CI pada source terbaru lulus 3/3 job: migrasi/API/pgTAP, build frontend dan guard bundel Firebase, serta instalasi NPM untuk lingkungan pelanggan. [Hasil CI](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42439486721). Job database memakai Supabase lokal terisolasi dan data sintetis; ini bukan UAT browser seluruh sistem atau bukti Production.
 >
-> Source `main` saat ini memiliki 138 migration files. Snapshot operator VQE terdahulu mencatat 136 ledger entries sampai migration `20270304000000` dengan satu alias nama; ledger VQE belum diperiksa ulang terhadap dua migration terbaru. Snapshot baca-saja Production terakhir mencatat 47 ledger entries dan 119 tabel public dengan RLS + FORCE RLS. Production tidak diubah; DDL, urutan migration, serta backup/restore Production belum dibuktikan.
+> Source audit mencatat 138 berkas migrasi; PR #77 hanya menambah tes dan tidak mengubah migrasi. Snapshot operator VQE terdahulu mencatat 136 ledger entries sampai migration `20270304000000` dengan satu alias nama; status dua migration berikutnya belum diverifikasi ulang. Snapshot baca-saja Production terakhir mencatat 47 ledger entries dan 119 tabel public dengan RLS + FORCE RLS. Production tidak diubah; DDL aktual, urutan migration, serta backup/restore Production belum dibuktikan.
 >
-> Produk **belum dinyatakan siap deploy atau komersial**. UAT browser untuk login, role/tenant, simpan-baca tiap modul, Storage dan tampilan responsif belum lengkap. Tim backend tetap mengerjakan schema diff, rehearsal urutan migration, backup/restore Production, dan UAT hosting. Gunakan [handoff backend terkini](BACKEND_TEAM_START_HERE.md) sebagai daftar bukti.
+> Produk **belum dinyatakan siap deploy atau komersial**. UAT browser untuk login, role/tenant, simpan-baca tiap modul, Storage dan tampilan responsif belum lengkap. Tim backend tetap perlu menyelesaikan schema diff, rehearsal urutan migration, backup/restore Production, dan UAT hosting. Gunakan [handoff backend terkini](BACKEND_TEAM_START_HERE.md) sebagai daftar bukti.
 >
-> Pemeriksaan source/konfigurasi lokal yang tidak memerlukan dependency lulus untuk cakupan workflow, schema privat, fixture sintetis, deployment flags, dan penyimpanan PII Master Data. Pengulangan suite DB terhambat karena Docker/Supabase CLI tidak tersedia; `npm ci` tidak selesai, sehingga typecheck/build dan skrip yang memerlukan dependency tidak dapat dijalankan. Bukti integrasi terbaru tetap workflow CI pada commit tersebut.
+> CI terbaru membuktikan build dan suite otomatis sintetis pada commit tersebut. CI lokal tidak membuktikan konfigurasi Auth hosting pelanggan, kebenaran DDL Production, alur UI lengkap, atau kemampuan pemulihan Production.
 
 > Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
 
