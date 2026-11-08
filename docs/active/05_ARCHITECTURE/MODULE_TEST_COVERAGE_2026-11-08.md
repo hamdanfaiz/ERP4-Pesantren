@@ -34,7 +34,7 @@ Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/ac
 | Laundry | API pesanan/status/isolasi tenant; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Perangkat/operasi loket belum UAT. |
 | Donasi dan wakaf | API transaksi serta relasi donor/kampanye; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Penerbitan bukti/rekonsiliasi nyata perlu UAT. |
 | Perpustakaan | API kategori, buku, sirkulasi/pengembalian; HTTP Storage aset digital privat; tes impor legacy | **API round-trip dan Storage lulus di CI.** Scanner/antarmuka perangkat belum UAT. |
-| Dokumen digital | API pendaftaran, nomor, filter, workflow/audit; validasi dan Storage privat | **API/Storage sebagian besar lulus di CI.** Konsistensi gaya tab yang dilaporkan pengguna dan alur UI masih perlu pemeriksaan browser. |
+| Dokumen digital | pgTAP workflow/tenant/storage dan filter unit; PR ini menambahkan HTTP round-trip API untuk pencatatan, nomor, transisi, lampiran PDF privat, baca ulang, idempotensi, dan isolasi tenant | **Tes round-trip menunggu CI branch ini.** UAT antarmuka serta konsistensi gaya tab masih perlu pemeriksaan browser. |
 | Kesehatan | API kunjungan/rekam dan relasi; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Perangkat dan workflow petugas belum UAT. |
 | General Affairs dan aset | API katalog terkait, kode otomatis, opname, mutasi stok; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Inventaris fisik belum dicocokkan dengan data nyata. |
 | Pemesanan fasilitas | API relasi katalog, pemesanan, overlap, pembatalan, retry dan isolasi tenant | **API round-trip lulus di CI.** Kalender multi-pengguna dan UAT browser belum dilakukan. |
