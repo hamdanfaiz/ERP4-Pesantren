@@ -113,3 +113,13 @@ Untuk setiap skenario, isi:
 - Tim menyimpan bukti backup dan rehearsal restore Production secara terpisah; smoke test backup/restore sintetis CI bukan bukti pemulihan Production.
 - Hasil UAT ditandatangani pemilik produk dan tim backend sebelum deploy pelanggan.
 
+## Revalidasi build dan integrasi staging — 8 November 2026
+
+- Source yang diperiksa: `main` commit `ef8ce28e9541137e2154d025211db574dc2eef94`. Commit tersebut hanya memperbarui dokumentasi dibanding baseline runtime sebelumnya. Workflow pada `main`, [GitHub Actions run #42462549477](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42462549477), selesai sukses.
+- `npm run lint` dan `npm run build` lulus pada checkout tersebut. Build memberi peringatan bahwa chunk `react-pdf.browser` sekitar 1,46 MB; build tidak gagal, tetapi pemecahan chunk masih disarankan.
+- VQE staging (`vqemuyzveuirlkvdggjd`) merespons API. Ledger migrasi staging cocok dengan 139 file migrasi source (versi dan nama); ini tidak membuktikan kesetaraan DDL Production.
+- Tiga suite simpan-baca API dijalankan langsung terhadap VQE dengan fixture sintetis: `test:api:finance-storage` lulus (Finance/PPDB, onboarding dan relasinya, Storage privat, transaksi/idempotensi, role/tenant); `test:api:library-storage` lulus (unggah/unduh bertanda tangan, integritas konten, role/tenant); `test:api:document-center` lulus (nomor, alur dokumen, audit, lampiran PDF privat, tenant/permission). Ketiganya melaporkan cleanup sukses; tenant fixture disuspensi dan akun Auth sintetis diblokir.
+- Preview build menampilkan halaman beranda pada `http://localhost:4179/`. Belum ada sesi login browser yang digunakan; karena itu seluruh skenario role, navigasi operasional, dan form UI pada bagian di atas tetap **belum diuji**.
+- Untuk pratinjau UAT ini saja, runtime flags diaktifkan pada proses server sementara agar menu Supabase dapat dibuka; `.env.example`, Compose, staging, dan Production tidak diubah. Server preview yang masih aktif mengarah ke VQE staging dan dapat menulis data jika pengguna melakukan aksi. Gunakan hanya record sintetis dan hentikan server setelah UAT.
+- Langkah berikutnya: pemilik akun login sendiri ke preview dan menjalankan skenario browser pada bagian 2–7. Tim backend tetap memegang verifikasi DDL/urutan migrasi Production, backup-restore Production, deployment, dan UAT hosting.
+

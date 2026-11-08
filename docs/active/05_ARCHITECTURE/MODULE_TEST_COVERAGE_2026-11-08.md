@@ -132,3 +132,12 @@ Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sint
 - Tes mencatat dan membaca ulang dokumen bernomor otomatis; menguji retry identik, konflik idempotensi, transisi status/audit, filter, serta role dan isolasi tenant.
 - Tes mengunggah PDF dengan signed URL, memvalidasi ukuran dan SHA-256, menolak serta membersihkan objek dengan hash berbeda, mengunduh ulang byte yang sama, dan menolak pembacaan Storage langsung maupun lintas tenant.
 - Fixture seluruhnya sintetis. Tenant staging disuspensi, akun uji diblokir, dan objek Storage dihapus; Production tidak disentuh. UAT browser dan konsistensi gaya tab tetap belum tercakup.
+
+## Revalidasi pada `main` terbaru — 8 November 2026
+
+- Source terbaru `main`: `ef8ce28e9541137e2154d025211db574dc2eef94`. Perubahan dari baseline runtime `26fa41a` hanya dokumentasi. Workflow push pada commit ini, [run #42462549477](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42462549477), lulus.
+- `npm run lint` dan `npm run build` lulus pada source tersebut. Peringatan chunk `react-pdf.browser` sekitar 1,46 MB masih ada.
+- VQE staging merespons koneksi API langsung. Ledger berisi 139 migrasi yang cocok versi dan namanya dengan 139 file source hingga `20270307000000_tenant_settings_conflict_http_409`.
+- Dijalankan ulang pada checkout ini terhadap VQE: `npm run test:api:finance-storage`, `npm run test:api:library-storage`, dan `npm run test:api:document-center` — semuanya lulus. Masing-masing melaporkan fixture tenant disuspensi, akun Auth sintetis diblokir, dan objek Storage uji dibersihkan.
+- Preview lokal dari build ini memuat halaman beranda. Sesi login tidak tersedia pada browser inspeksi; seluruh UAT browser berdasarkan role tetap belum dijalankan. Flags runtime hanya diaktifkan sementara pada proses preview lokal, tidak diubah pada file konfigurasi maupun project Supabase.
+- Tidak ada perubahan Production. Kesetaraan DDL Production, urutan migrasi, backup-restore, deployment hosting, dan UAT hosting masih menjadi gerbang tim backend/operator.
