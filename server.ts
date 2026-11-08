@@ -313,7 +313,7 @@ function resolveUserModulePermissions(role: string, perms?: Record<string, boole
   return result;
 }
 
-const INTERNAL_API_ERROR_DETAILS = /supabase|backend|runtime|migration|migrasi database|sqlstate|postgrest|pgrst|schema cache|duplicate key|foreign key constraint|violates .*constraint|permission denied for (?:schema|table|function)|relation .* does not exist|column .* does not exist|function .* does not exist/i;
+const INTERNAL_API_ERROR_DETAILS = /supabase|backend|runtime|migration|migrasi database|sqlstate|postgrest|pgrst|schema cache|duplicate key|foreign key constraint|violates .*constraint|permission denied for (?:schema|table|function)|relation .* does not exist|column .* does not exist|function .* does not exist|invalid input syntax for type|syntax error at or near|operator does not exist|cached plan must not change result type/i;
 
 function customerApiErrorMessage(status: number, message: string): string {
   if (status >= 500 || INTERNAL_API_ERROR_DETAILS.test(message)) {
