@@ -2,15 +2,15 @@
 
 Tanggal audit awal: 7 November 2026
 Status diperbarui: 8 November 2026
-Baseline terbaru: `main` commit `c5f777c08c7640b6b7e4b268470e4e2a741f999b`, setelah PR #81 merged
-Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42448093578) — PR #81, 3/3 job lulus.
+Baseline terbaru: `main` commit `56141733c045dcf3d3f43377e5aebdcdb05b6f9b`, setelah PR #83 dan #84 merged.
+Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42452513652) — PR #84, 3/3 job lulus; PR #83 juga lulus 3/3 job pada run #42449930567.
 
 ## Cara membaca status
 
 - **API round-trip CI**: request melalui server aplikasi terhubung ke Supabase lokal sintetis, lalu data dibaca kembali dan relasi/izin diperiksa.
 - **Database/unit CI**: prosedur, constraint, RLS, validasi, atau logika modul diuji, tetapi belum membuktikan alur antarmuka dan API penuh.
 - **Belum end-to-end**: belum ditemukan bukti positif yang menuntaskan alur pengguna dari antarmuka sampai data tersimpan dan dibaca kembali.
-- Bukti source/tes pada baseline terbaru mencakup PR #68, #72, #74, #77, dan #79; PR #81 memperbarui dokumentasi bukti staging. PR #73, #75, #78, dan #80 juga memperbarui dokumentasi audit atau panduan UAT. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
+- Bukti source/tes pada baseline terbaru mencakup PR #68, #72, #74, #77, #79, dan #84; PR #81 memperbarui dokumentasi bukti staging, sedangkan PR #83 mendokumentasikan audit RLS/privilege staging. PR #73, #75, #78, dan #80 juga memperbarui dokumentasi audit atau panduan UAT. PR #84 menambah API/Storage round-trip Dokumen Digital tanpa mengubah runtime atau skema. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
 
 ## Cakupan per modul
 

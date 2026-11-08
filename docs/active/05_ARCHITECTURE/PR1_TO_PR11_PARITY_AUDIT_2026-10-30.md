@@ -1,6 +1,16 @@
 # Audit paritas sumber PR #1–#11 dengan PR #13
+## Revalidasi terbaru — 8 November 2026 (main setelah PR #83 dan #84)
 
-## Revalidasi terbaru — 8 November 2026 (setelah PR #77)
+- Baseline diperiksa pada `main` commit `56141733c045dcf3d3f43377e5aebdcdb05b6f9b`. Metadata GitHub saat audit ulang menunjukkan PR #1–#11 semuanya `closed`, `merged_at=null` dan `merged=false`. Karena itu branch lama memang tidak pernah digabung; status closed tidak menyatakan source-nya masuk ke main.
+- Daftar file dan tujuan setiap PR #1–#11 dibandingkan dengan matriks source, migration dan tes di bawah. Tidak ditemukan fitur utama yang hanya berada di branch lama dan hilang dari source terbaru. Padanan dibangun ulang atau dipindahkan; jangan merge branch lama maupun menjalankan migration historisnya.
+- Temuan yang pernah material pada PR #3—Admin dapat memberi akses modul yang tidak dimilikinya—sudah diperbaiki pada PR #43 dan regresinya masuk ke CI. Provisioning sekarang memakai API server Supabase, bukan Edge Function lama; ini penggantian arsitektur, bukan merge PR #3.
+- PR #11 berisi Master Data, onboarding/NIS/asrama dan Tahfidz yang kini memiliki implementasi Supabase-native serta pengujian API/database pada source terbaru. Bridge identitas Firebase lama sengaja tidak dibawa. Peer Review Tahfidz dibatasi pada teks dan moderasi Ustadz; audio dan akses Wali tidak termasuk cakupan yang disetujui.
+- Batas produk yang perlu tim ketahui tetap ada: pendaftaran PPDB Admin saat offline belum tersedia; pembayaran mandiri Wali sebelum onboarding belum tersedia; PPOB/payment gateway dikeluarkan dari rilis awal. Ini gap/keputusan produk terdokumentasi, bukan fitur yang tertinggal di branch #1–#11.
+- Setelah baseline audit sebelumnya, PR #74 menambah API round-trip Alumni, PR #77 menambah coverage transfer Data Induk, PR #79 menguji undangan/aktivasi akun Wali, PR #83 memperbarui audit RLS/privilege staging, dan PR #84 menambah API round-trip Dokumen Digital serta Storage privat. PR #83 dokumentasi saja; PR #84 memperluas tes dan tidak mengubah runtime atau skema. Actions untuk PR #83 (run #42449930567) dan PR #84 (run #42452513652) lulus; PR #84 juga lulus uji HTTP pada VQE dengan fixture sintetis.
+- Kesimpulan untuk PR lama: tidak ada dasar menggabungkan #1–#11 ke `main`; menutupnya tanpa merge sebagai superseded adalah status yang benar. Batas UAT UI seluruh modul, validasi akses/login pada host final, DDL/urutan migrasi Production, serta rehearsal backup/restore Production tetap belum terbukti dan berada pada gerbang tim backend/penerapan. Production tidak diubah oleh audit ini.
+
+
+## Arsip revalidasi awal — 8 November 2026 (setelah PR #77)
 
 > Status pada bagian revalidasi terbaru dan API GitHub adalah acuan saat ini. Catatan checkpoint bertanggal setelahnya merupakan arsip historis dan dapat memuat status PR sebelum perubahan berikutnya.
 
