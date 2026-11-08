@@ -1,9 +1,13 @@
 # Matriks Cakupan Pengujian Modul ERP4 Pesantren
 
-Tanggal audit awal: 7 November 2026
-Status diperbarui: 8 November 2026
-Baseline terbaru: `main` commit `56141733c045dcf3d3f43377e5aebdcdb05b6f9b`, setelah PR #83 dan #84 merged.
-Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42452513652) — PR #84, 3/3 job lulus; PR #83 juga lulus 3/3 job pada run #42449930567.
+Tanggal audit awal: 7 November 2026  
+Status diperbarui: 8 November 2026  
+Baseline kode terbaru: `main` commit `26fa41a4882892afab3df014bfb92461ab6b8efe` (sesudah PR #88; PR #87–#88 hanya dokumentasi).
+CI terbaru yang diverifikasi: [GitHub Actions run #42461219883](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42461219883), 3/3 job lulus pada kandidat PR #88. Job database/API/pgTAP, frontend/runtime/Docker, dan instalasi NPM pelanggan selesai sukses. PR #88 tidak mengubah aplikasi.
+Staging VQE `vqemuyzveuirlkvdggjd`: 139 baris ledger migrasi; dibandingkan dengan `main`, **139/139 versi dan nama cocok**, sampai `20270307000000_tenant_settings_conflict_http_409`. Pemeriksaan ini hanya ledger metadata, bukan diff seluruh DDL.
+CI memakai Supabase lokal terisolasi dan fixture sintetis. Bukti API staging yang tercatat di bagian historis hanya mencakup alur tertentu. Tidak ada bukti UAT browser seluruh modul, dan Production tidak diubah.
+Template `.env.example` dan default Compose menetapkan gerbang runtime modul `false`; operator harus mengaktifkan konfigurasi server/browser yang cocok per modul hanya setelah prasyarat skema, Auth, tenant, role, RLS, dan Storage diverifikasi. Keadaan template tidak membuktikan nilai environment live.
+Production PTSAS belum diverifikasi ulang dalam audit ini. Schema diff, urutan migrasi, backup/restore Production, serta UAT hosting tetap menjadi gerbang tim backend.
 
 ## Cara membaca status
 
