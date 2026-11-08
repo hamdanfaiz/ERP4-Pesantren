@@ -52,6 +52,26 @@ assert.match(server, /const FEATURE_UNAVAILABLE_MESSAGE\s*=\s*"Layanan ini belum
   "Disabled feature flags must use customer-facing copy without operator instructions");
 assert.doesNotMatch(server, /error:\s*"[^"]*belum diaktifkan operator\./i,
   "API responses must not expose operator-only feature-flag guidance");
+assert.doesNotMatch(serverSource, /Konfigurasi .*Supabase belum lengkap\.|Supabase belum dikonfigurasi di server\./i,
+  "API errors must not expose internal Supabase configuration details");
+assert.match(server, /function customerApiErrorMessage\(status: number, message: string\): string\s*\{\s*if \(status >= 500\) return "Layanan ini sedang mengalami kendala\./,
+  "Server-side failures must be translated into a customer-facing message");
+assert.doesNotMatch(server, /return res\.status\(error\.status\)\.json\(\{\s*error:\s*error\.message\s*\}\)/,
+  "Typed server failures must not return raw internal messages to clients");
+assert.doesNotMatch(server, /error:\s*["'`][^"'`]*(?:Supabase|runtime|migration|konfigurasi|flag runtime|belum disiapkan|menunggu audit|diaktifkan oleh pengelola)/i,
+  "Customer-facing API errors must not expose backend setup or operator instructions");
+const publicProxyStart = server.indexOf("// WILAYAH & QURAN API PROXIES");
+const developmentRoutesStart = server.indexOf('if (process.env.NODE_ENV !== "production")', publicProxyStart);
+assert.ok(publicProxyStart >= 0 && developmentRoutesStart > publicProxyStart,
+  "Public proxy routes must remain in a bounded section for error-copy checks");
+assert.doesNotMatch(server.slice(publicProxyStart, developmentRoutesStart), /error:\s*e\.message/,
+  "Public data proxy errors must not expose upstream implementation details");
+assert.doesNotMatch(server, /code:\s*"INVITATION_(?:FAILED|VERIFY_FAILED|CLAIM_FAILED)"[\s\S]{0,180}error:\s*err\.message/i,
+  "Guardian invitation errors must not expose raw identity-provider messages");
+assert.doesNotMatch(server, /status === 500\s*\?[^\n]+:\s*err\.message/,
+  "Public registration server failures must not return raw backend errors");
+assert.doesNotMatch(read("src/server/supabasePublicPpdb.ts"), /SupabasePublicPpdbError\(400,\s*body\?\.message/,
+  "Public registration database errors must not expose raw database messages");
 assert.doesNotMatch(centralStructure, /(?:message|error):\s*["'`]Runtime .*Supabase|error\?\.message/,
   "Room-assignment errors must not expose runtime flags or raw backend messages");
 const environmentBlock = compose.match(/^    environment:\r?\n([\s\S]*?)^    ports:/m)?.[1];

@@ -14,7 +14,7 @@ export class FinanceProofStorageError extends Error {
 function storageConfig() {
   const baseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
   const secretKey = String(process.env.SUPABASE_SECRET_KEY || '').trim();
-  if (!baseUrl || !secretKey) throw new FinanceProofStorageError(503, 'Konfigurasi Storage Supabase belum lengkap.');
+  if (!baseUrl || !secretKey) throw new FinanceProofStorageError(503, 'Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.');
   return { baseUrl, secretKey };
 }
 

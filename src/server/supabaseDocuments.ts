@@ -24,7 +24,7 @@ let serviceClient: SupabaseClient | null = null;
 function getClient(): SupabaseClient {
   const url = String(process.env.SUPABASE_URL || "").trim();
   const key = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!url || !key) throw new SupabaseDocumentError(503, "Konfigurasi Supabase server belum lengkap.");
+  if (!url || !key) throw new SupabaseDocumentError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   if (!serviceClient) serviceClient = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
   return serviceClient;
 }

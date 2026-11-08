@@ -17,7 +17,7 @@ export class SupabaseLibraryError extends Error {
 function serviceConfig() {
   const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   const key = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!baseUrl || !key) throw new SupabaseLibraryError(503, "Konfigurasi backend Supabase belum lengkap.");
+  if (!baseUrl || !key) throw new SupabaseLibraryError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   return { baseUrl, key };
 }
 

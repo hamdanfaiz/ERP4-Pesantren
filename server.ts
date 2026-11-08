@@ -313,11 +313,16 @@ function resolveUserModulePermissions(role: string, perms?: Record<string, boole
   return result;
 }
 
+function customerApiErrorMessage(status: number, message: string): string {
+  if (status >= 500) return "Layanan ini sedang mengalami kendala. Silakan coba kembali beberapa saat lagi.";
+  return message;
+}
+
 function identityFailure(res: express.Response, err: unknown) {
   if (err instanceof IdentityUnavailableError) {
     return res.status(503).json({
       code: "SUPABASE_IDENTITY_UNAVAILABLE",
-      error: err.message,
+      error: "Profil akun belum dapat diproses saat ini. Silakan coba kembali.",
     });
   }
   if (err instanceof IdentityConflictError) {
@@ -618,13 +623,13 @@ async function startServer() {
   };
   const communicationRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) {
-      return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+      return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
     }
     if (error instanceof CommunicationStoreError) {
-      return res.status(error.status).json({ error: error.message });
+      return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     }
     console.error("Supabase communication endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Komunikasi Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Komunikasi belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const communicationRuntimeEnabled = String(process.env.SUPABASE_COMMUNICATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const supabasePublicPpdbRuntimeEnabled = String(process.env.SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -646,10 +651,10 @@ async function startServer() {
   };
   const tahfidzRuntimeEnabled = String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const tahfidzRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase Tahfidz endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Tahfidz Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Tahfidz belum dapat diproses saat ini. Silakan coba kembali." });
   };
 
   const loadMasterDataActor = async (uid: string, moduleId: "master-data" | "boarding") => {
@@ -712,17 +717,17 @@ async function startServer() {
   };
   const crmRuntimeEnabled = String(process.env.SUPABASE_CRM_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const crmRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseCrmError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseCrmError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase CRM endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan CRM Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan CRM belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const documentRuntimeEnabled = String(process.env.SUPABASE_DOCUMENT_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const documentRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseDocumentError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseDocumentError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase Document endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Dokumen Digital Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Dokumen Digital belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const hrisRuntimeEnabled = String(process.env.SUPABASE_HRIS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const cooperativeRuntimeEnabled = String(process.env.SUPABASE_COOPERATIVE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -741,16 +746,16 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const cooperativeRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseCooperativeError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseCooperativeError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase cooperative endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Koperasi Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Koperasi belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const hrisRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseHrisError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseHrisError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase HRIS endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan HRIS Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan HRIS belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const masterDataRuntimeEnabled = String(process.env.SUPABASE_MASTER_DATA_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -778,13 +783,13 @@ async function startServer() {
   const donationRuntimeEnabled = String(process.env.SUPABASE_DONATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const facilityBookingsRuntimeEnabled = String(process.env.SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const masterDataRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
-    if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
-    if (error instanceof SupabaseReferenceCatalogError) return res.status(error.status).json({ error: error.message });
-    if (error instanceof SupabaseNamingSeriesError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
+    if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
+    if (error instanceof SupabaseReferenceCatalogError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
+    if (error instanceof SupabaseNamingSeriesError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase Master Data endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Master Data Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Master Data belum dapat diproses saat ini. Silakan coba kembali." });
   };
 
   const loadPpdbActor = async (uid: string) => {
@@ -830,11 +835,11 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const academicRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
     if (error instanceof IdentityConflictError) return res.status(403).json({ error: error.message });
-    if (error instanceof SupabaseAcademicError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof SupabaseAcademicError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase academic endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Akademik Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Akademik belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const loadCbtAdminActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -853,10 +858,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const cbtRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseCbtError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseCbtError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase CBT endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan CBT Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan CBT belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const loadLmsActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -868,10 +873,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const lmsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseLmsError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseLmsError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase LMS endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan LMS Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan LMS belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const loadHealthcareActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -882,10 +887,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const healthcareRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseHealthcareError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseHealthcareError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase healthcare endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan UKS Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan UKS belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const loadGeneralAffairsActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -896,10 +901,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const generalAffairsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseGeneralAffairsError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseGeneralAffairsError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase General Affairs endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan General Affairs Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Sarana dan Prasarana belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const loadMarketplaceActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -910,10 +915,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const marketplaceRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseMarketplaceError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseMarketplaceError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase Marketplace endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Marketplace Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Marketplace belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const loadDonationActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -924,10 +929,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const donationRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseDonationError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseDonationError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase Donation endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Donasi & Wakaf Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Donasi dan Wakaf belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const loadFacilityBookingActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -939,18 +944,18 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const facilityBookingRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseFacilityBookingError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseFacilityBookingError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase facility booking endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan pemesanan fasilitas Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Pemesanan fasilitas belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const ppdbRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabasePpdbError) return res.status(error.status).json({ error: error.message });
-    if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
-    if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabasePpdbError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
+    if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
+    if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase PPDB endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan PPDB Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan PPDB belum dapat diproses saat ini. Silakan coba kembali." });
   };
 
   const loadAlumniActor = async (uid: string) => {
@@ -968,10 +973,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const alumniRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseAlumniError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseAlumniError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase Alumni endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Alumni Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Alumni belum dapat diproses saat ini. Silakan coba kembali." });
   };
 
   app.get("/api/alumni", requireAuth, async (req, res) => {
@@ -1071,7 +1076,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadPpdbActor(uid);
       if (!ppdbRuntimeEnabled || !ppdbDocumentsRuntimeEnabled) {
-        return res.status(503).json({ error: "Unduh berkas PPDB menunggu audit dan pengaktifan runtime Storage." });
+        return res.status(503).json({ error: "Berkas pendaftaran belum dapat diunduh saat ini. Silakan hubungi panitia pesantren." });
       }
       const document = await downloadSupabasePpdbCandidateDocument(
         actor.tenantId,
@@ -1094,7 +1099,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadPpdbActor(uid);
       if (!ppdbRuntimeEnabled || !ppdbDocumentsRuntimeEnabled) {
-        return res.status(503).json({ error: "Unggah berkas PPDB menunggu migration dan pengaktifan runtime Storage." });
+        return res.status(503).json({ error: "Berkas pendaftaran belum dapat diunggah saat ini. Silakan hubungi panitia pesantren." });
       }
       const result = await uploadSupabasePpdbCandidateDocument(
         actor.tenantId,
@@ -1119,7 +1124,7 @@ async function startServer() {
         throw new SupabasePpdbError(403, "Akses modul PPDB dan Keuangan diperlukan untuk menerbitkan tagihan.");
       }
       if (!ppdbRuntimeEnabled || !ppdbFinanceBillsEnabled || !financeRuntimeEnabled) {
-        return res.status(503).json({ error: "Penerbitan tagihan PPDB menunggu migration Finance dan flag runtime PPDB–Keuangan." });
+        return res.status(503).json({ error: "Penerbitan tagihan belum tersedia saat ini. Silakan hubungi administrator pesantren." });
       }
       const result = await createSupabasePpdbCandidateBill(
         actor.tenantId,
@@ -1134,7 +1139,7 @@ async function startServer() {
 
   const requirePpdbOnboardingRuntime = (res: express.Response) => {
     if (!ppdbOnboardingRuntimeEnabled || !ppdbRuntimeEnabled || !masterDataRuntimeEnabled || !boardingRuntimeEnabled) {
-      res.status(503).json({ error: "Onboarding Supabase memerlukan runtime PPDB, Master Data, dan Asrama yang sudah disiapkan." });
+      res.status(503).json({ error: "Pendaftaran belum dapat diproses saat ini. Silakan hubungi administrator pesantren." });
       return false;
     }
     return true;
@@ -1867,11 +1872,11 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const libraryRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseLibraryError) return res.status(error.status).json({ error: error.message });
-    if (error instanceof SupabaseLibraryAssetError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseLibraryError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
+    if (error instanceof SupabaseLibraryAssetError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase library endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Perpustakaan Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Perpustakaan belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const loadLaundryActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -1889,17 +1894,17 @@ async function startServer() {
   };
   const laundryRuntimeEnabled = String(process.env.SUPABASE_LAUNDRY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const laundryRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseLaundryError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseLaundryError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase laundry endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Laundry Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Laundry belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const dashboardRuntimeEnabled = String(process.env.SUPABASE_DASHBOARD_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const dashboardRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseDashboardError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseDashboardError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase dashboard endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Ringkasan dashboard Supabase belum dapat dimuat." });
+    return res.status(503).json({ error: "Ringkasan dashboard belum dapat dimuat saat ini. Silakan coba kembali." });
   };
   const loadDashboardActor = async (uid: string, surface: "dashboard" | "intelligence") => {
     const profile = await getUserProfile(uid);
@@ -1970,10 +1975,10 @@ async function startServer() {
     return actor;
   };
   const financeBudgetRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseFinanceBudgetError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseFinanceBudgetError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase Finance budget endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan anggaran Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan anggaran belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const loadEnterpriseUnitsActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -2007,16 +2012,16 @@ async function startServer() {
     return actor;
   };
   const enterpriseUnitsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseEnterpriseUnitsError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseEnterpriseUnitsError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase Enterprise units endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Manajemen Multi-Unit Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan Manajemen Multi-Unit belum dapat diproses saat ini. Silakan coba kembali." });
   };
   const financeRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SupabaseFinanceError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SupabaseFinanceError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase finance endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Finance Supabase belum dapat diproses." });
+    return res.status(503).json({ error: "Layanan keuangan belum dapat diproses saat ini. Silakan coba kembali." });
   };
 
   app.get("/api/library/snapshot", requireAuth, async (req, res) => {
@@ -3305,8 +3310,8 @@ async function startServer() {
     return { ...profile, tenantId };
   };
   const systemSettingsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
-    if (error instanceof SystemSettingsStoreError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
+    if (error instanceof SystemSettingsStoreError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase system settings endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Pengaturan tenant belum dapat diproses." });
   };
@@ -3372,7 +3377,7 @@ async function startServer() {
   app.post("/api/system/settings/prepare", requireAuth, (_req, res) => {
     return res.status(410).json({
       code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
-      error: "Pembersihan pengaturan lama telah dihentikan. Kelola pengaturan tenant pada Supabase.",
+      error: "Pengaturan tenant dikelola melalui menu Pengaturan.",
     });
   });
 
@@ -3391,7 +3396,7 @@ async function startServer() {
       const result = await recordTenantSearchFeedback(actor.tenantId, actor.uid, requestId, ratingValue === "up" ? 1 : -1);
       return res.json(result);
     } catch (error) {
-      if (error instanceof SearchFeedbackStoreError) return res.status(error.status).json({ error: error.message });
+      if (error instanceof SearchFeedbackStoreError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
       console.error("Search feedback endpoint failed:", error instanceof Error ? error.message : "unknown error");
       return res.status(503).json({ error: "Feedback belum dapat disimpan." });
     }
@@ -3409,7 +3414,7 @@ async function startServer() {
   // Public PPDB is served only by this trusted server. Tenant identity is fixed in server configuration.
   app.get("/api/public/guardian-registration/config", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran Portal Wali belum disiapkan." });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran akun wali belum tersedia saat ini. Silakan hubungi administrator pesantren." });
     try {
       const config = await getSupabasePublicGuardianRegistrationConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
       return res.json({ tenantName: config.tenantName, registrationRedirectUrl: config.registrationRedirectUrl });
@@ -3442,8 +3447,8 @@ async function startServer() {
 
   app.get("/api/public/ppdb/config", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran PPDB Supabase belum disiapkan; pendaftaran belum dapat dibuka." });
-    if (!publicPpdbEnabled) return res.status(503).json({ error: "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren." });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran belum tersedia saat ini. Silakan hubungi panitia pesantren." });
+    if (!publicPpdbEnabled) return res.status(503).json({ error: "Pendaftaran belum tersedia saat ini. Silakan hubungi panitia pesantren." });
     try {
       const config = await getSupabasePublicPpdbConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
       return res.json({
@@ -3454,15 +3459,18 @@ async function startServer() {
       });
     } catch (err: any) {
       const status = Number(err?.status) || 503;
-      return res.status(status).json({ error: status === 503 ? "Konfigurasi PPDB Supabase belum tersedia." : err.message });
+      const message = status >= 500
+        ? "Pendaftaran belum tersedia saat ini. Silakan hubungi panitia pesantren."
+        : err.message || "Pendaftaran belum dapat diproses.";
+      return res.status(status).json({ error: message });
     }
   });
 
   app.post("/api/public/ppdb/registrations", async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const clientKey = String(req.ip || req.socket.remoteAddress || "unknown");
-    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran PPDB Supabase belum disiapkan; pendaftaran belum dapat dibuka." });
-    if (!publicPpdbEnabled) return res.status(503).json({ error: "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren." });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran belum tersedia saat ini. Silakan hubungi panitia pesantren." });
+    if (!publicPpdbEnabled) return res.status(503).json({ error: "Pendaftaran belum tersedia saat ini. Silakan hubungi panitia pesantren." });
     if (!consumePublicPpdbRateLimit(clientKey)) {
       res.setHeader("Retry-After", "900");
       return res.status(429).json({ error: "Batas pendaftaran sementara tercapai. Silakan coba lagi 15 menit kemudian." });
@@ -3475,14 +3483,17 @@ async function startServer() {
       const status = Number(err?.status) || 500;
       if (status === 429) res.setHeader("Retry-After", "900");
       if (status >= 500) console.error("Supabase public PPDB registration failed:", err?.name || "error");
-      return res.status(status).json({ error: status === 500 ? "Pendaftaran gagal diproses. Silakan coba kembali atau hubungi panitia." : err.message || "Pendaftaran belum dapat diproses." });
+      const message = status >= 500
+        ? "Pendaftaran gagal diproses. Silakan coba kembali atau hubungi panitia."
+        : err.message || "Pendaftaran belum dapat diproses.";
+      return res.status(status).json({ error: message });
     }
   });
 
   // Payment proof bytes and billing metadata are handled only by this authenticated backend.
   app.post("/api/finance/payment-proofs", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Upload bukti pembayaran Supabase belum disiapkan; penyimpanan lama telah dinonaktifkan." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Layanan bukti pembayaran belum tersedia saat ini. Silakan hubungi administrator pesantren." });
     const uid = String((req as any).user?.uid || "");
     if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
     if (String(process.env.SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED || "").trim().toLowerCase() !== "true") {
@@ -3523,7 +3534,10 @@ async function startServer() {
         return res.status(alreadyApplied ? 200 : 201).json({ ok: true, alreadyApplied, proofFile: alreadyApplied ? savedBill?.proof_file : safeName, proofStoragePath: alreadyApplied ? savedBill?.proof_storage_path : uploadedPath, proofStorageProvider: "supabase" });
     } catch (error: any) {
       if (uploadedPath) { try { await deleteSupabaseFinanceProof(uploadedPath); } catch { /* Best-effort cleanup after a failed metadata transaction. */ } }
-      if (error instanceof FinanceProofStorageError || error?.status) return res.status(Number(error.status) || 503).json({ error: error.message || "Bukti pembayaran gagal disimpan." });
+      if (error instanceof FinanceProofStorageError || error?.status) {
+        const status = Number(error.status) || 503;
+        return res.status(status).json({ error: customerApiErrorMessage(status, error.message || "Bukti pembayaran gagal disimpan.") });
+      }
       console.error("Supabase payment proof upload failed:", error?.code || "internal");
       return res.status(500).json({ error: "Bukti pembayaran gagal disimpan. Silakan coba kembali." });
     }
@@ -3531,7 +3545,7 @@ async function startServer() {
 
   app.get("/api/finance/payment-proofs/:billingId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "private, no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Bukti pembayaran Supabase belum disiapkan; penyimpanan lama telah dinonaktifkan." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Layanan bukti pembayaran belum tersedia saat ini. Silakan hubungi administrator pesantren." });
     try {
         const uid = String((req as any).user?.uid || "");
         if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3552,7 +3566,10 @@ async function startServer() {
         res.setHeader("Content-Type", proof.contentType);
         return res.end(proof.bytes);
     } catch (error: any) {
-      if (error instanceof FinanceProofStorageError || error?.status) return res.status(Number(error.status) || 503).json({ error: error.message || "Bukti transfer tidak dapat dibuka." });
+      if (error instanceof FinanceProofStorageError || error?.status) {
+        const status = Number(error.status) || 503;
+        return res.status(status).json({ error: customerApiErrorMessage(status, error.message || "Bukti transfer tidak dapat dibuka.") });
+      }
       console.error("Supabase payment proof download failed:", error?.code || "internal");
       return res.status(500).json({ error: "Bukti pembayaran tidak dapat dibuka." });
     }
@@ -3691,7 +3708,7 @@ async function startServer() {
     } catch (err: any) {
       const unavailable = identityFailure(res, err);
       if (unavailable) return unavailable;
-      return res.status(400).json({ code: "INVITATION_FAILED", error: err.message || "Gagal membuat undangan Wali." });
+      return res.status(400).json({ code: "INVITATION_FAILED", error: "Undangan akun Wali belum dapat dibuat. Periksa data, lalu coba kembali." });
     }
   });
 
@@ -3709,7 +3726,7 @@ async function startServer() {
     } catch (err: any) {
       const unavailable = identityFailure(res, err);
       if (unavailable) return unavailable;
-      return res.status(400).json({ code: "INVITATION_VERIFY_FAILED", error: err.message || "Undangan Wali tidak dapat diverifikasi." });
+      return res.status(400).json({ code: "INVITATION_VERIFY_FAILED", error: "Tautan aktivasi tidak dapat diverifikasi. Pastikan tautan masih berlaku dan gunakan email yang dituju." });
     }
   });
   app.post("/api/guardian-invitations/claim", requireAuth, async (req, res) => {
@@ -3726,7 +3743,7 @@ async function startServer() {
     } catch (err: any) {
       const unavailable = identityFailure(res, err);
       if (unavailable) return unavailable;
-      return res.status(400).json({ code: "INVITATION_CLAIM_FAILED", error: err.message || "Undangan Wali tidak dapat diaktifkan." });
+      return res.status(400).json({ code: "INVITATION_CLAIM_FAILED", error: "Akun Wali belum dapat diaktifkan. Pastikan email sudah terverifikasi dan tautan masih berlaku." });
     }
   });
   // 1. List / Search Users for acting admin's tenant
@@ -4153,7 +4170,8 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("Wilayah province proxy failed:", e?.name || "error");
+      res.status(500).json({ error: "Data provinsi belum dapat dimuat. Silakan coba kembali." });
     }
   });
 
@@ -4163,7 +4181,8 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("Wilayah regency proxy failed:", e?.name || "error");
+      res.status(500).json({ error: "Data kabupaten/kota belum dapat dimuat. Silakan coba kembali." });
     }
   });
 
@@ -4173,7 +4192,8 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("Wilayah district proxy failed:", e?.name || "error");
+      res.status(500).json({ error: "Data kecamatan belum dapat dimuat. Silakan coba kembali." });
     }
   });
 
@@ -4183,7 +4203,8 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("Wilayah village proxy failed:", e?.name || "error");
+      res.status(500).json({ error: "Data desa/kelurahan belum dapat dimuat. Silakan coba kembali." });
     }
   });
 
@@ -4193,7 +4214,8 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("Quran chapters proxy failed:", e?.name || "error");
+      res.status(500).json({ error: "Daftar surah belum dapat dimuat. Silakan coba kembali." });
     }
   });
 
@@ -4203,7 +4225,8 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("Quran chapter proxy failed:", e?.name || "error");
+      res.status(500).json({ error: "Data surah belum dapat dimuat. Silakan coba kembali." });
     }
   });
 
