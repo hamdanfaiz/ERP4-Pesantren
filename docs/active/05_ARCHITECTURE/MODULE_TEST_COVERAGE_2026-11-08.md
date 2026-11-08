@@ -2,10 +2,10 @@
 
 Tanggal audit awal: 7 November 2026  
 Status diperbarui: 8 November 2026  
-Baseline kode terbaru: `main` commit `26fa41a4882892afab3df014bfb92461ab6b8efe` (sesudah PR #88; PR #87–#88 hanya dokumentasi).
-CI terbaru yang diverifikasi: [GitHub Actions run #42461219883](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42461219883), 3/3 job lulus pada kandidat PR #88. Job database/API/pgTAP, frontend/runtime/Docker, dan instalasi NPM pelanggan selesai sukses. PR #88 tidak mengubah aplikasi.
+Baseline `main`: `ef8ce28e9541137e2154d025211db574dc2eef94`; perbaikan UAT saat ini disiapkan pada branch PR #90.
+CI `main` terbaru yang diverifikasi: [GitHub Actions run #42462549477](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42462549477), lulus. CI PR #90 sebelumnya juga lulus sebelum penambahan regresi Akademik; regresi baru harus lulus kembali sebelum dianggap siap.
 Staging VQE `vqemuyzveuirlkvdggjd`: 139 baris ledger migrasi; dibandingkan dengan `main`, **139/139 versi dan nama cocok**, sampai `20270307000000_tenant_settings_conflict_http_409`. Pemeriksaan ini hanya ledger metadata, bukan diff seluruh DDL.
-CI memakai Supabase lokal terisolasi dan fixture sintetis. Bukti API staging yang tercatat di bagian historis hanya mencakup alur tertentu. Tidak ada bukti UAT browser seluruh modul, dan Production tidak diubah.
+CI memakai Supabase lokal terisolasi dan fixture sintetis. Bukti API staging yang tercatat di bagian historis hanya mencakup alur tertentu. UAT browser Admin mencakup login, navigasi 25 modul, dua entitas sintetis, dan verifikasi perbaikan akses antrean Akademik. Production tidak diubah.
 Template `.env.example` dan default Compose menetapkan gerbang runtime modul `false`; operator harus mengaktifkan konfigurasi server/browser yang cocok per modul hanya setelah prasyarat skema, Auth, tenant, role, RLS, dan Storage diverifikasi. Keadaan template tidak membuktikan nilai environment live.
 Production PTSAS belum diverifikasi ulang dalam audit ini. Schema diff, urutan migrasi, backup/restore Production, serta UAT hosting tetap menjadi gerbang tim backend.
 
@@ -30,7 +30,7 @@ Production PTSAS belum diverifikasi ulang dalam audit ini. Schema diff, urutan m
 | Onboarding PPDB → santri/wali/asrama | pgTAP transaksi onboarding, relasi kandidat ke santri/wali, NIS, kamar, okupansi, dan retry; tes kelayakan kamar; HTTP round-trip sintetis VQE staging (8 Nov 2026) | **API/database staging dan CI PR #68 lulus:** kandidat diterima menjadi santri dan wali, relasi kelas/gedung/kamar tersimpan, NIS dan klaim identitas beralih, okupansi naik sekali, tagihan PPDB tertaut ke santri, retry idempoten, dan konflik penempatan ditolak. UAT browser belum dilakukan. |
 | Keuangan dan bukti pembayaran | pgTAP Finance; tes HTTP upload/download bukti, pembatasan role/tenant, batas laju, bucket privat; tes kalkulasi dashboard; tagihan kandidat PPDB melalui API di VQE staging (8 Nov 2026) | **Cakupan API/DB sebagian lulus.** API berhasil membuat tagihan pendaftaran/tuition dan retry tidak menggandakan tagihan; onboarding menautkan tagihan kandidat ke santri. Rekonsiliasi Production dan UAT akuntansi tetap perlu tim backend. |
 | Asrama | pgTAP izin, disiplin, kehadiran, unit, penempatan kamar, riwayat, kapasitas, dan konkurensi; API round-trip izin, disiplin, dan absensi pada PR #72 | **Database dan API round-trip lulus untuk alur yang dicakup.** CI memeriksa simpan-baca, relasi santri-kamar, transisi status, event audit, retry idempoten, role, dan isolasi tenant. API/UI seluruh alur penugasan kamar, fasilitas, dan UAT browser belum terbukti menyeluruh. |
-| Akademik | API jurnal, jadwal, asesmen, portal, relasi kelas/guru/santri, retry dan tenant; tes paginasi/konflik/role | **API round-trip dan logika lulus di CI.** Belum UAT browser lintas role. |
+| Akademik | API jurnal, jadwal, asesmen, portal, relasi kelas/guru/santri, retry dan tenant; tes paginasi/konflik/role | **API round-trip dan logika lulus di CI.** UAT Admin browser menemukan RPC antrean/pemetaan kelas menolak profil dengan permission kosong, walau baseline aplikasi memberi Admin akses tenant. Perbaikan migrasi dan regresi pgTAP sedang disiapkan; belum dinyatakan lulus. |
 | Tahfidz | API halaqah, keanggotaan, setoran, retry, tenant/role; pgTAP target, sesi, hasil, peer review dan tanggal bisnis | **API round-trip dan database lulus di CI.** Audio, perangkat nyata, dan keseluruhan alur UI belum diuji. |
 | CBT | pgTAP tenggat server, validasi payload, impor pengaturan; API round-trip bank soal, referensi tenant, pembuatan ujian, penugasan santri, mulai/lanjut percobaan, simpan jawaban, submit/skoring, dan baca hasil | **Database dan API round-trip lulus di CI.** Tes memeriksa kebocoran kunci jawaban, relasi santri-ujian, tenant dan role, retry/idempotensi, validasi opsi, serta hasil baca ulang. Belum UAT UI dan uji beban serentak peserta. |
 | LMS | pgTAP integritas materi/rekaman/nilai dan validasi payload; API round-trip kategori, kursus, modul, materi, tugas, pendaftaran, progres, catatan/komentar, pengumpulan dan penilaian | **Database dan API round-trip lulus di CI.** Tes memeriksa relasi katalog/kelas/guru/santri, scope tenant/role, progres tidak mundur, retry/idempotensi, batas nilai, serta nilai yang dibaca ulang santri. Belum UAT UI dan tes unggah/pemutaran media di berbagai perangkat. |
@@ -132,3 +132,21 @@ Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sint
 - Tes mencatat dan membaca ulang dokumen bernomor otomatis; menguji retry identik, konflik idempotensi, transisi status/audit, filter, serta role dan isolasi tenant.
 - Tes mengunggah PDF dengan signed URL, memvalidasi ukuran dan SHA-256, menolak serta membersihkan objek dengan hash berbeda, mengunduh ulang byte yang sama, dan menolak pembacaan Storage langsung maupun lintas tenant.
 - Fixture seluruhnya sintetis. Tenant staging disuspensi, akun uji diblokir, dan objek Storage dihapus; Production tidak disentuh. UAT browser dan konsistensi gaya tab tetap belum tercakup.
+
+## Revalidasi pada `main` terbaru — 8 November 2026
+
+- Source terbaru `main`: `ef8ce28e9541137e2154d025211db574dc2eef94`. Perubahan dari baseline runtime `26fa41a` hanya dokumentasi. Workflow push pada commit ini, [run #42462549477](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42462549477), lulus.
+- `npm run lint` dan `npm run build` lulus pada source tersebut. Peringatan chunk `react-pdf.browser` sekitar 1,46 MB masih ada.
+- VQE staging merespons koneksi API langsung. Ledger berisi 139 migrasi yang cocok versi dan namanya dengan 139 file source hingga `20270307000000_tenant_settings_conflict_http_409`.
+- Dijalankan ulang pada checkout ini terhadap VQE: `npm run test:api:finance-storage`, `npm run test:api:library-storage`, dan `npm run test:api:document-center` — semuanya lulus. Masing-masing melaporkan fixture tenant disuspensi, akun Auth sintetis diblokir, dan objek Storage uji dibersihkan.
+- Preview lokal dari build ini memuat halaman beranda. Sesi login tidak tersedia pada browser inspeksi; seluruh UAT browser berdasarkan role tetap belum dijalankan. Flags runtime hanya diaktifkan sementara pada proses preview lokal, tidak diubah pada file konfigurasi maupun project Supabase.
+- Tidak ada perubahan Production. Kesetaraan DDL Production, urutan migrasi, backup-restore, deployment hosting, dan UAT hosting masih menjadi gerbang tim backend/operator.
+
+## UAT browser Admin staging — 8 November 2026
+
+- Login Admin UAT pada VQE berhasil; 25 modul utama dapat dibuka tanpa halaman kosong atau error tampak. Ini smoke test navigasi, bukan verifikasi seluruh fitur dan penyimpanan.
+- Unit organisasi serta referensi jenjang sintetis berhasil dibuat dan ditampilkan kembali.
+- Akademik sebelumnya gagal memuat antrean pemetaan karena dua RPC meminta permission `academic` eksplisit. Profil Admin memiliki permission kosong; ini bertentangan dengan baseline Admin tenant dalam `src/rbac.ts`.
+- Migrasi korektif `20270308000000_academic_class_unit_admin_role_baseline.sql` lulus replay migrasi dan pgTAP di [CI run #42468708677](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42468708677), lalu diterapkan ke VQE staging. Ledger staging kini cocok dengan source **140/140 versi dan nama**; UI berhasil memuat antrean tanpa error. Tidak ada kelas belum terpetakan pada tenant sintetis, jadi assignment aktual melalui UI masih belum teruji.
+- Perubahan tidak menyentuh PTSAS Production. UAT lintas role dan alur simpan-baca UI untuk semua modul masih belum lengkap; status tabel di atas tetap membatasi klaim pada cakupan tes yang benar-benar dijalankan.
+- UAT lintas role dan alur simpan-baca UI untuk semua modul masih belum lengkap; status tabel di atas tetap membatasi klaim pada cakupan tes yang benar-benar dijalankan.
