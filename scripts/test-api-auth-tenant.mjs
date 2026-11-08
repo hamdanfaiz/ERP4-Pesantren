@@ -142,6 +142,8 @@ async function main() {
   const tenantIds = [randomUUID(), randomUUID(), randomUUID()];
   const tahfidzCandidateId = randomUUID();
   const tahfidzStudentId = randomUUID();
+  const boardingBuildingId = `BLDG-${fixtureSuffix}`;
+  const boardingRoomId = `ROOM-${fixtureSuffix}`;
   const otherTenantCbtCandidateId = randomUUID();
   const otherTenantCbtStudentId = randomUUID();
   const hrisOrganizationUnitId = randomUUID();
@@ -164,10 +166,10 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true, boarding: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true, cbt: true, lms: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b', { cbt: true, lms: true }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, cbt: true, library: true, lms: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, cbt: true, library: true, lms: true, boarding: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
@@ -183,7 +185,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true, boarding: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -352,6 +354,22 @@ async function main() {
       .eq('tenant_id', tenantIds[0])
       .eq('id', tahfidzStudentId);
     if (academicStudentClassError) throw new Error('Unable to link the synthetic Academic student to its class.');
+    const { error: boardingBuildingError } = await admin.from('master_data_records').insert({
+      tenant_id: tenantIds[0], category: 'Gedung', id: boardingBuildingId,
+      name: `Gedung Asrama API ${fixtureSuffix}`, status: 'Active', gender_code: 'L',
+    });
+    if (boardingBuildingError) throw new Error('Unable to create the synthetic Boarding building.');
+    const { error: boardingRoomError } = await admin.from('master_data_records').insert({
+      tenant_id: tenantIds[0], category: 'Kamar', id: boardingRoomId,
+      name: `Kamar Asrama API ${fixtureSuffix}`, status: 'Active', parent_id: boardingBuildingId,
+      capacity: 2, occupied: 0, gender_code: 'L',
+    });
+    if (boardingRoomError) throw new Error('Unable to create the synthetic Boarding room.');
+    const { data: boardingAssignment, error: boardingAssignmentError } = await admin.rpc('assign_student_to_room', {
+      p_tenant_id: tenantIds[0], p_student_id: tahfidzStudentId,
+      p_room_id: boardingRoomId, p_building_id: boardingBuildingId,
+    });
+    if (boardingAssignmentError || boardingAssignment?.success !== true) throw new Error('Unable to link the synthetic Boarding student, room, and building.');
     const { error: academicStudentLinkError } = await admin.from('profiles')
       .update({ linked_santri_id: tahfidzStudentId })
       .eq('tenant_id', tenantIds[0])
@@ -434,6 +452,8 @@ async function main() {
         SUPABASE_CRM_RUNTIME_ENABLED: 'true',
         SUPABASE_DASHBOARD_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
+        SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED: 'true',
+        SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'false',
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
       },
@@ -1384,6 +1404,242 @@ async function main() {
       headers: { Authorization: `Bearer ${waliToken}` },
     });
     assert.equal(unlinkedWaliBoarding.status, 403, 'Boarding access must be denied without a canonical guardian-to-student link.');
+
+    const boardingHeaders = { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' };
+    const boardingAttendanceDate = new Date().toISOString().slice(0, 10);
+    const addUtcDays = (day, count) => new Date(Date.parse(`${day}T00:00:00.000Z`) + count * 86400000).toISOString().slice(0, 10);
+    const permitStartDate = addUtcDays(boardingAttendanceDate, 1);
+    const permitEndDate = addUtcDays(boardingAttendanceDate, 2);
+    const permitRequestId = randomUUID();
+    const permitRequest = {
+      studentId: tahfidzStudentId,
+      clientRequestId: permitRequestId,
+      type: 'Pulang',
+      reason: `Uji integrasi izin ${fixtureSuffix}`,
+      startDate: permitStartDate,
+      endDate: permitEndDate,
+    };
+    const permitCreateResponse = await fetch(`${apiBase}/api/boarding/permits`, {
+      method: 'POST', headers: boardingHeaders, body: JSON.stringify(permitRequest),
+    });
+    assert.equal(permitCreateResponse.status, 201, 'A permitted Admin must create a boarding permit through the API.');
+    const createdPermit = await permitCreateResponse.json();
+    assert.ok(createdPermit.permitId, 'The permit API must return the persisted permit identity.');
+    const permitRetryResponse = await fetch(`${apiBase}/api/boarding/permits`, {
+      method: 'POST', headers: boardingHeaders, body: JSON.stringify(permitRequest),
+    });
+    assert.equal(permitRetryResponse.status, 200, 'Retrying an identical permit request must be idempotent.');
+    const retriedPermit = await permitRetryResponse.json();
+    assert.equal(retriedPermit.permitId, createdPermit.permitId);
+    assert.equal(retriedPermit.alreadyApplied, true);
+    const conflictingPermitRetry = await fetch(`${apiBase}/api/boarding/permits`, {
+      method: 'POST', headers: boardingHeaders,
+      body: JSON.stringify({ ...permitRequest, reason: `${permitRequest.reason} diubah` }),
+    });
+    assert.equal(conflictingPermitRetry.status, 409, 'A permit idempotency key reused with changed data must be rejected.');
+
+    const permitTransitionIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const permitStatuses = ['Pending Keamanan', 'Approved', 'Active', 'Returned'];
+    for (let index = 0; index < permitStatuses.length; index += 1) {
+      const transition = { clientRequestId: permitTransitionIds[index], status: permitStatuses[index] };
+      const response = await fetch(`${apiBase}/api/boarding/permits/${createdPermit.permitId}/status`, {
+        method: 'POST', headers: boardingHeaders, body: JSON.stringify(transition),
+      });
+      assert.equal(response.status, 200, `The permit workflow must allow transition to ${permitStatuses[index]}.`);
+      const result = await response.json();
+      assert.equal(result.status, permitStatuses[index]);
+      if (index === 0) {
+        const retry = await fetch(`${apiBase}/api/boarding/permits/${createdPermit.permitId}/status`, {
+          method: 'POST', headers: boardingHeaders, body: JSON.stringify(transition),
+        });
+        assert.equal(retry.status, 200, 'Retrying an identical permit transition must succeed without a duplicate event.');
+        assert.equal((await retry.json()).alreadyApplied, true);
+      }
+    }
+    const permitReadResponse = await fetch(`${apiBase}/api/boarding/permits`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(permitReadResponse.status, 200, 'An Admin must read tenant boarding permits through the API.');
+    const permitRead = await permitReadResponse.json();
+    const permitReadback = permitRead.permits.find((item) => item.id === createdPermit.permitId);
+    assert.ok(permitReadback, 'The permit created through the API must appear in the subsequent read.');
+    assert.equal(permitReadback.studentId, tahfidzStudentId, 'The permit read model must preserve its same-tenant student relation.');
+    assert.equal(permitReadback.type, permitRequest.type);
+    assert.equal(permitReadback.roomId, boardingRoomId, 'The permit must retain its tenant-owned room relationship.');
+    assert.equal(permitReadback.room, `Kamar Asrama API ${fixtureSuffix}`);
+    assert.equal(permitReadback.status, 'Returned');
+    const storedPermit = await admin.from('boarding_permits')
+      .select('tenant_id,student_id,room_id,room_name_snapshot,requested_by_user_id,status,permit_type,start_date,end_date')
+      .eq('tenant_id', tenantIds[0]).eq('id', createdPermit.permitId).single();
+    assert.equal(storedPermit.error, null, 'The permit must be persisted in the local Supabase backend.');
+    assert.equal(storedPermit.data.student_id, tahfidzStudentId);
+    assert.equal(storedPermit.data.room_id, boardingRoomId);
+    assert.equal(storedPermit.data.room_name_snapshot, `Kamar Asrama API ${fixtureSuffix}`);
+    assert.equal(storedPermit.data.requested_by_user_id, users[0].uid);
+    assert.equal(storedPermit.data.status, 'Returned');
+    assert.equal(storedPermit.data.start_date, permitStartDate);
+    const storedPermitEvents = await admin.from('boarding_permit_events')
+      .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]).eq('permit_id', createdPermit.permitId);
+    assert.equal(storedPermitEvents.error, null);
+    assert.equal(storedPermitEvents.count, 5, 'The permit request and four unique transitions must create five audit events.');
+
+    const disciplineRequest = {
+      studentId: tahfidzStudentId,
+      clientRequestId: randomUUID(),
+      offense: `Pelanggaran uji ${fixtureSuffix}`,
+      category: 'Ringan',
+      points: 3,
+      incidentDate: boardingAttendanceDate,
+    };
+    const disciplineCreateResponse = await fetch(`${apiBase}/api/boarding/discipline`, {
+      method: 'POST', headers: boardingHeaders, body: JSON.stringify(disciplineRequest),
+    });
+    assert.equal(disciplineCreateResponse.status, 201, 'A permitted Admin must create a discipline record through the API.');
+    const createdIncident = await disciplineCreateResponse.json();
+    assert.ok(createdIncident.incidentId);
+    const disciplineRetry = await fetch(`${apiBase}/api/boarding/discipline`, {
+      method: 'POST', headers: boardingHeaders, body: JSON.stringify(disciplineRequest),
+    });
+    assert.equal(disciplineRetry.status, 200, 'Retrying an identical discipline request must be idempotent.');
+    assert.equal((await disciplineRetry.json()).incidentId, createdIncident.incidentId);
+    const conflictingDisciplineRetry = await fetch(`${apiBase}/api/boarding/discipline`, {
+      method: 'POST', headers: boardingHeaders,
+      body: JSON.stringify({ ...disciplineRequest, points: disciplineRequest.points + 1 }),
+    });
+    assert.equal(conflictingDisciplineRetry.status, 409, 'A discipline idempotency key reused with changed data must be rejected.');
+    const disciplineReadResponse = await fetch(`${apiBase}/api/boarding/discipline`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(disciplineReadResponse.status, 200, 'An Admin must read tenant discipline records through the API.');
+    const disciplineRead = await disciplineReadResponse.json();
+    const disciplineReadback = disciplineRead.incidents.find((item) => item.id === createdIncident.incidentId);
+    assert.ok(disciplineReadback, 'The discipline record created through the API must appear in the subsequent read.');
+    assert.equal(disciplineReadback.studentId, tahfidzStudentId, 'The discipline read model must preserve its same-tenant student relation.');
+    assert.equal(disciplineReadback.santriName, 'Santri Uji Tahfidz API');
+    assert.equal(disciplineReadback.roomId, boardingRoomId);
+    assert.equal(disciplineReadback.room, `Kamar Asrama API ${fixtureSuffix}`);
+    assert.equal(disciplineReadback.offense, disciplineRequest.offense);
+    const storedIncident = await admin.from('boarding_discipline_incidents')
+      .select('tenant_id,student_id,room_id,room_name_snapshot,created_by_user_id,offense,category,points,resolved')
+      .eq('tenant_id', tenantIds[0]).eq('id', createdIncident.incidentId).single();
+    assert.equal(storedIncident.error, null, 'The discipline record must be persisted in the local Supabase backend.');
+    assert.equal(storedIncident.data.student_id, tahfidzStudentId);
+    assert.equal(storedIncident.data.room_id, boardingRoomId);
+    assert.equal(storedIncident.data.room_name_snapshot, `Kamar Asrama API ${fixtureSuffix}`);
+    assert.equal(storedIncident.data.created_by_user_id, users[0].uid);
+    assert.equal(storedIncident.data.points, disciplineRequest.points);
+    assert.equal(storedIncident.data.resolved, false);
+    const resolveIncidentRequest = { clientRequestId: randomUUID() };
+    const resolveIncidentResponse = await fetch(`${apiBase}/api/boarding/discipline/${createdIncident.incidentId}/resolve`, {
+      method: 'POST', headers: boardingHeaders, body: JSON.stringify(resolveIncidentRequest),
+    });
+    assert.equal(resolveIncidentResponse.status, 200, 'An Admin must be able to resolve a tenant discipline record.');
+    assert.equal((await resolveIncidentResponse.json()).resolved, true);
+    const resolveIncidentRetry = await fetch(`${apiBase}/api/boarding/discipline/${createdIncident.incidentId}/resolve`, {
+      method: 'POST', headers: boardingHeaders, body: JSON.stringify(resolveIncidentRequest),
+    });
+    assert.equal(resolveIncidentRetry.status, 200, 'Retrying discipline resolution must be idempotent.');
+    assert.equal((await resolveIncidentRetry.json()).alreadyApplied, true);
+    const resolvedIncident = await admin.from('boarding_discipline_incidents')
+      .select('resolved').eq('tenant_id', tenantIds[0]).eq('id', createdIncident.incidentId).single();
+    assert.equal(resolvedIncident.data?.resolved, true, 'Discipline resolution must persist to Supabase.');
+    const disciplineEvents = await admin.from('boarding_discipline_events')
+      .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]).eq('incident_id', createdIncident.incidentId);
+    assert.equal(disciplineEvents.error, null);
+    assert.equal(disciplineEvents.count, 2, 'The create and resolve actions must each create one audit event.');
+
+    const attendanceMarkRequest = {
+      studentId: tahfidzStudentId,
+      attendanceDate: boardingAttendanceDate,
+      status: 'Hadir',
+      clientRequestId: randomUUID(),
+    };
+    const attendanceMarkResponse = await fetch(`${apiBase}/api/boarding/attendance`, {
+      method: 'POST', headers: boardingHeaders, body: JSON.stringify(attendanceMarkRequest),
+    });
+    assert.equal(attendanceMarkResponse.status, 200, 'A permitted Admin must mark boarding attendance through the API.');
+    const createdAttendance = await attendanceMarkResponse.json();
+    assert.equal(createdAttendance.status, 'Hadir');
+    assert.ok(createdAttendance.recordId);
+    const attendanceRetry = await fetch(`${apiBase}/api/boarding/attendance`, {
+      method: 'POST', headers: boardingHeaders, body: JSON.stringify(attendanceMarkRequest),
+    });
+    assert.equal(attendanceRetry.status, 200, 'Retrying the same attendance mutation must be idempotent.');
+    assert.equal((await attendanceRetry.json()).alreadyApplied, true);
+    const conflictingAttendanceRetry = await fetch(`${apiBase}/api/boarding/attendance`, {
+      method: 'POST', headers: boardingHeaders,
+      body: JSON.stringify({ ...attendanceMarkRequest, status: 'Ghaib' }),
+    });
+    assert.equal(conflictingAttendanceRetry.status, 409, 'An attendance idempotency key reused with changed status must be rejected.');
+    const attendanceUpdateResponse = await fetch(`${apiBase}/api/boarding/attendance`, {
+      method: 'POST', headers: boardingHeaders,
+      body: JSON.stringify({ ...attendanceMarkRequest, status: 'Ghaib', clientRequestId: randomUUID() }),
+    });
+    assert.equal(attendanceUpdateResponse.status, 200, 'Attendance status can be changed through the API with a new request ID.');
+    assert.equal((await attendanceUpdateResponse.json()).status, 'Ghaib');
+    const attendanceReadResponse = await fetch(`${apiBase}/api/boarding/attendance?date=${boardingAttendanceDate}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(attendanceReadResponse.status, 200, 'An Admin must read attendance for a date through the API.');
+    const attendanceRead = await attendanceReadResponse.json();
+    const attendanceReadback = attendanceRead.records.find((item) => item.studentId === tahfidzStudentId);
+    assert.ok(attendanceReadback, 'The attendance record created through the API must appear in the subsequent read.');
+    assert.equal(attendanceReadback.status, 'Ghaib');
+    assert.equal(attendanceReadback.roomId, boardingRoomId);
+    assert.equal(attendanceReadback.room, `Kamar Asrama API ${fixtureSuffix}`);
+    const attendanceSession = await admin.from('boarding_attendance_sessions')
+      .select('id,tenant_id,attendance_date,session_type').eq('tenant_id', tenantIds[0])
+      .eq('attendance_date', boardingAttendanceDate).eq('session_type', 'nightly_curfew').single();
+    assert.equal(attendanceSession.error, null, 'The date-keyed attendance session must persist in Supabase.');
+    const attendanceRecord = await admin.from('boarding_attendance_records')
+      .select('id,tenant_id,session_id,student_id,room_id,room_name_snapshot,marked_by_user_id,status')
+      .eq('tenant_id', tenantIds[0]).eq('session_id', attendanceSession.data.id).eq('student_id', tahfidzStudentId).single();
+    assert.equal(attendanceRecord.error, null, 'Attendance must persist with its tenant, session, student, and actor relations.');
+    assert.equal(attendanceRecord.data.id, createdAttendance.recordId);
+    assert.equal(attendanceRecord.data.room_id, boardingRoomId);
+    assert.equal(attendanceRecord.data.room_name_snapshot, `Kamar Asrama API ${fixtureSuffix}`);
+    assert.equal(attendanceRecord.data.marked_by_user_id, users[0].uid);
+    assert.equal(attendanceRecord.data.status, 'Ghaib');
+    const attendanceEvents = await admin.from('boarding_attendance_events')
+      .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]).eq('record_id', createdAttendance.recordId);
+    assert.equal(attendanceEvents.error, null);
+    assert.equal(attendanceEvents.count, 2, 'Initial marking and status change must create exactly two audit events.');
+
+    const otherTenantBoardingHeaders = { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` };
+    const otherTenantPermitsResponse = await fetch(`${apiBase}/api/boarding/permits`, { headers: otherTenantBoardingHeaders });
+    assert.equal(otherTenantPermitsResponse.status, 200);
+    assert.ok(!(await otherTenantPermitsResponse.json()).permits.some((item) => item.id === createdPermit.permitId),
+      'A different tenant must not read the permit.');
+    const otherTenantDisciplineResponse = await fetch(`${apiBase}/api/boarding/discipline`, { headers: otherTenantBoardingHeaders });
+    assert.equal(otherTenantDisciplineResponse.status, 200);
+    assert.ok(!(await otherTenantDisciplineResponse.json()).incidents.some((item) => item.id === createdIncident.incidentId),
+      'A different tenant must not read the discipline record.');
+    const otherTenantAttendanceResponse = await fetch(`${apiBase}/api/boarding/attendance?date=${boardingAttendanceDate}`, {
+      headers: otherTenantBoardingHeaders,
+    });
+    assert.equal(otherTenantAttendanceResponse.status, 200);
+    assert.ok(!(await otherTenantAttendanceResponse.json()).records.some((item) => item.studentId === tahfidzStudentId),
+      'A different tenant must not read the attendance record.');
+    const foreignStudentPermit = await fetch(`${apiBase}/api/boarding/permits`, {
+      method: 'POST', headers: { ...otherTenantBoardingHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...permitRequest, clientRequestId: randomUUID() }),
+    });
+    assert.equal(foreignStudentPermit.status, 404, 'A tenant must not create a permit for another tenant’s student.');
+    const foreignStudentIncident = await fetch(`${apiBase}/api/boarding/discipline`, {
+      method: 'POST', headers: { ...otherTenantBoardingHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...disciplineRequest, clientRequestId: randomUUID() }),
+    });
+    assert.equal(foreignStudentIncident.status, 404, 'A tenant must not record discipline for another tenant’s student.');
+    const foreignStudentAttendance = await fetch(`${apiBase}/api/boarding/attendance`, {
+      method: 'POST', headers: { ...otherTenantBoardingHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...attendanceMarkRequest, clientRequestId: randomUUID() }),
+    });
+    assert.equal(foreignStudentAttendance.status, 404, 'A tenant must not mark attendance for another tenant’s student.');
+    for (const path of ['/api/boarding/discipline', `/api/boarding/attendance?date=${boardingAttendanceDate}`]) {
+      const denied = await fetch(`${apiBase}${path}`, { headers: { Authorization: `Bearer ${facilityNoPermissionToken}` } });
+      assert.equal(denied.status, 403, `Boarding module permission must protect ${path}.`);
+    }
+
     for (const [role, token] of [['Ustadz', ustadzToken], ['Santri', santriToken], ['Walisantri', waliToken]]) {
       const nonAdmin = await fetch(`${apiBase}/api/users`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -3835,6 +4091,16 @@ async function main() {
       const tenantArray = `ARRAY[${tenantIds.map((id) => `'${id}'::uuid`).join(',')}]`;
       const cleanupSql = [
         'BEGIN;',
+        `DELETE FROM public.boarding_permit_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.boarding_permits WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.boarding_permit_import_batches WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.boarding_discipline_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.boarding_discipline_incidents WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.boarding_discipline_import_batches WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.boarding_attendance_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.boarding_attendance_records WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.boarding_attendance_sessions WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.boarding_attendance_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         'ALTER TABLE public.lms_submission_requests DISABLE TRIGGER lms_submission_requests_immutable;',
         'ALTER TABLE public.lms_submission_grade_events DISABLE TRIGGER lms_submission_grade_events_immutable;',
         'ALTER TABLE public.lms_learning_record_requests DISABLE TRIGGER lms_learning_record_requests_immutable;',
@@ -3912,6 +4178,7 @@ async function main() {
         `DELETE FROM public.cbt_exams WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cbt_questions WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cbt_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.student_room_assignment_history WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
@@ -3934,6 +4201,8 @@ async function main() {
         'ALTER TABLE public.crm_interactions ENABLE TRIGGER crm_interactions_immutable;',
         'ALTER TABLE public.crm_mutation_requests ENABLE TRIGGER crm_mutation_requests_immutable;',
 
+        `DELETE FROM public.master_data_records WHERE tenant_id = ANY(${tenantArray}) AND category = 'Kamar';`,
+        `DELETE FROM public.master_data_records WHERE tenant_id = ANY(${tenantArray}) AND category = 'Gedung';`,
         `DELETE FROM public.master_data_records WHERE tenant_id = ANY(${tenantArray});`,
 
         `DELETE FROM public.document_attachment_upload_requests WHERE tenant_id = ANY(${tenantArray});`,
