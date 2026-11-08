@@ -349,6 +349,8 @@
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scrollbar-width: thin;
+  scrollbar-color: var(--erp-border) transparent;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--erp-border);
   border-radius: .9rem;
   background: var(--erp-tabs-surface);
@@ -361,7 +363,6 @@
   overflow-y: hidden;
   overscroll-behavior-inline: contain;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
   scrollbar-color: var(--erp-text-muted) transparent;
   scrollbar-width: thin;
 }

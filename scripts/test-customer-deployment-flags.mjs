@@ -115,6 +115,10 @@ assert.match(tahfidzUi, /toERPUserMessage\(responseError, 'Layanan Tahfidz belum
   "Tahfidz API gate errors must be converted to customer-facing copy");
 assert.match(tabStyles, /\.erp-tab-scroll\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*thin;/,
   "Long legacy tab strips must have bounded horizontal scrolling and a visible scrollbar");
+assert.match(tabStyles, /\.erp-tabs\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*thin;[^}]*scrollbar-color:/,
+  "Shared tabs must expose a theme-aware horizontal scrollbar in Firefox and mobile browsers");
+assert.doesNotMatch(tabStyles, /\.erp-(?:tabs|tab-scroll)\s*\{[^}]*touch-action:\s*pan-x/,
+  "Horizontal tab strips must allow vertical page scrolling on touch screens");
 assert.match(tabStyles, /\.erp-tab-scroll::-webkit-scrollbar-thumb[\s\S]*border-radius:\s*999px/,
   "Horizontal tab scrollbars must use the shared visible theme style in Chromium browsers");
 for (const [module, file] of [
