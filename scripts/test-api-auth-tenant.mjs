@@ -142,6 +142,8 @@ async function main() {
   const tenantIds = [randomUUID(), randomUUID(), randomUUID()];
   const tahfidzCandidateId = randomUUID();
   const tahfidzStudentId = randomUUID();
+  const alumniCandidateId = randomUUID();
+  const alumniStudentId = randomUUID();
   const boardingBuildingId = `BLDG-${fixtureSuffix}`;
   const boardingRoomId = `ROOM-${fixtureSuffix}`;
   const otherTenantCbtCandidateId = randomUUID();
@@ -166,10 +168,10 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true, boarding: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true, boarding: true, alumni: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true, cbt: true, lms: true }));
     users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b', { cbt: true, lms: true }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, cbt: true, library: true, lms: true, boarding: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, cbt: true, library: true, lms: true, boarding: true, alumni: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
@@ -185,7 +187,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true, boarding: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true, boarding: true, alumni: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -200,6 +202,8 @@ async function main() {
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-library', { users: true, library: false }));
     const hrisNoPermissionUser = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-hris', { users: true, hris: false });
     users.push(hrisNoPermissionUser);
+    const alumniNoPermissionUser = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-alumni', { users: true, alumni: false });
+    users.push(alumniNoPermissionUser);
     const { data: gradeReferenceRows, error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
       tenant_id: tenantIds[0],
       domain: 'academic_grade_level',
@@ -311,6 +315,32 @@ async function main() {
       status: 'active',
     });
     if (tahfidzStudentError) throw new Error('Unable to create the synthetic Tahfidz student.');
+
+    const { error: alumniCandidateError } = await admin.from('candidates').insert({
+      id: alumniCandidateId,
+      tenant_id: tenantIds[0],
+      registration_id: `ALUMNI-${fixtureSuffix}`,
+      name: `Santri Uji Alumni API ${fixtureSuffix}`,
+      grade: 'VII',
+      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
+      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+    });
+    if (alumniCandidateError) throw new Error('Unable to create the synthetic Alumni candidate.');
+
+    const alumniStudentNis = String(7000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000));
+    const { error: alumniStudentError } = await admin.from('students').insert({
+      id: alumniStudentId,
+      tenant_id: tenantIds[0],
+      source_candidate_id: alumniCandidateId,
+      nis: alumniStudentNis,
+      name: `Santri Uji Alumni API ${fixtureSuffix}`,
+      gender: 'L',
+      grade: 'VII',
+      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
+      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+      status: 'active',
+    });
+    if (alumniStudentError) throw new Error('Unable to create the synthetic Alumni student.');
 
     const { error: otherTenantCbtCandidateError } = await admin.from('candidates').insert({
       id: otherTenantCbtCandidateId,
@@ -1927,6 +1957,7 @@ async function main() {
         SUPABASE_HRIS_RUNTIME_ENABLED: 'true',
         SUPABASE_CBT_RUNTIME_ENABLED: 'true',
         SUPABASE_LMS_RUNTIME_ENABLED: 'true',
+        SUPABASE_ALUMNI_RUNTIME_ENABLED: 'true',
         SUPABASE_LMS_DIAGNOSTICS: 'true',
       },
       stdio: ['ignore', 'ignore', 'inherit'],
@@ -1944,6 +1975,125 @@ async function main() {
       await sleep(250);
     }
     assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
+
+    const alumniInitialSnapshotResponse = await fetch(`${referenceApiBase}/api/alumni`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(alumniInitialSnapshotResponse.status, 200, 'An authorized tenant Admin can read the Alumni snapshot.');
+    const alumniInitialSnapshot = await alumniInitialSnapshotResponse.json();
+    const eligibleAlumniStudent = alumniInitialSnapshot.eligibleStudents.find((student) => student.id === alumniStudentId);
+    assert.ok(eligibleAlumniStudent, 'An active, not-yet-graduated student appears in the eligible Alumni list.');
+    assert.equal(eligibleAlumniStudent.nis, alumniStudentNis, 'Alumni eligibility preserves the student NIS relationship.');
+
+    const alumniPermissionDenied = await fetch(`${referenceApiBase}/api/alumni`, {
+      headers: { Authorization: `Bearer ${await signIn(anon, alumniNoPermissionUser)}` },
+    });
+    assert.equal(alumniPermissionDenied.status, 403, 'An Admin without Alumni module permission cannot read Alumni.');
+    const alumniRoleDenied = await fetch(`${referenceApiBase}/api/alumni`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(alumniRoleDenied.status, 403, 'A non-admin cannot access Alumni even if its module flag is enabled.');
+    const otherTenantAlumniSnapshotResponse = await fetch(`${referenceApiBase}/api/alumni`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(otherTenantAlumniSnapshotResponse.status, 200, 'A separately authorized Admin can read the Alumni snapshot for their tenant.');
+    const otherTenantAlumniSnapshot = await otherTenantAlumniSnapshotResponse.json();
+    assert.equal(otherTenantAlumniSnapshot.alumni.some((item) => item.studentId === alumniStudentId), false,
+      'Tenant B cannot read a Tenant A Alumni record.');
+
+    const alumniGraduatedAt = new Date().toISOString().slice(0, 10);
+    const alumniGraduationPayload = {
+      studentId: alumniStudentId,
+      graduationYear: Number(alumniGraduatedAt.slice(0, 4)),
+      graduatedAt: alumniGraduatedAt,
+      clientRequestId: randomUUID(),
+    };
+    const alumniGraduationCreate = await fetch(`${referenceApiBase}/api/alumni/graduations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(alumniGraduationPayload),
+    });
+    assert.equal(alumniGraduationCreate.status, 201, 'The Admin can persist a graduation and archive its student atomically.');
+    const alumniGraduation = await alumniGraduationCreate.json();
+    assert.equal(alumniGraduation.alreadyGraduated, false);
+    assert.ok(alumniGraduation.alumniId, 'Graduation creates an Alumni profile ID.');
+
+    const alumniGraduationRetry = await fetch(`${referenceApiBase}/api/alumni/graduations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(alumniGraduationPayload),
+    });
+    assert.equal(alumniGraduationRetry.status, 200, 'Retrying the same graduation request is idempotent.');
+    assert.deepEqual(await alumniGraduationRetry.json(), {
+      success: true,
+      alreadyGraduated: true,
+      alumniId: alumniGraduation.alumniId,
+    });
+
+    const priorGraduatedAtDate = new Date(`${alumniGraduationPayload.graduatedAt}T00:00:00.000Z`);
+    priorGraduatedAtDate.setUTCFullYear(priorGraduatedAtDate.getUTCFullYear() - 1);
+    const alumniRequestConflict = await fetch(`${referenceApiBase}/api/alumni/graduations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...alumniGraduationPayload,
+        graduationYear: alumniGraduationPayload.graduationYear - 1,
+        graduatedAt: priorGraduatedAtDate.toISOString().slice(0, 10),
+      }),
+    });
+    assert.equal(alumniRequestConflict.status, 409, 'An idempotency key reused with different graduation data is rejected.');
+
+    const alumniDuplicateStudentDenied = await fetch(`${referenceApiBase}/api/alumni/graduations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...alumniGraduationPayload, clientRequestId: randomUUID() }),
+    });
+    assert.equal(alumniDuplicateStudentDenied.status, 409, 'A student cannot be graduated twice under a new request ID.');
+
+    const alumniForeignStudentDenied = await fetch(`${referenceApiBase}/api/alumni/graduations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...alumniGraduationPayload, studentId: otherTenantCbtStudentId, clientRequestId: randomUUID() }),
+    });
+    assert.equal(alumniForeignStudentDenied.status, 404, 'An Admin cannot graduate a student belonging to another tenant.');
+
+    const alumniReadbackResponse = await fetch(`${referenceApiBase}/api/alumni`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(alumniReadbackResponse.status, 200, 'The Alumni record can be read back after persistence.');
+    const alumniReadback = await alumniReadbackResponse.json();
+    const persistedAlumnus = alumniReadback.alumni.find((item) => item.id === alumniGraduation.alumniId);
+    assert.ok(persistedAlumnus, 'Persisted Alumni appears in the tenant snapshot.');
+    assert.equal(persistedAlumnus.studentId, alumniStudentId);
+    assert.equal(persistedAlumnus.nis, alumniStudentNis);
+    assert.equal(persistedAlumnus.graduationYear, alumniGraduationPayload.graduationYear);
+    assert.equal(alumniReadback.eligibleStudents.some((item) => item.id === alumniStudentId), false,
+      'The graduated student is removed from the eligible-student list.');
+
+    const { data: alumniProfileRow, error: alumniProfileReadError } = await admin.from('alumni_profiles')
+      .select('id, tenant_id, student_id, graduation_year, graduated_at, created_by_user_id')
+      .eq('id', alumniGraduation.alumniId)
+      .single();
+    assert.equal(alumniProfileReadError, null, 'The Alumni profile row can be verified in the local integration database.');
+    assert.equal(alumniProfileRow.tenant_id, tenantIds[0]);
+    assert.equal(alumniProfileRow.student_id, alumniStudentId);
+    assert.equal(alumniProfileRow.created_by_user_id, users[0].uid);
+    const { data: alumniRequestRow, error: alumniRequestReadError } = await admin.from('alumni_graduation_requests')
+      .select('tenant_id, client_request_id, student_id, graduation_year, graduated_at, created_by_user_id, alumni_profile_id')
+      .eq('tenant_id', tenantIds[0])
+      .eq('client_request_id', alumniGraduationPayload.clientRequestId)
+      .single();
+    assert.equal(alumniRequestReadError, null, 'The graduation request audit row is stored with the result.');
+    assert.equal(alumniRequestRow.student_id, alumniStudentId);
+    assert.equal(alumniRequestRow.created_by_user_id, users[0].uid);
+    assert.equal(alumniRequestRow.alumni_profile_id, alumniGraduation.alumniId);
+    const { data: archivedAlumniStudent, error: archivedAlumniStudentError } = await admin.from('students')
+      .select('id, status')
+      .eq('tenant_id', tenantIds[0])
+      .eq('id', alumniStudentId)
+      .single();
+    assert.equal(archivedAlumniStudentError, null, 'The graduated student row remains available for audit and history.');
+    assert.equal(archivedAlumniStudent.status, 'Archived', 'Graduation archives the source student record.');
 
     const cbtSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/admin`, {
       headers: { Authorization: `Bearer ${adminToken}` },
@@ -4172,6 +4322,8 @@ async function main() {
         `DELETE FROM public.library_write_requests WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.library_circulations WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.library_books WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.alumni_graduation_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.alumni_profiles WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cbt_attempts WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cbt_exam_assignments WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cbt_exam_questions WHERE tenant_id = ANY(${tenantArray});`,
