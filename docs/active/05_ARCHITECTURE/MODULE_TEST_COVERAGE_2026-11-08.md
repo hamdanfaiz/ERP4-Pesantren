@@ -34,7 +34,7 @@ Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/ac
 | Laundry | API pesanan/status/isolasi tenant; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Perangkat/operasi loket belum UAT. |
 | Donasi dan wakaf | API transaksi serta relasi donor/kampanye; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Penerbitan bukti/rekonsiliasi nyata perlu UAT. |
 | Perpustakaan | API kategori, buku, sirkulasi/pengembalian; HTTP Storage aset digital privat; tes impor legacy | **API round-trip dan Storage lulus di CI.** Scanner/antarmuka perangkat belum UAT. |
-| Dokumen digital | API pendaftaran, nomor, filter, workflow/audit; validasi dan Storage privat | **API/Storage sebagian besar lulus di CI.** Konsistensi gaya tab yang dilaporkan pengguna dan alur UI masih perlu pemeriksaan browser. |
+| Dokumen digital | pgTAP workflow/tenant/storage, filter unit, dan HTTP round-trip API untuk pencatatan, nomor, transisi, lampiran PDF privat, baca ulang, idempotensi, dan isolasi tenant | **API/Storage round-trip lulus di VQE staging sintetis dan CI Supabase lokal.** UAT antarmuka serta konsistensi gaya tab masih perlu pemeriksaan browser. |
 | Kesehatan | API kunjungan/rekam dan relasi; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Perangkat dan workflow petugas belum UAT. |
 | General Affairs dan aset | API katalog terkait, kode otomatis, opname, mutasi stok; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Inventaris fisik belum dicocokkan dengan data nyata. |
 | Pemesanan fasilitas | API relasi katalog, pemesanan, overlap, pembatalan, retry dan isolasi tenant | **API round-trip lulus di CI.** Kalender multi-pengguna dan UAT browser belum dilakukan. |
@@ -118,3 +118,11 @@ Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sint
 - UAT browser lintas role dan pemeriksaan semua alur UI masih belum lulus. Tes API staging di atas hanya membuktikan alur spesifik yang disebut, bukan semua fitur setiap modul.
 - MCP PTSAS Production mengembalikan `You do not have permission` saat `list_tables`; akses baca langsung Production belum terbukti. Tidak ada perubahan pada Production.
 - Karena itu produk **belum dinyatakan lulus pengujian menyeluruh atau siap deploy pelanggan**. Tetap diperlukan UAT browser lintas role pada staging serta verifikasi DDL dan rehearsal pemulihan Production oleh tim backend/operator.
+
+
+## Verifikasi round-trip Dokumen Digital — 8 November 2026
+
+- `scripts/test-document-center-http.mjs` lulus pada VQE staging dan Supabase lokal dalam [CI run 42452058065](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42452058065), commit `896ff6a6a139060a0d7eb7762ea38f3fb685b2b1`.
+- Tes mencatat dan membaca ulang dokumen bernomor otomatis; menguji retry identik, konflik idempotensi, transisi status/audit, filter, serta role dan isolasi tenant.
+- Tes mengunggah PDF dengan signed URL, memvalidasi ukuran dan SHA-256, menolak serta membersihkan objek dengan hash berbeda, mengunduh ulang byte yang sama, dan menolak pembacaan Storage langsung maupun lintas tenant.
+- Fixture seluruhnya sintetis. Tenant staging disuspensi, akun uji diblokir, dan objek Storage dihapus; Production tidak disentuh. UAT browser dan konsistensi gaya tab tetap belum tercakup.
