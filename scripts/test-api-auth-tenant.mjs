@@ -150,6 +150,7 @@ async function main() {
   const tenantIds = [randomUUID(), randomUUID(), randomUUID()];
   const tahfidzCandidateId = randomUUID();
   const tahfidzStudentId = randomUUID();
+  const guardianId = randomUUID();
   const alumniCandidateId = randomUUID();
   const alumniStudentId = randomUUID();
   const boardingBuildingId = `BLDG-${fixtureSuffix}`;
@@ -324,6 +325,23 @@ async function main() {
       status: 'active',
     });
     if (tahfidzStudentError) throw new Error('Unable to create the synthetic Tahfidz student.');
+
+    const { error: guardianError } = await admin.from('guardians').insert({
+      id: guardianId,
+      tenant_id: tenantIds[0],
+      source_candidate_id: tahfidzCandidateId,
+      name: `Wali Uji ${fixtureSuffix}`,
+      phone: '081234567890',
+      status: 'active',
+    });
+    if (guardianError) throw new Error('Unable to create the synthetic Guardian record.');
+    const { error: guardianStudentError } = await admin.from('guardian_students').insert({
+      tenant_id: tenantIds[0],
+      guardian_id: guardianId,
+      student_id: tahfidzStudentId,
+      relationship: 'Orang Tua',
+    });
+    if (guardianStudentError) throw new Error('Unable to create the synthetic Guardian-to-student relationship.');
 
     const { error: alumniCandidateError } = await admin.from('candidates').insert({
       id: alumniCandidateId,
@@ -1954,7 +1972,10 @@ async function main() {
         PII_FINGERPRINT_KEY: piiFingerprintKey,
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
+        PUBLIC_APP_URL: 'http://localhost:3000',
         SUPABASE_COMMUNICATION_RUNTIME_ENABLED: 'true',
+        SUPABASE_FINANCE_RUNTIME_ENABLED: 'true',
+        SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
         SUPABASE_TAHFIDZ_RUNTIME_ENABLED: 'true',
         SUPABASE_ACADEMIC_RUNTIME_ENABLED: 'true',
         SUPABASE_LAUNDRY_RUNTIME_ENABLED: 'true',
@@ -1985,6 +2006,144 @@ async function main() {
       await sleep(250);
     }
     assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
+
+    const guardianAdminB = await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'guardian-admin-b', { users: true });
+    users.push(guardianAdminB);
+    const guardianAdminBToken = await signIn(anon, guardianAdminB);
+    const waliPassword = `Guardian-Invite-${randomUUID()}-Aa1!`;
+    const waliEmail = `guardian-invite-${fixtureSuffix}@example.test`;
+    const { data: waliAuthResult, error: waliAuthError } = await admin.auth.admin.createUser({
+      email: waliEmail,
+      password: waliPassword,
+      email_confirm: true,
+      user_metadata: { name: `Wali Uji ${fixtureSuffix}` },
+    });
+    if (waliAuthError || !waliAuthResult.user) throw new Error('Unable to create the synthetic confirmed Guardian Auth user.');
+    const invitedWali = { uid: waliAuthResult.user.id, email: waliEmail, password: waliPassword, tenantId: tenantIds[0] };
+    users.push(invitedWali);
+    const invitedWaliToken = await signIn(anon, invitedWali);
+
+    const guardianCandidatesResponse = await fetch(`${referenceApiBase}/api/users/guardian-candidates`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(guardianCandidatesResponse.status, 200, 'A tenant Admin can read the tenant-scoped Guardians eligible for account activation.');
+    const guardianCandidates = await guardianCandidatesResponse.json();
+    const guardianCandidate = guardianCandidates.guardians.find((item) => item.id === guardianId);
+    assert.ok(guardianCandidate, 'An active Guardian with an active linked student appears in the invitation candidates.');
+    assert.deepEqual(guardianCandidate.students.map((student) => student.id), [tahfidzStudentId], 'The invitation candidate preserves its tenant-scoped Guardian-to-student relationship.');
+
+    const tenantBGuardianCandidatesResponse = await fetch(`${referenceApiBase}/api/users/guardian-candidates`, {
+      headers: { Authorization: `Bearer ${guardianAdminBToken}` },
+    });
+    assert.equal(tenantBGuardianCandidatesResponse.status, 200);
+    const tenantBGuardianCandidates = await tenantBGuardianCandidatesResponse.json();
+    assert.ok(!tenantBGuardianCandidates.guardians.some((item) => item.id === guardianId), 'Another tenant cannot discover this Guardian or its linked student.');
+
+    const guardianInvitationResponse = await fetch(`${referenceApiBase}/api/users/guardian-invitations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: waliEmail,
+        guardianId,
+        modulePermissions: { boarding: true, finance: true, tahfidz: true },
+      }),
+    });
+    assert.equal(guardianInvitationResponse.status, 201, 'A tenant Admin can create an activation link for a confirmed Auth identity without an ERP profile.');
+    const guardianInvitation = await guardianInvitationResponse.json();
+    assert.equal(guardianInvitation.success, true);
+    assert.equal(guardianInvitation.linkedExistingAccount, false);
+    assert.ok(guardianInvitation.expiresAt, 'The invitation has an explicit expiry.');
+    const actionLink = new URL(guardianInvitation.inviteUrl);
+    const redirectTarget = actionLink.searchParams.get('redirect_to') || actionLink.searchParams.get('redirectTo');
+    assert.ok(redirectTarget, 'The Auth action link returns the configured application redirect.');
+    const guardianActivationToken = new URL(redirectTarget).searchParams.get('guardianInvite');
+    assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activation token is carried only in the recipient redirect and has the expected entropy-safe format.');
+
+    const wrongEmailVerification = await fetch(`${referenceApiBase}/api/guardian-invitations/verify`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${guardianAdminBToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: guardianActivationToken }),
+    });
+    assert.equal(wrongEmailVerification.status, 400, 'A different confirmed email cannot verify the Guardian activation.');
+
+    const guardianVerificationResponse = await fetch(`${referenceApiBase}/api/guardian-invitations/verify`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${invitedWaliToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: guardianActivationToken }),
+    });
+    assert.equal(guardianVerificationResponse.status, 200, 'The invited, email-confirmed user can verify the activation token.');
+    assert.equal((await guardianVerificationResponse.json()).email, waliEmail);
+
+    const wrongEmailClaim = await fetch(`${referenceApiBase}/api/guardian-invitations/claim`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${guardianAdminBToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: guardianActivationToken }),
+    });
+    assert.equal(wrongEmailClaim.status, 400, 'A different confirmed email cannot claim the Guardian account.');
+
+    const guardianClaimResponse = await fetch(`${referenceApiBase}/api/guardian-invitations/claim`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${invitedWaliToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: guardianActivationToken }),
+    });
+    assert.equal(guardianClaimResponse.status, 201, 'A verified invited user can atomically claim the Guardian identity.');
+    assert.deepEqual(await guardianClaimResponse.json(), { success: true, linkedStudentCount: 1 });
+
+    const [waliProfile, guardianAccount, claimedInvitation] = await Promise.all([
+      admin.from('profiles').select('tenant_id,email,role,status,module_permissions').eq('user_id', invitedWali.uid).single(),
+      admin.from('guardian_user_accounts').select('tenant_id,guardian_id,user_id,status').eq('tenant_id', tenantIds[0]).eq('guardian_id', guardianId).single(),
+      admin.from('guardian_account_invitations').select('tenant_id,guardian_id,email,status,claimed_user_id').eq('tenant_id', tenantIds[0]).eq('guardian_id', guardianId).single(),
+    ]);
+    assert.equal(waliProfile.error, null);
+    assert.equal(waliProfile.data?.tenant_id, tenantIds[0]);
+    assert.equal(waliProfile.data?.email, waliEmail);
+    assert.equal(waliProfile.data?.role, 'wali_santri');
+    assert.equal(waliProfile.data?.status, 'active');
+    assert.equal(waliProfile.data?.module_permissions?.boarding, true);
+    assert.equal(waliProfile.data?.module_permissions?.finance, true);
+    assert.equal(guardianAccount.error, null);
+    assert.equal(guardianAccount.data?.user_id, invitedWali.uid);
+    assert.equal(guardianAccount.data?.status, 'active');
+    assert.equal(claimedInvitation.error, null);
+    assert.equal(claimedInvitation.data?.status, 'claimed');
+    assert.equal(claimedInvitation.data?.claimed_user_id, invitedWali.uid);
+
+    const waliProfileResponse = await fetch(`${referenceApiBase}/api/auth/profile`, {
+      headers: { Authorization: `Bearer ${invitedWaliToken}` },
+    });
+    assert.equal(waliProfileResponse.status, 200, 'The newly claimed Guardian account can load its tenant-scoped ERP profile.');
+    const waliProfilePayload = await waliProfileResponse.json();
+    assert.equal(waliProfilePayload.profile.uid, invitedWali.uid);
+    assert.equal(waliProfilePayload.profile.role, 'Walisantri');
+    assert.equal(waliProfilePayload.profile.tenantId, tenantIds[0]);
+
+    const waliTahfidzRosterResponse = await fetch(`${referenceApiBase}/api/tahfidz/roster`, {
+      headers: { Authorization: `Bearer ${invitedWaliToken}` },
+    });
+    assert.equal(waliTahfidzRosterResponse.status, 200, 'A claimed Wali can read the roster through the tenant-scoped Tahfidz API.');
+    const waliTahfidzRoster = await waliTahfidzRosterResponse.json();
+    assert.deepEqual(waliTahfidzRoster.roster.map((student) => student.id), [tahfidzStudentId], 'The Wali only receives the student linked through the claimed Guardian record.');
+
+    const repeatGuardianClaim = await fetch(`${referenceApiBase}/api/guardian-invitations/claim`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${invitedWaliToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: guardianActivationToken }),
+    });
+    assert.equal(repeatGuardianClaim.status, 400, 'A claimed invitation cannot be replayed.');
+
+    const claimedGuardianCandidatesResponse = await fetch(`${referenceApiBase}/api/users/guardian-candidates`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(claimedGuardianCandidatesResponse.status, 200);
+    const claimedGuardianCandidates = await claimedGuardianCandidatesResponse.json();
+    assert.ok(!claimedGuardianCandidates.guardians.some((item) => item.id === guardianId), 'A Guardian with an active login is no longer offered for a duplicate invitation.');
+
+    const foreignGuardianInvitation = await fetch(`${referenceApiBase}/api/users/guardian-invitations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${guardianAdminBToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: `foreign-${fixtureSuffix}@example.test`, guardianId, modulePermissions: {} }),
+    });
+    assert.notEqual(foreignGuardianInvitation.status, 201, 'A tenant Admin cannot create an invitation for a Guardian owned by another tenant.');
 
     const masterDataAuthHeaders = { Authorization: `Bearer ${adminToken}` };
     const namingSeriesResponse = await fetch(`${referenceApiBase}/api/master-data/naming-series`, {
@@ -4693,6 +4852,10 @@ async function main() {
         `DELETE FROM public.cbt_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.student_room_assignment_history WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.nis_reservations WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.guardian_account_invitations WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.guardian_user_accounts WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.guardian_students WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.guardians WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.identity_claims WHERE tenant_id = ANY(${tenantArray});`,
