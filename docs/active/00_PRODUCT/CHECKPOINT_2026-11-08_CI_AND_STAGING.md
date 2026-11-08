@@ -5,7 +5,7 @@
 
 ## Status terukur terbaru — 23:56 WIB
 - PR #90 sudah merged ke `main` pada `fd937f4876aa1069500694b9bc20ec70eef8ee14`.
-- PR #91 tetap **Open/Draft**, head `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`. CI [run #1419](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42501493603) lulus 3/3: migrasi/API/pgTAP, frontend build/runtime guard, dan instalasi NPM pelanggan. Supabase Preview dilewati karena PR tidak menggunakan Supabase Branch.
+- PR #91 tetap **Open/Draft**. Head kode yang diuji adalah `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`; sesudahnya branch hanya menerima pembaruan dokumentasi checkpoint. CI [run #1419](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42501493603) lulus 3/3: migrasi/API/pgTAP, frontend build/runtime guard, dan instalasi NPM pelanggan. Supabase Preview dilewati karena PR tidak menggunakan Supabase Branch.
 - CI #1417 sebelumnya menemukan masalah transfer source; branch diperbaiki sebelum #1419. Empat file UI yang dipulihkan sudah dicocokkan penuh dengan teks sumber lokal pada head terbaru.
 - Pemeriksaan lokal `npm run lint`, `npm run build`, `npm run test:supabase-runtime-no-firebase`, dan `npm run test:rbac-permissions` lulus. Build menampilkan peringatan ukuran chunk PDF dan anotasi komentar dependency Zod.
 - Source PR memakai komponen bersama `ERPTabs`; tab Dokumen Digital dan Tahfidz menggunakan gaya bersama serta gulir horizontal. Ini bukti source, bukan UAT visual dari build yang identitasnya cocok.
