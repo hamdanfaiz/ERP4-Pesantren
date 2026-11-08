@@ -36,10 +36,10 @@ async function request(path: string, init: RequestInit = {}) {
         message: String(body?.message || "").slice(0, 300),
       });
     }
-    if (["23505", "23503", "23514"].includes(code) || response.status === 409) throw new SupabaseLmsError(409, body?.message || "Data LMS bertentangan dengan record tenant.");
+    if (["23505", "23503"].includes(code) || response.status === 409) throw new SupabaseLmsError(409, body?.message || "Data LMS bertentangan dengan record tenant.");
     if (code === "P0002" || response.status === 404) throw new SupabaseLmsError(404, body?.message || "Record LMS tidak ditemukan.");
     if (code === "42501" || response.status === 403) throw new SupabaseLmsError(403, "Operasi LMS ditolak oleh kebijakan role atau tenant.");
-    if (["22023", "22P02"].includes(code) || response.status === 400) throw new SupabaseLmsError(400, body?.message || "Data LMS tidak valid.");
+    if (["22023", "22P02", "23514"].includes(code) || response.status === 400) throw new SupabaseLmsError(400, body?.message || "Data LMS tidak valid.");
     throw new SupabaseLmsError(503, "Layanan LMS Supabase belum dapat diproses.");
   }
   return body;
