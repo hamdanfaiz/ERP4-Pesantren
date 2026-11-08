@@ -111,7 +111,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 138);
+assert.equal(sourceMigrationsWithSql.length, 139);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270306000000_library_book_category_reference_writes.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
@@ -140,6 +140,13 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202703020000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270303000000_master_data_student_import_relationships.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270304000000_student_room_assignment_reference_locks.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270305000000_academic_schedule_idempotency_retry.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270306000000_library_book_category_reference_writes.sql'));
+const tenantSettingsConflictMigration = sourceMigrationsWithSql.find(
+  ({ fileName }) => fileName === '20270307000000_tenant_settings_conflict_http_409.sql'
+);
+assert(tenantSettingsConflictMigration, 'Tenant settings conflicts need a forward-only HTTP 409 migration.');
+assert.match(tenantSettingsConflictMigration.statements.join('\n'), /RAISE SQLSTATE 'PT409'/i);
+assert.doesNotMatch(tenantSettingsConflictMigration.statements.join('\n'), /ERRCODE\s*=\s*'40001'/i);
 const roomAssignmentLockMigration = sourceMigrationsWithSql.find(
   ({ fileName }) => fileName === '20270304000000_student_room_assignment_reference_locks.sql'
 );
