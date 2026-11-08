@@ -162,7 +162,7 @@ export async function saveTenantSystemSettings(
     p_settings: settings,
   });
   if (error) {
-    const status = error.code === '40001' || error.code === '23505' ? 409 : error.code === '42501' ? 403 : error.code === '22023' ? 400 : 503;
+    const status = error.code === 'PT409' || error.code === '40001' || error.code === '23505' ? 409 : error.code === '42501' ? 403 : error.code === '22023' ? 400 : 503;
     throw new SystemSettingsStoreError(status, status === 409
       ? 'Pengaturan diubah oleh Admin lain; muat ulang data tenant sebelum menyimpan.'
       : status >= 500 ? 'Pengaturan tenant belum dapat disimpan ke Supabase.' : error.message);
