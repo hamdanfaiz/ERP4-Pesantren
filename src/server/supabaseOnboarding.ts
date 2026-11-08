@@ -1010,7 +1010,7 @@ function normalizeLegacyGender(value: unknown) {
 
 function decryptLegacyIdentity(ciphertext: unknown) {
   if (ciphertext == null || ciphertext === "") return "";
-  const hex = typeof ciphertext === "string" ? ciphertext.replace(/^\\\\x/i, "").trim() : "";
+  const hex = typeof ciphertext === "string" ? ciphertext.replace(/^\\x/i, "").trim() : "";
   if (!hex || !/^(?:[0-9a-fA-F]{2})+$/.test(hex)) {
     throw new SupabaseOnboardingError(503, "Data identitas terenkripsi tidak dapat dibaca.");
   }

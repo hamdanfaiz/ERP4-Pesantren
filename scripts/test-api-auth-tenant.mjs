@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createCipheriv, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
 import { auditServerApiAuthRoutes } from './api-route-auth-policy.mjs';
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const encryptTestIdentity = (value, keyHex) => {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), iv);
+  const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  return String.fromCharCode(92) + 'x' + Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString('hex');
+};
+const fingerprintTestIdentity = (kind, value, keyHex) => createHmac('sha256', Buffer.from(keyHex, 'hex'))
+  .update(kind + ':' + value, 'utf8').digest('hex');
 const fetch = async (input, init) => {
   try {
     return await globalThis.fetch(input, init);
@@ -302,6 +310,7 @@ async function main() {
     if (tahfidzCandidateError) throw new Error('Unable to create the synthetic Tahfidz candidate.');
 
     const tahfidzStudentNis = String(9000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000));
+    const tahfidzStudentNik = String(1000000000000000n + BigInt('0x' + randomBytes(7).toString('hex')) % 9000000000000000n);
     const { error: tahfidzStudentError } = await admin.from('students').insert({
       id: tahfidzStudentId,
       tenant_id: tenantIds[0],
@@ -310,8 +319,8 @@ async function main() {
       name: 'Santri Uji Tahfidz API',
       gender: 'L',
       grade: 'VII',
-      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
-      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+      nik_ciphertext: encryptTestIdentity(tahfidzStudentNik, piiEncryptionKey),
+      nik_fingerprint: String.fromCharCode(92) + 'x' + fingerprintTestIdentity('nik', tahfidzStudentNik, piiFingerprintKey),
       status: 'active',
     });
     if (tahfidzStudentError) throw new Error('Unable to create the synthetic Tahfidz student.');
@@ -328,6 +337,7 @@ async function main() {
     if (alumniCandidateError) throw new Error('Unable to create the synthetic Alumni candidate.');
 
     const alumniStudentNis = String(7000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000));
+    const alumniStudentNik = String(1000000000000000n + BigInt('0x' + randomBytes(7).toString('hex')) % 9000000000000000n);
     const { error: alumniStudentError } = await admin.from('students').insert({
       id: alumniStudentId,
       tenant_id: tenantIds[0],
@@ -336,8 +346,8 @@ async function main() {
       name: `Santri Uji Alumni API ${fixtureSuffix}`,
       gender: 'L',
       grade: 'VII',
-      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
-      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+      nik_ciphertext: encryptTestIdentity(alumniStudentNik, piiEncryptionKey),
+      nik_fingerprint: String.fromCharCode(92) + 'x' + fingerprintTestIdentity('nik', alumniStudentNik, piiFingerprintKey),
       status: 'active',
     });
     if (alumniStudentError) throw new Error('Unable to create the synthetic Alumni student.');
@@ -2179,6 +2189,153 @@ async function main() {
       'An Admin in another tenant cannot read a student by a known Supabase ID.');
 
     assert.equal(masterDataReadbacks.length, 2);
+
+    const masterDataImportSourceId = `MASTER-DATA-CSV-${fixtureSuffix}`;
+    const masterDataImportNis = String(9000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000));
+    const masterDataImportNik = String(1000000000000000n + BigInt(`0x${randomBytes(7).toString('hex')}`) % 9000000000000000n);
+    const masterDataImportNisn = String(1000000000 + (randomBytes(4).readUInt32BE(0) % 9000000000));
+    const masterDataImportRow = {
+      id: masterDataImportSourceId,
+      name: `Santri Uji Impor ${fixtureSuffix}`,
+      nis: masterDataImportNis,
+      nik: masterDataImportNik,
+      nisn: masterDataImportNisn,
+      gender: 'P',
+      grade: testNisGradeName,
+      phone: '+6281234567890',
+      email: `wali-${fixtureSuffix}@example.invalid`,
+      parentName: `Wali Uji ${fixtureSuffix}`,
+      parentPhone: '+6281234567891',
+      address: `Alamat sintetis ${fixtureSuffix}`,
+      status: 'Active',
+    };
+    const masterDataImportPreviewResponse = await fetch(`${referenceApiBase}/api/master-data/students/import/preview`, {
+      method: 'POST',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: [masterDataImportRow] }),
+    });
+    assert.equal(masterDataImportPreviewResponse.status, 200,
+      'An authorized Admin can preview a tenant Master Data import over the API.');
+    const masterDataImportPreview = await masterDataImportPreviewResponse.json();
+    assert.equal(masterDataImportPreview.rowCount, 1);
+    assert.equal(masterDataImportPreview.readyCount, 1,
+      `A valid import row with an active tenant grade reference passes preflight: ${JSON.stringify(masterDataImportPreview)}`);
+    assert.equal(masterDataImportPreview.items[0].status, 'ready');
+    const masterDataImportPreviewRows = await admin.from('students').select('id')
+      .eq('tenant_id', tenantIds[0]).eq('source_system', 'legacy_import').eq('source_record_id', masterDataImportSourceId);
+    assert.equal(masterDataImportPreviewRows.error, null);
+    assert.equal(masterDataImportPreviewRows.data?.length, 0,
+      'Preview does not write or partially import student rows.');
+
+    const invalidMasterDataImportPreviewResponse = await fetch(`${referenceApiBase}/api/master-data/students/import/preview`, {
+      method: 'POST',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: [{ ...masterDataImportRow, id: `${masterDataImportSourceId}-BAD`, grade: 'Jenjang Tidak Ada' }] }),
+    });
+    assert.equal(invalidMasterDataImportPreviewResponse.status, 200);
+    const invalidMasterDataImportPreview = await invalidMasterDataImportPreviewResponse.json();
+    assert.equal(invalidMasterDataImportPreview.errorCount, 1,
+      'Preview rejects references outside the active tenant catalog before any write.');
+
+    const masterDataImportApplyResponse = await fetch(`${referenceApiBase}/api/master-data/students/import/apply`, {
+      method: 'POST',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: [masterDataImportRow] }),
+    });
+    assert.equal(masterDataImportApplyResponse.status, 200,
+      'An authorized Admin can apply a fully preflighted import through the API.');
+    const masterDataImportApplied = await masterDataImportApplyResponse.json();
+    assert.equal(masterDataImportApplied.imported, 1);
+    assert.equal(masterDataImportApplied.skipped, 0);
+    assert.equal(masterDataImportApplied.errorCount, 0);
+
+    const masterDataImportPersistedRows = await admin.from('students')
+      .select('id, tenant_id, source_system, source_record_id, nis, grade, grade_level_reference_id, nik_ciphertext, nisn_ciphertext, details')
+      .eq('tenant_id', tenantIds[0]).eq('source_system', 'legacy_import').eq('source_record_id', masterDataImportSourceId);
+    assert.equal(masterDataImportPersistedRows.error, null);
+    assert.equal(masterDataImportPersistedRows.data?.length, 1,
+      'The import persists exactly one tenant-owned student row.');
+    const masterDataImportedStudent = masterDataImportPersistedRows.data[0];
+    assert.equal(masterDataImportedStudent.tenant_id, tenantIds[0]);
+    assert.equal(masterDataImportedStudent.nis, masterDataImportNis);
+    assert.equal(masterDataImportedStudent.grade_level_reference_id, testNisGradeRows[0].id,
+      'The imported grade is stored as its tenant-owned relational reference.');
+    assert.ok(masterDataImportedStudent.nik_ciphertext && masterDataImportedStudent.nisn_ciphertext,
+      'Sensitive identity values are encrypted before database persistence.');
+    assert.notEqual(masterDataImportedStudent.nik_ciphertext, masterDataImportNik);
+    assert.notEqual(masterDataImportedStudent.nisn_ciphertext, masterDataImportNisn);
+
+    const masterDataImportAuditRows = await admin.from('master_data_audit_events')
+      .select('tenant_id, actor_user_id, entity_type, entity_id, action, changed_fields, change_source')
+      .eq('tenant_id', tenantIds[0]).eq('entity_id', masterDataImportedStudent.id).eq('change_source', 'master_data_import');
+    assert.equal(masterDataImportAuditRows.error, null);
+    assert.equal(masterDataImportAuditRows.data?.length, 1,
+      'The write creates an append-only metadata audit event.');
+    assert.equal(masterDataImportAuditRows.data[0].actor_user_id, users[0].uid);
+    assert.equal(masterDataImportAuditRows.data[0].action, 'created');
+
+    const repeatedMasterDataImportResponse = await fetch(`${referenceApiBase}/api/master-data/students/import/apply`, {
+      method: 'POST',
+      headers: { ...masterDataAuthHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: [masterDataImportRow] }),
+    });
+    assert.equal(repeatedMasterDataImportResponse.status, 200,
+      'Retrying an applied import request remains a successful no-duplicate operation.');
+    const repeatedMasterDataImport = await repeatedMasterDataImportResponse.json();
+    assert.equal(repeatedMasterDataImport.imported, 0);
+    assert.equal(repeatedMasterDataImport.skipped, 1);
+    const masterDataImportRowsAfterRetry = await admin.from('students').select('id')
+      .eq('tenant_id', tenantIds[0]).eq('source_system', 'legacy_import').eq('source_record_id', masterDataImportSourceId);
+    assert.equal(masterDataImportRowsAfterRetry.error, null);
+    assert.equal(masterDataImportRowsAfterRetry.data?.length, 1,
+      'Retry does not create duplicate student rows.');
+
+    const defaultMasterDataExportResponse = await fetch(`${referenceApiBase}/api/master-data/students/export`, {
+      headers: masterDataAuthHeaders,
+    });
+    assert.equal(defaultMasterDataExportResponse.status, 200,
+      'An authorized Admin can export the active tenant Master Data.');
+    const defaultMasterDataExport = await defaultMasterDataExportResponse.json();
+    const defaultExportedStudent = defaultMasterDataExport.records.find((record) => record.id === masterDataImportSourceId);
+    assert.ok(defaultExportedStudent, 'The exported tenant dataset includes the newly imported student.');
+    for (const field of ['nik', 'nisn', 'phone', 'email', 'parentName', 'parentPhone', 'address']) {
+      assert.equal(Object.hasOwn(defaultExportedStudent, field), false,
+        `Default export excludes sensitive field ${field}.`);
+    }
+
+    const sensitiveMasterDataExportResponse = await fetch(`${referenceApiBase}/api/master-data/students/export?includeSensitive=true`, {
+      headers: masterDataAuthHeaders,
+    });
+    const sensitiveMasterDataExport = await sensitiveMasterDataExportResponse.json();
+    assert.equal(sensitiveMasterDataExportResponse.status, 200,
+      `Explicit sensitive export must be available to an authorized tenant Admin: ${JSON.stringify(sensitiveMasterDataExport)}`);
+    const sensitiveExportedStudent = sensitiveMasterDataExport.records.find((record) => record.id === masterDataImportSourceId);
+    assert.equal(sensitiveExportedStudent?.nik, masterDataImportNik,
+      'An explicitly requested sensitive export decrypts NIK for authorized tenant migration.');
+    assert.equal(sensitiveExportedStudent?.nisn, masterDataImportNisn);
+    assert.equal(sensitiveExportedStudent?.phone, masterDataImportRow.phone);
+    assert.equal(sensitiveExportedStudent?.email, masterDataImportRow.email);
+
+    const otherTenantMasterDataExportResponse = await fetch(`${referenceApiBase}/api/master-data/students/export`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(otherTenantMasterDataExportResponse.status, 200);
+    const otherTenantMasterDataExport = await otherTenantMasterDataExportResponse.json();
+    assert.equal(otherTenantMasterDataExport.records.some((record) => record.id === masterDataImportSourceId), false,
+      'Tenant B exports only its own students, even when it knows a Tenant A source ID.');
+
+    const masterDataExportPermissionDenied = await fetch(`${referenceApiBase}/api/master-data/students/export`, {
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
+    });
+    assert.equal(masterDataExportPermissionDenied.status, 403,
+      'An Admin without Master Data permission cannot export student records.');
+    const masterDataImportRoleDenied = await fetch(`${referenceApiBase}/api/master-data/students/import/preview`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: [masterDataImportRow] }),
+    });
+    assert.equal(masterDataImportRoleDenied.status, 403,
+      'A non-admin role cannot preview imports or extract tenant data.');
 
     const alumniInitialSnapshotResponse = await fetch(`${referenceApiBase}/api/alumni`, {
       headers: { Authorization: `Bearer ${adminToken}` },
@@ -4538,6 +4695,7 @@ async function main() {
         `DELETE FROM public.nis_reservations WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.identity_claims WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcements WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.marketplace_mutation_requests WHERE tenant_id = ANY(${tenantArray});`,
