@@ -2,7 +2,7 @@
 
 Tanggal pemeriksaan: 8 November 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Baseline `main`: `38f556e38bcb19c9dde6773da708bde24a8f6fd4` (base PR #70)
+Baseline saat pemetaan fitur: `38f556e38bcb19c9dde6773da708bde24a8f6fd4`; setelah PR #70 merged, `main` memuat commit `b1a5d0211c4748eee4389cce4b8e92ace4534969`
 
 ## Kesimpulan
 
@@ -32,7 +32,7 @@ Cakupan produk utama PR #1–#11 memiliki padanan pada source penerus di `main`,
 
 - PR #13 berstatus merged dan menjadi baseline cutover Supabase/customer-managed.
 - PR #68 (koreksi PPDB/onboarding dan bukti pengujiannya) serta PR #69 (tes round-trip CBT) tercatat merged pada pemeriksaan.
-- PR #70 masih open pada baseline pemeriksaan ini; tes LMS tidak mengubah status historis PR #1–#11.
+- PR #70 kemudian ditandai siap dan merged ke `main` pada commit `b1a5d0211c4748eee4389cce4b8e92ace4534969`; tiga job CI wajib lulus pada head PR, sedangkan Supabase Preview dilewati. Perubahan LMS tersebut tidak mengubah status historis PR #1–#11.
 - PR lama #1–#11 tetap closed dan tidak merged. Tidak ada alasan untuk membuka kembali atau menggabungkan branch lamanya hanya demi mengubah label status.
 
 ## Yang dibuktikan dan yang belum
