@@ -1,18 +1,14 @@
 # Checkpoint ERP4 Pesantren — CI dan staging
 
 **Tanggal:** 8 November 2026  
-**Status:** produk belum dinyatakan siap deploy/go-live.  
-**Status terukur terbaru — 8 November 2026, 22.32 WIB:** PR #90 sudah merged ke `main` pada `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap open/draft, head aplikasi `517e5bab51d58365e05c7cbdcacda9dfa8a4a9aa`. CI #1415 lulus 3/3 pada head aplikasi ini; #1414 sebelumnya gagal karena format line break assertion regresi, yang telah diperbaiki. Uji regresi deployment, TypeScript, build, dan `git diff --check` lulus lokal. Pembaruan checkpoint ini hanya dokumentasi; periksa status CI terbaru di PR sesudah commit.
+**Status:** produk belum dinyatakan siap deploy atau komersial.
 
-## Status terbaru — sesudah normalisasi pesan API di PR #91
-
-- `main` di GitHub: `fd937f4876aa1069500694b9bc20ec70eef8ee14`; PR #90 sudah merged. PR #91 tetap **open/draft**; head aplikasi `517e5bab51d58365e05c7cbdcacda9dfa8a4a9aa`. Error internal PostgreSQL disamarkan dan tes regresinya memeriksa sintaks, tipe, operator, serta cached plan. CI #1415 lulus 3/3 pada head aplikasi; checkpoint ini hanya dokumentasi dan head sesudahnya perlu diperiksa ulang.
-- Pemeriksaan baca-saja VQE `vqemuyzveuirlkvdggjd` menunjukkan **140/140 versi dan nama migrasi** cocok dengan 140 file `supabase/migrations` pada source ini; versi terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Ini hanya membuktikan kesamaan ledger versi/nama, bukan kesamaan seluruh DDL atau semua CRUD UI.
-- Perubahan tab menyentuh Tahfidz, Asrama, Akademik, Keuangan, CBT, Komunikasi, Koperasi, Enterprise, HRIS, Kesehatan, dan Laundry. Pemeriksaan visual sebelumnya menunjukkan scrollbar Tahfidz berada di dalam frame dan container Asrama konsisten gelap pada desktop. Saat pemeriksaan lanjutan, port preview `4179` dan `4180` tidak sedang mendengarkan; source terbaru dan viewport ponsel belum diverifikasi melalui browser.
-- UAT Admin VQE sebelumnya membuktikan login dan akses 25 modul; antrean Akademik pulih setelah migrasi. UI belum menguji pemetaan kelas karena fixture tidak memiliki kelas yang belum dipetakan.
-- Konektor masih menolak pembacaan PTSAS Production. Tidak ada perubahan Production. UAT Wali, CRUD UI tiap modul, seluruh matriks role/tenant, Storage di hosting target, backup/restore Production, dan clean install/upgrade di VPS/on-premise masih terbuka.
-
-Catatan PR #86 di bawah adalah snapshot sebelumnya; gunakan status PR #90 di bagian ini sebagai keadaan terbaru.
+## Status terukur terbaru — 23:56 WIB
+- PR #90 sudah merged ke `main` pada `fd937f4876aa1069500694b9bc20ec70eef8ee14`.
+- PR #91 tetap **Open/Draft**, head `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`. CI [run #1419](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42501493603) lulus 3/3: migrasi/API/pgTAP, frontend build/runtime guard, dan instalasi NPM pelanggan. Supabase Preview dilewati karena PR tidak menggunakan Supabase Branch.
+- CI #1417 sebelumnya menemukan masalah transfer source; branch diperbaiki sebelum #1419. Empat file UI yang dipulihkan sudah dicocokkan penuh dengan teks sumber lokal pada head terbaru.
+- Pemeriksaan lokal `npm run lint`, `npm run build`, `npm run test:supabase-runtime-no-firebase`, dan `npm run test:rbac-permissions` lulus. Build menampilkan peringatan ukuran chunk PDF dan anotasi komentar dependency Zod.
+- Source PR memakai komponen bersama `ERPTabs`; tab Dokumen Digital dan Tahfidz menggunakan gaya bersama serta gulir horizontal. Ini bukti source, bukan UAT visual dari build yang identitasnya cocok.
 
 ## Source dan CI
 
