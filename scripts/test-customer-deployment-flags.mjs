@@ -56,7 +56,7 @@ assert.doesNotMatch(serverSource, /Konfigurasi .*Supabase belum lengkap\.|Supaba
   "API errors must not expose internal Supabase configuration details");
 assert.match(server, /const INTERNAL_API_ERROR_DETAILS[\s\S]{0,500}sqlstate/i,
   "Backend and database details must be recognized before returning error messages to customers");
-assert.match(server, /if \(status >= 500 \|\| INTERNAL_API_ERROR_DETAILS\.test\(message\)\)\s*\{\s*return "Layanan ini sedang mengalami kendala\./,
+assert.match(server, /invalid input syntax for type[\s\S]{0,220}syntax error at or near[\s\S]{0,220}operator does not exist[\s\S]{0,220}cached plan must not change result type/i,\n  "Common PostgreSQL parser, type, operator, and cached-plan errors must be recognized as internal details");\nassert.match(server, /if \(status >= 500 \|\| INTERNAL_API_ERROR_DETAILS\.test\(message\)\)\s*\{\s*return "Layanan ini sedang mengalami kendala\./,
   "Server-side and internal-detail errors must be translated into customer-facing copy");
 assert.doesNotMatch(server, /return res\.status\(error\.status\)\.json\(\{\s*error:\s*error\.message\s*\}\)/,
   "Typed server failures must not return raw internal messages to clients");
