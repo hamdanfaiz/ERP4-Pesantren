@@ -2,21 +2,21 @@
 
 Tanggal audit awal: 7 November 2026
 Status diperbarui: 8 November 2026
-Baseline terbaru: `main` commit `5a83701cf04d7e501c2a44d6b6276f92820e03c3`, setelah PR #77 merged
-Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42439486721)
+Baseline terbaru: `main` commit `0c311567a320fcfc3e54c3792d36288b47e6457e`, setelah PR #80 merged
+Run CI integrasi terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42445243553) — PR #79, 3/3 job lulus.
 
 ## Cara membaca status
 
 - **API round-trip CI**: request melalui server aplikasi terhubung ke Supabase lokal sintetis, lalu data dibaca kembali dan relasi/izin diperiksa.
 - **Database/unit CI**: prosedur, constraint, RLS, validasi, atau logika modul diuji, tetapi belum membuktikan alur antarmuka dan API penuh.
 - **Belum end-to-end**: belum ditemukan bukti positif yang menuntaskan alur pengguna dari antarmuka sampai data tersimpan dan dibaca kembali.
-- Bukti pada baseline terbaru mencakup PR #68, #72, #74, dan #77. PR #73 dan PR #75 memperbarui dokumentasi audit. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
+- Bukti pada baseline terbaru mencakup PR #68, #72, #74, #77, dan #79. PR #73, #75, #78, dan #80 memperbarui dokumentasi audit atau panduan UAT. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
 
 ## Cakupan per modul
 
 | Modul / alur | Bukti otomatis pada baseline | Status dan batas bukti |
 |---|---|---|
-| Identitas, tenant, dan direktori pengguna | API auth/tenant, role, isolasi tenant, perubahan password awal, penolakan eskalasi, kompensasi saat penulisan profil gagal; provisioning positif SuperAdmin → Admin | **API sebagian lulus.** Tes provisioning positif berada pada PR #68 yang sudah merged dan CI-nya lulus. UAT browser login dan pemetaan role pelanggan belum dilakukan. |
+| Identitas, tenant, dan direktori pengguna | API auth/tenant, role, isolasi tenant, perubahan password awal, penolakan eskalasi, kompensasi saat penulisan profil gagal; provisioning positif SuperAdmin → Admin; undangan dan klaim akun Wali sampai profil serta roster santri | **API sebagian lulus.** Tes provisioning positif PR #68 dan round-trip undangan Wali PR #79 lulus CI. UAT browser login dan pemetaan role pelanggan belum dilakukan. |
 | Dashboard dan analitik | API snapshot; kalkulasi cash flow | **Baca API dan logika lulus.** Belum ada UAT visual seluruh kartu/filter dan verifikasi silang dengan transaksi produksi. |
 | Data Induk, referensi, dan Naming Series | Tes katalog/referensi API, impor CSV, relasi impor santri, paginasi, PII browser, Naming Series, dan reservasi NIS bersamaan | **DB/logika dan sebagian API lulus.** UAT formulir CRUD serta impor data dari UI belum menyeluruh. |
 | PPDB Admin | pgTAP pembuatan/pencarian kandidat, impor legacy; tes HTTP dokumen Admin dan Storage; workflow kandidat sintetis di VQE staging (8 Nov 2026) | **API staging dan CI PR #68 lulus** untuk transisi Registered → Document Review → Entry Exam → Interview → Accepted. UAT browser belum dilakukan. |
@@ -91,3 +91,23 @@ Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sint
 - Tes ini memperkuat bukti API/penyimpanan Master Data; tes tersebut bukan UAT semua tombol/form UI dan bukan verifikasi DDL atau penyimpanan Production.
 
 **Kesimpulan status terbaru:** pengujian otomatis mencakup round-trip API dan simpan-baca pada banyak modul, tetapi belum membuktikan seluruh produk lulus pengujian menyeluruh. UAT browser lintas role, verifikasi Production/hosting, dan pemeriksaan migrasi serta backup-restore Production tetap menjadi gerbang tersendiri.
+
+
+## Pembaruan verifikasi langsung — 8 November 2026
+
+### Bukti backend staging
+
+- VQE staging (`vqemuyzveuirlkvdggjd`) merespons koneksi API langsung dari runner lokal. Katalog menampilkan 167 tabel publik.
+- Daftar migrasi staging berisi 138 versi. Dibandingkan dengan 138 file migrasi pada source, seluruh versi dan nama cocok; migrasi terakhir adalah `20270306000000_library_book_category_reference_writes`.
+- `npm run test:api:finance-storage` lulus terhadap VQE. Cakupan mencakup bukti Finance upload/download, PPDB publik, enkripsi identitas, dokumen privat, tagihan dan workflow kandidat, onboarding, relasi wali-santri-kelas-gedung-kamar, retry, konflik, batas role/tenant, dan rate limit.
+- `npm run test:api:library-storage` lulus terhadap VQE. Cakupan mencakup unggah/unduh bertanda tangan, bucket privat, pembatasan tenant/role, finalisasi idempoten dan pemulihan, verifikasi hash/tanda tangan, pembersihan objek yang ditolak, dan privasi metadata path.
+- Kedua skrip menyelesaikan isolasi fixture sintetis: tenant uji disuspensi, akun Auth diblokir, dan objek uji dibersihkan. Referensi audit append-only sengaja tetap tersimpan.
+- Pada snapshot source bersih turunan dari baseline runtime `5a83701`, pemeriksaan `npm run lint`, `npm run build`, dan `npm run test:ci-coverage` lulus. Guard memastikan 54 skrip test dalam package dijadwalkan di CI. Build memberi peringatan ukuran chunk React PDF sekitar 1,46 MB; build tetap berhasil.
+- CI PR #79, run #42445243553, lulus 3/3 job. Job database lulus replay migrasi pada Supabase lokal terisolasi, pgTAP, API auth/tenant, dan simulasi backup/restore lokal. Job frontend dan pemasangan paket pelanggan juga lulus.
+
+### Batas bukti dan pekerjaan tersisa
+
+- Preview lokal berhasil membuka halaman beranda dan formulir masuk. UAT setelah login belum dilakukan karena sesi Admin staging tidak tersedia pada browser uji; tidak ada password yang dimasukkan atau diubah.
+- UAT browser lintas role dan pemeriksaan semua alur UI masih belum lulus. Tes API staging di atas hanya membuktikan alur spesifik yang disebut, bukan semua fitur setiap modul.
+- MCP PTSAS Production mengembalikan `You do not have permission` saat `list_tables`; akses baca langsung Production belum terbukti. Tidak ada perubahan pada Production.
+- Karena itu produk **belum dinyatakan lulus pengujian menyeluruh atau siap deploy pelanggan**. Tetap diperlukan UAT browser lintas role pada staging serta verifikasi DDL dan rehearsal pemulihan Production oleh tim backend/operator.
