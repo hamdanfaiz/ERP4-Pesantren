@@ -23,6 +23,7 @@
     "test:api-route-auth-policy": "node scripts/test-api-route-auth-policy.mjs",
     "test:api:finance-storage": "node scripts/test-finance-storage-http.mjs",
     "test:api:library-storage": "node scripts/test-library-storage-http.mjs",
+    "test:api:document-center": "node scripts/test-document-center-http.mjs",
     "test:db:backup-restore": "node scripts/test-database-backup-restore.mjs",
     "test:supabase-test-environment": "node scripts/test-supabase-test-environment.mjs",
     "test:synthetic-tenant-fixture": "node scripts/test-synthetic-tenant-fixture.mjs",
