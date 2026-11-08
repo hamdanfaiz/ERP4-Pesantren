@@ -4,6 +4,7 @@ import {
   listSupabaseBoardingSnapshot,
 } from "./masterDataApi";
 import { supabaseRuntimeEnabled } from "../runtimeBackend";
+import { toERPUserMessage } from "../utils/userMessages";
 
 const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED"));
 const SUPABASE_BOARDING_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_RUNTIME_ENABLED"));
@@ -283,13 +284,13 @@ class CentralStructureService {
   ): Promise<{ success: boolean; message: string }> {
     const tenantId = this.tenantId;
     const targetRoom = this.rooms.find((room) => room.id === roomId || room.name === roomId);
-    if (!tenantId) return { success: false, message: 'Tenant belum aktif.' };
+    if (!tenantId) return { success: false, message: 'Pesantren belum dipilih.' };
     if (!targetRoom) return { success: false, message: 'Kamar tidak ditemukan.' };
     if (!SUPABASE_MASTER_DATA_RUNTIME) {
-      return { success: false, message: 'Runtime Master Data Supabase belum diaktifkan.' };
+      return { success: false, message: 'Fitur Data Induk belum tersedia saat ini. Silakan hubungi administrator pesantren.' };
     }
     if (!SUPABASE_BOARDING_RUNTIME) {
-      return { success: false, message: 'Runtime asrama Supabase belum diaktifkan.' };
+      return { success: false, message: 'Penempatan kamar belum tersedia saat ini. Silakan hubungi administrator pesantren.' };
     }
 
     const santri = this.santriList.find((item) => item.id === santriId || item.supabaseId === santriId);
@@ -304,7 +305,7 @@ class CentralStructureService {
       await this.refreshSupabaseTenant(tenantId);
       return { success: true, message: 'Santri berhasil dialokasikan ke ' + targetRoom.name + '.' };
     } catch (error: any) {
-      return { success: false, message: error?.message || 'Alokasi kamar Supabase gagal.' };
+      return { success: false, message: toERPUserMessage(error, 'Penempatan kamar belum dapat disimpan. Silakan coba kembali.') };
     }
   }
 

@@ -47,10 +47,13 @@ const indexHtml = read("index.html");
 const runtimeKeys = read("src/publicRuntimeConfigKeys.ts");
 const runtimeConfig = read("src/runtimeConfig.ts");
 const server = read("server.ts");
+const centralStructure = read("src/services/centralStructureService.ts");
 assert.match(server, /const FEATURE_UNAVAILABLE_MESSAGE\s*=\s*"Layanan ini belum tersedia saat ini\./,
   "Disabled feature flags must use customer-facing copy without operator instructions");
 assert.doesNotMatch(server, /error:\s*"[^"]*belum diaktifkan operator\./i,
   "API responses must not expose operator-only feature-flag guidance");
+assert.doesNotMatch(centralStructure, /(?:message|error):\s*["'`]Runtime .*Supabase|error\?\.message/,
+  "Room-assignment errors must not expose runtime flags or raw backend messages");
 const environmentBlock = compose.match(/^    environment:\r?\n([\s\S]*?)^    ports:/m)?.[1];
 assert.ok(environmentBlock, "docker-compose.yml must define the application environment block");
 assert.match(compose, /^      TRUST_PROXY_HOPS: \$\{TRUST_PROXY_HOPS:-0\}$/m, "Docker Compose must default to trusting no forwarded proxies");
