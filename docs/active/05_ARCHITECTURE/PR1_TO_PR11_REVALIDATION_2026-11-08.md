@@ -38,7 +38,7 @@ Cakupan produk utama PR #1–#11 memiliki padanan pada source penerus di `main`,
 
 ## Yang dibuktikan dan yang belum
 
-Bukti source dan CI/staging menunjukkan bahwa fungsi utama yang menjadi cakupan PR lama memiliki implementasi penerus dan pengujian terpilih, termasuk tenant/RLS, PPDB, onboarding/NIS/asrama, Finance/Storage, dan sebagian besar alur Tahfidz. Detail cakupan per modul serta batas bukti terbaru ada di [Matriks Cakupan Pengujian Modul](./MODULE_TEST_COVERAGE_2026-11-07.md).
+Bukti source dan CI/staging menunjukkan bahwa fungsi utama yang menjadi cakupan PR lama memiliki implementasi penerus dan pengujian terpilih, termasuk tenant/RLS, PPDB, onboarding/NIS/asrama, Finance/Storage, dan sebagian besar alur Tahfidz. Detail cakupan per modul serta batas bukti terbaru ada di [Matriks Cakupan Pengujian Modul](./MODULE_TEST_COVERAGE_2026-11-08.md).
 
 Audit ini **tidak** membuktikan:
 
