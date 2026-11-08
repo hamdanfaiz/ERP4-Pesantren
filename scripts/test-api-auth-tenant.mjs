@@ -3335,10 +3335,10 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     assert.equal(ustadzAcknowledgement.status, 403, 'Only an eligible Wali account can acknowledge an announcement.');
 
     const tenantBGuardianAccounts = await admin.from('guardian_user_accounts')
-      .select('id', { count: 'exact', head: true })
+      .select('id')
       .eq('tenant_id', tenantIds[1]);
     assert.equal(tenantBGuardianAccounts.error, null, 'The empty-audience tenant must be queryable in the synthetic fixture.');
-    assert.equal(tenantBGuardianAccounts.count, 0, 'Tenant B has no active Guardian account before testing fail-closed announcement delivery.');
+    assert.equal(tenantBGuardianAccounts.data?.length, 0, 'Tenant B has no active Guardian account before testing fail-closed announcement delivery.');
     const noRecipientAnnouncement = await fetch(`${referenceApiBase}/api/communication/announcements`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${guardianAdminBToken}`, 'Content-Type': 'application/json' },
