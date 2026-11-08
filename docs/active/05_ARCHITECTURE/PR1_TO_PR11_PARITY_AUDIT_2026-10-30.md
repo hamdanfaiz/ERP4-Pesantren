@@ -8,7 +8,7 @@
 - Pengujian HTTP pada **VQE staging** dengan fixture sintetis memeriksa PPDB publik, empat dokumen privat, workflow kandidat hingga diterima, tagihan pendaftaran/tuition, onboarding santri/wali serta relasi kelas/gedung/kamar, NIS dan klaim identitas, okupansi, tautan tagihan, retry idempoten, dan penolakan konflik. Finance proof upload/download serta batas role/tenant/rate limit juga lulus. Production tidak disentuh.
 - Tes tersebut menemukan route konfigurasi PPDB tidak mengirim `gradeLevels` ke formulir. Perbaikan pada `server.ts` dan regresi test masuk Draft PR #68, head `8c6ad6d33d5ed68f5e49aac6f6c23c94f118089e`; GitHub Actions [run #42418159869](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42418159869) lulus 3/3 job. PR #68 masih Draft dan belum masuk `main`.
 - Cleanup staging menghapus objek Storage, memblokir akun sintetis, dan menangguhkan tenant uji. Record wali/santri yang dirujuk audit onboarding tetap tersimpan di tenant yang disuspensi.
-- Di worktree lokal, `npm ci`, `npm run lint`, dan `npm run build` lulus. Tes fungsi lokal tambahan juga lulus; rincian modul dan batas bukti ada di [MODULE_TEST_COVERAGE_2026-11-07.md](./MODULE_TEST_COVERAGE_2026-11-07.md).
+- Di worktree lokal, `npm ci`, `npm run lint`, dan `npm run build` lulus. Tes fungsi lokal tambahan juga lulus; rincian modul dan batas bukti terbaru ada di [MODULE_TEST_COVERAGE_2026-11-08.md](./MODULE_TEST_COVERAGE_2026-11-08.md).
 - Bukti ini bukan UAT UI seluruh modul, pembuktian DDL/urutan migrasi PTSAS Production, atau rehearsal backup-restore Production. Gerbang tersebut tetap memerlukan tim backend.
 
 

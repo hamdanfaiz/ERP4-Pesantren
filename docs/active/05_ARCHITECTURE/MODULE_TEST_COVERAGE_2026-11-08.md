@@ -1,32 +1,33 @@
 # Matriks Cakupan Pengujian Modul ERP4 Pesantren
 
-Tanggal audit: 7 November 2026
-Baseline CI: `main` commit `148b0c670ea4960e43393b34704c2ca8748c4ce3`
-Run: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42371927292)
+Tanggal audit awal: 7 November 2026
+Status diperbarui: 8 November 2026
+Baseline terbaru: `main` commit `5ead22585bc80691f255955c8b77d93e01d10a3c`, setelah PR #72 merged
+Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42431333842)
 
 ## Cara membaca status
 
 - **API round-trip CI**: request melalui server aplikasi terhubung ke Supabase lokal sintetis, lalu data dibaca kembali dan relasi/izin diperiksa.
 - **Database/unit CI**: prosedur, constraint, RLS, validasi, atau logika modul diuji, tetapi belum membuktikan alur antarmuka dan API penuh.
 - **Belum end-to-end**: belum ditemukan bukti positif yang menuntaskan alur pengguna dari antarmuka sampai data tersimpan dan dibaca kembali.
-- Tes yang baru ditulis di worktree lokal ditandai tersendiri; tes itu belum termasuk commit baseline CI.
+- Bukti pada baseline terbaru mencakup PR #68 dan PR #72. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
 
 ## Cakupan per modul
 
 | Modul / alur | Bukti otomatis pada baseline | Status dan batas bukti |
 |---|---|---|
-| Identitas, tenant, dan direktori pengguna | API auth/tenant, role, isolasi tenant, perubahan password awal, penolakan eskalasi, kompensasi saat penulisan profil gagal; provisioning positif SuperAdmin → Admin | **API sebagian lulus.** Tes provisioning Admin positif lulus di CI Draft PR #68; UAT browser login dan pemetaan role pelanggan belum dilakukan. |
+| Identitas, tenant, dan direktori pengguna | API auth/tenant, role, isolasi tenant, perubahan password awal, penolakan eskalasi, kompensasi saat penulisan profil gagal; provisioning positif SuperAdmin → Admin | **API sebagian lulus.** Tes provisioning positif berada pada PR #68 yang sudah merged dan CI-nya lulus. UAT browser login dan pemetaan role pelanggan belum dilakukan. |
 | Dashboard dan analitik | API snapshot; kalkulasi cash flow | **Baca API dan logika lulus.** Belum ada UAT visual seluruh kartu/filter dan verifikasi silang dengan transaksi produksi. |
 | Data Induk, referensi, dan Naming Series | Tes katalog/referensi API, impor CSV, relasi impor santri, paginasi, PII browser, Naming Series, dan reservasi NIS bersamaan | **DB/logika dan sebagian API lulus.** UAT formulir CRUD serta impor data dari UI belum menyeluruh. |
 | PPDB Admin | pgTAP pembuatan/pencarian kandidat, impor legacy; tes HTTP dokumen Admin dan Storage; workflow kandidat sintetis di VQE staging (8 Nov 2026) | **API staging dan CI PR #68 lulus** untuk transisi Registered → Document Review → Entry Exam → Interview → Accepted. UAT browser belum dilakukan. |
 | PPDB publik | pgTAP RPC, idempotensi, batas identitas/tenant, aturan dokumen privat; validasi ukuran/format; round-trip HTTP sintetis pada VQE staging (8 Nov 2026) | **Database, API staging, dan CI PR #68 lulus.** Test memeriksa konfigurasi/daftar jenjang, penyimpanan kandidat, relasi jenjang, enkripsi/fingerprint NIK, empat upload dan baca ulang objek privat, retry, konflik, serta duplikasi NIK. Temuan test: route config sebelumnya tidak mengirim `gradeLevels`, sehingga formulir tidak dapat dibuka; route telah diperbaiki. Belum UAT browser. |
 | Onboarding PPDB → santri/wali/asrama | pgTAP transaksi onboarding, relasi kandidat ke santri/wali, NIS, kamar, okupansi, dan retry; tes kelayakan kamar; HTTP round-trip sintetis VQE staging (8 Nov 2026) | **API/database staging dan CI PR #68 lulus:** kandidat diterima menjadi santri dan wali, relasi kelas/gedung/kamar tersimpan, NIS dan klaim identitas beralih, okupansi naik sekali, tagihan PPDB tertaut ke santri, retry idempoten, dan konflik penempatan ditolak. UAT browser belum dilakukan. |
 | Keuangan dan bukti pembayaran | pgTAP Finance; tes HTTP upload/download bukti, pembatasan role/tenant, batas laju, bucket privat; tes kalkulasi dashboard; tagihan kandidat PPDB melalui API di VQE staging (8 Nov 2026) | **Cakupan API/DB sebagian lulus.** API berhasil membuat tagihan pendaftaran/tuition dan retry tidak menggandakan tagihan; onboarding menautkan tagihan kandidat ke santri. Rekonsiliasi Production dan UAT akuntansi tetap perlu tim backend. |
-| Asrama | pgTAP izin, disiplin, kehadiran, unit, penempatan kamar, riwayat, kapasitas, dan konkurensi | **Database lulus untuk alur inti.** Tes API/UI lengkap untuk izin, disiplin, absensi, penugasan, dan fasilitas belum terbukti. |
+| Asrama | pgTAP izin, disiplin, kehadiran, unit, penempatan kamar, riwayat, kapasitas, dan konkurensi; API round-trip izin, disiplin, dan absensi pada PR #72 | **Database dan API round-trip lulus untuk alur yang dicakup.** CI memeriksa simpan-baca, relasi santri-kamar, transisi status, event audit, retry idempoten, role, dan isolasi tenant. API/UI seluruh alur penugasan kamar, fasilitas, dan UAT browser belum terbukti menyeluruh. |
 | Akademik | API jurnal, jadwal, asesmen, portal, relasi kelas/guru/santri, retry dan tenant; tes paginasi/konflik/role | **API round-trip dan logika lulus di CI.** Belum UAT browser lintas role. |
 | Tahfidz | API halaqah, keanggotaan, setoran, retry, tenant/role; pgTAP target, sesi, hasil, peer review dan tanggal bisnis | **API round-trip dan database lulus di CI.** Audio, perangkat nyata, dan keseluruhan alur UI belum diuji. |
-| CBT | pgTAP tenggat server, validasi payload, impor pengaturan | **Database dan logika impor diuji.** Belum round-trip API/UI ujian lengkap dan simulasi beban peserta. |
-| LMS | pgTAP integritas materi/rekaman/nilai dan validasi payload | **Database lulus.** Belum alur API/UI pengajar dan santri dari materi sampai penilaian. |
+| CBT | pgTAP tenggat server, validasi payload, impor pengaturan; API round-trip bank soal, referensi tenant, pembuatan ujian, penugasan santri, mulai/lanjut percobaan, simpan jawaban, submit/skoring, dan baca hasil | **Database dan API round-trip lulus di CI.** Tes memeriksa kebocoran kunci jawaban, relasi santri-ujian, tenant dan role, retry/idempotensi, validasi opsi, serta hasil baca ulang. Belum UAT UI dan uji beban serentak peserta. |
+| LMS | pgTAP integritas materi/rekaman/nilai dan validasi payload; API round-trip kategori, kursus, modul, materi, tugas, pendaftaran, progres, catatan/komentar, pengumpulan dan penilaian | **Database dan API round-trip lulus di CI.** Tes memeriksa relasi katalog/kelas/guru/santri, scope tenant/role, progres tidak mundur, retry/idempotensi, batas nilai, serta nilai yang dibaca ulang santri. Belum UAT UI dan tes unggah/pemutaran media di berbagai perangkat. |
 | Koperasi | API katalog, stok, penjualan, dompet/posting, retry dan isolasi tenant; pgTAP idempotensi | **API round-trip dan database lulus di CI.** Rekonsiliasi operasional nyata belum dilakukan. |
 | Marketplace | API produk, stok, pesanan, pembatalan, relasi item, isolasi tenant | **API round-trip lulus di CI.** Pembayaran eksternal/PPOB tidak termasuk dan tetap di luar rilis awal. |
 | CRM dan komunikasi | API kontak/interaksi dan pengumuman/audiens | **API round-trip lulus di CI.** Email, push, atau kanal eksternal memerlukan konfigurasi dan tes penyedia terpisah. |
@@ -43,8 +44,8 @@ Run: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/
 
 ## Gerbang yang masih tersisa
 
-1. Setelah PR #68 selesai ditinjau dan digabung, jadikan tes positif provisioning Admin serta round-trip PPDB/onboarding bagian baseline `main`; CI PR #68 sudah lulus untuk source branch tersebut.
-2. Jalankan UAT browser pada staging untuk role Admin, Ustadz, Santri, dan Wali, termasuk navigasi, validasi form, status loading/error/kosong, dan penyimpanan lintas modul.
+1. PR #68 (provisioning positif, PPDB, onboarding) dan PR #72 (asrama) sudah merged ke `main`; CI untuk kedua perubahan lulus.
+2. Jalankan UAT browser pada staging untuk role Admin, Ustadz, Santri, dan Wali, termasuk navigasi, validasi form, status loading/error/kosong, serta penyimpanan lintas modul.
 3. Tim backend melakukan pembandingan DDL/urutan migrasi Production, backup-restore rehearsal, lalu deployment dan UAT hosting. Tes staging/CI tidak menggantikan bukti tersebut.
 
 ## Verifikasi tambahan worktree — 8 November 2026
@@ -65,3 +66,14 @@ Run: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/
 ## Batas pemeriksaan
 
 Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sintetis; uji HTTP terbaru juga berhasil ke VQE staging dan membersihkan objek Storage serta menonaktifkan tenant/memblokir akun uji. Keduanya tidak menulis ke Production dan tidak membuktikan service hosting Production tersedia. Metadata katalog Production yang sebelumnya dibaca juga bukan bukti semua endpoint, policy, atau alur aplikasi berfungsi.
+
+## Pembaruan cakupan CI — PR #72, 8 November 2026
+
+- PR #72 merged ke `main` pada commit `5ead22585bc80691f255955c8b77d93e01d10a3c`. Perubahannya hanya menambah pengujian integrasi pada `scripts/test-api-auth-tenant.mjs`; tidak mengubah skema, runtime, atau data Production.
+- Workflow [run 42431333842](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42431333842) selesai `success`. Job migrasi/API/pgTAP, build/Firebase bundle guard, dan pemasangan NPM pelanggan semuanya lulus; Supabase Preview dilewati karena branch Preview tidak diaktifkan.
+- Job database menyalakan Supabase lokal terisolasi, mereplay migrasi dari batas versi Production yang disimulasikan, menjalankan `supabase test db`, uji reservasi NIS/Tahfidz/kamar bersamaan, API auth/tenant, Finance dan Library Storage, serta backup-restore lokal sintetis.
+- Pengujian API asrama baru membuktikan round-trip izin, disiplin, dan absensi beserta relasi tenant-santri-kamar, transisi/status, event audit, idempotensi, penolakan perubahan payload, role tanpa izin, dan isolasi tenant. Suite yang sama juga sudah menguji alur CBT dan LMS pada level API; rincian cakupannya tercantum di tabel.
+- Workflow juga menjalankan pemeriksaan cakupan yang memastikan 54 skrip test pada `package.json` dijadwalkan di CI. Ini bukan bukti bahwa setiap fitur UI atau setiap variasi bisnis dari tiap modul telah diuji manual.
+- Build lokal terbaru lulus. Uji integrasi API penuh tidak dapat dijalankan pada workstation karena Supabase CLI lokal tidak tersedia; CI menjalankan suite tersebut pada backend Supabase ephemeral.
+
+**Kesimpulan status:** cakupan otomatis backend makin kuat dan PR #72 telah masuk ke `main`, tetapi seluruh produk belum dapat disebut lulus pengujian menyeluruh. UAT browser lintas role, pemeriksaan lingkungan hosting pelanggan, dan pembuktian Production tetap menjadi gerbang tersendiri.
