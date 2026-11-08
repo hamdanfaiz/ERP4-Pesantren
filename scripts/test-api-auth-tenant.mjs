@@ -2052,7 +2052,7 @@ async function main() {
 
     const alumniForeignStudentDenied = await fetch(`${referenceApiBase}/api/alumni/graduations`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...alumniGraduationPayload, studentId: otherTenantCbtStudentId, clientRequestId: randomUUID() }),
     });
     assert.equal(alumniForeignStudentDenied.status, 404, 'An Admin cannot graduate a student belonging to another tenant.');
