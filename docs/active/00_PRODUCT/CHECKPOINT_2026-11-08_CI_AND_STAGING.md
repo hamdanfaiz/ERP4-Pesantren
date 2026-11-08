@@ -31,10 +31,10 @@ Ini bukan bukti bahwa setiap menu/form/tombol sudah diuji melalui browser. Uji l
 
 ## Supabase staging VQE
 
-- Proyek `vqemuyzveuirlkvdggjd` terdeteksi `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003.
-- `list_migrations` menunjukkan 139 entri sampai `20270307000000_tenant_settings_conflict_http_409`.
-- Query metadata baca-saja mengonfirmasi baris ledger versi/nama tersebut serta definisi `public.save_tenant_system_settings` yang memakai `PT409`.
-- Pemeriksaan ini hanya membuktikan keberadaan migrasi/fungsi perubahan PR #86. Belum dilakukan UAT browser pada login Admin/Wali, seluruh role/tenant, simpan-baca seluruh modul, Storage dari hosting, dan tampilan responsif.
+- Pemeriksaan MCP baca-saja pada 9 November 2026 pukul 00.03 WIB mengembalikan 140 migration ledger entries untuk `vqemuyzveuirlkvdggjd`.
+- Daftar `supabase/migrations` pada branch PR `codex/product-copy-cleanup-20261108` juga berisi 140 file. Pasangan versi/nama cocok **140/140**; tidak ada versi yang hilang, tambahan, atau duplikat.
+- Versi terakhir ledger `20270308000000_academic_class_unit_admin_role_baseline`.
+- Ini hanya merekonsiliasi nama/versi ledger dengan source; bukan bukti DDL aktual identik atau alur modul lulus UAT. Pemeriksaan hanya membaca metadata; tidak ada perubahan database.
 
 ## Supabase Production PTSAS
 
