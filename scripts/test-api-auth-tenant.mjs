@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createCipheriv, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { createClient } from '@supabase/supabase-js';
 import { auditServerApiAuthRoutes } from './api-route-auth-policy.mjs';
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const encryptTestIdentity = (value, keyHex) => {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), iv);
+  const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  return String.fromCharCode(92) + 'x' + Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString('hex');
+};
+const fingerprintTestIdentity = (kind, value, keyHex) => createHmac('sha256', Buffer.from(keyHex, 'hex'))
+  .update(kind + ':' + value, 'utf8').digest('hex');
 const fetch = async (input, init) => {
   try {
     return await globalThis.fetch(input, init);
@@ -302,6 +310,7 @@ async function main() {
     if (tahfidzCandidateError) throw new Error('Unable to create the synthetic Tahfidz candidate.');
 
     const tahfidzStudentNis = String(9000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000));
+    const tahfidzStudentNik = String(1000000000000000n + BigInt('0x' + randomBytes(7).toString('hex')) % 9000000000000000n);
     const { error: tahfidzStudentError } = await admin.from('students').insert({
       id: tahfidzStudentId,
       tenant_id: tenantIds[0],
@@ -310,8 +319,8 @@ async function main() {
       name: 'Santri Uji Tahfidz API',
       gender: 'L',
       grade: 'VII',
-      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
-      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+      nik_ciphertext: encryptTestIdentity(tahfidzStudentNik, piiEncryptionKey),
+      nik_fingerprint: String.fromCharCode(92) + 'x' + fingerprintTestIdentity('nik', tahfidzStudentNik, piiFingerprintKey),
       status: 'active',
     });
     if (tahfidzStudentError) throw new Error('Unable to create the synthetic Tahfidz student.');
@@ -328,6 +337,7 @@ async function main() {
     if (alumniCandidateError) throw new Error('Unable to create the synthetic Alumni candidate.');
 
     const alumniStudentNis = String(7000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000));
+    const alumniStudentNik = String(1000000000000000n + BigInt('0x' + randomBytes(7).toString('hex')) % 9000000000000000n);
     const { error: alumniStudentError } = await admin.from('students').insert({
       id: alumniStudentId,
       tenant_id: tenantIds[0],
@@ -336,8 +346,8 @@ async function main() {
       name: `Santri Uji Alumni API ${fixtureSuffix}`,
       gender: 'L',
       grade: 'VII',
-      nik_ciphertext: `\\x${randomBytes(44).toString('hex')}`,
-      nik_fingerprint: `\\x${randomBytes(32).toString('hex')}`,
+      nik_ciphertext: encryptTestIdentity(alumniStudentNik, piiEncryptionKey),
+      nik_fingerprint: String.fromCharCode(92) + 'x' + fingerprintTestIdentity('nik', alumniStudentNik, piiFingerprintKey),
       status: 'active',
     });
     if (alumniStudentError) throw new Error('Unable to create the synthetic Alumni student.');
