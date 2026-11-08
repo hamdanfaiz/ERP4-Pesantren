@@ -4535,6 +4535,7 @@ async function main() {
         `DELETE FROM public.cbt_questions WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.cbt_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.student_room_assignment_history WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.nis_reservations WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.students WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.candidates WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.communication_announcement_reads WHERE tenant_id = ANY(${tenantArray});`,
