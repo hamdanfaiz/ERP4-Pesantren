@@ -374,6 +374,9 @@ jobs:
       - name: Verify private digital library Storage HTTP flows
         run: npm run test:api:library-storage
 
+      - name: Verify Document Center API, tenant relationships, and private Storage
+        run: npm run test:api:document-center
+
       - name: Verify local database backup and restore
         run: npm run test:db:backup-restore
       - name: Stop local Supabase
