@@ -37,6 +37,15 @@ async function cleanupStep(errors, label, operation) {
   }
 }
 
+function safeDiagnostic(error) {
+  return String(error?.message || '')
+    .replace(/sb_(?:secret|publishable)_[A-Za-z0-9_-]+/g, '[redacted API key]')
+    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/postgres(?:ql)?:\/\/[^\s"'`]+/gi, '[redacted database URL]')
+    .replace(/\s+/g, ' ')
+    .slice(0, 240);
+}
+
 async function createUser(admin, tenantId, label, documentPermission) {
   const id = randomUUID();
   const email = `document-http-${label}-${id.slice(0, 8)}@example.test`;
@@ -94,7 +103,7 @@ function storageObjectUrl(baseUrl, path) {
 
 async function createTenant(admin, tenantId, slug, name) {
   const { error } = await admin.from('tenants').insert({ id: tenantId, slug, name, status: 'active' });
-  if (error) throw new Error(`Unable to create synthetic tenant (${slug}).`);
+  if (error) throw new Error(`Unable to create synthetic tenant (${slug}) (${error.code || error.status || 'unknown'}: ${safeDiagnostic(error)}).`);
 }
 
 async function main() {
@@ -379,7 +388,8 @@ main().catch((error) => {
   const detail = error instanceof assert.AssertionError
     ? error.message
     : error?.code || error?.name || 'unknown error';
-  console.error(`Document Center HTTP test failed (${detail}). Check the selected Supabase test project and migration state.`);
+  const diagnostic = safeDiagnostic(error);
+  console.error(`Document Center HTTP test failed (${detail}${diagnostic && diagnostic !== detail ? `: ${diagnostic}` : ''}). Check the selected Supabase test project and migration state.`);
   process.exitCode = 1;
 });
 
