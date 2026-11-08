@@ -2,6 +2,9 @@
 
 ## Revalidasi terbaru — 8 November 2026 (setelah PR #77)
 
+> Status pada bagian revalidasi terbaru dan API GitHub adalah acuan saat ini. Catatan checkpoint bertanggal setelahnya merupakan arsip historis dan dapat memuat status PR sebelum perubahan berikutnya.
+
+
 - Baseline source terbaru yang diaudit adalah `main` commit `5a83701cf04d7e501c2a44d6b6276f92820e03c3`, setelah PR #77 merged. Metadata GitHub mengonfirmasi PR #1–#11 berstatus closed dengan `merged=false` dan `merged_at=null` (flag Draft tetap tercatat); tidak ada review submission maupun review thread. “Closed” tidak berarti perubahan digabung atau diverifikasi.
 - PR lama #3 dan #5–#11 bertumpuk pada branch lama. Source kini menggunakan migrasi forward-only dan arsitektur yang lebih baru; migrasi `202606...` lama yang diperiksa tidak ada pada `main`. Jangan merge atau menerapkan migrasi branch lama.
 - Matriks di bawah memetakan seluruh cakupan utama #1–#11 ke source, migrasi, dokumentasi, dan tes terkini. Tidak ditemukan fitur produk utama yang hanya tersedia pada branch lama; pengecualian dan batas rilis tetap dicatat per area.
