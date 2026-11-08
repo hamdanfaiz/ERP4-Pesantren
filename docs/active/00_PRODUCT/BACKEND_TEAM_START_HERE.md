@@ -9,7 +9,7 @@
 - Implementasi UI menyamakan pesan pengguna, permukaan Asrama, serta tab. Dokumen Digital dan Tahfidz memakai `ERPTabs` dan aturan CSS gulir horizontal. Ini membuktikan source dan build CI, bukan tampilan browser/responsif dari build yang cocok.
 
 ### Backend, staging, dan Production
-- Pemeriksaan baca-saja VQE terdahulu mencatat 140/140 versi/nama migration cocok saat itu. Kecocokan ledger tidak membuktikan seluruh DDL atau database setelah perubahan berikutnya.
+- Pemeriksaan MCP baca-saja pada 9 November 2026 pukul 00.03 WIB merekonsiliasi ledger VQE dengan migration directory branch PR: **140/140 versi/nama cocok**, versi terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Ini hanya bukti ledger, bukan kesamaan DDL.
 - Konektor sesi ini masih menolak baca PTSAS Production. Production tidak disentuh; schema diff, urutan migration, serta backup/restore Production belum diverifikasi.
 - UAT Admin VQE sebelumnya membuktikan login dan akses 25 modul; bukan CRUD seluruh modul, role, tenant, atau UAT Wali.
 
