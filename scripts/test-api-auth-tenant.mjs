@@ -2007,7 +2007,10 @@ async function main() {
     }
     assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
 
-    const guardianAdminB = await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'guardian-admin-b', { users: true });
+    const guardianAdminB = await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'guardian-admin-b', {
+      users: true,
+      communication: true,
+    });
     users.push(guardianAdminB);
     const guardianAdminBToken = await signIn(anon, guardianAdminB);
     const waliPassword = `Guardian-Invite-${randomUUID()}-Aa1!`;
@@ -3331,9 +3334,14 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     });
     assert.equal(ustadzAcknowledgement.status, 403, 'Only an eligible Wali account can acknowledge an announcement.');
 
+    const tenantBGuardianAccounts = await admin.from('guardian_user_accounts')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantIds[1]);
+    assert.equal(tenantBGuardianAccounts.error, null, 'The empty-audience tenant must be queryable in the synthetic fixture.');
+    assert.equal(tenantBGuardianAccounts.count, 0, 'Tenant B has no active Guardian account before testing fail-closed announcement delivery.');
     const noRecipientAnnouncement = await fetch(`${referenceApiBase}/api/communication/announcements`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${guardianAdminBToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: 'Audiens Kosong',
         content: 'Pengumuman untuk audiens tanpa akun tertaut harus ditolak.',
