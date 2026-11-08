@@ -1,6 +1,6 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 8 November 2026, 22.04 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #90 sudah merged. PR #91 tetap **open/draft**; kandidat lokal terbaru `a20c2c5390e0cfe7f39f305fa2a926e3658026d6`. Pemeriksaan lokal (uji regresi copy, TypeScript, build, dan diff) lulus. CI [run #42492291155](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42492291155) lulus 3/3 pada source pendahulu `d1ba2216`; run kandidat terbaru akan berjalan setelah push.
+> **Status otoritatif — 8 November 2026, 22.16 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #90 sudah merged. PR #91 tetap **open/draft**, head `28885d0e38d30f2c1c4d7ac7244e6b973dbba366`. Uji regresi deployment, TypeScript, build, dan diff lulus lokal pada source ini. CI [run #42493737722](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42493737722) masih berjalan; status lulus penuh belum terbukti.
 >
 > Pembacaan staging VQE `vqemuyzveuirlkvdggjd` sebelumnya memastikan 140/140 versi dan nama ledger cocok dengan source; migrasi terakhir yang tercatat `20270308000000_academic_class_unit_admin_role_baseline`. Bukti ini tidak membuktikan kesamaan seluruh DDL. Pemeriksaan visual sebelumnya menunjukkan scrollbar Tahfidz di dalam frame dan container Asrama gelap; source PR terbaru belum diverifikasi lewat browser, dan port preview lokal sekarang tidak mendengarkan. UAT visual source-matched dan viewport ponsel masih terbuka.
 >
@@ -8,7 +8,7 @@
 >
 > Produk **belum dinyatakan siap deploy atau komersial**. Gunakan [checkpoint pengujian terkini](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
 >
-> Run CI #42492291155 lulus 3/3 pada source pendahulu `d1ba2216`; belum ada hasil CI untuk kandidat lokal `a20c2c5` sampai perubahan didorong. Persentase keseluruhan pengembangan tidak dihitung karena UAT, Production, dan penerimaan komersial belum memiliki denominator berbukti yang sama.
+> UAT visual source-matched, viewport ponsel, UAT Wali/CRUD menyeluruh, verifikasi DDL dan backup/restore Production, serta clean install/upgrade VPS/on-premise masih menjadi gerbang. Persentase keseluruhan pengembangan tidak dihitung karena gerbang rilis belum mempunyai denominator berbukti yang sama.
 
 > Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
 
