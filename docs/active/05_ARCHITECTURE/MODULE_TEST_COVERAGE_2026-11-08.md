@@ -2,15 +2,15 @@
 
 Tanggal audit awal: 7 November 2026
 Status diperbarui: 8 November 2026
-Baseline terbaru: `main` commit `0c311567a320fcfc3e54c3792d36288b47e6457e`, setelah PR #80 merged
-Run CI integrasi terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42445243553) — PR #79, 3/3 job lulus.
+Baseline terbaru: `main` commit `c5f777c08c7640b6b7e4b268470e4e2a741f999b`, setelah PR #81 merged
+Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42448093578) — PR #81, 3/3 job lulus.
 
 ## Cara membaca status
 
 - **API round-trip CI**: request melalui server aplikasi terhubung ke Supabase lokal sintetis, lalu data dibaca kembali dan relasi/izin diperiksa.
 - **Database/unit CI**: prosedur, constraint, RLS, validasi, atau logika modul diuji, tetapi belum membuktikan alur antarmuka dan API penuh.
 - **Belum end-to-end**: belum ditemukan bukti positif yang menuntaskan alur pengguna dari antarmuka sampai data tersimpan dan dibaca kembali.
-- Bukti pada baseline terbaru mencakup PR #68, #72, #74, #77, dan #79. PR #73, #75, #78, dan #80 memperbarui dokumentasi audit atau panduan UAT. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
+- Bukti source/tes pada baseline terbaru mencakup PR #68, #72, #74, #77, dan #79; PR #81 memperbarui dokumentasi bukti staging. PR #73, #75, #78, dan #80 juga memperbarui dokumentasi audit atau panduan UAT. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
 
 ## Cakupan per modul
 
@@ -92,6 +92,13 @@ Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sint
 
 **Kesimpulan status terbaru:** pengujian otomatis mencakup round-trip API dan simpan-baca pada banyak modul, tetapi belum membuktikan seluruh produk lulus pengujian menyeluruh. UAT browser lintas role, verifikasi Production/hosting, dan pemeriksaan migrasi serta backup-restore Production tetap menjadi gerbang tersendiri.
 
+
+## Pembaruan CI — PR #81, 8 November 2026
+
+- PR #81 memperbarui dokumentasi cakupan staging dan merged ke `main` pada commit `c5f777c08c7640b6b7e4b268470e4e2a741f999b`.
+- Workflow [run 42448093578](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42448093578) lulus 3/3 job: replay migrasi dan API/pgTAP pada Supabase lokal terisolasi, build serta guard Firebase, dan pemasangan paket pelanggan.
+- Run tersebut menjalankan pemeriksaan backfill migrasi, uji NIS/Tahfidz/kamar bersamaan, suite API auth/tenant, validasi Finance/Library Storage, backup/restore lokal sintetis, tes frontend yang dijadwalkan, build runtime customer-managed, serta smoke test image Docker.
+- Ini memperkuat bukti CI untuk source, tetapi tetap bukan UAT browser lintas role atau verifikasi DDL/restore Production.
 
 ## Pembaruan verifikasi langsung — 8 November 2026
 
