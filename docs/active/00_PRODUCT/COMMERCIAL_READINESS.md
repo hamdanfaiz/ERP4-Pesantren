@@ -1,6 +1,6 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 8 November 2026, 22.23 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #90 sudah merged. PR #91 tetap **open/draft**. CI #1414 menemukan line break yang salah pada assertion regresi; perbaikannya sudah dimasukkan pada head terbaru. Uji regresi deployment, TypeScript, build, dan diff lulus lokal. CI untuk head terbaru masih berjalan.
+> **Status otoritatif — 8 November 2026, 22.32 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #90 sudah merged. CI #1415 lulus 3/3 pada head aplikasi PR #91 `517e5bab51d58365e05c7cbdcacda9dfa8a4a9aa`. Run #1414 sebelumnya gagal karena format line break assertion regresi; perbaikannya telah lulus di #1415. Pembaruan checkpoint ini hanya dokumentasi; status checks atas head PR sesudah pembaruan tercatat di PR.
 >
 > Pembacaan staging VQE `vqemuyzveuirlkvdggjd` sebelumnya memastikan 140/140 versi dan nama ledger cocok dengan source; migrasi terakhir yang tercatat `20270308000000_academic_class_unit_admin_role_baseline`. Bukti ini tidak membuktikan kesamaan seluruh DDL. Pemeriksaan visual sebelumnya menunjukkan scrollbar Tahfidz di dalam frame dan container Asrama gelap; source PR terbaru belum diverifikasi lewat browser, dan port preview lokal sekarang tidak mendengarkan. UAT visual source-matched dan viewport ponsel masih terbuka.
 >
