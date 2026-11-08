@@ -40,6 +40,7 @@ const settingsService = read("src/services/systemSettingsService.ts");
 const settingsUi = read("src/pages/SettingsManager.tsx");
 const hrisUi = read("src/pages/SupabaseHrisManager.tsx");
 const tahfidzUi = read("src/pages/TahfidzManager.tsx");
+const tabStyles = read("src/index.css");
 const appUi = read("src/App.tsx");
 const sidebarUi = read("src/components/Sidebar.tsx");
 const indexHtml = read("index.html");
@@ -112,6 +113,24 @@ assert.match(tahfidzUi, /<ERPTabs[\s\S]*ariaLabel="Bagian Sistem Tahfidz"/,
   "Tahfidz sections must use the shared horizontally scrollable tab control");
 assert.match(tahfidzUi, /toERPUserMessage\(responseError, 'Layanan Tahfidz belum dapat diproses saat ini\./,
   "Tahfidz API gate errors must be converted to customer-facing copy");
+assert.match(tabStyles, /\.erp-tab-scroll\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*thin;/,
+  "Long legacy tab strips must have bounded horizontal scrolling and a visible scrollbar");
+assert.match(tabStyles, /\.erp-tab-scroll::-webkit-scrollbar-thumb[\s\S]*border-radius:\s*999px/,
+  "Horizontal tab scrollbars must use the shared visible theme style in Chromium browsers");
+for (const [module, file] of [
+  ["Akademik", "src/pages/AcademicManagerLegacy.tsx"],
+  ["Asrama", "src/pages/BoardingManagerLegacy.tsx"],
+  ["Keuangan", "src/pages/FinanceManagerLegacy.tsx"],
+  ["CBT", "src/pages/CBTManagerLegacy.tsx"],
+  ["Komunikasi", "src/pages/CommunicationHubLegacy.tsx"],
+  ["Koperasi", "src/pages/CooperativeManagerLegacy.tsx"],
+  ["Enterprise", "src/pages/EnterpriseManager.tsx"],
+  ["HRIS", "src/pages/HRISManager.tsx"],
+  ["Kesehatan", "src/pages/HealthcareManagerLegacy.tsx"],
+  ["Laundry", "src/pages/LaundryManager.tsx"],
+]) {
+  assert.match(read(file), /erp-tab-scroll/, `${module} long tab strip must stay within its frame and expose horizontal scrolling`);
+}
 assert.ok(settingsUi.includes('placeholder="ERP4 Pesantren | {schoolName}"'), "Settings UI page-title example must match the product brand");
 assert.ok(appUi.includes("schoolName: 'ERP4 Pesantren'") && appUi.includes("orgInfo.schoolName || 'ERP4 Pesantren'") && appUi.includes("`ERP4 Pesantren | ${schoolName}`"), "App defaults and browser title must use ERP4 Pesantren");
 assert.ok(sidebarUi.includes(": 'ERP4 Pesantren'}</h1>"), "Sidebar fallback must use ERP4 Pesantren");
