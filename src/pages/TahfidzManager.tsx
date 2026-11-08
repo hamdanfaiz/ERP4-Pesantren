@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import React, { useState, useEffect, useRef } from "react";
 import { TahfidzStudentSearchSelect } from "../components/TahfidzStudentSearchSelect";
+import { ERPTabs } from "../components/ERPDesignSystem";
 import {
   Search,
   Filter,
@@ -55,6 +56,7 @@ import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTi
 import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
 import { getTahfidzAchievementProgress } from "../lib/tahfidzAchievements";
 import { cn, generateUniqueId } from "../lib/utils";
+import { toERPUserMessage } from "../utils/userMessages";
 import {
   AreaChart,
   Area,
@@ -76,7 +78,10 @@ async function requestSupabaseTahfidzApi(path: string, init: RequestInit = {}) {
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const response = await fetch(path, { ...init, headers, cache: 'no-store' });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || 'Data Tahfidz belum dapat diproses.');
+  if (!response.ok) {
+    const responseError = new Error(payload.error || 'Data Tahfidz belum dapat diproses.');
+    throw new Error(toERPUserMessage(responseError, 'Layanan Tahfidz belum dapat diproses saat ini. Silakan hubungi pengelola pesantren.'));
+  }
   return payload;
 }
 
@@ -3659,118 +3664,24 @@ export function TahfidzManager() {
         <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">{rosterLoadingMore ? "Memuat…" : "Muat santri berikutnya"}</button>
       </div>}
 
-      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-max mb-6 border border-slate-200 dark:border-white/5">
-        <button
-          onClick={() => setActiveTab("dashboard")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "dashboard"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Overview Halaqah
-        </button>
-        <button
-          onClick={() => setActiveTab("records")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "records"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Log Setoran Terbaru
-        </button>
-        <button
-          onClick={() => setActiveTab("targets")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "targets"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Target & Raport
-        </button>
-        <button
-          onClick={() => setActiveTab("talaqqi")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "talaqqi"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Jadwal Talaqqi
-        </button>
-        <button
-          onClick={() => setActiveTab("exams")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "exams"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Munaqasyah
-        </button>
-        <button
-          onClick={() => setActiveTab("parent")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "parent"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Portal Wali Santri
-        </button>
-        <button
-          onClick={() => setActiveTab("peer-review")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "peer-review"
-              ? "bg-white dark:bg-[#1a1a1a] text-purple-600 dark:text-purple-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Penilaian Antar-Santri
-        </button>
-        <button
-          onClick={() => setActiveTab("quran")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "quran"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Al-Qur'an
-        </button>
-        <button
-          onClick={() => setActiveTab("badges")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "badges"
-              ? "bg-white dark:bg-[#1a1a1a] text-amber-600 dark:text-amber-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Pencapaian Tahfidz
-        </button>
-        <button
-          onClick={() => setActiveTab("halaqah")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "halaqah"
-              ? "bg-white dark:bg-[#1a1a1a] text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          {isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah"}
-        </button>
-      </div>
+      <ERPTabs
+        tabs={[
+          { id: "dashboard", label: "Overview Halaqah" },
+          { id: "records", label: "Log Setoran Terbaru" },
+          { id: "targets", label: "Target & Raport" },
+          { id: "talaqqi", label: "Jadwal Talaqqi" },
+          { id: "exams", label: "Munaqasyah" },
+          { id: "parent", label: "Portal Wali Santri" },
+          { id: "peer-review", label: "Penilaian Antar-Santri" },
+          { id: "quran", label: "Al-Qur'an" },
+          { id: "badges", label: "Pencapaian Tahfidz" },
+          { id: "halaqah", label: isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah" },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="Bagian Sistem Tahfidz"
+        className="mb-6"
+      />
 
       {activeTab === "dashboard" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseDashboard() : renderDashboard())}
       {activeTab === "halaqah" && renderHalaqahManagement()}

@@ -1042,7 +1042,7 @@ export function CommunicationHub() {
 
       <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden">
         {/* Navigation Tabs */}
-        <div className="border-b border-slate-200 dark:border-white/5 bg-black/40 overflow-x-auto">
+        <div className="erp-tab-scroll border-b border-slate-200 dark:border-white/5 bg-black/40">
           <div className="flex p-2 gap-2 min-w-max">
             {[
               { id: 'announcements', label: 'Announcements', icon: <Megaphone className="w-4 h-4" />, visible: true },

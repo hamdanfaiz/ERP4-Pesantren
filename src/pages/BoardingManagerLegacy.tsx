@@ -1412,7 +1412,7 @@ export function BoardingManager() {
 
       <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden min-h-[600px] relative">
         {/* Navigation Tabs */}
-        <div className="border-b border-slate-200 dark:border-white/5 bg-black/40 p-2 flex gap-2 overflow-x-auto min-w-max">
+        <div className="erp-tab-scroll w-full border-b border-slate-200 dark:border-white/5 bg-black/40 p-2 flex gap-2">
           {[
             { id: 'rooms', label: 'Room Details', icon: <Home className="w-4 h-4" />, count: filteredRooms.length, visible: true },
             { id: 'permits', label: 'Permits (Izin)', icon: <FileText className="w-4 h-4" />, count: filteredPermits.filter(p => p.status === 'Pending').length, alert: true, visible: true },

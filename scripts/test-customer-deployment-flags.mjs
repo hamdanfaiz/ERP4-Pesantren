@@ -39,6 +39,7 @@ const envExample = read(".env.example");
 const settingsService = read("src/services/systemSettingsService.ts");
 const settingsUi = read("src/pages/SettingsManager.tsx");
 const hrisUi = read("src/pages/SupabaseHrisManager.tsx");
+const tahfidzUi = read("src/pages/TahfidzManager.tsx");
 const appUi = read("src/App.tsx");
 const sidebarUi = read("src/components/Sidebar.tsx");
 const indexHtml = read("index.html");
@@ -107,6 +108,10 @@ assert.match(hrisUi, /Saldo cuti dan jadwal kehadiran belum diperbarui otomatis/
   "HRIS UI must clearly state the user-visible leave balance and attendance limitation");
 assert.match(hrisUi, /hindari mencantumkan rincian diagnosis kesehatan/,
   "HRIS UI must preserve the privacy reminder for leave reasons");
+assert.match(tahfidzUi, /<ERPTabs[\s\S]*ariaLabel="Bagian Sistem Tahfidz"/,
+  "Tahfidz sections must use the shared horizontally scrollable tab control");
+assert.match(tahfidzUi, /toERPUserMessage\(responseError, 'Layanan Tahfidz belum dapat diproses saat ini\./,
+  "Tahfidz API gate errors must be converted to customer-facing copy");
 assert.ok(settingsUi.includes('placeholder="ERP4 Pesantren | {schoolName}"'), "Settings UI page-title example must match the product brand");
 assert.ok(appUi.includes("schoolName: 'ERP4 Pesantren'") && appUi.includes("orgInfo.schoolName || 'ERP4 Pesantren'") && appUi.includes("`ERP4 Pesantren | ${schoolName}`"), "App defaults and browser title must use ERP4 Pesantren");
 assert.ok(sidebarUi.includes(": 'ERP4 Pesantren'}</h1>"), "Sidebar fallback must use ERP4 Pesantren");

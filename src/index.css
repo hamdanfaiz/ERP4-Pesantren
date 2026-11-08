@@ -354,6 +354,33 @@
   background: var(--erp-tabs-surface);
 }
 .erp-tabs > .erp-tab-control { flex: 0 0 auto; }
+.erp-tab-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-color: var(--erp-text-muted) transparent;
+  scrollbar-width: thin;
+}
+.erp-tab-scroll::-webkit-scrollbar,
+.erp-tabs::-webkit-scrollbar,
+div:has(> .erp-tab-control)::-webkit-scrollbar { height: .5rem; }
+.erp-tab-scroll::-webkit-scrollbar-track,
+.erp-tabs::-webkit-scrollbar-track,
+div:has(> .erp-tab-control)::-webkit-scrollbar-track { background: transparent; }
+.erp-tab-scroll::-webkit-scrollbar-thumb,
+.erp-tabs::-webkit-scrollbar-thumb,
+div:has(> .erp-tab-control)::-webkit-scrollbar-thumb {
+  border: 1px solid var(--erp-tabs-surface);
+  border-radius: 999px;
+  background: var(--erp-border);
+}
+.erp-tab-scroll::-webkit-scrollbar-thumb:hover,
+.erp-tabs::-webkit-scrollbar-thumb:hover,
+div:has(> .erp-tab-control)::-webkit-scrollbar-thumb:hover { background: var(--erp-text-muted); }
 div:has(> .erp-tab-control) {
   display: flex !important;
   align-items: center !important;
