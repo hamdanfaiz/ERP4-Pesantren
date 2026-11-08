@@ -1,16 +1,16 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 8 November 2026, 22.32 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #90 sudah merged. CI #1415 lulus 3/3 pada head aplikasi PR #91 `517e5bab51d58365e05c7cbdcacda9dfa8a4a9aa`. Run #1414 sebelumnya gagal karena format line break assertion regresi; perbaikannya telah lulus di #1415. Pembaruan checkpoint ini hanya dokumentasi; status checks atas head PR sesudah pembaruan tercatat di PR.
+> **Status otoritatif — 8 November 2026, 23:56 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Open/Draft** pada head `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`. CI [run #1419](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42501493603) lulus 3/3: migrasi/API/pgTAP, frontend build/runtime guard, instalasi NPM pelanggan. Supabase Preview dilewati karena PR tidak memakai Supabase Branch.
 >
-> Pembacaan staging VQE `vqemuyzveuirlkvdggjd` sebelumnya memastikan 140/140 versi dan nama ledger cocok dengan source; migrasi terakhir yang tercatat `20270308000000_academic_class_unit_admin_role_baseline`. Bukti ini tidak membuktikan kesamaan seluruh DDL. Pemeriksaan visual sebelumnya menunjukkan scrollbar Tahfidz di dalam frame dan container Asrama gelap; source PR terbaru belum diverifikasi lewat browser, dan port preview lokal sekarang tidak mendengarkan. UAT visual source-matched dan viewport ponsel masih terbuka.
+> Pemeriksaan lokal `npm run lint`, `npm run build`, `npm run test:supabase-runtime-no-firebase`, dan `npm run test:rbac-permissions` lulus. CI #1417 sempat menangkap berkas rusak pada proses transfer; koreksi sudah ada di branch dan keempat file terkait cocok dengan sumber lokal. Build menampilkan peringatan chunk PDF besar dan anotasi dependency Zod.
 >
-> Konektor menolak pembacaan PTSAS Production dan tidak ada perubahan Production. Schema diff dan urutan migrasi Production, backup/restore, UAT Wali, UAT CRUD modul, serta pengujian clean install/upgrade VPS/on-premise tetap menjadi gerbang sebelum produk dinyatakan siap deploy atau komersial.
+> Source PR memakai komponen tab bersama. Dokumen Digital dan Tahfidz memakai `ERPTabs` dengan CSS gulir horizontal; tampilan browser yang cocok dengan head terbaru dan viewport ponsel belum diuji.
 >
-> Produk **belum dinyatakan siap deploy atau komersial**. Gunakan [checkpoint pengujian terkini](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
+> Pemeriksaan baca-saja staging VQE sebelumnya menemukan kecocokan 140/140 versi dan nama migration; ini bukan bukti kesamaan seluruh DDL. Konektor sesi ini masih menolak pembacaan PTSAS Production. Tidak ada perubahan Production.
 >
-> UAT visual source-matched, viewport ponsel, UAT Wali/CRUD menyeluruh, verifikasi DDL dan backup/restore Production, serta clean install/upgrade VPS/on-premise masih menjadi gerbang. Persentase keseluruhan pengembangan tidak dihitung karena gerbang rilis belum mempunyai denominator berbukti yang sama.
+> **Produk belum dinyatakan siap deploy atau komersial.** UAT visual/responsif source-match, CRUD UI seluruh modul dan matriks role/tenant, verifikasi DDL/urutan migration serta backup/restore oleh tim backend, dan clean install/upgrade/restore pada VPS/on-premise masih terbuka. Gunakan [checkpoint pengujian terkini](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
 
-> Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
+> Catatan checkpoint berikut adalah arsip historis; status otoritatif ada di atas.
 
 > **Pembaruan checkpoint — 6 November 2026, 23.08 WIB.** CI #1191 lulus 3/3 job pada source dokumen PR `602926c548410e2f6af2d0001701d5cf23fd0ece`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. UAT browser, inventaris penuh Production, backup/restore yang terbukti, dan rehearsal/dry-run masih terbuka.
 >
