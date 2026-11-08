@@ -2,15 +2,15 @@
 
 Tanggal audit awal: 7 November 2026
 Status diperbarui: 8 November 2026
-Baseline terbaru: `main` commit `bcb5e1dbdcfc25f01ff0c50b7fd7588a091b7127`, setelah PR #74 merged
-Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42433521043)
+Baseline terbaru: `main` commit `5a83701cf04d7e501c2a44d6b6276f92820e03c3`, setelah PR #77 merged
+Run CI terbaru: [GitHub Actions](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42439486721)
 
 ## Cara membaca status
 
 - **API round-trip CI**: request melalui server aplikasi terhubung ke Supabase lokal sintetis, lalu data dibaca kembali dan relasi/izin diperiksa.
 - **Database/unit CI**: prosedur, constraint, RLS, validasi, atau logika modul diuji, tetapi belum membuktikan alur antarmuka dan API penuh.
 - **Belum end-to-end**: belum ditemukan bukti positif yang menuntaskan alur pengguna dari antarmuka sampai data tersimpan dan dibaca kembali.
-- Bukti pada baseline terbaru mencakup PR #68, #72, dan #74. PR #73 memperbarui dokumentasi audit. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
+- Bukti pada baseline terbaru mencakup PR #68, #72, #74, dan #77. PR #73 dan PR #75 memperbarui dokumentasi audit. Tes unit/logika tetap dibedakan dari round-trip API, Storage, dan UAT UI.
 
 ## Cakupan per modul
 
@@ -82,5 +82,12 @@ Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sint
 - Workflow [run 42433521043](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42433521043) lulus seluruh job wajib: migrasi/API/pgTAP, build/Firebase bundle guard, dan pemasangan NPM pelanggan. Supabase Preview dilewati karena branch Preview dinonaktifkan.
 - Suite API membuktikan daftar calon Alumni, kelulusan dan pengarsipan santri, relasi tenant/santri/pemohon pada data tersimpan, pembacaan ulang, idempotensi retry, penolakan reuse ID dengan payload berbeda, penolakan kelulusan ganda, pembatasan izin/role, dan penolakan akses lintas tenant.
 - Fixture hanya dipakai pada Supabase lokal sintetis CI dan dibersihkan oleh suite. Tidak ada baris aplikasi Production yang dibaca atau ditulis.
+
+## Pembaruan cakupan CI — PR #77, 8 November 2026
+
+- PR #77 merged ke `main` pada commit `5a83701cf04d7e501c2a44d6b6276f92820e03c3`. Perubahan hanya menambahkan tes integrasi API Data Induk; tidak mengubah kode runtime, skema, atau database live.
+- [CI run #42439486721](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42439486721) lulus 3/3 job: migrasi/API/pgTAP pada Supabase lokal terisolasi, build/Firebase bundle guard, dan pemasangan paket pelanggan.
+- Tes Data Induk memeriksa pratinjau impor tanpa menulis, validasi referensi jenjang tenant, persistensi dan pembacaan ulang santri, ciphertext NIK/NISN, audit aktor, retry idempoten, ekspor standar yang menyaring PII, ekspor sensitif eksplisit, pembatasan role, dan isolasi tenant.
+- Tes ini memperkuat bukti API/penyimpanan Master Data; tes tersebut bukan UAT semua tombol/form UI dan bukan verifikasi DDL atau penyimpanan Production.
 
 **Kesimpulan status terbaru:** pengujian otomatis mencakup round-trip API dan simpan-baca pada banyak modul, tetapi belum membuktikan seluruh produk lulus pengujian menyeluruh. UAT browser lintas role, verifikasi Production/hosting, dan pemeriksaan migrasi serta backup-restore Production tetap menjadi gerbang tersendiri.

@@ -1,14 +1,17 @@
 # Audit paritas sumber PR #1–#11 dengan PR #13
 
-## Revalidasi — 8 November 2026
+## Revalidasi terbaru — 8 November 2026 (setelah PR #77)
 
-- Baseline source yang diaudit adalah `main` commit `148b0c670ea4960e43393b34704c2ca8748c4ce3`. Metadata GitHub mengonfirmasi PR #1–#11 semuanya Draft yang ditutup, `merged=false`, dan `merged_at=null`; tidak ada review submission maupun review thread. “Closed” tidak berarti perubahan digabung atau diverifikasi.
+> Status pada bagian revalidasi terbaru dan API GitHub adalah acuan saat ini. Catatan checkpoint bertanggal setelahnya merupakan arsip historis dan dapat memuat status PR sebelum perubahan berikutnya.
+
+
+- Baseline source terbaru yang diaudit adalah `main` commit `5a83701cf04d7e501c2a44d6b6276f92820e03c3`, setelah PR #77 merged. Metadata GitHub mengonfirmasi PR #1–#11 berstatus closed dengan `merged=false` dan `merged_at=null` (flag Draft tetap tercatat); tidak ada review submission maupun review thread. “Closed” tidak berarti perubahan digabung atau diverifikasi.
 - PR lama #3 dan #5–#11 bertumpuk pada branch lama. Source kini menggunakan migrasi forward-only dan arsitektur yang lebih baru; migrasi `202606...` lama yang diperiksa tidak ada pada `main`. Jangan merge atau menerapkan migrasi branch lama.
 - Matriks di bawah memetakan seluruh cakupan utama #1–#11 ke source, migrasi, dokumentasi, dan tes terkini. Tidak ditemukan fitur produk utama yang hanya tersedia pada branch lama; pengecualian dan batas rilis tetap dicatat per area.
 - Pengujian HTTP pada **VQE staging** dengan fixture sintetis memeriksa PPDB publik, empat dokumen privat, workflow kandidat hingga diterima, tagihan pendaftaran/tuition, onboarding santri/wali serta relasi kelas/gedung/kamar, NIS dan klaim identitas, okupansi, tautan tagihan, retry idempoten, dan penolakan konflik. Finance proof upload/download serta batas role/tenant/rate limit juga lulus. Production tidak disentuh.
-- Tes tersebut menemukan route konfigurasi PPDB tidak mengirim `gradeLevels` ke formulir. Perbaikan pada `server.ts` dan regresi test masuk Draft PR #68, head `8c6ad6d33d5ed68f5e49aac6f6c23c94f118089e`; GitHub Actions [run #42418159869](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42418159869) lulus 3/3 job. PR #68 masih Draft dan belum masuk `main`.
+- Tes tersebut menemukan route konfigurasi PPDB tidak mengirim `gradeLevels` ke formulir. Perbaikan pada `server.ts` dan regresi test telah masuk ke `main` melalui PR #68 (merge commit `5759f3048784cb00edc7a0ff52ce06f634a766fc`); GitHub Actions [run #42418159869](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42418159869) lulus 3/3 job. Koreksi dokumen PR itu juga lulus pada [run #42419537903](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42419537903).
 - Cleanup staging menghapus objek Storage, memblokir akun sintetis, dan menangguhkan tenant uji. Record wali/santri yang dirujuk audit onboarding tetap tersimpan di tenant yang disuspensi.
-- Di worktree lokal, `npm ci`, `npm run lint`, dan `npm run build` lulus. Tes fungsi lokal tambahan juga lulus; rincian modul dan batas bukti terbaru ada di [MODULE_TEST_COVERAGE_2026-11-08.md](./MODULE_TEST_COVERAGE_2026-11-08.md).
+- PR #77 menambahkan bukti API untuk preview/impor/ekspor Data Induk. `main` pada commit `5a83701cf04d7e501c2a44d6b6276f92820e03c3` lulus [CI run #42439486721](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42439486721), 3/3 job. Tes memeriksa preview tanpa tulis, persistensi relasi jenjang dan identitas terenkripsi, retry idempoten, audit aktor, ekspor standar yang menyaring data sensitif, ekspor sensitif eksplisit, serta batas role/tenant. PR #77 hanya memperluas tes; tidak mengubah runtime, migrasi, atau database live. Rincian cakupan dan batas bukti ada di [MODULE_TEST_COVERAGE_2026-11-08.md](./MODULE_TEST_COVERAGE_2026-11-08.md).
 - Bukti ini bukan UAT UI seluruh modul, pembuktian DDL/urutan migrasi PTSAS Production, atau rehearsal backup-restore Production. Gerbang tersebut tetap memerlukan tim backend.
 
 
