@@ -164,10 +164,10 @@ async function main() {
     const { error: tenantError } = await admin.from('tenants').insert(tenantRows);
     if (tenantError) throw new Error('Unable to create synthetic tenant fixtures.');
 
-    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true, cbt: true }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b', { cbt: true }));
-    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, cbt: true, library: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-a', { users: true, marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'member-a', { tahfidz: true, academic: true, cbt: true, lms: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'santri', 'active', 'member-b', { cbt: true, lms: true }));
+    users.push(await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-a', { communication: true, tahfidz: true, academic: true, cbt: true, library: true, lms: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'suspended', 'inactive-admin'));
     users.push(await createUserFixture(admin, tenantIds[2], 'admin', 'active', 'suspended-tenant-admin'));
     users.push(await createUserFixture(admin, tenantIds[0], 'wali_santri', 'active', 'wali-a', { ppdb: true }));
@@ -183,7 +183,7 @@ async function main() {
     }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-ppdb', { ppdb: false, finance: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'admin-no-finance', { ppdb: true, finance: false }));
-    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true }));
+    users.push(await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'admin-b', { marketplace: true, crm: true, communication: true, tahfidz: true, academic: true, cbt: true, cooperative: true, finance: true, laundry: true, donation: true, document: true, healthcare: true, library: true, hris: true, lms: true }));
     users.push(await createUserFixture(admin, tenantIds[0], 'santri', 'active', 'initial-password-change'));
     const { error: forcePasswordError } = await admin.from('profiles')
       .update({ must_change_password: true })
@@ -1670,8 +1670,10 @@ async function main() {
         SUPABASE_LIBRARY_RUNTIME_ENABLED: 'true',
         SUPABASE_HRIS_RUNTIME_ENABLED: 'true',
         SUPABASE_CBT_RUNTIME_ENABLED: 'true',
+        SUPABASE_LMS_RUNTIME_ENABLED: 'true',
+        SUPABASE_LMS_DIAGNOSTICS: 'true',
       },
-      stdio: ['ignore', 'ignore', 'ignore'],
+      stdio: ['ignore', 'ignore', 'inherit'],
     });
     const referenceDeadline = Date.now() + 45000;
     let referenceServerReady = false;
@@ -1870,6 +1872,269 @@ async function main() {
       'Admin analytics reflect the completed assignment.');
     assert.equal(cbtAdminAfterSubmit.results.find((item) => item.examTitle === cbtExamPayload.exam.title)?.score, 100,
       'Admin results include the persisted score.');
+
+    const lmsNoPermissionUser = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'lms-denied', { lms: false });
+    users.push(lmsNoPermissionUser);
+    const lmsNoPermissionToken = await signIn(anon, lmsNoPermissionUser);
+    const lmsDeniedSnapshot = await fetch(`${referenceApiBase}/api/lms/snapshot`, {
+      headers: { Authorization: `Bearer ${lmsNoPermissionToken}` },
+    });
+    assert.equal(lmsDeniedSnapshot.status, 403, 'An Admin without LMS permission cannot access the module.');
+    const lmsWaliDenied = await fetch(`${referenceApiBase}/api/lms/snapshot`, {
+      headers: { Authorization: `Bearer ${waliToken}` },
+    });
+    assert.equal(lmsWaliDenied.status, 403, 'The Wali role cannot access the internal LMS runtime.');
+
+    const lmsAdminSnapshot = await fetch(`${referenceApiBase}/api/lms/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const lmsAdminSnapshotPayload = await lmsAdminSnapshot.json();
+    assert.equal(lmsAdminSnapshot.status, 200, `An authorized tenant Admin can open the LMS runtime: ${JSON.stringify(lmsAdminSnapshotPayload)}`);
+    assert.deepEqual(lmsAdminSnapshotPayload.courses, [], 'A new tenant begins without LMS courses.');
+
+    const lmsCategoryBResponse = await fetch(`${referenceApiBase}/api/lms/catalog/category`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: { name: `Kategori Tenant B ${fixtureSuffix}`, description: 'Kategori kursus khusus tenant kedua.' } }),
+    });
+    assert.equal(lmsCategoryBResponse.status, 201, 'Tenant B can create its own LMS category.');
+    const lmsCategoryB = await lmsCategoryBResponse.json();
+    const lmsForeignCategoryCourse = await fetch(`${referenceApiBase}/api/lms/catalog/course`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: {
+        clientRequestId: randomUUID(), categoryId: lmsCategoryB.id, title: `Kursus kategori asing ${fixtureSuffix}`,
+        gradeLevelReferenceId, instructorUserId: users[3].uid, status: 'draft',
+      } }),
+    });
+    assert.equal(lmsForeignCategoryCourse.status, 409, 'A course cannot reference an LMS category from another tenant.');
+
+    const lmsCategoryResponse = await fetch(`${referenceApiBase}/api/lms/catalog/category`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: { name: `Kategori Integrasi ${fixtureSuffix}`, description: 'Kategori untuk uji relasi dan persistensi LMS.' } }),
+    });
+    assert.equal(lmsCategoryResponse.status, 201);
+    const lmsCategory = await lmsCategoryResponse.json();
+    const lmsCourseInput = {
+      clientRequestId: randomUUID(), categoryId: lmsCategory.id, title: `Kursus Integrasi ${fixtureSuffix}`,
+      description: 'Kursus sintetis untuk membuktikan relasi tenant dan alur belajar.', gradeLevelReferenceId,
+      instructorUserId: users[3].uid, status: 'published', color: 'emerald',
+    };
+    const lmsCourseResponse = await fetch(`${referenceApiBase}/api/lms/catalog/course`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: lmsCourseInput }),
+    });
+    assert.equal(lmsCourseResponse.status, 201, 'Admin can create a published course with tenant category and grade references.');
+    const lmsCourse = await lmsCourseResponse.json();
+    const lmsCourseRetry = await fetch(`${referenceApiBase}/api/lms/catalog/course`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: lmsCourseInput }),
+    });
+    assert.equal(lmsCourseRetry.status, 200);
+    assert.equal((await lmsCourseRetry.json()).id, lmsCourse.id, 'Course retries reuse the original row.');
+
+    const lmsModuleInput = { courseId: lmsCourse.id, clientRequestId: randomUUID(), title: `Bab Pertama ${fixtureSuffix}`, description: 'Modul pembelajaran uji.', displayOrder: 0 };
+    const lmsModuleResponse = await fetch(`${referenceApiBase}/api/lms/catalog/module`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: lmsModuleInput }),
+    });
+    assert.equal(lmsModuleResponse.status, 201);
+    const lmsModule = await lmsModuleResponse.json();
+    const lmsModuleRetry = await fetch(`${referenceApiBase}/api/lms/catalog/module`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: lmsModuleInput }),
+    });
+    assert.equal(lmsModuleRetry.status, 200);
+    assert.equal((await lmsModuleRetry.json()).id, lmsModule.id, 'Module retries reuse the original row.');
+
+    const lmsMaterialInput = { courseId: lmsCourse.id, moduleId: lmsModule.id, clientRequestId: randomUUID(), title: `Materi Teks ${fixtureSuffix}`, type: 'text', body: 'Materi teks LMS sintetis untuk uji penyimpanan.', durationSeconds: 180, displayOrder: 0 };
+    const lmsMaterialResponse = await fetch(`${referenceApiBase}/api/lms/catalog/material`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: lmsMaterialInput }),
+    });
+    assert.equal(lmsMaterialResponse.status, 201);
+    const lmsMaterial = await lmsMaterialResponse.json();
+    const lmsAssignmentInput = {
+      courseId: lmsCourse.id, moduleId: lmsModule.id, clientRequestId: randomUUID(),
+      title: `Tugas Integrasi ${fixtureSuffix}`, instructions: 'Jelaskan kembali materi dengan singkat.',
+      maxScore: 100, status: 'published', allowLate: true,
+    };
+    const lmsAssignmentResponse = await fetch(`${referenceApiBase}/api/lms/catalog/assignment`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: lmsAssignmentInput }),
+    });
+    assert.equal(lmsAssignmentResponse.status, 201);
+    const lmsAssignment = await lmsAssignmentResponse.json();
+    const lmsEnrollmentResponse = await fetch(`${referenceApiBase}/api/lms/catalog/enroll`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: { courseId: lmsCourse.id, studentId: tahfidzStudentId } }),
+    });
+    assert.equal(lmsEnrollmentResponse.status, 201, 'Admin can enroll an active Santri in the tenant course.');
+    const lmsEnrollment = await lmsEnrollmentResponse.json();
+
+    const lmsUstadzCategoryDenied = await fetch(`${referenceApiBase}/api/lms/catalog/category`, {
+      method: 'POST', headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: { name: `Kategori ditolak ${fixtureSuffix}`, description: 'Kategori yang tidak boleh dibuat Ustadz.' } }),
+    });
+    assert.equal(lmsUstadzCategoryDenied.status, 403, 'Ustadz may teach but cannot administer tenant LMS categories.');
+    const lmsTeacherSnapshotResponse = await fetch(`${referenceApiBase}/api/lms/snapshot`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    const lmsTeacherSnapshotPayload = await lmsTeacherSnapshotResponse.json();
+    assert.equal(lmsTeacherSnapshotResponse.status, 200, `The assigned Ustadz can load the LMS snapshot: ${JSON.stringify(lmsTeacherSnapshotPayload)}`);
+    const lmsTeacherSnapshot = lmsTeacherSnapshotPayload;
+    assert.ok(lmsTeacherSnapshot.courses.some((course) => course.id === lmsCourse.id), 'The assigned Ustadz sees the course they teach.');
+    assert.ok(lmsTeacherSnapshot.assignments.some((assignment) => assignment.id === lmsAssignment.id), 'The Ustadz snapshot includes the related assignment.');
+    assert.ok(lmsTeacherSnapshot.students.some((student) => student.id === tahfidzStudentId), 'The Ustadz sees enrolled students for the course.');
+
+    const lmsTenantBSnapshotResponse = await fetch(`${referenceApiBase}/api/lms/snapshot`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(lmsTenantBSnapshotResponse.status, 200);
+    assert.deepEqual((await lmsTenantBSnapshotResponse.json()).courses, [], 'Tenant B cannot read Tenant A LMS courses.');
+    const lmsStudentBeforeEnrollment = await fetch(`${referenceApiBase}/api/lms/snapshot`, {
+      headers: { Authorization: `Bearer ${tenantBStudentToken}` },
+    });
+    assert.equal(lmsStudentBeforeEnrollment.status, 200);
+    assert.deepEqual((await lmsStudentBeforeEnrollment.json()).courses, [], 'A student in another tenant cannot discover the course.');
+
+    const lmsProgressHeaders = { Authorization: `Bearer ${santriToken}`, 'Content-Type': 'application/json' };
+    const lmsProgressFirst = await fetch(`${referenceApiBase}/api/lms/progress`, {
+      method: 'POST', headers: lmsProgressHeaders,
+      body: JSON.stringify({ materialId: lmsMaterial.id, positionSeconds: 80, completed: false }),
+    });
+    assert.equal(lmsProgressFirst.status, 200);
+    const lmsProgressRegression = await fetch(`${referenceApiBase}/api/lms/progress`, {
+      method: 'POST', headers: lmsProgressHeaders,
+      body: JSON.stringify({ materialId: lmsMaterial.id, positionSeconds: 30, completed: false }),
+    });
+    assert.equal(lmsProgressRegression.status, 200);
+    const lmsProgressComplete = await fetch(`${referenceApiBase}/api/lms/progress`, {
+      method: 'POST', headers: lmsProgressHeaders,
+      body: JSON.stringify({ materialId: lmsMaterial.id, positionSeconds: 120, completed: true }),
+    });
+    assert.equal(lmsProgressComplete.status, 200);
+    const lmsProgressAfterCompleteRegression = await fetch(`${referenceApiBase}/api/lms/progress`, {
+      method: 'POST', headers: lmsProgressHeaders,
+      body: JSON.stringify({ materialId: lmsMaterial.id, positionSeconds: 40, completed: false }),
+    });
+    assert.equal(lmsProgressAfterCompleteRegression.status, 200);
+    const lmsProgressBeyondDuration = await fetch(`${referenceApiBase}/api/lms/progress`, {
+      method: 'POST', headers: lmsProgressHeaders,
+      body: JSON.stringify({ materialId: lmsMaterial.id, positionSeconds: 181, completed: false }),
+    });
+    assert.equal(lmsProgressBeyondDuration.status, 400, 'Progress cannot exceed material duration.');
+
+    const lmsNoteInput = { requestId: randomUUID(), materialId: lmsMaterial.id, kind: 'note', timestampSeconds: 30, text: 'Catatan belajar yang tersimpan.' };
+    const lmsNoteResponse = await fetch(`${referenceApiBase}/api/lms/learning-records`, {
+      method: 'POST', headers: lmsProgressHeaders, body: JSON.stringify(lmsNoteInput),
+    });
+    assert.equal(lmsNoteResponse.status, 201);
+    const lmsNote = await lmsNoteResponse.json();
+    const lmsNoteRetry = await fetch(`${referenceApiBase}/api/lms/learning-records`, {
+      method: 'POST', headers: lmsProgressHeaders, body: JSON.stringify(lmsNoteInput),
+    });
+    assert.equal(lmsNoteRetry.status, 200);
+    assert.equal((await lmsNoteRetry.json()).id, lmsNote.id, 'Learning note retries are idempotent.');
+    const lmsNotePayloadReuse = await fetch(`${referenceApiBase}/api/lms/learning-records`, {
+      method: 'POST', headers: lmsProgressHeaders, body: JSON.stringify({ ...lmsNoteInput, text: 'Payload berbeda.' }),
+    });
+    assert.equal(lmsNotePayloadReuse.status, 409, 'A learning-record request ID cannot be replayed with altered content.');
+    const lmsCommentResponse = await fetch(`${referenceApiBase}/api/lms/learning-records`, {
+      method: 'POST', headers: lmsProgressHeaders,
+      body: JSON.stringify({ requestId: randomUUID(), materialId: lmsMaterial.id, kind: 'comment', timestampSeconds: 45, text: 'Pertanyaan pada materi.' }),
+    });
+    assert.equal(lmsCommentResponse.status, 201);
+
+    const lmsSubmissionInput = { requestId: randomUUID(), responseText: 'Jawaban tugas yang tersimpan.', resourceUrl: '' };
+    const lmsSubmissionResponse = await fetch(`${referenceApiBase}/api/lms/assignments/${encodeURIComponent(lmsAssignment.id)}/submissions`, {
+      method: 'POST', headers: lmsProgressHeaders, body: JSON.stringify(lmsSubmissionInput),
+    });
+    assert.equal(lmsSubmissionResponse.status, 201);
+    const lmsSubmission = await lmsSubmissionResponse.json();
+    const lmsSubmissionRetry = await fetch(`${referenceApiBase}/api/lms/assignments/${encodeURIComponent(lmsAssignment.id)}/submissions`, {
+      method: 'POST', headers: lmsProgressHeaders, body: JSON.stringify(lmsSubmissionInput),
+    });
+    assert.equal(lmsSubmissionRetry.status, 201);
+    assert.equal((await lmsSubmissionRetry.json()).id, lmsSubmission.id, 'Assignment submission retries reuse the original record.');
+    const lmsCrossTenantSubmission = await fetch(`${referenceApiBase}/api/lms/assignments/${encodeURIComponent(lmsAssignment.id)}/submissions`, {
+      method: 'POST', headers: { Authorization: `Bearer ${tenantBStudentToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: randomUUID(), responseText: 'Jawaban dari tenant lain.', resourceUrl: '' }),
+    });
+    assert.equal(lmsCrossTenantSubmission.status, 403, 'A different tenant student cannot submit to this assignment.');
+
+    const lmsGradeInput = { requestId: randomUUID(), score: 85, feedback: 'Jawaban baik, lanjutkan.' };
+    const lmsGradeResponse = await fetch(`${referenceApiBase}/api/lms/submissions/${encodeURIComponent(lmsSubmission.id)}/grade`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(lmsGradeInput),
+    });
+    assert.equal(lmsGradeResponse.status, 200, 'The assigned Ustadz can grade the submitted work.');
+    const lmsGrade = await lmsGradeResponse.json();
+    const lmsGradeRetry = await fetch(`${referenceApiBase}/api/lms/submissions/${encodeURIComponent(lmsSubmission.id)}/grade`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(lmsGradeInput),
+    });
+    assert.equal(lmsGradeRetry.status, 200);
+    assert.equal((await lmsGradeRetry.json()).id, lmsGrade.id, 'Grade retries do not create a second grade event.');
+    const lmsInvalidGrade = await fetch(`${referenceApiBase}/api/lms/submissions/${encodeURIComponent(lmsSubmission.id)}/grade`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: randomUUID(), score: 101, feedback: 'Nilai di luar rentang.' }),
+    });
+    assert.equal(lmsInvalidGrade.status, 400, 'A grade cannot exceed the assignment maximum.');
+    const lmsGradedResubmission = await fetch(`${referenceApiBase}/api/lms/assignments/${encodeURIComponent(lmsAssignment.id)}/submissions`, {
+      method: 'POST', headers: lmsProgressHeaders,
+      body: JSON.stringify({ requestId: randomUUID(), responseText: 'Tidak boleh mengganti tugas setelah dinilai.', resourceUrl: '' }),
+    });
+    assert.equal(lmsGradedResubmission.status, 409, 'A graded submission cannot be silently replaced.');
+
+    const lmsStudentFinalResponse = await fetch(`${referenceApiBase}/api/lms/snapshot`, {
+      headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(lmsStudentFinalResponse.status, 200);
+    const lmsStudentFinal = await lmsStudentFinalResponse.json();
+    const lmsStudentCourse = lmsStudentFinal.courses.find((course) => course.id === lmsCourse.id);
+    assert.ok(lmsStudentCourse, 'Santri can read their published, enrolled course.');
+    assert.equal(lmsStudentCourse.categoryId, lmsCategory.id, 'Course-to-category relation is restored in the snapshot.');
+    assert.equal(lmsStudentCourse.gradeLevelReferenceId, gradeLevelReferenceId, 'Course-to-grade catalog relation is persisted.');
+    assert.ok(lmsStudentCourse.modules.some((module) => module.id === lmsModule.id && module.materials.some((material) => material.id === lmsMaterial.id)),
+      'Course, module, and material relationships are returned consistently.');
+    assert.ok(lmsStudentFinal.assignments.some((assignment) => assignment.id === lmsAssignment.id && assignment.moduleId === lmsModule.id),
+      'The published assignment remains linked to its course module.');
+    const lmsStudentProgress = lmsStudentFinal.progress.find((item) => item.materialId === lmsMaterial.id);
+    assert.equal(lmsStudentProgress?.positionSeconds, 120, 'Progress cannot move backwards after persistence.');
+    assert.ok(lmsStudentProgress?.completedAt, 'Course completion remains persisted after a retry with completed=false.');
+    assert.ok(lmsStudentFinal.notes.some((item) => item.id === lmsNote.id && item.materialId === lmsMaterial.id));
+    assert.ok(lmsStudentFinal.comments.some((item) => item.materialId === lmsMaterial.id && item.comment === 'Pertanyaan pada materi.'));
+    const lmsStudentGradedSubmission = lmsStudentFinal.submissions.find((item) => item.id === lmsSubmission.id);
+    assert.equal(lmsStudentGradedSubmission?.assignmentId, lmsAssignment.id);
+    assert.equal(Number(lmsStudentGradedSubmission?.score), 85, 'Santri reads the grade persisted by the Ustadz.');
+    assert.equal(lmsStudentGradedSubmission?.feedback, lmsGradeInput.feedback);
+
+    const [savedLmsCourse, savedLmsModule, savedLmsMaterial, savedLmsEnrollment, savedLmsSubmission, savedLmsProgress] = await Promise.all([
+      admin.from('lms_courses').select('tenant_id,category_id,grade_level_reference_id,instructor_user_id').eq('id', lmsCourse.id).single(),
+      admin.from('lms_course_modules').select('tenant_id,course_id').eq('id', lmsModule.id).single(),
+      admin.from('lms_materials').select('tenant_id,module_id').eq('id', lmsMaterial.id).single(),
+      admin.from('lms_enrollments').select('tenant_id,course_id,student_id,status').eq('id', lmsEnrollment.id).single(),
+      admin.from('lms_submissions').select('tenant_id,assignment_id,student_id,score,graded_by').eq('id', lmsSubmission.id).single(),
+      admin.from('lms_material_progress').select('tenant_id,student_id,material_id,position_seconds,completed_at').eq('tenant_id', tenantIds[0]).eq('student_id', tahfidzStudentId).eq('material_id', lmsMaterial.id).single(),
+    ]);
+    assert.equal(savedLmsCourse.data?.tenant_id, tenantIds[0]);
+    assert.equal(savedLmsCourse.data?.category_id, lmsCategory.id);
+    assert.equal(savedLmsCourse.data?.grade_level_reference_id, gradeLevelReferenceId);
+    assert.equal(savedLmsCourse.data?.instructor_user_id, users[3].uid);
+    assert.equal(savedLmsModule.data?.course_id, lmsCourse.id);
+    assert.equal(savedLmsMaterial.data?.module_id, lmsModule.id);
+    assert.equal(savedLmsEnrollment.data?.course_id, lmsCourse.id);
+    assert.equal(savedLmsEnrollment.data?.student_id, tahfidzStudentId);
+    assert.equal(savedLmsSubmission.data?.assignment_id, lmsAssignment.id);
+    assert.equal(savedLmsSubmission.data?.student_id, tahfidzStudentId);
+    assert.equal(Number(savedLmsSubmission.data?.score), 85);
+    assert.equal(savedLmsSubmission.data?.graded_by, users[3].uid);
+    assert.equal(savedLmsProgress.data?.position_seconds, 120);
+    assert.ok(savedLmsProgress.data?.completed_at);
+
+    console.log('LMS API round-trip passed: tenant catalog relations, enrollment, student progress/notes/comments, assignment submission, teacher grading, idempotency, payload validation, role restrictions, and tenant isolation.');
 
     const hrisHeaders = { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' };
     const hrisSnapshotResponse = await fetch(`${referenceApiBase}/api/hris/snapshot`, {
@@ -3536,7 +3801,7 @@ async function main() {
     assert.equal(returnedLibraryCirculation?.bookTitle, `Buku Integrasi Diperbarui ${fixtureSuffix}`);
 
     console.log('Library API round-trip passed: tenant category relations, book CRUD, checkout/return persistence, idempotency, copy guard, role permissions, and tenant isolation.');
-        console.log('API auth, tenant isolation, Academic, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Healthcare, Tahfidz, Library, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
+        console.log('API auth, tenant isolation, Academic, CBT, LMS, HRIS, Cooperative, CRM, communication, Laundry, Donation & Waqf, Documents, Healthcare, Tahfidz, Library, and reference catalog round-trips passed: persistence, relations, idempotency, tenant isolation, and role restrictions.');
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
       serverShutdownRequested = true;
@@ -3570,6 +3835,26 @@ async function main() {
       const tenantArray = `ARRAY[${tenantIds.map((id) => `'${id}'::uuid`).join(',')}]`;
       const cleanupSql = [
         'BEGIN;',
+        'ALTER TABLE public.lms_submission_requests DISABLE TRIGGER lms_submission_requests_immutable;',
+        'ALTER TABLE public.lms_submission_grade_events DISABLE TRIGGER lms_submission_grade_events_immutable;',
+        'ALTER TABLE public.lms_learning_record_requests DISABLE TRIGGER lms_learning_record_requests_immutable;',
+        `DELETE FROM public.lms_learning_record_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_submission_requests WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_submission_grade_events WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_material_progress WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_student_notes WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_material_comments WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_submissions WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_assignments WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_enrollments WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_materials WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_course_modules WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_courses WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_categories WHERE tenant_id = ANY(${tenantArray});`,
+        `DELETE FROM public.lms_legacy_import_batches WHERE tenant_id = ANY(${tenantArray});`,
+        'ALTER TABLE public.lms_submission_requests ENABLE TRIGGER lms_submission_requests_immutable;',
+        'ALTER TABLE public.lms_submission_grade_events ENABLE TRIGGER lms_submission_grade_events_immutable;',
+        'ALTER TABLE public.lms_learning_record_requests ENABLE TRIGGER lms_learning_record_requests_immutable;',
         `DELETE FROM public.tahfidz_membership_write_requests WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tahfidz_halaqah_write_requests WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tahfidz_records WHERE tenant_id = ANY(${tenantArray});`,
@@ -3728,10 +4013,13 @@ main().catch((error) => {
   const detail = error instanceof Error
     ? error.message
     : error?.code || 'unknown error';
+  const stack = error instanceof Error && error.stack
+    ? `\n${error.stack}`
+    : '';
   const cause = error instanceof Error && error.cause instanceof Error
     ? `; cause=${error.cause.code || error.cause.message}`
     : '';
-  console.error(`API auth and tenant integration test failed (${detail}${cause}). Check the local Supabase stack and migration state.`);
+  console.error(`API auth and tenant integration test failed (${detail}${cause}). Check the local Supabase stack and migration state.${stack}`);
   process.exitCode = 1;
 });
 
