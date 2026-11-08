@@ -2,7 +2,7 @@
 
 ### Source dan bukti yang tersedia
 - `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`.
-- PR #91 tersedia untuk review pada branch `codex/product-copy-cleanup-20261108`, head `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`; status **Open/Draft**.
+- PR #91 tersedia untuk review pada branch `codex/product-copy-cleanup-20261108` dan berstatus **Open/Draft**. Head kode yang diuji adalah `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`; commit sesudahnya hanya memperbarui dokumen checkpoint.
 - CI [run #1419](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42501493603) lulus 3/3: migration/API/pgTAP, frontend/runtime guard, dan instalasi NPM pelanggan. Supabase Preview dilewati karena PR tidak memakai Supabase Branch.
 - Pemeriksaan lokal `npm run lint`, `npm run build`, `npm run test:supabase-runtime-no-firebase`, dan `npm run test:rbac-permissions` lulus. Build memberi peringatan ukuran chunk PDF dan komentar dependency Zod.
 - CI #1417 sebelumnya menangkap masalah transfer file. Koreksi sudah dipush; empat file UI terkait cocok penuh dengan teks sumber lokal pada head terbaru.
