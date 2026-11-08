@@ -2,7 +2,7 @@
 
 Tanggal pemeriksaan: 8 November 2026  
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Baseline saat pemetaan fitur: `38f556e38bcb19c9dde6773da708bde24a8f6fd4`; setelah PR #70, baseline saat audit PR #1–#11 adalah `b1a5d0211c4748eee4389cce4b8e92ace4534969`. Snapshot kode terbaru setelah PR #74 merged: `bcb5e1dbdcfc25f01ff0c50b7fd7588a091b7127`.
+Baseline source terkini: `main` commit `c5f777c08c7640b6b7e4b268470e4e2a741f999b` setelah PR #81 merged (8 November 2026). Pemetaan fitur awal berasal dari pemeriksaan pada commit yang lebih lama; status PR dan batas pengujian di bawah direvalidasi terhadap metadata GitHub serta source terkini.
 
 ## Kesimpulan
 
@@ -36,7 +36,9 @@ Cakupan produk utama PR #1–#11 memiliki padanan pada source penerus di `main`,
 - PR #72 merged ke `main` pada 8 November 2026 dengan uji round-trip API asrama. Ini memperluas bukti untuk izin, disiplin, dan absensi; tidak mengubah produk ataupun status PR #1–#11. Workflow CI PR #72 lulus seluruh job wajib.
 - PR #73 merged sebagai pembaruan dokumentasi status audit dan cakupan modul.
 - PR #74 merged ke `main` pada 8 November 2026 dengan uji round-trip API Alumni. CI lulus seluruh job wajib; pengujian meliputi penyimpanan kelulusan, arsip santri, relasi audit, readback, idempotensi, role, dan tenant. Tidak mengubah runtime/schema atau data live.
-- PR lama #1–#11 tetap closed dan tidak merged. Tidak ada alasan untuk membuka kembali atau menggabungkan branch lamanya hanya demi mengubah label status.
+- PR #76 dan #77 merged; menambah bukti Naming Series/NIS bersamaan serta impor/ekspor Data Induk dan relasi santri.
+- PR #78 memperbarui revalidasi PR lama. PR #79 merged dengan round-trip undangan dan klaim akun Wali; CI run #42445243553 lulus 3/3 job. PR #80 menambahkan panduan UAT browser. PR #81 memperbarui matriks cakupan dengan bukti VQE staging; seluruh CI lulus sebelum merge.
+- PR lama #1–#11 tetap closed dan tidak merged. Status, merge flag, review submission, dan inline thread diperiksa ulang pada 8 November 2026: kesebelasnya `closed`, `merged=false`, dan tidak memiliki submission maupun thread. Tidak ada alasan untuk membuka kembali atau menggabungkan branch lamanya hanya demi mengubah label status.
 
 ## Yang dibuktikan dan yang belum
 
@@ -50,8 +52,18 @@ Audit ini **tidak** membuktikan:
 4. Instalasi, upgrade, backup/restore, dan pindah host berhasil di setiap distro VPS/on-premise yang akan didukung.
 5. Semua operasi tulis seluruh modul telah diuji end-to-end.
 
-Tim backend/deployment masih perlu menyelesaikan pemeriksaan Production dan UAT host mereka sebelum go-live. Tidak ada database Production yang dibaca atau diubah dalam revalidasi PR ini.
+Tim backend/deployment masih perlu menyelesaikan pemeriksaan Production dan UAT host mereka sebelum go-live. Pada pemeriksaan terbaru, konektor MCP PTSAS Production menolak `list_tables` dengan pesan izin; karena itu tidak ada data Production yang dibaca atau diubah.
 
 ## Catatan dokumentasi
 
 Dokumen historis [PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md](./PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md) menyimpan beberapa snapshot lama secara berurutan. Bagian teratasnya menyebut baseline `main` yang lebih lama dan menyatakan PR #68 masih Draft, padahal PR #68 telah merged. Gunakan dokumen revalidasi ini sebagai snapshot status PR per baseline di atas; bagian historis di dokumen lama tetap berguna untuk konteks dan catatan sebelumnya.
+
+
+## Bukti tambahan setelah PR #81 — 8 November 2026
+
+- Matriks cakupan terkini membuktikan API Finance/PPDB/Storage dan Perpustakaan Storage berhasil diuji langsung pada VQE staging menggunakan fixture sintetis; tenant uji disuspensi, akun Auth diblokir, serta objek dibersihkan.
+- VQE memiliki 167 tabel publik dan 138 migrasi. Seluruh 138 versi dan nama cocok dengan berkas migrasi pada source yang dibandingkan.
+- CI PR #79 run #42445243553 lulus 3/3 job, termasuk Supabase lokal terisolasi, pgTAP, API auth/tenant, backup-restore sintetis, build/Firebase bundle guard, dan instalasi paket pelanggan.
+- CI PR #81 lulus 3/3 job; PR hanya memperbarui dokumentasi cakupan dan tidak mengubah kode runtime atau database.
+- Preview lokal berhasil membuka beranda dan formulir masuk; login Admin staging, navigasi setelah login, dan UAT browser seluruh menu belum dilakukan.
+- Hasil ini memperkuat bahwa fungsi utama PR #1–#11 memiliki padanan pada source penerus, tetapi **tidak membuktikan semua fitur telah selesai diuji atau siap go-live**.
