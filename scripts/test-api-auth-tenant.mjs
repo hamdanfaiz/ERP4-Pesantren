@@ -512,6 +512,7 @@ async function main() {
         SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED: 'true',
         SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED: 'true',
+        SUPABASE_SYSTEM_SETTINGS_RUNTIME_ENABLED: 'true',
         SUPABASE_MASTER_DATA_RUNTIME_ENABLED: 'false',
         SUPABASE_MASTER_DATA_IMPORT_ENABLED: 'false',
       },
@@ -576,6 +577,129 @@ async function main() {
     });
     assert.equal(ignoredProfileSelector.status, 200);
     assert.equal((await ignoredProfileSelector.json()).profile.uid, users[0].uid, 'Profile selection must come from the verified token, not a caller-supplied user ID.');
+
+    const settingsUrl = `${apiBase}/api/system/settings`;
+    const superAdminSettingsHeaders = {
+      Authorization: `Bearer ${superAdminToken}`,
+      'Content-Type': 'application/json',
+    };
+    const initialSettingsRead = await fetch(settingsUrl, {
+      headers: { Authorization: `Bearer ${superAdminToken}` },
+    });
+    assert.equal(initialSettingsRead.status, 200, 'An active SuperAdmin can read settings for their own tenant.');
+    assert.equal(initialSettingsRead.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await initialSettingsRead.json(), { settings: null, updatedAt: null }, 'A tenant without a settings row must have an explicit empty state.');
+
+    const adminSettingsRead = await fetch(settingsUrl, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(adminSettingsRead.status, 200, 'An active tenant Admin can read non-sensitive tenant settings.');
+    const adminSettingsPut = await fetch(settingsUrl, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expectedUpdatedAt: null, settings: { orgInfo: { schoolName: 'Tidak boleh disimpan' } } }),
+    });
+    assert.equal(adminSettingsPut.status, 403, 'Tenant Admin cannot change platform settings.');
+
+    const tenantBSettingsRead = await fetch(settingsUrl, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(tenantBSettingsRead.status, 200);
+    assert.deepEqual(await tenantBSettingsRead.json(), { settings: null, updatedAt: null }, 'Another tenant cannot read a settings row owned by this tenant.');
+
+    const missingSettingsVersion = await fetch(settingsUrl, {
+      method: 'PUT',
+      headers: superAdminSettingsHeaders,
+      body: JSON.stringify({ settings: { orgInfo: { schoolName: 'Harus ditolak' } } }),
+    });
+    assert.equal(missingSettingsVersion.status, 400, 'A settings write must include the version observed by the caller.');
+    const invalidSettingsVersion = await fetch(settingsUrl, {
+      method: 'PUT',
+      headers: superAdminSettingsHeaders,
+      body: JSON.stringify({ expectedUpdatedAt: 'bukan-timestamp', settings: { orgInfo: { schoolName: 'Harus ditolak' } } }),
+    });
+    assert.equal(invalidSettingsVersion.status, 400, 'Malformed optimistic-lock timestamps must be rejected before storage.');
+
+    const settingsInput = {
+      tenantId: tenantIds[1],
+      secretKey: 'must-not-persist',
+      generalSettings: {
+        academicYear: '2026/2027', semester: 'Genap', language: 'id',
+        timezone: 'Asia/Makassar', theme: 'light', isReportCardLocked: true,
+      },
+      orgInfo: { schoolName: `Pesantren Uji ${fixtureSuffix}`, address: 'Alamat uji' },
+      integrations: {
+        smtpHost: 'smtp.example.invalid', smtpPort: '587', smtpUser: 'erp-test',
+        smtpPassword: 'must-not-persist', apiKey: 'must-not-persist',
+      },
+      mobileConfig: { showDetailedGrades: false, allowLeaveRequests: true, pushNotifications: false },
+      permissions: { Admin: { dashboard: true, finance: false, settings: true, unknownModule: true } },
+    };
+    const settingsSave = await fetch(settingsUrl, {
+      method: 'PUT',
+      headers: superAdminSettingsHeaders,
+      body: JSON.stringify({ expectedUpdatedAt: null, settings: settingsInput }),
+    });
+    assert.equal(settingsSave.status, 200, `SuperAdmin settings save must round-trip through the API. Received ${settingsSave.status}.`);
+    const savedSettings = await settingsSave.json();
+    assert.equal(savedSettings.settings.orgInfo.schoolName, settingsInput.orgInfo.schoolName);
+    assert.equal(savedSettings.settings.generalSettings.timezone, 'Asia/Makassar');
+    assert.equal(savedSettings.settings.integrations.smtpHost, 'smtp.example.invalid');
+    assert.equal(Object.hasOwn(savedSettings.settings.integrations, 'smtpPassword'), false, 'Integration credentials must never be returned from settings storage.');
+    assert.equal(Object.hasOwn(savedSettings.settings.integrations, 'apiKey'), false, 'Unknown integration secrets must be discarded.');
+    assert.equal(Object.hasOwn(savedSettings.settings, 'tenantId'), false, 'The caller cannot select a different tenant through the settings body.');
+    assert.equal(Object.hasOwn(savedSettings.settings, 'secretKey'), false, 'Unknown top-level settings fields must be discarded.');
+    assert.equal(Object.hasOwn(savedSettings.settings.permissions.Admin, 'unknownModule'), false, 'Unknown module permission keys must be discarded.');
+    assert.equal(typeof savedSettings.updatedAt, 'string');
+
+    const settingsDbRead = await admin.from('tenant_settings')
+      .select('tenant_id,settings,updated_by_user_id,updated_at')
+      .eq('tenant_id', tenantIds[0])
+      .maybeSingle();
+    assert.equal(settingsDbRead.error, null, 'The service test fixture can inspect the persisted settings row.');
+    assert.equal(settingsDbRead.data?.tenant_id, tenantIds[0], 'Settings must be stored under the verified actor tenant, not a request-body tenant ID.');
+    assert.equal(settingsDbRead.data?.updated_by_user_id, users[7].uid, 'Settings must retain the verified SuperAdmin actor.');
+    assert.equal(settingsDbRead.data?.settings.integrations.smtpPassword, undefined, 'Secrets must be absent from the database row, not merely hidden in the response.');
+    const tenantBSettingsDbRead = await admin.from('tenant_settings')
+      .select('tenant_id').eq('tenant_id', tenantIds[1]).maybeSingle();
+    assert.equal(tenantBSettingsDbRead.error, null);
+    assert.equal(tenantBSettingsDbRead.data, null, 'A caller-supplied tenant ID must not create or overwrite another tenant settings row.');
+
+    const adminSettingsAfterSave = await fetch(settingsUrl, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(adminSettingsAfterSave.status, 200);
+    const adminSettingsPayload = await adminSettingsAfterSave.json();
+    assert.equal(adminSettingsPayload.settings.orgInfo.schoolName, settingsInput.orgInfo.schoolName);
+    assert.equal(Object.hasOwn(adminSettingsPayload.settings, 'integrations'), false, 'Tenant Admin responses must hide integration configuration.');
+    assert.equal(Object.hasOwn(adminSettingsPayload.settings, 'permissions'), false, 'Tenant Admin responses must hide the global permission matrix.');
+
+    const updatedSettings = structuredClone(settingsInput);
+    updatedSettings.generalSettings.academicYear = '2027/2028';
+    updatedSettings.generalSettings.timezone = 'Asia/Jakarta';
+    const settingsUpdate = await fetch(settingsUrl, {
+      method: 'PUT',
+      headers: superAdminSettingsHeaders,
+      body: JSON.stringify({ expectedUpdatedAt: savedSettings.updatedAt, settings: updatedSettings }),
+    });
+    assert.equal(settingsUpdate.status, 200, 'A settings update with the current version must persist.');
+    const updatedSettingsPayload = await settingsUpdate.json();
+    assert.equal(updatedSettingsPayload.settings.generalSettings.academicYear, '2027/2028');
+    const staleSettingsUpdate = await fetch(settingsUrl, {
+      method: 'PUT',
+      headers: superAdminSettingsHeaders,
+      body: JSON.stringify({ expectedUpdatedAt: savedSettings.updatedAt, settings: settingsInput }),
+    });
+    assert.equal(staleSettingsUpdate.status, 409, 'A stale settings version must be rejected instead of silently overwriting the newer snapshot.');
+    const settingsReadAfterConflict = await fetch(settingsUrl, {
+      headers: { Authorization: `Bearer ${superAdminToken}` },
+    });
+    assert.equal(settingsReadAfterConflict.status, 200);
+    assert.equal((await settingsReadAfterConflict.json()).settings.generalSettings.academicYear, '2027/2028', 'A rejected stale write must leave the persisted settings unchanged.');
+    const tenantTimezoneAfterSave = await admin.from('tenants').select('time_zone').eq('id', tenantIds[0]).single();
+    assert.equal(tenantTimezoneAfterSave.error, null);
+    assert.equal(tenantTimezoneAfterSave.data.time_zone, 'Asia/Jakarta', 'The tenant timezone column must follow the saved settings transaction.');
+    console.log('Verified system settings API save/readback, sanitization, actor and tenant isolation, role visibility, timezone sync, and stale-write rejection.');
 
     const inactiveProfileResponse = await fetch(`${apiBase}/api/auth/profile`, {
       headers: { Authorization: `Bearer ${inactiveAdminToken}` },
@@ -4769,6 +4893,7 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       const tenantArray = `ARRAY[${tenantIds.map((id) => `'${id}'::uuid`).join(',')}]`;
       const cleanupSql = [
         'BEGIN;',
+        `DELETE FROM public.tenant_settings WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.boarding_permit_events WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.boarding_permits WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.boarding_permit_import_batches WHERE tenant_id = ANY(${tenantArray});`,
