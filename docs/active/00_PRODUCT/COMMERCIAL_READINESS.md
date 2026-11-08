@@ -1,6 +1,6 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 8 November 2026, 23:56 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Open/Draft** pada head `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`. CI [run #1419](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42501493603) lulus 3/3: migrasi/API/pgTAP, frontend build/runtime guard, instalasi NPM pelanggan. Supabase Preview dilewati karena PR tidak memakai Supabase Branch.
+> **Status otoritatif — 8 November 2026, 23:56 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Open/Draft**. Head kode yang diuji adalah `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`; commit sesudahnya hanya memperbarui dokumen checkpoint. CI [run #1419](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42501493603) lulus 3/3: migrasi/API/pgTAP, frontend build/runtime guard, instalasi NPM pelanggan. Supabase Preview dilewati karena PR tidak memakai Supabase Branch.
 >
 > Pemeriksaan lokal `npm run lint`, `npm run build`, `npm run test:supabase-runtime-no-firebase`, dan `npm run test:rbac-permissions` lulus. CI #1417 sempat menangkap berkas rusak pada proses transfer; koreksi sudah ada di branch dan keempat file terkait cocok dengan sumber lokal. Build menampilkan peringatan chunk PDF besar dan anotasi dependency Zod.
 >
