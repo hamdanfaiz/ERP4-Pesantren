@@ -2181,7 +2181,7 @@ async function main() {
     assert.equal(masterDataReadbacks.length, 2);
 
     const masterDataImportSourceId = `MASTER-DATA-CSV-${fixtureSuffix}`;
-    const masterDataImportNis = `98${String(randomBytes(4).readUInt32BE(0)).padStart(8, '0')}`;
+    const masterDataImportNis = String(9000000000 + (randomBytes(4).readUInt32BE(0) % 1000000000));
     const masterDataImportNik = String(1000000000000000n + BigInt(`0x${randomBytes(7).toString('hex')}`) % 9000000000000000n);
     const masterDataImportNisn = String(1000000000 + (randomBytes(4).readUInt32BE(0) % 9000000000));
     const masterDataImportRow = {
@@ -2209,7 +2209,7 @@ async function main() {
     const masterDataImportPreview = await masterDataImportPreviewResponse.json();
     assert.equal(masterDataImportPreview.rowCount, 1);
     assert.equal(masterDataImportPreview.readyCount, 1,
-      'A valid import row with an active tenant grade reference passes preflight.');
+      `A valid import row with an active tenant grade reference passes preflight: ${JSON.stringify(masterDataImportPreview)}`);
     assert.equal(masterDataImportPreview.items[0].status, 'ready');
     const masterDataImportPreviewRows = await admin.from('students').select('id')
       .eq('tenant_id', tenantIds[0]).eq('source_system', 'legacy_import').eq('source_record_id', masterDataImportSourceId);
