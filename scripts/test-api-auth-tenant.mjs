@@ -690,7 +690,22 @@ async function main() {
       headers: superAdminSettingsHeaders,
       body: JSON.stringify({ expectedUpdatedAt: savedSettings.updatedAt, settings: settingsInput }),
     });
-    assert.equal(staleSettingsUpdate.status, 409, 'A stale settings version must be rejected instead of silently overwriting the newer snapshot.');
+    const staleSettingsPayload = await staleSettingsUpdate.json();
+    if (staleSettingsUpdate.status !== 409) {
+      const staleSettingsRpc = await admin.rpc('save_tenant_system_settings', {
+        p_tenant_id: tenantIds[0],
+        p_actor_user_id: users[7].uid,
+        p_expected_updated_at: savedSettings.updatedAt,
+        p_settings: updatedSettingsPayload.settings,
+      });
+      console.error('Stale system settings diagnostic:', JSON.stringify({
+        httpStatus: staleSettingsUpdate.status,
+        httpError: staleSettingsPayload.error,
+        rpcCode: staleSettingsRpc.error?.code || null,
+        rpcMessage: staleSettingsRpc.error?.message || null,
+      }));
+    }
+    assert.equal(staleSettingsUpdate.status, 409, `A stale settings version must be rejected instead of silently overwriting the newer snapshot. Response: ${JSON.stringify(staleSettingsPayload)}`);
     const settingsReadAfterConflict = await fetch(settingsUrl, {
       headers: { Authorization: `Bearer ${superAdminToken}` },
     });
