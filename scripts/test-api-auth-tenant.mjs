@@ -685,6 +685,29 @@ async function main() {
     assert.equal(settingsUpdate.status, 200, 'A settings update with the current version must persist.');
     const updatedSettingsPayload = await settingsUpdate.json();
     assert.equal(updatedSettingsPayload.settings.generalSettings.academicYear, '2027/2028');
+    const directStaleWriteSql = [
+      "SET statement_timeout = '5s';",
+      'DO $test$ DECLARE result TEXT; BEGIN',
+      '  BEGIN',
+      `    PERFORM public.save_tenant_system_settings('${tenantIds[0]}'::uuid, '${users[7].uid}'::uuid, '${savedSettings.updatedAt}'::timestamptz, '{}'::jsonb);`,
+      "    result := 'unexpected_success';",
+      "  EXCEPTION WHEN SQLSTATE '40001' THEN result := 'expected_conflict';",
+      '  END;',
+      "  IF result <> 'expected_conflict' THEN RAISE EXCEPTION 'Stale settings SQL call did not raise the conflict code'; END IF;",
+      'END $test$;',
+    ].join('\n');
+    try {
+      execFileSync('psql', [databaseUrl, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-c', directStaleWriteSql], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 10000,
+        maxBuffer: 1024 * 1024,
+      });
+      console.log('Direct SQL stale-write check passed: the settings RPC raises SQLSTATE 40001.');
+    } catch (error) {
+      const timedOut = error?.code === 'ETIMEDOUT' || /statement timeout/i.test(String(error?.stderr || ''));
+      throw new Error(`Direct SQL stale-write check ${timedOut ? 'timed out' : 'failed'} before the HTTP API probe.`);
+    }
     const staleSettingsRequest = fetch(settingsUrl, {
       method: 'PUT',
       headers: superAdminSettingsHeaders,
@@ -703,7 +726,9 @@ async function main() {
         "  'waitEvent', wait_event,",
         "  'blockingPids', pg_blocking_pids(pid),",
         "  'lockCount', (SELECT count(*) FROM pg_catalog.pg_locks WHERE pid = activity.pid),",
-        "  'transactionAgeSeconds', extract(epoch FROM clock_timestamp() - xact_start)",
+        "  'transactionAgeSeconds', extract(epoch FROM clock_timestamp() - xact_start),",
+        "  'queryAgeSeconds', extract(epoch FROM clock_timestamp() - query_start),",
+        "  'queryKind', CASE WHEN query ILIKE '%save_tenant_system_settings%' THEN 'settings-save' WHEN query ILIKE '%profiles%' THEN 'profile-read' WHEN query ILIKE '%tenants%' THEN 'tenant-read' ELSE 'other' END",
         "))::text, '[]')",
         "FROM pg_catalog.pg_stat_activity AS activity",
         "WHERE datname = current_database() AND pid <> pg_backend_pid()",
