@@ -28,18 +28,20 @@ async function request(path: string, init: RequestInit = {}) {
   if (raw) { try { body = JSON.parse(raw); } catch { body = null; } }
   if (!response.ok) {
     const code = String(body?.code || "");
+    const message = String(body?.message || "");
     if (process.env.SUPABASE_LMS_DIAGNOSTICS === "true") {
       console.error("Supabase LMS request failed:", {
         resource: path.split("?")[0],
         status: response.status,
         code,
-        message: String(body?.message || "").slice(0, 300),
+        message: message.slice(0, 300),
       });
     }
-    if (["23505", "23503"].includes(code) || response.status === 409) throw new SupabaseLmsError(409, body?.message || "Data LMS bertentangan dengan record tenant.");
+    const stateConflict = code === "23514" && /assignment deadline has passed|graded LMS submission cannot be replaced|legacy lms record changed after import preview/i.test(message);
+    if (["23505", "23503"].includes(code) || response.status === 409 || stateConflict) throw new SupabaseLmsError(409, message || "Data LMS bertentangan dengan record tenant.");
     if (code === "P0002" || response.status === 404) throw new SupabaseLmsError(404, body?.message || "Record LMS tidak ditemukan.");
     if (code === "42501" || response.status === 403) throw new SupabaseLmsError(403, "Operasi LMS ditolak oleh kebijakan role atau tenant.");
-    if (["22023", "22P02", "23514"].includes(code) || response.status === 400) throw new SupabaseLmsError(400, body?.message || "Data LMS tidak valid.");
+    if (["22023", "22P02", "23514"].includes(code) || response.status === 400) throw new SupabaseLmsError(400, message || "Data LMS tidak valid.");
     throw new SupabaseLmsError(503, "Layanan LMS Supabase belum dapat diproses.");
   }
   return body;
