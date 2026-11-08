@@ -1,33 +1,50 @@
-# Audit Advisor Supabase VQE — 8 November 2026
+# Audit Advisor Supabase VQE — 9 November 2026
 
 **Project:** staging VQE `vqemuyzveuirlkvdggjd`  
-**Waktu observasi:** 8 November 2026, 21.01 WIB  
-**Metode:** MCP Supabase dan query katalog baca-saja. Tidak membaca baris data operasional, membuat perubahan skema, mengubah konfigurasi, atau menyentuh Production PTSAS.
+**Waktu observasi terbaru:** 9 November 2026, sekitar 00.07 WIB  
+**Metode:** Supabase MCP; advisor dan query katalog baca-saja. Tidak membaca baris data operasional, mengubah skema/config/Auth, atau menyentuh Production PTSAS.
 
 ## Ringkasan
 
-| Pemeriksaan | Temuan | Makna / tindakan |
+| Pemeriksaan | Temuan terbaru | Makna / tindakan |
 | --- | ---: | --- |
-| Migration ledger | 140/140 pasangan versi dan nama cocok dengan source lokal; tidak ada versi duplikat, source yang hilang, atau migration tambahan | Ledger staging selaras. Ini belum membuktikan seluruh DDL identik. |
-| RLS tanpa policy | 162 tabel | Advisor memberi INFO. Query katalog menemukan 0 dari 162 tabel dengan grant langsung ke `PUBLIC`, `anon`, atau `authenticated`; ini konsisten dengan tabel service-only. Jangan menambahkan policy umum atau grant browser untuk menghilangkan INFO. |
-| Perlindungan kata sandi bocor | 1 peringatan: nonaktif | Dokumentasi Supabase menyatakan fitur ini tersedia pada Pro ke atas. Pada paket yang tidak mendukungnya, set minimum panjang dan komposisi password sekuat yang tersedia; keputusan upgrade paket tetap milik operator. Tidak ada perubahan paket atau Auth. |
-| Foreign key tanpa indeks | 258 | Jangan menambahkan indeks massal hanya dari Advisor. Ukur query modul pada workload representatif, lalu prioritaskan foreign key yang sering dipakai pada join, delete, atau update. |
-| Indeks belum terpakai | 80 | Staging belum menunjukkan beban pelanggan; jangan menghapus massal. Evaluasi setelah periode observasi dan uji dampak penulisan. |
-| Health Advisor | 0 temuan | Tidak ada lint health pada saat observasi; ini bukan pengganti backup/restore rehearsal. |
+| Migration ledger | **140/140** pasangan versi/nama cocok dengan 140 file di branch PR `codex/product-copy-cleanup-20261108`; tidak ada duplikasi, tambahan, atau versi hilang. Terakhir `20270308000000_academic_class_unit_admin_role_baseline`. | Ledger versi/nama selaras. Ini tidak membuktikan DDL aktual identik. |
+| RLS / FORCE RLS | **167/167** tabel public mengaktifkan RLS dan FORCE RLS. Advisor memberi INFO untuk **162** tabel tanpa policy. | 162 tabel tersebut tidak memiliki policy RLS. Pemeriksaan ACL di bawah menemukan tidak ada grant langsung ke `PUBLIC` atau `anon`; jangan menambahkan policy/grant luas untuk menghilangkan INFO. |
+| Grant langsung bagi `authenticated` | **5 tabel SELECT saja**; tidak ditemukan grant INSERT/UPDATE/DELETE. | Lima tabel memiliki policy baca tenant/role yang tercantum di bawah. Semua API server yang memakai secret/service role tetap perlu dites terpisah karena privilege server berbeda dari browser. |
+| Perlindungan kata sandi bocor | 1 peringatan security: nonaktif. | Operator perlu meninjau Auth → Password settings dan opsi paket yang tersedia. Tidak ada perubahan Auth/paket. |
+| Foreign key tanpa indeks | 258 | Advisor belum menunjukkan dampak workload. Jangan menambah indeks massal; prioritaskan setelah benchmark dan review query dominan. |
+| Indeks belum terpakai | 80 | Staging belum mewakili beban pelanggan. Jangan menghapus massal; evaluasi setelah periode observasi. |
+| Health Advisor | 0 temuan | Ini bukan bukti backup/restore berhasil. |
+
+## Rincian policy SELECT
+
+Query katalog menemukan hak SELECT langsung bagi role `authenticated` pada lima tabel, dengan policy berikut:
+
+| Tabel | Pembatasan policy |
+| --- | --- |
+| `candidate_documents` | Tenant aktif, Admin tenant, dan akses modul PPDB |
+| `candidates` | Tenant aktif, Admin tenant, dan akses modul PPDB |
+| `profiles` | Profil sendiri, atau Admin tenant dengan akses modul pengguna |
+| `tenants` | Hanya tenant pengguna saat ini |
+| `user_profiles` | Hanya profil dengan id sama dengan `auth.uid()` |
+
+Tidak ditemukan baris grant langsung ke `PUBLIC` atau `anon`. Semua tabel memiliki RLS + FORCE RLS. Ini metadata privilege/policy; bukan bukti semua route backend mematuhi batas yang sama.
 
 ## Bukti dan batasan
 
-- VQE mengembalikan 140 migration ledger rows. Perbandingan setempat terhadap 140 file `supabase/migrations` menghasilkan 140 pasangan versi/nama yang sama, tanpa duplikasi atau selisih.
-- Advisor menandai 162 tabel RLS aktif tanpa policy. Query hanya membaca `pg_class`, `pg_policies`, dan ACL; hasilnya 0 tabel tanpa policy yang memberi privilege langsung kepada `PUBLIC`, `anon`, atau `authenticated`. Jalur API server yang memakai secret/service key tetap harus diuji terpisah karena hak istimewanya melewati RLS.
-- Temuan Advisor indeks tidak menunjukkan dampak pada workload nyata. Tidak ada `DROP INDEX`, `CREATE INDEX`, atau perubahan SQL yang dilakukan.
-- Konektor MCP untuk Production PTSAS masih menolak akses baca dalam sesi ini. Tidak ada perbandingan DDL Production, penerapan migration, atau perubahan Production.
+- Daftar migration MCP VQE dan nama file migration GitHub branch dibandingkan langsung pada 9 November; pasangan versi/nama cocok 140/140.
+- Katalog PostgreSQL membaca jumlah tabel, RLS/FORCE RLS, `pg_policies`, serta `information_schema.table_privileges`. Hasil saat ini: 167 tabel, semuanya RLS/FORCE; 162 tanpa policy; 5 grant SELECT untuk `authenticated` seperti tabel di atas.
+- Advisor performance menghasilkan 258 foreign key tanpa indeks dan 80 unused indexes. Tidak ada `CREATE INDEX`, `DROP INDEX`, atau perubahan SQL dilakukan.
+- Peringatan perlindungan kata sandi bocor perlu ditinjau operator. Tidak ada perubahan pengaturan Auth.
+- Konektor Production PTSAS tidak memberi akses baca pada sesi ini. Tidak ada pemeriksaan DDL, migration, atau perubahan Production.
 
 ## Langkah berikut
 
-1. Setelah operator aktif, periksa Auth → Password settings pada VQE. Jika fitur leaked-password protection tidak tersedia pada paket saat ini, atur panjang minimum dan komposisi password sesuai opsi yang tersedia; jangan mengirim password lewat chat.
-2. Tim backend menjalankan benchmark beban sintetis yang mendekati pesantren besar, mencatat p95/p99 serta query dominan, lalu meninjau 258 foreign key tanpa indeks berdasarkan bukti `EXPLAIN (ANALYZE, BUFFERS)`.
-3. Jangan menghapus indeks yang belum terpakai sebelum ada periode workload dan review constraint/cascade.
-4. Lakukan audit DDL, backup/restore, serta rehearsal migrasi Production terpisah. Data Advisor staging tidak memberi otorisasi untuk mengubah Production.
+1. Tim backend menguji role/tenant API dan lima policy SELECT pada staging dengan akun sintetis, termasuk penolakan lintas tenant.
+2. Operator meninjau pengaturan password Auth VQE dan mengaktifkan perlindungan kata sandi bocor jika opsi tersedia pada paket.
+3. Tim backend menjalankan benchmark sintetis untuk workload pesantren besar, lalu meninjau foreign key tanpa indeks berdasarkan query dan `EXPLAIN (ANALYZE, BUFFERS)`.
+4. Jangan menghapus indeks sebelum ada periode workload dan review constraint/cascade.
+5. Lakukan verifikasi DDL, backup/restore, dan rehearsal migrasi Production secara terpisah. Advisor staging tidak memberi otorisasi untuk mengubah Production.
 
 ## Referensi
 
