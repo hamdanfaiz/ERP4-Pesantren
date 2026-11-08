@@ -691,7 +691,7 @@ async function main() {
       '  BEGIN',
       `    PERFORM public.save_tenant_system_settings('${tenantIds[0]}'::uuid, '${users[7].uid}'::uuid, '${savedSettings.updatedAt}'::timestamptz, '{}'::jsonb);`,
       "    result := 'unexpected_success';",
-      "  EXCEPTION WHEN SQLSTATE '40001' THEN result := 'expected_conflict';",
+      "  EXCEPTION WHEN SQLSTATE 'PT409' THEN result := 'expected_conflict';",
       '  END;',
       "  IF result <> 'expected_conflict' THEN RAISE EXCEPTION 'Stale settings SQL call did not raise the conflict code'; END IF;",
       'END $test$;',
@@ -703,7 +703,7 @@ async function main() {
         timeout: 10000,
         maxBuffer: 1024 * 1024,
       });
-      console.log('Direct SQL stale-write check passed: the settings RPC raises SQLSTATE 40001.');
+      console.log('Direct SQL stale-write check passed: the settings RPC raises PT409.');
     } catch (error) {
       const timedOut = error?.code === 'ETIMEDOUT' || /statement timeout/i.test(String(error?.stderr || ''));
       throw new Error(`Direct SQL stale-write check ${timedOut ? 'timed out' : 'failed'} before the HTTP API probe.`);
