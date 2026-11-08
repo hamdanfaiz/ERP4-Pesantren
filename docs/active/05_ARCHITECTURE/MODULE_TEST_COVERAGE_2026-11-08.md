@@ -9,6 +9,8 @@ CI memakai Supabase lokal terisolasi dan fixture sintetis. Bukti API staging yan
 Template `.env.example` dan default Compose menetapkan gerbang runtime modul `false`; operator harus mengaktifkan konfigurasi server/browser yang cocok per modul hanya setelah prasyarat skema, Auth, tenant, role, RLS, dan Storage diverifikasi. Keadaan template tidak membuktikan nilai environment live.
 Production PTSAS belum diverifikasi ulang dalam audit ini. Schema diff, urutan migrasi, backup/restore Production, serta UAT hosting tetap menjadi gerbang tim backend.
 
+> Subbagian bertanggal di bawah mempertahankan bukti historis. Bila angka atau baseline berbeda, ringkasan pembuka ini adalah revalidasi terbaru.
+
 ## Cara membaca status
 
 - **API round-trip CI**: request melalui server aplikasi terhubung ke Supabase lokal sintetis, lalu data dibaca kembali dan relasi/izin diperiksa.
