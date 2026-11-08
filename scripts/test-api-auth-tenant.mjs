@@ -2056,9 +2056,9 @@ async function main() {
     const actionLink = new URL(guardianInvitation.inviteUrl);
     const redirectTarget = actionLink.searchParams.get('redirect_to') || actionLink.searchParams.get('redirectTo');
     assert.ok(redirectTarget, 'The Auth action link returns the configured application redirect.');
-    const guardianActivationToken = new URL(redirectTarget).searchParams.get('guardianInvite');
-    assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activation token is carried only in the recipient redirect and has the expected entropy-safe format.');
-
+    const redirectUrl = new URL(redirectTarget);
+const guardianActivationToken = redirectUrl.searchParams.get('guardianInvite');
+assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activation token is carried only in the recipient redirect and has the expected entropy-safe format (Auth query keys: ' + [...actionLink.searchParams.keys()].sort().join(',') + '; redirect query keys: ' + [...redirectUrl.searchParams.keys()].sort().join(',') + '; token length: ' + (guardianActivationToken?.length || 0) + ').');
     const wrongEmailVerification = await fetch(`${referenceApiBase}/api/guardian-invitations/verify`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${guardianAdminBToken}`, 'Content-Type': 'application/json' },
