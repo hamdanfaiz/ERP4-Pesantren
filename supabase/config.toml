@@ -17,9 +17,12 @@ major_version = 17
 [studio]
 port = 54323
 
+[auth]
+# Allow only the local test app redirect required by guardian invitation E2E.
+additional_redirect_urls = ["http://localhost:3000/**"]
+
 [edge_runtime]
 enabled = true
 
 [analytics]
 enabled = false
-
