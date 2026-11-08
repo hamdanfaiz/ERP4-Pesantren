@@ -685,26 +685,45 @@ async function main() {
     assert.equal(settingsUpdate.status, 200, 'A settings update with the current version must persist.');
     const updatedSettingsPayload = await settingsUpdate.json();
     assert.equal(updatedSettingsPayload.settings.generalSettings.academicYear, '2027/2028');
-    const staleSettingsUpdate = await fetch(settingsUrl, {
+    const staleSettingsRequest = fetch(settingsUrl, {
       method: 'PUT',
       headers: superAdminSettingsHeaders,
       body: JSON.stringify({ expectedUpdatedAt: savedSettings.updatedAt, settings: settingsInput }),
     });
-    const staleSettingsPayload = await staleSettingsUpdate.json();
-    if (staleSettingsUpdate.status !== 409) {
-      const staleSettingsRpc = await admin.rpc('save_tenant_system_settings', {
-        p_tenant_id: tenantIds[0],
-        p_actor_user_id: users[7].uid,
-        p_expected_updated_at: savedSettings.updatedAt,
-        p_settings: updatedSettingsPayload.settings,
-      });
-      console.error('Stale system settings diagnostic:', JSON.stringify({
-        httpStatus: staleSettingsUpdate.status,
-        httpError: staleSettingsPayload.error,
-        rpcCode: staleSettingsRpc.error?.code || null,
-        rpcMessage: staleSettingsRpc.error?.message || null,
-      }));
+    const staleSettingsEarlyResult = await Promise.race([
+      staleSettingsRequest.then((response) => ({ response })),
+      sleep(3000).then(() => null),
+    ]);
+    if (!staleSettingsEarlyResult) {
+      const activitySql = [
+        "SELECT COALESCE(json_agg(json_build_object(",
+        "  'application', application_name,",
+        "  'state', state,",
+        "  'waitEventType', wait_event_type,",
+        "  'waitEvent', wait_event,",
+        "  'blockingPids', pg_blocking_pids(pid),",
+        "  'lockCount', (SELECT count(*) FROM pg_catalog.pg_locks WHERE pid = activity.pid),",
+        "  'transactionAgeSeconds', extract(epoch FROM clock_timestamp() - xact_start)",
+        "))::text, '[]')",
+        "FROM pg_catalog.pg_stat_activity AS activity",
+        "WHERE datname = current_database() AND pid <> pg_backend_pid()",
+        "  AND (state = 'active' OR wait_event_type = 'Lock');",
+      ].join('\n');
+      let databaseActivity = 'unavailable';
+      try {
+        databaseActivity = execFileSync('psql', [databaseUrl, '-X', '-A', '-t', '-q', '-v', 'ON_ERROR_STOP=1', '-c', activitySql], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          timeout: 10000,
+          maxBuffer: 1024 * 1024,
+        }).trim();
+      } catch (error) {
+        databaseActivity = error?.code === 'ETIMEDOUT' ? 'query timeout' : 'psql diagnostic failed';
+      }
+      console.error('Stale system settings database activity:', databaseActivity);
     }
+    const staleSettingsUpdate = staleSettingsEarlyResult?.response || await staleSettingsRequest;
+    const staleSettingsPayload = await staleSettingsUpdate.json();
     assert.equal(staleSettingsUpdate.status, 409, `A stale settings version must be rejected instead of silently overwriting the newer snapshot. Response: ${JSON.stringify(staleSettingsPayload)}`);
     const settingsReadAfterConflict = await fetch(settingsUrl, {
       headers: { Authorization: `Bearer ${superAdminToken}` },
