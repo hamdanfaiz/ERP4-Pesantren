@@ -10,7 +10,7 @@ Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `compl
 - [Checkpoint penempatan menu — 1 Nov 2026](00_PRODUCT/MODULE_OWNERSHIP_CHECKPOINT_2026-11-01.md) — lokasi menu pada modul pemilik, batas katalog baca-saja, hasil pemeriksaan lokal, dan gate yang masih terbuka.
 
 ## Referensi aktif
-- [Audit katalog akses RLS Supabase staging — 8 Nov 2026](05_ARCHITECTURE/VQE_RLS_PRIVILEGE_AUDIT_2026-11-08.md) — hasil pemeriksaan grant, policy, FORCE RLS, view, dan fungsi PostgreSQL pada VQE; tidak mencakup Production.
+- [Audit akses RLS Supabase staging — 8 Nov 2026](05_ARCHITECTURE/VQE_RLS_PRIVILEGE_AUDIT_2026-11-08.md) — grant, policy, FORCE RLS, Storage privat, view, dan fungsi PostgreSQL pada VQE; tidak mencakup Production.
 - [Checkpoint terkini PR #38 — PPDB Wali di VQE](06_DATABASE/CHECKPOINT_GUARDIAN_PPDB_STAGING_2026-10-31.md) — 112 migrasi staging, selisih terhadap `main`, keterbatasan akses PTSAS, dan gerbang UAT.
 - [Tindak lanjut migration audit Data Induk di VQE](06_DATABASE/VQE_STAGING_MASTER_DATA_AUDIT_MIGRATION_2026-11-01.md) — alasan tidak memakai MCP `apply_migration`, status baca-saja, dan prosedur dry-run CLI tanpa membuat branch Supabase.
 - [Query verifikasi audit Data Induk di VQE](06_DATABASE/VQE_MASTER_DATA_AUDIT_POSTCHECK.sql) — pemeriksaan pascamigrasi yang hanya mengembalikan hasil pass/fail.
