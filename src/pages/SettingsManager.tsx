@@ -8,7 +8,6 @@ import {
   Building, 
   Smartphone, 
   Save, 
-  CheckCircle2, 
   XCircle, 
   Image as ImageIcon, 
   Upload, 
@@ -16,7 +15,6 @@ import {
   Lock, 
   Unlock, 
   Check, 
-  AlertTriangle,
   RefreshCw,
   Send,
   Layers,
@@ -39,6 +37,7 @@ import { ModuleId } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from '../runtimeBackend';
+import { ERPFeatureStatus, ERPNotice } from '../components/ERPDesignSystem';
 
 const SUPABASE_SYSTEM_SETTINGS = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS"));
 const SUPABASE_SYSTEM_SETTINGS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED") === 'true';
@@ -85,10 +84,10 @@ export function SettingsManager() {
         }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || 'Migrasi pengaturan tenant gagal.');
+      if (!response.ok) throw new Error('Pengaturan belum dapat diimpor. Coba lagi.');
       setSettingsMigrationReport(payload);
-    } catch (error: any) {
-      setSettingsMigrationError(error?.message || 'Migrasi pengaturan tenant gagal.');
+    } catch {
+      setSettingsMigrationError('Pengaturan belum dapat diimpor. Periksa data lalu coba lagi.');
     } finally {
       setSettingsMigrationBusy(false);
     }
@@ -132,15 +131,15 @@ export function SettingsManager() {
         try {
           await refreshProfile();
         } catch {
-          showToast('Pengaturan tersimpan. Muat ulang sesi agar zona waktu Tahfidz diperbarui.', 'info');
+          showToast('Pengaturan tersimpan. Muat ulang halaman agar perubahan diterapkan.', 'info');
           return;
         }
       }
-      showToast('Konfigurasi sistem berhasil disimpan dan disinkronkan secara realtime!', 'success');
+      showToast('Pengaturan berhasil disimpan.', 'success');
     } catch (err: any) {
       console.error(err);
       if (err?.status === 409) setSettingsConflict(true);
-      showToast(err.message || 'Gagal menyimpan pengaturan ke database.', 'error');
+      showToast('Pengaturan belum dapat disimpan. Periksa koneksi dan coba kembali.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -240,30 +239,19 @@ export function SettingsManager() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast('File backup konfigurasi sistem berhasil diunduh.', 'success');
+      showToast('Cadangan pengaturan berhasil diunduh.', 'success');
     } catch (e: any) {
-      showToast('Gagal membuat file backup: ' + e.message, 'error');
+      showToast('Cadangan belum dapat dibuat. Coba lagi.', 'error');
     }
   };
 
   return (
     <div className="space-y-6 max-w-6xl w-full mx-auto pb-12 animate-in fade-in slide-in-from-bottom-4">
       {/* Toast Notification */}
-      {toast && (
-        <div 
-          className={cn(
-            "fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all duration-300 animate-in slide-in-from-top-3",
-            toast.type === 'success' && "bg-emerald-950/90 border-emerald-500/40 text-emerald-200",
-            toast.type === 'error' && "bg-rose-950/90 border-rose-500/40 text-rose-200",
-            toast.type === 'info' && "bg-indigo-950/90 border-indigo-500/40 text-indigo-200"
-          )}
-        >
-          {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
-          {toast.type === 'error' && <XCircle className="w-5 h-5 text-rose-400 shrink-0" />}
-          {toast.type === 'info' && <AlertTriangle className="w-5 h-5 text-indigo-400 shrink-0" />}
-          <span>{toast.message}</span>
-        </div>
-      )}
+      {toast && <ERPNotice
+        tone={toast.type === 'info' ? 'info' : toast.type}
+        className="fixed right-5 top-5 z-50 max-w-lg shadow-lg animate-in slide-in-from-top-3"
+      >{toast.message}</ERPNotice>}
 
       {SUPABASE_SYSTEM_SETTINGS && !settingsReady && (
         <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/65 p-4 backdrop-blur-sm">
@@ -271,9 +259,9 @@ export function SettingsManager() {
             <div className="flex items-start gap-3">
               {settingsLoadError ? <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" /> : <RefreshCw className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-indigo-500" />}
               <div>
-                <h2 className="font-semibold text-slate-900 dark:text-white">{settingsLoadError ? "Pengaturan belum dapat dimuat" : "Memuat pengaturan tenant"}</h2>
+                <h2 className="font-semibold text-slate-900 dark:text-white">{settingsLoadError ? "Pengaturan belum dapat dimuat" : "Memuat pengaturan pesantren"}</h2>
                 <p role={settingsLoadError ? "alert" : "status"} className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  {settingsLoadError || "Pengaturan dari Supabase sedang dimuat. Form dikunci sampai data tenant diterima agar nilai awal tidak menimpa konfigurasi tersimpan."}
+                  {settingsLoadError || "Pengaturan sedang dimuat. Formulir akan aktif setelah proses ini selesai."}
                 </p>
                 {settingsLoadError && <button type="button" onClick={retrySettingsLoad} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Coba lagi</button>}
               </div>
@@ -295,7 +283,7 @@ export function SettingsManager() {
             </span>
           </div>
           <p className="text-slate-500 text-sm mt-2">
-            Kelola identitas institusi, kalender akademik, hak akses dinamis (RBAC), integrasi layanan, dan konfigurasi portal
+            Kelola identitas pesantren, kalender akademik, peran dan hak akses, integrasi layanan, serta pengaturan portal.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -324,10 +312,10 @@ export function SettingsManager() {
             {[
               { id: 'general', label: 'Umum & Kalender', icon: <Globe className="w-4 h-4" /> },
               { id: 'organization', label: 'Profil Institusi', icon: <Building className="w-4 h-4" /> },
-              { id: 'security', label: 'Peran & Matriks RBAC', icon: <Shield className="w-4 h-4" /> },
-              { id: 'integrations', label: 'Integrasi API & Layanan', icon: <Database className="w-4 h-4" /> },
+              { id: 'security', label: 'Peran & Hak Akses', icon: <Shield className="w-4 h-4" /> },
+              { id: 'integrations', label: 'Integrasi Layanan', icon: <Database className="w-4 h-4" /> },
               { id: 'mobile', label: 'Portal Wali & Santri', icon: <Smartphone className="w-4 h-4" /> },
-              { id: 'backup', label: 'Cadangan & Utilitas Basis Data', icon: <Download className="w-4 h-4" /> },
+              { id: 'backup', label: 'Cadangan & Pemulihan', icon: <Download className="w-4 h-4" /> },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -725,7 +713,7 @@ export function SettingsManager() {
                     <Database className="w-5 h-5 text-indigo-400" /> Integrasi Komunikasi Otomatis
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Konfigurasi alamat gateway WhatsApp dan server email. Gerbang pembayaran tidak termasuk dalam rilis awal.
+                    Pemberitahuan otomatis melalui WhatsApp dan email belum tersedia.
                   </p>
                 </div>
 
@@ -736,58 +724,27 @@ export function SettingsManager() {
                       <Send className="w-5 h-5 text-emerald-400" />
                       <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Integrasi WhatsApp (Notifikasi Wali & Pengajar)</h3>
                     </div>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Rahasia server-side</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Belum aktif</span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Token WhatsApp tidak boleh dimasukkan atau disimpan di browser maupun pengaturan ERP. Simpan sebagai rahasia server bernama <code>WA_GATEWAY_API_KEY</code> di penyimpanan rahasia milik environment deployment.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Integrasi WhatsApp belum tersedia saat ini.</p>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat URL API</label>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat layanan</label>
                     <input
                       type="url"
                       value={integrations.waGatewayEndpoint || ''}
                       onChange={e => setIntegrations({...integrations, waGatewayEndpoint: e.target.value})}
-                      placeholder="https://api.whatsapp-gateway.com/v1/send"
-                      className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
+                      placeholder="Belum tersedia"
+                      disabled
+                      className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-500 opacity-60 dark:text-slate-400"
                     />
-                  </div>
-                  <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-3 text-xs text-slate-500 dark:text-slate-400">
-                    Pengiriman dan uji koneksi WhatsApp belum aktif sampai backend gateway dikonfigurasi. Status tidak disimulasikan sebagai koneksi berhasil.
                   </div>
                 </div>
 
-                {/* SMTP Email Server */}
-                <div className="p-5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/[0.02] space-y-4">
-                  <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Server SMTP (Email Keluar)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">SMTP Host</label>
-                      <input 
-                        type="text" 
-                        value={integrations.smtpHost}
-                        onChange={e => setIntegrations({...integrations, smtpHost: e.target.value})}
-                        className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">SMTP Port</label>
-                      <input 
-                        type="text" 
-                        value={integrations.smtpPort}
-                        onChange={e => setIntegrations({...integrations, smtpPort: e.target.value})}
-                        className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Sender Email</label>
-                      <input 
-                        type="text" 
-                        value={integrations.smtpUser || ''}
-                        onChange={e => setIntegrations({...integrations, smtpUser: e.target.value})}
-                        placeholder="noreply@pesantren.sch.id"
-                        className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <ERPFeatureStatus
+                  title="Pengiriman email otomatis"
+                  status="Belum tersedia"
+                  description="Pengiriman pemberitahuan melalui email belum tersedia. Fitur ini tidak akan mengirim email dari pengaturan yang tersimpan."
+                />
               </div>
             )}
 
@@ -867,20 +824,20 @@ export function SettingsManager() {
               <div className="p-6 space-y-6">
                 <div>
                   <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-2">
-                    <Download className="w-5 h-5 text-indigo-400" /> Backup & Utilitas Database Sistem
+                    <Download className="w-5 h-5 text-indigo-400" /> Cadangan & Pemulihan
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Unduh snapshot data konfigurasi sistem dan periksa integritas dokumen database.
+                    Unduh salinan pengaturan sistem untuk keperluan arsip dan pemulihan.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="p-5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/[0.02] space-y-3">
                     <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                      <Download className="w-4 h-4 text-emerald-400" /> Ekspor Snapshot Konfigurasi (JSON)
+                      <Download className="w-4 h-4 text-emerald-400" /> Ekspor Pengaturan (JSON)
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Unduh arsip lengkap pengaturan sistem termasuk profil institusi, kalender akademik, matriks RBAC, dan integrasi API.
+                      Unduh salinan lengkap pengaturan sistem, termasuk profil pesantren, kalender, hak akses, dan integrasi layanan.
                     </p>
                     <button
                       type="button"
@@ -892,44 +849,20 @@ export function SettingsManager() {
                     </button>
                   </div>
 
-                  <div className="p-5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/[0.02] space-y-3">
-                    <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-indigo-400" /> Ringkasan Status Sistem
-                    </h3>
-                    <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-                      <div className="flex justify-between py-1 border-b border-white/5">
-                        <span>Basis Data Tujuan:</span>
-                        <span className="font-mono text-emerald-400">{SUPABASE_SYSTEM_SETTINGS ? 'Supabase (tenant_settings)' : 'Firestore (settings/global)'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-white/5">
-                        <span>Modul Terdaftar:</span>
-                        <span className="font-medium text-slate-300">{ALL_MODULE_LIST.length} Modul</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-white/5">
-                        <span>Peran Sistem:</span>
-                        <span className="font-medium text-slate-300">{SYSTEM_ROLES.length} Peran Pengguna</span>
-                      </div>
-                      <div className="flex justify-between py-1">
-                        <span>Pembaruan Terakhir:</span>
-                        <span className="text-slate-400">{settings.updatedAt ? new Date(settings.updatedAt).toLocaleString('id-ID') : 'Default Awal'}</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 {role === 'SuperAdmin' && SUPABASE_SYSTEM_SETTINGS_IMPORT && (
                   <section className="p-5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3" aria-labelledby="settings-import-title">
                     <div>
-                      <h3 id="settings-import-title" className="font-semibold text-sm text-slate-800 dark:text-slate-200">Migrasi Pengaturan Tenant dari Firestore</h3>
-                      <p className="text-xs text-slate-500 mt-1">Pratinjau membaca data sumber pesantren aktif dan mengabaikan kolom kredensial. Terapkan hanya setelah memeriksa nama pesantren dan tahun ajaran.</p>
+                      <h3 id="settings-import-title" className="font-semibold text-sm text-slate-800 dark:text-slate-200">Impor Cadangan Pengaturan</h3>
+                      <p className="text-xs text-slate-500 mt-1">Periksa nama pesantren dan tahun ajaran sebelum menerapkan data.</p>
                     </div>
                     {settingsMigrationError && <p role="alert" className="text-xs text-rose-500">{settingsMigrationError}</p>}
                     {settingsMigrationReport && (
                       <div className="rounded-lg bg-slate-100 dark:bg-black/20 p-3 text-xs space-y-1">
-                        <p>Sumber ditemukan: <strong>{settingsMigrationReport.sourceExists ? 'Ya' : 'Tidak; snapshot kosong'}</strong></p>
+                        <p>Data cadangan: <strong>{settingsMigrationReport.sourceExists ? 'Tersedia' : 'Tidak ditemukan'}</strong></p>
                         <p>Pesantren: <strong>{settingsMigrationReport.settings?.orgInfo?.schoolName || '—'}</strong></p>
                         <p>Tahun ajaran: <strong>{settingsMigrationReport.settings?.generalSettings?.academicYear || '—'}</strong></p>
-                        <p className="break-all text-slate-500">Sidik digital: {settingsMigrationReport.previewFingerprint}</p>
                         {settingsMigrationReport.alreadyImported && <p className="text-emerald-600">Data sumber ini sudah pernah diimpor.</p>}
                       </div>
                     )}
@@ -938,7 +871,7 @@ export function SettingsManager() {
                         {settingsMigrationBusy ? 'Memeriksa…' : 'Pratinjau data sumber'}
                       </button>
                       <button type="button" onClick={() => void runSettingsMigration(true)} disabled={settingsMigrationBusy || !settingsMigrationReport?.previewFingerprint || settingsMigrationReport?.alreadyImported} className="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium disabled:opacity-50">
-                        {settingsMigrationBusy ? 'Memproses…' : 'Terapkan snapshot yang ditinjau'}
+                        {settingsMigrationBusy ? 'Memproses…' : 'Pulihkan pengaturan'}
                       </button>
                     </div>
                   </section>

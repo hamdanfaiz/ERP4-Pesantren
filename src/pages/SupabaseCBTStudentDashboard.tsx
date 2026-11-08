@@ -16,7 +16,7 @@ type Attempt = {
 
 async function requestCbt(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", "Bearer " + token);
   headers.set("Accept", "application/json");
@@ -149,7 +149,7 @@ export function SupabaseCBTStudentDashboard() {
     return exam.status === "assigned" && now >= Date.parse(exam.startsAt) && now < Date.parse(exam.endsAt);
   };
 
-  if (role !== "Santri") return <div className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Portal pengerjaan ujian ini hanya tersedia untuk akun Santri yang tertaut ke roster tenant.</div>;
+  if (role !== "Santri") return <div className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Portal ujian hanya tersedia untuk akun Santri.</div>;
 
   if (attempt && currentQuestion) return <main className="fixed inset-0 z-50 flex flex-col bg-slate-50 font-sans dark:bg-slate-950">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-white/10 dark:bg-slate-900 sm:px-7">
@@ -174,8 +174,8 @@ export function SupabaseCBTStudentDashboard() {
   </main>;
 
   return <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-7">
-    <header><div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-400/10 dark:text-indigo-200"><ShieldCheck className="h-3.5 w-3.5" />Sumber data: Supabase tenant</div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Ujian Saya</h1><p className="mt-1 text-sm text-slate-500">Jadwal dan jawaban ujian terhubung dengan akun santri Anda.</p></header>
-    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">Hanya ujian yang ditugaskan pada akun santri ini yang ditampilkan. Kunci jawaban tidak dikirim ke browser; pemeriksaan dilakukan backend saat ujian dikumpulkan.</div>
+    <header><div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-400/10 dark:text-indigo-200"><ShieldCheck className="h-3.5 w-3.5" />Data pesantren</div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Ujian Saya</h1><p className="mt-1 text-sm text-slate-500">Jadwal dan jawaban ujian terhubung dengan akun santri Anda.</p></header>
+    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">Daftar ini hanya menampilkan ujian yang ditugaskan kepada Anda. Hasil ujian akan diperiksa setelah jawaban dikumpulkan.</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
     {loading ? <div role="status" className="flex justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900"><Loader2 className="h-4 w-4 animate-spin" />Memuat jadwal ujian…</div> : exams.length ? <div className="grid gap-4 sm:grid-cols-2">{exams.map((exam) => {

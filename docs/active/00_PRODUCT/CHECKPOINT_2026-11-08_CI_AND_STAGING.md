@@ -2,7 +2,17 @@
 
 **Tanggal:** 8 November 2026  
 **Status:** produk belum dinyatakan siap deploy/go-live.  
-**Persentase terukur:** CI kandidat PR #86 lulus 3/3 job (**100% dari job wajib pada run itu**). Persentase penyelesaian seluruh ERP tidak dihitung karena UAT, Production, dan penerimaan komersial belum memiliki denominator berbukti yang sama.
+**Persentase terukur:** CI PR #90 lulus 3/3 job (**100% dari job wajib pada run itu**). Persentase penyelesaian seluruh ERP tidak dihitung karena UAT, Production, dan penerimaan komersial belum memiliki denominator berbukti yang sama.
+
+## Status terbaru — sesudah PR #90
+
+- `origin/main` pada pemeriksaan lokal: `ef8ce28e9541137e2154d025211db574dc2eef94`. PR #90 masih **open**, head `33268c3ecd18a2d09c93fc498b5615dc77d0038f`, dan CI [run #42468708677](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42468708677) lulus 3/3 job. UAT Admin VQE membuktikan login dan akses 25 modul; antrean Akademik pulih setelah migrasi. UI belum menguji pemetaan kelas karena fixture tidak memiliki kelas yang belum dipetakan.
+- Pemeriksaan baca-saja VQE `vqemuyzveuirlkvdggjd` menunjukkan **140/140 versi dan nama migrasi** cocok dengan 140 file `supabase/migrations` pada source ini; versi terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Ini hanya membuktikan kesamaan ledger versi/nama, bukan kesamaan seluruh DDL atau semua CRUD UI.
+- Patch perapian bahasa/status dan tema UI berada di worktree lokal `codex/product-copy-cleanup-20261108`, belum di-commit atau dikirim ke GitHub. Patch ini dibangun di atas head PR #90 dan mencakup status fitur yang jujur, notifikasi seragam, serta permukaan warna Asrama yang mengikuti tema bersama.
+- Verifikasi lokal patch: `npm run lint`, `npm run build`, `test:supabase-runtime-no-firebase`, `test:rbac-permissions` (20 pemeriksaan), `test:master-data-transfer-csv`, `test:auth-recovery-redirect`, `test:customer-deployment-flags`, `test:ci-coverage` (55 skrip), dan `git diff --check` lulus. Build masih memperingatkan chunk PDF sekitar 1,46 MB. Server preview yang dapat dijangkau browser pengguna belum terverifikasi; launcher lokal tersedia di workspace, tetapi harus dijalankan pada workstation pengguna.
+- Konektor masih menolak pembacaan PTSAS Production. Tidak ada perubahan Production. UAT Wali, CRUD UI tiap modul, seluruh matriks role/tenant, Storage di hosting target, backup/restore Production, dan clean install/upgrade di VPS/on-premise masih terbuka.
+
+Catatan PR #86 di bawah adalah snapshot sebelumnya; gunakan status PR #90 di bagian ini sebagai keadaan terbaru.
 
 ## Source dan CI
 

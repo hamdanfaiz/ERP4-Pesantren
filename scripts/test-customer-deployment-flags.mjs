@@ -38,6 +38,7 @@ const dockerfile = read("Dockerfile");
 const envExample = read(".env.example");
 const settingsService = read("src/services/systemSettingsService.ts");
 const settingsUi = read("src/pages/SettingsManager.tsx");
+const hrisUi = read("src/pages/SupabaseHrisManager.tsx");
 const appUi = read("src/App.tsx");
 const sidebarUi = read("src/components/Sidebar.tsx");
 const indexHtml = read("index.html");
@@ -98,7 +99,14 @@ assert.ok(integrationDefaults.includes('waGatewayEndpoint: ""') && integrationDe
 assert.ok(mobileDefaults.includes('supportWhatsapp: ""'), "New tenant support contact must start unconfigured");
 for (const placeholder of ["AI Studio", "pesantrenaistudio.edu", "+62 812 3456 7890", "wagw.example.com"]) assert.ok(!settingsService.includes(placeholder), `Demo value remains in tenant defaults: ${placeholder}`);
 for (const stale of ["AI Studio automatically", "Secrets panel in the AI Studio", "Cloud Run Secret Manager", "MY_GEMINI_API_KEY", "MY_APP_URL"]) assert.ok(!envExample.includes(stale), `.env.example still contains obsolete setup text: ${stale}`);
-assert.ok(settingsUi.includes("penyimpanan rahasia milik environment deployment"), "Settings UI must explain generic customer secret storage");
+assert.ok(settingsUi.includes("Pengiriman pemberitahuan melalui email belum tersedia."), "Settings UI must not imply that an unimplemented email integration can send messages");
+assert.doesNotMatch(settingsUi, /Host SMTP|Port SMTP|WA_GATEWAY_API_KEY|penyimpanan rahasia milik environment deployment/, "Settings UI must not expose inactive integration controls or operator-only secret instructions");
+assert.doesNotMatch(hrisUi, /Fase Supabase|backend Supabase|payroll, rekrutmen, biometrik|belum tersambung/i,
+  "HRIS UI must not expose implementation-phase or disconnected-feature operator copy");
+assert.match(hrisUi, /Saldo cuti dan jadwal kehadiran belum diperbarui otomatis/,
+  "HRIS UI must clearly state the user-visible leave balance and attendance limitation");
+assert.match(hrisUi, /hindari mencantumkan rincian diagnosis kesehatan/,
+  "HRIS UI must preserve the privacy reminder for leave reasons");
 assert.ok(settingsUi.includes('placeholder="ERP4 Pesantren | {schoolName}"'), "Settings UI page-title example must match the product brand");
 assert.ok(appUi.includes("schoolName: 'ERP4 Pesantren'") && appUi.includes("orgInfo.schoolName || 'ERP4 Pesantren'") && appUi.includes("`ERP4 Pesantren | ${schoolName}`"), "App defaults and browser title must use ERP4 Pesantren");
 assert.ok(sidebarUi.includes(": 'ERP4 Pesantren'}</h1>"), "Sidebar fallback must use ERP4 Pesantren");

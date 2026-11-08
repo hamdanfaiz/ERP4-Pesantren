@@ -217,7 +217,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
               <label htmlFor="guardian-signup-password-confirm" className="mb-1.5 block text-xs font-semibold text-slate-300">Ulangi kata sandi</label>
               <input id="guardian-signup-password-confirm" type="password" autoComplete="new-password" required minLength={12} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} className={CONTROL} />
             </div>
-            <p className="text-xs leading-5 text-slate-400">Supabase Auth mengelola kata sandi. Akses diberikan setelah email dikonfirmasi dan cocok dengan relasi Wali aktif atau calon santri yang memiliki tagihan PPDB.</p>
+            <p className="text-xs leading-5 text-slate-400">Konfirmasikan alamat email untuk mengaktifkan akun. Akses Portal Wali tersedia setelah akun terhubung dengan data wali atau calon santri yang sesuai.</p>
             <button type="submit" disabled={isBusy || !tenantName || !registrationRedirectUrl} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
               {isBusy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               {isBusy ? "Mendaftarkan akun…" : "Daftar dan kirim tautan konfirmasi"}

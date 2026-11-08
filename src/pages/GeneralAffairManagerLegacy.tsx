@@ -1205,7 +1205,7 @@ const LegacyAssetsModule = () => {
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <button type="button" onClick={() => setIsAddFacilityOpen(false)} className="px-4 py-2 border rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100">Batal</button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Simpan ke Firestore</button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Simpan data</button>
               </div>
             </form>
           </div>

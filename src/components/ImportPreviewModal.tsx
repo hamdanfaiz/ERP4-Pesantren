@@ -735,7 +735,7 @@ export function ImportPreviewModal({
                 {isProcessing ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Menyimpan ke Firestore...</span>
+                    <span>Menyimpan data...</span>
                   </>
                 ) : (
                   <>

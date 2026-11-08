@@ -804,11 +804,11 @@ export function PPDBManager() {
           Promise.all(identityValues.map(({ kind, value }) => transaction.get(ppdbIdentityReservationRef(user.tenantId, kind, value)))),
         ]);
         if (registrationSnapshot.exists() || legacySnapshots[0].docs.length > 0) {
-          throw new Error("Registration ID " + registrationId + " sudah digunakan pada tenant ini.");
+          throw new Error("Registration ID " + registrationId + " sudah digunakan pada pesantren ini.");
         }
         identityValues.forEach((item, index) => {
           if (identitySnapshots[index].exists() || legacySnapshots[index + 1].docs.length > 0) {
-            throw new Error(item.kind.toUpperCase() + " " + item.value + " sudah terdaftar pada tenant ini.");
+            throw new Error(item.kind.toUpperCase() + " " + item.value + " sudah terdaftar pada pesantren ini.");
           }
         });
         transaction.set(candidateRef, tenantRecord(user.tenantId, newCandidate));
@@ -2552,7 +2552,7 @@ export function PPDBManager() {
                               <div className="p-3 bg-amber-950/30 rounded-lg border border-amber-500/20">
                                 <span className="text-[10px] text-amber-300 uppercase block">Akun Portal Wali:</span>
                                 <strong className="text-amber-200 text-xs">{candidate.waliAccountStatus === "Active" ? "Aktif" : "Menunggu Aktivasi"}</strong>
-                                <span className="text-[10px] text-slate-400 block mt-0.5">Akses diberikan setelah provisioning Firebase Auth.</span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">Akses diberikan setelah akun wali diaktifkan oleh administrator pesantren.</span>
                               </div>
                             </div>
                           ) : (

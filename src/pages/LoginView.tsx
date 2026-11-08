@@ -46,7 +46,7 @@ export function LoginView({ onBack }: { onBack: () => void }) {
       return;
     }
     if (!supabaseClientConfigured()) {
-      setRecoveryError('Pemulihan kata sandi belum dikonfigurasi. Hubungi administrator pesantren.');
+      setRecoveryError('Layanan pemulihan kata sandi belum tersedia saat ini. Hubungi administrator pesantren.');
       return;
     }
 

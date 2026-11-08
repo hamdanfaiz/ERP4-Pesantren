@@ -171,8 +171,8 @@ for (const tabId of ['entities', 'structure', 'naming', 'audit']) {
 }
 assert.doesNotMatch(masterDataTabs[1], /id:\s*["']references["']/,
   'Reference catalogs must live with their owning modules instead of a generic Master Data tab.');
-assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?koneksi runtime Supabase belum diaktifkan[\s\S]*?<\/section>\)/,
-  'Naming Series must show a clear unavailable state rather than disappear or fall through to mock CRUD when runtime is disabled.');
+assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?Pengaturan penomoran belum tersedia saat ini\.[\s\S]*?<\/section>\)/,
+  'Naming Series must show a clear customer-facing unavailable state rather than disappear or fall through to mock CRUD when runtime is disabled.');
 assert.match(masterDataSource, /const isTenantConfigurationTab = activeTab === ["']naming["'];/,
   'Naming Series configuration must not expose mock record actions when runtime is disabled.');
 assert.match(masterDataSource, /const visibleSubTabs = SUB_TABS\[activeTab\] \|\| \[\]/,
@@ -207,8 +207,10 @@ for (const section of ['permits', 'discipline', 'attendance', 'assignments', 'fa
 }
 assert.match(boardingSource, /<ERPTabs\s+tabs=\{tabs\}/,
   'Asrama sections must use the shared tab component.');
-assert.match(boardingSource, /<UnavailableSection\s+label=\{selected\.label\}\s+flag=\{selected\.flag\}\s*\/>/,
+assert.match(boardingSource, /!selected\.enabled\s*\?\s*<UnavailableSection\s+label=\{selected\.label\}\s*\/>/,
   'Disabled Asrama sections must show an explicit readiness state instead of disappearing.');
+assert.match(boardingSource, /Fitur ini belum tersedia saat ini\./,
+  'Unavailable Asrama sections must use customer-facing copy without operator instructions.');
 assert.doesNotMatch(boardingSource, /if\s*\(!available\.length\)\s*return\s+null/,
   'Asrama must not render a blank screen when runtime gates are closed.');
 const academicSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAcademicManager.tsx'), 'utf8');

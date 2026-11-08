@@ -119,9 +119,46 @@ export function ERPErrorState({
   );
 }
 
+export type ERPNoticeTone = "info" | "success" | "warning" | "error";
+
+export function ERPNotice({
+  tone = "info",
+  title,
+  children,
+  action,
+  className = "",
+}: {
+  tone?: ERPNoticeTone;
+  title?: ReactNode;
+  children: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  const styles: Record<ERPNoticeTone, string> = {
+    info: "erp-notice-info",
+    success: "erp-notice-success",
+    warning: "erp-notice-warning",
+    error: "erp-notice-error",
+  };
+
+  return (
+    <div
+      className={`erp-notice ${styles[tone]} ${className}`}
+      role={tone === "error" ? "alert" : "status"}
+      aria-live={tone === "error" ? "assertive" : "polite"}
+    >
+      <div className="erp-notice-content">
+        {title && <h2>{title}</h2>}
+        <div>{children}</div>
+      </div>
+      {action && <div className="erp-notice-action">{action}</div>}
+    </div>
+  );
+}
+
 export function ERPFeatureStatus({
   title,
-  status = "Belum terhubung",
+  status,
   description,
   action,
   tone = "warning",
@@ -139,7 +176,7 @@ export function ERPFeatureStatus({
     <section className="erp-panel space-y-3 p-5 sm:p-6" role="status" aria-live="polite">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h2>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}>{status}</span>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}>{status || (tone === "available" ? "Tersedia" : "Belum tersedia")}</span>
       </div>
       <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">{description}</p>
       {action && <div>{action}</div>}

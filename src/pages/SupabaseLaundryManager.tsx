@@ -20,14 +20,14 @@ const formatDate = (value: string, timeZone: string) => new Intl.DateTimeFormat(
 
 async function requestLaundry(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch(path, { ...init, headers, cache: "no-store" });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "Layanan Laundry Supabase belum dapat diproses.");
+  if (!response.ok) throw new Error(payload.error || "Permintaan belum dapat diproses. Silakan coba lagi.");
   return payload;
 }
 
@@ -118,7 +118,7 @@ export function SupabaseLaundryManager() {
     }, "Pengaturan kuota laundry disimpan.");
   };
 
-  if (role !== "Admin" && role !== "SuperAdmin") return <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">Modul Laundry Supabase saat ini tersedia untuk Admin tenant dengan izin Laundry.</div>;
+  if (role !== "Admin" && role !== "SuperAdmin") return <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">Modul Laundry hanya tersedia untuk Admin dengan izin akses yang sesuai.</div>;
 
   const tabs = [
     { id: "scan" as const, label: "Pindai Label", icon: WashingMachine },
@@ -132,14 +132,14 @@ export function SupabaseLaundryManager() {
   return <main className="mx-auto max-w-7xl space-y-6 pb-10">
     <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between dark:border-slate-800">
       <div>
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-400/10 dark:text-violet-200"><Shirt className="h-3.5 w-3.5" />Supabase · {snapshot.period || "tenant"}</div>
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-400/10 dark:text-violet-200"><Shirt className="h-3.5 w-3.5" />Periode · {snapshot.period || "semua"}</div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Laundry Pesantren</h1>
-        <p className="mt-1 text-sm text-slate-500">Pesanan, status, dan pemakaian kuota tersimpan pada backend tenant.</p>
+        <p className="mt-1 text-sm text-slate-500">Kelola pesanan, status, dan kuota layanan laundry.</p>
       </div>
       <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading || busy} className={outlineClass}><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
 
-    <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"><strong>Catatan operasional:</strong> pesanan laundry baru dicatat di Supabase. Kelebihan kuota dihitung sebagai estimasi berdasarkan pesanan bulan ini; sistem belum membuat tagihan atau jurnal Keuangan otomatis.</div>
+    <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Pesanan baru akan tercatat. Penggunaan yang melebihi kuota dihitung sebagai estimasi dan belum menjadi tagihan.</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
@@ -152,10 +152,10 @@ export function SupabaseLaundryManager() {
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="border-b border-slate-200 p-3 dark:border-slate-800"><ERPTabs tabs={tabs.map(({ id, label, icon: Icon }) => ({ id, label, icon: <Icon className="h-4 w-4" /> }))} value={tab} onChange={(id) => setTab(id as typeof tab)} ariaLabel="Bagian modul Laundry" /></div>
 
-      {tab === "scan" ? <div className="p-4 sm:p-5"><ERPFeatureStatus title="Pindai Label" description="Pindai QR atau kode label belum terhubung ke alur pesanan Laundry tenant. Form penerimaan manual tetap tersedia pada tab Pesanan Aktif." /></div>
-        : tab === "labels" ? <div className="p-4 sm:p-5"><ERPFeatureStatus title="Label & Penandaan" description="Pembuatan, pencetakan, dan pencocokan label belum memiliki template serta API penyimpanan yang terhubung. Tidak ada label contoh yang ditampilkan." /></div>
+      {tab === "scan" ? <div className="p-4 sm:p-5"><ERPFeatureStatus title="Pindai Label" description="Penerimaan pesanan tetap dapat dilakukan secara manual pada tab Pesanan Aktif. Pemindaian kode belum tersedia." /></div>
+        : tab === "labels" ? <div className="p-4 sm:p-5"><ERPFeatureStatus title="Label & Penandaan" description="Pembuatan dan pencetakan label belum tersedia." /></div>
         : tab === "settings" ? <form onSubmit={submitSettings} className="max-w-2xl space-y-4 p-4 sm:p-6">
-        <div><h2 className="font-semibold text-slate-900 dark:text-white">Kebijakan kuota per bulan</h2><p className="mt-1 text-sm text-slate-500">Berlaku untuk seluruh santri aktif dalam tenant ini.</p></div>
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Kebijakan kuota per bulan</h2><p className="mt-1 text-sm text-slate-500">Berlaku untuk seluruh santri aktif dalam pesantren ini.</p></div>
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Kuota standar (kg)<input type="number" min="0" max="1000" step="0.5" required value={monthlyQuotaKg} onChange={(e) => setMonthlyQuotaKg(e.target.value)} className={inputClass} /></label>
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tarif estimasi kelebihan per kg (Rp)<input type="number" min="0" max="10000000" step="1" required value={excessRatePerKg} onChange={(e) => setExcessRatePerKg(e.target.value)} className={inputClass} /></label>
         <p className="text-xs text-slate-500">Tarif ini hanya dipakai untuk estimasi pada laporan kuota. Pencatatan tagihan memerlukan integrasi Finance tersendiri.</p>

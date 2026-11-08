@@ -17,7 +17,7 @@ type Assessment = {
 
 async function loadPortalPage(studentId?: string, cursor?: string) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const params = new URLSearchParams();
   if (studentId) params.set("studentId", studentId);
   if (cursor) params.set("cursor", cursor);
@@ -102,7 +102,7 @@ export function SupabaseAcademicPortal() {
   return <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"><ShieldCheck className="h-3.5 w-3.5" />Data tenant terverifikasi</div>
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"><ShieldCheck className="h-3.5 w-3.5" />Data akun terverifikasi</div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Akademik</h1>
         <p className="mt-1 text-sm text-slate-500">Riwayat penilaian {isGuardian ? "santri yang tertaut ke akun Wali" : "milik Anda"}.</p>
       </div>
@@ -123,7 +123,7 @@ export function SupabaseAcademicPortal() {
 
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <div className="flex items-center gap-2 border-b border-slate-200 px-5 py-4 dark:border-white/10"><BookOpen className="h-4 w-4 text-emerald-700" /><h2 className="font-semibold text-slate-900 dark:text-white">Riwayat penilaian</h2></div>
-      {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat data tenant…</div>
+      {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat data…</div>
         : assessments.length === 0 ? <div className="p-10 text-center text-sm text-slate-500">{students.length === 0 ? "Belum ada data santri aktif yang tertaut ke akun ini." : "Belum ada catatan penilaian untuk santri ini."}</div>
           : <div className="divide-y divide-slate-100 dark:divide-white/5">{assessments.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-4 p-4 sm:px-5">
             <div className="min-w-0"><h3 className="font-semibold text-slate-900 dark:text-white">{item.subject}</h3><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{item.assessmentType} · {item.category}{item.className ? ` · ${item.className}` : ""}</p><p className="mt-1 text-xs text-slate-500">Diperbarui {formatDate(item.updatedAt)}</p></div>

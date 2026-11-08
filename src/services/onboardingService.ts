@@ -220,11 +220,11 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
     ]);
 
     if (existingNisSnapshot.docs.some((item) => item.id !== currentCandidateData.masterStudentId)) {
-      throw new Error('NIS sudah digunakan oleh santri aktif pada tenant ini.');
+      throw new Error('NIS sudah digunakan oleh santri aktif pada pesantren ini.');
     }
     identityValues.forEach((item, index) => {
       if (existingIdentitySnapshots[index].docs.length > 0) {
-        throw new Error(item.kind.toUpperCase() + ' sudah digunakan oleh santri lain pada tenant ini.');
+        throw new Error(item.kind.toUpperCase() + ' sudah digunakan oleh santri lain pada pesantren ini.');
       }
     });
 
@@ -262,7 +262,7 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
       identityValues.forEach((item, index) => {
         const reservation = identitySnapshots[index];
         if (reservation.exists() && reservation.data().ownerId !== candidate.id) {
-          throw new Error(item.kind.toUpperCase() + ' sudah terdaftar pada data lain di tenant ini.');
+          throw new Error(item.kind.toUpperCase() + ' sudah terdaftar pada data lain di pesantren ini.');
         }
       });
 

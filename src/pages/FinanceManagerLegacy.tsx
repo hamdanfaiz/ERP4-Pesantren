@@ -138,7 +138,7 @@ export function FinanceManager() {
   };
 
   const handleConfirmBillPayment = async (bill: BillingItem, method: string = 'Transfer Manual (BSI)') => {
-    if (!user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Akses konfirmasi hanya untuk admin tenant aktif.', 'error'); return; }
+    if (!user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Akses konfirmasi hanya untuk admin pesantren ini.', 'error'); return; }
     if (financeLocked) { showFinanceToast('Buku keuangan sedang ditutup.', 'error'); return; }
     try {
       const billRef = doc(db, 'financeBillings', bill.id);
@@ -148,7 +148,7 @@ export function FinanceManager() {
         const snapshot = await transaction.get(billRef);
         if (!snapshot.exists()) throw new Error('Tagihan tidak ditemukan.');
         const data = snapshot.data();
-        if (data.tenantId !== user.tenantId) throw new Error('Tagihan bukan milik tenant aktif.');
+        if (data.tenantId !== user.tenantId) throw new Error('Tagihan bukan milik pesantren ini.');
         if (data.status === 'Paid') throw new Error('Tagihan sudah lunas; transaksi ganda ditolak.');
         if (!['Unpaid', 'Overdue', 'Partial', 'Verification'].includes(data.status)) throw new Error('Status tagihan tidak dapat dikonfirmasi.');
         if (data.status === 'Verification' && !data.proofStoragePath) throw new Error('Bukti transfer belum tersimpan pada Storage.');
@@ -159,7 +159,7 @@ export function FinanceManager() {
         if (data.candidateId && user.modulePermissions?.ppdb !== false) {
           candidateRef = doc(db, 'candidates', String(data.candidateId));
           candidateSnapshot = await transaction.get(candidateRef);
-          if (!candidateSnapshot.exists() || candidateSnapshot.data().tenantId !== user.tenantId) throw new Error('Kandidat PPDB tidak ditemukan pada tenant aktif.');
+          if (!candidateSnapshot.exists() || candidateSnapshot.data().tenantId !== user.tenantId) throw new Error('Kandidat PPDB tidak ditemukan pada pesantren ini.');
         }
         const paidAt = new Date().toISOString().slice(0, 10);
         transaction.update(billRef, { status: 'Paid', paidAmount: Number(data.amount), paymentMethod: method, proofFile: null, receiptNo, paidAt, updatedAt: serverTimestamp(), updatedByUid: user.uid });
@@ -183,14 +183,14 @@ export function FinanceManager() {
   };
 
   const handlePullPPDBInvoices = async () => {
-    if (!user?.tenantId || !isFinanceAdmin) { showFinanceToast('Akses impor tagihan PPDB hanya tersedia untuk admin tenant aktif.', 'error'); return; }
+    if (!user?.tenantId || !isFinanceAdmin) { showFinanceToast('Akses impor tagihan PPDB hanya tersedia untuk admin pesantren ini.', 'error'); return; }
     setIsPullingPPDB(true);
     try {
       const candidatesQuery = query(collection(db, 'candidates'), where('tenantId', '==', user.tenantId));
       const snapshot = await getDocs(candidatesQuery);
       const candidates = snapshot.docs.map(item => ({ id: item.id, ...item.data() } as any));
       const count = await ppdbIntegrationService.batchGenerateRegistrationBills(candidates, 250000, user.tenantId);
-      showFinanceToast('Berhasil menerbitkan ' + count + ' tagihan PPDB baru di tenant ini.', 'success');
+      showFinanceToast('Berhasil menerbitkan ' + count + ' tagihan PPDB baru di pesantren ini.', 'success');
       setBillingCategoryFilter('ppdb');
     } catch (error: any) {
       console.error('Impor tagihan PPDB gagal:', error);
@@ -284,7 +284,7 @@ export function FinanceManager() {
   }, [role, user]);
 
   const handleToggleFinanceLock = async () => {
-    if (!user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Hanya admin tenant aktif yang dapat menutup buku.', 'error'); return; }
+    if (!user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Hanya admin pesantren ini yang dapat menutup buku.', 'error'); return; }
     const nextLocked = !financeLocked;
     try {
       await setDoc(doc(db, 'tenants', user.tenantId, 'settings', 'financeControl'), tenantRecord(user?.tenantId, {
@@ -336,7 +336,7 @@ export function FinanceManager() {
       if (activeTab === 'billing') {
         if (!isFinanceAdmin) { showFinanceToast('Penerbitan tagihan hanya untuk admin tenant.', 'error'); return; }
         const student = masterSantri.find(item => item.name === formData.santriName && item.grade === formData.grade);
-        if (!student?.id || !student.name) { showFinanceToast('Pilih santri yang terdaftar pada tenant aktif.', 'error'); return; }
+        if (!student?.id || !student.name) { showFinanceToast('Pilih santri yang terdaftar pada pesantren ini.', 'error'); return; }
         const id = encodeURIComponent(JSON.stringify(['BILL', user.tenantId, student.id, String(formData.type || '').trim(), String(formData.period || '').trim()]));
         const newBill: BillingItem = {
           id, tenantId: user.tenantId, santriId: student.id, createdByUid: user.uid,
@@ -381,7 +381,7 @@ export function FinanceManager() {
     const amount = Number(bulkAmount);
     const period = bulkPeriod.trim();
     const students = masterSantri.filter(item => item.grade === bulkClass && item.id && item.name);
-    if (!students.length) { showFinanceToast('Tidak ada santri pada rombel tenant ini.', 'error'); return; }
+    if (!students.length) { showFinanceToast('Tidak ada santri pada rombel pesantren ini.', 'error'); return; }
     if (!Number.isFinite(amount) || amount <= 0 || !period || !bulkType) { showFinanceToast('Periksa periode, jenis, dan nominal tagihan.', 'error'); return; }
     setIsGeneratingBulk(true);
     setBulkProgress(0);
@@ -406,7 +406,7 @@ export function FinanceManager() {
         if (didCreate) created++;
         setBulkProgress(Math.round(((index + 1) / students.length) * 100));
       }
-      setBulkStepMsg('Tagihan tersimpan pada tenant aktif.');
+      setBulkStepMsg('Tagihan tersimpan pada pesantren ini.');
       setIsBulkModalOpen(false);
       showFinanceToast(created + ' tagihan baru diterbitkan; ' + (students.length - created) + ' duplikat dilewati.', 'success');
     } catch (error: any) {
@@ -426,7 +426,7 @@ export function FinanceManager() {
       const ledgerRef = doc(collection(db, 'financeTransactions'));
       await runTransaction(db, async transaction => {
         const snapshot = await transaction.get(expenseRef);
-        if (!snapshot.exists() || snapshot.data().tenantId !== user.tenantId) throw new Error('Pengeluaran tidak ditemukan pada tenant aktif.');
+        if (!snapshot.exists() || snapshot.data().tenantId !== user.tenantId) throw new Error('Pengeluaran tidak ditemukan pada pesantren ini.');
         const data = snapshot.data();
         if (data.status !== 'Pending' || data.requesterUid === user.uid) throw new Error('Status pengeluaran berubah atau pemisahan tugas gagal.');
         transaction.update(expenseRef, { status: 'Approved', approvedByUid: user.uid, approvedAt: serverTimestamp(), updatedAt: serverTimestamp() });
@@ -454,7 +454,7 @@ export function FinanceManager() {
       });
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
-        throw new Error(result.error || 'Bukti transfer tidak dapat diakses oleh tenant ini.');
+        throw new Error(result.error || 'Bukti transfer tidak dapat diakses oleh pesantren ini.');
       }
       const objectUrl = URL.createObjectURL(await response.blob());
       proofWindow.location.replace(objectUrl);
@@ -462,7 +462,7 @@ export function FinanceManager() {
     } catch (error: any) {
       proofWindow.close();
       console.error('Bukti transfer gagal dibuka:', error);
-      showFinanceToast(error?.message || 'Bukti transfer tidak dapat diakses oleh tenant ini.', 'error');
+      showFinanceToast(error?.message || 'Bukti transfer tidak dapat diakses oleh pesantren ini.', 'error');
     }
   };
 
@@ -555,7 +555,7 @@ export function FinanceManager() {
         await runTransaction(db, async transaction => {
           const ref = doc(db, 'financeBillings', rejectingId);
           const snapshot = await transaction.get(ref);
-          if (!snapshot.exists() || snapshot.data().tenantId !== user.tenantId) throw new Error('Tagihan tidak ditemukan pada tenant aktif.');
+          if (!snapshot.exists() || snapshot.data().tenantId !== user.tenantId) throw new Error('Tagihan tidak ditemukan pada pesantren ini.');
           if (snapshot.data().status !== 'Verification') throw new Error('Bukti tidak lagi menunggu verifikasi.');
           transaction.update(ref, { status: 'Unpaid', rejectionReason: rejectionInput.trim(), reviewedByUid: user.uid, reviewedAt: serverTimestamp(), updatedAt: serverTimestamp() });
         });
@@ -564,7 +564,7 @@ export function FinanceManager() {
         await runTransaction(db, async transaction => {
           const ref = doc(db, 'financeExpenses', rejectingId);
           const snapshot = await transaction.get(ref);
-          if (!snapshot.exists() || snapshot.data().tenantId !== user.tenantId) throw new Error('Pengeluaran tidak ditemukan pada tenant aktif.');
+          if (!snapshot.exists() || snapshot.data().tenantId !== user.tenantId) throw new Error('Pengeluaran tidak ditemukan pada pesantren ini.');
           if (snapshot.data().status !== 'Pending' || snapshot.data().requesterUid === user.uid) throw new Error('Status berubah atau pemisahan tugas gagal.');
           transaction.update(ref, { status: 'Rejected', rejectionReason: rejectionInput.trim(), reviewedByUid: user.uid, reviewedAt: serverTimestamp() });
         });
@@ -1551,7 +1551,7 @@ export function FinanceManager() {
                          {uniqueClasses.length > 0 ? uniqueClasses.map(c => (
                            <option key={c} value={c}>Kelas {c}</option>
                          )) : (
-                           <option value="" disabled>Belum ada rombel pada tenant ini</option>
+                           <option value="" disabled>Belum ada rombel pada pesantren ini</option>
                          )}
                       </select>
                     </div>
@@ -1713,7 +1713,7 @@ export function FinanceManager() {
                      {uniqueClasses.length > 0 ? uniqueClasses.map(c => (
                        <option key={c} value={c}>Kelas {c}</option>
                      )) : (
-                       <option value="" disabled>Belum ada rombel pada tenant ini</option>
+                       <option value="" disabled>Belum ada rombel pada pesantren ini</option>
                      )}
                   </select>
                 </div>
@@ -1877,7 +1877,7 @@ export function FinanceManager() {
                      {uniqueClasses.length > 0 ? uniqueClasses.map(c => (
                        <option key={c} value={c}>Kelas {c}</option>
                      )) : (
-                       <option value="" disabled>Belum ada rombel pada tenant ini</option>
+                       <option value="" disabled>Belum ada rombel pada pesantren ini</option>
                      )}
                   </select>
                 </div>

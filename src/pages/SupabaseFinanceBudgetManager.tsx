@@ -77,7 +77,7 @@ function statusLabel(status: BudgetPlan["status"]) {
 
 async function requestBudget(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
@@ -204,7 +204,7 @@ export function SupabaseFinanceBudgetManager() {
   const removeLine = (index: number) => setDraft((current) => ({ ...current, lines: current.lines.length === 1 ? current.lines : current.lines.filter((_, lineIndex) => lineIndex !== index) }));
 
   if (role !== "Admin" && role !== "SuperAdmin") {
-    return <main className="mx-auto max-w-5xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">Anggaran hanya dapat dikelola Admin tenant.</main>;
+    return <main className="mx-auto max-w-5xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">Anggaran hanya dapat dikelola oleh Admin.</main>;
   }
 
   return (
@@ -283,7 +283,7 @@ export function SupabaseFinanceBudgetManager() {
         title={BUDGET_TABS.find((item) => item.id === view)?.label || "Keuangan & Anggaran"}
         status={view === "expenses" || view === "approvals" || view === "books" || view === "cashflow" ? "Sebagian fungsi tersedia pada modul terkait" : "Belum tersedia"}
         tone={view === "expenses" || view === "approvals" || view === "books" || view === "cashflow" ? "available" : "warning"}
-        description={view === "forecast" ? "Proyeksi anggaran berbasis tren belum tersedia. RKAT hanya menampilkan alokasi dan realisasi yang tercatat." : view === "expenses" ? "Pengeluaran tenant dicatat dan ditinjau pada modul Keuangan > Pengeluaran; proyeksi terhadap anggaran otomatis belum tersedia." : view === "approvals" ? "Persetujuan rancangan RKAT dilakukan pada tab Budget & RKAT. Tidak tersedia antrian persetujuan terpisah." : view === "books" ? "Buku besar dan unit dikelola pada modul Keuangan. Pembukuan berpasangan multi-entitas belum tersedia." : view === "statements" ? "Laporan keuangan formal belum disusun dari buku besar. Ringkasan ini bukan laporan akuntansi resmi." : "Arus kas tercatat dapat dilihat pada ringkasan utama. Analisis arus kas per anggaran belum tersedia."}
+        description={view === "forecast" ? "Proyeksi anggaran berdasarkan tren belum tersedia. RKAT tetap menampilkan alokasi dan realisasi yang tercatat." : view === "expenses" ? "Catatan pengeluaran dikelola melalui modul Keuangan. Proyeksi otomatis terhadap anggaran belum tersedia." : view === "approvals" ? "Persetujuan rancangan RKAT dilakukan pada bagian Budget & RKAT." : view === "books" ? "Buku besar dan unit dikelola melalui modul Keuangan. Pembukuan gabungan antarunit belum tersedia." : view === "statements" ? "Laporan keuangan resmi belum tersedia. Ringkasan ini tidak menggantikan laporan akuntansi." : "Arus kas tercatat dapat dilihat pada ringkasan utama. Analisis arus kas per anggaran belum tersedia."}
       />}
     </main>
   );

@@ -66,6 +66,27 @@ Implementasi React ada di [`src/components/ERPDesignSystem.tsx`](../../../src/co
 | Tombol | `.erp-button-primary` untuk aksi utama, `.erp-button-secondary` untuk aksi pendamping. Tentukan `type` eksplisit. Tombol harus punya handler nyata atau dinonaktifkan dengan alasan jelas. |
 | Tabel | `ERPTable` bila sesuai; gunakan header bermakna, key baris stabil, caption aksesibel bila dibutuhkan, dan pembungkus yang dapat digulir. |
 | Kosong / gagal / memuat | `ERPEmptyState`, `ERPErrorState`, `ERPLoadingState`; jelaskan status dan langkah berikutnya. |
+| Info / sukses / peringatan / gagal | `ERPNotice` dengan tone semantik `info`, `success`, `warning`, atau `error`. Hindari membuat ulang pola banner di setiap modul. |
+
+### Standar bahasa antarmuka
+
+- Tampilkan informasi yang membantu pengguna menyelesaikan pekerjaannya. Instruksi operator, detail implementasi, nama layanan/backend, konfigurasi, migrasi teknis, dan diagnostik disimpan di log atau dokumentasi operasional.
+- Gunakan istilah yang dikenal pengguna pesantren. Tulis **pesantren**, **santri**, **pegawai**, **unit**, dan nama modul; hindari istilah internal seperti *tenant*, nama basis data, atau *backend*.
+- Setiap pesan memiliki satu tujuan: memberi status, menjelaskan keadaan kosong, menyebut masalah, atau mengarahkan tindakan. Hindari menumpuk catatan arsitektur dalam banner.
+- Gunakan pola pesan sesuai konteks: validasi diletakkan dekat kolom; kegagalan pemuatan atau penyimpanan memakai notifikasi error; status proses memakai indikator memuat; hasil tanpa data memakai keadaan kosong; konfirmasi dipakai sebelum tindakan yang sulit dibatalkan.
+- Gunakan satu istilah untuk satu tindakan di seluruh modul: **Pratinjau** untuk memeriksa sebelum tindakan, **Impor** untuk memasukkan data, **Ekspor** untuk mengunduh data, dan **Muat ulang** untuk mengambil data terbaru. Jangan mencampur label seperti *Preview*, *refresh*, atau *apply* dengan padanan Indonesia pada layar yang sama.
+- Pesan berhasil menyebut hasil yang dicapai; pesan gagal menyebut tindakan yang belum selesai dan langkah aman berikutnya. Hindari istilah teknis seperti fingerprint, snapshot, rekonsiliasi, ID sumber, dan nama status internal.
+- Gunakan kalimat singkat dengan kapitalisasi kalimat biasa. Hindari huruf kapital penuh, tanda seru berulang, dan pesan umum tanpa konteks seperti **Terjadi kesalahan** bila tindakan terkait dapat disebutkan.
+- Pola pesan baku:
+  - Memuat: **Memuat [data]…**
+  - Kosong: **Belum ada [data].** Tambahkan tindakan yang relevan bila pengguna dapat membuat data.
+  - Gagal: **[Data/tindakan] belum dapat [dimuat/disimpan].** Sertakan tombol **Coba lagi** jika dapat diulang.
+  - Berhasil: gunakan bentuk lampau, misalnya **Perubahan berhasil disimpan.**
+  - Belum tersedia: sebut fitur yang belum tersedia dan alternatif yang benar-benar dapat digunakan.
+- Jangan menampilkan respons mentah server, kode exception, nama variabel konfigurasi, stack trace, atau detail koneksi. Petakan kegagalan ke pesan yang aman dan singkat; rincian teknis tetap tersedia untuk tim operasional.
+- Jangan menyebut teknologi penyimpanan untuk mengesahkan suatu tindakan, misalnya “tersimpan di Supabase”. Cukup nyatakan hasil yang pengguna perlukan, seperti **Tagihan berhasil diterbitkan.**
+- Status akses tetap boleh menyebut peran pengguna bila itu menjelaskan batas tindakan, misalnya **Hanya Admin yang dapat mengubah pengaturan ini.** Jangan paparkan aturan implementasi atau skema hak akses.
+- Gunakan Bahasa Indonesia yang ringkas dan konsisten. Istilah serapan yang sudah lazim, seperti *laundry*, tetap dapat digunakan.
 
 ### Aturan tombol
 

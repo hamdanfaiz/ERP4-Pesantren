@@ -534,7 +534,7 @@ function ApprovalView() {
 
                   <div className="w-full h-48 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl flex items-center justify-center text-slate-500 flex-col gap-2 relative">
                      <FileText className="w-8 h-8 opacity-50" />
-                     <span className="text-sm">Document Preview Area</span>
+                     <span className="text-sm">Pratinjau dokumen</span>
                      <div className="absolute bottom-4 right-4 bg-blue-500/10 text-blue-500 px-3 py-1 rounded border border-blue-500/20 text-xs font-mono flex items-center gap-2">
                         <QrCode className="w-3 h-3" /> Digital Sign Placeholder
                      </div>
@@ -668,7 +668,7 @@ function OcrScannerView() {
       setOcrResult(data);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "An error occurred during scanning");
+      setError("Dokumen belum dapat dipindai. Coba kembali.");
     } finally {
       setIsScanning(false);
     }
@@ -685,7 +685,7 @@ function OcrScannerView() {
           
           <div className="border-2 border-dashed border-slate-300 dark:border-white/20 rounded-xl p-6 flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 h-64 relative overflow-hidden group hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
             {imagePreview ? (
-              <img src={imagePreview} alt="Document preview" className="h-full object-contain" />
+              <img src={imagePreview} alt="Pratinjau dokumen" className="h-full object-contain" />
             ) : (
               <div className="text-center">
                 <Upload className="w-10 h-10 mx-auto text-slate-400 mb-3" />

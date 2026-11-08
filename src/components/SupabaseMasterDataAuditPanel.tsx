@@ -130,7 +130,7 @@ export function SupabaseMasterDataAuditPanel() {
           <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
             <Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> Jejak Audit Data Induk
           </h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Riwayat perubahan lintas sesi untuk tenant ini. Nilai data pribadi tidak disimpan di log.</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Lihat riwayat perubahan data. Nilai data pribadi tidak ditampilkan di sini.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setReloadKey((value) => value + 1)} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5">
@@ -174,7 +174,7 @@ export function SupabaseMasterDataAuditPanel() {
             <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="mt-2 font-semibold underline">Coba lagi</button>
           </div>
         ) : loading ? (
-          <div role="status" className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-400">Memuat jejak audit tenant…</div>
+          <div role="status" className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-400">Memuat riwayat perubahan…</div>
         ) : page.records.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-white/15 dark:bg-slate-950/40">
             <Activity className="mx-auto h-8 w-8 text-slate-400" />

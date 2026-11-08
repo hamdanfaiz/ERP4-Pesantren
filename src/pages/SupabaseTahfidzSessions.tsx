@@ -18,7 +18,7 @@ type Session = {
 
 async function requestSessions(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
@@ -218,14 +218,14 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
   return (
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white"><CalendarClock className="h-5 w-5 text-emerald-600" />{title}</h2><p className="mt-1 text-sm text-slate-500">Jadwal dan hasil disimpan pada tenant Supabase, dengan validasi penempatan santri dan pengampu.</p></div>
+        <div><h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white"><CalendarClock className="h-5 w-5 text-emerald-600" />{title}</h2><p className="mt-1 text-sm text-slate-500">Kelola jadwal dan hasil sesi dengan santri serta pengampu yang telah ditetapkan.</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={() => void refresh().catch(() => undefined)} aria-label="Muat ulang jadwal" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><RefreshCw className="h-4 w-4" /></button>
           {canManage && <button type="button" disabled={!eligibleStudents.length && !rosterHasMore} onClick={() => { setError(""); setCreateOpen(true); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-4 w-4" /> Jadwalkan</button>}
         </div>
       </div>
       {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">{error}</div>}
-      {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat jadwal tenant…</div>
+      {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat jadwal…</div>
         : sessions.length ? <><div className="grid gap-3">{sessions.map((session) => <article key={session.id} className="flex flex-col gap-4 rounded-xl border border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{session.studentName}</h3><span className="text-xs text-slate-500">{session.nis || "—"}</span><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${session.status === "completed" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : session.status === "cancelled" ? "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300" : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"}`}>{statusLabel(session)}</span></div>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{formatTenantDateTime(session.scheduledAt, timeZone)} ({timeZone}) · {session.durationMinutes} menit · {session.halaqahName}</p>

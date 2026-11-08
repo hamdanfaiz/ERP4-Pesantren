@@ -1,16 +1,14 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 8 November 2026, setelah PR #86.** Source utama `main` berada pada merge commit `c219bbb467e1d2db3385abcaa7b8b1ee14ef0ad9`. PR #86 memperbaiki konflik versi simpan Pengaturan Tenant dan sudah merged. PR #1–#11 tetap closed tanpa merge karena implementasi intinya digantikan source yang lebih baru.
+> **Status otoritatif — 8 November 2026, sesudah PR #90.** `origin/main` pada pemeriksaan lokal berada di `ef8ce28e9541137e2154d025211db574dc2eef94`. PR #90 masih open pada head `33268c3ecd18a2d09c93fc498b5615dc77d0038f`; CI [run #42468708677](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42468708677) lulus 3/3 job. UAT Admin staging membuktikan login dan akses 25 modul, tetapi belum menguji semua CRUD UI, role, atau tenant. PR #1–#11 tetap closed tanpa merge karena implementasi intinya digantikan source yang lebih baru.
 >
-> CI pada kandidat PR #86 (`c34fed60a41c0e13e37e03281b650abffcd58fc7`) lulus 3/3 job: build/runtime Docker dan guard frontend, migrasi/API/pgTAP, serta instalasi NPM pelanggan. [Hasil CI](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42459060708). Supabase Preview dilewati. Job memakai Supabase lokal terisolasi dan fixture sintetis; ini bukan UAT browser penuh atau bukti Production.
+> Pembacaan staging VQE `vqemuyzveuirlkvdggjd` memastikan 140/140 versi dan nama ledger cocok dengan source; migrasi terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Bukti ini tidak membuktikan kesamaan seluruh DDL. Patch UI bahasa/tema sesudah PR #90 masih berupa perubahan lokal belum di-commit.
 >
-> Pemeriksaan baca-saja staging VQE `vqemuyzveuirlkvdggjd` menunjukkan proyek aktif sehat, 139 migrasi sampai `20270307000000_tenant_settings_conflict_http_409`, dan definisi `save_tenant_system_settings` menggunakan `PT409`. Ini membuktikan keberadaan migrasi/fungsi tersebut pada VQE; bukan bukti seluruh DDL, modul UI, atau CRUD setiap role sudah lulus UAT.
+> Konektor menolak pembacaan PTSAS Production dan tidak ada perubahan Production. Schema diff dan urutan migrasi Production, backup/restore, UAT Wali, UAT CRUD modul, serta pengujian clean install/upgrade VPS/on-premise tetap menjadi gerbang sebelum produk dinyatakan siap deploy atau komersial.
 >
-> Akses baca Production PTSAS melalui konektor sesi ini ditolak. Snapshot operator terdahulu menyebut 47 entri ledger dan 119 tabel public dengan RLS + FORCE RLS, tetapi belum dicocokkan ulang terhadap source terkini. Tidak ada perubahan Production. DDL aktual, urutan migrasi, backup/restore Production, dan UAT hosting tetap perlu dibuktikan tim backend.
+> Produk **belum dinyatakan siap deploy atau komersial**. Gunakan [checkpoint pengujian terkini](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
 >
-> Produk **belum dinyatakan siap deploy atau komersial**. Login browser, matriks role/tenant menyeluruh, simpan-baca seluruh modul lewat UI, Storage di hosting target, tampilan responsif, dan clean install/restore di VPS/on-premise belum lulus UAT. Gunakan [checkpoint pengujian terkini](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
->
-> Persentase terukur pada checkpoint ini: **CI 3/3 job (100% dari job wajib di run tersebut)**. Angka ini bukan persentase penyelesaian seluruh ERP; persentase keseluruhan tidak dihitung karena UAT, Production, dan penerimaan komersial belum memiliki denominator berbukti yang sama.
+> Persentase terukur adalah CI **3/3 job (100% dari job wajib pada run PR #90)**, bukan persentase seluruh ERP. Persentase keseluruhan tidak dihitung karena UAT, Production, dan penerimaan komersial belum memiliki denominator berbukti yang sama.
 
 > Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
 
