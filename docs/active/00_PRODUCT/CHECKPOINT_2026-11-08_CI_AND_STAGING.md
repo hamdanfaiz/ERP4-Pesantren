@@ -34,7 +34,8 @@ Ini bukan bukti bahwa setiap menu/form/tombol sudah diuji melalui browser. Uji l
 - Pemeriksaan MCP baca-saja pada 9 November 2026 pukul 00.03 WIB mengembalikan 140 migration ledger entries untuk `vqemuyzveuirlkvdggjd`.
 - Daftar `supabase/migrations` pada branch PR `codex/product-copy-cleanup-20261108` juga berisi 140 file. Pasangan versi/nama cocok **140/140**; tidak ada versi yang hilang, tambahan, atau duplikat.
 - Versi terakhir ledger `20270308000000_academic_class_unit_admin_role_baseline`.
-- Ini hanya merekonsiliasi nama/versi ledger dengan source; bukan bukti DDL aktual identik atau alur modul lulus UAT. Pemeriksaan hanya membaca metadata; tidak ada perubahan database.
+- Audit katalog baca-saja 9 November pukul 00.07 WIB menemukan 167/167 tabel public mengaktifkan RLS + FORCE RLS; 162 tanpa policy, dan 5 tabel hanya memberi SELECT langsung kepada `authenticated` melalui policy tenant/role. Tidak ditemukan grant langsung ke `PUBLIC`/`anon`. Advisor juga memberi peringatan perlindungan password bocor nonaktif, 258 foreign key tanpa indeks, dan 80 indeks belum terpakai. Tidak ada perubahan skema, grant, atau Auth. Lihat [audit staging VQE](../06_DATABASE/VQE_STAGING_ADVISOR_AUDIT_2026-11-08.md).
+- Kecocokan migration ledger hanya membuktikan versi/nama, bukan DDL aktual atau alur modul lulus UAT.
 
 ## Supabase Production PTSAS
 
