@@ -209,7 +209,7 @@ async function main() {
 
     const invalidMime = await requestJson(`${apiBase}/api/documents/${created.documentId}/attachments/upload-url`, adminToken, {
       attachment: {
-        clientRequestId: randomUUID(), fileName: 'bukan-pdf.txt', contentType: 'text/plain', fileSize: 4,
+        clientRequestId: randomUUID(), fileName: 'berkas-tidak-valid.pdf', contentType: 'text/plain', fileSize: 4,
         contentSha256: createHash('sha256').update('test').digest('hex'),
       },
     });
