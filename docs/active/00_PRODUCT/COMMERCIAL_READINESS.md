@@ -1,8 +1,8 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 9 November 2026, revalidasi preview dan koreksi gerbang runtime.** PR #91 masih **Open/Draft**, head kode `322c337f4d9020d15e389482d7c8fc4417ee494b`. Perbaikan Pengaturan Sistem pada commit [`a6f622f`](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/a6f622ff45003aa07198b82158e3412f08bb13ac) serta gerbang tab Asrama pada commit [`322c337`](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/322c337f4d9020d15e389482d7c8fc4417ee494b) masing-masing lulus CI **3/3 job** pada [run #1461](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42608858146) dan [run #1462](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42610552651).
+> **Status otoritatif — 10 November 2026.** PR #91 masih **Open/Draft**, head `18659947e54a9cb25f57f2625070b3fc5ce3677f`. Koreksi fixture uji Peer Review menyamakan ejaan `An-Naba'` dengan nama kanonis katalog. [Actions run #1470](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42706964412) lulus **3/3 job**: replay migrasi lokal terisolasi dan **1.693 uji pgTAP**, build/guard frontend, serta instalasi paket pelanggan. Kegagalan CI sebelumnya berasal dari fixture yang memakai nama tidak kanonis; aturan database tetap menolaknya dengan benar.
 >
-> Perbaikan terbaru mencegah sinkronisasi Pengaturan Sistem memanggil API saat gerbangnya mati, dan membuat tab Asrama hanya berstatus aktif bila flag publik fiturnya bernilai `true`. Tes runtime, pemeriksaan tipe, dan build lokal lulus; build tetap memberi peringatan chunk React PDF sekitar 1,46 MB dan anotasi Zod. Run CI menguji source PR secara terisolasi, bukan deployment atau sesi Production.
+> `npm run lint`, `npm run test:supabase-runtime-no-firebase`, dan `npm run test:migration-preflight` juga lulus di worktree. Supabase CLI dan Docker tidak tersedia di shell lokal, jadi bukti database berasal dari CI terisolasi. Production tidak disentuh.
 >
 > Preview Admin UAT menampilkan 25 menu. Source UI yang dilayani cocok untuk subset berkas yang dicatat di [laporan UAT](UAT_BROWSER_SMOKE_2026-11-09.md). UAT staging berhasil menyimpan dan membaca kembali Gedung/Kamar ber-ID otomatis serta memastikan Kamar menunjuk ke Gedung induk setelah navigasi. Dua fixture lalu dihapus dan daftar kembali kosong. Ini bukti satu alur Master Data, bukan CRUD seluruh modul.
 >
@@ -12,7 +12,7 @@
 >
 > Metadata Production terdahulu dilaporkan berisi 47 entri ledger dan 119/119 tabel public dengan RLS + FORCE RLS; snapshot tersebut tidak membuktikan kesetaraan DDL, policy, atau pemulihan. Production tidak disentuh. Tinjauan DDL/urutan migrasi dan backup/restore Production tetap ditangani tim backend.
 >
-> **Perkiraan kemajuan — checkpoint sebelumnya, 9 November 2026:** sekitar **67% untuk produk, kode, dan handoff** serta **45% untuk kesiapan operasional yang terbukti**. Ini estimasi berbobot, bukan metrik otomatis; persentase belum dihitung ulang setelah dua koreksi gerbang runtime di atas.
+> **Perkiraan progress pada checkpoint ini:** sekitar **73% untuk produk, kode, dan handoff**, serta **45% untuk kesiapan operasional yang sudah dibuktikan**. Ini estimasi berbobot, bukan metrik otomatis. Persentase implementasi tidak berarti seluruh fitur telah lulus UAT.
 >
 > Masih terbuka: aktivasi serta UAT tulis-baca modul secara bertahap di VQE, relasi dan role/tenant end-to-end, UAT Wali, Storage browser, validasi instalasi/upgrade/restore di VPS dan on-premise. Tim backend menyelesaikan perbandingan DDL Production, urutan migrasi, serta bukti backup/restore Production. PR #91 tetap Draft dan belum dinyatakan siap merge atau deploy.
 
