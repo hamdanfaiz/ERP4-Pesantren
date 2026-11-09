@@ -181,3 +181,13 @@
 - Audit lanjutan menemukan tab Asrama menandai lima subfitur aktif karena memakai helper mode Supabase yang mengabaikan nilai gerbang. Commit [`322c337`](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/322c337f4d9020d15e389482d7c8fc4417ee494b) mengikat status tiap tab ke flag runtime publiknya. CI #1462 lulus 3/3 job.
 - Perubahan ini belum diperiksa ulang secara visual pada preview yang menjalankan commit `322c337`. Jalankan ulang source terbaru untuk membuktikan tampilan status saat flag aktif/nonaktif; pengaturan backend dan UAT semua modul tetap terpisah.
 - Tidak ada migrasi, penulisan data staging, atau perubahan Production dalam tindak lanjut kode ini.
+
+## Perbaikan referensi Surah dan Ayat pada Entri Cepat Tahfidz — 9 November 2026
+
+- Screenshot yang diberikan memperlihatkan kolom Surah dan Ayat pada Entri Cepat masih menerima teks bebas.
+- Kode PR kini memuat pilihan Surah dari endpoint katalog `/api/quran/surat`; pilihan ayat mulai/akhir dibatasi sesuai jumlah ayat Surah terpilih. Entri cepat tidak lagi menerima teks bebas dan penyimpanan tetap nonaktif sampai rentang ayat lengkap dipilih.
+- Endpoint katalog saat ini diproksi server dari `equran.id`; belum ada tabel referensi Surah di Supabase. Jadi perubahan ini memastikan pilihan terkontrol dari katalog, tetapi belum mengklaim referensi disimpan sebagai tabel Supabase.
+- Regression check `npm run test:supabase-runtime-no-firebase`, `npm run lint`, dan `npm run build` lulus lokal. GitHub Actions [run #1466](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42615187569) lulus **3/3 job**.
+- Pemeriksaan browser terakhir menunjukkan 25 menu dan keadaan Tahfidz kosong, tetapi tidak membuktikan preview menayangkan commit terbaru atau menguji pilihan baru secara visual. Preview source-match dan UAT interaksi formulir masih diperlukan.
+- Tidak ada setoran, migrasi, atau perubahan data Supabase/Production.
+
