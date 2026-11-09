@@ -211,8 +211,8 @@ for (const [constant, flag] of [
   assert.match(centralStructureSource, new RegExp(`${constant}\\s*=\\s*publicRuntimeConfigValue\\(["']${flag}["']\\)\\s*===\\s*["']true["']`),
     `Tenant structure ${constant} must be disabled unless ${flag} is explicitly true.`);
 }
-assert.match(tahfidzSource, /fetch\(["']\/api\/quran\/surat["']/,
-  'Tahfidz must load its Surah choices from the Quran reference endpoint.');
+assert.match(tahfidzSource, /fetch\(["']\/api\/tahfidz\/references\/surahs["']/,
+  'Tahfidz must load Surah choices from the Supabase-backed Quran reference endpoint.');
 const quickEntryStart = tahfidzSource.indexOf('{/* Quick Entry Form */}');
 const recordsTableStart = tahfidzSource.indexOf('<div className="bg-white dark:bg-white\/[0.02]', quickEntryStart);
 assert.ok(quickEntryStart >= 0 && recordsTableStart > quickEntryStart,

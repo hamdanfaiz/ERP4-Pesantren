@@ -73,6 +73,14 @@ jobs:
         run: npm run test:tahfidz-session-pagination
       - name: Verify Tahfidz achievement thresholds
         run: npm run test:tahfidz-achievements
+      - name: Verify Tahfidz Quran catalog source and ayah bounds
+        run: npm run test:tahfidz-quran-catalog
+      - name: Verify Tahfidz persisted monthly leaderboard
+        run: npm run test:tahfidz-leaderboard
+      - name: Verify Tahfidz study plan excludes sample records
+        run: npm run test:tahfidz-target-print
+      - name: Verify Tahfidz bulk targets use atomic tenant-scoped API
+        run: npm run test:tahfidz-bulk-targets
 
       - name: Verify PPDB CSV import parsing and identity preservation
         run: bun run test:ppdb-csv-import

@@ -175,6 +175,13 @@
 - Pemeriksaan ini tidak membuktikan identitas commit yang melayani tab atau project Supabase yang dipakai oleh proses preview. Karena itu hasil visual ini tidak diklaim sebagai source-match atau bukti tulis-baca staging.
 - Tidak ada transaksi atau perubahan Production.
 
+## Pengembangan lanjutan Target & Rapor Tahfidz — 9 November 2026
+
+- Source menambahkan aksi cetak rencana berbasis roster, target, dan setoran Supabase yang sudah dimuat; modal contoh hanya tersedia pada mode legacy.
+- Source juga menambahkan target massal dengan pemilihan roster, endpoint terautentikasi, dan RPC database atomik sampai 250 santri. Kegagalan satu siswa membatalkan seluruh batch; tenant, role, dan penugasan halaqah divalidasi ulang oleh RPC target kanonis. Ledger idempotensi hanya memberi role server hak `SELECT`/`INSERT`; kunci advisory mengurutkan permintaan identik tanpa hak `UPDATE`.
+- Source checks `test:tahfidz-target-print`, `test:tahfidz-bulk-targets`, pagination Tahfidz, tanggal keanggotaan, capaian, TypeScript, build produksi, pemeriksaan runtime Supabase-only, tes katalog/leaderboard, migration preflight, dan `git diff --check` lulus.
+- Uji pgTAP khusus target massal belum dijalankan karena Supabase CLI, Docker, dan `psql` tidak tersedia pada PATH shell saat ini. Migrasi belum diterapkan ke staging, dan UI source-matched belum diuji. Production tidak disentuh.
+
 ## Tindak lanjut gerbang runtime — 9 November 2026
 
 - Temuan console di atas ditelusuri ke layanan Pengaturan Sistem yang memulai polling `/api/system/settings` walau flag klien mati. Commit [`a6f622f`](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/a6f622ff45003aa07198b82158e3412f08bb13ac) membuat polling hanya berjalan saat `VITE_SUPABASE_SYSTEM_SETTINGS=true`, menolak simpan saat gerbang mati, dan menampilkan status fitur yang sesuai. CI #1461 lulus 3/3 job.
@@ -185,8 +192,68 @@
 ## Perbaikan referensi Surah dan Ayat pada Entri Cepat Tahfidz — 9 November 2026
 
 - Screenshot yang diberikan memperlihatkan kolom Surah dan Ayat pada Entri Cepat masih menerima teks bebas.
-- Kode PR kini memuat pilihan Surah dari endpoint katalog `/api/quran/surat`; pilihan ayat mulai/akhir dibatasi sesuai jumlah ayat Surah terpilih. Entri cepat tidak lagi menerima teks bebas dan penyimpanan tetap nonaktif sampai rentang ayat lengkap dipilih.
-- Endpoint katalog saat ini diproksi server dari `equran.id`; belum ada tabel referensi Surah di Supabase. Jadi perubahan ini memastikan pilihan terkontrol dari katalog, tetapi belum mengklaim referensi disimpan sebagai tabel Supabase.
+- Kode PR kini memuat pilihan Surah dari endpoint katalog `/api/tahfidz/references/surahs`; pilihan ayat mulai/akhir dibatasi sesuai jumlah ayat Surah terpilih. Entri cepat tidak lagi menerima teks bebas dan penyimpanan tetap nonaktif sampai rentang ayat lengkap dipilih.
+- Katalog global berada di tabel `public.quran_surahs` dan dibaca oleh server menggunakan kunci privat. Migrasi mengikat setoran baru ke nomor Surah melalui foreign key, menormalkan nama, dan menolak rentang ayat di luar jumlah ayat Surah.
 - Regression check `npm run test:supabase-runtime-no-firebase`, `npm run lint`, dan `npm run build` lulus lokal. GitHub Actions [run #1466](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42615187569) lulus **3/3 job**.
 - Pemeriksaan browser terakhir menunjukkan 25 menu dan keadaan Tahfidz kosong, tetapi tidak membuktikan preview menayangkan commit terbaru atau menguji pilihan baru secara visual. Preview source-match dan UAT interaksi formulir masih diperlukan.
 - Tidak ada setoran, migrasi, atau perubahan data Supabase/Production.
+
+## Katalog Surah Supabase dan catatan parity Leaderboard — 9 November 2026
+
+- Dropdown Entri Cepat Tahfidz kini membaca katalog global `quran_surahs` melalui endpoint server Supabase. Migrasi menyiapkan 114 nomor Surah dengan jumlah 6.236 ayat; setoran baru diikat ke nomor Surah lewat foreign key, nama Surah di-canonicalize oleh trigger, dan rentang ayat di luar jumlah Surah ditolak.
+- Tindak lanjut pada worktree PR #91 kini menambahkan RPC dan endpoint server untuk leaderboard bulanan berbasis catatan Ziyadah yang tersimpan. Hasil dibatasi tenant dan halaqah Ustadz; akses dibatasi untuk Admin, Super Admin, dan Ustadz. UI menampilkan hitungan setoran/ayat dan keadaan kosong nyata, bukan nilai hafalan tetap.
+- Pemeriksaan lokal yang lulus: `npm run test:tahfidz-quran-catalog`, `npm run test:tahfidz-leaderboard`, `npm run test:supabase-runtime-no-firebase`, `npm run test:migration-preflight`, `npm run lint`, `npm run build`, dan `git diff --check`. Build berhasil dengan peringatan dependency Zod dan chunk PDF besar.
+- Uji pgTAP untuk trigger, constraint, isolasi leaderboard, dan penerapan migrasi di VQE belum dijalankan. Preview source-matched juga belum digunakan untuk memeriksa interaksi baru. Migrasi belum diterapkan ke VQE maupun Production.
+- Pemeriksaan referensi yang lebih rinci menunjukkan kesenjangan terbesar memang ada di dalam tab/submodul. Lihat [audit paritas submodul dan isi tab](AI_STUDIO_TAB_LEVEL_PARITY_2026-11-09.md); daftar itu membedakan backend aktif, cakupan sebagian, status-only, fitur yang dimiliki modul lain, dan fitur yang dikeluarkan.
+- Tidak ada data Supabase/Production yang diubah.
+
+## Batas shell lokal dan sinkronisasi PR — 9 November 2026
+
+- `npm run test:runtime-config-http` tidak dapat mengakses server yang berjalan di loopback dari shell Codex terisolasi (`TypeError: EACCES`). Server lokal melaporkan sudah listen. Ini membatasi uji HTTP lokal pada sesi ini; belum membuktikan endpoint rusak. Pemeriksaan sintaks skrip dan build tetap lulus.
+- GitHub MCP melaporkan PR #91 masih **Draft/Open**, head `7b29f12`. Worktree lokal saat checkpoint berada di `b2f6213`, bertumpu pada cache lokal `9156ebe`, dengan tiga commit lokal di atasnya dan sejumlah perubahan belum di-commit.
+- Perbandingan baca-saja menunjukkan head PR remote memiliki lima commit sesudah `9156ebe`, menyentuh catatan UAT, regression check, `TahfidzManager`, dan `centralStructureService`. Source Tahfidz remote masih memakai endpoint `/api/quran/surat`; worktree lokal telah bergerak ke katalog Supabase untuk pilihan Surah. Source kedua sisi belum disatukan.
+- `git fetch origin refs/pull/91/head:refs/remotes/origin/pr91-audit-current` gagal pada koneksi Git lokal (`getaddrinfo() thread failed to start`). Tidak ada branch remote yang diperbarui, file kerja yang di-reset, atau perubahan yang di-push.
+- Sebelum commit/push berikutnya, sinkronkan lima commit head PR remote dengan perubahan lokal tanpa membuang keduanya; jalankan kembali CI dan pastikan semua migration tests mencakup migration baru. PR tidak dinyatakan selesai atau siap merge hanya berdasarkan build lokal.
+- Production dan database staging tidak diubah.
+
+## Pembandingan ulang Tahfidz dan sinkronisasi PR — 9 November 2026
+
+- Referensi AI Studio yang dibuka menampilkan 10 tab Tahfidz, termasuk Ringkasan Halaqah, Riwayat Setoran, Target & Rapor, Jadwal Talaqqi, Munaqasyah, Portal Wali, Peer Review, Al-Qur'an, Badges & Achievements, dan Manajemen Halaqah. Preview lokal juga menampilkan 10 tab yang sepadan.
+- Preview `localhost:3000` saat diperiksa masih menampilkan kolom teks bebas untuk Surah dan rentang Ayat. Source di worktree ini sudah menggunakan pilihan Surah dari endpoint `/api/tahfidz/references/surahs` dan pilihan ayat berdasarkan jumlah ayat dari katalog Supabase. Karena identitas source yang sedang dijalankan preview tidak dapat dipastikan, interaksi dropdown baru belum dianggap teruji di browser.
+- GitHub Compare mengonfirmasi PR #91 head `7b29f12` memiliki **5 commit** sesudah basis lokal `9156ebe`, yang menyentuh `UAT_BROWSER_SMOKE_2026-11-09.md`, `test-supabase-runtime-no-firebase.mjs`, `TahfidzManager.tsx`, dan `centralStructureService.ts`. Remote masih memakai endpoint Quran eksternal; perubahan katalog Supabase di worktree lokal belum disatukan ke head PR.
+- Fetch Git langsung tetap gagal pada resolusi koneksi (`getaddrinfo() thread failed to start`). Tidak ada perubahan branch remote atau push. Tidak ada data yang ditulis melalui browser; staging dan Production tidak diubah.
+- Regresi source `npm run test:tahfidz-quran-catalog` kini secara khusus memeriksa bahwa UI memakai dropdown Surah dan rentang Ayat dari katalog, menolak teks bebas, dan membatasi pilihan Ayat terhadap Surah terpilih. Pemeriksaan ini lulus; pgTAP, staging, dan UAT browser source-matched tetap terbuka.
+
+## Penguatan privasi leaderboard lintas perpindahan halaqah — 9 November 2026
+
+- Pemeriksaan logika menemukan bahwa pemeringkatan Ustadz sebelumnya memilih santri dari halaqah tugas saat ini, tetapi dapat menjumlahkan setoran Ziyadah santri yang tercatat pada halaqah lamanya. Ini dapat membuat angka halaqah baru tidak akurat dan mengungkap aktivitas dari lingkup pembimbing lain.
+- RPC kini menyaring catatan berdasarkan `halaqah_id` aktif untuk Ustadz; Admin tetap melihat seluruh halaqah dalam tenant. Indeks parsial juga mencakup `halaqah_id` untuk mendukung filter tersebut.
+- Regression check source, katalog Quran, target massal, guard Supabase-only, migration preflight, lint TypeScript, dan `git diff --check` lulus. Build produksi terbaru juga lulus; peringatan chunk PDF besar dan anotasi dependency Zod tetap muncul.
+- pgTAP kini memuat riwayat penempatan santri di Halaqah B dan setoran lama di sana, sementara penempatan saat ini berada pada Halaqah C yang diampu Ustadz A. Pengujian memeriksa skor B tidak bocor ke leaderboard Ustadz A. Suite berisi 88 assertion.
+- Migrasi baru belum diterapkan ke VQE; belum ada perubahan staging atau Production. Sinkronisasi lima commit remote PR #91 juga masih menunggu jalur fetch Git pulih.
+
+## Revalidasi regresi lokal lintas modul — 9 November 2026
+
+- Menjalankan ulang 8 tes Tahfidz (katalog Surah/Ayat, leaderboard, cetak target, target massal, paginasi, keanggotaan, capaian), ditambah guard Firebase, migration preflight, dan CI coverage. Semua lulus; CI coverage memastikan 60 skrip package dijadwalkan di workflow.
+- Dari 38 tes kontrak/source tambahan untuk role, wali, pesan UI, Master Data/Naming Series, Akademik, PPDB, Perpustakaan, Koperasi, SDM, Alumni, Keuangan, konfigurasi deploy, dan skema API, 37 lulus.
+- `test:trusted-proxy-hops` tidak selesai karena sandbox menolak koneksi loopback lokal dengan `EACCES 127.0.0.1:<port>`. Hasil ini belum membuktikan tes proxy lulus/gagal secara fungsional; jalankan pada runner lokal/CI yang mengizinkan koneksi loopback.
+- TypeScript lint dan production build lulus. Build masih melaporkan chunk React PDF besar (sekitar 1,46 MB sebelum gzip) serta anotasi komentar dependency Zod.
+- Tes pgTAP/replay migrasi penuh dan tes HTTP yang memerlukan Supabase CLI/Docker tidak dijalankan karena CLI/Docker tidak tersedia di environment Codex. Rehearsal 88/88 dan 21/21 yang dicatat di atas dijalankan sebagai transaksi staging yang di-rollback; migrasi precision belum permanen.
+- Tidak ada data atau migrasi Production yang diubah.
+
+## Validasi precision target dan transaksi pgTAP — 9 November 2026
+
+- Pengujian batch target Tahfidz menemukan nilai halaman `0.123` diterima RPC lalu berpotensi dibulatkan oleh kolom `NUMERIC(6,2)`. Migrasi baru menolak presisi melebihi dua desimal pada RPC target kanonis, sebelum penulisan atau pembulatan.
+- Migrasi dibuat dengan Supabase CLI `2.122.0`, lalu ditempatkan sesudah versi source terbaru `20270311000000` sebagai `20270312000000_tahfidz_target_decimal_precision.sql`.
+- Rehearsal di VQE menjalankan migrasi dan fixture sintetis dalam satu transaksi yang di-rollback. Hasil: **88/88** assertion Tahfidz dan **21/21** assertion target batch lulus. Pemeriksaan pasca-rollback memastikan fixture tidak tersisa, katalog tetap 114 surah, dan fungsi target permanen staging belum berubah.
+- Ada ketidaksesuaian ledger VQE yang perlu dibereskan sebelum `db push`: tiga migrasi source `20270309000000`, `20270310000000`, `20270311000000` tercatat oleh MCP sebagai versi `20261109145507`, `20261109145522`, `20261109145534` dengan nama yang sama. Dengan demikian, pencocokan versi source akan menganggap tiga file itu belum tercatat meski DDL sudah ada. Ledger tidak diubah pada langkah ini; lakukan rekonsiliasi terkontrol sebelum sinkronisasi CLI atau promosi Production.
+- Pemeriksaan lokal `test:tahfidz-leaderboard`, `test:tahfidz-bulk-targets`, `test:tahfidz-quran-catalog`, `test:migration-preflight`, dan `git diff --check` lulus setelah pembaruan test plan serta inventaris migrasi.
+- Migrasi precision **belum diterapkan permanen** ke VQE ataupun Production. Production tidak disentuh. PR #91 tetap belum tersinkron dengan lima commit remote, dan UAT UI source-matched serta verifikasi lintas-modul masih terbuka.
+
+## Perbandingan tab Ringkasan Tahfidz — 9 November 2026
+
+- Referensi AI Studio menampilkan leaderboard pada Ringkasan Halaqah, tetapi nama, jumlah halaman, dan angka pada referensi merupakan data contoh; angka tersebut tidak boleh dipindahkan sebagai data operasional.
+- Preview Admin di `localhost:3000` menampilkan tenant kosong dan tidak menampilkan bagian leaderboard pada tab Ringkasan Halaqah.
+- Source worktree PR #91 yang diperiksa memiliki bagian `Peringkat Setoran Ziyadah` di Ringkasan Supabase, membaca endpoint tenant-scoped, membatasi hasil Ustadz ke halaqah aktif, dan memiliki keadaan kosong tanpa nilai contoh. `npm run test:tahfidz-leaderboard` lulus.
+- Identitas source yang sedang dilayani port 3000 belum cocok dengan head source worktree terbaru. Karena itu, tampilan yang hilang belum membuktikan kode terbaru kehilangan fitur; leaderboard belum dianggap lulus UAT browser sampai preview memakai source yang sama dan bagian tersebut tampil untuk Admin/Ustadz yang berhak.
+- Tidak ada setoran atau data yang ditulis. Staging dan Production tidak diubah.

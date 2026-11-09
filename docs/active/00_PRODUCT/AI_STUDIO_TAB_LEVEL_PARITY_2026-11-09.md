@@ -1,0 +1,88 @@
+# Audit Paritas Submodul dan Isi Tab AI Studio
+
+**Tanggal snapshot referensi:** 9 November 2026
+**Referensi:** [erp4-pesantren.ai.studio](https://erp4-pesantren.ai.studio/)
+**Peran yang terlihat:** Super Admin
+**Source yang ditinjau:** worktree PR #91, runtime Supabase
+**Jenis pemeriksaan:** inspeksi tab dan source; bukan UAT semua alur.
+
+## Kesimpulan
+
+Perbedaan penting memang berada di dalam tab: beberapa fitur hanya punya status, sebagian digabung dalam satu tab, sebagian ditempatkan pada modul pemilik datanya, dan sebagian belum memiliki API. Karena itu, keberadaan menu/tab tidak dihitung sebagai fitur selesai. Penilaian berikut membedakan data demo di referensi dari fungsi yang benar-benar tersambung ke API Supabase.
+
+Referensi yang dibuka berisi banyak angka, nama, prediksi, dan rekaman contoh. Nilai tersebut tidak boleh disalin ke tenant sebagai data operasional. Sistem produksi harus menghitungnya dari data tenant tersimpan atau menampilkan keadaan kosong/status yang jujur.
+
+## Temuan per modul
+
+| Modul | Submodul yang terlihat di referensi | Temuan pada runtime/source Supabase | Pekerjaan yang tersisa |
+|---|---|---|---|
+| Dashboard | Periode hari/minggu/bulan, indikator PPDB, Tahfidz, tagihan, nilai, grafik pertumbuhan, ringkasan eksekutif dan prediksi | Ringkasan operasional mengambil agregat tenant. Analitik AI/prediktif tidak boleh memakai narasi contoh; bagian lanjutan ditandai belum tersedia. | Cocokkan setiap kartu dan pilihan periode; pastikan setiap grafik berasal dari agregat tersimpan dan dibatasi izin modul. |
+| Data Induk | Entitas/santri, struktur, akademik, pemesanan fasilitas, audit; kategori santri, wali, guru/asatidz, pegawai, alumni | Menu disederhanakan ke pemilik data: Santri, Struktur, Aturan Penomoran, Jejak Audit; katalog akademik dikelola Akademik dan entitas lain pada modulnya. | Periksa setiap field relasi dan aksi per kategori terhadap Data Induk referensi. Tidak mengembalikan kategori yang hanya berisi free-type atau tautan tanpa fungsi. |
+| Manajemen Pengguna | Tambah pengguna, filter role/status, hak akses modul dan status akun | Daftar/provisioning pengguna memakai API tenant Supabase. | Uji peran, izin modul, kegagalan kompensasi Auth/profil, dan perubahan status di staging. |
+| PPDB | Pipeline tahap, filter jenjang/gender/nilai/pembayaran, dokumen, nilai CBT, jadwal ujian/wawancara, publikasi portal, alokasi dan onboarding | Kandidat, penilaian, dokumen privat, onboarding, dan beberapa integrasi punya jalur Supabase; penagihan PPDB bergantung pada flag Finance. | Rekonsiliasi setiap filter dan aksi terhadap kontrak server; UAT portal publik, penjadwalan, pembayaran, dan onboarding lintas modul. |
+| CBT | Dasbor, kalender, sesi, paket (ringkasan dan rincian), bank soal, pembuat soal, pemantauan langsung, hasil/analitik, pengaturan | Tab runtime menggabungkan bank soal dan builder serta paket; kalender, paket, pemantauan dan sebagian pengaturan menampilkan status belum tersedia. | Putuskan mana yang tetap dipisah sesuai referensi dan implementasikan kontrak paket/kalender/pemantauan/analitik sebelum menandai aktif. |
+| Tahfidz | Ringkasan/setoran, target-rapor, talaqqi, munaqasyah, portal wali, peer review, Al-Qur'an, capaian/leaderboard, halaqah, pengingat dan penilaian audio | Roster, halaqah, setoran, target, sesi, peer review teks termoderasi dan pencapaian memiliki jalur Supabase. Katalog Surah/ayat dipindah ke endpoint server dan migrasi `quran_surahs`; leaderboard bulanan dihitung dari catatan Ziyadah tersimpan, tenant dan halaqah-scoped untuk Ustadz. Cetak rencana individu memakai data tersimpan. Target massal sekarang memiliki UI, route, dan RPC atomik dengan idempotensi, batas 250 santri, serta validasi ulang scope tiap santri. Penilaian audio tetap nonaktif. | Statistik rapor harian/mingguan, AI Planner, dan peta kemajuan 30 Juz belum tersedia pada runtime Supabase. Jangan menghitung capaian halaman dari rentang ayat tanpa katalog pemetaan halaman Mushaf; jangan menyatakan Juz selesai tanpa hasil munaqasyah lulus. Jalankan pgTAP katalog/leaderboard/target massal, terapkan hanya ke staging setelah preflight, lalu UAT pilihan Surah/Ayat, ranking, bulk rollback, privasi, cetak, export/pengingat dan seluruh tab. Preview belum source-matched untuk perubahan terbaru. |
+| Asrama | Rincian kamar, izin, kedisiplinan, kehadiran, audit kebersihan, tiket pemeliharaan, musyrif | Runtime memiliki tab Perizinan, Kedisiplinan, Kehadiran, Penugasan, Fasilitas. Kamar tetap dikelola pada Struktur Data Induk; audit/tiket berada di Fasilitas. | Buktikan tab fasilitas memuat kedua alur audit dan tiket; pastikan penugasan musyrif dan relasi kamar/gedung terlihat serta diuji dari modul pemiliknya. |
+| Akademik Formal | Jadwal/kalender, KBM/jurnal, penilaian, E-Rapor; konflik jadwal dengan resolusi | Runtime memisahkan jadwal, jurnal, penilaian, E-Rapor, konflik, pengajar, mata pelajaran, dan kurikulum. E-Rapor belum tersedia; konflik dapat diperiksa tetapi penyelesaian otomatis seperti tombol “Auto-Resolve Swap Teacher” di referensi belum setara. | Pertahankan semua tab; selesaikan E-Rapor dan tentukan aturan aman penjadwalan ulang otomatis, termasuk persetujuan sebelum perubahan jadwal. |
+| LMS | Dasbor, kursus, kategori, pustaka video, asesmen, peer review, pengajar | Kursus/materi, kategori, asesmen dan pengumpulan tersedia sebagian. Dasbor dan peer review berstatus belum tersedia; video dan pengajar dikelola dari kursus, belum sebagai layar mandiri. | Uji alur kursus→materi→tugas→pengumpulan→penilaian; tentukan apakah pemindahan video/pengajar ke Kursus memenuhi kebutuhan tanpa tautan pengalihan. |
+| Perpustakaan | Katalog, sirkulasi, perpustakaan digital | Runtime memiliki Ringkasan, Katalog, Sirkulasi, dan tab Digital yang ditutup bila layanan Storage belum aktif. | UAT pinjam/kembali, denda, arsip privat, serta impor; jangan menunjukkan unggah/unduh aktif saat flag tertutup. |
+| Keuangan & Tagihan | Tagihan, SPP, tagihan PPDB, verifikasi, pengeluaran/persetujuan, buku besar/penutupan, cetak dan rilis massal | Runtime menyediakan tagihan, pengeluaran dan ledger sesuai role; beberapa tindakan bergantung flag dan cakupan yang dimuat. | UAT maker-checker, wali, idempotensi, cetak, tutup buku, dan integrasi PPDB. |
+| Pusat Komunikasi | Pengumuman, helpdesk, pesan langsung, perizinan, templat | Pengumuman memiliki backend. Helpdesk, pesan langsung dan templat belum tersedia; perizinan dimiliki Asrama. | Pertahankan kepemilikan data tunggal; putuskan apakah tab Perizinan di Komunikasi dihapus atau hanya menjelaskan lokasi fitur tanpa navigasi duplikat. |
+| UKS | Kunjungan, profil medis, inventaris obat, statistik harian, ekspor | Kunjungan/profil/obat tersambung; ringkasan tersedia. Statistik laporan per hari/rentang waktu belum setara. | Uji pembatasan data medis, laporan harian, ekspor dan matriks role. |
+| Koperasi & Kantin | Kasir/POS, staf, inventaris, pemasok, analitik, dompet santri, pantauan wali | POS/stok/pemasok/dompet/transaksi memiliki jalur API; tab petugas dikelola di Pengguna; pantauan wali belum tersedia. | UAT pencatatan transaksi, posting kas, saldo/idempotensi dan akses pantauan wali; jangan menganggap label tab sebagai fitur aktif. |
+| Laundry | Pesanan aktif, kuota, pindai label, label/penandaan, riwayat, tarif | Pesanan, kuota, riwayat dan tarif ditampilkan; pemindaian dan pencetakan label belum tersedia. | Implementasikan scan/label dan uji status pesanan serta posting biaya jika menjadi cakupan rilis. |
+| Multi-Unit | Dasbor gabungan, registri, transfer, tagihan antarunit, analitik | Registri dan jejak unit tersedia; ringkasan terbatas. Transfer, tagihan dan analitik finansial lintas unit belum tersedia. | Jangan tampilkan agregat contoh. Bangun relasi dan transaksi antarunit sebelum membuka tab operasional. |
+| Keuangan & Anggaran | RKAT, proyeksi, pengeluaran, persetujuan, buku multi-entitas, laporan, arus kas | RKAT/alokasi dan realisasi tersedia sebagian; proyeksi, laporan resmi, pembukuan konsolidasi dan arus kas per anggaran belum tersedia atau berada di modul Keuangan. | Tetapkan satu sumber ledger, lalu bangun alur anggaran→realisasi→persetujuan→laporan. |
+| SDM | Direktori, kehadiran, cuti, pelacakan, shift, penggajian, kinerja, rekrutmen, analitik | Direktori/kehadiran/cuti tersedia; pelacakan, shift, payroll, kinerja, rekrutmen dan analitik masih status-only. | Rancang privasi/akses HR sebelum membangun fitur sensitif tersebut. |
+| Sarana & Prasarana | Data induk, tiket, aset, pengadaan, armada/logistik, housekeeping, dapur | Aset/inventaris dan sebagian fasilitas memiliki jalur Supabase; tab lain berstatus belum tersedia. | Uji aset dan fasilitas; prioritaskan tiket/pengadaan/armada sesuai keputusan produk. |
+| Dokumen Digital | Surat masuk/keluar, e-approval, arsip, OCR, ekspor CSV/PDF | Pencatatan surat, status telaah dan berkas privat tersedia; OCR belum tersedia dan persetujuan berjenjang belum setara. | Uji hak akses Storage dan alur status; jangan tampilkan OCR atau tanda tangan berjenjang seolah aktif. |
+| Alumni | Direktori, tracer, komunitas, donasi | Direktori tersedia; tracer/komunitas belum tersedia; donasi tercatat pada modul Donasi. | Pastikan informasi lintas modul tidak membuat transaksi duplikat. |
+| CRM Wali/Donatur | Direktori, pipeline, siaran, analitik | Direktori dan alur prospek tersedia sebagian; siaran tidak aktif, analitik perlu dibuktikan dari data tersimpan. | Uji persetujuan komunikasi, segmentasi, audit dan sumber metrik. |
+| Donasi & Wakaf | Dasbor, kampanye, wakaf, direktori donatur, analitik | Kampanye/donatur/transaksi/aset wakaf punya jalur Supabase. | UAT rekonsiliasi Finance, pembatalan, kuitansi, akses publik dan laporan. |
+| Marketplace | Etalase, pesanan, inventaris, analitik | Keempat tab ada dan memiliki data Supabase untuk katalog/pesanan; klaim analitik dibatasi pada data yang dimuat. | UAT pemenuhan pesanan, stok bersamaan, pembatalan dan posting ke Finance. |
+| PPOB & Services | Dasbor, PPOB, ZISWAF gateway, tabungan | Terlihat di referensi, tetapi sengaja dikeluarkan dari rilis awal sesuai keputusan pemilik produk. | Jangan aktifkan sebelum provider pembayaran, rekonsiliasi dan kontrol transaksi dipilih. |
+| Data Warehouse/AI | Dasbor eksekutif, prediksi, AI Tahfidz, gudang data, pusat pengetahuan | Ringkasan operasional terpilih berasal dari Supabase. Prediksi/AI/gudang data/pusat pengetahuan bukan fungsi yang telah diverifikasi. | Aktifkan hanya setelah sumber data, validasi model, izin, dan cara menjelaskan hasil diputuskan. |
+
+## Aturan penerimaan paritas tab
+
+Satu submodul baru boleh disebut selesai bila seluruh butir berikut lulus:
+
+1. Perilaku dan tujuan bisnisnya terpetakan ke tab referensi atau keputusan pemindahan modul yang disetujui.
+2. Baca dan tulis memakai API Supabase dengan `tenantId`, role, dan permission yang benar; tidak mengandalkan `localStorage`, fixture, atau array demo.
+3. Relasi memakai ID referensi tervalidasi dan constraint/transaksi yang mencegah data yatim atau duplikat.
+4. Keadaan kosong, memuat, gagal, dan berhasil tidak memberi kesan palsu; tombol menjalankan aksi yang dijanjikan.
+5. Ada uji kontrak/server/database serta UAT browser untuk peran yang relevan. Source/API saja tidak membuktikan kesiapan staging/Production.
+
+## Pemetaan rinci isi tab Tahfidz
+
+Pemetaan ini menilai fungsi di dalam setiap tab, bukan sekadar keberadaan label tab.
+
+| Tab referensi | Perilaku/fungsi pada referensi | Status source Supabase | Celah atau batas penerimaan |
+|---|---|---|---|
+| Ringkasan Halaqah | KPI, aktivitas mingguan, tindak lanjut, setoran terbaru, leaderboard | Ada agregat tenant/role, grafik jumlah setoran, antrean tindak lanjut, leaderboard bulanan Ziyadah dari database. | KPI setoran dapat tampil sebagai batas bawah bila riwayat dipaginasi; UAT agregat dan scope Ustadz belum source-matched. |
+| Riwayat Setoran Terbaru | Input santri, Surah/Ayat, jenis, kelancaran, tajwid; daftar dan ekspor | Form Supabase menggunakan pemilih santri berhalaqah, katalog Surah/Ayat tersimpan, penilaian wajib; daftar dipaginasi dan ekspor laporan dibatasi role/rentang. | UAT simpan-baca dan unduhan pada build yang sama; backend perlu pgTAP untuk foreign key/katalog dan transaksi setoran. |
+| Target & Rapor | Cetak Study Plan, AI Planner, target massal, kemajuan harian/mingguan, target vs aktual, peta 30 Juz | Daftar/penetapan target individu dan cetak rencana berbasis database tersedia. Target massal source kini memilih banyak santri dan memakai satu RPC atomik yang menggunakan ulang validasi target kanonis. | AI Planner, statistik rapor dan peta Juz belum dipindahkan. Bulk source belum diuji dengan pgTAP, staging, atau UI source-matched. Target diukur dalam halaman/hari, sementara setoran dicatat dalam ayat; metrik aktual memerlukan definisi unit yang sebanding. |
+| Jadwal Talaqqi | Kalender/jadwal, pengampu, status sesi dan catatan | CRUD/status sesi tersedia melalui komponen Supabase dan RPC sesi. | UAT benturan waktu, pembatalan, penutupan sesi, izin, dan kalender rentang waktu. |
+| Munaqasyah | Jadwal ujian, rentang Juz, nilai, hasil lulus/ulang | Sesi ujian tersimpan dengan jenis, rentang Juz, nilai, hasil, status, dan catatan. | Peta capaian harus menghitung hanya ujian berstatus selesai dan hasil lulus; belum ada ringkasan lintas-Juz pada tab Target & Rapor. UAT belum dilakukan. |
+| Portal Wali Santri | Riwayat dan ringkasan hanya untuk santri tertaut | Ada layar Supabase yang menyelesaikan relasi wali-santri dari profil dan memuat catatan terkait. | Uji role Wali dengan relasi staging dan pastikan tidak ada data santri lain yang terlihat. |
+| Penilaian Antar-Santri | Kirim bacaan untuk dinilai teman, komentar dan moderasi | Jalur Supabase hanya menyediakan peer review teks yang dimoderasi, sesuai keputusan rilis awal. | Audio/video dan pemutaran contoh bukan fungsi aktif; UAT privasi halaqah, moderasi, dan anti-penyalahgunaan diperlukan. |
+| Al-Qur'an | Cari/pilih Surah dan baca ayat | Pembaca memakai proxy server ke layanan teks publik; katalog pilihan untuk setoran memakai tabel Supabase terpisah. | Pembacaan teks bergantung layanan eksternal dan perlu batas timeout, penanganan gagal, serta verifikasi sumber/kesesuaian teks. Konten ayat belum tersimpan dalam database tenant. |
+| Pencapaian Tahfidz / Leaderboard | Badges, capaian hafalan dan peringkat | Achievement/leaderboard memakai query tersimpan; ranking menghitung setoran dan ayat, bukan nilai rekaan hafalan Juz. | Badge yang menyatakan hafal Juz harus berlandaskan asesmen lulus, bukan jumlah setoran. UAT dan pgTAP masih diperlukan. |
+| Manajemen Halaqah | CRUD halaqah, pengampu, jadwal, anggota | Halaqah dan relasi anggota memiliki API/RPC Supabase; tampilan berubah menjadi “Halaqah Saya” untuk santri/wali. | Uji roster besar, pergantian pengampu, rentang keanggotaan, dan penghapusan/arsip agar riwayat tetap terjaga. |
+
+### Perubahan source yang sedang ditinjau
+
+- Cetak rencana pada runtime Supabase tidak memakai contoh nama, nomor induk, alamat, semester, atau target contoh dari modal lama. Modal Supabase terpisah dan hanya tampil jika identitas santri ditemukan dalam roster aktif tenant.
+- Modal ditutup dan identitas santri cetak dihapus ketika tenant/pengguna berubah. Bagian setoran menyebut bahwa daftar maksimum lima catatan berasal dari halaman riwayat yang sudah dimuat, bukan mengaku sebagai seluruh riwayat.
+- Target massal menerapkan target pada maksimal 250 santri melalui satu transaksi database. Setiap baris memakai aturan target kanonis, sehingga anggota lintas tenant, santri di luar halaqah Ustadz, konflik periode, atau kegagalan satu baris menggagalkan keseluruhan batch. Pengulangan permintaan identik idempoten; payload berbeda dengan ID permintaan sama ditolak. Ledger permintaan hanya memberi role server hak `SELECT`/`INSERT`; kunci transaksi advisory menyerialkan ID permintaan yang sama tanpa memerlukan hak `UPDATE`.
+- Source checks untuk leaderboard, katalog Surah/Ayat, cetak rencana, pemisahan runtime tanpa Firebase, target massal, TypeScript, build produksi, migration preflight, dan whitespace telah lulus. Build memberi peringatan chunk React PDF besar serta komentar dependency Zod; keduanya tidak menggagalkan build. Uji SQL pgTAP, staging, dan UAT source-matched untuk interaksi cetak/target massal masih perlu dijalankan.
+- Tidak ada migrasi yang diterapkan pada VQE atau Production; tidak ada data Supabase yang ditulis.
+
+## Gerbang saat ini
+
+- Pekerjaan Tahfidz pada worktree ini: pemeriksaan sumber Surah/Ayat, leaderboard, target massal, cetak rencana, pagination sesi/riwayat/roster, membership date, dan capaian lulus pada tingkat source; `test:tahfidz-quran-catalog`, `test:tahfidz-leaderboard`, `test:tahfidz-bulk-targets`, `test:tahfidz-target-print`, `test:tahfidz-session-pagination`, `test:tahfidz-record-pagination`, `test:tahfidz-membership-date`, `test:tahfidz-achievements`, `test:supabase-runtime-no-firebase`, `test:migration-preflight`, TypeScript lint, build produksi, dan `git diff --check` lulus.
+- Build masih memberi peringatan ukuran bundle PDF dan anotasi dependency Zod. Ini tidak menggagalkan build.
+- Pengujian pgTAP lokal, penerapan migrasi VQE, serta UAT browser terhadap commit yang sama belum dilakukan. Production tidak diubah.
+- Audit semua isi tab belum selesai; tabel di atas adalah register temuan tab-level untuk mengarahkan audit dan pekerjaan berikutnya, bukan klaim bahwa seluruh fitur sudah lengkap.
+
+Lihat [audit paritas historis 31 Oktober](AI_STUDIO_REFERENCE_PARITY_AUDIT_2026-10-31.md) dan [catatan UAT browser 9 November](UAT_BROWSER_SMOKE_2026-11-09.md) untuk konteks dan bukti pemeriksaan terdahulu.

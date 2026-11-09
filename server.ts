@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { PUBLIC_CLIENT_RUNTIME_CONFIG_KEYS } from "./src/publicRuntimeConfigKeys";
 import { createHash, randomUUID } from "node:crypto";
 import { resolveTrustedProxyHops } from "./src/server/trustedProxyHops";
+import { listSupabaseQuranSurahs, SupabaseQuranCatalogError } from "./src/server/supabaseQuranCatalog";
 import { Buffer } from "node:buffer";
 import {
   IdentityConflictError,
@@ -50,6 +51,7 @@ import {
 import {
   assignSupabaseTahfidzMembership,
   listSupabaseTahfidzAchievementPage,
+  listSupabaseTahfidzLeaderboard,
   listSupabaseTahfidzSessions,
   listSupabaseTahfidzRosterPage,
   listSupabaseTahfidzSnapshot,
@@ -59,6 +61,7 @@ import {
   mutateSupabaseTahfidzSession,
   recordSupabaseTahfidzSetoran,
   recordSupabaseTahfidzTarget,
+  recordSupabaseTahfidzTargetsBulk,
   saveSupabaseTahfidzHalaqah,
   submitSupabaseTahfidzPeerReview,
   SupabaseTahfidzError,
@@ -3105,6 +3108,26 @@ async function startServer() {
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 
+  app.get("/api/tahfidz/leaderboard", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      if (req.query.limit !== undefined && typeof req.query.limit !== "string") {
+        return res.status(400).json({ error: "Jumlah peringkat Tahfidz tidak valid." });
+      }
+      const limitValue = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+      if (limitValue !== undefined && ![5, 20].includes(limitValue)) {
+        return res.status(400).json({ error: "Jumlah peringkat Tahfidz tidak valid." });
+      }
+      const actor = await loadTahfidzActor(uid);
+      return res.json(await listSupabaseTahfidzLeaderboard(
+        actor.tenantId, actor.uid, actor.role, limitValue,
+      ));
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
   app.get("/api/tahfidz/records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
@@ -3219,6 +3242,19 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
       const result = await recordSupabaseTahfidzTarget(actor.tenantId, actor.uid, actor.role, req.body?.target);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/targets/bulk", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) return res.status(403).json({ error: "Role ini tidak dapat mengatur target Tahfidz." });
+      const result = await recordSupabaseTahfidzTargetsBulk(actor.tenantId, actor.uid, actor.role, req.body?.target);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
   });
@@ -4222,6 +4258,18 @@ async function startServer() {
     } catch (e: any) {
       console.error("Wilayah village proxy failed:", e?.name || "error");
       res.status(500).json({ error: "Data desa/kelurahan belum dapat dimuat. Silakan coba kembali." });
+    }
+  });
+
+  app.get("/api/tahfidz/references/surahs", requireAuth, async (_req, res) => {
+    try {
+      const data = await listSupabaseQuranSurahs();
+      res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+      res.json({ code: 200, message: "Katalog Surah berhasil dimuat.", data });
+    } catch (e: any) {
+      const error = e instanceof SupabaseQuranCatalogError ? e : null;
+      if (!error) console.error("Supabase Quran catalog failed:", e?.name || "error");
+      res.status(error?.status || 503).json({ error: error?.message || "Katalog Surah belum dapat dimuat. Silakan coba kembali." });
     }
   });
 

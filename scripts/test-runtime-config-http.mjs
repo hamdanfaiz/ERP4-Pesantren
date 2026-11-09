@@ -41,16 +41,20 @@ try {
   const baseUrl = `http://127.0.0.1:${port}`;
   const deadline = Date.now() + 15000;
   let response;
+  let lastFetchError = "";
   while (Date.now() < deadline && child.exitCode === null) {
     try {
       response = await fetch(`${baseUrl}/runtime-config.json`, { signal: AbortSignal.timeout(1000) });
       if (response.ok) break;
-    } catch {}
+      lastFetchError = `HTTP ${response.status}`;
+    } catch (error) {
+      lastFetchError = `${error?.name || "Error"}: ${error?.cause?.code || error?.message || "unknown"}`;
+    }
     await sleep(200);
   }
 
   assert.equal(child.exitCode, null, `Production server exited before serving runtime config. ${output.slice(-1500)}`);
-  assert.equal(response?.status, 200, `Runtime config endpoint did not respond. ${output.slice(-1500)}`);
+  assert.equal(response?.status, 200, `Runtime config endpoint did not respond (${lastFetchError}). ${output.slice(-1500)}`);
   assert.match(response.headers.get("content-type") || "", /application\/json/i);
   assert.match(response.headers.get("cache-control") || "", /no-store/i);
 

@@ -6,8 +6,9 @@ Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `compl
 
 ## Kesiapan produk
 - [Kesiapan Komersial dan Go-Live](00_PRODUCT/COMMERCIAL_READINESS.md) — kontrak produk self-hosted, bukti teknis, dan tahapan pilot/deploy.
-- [Progres penyelesaian pengembangan — 30 Okt 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — estimasi progres pengembangan sekitar 73%, tidak termasuk pelaksanaan deployment dan UAT oleh tim penerapan.
+- [Progres penyelesaian pengembangan — 9 Nov 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — estimasi progres pengembangan sekitar 72%, tidak termasuk pelaksanaan deployment dan UAT oleh tim penerapan.
 - [Checkpoint penempatan menu — 1 Nov 2026](00_PRODUCT/MODULE_OWNERSHIP_CHECKPOINT_2026-11-01.md) — lokasi menu pada modul pemilik, batas katalog baca-saja, hasil pemeriksaan lokal, dan gate yang masih terbuka.
+- [Audit paritas submodul dan isi tab AI Studio — 9 Nov 2026](00_PRODUCT/AI_STUDIO_TAB_LEVEL_PARITY_2026-11-09.md) — perbandingan fitur per tab, termasuk status yang benar-benar tersambung dan gap yang masih perlu dibangun.
 
 ## Referensi aktif
 - [Audit akses RLS Supabase staging — 8 Nov 2026](05_ARCHITECTURE/VQE_RLS_PRIVILEGE_AUDIT_2026-11-08.md) — grant, policy, FORCE RLS, Storage privat, view, dan fungsi PostgreSQL pada VQE; tidak mencakup Production.
