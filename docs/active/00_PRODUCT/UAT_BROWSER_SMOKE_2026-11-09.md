@@ -174,3 +174,10 @@
 - Console browser mencatat peringatan sinkronisasi setelan sistem dengan pesan layanan belum tersedia. Peringatan ini hanya tercatat di console pada pemeriksaan ini; alur setelan sistem belum tervalidasi.
 - Pemeriksaan ini tidak membuktikan identitas commit yang melayani tab atau project Supabase yang dipakai oleh proses preview. Karena itu hasil visual ini tidak diklaim sebagai source-match atau bukti tulis-baca staging.
 - Tidak ada transaksi atau perubahan Production.
+
+## Tindak lanjut gerbang runtime — 9 November 2026
+
+- Temuan console di atas ditelusuri ke layanan Pengaturan Sistem yang memulai polling `/api/system/settings` walau flag klien mati. Commit [`a6f622f`](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/a6f622ff45003aa07198b82158e3412f08bb13ac) membuat polling hanya berjalan saat `VITE_SUPABASE_SYSTEM_SETTINGS=true`, menolak simpan saat gerbang mati, dan menampilkan status fitur yang sesuai. CI #1461 lulus 3/3 job.
+- Audit lanjutan menemukan tab Asrama menandai lima subfitur aktif karena memakai helper mode Supabase yang mengabaikan nilai gerbang. Commit [`322c337`](https://github.com/hamdanfaiz/ERP4-Pesantren/commit/322c337f4d9020d15e389482d7c8fc4417ee494b) mengikat status tiap tab ke flag runtime publiknya. CI #1462 lulus 3/3 job.
+- Perubahan ini belum diperiksa ulang secara visual pada preview yang menjalankan commit `322c337`. Jalankan ulang source terbaru untuk membuktikan tampilan status saat flag aktif/nonaktif; pengaturan backend dan UAT semua modul tetap terpisah.
+- Tidak ada migrasi, penulisan data staging, atau perubahan Production dalam tindak lanjut kode ini.
