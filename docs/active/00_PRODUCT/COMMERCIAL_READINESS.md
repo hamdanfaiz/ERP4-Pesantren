@@ -4,6 +4,8 @@
 >
 > `npm run lint`, `npm run test:supabase-runtime-no-firebase`, dan `npm run test:migration-preflight` juga lulus di worktree. Supabase CLI dan Docker tidak tersedia di shell lokal, jadi bukti database berasal dari CI terisolasi. Production tidak disentuh.
 >
+> UAT API di VQE staging lulus untuk Dokumen Digital, PPDB/Keuangan, dan Storage Perpustakaan. Sesudah tes, pemeriksaan baca-saja memastikan semua tenant sintetis disuspensi, akun uji diblokir, dan objek Storage bersih; catatan audit append-only tetap disimpan. Harness API Tahfidz kini ditambahkan ke source dan CI, tetapi koneksi staging gagal tanpa respons saat permintaan pembuatan tenant pertama; status insert itu perlu diverifikasi baca-saja sebelum uji diulang. Tahfidz belum dinyatakan lulus. Rincian: [UAT API VQE 10 Nov](VQE_STAGING_API_UAT_2026-11-10.md). UAT browser dan modul lain masih terbuka.
+>
 > Preview Admin UAT menampilkan 25 menu. Source UI yang dilayani cocok untuk subset berkas yang dicatat di [laporan UAT](UAT_BROWSER_SMOKE_2026-11-09.md). UAT staging berhasil menyimpan dan membaca kembali Gedung/Kamar ber-ID otomatis serta memastikan Kamar menunjuk ke Gedung induk setelah navigasi. Dua fixture lalu dihapus dan daftar kembali kosong. Ini bukti satu alur Master Data, bukan CRUD seluruh modul.
 >
 > UAT belum membuktikan relasi Santri lintas Akademik/Asrama/Wali: jenjang dan wali aktif belum tersedia serta Kelas masih kosong. PPDB, Keuangan, Pusat Komunikasi, CBT, SDM, dan Aset & Inventaris menampilkan layanan belum tersedia; Akademik gagal memuat data/referensi. Tahfidz masih kosong dan sebagian aksi nonaktif. Storage browser, seluruh matriks role/tenant UI, serta tampilan ponsel juga belum diuji.
@@ -12,9 +14,9 @@
 >
 > Metadata Production terdahulu dilaporkan berisi 47 entri ledger dan 119/119 tabel public dengan RLS + FORCE RLS; snapshot tersebut tidak membuktikan kesetaraan DDL, policy, atau pemulihan. Production tidak disentuh. Tinjauan DDL/urutan migrasi dan backup/restore Production tetap ditangani tim backend.
 >
-> **Perkiraan progress pada checkpoint ini:** sekitar **73% untuk produk, kode, dan handoff**, serta **45% untuk kesiapan operasional yang sudah dibuktikan**. Ini estimasi berbobot, bukan metrik otomatis. Persentase implementasi tidak berarti seluruh fitur telah lulus UAT.
+> **Perkiraan progress pada checkpoint ini:** sekitar **73% untuk produk, kode, dan handoff**, serta **55% untuk kesiapan operasional yang sudah dibuktikan**. Tiga suite integrasi live-staging lulus; harness Tahfidz menunggu CI lokal dan koneksi staging yang sehat. Persentase ini estimasi berbobot, bukan metrik otomatis; implementasi tidak berarti seluruh fitur telah lulus UAT.
 >
-> Masih terbuka: aktivasi serta UAT tulis-baca modul secara bertahap di VQE, relasi dan role/tenant end-to-end, UAT Wali, Storage browser, validasi instalasi/upgrade/restore di VPS dan on-premise. Tim backend menyelesaikan perbandingan DDL Production, urutan migrasi, serta bukti backup/restore Production. PR #91 tetap Draft dan belum dinyatakan siap merge atau deploy.
+> Masih terbuka: eksekusi suite Tahfidz di CI dan VQE, aktivasi serta UAT tulis-baca modul secara bertahap di VQE, relasi dan role/tenant end-to-end, UAT Wali, Storage browser, validasi instalasi/upgrade/restore di VPS dan on-premise. Tim backend menyelesaikan perbandingan DDL Production, urutan migrasi, serta bukti backup/restore Production. PR #91 tetap Draft dan belum dinyatakan siap merge atau deploy.
 
 > **Pembaruan checkpoint — 6 November 2026, 23.08 WIB.** CI #1191 lulus 3/3 job pada source dokumen PR `602926c548410e2f6af2d0001701d5cf23fd0ece`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. UAT browser, inventaris penuh Production, backup/restore yang terbukti, dan rehearsal/dry-run masih terbuka.
 >

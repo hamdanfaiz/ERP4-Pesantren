@@ -373,6 +373,9 @@ jobs:
       - name: Verify API auth and tenant isolation
         run: npm run test:api:auth-tenant
 
+      - name: Verify Tahfidz catalog, setoran, leaderboard, and tenant boundaries
+        run: npm run test:api:tahfidz-runtime
+
       - name: Verify Finance expenses use tenant-owned organization units
         run: npm run test:supabase-finance-unit-scope
 
