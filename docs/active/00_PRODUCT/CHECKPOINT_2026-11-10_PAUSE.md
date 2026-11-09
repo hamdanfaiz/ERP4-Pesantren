@@ -7,9 +7,9 @@ Checkpoint ini dibuat atas permintaan pemilik proyek untuk menghentikan pengemba
 - Repositori: `hamdanfaiz/ERP4-Pesantren`.
 - PR aktif: [#91](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/91), status **Open/Draft**, belum merge.
 - Branch remote: `codex/product-copy-cleanup-20261108`.
-- Head remote saat checkpoint: `47defc082f3e90b6cdfb4752600cb9b4b8f3961f`.
+- Head kode yang diuji pada CI #1475: `47defc082f3e90b6cdfb4752600cb9b4b8f3961f`. Commit dokumentasi checkpoint ditambahkan sesudah pengujian.
 - Worktree: `C:\Users\VICTUS\Documents\Codex\2026-10-18\sa\erp4-pr91-source-20261109`.
-- Commit lokal terbaru: `322f4a5` (`test: fix Tahfidz structure fixture defaults`). Worktree sudah di-commit. Saat melanjutkan, cocokkan isi dan head remote PR #91 sebelum membuat commit baru.
+- Commit source lokal sebelum checkpoint: `322f4a5` (`test: fix Tahfidz structure fixture defaults`). Dokumen checkpoint dan laporan UAT kemudian disimpan terpisah. Saat melanjutkan, cocokkan isi dan head remote PR #91 sebelum membuat commit source baru.
 
 ## Pekerjaan terakhir
 
