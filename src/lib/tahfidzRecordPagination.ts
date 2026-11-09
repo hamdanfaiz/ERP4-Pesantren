@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
+import { TAHFIDZ_RECORD_MAX_PAGE_SIZE, TAHFIDZ_RECORD_PAGE_SIZE } from "./tahfidzRecordPaginationConstants";
 
-export const TAHFIDZ_RECORD_PAGE_SIZE = 100;
+export { TAHFIDZ_RECORD_MAX_PAGE_SIZE, TAHFIDZ_RECORD_PAGE_SIZE } from "./tahfidzRecordPaginationConstants";
 
 export type TahfidzRecordCursor = {
   performedAt: string;
@@ -14,8 +15,15 @@ function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID_PATTERN.test(value);
 }
 
+function isValidTimestamp(value: unknown): value is string {
+  if (typeof value !== "string" || !TIMESTAMP_PATTERN.test(value) || !Number.isFinite(Date.parse(value))) return false;
+  const calendarDate = value.slice(0, 10);
+  const parsedDate = new Date(`${calendarDate}T00:00:00.000Z`);
+  return Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === calendarDate;
+}
+
 export function encodeTahfidzRecordCursor(cursor: TahfidzRecordCursor): string {
-  if (!TIMESTAMP_PATTERN.test(cursor.performedAt) || !Number.isFinite(Date.parse(cursor.performedAt)) || !isUuid(cursor.id)) {
+  if (!isValidTimestamp(cursor.performedAt) || !isUuid(cursor.id)) {
     throw new Error("Posisi riwayat Tahfidz tidak valid.");
   }
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
@@ -31,7 +39,7 @@ export function decodeTahfidzRecordCursor(value: unknown): TahfidzRecordCursor |
     const decoded = Buffer.from(value, "base64url").toString("utf8");
     const parsed = JSON.parse(decoded) as Partial<TahfidzRecordCursor>;
     if (!parsed || typeof parsed.performedAt !== "string" || typeof parsed.id !== "string"
-      || !TIMESTAMP_PATTERN.test(parsed.performedAt) || !Number.isFinite(Date.parse(parsed.performedAt))
+      || !isValidTimestamp(parsed.performedAt)
       || !isUuid(parsed.id) || encodeTahfidzRecordCursor(parsed as TahfidzRecordCursor) !== value) {
       throw new Error("invalid cursor payload");
     }
@@ -47,18 +55,39 @@ export function buildTahfidzRecordPageParams(input: {
   halaqahIds?: string[];
   studentIds?: string[];
   cursor?: unknown;
+  pageSize?: number;
+  from?: unknown;
+  to?: unknown;
 }): URLSearchParams | null {
   if (!isUuid(input.tenantId)) throw new Error("Tenant Tahfidz tidak valid.");
   if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(input.role)) {
     throw new Error("Role tidak dapat membaca riwayat Tahfidz.");
+  }
+  const pageSize = input.pageSize ?? TAHFIDZ_RECORD_PAGE_SIZE;
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > TAHFIDZ_RECORD_MAX_PAGE_SIZE) {
+    throw new Error("Ukuran halaman riwayat Tahfidz tidak valid.");
+  }
+  const from = input.from == null || input.from === "" ? null : input.from;
+  const to = input.to == null || input.to === "" ? null : input.to;
+  if ((from === null) !== (to === null)) throw new Error("Rentang tanggal laporan Tahfidz tidak lengkap.");
+  if (from !== null || to !== null) {
+    if (typeof from !== "string" || typeof to !== "string"
+      || !isValidTimestamp(from) || !isValidTimestamp(to)
+      || Date.parse(from) >= Date.parse(to)) {
+      throw new Error("Rentang tanggal laporan Tahfidz tidak valid.");
+    }
   }
 
   const params = new URLSearchParams({
     select: "id,student_id,halaqah_id,activity_type,surah_name,ayah_start,ayah_end,fluency_grade,tajweed_grade,notes,performed_at,recorded_by_name",
     tenant_id: "eq." + input.tenantId,
     order: "performed_at.desc,id.desc",
-    limit: String(TAHFIDZ_RECORD_PAGE_SIZE + 1),
+    limit: String(pageSize + 1),
   });
+
+  if (from !== null && to !== null) {
+    params.set("and", `(performed_at.gte.${from},performed_at.lt.${to})`);
+  }
 
   if (input.role === "Ustadz") {
     const ids = [...new Set(input.halaqahIds || [])];
@@ -79,3 +108,4 @@ export function buildTahfidzRecordPageParams(input: {
   }
   return params;
 }
+

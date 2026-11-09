@@ -3111,12 +3111,25 @@ async function startServer() {
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      if (req.query.cursor !== undefined && typeof req.query.cursor !== "string") {
-        return res.status(400).json({ error: "Kursor riwayat Tahfidz tidak valid." });
+      if (["cursor", "pageSize", "from", "to"].some((key) => req.query[key] !== undefined && typeof req.query[key] !== "string")) {
+        return res.status(400).json({ error: "Parameter laporan Tahfidz tidak valid." });
+      }
+      const rawPageSize = typeof req.query.pageSize === "string" ? req.query.pageSize : undefined;
+      const pageSize = rawPageSize === undefined ? undefined : Number(rawPageSize);
+      if (rawPageSize !== undefined && (!/^\d{1,3}$/.test(rawPageSize) || !Number.isInteger(Number(rawPageSize)))) {
+        return res.status(400).json({ error: "Ukuran halaman riwayat Tahfidz tidak valid." });
       }
       const actor = await loadTahfidzActor(uid);
       return res.json(await listSupabaseTahfidzRecordPage(
-        actor.tenantId, actor.uid, actor.role, req.query.cursor,
+        actor.tenantId,
+        actor.uid,
+        actor.role,
+        req.query.cursor,
+        {
+          pageSize,
+          from: typeof req.query.from === "string" ? req.query.from : undefined,
+          to: typeof req.query.to === "string" ? req.query.to : undefined,
+        },
       ));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
@@ -4255,3 +4268,4 @@ async function startServer() {
 }
 
 startServer();
+

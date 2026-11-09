@@ -162,7 +162,8 @@ async function fetchTahfidzRecordPage(
   tenantId: string,
   role: string,
   scope: TahfidzSnapshotScope,
-  cursorValue?: unknown
+  cursorValue?: unknown,
+  options: { pageSize?: number; from?: string; to?: string } = {},
 ) {
   let params: URLSearchParams | null;
   try {
@@ -172,6 +173,9 @@ async function fetchTahfidzRecordPage(
       halaqahIds: scope.halaqahs.map((halaqah) => String(halaqah.id)),
       studentIds: scope.roster.map((student) => String(student.id)),
       cursor: cursorValue,
+      pageSize: options.pageSize,
+      from: options.from,
+      to: options.to,
     });
   } catch {
     throw new SupabaseTahfidzError(400, "Kursor atau cakupan riwayat Tahfidz tidak valid.");
@@ -180,8 +184,9 @@ async function fetchTahfidzRecordPage(
 
   const rows = await supabaseRequest("/rest/v1/tahfidz_records?" + params.toString());
   if (!Array.isArray(rows)) throw new SupabaseTahfidzError(503, "Riwayat Tahfidz belum dapat dimuat.");
-  const hasMore = rows.length > TAHFIDZ_RECORD_PAGE_SIZE;
-  const pageRows = rows.slice(0, TAHFIDZ_RECORD_PAGE_SIZE);
+  const pageSize = options.pageSize ?? TAHFIDZ_RECORD_PAGE_SIZE;
+  const hasMore = rows.length > pageSize;
+  const pageRows = rows.slice(0, pageSize);
   const lastRow = pageRows[pageRows.length - 1];
   let nextCursor: string | null = null;
   if (hasMore && lastRow) {
@@ -550,7 +555,8 @@ export async function listSupabaseTahfidzRecordPage(
   tenantIdentifier: string,
   actorSupabaseUid: string,
   role: string,
-  cursorValue?: unknown
+  cursorValue?: unknown,
+  options: { pageSize?: number; from?: string; to?: string } = {},
 ) {
   if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca riwayat Tahfidz.");
@@ -559,7 +565,7 @@ export async function listSupabaseTahfidzRecordPage(
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
   const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
   const scope = await resolveTahfidzRecordPageScope(tenantId, actorId, role);
-  return fetchTahfidzRecordPage(tenantId, role, scope, cursorValue);
+  return fetchTahfidzRecordPage(tenantId, role, scope, cursorValue, options);
 }
 
 export async function listSupabaseTahfidzSessions(
@@ -1464,3 +1470,4 @@ export async function assignSupabaseTahfidzMembership(
   }
   return result as JsonObject;
 }
+
