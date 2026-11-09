@@ -23,9 +23,9 @@ Pemeriksaan baca-saja dilakukan pada Supabase PTSAS `ptsasgdvgrbdtgyqieie` melal
    - `has_module_access(text)`
    - `is_tenant_admin()`
 
-   Definisi yang dibaca membatasi hasil berdasarkan `auth.uid()`, profil aktif, dan tenant aktif. Advisor tetap menandai callable RPC di schema publik. Source PR berisi migration [20270210000000_internalize_tenant_rls_helpers.sql](../../supabase/migrations/20270210000000_internalize_tenant_rls_helpers.sql) yang memindahkan helper ke schema `private` dan mempersempit grant. Versi tersebut belum ada dalam ledger PTSAS. Tinjau kesetaraan DDL dan dependensi sebelum merencanakan perubahan; laporan ini tidak meminta penerapan langsung.
+   Definisi yang dibaca membatasi hasil berdasarkan `auth.uid()`, profil aktif, dan tenant aktif. Advisor tetap menandai callable RPC di schema publik. Source PR berisi migration [20270210000000_internalize_tenant_rls_helpers.sql](../../../supabase/migrations/20270210000000_internalize_tenant_rls_helpers.sql) yang memindahkan helper ke schema `private` dan mempersempit grant. Versi tersebut belum ada dalam ledger PTSAS. Tinjau kesetaraan DDL dan dependensi sebelum merencanakan perubahan; laporan ini tidak meminta penerapan langsung.
 
-2. **Search path trigger PPDB belum dipatok:** Advisor menemukan `public.erp4_ppdb_update_updated_at_column()` menggunakan `search_path` yang dapat berubah. Source PR memiliki migration [20270209000000_harden_ppdb_trigger_search_path.sql](../../supabase/migrations/20270209000000_harden_ppdb_trigger_search_path.sql) yang menetapkan `search_path = pg_catalog`; versinya belum ada pada ledger PTSAS.
+2. **Search path trigger PPDB belum dipatok:** Advisor menemukan `public.erp4_ppdb_update_updated_at_column()` menggunakan `search_path` yang dapat berubah. Source PR memiliki migration [20270209000000_harden_ppdb_trigger_search_path.sql](../../../supabase/migrations/20270209000000_harden_ppdb_trigger_search_path.sql) yang menetapkan `search_path = pg_catalog`; versinya belum ada pada ledger PTSAS.
 
 3. **Perlindungan kata sandi bocor nonaktif:** Security Advisor meminta fitur pemeriksaan kata sandi bocor Supabase Auth diaktifkan. Ini pengaturan Authentication, bukan migration SQL; lakukan terpisah di staging lalu Production sesuai kontrol perubahan.
 
