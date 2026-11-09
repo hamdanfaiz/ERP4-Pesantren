@@ -15,7 +15,7 @@
 | `npm run test:api:document-center` | Lulus | CRUD dokumen, nomor otomatis, role/tenant, persetujuan, audit workflow, upload/download PDF privat bertanda tangan, hash, dan retry idempoten. |
 | `npm run test:api:finance-storage` | Lulus | Bukti pembayaran privat, PPDB publik, enkripsi identitas, dokumen kandidat, tagihan, penerimaan workflow, onboarding atomik, NIS, wali/kelas/kamar, invoice terkait, retry, konflik, batas role/tenant, dan rate limit. |
 | `npm run test:api:library-storage` | Lulus | Upload/download bertanda tangan, bucket privat, isolasi role/tenant, finalisasi dan pemulihan idempoten, verifikasi hash/tanda tangan berkas, penolakan objek tak valid, dan kerahasiaan path. |
-| `npm run test:api:tahfidz-runtime` | Perlu dijalankan ulang | Harness mencakup katalog Surah, halaqah, membership, setoran kanonis, idempotensi, leaderboard, cakupan Santri, penolakan tulis, dan isolasi tenant. CI #1472 gagal saat menyiapkan kelas karena fixture belum membuat referensi jenjang tenant (`23503`), sebelum API Tahfidz dijalankan. Cleanup CI berhasil menangguhkan 2 tenant, 4 profil, dan 4 akun uji. Fixture kini menyiapkan referensi jenjang lebih dulu dan menautkannya ke kelas/calon/santri; retry CI berikutnya menjadi bukti penentu. |
+| `npm run test:api:tahfidz-runtime` | Perlu dijalankan ulang | Harness mencakup katalog Surah, halaqah, membership, setoran kanonis, idempotensi, leaderboard, cakupan Santri, penolakan tulis, dan isolasi tenant. CI #1472 gagal karena fixture belum membuat referensi jenjang tenant (`23503`). Setelah prasyarat itu dibenahi, CI #1474 menemukan `occupied` bernilai null pada dua baris batch struktur. Kedua run berhenti sebelum API Tahfidz; cleanup lokal masing-masing berhasil menangguhkan 2 tenant, 4 profil, dan memblokir 4 akun uji. Fixture terbaru membuat serta menautkan referensi jenjang dan mengisi nilai wajib di semua baris. CI #1475 harus lulus untuk mengonfirmasi seluruh alur API. |
 
 ## Pemeriksaan pembersihan
 
@@ -27,7 +27,7 @@ Sesudah setiap suite, query baca-saja pada VQE memastikan tenant sintetis tidak 
 
 Pengujian mempertahankan referensi audit append-only. Tenant uji tidak dapat login atau melihat data operasional. Jangan mengaktifkan kembali tenant sintetis tersebut.
 
-Kegagalan koneksi VQE pada uji Tahfidz terjadi saat permintaan pembuatan tenant pertama, tanpa respons dari Supabase; harness tidak melanjutkan ke pembuatan akun atau record. Kueri baca-saja VQE pada 10 November setelah percobaan terbaru menemukan **0** tenant dengan slug awalan `tahfidz-http-` dalam satu jam terakhir. Jadi tidak ada fixture Tahfidz yang tertinggal di VQE. Percobaan CI #1472 berlangsung pada Supabase lokal yang terisolasi, bukan VQE, dan cleanup-nya berhasil.
+Kegagalan koneksi VQE pada uji Tahfidz terjadi saat permintaan pembuatan tenant pertama, tanpa respons dari Supabase; harness tidak melanjutkan ke pembuatan akun atau record. Kueri baca-saja VQE pada 10 November setelah percobaan terbaru menemukan **0** tenant dengan slug awalan `tahfidz-http-` dalam satu jam terakhir. Jadi tidak ada fixture Tahfidz yang tertinggal di VQE. Percobaan CI #1472 dan #1474 berlangsung pada Supabase lokal yang terisolasi, bukan VQE, dan cleanup keduanya berhasil.
 
 ## Batas bukti
 
