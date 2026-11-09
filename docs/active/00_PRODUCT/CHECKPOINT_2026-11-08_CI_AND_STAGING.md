@@ -1,11 +1,11 @@
 # Checkpoint ERP4 Pesantren — CI dan staging
 
-**Diperbarui:** 9 November 2026, 09.56 WIB
+**Diperbarui:** 9 November 2026, 10.05 WIB
 **Status:** produk belum dinyatakan siap deploy atau komersial.
 
 ## Status terukur terbaru
 
-- PR #90 sudah merged ke `main` (`fd937f4876aa1069500694b9bc20ec70eef8ee14`). PR #91 masih **Open/Draft** pada head `19e5bb22895e4c55e376b33704ca2345f9e2a97f`; CI terbaru #1431 lulus 3/3. Perubahan kode berada pada `34ca4e6`; dua commit sesudahnya hanya memperbarui dokumen checkpoint/handoff.
+- PR #90 sudah merged ke `main` (`fd937f4876aa1069500694b9bc20ec70eef8ee14`). PR #91 masih **Open/Draft**. Perubahan kode berada pada `34ca4e6`; commit sesudahnya memperbarui checkpoint/handoff. CI run [#42553902436](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42553902436) lulus **3/3** pada head checkpoint; Supabase Preview dilewati karena branch PR tidak terhubung ke Supabase Branch.
 - `npm ci`, `npm run lint`, `npm run build`, dan 15 regresi terpilih lulus sebelum push. Cakupan meliputi pesan aman, feature flags, Supabase-only runtime, RBAC, Master Data, tanggal tenant, Dokumen Digital, pagination Tahfidz, policy API, skema private, dan pendaftaran Wali.
 - Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB. `.env`, `dist/`, dan kredensial tidak disertakan ke commit.
 - UAT visual baca-saja berhasil dilanjutkan pada preview Admin UAT `localhost:4179`, yang runtime publiknya menunjuk VQE. Semua kategori/menu utama muncul di navigasi. Tahfidz memuat empty state; Asrama menampilkan lima submodul dan empty state izin. Strip tab Dokumen Digital dapat digulir, tetapi datanya gagal dimuat. Identitas commit source yang menyajikan `localhost:4179` belum dapat dibuktikan sama dengan head PR #91.
@@ -233,3 +233,8 @@ Temuan ini menambah checklist hardening dan tuning, bukan izin untuk mengubah Pr
 - Browser mencatat peringatan sinkronisasi Pengaturan Supabase gagal serta peringatan ukuran grafik Recharts `width(-1)/height(-1)` dari dashboard sebelumnya. Ini belum memblokir tampilan Tahfidz/Asrama, tetapi perlu ditriase terpisah; belum ada perubahan kode atau konfigurasi untuk temuan ini.
 - Pemeriksaan ini tidak mengirim formulir, membuat/mengubah record, mengunggah file, mengubah konfigurasi cloud, atau membaca data Production. VQE tetap tanpa fixture; tampilan nol adalah kondisi tanpa data contoh.
 - **Revisi status UAT:** hasil ini menggantikan catatan awal sesi yang menyatakan layar login belum melewati autentikasi. UAT visual Admin sudah sebagian berjalan, tetapi belum lengkap, belum source-matched, belum mencakup ukuran ponsel, dan Dokumen Digital masih gagal. PR #91 tetap Draft/Open; tidak ada dasar untuk merge atau menyatakan produk siap deploy.
+
+## Status CI setelah checkpoint UAT — 9 November 2026, 10.05 WIB
+
+- Run [#42553902436](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42553902436) pada head PR saat itu lulus 3/3: instalasi NPM pelanggan, frontend build/Firebase bundle guard, dan migrations/API auth/pgTAP. Supabase Preview berstatus skipped, bukan passed, karena PR tidak terkait Supabase Branch.
+- CI ini memvalidasi source otomatis pada branch PR, tetapi tidak menyelesaikan UAT UI Dokumen Digital, UAT CRUD live, viewport ponsel, source-match untuk localhost:4179, atau validasi DDL/backup/restore Production. PR #91 tetap Draft/Open.
