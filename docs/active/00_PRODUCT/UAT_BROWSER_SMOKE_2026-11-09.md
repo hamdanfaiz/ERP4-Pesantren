@@ -107,3 +107,13 @@
 - Karena tree lokal dan branch PR berbeda, saya belum menyalin catatan UAT, membuat commit, atau mendorong perubahan ke PR. Ini mencegah laporan UAT dari source yang berbeda tercampur dengan status CI PR.
 - Langkah berikutnya: sinkronkan branch setelah fetch berhasil, telaah perbedaan tanpa membuang perubahan lokal, lalu jalankan ulang lint/build pada source persis yang akan ditinjau. Setelah itu pisahkan UAT yang cocok dengan source PR dari pengujian yang masih menunggu data fixture dan gerbang runtime staging.
 
+## Pemeriksaan lanjutan setelah preview lokal aktif — 9 November 2026, 14.23 WIB
+
+- Chrome menampilkan `http://localhost:3000/` dan sesi Admin UAT pada tenant Pesantren. Pemeriksaan ini hanya membaca layar dan berpindah tab; tidak ada data yang ditulis.
+- CBT memuat halaman dan tabnya, tetapi layanan menunjukkan status belum tersedia. Bank soal, ujian, dan penugasan bernilai nol; tombol simpan soal nonaktif karena referensi mata pelajaran dan paket soal belum tersedia.
+- LMS memuat halaman; tombol geser tab bekerja dan tab Pengajar dapat dibuka. Tidak ada kursus atau pengajar yang ditugaskan; layanan runtime belum tersedia. Penilaian antarsantri, sertifikat, dan statistik lanjutan juga belum tersedia.
+- SDM memuat halaman dan navigasi bagiannya, tetapi layanan runtime belum tersedia. Tidak ada formulir pegawai yang disimpan.
+- Sarana & Prasarana memuat halaman aset/inventaris, tetapi layanan runtime belum tersedia. Pada saat screenshot, halaman menampilkan banner internal tentang status pemindahan modul. Banner itu kemudian dihapus dari source lokal; perubahan lokal sudah lolos `npm run build`, tetapi hasil HMR belum dikonfirmasi kembali di browser.
+- Pemeriksaan nama dan nilai gerbang runtime di `.env` menemukan 35 gerbang: 10 aktif dan 25 nonaktif. Nama gerbang yang relevan untuk CBT, LMS, SDM, dan aset GA masih nonaktif. Nilai rahasia tidak dibaca maupun dicatat.
+- Build lokal berhasil setelah pembersihan teks. Peringatan chunk React PDF sekitar 1,46 MB sebelum gzip serta anotasi dependency Zod masih muncul.
+- Pemeriksaan ini dilakukan pada worktree lokal `codex/product-copy-cleanup-20261108` yang memiliki perubahan belum di-commit dan berbeda dari head PR. Catatan ini bukan bukti bahwa perubahan source tersebut sudah ada di PR atau Production.
