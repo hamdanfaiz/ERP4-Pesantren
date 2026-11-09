@@ -6,6 +6,7 @@ Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `compl
 
 ## Kesiapan produk
 - [Kesiapan Komersial dan Go-Live](00_PRODUCT/COMMERCIAL_READINESS.md) — kontrak produk self-hosted, bukti teknis, dan tahapan pilot/deploy.
+- [Checkpoint jeda pengembangan — 10 Nov 2026](00_PRODUCT/CHECKPOINT_2026-11-10_PAUSE.md) — posisi PR #91, hasil CI/UAT Tahfidz, status fixture staging, dan langkah aman saat pekerjaan dilanjutkan.
 - [UAT API VQE staging — 10 Nov 2026](00_PRODUCT/VQE_STAGING_API_UAT_2026-11-10.md) — hasil integrasi Dokumen Digital, PPDB/Keuangan, Perpustakaan, dan verifikasi cleanup data sintetis.
 - [Progres historis — 30 Okt 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — arsip checkpoint lama; gunakan dokumen Kesiapan Komersial di atas untuk status dan estimasi terbaru.
 - [Checkpoint penempatan menu — 1 Nov 2026](00_PRODUCT/MODULE_OWNERSHIP_CHECKPOINT_2026-11-01.md) — lokasi menu pada modul pemilik, batas katalog baca-saja, hasil pemeriksaan lokal, dan gate yang masih terbuka.
@@ -28,3 +29,4 @@ Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `compl
 
 - [ERD target Supabase](06_DATABASE/SUPABASE_ERD.md) — relasi tenant, domain utama, dan tabel berdasarkan migration pada checkout.
 - [Checkpoint rilis — arsip estimasi 26 Okt 2026](05_ARCHITECTURE/CHECKPOINT_2026-10-25.md) — snapshot historis; gunakan dokumen progres pengembangan terbaru untuk persentase saat ini.
+
