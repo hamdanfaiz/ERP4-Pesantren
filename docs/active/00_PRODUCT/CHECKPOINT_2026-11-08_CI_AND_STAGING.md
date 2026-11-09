@@ -247,3 +247,10 @@ Temuan ini menambah checklist hardening dan tuning, bukan izin untuk mengubah Pr
 - Pemeriksaan baca-saja VQE mengonfirmasi migration `20270117000000_document_center_core`, bucket `erp4-private-document-attachments` dalam keadaan privat dengan PDF saja dan batas 25 MiB, serta seluruh tabel Dokumen Digital yang diperiksa memakai RLS dan FORCE RLS. Ini membuktikan prasyarat schema/bucket, bukan alur CRUD/upload live.
 - Pemeriksaan lokal pada checkout saat audit: autentikasi 201 API privat, filter daftar dokumen, konfigurasi deployment, dan guard runtime Supabase-only lulus. Smoke test HTTP konfigurasi runtime tidak dapat berjalan di sandbox ini karena koneksi loopback ditolak OS dengan `EACCES`; hasil ini bukan bukti endpoint rusak dan perlu diulang pada runner/host yang mengizinkan loopback.
 - CI PR #91 pada head `8f3b07338632ce456e4da03f07c52bd447fb5f2c`, run [#42555587634](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42555587634), lulus tiga pemeriksaan wajib; Supabase Preview berstatus skipped. PR tetap **Open/Draft**. Production tidak diubah.
+
+## CI final checkpoint PR #91 — 9 November 2026
+
+- Commit dokumentasi checkpoint: `913d228baf833cde01a7eab2fa5790ef1be86791`. Run [#42557672247](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42557672247) selesai dengan seluruh **3 pemeriksaan wajib lulus**: Frontend build/Firebase bundle guard, instalasi NPM pelanggan, dan migrasi/API auth/pgTAP.
+- Pada job database, langkah replay baseline Production ke Supabase lokal terisolasi, penerapan migration pending, tes database/konkurensi, auth/tenant isolation, finance/PPDB Storage, aset perpustakaan, Document Center API+relasi+private Storage, dan backup/restore lokal semuanya lulus.
+- Supabase Preview berstatus **skipped**, karena PR tidak terhubung ke Supabase Branch. CI membuktikan rangkaian lokal sintetis, bukan DDL aktual atau backup/restore Production dan bukan UAT browser live.
+- PR #91 tetap Open/Draft sampai UAT browser source-matched, CRUD/role/tenant, dan Dokumen Digital di preview staging terkonfirmasi. Production tidak diubah.
