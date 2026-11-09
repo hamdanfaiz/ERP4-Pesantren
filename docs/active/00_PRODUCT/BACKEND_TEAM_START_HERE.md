@@ -1,27 +1,33 @@
-## Checkpoint otoritatif — 9 November 2026, 09.39 WIB
+## Checkpoint otoritatif — 9 November 2026, 13.13 WIB
 
 ### Source dan pengujian yang terbukti
 
-- `main` GitHub berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Open/Draft**. Perubahan kode ada pada commit `34ca4e6`; checkpoint/handoff diperbarui dalam commit docs-only `95cf758`. CI #1430 lulus 3/3 pada head `95cf758`.
-- `npm ci`, `npm run lint`, `npm run build`, dan 15 regresi terpilih lulus pada source aplikasi yang diselaraskan. Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB.
-- Perubahan menyamarkan pesan teknis bagi pengguna, menyelaraskan tab/container/form lintas modul, dan menambah pemeriksaan regresi. Tidak ada migrasi atau penulisan database pada sesi ini.
-- Percobaan UAT visual terbaru dihentikan saat jendela Chrome melaporkan input pengguna aktif. Tidak ada login/form yang disentuh. Server preview kemudian dihentikan dan salinan `.env` staging di worktree PR dihapus; `.env` asli tidak berubah. UAT browser source-matched dan viewport ponsel masih terbuka.
+- `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Draft/Open**, head `cf3cf0ba9e46d6110a50a715e3149a2c6e7bfcaa`, 40 commit di depan main dan 140 file berubah. CI run [#1438](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42571060017) lulus **3/3 job** setelah laporan UAT ditambahkan.
+- CI #1438 menjalankan replay migration pada Supabase lokal terisolasi, API auth/tenant, pgTAP, Storage, backup/restore lokal, typecheck/build, guard tanpa Firebase, Docker, dan instalasi paket pelanggan. Ini bukan bukti restore Production, UAT CRUD seluruh modul, atau kesamaan DDL Production.
+- Laporan UAT staging terbaru: [UAT Browser Smoke 9 November](UAT_BROWSER_SMOKE_2026-11-09.md). Laporan tersebut masuk ke PR #91 pada commit `cf3cf0b`.
+
+### UAT staging yang dibuktikan
+
+- Admin UAT masuk sendiri pada preview lokal `127.0.0.1:3000`, dengan environment VQE `vqemuyzveuirlkvdggjd`. Pemeriksaan hanya baca/navigasi; tidak ada record atau transaksi yang disimpan, dan Production tidak diubah.
+- Data Induk, Ringkasan, Tahfidz, Asrama, Dokumen Digital, LMS, Perpustakaan, SDM, CBT, dan Analitik dapat dibuka. Data tenant uji kosong; pada CBT tombol simpan soal nonaktif karena mata pelajaran dan paket soal belum tersedia.
+- PPDB, Keuangan, Komunikasi, UKS, Koperasi, Laundry, Multi-Unit, Anggaran, Sarana-Prasarana, Alumni, CRM, Donasi/Wakaf, dan Marketplace menampilkan layanan belum tersedia. Akademik gagal memuat data/referensi. Beberapa subfitur LMS/Perpustakaan/Sarana-Prasarana memiliki gap yang dicatat pada laporan UAT.
+- Pemeriksaan browser berjalan pada checkout lokal yang berubah dan **bukan source yang sama dengan head PR #91**. Karena itu belum membuktikan UAT source-match, CRUD lintas modul, matriks role/tenant lewat UI, UAT Wali, atau viewport ponsel.
 
 ### Backend, staging, dan Production
 
-- VQE `vqemuyzveuirlkvdggjd`: pemeriksaan baca-saja sebelumnya menunjukkan 140/140 versi dan nama ledger cocok dengan `supabase/migrations`; migrasi terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Tidak ada perubahan database pada sesi ini; kecocokan ledger bukan bukti kesamaan DDL.
-- Metadata Production yang dilaporkan operator menunjukkan 47 entri ledger hingga `20261206000000` (dua nama kosong), 119/119 tabel `public` dengan RLS + FORCE RLS, serta lima policy `SELECT`. Ini tidak membuktikan DDL, keamanan setiap route/API, atau pemulihan backup. Production tidak disentuh.
-- Laporan detail ada pada [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md). Selisih ledger tidak boleh dianggap sebagai daftar migrasi yang harus dijalankan.
+- VQE: ledger versi/nama sebelumnya cocok 140/140 dengan source. Di `.env` lokal, flag PPDB, Keuangan, dan Akademik yang diperiksa bernilai `false`. File `.env` tidak disalin atau dipublikasikan.
+- PTSAS Production: snapshot metadata baca-saja yang tersedia menunjukkan 119 tabel `public` dengan RLS aktif dan 47 entri migration ledger. DDL aktual, isi semua policy, urutan migration, route/RPC, backup, dan restore Production belum diverifikasi. Production tidak disentuh.
+- Selisih ledger bukan daftar migration siap dijalankan. Lihat [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
 
-### Tindak lanjut
+### Tindak lanjut dan status
 
-- CI #1430 membuktikan head PR sebelum pembaruan dokumen ini. Pembaruan checkpoint-only akan menjalankan CI lagi setelah push.
-- Tim backend dapat meninjau PR #91. Tetap Draft sampai UAT visual/responsif dengan source yang sama selesai.
-- Selesaikan UAT menu/sub-menu, CRUD representatif, viewport ponsel, serta role dan tenant. UAT Wali dan CRUD seluruh modul belum terbukti.
-- Tim backend memverifikasi DDL/urutan migrasi Production, melakukan rehearsal backup/restore pada target terisolasi, lalu membuktikan pemasangan/upgrade/restore VPS atau on-premise. Jangan menerapkan perubahan ke Production pada tahap ini.
+1. Sinkronkan checkout lokal yang kini berbeda dari PR; jangan mendorong perubahan lokal sekaligus.
+2. Tim backend meninjau PR #91 dan menyiapkan referensi data sintetis serta gerbang runtime VQE per modul, lalu lakukan UAT tulis-baca dengan fixture dan hapus setelah bukti tersimpan.
+3. Selesaikan UAT source-match, responsif, role/tenant dan alur penting.
+4. Tim backend membandingkan DDL Production dengan source, meninjau urutan migration, dan membuktikan backup/restore di target terisolasi.
+5. Clean install/upgrade di VPS dan on-premise serta UAT hosting sasaran tetap diperlukan sebelum go-live.
 
-**Kesimpulan:** source aplikasi lulus build, lint, regresi terpilih, dan CI 3/3. Produk belum dinyatakan siap deploy atau komersial.
-
+**Kesimpulan:** PR #91 siap untuk ditinjau tim dan CI 3/3, tetapi tetap Draft/Open. Produk belum siap deploy/go-live atau dinyatakan matang secara komersial.
 ---
 ## Checkpoint historis — setelah merge PR #38–#40, PR #43, dan PR #47, 7 November 2026
 
