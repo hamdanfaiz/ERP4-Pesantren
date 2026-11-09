@@ -120,3 +120,12 @@
 - Build dari worktree bersih head PR berhasil setelah pembersihan teks. Peringatan chunk React PDF sekitar 1,46 MB sebelum gzip serta anotasi dependency Zod masih muncul; keduanya bukan kegagalan build.
 - Pemeriksaan ini dilakukan pada worktree lokal `codex/product-copy-cleanup-20261108` yang memiliki perubahan belum di-commit dan berbeda dari head PR. Catatan ini bukan bukti bahwa perubahan source tersebut sudah ada di PR atau Production.
 
+## UAT visual lanjutan Admin — 9 November 2026, 15.15 WIB
+
+- Tab Chrome http://localhost:3000/ menampilkan aplikasi dalam sesi Admin UAT pada tenant Pesantren. Pemeriksaan dilakukan melalui navigasi dan pembacaan layar; kata sandi/token tidak dibaca dan tidak ada data disimpan.
+- Sidebar menampilkan 25 menu utama, termasuk Data Induk, Pengguna, PPDB, CBT, Tahfidz, Asrama, Akademik, LMS, Perpustakaan, Keuangan, Komunikasi, UKS, Koperasi, Laundry, Multi-Unit, Anggaran, SDM, Sarana & Prasarana, Dokumen Digital, Alumni, Relasi Wali/Donatur, Wakaf, Marketplace, dan Analitik.
+- Sarana & Prasarana menampilkan submenu Data Induk, Tiket & Pemeliharaan, Aset & Inventaris, Pemesanan Fasilitas, Pengadaan, Kendaraan & Logistik, Kebersihan, dan Dapur & Katering. Tombol gulir kiri/kanan tersedia. Halaman Aset & Inventaris menampilkan status layanan belum tersedia, data kosong, dan tombol simpan aset nonaktif karena kategori referensi belum ada. Banner internal migrasi tidak tampil.
+- Dokumen Digital menampilkan keadaan kosong “Belum ada dokumen”, enam tab, dan tombol gulir kiri/kanan. Menekan tombol kanan memindahkan tab yang terlihat dari Semua Dokumen ke Surat Keluar, Persetujuan Elektronik, dan Arsip Digital; konten tetap dalam bingkai.
+- UI yang terlihat memakai gaya gelap dan kontainer kartu; kedua modul mempertahankan navigasi tab horizontal. Pemeriksaan ini hanya memvalidasi keadaan visual dan interaksi gulir.
+- Identitas source preview tidak terbukti cocok dengan head PR b20d4da. Aset browser menunjukkan Vite development client, tetapi tidak mengidentifikasi folder checkout yang melayani port 3000. Checkout lama lokal juga sudah tidak menampilkan banner yang sama. Karena itu ketiadaan banner dan hasil visual tidak boleh diklaim sebagai verifikasi HMR atau UAT atas commit PR terbaru.
+- Tidak ada formulir dikirim, aset/dokumen dibuat, transaksi, atau perubahan Production. Alur CRUD, role/tenant end-to-end, Storage, dan responsif pada ukuran ponsel tetap belum diuji.
