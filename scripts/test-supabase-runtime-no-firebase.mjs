@@ -211,6 +211,21 @@ for (const [constant, flag] of [
   assert.match(centralStructureSource, new RegExp(`${constant}\\s*=\\s*publicRuntimeConfigValue\\(["']${flag}["']\\)\\s*===\\s*["']true["']`),
     `Tenant structure ${constant} must be disabled unless ${flag} is explicitly true.`);
 }
+assert.match(tahfidzSource, /fetch\(["']\/api\/quran\/surat["']/,
+  'Tahfidz must load its Surah choices from the Quran reference endpoint.');
+const quickEntryStart = tahfidzSource.indexOf('{/* Quick Entry Form */}');
+const recordsTableStart = tahfidzSource.indexOf('<div className="bg-white dark:bg-white\/[0.02]', quickEntryStart);
+assert.ok(quickEntryStart >= 0 && recordsTableStart > quickEntryStart,
+  'Tahfidz quick-entry form boundaries must remain discoverable for regression checks.');
+const quickEntrySource = tahfidzSource.slice(quickEntryStart, recordsTableStart);
+assert.match(quickEntrySource, /aria-label="Surah setoran cepat"[\s\S]*?surahList\.map\(\(surah\)/,
+  'Quick-entry Surah must be selected from the loaded Quran reference list.');
+assert.match(quickEntrySource, /aria-label="Ayat mulai setoran cepat"[\s\S]*?quickEntryAyahCount/,
+  'Quick-entry starting Ayah must be chosen from the selected Surah verse count.');
+assert.match(quickEntrySource, /aria-label="Ayat akhir setoran cepat"[\s\S]*?quickEntryAyahCount/,
+  'Quick-entry ending Ayah must be chosen from the selected Surah verse count.');
+assert.doesNotMatch(quickEntrySource, /<input\b/,
+  'Tahfidz quick-entry must not accept free-text Surah or Ayah values.');
 const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
 assert.doesNotMatch(boardingSource, /supabaseRuntimeEnabled\(/,
   'Asrama feature availability must follow explicit browser runtime flags, not the Supabase-only data-source mode.');
