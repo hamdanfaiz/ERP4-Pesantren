@@ -1058,7 +1058,12 @@ export function TahfidzManager() {
   const handleInputSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (SUPABASE_TAHFIDZ_RUNTIME) {
-      const student = santriList.find((item) => String(item.id) === String(formData.studentId || ""));
+      const student = santriList.find((item) => String(item.id) === String(formData.studentId || ""))
+        || (formData.studentId && formData.halaqahId ? {
+          id: String(formData.studentId),
+          name: String(formData.santriName || ""),
+          halaqahId: String(formData.halaqahId),
+        } : null);
       if (!student || !student.halaqahId) {
         setTahfidzError("Pilih santri yang sudah ditempatkan pada halaqah aktif.");
         return;
@@ -5310,7 +5315,11 @@ export function TahfidzManager() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20"
+                  disabled={isSavingRecord || (SUPABASE_TAHFIDZ_RUNTIME && (
+                    !formData.studentId || !formData.halaqahId || !formData.surah
+                    || !formData.ayatStart || !formData.ayatEnd || !formData.fluency || !formData.tajweed
+                  ))}
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20"
                 >
                   Simpan Setoran
                 </button>
