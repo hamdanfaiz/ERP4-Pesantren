@@ -60,7 +60,7 @@ Implementasi React ada di [`src/components/ERPDesignSystem.tsx`](../../../src/co
 
 | Kebutuhan | Komponen atau pola |
 | --- | --- |
-| Tab | `ERPTabs`; gunakan ID stabil, label aksesibel, keadaan aktif jelas, dan callback perubahan. |
+| Tab | `ERPTabs`; gunakan ID stabil, label aksesibel, keadaan aktif jelas, callback perubahan, serta tombol gulir kiri/kanan otomatis saat isi melebihi lebar wadah. Tab aktif yang berada di luar area terlihat digulir otomatis ke dalam frame. |
 | Halaman dan panel | `ERPPageContainer`, `ERPPanel`, `.erp-page-title`, `.erp-section-title`. |
 | Form | `ERPFormField` untuk label, tanda wajib, hint, dan error; hubungkan label ke input. Kontrol standar minimal 40 px tinggi. |
 | Tombol | `.erp-button-primary` untuk aksi utama, `.erp-button-secondary` untuk aksi pendamping. Tentukan `type` eksplisit. Tombol harus punya handler nyata atau dinonaktifkan dengan alasan jelas. |
@@ -104,7 +104,7 @@ Implementasi React ada di [`src/components/ERPDesignSystem.tsx`](../../../src/co
 ### Tab, tabel, dan status
 
 - Jangan mencampur navigasi halaman dengan filter seolah-olah keduanya tab yang sama.
-- Tab aktif harus terlihat dan terbaca teknologi bantu; pada layar sempit boleh digulir tanpa memotong label.
+- Tab aktif harus terlihat dan terbaca teknologi bantu; pada layar sempit boleh digulir tanpa memotong label. Bila tab melampaui wadah, tampilkan kontrol gulir yang aksesibel, pindahkan tab aktif ke dalam frame saat nilainya berubah, dan pastikan scrollbar native tetap menjadi jalur tambahan.
 - Format tanggal, mata uang Rupiah, angka, dan status secara konsisten.
 - Bedakan status kosong, loading, error, dan hasil pencarian kosong. Error tidak boleh menampilkan secret, stack trace, atau data sensitif.
 

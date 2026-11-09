@@ -1,27 +1,28 @@
-## Checkpoint otoritatif — 8 November 2026, 23:56 WIB
+## Checkpoint otoritatif — 9 November 2026, 09.15 WIB
 
-### Source dan bukti yang tersedia
-- `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`.
-- PR #91 tersedia untuk review pada branch `codex/product-copy-cleanup-20261108` dan berstatus **Open/Draft**. Head kode yang diuji adalah `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`; commit sesudahnya hanya memperbarui dokumen checkpoint.
-- CI [run #1419](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42501493603) lulus 3/3: migration/API/pgTAP, frontend/runtime guard, dan instalasi NPM pelanggan. Supabase Preview dilewati karena PR tidak memakai Supabase Branch.
-- Pemeriksaan lokal `npm run lint`, `npm run build`, `npm run test:supabase-runtime-no-firebase`, dan `npm run test:rbac-permissions` lulus. Build memberi peringatan ukuran chunk PDF dan komentar dependency Zod.
-- CI #1417 sebelumnya menangkap masalah transfer file. Koreksi sudah dipush; empat file UI terkait cocok penuh dengan teks sumber lokal pada head terbaru.
-- Implementasi UI menyamakan pesan pengguna, permukaan Asrama, serta tab. Dokumen Digital dan Tahfidz memakai `ERPTabs` dan aturan CSS gulir horizontal. Ini membuktikan source dan build CI, bukan tampilan browser/responsif dari build yang cocok.
+### Source dan pengujian yang terbukti
+
+- `main` GitHub berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Open/Draft**, head yang ditarik ke worktree audit `f882af0de993f27105ff5362f9f47cac592db233`; CI #1428 lulus 3/3 pada head tersebut. Perubahan lokal telah direkonsiliasi di worktree terpisah berbasis head itu; hasil CI untuk perubahan terbaru menunggu push.
+- `npm ci`, `npm run lint`, dan `npm run build` lulus pada worktree rekonsiliasi. Lima belas regresi terpilih lulus, meliputi pesan pengguna, konfigurasi deployment, Supabase-only runtime, RBAC, Master Data, tanggal tenant, dokumen, pagination Tahfidz, policy API, private schema, environment Supabase, dan pendaftaran Wali StrictMode.
+- Build memberi peringatan nonfatal terkait anotasi Zod dan chunk PDF sekitar 1,46 MB. UAT browser source-matched serta viewport ponsel belum dijalankan pada build ini.
+- Perubahan sesi ini menyamarkan pesan teknis, merapikan komponen tab/container/form, dan menambah pemeriksaan regresi. Belum ada migrasi atau penulisan database.
 
 ### Backend, staging, dan Production
-- Pemeriksaan MCP baca-saja pada 9 November 2026 pukul 00.03 WIB merekonsiliasi ledger VQE dengan migration directory branch PR: **140/140 versi/nama cocok**, versi terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Ini hanya bukti ledger, bukan kesamaan DDL.
-- Konektor sesi ini masih menolak baca PTSAS Production. Production tidak disentuh; schema diff, urutan migration, serta backup/restore Production belum diverifikasi.
-- UAT Admin VQE sebelumnya membuktikan login dan akses 25 modul; bukan CRUD seluruh modul, role, tenant, atau UAT Wali.
 
-### Tindakan berikutnya untuk tim
-- Tim dapat meninjau source PR #91 dan hasil CI sekarang.
-- Setelah operator aktif: jalankan UAT visual source-match dan viewport ponsel, lalu CRUD dan matriks role/tenant pada staging.
-- Tim backend memverifikasi DDL/urutan migration Production, menjalankan backup/restore rehearsal pada target terisolasi, dan membuktikan clean install/upgrade/restore untuk VPS/on-premise. Jangan menerapkan migration Production hanya untuk menyamakan jumlah ledger.
+- VQE `vqemuyzveuirlkvdggjd`: pemeriksaan baca-saja sebelumnya menunjukkan 140/140 versi dan nama ledger cocok dengan `supabase/migrations`; migrasi terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Tidak ada perubahan database pada sesi ini; kecocokan ledger bukan bukti kesamaan DDL.
+- Metadata Production yang dilaporkan operator menunjukkan 47 entri ledger hingga `20261206000000` (dua nama kosong), 119/119 tabel `public` dengan RLS + FORCE RLS, serta lima policy `SELECT`. Ini tidak membuktikan DDL, keamanan setiap route/API, atau pemulihan backup. Production tidak disentuh.
+- Laporan detail ada pada [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md). Selisih ledger tidak boleh dianggap sebagai daftar migrasi yang harus dijalankan.
+- `.env` lokal tidak dimasukkan ke worktree PR atau commit. Jangan berbagi kredensial melalui chat atau menggunakan artefak build staging sebagai artefak Production.
 
-**Kesimpulan:** CI pada head PR #91 lulus 3/3, tetapi UAT UI menyeluruh dan gerbang backend/hosting belum lengkap. Produk belum dinyatakan siap deploy atau komersial. Lihat [checkpoint CI dan staging](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [kesiapan komersial](COMMERCIAL_READINESS.md).
+### Tindak lanjut
+
+- Dorong perubahan tervalidasi ke PR #91, lalu tinjau CI pada head baru sebelum menyatakan siap direview.
+- Selesaikan UAT UI source-matched: login Admin, menu/sub-menu, CRUD representatif, viewport ponsel, serta role dan tenant. UAT Wali dan CRUD seluruh modul belum terbukti.
+- Tim backend memverifikasi DDL dan urutan migrasi Production, melakukan rehearsal backup/restore pada target terisolasi, lalu membuktikan pemasangan/upgrade/restore VPS atau on-premise. Jangan menerapkan perubahan ke Production pada tahap ini.
+
+**Kesimpulan:** pemeriksaan lokal untuk perubahan terbaru lulus, tetapi CI GitHub dan UAT UI pada source terbaru belum terbukti. Produk belum dinyatakan siap deploy atau komersial.
 
 ---
-
 ## Checkpoint historis — setelah merge PR #38–#40, PR #43, dan PR #47, 7 November 2026
 
 ### Source dan verifikasi

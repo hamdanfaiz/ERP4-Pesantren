@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useState } from "react";
@@ -73,7 +74,7 @@ export function SupabaseCommunicationHub() {
     setError("");
     requestCommunication("/api/communication/announcements")
       .then((payload) => { if (active) setAnnouncements(Array.isArray(payload.announcements) ? payload.announcements : []); })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Pengumuman belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Pengumuman belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [user?.tenantId, user?.uid]);
@@ -91,7 +92,7 @@ export function SupabaseCommunicationHub() {
       setComposeOpen(false);
       setTitle(""); setContent(""); setUrgent(false);
     } catch (submitError: any) {
-      setError(submitError?.message || "Pengumuman belum dapat disimpan.");
+      setError(toERPUserMessage(submitError, "Pengumuman belum dapat disimpan."));
     } finally { setBusy(false); }
   };
 
@@ -111,7 +112,7 @@ export function SupabaseCommunicationHub() {
           : item));
       }
     } catch (ackError: any) {
-      setError(ackError?.message || "Konfirmasi baca belum dapat disimpan.");
+      setError(toERPUserMessage(ackError, "Konfirmasi baca belum dapat disimpan."));
     } finally { setBusy(false); }
   };
 
@@ -146,7 +147,7 @@ export function SupabaseCommunicationHub() {
         <div className="flex flex-wrap gap-2">
           {tab === "announcements" && SUPABASE_COMMUNICATION_IMPORT && canManage && <button onClick={() => void migrateLegacyAnnouncements(false)} disabled={migrationBusy} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">{migrationBusy ? "Memproses…" : "Pratinjau impor lama"}</button>}
           {tab === "announcements" && canManage && <button onClick={() => setComposeOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"><Plus className="h-4 w-4" /> Buat pengumuman</button>}
-          {tab === "announcements" && <button onClick={() => { setLoading(true); setError(""); void refresh().catch((refreshError: any) => setError(refreshError?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} aria-label="Muat ulang pengumuman" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><RefreshCw className="h-4 w-4" /></button>}
+          {tab === "announcements" && <button onClick={() => { setLoading(true); setError(""); void refresh().catch((refreshError: any) => setError(toERPUserMessage(refreshError, "Data belum dapat dimuat."))).finally(() => setLoading(false)); }} aria-label="Muat ulang pengumuman" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><RefreshCw className="h-4 w-4" /></button>}
         </div>
       </header>
 

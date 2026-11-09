@@ -132,7 +132,7 @@ export async function listSupabaseMasterDataStructures(tenantIdentifier: string)
     });
     const rows = await supabaseRequest("/rest/v1/master_data_records?" + params.toString());
     if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Data struktur pesantren belum dapat dimuat.");
-    if (offset + rows.length > 10000) throw new SupabaseOnboardingError(413, "Jumlah struktur melebihi batas 10.000 record untuk satu permintaan.");
+    if (offset + rows.length > 10000) throw new SupabaseOnboardingError(413, "Jumlah struktur melebihi batas 10.000 data untuk satu permintaan.");
     all.push(...rows);
     if (rows.length < Math.min(pageSize, remaining)) break;
   }
@@ -579,7 +579,7 @@ export async function listSupabaseBoardingSnapshot(
       const overflow = await supabaseRequest("/rest/v1/students?" + overflowParams.toString());
       if (!Array.isArray(overflow)) throw new SupabaseOnboardingError(503, "Jumlah data santri belum dapat diverifikasi.");
       if (overflow.length > 0) {
-        throw new SupabaseOnboardingError(503, "Jumlah data santri melebihi batas snapshot 10.000 record.");
+        throw new SupabaseOnboardingError(503, "Jumlah data santri melebihi batas tampilan 10.000 data.");
       }
       break;
     }
@@ -1501,7 +1501,7 @@ async function buildStudentTransferPlan(tenantIdentifier: string, value: unknown
     if (nis && !/^[0-9]{1,10}$/.test(nis)) messages.push("NIS harus berisi 1–10 digit dan diformat sebagai teks.");
     if (nis && nisInFile.has(nis)) messages.push("NIS muncul lebih dari sekali dalam berkas.");
     if (nis) nisInFile.add(nis);
-    if (nis && existing.nisToSource.has(nis)) messages.push("NIS sudah dipakai record lain pada tenant ini.");
+    if (nis && existing.nisToSource.has(nis)) messages.push("NIS sudah digunakan oleh data lain pada pesantren ini.");
     record.nis = nis;
 
     const gender = transferText(row.gender, 40);
@@ -1587,10 +1587,12 @@ async function buildStudentTransferPlan(tenantIdentifier: string, value: unknown
 
     const rawStatus = transferText(row.status, 40) || "Active";
     const status = new Map([
-      ["active", "Active"], ["inactive", "Inactive"], ["alumni", "Alumni"], ["suspended", "Suspended"],
+      ["active", "Active"], ["aktif", "Active"],
+      ["inactive", "Inactive"], ["nonaktif", "Inactive"], ["tidak aktif", "Inactive"],
+      ["alumni", "Alumni"], ["suspended", "Suspended"], ["ditangguhkan", "Suspended"],
     ]).get(rawStatus.toLocaleLowerCase("id-ID")) || rawStatus;
     if (!new Set(["Active", "Inactive", "Alumni", "Suspended"]).has(status)) {
-      messages.push("status harus Active, Inactive, Alumni, atau Suspended.");
+      messages.push("Status harus Aktif, Tidak Aktif, Alumni, atau Ditangguhkan.");
     }
     record.status = status;
     for (const field of ["phone", "email", "parentName", "parentPhone", "address"]) {
@@ -1725,9 +1727,9 @@ export async function applySupabaseMasterDataStudentImport(tenantIdentifier: str
       });
       if (result?.status === "imported") imported += 1;
       else if (result?.status === "already_imported") skipped += 1;
-      else throw new SupabaseOnboardingError(409, String(result?.message || "Record bertentangan dengan data tenant yang sudah ada."));
+      else throw new SupabaseOnboardingError(409, String(result?.message || "Data bertentangan dengan data pesantren yang sudah ada."));
     } catch (error) {
-      errors.push({ row: item.row, id: item.id, message: error instanceof SupabaseOnboardingError ? error.message : "Record belum dapat disimpan." });
+      errors.push({ row: item.row, id: item.id, message: error instanceof SupabaseOnboardingError ? error.message : "Data pada baris ini belum dapat disimpan." });
     }
   }
   return { rowCount: items.length, imported, skipped, errorCount: errors.length, errors };
@@ -1750,7 +1752,7 @@ export async function exportSupabaseMasterDataStudents(tenantIdentifier: string,
     const rows = await supabaseRequest("/rest/v1/students?" + params.toString());
     if (!Array.isArray(rows)) throw new SupabaseOnboardingError(503, "Ekspor data santri belum dapat diverifikasi.");
     if (offset + rows.length > MASTER_DATA_EXPORT_MAX_ROWS) {
-      throw new SupabaseOnboardingError(413, "Ekspor melebihi batas 20.000 record. Pecah migrasi berdasarkan kelompok data.");
+      throw new SupabaseOnboardingError(413, "Ekspor melebihi batas 20.000 data. Pecah ekspor berdasarkan kelompok data.");
     }
     records.push(...rows.map((row: JsonObject) => {
       const mapped = mapSupabaseStudentRow(row, tenantId, structures, includeSensitive);
@@ -1880,7 +1882,7 @@ export async function migrateSupabaseLegacyMasterDataStudents(
       ? item.record as JsonObject
       : null;
     if (!sourceId || sourceId.length > 1500 || !record) {
-      errors.push({ id: sourceId, category: "Santri", message: "ID sumber atau isi record santri tidak valid." });
+      errors.push({ id: sourceId, category: "Santri", message: "ID sumber atau isi data santri tidak valid." });
       continue;
     }
     const name = legacyText(record.name, 180);
@@ -1921,7 +1923,7 @@ export async function migrateSupabaseLegacyMasterDataStudents(
     if (nis.nis) {
       const previous = seenNis.get(nis.nis);
       if (previous) {
-        errors.push({ id: sourceId, category: "Santri", message: "NIS duplikat dalam data sumber (record " + previous + ")." });
+        errors.push({ id: sourceId, category: "Santri", message: "NIS duplikat dalam data sumber (baris " + previous + ")." });
         continue;
       }
       seenNis.set(nis.nis, sourceId);
@@ -1934,7 +1936,7 @@ export async function migrateSupabaseLegacyMasterDataStudents(
       if (!fingerprint) continue;
       const key = kind + ":" + fingerprint;
       const previous = seenIdentity.get(key);
-      if (previous) duplicateIdentity = kind.toUpperCase() + " duplikat dalam data sumber (record " + previous.sourceId + ").";
+      if (previous) duplicateIdentity = kind.toUpperCase() + " duplikat dalam data sumber (baris " + previous.sourceId + ").";
       else seenIdentity.set(key, { sourceId, entityType: "student" });
     }
     if (duplicateIdentity) {
@@ -2014,7 +2016,7 @@ export async function migrateSupabaseLegacyMasterDataStudents(
           const identityKey = "nik:" + guardianFingerprint;
           const priorGuardian = seenIdentity.get(identityKey);
           if (priorGuardian && (priorGuardian.entityType !== "guardian" || priorGuardian.sourceId !== guardianSourceId)) {
-            errors.push({ id: guardianSourceId, category: "Wali Santri", message: "NIK wali duplikat pada record sumber yang berbeda." });
+            errors.push({ id: guardianSourceId, category: "Wali Santri", message: "NIK wali duplikat pada baris sumber yang berbeda." });
           } else {
             seenIdentity.set(identityKey, { sourceId: guardianSourceId, entityType: "guardian" });
           }
@@ -2054,7 +2056,7 @@ export async function migrateSupabaseLegacyMasterDataStudents(
             status: "error",
             message: error instanceof SupabaseOnboardingError
               ? error.message
-              : "Record belum dapat divalidasi oleh backend migrasi.",
+              : "Data ini belum dapat diverifikasi.",
           };
         }
       }));
@@ -2101,7 +2103,7 @@ export async function migrateSupabaseLegacyMasterDataStudents(
             status: "error",
             message: error instanceof SupabaseOnboardingError
               ? error.message
-              : "Record belum dapat diproses oleh backend migrasi.",
+              : "Data ini belum dapat diproses.",
           },
         };
       }

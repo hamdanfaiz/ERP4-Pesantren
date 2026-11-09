@@ -603,7 +603,7 @@ export function TahfidzManager() {
       setRecordsNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
       if (incoming[incoming.length - 1]?.date) setRecordsOldestDate(incoming[incoming.length - 1].date);
     } catch (error: any) {
-      setTahfidzError(error?.message || "Riwayat setoran berikutnya belum dapat dimuat.");
+      setTahfidzError(toERPUserMessage(error, "Riwayat setoran berikutnya belum dapat dimuat."));
     } finally {
       setRecordsLoadingMore(false);
     }
@@ -625,7 +625,7 @@ export function TahfidzManager() {
       setRosterHasMore(page.hasMore === true);
       setRosterNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
-      setTahfidzError(error?.message || "Halaman roster santri berikutnya belum dapat dimuat.");
+      setTahfidzError(toERPUserMessage(error, "Halaman roster santri berikutnya belum dapat dimuat."));
     } finally {
       setRosterLoadingMore(false);
     }
@@ -655,7 +655,7 @@ export function TahfidzManager() {
       setAchievementNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
       if (requestSequence === achievementRequestSequence.current) {
-        setAchievementError(error?.message || "Pencapaian Tahfidz belum dapat dimuat.");
+        setAchievementError(toERPUserMessage(error, "Pencapaian Tahfidz belum dapat dimuat."));
       }
     } finally {
       if (requestSequence === achievementRequestSequence.current) setAchievementLoading(false);
@@ -688,7 +688,7 @@ export function TahfidzManager() {
       setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
       if (requestSequence === rosterSearchRequestSequence.current && requestedSearch === searchQuery.trim()) {
-        setTahfidzError(error?.message || "Hasil pencarian santri berikutnya belum dapat dimuat.");
+        setTahfidzError(toERPUserMessage(error, "Hasil pencarian santri berikutnya belum dapat dimuat."));
       }
     } finally {
       if (requestSequence === rosterSearchRequestSequence.current) setRosterSearchLoading(false);
@@ -721,7 +721,7 @@ export function TahfidzManager() {
           setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
         })
         .catch((error: any) => {
-          if (active && requestSequence === rosterSearchRequestSequence.current) setTahfidzError(error?.message || "Pencarian roster santri belum dapat dimuat.");
+          if (active && requestSequence === rosterSearchRequestSequence.current) setTahfidzError(toERPUserMessage(error, "Pencarian roster santri belum dapat dimuat."));
         })
         .finally(() => { if (active && requestSequence === rosterSearchRequestSequence.current) setRosterSearchLoading(false); });
     }, 250);
@@ -763,7 +763,7 @@ export function TahfidzManager() {
         setRecordsHasMore(false);
         setRecordsNextCursor("");
         setRecordsOldestDate("");
-        setTahfidzError(error?.message || "Data Tahfidz belum dapat dimuat.");
+        setTahfidzError(toERPUserMessage(error, "Data Tahfidz belum dapat dimuat."));
       })
       .finally(() => { if (active) setTahfidzLoading(false); });
     return () => { active = false; };
@@ -821,7 +821,7 @@ export function TahfidzManager() {
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Target tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang snapshot sebelum melakukan perubahan berikutnya."); }
     } catch (error: any) {
-      setTahfidzError(error?.message || "Target Tahfidz belum dapat disimpan.");
+      setTahfidzError(toERPUserMessage(error, "Target Tahfidz belum dapat disimpan."));
     } finally {
       setIsSavingTarget(false);
     }
@@ -865,7 +865,7 @@ export function TahfidzManager() {
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Halaqah tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang snapshot sebelum melakukan perubahan berikutnya."); }
     } catch (error: any) {
-      setTahfidzError(error?.message || "Halaqah belum dapat disimpan.");
+      setTahfidzError(toERPUserMessage(error, "Halaqah belum dapat disimpan."));
     } finally {
       setIsSavingHalaqah(false);
     }
@@ -892,7 +892,7 @@ export function TahfidzManager() {
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Penempatan tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang snapshot sebelum melakukan perubahan berikutnya."); }
     } catch (error: any) {
-      setTahfidzError(error?.message || "Penempatan halaqah belum dapat disimpan.");
+      setTahfidzError(toERPUserMessage(error, "Penempatan halaqah belum dapat disimpan."));
     } finally {
       setIsSavingMembership(false);
     }
@@ -918,7 +918,7 @@ export function TahfidzManager() {
         catch { setTahfidzError("Impor selesai, tetapi snapshot terbaru belum dapat dimuat."); }
       }
     } catch (error: any) {
-      setTahfidzError(error?.message || "Preview impor Tahfidz belum dapat diproses.");
+      setTahfidzError(toERPUserMessage(error, "Preview impor Tahfidz belum dapat diproses."));
     } finally {
       setIsPreviewingTahfidzImport(false);
       setIsApplyingTahfidzImport(false);
@@ -999,7 +999,7 @@ export function TahfidzManager() {
           ? { ...item, lastSetoran: `${formData.surah}: ${ayahRange}` }
           : item));
       } catch (error: any) {
-        setTahfidzError(error?.message || "Setoran belum dapat disimpan.");
+        setTahfidzError(toERPUserMessage(error, "Setoran belum dapat disimpan."));
         return;
       } finally {
         setIsSavingRecord(false);
@@ -3594,8 +3594,8 @@ export function TahfidzManager() {
 
   return (
     <div className="space-y-6 max-w-7xl w-full mx-auto pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
-        <div>
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-emerald-800 dark:text-emerald-400 hidden-border">
             Sistem Tahfidz ITQAN
           </h1>
@@ -3604,7 +3604,7 @@ export function TahfidzManager() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 xl:justify-end">
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() =>
               isReminderEnabled
@@ -3639,8 +3639,8 @@ export function TahfidzManager() {
             className="flex items-center gap-2 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors border border-emerald-200 dark:border-emerald-500/20 shadow-sm"
           >
             <Mic className="w-4 h-4" />
-            AI Audio Assessment
-          </button> : <button type="button" disabled title="Penilaian audio otomatis belum mempunyai layanan AI dan penyimpanan hasil yang terhubung." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />AI Audio Assessment</button>}
+            Penilaian Suara Otomatis
+          </button> : <button type="button" disabled title="Penilaian suara belum tersedia saat ini." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />Penilaian Suara</button>}
           {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <button
             onClick={startNewTahfidzRecord}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"
@@ -3651,12 +3651,10 @@ export function TahfidzManager() {
         </div>
       </div>
 
-      {SUPABASE_TAHFIDZ_RUNTIME && <p className="-mt-4 text-xs leading-5 text-slate-500" role="note">Pengingat, ekspor laporan khusus Tahfidz, dan penilaian audio belum tersedia saat ini.</p>}
-
       {SUPABASE_TAHFIDZ_RUNTIME && (tahfidzLoading || tahfidzError) && (
         <div className={cn("flex flex-col gap-2 rounded-xl border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between", tahfidzError ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-200" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300")}>
           <span>{tahfidzError || "Memuat ringkasan Tahfidz…"}</span>
-          {tahfidzError && <button onClick={() => { setTahfidzLoading(true); setTahfidzError(""); void refreshSupabaseTahfidz().catch((error: any) => setTahfidzError(error?.message || "Data belum dapat dimuat.")).finally(() => setTahfidzLoading(false)); }} className="font-semibold underline underline-offset-2">Coba lagi</button>}
+          {tahfidzError && <button onClick={() => { setTahfidzLoading(true); setTahfidzError(""); void refreshSupabaseTahfidz().catch((error: any) => setTahfidzError(toERPUserMessage(error, "Data belum dapat dimuat."))).finally(() => setTahfidzLoading(false)); }} className="font-semibold underline underline-offset-2">Coba lagi</button>}
         </div>
       )}
       {SUPABASE_TAHFIDZ_RUNTIME && rosterHasMore && <div className="flex flex-col gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
@@ -3666,9 +3664,9 @@ export function TahfidzManager() {
 
       <ERPTabs
         tabs={[
-          { id: "dashboard", label: "Overview Halaqah" },
-          { id: "records", label: "Log Setoran Terbaru" },
-          { id: "targets", label: "Target & Raport" },
+          { id: "dashboard", label: "Ringkasan Halaqah" },
+          { id: "records", label: "Riwayat Setoran Terbaru" },
+          { id: "targets", label: "Target & Rapor" },
           { id: "talaqqi", label: "Jadwal Talaqqi" },
           { id: "exams", label: "Munaqasyah" },
           { id: "parent", label: "Portal Wali Santri" },
@@ -3774,8 +3772,8 @@ export function TahfidzManager() {
                   Tipe Sanksi/Reward (Opsional)
                 </label>
                 <select value={targetForm.policy} onChange={(e) => setTargetForm({ ...targetForm, policy: e.target.value })} className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-                  <option value="standard">Standard</option>
-                  <option value="strict">Strict</option>
+                  <option value="standard">Standar</option>
+                  <option value="strict">Ketat</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -4475,7 +4473,7 @@ export function TahfidzManager() {
         </div>
       )}
 
-      {/* Automated Progress Summary Modal */}
+      {/* Modal ringkasan perkembangan otomatis */}
       {isSummaryOpen && selectedSantri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
@@ -4486,7 +4484,7 @@ export function TahfidzManager() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    Automated Progress Summary
+                    Ringkasan Perkembangan Otomatis
                   </h3>
                   <p className="text-xs text-slate-500">
                     {selectedSantri.name} • {selectedSantri.nis}
@@ -5155,7 +5153,7 @@ export function TahfidzManager() {
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200">
-                    AI Audio Assessment
+                    Penilaian Suara Otomatis
                   </h3>
                   <p className="text-xs text-slate-500">
                     {selectedSantri.name} • {selectedSantri.nis}
@@ -5754,7 +5752,7 @@ export function TahfidzManager() {
             <div className="w-full bg-slate-50 dark:bg-black/40 rounded-2xl p-4 flex gap-4 divide-x divide-slate-200 dark:divide-slate-800 relative z-10">
               <div className="flex-1 text-center">
                 <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
-                  XP Points
+                  Poin Pengalaman
                 </div>
                 <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1">
                   <Sparkles className="w-4 h-4" /> 500
@@ -5762,10 +5760,10 @@ export function TahfidzManager() {
               </div>
               <div className="flex-1 text-center">
                 <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
-                  Badge Baru
+                  Lencana Baru
                 </div>
                 <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
-                  <Medal className="w-5 h-5" /> Gold
+                  <Medal className="w-5 h-5" /> Emas
                 </div>
               </div>
             </div>

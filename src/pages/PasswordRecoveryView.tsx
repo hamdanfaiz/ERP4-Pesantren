@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, KeyRound, LoaderCircle, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, supabaseClientConfigured } from '../utils/supabase';
+import { toERPUserMessage } from '../utils/userMessages';
 
 type Props = {
   onCompleted: () => void;
@@ -72,7 +73,7 @@ export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
 
         return { ok: true };
       } catch (cause) {
-        return { ok: false, message: cause instanceof Error ? cause.message : 'Tautan pemulihan tidak dapat diverifikasi.' };
+        return { ok: false, message: toERPUserMessage(cause, 'Tautan pemulihan tidak dapat diverifikasi. Minta tautan baru dari halaman masuk.') };
       }
     })();
 
@@ -111,7 +112,7 @@ export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
       try { await supabase.auth.signOut(); } catch { /* The password is already updated; returning to sign-in remains safe. */ }
       setCompleted(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Kata sandi belum dapat diperbarui.');
+      setError(toERPUserMessage(cause, 'Kata sandi belum dapat diperbarui. Pastikan memenuhi ketentuan lalu coba kembali.'));
     } finally {
       setIsSaving(false);
     }

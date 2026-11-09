@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, ArrowDown, ArrowUp, Building2, Check, ChevronDown, Loader2, MessageSquareText, Plus, RefreshCw, Search, ShieldCheck, Users, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -110,7 +111,7 @@ export function SupabaseCrmManager() {
   const refresh = useCallback(async () => {
     setError(""); setNotice(""); setLoading(true);
     try { await loadContacts(null, false); }
-    catch (loadError: any) { setError(loadError?.message || "Daftar kontak CRM belum dapat dimuat."); }
+    catch (loadError: any) { setError(toERPUserMessage(loadError, "Daftar kontak CRM belum dapat dimuat.")); }
     finally { setLoading(false); }
   }, [loadContacts]);
 
@@ -122,7 +123,7 @@ export function SupabaseCrmManager() {
     setLoadingInteractions(true);
     crmRequest<InteractionPage>(`/api/crm/contacts/${encodeURIComponent(selectedId)}/interactions`)
       .then((result) => { if (active) { setInteractions(Array.isArray(result.interactions) ? result.interactions : []); setInteractionCursor(result.nextCursor || null); } })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Riwayat interaksi belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Riwayat interaksi belum dapat dimuat.")); })
       .finally(() => { if (active) setLoadingInteractions(false); });
     return () => { active = false; };
   }, [selectedId]);
@@ -151,7 +152,7 @@ export function SupabaseCrmManager() {
       });
       lease.clear(); setFormOpen(false); setNotice(editingId ? "Kontak berhasil diperbarui." : "Kontak berhasil ditambahkan.");
       await loadContacts(null, false);
-    } catch (saveError: any) { setError(saveError?.message || "Kontak belum dapat disimpan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Kontak belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -169,7 +170,7 @@ export function SupabaseCrmManager() {
       const result = await crmRequest<InteractionPage>(`/api/crm/contacts/${encodeURIComponent(selectedContact.id)}/interactions`);
       setInteractions(result.interactions || []); setInteractionCursor(result.nextCursor || null);
       await loadContacts(null, false);
-    } catch (saveError: any) { setError(saveError?.message || "Interaksi belum dapat dicatat."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Interaksi belum dapat dicatat.")); }
     finally { setInteractionBusy(false); }
   };
 
@@ -177,7 +178,7 @@ export function SupabaseCrmManager() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true); setError("");
     try { await loadContacts(nextCursor, true); }
-    catch (loadError: any) { setError(loadError?.message || "Halaman berikutnya belum dapat dimuat."); }
+    catch (loadError: any) { setError(toERPUserMessage(loadError, "Halaman berikutnya belum dapat dimuat.")); }
     finally { setLoadingMore(false); }
   };
 
@@ -186,7 +187,7 @@ export function SupabaseCrmManager() {
     try {
       const result = await crmRequest<InteractionPage>(`/api/crm/contacts/${encodeURIComponent(selectedId)}/interactions?cursor=${encodeURIComponent(interactionCursor)}`);
       setInteractions((current) => [...current, ...(result.interactions || [])]); setInteractionCursor(result.nextCursor || null);
-    } catch (loadError: any) { setError(loadError?.message || "Riwayat berikutnya belum dapat dimuat."); }
+    } catch (loadError: any) { setError(toERPUserMessage(loadError, "Riwayat berikutnya belum dapat dimuat.")); }
   };
 
   return <section className="space-y-6">

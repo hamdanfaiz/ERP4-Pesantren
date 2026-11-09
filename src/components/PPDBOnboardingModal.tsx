@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useState, useEffect } from "react";
 import {
   X,
@@ -206,7 +207,7 @@ export function PPDBOnboardingModal({
       });
     } catch (err: any) {
       console.error(err);
-      showToast(err.message || "Gagal memproses onboarding santri.", "error");
+      showToast(toERPUserMessage(err, "Gagal memproses onboarding santri."), "error");
     } finally {
       setIsSubmitting(false);
     }

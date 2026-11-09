@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, BarChart3, Check, Loader2, Package, Plus, RefreshCw, ShoppingCart, Truck, Wallet, X } from "lucide-react";
@@ -130,7 +131,7 @@ export function SupabaseCooperativeManager() {
     setError("");
     requestCooperative("/api/cooperative/snapshot")
       .then((payload) => { if (active) setSnapshot({ ...EMPTY, ...payload }); })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Data koperasi belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Data koperasi belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -161,7 +162,7 @@ export function SupabaseCooperativeManager() {
       // If refresh fails, don't invite the user to charge the same cart again.
       lease.clear();
     } catch (mutationError: any) {
-      setError(mutationError?.message || "Perubahan belum dapat disimpan.");
+      setError(toERPUserMessage(mutationError, "Perubahan belum dapat disimpan."));
       setBusy(false);
       return false;
     }
@@ -232,7 +233,7 @@ export function SupabaseCooperativeManager() {
         : "Pemetaan berubah saat pratinjau berjalan. Hasil ini kedaluwarsa; hitung ulang sebelum melanjutkan.");
     } catch (previewError: any) {
       if (requestId === financialPreviewRequestId.current) {
-        setError(previewError?.message || "Pratinjau arsip Koperasi belum dapat dimuat.");
+        setError(toERPUserMessage(previewError, "Pratinjau arsip Koperasi belum dapat dimuat."));
       }
     } finally {
       if (requestId === financialPreviewRequestId.current) setFinancialBusy(false);
@@ -256,7 +257,7 @@ export function SupabaseCooperativeManager() {
         }),
       });
     } catch (applyError: any) {
-      setError(applyError?.message || "Hasil penerapan belum dapat dipastikan. Jalankan pratinjau ulang dengan pemetaan yang sama sebelum mencoba lagi.");
+      setError(toERPUserMessage(applyError, "Hasil penerapan belum dapat dipastikan. Jalankan pratinjau ulang dengan pemetaan yang sama sebelum mencoba lagi."));
       setFinancialApplyBusy(false);
       return;
     }
@@ -315,7 +316,7 @@ export function SupabaseCooperativeManager() {
   return <main className="mx-auto max-w-7xl space-y-6 pb-10">
     <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between dark:border-slate-800">
       <div><div className="mb-2 inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-800 dark:bg-orange-400/10 dark:text-orange-200"><Wallet className="h-3.5 w-3.5" />Data pesantren</div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Koperasi Pesantren</h1><p className="mt-1 text-sm text-slate-500">Kelola kasir, stok, pemasok, dan dompet santri pesantren.</p></div>
-      <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading || busy} className={outlineClass}><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
+      <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Data belum dapat dimuat."))).finally(() => setLoading(false)); }} disabled={loading || busy} className={outlineClass}><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
 
     <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Sebelum mengimpor:</strong> saldo awal dompet dimulai dari nol. Catat pengisian setelah pembayaran diterima dan diverifikasi; pengisian saldo dicatat sebagai titipan santri.</div>

@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArrowDownToLine, ArrowDownWideNarrow, FileText, Inbox, Loader2, Plus, RefreshCw, Search, Send, ShieldCheck, UploadCloud, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -105,7 +106,7 @@ export function SupabaseDocumentManager() {
   const refresh = useCallback(async () => {
     setError("");
     try { await fetchPage(null, false); }
-    catch (loadError: any) { setError(loadError?.message || "Daftar dokumen belum dapat dimuat."); }
+    catch (loadError: any) { setError(toERPUserMessage(loadError, "Daftar dokumen belum dapat dimuat.")); }
   }, [fetchPage]);
 
   useEffect(() => {
@@ -113,7 +114,7 @@ export function SupabaseDocumentManager() {
     const timer = window.setTimeout(() => {
       setLoading(true); setError("");
       void fetchPage(null, false)
-        .catch((loadError: any) => { if (mounted) setError(loadError?.message || "Daftar dokumen belum dapat dimuat."); })
+        .catch((loadError: any) => { if (mounted) setError(toERPUserMessage(loadError, "Daftar dokumen belum dapat dimuat.")); })
         .finally(() => { if (mounted) setLoading(false); });
     }, query.trim() ? 250 : 0);
     return () => { mounted = false; window.clearTimeout(timer); listRequestSequence.current += 1; };
@@ -142,7 +143,7 @@ export function SupabaseDocumentManager() {
       setFormOpen(false); setDraft(INITIAL_DRAFT);
       setNotice("Dokumen berhasil dicatat.");
       await fetchPage(null, false);
-    } catch (saveError: any) { setError(saveError?.message || "Dokumen belum dapat didaftarkan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Dokumen belum dapat didaftarkan.")); }
     finally { setSaving(false); }
   };
 
@@ -152,7 +153,7 @@ export function SupabaseDocumentManager() {
       await documentRequest(`/api/documents/${encodeURIComponent(document.id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
       setNotice(`Status dokumen ${document.documentNumber} diperbarui menjadi “${STATUS_LABEL[status]}”.`);
       await fetchPage(null, false);
-    } catch (saveError: any) { setError(saveError?.message || "Status dokumen belum dapat diperbarui."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Status dokumen belum dapat diperbarui.")); }
     finally { setBusyDocumentId(""); }
   };
 
@@ -186,7 +187,7 @@ export function SupabaseDocumentManager() {
       lease.clear();
       setNotice(`PDF berhasil disimpan secara privat pada dokumen ${document.documentNumber}.`);
       await fetchPage(null, false);
-    } catch (uploadError: any) { setError(uploadError?.message || "Lampiran belum dapat disimpan."); }
+    } catch (uploadError: any) { setError(toERPUserMessage(uploadError, "Lampiran belum dapat disimpan.")); }
     finally { setBusyDocumentId(""); setUploadTarget(""); }
   };
 
@@ -195,14 +196,14 @@ export function SupabaseDocumentManager() {
     try {
       const result = await documentRequest<{ signedUrl: string }>(`/api/documents/attachments/${encodeURIComponent(attachment.id)}/download-url`);
       window.open(result.signedUrl, "_blank", "noopener,noreferrer");
-    } catch (downloadError: any) { setError(downloadError?.message || "Lampiran belum dapat dibuka."); }
+    } catch (downloadError: any) { setError(toERPUserMessage(downloadError, "Lampiran belum dapat dibuka.")); }
   };
 
   const loadMore = async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true); setError("");
     try { await fetchPage(nextCursor, true); }
-    catch (loadError: any) { setError(loadError?.message || "Halaman berikutnya belum dapat dimuat."); }
+    catch (loadError: any) { setError(toERPUserMessage(loadError, "Halaman berikutnya belum dapat dimuat.")); }
     finally { setLoadingMore(false); }
   };
 

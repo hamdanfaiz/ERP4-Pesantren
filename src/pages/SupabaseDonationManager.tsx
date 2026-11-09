@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { jsPDF } from "jspdf";
@@ -66,7 +67,7 @@ export function SupabaseDonationManager() {
     let active = true;
     setLoading(true); setError("");
     donationRequest("/api/donation/snapshot").then((data) => { if (active) setSnapshot({ ...emptySnapshot, ...data }); })
-      .catch((cause: any) => { if (active) setError(cause?.message || "Data donasi belum dapat dimuat."); })
+      .catch((cause: any) => { if (active) setError(toERPUserMessage(cause, "Data donasi belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [refresh, user?.tenantId, user?.uid]);
@@ -94,7 +95,7 @@ export function SupabaseDonationManager() {
       }
       return result;
     } catch (cause: any) {
-      setError(cause?.message || "Perubahan belum dapat disimpan.");
+      setError(toERPUserMessage(cause, "Perubahan belum dapat disimpan."));
       return null;
     } finally {
       setSaving(false);
@@ -158,7 +159,7 @@ export function SupabaseDonationManager() {
   const summary = snapshot.summary;
 
   return <div className="mx-auto max-w-7xl space-y-6">
-    <header className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 dark:border-white/10 md:flex-row md:items-center"><div><h1 className="flex items-center gap-3 text-2xl font-bold text-slate-900 dark:text-white"><HeartHandshake className="h-7 w-7 text-emerald-600" />Donasi & Wakaf</h1><p className="mt-1 text-sm text-slate-500">Kelola kampanye, penerimaan donasi, data donatur, dan aset wakaf.</p></div><div className="flex gap-2"><button type="button" className={OUTLINE} disabled={loading} onClick={() => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(e?.message || "Data gagal dimuat.")).finally(() => setLoading(false)); }}><RefreshCw className="h-4 w-4" />Muat ulang</button><button type="button" className={BUTTON} onClick={() => setDonationFormOpen(true)}><Plus className="h-4 w-4" />Catat donasi</button></div></header>
+    <header className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 dark:border-white/10 md:flex-row md:items-center"><div><h1 className="flex items-center gap-3 text-2xl font-bold text-slate-900 dark:text-white"><HeartHandshake className="h-7 w-7 text-emerald-600" />Donasi & Wakaf</h1><p className="mt-1 text-sm text-slate-500">Kelola kampanye, penerimaan donasi, data donatur, dan aset wakaf.</p></div><div className="flex gap-2"><button type="button" className={OUTLINE} disabled={loading} onClick={() => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Data gagal dimuat."))).finally(() => setLoading(false)); }}><RefreshCw className="h-4 w-4" />Muat ulang</button><button type="button" className={BUTTON} onClick={() => setDonationFormOpen(true)}><Plus className="h-4 w-4" />Catat donasi</button></div></header>
     <ERPTabs tabs={tabs} value={tab} onChange={(id) => setTab(id as Tab)} ariaLabel="Bagian modul Donasi dan Wakaf" />
     {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-200">{error}</div>}{notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-200">{notice}</div>}
     {loading ? <div role="status" className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-12 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900"><Loader2 className="h-4 w-4 animate-spin" />Memuat data…</div> : <>

@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -18,7 +19,7 @@ type ImportPreview = { snapshotFingerprint: string; counts: Record<string, numbe
 
 const EMPTY: Snapshot = { courses: [], categories: [], gradeLevels: [], instructors: [], students: [], enrollments: [], assignments: [], submissions: [], progress: [], notes: [], comments: [] };
 const LMS_TABS: Array<{ id: Tab; label: string }> = [
-  { id: "dashboard", label: "Dashboard" },
+  { id: "dashboard", label: "Dasbor" },
   { id: "courses", label: "Kursus & Materi" },
   { id: "categories", label: "Kategori" },
   { id: "video-library", label: "Pustaka Video" },
@@ -82,7 +83,7 @@ export function SupabaseLMSManager() {
       const result = await requestLms("/api/lms/snapshot");
       setSnapshot({ ...EMPTY, ...result });
       setSelectedCourseId((current) => result.courses?.some((item: Course) => item.id === current) ? current : result.courses?.[0]?.id || "");
-    } catch (cause: any) { setSnapshot(EMPTY); setError(cause?.message || "Data LMS belum dapat dimuat."); }
+    } catch (cause: any) { setSnapshot(EMPTY); setError(toERPUserMessage(cause, "Data LMS belum dapat dimuat.")); }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
 
@@ -92,7 +93,7 @@ export function SupabaseLMSManager() {
       const result = await requestLms("/api/lms/legacy/import", { method: "POST", body: JSON.stringify({ action: "preview" }) });
       setLegacyImportPreview(result);
       setNotice(result.canApply ? "Pratinjau impor selesai. Tinjau hitungan dan konflik sebelum menerapkan." : "Pratinjau selesai; perbaiki konflik atau periksa apakah data sumber memang kosong.");
-    } catch (cause: any) { setError(cause?.message || "Pratinjau impor LMS gagal."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Pratinjau impor LMS gagal.")); }
     finally { setBusy(false); }
   };
 
@@ -103,7 +104,7 @@ export function SupabaseLMSManager() {
       const result = await requestLms("/api/lms/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: legacyImportPreview.snapshotFingerprint }) });
       setNotice(`Impor LMS selesai: ${result.imported} record ditambahkan, ${result.skipped} record dikenali sudah sama.`);
       setLegacyImportPreview(null); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Impor LMS gagal; tidak ada hasil yang dikonfirmasi."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor LMS gagal; tidak ada hasil yang dikonfirmasi.")); }
     finally { setBusy(false); }
   };
 
@@ -117,7 +118,7 @@ export function SupabaseLMSManager() {
       lease?.clear();
       if (action === "course" && result.id) setSelectedCourseId(String(result.id));
       setNotice(message); await refresh(); return result;
-    } catch (cause: any) { setError(cause?.message || "Perubahan LMS belum terkonfirmasi. Ulangi dengan data yang sama bila koneksi terputus."); return null; }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Perubahan LMS belum terkonfirmasi. Ulangi dengan data yang sama bila koneksi terputus.")); return null; }
     finally { setBusy(false); }
   };
 
@@ -179,7 +180,7 @@ export function SupabaseLMSManager() {
       });
       lease.clear();
       setNotice("Pengumpulan tugas tersimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Pengumpulan belum terkonfirmasi. Ulangi dengan jawaban yang sama jika koneksi terputus."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Pengumpulan belum terkonfirmasi. Ulangi dengan jawaban yang sama jika koneksi terputus.")); }
     finally { setBusy(false); }
   };
 
@@ -194,7 +195,7 @@ export function SupabaseLMSManager() {
       });
       lease.clear();
       setNotice("Nilai dan umpan balik tersimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Penilaian belum terkonfirmasi. Ulangi dengan data yang sama jika koneksi terputus."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Penilaian belum terkonfirmasi. Ulangi dengan data yang sama jika koneksi terputus.")); }
     finally { setBusy(false); }
   };
 
@@ -203,7 +204,7 @@ export function SupabaseLMSManager() {
     try {
       await requestLms("/api/lms/progress", { method: "POST", body: JSON.stringify({ materialId: material.id, positionSeconds: material.duration_seconds || 0, completed: true }) });
       setNotice("Kemajuan materi tersimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Kemajuan belum tersimpan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Kemajuan belum tersimpan.")); }
     finally { setBusy(false); }
   };
 
@@ -229,7 +230,7 @@ export function SupabaseLMSManager() {
         : (kind === "note" ? "Catatan pribadi tersimpan." : "Komentar materi terkirim."));
       await refresh();
     } catch (cause: any) {
-      setError(cause?.message || "Catatan belum terkonfirmasi. Ulangi dengan isi yang sama jika koneksi terputus.");
+      setError(toERPUserMessage(cause, "Catatan belum terkonfirmasi. Ulangi dengan isi yang sama jika koneksi terputus."));
     } finally { setBusy(false); }
   };
 

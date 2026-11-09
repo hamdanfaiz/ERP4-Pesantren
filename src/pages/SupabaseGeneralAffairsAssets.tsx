@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -61,7 +62,7 @@ export function SupabaseGeneralAffairsAssets() {
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     try { setSnapshot({ ...EMPTY, ...(await requestGA("/api/ga/assets-snapshot")) }); }
-    catch (cause: any) { setSnapshot(EMPTY); setError(cause?.message || "Data aset dan inventaris belum dapat dimuat."); }
+    catch (cause: any) { setSnapshot(EMPTY); setError(toERPUserMessage(cause, "Data aset dan inventaris belum dapat dimuat.")); }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -82,7 +83,7 @@ export function SupabaseGeneralAffairsAssets() {
     try {
       await requestGA("/api/ga/assets", { method: "POST", body: JSON.stringify({ action: editingAsset ? "update" : "create", ...(editingAsset ? { id: editingAsset.id } : {}), ...assetDraft, clientRequestId: crypto.randomUUID() }) });
       setAssetDraft(emptyAsset()); setEditingAsset(null); setNotice("Data aset berhasil disimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Aset belum dapat disimpan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Aset belum dapat disimpan.")); }
     finally { setBusy(false); }
   };
   const saveOpname = async () => {
@@ -91,14 +92,14 @@ export function SupabaseGeneralAffairsAssets() {
     try {
       await requestGA("/api/ga/assets", { method: "POST", body: JSON.stringify({ action: "opname", id: opname.facility.id, condition: opname.condition, opnameOn: today(), clientRequestId: crypto.randomUUID() }) });
       setOpname(null); setNotice("Hasil pemeriksaan aset tercatat."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Pemeriksaan aset belum dapat dicatat."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Pemeriksaan aset belum dapat dicatat.")); }
     finally { setBusy(false); }
   };
   const disposeAsset = async (facility: Facility) => {
     if (!window.confirm(`Tandai ${facility.name} sebagai aset yang sudah dilepas?`)) return;
     setBusy(true); setError("");
     try { await requestGA("/api/ga/assets", { method: "POST", body: JSON.stringify({ action: "dispose", id: facility.id, clientRequestId: crypto.randomUUID() }) }); setNotice("Aset ditandai sebagai dilepas."); await refresh(); }
-    catch (cause: any) { setError(cause?.message || "Status aset belum dapat diubah."); }
+    catch (cause: any) { setError(toERPUserMessage(cause, "Status aset belum dapat diubah.")); }
     finally { setBusy(false); }
   };
   const saveInventory = async (event: React.FormEvent) => {
@@ -106,7 +107,7 @@ export function SupabaseGeneralAffairsAssets() {
     try {
       await requestGA("/api/ga/inventory", { method: "POST", body: JSON.stringify({ action: editingItem ? "update" : "create", ...(editingItem ? { id: editingItem.id } : {}), ...itemDraft, clientRequestId: crypto.randomUUID() }) });
       setItemDraft(emptyItem()); setEditingItem(null); setNotice("Data inventaris tersimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Inventaris belum dapat disimpan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Inventaris belum dapat disimpan.")); }
     finally { setBusy(false); }
   };
   const adjustStock = async (item: InventoryItem) => {
@@ -117,20 +118,20 @@ export function SupabaseGeneralAffairsAssets() {
     try {
       await requestGA("/api/ga/stock-adjustments", { method: "POST", body: JSON.stringify({ itemId: item.id, delta: draft.direction === "in" ? quantity : -quantity, reason: draft.reason.trim(), clientRequestId: crypto.randomUUID() }) });
       setAdjustmentDraft((old) => ({ ...old, [item.id]: { direction: "in", quantity: "", reason: "" } })); setNotice("Mutasi stok tersimpan dalam ledger."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Mutasi stok belum dapat dicatat."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Mutasi stok belum dapat dicatat.")); }
     finally { setBusy(false); }
   };
   const archiveItem = async (item: InventoryItem) => {
     if (item.quantity !== 0 || !window.confirm(`Arsipkan ${item.name}?`)) return;
     setBusy(true); setError("");
     try { await requestGA("/api/ga/inventory", { method: "POST", body: JSON.stringify({ action: "archive", id: item.id, clientRequestId: crypto.randomUUID() }) }); setNotice("Inventaris diarsipkan."); await refresh(); }
-    catch (cause: any) { setError(cause?.message || "Inventaris belum dapat diarsipkan."); }
+    catch (cause: any) { setError(toERPUserMessage(cause, "Inventaris belum dapat diarsipkan.")); }
     finally { setBusy(false); }
   };
   const previewLegacyImport = async () => {
     setBusy(true); setError(""); setNotice(""); setImportPreview(null);
     try { setImportPreview(await requestGA("/api/ga/legacy/import", { method: "POST", body: JSON.stringify({ action: "preview" }) })); }
-    catch (cause: any) { setError(cause?.message || "Pratinjau impor lama belum dapat dibuat."); }
+    catch (cause: any) { setError(toERPUserMessage(cause, "Pratinjau impor lama belum dapat dibuat.")); }
     finally { setBusy(false); }
   };
   const applyLegacyImport = async () => {
@@ -139,7 +140,7 @@ export function SupabaseGeneralAffairsAssets() {
     try {
       const result = await requestGA("/api/ga/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: importPreview.snapshotFingerprint }) });
       setImportPreview(null); setNotice(`Impor selesai: ${result.imported || 0} record baru, ${result.skipped || 0} record sudah ada.`); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Impor belum dapat diterapkan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor belum dapat diterapkan.")); }
     finally { setBusy(false); }
   };
 

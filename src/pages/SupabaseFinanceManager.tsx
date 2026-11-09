@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowDownRight, ArrowUpRight, CheckCircle2, Download, FileCheck2, Lock, LockOpen, Plus, RefreshCw, Upload, Wallet, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -95,7 +96,7 @@ export function SupabaseFinanceManager() {
     setLoading(true); setError("");
     requestFinance("/api/finance/snapshot")
       .then((result) => { if (active) setSnapshot({ bills: Array.isArray(result.bills) ? result.bills : [], units: Array.isArray(result.units) ? result.units : [], expenses: Array.isArray(result.expenses) ? result.expenses : [], students: Array.isArray(result.students) ? result.students : [], ledger: Array.isArray(result.ledger) ? result.ledger : [], feeTypes: Array.isArray(result.feeTypes) ? result.feeTypes : [], expenseCategories: Array.isArray(result.expenseCategories) ? result.expenseCategories : [], financeLocked: result.financeLocked === true }); })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Data keuangan belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Data keuangan belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [user?.tenantId, user?.uid]);
@@ -153,7 +154,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("create-bills", user?.tenantId || "", user?.uid || "", batch, (clientRequestId) =>
         requestFinance("/api/finance/bills", { method: "POST", body: JSON.stringify({ batch: { ...batch, clientRequestId } }) }));
       setCreateType(null); setBillForm({ studentId: "", feeTypeReferenceId: "", period: "", amount: "" }); await refreshAfterMutation("Tagihan berhasil diterbitkan.");
-    } catch (saveError: any) { setError(saveError?.message || "Tagihan belum dapat diterbitkan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Tagihan belum dapat diterbitkan.")); }
     finally { setSaving(false); }
   };
 
@@ -169,7 +170,7 @@ export function SupabaseFinanceManager() {
       setCreateType(null); setExpenseForm({ categoryReferenceId: "", description: "", amount: "", unitId: snapshot.units[0]?.id || "" });
       expenseDateRef.current = today(user?.tenantTimeZone);
       await refreshAfterMutation("Pengajuan pengeluaran tersimpan untuk diperiksa.");
-    } catch (saveError: any) { setError(saveError?.message || "Pengajuan pengeluaran gagal disimpan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Pengajuan pengeluaran gagal disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -183,7 +184,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("review-bill", user?.tenantId || "", user?.uid || "", review, (clientRequestId) =>
         requestFinance("/api/finance/bills/review", { method: "POST", body: JSON.stringify({ review: { ...review, clientRequestId } }) }));
       await refreshAfterMutation(action === "settle" ? "Pembayaran disahkan dan masuk ledger." : "Bukti ditolak dan alasan dicatat.");
-    } catch (reviewError: any) { setError(reviewError?.message || "Keputusan tagihan belum dapat disimpan."); }
+    } catch (reviewError: any) { setError(toERPUserMessage(reviewError, "Keputusan tagihan belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -197,7 +198,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("review-expense", user?.tenantId || "", user?.uid || "", review, (clientRequestId) =>
         requestFinance("/api/finance/expenses/review", { method: "POST", body: JSON.stringify({ review: { ...review, clientRequestId } }) }));
       await refreshAfterMutation(action === "approve" ? "Pengeluaran disetujui dan masuk ledger." : "Pengeluaran ditolak.");
-    } catch (reviewError: any) { setError(reviewError?.message || "Keputusan pengeluaran gagal disimpan."); }
+    } catch (reviewError: any) { setError(toERPUserMessage(reviewError, "Keputusan pengeluaran gagal disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -210,7 +211,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("set-book-lock", user?.tenantId || "", user?.uid || "", change, (clientRequestId) =>
         requestFinance("/api/finance/lock", { method: "POST", body: JSON.stringify({ lock: { ...change, clientRequestId } }) }));
       await refreshAfterMutation(locked ? "Buku keuangan ditutup." : "Buku keuangan dibuka.");
-    } catch (lockError: any) { setError(lockError?.message || "Status buku gagal disimpan."); }
+    } catch (lockError: any) { setError(toERPUserMessage(lockError, "Status buku gagal disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -233,7 +234,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("payment-proof", user?.tenantId || "", user?.uid || "", identity, (clientRequestId) =>
         requestFinance("/api/finance/payment-proofs", { method: "POST", body: JSON.stringify({ billingId: paymentBill.id, fileName: paymentFile.name, mimeType: paymentFile.type, base64, payChannel: paymentChannel, clientRequestId }) }));
       setPaymentBill(null); setPaymentFile(null); await refreshAfterMutation("Bukti pembayaran terkirim untuk verifikasi.");
-    } catch (uploadError: any) { setError(uploadError?.message || "Bukti pembayaran belum dapat diunggah."); }
+    } catch (uploadError: any) { setError(toERPUserMessage(uploadError, "Bukti pembayaran belum dapat diunggah.")); }
     finally { setSaving(false); }
   };
 
@@ -247,7 +248,7 @@ export function SupabaseFinanceManager() {
       if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || "Bukti transfer tidak dapat diakses."); }
       const objectUrl = URL.createObjectURL(await response.blob());
       proofWindow.location.replace(objectUrl); window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
-    } catch (openError: any) { proofWindow.close(); setError(openError?.message || "Bukti transfer tidak dapat diakses."); }
+    } catch (openError: any) { proofWindow.close(); setError(toERPUserMessage(openError, "Bukti transfer tidak dapat diakses.")); }
   };
 
   const exportLedger = () => {

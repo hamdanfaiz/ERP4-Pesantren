@@ -4,6 +4,7 @@ import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { toERPUserMessage } from "../utils/userMessages";
 
 type UnitType = "pesantren" | "sekolah" | "klinik" | "usaha" | "yayasan" | "lainnya";
 type UnitStatus = "active" | "inactive";
@@ -63,16 +64,20 @@ function formatDate(value: string) {
 }
 
 async function requestUnits(path: string, init: RequestInit = {}) {
-  const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
-  const headers = new Headers(init.headers || {});
-  headers.set("Authorization", "Bearer " + token);
-  headers.set("Accept", "application/json");
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const response = await fetch(path, { ...init, headers, cache: "no-store" });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || "Layanan Manajemen Multi-Unit belum dapat diproses.");
-  return body;
+  try {
+    const token = await getAccessToken();
+    if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+    const headers = new Headers(init.headers || {});
+    headers.set("Authorization", "Bearer " + token);
+    headers.set("Accept", "application/json");
+    if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    const response = await fetch(path, { ...init, headers, cache: "no-store" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Layanan Manajemen Multi-Unit belum dapat diproses.");
+    return body;
+  } catch (cause) {
+    throw new Error(toERPUserMessage(cause, "Layanan Manajemen Multi-Unit belum dapat diproses. Coba kembali."));
+  }
 }
 
 function typeLabel(value: UnitType) {
@@ -136,7 +141,7 @@ export function SupabaseEnterpriseUnitsManager() {
       setMappingReady(true);
     } catch (loadError: unknown) {
       setMappingReady(false);
-      setMappingError(loadError instanceof Error ? loadError.message : "Daftar data yang belum memiliki unit tidak dapat dimuat.");
+      setMappingError(toERPUserMessage(loadError, "Daftar data yang belum memiliki unit tidak dapat dimuat."));
     } finally { setMappingLoading(false); }
   }, []);
 
@@ -154,7 +159,7 @@ export function SupabaseEnterpriseUnitsManager() {
       setFinanceMappingReady(true);
     } catch (loadError: unknown) {
       setFinanceMappingReady(false);
-      setFinanceMappingError(loadError instanceof Error ? loadError.message : "Daftar pengeluaran tanpa unit tidak dapat dimuat.");
+      setFinanceMappingError(toERPUserMessage(loadError, "Daftar pengeluaran tanpa unit tidak dapat dimuat."));
     } finally { setFinanceMappingLoading(false); }
   }, []);
 
@@ -170,7 +175,7 @@ export function SupabaseEnterpriseUnitsManager() {
           setBackendReady(true);
         }
       })
-      .catch((loadError: unknown) => { if (current) { setBackendReady(false); setError(loadError instanceof Error ? loadError.message : "Data unit belum dapat dimuat."); } })
+      .catch((loadError: unknown) => { if (current) { setBackendReady(false); setError(toERPUserMessage(loadError, "Data unit belum dapat dimuat. Coba kembali.")); } })
       .finally(() => { if (current) setLoading(false); });
     void refreshUnmapped();
     if (canMapFinanceRecords) void refreshUnmappedFinance();
@@ -206,7 +211,7 @@ export function SupabaseEnterpriseUnitsManager() {
       try { await refresh(); }
       catch { setError("Perubahan tersimpan, tetapi daftar belum dapat dimuat ulang. Gunakan tombol muat ulang."); }
     } catch (saveError: unknown) {
-      setError(saveError instanceof Error ? saveError.message : "Perubahan unit belum berhasil disimpan.");
+      setError(toERPUserMessage(saveError, "Perubahan unit belum berhasil disimpan. Coba kembali."));
     } finally { setSaving(false); }
   };
 
@@ -226,7 +231,7 @@ export function SupabaseEnterpriseUnitsManager() {
       try { await refresh(); }
       catch { setError("Status tersimpan, tetapi daftar belum dapat dimuat ulang. Gunakan tombol muat ulang."); }
     } catch (saveError: unknown) {
-      setError(saveError instanceof Error ? saveError.message : "Status unit belum berhasil diubah.");
+      setError(toERPUserMessage(saveError, "Status unit belum berhasil diubah. Coba kembali."));
     } finally { setSaving(false); }
   };
 
@@ -252,7 +257,7 @@ export function SupabaseEnterpriseUnitsManager() {
       setNotice(`${label} berhasil dipetakan ke unit ${selectedUnit.name}.`);
       await refreshUnmapped(unmapped.offset);
     } catch (mappingSaveError: unknown) {
-      setMappingError(mappingSaveError instanceof Error ? mappingSaveError.message : "Pemetaan unit belum berhasil disimpan.");
+      setMappingError(toERPUserMessage(mappingSaveError, "Pemetaan unit belum berhasil disimpan. Coba kembali."));
     } finally { setMappingRequest(""); }
   };
 
@@ -275,7 +280,7 @@ export function SupabaseEnterpriseUnitsManager() {
       setNotice(`Pengeluaran berhasil dipetakan ke unit ${selectedUnit.name}.`);
       await refreshUnmappedFinance(unmappedFinance.offset);
     } catch (mappingSaveError: unknown) {
-      setFinanceMappingError(mappingSaveError instanceof Error ? mappingSaveError.message : "Pemetaan pengeluaran belum berhasil disimpan.");
+      setFinanceMappingError(toERPUserMessage(mappingSaveError, "Pemetaan pengeluaran belum berhasil disimpan. Coba kembali."));
     } finally { setMappingRequest(""); }
   };
 
@@ -374,7 +379,7 @@ export function SupabaseEnterpriseUnitsManager() {
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 className="font-semibold text-slate-900 dark:text-white">Daftar unit</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Kode unit unik untuk setiap pesantren.</p></div>
-          <div className="flex gap-2"><label className="relative block"><span className="sr-only">Cari unit</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input className={`${FIELD} pl-9 sm:w-64`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari unit…" /></label><button type="button" className={OUTLINE} onClick={() => { setLoading(true); setError(""); refresh().catch((refreshError: unknown) => setError(refreshError instanceof Error ? refreshError.message : "Data unit belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading || saving} aria-label="Muat ulang daftar"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button></div>
+          <div className="flex gap-2"><label className="relative block"><span className="sr-only">Cari unit</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input className={`${FIELD} pl-9 sm:w-64`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari unit…" /></label><button type="button" className={OUTLINE} onClick={() => { setLoading(true); setError(""); refresh().catch((refreshError: unknown) => setError(toERPUserMessage(refreshError, "Data unit belum dapat dimuat. Coba kembali."))).finally(() => setLoading(false)); }} disabled={loading || saving} aria-label="Muat ulang daftar"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button></div>
         </div>
         {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500" role="status"><Loader2 className="h-4 w-4 animate-spin" /> Memuat data unit…</div>
           : filteredUnits.length === 0 ? <div className="p-12 text-center"><Building2 className="mx-auto h-9 w-9 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-800 dark:text-slate-200">{snapshot.units.length ? "Unit tidak ditemukan" : "Belum ada unit"}</h3><p className="mt-1 text-sm text-slate-500">{snapshot.units.length ? "Ubah kata pencarian atau bersihkan pencarian." : "Tambahkan unit organisasi pertama untuk pesantren ini."}</p></div>

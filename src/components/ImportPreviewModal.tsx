@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useState, useRef, useMemo } from 'react';
 import {
   X,
@@ -99,7 +100,7 @@ export function ImportPreviewModal({
         const text = (event.target?.result as string) || '';
         processRawText(text, selectedFile.name);
       } catch (err: any) {
-        setErrorMessage(`Gagal membaca file: ${err.message || 'Format tidak didukung'}`);
+        setErrorMessage(`Gagal membaca file: ${toERPUserMessage(err, 'Format tidak didukung')}`);
       }
     };
     reader.onerror = () => {
@@ -343,7 +344,7 @@ export function ImportPreviewModal({
       await onImportSuccess(toImport, strategy);
       onClose();
     } catch (err: any) {
-      setErrorMessage(`Gagal menyimpan data impor: ${err.message || 'Kesalahan database'}`);
+      setErrorMessage(`Gagal menyimpan data impor: ${toERPUserMessage(err, 'Kesalahan database')}`);
     } finally {
       setIsProcessing(false);
     }

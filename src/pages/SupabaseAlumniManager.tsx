@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Briefcase, GraduationCap, HeartHandshake, Search, Users, UserPlus, X, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -61,7 +62,7 @@ export function SupabaseAlumniManager() {
         setAlumni(Array.isArray(payload.alumni) ? payload.alumni : []);
         setStudents(Array.isArray(payload.eligibleStudents) ? payload.eligibleStudents : []);
       })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Data Alumni belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Data Alumni belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [user?.tenantId, user?.uid]);
@@ -95,7 +96,7 @@ export function SupabaseAlumniManager() {
       setStudentId("");
       await refresh();
     } catch (saveError: any) {
-      setError(saveError?.message || "Kelulusan belum dapat disimpan.");
+      setError(toERPUserMessage(saveError, "Kelulusan belum dapat disimpan."));
     } finally { setSaving(false); }
   };
 

@@ -355,6 +355,38 @@
   border-radius: .9rem;
   background: var(--erp-tabs-surface);
 }
+.erp-tabs-viewport {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.erp-tabs-viewport > .erp-tabs { flex: 1 1 auto; }
+.erp-tabs-scroll-button {
+  display: inline-flex;
+  flex: 0 0 2.25rem;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--erp-border);
+  border-radius: .65rem;
+  background: var(--erp-surface);
+  color: var(--erp-text);
+  line-height: 1;
+  transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+.erp-tabs-scroll-button:hover:not(:disabled) {
+  background: var(--erp-tabs-surface);
+  color: var(--erp-brand-strong);
+}
+.erp-tabs-scroll-button:focus-visible {
+  outline: 2px solid var(--erp-brand-strong);
+  outline-offset: 2px;
+}
+.erp-tabs-scroll-button:disabled { opacity: .35; cursor: default; }
 .erp-tabs > .erp-tab-control { flex: 0 0 auto; }
 .erp-tab-scroll {
   min-width: 0;

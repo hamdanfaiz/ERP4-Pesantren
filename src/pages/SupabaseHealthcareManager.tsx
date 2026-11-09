@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -53,7 +54,7 @@ export function SupabaseHealthcareManager() {
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     try { setSnapshot({ ...EMPTY, ...(await requestHealthcare("/api/healthcare/snapshot")) }); }
-    catch (cause: any) { setSnapshot(EMPTY); setError(cause?.message || "Data UKS belum dapat dimuat."); }
+    catch (cause: any) { setSnapshot(EMPTY); setError(toERPUserMessage(cause, "Data UKS belum dapat dimuat.")); }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -61,7 +62,7 @@ export function SupabaseHealthcareManager() {
   const save = async (path: string, body: Record<string, unknown>, message: string) => {
     setBusy(true); setError(""); setNotice("");
     try { await requestHealthcare(path, { method: "POST", body: JSON.stringify(body) }); setNotice(message); await refresh(); return true; }
-    catch (cause: any) { setError(cause?.message || "Data belum tersimpan."); return false; }
+    catch (cause: any) { setError(toERPUserMessage(cause, "Data belum tersimpan.")); return false; }
     finally { setBusy(false); }
   };
 
@@ -92,14 +93,14 @@ export function SupabaseHealthcareManager() {
   const previewLegacyImport = async () => {
     setBusy(true); setError(""); setNotice(""); setImportPreview(null);
     try { const result = await requestHealthcare("/api/healthcare/legacy/import", { method: "POST", body: JSON.stringify({ action: "preview" }) }); setImportPreview(result); setNotice("Pratinjau UKS selesai. Tinjau konflik pemetaan sebelum menerapkan."); }
-    catch (cause: any) { setError(cause?.message || "Pratinjau data UKS gagal."); }
+    catch (cause: any) { setError(toERPUserMessage(cause, "Pratinjau data UKS gagal.")); }
     finally { setBusy(false); }
   };
   const applyLegacyImport = async () => {
     if (!importPreview?.canApply || !window.confirm(`Impor ${importPreview.counts.ready} record UKS yang dipetakan ke roster Supabase?`)) return;
     setBusy(true); setError(""); setNotice("");
     try { const result = await requestHealthcare("/api/healthcare/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: importPreview.snapshotFingerprint }) }); setNotice(`Impor selesai: ${result.imported} record ditambahkan, ${result.skipped} dilewati karena sudah sama.`); setImportPreview(null); await refresh(); }
-    catch (cause: any) { setError(cause?.message || "Impor UKS gagal."); }
+    catch (cause: any) { setError(toERPUserMessage(cause, "Impor UKS gagal.")); }
     finally { setBusy(false); }
   };
 

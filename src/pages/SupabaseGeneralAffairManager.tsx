@@ -6,14 +6,14 @@ const AssetsInventory = lazy(() => import("./SupabaseGeneralAffairsAssets").then
 const FacilityBooking = lazy(() => import("../components/FacilityBooking").then((module) => ({ default: module.FacilityBooking })));
 type Tab = "master" | "maintenance" | "assets" | "booking" | "procurement" | "fleet" | "housekeeping" | "kitchen";
 const TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
-  { id: "master", label: "Master Data", icon: <Database className="h-4 w-4" /> },
+  { id: "master", label: "Data Induk", icon: <Database className="h-4 w-4" /> },
   { id: "maintenance", label: "Tiket & Pemeliharaan", icon: <ClipboardList className="h-4 w-4" /> },
   { id: "assets", label: "Aset & Inventaris", icon: <Box className="h-4 w-4" /> },
   { id: "booking", label: "Pemesanan Fasilitas", icon: <CalendarDays className="h-4 w-4" /> },
-  { id: "procurement", label: "Procurement", icon: <ShoppingCart className="h-4 w-4" /> },
-  { id: "fleet", label: "Fleet & Logistik", icon: <Car className="h-4 w-4" /> },
-  { id: "housekeeping", label: "Housekeeping", icon: <CalendarDays className="h-4 w-4" /> },
-  { id: "kitchen", label: "Kitchen & Catering", icon: <Coffee className="h-4 w-4" /> },
+  { id: "procurement", label: "Pengadaan", icon: <ShoppingCart className="h-4 w-4" /> },
+  { id: "fleet", label: "Kendaraan & Logistik", icon: <Car className="h-4 w-4" /> },
+  { id: "housekeeping", label: "Kebersihan", icon: <CalendarDays className="h-4 w-4" /> },
+  { id: "kitchen", label: "Dapur & Katering", icon: <Coffee className="h-4 w-4" /> },
 ];
 
 export function SupabaseGeneralAffairManager() {

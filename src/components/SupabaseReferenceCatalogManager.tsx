@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Archive, Check, Loader2, Plus, RefreshCw, Save, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -61,7 +62,7 @@ export function SupabaseReferenceCatalogManager({ domains }: { domains?: Supabas
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     try { setRows(await listSupabaseReferenceItems(domain, true)); }
-    catch (cause: any) { setRows([]); setError(cause?.message || "Katalog referensi belum dapat dimuat."); }
+    catch (cause: any) { setRows([]); setError(toERPUserMessage(cause, "Katalog referensi belum dapat dimuat.")); }
     finally { setLoading(false); }
   }, [domain]);
   useEffect(() => { void refresh(); }, [refresh, user?.tenantId, user?.uid]);
@@ -77,7 +78,7 @@ export function SupabaseReferenceCatalogManager({ domains }: { domains?: Supabas
       setRows((current) => editing ? current.map((row) => row.id === saved.id ? saved : row) : [...current, saved].sort((a, b) => a.name.localeCompare(b.name, "id")));
       setEditing(null); setForm({ code: "", name: "", description: "", status: "active", nisGradeCode: "" });
       setNotice(editing ? "Referensi diperbarui." : "Referensi ditambahkan.");
-    } catch (cause: any) { setError(cause?.message || "Referensi belum dapat disimpan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Referensi belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 

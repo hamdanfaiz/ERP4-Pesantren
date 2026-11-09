@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Loader2, Play, RefreshCw, ShieldCheck, Send } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -49,7 +50,7 @@ export function SupabaseCBTStudentDashboard() {
     try {
       const result = await requestCbt("/api/cbt/student");
       setExams(Array.isArray(result.exams) ? result.exams : []);
-    } catch (cause: any) { setExams([]); setError(cause?.message || "Daftar ujian belum dapat dimuat."); }
+    } catch (cause: any) { setExams([]); setError(toERPUserMessage(cause, "Daftar ujian belum dapat dimuat.")); }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
 
@@ -81,7 +82,7 @@ export function SupabaseCBTStudentDashboard() {
       if (nextAttempt.expired || remainingMs <= 0) {
         await submitAttempt(nextAttempt.attemptId, nextAttempt.answers || {}, true);
       }
-    } catch (cause: any) { setError(cause?.message || "Ujian tidak dapat dimulai."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Ujian tidak dapat dimulai.")); }
     finally { setBusy(false); }
   };
 
@@ -112,7 +113,7 @@ export function SupabaseCBTStudentDashboard() {
         + "Nilai " + Number(result.score || 0) + " — " + (result.passed ? "Lulus." : "Belum lulus."));
       setAttempt(null); setAnswers({}); setConfirmSubmit(false); attemptDeadline.current = 0;
       await refresh();
-    } catch (cause: any) { setError(cause?.message || "Jawaban belum dapat dikumpulkan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Jawaban belum dapat dikumpulkan.")); }
     finally { setBusy(false); submitLock.current = false; }
   };
 
@@ -121,7 +122,7 @@ export function SupabaseCBTStudentDashboard() {
     const saveTimer = setTimeout(() => {
       if (performance.now() >= attemptDeadline.current) return;
       void persistAnswersInOrder(attempt.attemptId, answers)
-        .catch((cause: any) => setError(cause?.message || "Jawaban belum tersinkron."));
+        .catch((cause: any) => setError(toERPUserMessage(cause, "Jawaban belum tersinkron.")));
     }, 500);
     return () => clearTimeout(saveTimer);
   }, [answers, attempt?.attemptId, attempt?.expiresAt, busy]);

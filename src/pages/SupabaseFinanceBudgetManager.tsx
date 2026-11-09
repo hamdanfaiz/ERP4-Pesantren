@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, AlertCircle, Check, ClipboardList, Loader2, Plus, RefreshCw, Save, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -133,7 +134,7 @@ export function SupabaseFinanceBudgetManager() {
           setSelectedUnitId((current) => current || units.find((unit: OrganizationUnit) => unit.status === "active")?.id || "");
         }
       })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Data anggaran belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Data anggaran belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [refresh, user?.tenantId, user?.uid]);
@@ -168,7 +169,7 @@ export function SupabaseFinanceBudgetManager() {
       try { await refresh(); }
       catch { setError("Perubahan sudah tersimpan, tetapi daftar belum berhasil dimuat. Tekan Muat ulang."); }
     } catch (saveError: any) {
-      setError(saveError?.message || "Perubahan anggaran belum dapat disimpan.");
+      setError(toERPUserMessage(saveError, "Perubahan anggaran belum dapat disimpan."));
     } finally {
       setSaving(false);
     }
@@ -215,7 +216,7 @@ export function SupabaseFinanceBudgetManager() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Keuangan & Anggaran</h1>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">Susun RKAT per periode dan pantau realisasi dari pengeluaran yang disetujui serta tercatat di buku Keuangan.</p>
         </div>
-        <button type="button" className={OUTLINE} disabled={loading || saving} onClick={() => { setLoading(true); setError(""); refresh().catch((e: any) => setError(e?.message || "Data anggaran belum dapat dimuat.")).finally(() => setLoading(false)); }}>
+        <button type="button" className={OUTLINE} disabled={loading || saving} onClick={() => { setLoading(true); setError(""); refresh().catch((e: any) => setError(toERPUserMessage(e, "Data anggaran belum dapat dimuat."))).finally(() => setLoading(false)); }}>
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang
         </button>
       </header>

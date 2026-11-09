@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AlertCircle, CheckCircle2, Download, Loader2, ShieldAlert, Upload, X } from "lucide-react";
+import { toERPUserMessage } from "../utils/userMessages";
 import {
   applySupabaseMasterDataImport,
   exportSupabaseMasterDataStudents,
@@ -61,7 +62,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
       const filename = "erp4-" + safeFilePart(label) + "-" + new Date().toISOString().slice(0, 10) + ".csv";
       downloadTransferCsv(filename, exportHeaders, records);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Ekspor belum dapat diselesaikan.");
+      setError(toERPUserMessage(caught, "Ekspor belum dapat diselesaikan."));
     } finally {
       setBusy(null);
     }
@@ -85,7 +86,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
       const checked = await previewSupabaseMasterDataImport(kind, parsed, structureCategory);
       setPreview(checked);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Berkas belum dapat diperiksa.");
+      setError(toERPUserMessage(caught, "Berkas belum dapat diperiksa."));
     } finally {
       setBusy(null);
     }
@@ -93,7 +94,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
 
   const handleApply = async () => {
     if (!preview || preview.readyCount < 1 || preview.errorCount > 0) return;
-    if (!window.confirm("Impor " + preview.readyCount + " record " + label + " ke pesantren ini? Record yang sudah ada akan dilewati dan tidak ditimpa.")) return;
+    if (!window.confirm("Impor " + preview.readyCount + " data " + label + " ke pesantren ini? Data yang sudah ada akan dilewati dan tidak ditimpa.")) return;
     setBusy("apply");
     setError("");
     setResult(null);
@@ -102,7 +103,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
       setResult(applied);
       onComplete?.();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Impor belum dapat diterapkan.");
+      setError(toERPUserMessage(caught, "Impor belum dapat diterapkan."));
     } finally {
       setBusy(null);
     }
@@ -165,7 +166,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
                     {preview.items.map((item) => (
                       <div key={item.row} className="flex gap-2 rounded-lg bg-slate-50 p-2.5 text-xs dark:bg-white/[0.03]">
                         {item.status === "ready" ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /> : item.status === "skip" ? <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />}
-                        <div><span className="font-semibold">Baris {item.row} · {item.name || item.id || "tanpa identitas"}</span>{item.messages.map((message) => <p key={message} className="mt-1 text-slate-500">{message}</p>)}</div>
+                        <div><span className="font-semibold">Baris {item.row} · {item.name || item.id || "tanpa identitas"}</span>{item.messages.map((message) => <p key={message} className="mt-1 text-slate-500">{toERPUserMessage(message, "Periksa data pada baris ini sebelum melanjutkan.")}</p>)}</div>
                       </div>
                     ))}
                   </div>
@@ -175,7 +176,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
               {result && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950 dark:border-emerald-500/20 dark:bg-emerald-500/5 dark:text-emerald-100">
                   Impor selesai: {result.imported} ditambahkan, {result.skipped} dilewati, {result.errorCount} gagal. Setiap baris disimpan terpisah; tinjau rincian kegagalan di bawah.
-                  {result.errors.slice(0, 10).map((item) => <p key={item.row} className="mt-1 text-xs">Baris {item.row} ({item.id}): {item.message}</p>)}
+                  {result.errors.slice(0, 10).map((item) => <p key={item.row} className="mt-1 text-xs">Baris {item.row} ({item.id}): {toERPUserMessage(item.message, "Baris ini gagal diproses. Periksa data lalu coba kembali.")}</p>)}
                 </div>
               )}
             </div>

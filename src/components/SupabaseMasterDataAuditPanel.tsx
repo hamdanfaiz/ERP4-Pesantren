@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Activity, ChevronLeft, ChevronRight, Download, RefreshCw, ShieldCheck } from "lucide-react";
 import { listSupabaseMasterDataAuditPage, type SupabaseMasterDataAuditEntry } from "../services/masterDataApi";
+import { toERPUserMessage } from "../utils/userMessages";
 
 const actionLabels: Record<SupabaseMasterDataAuditEntry["action"], string> = {
   created: "Ditambahkan",
@@ -98,7 +99,7 @@ export function SupabaseMasterDataAuditPanel() {
         if (current) setPage({ records: result.records, hasMore: result.hasMore, nextCursor: result.nextCursor });
       })
       .catch((cause: unknown) => {
-        if (current) setError(cause instanceof Error ? cause.message : "Jejak audit belum dapat dimuat.");
+        if (current) setError(toERPUserMessage(cause, "Jejak audit belum dapat dimuat. Coba kembali."));
       })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };

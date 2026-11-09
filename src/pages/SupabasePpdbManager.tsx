@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, FileSpreadsheet, Loader2, Plus, RefreshCw, Search, ShieldAlert, UserCheck, X } from "lucide-react";
@@ -196,7 +197,7 @@ export function SupabasePpdbManager() {
       setCandidates([]);
       setGradeLevels([]);
       setHasMore(false); setNextCursor(null); setLoadedQueryKey(queryKey);
-      setError(loadError?.message || "Daftar calon santri belum dapat dimuat. Silakan coba lagi.");
+      setError(toERPUserMessage(loadError, "Daftar calon santri belum dapat dimuat. Silakan coba lagi."));
     } finally {
       if (requestId === requestSequence.current) setLoading(false);
     }
@@ -219,7 +220,7 @@ export function SupabasePpdbManager() {
       });
       setHasMore(Boolean(payload.hasMore));
       setNextCursor(payload.nextCursor && typeof payload.nextCursor.createdAt === "string" && typeof payload.nextCursor.id === "string" ? payload.nextCursor : null);
-    } catch (loadError: any) { if (requestId === requestSequence.current) setError(loadError?.message || "Data berikutnya belum dapat dimuat."); }
+    } catch (loadError: any) { if (requestId === requestSequence.current) setError(toERPUserMessage(loadError, "Data berikutnya belum dapat dimuat.")); }
     finally { if (requestId === requestSequence.current) setLoadingMore(false); }
   };
 
@@ -297,7 +298,7 @@ export function SupabasePpdbManager() {
       setNotice(`Perubahan ${candidate.registrationId} tersimpan.`);
       await refresh();
     } catch (saveError: any) {
-      setError(saveError?.message || "Perubahan PPDB belum dapat disimpan.");
+      setError(toERPUserMessage(saveError, "Perubahan PPDB belum dapat disimpan."));
     } finally { setSavingId(""); }
   };
 
@@ -325,7 +326,7 @@ export function SupabasePpdbManager() {
       setCreateOpen(false);
       await refresh();
     } catch (createError: any) {
-      setCreateError(createError?.message || "Pendaftar PPDB belum dapat ditambahkan. Data formulir dipertahankan agar bisa dicoba kembali.");
+      setCreateError(toERPUserMessage(createError, "Pendaftar PPDB belum dapat ditambahkan. Data formulir dipertahankan agar bisa dicoba kembali."));
     } finally { setCreateSaving(false); }
   };
 
@@ -336,7 +337,7 @@ export function SupabasePpdbManager() {
     if (!file) return;
     setCsvLoading(true);
     try { setCsvCandidates(await parsePpdbCsv(file)); }
-    catch (parseError: any) { setCsvFileName(""); setCsvError(parseError?.message || "Berkas CSV belum dapat dibaca."); }
+    catch (parseError: any) { setCsvFileName(""); setCsvError(toERPUserMessage(parseError, "Berkas CSV belum dapat dibaca.")); }
     finally { setCsvLoading(false); }
   };
 
@@ -352,7 +353,7 @@ export function SupabasePpdbManager() {
         throw new Error("Pemeriksaan belum selesai untuk seluruh baris. Silakan coba lagi.");
       }
       setCsvPreview(result.rows as CsvPreviewRow[]);
-    } catch (previewError: any) { setCsvError(previewError?.message || "Pratinjau CSV belum dapat diselesaikan."); }
+    } catch (previewError: any) { setCsvError(toERPUserMessage(previewError, "Pratinjau CSV belum dapat diselesaikan.")); }
     finally { setCsvLoading(false); }
   };
 
@@ -375,7 +376,7 @@ export function SupabasePpdbManager() {
       setCsvImportOpen(false); setCsvFileName(""); setCsvCandidates([]); setCsvPreview(null);
       await refresh();
     } catch (saveError: any) {
-      setCsvError(saveError?.message || "Impor belum dapat disimpan. Tidak ada baris yang disimpan jika pemeriksaan transaksi menemukan duplikasi.");
+      setCsvError(toERPUserMessage(saveError, "Impor belum dapat disimpan. Tidak ada baris yang disimpan jika pemeriksaan transaksi menemukan duplikasi."));
     } finally { setCsvSaving(false); }
   };
 
@@ -402,7 +403,7 @@ export function SupabasePpdbManager() {
       const structures = await listSupabaseMasterDataStructures();
       setOnboardingStructures(structures);
     } catch (loadError: any) {
-      setOnboardingError(loadError?.message || "Data kelas, kamar, atau NIS belum dapat dimuat.");
+      setOnboardingError(toERPUserMessage(loadError, "Data kelas, kamar, atau NIS belum dapat dimuat."));
     } finally { setOnboardingLoading(false); }
   };
 
@@ -429,7 +430,7 @@ export function SupabasePpdbManager() {
       setOnboardingCandidate(null);
       await refresh();
     } catch (saveError: any) {
-      setOnboardingError(saveError?.message || "Pendaftaran santri belum dapat disimpan.");
+      setOnboardingError(toERPUserMessage(saveError, "Pendaftaran santri belum dapat disimpan."));
     } finally { setOnboardingSaving(false); }
   };
 
@@ -557,7 +558,7 @@ function CandidateBilling({
       setAmounts((current) => ({ ...current, [paymentType]: "" }));
       onCreated();
     } catch (issueError: any) {
-      setError(issueError?.message || "Tagihan PPDB belum dapat diterbitkan.");
+      setError(toERPUserMessage(issueError, "Tagihan PPDB belum dapat diterbitkan."));
     } finally {
       setSavingType("");
     }
@@ -621,7 +622,7 @@ function CandidateDocumentManager({
       await downloadPpdbDocument(candidate, key, label);
       setNotice(`${label} berhasil diunduh. Akses tercatat untuk audit.`);
     } catch (issue: any) {
-      setError(issue?.message || "Berkas PPDB belum dapat diunduh.");
+      setError(toERPUserMessage(issue, "Berkas PPDB belum dapat diunduh."));
     } finally {
       setDownloading("");
     }
@@ -660,7 +661,7 @@ function CandidateDocumentManager({
         throw uploadError;
       }
     } catch (uploadError: any) {
-      setError(uploadError?.message || `Berkas ${label} belum dapat diunggah. Pilih berkas yang sama untuk mencoba kembali.`);
+      setError(toERPUserMessage(uploadError, `Berkas ${label} belum dapat diunggah. Pilih berkas yang sama untuk mencoba kembali.`));
     } finally { setUploading(""); }
   };
 

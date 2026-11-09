@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertCircle, BookOpen, Boxes, CalendarClock, CalendarDays, Check, ClipboardList, Loader2, Plus, Radio, RefreshCw, ShieldCheck, SlidersHorizontal, Users } from "lucide-react";
@@ -37,7 +38,7 @@ type ImportPreview = { snapshotFingerprint: string; counts: { source: number; re
 const EMPTY_SETTINGS: CbtSettings = { autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults" };
 const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS, references: { subjects: [], gradeLevels: [], templates: [] } };
 const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
-  { id: "dashboard", label: "Dashboard", icon: <Activity className="h-4 w-4" /> },
+  { id: "dashboard", label: "Dasbor", icon: <Activity className="h-4 w-4" /> },
   { id: "calendar", label: "Kalender Ujian", icon: <CalendarDays className="h-4 w-4" /> },
   { id: "packages", label: "Paket Ujian", icon: <Boxes className="h-4 w-4" /> },
   { id: "questions", label: "Bank Soal & Builder", icon: <BookOpen className="h-4 w-4" /> },
@@ -184,7 +185,7 @@ export function SupabaseCBTManager() {
           gradeLevelReferenceId: references.gradeLevels.some((item: ReferenceOption) => item.id === current.gradeLevelReferenceId) ? current.gradeLevelReferenceId : references.gradeLevels[0]?.id || "",
         }));
       }
-    } catch (cause: any) { setSnapshot(EMPTY); setError(cause?.message || "Data ujian belum dapat dimuat. Silakan coba lagi."); }
+    } catch (cause: any) { setSnapshot(EMPTY); setError(toERPUserMessage(cause, "Data ujian belum dapat dimuat. Silakan coba lagi.")); }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
 
@@ -220,7 +221,7 @@ export function SupabaseCBTManager() {
       });
       setNotice(editingQuestionId ? "Soal berhasil diperbarui." : "Soal berhasil ditambahkan ke bank soal.");
       resetQuestion(); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Soal belum dapat disimpan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Soal belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -238,7 +239,7 @@ export function SupabaseCBTManager() {
         setNotice(`Impor selesai: ${Number(result.imported || 0)} soal baru, ${Number(result.skipped || 0)} sudah pernah diimpor.`);
         await refresh();
       }
-    } catch (cause: any) { setError(cause?.message || "Impor bank soal CBT belum dapat diproses."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor bank soal CBT belum dapat diproses.")); }
     finally { setSaving(false); }
   };
 
@@ -259,7 +260,7 @@ export function SupabaseCBTManager() {
         settingsAppliedTenant.current = "";
         await refresh();
       }
-    } catch (cause: any) { setError(cause?.message || "Pengaturan ujian belum dapat diimpor. Coba kembali."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Pengaturan ujian belum dapat diimpor. Coba kembali.")); }
     finally { setSaving(false); }
   };
 
@@ -292,7 +293,7 @@ export function SupabaseCBTManager() {
       setSelectedQuestions([]); setSelectedStudents([]);
       setExam((current) => ({ ...current, title: "", startsAt: localDateTimeOffset(60), endsAt: localDateTimeOffset(180) }));
       await refresh();
-    } catch (cause: any) { setError(cause?.message || "Ujian belum dapat dibuat."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Ujian belum dapat dibuat.")); }
     finally { setSaving(false); }
   };
 

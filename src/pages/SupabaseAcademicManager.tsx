@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -118,7 +119,7 @@ function AcademicClassPicker({
       setNextCursor(typeof result.nextCursor === "string" ? result.nextCursor : null);
       setHasMore(result.hasMore);
     } catch (loadError: any) {
-      if (epoch === requestEpoch.current) setError(loadError?.message || "Daftar kelas belum dapat dimuat.");
+      if (epoch === requestEpoch.current) setError(toERPUserMessage(loadError, "Daftar kelas belum dapat dimuat."));
     } finally {
       if (epoch === requestEpoch.current) setLoading(false);
     }
@@ -231,7 +232,7 @@ export function SupabaseAcademicManager() {
       });
     } catch (loadError: any) {
       setUnmappedClasses(EMPTY_UNMAPPED_CLASSES);
-      setClassMappingError(loadError?.message || "Daftar kelas tanpa unit belum dapat dimuat.");
+      setClassMappingError(toERPUserMessage(loadError, "Daftar kelas tanpa unit belum dapat dimuat."));
     } finally { setClassMappingLoading(false); }
   }, []);
   const scheduleUnitId = schedule.organizationUnitId || activeUnits[0]?.id || "";
@@ -346,7 +347,7 @@ export function SupabaseAcademicManager() {
       setStudentSearch(normalizedSearch);
       setStudentRosterPage({ hasMore: result.hasMore, nextCursor: typeof result.nextCursor === "string" ? result.nextCursor : null });
     } catch (loadError: any) {
-      if (requestEpoch === studentRosterRequestEpoch.current) setError(loadError?.message || "Roster santri belum dapat dimuat.");
+      if (requestEpoch === studentRosterRequestEpoch.current) setError(toERPUserMessage(loadError, "Roster santri belum dapat dimuat."));
     } finally {
       if (requestEpoch === studentRosterRequestEpoch.current) setStudentRosterLoading(false);
     }
@@ -379,7 +380,7 @@ export function SupabaseAcademicManager() {
         };
       });
     } catch (loadError: any) {
-      if (requestEpoch === academicRequestEpoch.current) setError(loadError?.message || "Halaman catatan Akademik belum dapat dimuat.");
+      if (requestEpoch === academicRequestEpoch.current) setError(toERPUserMessage(loadError, "Halaman catatan Akademik belum dapat dimuat."));
     } finally { if (requestEpoch === academicRequestEpoch.current) setLoadingMoreKind(null); }
   }, [loading, loadingMoreKind, snapshot.recordPages, unitFilter]);
 
@@ -404,7 +405,7 @@ export function SupabaseAcademicManager() {
       if (requestEpoch === conflictRequestEpoch.current) {
         setConflictSchedules([]);
         setConflictScannedCount(0);
-        setConflictError(loadError?.message || "Pemeriksaan konflik jadwal belum dapat dimuat.");
+        setConflictError(toERPUserMessage(loadError, "Pemeriksaan konflik jadwal belum dapat dimuat."));
       }
     } finally {
       if (requestEpoch === conflictRequestEpoch.current) setConflictLoading(false);
@@ -447,7 +448,7 @@ export function SupabaseAcademicManager() {
       if (activeTab === "journal") setJournal((current) => ({ ...current, organizationUnitId: journalUnitId, topic: "", competency: "", attendancePresent: "", attendanceAbsent: "", attendanceExcused: "" }));
       if (activeTab === "assessment") setAssessment((current) => ({ ...current, score: "" }));
       await refresh();
-    } catch (saveError: any) { setError(saveError?.message || "Data akademik belum dapat disimpan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Data akademik belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -540,7 +541,7 @@ export function SupabaseAcademicManager() {
       setClassMappingSelections((current) => { const next = { ...current }; delete next[classId]; return next; });
       await refresh();
     } catch (cause: any) {
-      setClassMappingError(cause?.message || "Kelas belum dapat dipetakan ke unit.");
+      setClassMappingError(toERPUserMessage(cause, "Kelas belum dapat dipetakan ke unit."));
     } finally { setClassMappingRequest(""); }
   };
 
@@ -551,7 +552,7 @@ export function SupabaseAcademicManager() {
         method: "POST", body: JSON.stringify({ action: "preview" }),
       });
       setMigrationPreview(result as AcademicImportPreview);
-    } catch (cause: any) { setMigrationError(cause?.message || "Pratinjau data lama gagal."); }
+    } catch (cause: any) { setMigrationError(toERPUserMessage(cause, "Pratinjau data lama gagal.")); }
     finally { setMigrationLoading(false); }
   };
 

@@ -1,16 +1,16 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 8 November 2026, 23:56 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Open/Draft**. Head kode yang diuji adalah `f50b8a7f900bbce541c4935ae2ef6028f916c1aa`; commit sesudahnya hanya memperbarui dokumen checkpoint. CI [run #1419](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42501493603) lulus 3/3: migrasi/API/pgTAP, frontend build/runtime guard, instalasi NPM pelanggan. Supabase Preview dilewati karena PR tidak memakai Supabase Branch.
+> **Status otoritatif — 9 November 2026, 09.15 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 masih **Open/Draft**, dengan head yang diperiksa `f882af0de993f27105ff5362f9f47cac592db233`; CI #1428 lulus 3/3 pada head tersebut sebelum perubahan sesi ini. Perubahan lokal telah direkonsiliasi di worktree terpisah dan tervalidasi lokal, tetapi belum didorong atau mendapat CI GitHub.
 >
-> Pemeriksaan lokal `npm run lint`, `npm run build`, `npm run test:supabase-runtime-no-firebase`, dan `npm run test:rbac-permissions` lulus. CI #1417 sempat menangkap berkas rusak pada proses transfer; koreksi sudah ada di branch dan keempat file terkait cocok dengan sumber lokal. Build menampilkan peringatan chunk PDF besar dan anotasi dependency Zod.
+> `npm ci`, `npm run lint`, `npm run build`, serta 15 regresi terpilih lulus. Build memberi peringatan nonfatal komentar anotasi Zod dan chunk PDF sekitar 1,46 MB. Validasi ini memakai source PR yang diselaraskan dan tidak memakai `.env`, tidak membaca atau menulis database.
 >
-> Source PR memakai komponen tab bersama. Dokumen Digital dan Tahfidz memakai `ERPTabs` dengan CSS gulir horizontal; tampilan browser yang cocok dengan head terbaru dan viewport ponsel belum diuji.
+> VQE staging `vqemuyzveuirlkvdggjd` sebelumnya menunjukkan 140/140 nama dan versi ledger sama dengan source; ini tidak membuktikan kesamaan DDL. Operator melaporkan metadata Production berisi 47 entri ledger (dua tanpa nama), 119/119 tabel `public` dengan RLS + FORCE RLS, serta lima policy `SELECT`. Metadata tidak membuktikan DDL aktual, keamanan seluruh route, atau pemulihan backup. Production dan VQE tidak disentuh pada sesi ini. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
 >
-> Pemeriksaan MCP baca-saja pada 9 November 2026 pukul 00.03 WIB merekonsiliasi ledger VQE dengan migration directory branch PR: **140/140 versi dan nama cocok**, terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Ini bukan bukti kesamaan seluruh DDL. Konektor sesi ini masih menolak pembacaan PTSAS Production. Tidak ada perubahan Production.
+> **Estimasi kemajuan — 9 November 2026:** sekitar **67% untuk produk, kode, dan handoff**. Kesiapan operasional yang terbukti sekitar **45%**. Ini estimasi berbobot, bukan metrik otomatis; deployment/hosting/UAT tim backend tidak dihitung pada persentase produk. Produk belum dinyatakan siap deploy atau komersial.
 >
-> **Produk belum dinyatakan siap deploy atau komersial.** UAT visual/responsif source-match, CRUD UI seluruh modul dan matriks role/tenant, verifikasi DDL/urutan migration serta backup/restore oleh tim backend, dan clean install/upgrade/restore pada VPS/on-premise masih terbuka. Gunakan [checkpoint pengujian terkini](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
-
-> Catatan checkpoint berikut adalah arsip historis; status otoritatif ada di atas.
+> Masih terbuka: CI untuk source PR terbaru, UAT browser source-matched dan viewport ponsel, UAT Wali dan CRUD seluruh modul, validasi DDL/urutan migrasi Production, backup/restore Production, serta clean install/upgrade VPS atau on-premise.
+>
+> Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
 
 > **Pembaruan checkpoint — 6 November 2026, 23.08 WIB.** CI #1191 lulus 3/3 job pada source dokumen PR `602926c548410e2f6af2d0001701d5cf23fd0ece`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. UAT browser, inventaris penuh Production, backup/restore yang terbukti, dan rehearsal/dry-run masih terbuka.
 >
@@ -42,7 +42,7 @@
 >
 
 **Status:** dokumen penerimaan internal. Dokumen ini tidak menyatakan produk siap dijual atau siap produksi.
-**Diperbarui:** 8 November 2026
+**Diperbarui:** 9 November 2026
 **Jalur rilis utama:** PR #13, self-hosted, satu instalasi per pesantren.
 
 ## Kontrak produk

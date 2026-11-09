@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { lazy, useRef, useState, useEffect } from "react";
 import {
   Sparkles,
@@ -105,7 +106,7 @@ export function PublicRegistrationForm({
       .catch((error) => {
         if (active) {
           setIsPublicRegistrationAvailable(false);
-          setSubmitError(error.message || "Pendaftaran online sedang tidak tersedia.");
+          setSubmitError(toERPUserMessage(error, "Pendaftaran online sedang tidak tersedia."));
         }
       });
     return () => { active = false; };

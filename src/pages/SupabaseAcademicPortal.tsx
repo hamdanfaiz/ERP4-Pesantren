@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, BookOpen, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { toERPUserMessage } from "../utils/userMessages";
 
 type StudentOption = { id: string; name: string; nis: string; className: string };
 type Assessment = {
@@ -71,7 +72,7 @@ export function SupabaseAcademicPortal() {
       setNextCursor(typeof payload.nextCursor === "string" ? payload.nextCursor : null);
     } catch (cause) {
       if (sequence !== requestSequence.current) return;
-      setError(cause instanceof Error ? cause.message : "Riwayat akademik belum dapat dimuat.");
+      setError(toERPUserMessage(cause, "Riwayat akademik belum dapat dimuat. Coba kembali."));
       if (!append) {
         setStudents([]);
         setAssessments([]);

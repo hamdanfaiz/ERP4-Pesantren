@@ -4,6 +4,7 @@ import { AlertCircle, LogIn, ShieldCheck, UserCheck } from 'lucide-react';
 const GuardianSelfRegistrationView = React.lazy(() => import('./GuardianSelfRegistrationView').then((module) => ({ default: module.GuardianSelfRegistrationView })));
 import { supabase, supabaseClientConfigured } from '../utils/supabase';
 import { passwordRecoveryErrorMessage } from '../utils/passwordRecoveryErrorMessage';
+import { toERPUserMessage } from '../utils/userMessages';
 
 export function LoginView({ onBack }: { onBack: () => void }) {
   const { login, isLoading } = useAuth();
@@ -31,7 +32,7 @@ export function LoginView({ onBack }: { onBack: () => void }) {
     try {
       await login(email, password);
     } catch (error) {
-      setLoginError(error instanceof Error ? error.message : 'Login gagal. Silakan coba kembali.');
+      setLoginError(toERPUserMessage(error, 'Email atau kata sandi tidak sesuai. Periksa kembali lalu coba lagi.'));
     } finally {
       setIsSubmitting(false);
     }

@@ -2,6 +2,7 @@ import { useAuth } from '../contexts/AuthContext';
 import React, { useEffect, useState } from 'react';
 import { listSupabaseReferenceItems, upsertSupabaseMasterDataStudent, type SupabaseReferenceItem } from '../services/masterDataApi';
 import { Users, Save, X, CheckCircle2, AlertTriangle, Loader2, Link2, UserCheck, Building2, Home, BookOpen, UserPlus, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { toERPUserMessage } from '../utils/userMessages';
 
 interface EntityRegistrationFormProps {
   onSuccess?: (savedData?: any) => void;
@@ -98,7 +99,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     listSupabaseReferenceItems('academic_grade_level')
       .then((items) => { if (active) setGradeLevels(items.filter((item) => item.status === 'active')); })
       .catch((error) => {
-        if (active) setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Katalog jenjang belum dapat dimuat.' });
+        if (active) setMessage({ type: 'error', text: toERPUserMessage(error, 'Katalog jenjang belum dapat dimuat. Coba kembali.') });
       });
     return () => { active = false; };
   }, [user?.tenantId, user?.uid]);
@@ -268,7 +269,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
       if (onSuccess) onSuccess(savedData);
     } catch (error) {
       console.error("Error adding document: ", error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal menyimpan data.' });
+      setMessage({ type: 'error', text: toERPUserMessage(error, 'Data santri belum dapat disimpan. Periksa kembali data lalu coba lagi.') });
     } finally {
       setIsSubmitting(false);
     }

@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
@@ -535,7 +536,7 @@ export function UserManagementView() {
 
       setResetFeedback({
         uid: targetUser.uid,
-        message: data.message || 'Tautan reset kata sandi berhasil disiapkan.',
+        message: toERPUserMessage(data, 'Tautan reset kata sandi berhasil disiapkan.'),
         link: data.resetLink,
       });
       setActionSuccessMessage(`Tautan reset kata sandi berhasil dibuat untuk ${targetUser.email}.`);

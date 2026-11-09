@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useEffect, useMemo, useState } from "react";
 import { Activity, AlertCircle, BookOpen, RefreshCw, TrendingUp, Users, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -72,7 +73,7 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     setLoading(true);
     loadDashboard(period, surface, controller.signal)
       .then((result) => { if (!controller.signal.aborted) setSnapshot(result); })
-      .catch((loadError: any) => { if (!controller.signal.aborted) setError(loadError?.message || "Ringkasan dashboard belum dapat dimuat."); })
+      .catch((loadError: any) => { if (!controller.signal.aborted) setError(toERPUserMessage(loadError, "Ringkasan dashboard belum dapat dimuat.")); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [period, reloadVersion, role, surface, user?.tenantId, user?.uid]);

@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, LoaderCircle, LogOut, ShieldCheck, UserPlus 
 import { supabase } from "../utils/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { getOrCreateSingleFlightPromise } from "../utils/singleFlightPromise";
+import { toERPUserMessage } from "../utils/userMessages";
 
 type Props = {
   callback?: boolean;
@@ -46,7 +47,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
         setRegistrationRedirectUrl(String(payload.registrationRedirectUrl || ""));
       })
       .catch((cause) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Pendaftaran akun wali belum tersedia.");
+        if (!cancelled) setError(toERPUserMessage(cause, "Pendaftaran akun Wali belum dapat dimuat. Coba kembali nanti."));
       });
     return () => { cancelled = true; };
   }, [callback]);
@@ -93,7 +94,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
         if (payload.success !== true) {
           return {
             status: "notice",
-            message: payload.message || "Email terverifikasi, tetapi belum ditemukan relasi wali aktif atau tagihan PPDB yang cocok. Akun belum memperoleh akses ERP. Hubungi sekretariat untuk memeriksa data PPDB.",
+            message: toERPUserMessage(payload, "Email terverifikasi, tetapi belum ditemukan relasi wali aktif atau tagihan PPDB yang cocok. Akun belum memperoleh akses ERP. Hubungi sekretariat untuk memeriksa data PPDB."),
           } satisfies GuardianRegistrationCallbackResult;
         }
 
@@ -115,7 +116,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
         }
       })
       .catch((cause) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Pendaftaran Portal Wali gagal diproses.");
+        if (!cancelled) setError(toERPUserMessage(cause, "Tautan verifikasi tidak dapat diproses. Minta tautan baru atau hubungi pesantren."));
       })
       .finally(() => {
         if (!cancelled) setIsBusy(false);
@@ -129,7 +130,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
     setError("");
     setNotice("");
     if (!tenantName || !registrationRedirectUrl) {
-      setError("Pendaftaran Portal Wali belum diaktifkan untuk lingkungan ini.");
+      setError("Pendaftaran akun Wali Santri belum tersedia saat ini. Silakan hubungi pesantren untuk bantuan.");
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
@@ -165,7 +166,7 @@ export function GuardianSelfRegistrationView({ callback = false, onBack, onActiv
       setNotice("Jika alamat email dapat didaftarkan, tautan konfirmasi telah dikirim. Buka email tersebut untuk melanjutkan aktivasi akun.");
     } catch (cause) {
       completeGuardianRegistration();
-      setError(cause instanceof Error ? cause.message : "Pendaftaran akun wali gagal diproses.");
+      setError(toERPUserMessage(cause, "Pendaftaran akun Wali belum berhasil. Periksa kembali data lalu coba lagi."));
     } finally {
       setIsBusy(false);
     }

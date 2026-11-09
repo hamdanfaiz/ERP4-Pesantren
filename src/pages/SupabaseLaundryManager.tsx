@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Check, Clock3, Loader2, Plus, RefreshCw, Shirt, Settings2, WashingMachine } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -58,7 +59,7 @@ export function SupabaseLaundryManager() {
     setLoading(true); setError("");
     requestLaundry("/api/laundry/snapshot")
       .then((data) => { if (active) { setSnapshot({ ...EMPTY, ...data }); setMonthlyQuotaKg(String(data?.settings?.monthlyQuotaKg ?? 20)); setExcessRatePerKg(String(data?.settings?.excessRatePerKg ?? 15000)); } })
-      .catch((e: any) => { if (active) setError(e?.message || "Data laundry belum dapat dimuat."); })
+      .catch((e: any) => { if (active) setError(toERPUserMessage(e, "Data laundry belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -86,7 +87,7 @@ export function SupabaseLaundryManager() {
       }
       return true;
     } catch (e: any) {
-      setError(e?.message || "Perubahan laundry gagal disimpan.");
+      setError(toERPUserMessage(e, "Perubahan laundry gagal disimpan."));
       return false;
     } finally {
       setBusy(false);
@@ -136,7 +137,7 @@ export function SupabaseLaundryManager() {
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Laundry Pesantren</h1>
         <p className="mt-1 text-sm text-slate-500">Kelola pesanan, status, dan kuota layanan laundry.</p>
       </div>
-      <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading || busy} className={outlineClass}><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
+      <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Data belum dapat dimuat."))).finally(() => setLoading(false)); }} disabled={loading || busy} className={outlineClass}><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
 
     <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Pesanan baru akan tercatat. Penggunaan yang melebihi kuota dihitung sebagai estimasi dan belum menjadi tagihan.</div>
