@@ -85,6 +85,10 @@ assert.match(runtimeApiTest, /grade_level_reference_id: gradeReference\.id/,
   "Synthetic class, candidate, and Santri rows must preserve the tenant-owned grade relationship.");
 assert.match(runtimeApiTest, /created_by_user_id: tenantAdmin\.uid[\s\S]*updated_by_user_id: tenantAdmin\.uid/,
   "Tenant grade catalog fixture must have an accountable tenant Admin actor.");
+const structureSeedEnd = runtimeApiTest.indexOf("\n    ]);", studentStructureSeed);
+const structureSeed = runtimeApiTest.slice(studentStructureSeed, structureSeedEnd);
+assert.equal([...structureSeed.matchAll(/occupied: 0/g)].length, 3,
+  "Batch-inserted Tahfidz structure fixtures must provide the required occupied count on every row.");
 
 assert.match(tahfidz, /\[surahListAttempt, setSurahListAttempt\]/,
   "Failed catalog reads must support retry without forcing a full page reload.");
