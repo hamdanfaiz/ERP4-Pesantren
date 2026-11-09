@@ -40,6 +40,8 @@ const settingsService = read("src/services/systemSettingsService.ts");
 const settingsUi = read("src/pages/SettingsManager.tsx");
 const hrisUi = read("src/pages/SupabaseHrisManager.tsx");
 const tahfidzUi = read("src/pages/TahfidzManager.tsx");
+const documentUi = read("src/pages/SupabaseDocumentManager.tsx");
+const gaAssetsUi = read("src/pages/SupabaseGeneralAffairsAssets.tsx");
 const tabStyles = read("src/index.css");
 const appUi = read("src/App.tsx");
 const sidebarUi = read("src/components/Sidebar.tsx");
@@ -142,6 +144,16 @@ assert.match(hrisUi, /hindari mencantumkan rincian diagnosis kesehatan/,
   "HRIS UI must preserve the privacy reminder for leave reasons");
 assert.match(tahfidzUi, /<ERPTabs[\s\S]*ariaLabel="Bagian Sistem Tahfidz"/,
   "Tahfidz sections must use the shared horizontally scrollable tab control");
+assert.match(documentUi, /import\s*\{[^}]*\bERPTabs\b[^}]*\}\s*from\s*["']\.\.\/components\/ERPDesignSystem["']/,
+  "Digital Documents must import the shared tab control");
+assert.match(documentUi, /<ERPTabs[\s\S]*ariaLabel="Bagian Dokumen Digital"/,
+  "Digital Documents sections must use the shared horizontally scrollable tab control");
+assert.match(gaAssetsUi, /import\s*\{[^}]*\bERPTabs\b[^}]*\}\s*from\s*["']\.\.\/components\/ERPDesignSystem["']/,
+  "General Affairs asset sections must import the shared tab control");
+assert.match(gaAssetsUi, /<ERPTabs[\s\S]*ariaLabel="Bagian aset dan inventaris GA"/,
+  "General Affairs asset sections must use the shared horizontally scrollable tab control");
+assert.doesNotMatch(gaAssetsUi, /Navigasi dan sub-menu Data Induk tetap dipertahankan/i,
+  "General Affairs asset screen must not expose internal migration guidance");
 assert.match(tahfidzUi, /toERPUserMessage\(responseError, 'Layanan Tahfidz belum dapat diproses saat ini\./,
   "Tahfidz API gate errors must be converted to customer-facing copy");
 assert.match(tabStyles, /\.erp-tab-scroll\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*thin;/,
@@ -186,3 +198,4 @@ for (const secretName of ["SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY", "P
 }
 
 console.log(`Customer deployment config verified: ${declaredRuntimeKeys.length} allowlisted public runtime values and ${serverFlags.length} fail-closed server gates.`);
+
