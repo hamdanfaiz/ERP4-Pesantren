@@ -6,14 +6,13 @@ import { SupabaseBoardingPermitsManager } from "./SupabaseBoardingPermitsManager
 import { SupabaseBoardingAttendanceManager } from "./SupabaseBoardingAttendanceManager";
 import { SupabaseBoardingAssignmentsManager } from "./SupabaseBoardingAssignmentsManager";
 import { SupabaseBoardingFacilityOpsManager } from "./SupabaseBoardingFacilityOpsManager";
-import { supabaseRuntimeEnabled } from "../runtimeBackend";
 import { ERPTabs } from "../components/ERPDesignSystem";
 
-const PERMITS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED"));
-const DISCIPLINE_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED"));
-const ATTENDANCE_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED"));
-const ASSIGNMENTS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED"));
-const FACILITY_OPS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED"));
+const PERMITS_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED") === "true";
+const DISCIPLINE_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED") === "true";
+const ATTENDANCE_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED") === "true";
+const ASSIGNMENTS_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED") === "true";
+const FACILITY_OPS_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED") === "true";
 type Section = "permits" | "discipline" | "attendance" | "assignments" | "facility-ops";
 
 export function SupabaseBoardingManager() {

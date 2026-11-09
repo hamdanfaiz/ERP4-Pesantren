@@ -202,6 +202,18 @@ assert.match(masterDataSource, /return labels\[value\.toLowerCase\(\)\] \|\| val
 assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
 const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
+assert.doesNotMatch(boardingSource, /supabaseRuntimeEnabled\(/,
+  'Asrama feature availability must follow explicit browser runtime flags, not the Supabase-only data-source mode.');
+for (const [constant, flag] of [
+  ['PERMITS_ENABLED', 'VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED'],
+  ['DISCIPLINE_ENABLED', 'VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED'],
+  ['ATTENDANCE_ENABLED', 'VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED'],
+  ['ASSIGNMENTS_ENABLED', 'VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED'],
+  ['FACILITY_OPS_ENABLED', 'VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED'],
+]) {
+  assert.match(boardingSource, new RegExp(`${constant}\\s*=\\s*publicRuntimeConfigValue\\(["']${flag}["']\\)\\s*===\\s*["']true["']`),
+    `Asrama ${constant} must be disabled unless ${flag} is explicitly true.`);
+}
 for (const section of ['permits', 'discipline', 'attendance', 'assignments', 'facility-ops']) {
   assert.match(boardingSource, new RegExp(`id:\\s*["']${section}["']`), `Asrama must keep the ${section} section visible in the Supabase runtime.`);
 }
