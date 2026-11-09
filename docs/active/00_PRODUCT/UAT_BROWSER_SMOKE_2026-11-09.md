@@ -156,3 +156,12 @@
 - Manajemen Pengguna menampilkan akun Admin UAT sintetis; tidak ada akun atau hak akses yang diubah.
 - PPDB, Keuangan, Pusat Komunikasi, CBT, SDM, dan Aset & Inventaris Sarana-Prasarana menampilkan status layanan belum tersedia. Akademik menampilkan kegagalan memuat data/referensi. Tombol aksi simpan/transaksi tidak digunakan.
 - Hasil ini adalah smoke test UI source-matched untuk berkas yang dirinci pada bagian sebelumnya. Ini belum membuktikan proses tulis-baca, relasi lintas modul, seluruh matriks role/tenant, Storage, seluruh server/API, atau tampilan ponsel. Gerbang runtime dan data relasi staging harus ditangani sebelum alur tersebut dapat diuji.
+
+
+## UAT simpan-baca dan relasi Master Data — 9 November 2026
+
+- Pada sesi Admin UAT staging VQE, struktur Gedung dan Kamar diuji melalui UI dengan label fixture sintetis. Kode otomatis masing-masing adalah `GED-00001` dan `KMR-00001`; Kamar berkapasitas 1 dipasangkan dengan Gedung uji.
+- Setelah berpindah ke Ringkasan lalu kembali ke Data Induk, Gedung dan Kamar tetap tampil. Form edit Kamar memuat Gedung induk yang sama dan kapasitas 1. Ini membuktikan simpan-baca dan relasi untuk alur struktur tersebut pada tenant UAT.
+- Kedua fixture dihapus melalui UI setelah pengujian. Daftar Kamar dan Gedung kembali menampilkan 0 data. Tidak ada fixture yang tertinggal.
+- Form tambah Santri dibuka tanpa menyimpan. Jenjang aktif dan Wali terdaftar belum tersedia; referensi Kelas juga kosong. Tanpa prasyarat itu, alur tambah Santri dan relasi Akademik/Asrama/Wali tidak dapat diuji end-to-end.
+- Pengujian ini hanya untuk staging. Production tidak dibuka atau diubah. Hasil ini tidak membuktikan seluruh CRUD modul, matriks role/tenant, Storage, atau transaksi Finance/PPDB.
