@@ -102,12 +102,12 @@
 
 ## Rekonsiliasi Git sebelum mengirim hasil ke tim
 
-- Fetch PR #91 berhasil setelah izin jaringan workspace diberikan. Head PR yang diperiksa adalah `e745742`; worktree rekonsiliasi bersih dibuat tepat dari commit itu. Perubahan di checkout lama tidak dibuang atau ditimpa.
+- Fetch PR #91 berhasil setelah izin jaringan workspace diberikan. Rekonsiliasi dimulai dari head `e745742` dalam worktree bersih; perubahan di checkout lama tidak dibuang atau ditimpa. Koreksi UI dan catatan rekonsiliasi kemudian diterbitkan pada commit PR `84545c5`.
 - Checkout lama berada pada `8d2859a`, bertumpu pada `7b580ed`, dengan 67 file terlacak berubah dan 5 file baru. Dibanding head PR, ada 36 commit yang hanya ada di PR dan 1 commit lokal. Perbaikan redaksi PostgreSQL pada commit lokal sudah tercakup pada source PR, sehingga tidak disalin ulang.
 - Perbandingan konten menunjukkan sebagian besar perubahan lokal telah ada di PR. Perubahan ukuran chart dashboard lokal justru membatalkan perbaikan `min-w-0` yang ada pada PR, sehingga tidak dibawa. Catatan UAT terbaru sudah disalin sebagai commit dokumentasi tersendiri ke PR dan menjelaskan batas source test.
-- Banner status migrasi internal pada Sarana & Prasarana belum ada di PR. Banner sudah dihapus pada worktree bersih berbasis head PR. Build produksi dan pemeriksaan TypeScript (`npm run build`, `npm run lint`) berhasil pada source ini.
-- Audit dependensi produksi (`npm audit --omit=dev`) menemukan 0 kerentanan. `npm ci` tetap melaporkan beberapa kerentanan pada dependency development; belum dijalankan perbaikan otomatis karena dapat mengubah versi di luar lockfile.
-- Berikutnya, kirim koreksi UI dan catatan audit ini pada branch PR, lalu verifikasi CI pada head yang sama. CRUD melalui UI masih menunggu gerbang runtime dan data relasi sintetis staging.
+- Banner status migrasi internal pada Sarana & Prasarana sudah dihapus pada source PR. Build produksi dan pemeriksaan TypeScript (`npm run build`, `npm run lint`) berhasil pada source yang sama. Audit dependensi produksi (`npm audit --omit=dev`) menemukan 0 kerentanan.
+- `npm ci` tetap melaporkan kerentanan pada dependency development; belum dijalankan perbaikan otomatis karena dapat mengubah versi di luar lockfile.
+- CI untuk commit `84545c5` lulus 3/3 job pada run [#1446](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42582321563). Koreksi dan catatan sudah terbit pada branch PR. CRUD melalui UI masih menunggu gerbang runtime dan data relasi sintetis staging.
 
 ## Pemeriksaan lanjutan setelah preview lokal aktif — 9 November 2026, 14.23 WIB
 
