@@ -104,7 +104,7 @@
 
 - Head lokal: `8d2859a`. Ref lokal yang tersimpan untuk head PR #91: `origin/pr-91-current` pada `6f39e12`; lokal memiliki satu commit yang tidak ada pada ref tersebut dan tertinggal 28 commit. Worktree juga memiliki 67 file terlacak yang berubah serta file baru.
 - Fetch baca-saja PR #91 dicoba ulang, tetapi Git gagal sebelum tersambung ke GitHub dengan `getaddrinfo() thread failed to start`; ref yang dipakai untuk perbandingan masih ref lokal terakhir yang tersimpan.
-- Karena tree lokal dan branch PR berbeda, saya belum menyalin catatan UAT, membuat commit, atau mendorong perubahan ke PR. Ini mencegah laporan UAT dari source yang berbeda tercampur dengan status CI PR.
+- Karena tree lokal dan branch PR berbeda, kode source lokal belum di-commit atau di-push. Catatan UAT terbaru ditambahkan melalui commit dokumentasi terpisah pada PR #91 dan secara eksplisit menyatakan bahwa source lokal berbeda dari head PR.
 - Langkah berikutnya: sinkronkan branch setelah fetch berhasil, telaah perbedaan tanpa membuang perubahan lokal, lalu jalankan ulang lint/build pada source persis yang akan ditinjau. Setelah itu pisahkan UAT yang cocok dengan source PR dari pengujian yang masih menunggu data fixture dan gerbang runtime staging.
 
 ## Pemeriksaan lanjutan setelah preview lokal aktif — 9 November 2026, 14.23 WIB
