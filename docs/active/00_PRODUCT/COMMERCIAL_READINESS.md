@@ -1,12 +1,12 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 9 November 2026, 15.15 WIB.** PR #91 masih **Open/Draft**. Commit kode `84545c5` lulus CI 3/3 pada run #1446; pembaruan rekonsiliasi `b20d4da` lulus 3/3 pada run #1447. Catatan UAT visual terbaru diterbitkan pada `6efc1e9`; CI-nya sedang berjalan.
+> **Status otoritatif — 9 November 2026, 15.15 WIB.** PR #91 masih **Open/Draft**. Commit kode 84545c5 lulus CI 3/3 pada run #1446; pembaruan rekonsiliasi b20d4da lulus 3/3 pada run #1447. Catatan UAT dan checkpoint komersial diterbitkan pada commit 6efc1e9 dan 7ef8588. Run #1448 untuk catatan pertama dibatalkan otomatis setelah checkpoint berikutnya masuk; run #1449 pada checkpoint terakhir lulus 3/3.
 >
-> Pada worktree PR bersih, `npm ci`, `npm run lint`, dan `npm run build` berhasil; `npm audit --omit=dev` menemukan 0 kerentanan produksi. Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB. Checkout lokal lama dan preview tidak terbukti berasal dari commit PR terbaru.
+> Pada worktree PR bersih, npm ci, npm run lint, dan npm run build berhasil; npm audit --omit=dev menemukan 0 kerentanan produksi. Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB. Checkout lokal lama dan preview belum terbukti berasal dari commit PR terbaru.
 >
 > UAT baca-saja pada localhost:3000 terkonfirmasi login sebagai Admin UAT. Sidebar menampilkan 25 menu; Sarana & Prasarana dan Dokumen Digital terbuka; tab Dokumen Digital dapat digulir dengan panah; aset dan dokumen kosong serta tidak ada formulir yang dikirim. Source preview belum bisa dicocokkan ke head PR, maka ini bukan UAT source-matched dan tidak menguji CRUD, relasi, role/tenant, Storage, maupun ukuran ponsel.
 >
-> VQE sebelumnya menunjukkan 140/140 nama dan versi ledger cocok dengan source; ini tidak membuktikan kesamaan DDL. Metadata Production yang dilaporkan operator berisi 47 entri ledger, 119/119 tabel `public` memakai RLS + FORCE RLS, dan lima policy `SELECT`. Production tidak disentuh. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
+> VQE sebelumnya menunjukkan 140/140 nama dan versi ledger cocok dengan source; ini tidak membuktikan kesamaan DDL. Metadata Production yang dilaporkan operator berisi 47 entri ledger, 119/119 tabel public memakai RLS + FORCE RLS, dan lima policy SELECT. Production tidak disentuh. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
 >
 > **Estimasi kemajuan — 9 November 2026:** tetap sekitar **67% untuk produk, kode, dan handoff** dan **45% untuk kesiapan operasional yang terbukti**. Angka ini estimasi berbobot, bukan metrik otomatis. UAT visual terbatas tidak menutup gerbang CRUD/source-match, sehingga belum ada kenaikan pada checkpoint ini. Produk belum dinyatakan siap deploy atau komersial.
 >
