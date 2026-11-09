@@ -75,6 +75,17 @@ assert.match(ayahStartSelector[0], /required/);
 assert.match(ayahEndSelector[0], /required/);
 assert.match(ayahEndSelector[0], /!formData\.ayatStart/,
   "End Ayah must remain unavailable until a start Ayah is selected.");
+
+const runtimeApiTest = read("scripts", "test-tahfidz-runtime-http.mjs");
+const gradeCatalogSeed = runtimeApiTest.indexOf("domain: 'academic_grade_level'");
+const studentStructureSeed = runtimeApiTest.indexOf("admin.from('master_data_records').insert([");
+assert.ok(gradeCatalogSeed >= 0 && studentStructureSeed > gradeCatalogSeed,
+  "Tahfidz API fixtures must create the tenant grade catalog before class structure.");
+assert.match(runtimeApiTest, /grade_level_reference_id: gradeReference\.id/,
+  "Synthetic class, candidate, and Santri rows must preserve the tenant-owned grade relationship.");
+assert.match(runtimeApiTest, /created_by_user_id: tenantAdmin\.uid[\s\S]*updated_by_user_id: tenantAdmin\.uid/,
+  "Tenant grade catalog fixture must have an accountable tenant Admin actor.");
+
 assert.match(tahfidz, /\[surahListAttempt, setSurahListAttempt\]/,
   "Failed catalog reads must support retry without forcing a full page reload.");
 assert.match(recordsUi, /setSurahListAttempt\(\(attempt\) => attempt \+ 1\)[\s\S]*?Coba lagi/,
@@ -85,4 +96,5 @@ for (const phrase of ["Quran catalog contains all 114 Surahs", "free-text Surah 
   assert.ok(pgTap.includes(phrase), `Database regression coverage must include: ${phrase}.`);
 }
 
-console.log("Tahfidz Quran catalog checks passed (114 Surahs, 6,236 Ayahs, database-backed entry).");
+console.log("Tahfidz references passed: 114 Surahs, 6,236 Ayahs, tenant-linked API fixtures, and database-backed entry.");
+
