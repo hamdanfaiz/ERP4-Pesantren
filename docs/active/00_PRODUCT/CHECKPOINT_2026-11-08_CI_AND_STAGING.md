@@ -254,3 +254,11 @@ Temuan ini menambah checklist hardening dan tuning, bukan izin untuk mengubah Pr
 - Pada job database, langkah replay baseline Production ke Supabase lokal terisolasi, penerapan migration pending, tes database/konkurensi, auth/tenant isolation, finance/PPDB Storage, aset perpustakaan, Document Center API+relasi+private Storage, dan backup/restore lokal semuanya lulus.
 - Supabase Preview berstatus **skipped**, karena PR tidak terhubung ke Supabase Branch. CI membuktikan rangkaian lokal sintetis, bukan DDL aktual atau backup/restore Production dan bukan UAT browser live.
 - PR #91 tetap Open/Draft sampai UAT browser source-matched, CRUD/role/tenant, dan Dokumen Digital di preview staging terkonfirmasi. Production tidak diubah.
+
+## UAT Dokumen Digital — 9 November 2026, verifikasi terbaru
+
+- Preview `localhost:4179` pada sesi Admin UAT kini menampilkan **“Belum ada dokumen”** dan instruksi untuk mencatat dokumen pertama. Setelah tombol muat ulang ditekan, tampilan tetap pada empty state dan tidak lagi menunjukkan pesan gagal. Ini bukti baca daftar berhasil pada preview saat ini.
+- Tidak ada formulir yang dikirim, data yang dibuat/diubah, atau file yang diunggah. UAT pembuatan/perubahan status, reservasi/finalisasi upload PDF, unduh privat, isolasi tenant, viewport ponsel, dan identitas commit yang melayani preview masih belum dibuktikan.
+- Pemilik sebelumnya menunjukkan `.env` lokal berisi target VQE dan `SUPABASE_DOCUMENT_RUNTIME_ENABLED=true`; status proses aktif tidak disimpulkan dari file itu saja. Perubahan lokal tidak mengubah PTSAS Production atau menulis konfigurasi Supabase.
+- **Status tahap Dokumen Digital:** GET/empty state lulus sebagian pada browser Admin UAT; end-to-end CRUD/Storage dan source match masih tertunda. PR #91 tetap Draft/Open sampai sisa UAT staging diselesaikan.
+- Estimasi produk/kode/handoff tetap sekitar **67%** dan bukti operasional sekitar **45%**; GET Dokumen Digital yang pulih belum cukup untuk menaikkan estimasi kesiapan keseluruhan. Tidak ada perubahan Production.
