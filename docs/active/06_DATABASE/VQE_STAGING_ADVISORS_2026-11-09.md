@@ -73,3 +73,12 @@ Jangan membuat 258 indeks atau menghapus 80 indeks secara massal. Tim backend se
 - Simpan hasil advisors baru pada kandidat rilis setelah migrasi staging terakhir.
 
 Pemeriksaan ini tidak mengakses PTSAS Production, tidak mengubah VQE, dan tidak membuktikan UAT atau kesamaan DDL Production.
+
+## Pemeriksaan ulang ledger dan helper tenant — 9 November 2026
+
+- Source PR #91 pada commit `94441cdde3ae1170d67017cc3ba8f34c5b2dbf13` memuat 140 file SQL migrasi. Ledger VQE yang dibaca memuat 140 entri; semua versi dan nama cocok tepat, tanpa versi source yang hilang atau entri tambahan.
+- Katalog PostgreSQL baca-saja menunjukkan empat helper tenant (`current_app_role`, `current_tenant_id`, `has_module_access`, `is_tenant_admin`) berada di schema `private`, bertanda `SECURITY DEFINER`, dan memakai `search_path=pg_catalog, public`. Role `anon` tidak dapat mengeksekusinya; role `authenticated` dapat mengeksekusinya. Schema `private` tidak memberi `USAGE` kepada `anon`, tetapi memberi `USAGE` kepada `authenticated`. Pemeriksaan ini tidak meninjau body fungsi atau konfigurasi schema yang diekspos oleh Data API.
+- Security Advisor terkini tetap melaporkan 162 tabel dengan RLS tanpa policy pada tingkat `INFO` dan satu pengaturan Auth `Leaked Password Protection Disabled` pada tingkat `WARN`. Tidak ada perubahan database atau konfigurasi.
+- CI PR #91 run [#1458](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42602301606) lulus 3/3 job. Job database memutar ulang baseline Production dan migrasi pada Supabase lokal terisolasi, menguji API/tenant, Storage, concurrency, serta backup/restore lokal. Ini bukan bukti DDL Production atau backup/restore Production.
+- Kecocokan ledger adalah bukti bahwa daftar versi/nama migrasi staging sesuai source; kecocokan ini sendiri tidak membuktikan bahwa DDL staging identik dengan hasil migrasi source.
+- Seluruh pemeriksaan pada bagian ini baca-saja dan hanya menyentuh metadata VQE. Production tidak diubah.
