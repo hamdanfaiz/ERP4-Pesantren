@@ -165,3 +165,12 @@
 - Kedua fixture dihapus melalui UI setelah pengujian. Daftar Kamar dan Gedung kembali menampilkan 0 data. Tidak ada fixture yang tertinggal.
 - Form tambah Santri dibuka tanpa menyimpan. Jenjang aktif dan Wali terdaftar belum tersedia; referensi Kelas juga kosong. Tanpa prasyarat itu, alur tambah Santri dan relasi Akademik/Asrama/Wali tidak dapat diuji end-to-end.
 - Pengujian ini hanya untuk staging. Production tidak dibuka atau diubah. Hasil ini tidak membuktikan seluruh CRUD modul, matriks role/tenant, Storage, atau transaksi Finance/PPDB.
+
+## Revalidasi preview Admin melalui browser in-app — 9 November 2026
+
+- Tab `http://localhost:3000/` menampilkan aplikasi dengan sesi `Admin UAT` aktif. Sidebar memuat 25 menu aplikasi. Dashboard dan Tahfidz berhasil dimuat.
+- Ringkasan Tahfidz menunjukkan keadaan kosong: 0 santri dalam roster, 0 halaqah aktif, dan 0 setoran hari ini. Navigasi bagian Tahfidz menampilkan tombol gulir horizontal.
+- Form Input Setoran dibuka. `Simpan Setoran` terbukti nonaktif sebelum santri/halaqah dan nilai wajib dipilih; formulir dibatalkan. Tidak ada setoran atau perubahan data.
+- Console browser mencatat peringatan sinkronisasi setelan sistem dengan pesan layanan belum tersedia. Peringatan ini hanya tercatat di console pada pemeriksaan ini; alur setelan sistem belum tervalidasi.
+- Pemeriksaan ini tidak membuktikan identitas commit yang melayani tab atau project Supabase yang dipakai oleh proses preview. Karena itu hasil visual ini tidak diklaim sebagai source-match atau bukti tulis-baca staging.
+- Tidak ada transaksi atau perubahan Production.
