@@ -213,6 +213,24 @@ assert.match(boardingSource, /Fitur ini belum tersedia saat ini\./,
   'Unavailable Asrama sections must use customer-facing copy without operator instructions.');
 assert.doesNotMatch(boardingSource, /if\s*\(!available\.length\)\s*return\s+null/,
   'Asrama must not render a blank screen when runtime gates are closed.');
+const boardingStyles = fs.readFileSync(path.join(root, 'src', 'index.css'), 'utf8');
+assert.match(boardingStyles, /\.erp-panel\s*\{[^}]*background:\s*var\(--erp-surface\)/s,
+  'Shared ERP panels must use the theme surface token.');
+assert.match(boardingStyles, /\.dark\s*\{[^}]*--erp-surface:\s*#0f172a/s,
+  'Dark mode must provide the shared ERP panel surface.');
+for (const file of [
+  'SupabaseBoardingPermitsManager.tsx',
+  'SupabaseBoardingDisciplineManager.tsx',
+  'SupabaseBoardingAttendanceManager.tsx',
+  'SupabaseBoardingAssignmentsManager.tsx',
+  'SupabaseBoardingFacilityOpsManager.tsx',
+]) {
+  const source = fs.readFileSync(path.join(root, 'src', 'pages', file), 'utf8');
+  assert.match(source, /bg-\[var\(--erp-surface\)\]|erp-panel/,
+    `${file} must use the shared ERP surface token for its content panels.`);
+  assert.doesNotMatch(source, /\bbg-white(?:\/[^\s"'\x60]+)?/,
+    `${file} must not hard-code white content panels that diverge from the active ERP theme.`);
+}
 const academicSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAcademicManager.tsx'), 'utf8');
 for (const feature of ['report-card', 'conflict-resolver']) {
   assert.ok(academicSource.includes(`id: "${feature}"`), `Academic reference submenu ${feature} must remain visible.`);
