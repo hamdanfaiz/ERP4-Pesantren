@@ -30,6 +30,14 @@ function safeCode(error) {
   return value.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 80) || 'unknown';
 }
 
+function safeMessage(error) {
+  return String(error?.message || 'no diagnostic message')
+    .replace(/sb_(?:secret|publishable)_[A-Za-z0-9_-]+/gi, '[redacted-key]')
+    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
+    .slice(0, 220);
+}
+
 async function readJson(response, expectedStatus, label) {
   const raw = await response.text();
   let body;
@@ -118,6 +126,21 @@ async function main() {
     const foreignAdmin = await createUser(admin, foreignTenantId, 'admin', 'foreign-admin');
     users.push(foreignAdmin);
 
+    const { data: gradeReference, error: gradeReferenceError } = await admin.from('tenant_reference_items').insert({
+      tenant_id: tenantId,
+      domain: 'academic_grade_level',
+      code: `TAHFIDZ_GRADE_${fixtureSuffix}`,
+      name: 'VII',
+      description: `Jenjang untuk fixture Tahfidz ${fixtureSuffix}.`,
+      status: 'active',
+      nis_grade_code: '07',
+      created_by_user_id: tenantAdmin.uid,
+      updated_by_user_id: tenantAdmin.uid,
+    }).select('id').single();
+    if (gradeReferenceError || !gradeReference?.id) {
+      throw new Error(`Could not create synthetic Tahfidz grade reference (${safeCode(gradeReferenceError)}): ${safeMessage(gradeReferenceError)}.`);
+    }
+
     const candidateId = randomUUID();
     const studentId = randomUUID();
     const classId = `KLS-${fixtureSuffix}`;
@@ -125,11 +148,11 @@ async function main() {
     const roomId = `KMR-${fixtureSuffix}`;
     const randomHex = (bytes) => randomBytes(bytes).toString('hex');
     const { error: structureError } = await admin.from('master_data_records').insert([
-      { tenant_id: tenantId, category: 'Kelas', id: classId, name: `Kelas Uji ${fixtureSuffix}`, grade: 'VII', status: 'Active' },
+      { tenant_id: tenantId, category: 'Kelas', id: classId, name: `Kelas Uji ${fixtureSuffix}`, grade: 'VII', grade_level_reference_id: gradeReference.id, status: 'Active' },
       { tenant_id: tenantId, category: 'Gedung', id: buildingId, name: `Gedung Uji ${fixtureSuffix}`, status: 'Active' },
       { tenant_id: tenantId, category: 'Kamar', id: roomId, name: `Kamar Uji ${fixtureSuffix}`, parent_id: buildingId, capacity: 4, occupied: 0, gender_code: 'L', status: 'Active' },
     ]);
-    if (structureError) throw new Error(`Could not create synthetic student structure (${safeCode(structureError)}).`);
+    if (structureError) throw new Error(`Could not create synthetic student structure (${safeCode(structureError)}): ${safeMessage(structureError)}.`);
 
     const { error: candidateError } = await admin.from('candidates').insert({
       id: candidateId,
@@ -137,6 +160,7 @@ async function main() {
       registration_id: `TAHFIDZ-${fixtureSuffix}`,
       name: `Santri Uji ${fixtureSuffix}`,
       grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
       nik_ciphertext: `\\x${randomHex(44)}`,
       nik_fingerprint: `\\x${randomHex(32)}`,
     });
@@ -151,6 +175,7 @@ async function main() {
       name: `Santri Uji ${fixtureSuffix}`,
       gender: 'L',
       grade: 'VII',
+      grade_level_reference_id: gradeReference.id,
       nik_ciphertext: `\\x${randomHex(44)}`,
       nik_fingerprint: `\\x${randomHex(32)}`,
       class_id: classId,
@@ -353,3 +378,4 @@ main().catch((error) => {
   console.error(`Tahfidz staging API failed (${safeCode(error)}): ${message}`);
   process.exitCode = 1;
 });
+
