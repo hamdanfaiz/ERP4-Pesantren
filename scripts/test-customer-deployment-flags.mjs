@@ -133,6 +133,10 @@ assert.ok(orgDefaults.includes('pageTitleFormat: "ERP4 Pesantren | {schoolName}"
 assert.ok(integrationDefaults.includes('waGatewayEndpoint: ""') && integrationDefaults.includes('smtpHost: ""') && integrationDefaults.includes('smtpUser: ""') && integrationDefaults.includes('smtpPort: ""'), "New tenant integrations must start unconfigured");
 assert.ok(mobileDefaults.includes('supportWhatsapp: ""'), "New tenant support contact must start unconfigured");
 for (const placeholder of ["AI Studio", "pesantrenaistudio.edu", "+62 812 3456 7890", "wagw.example.com"]) assert.ok(!settingsService.includes(placeholder), `Demo value remains in tenant defaults: ${placeholder}`);
+assert.match(settingsService, /SYSTEM_SETTINGS_RUNTIME_ENABLED\s*=\s*\n?\s*publicRuntimeConfigValue\("VITE_SUPABASE_SYSTEM_SETTINGS"\) === "true"/, "Tenant settings sync must follow its explicit client runtime gate");
+assert.match(settingsService, /if \(nextTenantId && SYSTEM_SETTINGS_RUNTIME_ENABLED\) this\.initRealtimeSync\(nextTenantId\)/, "Disabled tenant settings must not poll a failing API route");
+assert.match(settingsService, /if \(!SYSTEM_SETTINGS_RUNTIME_ENABLED\)[\s\S]{0,120}Pengaturan pesantren belum tersedia saat ini/, "Tenant settings writes must fail closed when the runtime gate is disabled");
+assert.match(settingsUi, /if \(!SUPABASE_SYSTEM_SETTINGS\)[\s\S]{0,260}<ERPFeatureStatus/, "Disabled system settings must show a customer-facing unavailable state");
 for (const stale of ["AI Studio automatically", "Secrets panel in the AI Studio", "Cloud Run Secret Manager", "MY_GEMINI_API_KEY", "MY_APP_URL"]) assert.ok(!envExample.includes(stale), `.env.example still contains obsolete setup text: ${stale}`);
 assert.ok(settingsUi.includes("Pengiriman pemberitahuan melalui email belum tersedia."), "Settings UI must not imply that an unimplemented email integration can send messages");
 assert.doesNotMatch(settingsUi, /Host SMTP|Port SMTP|WA_GATEWAY_API_KEY|penyimpanan rahasia milik environment deployment/, "Settings UI must not expose inactive integration controls or operator-only secret instructions");

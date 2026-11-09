@@ -30,16 +30,17 @@ import {
   IntegrationsConfig, 
   MobileConfig,
   SYSTEM_ROLES,
-  ALL_MODULE_LIST 
+  ALL_MODULE_LIST,
+  SYSTEM_SETTINGS_RUNTIME_ENABLED,
 } from '../services/systemSettingsService';
 import { UserRole } from '../rbac';
 import { ModuleId } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
-import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from '../runtimeBackend';
+import { legacyArchiveImportEnabled } from '../runtimeBackend';
 import { ERPFeatureStatus, ERPNotice } from '../components/ERPDesignSystem';
 
-const SUPABASE_SYSTEM_SETTINGS = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS"));
+const SUPABASE_SYSTEM_SETTINGS = SYSTEM_SETTINGS_RUNTIME_ENABLED;
 const SUPABASE_SYSTEM_SETTINGS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED") === 'true';
 
 export function SettingsManager() {
@@ -244,6 +245,16 @@ export function SettingsManager() {
       showToast('Cadangan belum dapat dibuat. Coba lagi.', 'error');
     }
   };
+
+  if (!SUPABASE_SYSTEM_SETTINGS) {
+    return (
+      <ERPFeatureStatus
+        title="Pengaturan pesantren belum tersedia"
+        status="Belum tersedia"
+        description="Fitur pengaturan ini belum dapat digunakan saat ini."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl w-full mx-auto pb-12 animate-in fade-in slide-in-from-bottom-4">

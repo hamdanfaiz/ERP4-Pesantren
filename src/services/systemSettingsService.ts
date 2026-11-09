@@ -1,6 +1,10 @@
 import { getAccessToken } from "../authSession";
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { ModuleId } from "../types";
 import { UserRole, ROLE_MODULES, isModuleAccessible, getAllowedModulesForUser } from "../rbac";
+
+export const SYSTEM_SETTINGS_RUNTIME_ENABLED =
+  publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS") === "true";
 
 export interface GeneralSettings {
   academicYear: string;
@@ -200,7 +204,7 @@ class SystemSettingsService {
       ? { ...this.defaultSettings(), tenantId: nextTenantId }
       : this.defaultSettings();
     this.notify();
-    if (nextTenantId) this.initRealtimeSync(nextTenantId);
+    if (nextTenantId && SYSTEM_SETTINGS_RUNTIME_ENABLED) this.initRealtimeSync(nextTenantId);
   }
 
   private initRealtimeSync(tenantId: string) {
@@ -313,6 +317,9 @@ class SystemSettingsService {
   }
 
   public async saveSettings(partial: Partial<SystemSettings>): Promise<void> {
+    if (!SYSTEM_SETTINGS_RUNTIME_ENABLED) {
+      throw new Error("Pengaturan pesantren belum tersedia saat ini.");
+    }
     const tenantId = this.activeTenantId;
     if (!tenantId) throw new Error("Tenant aktif wajib tersedia sebelum pengaturan disimpan.");
     if (!this.settingsReady) {
