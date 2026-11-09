@@ -446,17 +446,43 @@ export function TahfidzManager() {
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [surahList, setSurahList] = useState<any[]>([]);
+  const [isSurahListLoading, setIsSurahListLoading] = useState(true);
+  const [surahListError, setSurahListError] = useState(false);
 
   useEffect(() => {
-    fetch("/api/quran/surat")
-      .then((res) => res.json())
+    const controller = new AbortController();
+    setIsSurahListLoading(true);
+    setSurahListError(false);
+    fetch("/api/quran/surat", { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Quran reference request failed.");
+        return res.json();
+      })
       .then((data) => {
-        if (data && data.data) {
-          setSurahList(data.data);
+        const entries = Array.isArray(data?.data) ? data.data : [];
+        const validSurahs = entries.filter((item: any) =>
+          Number.isInteger(Number(item?.nomor))
+          && Number(item.nomor) >= 1
+          && Number(item.nomor) <= 114
+          && typeof item?.namaLatin === "string"
+          && item.namaLatin.trim().length > 0
+          && Number.isInteger(Number(item?.jumlahAyat))
+          && Number(item.jumlahAyat) > 0,
+        );
+        if (!validSurahs.length) throw new Error("Quran reference catalog is empty.");
+        setSurahList(validSurahs);
+      })
+      .catch((error) => {
+        if (error?.name !== "AbortError") {
+          setSurahList([]);
+          setSurahListError(true);
         }
       })
-      .catch(console.error);
-  }, [user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz]);
+      .finally(() => {
+        if (!controller.signal.aborted) setIsSurahListLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [isHalaqahModalOpen, setIsHalaqahModalOpen] = useState(false);
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
@@ -2130,6 +2156,11 @@ export function TahfidzManager() {
     </div>
   );
 
+  const selectedQuickEntrySurah = surahList.find(
+    (surah) => Number(surah.nomor) === Number(formData.surahNomor),
+  );
+  const quickEntryAyahCount = Number(selectedQuickEntrySurah?.jumlahAyat || 0);
+
   const renderRecords = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Quick Entry Form */}
@@ -2158,31 +2189,89 @@ export function TahfidzManager() {
           </select>}
           {SUPABASE_TAHFIDZ_RUNTIME && rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}
         </div>
-        <div className="w-full md:w-auto">
+        <div className="w-full md:w-52">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Surah
           </label>
-          <input
-            type="text"
-            placeholder="Misal: Al-Baqarah"
-            value={formData.surah || ""}
-            onChange={(e) =>
-              setFormData({ ...formData, surah: e.target.value })
-            }
-            className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-          />
+          <select
+            required
+            aria-label="Surah setoran cepat"
+            value={formData.surahNomor ? String(formData.surahNomor) : ""}
+            disabled={isSurahListLoading || surahListError || isSavingRecord}
+            onChange={(e) => {
+              const selectedSurah = surahList.find((surah) => String(surah.nomor) === e.target.value);
+              setFormData({
+                ...formData,
+                surah: selectedSurah?.namaLatin || "",
+                surahNomor: selectedSurah ? Number(selectedSurah.nomor) : null,
+                ayatCount: selectedSurah ? Number(selectedSurah.jumlahAyat) : null,
+                ayatStart: "",
+                ayatEnd: "",
+                ayat: "",
+              });
+            }}
+            className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">
+              {isSurahListLoading ? "Memuat daftar surah…" : surahListError ? "Daftar surah belum tersedia" : "Pilih surah…"}
+            </option>
+            {surahList.map((surah) => (
+              <option key={surah.nomor} value={surah.nomor}>
+                {surah.nomor}. {surah.namaLatin}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="w-full md:w-32">
+        <div className="w-full md:w-48">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Ayat
           </label>
-          <input
-            type="text"
-            placeholder="Misal: 1-10"
-            value={formData.ayat || ""}
-            onChange={(e) => setFormData({ ...formData, ayat: e.target.value })}
-            className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-          />
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              required
+              aria-label="Ayat mulai setoran cepat"
+              value={formData.ayatStart || ""}
+              disabled={!selectedQuickEntrySurah || isSavingRecord}
+              onChange={(e) => {
+                const start = Number(e.target.value);
+                const previousEnd = Number(formData.ayatEnd || 0);
+                const end = previousEnd >= start ? String(previousEnd) : "";
+                setFormData({
+                  ...formData,
+                  ayatStart: e.target.value,
+                  ayatEnd: end,
+                  ayat: end ? `${start}-${end}` : "",
+                });
+              }}
+              className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-2 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Mulai</option>
+              {Array.from({ length: quickEntryAyahCount }, (_, index) => index + 1).map((ayah) => (
+                <option key={ayah} value={ayah}>{ayah}</option>
+              ))}
+            </select>
+            <select
+              required
+              aria-label="Ayat akhir setoran cepat"
+              value={formData.ayatEnd || ""}
+              disabled={!selectedQuickEntrySurah || !formData.ayatStart || isSavingRecord}
+              onChange={(e) => {
+                const end = Number(e.target.value);
+                const start = Number(formData.ayatStart);
+                setFormData({ ...formData, ayatEnd: e.target.value, ayat: `${start}-${end}` });
+              }}
+              className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-2 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Sampai</option>
+              {Array.from(
+                { length: Math.max(0, quickEntryAyahCount - Number(formData.ayatStart || 1) + 1) },
+                (_, index) => Number(formData.ayatStart || 1) + index,
+              ).map((ayah) => (
+                <option key={ayah} value={ayah}>{ayah}</option>
+              ))}
+            </select>
+          </div>
+          {surahListError && <p role="status" className="mt-1 text-xs text-rose-700 dark:text-rose-300">Daftar surah belum dapat dimuat. Muat ulang halaman untuk mencoba lagi.</p>}
         </div>
         <div className="w-full md:w-auto">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
