@@ -146,3 +146,13 @@
 - Data Induk menampilkan 0 Santri; Aturan Penomoran memuat 15 seri termasuk NIS 10 digit. Tahfidz menampilkan roster/halaqah kosong; `Aktifkan Pengingat` dan `Penilaian Suara` nonaktif. SDM menunjukkan layanan belum tersedia.
 - Konfigurasi `.env` yang diabaikan Git pada checkout PR menunjuk ke VQE staging. Snapshot memiliki 35 flag server: 10 aktif dan 25 nonaktif. Nonaktif meliputi Akademik, Alumni, CBT, Komunikasi, Koperasi, CRM, Donasi, Multi-Unit, Pemesanan Fasilitas, Anggaran, bukti Keuangan, Keuangan, Aset GA, UKS, SDM, Laundry, Perpustakaan, LMS, Marketplace, dokumen PPDB, onboarding PPDB, PPDB Admin, PPDB publik, umpan balik pencarian, dan setelan sistem. Snapshot ini tidak membuktikan nilai environment yang sedang dipakai proses server pada port 3000.
 - Karena itu navigasi/sumber UI cocok untuk modul di atas, tetapi alur tulis-baca, seluruh API, matriks role/tenant, Storage, dan viewport ponsel masih harus diuji. Production tidak disentuh.
+
+
+## UAT Admin setelah preview port 3000 tersedia — 9 November 2026
+
+- Preview `http://localhost:3000/` terbuka dan sesi Admin UAT aktif pada staging VQE. Pemeriksaan hanya navigasi dan pembacaan tampilan. Tidak ada form yang disimpan, transaksi dibuat, atau perubahan Production.
+- Sidebar menampilkan 25 menu. Data Induk memuat daftar santri kosong, submenu Struktur (Gedung, Kamar, Kelas, Peta Struktur), dan 15 aturan penomoran termasuk NIS 10 digit.
+- Tahfidz memuat keadaan kosong: roster, halaqah, dan setoran 0. Pengingat serta penilaian suara nonaktif. Tab Asrama dan Dokumen Digital menampilkan kontrol gulir horizontal; halaman Asrama dan daftar Dokumen Digital memuat keadaan kosong dengan konsisten.
+- Manajemen Pengguna menampilkan akun Admin UAT sintetis; tidak ada akun atau hak akses yang diubah.
+- PPDB, Keuangan, Pusat Komunikasi, CBT, SDM, dan Aset & Inventaris Sarana-Prasarana menampilkan status layanan belum tersedia. Akademik menampilkan kegagalan memuat data/referensi. Tombol aksi simpan/transaksi tidak digunakan.
+- Hasil ini adalah smoke test UI source-matched untuk berkas yang dirinci pada bagian sebelumnya. Ini belum membuktikan proses tulis-baca, relasi lintas modul, seluruh matriks role/tenant, Storage, seluruh server/API, atau tampilan ponsel. Gerbang runtime dan data relasi staging harus ditangani sebelum alur tersebut dapat diuji.
