@@ -1,10 +1,10 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 9 November 2026, 09.26 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 masih **Open/Draft**, head `34ca4e63d82e838ee08c76ea14ac75706ff27e21`; CI [run #1429](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42550459063) lulus 3/3 job.
+> **Status otoritatif — 9 November 2026, 09.39 WIB.** PR #91 masih **Open/Draft**. Commit kode `34ca4e6` dan checkpoint docs-only `95cf758` sama-sama lulus CI 3/3 (run #1429 dan #1430). Pembaruan checkpoint ini sendiri menunggu run CI berikutnya.
 >
-> `npm ci`, `npm run lint`, `npm run build`, serta 15 regresi terpilih lulus secara lokal pada source yang diselaraskan. Build memberi peringatan nonfatal komentar anotasi Zod dan chunk PDF sekitar 1,46 MB. `.env` dan `dist/` tidak disertakan dalam commit; tidak ada database yang dibaca atau diubah pada sesi ini.
+> `npm ci`, `npm run lint`, `npm run build`, serta 15 regresi terpilih lulus secara lokal. Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB. `.env` dan `dist/` tidak disertakan ke commit. Percobaan UAT browser terbaru dihentikan saat jendela melaporkan input pengguna aktif; tidak ada login atau form yang disentuh.
 >
-> VQE sebelumnya menunjukkan 140/140 nama dan versi ledger cocok dengan source; ini tidak membuktikan kesamaan DDL. Operator melaporkan metadata Production berisi 47 entri ledger (dua tanpa nama), 119/119 tabel `public` memakai RLS + FORCE RLS, serta lima policy `SELECT`. Metadata tidak membuktikan DDL aktual, keamanan seluruh route, atau pemulihan backup. Production dan VQE tidak disentuh. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
+> VQE sebelumnya menunjukkan 140/140 nama dan versi ledger cocok dengan source; ini tidak membuktikan kesamaan DDL. Metadata Production yang dilaporkan operator berisi 47 entri ledger, 119/119 tabel `public` memakai RLS + FORCE RLS, dan lima policy `SELECT`. Production dan VQE tidak disentuh. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
 >
 > **Estimasi kemajuan — 9 November 2026:** sekitar **67% untuk produk, kode, dan handoff**. Kesiapan operasional yang terbukti sekitar **45%**. Ini estimasi berbobot, bukan metrik otomatis; deployment/hosting/UAT tim backend tidak dihitung pada persentase produk. Produk belum dinyatakan siap deploy atau komersial.
 >

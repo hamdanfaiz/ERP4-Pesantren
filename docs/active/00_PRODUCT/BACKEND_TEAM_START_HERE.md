@@ -1,11 +1,11 @@
-## Checkpoint otoritatif — 9 November 2026, 09.26 WIB
+## Checkpoint otoritatif — 9 November 2026, 09.39 WIB
 
 ### Source dan pengujian yang terbukti
 
-- `main` GitHub berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 masih **Open/Draft**, head `34ca4e63d82e838ee08c76ea14ac75706ff27e21`. Perubahan di-push secara fast-forward ke branch PR; CI run [#1429](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42550459063) lulus 3/3: migrasi/API/pgTAP, build/runtime frontend, dan instalasi NPM pelanggan.
-- `npm ci`, `npm run lint`, `npm run build`, dan 15 regresi terpilih lulus secara lokal pada source yang diselaraskan. Build menghasilkan peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB.
-- Perubahan menyamarkan pesan teknis bagi pengguna, merapikan permukaan tab/container/form, dan menambah regresi. `.env` tidak disalin ke worktree PR atau commit. Tidak ada migrasi atau penulisan database pada sesi ini.
-- UAT browser source-matched dan viewport ponsel belum dijalankan pada commit tersebut. UAT CRUD menyeluruh, seluruh matriks role/tenant, dan alur Wali juga belum terbukti.
+- `main` GitHub berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Open/Draft**. Perubahan kode ada pada commit `34ca4e6`; checkpoint/handoff diperbarui dalam commit docs-only `95cf758`. CI #1430 lulus 3/3 pada head `95cf758`.
+- `npm ci`, `npm run lint`, `npm run build`, dan 15 regresi terpilih lulus pada source aplikasi yang diselaraskan. Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB.
+- Perubahan menyamarkan pesan teknis bagi pengguna, menyelaraskan tab/container/form lintas modul, dan menambah pemeriksaan regresi. Tidak ada migrasi atau penulisan database pada sesi ini.
+- Percobaan UAT visual terbaru dihentikan saat jendela Chrome melaporkan input pengguna aktif. Tidak ada login/form yang disentuh. Server preview kemudian dihentikan dan salinan `.env` staging di worktree PR dihapus; `.env` asli tidak berubah. UAT browser source-matched dan viewport ponsel masih terbuka.
 
 ### Backend, staging, dan Production
 
@@ -15,11 +15,12 @@
 
 ### Tindak lanjut
 
-- Tim backend dapat mulai meninjau PR #91. PR tetap Draft sampai UAT visual/responsif dari source yang sama selesai.
-- Selesaikan UAT UI source-matched: login Admin, menu/sub-menu, CRUD representatif, viewport ponsel, serta role dan tenant. UAT Wali dan CRUD seluruh modul belum terbukti.
-- Tim backend memverifikasi DDL dan urutan migrasi Production, melakukan rehearsal backup/restore pada target terisolasi, lalu membuktikan pemasangan/upgrade/restore VPS atau on-premise. Jangan menerapkan perubahan ke Production pada tahap ini.
+- CI #1430 membuktikan head PR sebelum pembaruan dokumen ini. Pembaruan checkpoint-only akan menjalankan CI lagi setelah push.
+- Tim backend dapat meninjau PR #91. Tetap Draft sampai UAT visual/responsif dengan source yang sama selesai.
+- Selesaikan UAT menu/sub-menu, CRUD representatif, viewport ponsel, serta role dan tenant. UAT Wali dan CRUD seluruh modul belum terbukti.
+- Tim backend memverifikasi DDL/urutan migrasi Production, melakukan rehearsal backup/restore pada target terisolasi, lalu membuktikan pemasangan/upgrade/restore VPS atau on-premise. Jangan menerapkan perubahan ke Production pada tahap ini.
 
-**Kesimpulan:** perubahan tersedia untuk ditinjau dan CI 3/3 lulus. Produk belum dinyatakan siap deploy atau komersial sampai UAT dan gerbang backend selesai.
+**Kesimpulan:** source aplikasi lulus build, lint, regresi terpilih, dan CI 3/3. Produk belum dinyatakan siap deploy atau komersial.
 
 ---
 ## Checkpoint historis — setelah merge PR #38–#40, PR #43, dan PR #47, 7 November 2026

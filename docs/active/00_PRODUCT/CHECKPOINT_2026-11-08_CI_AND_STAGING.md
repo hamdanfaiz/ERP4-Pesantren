@@ -1,21 +1,22 @@
 # Checkpoint ERP4 Pesantren — CI dan staging
 
-**Diperbarui:** 9 November 2026, 09.26 WIB
+**Diperbarui:** 9 November 2026, 09.39 WIB
 **Status:** produk belum dinyatakan siap deploy atau komersial.
 
 ## Status terukur terbaru
 
-- PR #90 telah merged ke `main` (`fd937f4876aa1069500694b9bc20ec70eef8ee14`). PR #91 masih **Open/Draft** pada head `34ca4e63d82e838ee08c76ea14ac75706ff27e21`. Perubahan dikirim dengan fast-forward; CI [run #1429](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42550459063) lulus 3/3 job.
-- `npm ci`, `npm run lint`, `npm run build`, dan 15 regresi terpilih lulus sebelum push. Cakupan regresi mencakup pesan aman bagi pengguna, flag deployment, Supabase-only runtime, RBAC, Master Data, tanggal tenant, Dokumen Digital, pagination Tahfidz, route API, skema private, dan pendaftaran Wali.
-- Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB. `.env`, `dist/`, dan kredensial tidak masuk ke commit. Tidak ada pembacaan/penulisan database pada sesi ini.
-- VQE sebelumnya menunjukkan 140/140 nama dan versi ledger sama dengan source; ini bukan bukti kesamaan DDL. Metadata Production yang operator laporkan berisi 47 entri ledger, 119/119 tabel dengan RLS + FORCE RLS dan lima policy `SELECT`. Production dan VQE tidak disentuh. Lihat [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
-- UAT browser dari build source terbaru, viewport ponsel, UAT Wali/CRUD seluruh modul, verifikasi DDL dan pemulihan backup Production, serta clean install/upgrade VPS/on-premise masih terbuka.
+- PR #90 sudah merged ke `main` (`fd937f4876aa1069500694b9bc20ec70eef8ee14`). PR #91 masih **Open/Draft**. Commit kode `34ca4e6` sudah mendapat CI #1429 3/3; checkpoint docs-only `95cf758` juga mendapat CI #1430 3/3. Pembaruan checkpoint ini akan memicu satu run CI berikutnya setelah push.
+- `npm ci`, `npm run lint`, `npm run build`, dan 15 regresi terpilih lulus sebelum push. Cakupan meliputi pesan aman, feature flags, Supabase-only runtime, RBAC, Master Data, tanggal tenant, Dokumen Digital, pagination Tahfidz, policy API, skema private, dan pendaftaran Wali.
+- Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB. `.env`, `dist/`, dan kredensial tidak disertakan ke commit.
+- Percobaan UI terbaru dihentikan tanpa login/form karena jendela browser melaporkan input pengguna aktif. Preview lokal dihentikan setelah percobaan; tidak ada data ditulis.
+- Tidak ada perubahan VQE atau Production. VQE sebelumnya menunjukkan 140/140 nama dan versi ledger sama dengan source; metadata Production yang operator laporkan menunjukkan 47 entri ledger, 119/119 tabel dengan RLS + FORCE RLS dan lima policy `SELECT`. Ini bukan bukti kesamaan DDL atau backup/restore. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
+- Masih terbuka: UAT browser dari build source terbaru, viewport ponsel, UAT Wali dan CRUD seluruh modul, validasi DDL/urutan migrasi Production, backup/restore Production, serta clean install/upgrade VPS/on-premise.
 
 ### Langkah berikutnya
 
 1. Tim backend meninjau PR #91; PR tetap Draft sampai UAT visual/responsif source-matched selesai.
-2. Jalankan UAT menu/sub-menu, CRUD representatif, viewport ponsel, serta role/tenant pada staging.
-3. Tim backend menyelesaikan pemeriksaan migrasi Production, backup/restore rehearsal, dan uji pemasangan untuk lingkungan pelanggan.
+2. Jalankan UAT menu/sub-menu, CRUD representatif, viewport ponsel, dan role/tenant pada staging.
+3. Tim backend menyelesaikan validasi migrasi Production, backup/restore rehearsal, dan uji pemasangan lingkungan pelanggan.
 Catatan PR #86 di bawah merupakan snapshot historis dan tidak menggantikan status PR #91 yang dirangkum di atas.
 
 ## Source dan CI
