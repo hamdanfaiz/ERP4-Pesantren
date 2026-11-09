@@ -1,16 +1,15 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 9 November 2026, 09.15 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 masih **Open/Draft**, dengan head yang diperiksa `f882af0de993f27105ff5362f9f47cac592db233`; CI #1428 lulus 3/3 pada head tersebut sebelum perubahan sesi ini. Perubahan lokal telah direkonsiliasi di worktree terpisah dan tervalidasi lokal, tetapi belum didorong atau mendapat CI GitHub.
+> **Status otoritatif — 9 November 2026, 09.26 WIB.** `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 masih **Open/Draft**, head `34ca4e63d82e838ee08c76ea14ac75706ff27e21`; CI [run #1429](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42550459063) lulus 3/3 job.
 >
-> `npm ci`, `npm run lint`, `npm run build`, serta 15 regresi terpilih lulus. Build memberi peringatan nonfatal komentar anotasi Zod dan chunk PDF sekitar 1,46 MB. Validasi ini memakai source PR yang diselaraskan dan tidak memakai `.env`, tidak membaca atau menulis database.
+> `npm ci`, `npm run lint`, `npm run build`, serta 15 regresi terpilih lulus secara lokal pada source yang diselaraskan. Build memberi peringatan nonfatal komentar anotasi Zod dan chunk PDF sekitar 1,46 MB. `.env` dan `dist/` tidak disertakan dalam commit; tidak ada database yang dibaca atau diubah pada sesi ini.
 >
-> VQE staging `vqemuyzveuirlkvdggjd` sebelumnya menunjukkan 140/140 nama dan versi ledger sama dengan source; ini tidak membuktikan kesamaan DDL. Operator melaporkan metadata Production berisi 47 entri ledger (dua tanpa nama), 119/119 tabel `public` dengan RLS + FORCE RLS, serta lima policy `SELECT`. Metadata tidak membuktikan DDL aktual, keamanan seluruh route, atau pemulihan backup. Production dan VQE tidak disentuh pada sesi ini. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
+> VQE sebelumnya menunjukkan 140/140 nama dan versi ledger cocok dengan source; ini tidak membuktikan kesamaan DDL. Operator melaporkan metadata Production berisi 47 entri ledger (dua tanpa nama), 119/119 tabel `public` memakai RLS + FORCE RLS, serta lima policy `SELECT`. Metadata tidak membuktikan DDL aktual, keamanan seluruh route, atau pemulihan backup. Production dan VQE tidak disentuh. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
 >
 > **Estimasi kemajuan — 9 November 2026:** sekitar **67% untuk produk, kode, dan handoff**. Kesiapan operasional yang terbukti sekitar **45%**. Ini estimasi berbobot, bukan metrik otomatis; deployment/hosting/UAT tim backend tidak dihitung pada persentase produk. Produk belum dinyatakan siap deploy atau komersial.
 >
-> Masih terbuka: CI untuk source PR terbaru, UAT browser source-matched dan viewport ponsel, UAT Wali dan CRUD seluruh modul, validasi DDL/urutan migrasi Production, backup/restore Production, serta clean install/upgrade VPS atau on-premise.
->
-> Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
+> Masih terbuka: UAT browser source-matched dan viewport ponsel, UAT Wali dan CRUD seluruh modul, validasi DDL/urutan migrasi Production, backup/restore Production, serta clean install/upgrade VPS atau on-premise. PR #91 tersedia untuk ditinjau dan tetap Draft sampai UAT visual/responsif selesai.
+>> Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
 
 > **Pembaruan checkpoint — 6 November 2026, 23.08 WIB.** CI #1191 lulus 3/3 job pada source dokumen PR `602926c548410e2f6af2d0001701d5cf23fd0ece`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. UAT browser, inventaris penuh Production, backup/restore yang terbukti, dan rehearsal/dry-run masih terbuka.
 >

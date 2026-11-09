@@ -1,26 +1,25 @@
-## Checkpoint otoritatif — 9 November 2026, 09.15 WIB
+## Checkpoint otoritatif — 9 November 2026, 09.26 WIB
 
 ### Source dan pengujian yang terbukti
 
-- `main` GitHub berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Open/Draft**, head yang ditarik ke worktree audit `f882af0de993f27105ff5362f9f47cac592db233`; CI #1428 lulus 3/3 pada head tersebut. Perubahan lokal telah direkonsiliasi di worktree terpisah berbasis head itu; hasil CI untuk perubahan terbaru menunggu push.
-- `npm ci`, `npm run lint`, dan `npm run build` lulus pada worktree rekonsiliasi. Lima belas regresi terpilih lulus, meliputi pesan pengguna, konfigurasi deployment, Supabase-only runtime, RBAC, Master Data, tanggal tenant, dokumen, pagination Tahfidz, policy API, private schema, environment Supabase, dan pendaftaran Wali StrictMode.
-- Build memberi peringatan nonfatal terkait anotasi Zod dan chunk PDF sekitar 1,46 MB. UAT browser source-matched serta viewport ponsel belum dijalankan pada build ini.
-- Perubahan sesi ini menyamarkan pesan teknis, merapikan komponen tab/container/form, dan menambah pemeriksaan regresi. Belum ada migrasi atau penulisan database.
+- `main` GitHub berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 masih **Open/Draft**, head `34ca4e63d82e838ee08c76ea14ac75706ff27e21`. Perubahan di-push secara fast-forward ke branch PR; CI run [#1429](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42550459063) lulus 3/3: migrasi/API/pgTAP, build/runtime frontend, dan instalasi NPM pelanggan.
+- `npm ci`, `npm run lint`, `npm run build`, dan 15 regresi terpilih lulus secara lokal pada source yang diselaraskan. Build menghasilkan peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB.
+- Perubahan menyamarkan pesan teknis bagi pengguna, merapikan permukaan tab/container/form, dan menambah regresi. `.env` tidak disalin ke worktree PR atau commit. Tidak ada migrasi atau penulisan database pada sesi ini.
+- UAT browser source-matched dan viewport ponsel belum dijalankan pada commit tersebut. UAT CRUD menyeluruh, seluruh matriks role/tenant, dan alur Wali juga belum terbukti.
 
 ### Backend, staging, dan Production
 
 - VQE `vqemuyzveuirlkvdggjd`: pemeriksaan baca-saja sebelumnya menunjukkan 140/140 versi dan nama ledger cocok dengan `supabase/migrations`; migrasi terakhir `20270308000000_academic_class_unit_admin_role_baseline`. Tidak ada perubahan database pada sesi ini; kecocokan ledger bukan bukti kesamaan DDL.
 - Metadata Production yang dilaporkan operator menunjukkan 47 entri ledger hingga `20261206000000` (dua nama kosong), 119/119 tabel `public` dengan RLS + FORCE RLS, serta lima policy `SELECT`. Ini tidak membuktikan DDL, keamanan setiap route/API, atau pemulihan backup. Production tidak disentuh.
 - Laporan detail ada pada [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md). Selisih ledger tidak boleh dianggap sebagai daftar migrasi yang harus dijalankan.
-- `.env` lokal tidak dimasukkan ke worktree PR atau commit. Jangan berbagi kredensial melalui chat atau menggunakan artefak build staging sebagai artefak Production.
 
 ### Tindak lanjut
 
-- Dorong perubahan tervalidasi ke PR #91, lalu tinjau CI pada head baru sebelum menyatakan siap direview.
+- Tim backend dapat mulai meninjau PR #91. PR tetap Draft sampai UAT visual/responsif dari source yang sama selesai.
 - Selesaikan UAT UI source-matched: login Admin, menu/sub-menu, CRUD representatif, viewport ponsel, serta role dan tenant. UAT Wali dan CRUD seluruh modul belum terbukti.
 - Tim backend memverifikasi DDL dan urutan migrasi Production, melakukan rehearsal backup/restore pada target terisolasi, lalu membuktikan pemasangan/upgrade/restore VPS atau on-premise. Jangan menerapkan perubahan ke Production pada tahap ini.
 
-**Kesimpulan:** pemeriksaan lokal untuk perubahan terbaru lulus, tetapi CI GitHub dan UAT UI pada source terbaru belum terbukti. Produk belum dinyatakan siap deploy atau komersial.
+**Kesimpulan:** perubahan tersedia untuk ditinjau dan CI 3/3 lulus. Produk belum dinyatakan siap deploy atau komersial sampai UAT dan gerbang backend selesai.
 
 ---
 ## Checkpoint historis — setelah merge PR #38–#40, PR #43, dan PR #47, 7 November 2026
