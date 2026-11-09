@@ -1,16 +1,16 @@
 # Checkpoint ERP4 Pesantren — CI dan staging
 
-**Diperbarui:** 9 November 2026, 09.39 WIB
+**Diperbarui:** 9 November 2026, 09.56 WIB
 **Status:** produk belum dinyatakan siap deploy atau komersial.
 
 ## Status terukur terbaru
 
-- PR #90 sudah merged ke `main` (`fd937f4876aa1069500694b9bc20ec70eef8ee14`). PR #91 masih **Open/Draft**. Commit kode `34ca4e6` sudah mendapat CI #1429 3/3; checkpoint docs-only `95cf758` juga mendapat CI #1430 3/3. Pembaruan checkpoint ini akan memicu satu run CI berikutnya setelah push.
+- PR #90 sudah merged ke `main` (`fd937f4876aa1069500694b9bc20ec70eef8ee14`). PR #91 masih **Open/Draft** pada head `19e5bb22895e4c55e376b33704ca2345f9e2a97f`; CI terbaru #1431 lulus 3/3. Perubahan kode berada pada `34ca4e6`; dua commit sesudahnya hanya memperbarui dokumen checkpoint/handoff.
 - `npm ci`, `npm run lint`, `npm run build`, dan 15 regresi terpilih lulus sebelum push. Cakupan meliputi pesan aman, feature flags, Supabase-only runtime, RBAC, Master Data, tanggal tenant, Dokumen Digital, pagination Tahfidz, policy API, skema private, dan pendaftaran Wali.
 - Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB. `.env`, `dist/`, dan kredensial tidak disertakan ke commit.
-- Percobaan UI terbaru dihentikan tanpa login/form karena jendela browser melaporkan input pengguna aktif. Preview lokal dihentikan setelah percobaan; tidak ada data ditulis.
+- UAT visual baca-saja berhasil dilanjutkan pada preview Admin UAT `localhost:4179`, yang runtime publiknya menunjuk VQE. Semua kategori/menu utama muncul di navigasi. Tahfidz memuat empty state; Asrama menampilkan lima submodul dan empty state izin. Strip tab Dokumen Digital dapat digulir, tetapi datanya gagal dimuat. Identitas commit source yang menyajikan `localhost:4179` belum dapat dibuktikan sama dengan head PR #91.
 - Tidak ada perubahan VQE atau Production. VQE sebelumnya menunjukkan 140/140 nama dan versi ledger sama dengan source; metadata Production yang operator laporkan menunjukkan 47 entri ledger, 119/119 tabel dengan RLS + FORCE RLS dan lima policy `SELECT`. Ini bukan bukti kesamaan DDL atau backup/restore. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
-- Masih terbuka: UAT browser dari build source terbaru, viewport ponsel, UAT Wali dan CRUD seluruh modul, validasi DDL/urutan migrasi Production, backup/restore Production, serta clean install/upgrade VPS/on-premise.
+- Masih terbuka: UAT source-matched, viewport ponsel, UAT Wali dan CRUD seluruh modul, diagnosis/pengaktifan runtime Dokumen Digital di VQE, validasi DDL/urutan migrasi Production, backup/restore Production, serta clean install/upgrade VPS/on-premise.
 
 ### Langkah berikutnya
 
@@ -221,3 +221,15 @@ Temuan ini menambah checklist hardening dan tuning, bukan izin untuk mengubah Pr
 - Preview visual setelah login Admin belum dapat diperiksa oleh sesi ini. UAT transaksi/tulis dan Storage masih perlu dilakukan terhadap VQE dengan data sintetis, lalu dibersihkan. Production, backup/restore, migrasi/ledger, dan deployment pelanggan tetap menjadi gerbang yang perlu ditangani atau disaksikan tim backend.
 - Source lokal masih memiliki 63 file terlacak berubah dan 3 file belum terlacak. PR #91 masih Draft/Open menurut pembacaan GitHub terakhir; tidak ada push atau merge. Fetch/rekonsiliasi PR head perlu dilakukan ulang ketika konektivitas GitHub dari workspace pulih.
 - **Estimasi kerja saat ini:** sekitar **67%** penyelesaian produk/kode/handoff (di luar deploy dan UAT oleh tim backend) dan sekitar **45%** bukti operasional/go-live. Persentase ini perkiraan berdasarkan fitur, integrasi, keamanan tenant, pengujian, dan dokumentasi; bukan metrik otomatis. Belum layak menyebut produk selesai karena UAT live dan rilis source yang direkonsiliasi belum ada.
+
+## Pemeriksaan visual Admin UAT terbaru — 9 November 2026, 09.56 WIB
+
+- Preview yang dapat dibuka dalam browser adalah `http://localhost:4179/`, bukan alamat `localhost:3000` yang sebelumnya dipakai untuk instruksi menjalankan server. Halaman menunjukkan sesi Admin UAT. Runtime publiknya menunjuk VQE staging (`vqemuyzveuirlkvdggjd`); tidak ada secret yang dibaca atau dicatat.
+- Navigasi menampilkan seluruh kategori dan modul utama, termasuk Data Induk, Asrama, Tahfidz, dan Dokumen Digital. Ini membantah dugaan bahwa modul-modul itu hilang dari build yang sedang terlihat. Namun tab preview ini belum dapat dipetakan ke commit tertentu, jadi belum menjadi bukti UAT source-matched terhadap PR #91.
+- Tahfidz menampilkan sepuluh tab, tombol gulir kiri/kanan, serta ringkasan kosong yang berhasil selesai dimuat (0 santri, 0 halaqah, 0 setoran). Beberapa aksi tetap nonaktif pada tenant tanpa data. Pemeriksaan ini hanya baca tampilan; input setoran, relasi, dan penyimpanan belum diuji.
+- Asrama menampilkan lima submodul berstatus aktif, kontrol gulir, dan empty state izin yang normal. CRUD izin/kedisiplinan/kehadiran/penugasan/fasilitas belum diuji.
+- Dokumen Digital menampilkan enam tab dan tombol panah; klik panah kanan menggeser strip sehingga tab berikutnya terlihat di dalam frame. Tema gelap dan kontainer tampil konsisten pada viewport browser yang diperiksa. Data masih gagal dimuat dengan pesan umum “Dokumen belum dapat diproses. Coba lagi.”
+- Akar masalah Dokumen Digital belum terkonfirmasi. Source API mengembalikan 503 secara fail-closed bila `SUPABASE_DOCUMENT_RUNTIME_ENABLED` bukan `true`; file `.env` lokal di checkout pengembangan yang diperiksa menyetel flag itu `false`. Proses yang menyajikan preview 4179 tidak terlihat dari shell lokal, sehingga kesamaan konfigurasi proses belum terbukti. Jangan menyalakan flag Production; tim perlu memastikan flag staging VQE dan restart servis staging sebelum mengulang GET/UAT.
+- Browser mencatat peringatan sinkronisasi Pengaturan Supabase gagal serta peringatan ukuran grafik Recharts `width(-1)/height(-1)` dari dashboard sebelumnya. Ini belum memblokir tampilan Tahfidz/Asrama, tetapi perlu ditriase terpisah; belum ada perubahan kode atau konfigurasi untuk temuan ini.
+- Pemeriksaan ini tidak mengirim formulir, membuat/mengubah record, mengunggah file, mengubah konfigurasi cloud, atau membaca data Production. VQE tetap tanpa fixture; tampilan nol adalah kondisi tanpa data contoh.
+- **Revisi status UAT:** hasil ini menggantikan catatan awal sesi yang menyatakan layar login belum melewati autentikasi. UAT visual Admin sudah sebagian berjalan, tetapi belum lengkap, belum source-matched, belum mencakup ukuran ponsel, dan Dokumen Digital masih gagal. PR #91 tetap Draft/Open; tidak ada dasar untuk merge atau menyatakan produk siap deploy.
