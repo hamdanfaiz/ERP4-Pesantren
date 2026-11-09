@@ -138,3 +138,11 @@
 - SDM menampilkan status layanan belum tersedia dan 0 pegawai. Karena itu alur tambah pegawai dan keterhubungan runtime belum teruji.
 - Identitas checkout yang dilayani preview tetap belum cocok dengan head PR yang dibuktikan. Temuan ini adalah smoke test tampilan/navigasi, bukan UAT source-matched atau bukti CRUD, relasi, role/tenant, Storage, maupun responsif ponsel.
 - Tidak ada data lokal/tenant yang ditulis dan Production tidak disentuh.
+
+## Source match pada preview dan uji baca-saja — 9 November 2026, 15.50 WIB
+
+- Head PR yang diperiksa: `50ab6669d35f248f581e4a198a2919e6e30d51f9`. Isi modul Vite yang sedang dilayani di `localhost:3000` dibandingkan baca-saja dengan source pada head tersebut. Setelah normalisasi newline, konten cocok untuk `src/App.tsx`, `src/pages/MasterDataManager.tsx`, `src/pages/TahfidzManager.tsx`, `src/pages/SupabaseHrisManager.tsx`, `src/pages/SupabaseDocumentManager.tsx`, `src/pages/SupabaseGeneralAffairsAssets.tsx`, dan `src/components/ERPDesignSystem.tsx`.
+- Ini mengonfirmasi source UI untuk halaman/komponen yang disebutkan, bukan seluruh 145 file PR atau `server.ts`/seluruh jalur API. Tidak ada form yang dikirim dan tidak ada data yang ditulis.
+- Data Induk menampilkan 0 Santri; Aturan Penomoran memuat 15 seri termasuk NIS 10 digit. Tahfidz menampilkan roster/halaqah kosong; `Aktifkan Pengingat` dan `Penilaian Suara` nonaktif. SDM menunjukkan layanan belum tersedia.
+- Konfigurasi `.env` yang diabaikan Git pada checkout PR menunjuk ke VQE staging. Snapshot memiliki 35 flag server: 10 aktif dan 25 nonaktif. Nonaktif meliputi Akademik, Alumni, CBT, Komunikasi, Koperasi, CRM, Donasi, Multi-Unit, Pemesanan Fasilitas, Anggaran, bukti Keuangan, Keuangan, Aset GA, UKS, SDM, Laundry, Perpustakaan, LMS, Marketplace, dokumen PPDB, onboarding PPDB, PPDB Admin, PPDB publik, umpan balik pencarian, dan setelan sistem. Snapshot ini tidak membuktikan nilai environment yang sedang dipakai proses server pada port 3000.
+- Karena itu navigasi/sumber UI cocok untuk modul di atas, tetapi alur tulis-baca, seluruh API, matriks role/tenant, Storage, dan viewport ponsel masih harus diuji. Production tidak disentuh.
