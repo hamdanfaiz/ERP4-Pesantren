@@ -3,11 +3,10 @@ import {
   assignSupabaseStudentRoom,
   listSupabaseBoardingSnapshot,
 } from "./masterDataApi";
-import { supabaseRuntimeEnabled } from "../runtimeBackend";
 import { toERPUserMessage } from "../utils/userMessages";
 
-const SUPABASE_MASTER_DATA_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED"));
-const SUPABASE_BOARDING_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_RUNTIME_ENABLED"));
+const SUPABASE_MASTER_DATA_RUNTIME = publicRuntimeConfigValue("VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED") === "true";
+const SUPABASE_BOARDING_RUNTIME = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_RUNTIME_ENABLED") === "true";
 
 export interface CentralStructureItem {
   id: string;
@@ -382,3 +381,4 @@ class CentralStructureService {
 }
 
 export const centralStructureService = new CentralStructureService();
+
