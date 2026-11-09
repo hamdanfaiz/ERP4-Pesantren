@@ -148,8 +148,8 @@ async function main() {
     const roomId = `KMR-${fixtureSuffix}`;
     const randomHex = (bytes) => randomBytes(bytes).toString('hex');
     const { error: structureError } = await admin.from('master_data_records').insert([
-      { tenant_id: tenantId, category: 'Kelas', id: classId, name: `Kelas Uji ${fixtureSuffix}`, grade: 'VII', grade_level_reference_id: gradeReference.id, status: 'Active' },
-      { tenant_id: tenantId, category: 'Gedung', id: buildingId, name: `Gedung Uji ${fixtureSuffix}`, status: 'Active' },
+      { tenant_id: tenantId, category: 'Kelas', id: classId, name: `Kelas Uji ${fixtureSuffix}`, grade: 'VII', grade_level_reference_id: gradeReference.id, occupied: 0, status: 'Active' },
+      { tenant_id: tenantId, category: 'Gedung', id: buildingId, name: `Gedung Uji ${fixtureSuffix}`, occupied: 0, status: 'Active' },
       { tenant_id: tenantId, category: 'Kamar', id: roomId, name: `Kamar Uji ${fixtureSuffix}`, parent_id: buildingId, capacity: 4, occupied: 0, gender_code: 'L', status: 'Active' },
     ]);
     if (structureError) throw new Error(`Could not create synthetic student structure (${safeCode(structureError)}): ${safeMessage(structureError)}.`);
