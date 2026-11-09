@@ -1,17 +1,20 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 9 November 2026, 15.15 WIB.** PR #91 masih **Open/Draft**. Commit kode 84545c5 lulus CI 3/3 pada run #1446; pembaruan rekonsiliasi b20d4da lulus 3/3 pada run #1447. Catatan UAT dan checkpoint komersial diterbitkan pada commit 6efc1e9 dan 7ef8588. Run #1448 untuk catatan pertama dibatalkan otomatis setelah checkpoint berikutnya masuk; run #1449 pada checkpoint terakhir lulus 3/3.
+> **Status otoritatif — 9 November 2026, 15.42 WIB.** PR #91 masih **Open/Draft**. Guard regresi tab Dokumen Digital dan Sarana & Prasarana ditambahkan pada commit `0a4d0fe`. Pemeriksaan `npm run test:customer-deployment-flags` dan `git diff --check` lulus; [Actions run #1451](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42586513025) lulus **3/3 job**.
 >
-> Pada worktree PR bersih, npm ci, npm run lint, dan npm run build berhasil; npm audit --omit=dev menemukan 0 kerentanan produksi. Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB. Checkout lokal lama dan preview belum terbukti berasal dari commit PR terbaru.
+> CI tersebut membuktikan build/container, pengujian migrasi/API auth/pgTAP di Supabase lokal terisolasi, dan instalasi NPM pelanggan pada commit itu. Itu bukan bukti cutover atau kesetaraan DDL Production. Production tidak disentuh.
 >
-> UAT baca-saja pada localhost:3000 terkonfirmasi login sebagai Admin UAT. Sidebar menampilkan 25 menu; Sarana & Prasarana dan Dokumen Digital terbuka; tab Dokumen Digital dapat digulir dengan panah; aset dan dokumen kosong serta tidak ada formulir yang dikirim. Source preview belum bisa dicocokkan ke head PR, maka ini bukan UAT source-matched dan tidak menguji CRUD, relasi, role/tenant, Storage, maupun ukuran ponsel.
+> Smoke test baca-saja di browser Admin UAT: 25 menu tampak; Data Induk dan Tahfidz memuat keadaan kosong; tab Aturan Penomoran menampilkan 15 seri, termasuk NIS 10 digit; SDM masih menyatakan layanan belum tersedia. Tidak ada form disimpan. Checkout yang melayani preview belum cocok dengan head PR, sehingga UAT source-matched, CRUD, relasi, role/tenant, Storage, dan layar ponsel belum terbukti.
 >
-> VQE sebelumnya menunjukkan 140/140 nama dan versi ledger cocok dengan source; ini tidak membuktikan kesamaan DDL. Metadata Production yang dilaporkan operator berisi 47 entri ledger, 119/119 tabel public memakai RLS + FORCE RLS, dan lima policy SELECT. Production tidak disentuh. Detail ada di [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
+> Pada worktree PR bersih sebelumnya, `npm ci`, `npm run lint`, `npm run build`, dan audit dependency produksi (0 kerentanan produksi) berhasil. Build memberi peringatan nonfatal anotasi Zod dan chunk PDF sekitar 1,46 MB.
 >
-> **Estimasi kemajuan — 9 November 2026:** tetap sekitar **67% untuk produk, kode, dan handoff** dan **45% untuk kesiapan operasional yang terbukti**. Angka ini estimasi berbobot, bukan metrik otomatis. UAT visual terbatas tidak menutup gerbang CRUD/source-match, sehingga belum ada kenaikan pada checkpoint ini. Produk belum dinyatakan siap deploy atau komersial.
+> VQE sebelumnya menunjukkan 140/140 nama dan versi ledger cocok dengan source; ini tidak membuktikan kesamaan DDL. Metadata Production yang dilaporkan operator berisi 47 entri ledger, 119/119 tabel `public` memakai RLS + FORCE RLS, dan lima policy SELECT. Lihat [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
 >
-> Masih terbuka: UAT browser source-matched dan viewport ponsel, UAT Wali dan CRUD modul dengan referensi yang sah, validasi DDL/urutan migrasi Production, backup/restore Production, serta clean install/upgrade VPS atau on-premise. PR #91 tersedia untuk ditinjau dan tetap Draft.
+> **Estimasi kemajuan — 9 November 2026:** sekitar **67% untuk produk, kode, dan handoff**; kesiapan operasional yang terbukti sekitar **45%**. Ini estimasi berbobot, bukan metrik otomatis. Smoke test navigasi tidak mengubah angka karena fitur dan alur tulis-baca belum diuji source-matched.
+>
+> Masih terbuka: UAT browser source-matched dan viewport ponsel, UAT Wali dan CRUD modul dengan referensi yang sah, validasi DDL/urutan migrasi Production, backup/restore Production, serta clean install/upgrade VPS atau on-premise. PR #91 tetap Draft sampai UAT dan gate rilis diselesaikan.
 >> Catatan checkpoint bertanggal setelah ringkasan ini merupakan arsip historis dan tidak menggantikan status otoritatif di bagian atas.
+
 > **Pembaruan checkpoint — 6 November 2026, 23.08 WIB.** CI #1191 lulus 3/3 job pada source dokumen PR `602926c548410e2f6af2d0001701d5cf23fd0ece`; source aplikasi terakhir diuji tetap `c61825935c49b642d8bed08b16e7c428a73add15`. UAT browser, inventaris penuh Production, backup/restore yang terbukti, dan rehearsal/dry-run masih terbuka.
 >
 > VQE memiliki 136 migration ledger rows, dengan migration kamar aktif pada alias `20261106151606`; jangan menjalankan DDL ulang. MCP masih menolak baca ledger Production, dan tidak ada perubahan Production.
