@@ -129,3 +129,12 @@
 - UI yang terlihat memakai gaya gelap dan kontainer kartu; kedua modul mempertahankan navigasi tab horizontal. Pemeriksaan ini hanya memvalidasi keadaan visual dan interaksi gulir.
 - Identitas source preview tidak terbukti cocok dengan head PR b20d4da. Aset browser menunjukkan Vite development client, tetapi tidak mengidentifikasi folder checkout yang melayani port 3000. Checkout lama lokal juga sudah tidak menampilkan banner yang sama. Karena itu ketiadaan banner dan hasil visual tidak boleh diklaim sebagai verifikasi HMR atau UAT atas commit PR terbaru.
 - Tidak ada formulir dikirim, aset/dokumen dibuat, transaksi, atau perubahan Production. Alur CRUD, role/tenant end-to-end, Storage, dan responsif pada ukuran ponsel tetap belum diuji.
+
+## Pemeriksaan baca-saja tambahan — 9 November 2026, 15.42 WIB
+
+- Tab `http://localhost:3000/` menampilkan sesi Admin UAT dan 25 menu utama. Pemeriksaan hanya membuka halaman dan membaca daftar; tidak ada form atau aksi simpan yang dikirim.
+- Data Induk menampilkan 0 Santri. Tab Aturan Penomoran berhasil memuat 15 seri, termasuk NIS dengan format 10 digit. Tidak ada perubahan pola yang disimpan.
+- Tahfidz berhasil dibuka; roster dan halaqah berjumlah 0. `Aktifkan Pengingat` dan `Penilaian Suara` nonaktif. Tombol ekspor tampak tersedia, tetapi tidak dijalankan karena belum ada data yang dapat diuji.
+- SDM menampilkan status layanan belum tersedia dan 0 pegawai. Karena itu alur tambah pegawai dan keterhubungan runtime belum teruji.
+- Identitas checkout yang dilayani preview tetap belum cocok dengan head PR yang dibuktikan. Temuan ini adalah smoke test tampilan/navigasi, bukan UAT source-matched atau bukti CRUD, relasi, role/tenant, Storage, maupun responsif ponsel.
+- Tidak ada data lokal/tenant yang ditulis dan Production tidak disentuh.
