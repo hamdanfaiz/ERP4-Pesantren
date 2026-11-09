@@ -102,10 +102,12 @@
 
 ## Rekonsiliasi Git sebelum mengirim hasil ke tim
 
-- Head lokal: `8d2859a`. Ref lokal yang tersimpan untuk head PR #91: `origin/pr-91-current` pada `6f39e12`; lokal memiliki satu commit yang tidak ada pada ref tersebut dan tertinggal 28 commit. Worktree juga memiliki 67 file terlacak yang berubah serta file baru.
-- Fetch baca-saja PR #91 dicoba ulang, tetapi Git gagal sebelum tersambung ke GitHub dengan `getaddrinfo() thread failed to start`; ref yang dipakai untuk perbandingan masih ref lokal terakhir yang tersimpan.
-- Karena tree lokal dan branch PR berbeda, kode source lokal belum di-commit atau di-push. Catatan UAT terbaru ditambahkan melalui commit dokumentasi terpisah pada PR #91 dan secara eksplisit menyatakan bahwa source lokal berbeda dari head PR.
-- Langkah berikutnya: sinkronkan branch setelah fetch berhasil, telaah perbedaan tanpa membuang perubahan lokal, lalu jalankan ulang lint/build pada source persis yang akan ditinjau. Setelah itu pisahkan UAT yang cocok dengan source PR dari pengujian yang masih menunggu data fixture dan gerbang runtime staging.
+- Fetch PR #91 berhasil setelah izin jaringan workspace diberikan. Head PR yang diperiksa adalah `e745742`; worktree rekonsiliasi bersih dibuat tepat dari commit itu. Perubahan di checkout lama tidak dibuang atau ditimpa.
+- Checkout lama berada pada `8d2859a`, bertumpu pada `7b580ed`, dengan 67 file terlacak berubah dan 5 file baru. Dibanding head PR, ada 36 commit yang hanya ada di PR dan 1 commit lokal. Perbaikan redaksi PostgreSQL pada commit lokal sudah tercakup pada source PR, sehingga tidak disalin ulang.
+- Perbandingan konten menunjukkan sebagian besar perubahan lokal telah ada di PR. Perubahan ukuran chart dashboard lokal justru membatalkan perbaikan `min-w-0` yang ada pada PR, sehingga tidak dibawa. Catatan UAT terbaru sudah disalin sebagai commit dokumentasi tersendiri ke PR dan menjelaskan batas source test.
+- Banner status migrasi internal pada Sarana & Prasarana belum ada di PR. Banner sudah dihapus pada worktree bersih berbasis head PR. Build produksi dan pemeriksaan TypeScript (`npm run build`, `npm run lint`) berhasil pada source ini.
+- Audit dependensi produksi (`npm audit --omit=dev`) menemukan 0 kerentanan. `npm ci` tetap melaporkan beberapa kerentanan pada dependency development; belum dijalankan perbaikan otomatis karena dapat mengubah versi di luar lockfile.
+- Berikutnya, kirim koreksi UI dan catatan audit ini pada branch PR, lalu verifikasi CI pada head yang sama. CRUD melalui UI masih menunggu gerbang runtime dan data relasi sintetis staging.
 
 ## Pemeriksaan lanjutan setelah preview lokal aktif — 9 November 2026, 14.23 WIB
 
@@ -113,7 +115,8 @@
 - CBT memuat halaman dan tabnya, tetapi layanan menunjukkan status belum tersedia. Bank soal, ujian, dan penugasan bernilai nol; tombol simpan soal nonaktif karena referensi mata pelajaran dan paket soal belum tersedia.
 - LMS memuat halaman; tombol geser tab bekerja dan tab Pengajar dapat dibuka. Tidak ada kursus atau pengajar yang ditugaskan; layanan runtime belum tersedia. Penilaian antarsantri, sertifikat, dan statistik lanjutan juga belum tersedia.
 - SDM memuat halaman dan navigasi bagiannya, tetapi layanan runtime belum tersedia. Tidak ada formulir pegawai yang disimpan.
-- Sarana & Prasarana memuat halaman aset/inventaris, tetapi layanan runtime belum tersedia. Pada saat screenshot, halaman menampilkan banner internal tentang status pemindahan modul. Banner itu kemudian dihapus dari source lokal; perubahan lokal sudah lolos `npm run build`, tetapi hasil HMR belum dikonfirmasi kembali di browser.
+- Sarana & Prasarana memuat halaman aset/inventaris, tetapi layanan runtime belum tersedia. Pada saat screenshot, halaman menampilkan banner internal tentang status pemindahan modul. Banner tersebut sudah dihapus pada worktree bersih berbasis head PR; hasil HMR belum dikonfirmasi kembali di browser.
 - Pemeriksaan nama dan nilai gerbang runtime di `.env` menemukan 35 gerbang: 10 aktif dan 25 nonaktif. Nama gerbang yang relevan untuk CBT, LMS, SDM, dan aset GA masih nonaktif. Nilai rahasia tidak dibaca maupun dicatat.
-- Build lokal berhasil setelah pembersihan teks. Peringatan chunk React PDF sekitar 1,46 MB sebelum gzip serta anotasi dependency Zod masih muncul.
+- Build dari worktree bersih head PR berhasil setelah pembersihan teks. Peringatan chunk React PDF sekitar 1,46 MB sebelum gzip serta anotasi dependency Zod masih muncul; keduanya bukan kegagalan build.
 - Pemeriksaan ini dilakukan pada worktree lokal `codex/product-copy-cleanup-20261108` yang memiliki perubahan belum di-commit dan berbeda dari head PR. Catatan ini bukan bukti bahwa perubahan source tersebut sudah ada di PR atau Production.
+
