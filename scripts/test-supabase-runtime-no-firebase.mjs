@@ -201,6 +201,16 @@ assert.match(masterDataSource, /return labels\[value\.toLowerCase\(\)\] \|\| val
   'Master Data status values must be displayed in Indonesian without changing their stored values.');
 assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
+const centralStructureSource = fs.readFileSync(path.join(root, 'src', 'services', 'centralStructureService.ts'), 'utf8');
+assert.doesNotMatch(centralStructureSource, /supabaseRuntimeEnabled\(/,
+  'Tenant structure API polling must follow explicit runtime gates, not the Supabase-only data-source mode.');
+for (const [constant, flag] of [
+  ['SUPABASE_MASTER_DATA_RUNTIME', 'VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED'],
+  ['SUPABASE_BOARDING_RUNTIME', 'VITE_SUPABASE_BOARDING_RUNTIME_ENABLED'],
+]) {
+  assert.match(centralStructureSource, new RegExp(`${constant}\\s*=\\s*publicRuntimeConfigValue\\(["']${flag}["']\\)\\s*===\\s*["']true["']`),
+    `Tenant structure ${constant} must be disabled unless ${flag} is explicitly true.`);
+}
 const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
 assert.doesNotMatch(boardingSource, /supabaseRuntimeEnabled\(/,
   'Asrama feature availability must follow explicit browser runtime flags, not the Supabase-only data-source mode.');
