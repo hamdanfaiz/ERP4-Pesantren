@@ -46,7 +46,9 @@ async function readJson(response, expectedStatus, label) {
   } catch {
     throw new Error(`${label} returned a non-JSON response (HTTP ${response.status}).`);
   }
-  assert.equal(response.status, expectedStatus, `${label} returned HTTP ${response.status}; expected ${expectedStatus}.`);
+  const responseError = typeof body?.error === 'string' ? safeMessage({ message: body.error }) : '';
+  assert.equal(response.status, expectedStatus,
+    `${label} returned HTTP ${response.status}; expected ${expectedStatus}.${responseError ? ` ${responseError}` : ''}`);
   return body;
 }
 
@@ -84,12 +86,10 @@ async function signIn(anon, user) {
   return data.session.access_token;
 }
 
-function jakartaDate() {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-  return `${values.year}-${values.month}-${values.day}`;
+function priorUtcDate(days = 1) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
 }
 
 async function main() {
@@ -252,7 +252,9 @@ async function main() {
     const membershipInput = {
       studentId,
       halaqahId: halaqah.halaqahId,
-      startsOn: jakartaDate(),
+      // Supabase Postgres CURRENT_DATE uses UTC by default. Use a past UTC date so
+      // the fixture cannot cross into the database's future around Jakarta midnight.
+      startsOn: priorUtcDate(),
       clientRequestId: randomUUID(),
     };
     const membership = await readJson(await fetch(`${apiBase}/api/tahfidz/memberships`, {
