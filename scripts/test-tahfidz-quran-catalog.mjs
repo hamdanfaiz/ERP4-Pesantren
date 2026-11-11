@@ -77,6 +77,12 @@ assert.match(ayahEndSelector[0], /!formData\.ayatStart/,
   "End Ayah must remain unavailable until a start Ayah is selected.");
 
 const runtimeApiTest = read("scripts", "test-tahfidz-runtime-http.mjs");
+assert.match(runtimeApiTest, /function priorUtcDate\(days = 1\)/,
+  "Tahfidz membership fixture dates must be independent of the developer's local timezone.");
+assert.match(runtimeApiTest, /startsOn: priorUtcDate\(\)/,
+  "Tahfidz membership fixture must not land in the database's future near local midnight.");
+assert.match(runtimeApiTest, /safeMessage\(\{ message: body\.error \}\)/,
+  "Unexpected Tahfidz API failures should include a sanitized public error for diagnosis.");
 const gradeCatalogSeed = runtimeApiTest.indexOf("domain: 'academic_grade_level'");
 const studentStructureSeed = runtimeApiTest.indexOf("admin.from('master_data_records').insert([");
 assert.ok(gradeCatalogSeed >= 0 && studentStructureSeed > gradeCatalogSeed,
