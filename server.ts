@@ -215,6 +215,7 @@ import {
   getSupabaseCbtAdminDashboardSummary,
   getSupabaseCbtStudentSnapshot,
   listSupabaseCbtAdminSnapshot,
+  listSupabaseCbtAdminAssignmentPage,
   listSupabaseCbtAdminStudentPage,
   listSupabaseCbtQuestionPage,
   saveSupabaseCbtTenantSettings,
@@ -1383,6 +1384,17 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadCbtAdminActor(uid);
       return res.json(await listSupabaseCbtAdminStudentPage(actor.tenantId, req.body as Record<string, unknown>));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.post("/api/cbt/admin/assignments/page", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      return res.json(await listSupabaseCbtAdminAssignmentPage(actor.tenantId, req.body as Record<string, unknown>));
     } catch (error) { return cbtRouteError(res, error); }
   });
 

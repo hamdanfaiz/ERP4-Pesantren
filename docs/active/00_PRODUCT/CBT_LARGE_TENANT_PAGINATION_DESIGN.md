@@ -1,13 +1,13 @@
 # Rancangan CBT untuk Tenant Besar
 
-**Status:** stack CBT PR #97–#98 memisahkan agregat, ringkasan paket, dan bank soal. Branch lanjutan `codex/cbt-student-roster-pages-20261113` menambahkan roster santri berhalaman dan menghilangkan batas pemuatan 2.000 santri dari snapshot. CI pada kode implementasi commit 7e9c1310 lulus; migrasi belum diterapkan ke staging atau Production.  
-**Dasar:** stack CBT PR #95–#98 dan branch lanjutan roster santri.
+**Status:** stack CBT PR #97–#99 memisahkan agregat, bank soal, roster, dan aktivitas peserta. PR #99 lulus CI dan belum diterapkan ke database. Branch lanjutan `codex/cbt-activity-pages-20261113` sedang menambahkan halaman aktivitas CBT untuk menghilangkan batas snapshot 5.000 penugasan/percobaan; validasi CI masih berjalan. Semua migrasi di cabang tetap hanya source, belum diterapkan ke VQE atau Production.  
+**Dasar:** stack CBT PR #95–#99 dan branch aktivitas.
 
 ## Kondisi saat ini
 
-Snapshot sebelum PR #97 membatasi soal 2.000, ujian 500, penugasan 5.000, percobaan 5.000, santri 2.000, dan kelas 500. Stack CBT menghapus pemuatan seluruh bank soal dari snapshot, kemudian branch roster ini menghapus pemuatan seluruh daftar santri. Batas snapshot ujian 500, penugasan 5.000, percobaan 5.000, dan batas 500 peserta per sesi masih berlaku.
+Snapshot awal membatasi soal 2.000, ujian 500, penugasan 5.000, percobaan 5.000, santri 2.000, dan kelas 500. PR #97–#99 menghapus pemuatan seluruh bank soal dan roster dari snapshot. PR aktivitas CBT memindahkan hasil dan pemantauan ke halaman server-side serta menghitung peserta per ujian dengan agregat; bila CI lulus, batas 5.000 assignment/attempt tidak lagi menjadi batas snapshot. Batas daftar ujian 500 dan batas 500 peserta per sesi masih berlaku.
 
-Endpoint Admin `GET /api/cbt/admin` membentuk snapshot ujian, penugasan, dan percobaan dengan batas masing-masing 500, 5.000, dan 5.000. Label santri pada hasil diambil hanya untuk ID peserta yang memang ada di penugasan; seluruh roster tidak lagi dibaca bersama snapshot. Bank soal dan roster dipindahkan ke endpoint terpisah yang berhalaman. Snapshot masih dapat gagal bila batas ujian, penugasan, atau percobaan terlampaui.
+Endpoint Admin `GET /api/cbt/admin` memuat daftar sesi maksimal 500 dan agregat jumlah penugasan per sesi. Ia tidak lagi membaca seluruh penugasan atau percobaan. `POST /api/cbt/admin/assignments/page` memberi halaman hasil/pemantauan maksimal 100 item, tenant-scoped dan dicari di server. Snapshot masih dapat gagal bila lebih dari 500 sesi ujian perlu ditampilkan.
 
 PR #96 mengurangi kerja CPU saat menghitung jumlah penugasan dan hasil per ujian dengan indeks satu lintasan. Perubahan itu tidak menghapus batas snapshot. Uji helper 10.000 baris menguji agregasi di memori, bukan query database dan bukan paginasi.
 
@@ -18,12 +18,13 @@ PR #96 mengurangi kerja CPU saat menghitung jumlah penugasan dan hasil per ujian
 - Indeks ringkasan mendukung pengelompokan penugasan per ujian dan pratinjau percobaan terakhir. Tes pgTAP meliputi angka, tenant lain, tenant tidak valid, hak eksekusi fungsi, dan indeks.
 - UI meminta snapshot detail dan ringkasan secara terpisah. Jika snapshot detail gagal tetapi fungsi ringkasan tersedia, angka dasbor tetap dapat ditampilkan; layar daftar tetap memberi tahu bahwa data detail belum berhasil dimuat.
 - Branch bertingkat setelah PR #97 menambahkan `GET /api/cbt/admin/questions` dengan ukuran halaman bawaan 50 dan maksimum 100, pencarian literal, filter status dan referensi tenant, serta keyset `created_at DESC, id ASC`. Cursor mengikat tenant, ukuran halaman, dan filter aktif. Bank soal tidak lagi seluruhnya diunduh bersama snapshot.
-- Branch roster CBT menambahkan `POST /api/cbt/admin/students/page` dengan halaman bawaan 50 dan maksimum 100, pencarian tenant-scoped atas nama atau NIS, urutan keyset stabil nama/ID, dan respons label minimum tanpa NIS. Token keyset dienkripsi serta diautentikasi menggunakan AES-256-GCM dengan kunci server; token terikat tenant dan filter sehingga nama tidak terlihat pada token. Pencarian dikirim dalam body POST agar NIS tidak muncul pada URL/log.
+- PR #99 menambahkan `POST /api/cbt/admin/students/page` dengan halaman bawaan 50 dan maksimum 100, pencarian tenant-scoped atas nama atau NIS, urutan keyset stabil nama/ID, dan respons label minimum tanpa NIS. Token keyset dienkripsi serta diautentikasi menggunakan AES-256-GCM dengan kunci server; token terikat tenant dan filter sehingga nama tidak terlihat pada token. Pencarian dikirim dalam body POST agar NIS tidak muncul pada URL/log.
+- PR aktivitas menambahkan `POST /api/cbt/admin/assignments/page` untuk mode pemantauan dan hasil, dengan pencarian server-side pada nama, kelas, atau ujian, keyset `assigned_at DESC, id ASC`, halaman 50/100, dan cursor terenkripsi yang terikat tenant, mode, pencarian, serta ukuran halaman. Browser menerima label minimum, bukan student ID atau NIS. Pemantauan hanya mengembalikan status `assigned`/`in_progress`; hitungan kartu berasal dari ringkasan server.
 - Tab Bank Soal memakai pencarian/filter server-side dan tombol muat berikutnya. Builder ujian memuat soal aktif per mata pelajaran dan jenjang secara berhalaman serta menjaga pilihan saat halaman berikutnya dimuat. Perubahan filter tenant atau mata pelajaran membatalkan permintaan lama.
 - Ringkasan paket diperoleh dari fungsi Postgres agregat berdasarkan template referensi tenant, termasuk jumlah aktif/arsip, mata pelajaran, dan jenjang. Katalog paket kosong tetap disediakan oleh UI melalui referensi aktif.
 - Fungsi halaman dan agregat memakai `SECURITY INVOKER`, `search_path` eksplisit, tenant aktif, dan hak eksekusi hanya untuk `service_role`; route Admin tetap memeriksa autentikasi/role/permission. Search trigram dan indeks keyset mendukung query utama.
 - Tes pgTAP menelusuri lebih dari 2.000 record sintetis per halaman dan memeriksa urutan timestamp yang sama, pencarian, filter referensi tenant, agregat paket, dan privilege. Workflow GitHub Actions pada commit 7e9c1310 lulus, termasuk lint, build, test API/tenant, migration preflight, dan pgTAP.
-- Migrasi roster lulus pada database Supabase lokal/CI, tetapi belum diterapkan ke staging atau Production dan belum dibandingkan dengan DDL Production aktual. Batas peserta 500 per sesi adalah kendala kapasitas yang masih harus ditangani terpisah.
+- Migrasi roster lulus pada database Supabase lokal/CI; migrasi aktivitas masih menunggu CI. Tidak ada perubahan yang diterapkan ke staging atau Production dan DDL Production aktual belum direkonsiliasi. Batas peserta 500 per sesi masih menjadi batas produk yang harus ditangani terpisah.
 
 ## Target perilaku
 
@@ -72,7 +73,7 @@ Tinjau query plan pada database uji untuk kombinasi tenant, filter, dan urutan s
 
 - soal berdasarkan `tenant_id`, status, mata pelajaran, jenjang, kategori, dan urutan halaman;
 - sesi ujian berdasarkan `tenant_id`, jadwal, status, dan kunci urutan halaman;
-- penugasan berdasarkan `tenant_id`, `assigned_at`, ID, status, dan exam;
+- penugasan berdasarkan `tenant_id`, `assigned_at`, ID, serta trigram untuk pencarian nama ujian/kelas;
 - percobaan berdasarkan `tenant_id`, waktu pengumpulan, ID, dan assignment.
 
 Periksa indeks komposit yang sudah ada sebelum menambah indeks. Catat ukuran tambahan dan query yang akan memakainya.
@@ -85,10 +86,11 @@ Jalankan di Supabase lokal/CI dengan fixture sintetis. Tidak ada migrasi atau da
 2. Bandingkan setiap agregat dashboard terhadap hasil hitung fixture independen; sertakan nilai kosong, lulus/gagal, status dibatalkan, dan sesi lintas pergantian hari tenant.
 3. Telusuri semua halaman sampai habis; pastikan tidak ada ID ganda atau hilang pada dataset tetap, filter pencarian tepat, dan cursor dengan filter berbeda ditolak.
 4. Telusuri lebih dari 2.000 santri melewati halaman; uji pencarian nama/NIS, pencarian literal atas `%`/`_`, nama ganda, status arsip, batas ukuran, cursor yang diubah, filter berbeda, serta tenant berbeda. Respons tidak memuat NIS.
-5. Uji penolakan pengguna non-Admin, permission CBT yang dicabut, profil nonaktif, dan tenant berbeda.
-6. Pastikan route tidak mengirim seluruh data ke browser; soal/santri per halaman maksimal 100 dan payload ringkasan hanya berisi data pratinjau.
-7. Jalankan typecheck, build, API auth/tenant, pgTAP, migration preflight, dan regresi CBT yang sudah ada.
-8. Catat waktu/row count query, rencana eksekusi dan pemakaian indeks pada dataset uji. Hasil belum diterima bila query dashboard memuat seluruh riwayat.
+5. Telusuri lebih dari 5.000 assignment melewati halaman hasil; pastikan tidak ada ID ganda/hilang, cursor stabil pada timestamp sama, pencarian literal nama/kelas/ujian, mode monitor hanya mengembalikan status aktif, serta halaman terikat tenant/filter. Verifikasi agregat per ujian terhadap fixture.
+6. Uji penolakan pengguna non-Admin, permission CBT yang dicabut, profil nonaktif, dan tenant berbeda.
+7. Pastikan route tidak mengirim seluruh data ke browser; soal/santri/aktivitas per halaman maksimal 100 dan payload ringkasan hanya berisi data pratinjau.
+8. Jalankan typecheck, build, API auth/tenant, pgTAP, migration preflight, dan regresi CBT yang sudah ada.
+9. Catat waktu/row count query, rencana eksekusi dan pemakaian indeks pada dataset uji. Hasil belum diterima bila dashboard atau daftar operasi memuat seluruh riwayat.
 
 ## Urutan pengerjaan
 

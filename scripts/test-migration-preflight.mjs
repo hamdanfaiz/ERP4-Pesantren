@@ -111,12 +111,13 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 148);
+assert.equal(sourceMigrationsWithSql.length, 149);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270312000000_tahfidz_target_decimal_precision.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270314000000_cbt_tenant_settings_write_api.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270315000000_cbt_admin_dashboard_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270316000000_cbt_admin_question_keyset_pages.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270317000000_cbt_admin_student_roster_pages.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270318000000_cbt_admin_assignment_pages.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270311000000_tahfidz_bulk_daily_target_write_api.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270306000000_library_book_category_reference_writes.sql'));

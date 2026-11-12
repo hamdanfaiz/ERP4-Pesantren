@@ -7,8 +7,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
-import { deriveCbtDashboardSummary } from "../lib/cbtDashboard";
-import { deriveCbtMonitorSummary } from "../lib/cbtMonitor";
 import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate } from "../lib/tenantTimeZone";
 
 type Question = {
@@ -36,9 +34,11 @@ type CbtPackageSummary = ReferenceOption & {
 };
 type QuestionPage = { items: Question[]; hasMore: boolean; nextCursor: string | null };
 type StudentPage = { items: Student[]; hasMore: boolean; nextCursor: string | null };
+type AssignmentPage = { items: Result[]; hasMore: boolean; nextCursor: string | null };
 type DashboardSummary = {
   activeQuestions: number; totalExams: number; ongoingSessions: number; upcomingSessions: number;
   totalAssignments: number; completedAssignments: number; completionRate: number | null;
+  assignmentStatusCounts: { assigned: number; in_progress: number; completed: number; missed: number };
   scoredAssignments: number; averageScore: number | null; passRate: number | null;
   upcomingExams: Array<Pick<Exam, "id" | "title" | "subject" | "grade" | "startsAt" | "endsAt" | "durationMinutes" | "status" | "assignedCount" | "completedCount">>;
   latestResults: Array<Pick<Result, "assignmentId" | "examTitle" | "studentName" | "className" | "status" | "score" | "passed" | "submittedAt">>;
@@ -56,6 +56,7 @@ const EMPTY_SETTINGS: CbtSettings = { autoGrading: true, shuffleQuestions: false
 const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS, references: { subjects: [], gradeLevels: [], templates: [] }, packageSummaries: [] };
 const EMPTY_QUESTION_PAGE: QuestionPage = { items: [], hasMore: false, nextCursor: null };
 const EMPTY_STUDENT_PAGE: StudentPage = { items: [], hasMore: false, nextCursor: null };
+const EMPTY_ASSIGNMENT_PAGE: AssignmentPage = { items: [], hasMore: false, nextCursor: null };
 const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "dashboard", label: "Dasbor", icon: <Activity className="h-4 w-4" /> },
   { id: "calendar", label: "Kalender Ujian", icon: <CalendarDays className="h-4 w-4" /> },
@@ -128,9 +129,16 @@ export function SupabaseCBTManager() {
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [serverDashboardSummary, setServerDashboardSummary] = useState<DashboardSummary | null>(null);
   const [tab, setTab] = useState<Tab>("questions");
-  const [dashboardNow, setDashboardNow] = useState(() => Date.now());
   const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<string | null>(null);
   const [monitorSearch, setMonitorSearch] = useState("");
+  const [resultsSearch, setResultsSearch] = useState("");
+  const [monitorPage, setMonitorPage] = useState<AssignmentPage>(EMPTY_ASSIGNMENT_PAGE);
+  const [resultsPage, setResultsPage] = useState<AssignmentPage>(EMPTY_ASSIGNMENT_PAGE);
+  const [monitorPageLoading, setMonitorPageLoading] = useState(false);
+  const [resultsPageLoading, setResultsPageLoading] = useState(false);
+  const [monitorPageError, setMonitorPageError] = useState("");
+  const [resultsPageError, setResultsPageError] = useState("");
+  const [activityPageRevision, setActivityPageRevision] = useState(0);
   const [settingsDraft, setSettingsDraft] = useState<CbtSettings>(EMPTY_SETTINGS);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => cbtTenantMonthKey(new Date(), tenantTimeZone));
@@ -153,6 +161,8 @@ export function SupabaseCBTManager() {
   const questionPageRequestId = useRef(0);
   const builderQuestionPageRequestId = useRef(0);
   const studentPageRequestId = useRef(0);
+  const monitorAssignmentPageRequestId = useRef(0);
+  const resultsAssignmentPageRequestId = useRef(0);
   const builderQuestionPageFilter = useRef("");
   const [form, setForm] = useState({
     subjectReferenceId: "", gradeLevelReferenceId: "", templateReferenceId: "", text: "", options: ["", "", "", ""],
@@ -182,7 +192,6 @@ export function SupabaseCBTManager() {
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      setDashboardNow(Date.now());
       void requestCbt("/api/cbt/admin/summary").then((result) => {
         const candidate = result?.summary;
         if (candidate && typeof candidate === "object") setServerDashboardSummary(candidate as DashboardSummary);
@@ -225,6 +234,7 @@ export function SupabaseCBTManager() {
         references,
       });
       setSnapshotUpdatedAt(new Date().toISOString());
+      setActivityPageRevision((revision) => revision + 1);
       const tenantId = String(user?.tenantId || "");
       if (tenantId && settingsAppliedTenant.current !== tenantId) {
         settingsAppliedTenant.current = tenantId;
@@ -238,6 +248,14 @@ export function SupabaseCBTManager() {
         setStudentPage(EMPTY_STUDENT_PAGE);
         setStudentSearch("");
         setStudentPageError("");
+        monitorAssignmentPageRequestId.current += 1;
+        resultsAssignmentPageRequestId.current += 1;
+        setMonitorPage(EMPTY_ASSIGNMENT_PAGE);
+        setResultsPage(EMPTY_ASSIGNMENT_PAGE);
+        setMonitorPageError("");
+        setResultsPageError("");
+        setMonitorSearch("");
+        setResultsSearch("");
         questionPageRequestId.current += 1;
         builderQuestionPageRequestId.current += 1;
         builderQuestionPageFilter.current = "";
@@ -390,6 +408,104 @@ export function SupabaseCBTManager() {
     };
   }, [tab, loading, studentSearch, user?.tenantId, user?.uid, loadStudentPage]);
 
+  const loadMonitorAssignmentPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++monitorAssignmentPageRequestId.current;
+    setMonitorPageError("");
+    setMonitorPageLoading(true);
+    if (!append) setMonitorPage(EMPTY_ASSIGNMENT_PAGE);
+    try {
+      const result = await requestCbt("/api/cbt/admin/assignments/page", {
+        method: "POST",
+        body: JSON.stringify({ view: "monitor", limit: 50, search: monitorSearch.trim(), ...(cursor ? { cursor } : {}) }),
+      });
+      if (requestId !== monitorAssignmentPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.assignmentId !== "string"
+          || typeof item.examTitle !== "string" || typeof item.studentName !== "string"
+          || typeof item.className !== "string" || !["assigned", "in_progress"].includes(item.status))) {
+        throw new Error("Halaman pemantauan peserta CBT belum dapat diverifikasi.");
+      }
+      setMonitorPage((current) => {
+        const merged = new Map<string, Result>(append ? current.items.map((item): [string, Result] => [item.assignmentId, item]) : []);
+        for (const item of result.items as Result[]) merged.set(item.assignmentId, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === monitorAssignmentPageRequestId.current) {
+        setMonitorPageError(toERPUserMessage(cause, "Status peserta belum dapat dimuat. Silakan coba lagi."));
+      }
+    } finally {
+      if (requestId === monitorAssignmentPageRequestId.current) setMonitorPageLoading(false);
+    }
+  }, [monitorSearch, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "monitor") return;
+    const normalizedSearch = monitorSearch.trim();
+    if (normalizedSearch && Array.from(normalizedSearch).length < 3) {
+      monitorAssignmentPageRequestId.current += 1;
+      setMonitorPage(EMPTY_ASSIGNMENT_PAGE);
+      setMonitorPageError("");
+      setMonitorPageLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void loadMonitorAssignmentPage(null, false); }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      monitorAssignmentPageRequestId.current += 1;
+    };
+  }, [tab, monitorSearch, activityPageRevision, user?.tenantId, user?.uid, loadMonitorAssignmentPage]);
+
+  const loadResultsPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++resultsAssignmentPageRequestId.current;
+    setResultsPageError("");
+    setResultsPageLoading(true);
+    if (!append) setResultsPage(EMPTY_ASSIGNMENT_PAGE);
+    try {
+      const result = await requestCbt("/api/cbt/admin/assignments/page", {
+        method: "POST",
+        body: JSON.stringify({ view: "results", limit: 50, search: resultsSearch.trim(), ...(cursor ? { cursor } : {}) }),
+      });
+      if (requestId !== resultsAssignmentPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.assignmentId !== "string"
+          || typeof item.examTitle !== "string" || typeof item.studentName !== "string"
+          || typeof item.className !== "string" || typeof item.status !== "string")) {
+        throw new Error("Halaman hasil CBT belum dapat diverifikasi.");
+      }
+      setResultsPage((current) => {
+        const merged = new Map<string, Result>(append ? current.items.map((item): [string, Result] => [item.assignmentId, item]) : []);
+        for (const item of result.items as Result[]) merged.set(item.assignmentId, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === resultsAssignmentPageRequestId.current) {
+        setResultsPageError(toERPUserMessage(cause, "Hasil dan penugasan belum dapat dimuat. Silakan coba lagi."));
+      }
+    } finally {
+      if (requestId === resultsAssignmentPageRequestId.current) setResultsPageLoading(false);
+    }
+  }, [resultsSearch, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "results") return;
+    const normalizedSearch = resultsSearch.trim();
+    if (normalizedSearch && Array.from(normalizedSearch).length < 3) {
+      resultsAssignmentPageRequestId.current += 1;
+      setResultsPage(EMPTY_ASSIGNMENT_PAGE);
+      setResultsPageError("");
+      setResultsPageLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void loadResultsPage(null, false); }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      resultsAssignmentPageRequestId.current += 1;
+    };
+  }, [tab, resultsSearch, activityPageRevision, user?.tenantId, user?.uid, loadResultsPage]);
+
   const builderQuestionFilterKey = JSON.stringify([
     user?.tenantId || "", exam.subjectReferenceId, exam.gradeLevelReferenceId, questionListRevision,
   ]);
@@ -509,9 +625,15 @@ export function SupabaseCBTManager() {
   const selectedCalendarDateLabel = useMemo(() => selectedCalendarDate
     ? new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${selectedCalendarDate}T12:00:00.000Z`))
     : "Tanggal ujian", [selectedCalendarDate]);
-  const localDashboardSummary = useMemo(() => deriveCbtDashboardSummary(snapshot.exams, snapshot.results, dashboardNow), [snapshot.exams, snapshot.results, dashboardNow]);
-  const dashboardSummary = serverDashboardSummary || localDashboardSummary;
-  const monitorSummary = useMemo(() => deriveCbtMonitorSummary(snapshot.results, monitorSearch), [snapshot.results, monitorSearch]);
+  const dashboardSummary = serverDashboardSummary;
+  const monitorSummary = {
+    totalAssignments: serverDashboardSummary?.totalAssignments ?? 0,
+    inProgressCount: serverDashboardSummary?.assignmentStatusCounts.in_progress ?? 0,
+    waitingCount: serverDashboardSummary?.assignmentStatusCounts.assigned ?? 0,
+    completedCount: serverDashboardSummary?.assignmentStatusCounts.completed ?? 0,
+    missedCount: serverDashboardSummary?.assignmentStatusCounts.missed ?? 0,
+    activeParticipants: monitorPage.items,
+  };
   const formatDashboardPercent = (value: number | null) => value === null ? "—" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value)}%`;
   const formatDashboardScore = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value);
 
@@ -642,7 +764,7 @@ export function SupabaseCBTManager() {
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
     <div className="grid gap-3 sm:grid-cols-3">
-      {[{ label: "Bank soal", value: serverDashboardSummary?.activeQuestions ?? "—", icon: BookOpen }, { label: "Ujian", value: serverDashboardSummary?.totalExams ?? snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: serverDashboardSummary?.totalAssignments ?? snapshot.results.length, icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
+      {[{ label: "Bank soal", value: serverDashboardSummary?.activeQuestions ?? "—", icon: BookOpen }, { label: "Ujian", value: serverDashboardSummary?.totalExams ?? snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: serverDashboardSummary?.totalAssignments ?? "—", icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
     </div>
 
     <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
@@ -651,7 +773,7 @@ export function SupabaseCBTManager() {
     {CBT_PENDING[tab] && <ERPFeatureStatus title={CBT_REFERENCE_TABS.find((item) => item.id === tab)?.label || "Fitur CBT"} description={CBT_PENDING[tab]!} />}
 
     {tab === "dashboard" && <div className="space-y-5">
-      {loading ? <div role="status" className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900"><Loader2 className="h-4 w-4 animate-spin" />Memuat ringkasan ujian…</div> : error && !serverDashboardSummary ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">Ringkasan ujian belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : <>
+      {loading ? <div role="status" className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900"><Loader2 className="h-4 w-4 animate-spin" />Memuat ringkasan ujian…</div> : !dashboardSummary ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">Ringkasan ujian belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : <>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { label: "Ujian berlangsung", value: dashboardSummary.ongoingSessions, detail: "Sesi yang sedang dibuka", icon: Radio },
@@ -710,7 +832,13 @@ export function SupabaseCBTManager() {
       </div>
       <div className="space-y-4 border-t border-slate-200 p-4 dark:border-white/10">
         <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Cari peserta, ujian, atau kelas<input aria-label="Cari peserta, ujian, atau kelas" className={FIELD + " mt-2"} value={monitorSearch} onChange={(event) => setMonitorSearch(event.target.value)} placeholder="Ketik nama atau kelas" /></label>
-        {loading ? <div role="status" className="flex items-center gap-2 rounded-xl bg-slate-50 p-5 text-sm text-slate-500 dark:bg-white/5"><Loader2 className="h-4 w-4 animate-spin" />Memuat status peserta…</div> : error ? <div role="status" className="rounded-xl bg-slate-50 p-5 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">Status peserta belum dapat ditampilkan. Muat ulang untuk mencoba kembali.</div> : monitorSummary.activeParticipants.length ? <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{monitorSummary.activeParticipants.map((item) => <tr key={item.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{item.studentName}</td><td className="p-3">{item.examTitle}</td><td className="p-3">{item.className || "—"}</td><td className="p-3"><span className={item.status === "in_progress" ? "rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-300" : "rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"}>{cbtStatusLabel(item.status)}</span></td></tr>)}</tbody></table></div> : <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-white/10"><p className="font-medium text-slate-800 dark:text-slate-100">{monitorSummary.totalAssignments ? "Tidak ada penugasan aktif yang cocok." : "Belum ada peserta yang ditugaskan."}</p><p className="mt-1 text-sm text-slate-500">Peserta dengan status menunggu atau sedang mengerjakan akan muncul di sini.</p></div>}
+        {monitorSearch.trim().length > 0 && Array.from(monitorSearch.trim()).length < 3 && <p className="text-xs text-slate-500">Masukkan minimal 3 karakter untuk mencari.</p>}
+        {monitorPageLoading && !monitorPage.items.length ? <div role="status" className="flex items-center gap-2 rounded-xl bg-slate-50 p-5 text-sm text-slate-500 dark:bg-white/5"><Loader2 className="h-4 w-4 animate-spin" />Memuat status peserta…</div> : monitorPageError && !monitorPage.items.length ? <div role="alert" className="rounded-xl bg-slate-50 p-5 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">{monitorPageError}</div> : monitorSummary.activeParticipants.length ? <>
+          {monitorPageError && <div role="alert" className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">{monitorPageError}</div>}
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{monitorSummary.activeParticipants.map((item) => <tr key={item.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{item.studentName}</td><td className="p-3">{item.examTitle}</td><td className="p-3">{item.className || "—"}</td><td className="p-3"><span className={item.status === "in_progress" ? "rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-300" : "rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"}>{cbtStatusLabel(item.status)}</span></td></tr>)}</tbody></table></div>
+          {monitorPageLoading && <p role="status" className="text-center text-xs text-slate-500">Memuat peserta berikutnya…</p>}
+          {monitorPage.hasMore && <button type="button" onClick={() => void loadMonitorAssignmentPage(monitorPage.nextCursor, true)} disabled={monitorPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{monitorPageLoading ? "Memuat…" : "Muat peserta lainnya"}</button>}
+        </> : <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-white/10"><p className="font-medium text-slate-800 dark:text-slate-100">{monitorSearch.trim() ? "Tidak ada penugasan aktif yang cocok." : "Belum ada peserta ujian aktif."}</p><p className="mt-1 text-sm text-slate-500">Peserta dengan status menunggu atau sedang mengerjakan akan muncul di sini.</p></div>
       </div>
     </section>}
 
@@ -830,7 +958,16 @@ export function SupabaseCBTManager() {
 
     {tab === "results" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Hasil ujian dan penugasan</h2></div>
-      {snapshot.results.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th><th className="p-3">Nilai</th><th className="p-3">Keputusan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.results.map((result) => <tr key={result.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{result.studentName}</td><td className="p-3">{result.examTitle}</td><td className="p-3">{result.className || "—"}</td><td className="p-3">{cbtStatusLabel(result.status)}</td><td className="p-3">{result.score == null ? "—" : result.score}</td><td className="p-3">{result.passed == null ? "—" : result.passed ? "Lulus" : "Belum lulus"}</td></tr>)}</tbody></table></div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada peserta ujian.</div>}
+      <div className="space-y-4 p-4">
+        <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Cari peserta, ujian, atau kelas<input aria-label="Cari peserta, ujian, atau kelas" className={FIELD + " mt-2"} value={resultsSearch} onChange={(event) => setResultsSearch(event.target.value)} placeholder="Ketik minimal 3 karakter" /></label>
+        {resultsSearch.trim().length > 0 && Array.from(resultsSearch.trim()).length < 3 && <p className="text-xs text-slate-500">Masukkan minimal 3 karakter untuk mencari.</p>}
+        {resultsPageLoading && !resultsPage.items.length ? <div role="status" className="flex items-center gap-2 rounded-xl bg-slate-50 p-5 text-sm text-slate-500 dark:bg-white/5"><Loader2 className="h-4 w-4 animate-spin" />Memuat hasil ujian…</div> : resultsPageError && !resultsPage.items.length ? <div role="alert" className="rounded-xl bg-slate-50 p-5 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">{resultsPageError}</div> : resultsPage.items.length ? <>
+          {resultsPageError && <div role="alert" className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">{resultsPageError}</div>}
+          <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th><th className="p-3">Nilai</th><th className="p-3">Keputusan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{resultsPage.items.map((result) => <tr key={result.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{result.studentName}</td><td className="p-3">{result.examTitle}</td><td className="p-3">{result.className || "—"}</td><td className="p-3">{cbtStatusLabel(result.status)}</td><td className="p-3">{result.score == null ? "—" : result.score}</td><td className="p-3">{result.passed == null ? "—" : result.passed ? "Lulus" : "Belum lulus"}</td></tr>)}</tbody></table></div>
+          {resultsPageLoading && <p role="status" className="text-center text-xs text-slate-500">Memuat hasil berikutnya…</p>}
+          {resultsPage.hasMore && <button type="button" onClick={() => void loadResultsPage(resultsPage.nextCursor, true)} disabled={resultsPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{resultsPageLoading ? "Memuat…" : "Muat hasil lainnya"}</button>}
+        </> : <div className="p-6 text-center text-sm text-slate-500">{resultsSearch.trim() ? "Tidak ada hasil yang cocok." : "Belum ada peserta ujian."}</div>
+      </div>
     </section>}
 
     {legacyArchiveImportEnabled && tab === "import" && <div className="grid gap-5 xl:grid-cols-2">
