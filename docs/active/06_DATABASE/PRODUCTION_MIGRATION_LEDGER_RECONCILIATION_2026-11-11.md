@@ -4,12 +4,12 @@
 
 Pemeriksaan ini hanya membaca ledger migrasi Supabase dan daftar file SQL pada branch PR #91. Tidak ada DDL, data, aturan, atau migrasi yang diterapkan.
 
-- Source PR #91 pada head `32c09d9451eb3bae76b7877b79b4594a020caf37`: **144** file migrasi.
-- PTSAS Production (`ptsasgdvgrbdtgyqieie`): **48** entri ledger; **96** versi source belum tercatat.
+- Source PR #91 pada head `02a834a2f93f5022a4ed5f1cf924cdb2df2f3535`: **144** file migrasi.
+- PTSAS Production (`ptsasgdvgrbdtgyqieie`): **48** entri ledger; **96** versi source tidak ada di ledger berdasarkan nilai versi, ditambah satu versi bentrok nama. Jadi **97 migrasi source tidak cocok persis pada pasangan versi dan nama**.
 - VQE staging (`vqemuyzveuirlkvdggjd`): **143** entri ledger.
 - PTSAS memiliki dua versi tanpa nama dan satu konflik nama pada versi `20270309000000`.
 - VQE menyimpan tiga migrasi Tahfidz dengan timestamp alias yang tidak sama dengan nama/versi source; versi source `20270309000000` sampai `20270312000000` belum tercatat persis di VQE.
-- Inventaris baca-saja ini dicocokkan ulang pada **12 November 2026** dengan head PR yang sama. PR #91 sekarang Open dan Ready for review, tanpa berarti siap merge/deploy. [CI #1481](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42939819678) pada code head lulus 3/3 job; [CI #1482](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43208650154) pada head PR terbaru yang hanya menambahkan dokumentasi juga lulus 3/3 job. Round-trip Tahfidz lulus di VQE. Hasil tersebut tidak membuktikan bahwa DDL Production sama dengan source.
+- Ledger dibaca ulang secara read-only pada **12 November 2026**; hasilnya tetap 48 entri PTSAS dan 143 entri VQE. Pada head PR #91 `02a834a2f93f5022a4ed5f1cf924cdb2df2f3535`, CI [#1489](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43215825467) lulus 3/3 job. PR #91 tetap Open dan Ready for review, bukan persetujuan merge/deploy. Perbandingan versi/nama menemukan 96 versi source tidak ada pada ledger PTSAS dan satu benturan nama, sehingga 97 source migrations belum cocok persis. Round-trip Tahfidz lulus di VQE. Hasil ledger dan CI tidak membuktikan bahwa DDL Production sama dengan source.
 
 ## Perbedaan nama di Production
 
@@ -159,7 +159,7 @@ Migrasi `20270312000000_tahfidz_target_decimal_precision` belum muncul di ledger
 
 1. Ekspor dan bandingkan DDL aktual PTSAS dengan baseline/migrasi source menggunakan metode baca-saja; identifikasi objek yang sudah ada, kurang, atau berbeda. Ledger tidak membuktikan kesamaan DDL.
 2. Rekonsiliasi dua entri tanpa nama dan benturan versi `20270309000000`; pilih timestamp migrasi source yang unik dan tinjau efeknya pada VQE maupun PTSAS.
-3. Telaah 96 migrasi source yang belum tercatat satu per satu dalam urutan dependensinya. Kelompokkan migrasi yang memang diperlukan, yang DDL-nya sudah ada, dan yang memerlukan migrasi forward/rebaseline.
+3. Telaah **97 migrasi source yang belum cocok persis** satu per satu dalam urutan dependensinya. Kelompokkan migrasi yang memang diperlukan, yang DDL-nya sudah ada, dan yang memerlukan migrasi forward/rebaseline.
 4. Rehearsal pada database staging/clone terisolasi yang berangkat dari schema dan ledger Production; jalankan verifikasi data dan rollback/restore sebelum ada penulisan ke PTSAS.
 5. Terapkan hanya rencana yang sudah ditinjau dan disetujui oleh pemilik Production; verifikasi ledger, DDL, RLS, Storage, dan alur aplikasi setelahnya.
 6. Tinjau hasil Security/Performance Advisors di atas: verifikasi schema Data API `private`, aktifkan Leaked Password Protection melalui pengaturan Auth, lalu prioritaskan index berdasarkan query serta data-volume yang nyata.
