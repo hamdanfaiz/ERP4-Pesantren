@@ -11,6 +11,23 @@ Pemeriksaan ini hanya membaca ledger migrasi Supabase dan daftar file SQL pada b
 - VQE menyimpan tiga migrasi Tahfidz dengan timestamp alias yang tidak sama dengan nama/versi source; versi source `20270309000000` sampai `20270312000000` belum tercatat persis di VQE.
 - Ledger dibaca ulang secara read-only pada **12 November 2026**; hasilnya tetap 48 entri PTSAS dan 143 entri VQE. Pada head PR #91 `02a834a2f93f5022a4ed5f1cf924cdb2df2f3535`, CI [#1489](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43215825467) lulus 3/3 job. PR #91 tetap Open dan Ready for review, bukan persetujuan merge/deploy. Perbandingan versi/nama menemukan 96 versi source tidak ada pada ledger PTSAS dan satu benturan nama, sehingga 97 source migrations belum cocok persis. Round-trip Tahfidz lulus di VQE. Hasil ledger dan CI tidak membuktikan bahwa DDL Production sama dengan source.
 
+## Dampak PR #96 — 12 November 2026
+
+PR #96 menambahkan dua migrasi source setelah snapshot PR #91 di atas. Ini memperbarui inventaris source, tetapi tidak memperbarui bukti ledger live:
+
+| Versi source PR #96 | Nama file | Dampak |
+|---|---|---|
+| `20270313000000` | `add_core_composite_fk_indexes` | Menambahkan indeks komposit untuk foreign key tenant-aware pada tabel operasional inti. |
+| `20270314000000` | `cbt_tenant_settings_write_api` | Menambahkan RPC server-only untuk menyimpan pengaturan CBT per tenant. |
+
+- Inventaris source pada branch PR #96 berjumlah **146 file migrasi**.
+- Berdasarkan snapshot PTSAS yang tetap **48 entri**, **98 migrasi source belum cocok persis** pada pasangan versi/nama ledger. Angka ini adalah hasil hitung rekonsiliasi, bukan instruksi untuk menerapkan seluruh migrasi.
+- Untuk VQE, source `20270312000000`, `20270313000000`, dan `20270314000000` masih harus direkonsiliasi sebagai versi yang belum tercatat persis. Tiga alias Tahfidz sebelumnya tetap perlu ditangani sesuai bukti dan prosedur di bagian VQE.
+- CI pada head kode PR #96 `c1506e76c0f7cd39bd37d587680cb81a21513006` lulus 3/3 job pada Supabase lokal terisolasi. Supabase Preview dilewati karena branch preview dinonaktifkan.
+- PR #96 masih bertumpuk di atas PR #95 dan belum di-merge. Tidak ada migrasi yang diterapkan ke VQE atau PTSAS Production.
+
+`CREATE INDEX` pada migrasi pertama menggunakan bentuk biasa, bukan `CONCURRENTLY`; tim backend perlu meninjau ukuran tabel dan dampak jeda penulisan saat menyusun jadwal penerapan.
+
 ## Perbedaan nama di Production
 
 | Versi | Nama pada source | Nama pada ledger PTSAS |
