@@ -13,7 +13,7 @@ Perubahan aplikasi tersedia untuk review di PR GitHub. Tidak ada migrasi, pembar
 | [#95](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/95) | Pemantauan sesi CBT | PR #94 | #1504, 3/3 lulus |
 | [#96](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/96) | Pengaturan CBT tenant; koreksi hitungan jadwal, guard env dan bind Docker loopback | PR #95 | Actions #43263389556, 3/3 lulus pada source-code commit `8e7db74` |
 
-Semua PR di atas masih **Open dan belum merged**; belum ada review tim backend yang tercatat. Source-code commit PR #96 `8e7db74e6074d22093493bc6725106e3daed0d7c` lulus Actions #43263389556, 3/3 job. Dua commit setelahnya hanya memperbarui dokumen handoff/checkpoint dan tidak mengubah source atau migrasi. Run ini memeriksa migrasi, API, pgTAP, Storage, backup/restore lokal, build, image Docker, dan instalasi paket. Supabase Preview dilewati karena branch preview tidak terhubung. Tidak ada perubahan staging atau Production.
+Semua PR di atas masih **Open dan belum merged**; belum ada review tim backend yang tercatat. Source-code commit PR #96 `8e7db74e6074d22093493bc6725106e3daed0d7c` lulus Actions #43263389556, 3/3 job. Commit setelahnya hanya memperbarui dokumen handoff/checkpoint dan tidak mengubah source atau migrasi. Run ini memeriksa migrasi, API, pgTAP, Storage, backup/restore lokal, build, image Docker, dan instalasi paket. Supabase Preview dilewati karena branch preview tidak terhubung. Tidak ada perubahan staging atau Production.
 
 ## Risiko merge yang sudah terdeteksi
 
