@@ -23,7 +23,7 @@ PR #92 menjadi pemilik migrasi indeks inti; PR #96 hanya menambahkan pengaturan 
 - Branch PR #96 memuat **145 file migrasi**. PR #92 membawa #13 secara terpisah; apabila kedua perubahan digabungkan ke source, inventaris gabungan berjumlah **146 file**.
 - Dengan snapshot PTSAS tetap **48 entri**, branch PR #96 sendiri memiliki **97** migrasi source yang belum cocok persis; inventaris gabungan bersama PR #92 memiliki **98**. Ini hasil perbandingan ledger, bukan instruksi untuk menerapkan seluruh migrasi.
 - Pada branch PR #96, versi VQE source yang belum tercatat persis adalah `20270312000000` dan `20270314000000`. Versi `20270313000000` hanya ada di PR #92. Bila stack digabungkan, pending source mencakup #12–#14. Tiga alias Tahfidz sebelumnya tetap perlu ditangani sesuai bukti dan prosedur di bagian VQE.
-- CI #1511 lulus 3/3 pada head sebelum pemisahan ini. Perubahan cleanup menghapus salinan migrasi/index test dari PR #96 serta menyesuaikan preflight; CI baru pada head cleanup harus lulus sebelum merge.
+- CI #1516 lulus 3/3 pada head cleanup PR #96, termasuk preflight setelah penghapusan migrasi #13 dari PR #96. Pengujian database berjalan di Supabase lokal terisolasi; tidak mengubah proyek live.
 - PR #96 tetap bertumpuk di atas PR #95. Tidak ada migrasi yang diterapkan ke VQE atau PTSAS Production.
 
 Migrasi `20270313000000` di PR #92 memakai `CREATE INDEX` biasa. Pembangunannya dapat menahan penulisan sementara; tim backend perlu meninjau ukuran tabel dan jadwal penerapan.
