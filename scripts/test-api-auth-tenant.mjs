@@ -2812,6 +2812,15 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       'CBT grade choices resolve from the tenant-owned grade catalog.');
     assert.ok(cbtInitialSnapshot.references.templates.some((item) => item.id === cbtQuestionTemplateId),
       'CBT template choices resolve from the tenant-owned CBT catalog.');
+    assert.equal(Object.hasOwn(cbtInitialSnapshot, 'questions'), false,
+      'The broad Admin snapshot does not download the question bank.');
+    const cbtInitialQuestionPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/questions?limit=50`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtInitialQuestionPageResponse.status, 200, 'An authorized tenant Admin can page the CBT question bank.');
+    const cbtInitialQuestionPage = await cbtInitialQuestionPageResponse.json();
+    assert.ok(Array.isArray(cbtInitialQuestionPage.items) && cbtInitialQuestionPage.items.length <= 50,
+      'The CBT question endpoint returns a bounded page.');
 
     const cbtPermissionDenied = await fetch(`${referenceApiBase}/api/cbt/admin`, {
       headers: { Authorization: `Bearer ${limitedAdminToken}` },
@@ -2821,12 +2830,27 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       headers: { Authorization: `Bearer ${ustadzToken}` },
     });
     assert.equal(cbtRoleDenied.status, 403, 'A non-admin with CBT permission cannot manage the question bank or exam.');
+    const cbtQuestionPermissionDenied = await fetch(`${referenceApiBase}/api/cbt/admin/questions`, {
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
+    });
+    assert.equal(cbtQuestionPermissionDenied.status, 403, 'An Admin without CBT permission cannot page the question bank.');
+    const cbtQuestionRoleDenied = await fetch(`${referenceApiBase}/api/cbt/admin/questions`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(cbtQuestionRoleDenied.status, 403, 'A non-admin cannot page the managed question bank.');
     const otherTenantCbtSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/admin`, {
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
     });
     assert.equal(otherTenantCbtSnapshotResponse.status, 200, 'A separately authorized Admin can read only their own tenant CBT snapshot.');
     const otherTenantCbtSnapshot = await otherTenantCbtSnapshotResponse.json();
-    assert.equal(otherTenantCbtSnapshot.questions.length, 0, 'Tenant B must not see Tenant A CBT questions.');
+    assert.equal(Object.hasOwn(otherTenantCbtSnapshot, 'questions'), false,
+      'The broad tenant snapshot does not include question-bank rows.');
+    const otherTenantCbtQuestionPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/questions?limit=50`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(otherTenantCbtQuestionPageResponse.status, 200);
+    assert.deepEqual((await otherTenantCbtQuestionPageResponse.json()).items, [],
+      'Tenant B cannot see Tenant A questions through the paged endpoint.');
     assert.equal(otherTenantCbtSnapshot.exams.length, 0, 'Tenant B must not see Tenant A exams.');
 
     const cbtQuestionRequestId = randomUUID();
@@ -2978,8 +3002,15 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     });
     assert.equal(cbtAdminAfterSubmitResponse.status, 200);
     const cbtAdminAfterSubmit = await cbtAdminAfterSubmitResponse.json();
-    assert.equal(cbtAdminAfterSubmit.questions.find((item) => item.id === cbtQuestion.id)?.correctAnswer, 1,
-      'The answer key remains available only in the authorized Admin snapshot.');
+    assert.equal(Object.hasOwn(cbtAdminAfterSubmit, 'questions'), false,
+      'The broad Admin snapshot does not include question-bank rows.');
+    const cbtAdminQuestionPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/questions?limit=50&search=Berapakah`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtAdminQuestionPageResponse.status, 200);
+    const cbtAdminQuestionPage = await cbtAdminQuestionPageResponse.json();
+    assert.equal(cbtAdminQuestionPage.items.find((item) => item.id === cbtQuestion.id)?.correctAnswer, 1,
+      'The answer key is available only through the authorized paged Admin endpoint.');
     assert.equal(cbtAdminAfterSubmit.exams.find((item) => item.id === cbtExam.id)?.completedCount, 1,
       'Admin analytics reflect the completed assignment.');
     assert.equal(cbtAdminAfterSubmit.results.find((item) => item.examTitle === cbtExamPayload.exam.title)?.score, 100,
