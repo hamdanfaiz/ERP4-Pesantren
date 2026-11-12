@@ -2978,8 +2978,6 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     assert.equal(cbtExamRetry.status, 200, 'Retrying the same CBT exam request is idempotent.');
     assert.deepEqual(await cbtExamRetry.json(), { id: cbtExam.id, alreadyApplied: true });
 
-    assert.equal(cbtExamRetry.status, 200, 'Retrying the same CBT exam request is idempotent.');
-    assert.deepEqual(await cbtExamRetry.json(), { id: cbtExam.id, alreadyApplied: true });
     const assignedCbtPageResponse = await requestCbtAssignmentPage(adminToken, { view: "results", search: cbtExamPayload.exam.title });
     assert.equal(assignedCbtPageResponse.status, 200);
     const assignedCbtPage = await assignedCbtPageResponse.json();
