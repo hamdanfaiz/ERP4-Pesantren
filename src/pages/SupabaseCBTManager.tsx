@@ -8,6 +8,7 @@ import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
 import { deriveCbtDashboardSummary } from "../lib/cbtDashboard";
+import { deriveCbtMonitorSummary } from "../lib/cbtMonitor";
 import { deriveCbtPackageSummaries } from "../lib/cbtPackages";
 import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate } from "../lib/tenantTimeZone";
 
@@ -47,12 +48,11 @@ const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode 
   { id: "packages", label: "Paket Ujian", icon: <Boxes className="h-4 w-4" /> },
   { id: "questions", label: "Bank Soal & Builder", icon: <BookOpen className="h-4 w-4" /> },
   { id: "exams", label: "Sesi Ujian", icon: <CalendarClock className="h-4 w-4" /> },
-  { id: "monitor", label: "Pemantauan Langsung", icon: <Radio className="h-4 w-4" /> },
+  { id: "monitor", label: "Pemantauan Sesi", icon: <Radio className="h-4 w-4" /> },
   { id: "results", label: "Hasil & Analitik", icon: <ClipboardList className="h-4 w-4" /> },
   { id: "settings", label: "Pengaturan", icon: <SlidersHorizontal className="h-4 w-4" /> },
 ];
 const CBT_PENDING: Partial<Record<Tab, string>> = {
-  monitor: "Pemantauan peserta secara langsung belum tersedia.",
   settings: "Pengaturan nilai dan pengacakan tersedia saat membuat sesi ujian. Halaman pengaturan terpisah belum tersedia.",
 };
 const FIELD = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100";
@@ -79,7 +79,7 @@ function localDateTimeOffset(minutes: number) {
 }
 
 function cbtStatusLabel(status: string) {
-  const labels: Record<string, string> = { draft: "Draf", published: "Terbit", active: "Aktif", archived: "Diarsipkan", assigned: "Ditugaskan", in_progress: "Sedang dikerjakan", completed: "Selesai", submitted: "Dikumpulkan", graded: "Dinilai", cancelled: "Dibatalkan", expired: "Kedaluwarsa" };
+  const labels: Record<string, string> = { draft: "Draf", published: "Terbit", active: "Aktif", archived: "Diarsipkan", assigned: "Belum dimulai", in_progress: "Sedang dikerjakan", completed: "Selesai", submitted: "Dikumpulkan", graded: "Dinilai", missed: "Tidak hadir", cancelled: "Dibatalkan", expired: "Kedaluwarsa" };
   return labels[status.toLowerCase()] || status;
 }
 
@@ -116,6 +116,8 @@ export function SupabaseCBTManager() {
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [tab, setTab] = useState<Tab>("questions");
   const [dashboardNow, setDashboardNow] = useState(() => Date.now());
+  const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<string | null>(null);
+  const [monitorSearch, setMonitorSearch] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(() => cbtTenantMonthKey(new Date(), tenantTimeZone));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => tenantDate(new Date(), tenantTimeZone));
   const [loading, setLoading] = useState(true);
@@ -167,6 +169,7 @@ export function SupabaseCBTManager() {
         settings: result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } : EMPTY_SETTINGS,
         references,
       });
+      setSnapshotUpdatedAt(new Date().toISOString());
       const settings = result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } as CbtSettings : EMPTY_SETTINGS;
       const tenantId = String(user?.tenantId || "");
       if (tenantId && settingsAppliedTenant.current !== tenantId) {
@@ -202,7 +205,7 @@ export function SupabaseCBTManager() {
           gradeLevelReferenceId: references.gradeLevels.some((item: ReferenceOption) => item.id === current.gradeLevelReferenceId) ? current.gradeLevelReferenceId : references.gradeLevels[0]?.id || "",
         }));
       }
-    } catch (cause: any) { setSnapshot(EMPTY); setError(toERPUserMessage(cause, "Data ujian belum dapat dimuat. Silakan coba lagi.")); }
+    } catch (cause: any) { setSnapshot(EMPTY); setSnapshotUpdatedAt(null); setError(toERPUserMessage(cause, "Data ujian belum dapat dimuat. Silakan coba lagi.")); }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
 
@@ -226,6 +229,7 @@ export function SupabaseCBTManager() {
     ? new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${selectedCalendarDate}T12:00:00.000Z`))
     : "Tanggal ujian", [selectedCalendarDate]);
   const dashboardSummary = useMemo(() => deriveCbtDashboardSummary(snapshot.exams, snapshot.results, dashboardNow), [snapshot.exams, snapshot.results, dashboardNow]);
+  const monitorSummary = useMemo(() => deriveCbtMonitorSummary(snapshot.results, monitorSearch), [snapshot.results, monitorSearch]);
   const formatDashboardPercent = (value: number | null) => value === null ? "—" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value)}%`;
   const formatDashboardScore = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value);
 
@@ -389,6 +393,25 @@ export function SupabaseCBTManager() {
     {tab === "packages" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Paket soal ujian</h2><p className="mt-1 text-sm text-slate-500">Paket dikelompokkan dari kategori CBT pesantren dan jumlah soal yang tersimpan.</p></div><button type="button" onClick={() => setTab("questions")} className={BUTTON}><BookOpen className="h-4 w-4" />Buka bank soal</button></header>
       {loading ? <div role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat paket soal…</div> : error ? <div role="status" className="p-8 text-sm text-slate-600 dark:text-slate-300">Paket soal belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : cbtPackages.length ? <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">{cbtPackages.map((item) => <article key={item.id} className="flex min-h-64 flex-col rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-sm text-slate-500">{item.description || "Belum ada keterangan paket."}</p></div><Boxes className="h-5 w-5 shrink-0 text-indigo-700" /></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Soal tersedia</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.activeQuestions}</p></div><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Jumlah tersimpan</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.totalQuestions}</p></div></div><div className="mt-4 space-y-2 text-xs"><div><span className="font-semibold text-slate-600 dark:text-slate-300">Mata pelajaran: </span><span className="text-slate-500">{item.subjects.length ? item.subjects.join(", ") : "Belum ada soal"}</span></div><div><span className="font-semibold text-slate-600 dark:text-slate-300">Jenjang: </span><span className="text-slate-500">{item.gradeLevels.length ? item.gradeLevels.join(", ") : "Belum ada soal"}</span></div></div><button type="button" onClick={() => { setSearch(item.name); setTab("questions"); }} disabled={!item.totalQuestions} className="mt-auto pt-5 text-left text-sm font-semibold text-indigo-700 hover:text-indigo-900 disabled:cursor-not-allowed disabled:text-slate-400 dark:text-indigo-300 dark:hover:text-indigo-200">{item.totalQuestions ? "Lihat soal dalam paket →" : "Belum ada soal dalam paket ini"}</button></article>)}</div> : <div className="p-10 text-center"><Boxes className="mx-auto h-8 w-8 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Belum ada paket soal</h3><p className="mx-auto mt-1 max-w-lg text-sm text-slate-500">Tambahkan kategori paket CBT dan referensi mata pelajaran melalui pengaturan modul, lalu susun soal untuk paket tersebut.</p></div>}
+    </section>}
+
+    {tab === "monitor" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Pemantauan peserta ujian</h2><p className="mt-1 text-sm text-slate-500">Status penugasan yang tersimpan pada tenant ini.</p><p className="mt-1 text-xs text-slate-500">{snapshotUpdatedAt ? `Data diperbarui ${formatTenantDateTime(snapshotUpdatedAt, tenantTimeZone)}` : "Waktu pembaruan belum tersedia"}</p></div>
+        <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang status</button>
+      </header>
+      <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Sedang dikerjakan", value: monitorSummary.inProgressCount, tone: "text-indigo-700 dark:text-indigo-300" },
+          { label: "Belum dimulai", value: monitorSummary.waitingCount, tone: "text-amber-700 dark:text-amber-300" },
+          { label: "Selesai", value: monitorSummary.completedCount, tone: "text-emerald-700 dark:text-emerald-300" },
+          { label: "Tidak hadir", value: monitorSummary.missedCount, tone: "text-slate-700 dark:text-slate-300" },
+        ].map((item) => <article key={item.label} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="text-sm text-slate-500">{item.label}</p><p className={`mt-2 text-2xl font-bold ${item.tone}`}>{item.value}</p></article>)}
+      </div>
+      <div className="space-y-4 border-t border-slate-200 p-4 dark:border-white/10">
+        <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Cari peserta, ujian, atau kelas<input aria-label="Cari peserta, ujian, atau kelas" className={FIELD + " mt-2"} value={monitorSearch} onChange={(event) => setMonitorSearch(event.target.value)} placeholder="Ketik nama atau kelas" /></label>
+        {loading ? <div role="status" className="flex items-center gap-2 rounded-xl bg-slate-50 p-5 text-sm text-slate-500 dark:bg-white/5"><Loader2 className="h-4 w-4 animate-spin" />Memuat status peserta…</div> : error ? <div role="status" className="rounded-xl bg-slate-50 p-5 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">Status peserta belum dapat ditampilkan. Muat ulang untuk mencoba kembali.</div> : monitorSummary.activeParticipants.length ? <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{monitorSummary.activeParticipants.map((item) => <tr key={item.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{item.studentName}</td><td className="p-3">{item.examTitle}</td><td className="p-3">{item.className || "—"}</td><td className="p-3"><span className={item.status === "in_progress" ? "rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-300" : "rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"}>{cbtStatusLabel(item.status)}</span></td></tr>)}</tbody></table></div> : <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-white/10"><p className="font-medium text-slate-800 dark:text-slate-100">{monitorSummary.totalAssignments ? "Tidak ada penugasan aktif yang cocok." : "Belum ada peserta yang ditugaskan."}</p><p className="mt-1 text-sm text-slate-500">Peserta dengan status menunggu atau sedang mengerjakan akan muncul di sini.</p></div>}
+      </div>
     </section>}
 
     {tab === "calendar" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
