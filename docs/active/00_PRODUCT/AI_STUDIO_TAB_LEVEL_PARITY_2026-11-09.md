@@ -86,3 +86,13 @@ Pemetaan ini menilai fungsi di dalam setiap tab, bukan sekadar keberadaan label 
 - Audit semua isi tab belum selesai; tabel di atas adalah register temuan tab-level untuk mengarahkan audit dan pekerjaan berikutnya, bukan klaim bahwa seluruh fitur sudah lengkap.
 
 Lihat [audit paritas historis 31 Oktober](AI_STUDIO_REFERENCE_PARITY_AUDIT_2026-10-31.md) dan [catatan UAT browser 9 November](UAT_BROWSER_SMOKE_2026-11-09.md) untuk konteks dan bukti pemeriksaan terdahulu.
+
+## Addendum status UAT Tahfidz — 12 November 2026
+
+Catatan di atas mencatat status pada snapshot 9 November. Pembaruan setelah UAT staging:
+
+- UAT API Tahfidz di VQE staging lulus untuk baca katalog Al-Qur’an, pencatatan dan retry setoran, relasi Surah/Ayat, halaqah/keanggotaan, leaderboard, pembatasan role/tenant, dan penolakan akses yang tidak sah. Fixture sintetis dinonaktifkan saat pembersihan.
+- Source aplikasi pada PR #91 diuji pada Actions #1481 (3/3 job); dokumentasi pada head PR #91 `c99cc9de7473abc5ccc181ffd78ff98a0dc3e02b` diuji pada Actions #1487 (3/3 job).
+- Hasil ini menutup gerbang UAT API Tahfidz untuk cakupan tersebut; tidak menutup UAT seluruh tab atau tampilan. Pilihan Surah/Ayat, leaderboard, target massal, sesi, cetak, portal Wali, dan tampilan responsif tetap perlu UAT browser pada build yang cocok dengan source.
+- Audit API modul lain dan temuan per tab pada tabel di atas tetap berlaku kecuali jika laporan UAT yang lebih baru secara eksplisit menutupnya. Menu atau submodul berstatus tersedia tidak otomatis berarti semua alurnya lulus.
+- Tidak ada migrasi atau perubahan data Production; UAT dilakukan pada staging dan data sintetis.
