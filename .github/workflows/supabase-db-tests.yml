@@ -130,6 +130,9 @@ jobs:
       - name: Verify CBT packages reflect tenant references and stored questions
         run: npm run test:cbt-packages
 
+      - name: Verify CBT monitor reflects persisted tenant assignment states
+        run: npm run test:cbt-monitor
+
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow
 
