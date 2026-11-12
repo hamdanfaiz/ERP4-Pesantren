@@ -1375,14 +1375,14 @@ async function startServer() {
     } catch (error) { return cbtRouteError(res, error); }
   });
 
-  app.get("/api/cbt/admin/students", requireAuth, async (req, res) => {
+  app.post("/api/cbt/admin/students/page", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadCbtAdminActor(uid);
-      return res.json(await listSupabaseCbtAdminStudentPage(actor.tenantId, req.query as Record<string, unknown>));
+      return res.json(await listSupabaseCbtAdminStudentPage(actor.tenantId, req.body as Record<string, unknown>));
     } catch (error) { return cbtRouteError(res, error); }
   });
 

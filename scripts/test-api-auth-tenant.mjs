@@ -2821,9 +2821,12 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     const cbtInitialQuestionPage = await cbtInitialQuestionPageResponse.json();
     assert.ok(Array.isArray(cbtInitialQuestionPage.items) && cbtInitialQuestionPage.items.length <= 50,
       'The CBT question endpoint returns a bounded page.');
-    const cbtInitialStudentPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/students?limit=50`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
+    const requestCbtStudentPage = (token, query = { limit: 50 }) => fetch(`${referenceApiBase}/api/cbt/admin/students/page`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(query),
     });
+    const cbtInitialStudentPageResponse = await requestCbtStudentPage(adminToken);
     assert.equal(cbtInitialStudentPageResponse.status, 200, 'An authorized tenant Admin can page the CBT participant roster.');
     const cbtInitialStudentPage = await cbtInitialStudentPageResponse.json();
     assert.ok(Array.isArray(cbtInitialStudentPage.items) && cbtInitialStudentPage.items.length <= 50,
@@ -2833,9 +2836,7 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       Object.keys(item).sort().join(',') === 'className,grade,id,name'
       && typeof item.id === 'string' && typeof item.name === 'string'),
     'The CBT roster exposes only minimal student labels and never returns NIS or identity fields.');
-    const cbtStudentPageLimitDenied = await fetch(`${referenceApiBase}/api/cbt/admin/students?limit=101`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
+    const cbtStudentPageLimitDenied = await requestCbtStudentPage(adminToken, { limit: 101 });
     assert.equal(cbtStudentPageLimitDenied.status, 400, 'The CBT roster endpoint rejects a page larger than its bound.');
 
     const cbtPermissionDenied = await fetch(`${referenceApiBase}/api/cbt/admin`, {
@@ -2854,13 +2855,9 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       headers: { Authorization: `Bearer ${ustadzToken}` },
     });
     assert.equal(cbtQuestionRoleDenied.status, 403, 'A non-admin cannot page the managed question bank.');
-    const cbtStudentPermissionDenied = await fetch(`${referenceApiBase}/api/cbt/admin/students?limit=50`, {
-      headers: { Authorization: `Bearer ${limitedAdminToken}` },
-    });
+    const cbtStudentPermissionDenied = await requestCbtStudentPage(limitedAdminToken);
     assert.equal(cbtStudentPermissionDenied.status, 403, 'An Admin without CBT permission cannot page the participant roster.');
-    const cbtStudentRoleDenied = await fetch(`${referenceApiBase}/api/cbt/admin/students?limit=50`, {
-      headers: { Authorization: `Bearer ${ustadzToken}` },
-    });
+    const cbtStudentRoleDenied = await requestCbtStudentPage(ustadzToken);
     assert.equal(cbtStudentRoleDenied.status, 403, 'A non-admin cannot page the managed participant roster.');
     const otherTenantCbtSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/admin`, {
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
@@ -2875,9 +2872,7 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     assert.equal(otherTenantCbtQuestionPageResponse.status, 200);
     assert.deepEqual((await otherTenantCbtQuestionPageResponse.json()).items, [],
       'Tenant B cannot see Tenant A questions through the paged endpoint.');
-    const otherTenantCbtStudentPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/students?limit=50`, {
-      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
-    });
+    const otherTenantCbtStudentPageResponse = await requestCbtStudentPage(otherTenantMarketplaceAdminToken);
     assert.equal(otherTenantCbtStudentPageResponse.status, 200);
     const otherTenantCbtStudentPage = await otherTenantCbtStudentPageResponse.json();
     const tenantAStudentIds = new Set(cbtInitialStudentPage.items.map((item) => item.id));

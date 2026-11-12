@@ -343,12 +343,15 @@ export function SupabaseCBTManager() {
     setStudentPageError("");
     setStudentPageLoading(true);
     if (!append) setStudentPage(EMPTY_STUDENT_PAGE);
-    const params = new URLSearchParams({ limit: "50" });
     const normalizedSearch = studentSearch.trim();
-    if (normalizedSearch) params.set("search", normalizedSearch);
-    if (cursor) params.set("cursor", cursor);
+    const resultQuery: Record<string, unknown> = { limit: 50 };
+    if (normalizedSearch) resultQuery.search = normalizedSearch;
+    if (cursor) resultQuery.cursor = cursor;
     try {
-      const result = await requestCbt("/api/cbt/admin/students?" + params.toString());
+      const result = await requestCbt("/api/cbt/admin/students/page", {
+        method: "POST",
+        body: JSON.stringify(resultQuery),
+      });
       if (requestId !== studentPageRequestId.current) return;
       if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
         || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))

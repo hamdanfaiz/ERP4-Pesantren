@@ -41,7 +41,7 @@ SELECT
   CASE generated.sequence
     WHEN 2106 THEN 'Santri Sama'
     WHEN 2107 THEN 'Santri Sama'
-    WHEN 2108 THEN 'Santri 100%_ Literal'
+    WHEN 2108 THEN 'Santri Z 100%_ Literal'
     ELSE 'Santri Paginasi ' || lpad(generated.sequence::TEXT,4,'0')
   END,
   'L','VII',
