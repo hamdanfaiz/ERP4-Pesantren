@@ -28,7 +28,7 @@ PPOB, layanan ekosistem, dan integrasi payment gateway dikecualikan dari rilis a
 
 | Area | Bukti saat ini | Status |
 |---|---|---|
-| Source, build, dan paket | PR #91/#92/#93/#94/#95/#96 memiliki bukti CI 3/3; run #1511 adalah head terbaru #96 | Tersedia untuk review backend; PR belum merged |
+| Source, build, dan paket | CI #1516 lulus 3/3 pada head cleanup kode PR #96; CI #1517 lulus 3/3 pada head dokumentasi | Tersedia untuk review backend; PR belum merged |
 | Tahfidz API | UAT VQE: setoran, katalog, leaderboard, retry, role/tenant | Lulus untuk cakupan yang dilaporkan |
 | Modul API lain | UAT terbatas Dokumen Digital, PPDB/Keuangan, dan Storage Perpustakaan | Bukan UAT seluruh modul |
 | Tampilan dan seluruh alur UI | Belum ada bukti menyeluruh semua tab, form, tombol, peran, ponsel, dan unggah Storage | Terbuka |
@@ -68,7 +68,7 @@ Pemeriksaan organisasi menunjukkan PTSAS dan VQE masih memakai paket Free. Menur
 
 ## Keputusan saat ini
 
-PR #91–#96 tersedia untuk review backend; belum ada yang merged. PR #96 telah dibersihkan agar migration #13 hanya dimiliki PR #92; CI baru untuk head cleanup harus lulus sebelum merge. Belum tepat menyebut sistem siap deploy/komersial penuh karena rekonsiliasi Production, backup/restore, UAT lintas modul, dan simulasi lingkungan pelanggan belum dibuktikan. **Tidak ada perubahan skema atau data Production.**
+PR #91–#96 tersedia untuk review backend; belum ada yang merged. PR #96 telah dibersihkan agar migration #13 hanya dimiliki PR #92. CI #1516 untuk head cleanup kode dan #1517 untuk pembaruan dokumentasi sama-sama lulus 3/3; PR tetap menunggu review backend. Belum tepat menyebut sistem siap deploy/komersial penuh karena rekonsiliasi Production, backup/restore, UAT lintas modul, dan simulasi lingkungan pelanggan belum dibuktikan. **Tidak ada perubahan skema atau data Production.**
 
 ## Riwayat
 
