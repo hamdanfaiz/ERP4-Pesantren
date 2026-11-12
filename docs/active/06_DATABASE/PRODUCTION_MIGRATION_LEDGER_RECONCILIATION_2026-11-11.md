@@ -9,7 +9,7 @@ Pemeriksaan ini hanya membaca ledger migrasi Supabase dan daftar file SQL pada b
 - VQE staging (`vqemuyzveuirlkvdggjd`): **143** entri ledger.
 - PTSAS memiliki dua versi tanpa nama dan satu konflik nama pada versi `20270309000000`.
 - VQE menyimpan tiga migrasi Tahfidz dengan timestamp alias yang tidak sama dengan nama/versi source; versi source `20270309000000` sampai `20270312000000` belum tercatat persis di VQE.
-- Inventaris baca-saja ini dicocokkan ulang pada **12 November 2026** dengan head PR yang sama. PR #91 masih Open/Draft. [CI #1481](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42939819678) lulus 3/3 job dan round-trip Tahfidz lulus di VQE. Hasil tersebut tidak membuktikan bahwa DDL Production sama dengan source.
+- Inventaris baca-saja ini dicocokkan ulang pada **12 November 2026** dengan head PR yang sama. PR #91 sekarang Open dan Ready for review, tanpa berarti siap merge/deploy. [CI #1481](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42939819678) pada code head lulus 3/3 job; [CI #1482](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43208650154) pada head PR terbaru yang hanya menambahkan dokumentasi juga lulus 3/3 job. Round-trip Tahfidz lulus di VQE. Hasil tersebut tidak membuktikan bahwa DDL Production sama dengan source.
 
 ## Perbedaan nama di Production
 
