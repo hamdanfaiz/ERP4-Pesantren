@@ -39,6 +39,7 @@
     "test:cbt-dashboard": "tsx scripts/test-cbt-dashboard.ts",
     "test:cbt-packages": "tsx scripts/test-cbt-packages.ts",
     "test:cbt-monitor": "tsx scripts/test-cbt-monitor.ts",
+    "test:cbt-settings-write": "tsx scripts/test-cbt-settings-write.ts",
     "test:rbac-permissions": "tsx scripts/test-rbac-permissions.ts",
     "test:auth-recovery-redirect": "tsx scripts/test-auth-recovery-redirect.ts",
     "test:document-list-filters": "tsx scripts/test-document-list-filters.ts",
