@@ -156,7 +156,13 @@ export function SupabaseCBTManager() {
   }, [user?.tenantId, tenantTimeZone]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setDashboardNow(Date.now()), 60_000);
+    const interval = window.setInterval(() => {
+      setDashboardNow(Date.now());
+      void requestCbt("/api/cbt/admin/summary").then((result) => {
+        const candidate = result?.summary;
+        if (candidate && typeof candidate === "object") setServerDashboardSummary(candidate as DashboardSummary);
+      }).catch(() => undefined);
+    }, 60_000);
     return () => window.clearInterval(interval);
   }, []);
 
