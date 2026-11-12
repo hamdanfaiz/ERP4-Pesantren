@@ -599,7 +599,7 @@ export function normalizeCbtAdminAssignmentPageQuery(input: Record<string, unkno
   const rawLimit = input.limit;
   let pageSize = CBT_ADMIN_ASSIGNMENT_PAGE_SIZE_DEFAULT;
   if (rawLimit !== undefined && rawLimit !== null && rawLimit !== "") {
-    if ((typeof rawLimit !== "string" && typeof rawLimit !== "number") || !/^\\d+$/.test(String(rawLimit))) {
+    if ((typeof rawLimit !== "string" && typeof rawLimit !== "number") || !/^\d+$/.test(String(rawLimit))) {
       throw new SupabaseCbtError(400, "Ukuran halaman peserta CBT tidak valid.");
     }
     pageSize = Number(rawLimit);
