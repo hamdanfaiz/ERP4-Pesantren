@@ -111,9 +111,8 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 146);
+assert.equal(sourceMigrationsWithSql.length, 145);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270312000000_tahfidz_target_decimal_precision.sql'));
-assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270313000000_add_core_composite_fk_indexes.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270314000000_cbt_tenant_settings_write_api.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270311000000_tahfidz_bulk_daily_target_write_api.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
@@ -437,7 +436,7 @@ assert.equal(observedVqeMigrations.length, 143);
 const vqeBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedVqeMigrations);
 assert.equal(vqeBaseline.appliedCount, 143);
 assert.equal(vqeBaseline.latestAppliedVersion, '20270311000000');
-assert.deepEqual(vqeBaseline.pending.map(({ version }) => version), ['20270312000000', '20270313000000', '20270314000000']);
+assert.deepEqual(vqeBaseline.pending.map(({ version }) => version), ['20270312000000', '20270314000000']);
 assert.deepEqual(vqeBaseline.unknownApplied, []);
 assert.deepEqual(vqeBaseline.nameMismatches, []);
 assert.deepEqual(vqeBaseline.statementMismatches, []);
@@ -446,7 +445,6 @@ assert.deepEqual(vqeBaseline.validatedMigrationAliases, vqeTahfidzAliases);
 assert.equal(vqeBaseline.canContinueToStagingReview, false);
 assert.match(formatReport(vqeBaseline), /SQL cocok persis: 20261109145507 → 20270309000000/);
 assert.match(formatReport(vqeBaseline), /20270312000000_tahfidz_target_decimal_precision\.sql/);
-assert.match(formatReport(vqeBaseline), /20270313000000_add_core_composite_fk_indexes\.sql/);
 assert.match(formatReport(vqeBaseline), /20270314000000_cbt_tenant_settings_write_api\.sql/);
 
 // Regression fixture for the read-only PTSAS Production inventory captured on
@@ -487,7 +485,7 @@ assert.equal(observedProductionMigrations.length, 48);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 48);
 assert.equal(productionBaseline.latestAppliedVersion, '20270309000000');
-assert.equal(productionBaseline.pending.length, 98);
+assert.equal(productionBaseline.pending.length, 97);
 assert.equal(productionBaseline.outOfOrderPending.length, 93);
 for (const version of productionMissingMigrationVersions) {
   assert(productionBaseline.outOfOrderPending.some((migration) => migration.version === version));
