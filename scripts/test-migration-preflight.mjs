@@ -486,7 +486,7 @@ assert.equal(observedProductionMigrations.length, 48);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 48);
 assert.equal(productionBaseline.latestAppliedVersion, '20270309000000');
-assert.equal(productionBaseline.pending.length, 97);
+assert.equal(productionBaseline.pending.length, 98);
 assert.equal(productionBaseline.outOfOrderPending.length, 93);
 for (const version of productionMissingMigrationVersions) {
   assert(productionBaseline.outOfOrderPending.some((migration) => migration.version === version));
