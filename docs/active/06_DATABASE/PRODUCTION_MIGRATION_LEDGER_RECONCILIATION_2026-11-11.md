@@ -20,6 +20,8 @@ PR #96 menambahkan dua migrasi source setelah snapshot PR #91 di atas. Ini mempe
 | `20270313000000` | `add_core_composite_fk_indexes` | Menambahkan indeks komposit untuk foreign key tenant-aware pada tabel operasional inti. |
 | `20270314000000` | `cbt_tenant_settings_write_api` | Menambahkan RPC server-only untuk menyimpan pengaturan CBT per tenant. |
 
+**Tumpang tindih PR #92:** PR #92 dan PR #96 sama-sama memuat path `20270313000000_add_core_composite_fk_indexes.sql` serta pgTAP untuk indeks yang sama. Perbandingan isi menunjukkan SQL dan assertion sama; perbedaannya hanya baris kosong di akhir file. Keduanya bukan dua perubahan skema yang boleh diterapkan terpisah. Tim perlu menetapkan satu salinan kanonis dan memastikan rekonsiliasi branch/urutan merge tidak membuat konflik preflight. Saat ini kedua PR masih terbuka; tidak ada perubahan database live.
+
 - Inventaris source pada branch PR #96 berjumlah **146 file migrasi**.
 - Berdasarkan snapshot PTSAS yang tetap **48 entri**, **98 migrasi source belum cocok persis** pada pasangan versi/nama ledger. Angka ini adalah hasil hitung rekonsiliasi, bukan instruksi untuk menerapkan seluruh migrasi.
 - Untuk VQE, source `20270312000000`, `20270313000000`, dan `20270314000000` masih harus direkonsiliasi sebagai versi yang belum tercatat persis. Tiga alias Tahfidz sebelumnya tetap perlu ditangani sesuai bukti dan prosedur di bagian VQE.
