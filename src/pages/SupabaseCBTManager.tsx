@@ -35,6 +35,7 @@ type CbtPackageSummary = ReferenceOption & {
   totalQuestions: number; activeQuestions: number; subjects: string[]; gradeLevels: string[];
 };
 type QuestionPage = { items: Question[]; hasMore: boolean; nextCursor: string | null };
+type StudentPage = { items: Student[]; hasMore: boolean; nextCursor: string | null };
 type DashboardSummary = {
   activeQuestions: number; totalExams: number; ongoingSessions: number; upcomingSessions: number;
   totalAssignments: number; completedAssignments: number; completionRate: number | null;
@@ -54,6 +55,7 @@ type ImportPreview = { snapshotFingerprint: string; counts: { source: number; re
 const EMPTY_SETTINGS: CbtSettings = { autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults", updatedAt: null };
 const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS, references: { subjects: [], gradeLevels: [], templates: [] }, packageSummaries: [] };
 const EMPTY_QUESTION_PAGE: QuestionPage = { items: [], hasMore: false, nextCursor: null };
+const EMPTY_STUDENT_PAGE: StudentPage = { items: [], hasMore: false, nextCursor: null };
 const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "dashboard", label: "Dasbor", icon: <Activity className="h-4 w-4" /> },
   { id: "calendar", label: "Kalender Ujian", icon: <CalendarDays className="h-4 w-4" /> },
@@ -150,6 +152,7 @@ export function SupabaseCBTManager() {
   const [builderQuestionPageError, setBuilderQuestionPageError] = useState("");
   const questionPageRequestId = useRef(0);
   const builderQuestionPageRequestId = useRef(0);
+  const studentPageRequestId = useRef(0);
   const builderQuestionPageFilter = useRef("");
   const [form, setForm] = useState({
     subjectReferenceId: "", gradeLevelReferenceId: "", templateReferenceId: "", text: "", options: ["", "", "", ""],
@@ -161,6 +164,11 @@ export function SupabaseCBTManager() {
   });
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [studentPage, setStudentPage] = useState<StudentPage>(EMPTY_STUDENT_PAGE);
+  const [studentPageLoading, setStudentPageLoading] = useState(false);
+  const [studentPageError, setStudentPageError] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [settingsImportPreview, setSettingsImportPreview] = useState<ImportPreview | null>(null);
   const settingsAppliedTenant = useRef("");
@@ -226,6 +234,10 @@ export function SupabaseCBTManager() {
         setEditingQuestionId(null);
         setSelectedQuestions([]);
         setSelectedStudents([]);
+        studentPageRequestId.current += 1;
+        setStudentPage(EMPTY_STUDENT_PAGE);
+        setStudentSearch("");
+        setStudentPageError("");
         questionPageRequestId.current += 1;
         builderQuestionPageRequestId.current += 1;
         builderQuestionPageFilter.current = "";
@@ -324,6 +336,56 @@ export function SupabaseCBTManager() {
       questionPageRequestId.current += 1;
     };
   }, [tab, search, questionStatus, questionTemplateFilter, questionListRevision, user?.tenantId, user?.uid, loadQuestionPage]);
+
+
+  const loadStudentPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++studentPageRequestId.current;
+    setStudentPageError("");
+    setStudentPageLoading(true);
+    if (!append) setStudentPage(EMPTY_STUDENT_PAGE);
+    const params = new URLSearchParams({ limit: "50" });
+    const normalizedSearch = studentSearch.trim();
+    if (normalizedSearch) params.set("search", normalizedSearch);
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const result = await requestCbt("/api/cbt/admin/students?" + params.toString());
+      if (requestId !== studentPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.id !== "string"
+          || typeof item.name !== "string" || typeof item.grade !== "string" || typeof item.className !== "string")) {
+        throw new Error("Halaman daftar santri CBT belum dapat diverifikasi.");
+      }
+      setStudentPage((current) => {
+        const merged = new Map<string, Student>(append ? current.items.map((item): [string, Student] => [item.id, item]) : []);
+        for (const item of result.items as Student[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === studentPageRequestId.current) {
+        setStudentPageError(toERPUserMessage(cause, "Daftar santri belum dapat dimuat. Silakan coba lagi."));
+      }
+    } finally {
+      if (requestId === studentPageRequestId.current) setStudentPageLoading(false);
+    }
+  }, [studentSearch, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "exams" || loading) return;
+    const normalizedSearch = studentSearch.trim();
+    if (normalizedSearch && Array.from(normalizedSearch).length < 3) {
+      studentPageRequestId.current += 1;
+      setStudentPage(EMPTY_STUDENT_PAGE);
+      setStudentPageError("");
+      setStudentPageLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void loadStudentPage(null, false); }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      studentPageRequestId.current += 1;
+    };
+  }, [tab, loading, studentSearch, user?.tenantId, user?.uid, loadStudentPage]);
 
   const builderQuestionFilterKey = JSON.stringify([
     user?.tenantId || "", exam.subjectReferenceId, exam.gradeLevelReferenceId, questionListRevision,
@@ -746,8 +808,19 @@ export function SupabaseCBTManager() {
             {builderQuestionPage.hasMore && <button type="button" onClick={() => void loadBuilderQuestionPage(builderQuestionPage.nextCursor, true)} disabled={builderQuestionPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{builderQuestionPageLoading ? "Memuat…" : "Muat soal lainnya"}</button>}
             {builderQuestionPageError && <button type="button" onClick={() => void loadBuilderQuestionPage(builderQuestionPage.items.length ? builderQuestionPage.nextCursor : null, builderQuestionPage.items.length > 0)} disabled={builderQuestionPageLoading} className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-400/20 dark:text-rose-300">Coba muat ulang soal</button>}
           </fieldset>
-          <fieldset className="space-y-2"><legend className={LABEL}>Peserta santri ({selectedStudents.length} dipilih)</legend><div className="max-h-44 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">{snapshot.students.map((student) => <label key={student.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={(e) => setSelectedStudents((current) => e.target.checked ? [...current, student.id] : current.filter((id) => id !== student.id))} /><span>{student.name}<span className="ml-1 text-slate-400">{student.className || student.grade}</span></span></label>)}</div></fieldset>
-          <button type="submit" disabled={saving || !eligibleQuestions.length || !selectedQuestionCount || !selectedStudents.length || !snapshot.students.length} className={BUTTON + " w-full"}>{saving ? "Menyimpan…" : "Simpan sesi & tugaskan santri"}</button>
+          <fieldset className="space-y-2"><legend className={LABEL}>Peserta santri ({selectedStudents.length} dipilih, maksimal 500 per ujian)</legend>
+            <label className={LABEL}>Cari nama atau NIS santri<input aria-label="Cari nama atau NIS santri" maxLength={100} className={FIELD} value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} placeholder="Ketik minimal 3 karakter untuk mencari" /></label>
+            {studentSearch.trim().length > 0 && Array.from(studentSearch.trim()).length < 3 && <p className="text-xs text-slate-500">Masukkan minimal 3 karakter untuk mencari.</p>}
+            <div className="max-h-44 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">
+              {studentPage.items.map((student) => <label key={student.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedStudents.includes(student.id)} disabled={!selectedStudents.includes(student.id) && selectedStudents.length >= 500} onChange={(e) => setSelectedStudents((current) => e.target.checked ? current.includes(student.id) ? current : [...current, student.id] : current.filter((id) => id !== student.id))} /><span>{student.name}<span className="ml-1 text-slate-400">{student.className || student.grade}</span></span></label>)}
+              {studentPageLoading && <p role="status" className="p-2 text-xs text-slate-500">Memuat daftar santri…</p>}
+              {studentPageError && <p role="alert" className="p-2 text-xs text-rose-700 dark:text-rose-300">{studentPageError}</p>}
+              {!studentPageLoading && !studentPageError && !studentPage.items.length && !(studentSearch.trim().length > 0 && Array.from(studentSearch.trim()).length < 3) && <p className="p-2 text-xs text-slate-500">Santri tidak ditemukan.</p>}
+            </div>
+            {studentPage.hasMore && <button type="button" onClick={() => void loadStudentPage(studentPage.nextCursor, true)} disabled={studentPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{studentPageLoading ? "Memuat…" : "Muat santri lainnya"}</button>}
+            {studentPageError && <button type="button" onClick={() => void loadStudentPage(studentPage.items.length ? studentPage.nextCursor : null, studentPage.items.length > 0)} disabled={studentPageLoading} className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-400/20 dark:text-rose-300">Coba muat ulang santri</button>}
+          </fieldset>
+          <button type="submit" disabled={saving || !eligibleQuestions.length || !selectedQuestionCount || !selectedStudents.length || selectedStudents.length > 500} className={BUTTON + " w-full"}>{saving ? "Menyimpan…" : "Simpan sesi & tugaskan santri"}</button>
         </form>}
       </section>
     </div>}

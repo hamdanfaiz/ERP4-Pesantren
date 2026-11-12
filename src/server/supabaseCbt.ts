@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { summarizeCbtAssignmentsByExam } from "../lib/cbtDashboard";
 
@@ -213,6 +214,184 @@ export async function listSupabaseCbtQuestionPage(tenantIdentifier: string, inpu
   };
 }
 
+
+const CBT_STUDENT_PAGE_ORDER = "name.asc,id.asc";
+const CBT_STUDENT_PAGE_SIZE_DEFAULT = 50;
+const CBT_STUDENT_PAGE_SIZE_MAX = 100;
+
+export type NormalizedCbtStudentPageQuery = {
+  pageSize: number;
+  search: string;
+  cursor: string | null;
+};
+
+export function normalizeCbtStudentPageQuery(input: Record<string, unknown>): NormalizedCbtStudentPageQuery {
+  const rawLimit = input.limit;
+  let pageSize = CBT_STUDENT_PAGE_SIZE_DEFAULT;
+  if (rawLimit !== undefined && rawLimit !== null && rawLimit !== "") {
+    if ((typeof rawLimit !== "string" && typeof rawLimit !== "number") || !/^\d+$/.test(String(rawLimit))) {
+      throw new SupabaseCbtError(400, "Ukuran halaman daftar santri tidak valid.");
+    }
+    pageSize = Number(rawLimit);
+  }
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > CBT_STUDENT_PAGE_SIZE_MAX) {
+    throw new SupabaseCbtError(400, "Ukuran halaman daftar santri harus antara 1 dan 100.");
+  }
+
+  const rawSearch = input.search;
+  if (rawSearch !== undefined && rawSearch !== null && typeof rawSearch !== "string") {
+    throw new SupabaseCbtError(400, "Pencarian santri tidak valid.");
+  }
+  const search = typeof rawSearch === "string" ? rawSearch.normalize("NFKC").trim() : "";
+  if (search.length > 100) throw new SupabaseCbtError(400, "Pencarian santri maksimal 100 karakter.");
+  if (search.length > 0 && Array.from(search).length < 3) {
+    throw new SupabaseCbtError(400, "Pencarian santri harus terdiri dari minimal 3 karakter.");
+  }
+
+  const rawCursor = input.cursor;
+  if (rawCursor !== undefined && rawCursor !== null && typeof rawCursor !== "string") {
+    throw new SupabaseCbtError(400, "Penanda halaman santri tidak valid.");
+  }
+  const cursor = typeof rawCursor === "string" ? rawCursor : null;
+  if (cursor && (cursor.length > 2048 || !/^[A-Za-z0-9_-]+$/.test(cursor))) {
+    throw new SupabaseCbtError(400, "Penanda halaman santri tidak valid.");
+  }
+  return { pageSize, search, cursor };
+}
+
+function cbtStudentCursorFilterKey(tenantId: string, filters: NormalizedCbtStudentPageQuery) {
+  return JSON.stringify({
+    tenantId: tenantId.toLowerCase(),
+    order: CBT_STUDENT_PAGE_ORDER,
+    pageSize: filters.pageSize,
+    search: filters.search,
+  });
+}
+
+function cbtStudentCursorEncryptionKey() {
+  const secret = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!secret) throw new SupabaseCbtError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
+  return createHash("sha256").update("erp4-cbt-student-page-cursor-v1\0").update(secret).digest();
+}
+
+export function encodeCbtStudentPageCursor(
+  tenantId: string, filters: NormalizedCbtStudentPageQuery, row: Row,
+) {
+  const name = typeof row.name === "string" ? row.name : "";
+  if (!isUuid(row.id) || !name || name.length > 180) {
+    throw new SupabaseCbtError(503, "Penanda halaman santri tidak dapat dibuat.");
+  }
+  const nonce = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", cbtStudentCursorEncryptionKey(), nonce);
+  cipher.setAAD(Buffer.from("erp4-cbt-student-page-cursor-v1", "utf8"));
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify({
+    version: 1,
+    order: CBT_STUDENT_PAGE_ORDER,
+    tenantId: tenantId.toLowerCase(),
+    name,
+    id: String(row.id).toLowerCase(),
+    filters: cbtStudentCursorFilterKey(tenantId, filters),
+  }), "utf8"), cipher.final()]);
+  return Buffer.concat([nonce, cipher.getAuthTag(), ciphertext]).toString("base64url");
+}
+
+export function decodeCbtStudentPageCursor(
+  cursor: string, tenantId: string, filters: NormalizedCbtStudentPageQuery,
+) {
+  let value: Row;
+  try {
+    const payload = Buffer.from(cursor, "base64url");
+    if (payload.toString("base64url") !== cursor || payload.length < 29) {
+      throw new Error("Invalid encrypted cursor encoding");
+    }
+    const nonce = payload.subarray(0, 12);
+    const tag = payload.subarray(12, 28);
+    const ciphertext = payload.subarray(28);
+    const decipher = createDecipheriv("aes-256-gcm", cbtStudentCursorEncryptionKey(), nonce);
+    decipher.setAAD(Buffer.from("erp4-cbt-student-page-cursor-v1", "utf8"));
+    decipher.setAuthTag(tag);
+    value = JSON.parse(Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8"));
+  } catch {
+    throw new SupabaseCbtError(400, "Penanda halaman santri tidak valid atau telah kedaluwarsa.");
+  }
+  if (!value || value.version !== 1 || value.order !== CBT_STUDENT_PAGE_ORDER
+    || value.tenantId !== tenantId.toLowerCase()
+    || value.filters !== cbtStudentCursorFilterKey(tenantId, filters)
+    || typeof value.name !== "string" || !value.name || value.name.length > 180
+    || !isUuid(value.id)) {
+    throw new SupabaseCbtError(400, "Penanda halaman santri tidak cocok dengan tenant atau pencarian saat ini.");
+  }
+  return { name: value.name, id: String(value.id).toLowerCase() };
+}
+
+async function readCbtAdminStudentLabels(tenantId: string, studentIds: string[]) {
+  if (!studentIds.length) return [];
+  const rows = await request("/rest/v1/rpc/list_cbt_admin_student_labels", {
+    method: "POST",
+    body: JSON.stringify({ p_tenant_id: tenantId, p_student_ids: studentIds }),
+  });
+  if (!Array.isArray(rows) || rows.length > studentIds.length) {
+    throw new SupabaseCbtError(503, "Nama santri pada hasil CBT belum dapat diverifikasi.");
+  }
+  return (rows as Row[]).map((row) => {
+    if (!isUuid(row?.id) || typeof row?.name !== "string" || row.name.length > 180) {
+      throw new SupabaseCbtError(503, "Nama santri pada hasil CBT belum dapat diverifikasi.");
+    }
+    return {
+      id: String(row.id),
+      name: row.name,
+      grade: typeof row.grade === "string" ? row.grade.slice(0, 100) : "",
+      className: typeof row.class_name === "string" ? row.class_name.slice(0, 180) : "",
+    };
+  });
+}
+
+export async function listSupabaseCbtAdminStudentLabels(tenantIdentifier: string, rawStudentIds: unknown) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  if (!Array.isArray(rawStudentIds) || rawStudentIds.length > 5000
+    || rawStudentIds.some((id) => !isUuid(id))) {
+    throw new SupabaseCbtError(400, "Daftar peserta CBT tidak valid.");
+  }
+  return readCbtAdminStudentLabels(tenantId, [...new Set(rawStudentIds.map((id) => String(id).toLowerCase()))]);
+}
+
+export async function listSupabaseCbtAdminStudentPage(tenantIdentifier: string, input: Record<string, unknown>) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  const filters = normalizeCbtStudentPageQuery(input);
+  const cursor = filters.cursor ? decodeCbtStudentPageCursor(filters.cursor, tenantId, filters) : null;
+  const rows = await request("/rest/v1/rpc/list_cbt_admin_student_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_page_size: filters.pageSize + 1,
+      p_cursor_name: cursor?.name || null,
+      p_cursor_id: cursor?.id || null,
+      p_search: filters.search || null,
+    }),
+  });
+  if (!Array.isArray(rows) || rows.length > filters.pageSize + 1) {
+    throw new SupabaseCbtError(503, "Halaman daftar santri CBT belum dapat diverifikasi.");
+  }
+  const hasMore = rows.length > filters.pageSize;
+  const pageRows = (rows as Row[]).slice(0, filters.pageSize);
+  const lastRow = pageRows[pageRows.length - 1];
+  return {
+    items: pageRows.map((row) => {
+      if (!isUuid(row?.id) || typeof row?.name !== "string" || !row.name || row.name.length > 180) {
+        throw new SupabaseCbtError(503, "Halaman daftar santri CBT belum dapat diverifikasi.");
+      }
+      return {
+        id: String(row.id),
+        name: row.name,
+        grade: typeof row.grade === "string" ? row.grade.slice(0, 100) : "",
+        className: typeof row.class_name === "string" ? row.class_name.slice(0, 180) : "",
+      };
+    }),
+    hasMore,
+    nextCursor: hasMore && lastRow ? encodeCbtStudentPageCursor(tenantId, filters, lastRow) : null,
+  };
+}
+
 async function activeReferenceName(tenantId: string, domain: string, referenceId: unknown, label: string) {
   if (!isUuid(referenceId)) throw new SupabaseCbtError(400, `Pilih ${label} dari katalog tenant.`);
   const params = new URLSearchParams({
@@ -406,7 +585,7 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
     select: "id,name,description", tenant_id: "eq." + tenantId, domain: "eq." + domain,
     status: "eq.active", order: "name.asc,id.asc", limit: "1001",
   }).toString());
-  const [examRows, assignmentRows, attemptRows, studentRows, classRows, settingsRows, subjectReferences, gradeLevelReferences, templateReferences, packageAggregateRows] = await Promise.all([
+  const [examRows, assignmentRows, attemptRows, settingsRows, subjectReferences, gradeLevelReferences, templateReferences, packageAggregateRows] = await Promise.all([
     readPostgrestRowsInPages<Row>({
       request,
       path: `/rest/v1/cbt_exams?${new URLSearchParams({ select: "id,title,subject,grade,subject_reference_id,grade_level_reference_id,starts_at,ends_at,duration_minutes,passing_score,correct_points,wrong_points,blank_points,shuffle_questions,status,created_at", tenant_id: "eq." + tenantId, order: "starts_at.desc,id.asc" })}`,
@@ -425,18 +604,6 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
       maxRows: 5000,
       onIncomplete: () => new SupabaseCbtError(503, "Hasil ujian CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
     }),
-    readPostgrestRowsInPages<Row>({
-      request,
-      path: `/rest/v1/students?${new URLSearchParams({ select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, order: "name.asc,id.asc" })}`,
-      maxRows: 2000,
-      onIncomplete: () => new SupabaseCbtError(503, "Roster CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
-    }),
-    readPostgrestRowsInPages<Row>({
-      request,
-      path: `/rest/v1/master_data_records?${new URLSearchParams({ select: "id,name,status", tenant_id: "eq." + tenantId, category: "eq.Kelas", order: "name.asc,id.asc" })}`,
-      maxRows: 500,
-      onIncomplete: () => new SupabaseCbtError(503, "Daftar kelas CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
-    }),
     request("/rest/v1/cbt_tenant_settings?" + new URLSearchParams({
       // Subject, grade, and question-template choices are sourced from the tenant
       // reference catalog below. Legacy imported text arrays are provenance only.
@@ -451,6 +618,12 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
       body: JSON.stringify({ p_tenant_id: tenantId }),
     }),
   ]);
+  const assignmentStudentIds = [...new Set((assignmentRows as Row[]).map((assignment) => {
+    const studentId = String(assignment?.student_id || "");
+    if (!isUuid(studentId)) throw new SupabaseCbtError(503, "Peserta pada riwayat CBT belum dapat diverifikasi.");
+    return studentId.toLowerCase();
+  }))];
+  const studentRows = await readCbtAdminStudentLabels(tenantId, assignmentStudentIds);
   if (!Array.isArray(settingsRows) || settingsRows.length > 1) {
     throw new SupabaseCbtError(503, "Pengaturan CBT tenant belum dapat diverifikasi.");
   }
@@ -506,16 +679,7 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
     (assignment) => String(assignment.exam_id),
     (assignment) => String(assignment.status),
   );
-  const activeStudents = (studentRows as Row[]).filter((student) =>
-    !["archived", "alumni", "graduated", "inactive", "nonaktif", "dikeluarkan"].includes(String(student.status || "").toLowerCase()));
-  const studentById = new Map<string, Row>(activeStudents.map((student): [string, Row] => [String(student.id), student]));
-  const classById = new Map<string, string>((classRows as Row[])
-    .filter((row) => !["inactive", "nonaktif", "disabled", "arsip"].includes(String(row.status || "").toLowerCase()))
-    .map((row): [string, string] => [String(row.id), String(row.name || "")]));
-  const students = activeStudents.map((student) => ({
-    id: String(student.id), name: String(student.name || ""), grade: String(student.grade || ""),
-    className: classById.get(String(student.class_id || "")) || "",
-  }));
+  const studentById = new Map<string, Row>((studentRows as Row[]).map((student): [string, Row] => [String(student.id), student]));
   const exams = (examRows as Row[]).map((exam) => ({
     id: String(exam.id), title: String(exam.title), subject: String(exam.subject), grade: String(exam.grade),
     subjectReferenceId: exam.subject_reference_id == null ? "" : String(exam.subject_reference_id),
@@ -534,7 +698,7 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
     const exam = examById.get(String(assignment.exam_id));
     return {
       assignmentId: String(assignment.id), examTitle: exam?.title || "Ujian",
-      studentName: String(student?.name || "Santri diarsipkan"), className: String(student ? classById.get(String(student.class_id || "")) || "" : ""),
+      studentName: String(student?.name || "Santri diarsipkan"), className: String(student?.className || ""),
       status: String(assignment.status), score: attempt?.score == null ? null : Number(attempt.score),
       passed: attempt?.passed == null ? null : Boolean(attempt.passed),
       correct: attempt?.correct_count == null ? null : Number(attempt.correct_count),
@@ -545,13 +709,13 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   });
   return {
     questions: [], packageSummaries,
-    exams, results, students, settings,
+    exams, results, students: [], settings,
     references: {
       subjects: Array.isArray(subjectReferences) ? subjectReferences : [],
       gradeLevels: Array.isArray(gradeLevelReferences) ? gradeLevelReferences : [],
       templates: Array.isArray(templateReferences) ? templateReferences : [],
     },
-    classes: [...new Set(students.map((student) => student.className).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id")),
+    classes: [],
   };
 }
 

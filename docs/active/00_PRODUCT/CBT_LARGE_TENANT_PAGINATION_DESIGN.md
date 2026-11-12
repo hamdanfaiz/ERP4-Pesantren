@@ -1,13 +1,13 @@
 # Rancangan CBT untuk Tenant Besar
 
-**Status:** PR #97 memisahkan agregat dasbor; branch bertingkat berikutnya menambahkan halaman bank soal CBT dan ringkasan paket server-side. Validasi CI untuk perubahan terbaru masih berjalan; belum diterapkan ke staging atau Production.  
-**Dasar:** stack CBT PR #95–#97 dan branch lanjutan `codex/cbt-question-page-20261113`.
+**Status:** stack CBT PR #97–#98 memisahkan agregat, ringkasan paket, dan bank soal. Branch lanjutan `codex/cbt-student-roster-pages-20261113` menambahkan roster santri berhalaman dan menghilangkan batas pemuatan 2.000 santri dari snapshot. CI untuk branch ini masih harus lulus; belum diterapkan ke staging atau Production.  
+**Dasar:** stack CBT PR #95–#98 dan branch lanjutan roster santri.
 
 ## Kondisi saat ini
 
-Snapshot sebelum PR #97 membatasi soal 2.000, ujian 500, penugasan 5.000, percobaan 5.000, santri 2.000, dan kelas 500. Branch lanjutan ini memindahkan daftar soal ke endpoint berhalaman, tetapi batas untuk sesi, penugasan, percobaan, santri, dan kelas masih berlaku.
+Snapshot sebelum PR #97 membatasi soal 2.000, ujian 500, penugasan 5.000, percobaan 5.000, santri 2.000, dan kelas 500. Stack CBT menghapus pemuatan seluruh bank soal dari snapshot, kemudian branch roster ini menghapus pemuatan seluruh daftar santri. Batas snapshot ujian 500, penugasan 5.000, percobaan 5.000, dan batas 500 peserta per sesi masih berlaku.
 
-Endpoint Admin `GET /api/cbt/admin` masih membentuk snapshot ujian, penugasan, percobaan, santri, dan kelas dengan batas masing-masing 500, 5.000, 5.000, 2.000, dan 500. Bank soal dipindahkan ke `GET /api/cbt/admin/questions`, yang mengambil halaman terpisah agar jumlah soal tidak lagi dibatasi oleh snapshot tunggal. Snapshot dapat tetap gagal bila batas daftar operasional lainnya terlampaui.
+Endpoint Admin `GET /api/cbt/admin` membentuk snapshot ujian, penugasan, dan percobaan dengan batas masing-masing 500, 5.000, dan 5.000. Label santri pada hasil diambil hanya untuk ID peserta yang memang ada di penugasan; seluruh roster tidak lagi dibaca bersama snapshot. Bank soal dan roster dipindahkan ke endpoint terpisah yang berhalaman. Snapshot masih dapat gagal bila batas ujian, penugasan, atau percobaan terlampaui.
 
 PR #96 mengurangi kerja CPU saat menghitung jumlah penugasan dan hasil per ujian dengan indeks satu lintasan. Perubahan itu tidak menghapus batas snapshot. Uji helper 10.000 baris menguji agregasi di memori, bukan query database dan bukan paginasi.
 
@@ -18,11 +18,12 @@ PR #96 mengurangi kerja CPU saat menghitung jumlah penugasan dan hasil per ujian
 - Indeks ringkasan mendukung pengelompokan penugasan per ujian dan pratinjau percobaan terakhir. Tes pgTAP meliputi angka, tenant lain, tenant tidak valid, hak eksekusi fungsi, dan indeks.
 - UI meminta snapshot detail dan ringkasan secara terpisah. Jika snapshot detail gagal tetapi fungsi ringkasan tersedia, angka dasbor tetap dapat ditampilkan; layar daftar tetap memberi tahu bahwa data detail belum berhasil dimuat.
 - Branch bertingkat setelah PR #97 menambahkan `GET /api/cbt/admin/questions` dengan ukuran halaman bawaan 50 dan maksimum 100, pencarian literal, filter status dan referensi tenant, serta keyset `created_at DESC, id ASC`. Cursor mengikat tenant, ukuran halaman, dan filter aktif. Bank soal tidak lagi seluruhnya diunduh bersama snapshot.
+- Branch roster CBT menambahkan `GET /api/cbt/admin/students` dengan halaman bawaan 50 dan maksimum 100, pencarian tenant-scoped atas nama atau NIS, urutan keyset stabil nama/ID, dan respons label minimum tanpa NIS. Token keyset dienkripsi serta diautentikasi menggunakan AES-256-GCM dengan kunci server; token terikat tenant dan filter sehingga nama tidak terlihat pada URL/log dan tidak dapat dipalsukan untuk tenant lain.
 - Tab Bank Soal memakai pencarian/filter server-side dan tombol muat berikutnya. Builder ujian memuat soal aktif per mata pelajaran dan jenjang secara berhalaman serta menjaga pilihan saat halaman berikutnya dimuat. Perubahan filter tenant atau mata pelajaran membatalkan permintaan lama.
 - Ringkasan paket diperoleh dari fungsi Postgres agregat berdasarkan template referensi tenant, termasuk jumlah aktif/arsip, mata pelajaran, dan jenjang. Katalog paket kosong tetap disediakan oleh UI melalui referensi aktif.
 - Fungsi halaman dan agregat memakai `SECURITY INVOKER`, `search_path` eksplisit, tenant aktif, dan hak eksekusi hanya untuk `service_role`; route Admin tetap memeriksa autentikasi/role/permission. Search trigram dan indeks keyset mendukung query utama.
 - Tes pgTAP menelusuri lebih dari 2.000 record sintetis per halaman dan memeriksa urutan timestamp yang sama, pencarian, filter referensi tenant, agregat paket, dan privilege. Validasi CI perubahan ini belum selesai.
-- Ini belum diverifikasi sampai workflow CI lulus, dan belum diterapkan ke staging atau Production.
+- Migrasi roster belum diverifikasi sampai workflow CI lulus, dan belum diterapkan ke staging atau Production. Batas peserta 500 per sesi adalah kendala kapasitas yang masih harus ditangani terpisah.
 
 ## Target perilaku
 
@@ -52,7 +53,7 @@ Pisahkan daftar soal, sesi ujian, roster santri, pemantauan, dan hasil. Setiap e
 - menurunkan `tenantId` dari profil actor aktif di server, bukan dari parameter klien;
 - mengembalikan error berbahasa Indonesia bila cursor atau filter tidak valid.
 
-Gunakan cursor yang terikat pada jenis daftar, versi urutan, dan filter. Server tetap mengulang pemeriksaan role, permission modul CBT, status profil, dan tenant pada setiap request. Untuk pencarian bebas, batasi panjang teks dan gunakan indeks yang sesuai setelah pola query ditetapkan.
+Gunakan cursor terenkripsi dan terikat pada jenis daftar, versi urutan, tenant, dan filter. Server tetap mengulang pemeriksaan role, permission modul CBT, status profil, dan tenant pada setiap request. Jangan menaruh nama atau NIS plaintext di cursor yang masuk ke URL/log. Untuk pencarian bebas, batasi panjang teks dan gunakan indeks yang sesuai setelah pola query ditetapkan.
 
 Paket soal dan jumlahnya dihitung sebagai agregat per referensi kategori, bukan dengan mengunduh seluruh bank soal. Hitungan peserta per ujian dihitung secara batch untuk halaman ujian, bukan dengan query N+1.
 
@@ -83,10 +84,11 @@ Jalankan di Supabase lokal/CI dengan fixture sintetis. Tidak ada migrasi atau da
 1. Buat dataset di atas semua batas snapshot lama: lebih dari 2.000 soal, 500 sesi, 5.000 penugasan dan percobaan, 2.000 santri, serta 500 kelas.
 2. Bandingkan setiap agregat dashboard terhadap hasil hitung fixture independen; sertakan nilai kosong, lulus/gagal, status dibatalkan, dan sesi lintas pergantian hari tenant.
 3. Telusuri semua halaman sampai habis; pastikan tidak ada ID ganda atau hilang pada dataset tetap, filter pencarian tepat, dan cursor dengan filter berbeda ditolak.
-4. Uji penolakan pengguna non-Admin, permission CBT yang dicabut, profil nonaktif, tenant berbeda, dan cursor tidak valid.
-5. Pastikan route tidak mengirim seluruh data ke browser; soal per halaman maksimal 100 dan payload ringkasan hanya berisi data pratinjau.
-6. Jalankan typecheck, build, API auth/tenant, pgTAP, migration preflight, dan regresi CBT yang sudah ada.
-7. Catat waktu/row count query, rencana eksekusi dan pemakaian indeks pada dataset uji. Hasil belum diterima bila query dashboard memuat seluruh riwayat.
+4. Telusuri lebih dari 2.000 santri melewati halaman; uji pencarian nama/NIS, pencarian literal atas `%`/`_`, nama ganda, status arsip, batas ukuran, cursor yang diubah, filter berbeda, serta tenant berbeda. Respons tidak memuat NIS.
+5. Uji penolakan pengguna non-Admin, permission CBT yang dicabut, profil nonaktif, dan tenant berbeda.
+6. Pastikan route tidak mengirim seluruh data ke browser; soal/santri per halaman maksimal 100 dan payload ringkasan hanya berisi data pratinjau.
+7. Jalankan typecheck, build, API auth/tenant, pgTAP, migration preflight, dan regresi CBT yang sudah ada.
+8. Catat waktu/row count query, rencana eksekusi dan pemakaian indeks pada dataset uji. Hasil belum diterima bila query dashboard memuat seluruh riwayat.
 
 ## Urutan pengerjaan
 

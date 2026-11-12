@@ -80,7 +80,8 @@
     "test:academic-schedule-conflicts": "tsx scripts/test-academic-schedule-conflicts.ts",
     "test:public-ppdb-validation": "tsx scripts/test-public-ppdb-validation.ts",
     "test:trusted-proxy-hops": "tsx scripts/test-trusted-proxy-hops.ts",
-    "test:runtime-config-http": "node scripts/test-runtime-config-http.mjs"
+    "test:runtime-config-http": "node scripts/test-runtime-config-http.mjs",
+    "test:cbt-student-roster-pagination": "tsx scripts/test-cbt-student-roster-pagination.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -129,4 +130,3 @@
     "xlsx": "^0.18.5"
   }
 }
-
