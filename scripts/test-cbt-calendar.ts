@@ -36,4 +36,3 @@ assert.deepEqual(schedules.get("2026-11-01")?.map((exam) => exam.id), ["early", 
 assert.equal(schedules.has(""), false, "invalid schedules are excluded rather than rendered on an empty date");
 
 console.log("CBT tenant calendar: 16 assertions passed");
-
