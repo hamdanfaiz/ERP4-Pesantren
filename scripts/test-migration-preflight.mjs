@@ -437,7 +437,7 @@ assert.equal(observedVqeMigrations.length, 143);
 const vqeBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedVqeMigrations);
 assert.equal(vqeBaseline.appliedCount, 143);
 assert.equal(vqeBaseline.latestAppliedVersion, '20270311000000');
-assert.deepEqual(vqeBaseline.pending.map(({ version }) => version), ['20270312000000', '20270314000000']);
+assert.deepEqual(vqeBaseline.pending.map(({ version }) => version), ['20270312000000', '20270314000000', '20270315000000']);
 assert.deepEqual(vqeBaseline.unknownApplied, []);
 assert.deepEqual(vqeBaseline.nameMismatches, []);
 assert.deepEqual(vqeBaseline.statementMismatches, []);
