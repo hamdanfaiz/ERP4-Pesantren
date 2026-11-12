@@ -63,4 +63,17 @@ assert.equal(assignmentCounts.get("exam-b")?.assignedCount, 1, "separate exam co
 assert.equal(assignmentCounts.get("exam-b")?.completedCount, 0, "uncompleted exams retain a zero completed count");
 assert.equal(assignmentCounts.size, 2, "only exams with assignments are indexed");
 
-console.log("CBT decision dashboard and linear assignment index: 21 assertions passed");
+const bulkAssignments = Array.from({ length: 10_000 }, (_, index) => ({
+  examId: `exam-${index % 100}`,
+  status: Math.floor(index / 100) % 5 === 0 ? "completed" : "assigned",
+}));
+const bulkCounts = summarizeCbtAssignmentsByExam(
+  bulkAssignments,
+  (assignment) => assignment.examId,
+  (assignment) => assignment.status,
+);
+assert.equal(bulkCounts.size, 100, "large synthetic assignment lists retain a separate aggregate for each exam");
+assert.equal(bulkCounts.get("exam-0")?.assignedCount, 100, "large synthetic assignment totals remain exact");
+assert.equal(bulkCounts.get("exam-0")?.completedCount, 20, "large synthetic completed totals remain exact");
+
+console.log("CBT decision dashboard and linear assignment index: 24 assertions passed");
