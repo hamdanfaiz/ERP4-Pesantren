@@ -1,13 +1,13 @@
 # Rancangan CBT untuk Tenant Besar
 
-**Status:** rancangan pekerjaan lanjutan; belum diimplementasikan dan belum membuktikan skala produksi.  
-**Dasar:** source PR #96, branch `codex/cbt-tenant-settings-20261112`.
+**Status:** PR #97 memisahkan agregat dasbor; branch bertingkat berikutnya menambahkan halaman bank soal CBT dan ringkasan paket server-side. Validasi CI untuk perubahan terbaru masih berjalan; belum diterapkan ke staging atau Production.  
+**Dasar:** stack CBT PR #95–#97 dan branch lanjutan `codex/cbt-question-page-20261113`.
 
 ## Kondisi saat ini
 
-Endpoint snapshot masih mempunyai batas 2.000 soal, 500 ujian, 5.000 penugasan, 5.000 percobaan, 2.000 santri, dan 500 kelas. Jika satu batas terlampaui, daftar detail tetap gagal ditampilkan. Perubahan baru memisahkan ringkasan dasbor dari snapshot; ia tidak menghapus batas ini.
+Snapshot sebelum PR #97 membatasi soal 2.000, ujian 500, penugasan 5.000, percobaan 5.000, santri 2.000, dan kelas 500. Branch lanjutan ini memindahkan daftar soal ke endpoint berhalaman, tetapi batas untuk sesi, penugasan, percobaan, santri, dan kelas masih berlaku.
 
-Endpoint Admin `GET /api/cbt/admin` membentuk satu snapshot dengan membaca soal, ujian, penugasan, percobaan, santri, dan kelas. Pembacaan memakai batas 2.000 soal, 500 ujian, 5.000 penugasan, 5.000 percobaan, 2.000 santri, dan 500 kelas. Jika satu batas terlampaui, seluruh snapshot ditolak. Penolakan ini mencegah statistik parsial terlihat benar.
+Endpoint Admin `GET /api/cbt/admin` masih membentuk snapshot ujian, penugasan, percobaan, santri, dan kelas dengan batas masing-masing 500, 5.000, 5.000, 2.000, dan 500. Bank soal dipindahkan ke `GET /api/cbt/admin/questions`, yang mengambil halaman terpisah agar jumlah soal tidak lagi dibatasi oleh snapshot tunggal. Snapshot dapat tetap gagal bila batas daftar operasional lainnya terlampaui.
 
 PR #96 mengurangi kerja CPU saat menghitung jumlah penugasan dan hasil per ujian dengan indeks satu lintasan. Perubahan itu tidak menghapus batas snapshot. Uji helper 10.000 baris menguji agregasi di memori, bukan query database dan bukan paginasi.
 
@@ -17,6 +17,11 @@ PR #96 mengurangi kerja CPU saat menghitung jumlah penugasan dan hasil per ujian
 - Fungsi Postgres `get_cbt_admin_dashboard_summary(uuid)` menghitung jumlah dan rasio secara tenant-scoped serta membatasi pratinjau menjadi lima jadwal dan lima hasil. Fungsi memakai `SECURITY INVOKER`; `EXECUTE` dicabut dari `PUBLIC`, `anon`, dan `authenticated`, lalu diberikan hanya kepada `service_role`.
 - Indeks ringkasan mendukung pengelompokan penugasan per ujian dan pratinjau percobaan terakhir. Tes pgTAP meliputi angka, tenant lain, tenant tidak valid, hak eksekusi fungsi, dan indeks.
 - UI meminta snapshot detail dan ringkasan secara terpisah. Jika snapshot detail gagal tetapi fungsi ringkasan tersedia, angka dasbor tetap dapat ditampilkan; layar daftar tetap memberi tahu bahwa data detail belum berhasil dimuat.
+- Branch bertingkat setelah PR #97 menambahkan `GET /api/cbt/admin/questions` dengan ukuran halaman bawaan 50 dan maksimum 100, pencarian literal, filter status dan referensi tenant, serta keyset `created_at DESC, id ASC`. Cursor mengikat tenant, ukuran halaman, dan filter aktif. Bank soal tidak lagi seluruhnya diunduh bersama snapshot.
+- Tab Bank Soal memakai pencarian/filter server-side dan tombol muat berikutnya. Builder ujian memuat soal aktif per mata pelajaran dan jenjang secara berhalaman serta menjaga pilihan saat halaman berikutnya dimuat. Perubahan filter tenant atau mata pelajaran membatalkan permintaan lama.
+- Ringkasan paket diperoleh dari fungsi Postgres agregat berdasarkan template referensi tenant, termasuk jumlah aktif/arsip, mata pelajaran, dan jenjang. Katalog paket kosong tetap disediakan oleh UI melalui referensi aktif.
+- Fungsi halaman dan agregat memakai `SECURITY INVOKER`, `search_path` eksplisit, tenant aktif, dan hak eksekusi hanya untuk `service_role`; route Admin tetap memeriksa autentikasi/role/permission. Search trigram dan indeks keyset mendukung query utama.
+- Tes pgTAP menelusuri lebih dari 2.000 record sintetis per halaman dan memeriksa urutan timestamp yang sama, pencarian, filter referensi tenant, agregat paket, dan privilege. Validasi CI perubahan ini belum selesai.
 - Ini belum diverifikasi sampai workflow CI lulus, dan belum diterapkan ke staging atau Production.
 
 ## Target perilaku
