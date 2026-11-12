@@ -8,27 +8,45 @@ INSERT INTO public.tenants(id,slug,name,status) VALUES
   ('e1900000-0000-4000-8000-000000000009','cbt-roster-one','CBT Roster One','active'),
   ('e1900000-0000-4000-8000-000000000019','cbt-roster-two','CBT Roster Two','active');
 
-INSERT INTO public.master_data_records(tenant_id,category,id,name,status)
+INSERT INTO auth.users (
+  id,instance_id,aud,role,email,encrypted_password,email_confirmed_at,
+  raw_app_meta_data,raw_user_meta_data,created_at,updated_at
+) VALUES
+  ('e1900000-0000-4000-8000-000000000011','00000000-0000-0000-0000-000000000000','authenticated','authenticated','cbt-roster-a@test.invalid','',now(),'{}','{}',now(),now()),
+  ('e1900000-0000-4000-8000-000000000012','00000000-0000-0000-0000-000000000000','authenticated','authenticated','cbt-roster-b@test.invalid','',now(),'{}','{}',now(),now());
+
+INSERT INTO public.profiles(user_id,tenant_id,email,display_name,role,status,module_permissions) VALUES
+  ('e1900000-0000-4000-8000-000000000011','e1900000-0000-4000-8000-000000000009','cbt-roster-a@test.invalid','CBT Roster Admin A','admin','active','{"master-data":true,"cbt":true}'),
+  ('e1900000-0000-4000-8000-000000000012','e1900000-0000-4000-8000-000000000019','cbt-roster-b@test.invalid','CBT Roster Admin B','admin','active','{"master-data":true,"cbt":true}');
+
+INSERT INTO public.tenant_reference_items (
+  id,tenant_id,domain,code,name,description,status,nis_grade_code,created_by_user_id,updated_by_user_id
+) VALUES
+  ('e1900000-0000-4000-8000-000000000101','e1900000-0000-4000-8000-000000000009','academic_grade_level','GRADE_VII','Kelas VII','Jenjang uji untuk roster CBT tenant A.','active','07','e1900000-0000-4000-8000-000000000011','e1900000-0000-4000-8000-000000000011'),
+  ('e1900000-0000-4000-8000-000000000201','e1900000-0000-4000-8000-000000000019','academic_grade_level','GRADE_VII','Kelas VII','Jenjang uji untuk roster CBT tenant B.','active','07','e1900000-0000-4000-8000-000000000012','e1900000-0000-4000-8000-000000000012');
+
+INSERT INTO public.master_data_records(tenant_id,category,id,name,status,grade,grade_level_reference_id)
 VALUES
-  ('e1900000-0000-4000-8000-000000000009','Kelas','CBT-ROSTER-KELAS','Kelas CBT Roster','Active'),
-  ('e1900000-0000-4000-8000-000000000019','Kelas','CBT-ROSTER-KELAS','Kelas CBT Roster Tenant B','Active');
+  ('e1900000-0000-4000-8000-000000000009','Kelas','CBT-ROSTER-KELAS','Kelas CBT Roster','Active','Kelas VII','e1900000-0000-4000-8000-000000000101'),
+  ('e1900000-0000-4000-8000-000000000019','Kelas','CBT-ROSTER-KELAS','Kelas CBT Roster Tenant B','Active','Kelas VII','e1900000-0000-4000-8000-000000000201');
 
 INSERT INTO public.master_data_records(tenant_id,category,id,name,status,capacity)
 VALUES
   ('e1900000-0000-4000-8000-000000000009','Kamar','CBT-ROSTER-KAMAR','Kamar CBT Roster','Active',1),
   ('e1900000-0000-4000-8000-000000000019','Kamar','CBT-ROSTER-KAMAR','Kamar CBT Roster Tenant B','Active',1);
 
-INSERT INTO public.candidates(id,tenant_id,registration_id,name)
+INSERT INTO public.candidates(id,tenant_id,registration_id,name,grade,grade_level_reference_id)
 SELECT
   ('e1900000-0000-4000-8000-' || lpad((300000000 + generated.sequence)::TEXT,12,'0'))::UUID,
   'e1900000-0000-4000-8000-000000000009',
   'CBT-ROSTER-' || lpad(generated.sequence::TEXT,5,'0'),
-  'Kandidat CBT Roster ' || generated.sequence
+  'Kandidat CBT Roster ' || generated.sequence,
+  'Kelas VII','e1900000-0000-4000-8000-000000000101'::UUID
 FROM generate_series(1,2108) AS generated(sequence);
 
-INSERT INTO public.candidates(id,tenant_id,registration_id,name)
+INSERT INTO public.candidates(id,tenant_id,registration_id,name,grade,grade_level_reference_id)
 VALUES
-  ('e1900000-0000-4000-8000-000400000019','e1900000-0000-4000-8000-000000000019','CBT-ROSTER-B-1','Kandidat Tenant B');
+  ('e1900000-0000-4000-8000-000400000019','e1900000-0000-4000-8000-000000000019','CBT-ROSTER-B-1','Kandidat Tenant B','Kelas VII','e1900000-0000-4000-8000-000000000201');
 
 INSERT INTO public.students(
   id,tenant_id,source_candidate_id,nis,name,gender,grade,nik_ciphertext,nik_fingerprint,class_id,room_id,status
@@ -44,7 +62,7 @@ SELECT
     WHEN 2108 THEN 'Santri Z 100%_ Literal'
     ELSE 'Santri Paginasi ' || lpad(generated.sequence::TEXT,4,'0')
   END,
-  'L','VII',
+  'L','Kelas VII',
   decode(md5('cipher-' || generated.sequence::TEXT),'hex'),
   decode(md5('fingerprint-' || generated.sequence::TEXT),'hex'),
   'CBT-ROSTER-KELAS','CBT-ROSTER-KAMAR',
@@ -56,7 +74,7 @@ INSERT INTO public.students(
 )
 VALUES (
   'e1900000-0000-4000-8000-000400000019','e1900000-0000-4000-8000-000000000019',
-  'e1900000-0000-4000-8000-000400000019','9000000001','Santri Tenant B','P','VIII',
+  'e1900000-0000-4000-8000-000400000019','9000000001','Santri Tenant B','P','Kelas VII',
   decode(md5('cipher-tenant-b'),'hex'),decode(md5('fingerprint-tenant-b'),'hex'),
   'CBT-ROSTER-KELAS','CBT-ROSTER-KAMAR','Active'
 );
