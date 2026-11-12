@@ -26,7 +26,7 @@ assert.equal(normalized.pageSize, 50, "page size is explicit");
 assert.equal(normalized.search, "Santri", "search is trimmed before cursor binding");
 assert.equal(normalizeCbtStudentPageQuery({}).pageSize, 50, "default page size is 50");
 assert.equal(normalizeCbtStudentPageQuery({ limit: "100" }).pageSize, 100, "limit accepts its maximum");
-assert.equal(normalizeCbtStudentPageQuery({ search: "％＿" }).search, "%_", "search is normalized with NFKC before query binding");
+assert.equal(normalizeCbtStudentPageQuery({ search: "Ａ％＿" }).search, "A%_", "search is normalized with NFKC before query binding");
 
 for (const [label, input] of [
   ["zero limit", { limit: "0" }],
