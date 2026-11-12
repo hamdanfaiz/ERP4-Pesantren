@@ -1,11 +1,13 @@
 import { toERPUserMessage } from "../utils/userMessages";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, AlertCircle, BookOpen, Boxes, CalendarClock, CalendarDays, Check, ClipboardList, Loader2, Plus, Radio, RefreshCw, ShieldCheck, SlidersHorizontal, Users } from "lucide-react";
+import { Activity, AlertCircle, BookOpen, Boxes, CalendarClock, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Loader2, Plus, Radio, RefreshCw, ShieldCheck, SlidersHorizontal, Users } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
+import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
+import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate } from "../lib/tenantTimeZone";
 
 type Question = {
   id: string; subject: string; grade: string; template: string; subjectReferenceId: string;
@@ -49,7 +51,6 @@ const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode 
 ];
 const CBT_PENDING: Partial<Record<Tab, string>> = {
   dashboard: "Ringkasan khusus ujian belum tersedia. Data ujian tetap dapat dilihat pada bagian yang sudah aktif.",
-  calendar: "Gunakan bagian Sesi Ujian untuk melihat jadwal. Tampilan kalender belum tersedia.",
   packages: "Pengelolaan paket ujian belum tersedia.",
   monitor: "Pemantauan peserta secara langsung belum tersedia.",
   settings: "Pengaturan nilai dan pengacakan tersedia saat membuat sesi ujian. Halaman pengaturan terpisah belum tersedia.",
@@ -110,8 +111,12 @@ function ImportPreviewDetails({ preview }: { preview: ImportPreview | null }) {
 
 export function SupabaseCBTManager() {
   const { role, user } = useAuth();
+  const tenantTimeZone = user?.tenantTimeZone || DEFAULT_TENANT_TIME_ZONE;
+  const todayInTenant = tenantDate(new Date(), tenantTimeZone);
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [tab, setTab] = useState<Tab>("questions");
+  const [calendarMonth, setCalendarMonth] = useState(() => cbtTenantMonthKey(new Date(), tenantTimeZone));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => tenantDate(new Date(), tenantTimeZone));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -131,6 +136,12 @@ export function SupabaseCBTManager() {
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [settingsImportPreview, setSettingsImportPreview] = useState<ImportPreview | null>(null);
   const settingsAppliedTenant = useRef("");
+
+  useEffect(() => {
+    const today = tenantDate(new Date(), tenantTimeZone);
+    setCalendarMonth(today.slice(0, 7));
+    setSelectedCalendarDate(today);
+  }, [user?.tenantId, tenantTimeZone]);
 
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
@@ -199,6 +210,25 @@ export function SupabaseCBTManager() {
     && question.gradeLevelReferenceId === exam.gradeLevelReferenceId
     && Boolean(question.subjectReferenceId && question.gradeLevelReferenceId)), [snapshot.questions, exam.subjectReferenceId, exam.gradeLevelReferenceId]);
   const selectedQuestionCount = selectedQuestions.filter((id) => eligibleQuestions.some((question) => question.id === id)).length;
+  const calendarDays = useMemo(() => buildCbtCalendarGrid(calendarMonth, tenantTimeZone, todayInTenant), [calendarMonth, tenantTimeZone, todayInTenant]);
+  const calendarWeeks = useMemo(() => Array.from({ length: 6 }, (_, index) => calendarDays.slice(index * 7, index * 7 + 7)), [calendarDays]);
+  const examsByCalendarDate = useMemo(() => groupCbtExamsByTenantDate(snapshot.exams, tenantTimeZone), [snapshot.exams, tenantTimeZone]);
+  const selectedCalendarExams = examsByCalendarDate.get(selectedCalendarDate) || [];
+  const calendarMonthLabel = useMemo(() => new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${calendarMonth}-01T12:00:00.000Z`)), [calendarMonth]);
+  const selectedCalendarDateLabel = useMemo(() => selectedCalendarDate
+    ? new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${selectedCalendarDate}T12:00:00.000Z`))
+    : "Tanggal ujian", [selectedCalendarDate]);
+
+  const moveCalendarMonth = (offset: number) => {
+    const nextMonth = shiftCbtCalendarMonth(calendarMonth, offset);
+    setCalendarMonth(nextMonth);
+    setSelectedCalendarDate(`${nextMonth}-01`);
+  };
+
+  const showTodayInCalendar = () => {
+    setCalendarMonth(todayInTenant.slice(0, 7));
+    setSelectedCalendarDate(todayInTenant);
+  };
 
   const resetQuestion = () => {
     setEditingQuestionId(null);
@@ -322,6 +352,42 @@ export function SupabaseCBTManager() {
 
     {CBT_PENDING[tab] && <ERPFeatureStatus title={CBT_REFERENCE_TABS.find((item) => item.id === tab)?.label || "Fitur CBT"} description={CBT_PENDING[tab]!} />}
 
+    {tab === "calendar" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Kalender ujian</h2><p className="mt-1 text-sm text-slate-500">Jadwal mengikuti zona waktu pesantren: {tenantTimeZone}.</p></div>
+        <div className="flex items-center gap-2">
+          <button type="button" aria-label="Bulan sebelumnya" onClick={() => moveCalendarMonth(-1)} className="rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"><ChevronLeft className="h-4 w-4" /></button>
+          <h3 aria-live="polite" className="min-w-36 text-center text-sm font-semibold capitalize text-slate-900 dark:text-white">{calendarMonthLabel}</h3>
+          <button type="button" aria-label="Bulan berikutnya" onClick={() => moveCalendarMonth(1)} className="rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"><ChevronRight className="h-4 w-4" /></button>
+          <button type="button" onClick={showTodayInCalendar} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Hari ini</button>
+        </div>
+      </header>
+      <div className="overflow-x-auto p-3 sm:p-4">
+        <div className="min-w-[640px]">
+          <div role="group" aria-label={`Kalender ujian ${calendarMonthLabel}`} className="border-l border-slate-200 dark:border-white/10">
+            <div className="grid grid-cols-7 border-b border-slate-200 text-center text-xs font-semibold text-slate-500 dark:border-white/10">{["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => <div key={day} className="py-2">{day}</div>)}</div>
+            {calendarWeeks.map((week) => <div key={week[0]?.date} className="grid grid-cols-7">
+              {week.map((day) => {
+              const dayExams = examsByCalendarDate.get(day.date) || [];
+              const selected = day.date === selectedCalendarDate;
+              return <button key={day.date} type="button" aria-pressed={selected} aria-label={`${day.date}, ${dayExams.length} sesi ujian`} onClick={() => {
+                setSelectedCalendarDate(day.date);
+                if (!day.date.startsWith(calendarMonth)) setCalendarMonth(day.date.slice(0, 7));
+              }} className={`min-h-24 border-b border-r border-slate-200 p-2 text-left align-top transition dark:border-white/10 ${selected ? "bg-indigo-50 ring-2 ring-inset ring-indigo-600 dark:bg-indigo-500/10" : "hover:bg-slate-50 dark:hover:bg-white/5"} ${day.inCurrentMonth ? "" : "bg-slate-50/70 dark:bg-slate-950/40"}`}>
+                <span className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-xs font-semibold ${day.isToday ? "bg-indigo-700 text-white" : day.inCurrentMonth ? "text-slate-800 dark:text-slate-100" : "text-slate-400"}`}>{day.day}</span>
+                <span className="mt-1 block space-y-1">{dayExams.slice(0, 2).map((item) => <span key={item.id} className="block truncate rounded-md bg-indigo-100 px-1.5 py-1 text-[10px] font-medium text-indigo-900 dark:bg-indigo-400/15 dark:text-indigo-200">{item.title}</span>)}{dayExams.length > 2 && <span className="block px-1 text-[10px] text-slate-500">+{dayExams.length - 2} sesi</span>}</span>
+              </button>;
+            })}
+            </div>)}
+          </div>
+        </div>
+      </div>
+      <div className="border-t border-slate-200 p-4 dark:border-white/10">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold capitalize text-slate-900 dark:text-white">{selectedCalendarDateLabel}</h3><button type="button" onClick={() => setTab("exams")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Buka sesi ujian</button></div>
+        {loading ? <div role="status" className="flex items-center gap-2 py-5 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat jadwal ujian…</div> : selectedCalendarExams.length ? <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">{selectedCalendarExams.map((item) => <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 p-4"><div><h4 className="font-semibold text-slate-900 dark:text-white">{item.title}</h4><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)}–{formatTenantDateTime(item.endsAt, tenantTimeZone)}</p></div><div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-lg bg-slate-100 px-2 py-1 text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span><span className="text-slate-500">{item.assignedCount} peserta · {item.completedCount} selesai</span></div></article>)}</div> : <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-white/10">{snapshot.exams.length ? "Tidak ada sesi ujian pada tanggal ini." : "Belum ada jadwal ujian tersimpan."}</div>}
+      </div>
+    </section>}
+
     {tab === "questions" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between"><h2 className="font-semibold text-slate-900 dark:text-white">Bank soal pesantren</h2><input aria-label="Cari soal" className={FIELD + " mt-0 sm:max-w-xs"} placeholder="Cari soal, subjek, atau tag" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
@@ -345,7 +411,7 @@ export function SupabaseCBTManager() {
     {tab === "exams" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
       <section className="rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Ujian tersimpan</h2></div>
-        {snapshot.exams.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.exams.map((item) => <article key={item.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></div><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{new Date(item.startsAt).toLocaleString("id-ID")} · {item.assignedCount} peserta · {item.completedCount} selesai</p></article>)}</div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada sesi ujian.</div>}
+        {snapshot.exams.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.exams.map((item) => <article key={item.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></div><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)} · {item.assignedCount} peserta · {item.completedCount} selesai</p></article>)}</div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada sesi ujian.</div>}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <h2 className="mb-4 font-semibold text-slate-900 dark:text-white">Buat jadwal ujian</h2>
@@ -382,3 +448,4 @@ export function SupabaseCBTManager() {
     </div>}
   </main>;
 }
+
