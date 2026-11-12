@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
+import { deriveCbtDashboardSummary } from "../lib/cbtDashboard";
 import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate } from "../lib/tenantTimeZone";
 
 type Question = {
@@ -50,7 +51,6 @@ const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode 
   { id: "settings", label: "Pengaturan", icon: <SlidersHorizontal className="h-4 w-4" /> },
 ];
 const CBT_PENDING: Partial<Record<Tab, string>> = {
-  dashboard: "Ringkasan khusus ujian belum tersedia. Data ujian tetap dapat dilihat pada bagian yang sudah aktif.",
   packages: "Pengelolaan paket ujian belum tersedia.",
   monitor: "Pemantauan peserta secara langsung belum tersedia.",
   settings: "Pengaturan nilai dan pengacakan tersedia saat membuat sesi ujian. Halaman pengaturan terpisah belum tersedia.",
@@ -115,6 +115,7 @@ export function SupabaseCBTManager() {
   const todayInTenant = tenantDate(new Date(), tenantTimeZone);
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [tab, setTab] = useState<Tab>("questions");
+  const [dashboardNow, setDashboardNow] = useState(() => Date.now());
   const [calendarMonth, setCalendarMonth] = useState(() => cbtTenantMonthKey(new Date(), tenantTimeZone));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => tenantDate(new Date(), tenantTimeZone));
   const [loading, setLoading] = useState(true);
@@ -142,6 +143,11 @@ export function SupabaseCBTManager() {
     setCalendarMonth(today.slice(0, 7));
     setSelectedCalendarDate(today);
   }, [user?.tenantId, tenantTimeZone]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setDashboardNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
@@ -218,6 +224,9 @@ export function SupabaseCBTManager() {
   const selectedCalendarDateLabel = useMemo(() => selectedCalendarDate
     ? new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${selectedCalendarDate}T12:00:00.000Z`))
     : "Tanggal ujian", [selectedCalendarDate]);
+  const dashboardSummary = useMemo(() => deriveCbtDashboardSummary(snapshot.exams, snapshot.results, dashboardNow), [snapshot.exams, snapshot.results, dashboardNow]);
+  const formatDashboardPercent = (value: number | null) => value === null ? "—" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value)}%`;
+  const formatDashboardScore = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value);
 
   const moveCalendarMonth = (offset: number) => {
     const nextMonth = shiftCbtCalendarMonth(calendarMonth, offset);
@@ -351,6 +360,30 @@ export function SupabaseCBTManager() {
     <SupabaseModuleReferenceSettings domains={["cbt_question_template"]} />
 
     {CBT_PENDING[tab] && <ERPFeatureStatus title={CBT_REFERENCE_TABS.find((item) => item.id === tab)?.label || "Fitur CBT"} description={CBT_PENDING[tab]!} />}
+
+    {tab === "dashboard" && <div className="space-y-5">
+      {loading ? <div role="status" className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900"><Loader2 className="h-4 w-4 animate-spin" />Memuat ringkasan ujian…</div> : error ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">Ringkasan ujian belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : <>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Ujian berlangsung", value: dashboardSummary.ongoingSessions, detail: "Sesi yang sedang dibuka", icon: Radio },
+            { label: "Jadwal mendatang", value: dashboardSummary.upcomingSessions, detail: "Sesi terbit berikutnya", icon: CalendarClock },
+            { label: "Penyelesaian peserta", value: formatDashboardPercent(dashboardSummary.completionRate), detail: `${dashboardSummary.completedAssignments} dari ${dashboardSummary.totalAssignments} penugasan`, icon: ClipboardList },
+            { label: "Kelulusan", value: formatDashboardPercent(dashboardSummary.passRate), detail: `${dashboardSummary.scoredAssignments} peserta memiliki nilai`, icon: ShieldCheck },
+          ].map((item) => <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between gap-2 text-sm text-slate-500"><span>{item.label}</span><item.icon className="h-4 w-4 shrink-0 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{item.value}</p><p className="mt-1 text-xs text-slate-500">{item.detail}</p></article>)}
+        </div>
+        <div className="grid items-start gap-5 xl:grid-cols-2">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-4 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Jadwal ujian berikutnya</h2><p className="mt-1 text-xs text-slate-500">Zona waktu pesantren: {tenantTimeZone}</p></div><button type="button" onClick={() => setTab("exams")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Kelola sesi</button></div>
+            {dashboardSummary.upcomingExams.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{dashboardSummary.upcomingExams.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)}</p></div><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></article>)}</div> : <div className="p-8 text-center text-sm text-slate-500">Belum ada jadwal ujian terbit yang akan datang.</div>}
+          </section>
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-4 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Hasil terbaru</h2><p className="mt-1 text-xs text-slate-500">Rata-rata nilai: {formatDashboardScore(dashboardSummary.averageScore)}</p></div><button type="button" onClick={() => setTab("results")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Lihat hasil</button></div>
+            {dashboardSummary.latestResults.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{dashboardSummary.latestResults.map((item) => <article key={item.assignmentId} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.studentName}</h3><p className="mt-1 text-sm text-slate-500">{item.examTitle}{item.className ? ` · ${item.className}` : ""}</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.submittedAt || "", tenantTimeZone)}</p></div><div className="text-right"><p className="font-semibold text-slate-900 dark:text-white">{item.score == null ? "Belum dinilai" : formatDashboardScore(item.score)}</p>{item.passed !== null && <span className={item.passed ? "text-xs text-emerald-700 dark:text-emerald-300" : "text-xs text-rose-700 dark:text-rose-300"}>{item.passed ? "Lulus" : "Belum lulus"}</span>}</div></article>)}</div> : <div className="p-8 text-center text-sm text-slate-500">Hasil ujian akan tampil setelah peserta mengumpulkan ujian.</div>}
+          </section>
+        </div>
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-400/20 dark:bg-indigo-400/5"><div><h2 className="font-semibold text-slate-900 dark:text-white">Kelola evaluasi belajar</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Susun soal, terbitkan jadwal, dan tinjau capaian peserta dari bagian CBT.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setTab("questions")} className={BUTTON}><BookOpen className="h-4 w-4" />Bank soal</button><button type="button" onClick={() => setTab("calendar")} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><CalendarDays className="mr-2 inline h-4 w-4" />Kalender</button></div></section>
+      </>}
+    </div>}
 
     {tab === "calendar" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10">
