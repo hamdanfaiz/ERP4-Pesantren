@@ -29,7 +29,7 @@ type Result = {
 };
 type CbtSettings = {
   autoGrading: boolean; shuffleQuestions: boolean;
-  correctPoints: number; wrongPoints: number; blankPoints: number; sourceSystem: string;
+  correctPoints: number; wrongPoints: number; blankPoints: number; sourceSystem: string; updatedAt: string | null;
 };
 type ReferenceOption = { id: string; name: string; description: string };
 type Snapshot = {
@@ -40,7 +40,7 @@ type Snapshot = {
 type Tab = "dashboard" | "calendar" | "packages" | "questions" | "exams" | "monitor" | "results" | "settings" | "import";
 type ImportPreview = { snapshotFingerprint: string; counts: { source: number; ready: number; alreadyImported: number; invalid: number }; issues: Array<{ code: string; recordRef: string; severity: string }>; issueCount: number; blockingCount: number; canApply: boolean };
 
-const EMPTY_SETTINGS: CbtSettings = { autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults" };
+const EMPTY_SETTINGS: CbtSettings = { autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults", updatedAt: null };
 const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS, references: { subjects: [], gradeLevels: [], templates: [] } };
 const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "dashboard", label: "Dasbor", icon: <Activity className="h-4 w-4" /> },
@@ -52,9 +52,7 @@ const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode 
   { id: "results", label: "Hasil & Analitik", icon: <ClipboardList className="h-4 w-4" /> },
   { id: "settings", label: "Pengaturan", icon: <SlidersHorizontal className="h-4 w-4" /> },
 ];
-const CBT_PENDING: Partial<Record<Tab, string>> = {
-  settings: "Pengaturan nilai dan pengacakan tersedia saat membuat sesi ujian. Halaman pengaturan terpisah belum tersedia.",
-};
+const CBT_PENDING: Partial<Record<Tab, string>> = {};
 const FIELD = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100";
 const BUTTON = "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50";
 const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
@@ -68,7 +66,7 @@ async function requestCbt(path: string, init: RequestInit = {}) {
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch(path, { ...init, headers, cache: "no-store" });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || "Layanan CBT belum dapat diproses.");
+  if (!response.ok) throw Object.assign(new Error(body.error || "Layanan CBT belum dapat diproses."), { status: response.status });
   return body;
 }
 
@@ -118,6 +116,8 @@ export function SupabaseCBTManager() {
   const [dashboardNow, setDashboardNow] = useState(() => Date.now());
   const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<string | null>(null);
   const [monitorSearch, setMonitorSearch] = useState("");
+  const [settingsDraft, setSettingsDraft] = useState<CbtSettings>(EMPTY_SETTINGS);
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => cbtTenantMonthKey(new Date(), tenantTimeZone));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => tenantDate(new Date(), tenantTimeZone));
   const [loading, setLoading] = useState(true);
@@ -139,6 +139,7 @@ export function SupabaseCBTManager() {
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [settingsImportPreview, setSettingsImportPreview] = useState<ImportPreview | null>(null);
   const settingsAppliedTenant = useRef("");
+  const settingsDirtyRef = useRef(false);
 
   useEffect(() => {
     const today = tenantDate(new Date(), tenantTimeZone);
@@ -160,20 +161,23 @@ export function SupabaseCBTManager() {
         gradeLevels: Array.isArray(result.references.gradeLevels) ? result.references.gradeLevels : [],
         templates: Array.isArray(result.references.templates) ? result.references.templates : [],
       } : EMPTY.references;
+      const settings = result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } as CbtSettings : EMPTY_SETTINGS;
       setSnapshot({
         questions: Array.isArray(result.questions) ? result.questions : [],
         exams: Array.isArray(result.exams) ? result.exams : [],
         results: Array.isArray(result.results) ? result.results : [],
         students: Array.isArray(result.students) ? result.students : [],
         classes: Array.isArray(result.classes) ? result.classes : [],
-        settings: result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } : EMPTY_SETTINGS,
+        settings,
         references,
       });
       setSnapshotUpdatedAt(new Date().toISOString());
-      const settings = result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } as CbtSettings : EMPTY_SETTINGS;
       const tenantId = String(user?.tenantId || "");
       if (tenantId && settingsAppliedTenant.current !== tenantId) {
         settingsAppliedTenant.current = tenantId;
+        settingsDirtyRef.current = false;
+        setSettingsDirty(false);
+        setSettingsDraft(settings);
         setEditingQuestionId(null);
         setSelectedQuestions([]);
         setSelectedStudents([]);
@@ -193,6 +197,7 @@ export function SupabaseCBTManager() {
           blankPoints: settings.blankPoints, shuffleQuestions: settings.shuffleQuestions,
         }));
       } else {
+        if (!settingsDirtyRef.current) setSettingsDraft(settings);
         setForm((current) => ({
           ...current,
           subjectReferenceId: references.subjects.some((item: ReferenceOption) => item.id === current.subjectReferenceId) ? current.subjectReferenceId : references.subjects[0]?.id || "",
@@ -203,13 +208,69 @@ export function SupabaseCBTManager() {
           ...current,
           subjectReferenceId: references.subjects.some((item: ReferenceOption) => item.id === current.subjectReferenceId) ? current.subjectReferenceId : references.subjects[0]?.id || "",
           gradeLevelReferenceId: references.gradeLevels.some((item: ReferenceOption) => item.id === current.gradeLevelReferenceId) ? current.gradeLevelReferenceId : references.gradeLevels[0]?.id || "",
+          correctPoints: current.title.trim() ? current.correctPoints : settings.correctPoints,
+          wrongPoints: current.title.trim() ? current.wrongPoints : settings.wrongPoints,
+          blankPoints: current.title.trim() ? current.blankPoints : settings.blankPoints,
+          shuffleQuestions: current.title.trim() ? current.shuffleQuestions : settings.shuffleQuestions,
         }));
       }
-    } catch (cause: any) { setSnapshot(EMPTY); setSnapshotUpdatedAt(null); setError(toERPUserMessage(cause, "Data ujian belum dapat dimuat. Silakan coba lagi.")); }
+      return true;
+    } catch (cause: any) { setSnapshot(EMPTY); setSnapshotUpdatedAt(null); setError(toERPUserMessage(cause, "Data ujian belum dapat dimuat. Silakan coba lagi.")); return false; }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  const updateSettingsDraft = (patch: Partial<CbtSettings>) => {
+    settingsDirtyRef.current = true;
+    setSettingsDirty(true);
+    setSettingsDraft((current) => ({ ...current, ...patch }));
+  };
+
+  const saveSettings = async (event: React.FormEvent) => {
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    try {
+      const result = await requestCbt("/api/cbt/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          expectedUpdatedAt: snapshot.settings.updatedAt,
+          settings: {
+            autoGrading: true,
+            shuffleQuestions: settingsDraft.shuffleQuestions,
+            correctPoints: settingsDraft.correctPoints,
+            wrongPoints: settingsDraft.wrongPoints,
+            blankPoints: settingsDraft.blankPoints,
+          },
+        }),
+      });
+      if (typeof result.updatedAt !== "string" || !Number.isFinite(Date.parse(result.updatedAt))) {
+        throw new Error("Pengaturan CBT belum dapat diverifikasi setelah disimpan.");
+      }
+      const savedSettings = { ...settingsDraft, autoGrading: true, sourceSystem: "supabase_runtime", updatedAt: result.updatedAt };
+      settingsDirtyRef.current = false;
+      setSettingsDirty(false);
+      setSettingsDraft(savedSettings);
+      setSnapshot((current) => ({ ...current, settings: savedSettings }));
+      setExam((current) => current.title.trim() ? current : {
+        ...current,
+        correctPoints: savedSettings.correctPoints,
+        wrongPoints: savedSettings.wrongPoints,
+        blankPoints: savedSettings.blankPoints,
+        shuffleQuestions: savedSettings.shuffleQuestions,
+      });
+      setNotice("Pengaturan ujian berhasil disimpan untuk tenant ini.");
+    } catch (cause: any) {
+      if (Number(cause?.status) === 409) {
+        settingsDirtyRef.current = false;
+        setSettingsDirty(false);
+        if (await refresh()) {
+          setNotice("Pengaturan CBT berubah sejak halaman dimuat. Versi terbaru sudah dimuat; tinjau kembali sebelum menyimpan.");
+          return;
+        }
+      }
+      setError(toERPUserMessage(cause, "Pengaturan ujian belum dapat disimpan. Silakan muat ulang lalu coba lagi."));
+    } finally { setSaving(false); }
+  };
 
   const visibleQuestions = useMemo(() => snapshot.questions.filter((question) =>
     [question.subject, question.grade, question.template, question.text, question.tags.join(" ")]
@@ -393,6 +454,22 @@ export function SupabaseCBTManager() {
     {tab === "packages" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Paket soal ujian</h2><p className="mt-1 text-sm text-slate-500">Paket dikelompokkan dari kategori CBT pesantren dan jumlah soal yang tersimpan.</p></div><button type="button" onClick={() => setTab("questions")} className={BUTTON}><BookOpen className="h-4 w-4" />Buka bank soal</button></header>
       {loading ? <div role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat paket soal…</div> : error ? <div role="status" className="p-8 text-sm text-slate-600 dark:text-slate-300">Paket soal belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : cbtPackages.length ? <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">{cbtPackages.map((item) => <article key={item.id} className="flex min-h-64 flex-col rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-sm text-slate-500">{item.description || "Belum ada keterangan paket."}</p></div><Boxes className="h-5 w-5 shrink-0 text-indigo-700" /></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Soal tersedia</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.activeQuestions}</p></div><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Jumlah tersimpan</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.totalQuestions}</p></div></div><div className="mt-4 space-y-2 text-xs"><div><span className="font-semibold text-slate-600 dark:text-slate-300">Mata pelajaran: </span><span className="text-slate-500">{item.subjects.length ? item.subjects.join(", ") : "Belum ada soal"}</span></div><div><span className="font-semibold text-slate-600 dark:text-slate-300">Jenjang: </span><span className="text-slate-500">{item.gradeLevels.length ? item.gradeLevels.join(", ") : "Belum ada soal"}</span></div></div><button type="button" onClick={() => { setSearch(item.name); setTab("questions"); }} disabled={!item.totalQuestions} className="mt-auto pt-5 text-left text-sm font-semibold text-indigo-700 hover:text-indigo-900 disabled:cursor-not-allowed disabled:text-slate-400 dark:text-indigo-300 dark:hover:text-indigo-200">{item.totalQuestions ? "Lihat soal dalam paket →" : "Belum ada soal dalam paket ini"}</button></article>)}</div> : <div className="p-10 text-center"><Boxes className="mx-auto h-8 w-8 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Belum ada paket soal</h3><p className="mx-auto mt-1 max-w-lg text-sm text-slate-500">Tambahkan kategori paket CBT dan referensi mata pelajaran melalui pengaturan modul, lalu susun soal untuk paket tersebut.</p></div>}
+    </section>}
+
+    {tab === "settings" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <header className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Pengaturan ujian tenant</h2><p className="mt-1 text-sm text-slate-500">Nilai ini menjadi pengaturan awal saat membuat sesi baru. Sesi yang sudah dibuat tidak berubah.</p>{snapshot.settings.updatedAt && <p className="mt-1 text-xs text-slate-500">Terakhir disimpan {formatTenantDateTime(snapshot.settings.updatedAt, tenantTimeZone)}</p>}</header>
+      {loading ? <div role="status" className="flex items-center gap-2 p-6 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat pengaturan…</div> : <form onSubmit={saveSettings} className="space-y-5 p-5">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="font-medium text-slate-800 dark:text-slate-100">Penilaian otomatis</p><p className="mt-1 text-sm text-slate-500">Soal pilihan ganda dinilai otomatis setelah peserta mengumpulkan ujian.</p><label className="mt-3 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200"><input type="checkbox" checked={true} disabled aria-label="Penilaian otomatis aktif" />Aktif</label></div>
+          <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm text-slate-700 dark:border-white/10 dark:text-slate-200"><input type="checkbox" className="mt-1" checked={settingsDraft.shuffleQuestions} onChange={(event) => updateSettingsDraft({ shuffleQuestions: event.target.checked })} /><span><span className="block font-medium">Acak urutan soal</span><span className="mt-1 block text-slate-500">Menjadi nilai awal untuk sesi ujian baru; dapat disesuaikan saat membuat sesi.</span></span></label>
+        </div>
+        <div><h3 className="mb-3 font-medium text-slate-800 dark:text-slate-100">Bobot penilaian awal</h3><div className="grid gap-3 sm:grid-cols-3">
+          <label className={LABEL}>Poin jawaban benar<input type="number" min="0" max="100" step="0.01" required className={FIELD} value={settingsDraft.correctPoints} onChange={(event) => updateSettingsDraft({ correctPoints: Number(event.target.value) })} /></label>
+          <label className={LABEL}>Poin jawaban salah<input type="number" min="-100" max="100" step="0.01" required className={FIELD} value={settingsDraft.wrongPoints} onChange={(event) => updateSettingsDraft({ wrongPoints: Number(event.target.value) })} /></label>
+          <label className={LABEL}>Poin tidak dijawab<input type="number" min="-100" max="100" step="0.01" required className={FIELD} value={settingsDraft.blankPoints} onChange={(event) => updateSettingsDraft({ blankPoints: Number(event.target.value) })} /></label>
+        </div><p className="mt-2 text-xs text-slate-500">Rentang poin: jawaban benar 0–100; jawaban salah dan kosong −100–100. Maksimal dua angka desimal.</p></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-white/10"><p className="text-sm text-slate-500">Perubahan hanya memengaruhi sesi ujian yang dibuat setelah pengaturan disimpan.</p><button type="submit" disabled={saving || !settingsDirty} className={BUTTON}><Check className="h-4 w-4" />{saving ? "Menyimpan…" : "Simpan pengaturan"}</button></div>
+      </form>}
     </section>}
 
     {tab === "monitor" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
