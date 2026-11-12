@@ -445,7 +445,7 @@ assert.deepEqual(vqeBaseline.validatedMigrationAliases, vqeTahfidzAliases);
 assert.equal(vqeBaseline.canContinueToStagingReview, false);
 assert.match(formatReport(vqeBaseline), /SQL cocok persis: 20261109145507 → 20270309000000/);
 assert.match(formatReport(vqeBaseline), /20270312000000_tahfidz_target_decimal_precision\.sql/);
-assert.match(formatReport(vqeBaseline), /20270314000000_cbt_tenant_settings_write_api\\.sql/);
+assert.match(formatReport(vqeBaseline), /20270314000000_cbt_tenant_settings_write_api\.sql/);
 
 // Regression fixture for the read-only PTSAS Production inventory captured on
 // 2026-11-12: 48 ledger rows, two missing older migrations, two existing rows
