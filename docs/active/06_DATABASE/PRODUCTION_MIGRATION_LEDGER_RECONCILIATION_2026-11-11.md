@@ -21,6 +21,18 @@ Pemeriksaan ini hanya membaca ledger migrasi Supabase dan daftar file SQL pada b
 
 Versi `20270309000000` adalah benturan nyata: PTSAS telah menandai versi tersebut sebagai `academic_report_card`, sedangkan source PR #91 memakai versi yang sama untuk `tahfidz_quran_surah_catalog`. Jangan mengandalkan `db push` untuk menerapkan isi migrasi Tahfidz yang memiliki versi sama; ledger dapat membuatnya tampak sudah diterapkan.
 
+## Snapshot keamanan dan performa Production — baca-saja, 12 November 2026
+
+Pemeriksaan katalog PostgreSQL dan Supabase Advisors dilakukan tanpa membaca baris data aplikasi dan tanpa mengubah Production.
+
+- Dari **124** tabel pada schema `public`, semuanya mengaktifkan RLS dan FORCE RLS. **119** tabel belum memiliki policy; **5** tabel memiliki policy SELECT untuk `authenticated`.
+- Pemeriksaan hak tabel mengonfirmasi `anon` tidak memiliki akses SELECT/INSERT. `authenticated` hanya memiliki SELECT pada `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`; tidak memiliki INSERT/UPDATE/DELETE. Kelima tabel tersebut memiliki policy SELECT. Karena itu, peringatan Advisor `RLS enabled no policy` pada tabel lain adalah kondisi fail-closed tanpa akses langsung yang ditemukan, bukan bukti kebocoran. Jalur backend yang memakai secret/service role tetap harus menerapkan otorisasi tenant sendiri.
+- Advisor keamanan menemukan satu fungsi trigger dengan `search_path` tidak dipatok (`erp4_ppdb_update_updated_at_column`) dan empat fungsi `SECURITY DEFINER` di schema `public` yang dapat dieksekusi role `authenticated` (`current_tenant_id`, `current_app_role`, `has_module_access`, `is_tenant_admin`). Definisi yang dibaca membatasi lookup melalui `auth.uid()` dan menetapkan search path untuk empat helper; source PR memiliki migrasi `20270209000000_harden_ppdb_trigger_search_path` dan `20270210000000_internalize_tenant_rls_helpers` untuk mengunci search path serta memindahkan helper dari schema API `public` ke `private`. Kedua migrasi belum tercatat di ledger Production, dan schema `private` harus dipastikan tidak diekspos Data API pada pengaturan proyek.
+- Advisor Auth memberi peringatan bahwa **Leaked Password Protection** belum aktif. Ini pengaturan Auth proyek, bukan migrasi SQL; tim perlu mengaktifkannya dan menguji alur pendaftaran/reset kata sandi di staging sebelum menerapkan konfigurasi yang sama pada Production.
+- Advisor performa melaporkan **190 foreign key tanpa covering index**, **39 index yang belum dipakai**, serta **2 policy RLS** yang memanggil konteks autentikasi per baris. Source memiliki migrasi `20270211000000_optimize_profile_rls_initplans`; index harus ditinjau per pola query/beban, bukan ditambah atau dihapus massal hanya berdasarkan Advisor.
+
+Hasil Advisor dapat diperiksa di [Supabase Advisors PTSAS](https://supabase.com/dashboard/project/ptsasgdvgrbdtgyqieie/advisors). Tinjauan ini tidak membuktikan bahwa semua endpoint server aman, tidak menguji permintaan API lintas tenant, dan tidak menggantikan UAT.
+
 ## Versi source yang belum tercatat pada PTSAS
 
 Daftar ini berasal dari perbandingan nomor versi file source dengan ledger Production. Nama/versi di tabel bukan instruksi untuk langsung menjalankan migrasi.
@@ -150,6 +162,7 @@ Migrasi `20270312000000_tahfidz_target_decimal_precision` belum muncul di ledger
 3. Telaah 96 migrasi source yang belum tercatat satu per satu dalam urutan dependensinya. Kelompokkan migrasi yang memang diperlukan, yang DDL-nya sudah ada, dan yang memerlukan migrasi forward/rebaseline.
 4. Rehearsal pada database staging/clone terisolasi yang berangkat dari schema dan ledger Production; jalankan verifikasi data dan rollback/restore sebelum ada penulisan ke PTSAS.
 5. Terapkan hanya rencana yang sudah ditinjau dan disetujui oleh pemilik Production; verifikasi ledger, DDL, RLS, Storage, dan alur aplikasi setelahnya.
+6. Tinjau hasil Security/Performance Advisors di atas: verifikasi schema Data API `private`, aktifkan Leaked Password Protection melalui pengaturan Auth, lalu prioritaskan index berdasarkan query serta data-volume yang nyata.
 
 ## Batas bukti
 
