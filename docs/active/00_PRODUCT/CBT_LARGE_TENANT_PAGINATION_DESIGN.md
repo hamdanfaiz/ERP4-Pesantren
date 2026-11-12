@@ -1,6 +1,6 @@
 # Rancangan CBT untuk Tenant Besar
 
-**Status:** stack CBT PR #97–#98 memisahkan agregat, ringkasan paket, dan bank soal. Branch lanjutan `codex/cbt-student-roster-pages-20261113` menambahkan roster santri berhalaman dan menghilangkan batas pemuatan 2.000 santri dari snapshot. CI untuk branch ini masih harus lulus; belum diterapkan ke staging atau Production.  
+**Status:** stack CBT PR #97–#98 memisahkan agregat, ringkasan paket, dan bank soal. Branch lanjutan `codex/cbt-student-roster-pages-20261113` menambahkan roster santri berhalaman dan menghilangkan batas pemuatan 2.000 santri dari snapshot. CI pada kode implementasi commit 7e9c1310 lulus; migrasi belum diterapkan ke staging atau Production.  
 **Dasar:** stack CBT PR #95–#98 dan branch lanjutan roster santri.
 
 ## Kondisi saat ini
@@ -22,8 +22,8 @@ PR #96 mengurangi kerja CPU saat menghitung jumlah penugasan dan hasil per ujian
 - Tab Bank Soal memakai pencarian/filter server-side dan tombol muat berikutnya. Builder ujian memuat soal aktif per mata pelajaran dan jenjang secara berhalaman serta menjaga pilihan saat halaman berikutnya dimuat. Perubahan filter tenant atau mata pelajaran membatalkan permintaan lama.
 - Ringkasan paket diperoleh dari fungsi Postgres agregat berdasarkan template referensi tenant, termasuk jumlah aktif/arsip, mata pelajaran, dan jenjang. Katalog paket kosong tetap disediakan oleh UI melalui referensi aktif.
 - Fungsi halaman dan agregat memakai `SECURITY INVOKER`, `search_path` eksplisit, tenant aktif, dan hak eksekusi hanya untuk `service_role`; route Admin tetap memeriksa autentikasi/role/permission. Search trigram dan indeks keyset mendukung query utama.
-- Tes pgTAP menelusuri lebih dari 2.000 record sintetis per halaman dan memeriksa urutan timestamp yang sama, pencarian, filter referensi tenant, agregat paket, dan privilege. Validasi CI perubahan ini belum selesai.
-- Migrasi roster belum diverifikasi sampai workflow CI lulus, dan belum diterapkan ke staging atau Production. Batas peserta 500 per sesi adalah kendala kapasitas yang masih harus ditangani terpisah.
+- Tes pgTAP menelusuri lebih dari 2.000 record sintetis per halaman dan memeriksa urutan timestamp yang sama, pencarian, filter referensi tenant, agregat paket, dan privilege. Workflow GitHub Actions pada commit 7e9c1310 lulus, termasuk lint, build, test API/tenant, migration preflight, dan pgTAP.
+- Migrasi roster lulus pada database Supabase lokal/CI, tetapi belum diterapkan ke staging atau Production dan belum dibandingkan dengan DDL Production aktual. Batas peserta 500 per sesi adalah kendala kapasitas yang masih harus ditangani terpisah.
 
 ## Target perilaku
 
