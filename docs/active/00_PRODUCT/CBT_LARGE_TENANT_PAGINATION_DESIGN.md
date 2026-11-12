@@ -5,9 +5,19 @@
 
 ## Kondisi saat ini
 
+Endpoint snapshot masih mempunyai batas 2.000 soal, 500 ujian, 5.000 penugasan, 5.000 percobaan, 2.000 santri, dan 500 kelas. Jika satu batas terlampaui, daftar detail tetap gagal ditampilkan. Perubahan baru memisahkan ringkasan dasbor dari snapshot; ia tidak menghapus batas ini.
+
 Endpoint Admin `GET /api/cbt/admin` membentuk satu snapshot dengan membaca soal, ujian, penugasan, percobaan, santri, dan kelas. Pembacaan memakai batas 2.000 soal, 500 ujian, 5.000 penugasan, 5.000 percobaan, 2.000 santri, dan 500 kelas. Jika satu batas terlampaui, seluruh snapshot ditolak. Penolakan ini mencegah statistik parsial terlihat benar.
 
 PR #96 mengurangi kerja CPU saat menghitung jumlah penugasan dan hasil per ujian dengan indeks satu lintasan. Perubahan itu tidak menghapus batas snapshot. Uji helper 10.000 baris menguji agregasi di memori, bukan query database dan bukan paginasi.
+
+## Bagian yang sudah dibuat pada branch
+
+- `GET /api/cbt/admin/summary` memeriksa autentikasi, profil Admin/permission melalui guard CBT yang ada, dan mengambil tenant dari profil server.
+- Fungsi Postgres `get_cbt_admin_dashboard_summary(uuid)` menghitung jumlah dan rasio secara tenant-scoped serta membatasi pratinjau menjadi lima jadwal dan lima hasil. Fungsi memakai `SECURITY INVOKER`; `EXECUTE` dicabut dari `PUBLIC`, `anon`, dan `authenticated`, lalu diberikan hanya kepada `service_role`.
+- Indeks ringkasan mendukung pengelompokan penugasan per ujian dan pratinjau percobaan terakhir. Tes pgTAP meliputi angka, tenant lain, tenant tidak valid, hak eksekusi fungsi, dan indeks.
+- UI meminta snapshot detail dan ringkasan secara terpisah. Jika snapshot detail gagal tetapi fungsi ringkasan tersedia, angka dasbor tetap dapat ditampilkan; layar daftar tetap memberi tahu bahwa data detail belum berhasil dimuat.
+- Ini belum diverifikasi sampai workflow CI lulus, dan belum diterapkan ke staging atau Production.
 
 ## Target perilaku
 
@@ -15,7 +25,7 @@ Dashboard Admin harus menampilkan agregat tenant yang akurat tanpa memuat seluru
 
 ### Ringkasan server
 
-Sediakan endpoint terautentikasi `GET /api/cbt/admin/summary` yang mengembalikan setidaknya:
+Endpoint `GET /api/cbt/admin/summary` di branch mengembalikan agregat server berikut:
 
 - jumlah soal aktif dan total sesi ujian;
 - sesi yang berlangsung dan sesi mendatang;
@@ -24,7 +34,7 @@ Sediakan endpoint terautentikasi `GET /api/cbt/admin/summary` yang mengembalikan
 - jumlah penugasan per status untuk pemantauan;
 - lima jadwal terdekat dan lima hasil terakhir untuk pratinjau.
 
-Agregat dihitung langsung di Postgres dengan kolom yang diperlukan. Waktu yang digunakan mengikuti zona waktu tenant dan batas sesi yang berlaku. Respons memuat waktu pembuatan ringkasan sehingga UI dapat menyebut kapan data diperbarui.
+Agregat dihitung langsung di Postgres dengan kolom yang diperlukan. Waktu sesi dibandingkan sebagai timestamp absolut; UI tetap menampilkan jadwal dalam zona waktu tenant. Respons memuat waktu pembuatan ringkasan.
 
 ### Daftar berhalaman
 
