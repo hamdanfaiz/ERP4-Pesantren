@@ -161,7 +161,7 @@ BEGIN
     GET DIAGNOSTICS v_inserted = ROW_COUNT;
     SELECT created_at,id INTO v_cursor_created_at,v_cursor_id
     FROM cbt_question_page_buffer
-    ORDER BY created_at ASC,id DESC
+    ORDER BY created_at DESC,id ASC
     LIMIT 1 OFFSET 99;
     EXIT WHEN v_buffer_count <= 100 OR v_inserted = 0;
   END LOOP;
