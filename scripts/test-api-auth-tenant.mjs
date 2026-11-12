@@ -2988,7 +2988,7 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     assert.ok(assignedCbtPage.items.every((item) => item.examTitle === cbtExamPayload.exam.title),
       "Server-side activity search is applied before pagination.");
 
-    const tenantBStudentToken
+    const tenantBStudentToken = await signIn(anon, users[2]);
     const tenantBStudentSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/student`, {
       headers: { Authorization: `Bearer ${tenantBStudentToken}` },
     });
