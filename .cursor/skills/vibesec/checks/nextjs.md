@@ -1,0 +1,177 @@
+# Next.js checks
+
+Run every check below. For each, report findings under the right severity. Cite file + line.
+
+---
+
+## CRITICAL
+
+### N-C1. API/route handlers without auth
+**Look for:** Files matching `app/api/**/route.{ts,js}` or `pages/api/**/*.{ts,js}` that handle non-GET methods (POST/PUT/DELETE/PATCH) and contain admin-ish names (`admin`, `delete`, `users`, `payments`, `webhook`, `internal`).
+**Verify:** Open the file. Does it check auth before doing work? Common auth patterns to recognize:
+- `await auth()` / `getServerSession()` / `await createClient().auth.getUser()`
+- Middleware-applied auth (check `middleware.ts` to confirm the path is matched)
+- API key / bearer token check at the top of the handler
+
+**Flag if:** Handler mutates data with no auth check visible in the file or middleware.
+**Why this is bad:** Anyone on the internet can call the endpoint. The classic "I vibe-coded an admin panel and someone deleted my data" story starts here.
+**Fix template:**
+```ts
+const { data: { user } } = await supabase.auth.getUser()
+if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+// + role check if this is an admin endpoint
+```
+
+### N-C2. `NEXT_PUBLIC_` prefix on a secret
+**Look for:** `grep -rn "NEXT_PUBLIC_" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.env*"` then filter for names that suggest secrets: `*_SECRET`, `*_KEY`, `*_TOKEN`, `SERVICE_ROLE`, `STRIPE_SECRET`, `*_PRIVATE`.
+**Why this is bad:** Anything `NEXT_PUBLIC_*` is inlined into the client bundle. The "secret" is on every visitor's machine.
+**Fix:** Drop the `NEXT_PUBLIC_` prefix and only read the var from server code (Route Handlers, Server Components, Server Actions, `middleware.ts`).
+
+### N-C3. Service-role / admin client imported from client component
+**Look for:** Files that import a Supabase admin / service-role client AND contain `"use client"` at the top, OR are imported (transitively) by a `"use client"` file.
+**Why this is bad:** The admin key ends up in the client bundle. Game over - attacker has full DB.
+**Fix:** Move admin-key code to a Route Handler or Server Action. The client should call that route, never hold the key.
+
+### N-C4. Next.js version vulnerable to middleware bypass (CVE-2025-29927)
+**Look for:** The `next` version in `package.json` (prefer the resolved version in the lockfile if present). Vulnerable: `< 12.3.5`, `< 13.5.9`, `< 14.2.25`, `< 15.2.3` on the respective major.
+**Verify:** Does `middleware.ts` / `middleware.js` exist and do anything security-relevant (auth check, redirect to login, header gating)?
+**Flag if:** Version is vulnerable AND middleware performs auth → CRITICAL. Vulnerable but middleware does nothing security-relevant (or no middleware) → report as HIGH with "upgrade anyway".
+**Why this is bad:** A single request header (`x-middleware-subrequest`) makes Next.js skip middleware entirely — every middleware-based auth check is bypassed with one curl flag. Vercel and Netlify strip the header at the edge; self-hosted / Docker deployments are fully exposed.
+**Fix:** Upgrade `next` to `>= 15.2.3` / `14.2.25` / `13.5.9` / `12.3.5`. If you can't upgrade right now, strip or block external requests carrying `x-middleware-subrequest` at your proxy — and remember middleware should be defense-in-depth, not the only auth layer (see N-H2).
+
+---
+
+## HIGH
+
+### N-H1. Server Action without auth check
+**Look for:** Files containing `"use server"` (top of file) or inline `async function ... { "use server" ... }`. For each exported async function, check whether it validates auth/ownership before doing work.
+**Why this is bad:** Server Actions are callable from any client - the form binding is a convenience, not a security boundary. An attacker can call `myAction({...})` from DevTools.
+**Fix:** Re-check auth + ownership inside every Server Action. Don't trust hidden form fields.
+
+### N-H2. Middleware not protecting the routes you think it does
+**Look for:** `middleware.ts` (or `middleware.js`) at project root. Read its `config.matcher`. Compare against `app/api/**` and `app/(admin)/**` routes.
+**Flag if:** Admin/API routes exist that are not covered by the matcher AND don't have inline auth.
+**Why this is bad:** A regex typo in matcher leaves whole route trees unprotected.
+
+### N-H3. Debug / test routes left in
+**Look for:** Route files named `debug`, `test`, `dev`, `seed`, `_dev`, `__test`, or commented-out auth checks (`// TODO: add auth`, `// FIXME: auth`).
+**Why this is bad:** Forgotten debug endpoints are a top source of breaches.
+**Fix:** Delete them, or gate behind `process.env.NODE_ENV !== 'production'` AND a strong token.
+
+### N-H4. CORS wide-open on non-public endpoints
+**Look for:** `Access-Control-Allow-Origin: *` set on routes that accept credentials or do mutations. Grep `Access-Control-Allow-Origin` and `cors(` (popular package).
+**Why this is bad:** Any site can call your API on behalf of a logged-in user.
+
+### N-H5. Authenticated but no role check on admin routes (broken access control)
+**Look for:** Routes under admin-ish paths (`app/api/admin/**`, `pages/api/admin/**`, anything matching `admin|internal|staff|moderator|backoffice` in the path or filename). For each, read the handler.
+**Verify:** The handler must do BOTH:
+1. Confirm a user is logged in (`auth()`, `getUser()`, session check, etc.)
+2. Check that the user has admin/elevated role (`role === 'admin'`, `is_admin`, `app_metadata.role`, RBAC helper like `requireAdmin()`, membership check against an admin table)
+
+**Flag if:** Step 1 exists but step 2 is missing — any logged-in user can hit the route.
+**Why this is bad:** This is vertical privilege escalation. The route says "admin", but the only gate is "are you signed up?". Anyone who creates a free account becomes admin. OWASP A01 - the #1 web vuln category.
+**Don't confuse with:**
+- N-C1 (no auth at all) — that's CRITICAL
+- S-H1 (role check uses `user_metadata`) — that's a broken role check; this one is a *missing* role check
+**Fix template:**
+```ts
+const { data: { user } } = await supabase.auth.getUser()
+if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+// Read role from a trusted source (app_metadata or a server-side table) — never user_metadata
+const { data: profile } = await supabase
+  .from('profiles').select('role').eq('id', user.id).single()
+if (profile?.role !== 'admin') {
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+}
+```
+
+### N-H6. Object-level authorization missing (IDOR / horizontal privesc)
+**Look for:** Route handlers (`app/api/**/route.{ts,js}`, `pages/api/**`) that take a resource ID from the request — `params.id`, `params.userId`, `searchParams.get('id')`, `body.orderId`, `body.user_id`, etc. — and use it directly in a DB query or mutation.
+**Verify:** At least one of the following is true:
+1. The query is scoped to the session user: `.eq('user_id', user.id)` / `.match({ owner: user.id })` / WHERE clause referencing the authenticated user
+2. There's an explicit ownership check before the operation (`if (resource.owner_id !== user.id) return 403`)
+3. The table has RLS enabled with a policy that enforces ownership (cross-check with `checks/supabase.md` if Supabase is in use)
+
+**Flag if:** None of the above — the handler trusts the ID from the request body/URL as-is.
+**Why this is bad:** Horizontal privilege escalation. User A passes user B's ID and reads/edits/deletes user B's data. OWASP calls this BOLA/IDOR — extremely common in vibe-coded REST APIs (AI writes `supabase.from('orders').select().eq('id', params.id)` and ships).
+**Fix template:**
+```ts
+// BAD — trusts the ID from the URL
+const { data } = await supabase.from('orders').select().eq('id', params.id).single()
+
+// GOOD — scopes to the session user
+const { data: { user } } = await supabase.auth.getUser()
+if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+const { data } = await supabase
+  .from('orders').select()
+  .eq('id', params.id)
+  .eq('user_id', user.id)  // ← this is the fix
+  .single()
+if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+```
+Or: leave the query un-scoped but rely on RLS to enforce ownership (only safe if RLS policies are correct — see `checks/supabase.md`).
+
+### N-H7. Webhook endpoint without signature verification
+**Look for:** Route files with `webhook` in the path or filename: `app/api/**/*webhook*/route.{ts,js}`, `pages/api/**/*webhook*`. Read each handler.
+**Verify:** The handler proves the payload really came from the provider before acting on it:
+- Stripe: `stripe.webhooks.constructEvent(rawBody, signature, secret)`
+- Clerk / Svix: `new Webhook(secret).verify(payload, headers)`
+- GitHub: HMAC-SHA256 compare of `x-hub-signature-256`
+- Generic: constant-time comparison (`crypto.timingSafeEqual`) against a shared secret header
+
+**Flag if:** The handler parses the body and mutates data with no verification — or verification is **conditional**, e.g. `if (process.env.WEBHOOK_SECRET) { verify() }`. Conditional verification passes local testing and silently disables itself in prod when the env var is missing.
+**Why this is bad:** Anyone can POST a forged event — "payment succeeded", "subscription upgraded", "user created" — and your app acts on it. This is free money / free access for the attacker.
+**Fix template:**
+```ts
+const secret = process.env.STRIPE_WEBHOOK_SECRET
+if (!secret) {
+  // Fail closed — never fall through to "trust the payload"
+  return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
+}
+let event: Stripe.Event
+try {
+  event = stripe.webhooks.constructEvent(await req.text(), sig, secret)
+} catch {
+  return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+}
+```
+
+---
+
+## MEDIUM
+
+### N-M1. Missing security headers
+**Look for:** `next.config.{js,mjs,ts}` - check for a `headers()` function setting CSP, X-Frame-Options, Referrer-Policy, Permissions-Policy, Strict-Transport-Security.
+**Why this is bad:** Defense-in-depth. CSP in particular blocks a huge class of XSS.
+
+### N-M2. Source maps shipped to production
+**Look for:** `next.config.*` setting `productionBrowserSourceMaps: true`, or `.map` files in `public/`.
+**Why this is bad:** Hands attackers your source. Not a vuln by itself but multiplies the impact of every other issue.
+
+### N-M3. Error pages leak stack traces
+**Look for:** Custom `error.tsx` / `global-error.tsx` that render `error.message` or `error.stack` directly.
+**Why this is bad:** Stack traces reveal file paths, dependency versions, and sometimes secrets.
+
+### N-M4. Hardcoded `dangerouslySetInnerHTML` from user input
+**Look for:** `dangerouslySetInnerHTML` usage. For each, trace the source - is the HTML user-controlled?
+**Why this is bad:** Direct XSS if user-controlled.
+
+### N-M5. Open redirect from query params
+**Look for:** `redirect(` / `NextResponse.redirect(` / `router.push(` whose argument comes from the request: `searchParams.get('next')`, `?returnTo=`, `?callbackUrl=`, `?redirect=`, or a body field.
+**Verify:** The value is validated before redirecting — allowlist of paths, or forced relative (`startsWith('/')` AND NOT `startsWith('//')`).
+**Why this is bad:** `https://yourapp.com/login?next=https://evil.com` — a phishing link that routes through your trusted domain and lands users on an attacker page, typically to re-harvest credentials. AI loves writing `redirect(searchParams.get('next') ?? '/')` in login flows.
+**Fix:**
+```ts
+const next = searchParams.get('next') ?? '/'
+const safe = next.startsWith('/') && !next.startsWith('//') ? next : '/'
+redirect(safe)
+```
+
+---
+
+## LOW
+
+### N-L1. `revalidate: 0` everywhere (perf, but worth flagging)
+### N-L2. `robots.txt` missing for staging
+### N-L3. `next dev` running in prod (check start script in `package.json`)

@@ -184,6 +184,9 @@ import {
   getSupabaseAcademicPortalPage,
   getSupabaseAcademicPortalStudent,
   getSupabaseAcademicSnapshot,
+  applySupabaseAcademicReportAction,
+  getPublishedAcademicReportCards,
+  getSupabaseAcademicReportWorkspace,
   getSupabaseUnmappedAcademicClasses,
   saveSupabaseAcademicRecord,
   SupabaseAcademicError,
@@ -1195,7 +1198,8 @@ async function startServer() {
         students = [await getSupabaseAcademicPortalStudent(actor.tenantId, studentId)];
       }
       const page = await getSupabaseAcademicPortalPage(actor.tenantId, studentId, req.query.cursor);
-      return res.json({ ...page, students, selectedStudentId: studentId });
+      const reportCards = await getPublishedAcademicReportCards(actor.tenantId, studentId);
+      return res.json({ ...page, students, selectedStudentId: studentId, reportCards });
     } catch (error) { return academicRouteError(res, error); }
   });
 
@@ -1310,6 +1314,29 @@ async function startServer() {
       const actor = await loadAcademicActor(uid);
       if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Pemetaan kelas hanya tersedia untuk Admin tenant." });
       const result = await assignSupabaseAcademicClassUnit(actor.tenantId, actor.uid, actor.role, req.body);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.get("/api/academic/report-cards", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicActor(uid);
+      return res.json(await getSupabaseAcademicReportWorkspace(actor.tenantId, actor.uid, actor.role));
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.post("/api/academic/report-cards", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicActor(uid);
+      const result = await applySupabaseAcademicReportAction(actor.tenantId, actor.uid, actor.role, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return academicRouteError(res, error); }
   });

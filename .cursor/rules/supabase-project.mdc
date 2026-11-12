@@ -12,3 +12,4 @@ alwaysApply: true
 - `SUPABASE_SECRET_KEY` hanya untuk server atau agent. Jangan menyalinnya ke file yang di-commit, ke aturan, ke kode browser, atau ke variabel `VITE_`.
 - Sebelum memakai konektor Supabase, pastikan URL project-nya sama dengan URL di atas. Jika tertaut ke project lain, jangan query project itu untuk ERP ini; pakai kredensial di `.env`.
 - Jangan mengubah skema, data, tampilan, proses, atau aturan aplikasi kecuali diminta secara eksplisit.
+- Database yang dipakai hanya Production PTSAS `ptsasgdvgrbdtgyqieie`. Jangan menyambung, query, migrasi, atau menyalin data ke staging VQE `vqemuyzveuirlkvdggjd`. Abaikan kunci `STAGING_` dan instruksi lama yang menyuruh memakai staging.

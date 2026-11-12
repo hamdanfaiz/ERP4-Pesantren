@@ -1,12 +1,20 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-> **Status otoritatif — 8 November 2026, setelah PR #86.** Source utama `main` berada pada merge commit `c219bbb467e1d2db3385abcaa7b8b1ee14ef0ad9`. PR #86 memperbaiki konflik versi simpan Pengaturan Tenant dan sudah merged. PR #1–#11 tetap closed tanpa merge karena implementasi intinya digantikan source yang lebih baru.
+> **Status otoritatif — 11 November 2026.** Source `main` berada pada `fd937f4876aa1069500694b9bc20ec70eef8ee14` (merge PR #90), 140 file migrasi. CI pada SHA itu lulus 3/3 job di [run #42482785770](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42482785770). PR #91 masih draft dan belum masuk `main`.
+>
+> Preflight baca-saja PTSAS Production `ptsasgdvgrbdtgyqieie` pada tanggal yang sama: PostgreSQL 17.11, ledger 47 versi sampai `20261206000000`, 45 versi cocok nama dan SQL-nya dengan source, 2 versi tanpa payload, 93 versi source belum tercatat, 119/119 tabel `public` ber-RLS dan FORCE RLS. Transaksi `READ ONLY` ditutup `ROLLBACK`. Tidak ada perubahan Production. Daftar selisih bukan rencana migrasi. Lihat [rekonsiliasi 11 November](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-11.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
+>
+> Ledger VQE 140/140 terakhir dibuktikan 8 November di [panduan UAT](../05_ARCHITECTURE/FRONTEND_UAT_HANDOFF.md). Sesi 11 November tidak membaca ulang VQE. UAT browser lintas role, backup/restore Production, dan instalasi host target belum lulus.
+>
+> Produk **belum dinyatakan siap deploy atau komersial**. Persentase terukur: **CI 3/3 job pada run #42482785770**. Angka ini bukan persentase penyelesaian seluruh ERP.
+
+> **Arsip status — 8 November 2026, setelah PR #86.** Source utama `main` berada pada merge commit `c219bbb467e1d2db3385abcaa7b8b1ee14ef0ad9`. PR #86 memperbaiki konflik versi simpan Pengaturan Tenant dan sudah merged. PR #1–#11 tetap closed tanpa merge karena implementasi intinya digantikan source yang lebih baru.
 >
 > CI pada kandidat PR #86 (`c34fed60a41c0e13e37e03281b650abffcd58fc7`) lulus 3/3 job: build/runtime Docker dan guard frontend, migrasi/API/pgTAP, serta instalasi NPM pelanggan. [Hasil CI](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42459060708). Supabase Preview dilewati. Job memakai Supabase lokal terisolasi dan fixture sintetis; ini bukan UAT browser penuh atau bukti Production.
 >
 > Pemeriksaan baca-saja staging VQE `vqemuyzveuirlkvdggjd` menunjukkan proyek aktif sehat, 139 migrasi sampai `20270307000000_tenant_settings_conflict_http_409`, dan definisi `save_tenant_system_settings` menggunakan `PT409`. Ini membuktikan keberadaan migrasi/fungsi tersebut pada VQE; bukan bukti seluruh DDL, modul UI, atau CRUD setiap role sudah lulus UAT.
 >
-> Akses baca Production PTSAS melalui konektor sesi ini ditolak. Snapshot operator terdahulu menyebut 47 entri ledger dan 119 tabel public dengan RLS + FORCE RLS, tetapi belum dicocokkan ulang terhadap source terkini. Tidak ada perubahan Production. DDL aktual, urutan migrasi, backup/restore Production, dan UAT hosting tetap perlu dibuktikan tim backend.
+> Akses baca Production PTSAS melalui konektor sesi itu ditolak. Snapshot operator terdahulu menyebut 47 entri ledger dan 119 tabel public dengan RLS + FORCE RLS. Angka ledger dan RLS itu kemudian diverifikasi ulang pada 11 November; lihat status otoritatif di atas.
 >
 > Produk **belum dinyatakan siap deploy atau komersial**. Login browser, matriks role/tenant menyeluruh, simpan-baca seluruh modul lewat UI, Storage di hosting target, tampilan responsif, dan clean install/restore di VPS/on-premise belum lulus UAT. Gunakan [checkpoint pengujian terkini](CHECKPOINT_2026-11-08_CI_AND_STAGING.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
 >
@@ -44,7 +52,7 @@
 >
 
 **Status:** dokumen penerimaan internal. Dokumen ini tidak menyatakan produk siap dijual atau siap produksi.
-**Diperbarui:** 8 November 2026
+**Diperbarui:** 11 November 2026
 **Jalur rilis utama:** PR #13, self-hosted, satu instalasi per pesantren.
 
 ## Kontrak produk
@@ -61,11 +69,11 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 
 ## Status teknis berdasarkan bukti
 
-- Runtime utama menggunakan Supabase; guard CI memastikan Firebase tidak masuk ke graph frontend aktif. Pada kandidat PR #86, build/runtime Docker, instalasi NPM, migrasi/API/pgTAP lulus di [CI #42459060708](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42459060708). PR itu kemudian di-squash merge menjadi `c219bbb`; belum ada run terpisah pasca-merge yang ditemukan.
+- Runtime utama menggunakan Supabase; guard CI memastikan Firebase tidak masuk ke graph frontend aktif. Pada `main` `fd937f4`, build/runtime, instalasi NPM, dan migrasi/API/pgTAP lulus di [CI #42482785770](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42482785770).
 - CI menguji round-trip API sintetis untuk Akademik, CBT, LMS, HRIS, Koperasi, CRM, komunikasi, Laundry, Donasi/Wakaf, Dokumen, Kesehatan, Tahfidz, Perpustakaan, fasilitas, dan Urusan Umum; juga NIS/asrama bersamaan, PPDB, Finance/Storage, serta backup/restore lokal satu record sintetis. Guard memastikan seluruh 55 skrip test package dijadwalkan. Ini cakupan otomatis terpilih, bukan UAT semua form, alur, dan tombol di browser.
 - PR #1–#11 ditutup tanpa merge karena implementasi utamanya digantikan source yang lebih baru. Tidak ada alasan untuk menggabungkan branch lama langsung ke `main`; lihat [audit paritas](../05_ARCHITECTURE/PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
-- Source `main` berisi 139 berkas migrasi; VQE staging saat ini mencatat 139 versi sampai `20270307000000`. Pembacaan `pg_get_functiondef` mengonfirmasi fungsi pengaturan mengeluarkan `PT409` untuk versi basi. Ledger dan satu fungsi ini tidak membuktikan kesesuaian semua definisi DDL.
-- Akses konektor Production saat ini ditolak. Snapshot operator terdahulu menyebut 47 ledger entries dan 119 tabel public ber-RLS + FORCE RLS, tetapi DDL terkini dan urutan migrasi belum direkonsiliasi dengan 139 berkas source. Tidak ada perubahan Production; rekonsiliasi dan backup/restore tetap pekerjaan tim backend.
+- Source `main` berisi 140 berkas migrasi. Bukti VQE 140/140 terakhir adalah 8 November dan belum diulang pada 11 November. Di Production, `save_tenant_system_settings` yang terpasang tidak memuat `PT409`.
+- Preflight baca-saja Production 11 November mengonfirmasi 47 ledger, 45 kecocokan nama/SQL, 2 payload kosong, 93 versi source belum tercatat, dan 119/119 tabel public ber-RLS + FORCE RLS. Tidak ada perubahan Production. Backup/restore dan rehearsal tetap pekerjaan tim backend. Lihat [rekonsiliasi 11 November](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-11.md).
 - CI menggunakan Supabase lokal dan data sintetis. Login Admin/Wali di browser, semua CRUD/relasi UI, deployment clean-install ke VPS/on-premise, serta UAT hosting belum terbukti. Backup/restore lokal CI bukan backup/restore Production.
 - Batas rilis awal tetap: PPOB/payment gateway tidak termasuk; Peer Review Tahfidz hanya teks dan dimoderasi Ustadz. Aplikasi berjalan sebagai container yang memakai Supabase eksternal; paket tidak membundel seluruh layanan Supabase. Harga, SLA, dukungan, dan ketentuan lisensi juga belum ditetapkan.
 ## Gerbang rilis komersial
@@ -73,7 +81,7 @@ Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yan
 ### 1. Skema, relasi, dan transaksi
 
 - Tim backend dapat menjalankan `npm run preflight:db-migrations` dari root source `main` untuk membandingkan versi, nama, dan statement migration dengan koneksi PostgreSQL read-only. Pastikan hostname menunjuk ke project target; jangan membagikan URL atau secret. Jika ada `HENTIKAN` atau mismatch, selesaikan rekonsiliasi sebelum rehearsal.
-- Untuk Production, rekonsiliasi ledger dan schema PTSAS secara terpisah. Snapshot sebelumnya menunjukkan 47 versi ledger dan dua entri tanpa metadata, sedangkan source saat ini memiliki 138 migration. Selisih hitungan bukan instruksi untuk menerapkan migration atau mengubah ledger. Jangan tandai versi sebagai applied tanpa bukti schema.
+- Untuk Production, rekonsiliasi ledger dan schema PTSAS secara terpisah. Preflight 11 November menunjukkan 47 versi ledger dan dua entri tanpa metadata, sedangkan source `fd937f4` memiliki 140 migration. Selisih hitungan bukan instruksi untuk menerapkan migration atau mengubah ledger. Jangan tandai versi sebagai applied tanpa bukti schema.
 - Sebelum penerapan, simpan backup yang dapat dipulihkan dan rehearsalkan seluruh urutan migration pada salinan/environment staging.
 - Verifikasi signature dan definisi function, constraint, index, RLS, Storage policy, dan Data API grant terhadap source commit yang akan dirilis.
 - Uji transaksi kritis: NIS unik bersamaan, onboarding PPDB-ke-santri, assignment kamar, pembayaran/jurnal, stok/dompet koperasi, buku dan peminjaman, sesi/setoran Tahfidz, serta idempotensi retry.
