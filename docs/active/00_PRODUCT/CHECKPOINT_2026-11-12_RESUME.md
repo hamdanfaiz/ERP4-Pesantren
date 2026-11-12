@@ -11,9 +11,9 @@ Perubahan aplikasi tersedia untuk review di PR GitHub. Tidak ada migrasi, pembar
 | [#93](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/93) | Kalender CBT tenant | PR #91 | #1500, 3/3 lulus |
 | [#94](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/94) | Dasbor CBT dan ringkasan paket soal | PR #93 | #1502, 3/3 lulus |
 | [#95](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/95) | Pemantauan sesi CBT | PR #94 | #1504, 3/3 lulus |
-| [#96](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/96) | Pengaturan CBT tenant; migrasi #13 dikeluarkan karena menjadi milik #92 | PR #95 | #1516, 3/3 lulus pada head cleanup |
+| [#96](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/96) | Pengaturan CBT tenant; koreksi hitungan jadwal dan guard konfigurasi Docker | PR #95 | #43260057572, 3/3 lulus pada source head `b1d5054` |
 
-Semua PR di atas masih **Open dan belum merged**. Run PR #96 #1511 lulus pada head kode `1fab3914659d18a1033b032624a5899e5ee1c834`; perubahan setelahnya hanya memperbarui dokumentasi handoff.
+Semua PR di atas masih **Open dan belum merged**; belum ada review tim backend yang tercatat. PR #96 source head `b1d5054eba2e8e1d8c647a41c5f433acd07b499c` lulus Actions #43260057572, 3/3 job. Perubahan dokumentasi setelah source head tersebut tidak mengubah kode.
 
 ## Risiko merge yang sudah terdeteksi
 

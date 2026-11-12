@@ -6,7 +6,7 @@
 ## Status otoritatif — 12 November 2026
 
 - PR [#91](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/91) adalah basis source utama dan masih **Open, Ready for review**. PR [#92](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/92) menambahkan indeks FK; PR [#93](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/93) kalender CBT, [#94](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/94) ringkasan CBT/paket soal, [#95](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/95) pemantauan sesi, dan [#96](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/96) pengaturan CBT tenant. Semua masih **Open, belum merged dan belum dideploy**.
-- CI PR #92 lulus 3/3 job pada Actions #1497; PR #93–#95 lulus 3/3 pada #1500/#1502/#1504; PR #96 lulus 3/3 pada #1516 setelah cleanup migrasi #13. PR #91 lulus 3/3 pada #1493. Head dokumentasi PR #96 juga lulus 3/3 pada Actions #1517 dan #1518. Supabase Preview dilewati karena branch preview tidak diaktifkan.
+- CI sebelumnya PR #91–#96 lulus sesuai run yang tercatat. Source head PR #96 `b1d5054eba2e8e1d8c647a41c5f433acd07b499c` lulus 3/3 job pada Actions #43260057572: replay migrasi dan tes database/API/Storage/backup-restore lokal, build frontend dan image Docker, serta instalasi paket. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Preview.
 - Migration `20270313000000_add_core_composite_fk_indexes.sql` dan test indeks ditetapkan menjadi milik PR #92 saja. Cleanup branch PR #96 menghapus duplikat dan menjadikan PR #96 pemilik migration #14 untuk pengaturan CBT. Periksa head final PR #96 serta CI terbaru sebelum merge.
 - UAT API Tahfidz VQE lulus untuk katalog Qur’an, halaqah/anggota, simpan dan retry setoran, leaderboard, validasi, penolakan akses, dan isolasi tenant. UAT API terbatas Dokumen Digital, PPDB/Keuangan, serta Storage Perpustakaan juga terdokumentasi.
 - Belum terbukti UAT browser menyeluruh untuk semua menu, tombol, role, relasi, unggah, ponsel, maupun install/upgrade/restore VPS/on-premise.
@@ -28,7 +28,7 @@ PPOB, layanan ekosistem, dan integrasi payment gateway dikecualikan dari rilis a
 
 | Area | Bukti saat ini | Status |
 |---|---|---|
-| Source, build, dan paket | CI #1516 lulus 3/3 pada head cleanup kode PR #96; CI #1517 lulus 3/3 pada head dokumentasi | Tersedia untuk review backend; PR belum merged |
+| Source, build, dan paket | CI #43260057572 lulus 3/3 pada source head PR #96 `b1d5054`; termasuk build Docker dan guard `.env.example` | Tersedia untuk review backend; PR belum merged |
 | Tahfidz API | UAT VQE: setoran, katalog, leaderboard, retry, role/tenant | Lulus untuk cakupan yang dilaporkan |
 | Modul API lain | UAT terbatas Dokumen Digital, PPDB/Keuangan, dan Storage Perpustakaan | Bukan UAT seluruh modul |
 | Tampilan dan seluruh alur UI | Belum ada bukti menyeluruh semua tab, form, tombol, peran, ponsel, dan unggah Storage | Terbuka |
@@ -41,7 +41,7 @@ PPOB, layanan ekosistem, dan integrasi payment gateway dikecualikan dari rilis a
 
 Implementasi PR #94 saat ini membatasi snapshot Admin: 2.000 soal, 500 ujian, 5.000 penugasan, 5.000 percobaan, 2.000 santri, dan 500 kelas. Pembacaan menolak hasil yang melampaui batas agar ringkasan tidak dihitung diam-diam dari data terpotong. Ini perilaku aman, tetapi tenant yang melampaui salah satu batas akan kehilangan tampilan snapshot CBT sampai sumber datanya dipaginasi atau diringkas di server.
 
-Sebelum menargetkan pesantren besar, sediakan endpoint tenant-scoped untuk agregat dashboard (jumlah, penyelesaian, nilai/rata-rata, kelulusan, sesi aktif dan mendatang) serta daftar berhalaman untuk data yang benar-benar perlu ditampilkan. Batasi agregat pada kolom yang dibutuhkan, gunakan indeks dan rentang waktu untuk aktivitas historis, pertahankan pemeriksaan actor/role/permission, dan jangan pernah mengirim kunci jawaban ke endpoint peserta. Terima hanya setelah hasil pada dataset sintetis yang melampaui batas snapshot lama tetap akurat, isolasi tenant dan paginasi stabil, serta beban query ditinjau.
+PR #96 memperbaiki hitungan ujian mendatang agar mencakup seluruh snapshot yang valid, sementara pratinjau tetap lima item; uji helper terbaru lulus 16 assertion. Perbaikan ini tidak menghapus batas snapshot di atas. Sebelum menargetkan pesantren besar, sediakan endpoint tenant-scoped untuk agregat dashboard (jumlah, penyelesaian, nilai/rata-rata, kelulusan, sesi aktif dan mendatang) serta daftar berhalaman untuk data yang benar-benar perlu ditampilkan. Batasi agregat pada kolom yang dibutuhkan, gunakan indeks dan rentang waktu untuk aktivitas historis, pertahankan pemeriksaan actor/role/permission, dan jangan pernah mengirim kunci jawaban ke endpoint peserta. Terima hanya setelah hasil pada dataset sintetis yang melampaui batas snapshot lama tetap akurat, isolasi tenant dan paginasi stabil, serta beban query ditinjau.
 
 ### Rekonsiliasi migrasi
 
@@ -74,7 +74,7 @@ Pemeriksaan organisasi menunjukkan PTSAS dan VQE masih memakai paket Free. Menur
 
 ## Keputusan saat ini
 
-PR #91–#96 tersedia untuk review backend; belum ada yang merged. PR #96 telah dibersihkan agar migration #13 hanya dimiliki PR #92. CI #1516 untuk head cleanup kode dan #1517 untuk pembaruan dokumentasi sama-sama lulus 3/3; PR tetap menunggu review backend. Belum tepat menyebut sistem siap deploy/komersial penuh karena rekonsiliasi Production, backup/restore, UAT lintas modul, dan simulasi lingkungan pelanggan belum dibuktikan. **Tidak ada perubahan skema atau data Production.**
+PR #91–#96 tersedia untuk review backend; belum ada yang merged dan belum ada review tim yang tercatat. PR #96 sekarang pada source head `b1d5054eba2e8e1d8c647a41c5f433acd07b499c`; CI Actions #43260057572 lulus 3/3, termasuk guard environment Docker dan perbaikan ringkasan CBT. PR tetap menunggu review backend. Belum tepat menyebut sistem siap deploy/komersial penuh karena rekonsiliasi Production, backup/restore, UAT lintas modul, dan simulasi lingkungan pelanggan belum dibuktikan. **Tidak ada perubahan skema atau data Production.**
 
 ## Riwayat
 
