@@ -39,13 +39,13 @@ export function deriveCbtDashboardSummary<
     const end = isValidInstant(exam.endsAt);
     return start !== null && end !== null && start <= validNow && validNow < end;
   }).length;
-  const upcomingExams = publishedExams
+  const allUpcomingExams = publishedExams
     .filter((exam) => {
       const start = isValidInstant(exam.startsAt);
       return start !== null && start > validNow;
     })
-    .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt))
-    .slice(0, 5);
+    .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt));
+  const upcomingExams = allUpcomingExams.slice(0, 5);
   const completedAssignments = assignments.filter((assignment) => COMPLETED_ASSIGNMENT_STATUSES.has(String(assignment.status || "").toLowerCase())).length;
   const scored = assignments.filter((assignment) => assignment.score !== null && Number.isFinite(Number(assignment.score)));
   const passed = assignments.filter((assignment) => assignment.passed !== null);
@@ -60,7 +60,7 @@ export function deriveCbtDashboardSummary<
 
   return {
     ongoingSessions,
-    upcomingSessions: upcomingExams.length,
+    upcomingSessions: allUpcomingExams.length,
     totalAssignments: assignments.length,
     completedAssignments,
     completionRate: percent(completedAssignments, assignments.length),
