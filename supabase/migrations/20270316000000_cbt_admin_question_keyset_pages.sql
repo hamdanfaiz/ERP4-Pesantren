@@ -57,7 +57,7 @@ DECLARE
   v_search_pattern TEXT;
 BEGIN
   IF p_tenant_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.tenants WHERE id = p_tenant_id AND status = 'active'
+    SELECT 1 FROM public.tenants AS tenant WHERE tenant.id = p_tenant_id AND tenant.status = 'active'
   ) THEN
     RAISE EXCEPTION 'Tenant CBT tidak tersedia' USING ERRCODE = '42501';
   END IF;
@@ -148,7 +148,7 @@ AS $$
 DECLARE v_summary JSONB;
 BEGIN
   IF p_tenant_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.tenants WHERE id = p_tenant_id AND status = 'active'
+    SELECT 1 FROM public.tenants AS tenant WHERE tenant.id = p_tenant_id AND tenant.status = 'active'
   ) THEN
     RAISE EXCEPTION 'Tenant CBT tidak tersedia' USING ERRCODE = '42501';
   END IF;
