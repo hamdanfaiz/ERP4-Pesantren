@@ -163,6 +163,7 @@ export function SupabaseCBTManager() {
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     setServerDashboardSummary(null);
+    let summaryLoaded = false;
     try {
       const [snapshotRequest, summaryRequest] = await Promise.allSettled([
         requestCbt("/api/cbt/admin"),
@@ -170,7 +171,9 @@ export function SupabaseCBTManager() {
       ]);
       if (summaryRequest.status === "fulfilled") {
         const candidate = summaryRequest.value?.summary;
-        setServerDashboardSummary(candidate && typeof candidate === "object" ? candidate as DashboardSummary : null);
+        const validSummary = candidate && typeof candidate === "object";
+        setServerDashboardSummary(validSummary ? candidate as DashboardSummary : null);
+        summaryLoaded = Boolean(validSummary);
       }
       if (snapshotRequest.status === "rejected") throw snapshotRequest.reason;
       const result = snapshotRequest.value;
@@ -233,7 +236,13 @@ export function SupabaseCBTManager() {
         }));
       }
       return true;
-    } catch (cause: any) { setSnapshot(EMPTY); setSnapshotUpdatedAt(null); setError(toERPUserMessage(cause, "Data ujian belum dapat dimuat. Silakan coba lagi.")); return false; }
+    } catch (cause: any) {
+      setSnapshot(EMPTY); setSnapshotUpdatedAt(null);
+      setError(summaryLoaded
+        ? "Ringkasan CBT tersedia, tetapi daftar soal, sesi, dan hasil belum dapat dimuat. Silakan muat ulang."
+        : toERPUserMessage(cause, "Data ujian belum dapat dimuat. Silakan coba lagi."));
+      return false;
+    }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
 
