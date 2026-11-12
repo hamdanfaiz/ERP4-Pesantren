@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path=public,extensions;
-SELECT plan(32);
+SELECT plan(33);
 
 INSERT INTO public.tenants(id,slug,name,status) VALUES
   ('e1900000-0000-4000-8000-000000000009','cbt-page-one','CBT Page One','active'),
@@ -93,7 +93,14 @@ SELECT is((
   FROM public.list_cbt_admin_question_page(
     'e1900000-0000-4000-8000-000000000009',101,NULL,NULL,'cinta',NULL,NULL,NULL,NULL
   )
-),'1','search includes question content and tags');
+),'1','search includes question content');
+
+SELECT is((
+  SELECT count(*)::TEXT
+  FROM public.list_cbt_admin_question_page(
+    'e1900000-0000-4000-8000-000000000009',101,NULL,NULL,'filsafat',NULL,NULL,NULL,NULL
+  )
+),'1','search includes question tags');
 
 SELECT is((
   SELECT count(*)::TEXT
