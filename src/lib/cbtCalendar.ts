@@ -74,4 +74,3 @@ export function groupCbtExamsByTenantDate<T extends CbtScheduledExam>(exams: T[]
   }
   return grouped;
 }
-
