@@ -9,6 +9,8 @@ const [compose, example] = await Promise.all([
 const composeVariables = [...new Set(
   [...compose.matchAll(/\$\{([A-Z][A-Z0-9_]*)(?=[:}])/g)].map((match) => match[1]),
 )].sort();
+assert.match(compose, /^\s+-\s+"127\.0\.0\.1:\$\{ERP4_HTTP_PORT:-3000\}:3000"\s*$/m, "default app port must bind to loopback");
+
 const exampleVariables = new Set(
   [...example.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*=/gm)].map((match) => match[1]),
 );
