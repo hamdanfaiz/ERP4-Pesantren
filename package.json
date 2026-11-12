@@ -65,6 +65,7 @@
     "test:tahfidz-target-print": "node scripts/test-tahfidz-target-print.mjs",
     "test:tahfidz-bulk-targets": "node scripts/test-tahfidz-bulk-targets.mjs",
     "test:customer-deployment-flags": "node scripts/test-customer-deployment-flags.mjs",
+    "test:customer-compose-env": "node scripts/test-customer-compose-env.mjs",
     "test:user-messages": "node scripts/test-user-messages.mjs",
     "test:guardian-student-selection": "tsx scripts/test-guardian-student-selection.ts",
     "test:tahfidz-membership-date": "tsx scripts/test-tahfidz-membership-date.ts",

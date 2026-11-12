@@ -115,6 +115,9 @@ jobs:
       - name: Verify customer deployment feature flag wiring
         run: npm run test:customer-deployment-flags
 
+      - name: Verify customer Compose variables are documented
+        run: npm run test:customer-compose-env
+
       - name: Verify trusted reverse proxy hop configuration
         run: npm run test:trusted-proxy-hops
 
