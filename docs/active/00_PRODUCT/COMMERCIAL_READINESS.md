@@ -41,9 +41,9 @@ PPOB, layanan ekosistem, dan integrasi payment gateway dikecualikan dari rilis a
 
 Lihat [rekonsiliasi ledger PTSAS dan VQE](../06_DATABASE/PRODUCTION_MIGRATION_LEDGER_RECONCILIATION_2026-11-11.md) untuk detail dan daftar versi.
 
-- PTSAS Production mencatat 48 versi; 96 dari 144 versi source tidak ada pada ledger. Dua baris ledger tidak memiliki nama.
+- PTSAS Production mencatat 48 entri. Pada inventaris gabungan PR #91–#96, 98 source versions belum cocok persis pada pasangan versi/nama; dua baris ledger tidak memiliki nama. Angka ini bukan instruksi untuk menjalankan seluruh migrasi.
 - Versi `20270309000000` bernama `academic_report_card` pada ledger Production, tetapi source memakainya untuk `tahfidz_quran_surah_catalog`. Ini konflik nyata; jangan menjalankan migrasi itu melalui `db push` sebelum tim backend membandingkan DDL aktual dan menetapkan prosedur pemulihan yang benar.
-- VQE staging mencatat 143 versi. Tiga migrasi Tahfidz memakai timestamp alias dan `20270312000000_tahfidz_target_decimal_precision` belum tercatat dengan versi source. Audit DDL staging sebelum rekonsiliasi ledger.
+- VQE staging mencatat 143 entri. Tiga migrasi Tahfidz memakai timestamp alias; source `20270312000000` sampai `20270314000000` belum tercatat persis. PR #92 dan #96 berbagi migration #13; rekonsiliasi file dan preflight harus mendahului merge. Audit DDL staging sebelum rekonsiliasi ledger.
 - Perbedaan hitungan tidak membuktikan objek database hilang atau boleh dibuat ulang. Cocokkan function, table, constraint, index, trigger, policy, grant, dan Storage policy dengan source, lalu lakukan rehearsal pada salinan yang dapat dipulihkan.
 
 ### Snapshot keamanan Production — baca-saja
