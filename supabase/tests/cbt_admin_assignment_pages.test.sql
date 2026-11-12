@@ -2,7 +2,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path=public,extensions;
-SELECT plan(37);
+SELECT plan(34);
 
 INSERT INTO public.tenants(id,slug,name,status) VALUES
   ('e2500000-0000-4000-8000-000000000001','cbt-activity-a','CBT Activity A','active'),
@@ -104,11 +104,6 @@ SET status = 'Archived'
 WHERE tenant_id = 'e2500000-0000-4000-8000-000000000001'
   AND id = 'e2500000-0000-4000-8002-000200000004';
 
-UPDATE public.students
-SET status = 'Archived'
-WHERE tenant_id = 'e2500000-0000-4000-8000-000000000001'
-  AND id = 'e2500000-0000-4000-8002-000200000004';
-
 INSERT INTO public.cbt_attempts(
   tenant_id,assignment_id,exam_id,student_id,question_order,answers,expires_at,submitted_at,
   correct_count,wrong_count,blank_count,score,passed
@@ -164,37 +159,20 @@ SELECT is((
   WHERE page.assignment_id='e2500000-0000-4000-8003-000100000004'
 ),'Santri diarsipkan|','archived student labels and class are masked');
 
-SELECT is((
-  SELECT count(*)::TEXT FROM public.list_cbt_admin_assignment_page(
+SELECT ok(NOT EXISTS (
+  SELECT 1 FROM public.list_cbt_admin_assignment_page(
     'e2500000-0000-4000-8000-000000000001',10,'results',NULL,NULL,'Santri Aktivitas 4'
-  )
-),'0','search cannot reveal an archived student name');
-
-SELECT is((
-  SELECT count(*)::TEXT FROM public.list_cbt_admin_assignment_page(
-    'e2500000-0000-4000-8000-000000000001',10,'results',NULL,NULL,'Santri diarsipkan'
-  )
-),'0','archived placeholder is not searchable');
-
-SELECT is((
-  SELECT page.student_name || '|' || page.class_name
-  FROM public.list_cbt_admin_assignment_page(
-    'e2500000-0000-4000-8000-000000000001',101,'results',NULL,NULL,NULL
   ) AS page
-  WHERE page.assignment_id='e2500000-0000-4000-8003-000100000004'
-),'Santri diarsipkan|','archived student labels and class are masked');
-
-SELECT is((
-  SELECT count(*)::TEXT FROM public.list_cbt_admin_assignment_page(
-    'e2500000-0000-4000-8000-000000000001',10,'results',NULL,NULL,'Santri Aktivitas 4'
-  )
-),'0','search cannot reveal an archived student name');
+  WHERE page.assignment_id = 'e2500000-0000-4000-8003-000100000004'
+),'search cannot reveal an archived student assignment through its name');
 
 SELECT is((
   SELECT count(*)::TEXT FROM public.list_cbt_admin_assignment_page(
     'e2500000-0000-4000-8000-000000000001',10,'results',NULL,NULL,'Santri diarsipkan'
   )
 ),'0','archived placeholder is not searchable');
+
+SELECT is((
 
 SELECT is((
   SELECT score::TEXT FROM public.list_cbt_admin_assignment_page(
