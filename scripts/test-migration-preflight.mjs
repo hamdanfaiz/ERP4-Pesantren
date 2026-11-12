@@ -440,7 +440,7 @@ assert.equal(observedVqeMigrations.length, 143);
 const vqeBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedVqeMigrations);
 assert.equal(vqeBaseline.appliedCount, 143);
 assert.equal(vqeBaseline.latestAppliedVersion, '20270311000000');
-assert.deepEqual(vqeBaseline.pending.map(({ version }) => version), ['20270312000000', '20270314000000', '20270315000000', '20270316000000', '20270317000000']);
+assert.deepEqual(vqeBaseline.pending.map(({ version }) => version), ['20270312000000', '20270314000000', '20270315000000', '20270316000000', '20270317000000', '20270318000000']);
 assert.deepEqual(vqeBaseline.unknownApplied, []);
 assert.deepEqual(vqeBaseline.nameMismatches, []);
 assert.deepEqual(vqeBaseline.statementMismatches, []);
@@ -452,6 +452,7 @@ assert.match(formatReport(vqeBaseline), /20270312000000_tahfidz_target_decimal_p
 assert.match(formatReport(vqeBaseline), /20270314000000_cbt_tenant_settings_write_api\.sql/);
 assert.match(formatReport(vqeBaseline), /20270316000000_cbt_admin_question_keyset_pages\.sql/);
 assert.match(formatReport(vqeBaseline), /20270317000000_cbt_admin_student_roster_pages\.sql/);
+assert.match(formatReport(vqeBaseline), /20270318000000_cbt_admin_assignment_pages\.sql/);
 
 // Regression fixture for the read-only PTSAS Production inventory captured on
 // 2026-11-12: 48 ledger rows, two missing older migrations, two existing rows
