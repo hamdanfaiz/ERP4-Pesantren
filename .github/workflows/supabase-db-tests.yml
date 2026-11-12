@@ -133,6 +133,9 @@ jobs:
       - name: Verify CBT monitor reflects persisted tenant assignment states
         run: npm run test:cbt-monitor
 
+      - name: Verify tenant CBT settings validation
+        run: npm run test:cbt-settings-write
+
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow
 
