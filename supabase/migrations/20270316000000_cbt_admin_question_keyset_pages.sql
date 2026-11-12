@@ -23,7 +23,7 @@ BEGIN
   EXECUTE format(
     'CREATE INDEX IF NOT EXISTS cbt_questions_search_trgm_idx
        ON public.cbt_questions USING gin (
-         lower(subject || '' '' || grade || '' '' || template || '' '' || question_html || '' '' || array_to_string(tags, '' '')) %I.gin_trgm_ops
+         lower(subject || '' '' || grade || '' '' || template || '' '' || question_html) %I.gin_trgm_ops
        )',
     v_extension_schema
   );
@@ -98,20 +98,40 @@ BEGIN
     LIMIT p_page_size;
   ELSE
     RETURN QUERY
+    WITH matched AS (
+      SELECT q.id
+      FROM public.cbt_questions AS q
+      WHERE q.tenant_id = p_tenant_id
+        AND (p_status IS NULL OR q.status = p_status)
+        AND (p_subject_reference_id IS NULL OR q.subject_reference_id = p_subject_reference_id)
+        AND (p_grade_level_reference_id IS NULL OR q.grade_level_reference_id = p_grade_level_reference_id)
+        AND (p_template_reference_id IS NULL OR q.template_reference_id = p_template_reference_id)
+        AND (p_cursor_created_at IS NULL OR q.created_at < p_cursor_created_at
+          OR (q.created_at = p_cursor_created_at AND q.id > p_cursor_id))
+        AND lower(q.subject || ' ' || q.grade || ' ' || q.template || ' ' || q.question_html)
+          LIKE v_search_pattern ESCAPE E'\\'
+      UNION
+      SELECT q.id
+      FROM public.cbt_questions AS q
+      WHERE q.tenant_id = p_tenant_id
+        AND (p_status IS NULL OR q.status = p_status)
+        AND (p_subject_reference_id IS NULL OR q.subject_reference_id = p_subject_reference_id)
+        AND (p_grade_level_reference_id IS NULL OR q.grade_level_reference_id = p_grade_level_reference_id)
+        AND (p_template_reference_id IS NULL OR q.template_reference_id = p_template_reference_id)
+        AND (p_cursor_created_at IS NULL OR q.created_at < p_cursor_created_at
+          OR (q.created_at = p_cursor_created_at AND q.id > p_cursor_id))
+        AND EXISTS (
+          SELECT 1
+          FROM unnest(q.tags) AS question_tag(value)
+          WHERE lower(question_tag.value) LIKE v_search_pattern ESCAPE E'\\'
+        )
+    )
     SELECT q.id, q.subject, q.grade, q.template,
       q.subject_reference_id, q.grade_level_reference_id, q.template_reference_id,
       q.question_html, q.options, q.correct_answer, q.explanation, q.difficulty,
       q.tags, q.status, q.created_at, q.updated_at
-    FROM public.cbt_questions AS q
-    WHERE q.tenant_id = p_tenant_id
-      AND (p_status IS NULL OR q.status = p_status)
-      AND (p_subject_reference_id IS NULL OR q.subject_reference_id = p_subject_reference_id)
-      AND (p_grade_level_reference_id IS NULL OR q.grade_level_reference_id = p_grade_level_reference_id)
-      AND (p_template_reference_id IS NULL OR q.template_reference_id = p_template_reference_id)
-      AND (p_cursor_created_at IS NULL OR q.created_at < p_cursor_created_at
-        OR (q.created_at = p_cursor_created_at AND q.id > p_cursor_id))
-      AND lower(q.subject || ' ' || q.grade || ' ' || q.template || ' ' || q.question_html || ' ' || array_to_string(q.tags, ' '))
-        LIKE v_search_pattern ESCAPE E'\\'
+    FROM matched
+    JOIN public.cbt_questions AS q ON q.id = matched.id
     ORDER BY q.created_at DESC, q.id ASC
     LIMIT p_page_size;
   END IF;
