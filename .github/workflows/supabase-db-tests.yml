@@ -127,6 +127,9 @@ jobs:
       - name: Verify CBT dashboard metrics use persisted tenant outcomes
         run: npm run test:cbt-dashboard
 
+      - name: Verify CBT packages reflect tenant references and stored questions
+        run: npm run test:cbt-packages
+
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow
 
