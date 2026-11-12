@@ -9,7 +9,6 @@ import { SupabaseModuleReferenceSettings } from "../components/SupabaseReference
 import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
 import { deriveCbtDashboardSummary } from "../lib/cbtDashboard";
 import { deriveCbtMonitorSummary } from "../lib/cbtMonitor";
-import { deriveCbtPackageSummaries } from "../lib/cbtPackages";
 import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate } from "../lib/tenantTimeZone";
 
 type Question = {
@@ -32,6 +31,10 @@ type CbtSettings = {
   correctPoints: number; wrongPoints: number; blankPoints: number; sourceSystem: string; updatedAt: string | null;
 };
 type ReferenceOption = { id: string; name: string; description: string };
+type CbtPackageSummary = ReferenceOption & {
+  totalQuestions: number; activeQuestions: number; subjects: string[]; gradeLevels: string[];
+};
+type QuestionPage = { items: Question[]; hasMore: boolean; nextCursor: string | null };
 type DashboardSummary = {
   activeQuestions: number; totalExams: number; ongoingSessions: number; upcomingSessions: number;
   totalAssignments: number; completedAssignments: number; completionRate: number | null;
@@ -43,12 +46,14 @@ type Snapshot = {
   questions: Question[]; students: Student[]; exams: Exam[]; results: Result[]; classes: string[];
   settings: CbtSettings;
   references: { subjects: ReferenceOption[]; gradeLevels: ReferenceOption[]; templates: ReferenceOption[] };
+  packageSummaries: CbtPackageSummary[];
 };
 type Tab = "dashboard" | "calendar" | "packages" | "questions" | "exams" | "monitor" | "results" | "settings" | "import";
 type ImportPreview = { snapshotFingerprint: string; counts: { source: number; ready: number; alreadyImported: number; invalid: number }; issues: Array<{ code: string; recordRef: string; severity: string }>; issueCount: number; blockingCount: number; canApply: boolean };
 
 const EMPTY_SETTINGS: CbtSettings = { autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults", updatedAt: null };
-const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS, references: { subjects: [], gradeLevels: [], templates: [] } };
+const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS, references: { subjects: [], gradeLevels: [], templates: [] }, packageSummaries: [] };
+const EMPTY_QUESTION_PAGE: QuestionPage = { items: [], hasMore: false, nextCursor: null };
 const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "dashboard", label: "Dasbor", icon: <Activity className="h-4 w-4" /> },
   { id: "calendar", label: "Kalender Ujian", icon: <CalendarDays className="h-4 w-4" /> },
@@ -134,6 +139,18 @@ export function SupabaseCBTManager() {
   const [notice, setNotice] = useState("");
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [questionStatus, setQuestionStatus] = useState<"all" | "active" | "archived">("all");
+  const [questionTemplateFilter, setQuestionTemplateFilter] = useState("all");
+  const [questionListRevision, setQuestionListRevision] = useState(0);
+  const [questionPage, setQuestionPage] = useState<QuestionPage>(EMPTY_QUESTION_PAGE);
+  const [questionPageLoading, setQuestionPageLoading] = useState(false);
+  const [questionPageError, setQuestionPageError] = useState("");
+  const [builderQuestionPage, setBuilderQuestionPage] = useState<QuestionPage>(EMPTY_QUESTION_PAGE);
+  const [builderQuestionPageLoading, setBuilderQuestionPageLoading] = useState(false);
+  const [builderQuestionPageError, setBuilderQuestionPageError] = useState("");
+  const questionPageRequestId = useRef(0);
+  const builderQuestionPageRequestId = useRef(0);
+  const builderQuestionPageFilter = useRef("");
   const [form, setForm] = useState({
     subjectReferenceId: "", gradeLevelReferenceId: "", templateReferenceId: "", text: "", options: ["", "", "", ""],
     correctAnswer: "0", explanation: "", difficulty: "Medium", tags: "",
@@ -191,6 +208,7 @@ export function SupabaseCBTManager() {
       const settings = result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } as CbtSettings : EMPTY_SETTINGS;
       setSnapshot({
         questions: Array.isArray(result.questions) ? result.questions : [],
+        packageSummaries: Array.isArray(result.packageSummaries) ? result.packageSummaries : [],
         exams: Array.isArray(result.exams) ? result.exams : [],
         results: Array.isArray(result.results) ? result.results : [],
         students: Array.isArray(result.students) ? result.students : [],
@@ -208,6 +226,11 @@ export function SupabaseCBTManager() {
         setEditingQuestionId(null);
         setSelectedQuestions([]);
         setSelectedStudents([]);
+        questionPageRequestId.current += 1;
+        builderQuestionPageRequestId.current += 1;
+        builderQuestionPageFilter.current = "";
+        setQuestionPage(EMPTY_QUESTION_PAGE);
+        setBuilderQuestionPage(EMPTY_QUESTION_PAGE);
         setImportPreview(null);
         setSettingsImportPreview(null);
         setForm({
@@ -253,6 +276,110 @@ export function SupabaseCBTManager() {
   }, [user?.tenantId, user?.uid]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  const loadQuestionPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++questionPageRequestId.current;
+    setQuestionPageError("");
+    setQuestionPageLoading(true);
+    if (!append) setQuestionPage(EMPTY_QUESTION_PAGE);
+    const params = new URLSearchParams({ limit: "50", status: questionStatus });
+    const normalizedSearch = search.trim();
+    if (normalizedSearch) params.set("search", normalizedSearch);
+    if (questionTemplateFilter !== "all") params.set("templateReferenceId", questionTemplateFilter);
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const result = await requestCbt("/api/cbt/admin/questions?" + params.toString());
+      if (requestId !== questionPageRequestId.current) return;
+      if (!Array.isArray(result.items) || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))) {
+        throw new Error("Halaman bank soal belum dapat diverifikasi.");
+      }
+      setQuestionPage((current) => {
+        const merged = new Map<string, Question>(append ? current.items.map((item): [string, Question] => [item.id, item]) : []);
+        for (const item of result.items as Question[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === questionPageRequestId.current) {
+        setQuestionPageError(toERPUserMessage(cause, "Bank soal belum dapat dimuat. Silakan coba lagi."));
+      }
+    } finally {
+      if (requestId === questionPageRequestId.current) setQuestionPageLoading(false);
+    }
+  }, [questionStatus, questionTemplateFilter, search, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "questions") return;
+    const normalizedSearch = search.trim();
+    if (normalizedSearch && normalizedSearch.length < 3) {
+      questionPageRequestId.current += 1;
+      setQuestionPage(EMPTY_QUESTION_PAGE);
+      setQuestionPageError("");
+      setQuestionPageLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void loadQuestionPage(null, false); }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      questionPageRequestId.current += 1;
+    };
+  }, [tab, search, questionStatus, questionTemplateFilter, questionListRevision, user?.tenantId, user?.uid, loadQuestionPage]);
+
+  const builderQuestionFilterKey = JSON.stringify([
+    user?.tenantId || "", exam.subjectReferenceId, exam.gradeLevelReferenceId, questionListRevision,
+  ]);
+  const loadBuilderQuestionPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++builderQuestionPageRequestId.current;
+    setBuilderQuestionPageError("");
+    setBuilderQuestionPageLoading(true);
+    if (!append) setBuilderQuestionPage(EMPTY_QUESTION_PAGE);
+    const params = new URLSearchParams({
+      limit: "50", status: "active",
+      subjectReferenceId: exam.subjectReferenceId,
+      gradeLevelReferenceId: exam.gradeLevelReferenceId,
+    });
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const result = await requestCbt("/api/cbt/admin/questions?" + params.toString());
+      if (requestId !== builderQuestionPageRequestId.current) return;
+      if (!Array.isArray(result.items) || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))) {
+        throw new Error("Daftar soal builder belum dapat diverifikasi.");
+      }
+      setBuilderQuestionPage((current) => {
+        const merged = new Map<string, Question>(append ? current.items.map((item): [string, Question] => [item.id, item]) : []);
+        for (const item of result.items as Question[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === builderQuestionPageRequestId.current) {
+        setBuilderQuestionPageError(toERPUserMessage(cause, "Soal untuk builder belum dapat dimuat."));
+      }
+    } finally {
+      if (requestId === builderQuestionPageRequestId.current) setBuilderQuestionPageLoading(false);
+    }
+  }, [exam.subjectReferenceId, exam.gradeLevelReferenceId, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "exams") return;
+    if (!exam.subjectReferenceId || !exam.gradeLevelReferenceId) {
+      builderQuestionPageRequestId.current += 1;
+      builderQuestionPageFilter.current = "";
+      setBuilderQuestionPage(EMPTY_QUESTION_PAGE);
+      setBuilderQuestionPageError("");
+      setSelectedQuestions([]);
+      return;
+    }
+    if (builderQuestionPageFilter.current === builderQuestionFilterKey) return;
+    builderQuestionPageFilter.current = builderQuestionFilterKey;
+    setBuilderQuestionPage(EMPTY_QUESTION_PAGE);
+    setSelectedQuestions([]);
+    void loadBuilderQuestionPage(null, false);
+    return () => {
+      builderQuestionPageRequestId.current += 1;
+      builderQuestionPageFilter.current = "";
+    };
+  }, [tab, exam.subjectReferenceId, exam.gradeLevelReferenceId, builderQuestionFilterKey, loadBuilderQuestionPage]);
 
   const updateSettingsDraft = (patch: Partial<CbtSettings>) => {
     settingsDirtyRef.current = true;
@@ -305,18 +432,13 @@ export function SupabaseCBTManager() {
     } finally { setSaving(false); }
   };
 
-  const visibleQuestions = useMemo(() => snapshot.questions.filter((question) =>
-    [question.subject, question.grade, question.template, question.text, question.tags.join(" ")]
-      .join(" ").toLowerCase().includes(search.toLowerCase())), [snapshot.questions, search]);
-  const eligibleQuestions = useMemo(() => snapshot.questions.filter((question) => question.status === "active"
-    && question.subjectReferenceId === exam.subjectReferenceId
-    && question.gradeLevelReferenceId === exam.gradeLevelReferenceId
-    && Boolean(question.subjectReferenceId && question.gradeLevelReferenceId)), [snapshot.questions, exam.subjectReferenceId, exam.gradeLevelReferenceId]);
+  const visibleQuestions = questionPage.items;
+  const eligibleQuestions = builderQuestionPage.items;
   const selectedQuestionCount = selectedQuestions.filter((id) => eligibleQuestions.some((question) => question.id === id)).length;
   const calendarDays = useMemo(() => buildCbtCalendarGrid(calendarMonth, tenantTimeZone, todayInTenant), [calendarMonth, tenantTimeZone, todayInTenant]);
   const calendarWeeks = useMemo(() => Array.from({ length: 6 }, (_, index) => calendarDays.slice(index * 7, index * 7 + 7)), [calendarDays]);
   const examsByCalendarDate = useMemo(() => groupCbtExamsByTenantDate(snapshot.exams, tenantTimeZone), [snapshot.exams, tenantTimeZone]);
-  const cbtPackages = useMemo(() => deriveCbtPackageSummaries(snapshot.references.templates, snapshot.questions), [snapshot.references.templates, snapshot.questions]);
+  const cbtPackages = snapshot.packageSummaries;
   const selectedCalendarExams = examsByCalendarDate.get(selectedCalendarDate) || [];
   const calendarMonthLabel = useMemo(() => new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${calendarMonth}-01T12:00:00.000Z`)), [calendarMonth]);
   const selectedCalendarDateLabel = useMemo(() => selectedCalendarDate
@@ -359,7 +481,9 @@ export function SupabaseCBTManager() {
         }),
       });
       setNotice(editingQuestionId ? "Soal berhasil diperbarui." : "Soal berhasil ditambahkan ke bank soal.");
-      resetQuestion(); await refresh();
+      resetQuestion();
+      setQuestionListRevision((revision) => revision + 1);
+      await refresh();
     } catch (cause: any) { setError(toERPUserMessage(cause, "Soal belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
@@ -446,14 +570,14 @@ export function SupabaseCBTManager() {
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Ujian Berbasis Komputer (CBT)</h1>
         <p className="mt-1 text-sm text-slate-500">Kelola bank soal, jadwal ujian, penugasan santri, dan hasil ujian.</p>
       </div>
-      <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
+      <button type="button" onClick={() => { setQuestionListRevision((revision) => revision + 1); void refresh(); }} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
 
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
     <div className="grid gap-3 sm:grid-cols-3">
-      {[{ label: "Bank soal", value: serverDashboardSummary?.activeQuestions ?? snapshot.questions.filter((item) => item.status === "active").length, icon: BookOpen }, { label: "Ujian", value: serverDashboardSummary?.totalExams ?? snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: serverDashboardSummary?.totalAssignments ?? snapshot.results.length, icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
+      {[{ label: "Bank soal", value: serverDashboardSummary?.activeQuestions ?? "—", icon: BookOpen }, { label: "Ujian", value: serverDashboardSummary?.totalExams ?? snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: serverDashboardSummary?.totalAssignments ?? snapshot.results.length, icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
     </div>
 
     <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
@@ -487,7 +611,7 @@ export function SupabaseCBTManager() {
 
     {tab === "packages" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Paket soal ujian</h2><p className="mt-1 text-sm text-slate-500">Paket dikelompokkan dari kategori CBT pesantren dan jumlah soal yang tersimpan.</p></div><button type="button" onClick={() => setTab("questions")} className={BUTTON}><BookOpen className="h-4 w-4" />Buka bank soal</button></header>
-      {loading ? <div role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat paket soal…</div> : error ? <div role="status" className="p-8 text-sm text-slate-600 dark:text-slate-300">Paket soal belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : cbtPackages.length ? <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">{cbtPackages.map((item) => <article key={item.id} className="flex min-h-64 flex-col rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-sm text-slate-500">{item.description || "Belum ada keterangan paket."}</p></div><Boxes className="h-5 w-5 shrink-0 text-indigo-700" /></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Soal tersedia</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.activeQuestions}</p></div><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Jumlah tersimpan</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.totalQuestions}</p></div></div><div className="mt-4 space-y-2 text-xs"><div><span className="font-semibold text-slate-600 dark:text-slate-300">Mata pelajaran: </span><span className="text-slate-500">{item.subjects.length ? item.subjects.join(", ") : "Belum ada soal"}</span></div><div><span className="font-semibold text-slate-600 dark:text-slate-300">Jenjang: </span><span className="text-slate-500">{item.gradeLevels.length ? item.gradeLevels.join(", ") : "Belum ada soal"}</span></div></div><button type="button" onClick={() => { setSearch(item.name); setTab("questions"); }} disabled={!item.totalQuestions} className="mt-auto pt-5 text-left text-sm font-semibold text-indigo-700 hover:text-indigo-900 disabled:cursor-not-allowed disabled:text-slate-400 dark:text-indigo-300 dark:hover:text-indigo-200">{item.totalQuestions ? "Lihat soal dalam paket →" : "Belum ada soal dalam paket ini"}</button></article>)}</div> : <div className="p-10 text-center"><Boxes className="mx-auto h-8 w-8 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Belum ada paket soal</h3><p className="mx-auto mt-1 max-w-lg text-sm text-slate-500">Tambahkan kategori paket CBT dan referensi mata pelajaran melalui pengaturan modul, lalu susun soal untuk paket tersebut.</p></div>}
+      {loading ? <div role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat paket soal…</div> : error ? <div role="status" className="p-8 text-sm text-slate-600 dark:text-slate-300">Paket soal belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : cbtPackages.length ? <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">{cbtPackages.map((item) => <article key={item.id} className="flex min-h-64 flex-col rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-sm text-slate-500">{item.description || "Belum ada keterangan paket."}</p></div><Boxes className="h-5 w-5 shrink-0 text-indigo-700" /></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Soal tersedia</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.activeQuestions}</p></div><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Jumlah tersimpan</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.totalQuestions}</p></div></div><div className="mt-4 space-y-2 text-xs"><div><span className="font-semibold text-slate-600 dark:text-slate-300">Mata pelajaran: </span><span className="text-slate-500">{item.subjects.length ? item.subjects.join(", ") : "Belum ada soal"}</span></div><div><span className="font-semibold text-slate-600 dark:text-slate-300">Jenjang: </span><span className="text-slate-500">{item.gradeLevels.length ? item.gradeLevels.join(", ") : "Belum ada soal"}</span></div></div><button type="button" onClick={() => { setSearch(""); setQuestionStatus("all"); setQuestionTemplateFilter(item.id); setTab("questions"); }} disabled={!item.totalQuestions} className="mt-auto pt-5 text-left text-sm font-semibold text-indigo-700 hover:text-indigo-900 disabled:cursor-not-allowed disabled:text-slate-400 dark:text-indigo-300 dark:hover:text-indigo-200">{item.totalQuestions ? "Lihat soal dalam paket →" : "Belum ada soal dalam paket ini"}</button></article>)}</div> : <div className="p-10 text-center"><Boxes className="mx-auto h-8 w-8 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Belum ada paket soal</h3><p className="mx-auto mt-1 max-w-lg text-sm text-slate-500">Tambahkan kategori paket CBT dan referensi mata pelajaran melalui pengaturan modul, lalu susun soal untuk paket tersebut.</p></div>}
     </section>}
 
     {tab === "settings" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
@@ -563,8 +687,25 @@ export function SupabaseCBTManager() {
 
     {tab === "questions" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between"><h2 className="font-semibold text-slate-900 dark:text-white">Bank soal pesantren</h2><input aria-label="Cari soal" className={FIELD + " mt-0 sm:max-w-xs"} placeholder="Cari soal, subjek, atau tag" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-        {loading ? <div role="status" className="flex justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat bank soal…</div> : visibleQuestions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{visibleQuestions.map((question) => <article key={question.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap gap-2 text-xs text-slate-500"><span>{question.subject}</span><span>·</span><span>{question.grade}</span><span>·</span><span>{question.template}</span>{question.status !== "active" && <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-white/10">Arsip</span>}</div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{question.text}</p><ol className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">{question.options.map((option, index) => <li key={index} className={index === question.correctAnswer ? "font-semibold text-emerald-700 dark:text-emerald-300" : ""}>{String.fromCharCode(65 + index)}. {option}</li>)}</ol></div><button type="button" disabled={question.status !== "active"} onClick={() => editQuestion(question)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-200">Ubah</button></div></article>)}</div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada soal. Gunakan formulir Tambah soal untuk mulai menyusun bank soal pada pesantren ini.</div>}
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10">
+          <h2 className="font-semibold text-slate-900 dark:text-white">Bank soal pesantren</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <input aria-label="Cari soal" className={FIELD + " mt-0"} placeholder="Cari teks soal, subjek, atau tag" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <select aria-label="Filter status soal" className={FIELD + " mt-0"} value={questionStatus} onChange={(event) => setQuestionStatus(event.target.value as "all" | "active" | "archived")}>
+              <option value="all">Semua status</option><option value="active">Aktif</option><option value="archived">Diarsipkan</option>
+            </select>
+            <select aria-label="Filter paket soal" className={FIELD + " mt-0"} value={questionTemplateFilter} onChange={(event) => setQuestionTemplateFilter(event.target.value)}>
+              <option value="all">Semua paket</option>{snapshot.references.templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </div>
+          {search.trim().length > 0 && search.trim().length < 3 && <p className="text-xs text-amber-700 dark:text-amber-300">Masukkan sedikitnya 3 karakter untuk mencari.</p>}
+        </div>
+        {questionPageLoading && !visibleQuestions.length ? <div role="status" className="flex justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat halaman bank soal…</div>
+          : visibleQuestions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{visibleQuestions.map((question) => <article key={question.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap gap-2 text-xs text-slate-500"><span>{question.subject}</span><span>·</span><span>{question.grade}</span><span>·</span><span>{question.template}</span>{question.status !== "active" && <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-white/10">Arsip</span>}</div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{question.text}</p><ol className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">{question.options.map((option, index) => <li key={index} className={index === question.correctAnswer ? "font-semibold text-emerald-700 dark:text-emerald-300" : ""}>{String.fromCharCode(65 + index)}. {option}</li>)}</ol></div><button type="button" disabled={question.status !== "active"} onClick={() => editQuestion(question)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-200">Ubah</button></div></article>)}</div>
+          : questionPageError ? null : <div className="p-10 text-center text-sm text-slate-500">{search.trim() || questionTemplateFilter !== "all" || questionStatus !== "all" ? "Tidak ada soal yang sesuai dengan pencarian dan filter." : "Belum ada soal. Gunakan formulir Tambah soal untuk mulai menyusun bank soal pada pesantren ini."}</div>}
+        {questionPageError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-t border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><span>{questionPageError}</span><button type="button" onClick={() => void loadQuestionPage(null, false)} className="rounded-lg border border-rose-300 px-3 py-1.5 font-semibold dark:border-rose-300/30">Coba lagi</button></div>}
+        {questionPageLoading && visibleQuestions.length > 0 && <p role="status" className="border-t border-slate-200 p-3 text-center text-xs text-slate-500 dark:border-white/10">Memuat halaman soal berikutnya…</p>}
+        {questionPage.hasMore && <div className="border-t border-slate-200 p-4 text-center dark:border-white/10"><button type="button" onClick={() => void loadQuestionPage(questionPage.nextCursor, true)} disabled={questionPageLoading} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">Muat soal berikutnya</button></div>}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div className="mb-4 flex items-center gap-2"><Plus className="h-4 w-4 text-indigo-700" /><h2 className="font-semibold text-slate-900 dark:text-white">{editingQuestionId ? "Ubah soal" : "Tambah soal"}</h2></div>
@@ -590,11 +731,21 @@ export function SupabaseCBTManager() {
         <h2 className="mb-4 font-semibold text-slate-900 dark:text-white">Buat jadwal ujian</h2>
         {loading ? <p className="text-sm text-slate-500">Memuat daftar santri…</p> : <form onSubmit={submitExam} className="space-y-3">
           <label className={LABEL}>Nama ujian<input required maxLength={180} className={FIELD} value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} /></label>
-          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={exam.subjectReferenceId} onChange={(e) => { setExam({ ...exam, subjectReferenceId: e.target.value, gradeLevelReferenceId: "" }); setSelectedQuestions([]); }}><option value="">Pilih mata pelajaran</option>{snapshot.references.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Jenjang<select required className={FIELD} value={exam.gradeLevelReferenceId} onChange={(e) => { setExam({ ...exam, gradeLevelReferenceId: e.target.value }); setSelectedQuestions([]); }}><option value="">Pilih jenjang</option>{snapshot.references.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
+          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={exam.subjectReferenceId} onChange={(e) => { setExam({ ...exam, subjectReferenceId: e.target.value, gradeLevelReferenceId: "" }); setSelectedQuestions([]); setBuilderQuestionPage(EMPTY_QUESTION_PAGE); builderQuestionPageFilter.current = ""; }}><option value="">Pilih mata pelajaran</option>{snapshot.references.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Jenjang<select required className={FIELD} value={exam.gradeLevelReferenceId} onChange={(e) => { setExam({ ...exam, gradeLevelReferenceId: e.target.value }); setSelectedQuestions([]); setBuilderQuestionPage(EMPTY_QUESTION_PAGE); builderQuestionPageFilter.current = ""; }}><option value="">Pilih jenjang</option>{snapshot.references.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mulai<input type="datetime-local" required className={FIELD} value={exam.startsAt} onChange={(e) => setExam({ ...exam, startsAt: e.target.value })} /></label><label className={LABEL}>Akhir jendela<input type="datetime-local" required className={FIELD} value={exam.endsAt} onChange={(e) => setExam({ ...exam, endsAt: e.target.value })} /></label></div>
           <div className="grid gap-3 sm:grid-cols-3"><label className={LABEL}>Durasi (menit)<input type="number" min="1" max="600" required className={FIELD} value={exam.durationMinutes} onChange={(e) => setExam({ ...exam, durationMinutes: Number(e.target.value) })} /></label><label className={LABEL}>Nilai lulus<input type="number" min="0" max="100" step="any" className={FIELD} value={exam.passingScore} onChange={(e) => setExam({ ...exam, passingScore: Number(e.target.value) })} /></label><label className={LABEL}>Status<select className={FIELD} value={exam.status} onChange={(e) => setExam({ ...exam, status: e.target.value })}><option value="draft">Draf</option><option value="published">Terbit</option></select></label></div>
           <div className="grid gap-3 sm:grid-cols-3"><label className={LABEL}>Poin jawaban benar<input type="number" min="0" max="100" step="any" className={FIELD} value={exam.correctPoints} onChange={(e) => setExam({ ...exam, correctPoints: Number(e.target.value) })} /></label><label className={LABEL}>Poin jawaban salah<input type="number" min="-100" max="100" step="any" className={FIELD} value={exam.wrongPoints} onChange={(e) => setExam({ ...exam, wrongPoints: Number(e.target.value) })} /></label><label className={LABEL}>Poin tidak dijawab<input type="number" min="-100" max="100" step="any" className={FIELD} value={exam.blankPoints} onChange={(e) => setExam({ ...exam, blankPoints: Number(e.target.value) })} /></label></div>
-          <fieldset className="space-y-2"><legend className={LABEL}>Soal ({selectedQuestionCount} dipilih)</legend><div className="max-h-40 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">{eligibleQuestions.map((question) => <label key={question.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedQuestions.includes(question.id)} onChange={(e) => setSelectedQuestions((current) => e.target.checked ? [...current, question.id] : current.filter((id) => id !== question.id))} />{question.text}</label>)}{!eligibleQuestions.length && <p className="p-2 text-xs text-slate-500">Buat soal dengan subjek dan jenjang yang sama terlebih dahulu.</p>}</div></fieldset>
+          <fieldset className="space-y-2"><legend className={LABEL}>Soal ({selectedQuestionCount} dipilih)</legend>
+            {builderQuestionPage.items.length > 0 && <p className="text-xs text-slate-500">Menampilkan {builderQuestionPage.items.length} soal aktif untuk mata pelajaran dan jenjang ini.</p>}
+            <div className="max-h-40 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">
+              {eligibleQuestions.map((question) => <label key={question.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedQuestions.includes(question.id)} disabled={!selectedQuestions.includes(question.id) && selectedQuestions.length >= 500} onChange={(e) => setSelectedQuestions((current) => e.target.checked ? [...current, question.id] : current.filter((id) => id !== question.id))} />{question.text}</label>)}
+              {builderQuestionPageLoading && !eligibleQuestions.length && <p role="status" className="p-2 text-xs text-slate-500">Memuat soal yang sesuai…</p>}
+              {builderQuestionPageError && <p role="alert" className="p-2 text-xs text-rose-700 dark:text-rose-300">{builderQuestionPageError}</p>}
+              {!builderQuestionPageLoading && !builderQuestionPageError && !eligibleQuestions.length && <p className="p-2 text-xs text-slate-500">Belum ada soal aktif dengan mata pelajaran dan jenjang ini.</p>}
+            </div>
+            {builderQuestionPage.hasMore && <button type="button" onClick={() => void loadBuilderQuestionPage(builderQuestionPage.nextCursor, true)} disabled={builderQuestionPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{builderQuestionPageLoading ? "Memuat…" : "Muat soal lainnya"}</button>}
+            {builderQuestionPageError && <button type="button" onClick={() => void loadBuilderQuestionPage(builderQuestionPage.items.length ? builderQuestionPage.nextCursor : null, builderQuestionPage.items.length > 0)} disabled={builderQuestionPageLoading} className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-400/20 dark:text-rose-300">Coba muat ulang soal</button>}
+          </fieldset>
           <fieldset className="space-y-2"><legend className={LABEL}>Peserta santri ({selectedStudents.length} dipilih)</legend><div className="max-h-44 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">{snapshot.students.map((student) => <label key={student.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={(e) => setSelectedStudents((current) => e.target.checked ? [...current, student.id] : current.filter((id) => id !== student.id))} /><span>{student.name}<span className="ml-1 text-slate-400">{student.className || student.grade}</span></span></label>)}</div></fieldset>
           <button type="submit" disabled={saving || !eligibleQuestions.length || !selectedQuestionCount || !selectedStudents.length || !snapshot.students.length} className={BUTTON + " w-full"}>{saving ? "Menyimpan…" : "Simpan sesi & tugaskan santri"}</button>
         </form>}
