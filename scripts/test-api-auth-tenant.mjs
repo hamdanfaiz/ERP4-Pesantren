@@ -2812,8 +2812,8 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       'CBT grade choices resolve from the tenant-owned grade catalog.');
     assert.ok(cbtInitialSnapshot.references.templates.some((item) => item.id === cbtQuestionTemplateId),
       'CBT template choices resolve from the tenant-owned CBT catalog.');
-    assert.equal(Object.hasOwn(cbtInitialSnapshot, 'questions'), false,
-      'The broad Admin snapshot does not download the question bank.');
+    assert.deepEqual(cbtInitialSnapshot.questions, [],
+      'The broad Admin snapshot keeps the compatibility field empty instead of downloading the question bank.');
     const cbtInitialQuestionPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/questions?limit=50`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
@@ -2843,8 +2843,8 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     });
     assert.equal(otherTenantCbtSnapshotResponse.status, 200, 'A separately authorized Admin can read only their own tenant CBT snapshot.');
     const otherTenantCbtSnapshot = await otherTenantCbtSnapshotResponse.json();
-    assert.equal(Object.hasOwn(otherTenantCbtSnapshot, 'questions'), false,
-      'The broad tenant snapshot does not include question-bank rows.');
+    assert.deepEqual(otherTenantCbtSnapshot.questions, [],
+      'The broad tenant snapshot keeps the question bank empty.');
     const otherTenantCbtQuestionPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/questions?limit=50`, {
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
     });
@@ -3002,8 +3002,8 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     });
     assert.equal(cbtAdminAfterSubmitResponse.status, 200);
     const cbtAdminAfterSubmit = await cbtAdminAfterSubmitResponse.json();
-    assert.equal(Object.hasOwn(cbtAdminAfterSubmit, 'questions'), false,
-      'The broad Admin snapshot does not include question-bank rows.');
+    assert.deepEqual(cbtAdminAfterSubmit.questions, [],
+      'The broad Admin snapshot keeps the compatibility field empty after submission.');
     const cbtAdminQuestionPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/questions?limit=50&search=Berapakah`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
