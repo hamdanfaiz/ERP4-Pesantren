@@ -88,6 +88,69 @@ async function tenantIdFrom(identifier: string) {
   return value;
 }
 
+export type CbtTenantSettingsWrite = {
+  autoGrading: true;
+  shuffleQuestions: boolean;
+  correctPoints: number;
+  wrongPoints: number;
+  blankPoints: number;
+};
+
+export function normalizeCbtTenantSettingsWrite(value: unknown): CbtTenantSettingsWrite {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new SupabaseCbtError(400, "Pengaturan CBT tidak valid.");
+  const item = value as Row;
+  const keys = Object.keys(item).sort();
+  const expected = ["autoGrading", "blankPoints", "correctPoints", "shuffleQuestions", "wrongPoints"].sort();
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) {
+    throw new SupabaseCbtError(400, "Pengaturan CBT tidak sesuai format.");
+  }
+  if (item.autoGrading !== true || typeof item.shuffleQuestions !== "boolean") {
+    throw new SupabaseCbtError(400, "Penilaian otomatis wajib aktif dan pengacakan soal harus berupa pilihan ya atau tidak.");
+  }
+  const boundedScore = (raw: unknown, label: string, minimum: number, maximum: number) => {
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < minimum || raw > maximum
+      || Math.abs(raw * 100 - Math.round(raw * 100)) > 1e-8) {
+      throw new SupabaseCbtError(400, `${label} harus berada pada rentang yang didukung dengan paling banyak dua angka desimal.`);
+    }
+    return raw;
+  };
+  return {
+    autoGrading: true,
+    shuffleQuestions: item.shuffleQuestions,
+    correctPoints: boundedScore(item.correctPoints, "Poin jawaban benar", 0, 100),
+    wrongPoints: boundedScore(item.wrongPoints, "Poin jawaban salah", -100, 100),
+    blankPoints: boundedScore(item.blankPoints, "Poin tidak dijawab", -100, 100),
+  };
+}
+
+export async function saveSupabaseCbtTenantSettings(
+  tenantIdentifier: string, actorId: string, expectedUpdatedAt: unknown, value: unknown,
+) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  if (!isUuid(actorId)) throw new SupabaseCbtError(403, "Profil Admin tidak dapat diverifikasi.");
+  let expectedStamp: string | null = null;
+  if (expectedUpdatedAt !== null && expectedUpdatedAt !== undefined && expectedUpdatedAt !== "") {
+    if (typeof expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(expectedUpdatedAt))) {
+      throw new SupabaseCbtError(400, "Versi pengaturan CBT tidak valid. Muat ulang sebelum menyimpan.");
+    }
+    expectedStamp = expectedUpdatedAt;
+  }
+  const settings = normalizeCbtTenantSettingsWrite(value);
+  const result = await request("/rest/v1/rpc/save_cbt_tenant_settings", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_updated_at: expectedStamp,
+      p_settings: settings,
+    }),
+  });
+  if (!result || result.saved !== true || typeof result.updatedAt !== "string" || !Number.isFinite(Date.parse(result.updatedAt))) {
+    throw new SupabaseCbtError(503, "Pengaturan CBT belum dapat diverifikasi setelah disimpan.");
+  }
+  return { saved: true, updatedAt: result.updatedAt };
+}
+
 export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
   const referenceRows = (domain: string) => request("/rest/v1/tenant_reference_items?" + new URLSearchParams({
@@ -134,7 +197,7 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
     request("/rest/v1/cbt_tenant_settings?" + new URLSearchParams({
       // Subject, grade, and question-template choices are sourced from the tenant
       // reference catalog below. Legacy imported text arrays are provenance only.
-      select: "auto_grading,shuffle_questions,correct_points,wrong_points,blank_points,source_system",
+      select: "auto_grading,shuffle_questions,correct_points,wrong_points,blank_points,source_system,updated_at",
       tenant_id: "eq." + tenantId, limit: "2",
     }).toString()),
     referenceRows("academic_subject"),
@@ -152,6 +215,7 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
     wrongPoints: storedSettings?.wrong_points == null ? 0 : Number(storedSettings.wrong_points),
     blankPoints: storedSettings?.blank_points == null ? 0 : Number(storedSettings.blank_points),
     sourceSystem: String(storedSettings?.source_system || "defaults"),
+    updatedAt: storedSettings?.updated_at == null ? null : String(storedSettings.updated_at),
   };
   const attemptsByAssignment = new Map<string, Row>();
   for (const attempt of attemptRows) {
