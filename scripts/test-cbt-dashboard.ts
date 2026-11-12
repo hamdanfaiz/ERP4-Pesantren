@@ -33,6 +33,7 @@ const additionalUpcoming = Array.from({ length: 7 }, (_, index) => ({
 const largeSchedule = deriveCbtDashboardSummary([...exams, ...additionalUpcoming], [], now);
 assert.equal(largeSchedule.upcomingSessions, 9, "total upcoming count includes exams beyond the five-item preview");
 assert.equal(largeSchedule.upcomingExams.length, 5, "the preview remains bounded to five exams");
+assert.deepEqual(largeSchedule.upcomingExams.map((exam) => exam.id), ["earlier", "later", "future-1", "future-2", "future-3"], "the bounded preview keeps the earliest upcoming exams in order");
 assert.equal(summary.totalAssignments, 5, "all assignments in the tenant snapshot are counted");
 assert.equal(summary.completedAssignments, 3, "completed, submitted, and graded assignments count as complete");
 assert.equal(summary.completionRate, 60, "completion percentage uses the full assignment count");
@@ -46,4 +47,4 @@ assert.equal(empty.completionRate, null, "empty tenants do not display a mislead
 assert.equal(empty.averageScore, null, "empty tenants do not display a sample average");
 assert.equal(empty.passRate, null, "pass rate is unavailable until a result has a decision");
 
-console.log("CBT decision dashboard: 15 assertions passed");
+console.log("CBT decision dashboard: 16 assertions passed");
