@@ -152,6 +152,110 @@ export async function saveSupabaseCbtTenantSettings(
   return { saved: true, updatedAt: result.updatedAt };
 }
 
+
+export type CbtAdminDashboardSummary = {
+  activeQuestions: number;
+  totalExams: number;
+  ongoingSessions: number;
+  upcomingSessions: number;
+  totalAssignments: number;
+  completedAssignments: number;
+  completionRate: number | null;
+  assignmentStatusCounts: { assigned: number; in_progress: number; completed: number; missed: number };
+  scoredAssignments: number;
+  averageScore: number | null;
+  passRate: number | null;
+  upcomingExams: Array<{
+    id: string; title: string; subject: string; grade: string; startsAt: string; endsAt: string;
+    durationMinutes: number; status: string; assignedCount: number; completedCount: number;
+  }>;
+  latestResults: Array<{
+    assignmentId: string; examTitle: string; studentName: string; className: string;
+    status: string; score: number | null; passed: boolean | null; submittedAt: string;
+  }>;
+  asOf: string;
+};
+
+function summaryCount(value: unknown) {
+  const result = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(result) || result < 0) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  return result;
+}
+
+function summaryNumber(value: unknown) {
+  if (value == null) return null;
+  const result = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(result)) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  return result;
+}
+
+function summaryPercent(value: unknown) {
+  const result = summaryNumber(value);
+  if (result !== null && (result < 0 || result > 100)) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  return result;
+}
+
+function summaryText(value: unknown, maxLength: number) {
+  if (typeof value !== "string" || value.length > maxLength) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  return value;
+}
+
+export async function getSupabaseCbtAdminDashboardSummary(tenantIdentifier: string): Promise<CbtAdminDashboardSummary> {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  const value = await request("/rest/v1/rpc/get_cbt_admin_dashboard_summary", {
+    method: "POST",
+    body: JSON.stringify({ p_tenant_id: tenantId }),
+  });
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  const row = value as Row;
+  const asOf = summaryText(row.asOf, 80);
+  if (!Number.isFinite(Date.parse(asOf))) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  const statusCounts = row.assignmentStatusCounts;
+  if (!statusCounts || typeof statusCounts !== "object" || Array.isArray(statusCounts)) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  if (!Array.isArray(row.upcomingExams) || row.upcomingExams.length > 5
+    || !Array.isArray(row.latestResults) || row.latestResults.length > 5) {
+    throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  }
+  const upcomingExams = row.upcomingExams.map((item: Row) => {
+    const startsAt = summaryText(item?.startsAt, 80);
+    const endsAt = summaryText(item?.endsAt, 80);
+    if (!isUuid(item?.id) || !Number.isFinite(Date.parse(startsAt)) || !Number.isFinite(Date.parse(endsAt))) {
+      throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+    }
+    return {
+      id: item.id, title: summaryText(item.title, 180), subject: summaryText(item.subject, 150),
+      grade: summaryText(item.grade, 40), startsAt, endsAt,
+      durationMinutes: summaryCount(item.durationMinutes), status: summaryText(item.status, 40),
+      assignedCount: summaryCount(item.assignedCount), completedCount: summaryCount(item.completedCount),
+    };
+  });
+  const latestResults = row.latestResults.map((item: Row) => {
+    const submittedAt = summaryText(item?.submittedAt, 80);
+    if (!isUuid(item?.assignmentId) || !Number.isFinite(Date.parse(submittedAt))
+      || (item.passed !== null && typeof item.passed !== "boolean")) {
+      throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+    }
+    return {
+      assignmentId: item.assignmentId, examTitle: summaryText(item.examTitle, 180),
+      studentName: summaryText(item.studentName, 180), className: summaryText(item.className, 180),
+      status: summaryText(item.status, 40), score: summaryNumber(item.score),
+      passed: item.passed, submittedAt,
+    };
+  });
+  return {
+    activeQuestions: summaryCount(row.activeQuestions), totalExams: summaryCount(row.totalExams),
+    ongoingSessions: summaryCount(row.ongoingSessions), upcomingSessions: summaryCount(row.upcomingSessions),
+    totalAssignments: summaryCount(row.totalAssignments), completedAssignments: summaryCount(row.completedAssignments),
+    completionRate: summaryPercent(row.completionRate),
+    assignmentStatusCounts: {
+      assigned: summaryCount(statusCounts.assigned), in_progress: summaryCount(statusCounts.in_progress),
+      completed: summaryCount(statusCounts.completed), missed: summaryCount(statusCounts.missed),
+    },
+    scoredAssignments: summaryCount(row.scoredAssignments), averageScore: summaryNumber(row.averageScore),
+    passRate: summaryPercent(row.passRate), upcomingExams, latestResults, asOf,
+  };
+}
+
 export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
   const referenceRows = (domain: string) => request("/rest/v1/tenant_reference_items?" + new URLSearchParams({
