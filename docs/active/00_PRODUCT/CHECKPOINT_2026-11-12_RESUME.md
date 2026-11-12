@@ -4,7 +4,7 @@
 
 - Sumber perubahan dan review: branch `codex/product-copy-cleanup-20261108`, PR [#91](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/91).
 - PR berstatus **Open, Ready for review**; belum merged dan belum dideploy.
-- Head terakhir yang terverifikasi: `a799fb1fef6a2795bc7b84bc5fa0e69bb861a5a6`. Pembaruan kesiapan pada checkpoint ini sudah di-commit setelah head tersebut; CI commit checkpoint perlu dipastikan selesai sebelum perubahan dianggap lolos.
+- Saat checkpoint diperbarui, PR head `f6a3942e9789dfd6c39be60050a10de834486b48` sudah lulus [Actions #1488](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43214773666), 3/3 job. Perubahan setelah run tersebut hanya memperbarui dokumen checkpoint; cek Actions sebelum menganggap commit dokumentasi terakhir selesai.
 - CI source aplikasi sebelumnya: [run #1481](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42939819678), 3/3 job lulus. CI head dokumentasi sebelumnya: [run #1484](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43211275536), 3/3 job lulus.
 - Tahfidz API telah lulus UAT terbatas di VQE staging. Cakupan dan batas bukti ada di [laporan UAT VQE](VQE_STAGING_API_UAT_2026-11-10.md).
 
