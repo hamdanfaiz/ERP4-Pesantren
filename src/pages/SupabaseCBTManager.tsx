@@ -32,6 +32,13 @@ type CbtSettings = {
   correctPoints: number; wrongPoints: number; blankPoints: number; sourceSystem: string; updatedAt: string | null;
 };
 type ReferenceOption = { id: string; name: string; description: string };
+type DashboardSummary = {
+  activeQuestions: number; totalExams: number; ongoingSessions: number; upcomingSessions: number;
+  totalAssignments: number; completedAssignments: number; completionRate: number | null;
+  scoredAssignments: number; averageScore: number | null; passRate: number | null;
+  upcomingExams: Array<Pick<Exam, "id" | "title" | "subject" | "grade" | "startsAt" | "endsAt" | "durationMinutes" | "status" | "assignedCount" | "completedCount">>;
+  latestResults: Array<Pick<Result, "assignmentId" | "examTitle" | "studentName" | "className" | "status" | "score" | "passed" | "submittedAt">>;
+};
 type Snapshot = {
   questions: Question[]; students: Student[]; exams: Exam[]; results: Result[]; classes: string[];
   settings: CbtSettings;
@@ -112,6 +119,7 @@ export function SupabaseCBTManager() {
   const tenantTimeZone = user?.tenantTimeZone || DEFAULT_TENANT_TIME_ZONE;
   const todayInTenant = tenantDate(new Date(), tenantTimeZone);
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
+  const [serverDashboardSummary, setServerDashboardSummary] = useState<DashboardSummary | null>(null);
   const [tab, setTab] = useState<Tab>("questions");
   const [dashboardNow, setDashboardNow] = useState(() => Date.now());
   const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<string | null>(null);
@@ -154,8 +162,18 @@ export function SupabaseCBTManager() {
 
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
+    setServerDashboardSummary(null);
     try {
-      const result = await requestCbt("/api/cbt/admin");
+      const [snapshotRequest, summaryRequest] = await Promise.allSettled([
+        requestCbt("/api/cbt/admin"),
+        requestCbt("/api/cbt/admin/summary"),
+      ]);
+      if (summaryRequest.status === "fulfilled") {
+        const candidate = summaryRequest.value?.summary;
+        setServerDashboardSummary(candidate && typeof candidate === "object" ? candidate as DashboardSummary : null);
+      }
+      if (snapshotRequest.status === "rejected") throw snapshotRequest.reason;
+      const result = snapshotRequest.value;
       const references = result.references && typeof result.references === "object" ? {
         subjects: Array.isArray(result.references.subjects) ? result.references.subjects : [],
         gradeLevels: Array.isArray(result.references.gradeLevels) ? result.references.gradeLevels : [],
@@ -289,7 +307,8 @@ export function SupabaseCBTManager() {
   const selectedCalendarDateLabel = useMemo(() => selectedCalendarDate
     ? new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${selectedCalendarDate}T12:00:00.000Z`))
     : "Tanggal ujian", [selectedCalendarDate]);
-  const dashboardSummary = useMemo(() => deriveCbtDashboardSummary(snapshot.exams, snapshot.results, dashboardNow), [snapshot.exams, snapshot.results, dashboardNow]);
+  const localDashboardSummary = useMemo(() => deriveCbtDashboardSummary(snapshot.exams, snapshot.results, dashboardNow), [snapshot.exams, snapshot.results, dashboardNow]);
+  const dashboardSummary = serverDashboardSummary || localDashboardSummary;
   const monitorSummary = useMemo(() => deriveCbtMonitorSummary(snapshot.results, monitorSearch), [snapshot.results, monitorSearch]);
   const formatDashboardPercent = (value: number | null) => value === null ? "—" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value)}%`;
   const formatDashboardScore = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value);
@@ -419,7 +438,7 @@ export function SupabaseCBTManager() {
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
     <div className="grid gap-3 sm:grid-cols-3">
-      {[{ label: "Bank soal", value: snapshot.questions.filter((item) => item.status === "active").length, icon: BookOpen }, { label: "Ujian", value: snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: snapshot.results.length, icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
+      {[{ label: "Bank soal", value: serverDashboardSummary?.activeQuestions ?? snapshot.questions.filter((item) => item.status === "active").length, icon: BookOpen }, { label: "Ujian", value: serverDashboardSummary?.totalExams ?? snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: serverDashboardSummary?.totalAssignments ?? snapshot.results.length, icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
     </div>
 
     <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
@@ -428,7 +447,7 @@ export function SupabaseCBTManager() {
     {CBT_PENDING[tab] && <ERPFeatureStatus title={CBT_REFERENCE_TABS.find((item) => item.id === tab)?.label || "Fitur CBT"} description={CBT_PENDING[tab]!} />}
 
     {tab === "dashboard" && <div className="space-y-5">
-      {loading ? <div role="status" className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900"><Loader2 className="h-4 w-4 animate-spin" />Memuat ringkasan ujian…</div> : error ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">Ringkasan ujian belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : <>
+      {loading ? <div role="status" className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900"><Loader2 className="h-4 w-4 animate-spin" />Memuat ringkasan ujian…</div> : error && !serverDashboardSummary ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">Ringkasan ujian belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : <>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { label: "Ujian berlangsung", value: dashboardSummary.ongoingSessions, detail: "Sesi yang sedang dibuka", icon: Radio },
