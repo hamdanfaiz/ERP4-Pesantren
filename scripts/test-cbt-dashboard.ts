@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { deriveCbtDashboardSummary } from "../src/lib/cbtDashboard";
+import { deriveCbtDashboardSummary, summarizeCbtAssignmentsByExam } from "../src/lib/cbtDashboard";
 
 const now = Date.parse("2026-11-12T03:00:00.000Z");
 const exams = [
@@ -47,4 +47,20 @@ assert.equal(empty.completionRate, null, "empty tenants do not display a mislead
 assert.equal(empty.averageScore, null, "empty tenants do not display a sample average");
 assert.equal(empty.passRate, null, "pass rate is unavailable until a result has a decision");
 
-console.log("CBT decision dashboard: 16 assertions passed");
+const assignmentCounts = summarizeCbtAssignmentsByExam(
+  [
+    { examId: "exam-a", status: "completed" },
+    { examId: "exam-b", status: "assigned" },
+    { examId: "exam-a", status: "in_progress" },
+    { examId: "exam-a", status: "completed" },
+  ],
+  (assignment) => assignment.examId,
+  (assignment) => assignment.status,
+);
+assert.equal(assignmentCounts.get("exam-a")?.assignedCount, 3, "assignment counts aggregate each exam in one pass");
+assert.equal(assignmentCounts.get("exam-a")?.completedCount, 2, "completed counts preserve the completed status rule");
+assert.equal(assignmentCounts.get("exam-b")?.assignedCount, 1, "separate exam counts remain isolated");
+assert.equal(assignmentCounts.get("exam-b")?.completedCount, 0, "uncompleted exams retain a zero completed count");
+assert.equal(assignmentCounts.size, 2, "only exams with assignments are indexed");
+
+console.log("CBT decision dashboard and linear assignment index: 21 assertions passed");
