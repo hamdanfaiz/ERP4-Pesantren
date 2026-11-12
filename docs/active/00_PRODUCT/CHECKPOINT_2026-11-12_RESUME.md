@@ -11,13 +11,13 @@ Perubahan aplikasi tersedia untuk review di PR GitHub. Tidak ada migrasi, pembar
 | [#93](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/93) | Kalender CBT tenant | PR #91 | #1500, 3/3 lulus |
 | [#94](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/94) | Dasbor CBT dan ringkasan paket soal | PR #93 | #1502, 3/3 lulus |
 | [#95](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/95) | Pemantauan sesi CBT | PR #94 | #1504, 3/3 lulus |
-| [#96](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/96) | Pengaturan CBT tenant | PR #95 | #1511, 3/3 lulus |
+| [#96](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/96) | Pengaturan CBT tenant | PR #95 | #1514, 3/3 lulus sebelum cleanup; CI cleanup menunggu |
 
 Semua PR di atas masih **Open dan belum merged**. Run PR #96 #1511 lulus pada head kode `1fab3914659d18a1033b032624a5899e5ee1c834`; perubahan setelahnya hanya memperbarui dokumentasi handoff.
 
 ## Risiko merge yang sudah terdeteksi
 
-PR #92 dan #96 saat ini sama-sama membawa migration path `20270313000000_add_core_composite_fk_indexes.sql` beserta test indeksnya. SQL dan assertion setara, kecuali baris kosong di akhir. Catatan overlap sudah dimasukkan ke kedua PR dan laporan rekonsiliasi. Tim backend perlu memilih satu salinan kanonis dan memastikan preflight serta urutan branch diselaraskan sebelum merge.
+PR #92 menjadi pemilik tunggal migration path `20270313000000_add_core_composite_fk_indexes.sql` dan test indeksnya. Cleanup PR #96 menghapus salinan duplikat, memperbarui preflight, dan hanya mempertahankan migrasi pengaturan CBT. CI untuk head cleanup harus lulus sebelum merge.
 
 PR #93–#96 membentuk satu stack di atas #91. PR #92 berjalan paralel dari #91. Jangan menganggap status CI sebagai persetujuan merge atau bukti migrasi Production.
 
