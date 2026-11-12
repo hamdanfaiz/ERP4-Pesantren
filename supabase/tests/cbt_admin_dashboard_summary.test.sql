@@ -17,6 +17,12 @@ INSERT INTO public.profiles(user_id,tenant_id,email,display_name,role,status,mod
 VALUES
   ('e1900000-0000-4000-8000-000000000011','e1900000-0000-4000-8000-000000000009','cbt-summary-one@test.invalid','CBT Summary Admin One','admin','active','{"cbt":true}'),
   ('e1900000-0000-4000-8000-000000000012','e1900000-0000-4000-8000-000000000019','cbt-summary-two@test.invalid','CBT Summary Admin Two','admin','active','{"cbt":true}');
+INSERT INTO public.tenant_reference_items (
+  tenant_id,domain,code,name,description,status,nis_grade_code,created_by_user_id,updated_by_user_id
+) VALUES
+  ('e1900000-0000-4000-8000-000000000009','academic_grade_level','CBT_SUMMARY_VII','VII','Jenjang uji ringkasan CBT','active','07','e1900000-0000-4000-8000-000000000011','e1900000-0000-4000-8000-000000000011'),
+  ('e1900000-0000-4000-8000-000000000019','academic_grade_level','CBT_SUMMARY_VII','VII','Jenjang uji ringkasan CBT','active','07','e1900000-0000-4000-8000-000000000012','e1900000-0000-4000-8000-000000000012');
+
 INSERT INTO public.candidates(id,tenant_id,registration_id,name,nik_ciphertext,nik_fingerprint,grade)
 VALUES
   ('e1900000-0000-4000-8000-000000000101','e1900000-0000-4000-8000-000000000009','CBS001','CBT Summary Student One',decode(repeat('a1',44),'hex'),decode(repeat('b1',32),'hex'),'VII'),
