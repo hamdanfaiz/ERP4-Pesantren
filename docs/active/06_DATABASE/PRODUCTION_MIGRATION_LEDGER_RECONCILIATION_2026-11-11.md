@@ -155,7 +155,7 @@ VQE memiliki entri berikut dengan nama sama tetapi timestamp berbeda:
 
 Migrasi `20270312000000_tahfidz_target_decimal_precision` belum muncul di ledger VQE, dan tidak memiliki alias dengan nama sama pada hasil baca ini.
 
-Pembacaan SQL ledger VQE secara read-only pada 12 November mengambil `statements` untuk tiga alias di atas. Setelah normalisasi newline, isi masing-masing sama persis dengan file source `20270309000000`, `20270310000000`, dan `20270311000000`. Ini membuktikan kecocokan isi SQL untuk tiga alias tersebut, bukan kecocokan versi ledger. Preflight PR #91 kini mengenali alias terverifikasi itu, tetap menghentikan kelanjutan sampai metadata ledger direkonsiliasi, dan menampilkan migrasi `20270312000000` yang masih pending. Tidak ada ledger atau data Supabase yang diubah.
+Pembacaan SQL ledger VQE secara read-only pada 12 November mengambil `statements` untuk tiga alias di atas. Setelah menyamakan akhir baris CRLF/LF dan memangkas whitespace di tepi, isi masing-masing sama persis dengan file source `20270309000000`, `20270310000000`, dan `20270311000000`. Ini membuktikan kecocokan isi SQL untuk tiga alias tersebut, bukan kecocokan versi ledger. Preflight PR #91 kini mengenali alias terverifikasi itu, tetap menghentikan kelanjutan sampai metadata ledger direkonsiliasi, dan menampilkan migrasi `20270312000000` yang masih pending. Tidak ada ledger atau data Supabase yang diubah.
 
 ## Tindakan yang diperlukan tim backend
 
