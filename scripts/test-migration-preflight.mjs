@@ -407,6 +407,44 @@ assert.deepEqual(stagingBaseline.statementMismatches.map(({ version, reason }) =
 assert.equal(stagingBaseline.canContinueToStagingReview, false);
 assert.match(formatReport(stagingBaseline), /HENTIKAN/);
 
+// Read-only VQE inventory from 2026-11-12: 140 source migrations through
+// 20270308000000 plus three Tahfidz migrations whose exact SQL is stored under
+// older timestamps. The source statements below are paired with ledger aliases
+// only after live statement arrays matched exactly after newline normalization.
+const vqeTahfidzAliases = [
+  { from: '20261109145507', to: '20270309000000', name: 'tahfidz_quran_surah_catalog' },
+  { from: '20261109145522', to: '20270310000000', name: 'tahfidz_persisted_leaderboard' },
+  { from: '20261109145534', to: '20270311000000', name: 'tahfidz_bulk_daily_target_write_api' },
+];
+const vqeSourceThroughCurrentLedger = sourceMigrationsWithSql
+  .filter(({ version }) => version <= '20270308000000');
+assert.equal(vqeSourceThroughCurrentLedger.length, 140);
+const observedVqeMigrations = [
+  ...vqeSourceThroughCurrentLedger.map(({ version, fileName, statements }) => ({
+    version,
+    name: fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, ''),
+    statements,
+  })),
+  ...vqeTahfidzAliases.map((alias) => {
+    const source = sourceMigrationsWithSql.find(({ version }) => version === alias.to);
+    assert(source, `VQE alias target is missing from source: ${alias.to}`);
+    return { version: alias.from, name: alias.name, statements: source.statements };
+  }),
+];
+assert.equal(observedVqeMigrations.length, 143);
+const vqeBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedVqeMigrations);
+assert.equal(vqeBaseline.appliedCount, 143);
+assert.equal(vqeBaseline.latestAppliedVersion, '20270311000000');
+assert.deepEqual(vqeBaseline.pending.map(({ version }) => version), ['20270312000000']);
+assert.deepEqual(vqeBaseline.unknownApplied, []);
+assert.deepEqual(vqeBaseline.nameMismatches, []);
+assert.deepEqual(vqeBaseline.statementMismatches, []);
+assert.deepEqual(vqeBaseline.migrationAliasesPendingRepair, vqeTahfidzAliases);
+assert.deepEqual(vqeBaseline.validatedMigrationAliases, vqeTahfidzAliases);
+assert.equal(vqeBaseline.canContinueToStagingReview, false);
+assert.match(formatReport(vqeBaseline), /SQL cocok persis: 20261109145507 → 20270309000000/);
+assert.match(formatReport(vqeBaseline), /20270312000000_tahfidz_target_decimal_precision\.sql/);
+
 // Regression fixture for the read-only PTSAS Production inventory captured on
 // 2026-11-12: 48 ledger rows, two missing older migrations, two existing rows
 // with missing name/statement metadata, and a later version/name collision.
