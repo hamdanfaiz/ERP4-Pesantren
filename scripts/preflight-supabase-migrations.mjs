@@ -41,6 +41,21 @@ const MIGRATION_VERSION_ALIASES = Object.freeze([
     to: '20270304000000',
     name: 'student_room_assignment_reference_locks',
   }),
+  Object.freeze({
+    from: '20261109145507',
+    to: '20270309000000',
+    name: 'tahfidz_quran_surah_catalog',
+  }),
+  Object.freeze({
+    from: '20261109145522',
+    to: '20270310000000',
+    name: 'tahfidz_persisted_leaderboard',
+  }),
+  Object.freeze({
+    from: '20261109145534',
+    to: '20270311000000',
+    name: 'tahfidz_bulk_daily_target_write_api',
+  }),
 ]);
 
 function hasEscapeStringPrefix(value) {
@@ -612,16 +627,17 @@ export function formatReport(report) {
     }
   }
 
-  if (!report.canContinueToStagingReview) {
-    lines.push('Rekonsiliasi versi, nama, dan isi SQL migration sebelum membuat rencana staging.');
-  } else if (report.pending.length === 0) {
-    lines.push('Ledger dan repository selaras; tetap lakukan staging/backup review sebelum rilis.');
-  } else {
+  if (report.pending.length > 0) {
     lines.push(`Migration yang belum tercatat (${report.pending.length}):`);
     for (const migration of report.pending) {
       lines.push(`  ${migration.version}  ${migration.fileName}`);
     }
     lines.push('Daftar ini hanya laporan; belum ada perubahan database.');
+  }
+  if (!report.canContinueToStagingReview) {
+    lines.push('Rekonsiliasi versi, nama, dan isi SQL migration sebelum membuat rencana staging.');
+  } else if (report.pending.length === 0) {
+    lines.push('Ledger dan repository selaras; tetap lakukan staging/backup review sebelum rilis.');
   }
   return lines.join('\n');
 }
