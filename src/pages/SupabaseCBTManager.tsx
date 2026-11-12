@@ -448,4 +448,3 @@ export function SupabaseCBTManager() {
     </div>}
   </main>;
 }
-
