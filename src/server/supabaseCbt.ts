@@ -1,4 +1,5 @@
 import { readPostgrestRowsInPages } from "./postgrestPagination";
+import { summarizeCbtAssignmentsByExam } from "../lib/cbtDashboard";
 
 type Row = Record<string, any>;
 
@@ -223,10 +224,11 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
       attemptsByAssignment.set(String(attempt.assignment_id), attempt);
     }
   }
-  const assignmentsByExam = new Map<string, Row[]>();
-  for (const assignment of assignmentRows as Row[]) {
-    assignmentsByExam.set(String(assignment.exam_id), [...(assignmentsByExam.get(String(assignment.exam_id)) || []), assignment]);
-  }
+  const assignmentsByExam = summarizeCbtAssignmentsByExam(
+    assignmentRows as Row[],
+    (assignment) => String(assignment.exam_id),
+    (assignment) => String(assignment.status),
+  );
   const activeStudents = (studentRows as Row[]).filter((student) =>
     !["archived", "alumni", "graduated", "inactive", "nonaktif", "dikeluarkan"].includes(String(student.status || "").toLowerCase()));
   const studentById = new Map<string, Row>(activeStudents.map((student): [string, Row] => [String(student.id), student]));
@@ -245,13 +247,14 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
     passingScore: Number(exam.passing_score), correctPoints: Number(exam.correct_points),
     wrongPoints: Number(exam.wrong_points), blankPoints: Number(exam.blank_points),
     shuffleQuestions: Boolean(exam.shuffle_questions), status: String(exam.status),
-    assignedCount: (assignmentsByExam.get(String(exam.id)) || []).length,
-    completedCount: (assignmentsByExam.get(String(exam.id)) || []).filter((row) => row.status === "completed").length,
+    assignedCount: assignmentsByExam.get(String(exam.id))?.assignedCount || 0,
+    completedCount: assignmentsByExam.get(String(exam.id))?.completedCount || 0,
   }));
+  const examById = new Map(exams.map((exam) => [exam.id, exam]));
   const results = (assignmentRows as Row[]).map((assignment) => {
     const attempt = attemptsByAssignment.get(String(assignment.id));
     const student = studentById.get(String(assignment.student_id));
-    const exam = exams.find((row) => row.id === String(assignment.exam_id));
+    const exam = examById.get(String(assignment.exam_id));
     return {
       assignmentId: String(assignment.id), examTitle: exam?.title || "Ujian",
       studentName: String(student?.name || "Santri diarsipkan"), className: String(student ? classById.get(String(student.class_id || "")) || "" : ""),
