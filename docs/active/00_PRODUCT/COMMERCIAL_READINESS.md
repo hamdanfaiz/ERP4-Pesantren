@@ -6,7 +6,7 @@
 ## Status otoritatif — 12 November 2026
 
 - PR [#91](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/91) adalah basis source utama dan masih **Open, Ready for review**. PR [#92](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/92) menambahkan indeks FK; PR [#93](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/93) kalender CBT, [#94](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/94) ringkasan CBT/paket soal, [#95](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/95) pemantauan sesi, dan [#96](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/96) pengaturan CBT tenant. Semua masih **Open, belum merged dan belum dideploy**.
-- CI sebelumnya PR #91–#96 lulus sesuai run yang tercatat. Source head PR #96 `b1d5054eba2e8e1d8c647a41c5f433acd07b499c` lulus 3/3 job pada Actions #43260057572: replay migrasi dan tes database/API/Storage/backup-restore lokal, build frontend dan image Docker, serta instalasi paket. Supabase Preview dilewati karena branch tidak terhubung ke Supabase Preview.
+- CI PR #91–#96 lulus sesuai run yang tercatat. Head PR #96 `bb3bce3e2a852982418a4cb4665d09e9da42af05` lulus 3/3 job pada Actions #43262133716: replay migrasi terisolasi, database/API/pgTAP/Storage/backup-restore lokal, build frontend dan image Docker, konfigurasi Compose, serta instalasi paket. Supabase Preview dilewati karena branch tidak terhubung.
 - Migration `20270313000000_add_core_composite_fk_indexes.sql` dan test indeks ditetapkan menjadi milik PR #92 saja. Cleanup branch PR #96 menghapus duplikat dan menjadikan PR #96 pemilik migration #14 untuk pengaturan CBT. Periksa head final PR #96 serta CI terbaru sebelum merge.
 - UAT API Tahfidz VQE lulus untuk katalog Qur’an, halaqah/anggota, simpan dan retry setoran, leaderboard, validasi, penolakan akses, dan isolasi tenant. UAT API terbatas Dokumen Digital, PPDB/Keuangan, serta Storage Perpustakaan juga terdokumentasi.
 - Belum terbukti UAT browser menyeluruh untuk semua menu, tombol, role, relasi, unggah, ponsel, maupun install/upgrade/restore VPS/on-premise.
@@ -28,7 +28,7 @@ PPOB, layanan ekosistem, dan integrasi payment gateway dikecualikan dari rilis a
 
 | Area | Bukti saat ini | Status |
 |---|---|---|
-| Source, build, dan paket | CI #43260057572 lulus 3/3 pada source head PR #96 `b1d5054`; termasuk build Docker dan guard `.env.example` | Tersedia untuk review backend; PR belum merged |
+| Source, build, dan paket | CI #43262133716 lulus 3/3 pada source head PR #96 `bb3bce3`; termasuk build Docker, guard `.env.example`, dan binding host Compose ke loopback | Tersedia untuk review backend; PR belum merged |
 | Tahfidz API | UAT VQE: setoran, katalog, leaderboard, retry, role/tenant | Lulus untuk cakupan yang dilaporkan |
 | Modul API lain | UAT terbatas Dokumen Digital, PPDB/Keuangan, dan Storage Perpustakaan | Bukan UAT seluruh modul |
 | Tampilan dan seluruh alur UI | Belum ada bukti menyeluruh semua tab, form, tombol, peran, ponsel, dan unggah Storage | Terbuka |
@@ -74,7 +74,7 @@ Pemeriksaan organisasi menunjukkan PTSAS dan VQE masih memakai paket Free. Menur
 
 ## Keputusan saat ini
 
-PR #91–#96 tersedia untuk review backend; belum ada yang merged dan belum ada review tim yang tercatat. PR #96 sekarang pada source head `b1d5054eba2e8e1d8c647a41c5f433acd07b499c`; CI Actions #43260057572 lulus 3/3, termasuk guard environment Docker dan perbaikan ringkasan CBT. PR tetap menunggu review backend. Belum tepat menyebut sistem siap deploy/komersial penuh karena rekonsiliasi Production, backup/restore, UAT lintas modul, dan simulasi lingkungan pelanggan belum dibuktikan. **Tidak ada perubahan skema atau data Production.**
+PR #91–#96 tersedia untuk review backend; belum ada yang merged dan belum ada review tim yang tercatat. PR #96 sekarang pada source head `bb3bce3e2a852982418a4cb4665d09e9da42af05`; CI Actions #43262133716 lulus 3/3, termasuk guard konfigurasi pelanggan, replay migrasi, uji API/pgTAP/Storage/backup-restore lokal, build frontend, dan image Docker. PR tetap menunggu review backend. Belum tepat menyebut sistem siap deploy/komersial penuh karena rekonsiliasi Production, restore Production, UAT lintas modul, dan simulasi lingkungan pelanggan belum dibuktikan. **Tidak ada perubahan skema atau data Production.**
 
 ## Riwayat
 
