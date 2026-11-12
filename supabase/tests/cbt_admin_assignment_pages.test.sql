@@ -172,7 +172,6 @@ SELECT is((
   )
 ),'0','archived placeholder is not searchable');
 
-SELECT is((
 
 SELECT is((
   SELECT score::TEXT FROM public.list_cbt_admin_assignment_page(
