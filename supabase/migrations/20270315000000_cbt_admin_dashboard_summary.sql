@@ -28,7 +28,27 @@ BEGIN
     RAISE EXCEPTION 'Tenant CBT tidak tersedia' USING ERRCODE = '42501';
   END IF;
 
-  WITH assignment_counts AS (
+  WITH assignment_summary AS (
+    SELECT
+      count(*) AS total_count,
+      count(*) FILTER (WHERE lower(status) IN ('completed', 'submitted', 'graded')) AS completed_count,
+      count(*) FILTER (WHERE status = 'assigned') AS assigned_status_count,
+      count(*) FILTER (WHERE status = 'in_progress') AS in_progress_status_count,
+      count(*) FILTER (WHERE status = 'completed') AS completed_status_count,
+      count(*) FILTER (WHERE status = 'missed') AS missed_status_count
+    FROM public.cbt_exam_assignments
+    WHERE tenant_id = p_tenant_id
+  ),
+  attempt_summary AS (
+    SELECT
+      count(*) FILTER (WHERE score IS NOT NULL) AS scored_count,
+      round(avg(score) FILTER (WHERE score IS NOT NULL), 1) AS average_score,
+      count(*) FILTER (WHERE passed IS NOT NULL) AS decided_count,
+      count(*) FILTER (WHERE passed IS TRUE) AS passed_count
+    FROM public.cbt_attempts
+    WHERE tenant_id = p_tenant_id
+  ),
+  assignment_counts AS (
     SELECT
       tenant_id,
       exam_id,
@@ -105,45 +125,30 @@ BEGIN
       SELECT count(*) FROM published_exams
       WHERE starts_at > v_now
     ),
-    'totalAssignments', (
-      SELECT count(*) FROM public.cbt_exam_assignments
-      WHERE tenant_id = p_tenant_id
-    ),
-    'completedAssignments', (
-      SELECT count(*) FROM public.cbt_exam_assignments
-      WHERE tenant_id = p_tenant_id
-        AND lower(status) IN ('completed', 'submitted', 'graded')
-    ),
-    'assignmentStatusCounts', jsonb_build_object(
-      'assigned', (SELECT count(*) FROM public.cbt_exam_assignments WHERE tenant_id = p_tenant_id AND status = 'assigned'),
-      'in_progress', (SELECT count(*) FROM public.cbt_exam_assignments WHERE tenant_id = p_tenant_id AND status = 'in_progress'),
-      'completed', (SELECT count(*) FROM public.cbt_exam_assignments WHERE tenant_id = p_tenant_id AND status = 'completed'),
-      'missed', (SELECT count(*) FROM public.cbt_exam_assignments WHERE tenant_id = p_tenant_id AND status = 'missed')
+    'totalAssignments', (SELECT total_count FROM assignment_summary),
+    'completedAssignments', (SELECT completed_count FROM assignment_summary),
+    'assignmentStatusCounts', (
+      SELECT jsonb_build_object(
+        'assigned', assigned_status_count,
+        'in_progress', in_progress_status_count,
+        'completed', completed_status_count,
+        'missed', missed_status_count
+      )
+      FROM assignment_summary
     ),
     'completionRate', (
-      SELECT CASE WHEN count(*) = 0 THEN NULL
-        ELSE round(100.0 * count(*) FILTER (WHERE lower(status) IN ('completed', 'submitted', 'graded')) / count(*), 1)
+      SELECT CASE WHEN total_count = 0 THEN NULL
+        ELSE round(100.0 * completed_count / total_count, 1)
       END
-      FROM public.cbt_exam_assignments
-      WHERE tenant_id = p_tenant_id
+      FROM assignment_summary
     ),
-    'scoredAssignments', (
-      SELECT count(*) FROM public.cbt_attempts
-      WHERE tenant_id = p_tenant_id AND score IS NOT NULL
-    ),
-    'averageScore', (
-      SELECT round(avg(score), 1) FROM public.cbt_attempts
-      WHERE tenant_id = p_tenant_id AND score IS NOT NULL
-    ),
+    'scoredAssignments', (SELECT scored_count FROM attempt_summary),
+    'averageScore', (SELECT average_score FROM attempt_summary),
     'passRate', (
-      SELECT CASE WHEN count(*) FILTER (WHERE passed IS NOT NULL) = 0 THEN NULL
-        ELSE round(
-          100.0 * count(*) FILTER (WHERE passed IS TRUE)
-          / count(*) FILTER (WHERE passed IS NOT NULL), 1
-        )
+      SELECT CASE WHEN decided_count = 0 THEN NULL
+        ELSE round(100.0 * passed_count / decided_count, 1)
       END
-      FROM public.cbt_attempts
-      WHERE tenant_id = p_tenant_id
+      FROM attempt_summary
     ),
     'upcomingExams', COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
