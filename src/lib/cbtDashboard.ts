@@ -14,6 +14,25 @@ export type CbtDashboardSummary<TExam, TAssignment> = {
   latestResults: TAssignment[];
 };
 
+export type CbtExamAssignmentCounts = { assignedCount: number; completedCount: number };
+
+/** Count assignments in one linear pass instead of repeatedly scanning the full list per exam. */
+export function summarizeCbtAssignmentsByExam<T>(
+  assignments: readonly T[],
+  getExamId: (assignment: T) => string,
+  getStatus: (assignment: T) => string,
+): Map<string, CbtExamAssignmentCounts> {
+  const counts = new Map<string, CbtExamAssignmentCounts>();
+  for (const assignment of assignments) {
+    const examId = getExamId(assignment);
+    const current = counts.get(examId) || { assignedCount: 0, completedCount: 0 };
+    current.assignedCount += 1;
+    if (getStatus(assignment) === "completed") current.completedCount += 1;
+    counts.set(examId, current);
+  }
+  return counts;
+}
+
 const PUBLISHED_SESSION_STATUSES = new Set(["active", "published"]);
 const COMPLETED_ASSIGNMENT_STATUSES = new Set(["completed", "submitted", "graded"]);
 
