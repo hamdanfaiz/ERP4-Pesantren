@@ -408,8 +408,8 @@ assert.equal(stagingBaseline.canContinueToStagingReview, false);
 assert.match(formatReport(stagingBaseline), /HENTIKAN/);
 
 // Regression fixture for the read-only PTSAS Production inventory captured on
-// 2026-11-06: 47 applied versions through 20261206000000, two missing older
-// migrations, and two existing rows with missing name/statement metadata.
+// 2026-11-12: 48 ledger rows, two missing older migrations, two existing rows
+// with missing name/statement metadata, and a later version/name collision.
 const productionMissingMigrationVersions = new Set([
   '20261031104213',
   '20261031225438',
@@ -430,26 +430,38 @@ const observedProductionMigrations = productionSourceAtBoundary
       : fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, ''),
     statements: productionMissingMetadataVersions.has(version) ? null : statements,
   }));
-assert.equal(observedProductionMigrations.length, 47);
-const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
-assert.equal(productionBaseline.appliedCount, 47);
-assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 97);
-assert.deepEqual(
-  productionBaseline.outOfOrderPending.map(({ version }) => version),
-  [...productionMissingMigrationVersions],
+const conflictingProductionMigration = sourceMigrationsWithSql.find(
+  ({ version }) => version === '20270309000000'
 );
+assert(conflictingProductionMigration, 'The source Tahfidz catalog migration must be present for the Production collision fixture.');
+// Use the source SQL only to isolate the observed name collision in this test;
+// this is not evidence about the SQL stored in the live Production ledger.
+observedProductionMigrations.push({
+  version: '20270309000000',
+  name: 'academic_report_card',
+  statements: conflictingProductionMigration.statements,
+});
+assert.equal(observedProductionMigrations.length, 48);
+const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
+assert.equal(productionBaseline.appliedCount, 48);
+assert.equal(productionBaseline.latestAppliedVersion, '20270309000000');
+assert.equal(productionBaseline.pending.length, 96);
+assert.equal(productionBaseline.outOfOrderPending.length, 93);
+for (const version of productionMissingMigrationVersions) {
+  assert(productionBaseline.outOfOrderPending.some((migration) => migration.version === version));
+}
 assert.equal(productionBaseline.unknownApplied.length, 0);
 assert.deepEqual(
   productionBaseline.nameMismatches.map(({ version }) => version),
-  [...productionMissingMetadataVersions],
+  [...productionMissingMetadataVersions, '20270309000000'],
 );
 assert.deepEqual(
   productionBaseline.statementMismatches.map(({ version, reason }) => ({ version, reason })),
   [...productionMissingMetadataVersions].map((version) => ({ version, reason: 'missing' })),
 );
 assert.equal(productionBaseline.canContinueToStagingReview, false);
-assert.match(formatReport(productionBaseline), /lebih lama dari versi terakhir database/);
+assert.match(formatReport(productionBaseline), /nama migration pada ledger kosong atau berbeda/);
+assert.match(formatReport(productionBaseline), /20270309000000.*ledger=academic_report_card.*repository=tahfidz_quran_surah_catalog/);
 assert.match(formatReport(productionBaseline), /20261031104213.*master_data_import_create_only/);
 assert.match(formatReport(productionBaseline), /20261031225438.*master_data_audit_feed/);
 assert.match(formatReport(productionBaseline), /statement SQL pada ledger kosong/);
