@@ -1,6 +1,17 @@
 > **Agent / multi-agent:** mulai dari [AGENT_START_HERE.md](AGENT_START_HERE.md). Untuk Relasi & Ekosistem + OpenWA (13 Nov 2026) baca [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md). Checkpoint di bawah ini tetap relevan untuk ledger Production dan gerbang migrasi umum.
 
-## Checkpoint otoritatif — 11 November 2026, preflight baca-saja Production
+## Pembaruan terbaru — 13 November 2026
+
+- PR #112 (`codex/cbt-scale-main-20261113`, head `d55df95066b025883fc99d29e1961778da4b00a4`) memuat paginasi/admin API CBT dan enam migration baru. Ketiga job required CI lulus; Supabase Preview dilewati karena preview branch dinonaktifkan. PR tetap draft untuk tinjauan.
+- Ledger Production PTSAS yang baru dibaca read-only memuat **100 versi** hingga `20270316000000`; **56 versi source belum tercatat**. Nama tidak dikembalikan untuk tiga versi: `20261205000000`, `20261206000000`, dan `20270118000000`. Pembacaan ini tidak membuktikan DDL atau isi `statements` cocok.
+- Ledger VQE read-only memuat **150 versi** berbanding **156** file source. Ada **7 nama migration yang versi ledger-nya berbeda** (katalog Quran dan enam migration CBT), **9 versi source yang belum tercatat**, serta **3 entri VQE yang tidak ada di source saat ini**. Kesembilan RPC CBT dan sepuluh indeks yang dibutuhkan terlihat pada katalog VQE; definisi fungsi lengkap belum dibandingkan.
+- CI PR #112 memakai fixture replay historis Production 6 November (47 versi), bukan inventaris Production terkini. Karena itu CI hijau membuktikan replay sintetis dan tes otomasi, bukan bahwa migrasi PR aman untuk diterapkan ke PTSAS.
+- Tidak ada migration atau data yang diterapkan ke VQE/PTSAS. Jalur Production langsung memang diizinkan pemilik bila aman, tetapi belum aman sebelum tim backend merekonsiliasi DDL/dependensi dan membuktikan backup/restore. Jangan `db push` semua gap.
+- Rincian kode, bukti, dan tindak lanjut: [checkpoint CBT 13 November](CHECKPOINT_2026-11-13_CBT_SCALE.md) dan [PR #112](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/112).
+
+Bagian berikut adalah checkpoint **historis 11 November 2026**. Angka 47 versi dan source `fd937f4` di bawah tidak menggambarkan inventory terbaru.
+
+## Checkpoint historis — 11 November 2026, preflight baca-saja Production
 
 ### Source dan CI
 

@@ -304,10 +304,10 @@ jobs:
       - name: Start isolated local Supabase
         run: supabase start
 
-      - name: Reset the isolated database to the Production boundary
+      - name: Reset isolated database to historical Production baseline (2026-11-06)
         run: supabase db reset --local --version 20261206000000 --no-seed
 
-      - name: Recreate the exact Production migration gaps in local Supabase
+      - name: Recreate historical Production migration gaps in local Supabase
         run: |
           db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
           if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then

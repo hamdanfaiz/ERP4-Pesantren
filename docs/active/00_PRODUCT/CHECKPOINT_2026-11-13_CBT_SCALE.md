@@ -4,12 +4,13 @@
 **Branch:** `codex/cbt-scale-main-20261113`
 **Basis:** `main` / `ae9633ec13bfb7fabb3f5d2ae9ae77e6a149e0a7` (PR #111 sudah merged)
 **Target database:** VQE `vqemuyzveuirlkvdggjd` sebagai staging; PTSAS `ptsasgdvgrbdtgyqieie` sebagai Production.
-**Status database:** Tidak ada migrasi atau data yang diterapkan pada staging maupun Production dalam batch ini.
+**Status database:** Tidak ada migrasi atau data yang diterapkan pada staging maupun Production dalam batch ini. Pembacaan ledger VQE dan PTSAS dilakukan read-only.
 
 ## Progres yang dapat dibuktikan
 
 - Implementasi source CBT untuk batch ini: **100%**.
-- Penyerahan batch agar dapat ditinjau: **sekitar 70%**; PR dan CI untuk commit final belum dibuat/dijalankan.
+- Verifikasi otomatis dan penyerahan untuk tinjauan: **100%**; PR #112 terbuka sebagai draft dan tiga job required CI lulus.
+- Kesiapan migrasi live untuk batch ini: **belum dapat dinyatakan**. VQE dan PTSAS memiliki ledger yang berbeda dari source; CBT objects ada di VQE tetapi kesetaraan definisi belum dibuktikan.
 - Progres keseluruhan ERP tidak dihitung ulang dari satu batch ini. Nilai lama tidak dapat dianggap metrik akurat tanpa inventaris dan bobot fitur yang sama.
 
 ## Perubahan pada branch
@@ -24,28 +25,33 @@
 
 ## Pemeriksaan lokal
 
-Lulus: lint, build, test CBT, test pemetaan pesan, preflight sumber migrasi, cakupan workflow CI, API-route auth policy, flags, dan konfigurasi deployment pelanggan. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB.
+Lulus lokal: lint, build, test CBT, test pemetaan pesan, preflight sumber migrasi, cakupan workflow CI, API-route auth policy, flags, dan konfigurasi deployment pelanggan. CI pada head `d55df95066b025883fc99d29e1961778da4b00a4` lulus pada ketiga job required: frontend/build guard, migrations/API/pgTAP, dan instalasi pelanggan. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. Supabase Preview dilewati karena preview branch dinonaktifkan.
 
 Belum lulus/terbukti:
 
-- GitHub Actions untuk commit final belum berjalan.
-- pgTAP dan API round-trip belum dijalankan lokal karena Docker tidak tersedia; harus lulus di CI.
+- UAT browser masih belum dijalankan pada batch ini.
+- Pemeriksaan baseline CI masih memakai inventaris Production historis 6 November 2026 (47 versi sampai `20261206000000`); hasil CI tidak membuktikan replay terhadap ledger Production terkini.
 - `test:trusted-proxy-hops` terhalang sandbox lokal (`EACCES` ketika membuka socket loopback); workflow CI tetap menjalankan tes ini.
-- Tidak ada UAT browser baru pada batch ini.
 
 ## Gerbang rilis database
 
-Jangan menjalankan `db push` untuk menutup semua versi ledger yang hilang. Snapshot baca-saja Production yang pernah diberikan sebelumnya menunjukkan 47 entri ledger; keadaan DDL Production, dependensi dari versi yang belum tercatat, dan bukti backup/restore harus dikonfirmasi tim backend terhadap keadaan terkini.
+Inventaris read-only terkini menunjukkan:
 
-Urutan yang diutamakan: source → CI → VQE staging → PTSAS Production. Pemilik mengizinkan rilis langsung Production jika target, migrasi persis, dependensi/drift, seluruh CI, keamanan, dan backup/restore telah dibuktikan. Batch ini belum memenuhi gate tersebut dan belum diterapkan.
+- **PTSAS Production:** 100 versi sampai `20270316000000`; 56 versi source belum tercatat, dan tiga versi (`20261205000000`, `20261206000000`, `20270118000000`) tidak mengembalikan nama. Semua versi yang tercatat cocok dengan nomor versi source, tetapi kesetaraan DDL/isi belum diverifikasi.
+- **VQE staging:** 150 versi; source saat ini berisi 156. Enam migrasi CBT dalam PR sudah ada pada VQE dengan versi lama `20270314000000`–`20270319000000`, sedangkan branch ini menomorinya `20270321000000`–`20270326000000`. Migrasi katalog Quran juga memiliki perbedaan versi. Ada migrasi lain yang hanya terdapat pada salah satu ledger.
+- Kesembilan RPC CBT dan sepuluh indeks yang dibutuhkan terlihat pada katalog VQE; fungsi-fungsinya berstatus `SECURITY INVOKER`. Definisi fungsi aktual belum dibandingkan byte-per-byte/semantik dengan SQL branch.
+
+Jangan menjalankan `db push` untuk menutup semua versi ledger yang hilang. CI saat ini menjalankan fixture historis dan bukan replay terhadap inventaris Production/VQE terkini. Tim backend perlu merekonsiliasi dependency, DDL, dan bukti backup/restore sebelum migrasi Production. Tidak ada migrasi/database yang diubah.
+
+Urutan yang diutamakan: source → CI → VQE staging → PTSAS Production. Pemilik mengizinkan rilis langsung Production jika target, migrasi persis, dependensi/drift, seluruh CI, keamanan, dan backup/restore telah dibuktikan. Batch ini belum memenuhi gate live dan belum diterapkan.
 
 ## Langkah berikutnya
 
-1. Tinjau diff akhir dan kirim branch ini sebagai PR berbasis `main` agar tim backend dapat meninjau.
-2. Tunggu semua required GitHub checks hijau pada head yang sama; selesaikan regresi jika ada.
-3. Setelah CI hijau, lakukan rehearsal VQE. Jika memilih jalur langsung PTSAS, backend harus lebih dulu mengonfirmasi preflight Production dan backup/restore yang dapat dipulihkan.
+1. Tim meninjau PR #112 dan seluruh required checks pada head yang sama.
+2. Samakan lineage migration VQE dengan source atau jalankan pemeriksaan API/UAT tanpa mengulang migration yang telah ada.
+3. Tim backend merekonsiliasi 56 versi Production yang belum tercatat, tiga metadata nama kosong, DDL/dependency, serta backup/restore.
 4. UATkan layar dan alur CBT dengan akun/data sintetis tenant; jangan menyalin atau mengubah data dummy yang disediakan tim.
-5. Aktifkan flag CBT hanya setelah seluruh objek yang dipakai tersedia pada target yang disetujui.
+5. Setelah satu target release lolos seluruh gate, terapkan hanya set migration yang disetujui dan aktifkan flag CBT setelah objek yang dipakai tersedia.
 
 ## Batas keselamatan
 
