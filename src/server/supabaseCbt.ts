@@ -739,23 +739,159 @@ export async function listSupabaseCbtAdminAssignmentPage(tenantIdentifier: strin
   };
 }
 
+const CBT_ADMIN_EXAM_PAGE_ORDER = "starts_at.desc,id.asc";
+const CBT_ADMIN_EXAM_PAGE_SIZE_DEFAULT = 50;
+const CBT_ADMIN_EXAM_PAGE_SIZE_MAX = 100;
+
+export type NormalizedCbtAdminExamPageQuery = {
+  pageSize: number;
+  startsAtFrom: string | null;
+  startsAtUntil: string | null;
+  cursor: string | null;
+};
+
+export function normalizeCbtAdminExamPageQuery(input: Record<string, unknown>): NormalizedCbtAdminExamPageQuery {
+  const rawLimit = input.limit;
+  let pageSize = CBT_ADMIN_EXAM_PAGE_SIZE_DEFAULT;
+  if (rawLimit !== undefined && rawLimit !== null && rawLimit !== "") {
+    if ((typeof rawLimit !== "string" && typeof rawLimit !== "number") || !/^\d+$/.test(String(rawLimit))) {
+      throw new SupabaseCbtError(400, "Ukuran halaman ujian tidak valid.");
+    }
+    pageSize = Number(rawLimit);
+  }
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > CBT_ADMIN_EXAM_PAGE_SIZE_MAX) {
+    throw new SupabaseCbtError(400, "Ukuran halaman ujian harus antara 1 dan 100.");
+  }
+  const cursorValue = input.cursor;
+  if (cursorValue !== undefined && cursorValue !== null && typeof cursorValue !== "string") {
+    throw new SupabaseCbtError(400, "Penanda halaman ujian tidak valid.");
+  }
+  const cursor = typeof cursorValue === "string" ? cursorValue : null;
+  if (cursor && (cursor.length > 2048 || !/^[A-Za-z0-9_-]+$/.test(cursor))) {
+    throw new SupabaseCbtError(400, "Penanda halaman ujian tidak valid.");
+  }
+  const readInstant = (value: unknown, label: string) => {
+    if (value === undefined || value === null || value === "") return null;
+    const match = typeof value === "string"
+      ? /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/.exec(value)
+      : null;
+    if (!match || value.length > 40) {
+      throw new SupabaseCbtError(400, `Batas waktu ${label} tidak valid.`);
+    }
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) throw new SupabaseCbtError(400, `Batas waktu ${label} tidak valid.`);
+    const expectedIso = `${match[1]}.${(match[2] || "").padEnd(3, "0") || "000"}Z`;
+    const normalized = new Date(timestamp).toISOString();
+    if (normalized !== expectedIso) throw new SupabaseCbtError(400, `Batas waktu ${label} tidak valid.`);
+    return normalized;
+  };
+  const startsAtFrom = readInstant(input.startsAtFrom, "awal");
+  const startsAtUntil = readInstant(input.startsAtUntil, "akhir");
+  if ((startsAtFrom === null) !== (startsAtUntil === null)
+    || (startsAtFrom && startsAtUntil && Date.parse(startsAtUntil) <= Date.parse(startsAtFrom))
+    || (startsAtFrom && startsAtUntil && Date.parse(startsAtUntil) - Date.parse(startsAtFrom) > 33 * 86_400_000)) {
+    throw new SupabaseCbtError(400, "Rentang kalender ujian tidak valid.");
+  }
+  return { pageSize, startsAtFrom, startsAtUntil, cursor };
+}
+
+function cbtAdminExamCursorFilterKey(tenantId: string, filters: NormalizedCbtAdminExamPageQuery) {
+  return JSON.stringify({
+    tenantId: tenantId.toLowerCase(), order: CBT_ADMIN_EXAM_PAGE_ORDER,
+    pageSize: filters.pageSize, startsAtFrom: filters.startsAtFrom, startsAtUntil: filters.startsAtUntil,
+  });
+}
+
+function cbtAdminExamCursorEncryptionKey() {
+  const secret = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!secret) throw new SupabaseCbtError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
+  return createHash("sha256").update("erp4-cbt-admin-exam-page-cursor-v1\\0").update(secret).digest();
+}
+
+export function encodeCbtAdminExamPageCursor(tenantId: string, filters: NormalizedCbtAdminExamPageQuery, row: Row) {
+  const startsAt = typeof row.starts_at === "string" ? row.starts_at : "";
+  if (!isUuid(row.id) || !Number.isFinite(Date.parse(startsAt))) {
+    throw new SupabaseCbtError(503, "Penanda halaman ujian tidak dapat dibuat.");
+  }
+  const nonce = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", cbtAdminExamCursorEncryptionKey(), nonce);
+  cipher.setAAD(Buffer.from("erp4-cbt-admin-exam-page-cursor-v1", "utf8"));
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify({
+    version: 1, order: CBT_ADMIN_EXAM_PAGE_ORDER, tenantId: tenantId.toLowerCase(),
+    startsAt, examId: String(row.id).toLowerCase(), filters: cbtAdminExamCursorFilterKey(tenantId, filters),
+  }), "utf8"), cipher.final()]);
+  return Buffer.concat([nonce, cipher.getAuthTag(), ciphertext]).toString("base64url");
+}
+
+export function decodeCbtAdminExamPageCursor(cursor: string, tenantId: string, filters: NormalizedCbtAdminExamPageQuery) {
+  let value: Row;
+  try {
+    const payload = Buffer.from(cursor, "base64url");
+    if (payload.toString("base64url") !== cursor || payload.length < 29) throw new Error("Invalid cursor encoding");
+    const decipher = createDecipheriv("aes-256-gcm", cbtAdminExamCursorEncryptionKey(), payload.subarray(0, 12));
+    decipher.setAAD(Buffer.from("erp4-cbt-admin-exam-page-cursor-v1", "utf8"));
+    decipher.setAuthTag(payload.subarray(12, 28));
+    value = JSON.parse(Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString("utf8"));
+  } catch {
+    throw new SupabaseCbtError(400, "Penanda halaman ujian tidak valid atau telah kedaluwarsa.");
+  }
+  if (!value || value.version !== 1 || value.order !== CBT_ADMIN_EXAM_PAGE_ORDER
+    || value.tenantId !== tenantId.toLowerCase() || value.filters !== cbtAdminExamCursorFilterKey(tenantId, filters)
+    || typeof value.startsAt !== "string" || !Number.isFinite(Date.parse(value.startsAt)) || !isUuid(value.examId)) {
+    throw new SupabaseCbtError(400, "Penanda halaman ujian tidak cocok dengan tenant atau rentang kalender saat ini.");
+  }
+  return { startsAt: value.startsAt, examId: String(value.examId).toLowerCase() };
+}
+
+export async function listSupabaseCbtAdminExamPage(tenantIdentifier: string, input: Record<string, unknown>) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  const filters = normalizeCbtAdminExamPageQuery(input);
+  const cursor = filters.cursor ? decodeCbtAdminExamPageCursor(filters.cursor, tenantId, filters) : null;
+  const rows = await request("/rest/v1/rpc/list_cbt_admin_exam_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId, p_page_size: filters.pageSize + 1,
+      p_cursor_starts_at: cursor?.startsAt || null, p_cursor_exam_id: cursor?.examId || null,
+      p_starts_at_from: filters.startsAtFrom, p_starts_at_until: filters.startsAtUntil,
+    }),
+  });
+  if (!Array.isArray(rows) || rows.length > filters.pageSize + 1) {
+    throw new SupabaseCbtError(503, "Halaman daftar ujian belum dapat diverifikasi.");
+  }
+  const hasMore = rows.length > filters.pageSize;
+  const pageRows = rows.slice(0, filters.pageSize) as Row[];
+  const items = pageRows.map((row) => {
+    const status = summaryText(row.status, 40);
+    const startsAt = summaryText(row.starts_at, 80);
+    const endsAt = summaryText(row.ends_at, 80);
+    if (!isUuid(row.id) || !Number.isFinite(Date.parse(startsAt)) || !Number.isFinite(Date.parse(endsAt))
+      || Date.parse(endsAt) <= Date.parse(startsAt) || !["draft", "published", "closed"].includes(status)) {
+      throw new SupabaseCbtError(503, "Halaman daftar ujian belum dapat diverifikasi.");
+    }
+    return {
+      id: String(row.id).toLowerCase(), title: summaryText(row.title, 180),
+      subject: summaryText(row.subject, 150), grade: summaryText(row.grade, 40),
+      subjectReferenceId: row.subject_reference_id == null ? "" : String(row.subject_reference_id),
+      gradeLevelReferenceId: row.grade_level_reference_id == null ? "" : String(row.grade_level_reference_id),
+      startsAt, endsAt, durationMinutes: summaryCount(row.duration_minutes),
+      passingScore: summaryNumber(row.passing_score) ?? 75, status,
+      assignedCount: summaryCount(row.assigned_count), completedCount: summaryCount(row.completed_count),
+    };
+  });
+  const lastRow = pageRows[pageRows.length - 1];
+  return {
+    items, hasMore,
+    nextCursor: hasMore && lastRow ? encodeCbtAdminExamPageCursor(tenantId, filters, lastRow) : null,
+  };
+}
+
 export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
   const referenceRows = (domain: string) => request("/rest/v1/tenant_reference_items?" + new URLSearchParams({
     select: "id,name,description", tenant_id: "eq." + tenantId, domain: "eq." + domain,
     status: "eq.active", order: "name.asc,id.asc", limit: "1001",
   }).toString());
-  const [examRows, examAssignmentCountRows, settingsRows, subjectReferences, gradeLevelReferences, templateReferences, packageAggregateRows] = await Promise.all([
-    readPostgrestRowsInPages<Row>({
-      request,
-      path: `/rest/v1/cbt_exams?${new URLSearchParams({ select: "id,title,subject,grade,subject_reference_id,grade_level_reference_id,starts_at,ends_at,duration_minutes,passing_score,correct_points,wrong_points,blank_points,shuffle_questions,status,created_at", tenant_id: "eq." + tenantId, order: "starts_at.desc,id.asc" })}`,
-      maxRows: 500,
-      onIncomplete: () => new SupabaseCbtError(503, "Daftar ujian CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
-    }),
-    request("/rest/v1/rpc/get_cbt_admin_exam_assignment_counts", {
-      method: "POST",
-      body: JSON.stringify({ p_tenant_id: tenantId }),
-    }),
+  const [settingsRows, subjectReferences, gradeLevelReferences, templateReferences, packageAggregateRows] = await Promise.all([
     request("/rest/v1/cbt_tenant_settings?" + new URLSearchParams({
       // Subject, grade, and question-template choices are sourced from the tenant
       // reference catalog below. Legacy imported text arrays are provenance only.
@@ -814,34 +950,9 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
       gradeLevels: names(aggregate?.gradeLevels ?? []),
     };
   });
-  if (!Array.isArray(examAssignmentCountRows) || examAssignmentCountRows.length > 500) {
-    throw new SupabaseCbtError(503, "Jumlah peserta per sesi CBT belum dapat diverifikasi.");
-  }
-  const assignmentsByExam = new Map<string, { assignedCount: number; completedCount: number }>();
-  for (const aggregate of examAssignmentCountRows as Row[]) {
-    const examId = String(aggregate?.exam_id || "");
-    if (!isUuid(examId) || assignmentsByExam.has(examId)) {
-      throw new SupabaseCbtError(503, "Jumlah peserta per sesi CBT belum dapat diverifikasi.");
-    }
-    assignmentsByExam.set(examId, {
-      assignedCount: summaryCount(aggregate.assigned_count),
-      completedCount: summaryCount(aggregate.completed_count),
-    });
-  }
-  const exams = (examRows as Row[]).map((exam) => ({
-    id: String(exam.id), title: String(exam.title), subject: String(exam.subject), grade: String(exam.grade),
-    subjectReferenceId: exam.subject_reference_id == null ? "" : String(exam.subject_reference_id),
-    gradeLevelReferenceId: exam.grade_level_reference_id == null ? "" : String(exam.grade_level_reference_id),
-    startsAt: exam.starts_at, endsAt: exam.ends_at, durationMinutes: Number(exam.duration_minutes),
-    passingScore: Number(exam.passing_score), correctPoints: Number(exam.correct_points),
-    wrongPoints: Number(exam.wrong_points), blankPoints: Number(exam.blank_points),
-    shuffleQuestions: Boolean(exam.shuffle_questions), status: String(exam.status),
-    assignedCount: assignmentsByExam.get(String(exam.id))?.assignedCount || 0,
-    completedCount: assignmentsByExam.get(String(exam.id))?.completedCount || 0,
-  }));
   return {
     questions: [], packageSummaries,
-    exams, results: [], students: [], settings,
+    exams: [], results: [], students: [], settings,
     references: {
       subjects: Array.isArray(subjectReferences) ? subjectReferences : [],
       gradeLevels: Array.isArray(gradeLevelReferences) ? gradeLevelReferences : [],

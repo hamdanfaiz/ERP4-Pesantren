@@ -7,7 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
-import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate } from "../lib/tenantTimeZone";
+import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate, tenantLocalDateTimeToIso } from "../lib/tenantTimeZone";
 
 type Question = {
   id: string; subject: string; grade: string; template: string; subjectReferenceId: string;
@@ -35,6 +35,7 @@ type CbtPackageSummary = ReferenceOption & {
 type QuestionPage = { items: Question[]; hasMore: boolean; nextCursor: string | null };
 type StudentPage = { items: Student[]; hasMore: boolean; nextCursor: string | null };
 type AssignmentPage = { items: Result[]; hasMore: boolean; nextCursor: string | null };
+type ExamPage = { items: Exam[]; hasMore: boolean; nextCursor: string | null };
 type DashboardSummary = {
   activeQuestions: number; totalExams: number; ongoingSessions: number; upcomingSessions: number;
   totalAssignments: number; completedAssignments: number; completionRate: number | null;
@@ -57,6 +58,7 @@ const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], c
 const EMPTY_QUESTION_PAGE: QuestionPage = { items: [], hasMore: false, nextCursor: null };
 const EMPTY_STUDENT_PAGE: StudentPage = { items: [], hasMore: false, nextCursor: null };
 const EMPTY_ASSIGNMENT_PAGE: AssignmentPage = { items: [], hasMore: false, nextCursor: null };
+const EMPTY_EXAM_PAGE: ExamPage = { items: [], hasMore: false, nextCursor: null };
 const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "dashboard", label: "Dasbor", icon: <Activity className="h-4 w-4" /> },
   { id: "calendar", label: "Kalender Ujian", icon: <CalendarDays className="h-4 w-4" /> },
@@ -127,6 +129,14 @@ export function SupabaseCBTManager() {
   const tenantTimeZone = user?.tenantTimeZone || DEFAULT_TENANT_TIME_ZONE;
   const todayInTenant = tenantDate(new Date(), tenantTimeZone);
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
+  const [examPage, setExamPage] = useState<ExamPage>(EMPTY_EXAM_PAGE);
+  const [calendarPage, setCalendarPage] = useState<ExamPage>(EMPTY_EXAM_PAGE);
+  const [examPageLoading, setExamPageLoading] = useState(false);
+  const [calendarPageLoading, setCalendarPageLoading] = useState(false);
+  const [examPageError, setExamPageError] = useState("");
+  const [calendarPageError, setCalendarPageError] = useState("");
+  const [examListRevision, setExamListRevision] = useState(0);
+  const [calendarPageRevision, setCalendarPageRevision] = useState(0);
   const [serverDashboardSummary, setServerDashboardSummary] = useState<DashboardSummary | null>(null);
   const [tab, setTab] = useState<Tab>("questions");
   const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<string | null>(null);
@@ -159,6 +169,8 @@ export function SupabaseCBTManager() {
   const [builderQuestionPageLoading, setBuilderQuestionPageLoading] = useState(false);
   const [builderQuestionPageError, setBuilderQuestionPageError] = useState("");
   const questionPageRequestId = useRef(0);
+  const examPageRequestId = useRef(0);
+  const calendarPageRequestId = useRef(0);
   const builderQuestionPageRequestId = useRef(0);
   const studentPageRequestId = useRef(0);
   const monitorAssignmentPageRequestId = useRef(0);
@@ -183,6 +195,14 @@ export function SupabaseCBTManager() {
   const [settingsImportPreview, setSettingsImportPreview] = useState<ImportPreview | null>(null);
   const settingsAppliedTenant = useRef("");
   const settingsDirtyRef = useRef(false);
+
+  const calendarRange = useMemo(() => {
+    const nextMonth = shiftCbtCalendarMonth(calendarMonth, 1);
+    return {
+      startsAtFrom: tenantLocalDateTimeToIso(`${calendarMonth}-01T00:00`, tenantTimeZone),
+      startsAtUntil: tenantLocalDateTimeToIso(`${nextMonth}-01T00:00`, tenantTimeZone),
+    };
+  }, [calendarMonth, tenantTimeZone]);
 
   useEffect(() => {
     const today = tenantDate(new Date(), tenantTimeZone);
@@ -235,6 +255,8 @@ export function SupabaseCBTManager() {
       });
       setSnapshotUpdatedAt(new Date().toISOString());
       setActivityPageRevision((revision) => revision + 1);
+      setExamListRevision((revision) => revision + 1);
+      setCalendarPageRevision((revision) => revision + 1);
       const tenantId = String(user?.tenantId || "");
       if (tenantId && settingsAppliedTenant.current !== tenantId) {
         settingsAppliedTenant.current = tenantId;
@@ -248,6 +270,12 @@ export function SupabaseCBTManager() {
         setStudentPage(EMPTY_STUDENT_PAGE);
         setStudentSearch("");
         setStudentPageError("");
+        examPageRequestId.current += 1;
+        calendarPageRequestId.current += 1;
+        setExamPage(EMPTY_EXAM_PAGE);
+        setCalendarPage(EMPTY_EXAM_PAGE);
+        setExamPageError("");
+        setCalendarPageError("");
         monitorAssignmentPageRequestId.current += 1;
         resultsAssignmentPageRequestId.current += 1;
         setMonitorPage(EMPTY_ASSIGNMENT_PAGE);
@@ -407,6 +435,75 @@ export function SupabaseCBTManager() {
       studentPageRequestId.current += 1;
     };
   }, [tab, loading, studentSearch, user?.tenantId, user?.uid, loadStudentPage]);
+
+  const loadExamPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++examPageRequestId.current;
+    setExamPageError("");
+    setExamPageLoading(true);
+    if (!append) setExamPage(EMPTY_EXAM_PAGE);
+    const params = new URLSearchParams({ limit: "50" });
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const result = await requestCbt("/api/cbt/admin/exams?" + params.toString());
+      if (requestId !== examPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.id !== "string" || typeof item.title !== "string"
+          || typeof item.subject !== "string" || typeof item.grade !== "string" || typeof item.startsAt !== "string"
+          || typeof item.endsAt !== "string" || typeof item.assignedCount !== "number" || typeof item.completedCount !== "number")) {
+        throw new Error("Halaman daftar ujian CBT belum dapat diverifikasi.");
+      }
+      setExamPage((current) => {
+        const merged = new Map<string, Exam>(append ? current.items.map((item): [string, Exam] => [item.id, item]) : []);
+        for (const item of result.items as Exam[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === examPageRequestId.current) setExamPageError(toERPUserMessage(cause, "Daftar ujian belum dapat dimuat. Silakan coba lagi."));
+    } finally {
+      if (requestId === examPageRequestId.current) setExamPageLoading(false);
+    }
+  }, [user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "exams" || loading) return;
+    void loadExamPage(null, false);
+    return () => { examPageRequestId.current += 1; };
+  }, [tab, loading, examListRevision, user?.tenantId, user?.uid, loadExamPage]);
+
+  const loadCalendarPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++calendarPageRequestId.current;
+    setCalendarPageError("");
+    setCalendarPageLoading(true);
+    if (!append) setCalendarPage(EMPTY_EXAM_PAGE);
+    const params = new URLSearchParams({ limit: "50", startsAtFrom: calendarRange.startsAtFrom, startsAtUntil: calendarRange.startsAtUntil });
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const result = await requestCbt("/api/cbt/admin/exams?" + params.toString());
+      if (requestId !== calendarPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.id !== "string" || typeof item.title !== "string"
+          || typeof item.startsAt !== "string" || typeof item.endsAt !== "string")) {
+        throw new Error("Halaman kalender CBT belum dapat diverifikasi.");
+      }
+      setCalendarPage((current) => {
+        const merged = new Map<string, Exam>(append ? current.items.map((item): [string, Exam] => [item.id, item]) : []);
+        for (const item of result.items as Exam[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === calendarPageRequestId.current) setCalendarPageError(toERPUserMessage(cause, "Jadwal ujian kalender belum dapat dimuat. Silakan coba lagi."));
+    } finally {
+      if (requestId === calendarPageRequestId.current) setCalendarPageLoading(false);
+    }
+  }, [calendarRange.startsAtFrom, calendarRange.startsAtUntil, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "calendar" || loading) return;
+    void loadCalendarPage(null, false);
+    return () => { calendarPageRequestId.current += 1; };
+  }, [tab, loading, calendarMonth, calendarPageRevision, user?.tenantId, user?.uid, loadCalendarPage]);
 
   const loadMonitorAssignmentPage = useCallback(async (cursor: string | null, append: boolean) => {
     const requestId = ++monitorAssignmentPageRequestId.current;
@@ -618,7 +715,7 @@ export function SupabaseCBTManager() {
   const selectedQuestionCount = selectedQuestions.filter((id) => eligibleQuestions.some((question) => question.id === id)).length;
   const calendarDays = useMemo(() => buildCbtCalendarGrid(calendarMonth, tenantTimeZone, todayInTenant), [calendarMonth, tenantTimeZone, todayInTenant]);
   const calendarWeeks = useMemo(() => Array.from({ length: 6 }, (_, index) => calendarDays.slice(index * 7, index * 7 + 7)), [calendarDays]);
-  const examsByCalendarDate = useMemo(() => groupCbtExamsByTenantDate(snapshot.exams, tenantTimeZone), [snapshot.exams, tenantTimeZone]);
+  const examsByCalendarDate = useMemo(() => groupCbtExamsByTenantDate(calendarPage.items, tenantTimeZone), [calendarPage.items, tenantTimeZone]);
   const cbtPackages = snapshot.packageSummaries;
   const selectedCalendarExams = examsByCalendarDate.get(selectedCalendarDate) || [];
   const calendarMonthLabel = useMemo(() => new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${calendarMonth}-01T12:00:00.000Z`)), [calendarMonth]);
@@ -872,9 +969,12 @@ export function SupabaseCBTManager() {
           </div>
         </div>
       </div>
+      {calendarPageError && <div role="alert" className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><span>{calendarPageError}</span><button type="button" onClick={() => void loadCalendarPage(null, false)} className="rounded-lg border border-rose-300 px-3 py-1.5 font-semibold dark:border-rose-300/30">Coba lagi</button></div>}
+      {calendarPageLoading && <p role="status" className="px-4 pb-3 text-center text-xs text-slate-500">Memuat jadwal ujian kalender…</p>}
+      {calendarPage.hasMore && <div className="border-t border-slate-200 p-3 text-center dark:border-white/10"><button type="button" onClick={() => void loadCalendarPage(calendarPage.nextCursor, true)} disabled={calendarPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{calendarPageLoading ? "Memuat…" : "Muat jadwal lainnya pada bulan ini"}</button></div>}
       <div className="border-t border-slate-200 p-4 dark:border-white/10">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold capitalize text-slate-900 dark:text-white">{selectedCalendarDateLabel}</h3><button type="button" onClick={() => setTab("exams")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Buka sesi ujian</button></div>
-        {loading ? <div role="status" className="flex items-center gap-2 py-5 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat jadwal ujian…</div> : selectedCalendarExams.length ? <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">{selectedCalendarExams.map((item) => <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 p-4"><div><h4 className="font-semibold text-slate-900 dark:text-white">{item.title}</h4><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)}–{formatTenantDateTime(item.endsAt, tenantTimeZone)}</p></div><div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-lg bg-slate-100 px-2 py-1 text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span><span className="text-slate-500">{item.assignedCount} peserta · {item.completedCount} selesai</span></div></article>)}</div> : <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-white/10">{snapshot.exams.length ? "Tidak ada sesi ujian pada tanggal ini." : "Belum ada jadwal ujian tersimpan."}</div>}
+        {calendarPageLoading && !calendarPage.items.length ? <div role="status" className="flex items-center gap-2 py-5 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat jadwal ujian…</div> : selectedCalendarExams.length ? <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">{selectedCalendarExams.map((item) => <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 p-4"><div><h4 className="font-semibold text-slate-900 dark:text-white">{item.title}</h4><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)}–{formatTenantDateTime(item.endsAt, tenantTimeZone)}</p></div><div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-lg bg-slate-100 px-2 py-1 text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span><span className="text-slate-500">{item.assignedCount} peserta · {item.completedCount} selesai</span></div></article>)}</div> : <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-white/10">{(serverDashboardSummary?.totalExams || 0) > 0 ? "Tidak ada ujian pada tanggal ini." : "Belum ada jadwal ujian tersimpan."}</div>}
       </div>
     </section>}
 
@@ -918,7 +1018,10 @@ export function SupabaseCBTManager() {
     {tab === "exams" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
       <section className="rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Ujian tersimpan</h2></div>
-        {snapshot.exams.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.exams.map((item) => <article key={item.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></div><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)} · {item.assignedCount} peserta · {item.completedCount} selesai</p></article>)}</div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada sesi ujian.</div>}
+        {examPageLoading && !examPage.items.length ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat daftar ujian…</div> : examPage.items.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{examPage.items.map((item) => <article key={item.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></div><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)} · {item.assignedCount} peserta · {item.completedCount} selesai</p></article>)}</div> : examPageError ? null : <div className="p-10 text-center text-sm text-slate-500">Belum ada sesi ujian.</div>}
+        {examPageError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-t border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><span>{examPageError}</span><button type="button" onClick={() => void loadExamPage(null, false)} className="rounded-lg border border-rose-300 px-3 py-1.5 font-semibold dark:border-rose-300/30">Coba lagi</button></div>}
+        {examPageLoading && examPage.items.length > 0 && <p role="status" className="border-t border-slate-200 p-3 text-center text-xs text-slate-500 dark:border-white/10">Memuat ujian berikutnya…</p>}
+        {examPage.hasMore && <div className="border-t border-slate-200 p-4 text-center dark:border-white/10"><button type="button" onClick={() => void loadExamPage(examPage.nextCursor, true)} disabled={examPageLoading} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{examPageLoading ? "Memuat…" : "Muat ujian berikutnya"}</button></div>}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <h2 className="mb-4 font-semibold text-slate-900 dark:text-white">Buat jadwal ujian</h2>
