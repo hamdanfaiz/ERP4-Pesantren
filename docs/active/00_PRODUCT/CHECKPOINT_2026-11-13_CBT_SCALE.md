@@ -9,7 +9,7 @@
 ## Progres yang dapat dibuktikan
 
 - Implementasi source CBT untuk batch ini: **100%**.
-- Verifikasi otomatis dan penyerahan untuk tinjauan: **100%**; PR #112 terbuka sebagai draft dan tiga job required CI lulus.
+- Verifikasi otomatis dan penyerahan untuk tinjauan: **100%**; PR #112 terbuka sebagai draft dan tiga job required CI lulus pada head `834ec73` (run #1617).
 - Kesiapan migrasi live untuk batch ini: **belum dapat dinyatakan**. VQE dan PTSAS memiliki ledger yang berbeda dari source; CBT objects ada di VQE tetapi kesetaraan definisi belum dibuktikan.
 - Progres keseluruhan ERP tidak dihitung ulang dari satu batch ini. Nilai lama tidak dapat dianggap metrik akurat tanpa inventaris dan bobot fitur yang sama.
 
@@ -25,7 +25,7 @@
 
 ## Pemeriksaan lokal
 
-Lulus lokal: lint, build, test CBT, test pemetaan pesan, preflight sumber migrasi, cakupan workflow CI, API-route auth policy, flags, dan konfigurasi deployment pelanggan. GitHub Actions run #1616 pada head `ebae253e5fa4c5eff894ec55642b3a9e7519bc8b` lulus pada ketiga job required: frontend/build guard, migrations/API/pgTAP, dan instalasi pelanggan. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. Supabase Preview dilewati karena preview branch dinonaktifkan.
+Lulus lokal: lint, build, test CBT, test pemetaan pesan, preflight sumber migrasi, cakupan workflow CI, API-route auth policy, flags, dan konfigurasi deployment pelanggan. GitHub Actions run #1617 pada head `834ec73cb61f441af13525adac41857bd154044f` lulus pada ketiga job required: frontend/build guard, migrations/API/pgTAP, dan instalasi pelanggan. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. Supabase Preview dilewati karena preview branch dinonaktifkan.
 
 Belum lulus/terbukti:
 
@@ -39,9 +39,10 @@ Inventaris read-only terkini menunjukkan:
 
 - **PTSAS Production:** 100 versi sampai `20270316000000`; 56 versi source belum tercatat, dan tiga versi (`20261205000000`, `20261206000000`, `20270118000000`) tidak mengembalikan nama. Semua versi yang tercatat cocok dengan nomor versi source, tetapi kesetaraan DDL/isi belum diverifikasi.
 - **VQE staging:** 150 versi; source saat ini berisi 156. Ada 12 versi source yang belum tercatat persis, enam versi VQE yang tidak ada pada source saat ini, dan empat nomor versi dengan nama yang berbeda (`20270312000000`, `20270314000000`, `20270315000000`, `20270316000000`). Enam migration CBT lama tercatat pada VQE sebagai `20270314000000`–`20270319000000`; source main memakai `20270321000000`–`20270326000000`. Katalog Quran juga tercatat di VQE pada `20261109145507`, sementara source memakai `20270320000000`.
-- Kesembilan RPC CBT dan sepuluh indeks yang dibutuhkan terlihat pada katalog VQE; fungsi-fungsinya berstatus `SECURITY INVOKER`. Definisi fungsi aktual belum dibandingkan byte-per-byte/semantik dengan SQL branch.
+- Sepuluh fungsi CBT/Tahfidz yang diperiksa ada di VQE; isi body setiap fungsi cocok dengan source setelah normalisasi whitespace, dan seluruhnya `SECURITY INVOKER`. Sembilan RPC Admin hanya dapat dieksekusi `service_role`; fungsi validasi katalog tidak dapat dieksekusi oleh `anon`, `authenticated`, atau `service_role`.
+- Sepuluh indeks untuk ringkasan, pencarian, dan pagination CBT serta ekstensi `pg_trgm` di schema `extensions` juga ada di VQE; definisi katalog sesuai dengan key/condition yang diminta migration batch. Pada PTSAS Production, kesepuluh fungsi dan kesepuluh indeks itu belum ada.
 
-Jangan menjalankan `db push` untuk menutup semua versi ledger yang hilang. CI saat ini menjalankan fixture historis dan bukan replay terhadap inventaris Production/VQE terkini. Tim backend perlu merekonsiliasi dependency, DDL, dan bukti backup/restore sebelum migrasi Production. Tidak ada migrasi/database yang diubah.
+Jangan menjalankan `db push` untuk menutup semua versi ledger yang hilang. Pemeriksaan fungsi/index ini menunjukkan objek CBT batch sudah tersedia di VQE, tetapi ledger staging tetap berbeda; di PTSAS objek batch belum tersedia. CI saat ini menjalankan fixture historis dan bukan replay terhadap inventaris Production/VQE terkini. Tim backend perlu merekonsiliasi dependency, DDL, dan bukti backup/restore sebelum migrasi Production. Tidak ada migrasi/database yang diubah.
 
 Urutan yang diutamakan: source → CI → VQE staging → PTSAS Production. Pemilik mengizinkan rilis langsung Production jika target, migrasi persis, dependensi/drift, seluruh CI, keamanan, dan backup/restore telah dibuktikan. Batch ini belum memenuhi gate live dan belum diterapkan.
 
