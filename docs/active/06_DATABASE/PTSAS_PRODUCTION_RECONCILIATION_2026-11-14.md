@@ -117,7 +117,7 @@ Snapshot baca-saja pada staging `vqemuyzveuirlkvdggjd` dibandingkan dengan sourc
 - 6 versi source belum ada pada ledger: `20270215500000_sample_class_grade_labels`, `20270309000000_academic_report_card`, `20270310000000_academic_sample_catalog`, `20270311000000_academic_sample_term`, `20270313000000_education_boarding_operational_seed`, dan `20270320000000_tahfidz_quran_surah_catalog`.
 - 4 nama ledger pada versi yang sama berbeda dari nama file source: versi `20270312000000`, `20270314000000`, `20270315000000`, dan `20270316000000`.
 - 6 versi ledger tidak mempunyai file source bernomor sama: tiga alias Tahfidz `20261109145507`, `20261109145522`, `20261109145534`, serta versi CBT `20270317000000`, `20270318000000`, `20270319000000`.
-- Advisor keamanan VQE hanya menandai perlindungan kata sandi bocor nonaktif; advisor performa tetap memiliki temuan INFO.
+- Katalog staging memuat 169 tabel `public`, semuanya melaporkan RLS aktif. Health Advisor staging tidak mengembalikan temuan; Security Advisor menandai perlindungan kata sandi bocor nonaktif dan Performance Advisor memiliki temuan INFO.
 
 Lihat juga [snapshot ledger VQE 13 November](VQE_STAGING_MIGRATION_LEDGER_DRIFT_2026-11-13.md). Snapshot Production ini tidak memperbaiki alias atau ledger staging.
 
