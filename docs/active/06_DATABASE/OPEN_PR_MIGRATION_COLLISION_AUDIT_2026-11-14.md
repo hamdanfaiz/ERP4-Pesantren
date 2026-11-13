@@ -22,7 +22,7 @@ Ditemukan beberapa PR bertumpuk yang tidak aman digabung berurutan tanpa rekonsi
 - `main` saat audit memuat 150 file migrasi source; `main` memiliki migrasi 20270309000000–20270316000000 dengan nama seperti pada tabel.
 - VQE staging memiliki catatan ledger versi 20270317000000–20270319000000 yang tidak ada di source `main` saat dibandingkan, sesuai laporan rekonsiliasi. Ini dapat mencerminkan migrasi dari jalur PR lama; perlu inspeksi DDL staging dan ledger sebelum mengubah nama atau isi file.
 - PR #114 (katalog Quran/tab Tahfidz) dan #115 (pesan UI) tidak menambahkan migrasi. CI hijau, tetapi catatan PR menyatakan UAT visual/browser masih belum dikonfirmasi.
-- PR #116 tetap draft; CI untuk commit terkini masih berjalan saat audit ini dibuat. UAT peran Admin/Ustadz/Santri/Wali juga belum selesai.
+- PR #116 tetap draft; CI pada head `6495bd00203ad4ca667069946e492b84d58e1612` sudah lulus pada run [#1653](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43501516746). UAT peran Admin/Ustadz/Santri/Wali juga belum selesai.
 - PR #118 (dokumen kesiapan) sudah digabung ke `main` pada 14 November 2026. Penggabungan ini hanya mengubah dokumentasi.
 
 ## Urutan aman untuk tim backend
@@ -37,3 +37,12 @@ Ditemukan beberapa PR bertumpuk yang tidak aman digabung berurutan tanpa rekonsi
 ## Batas kesimpulan
 
 Benturan versi membuktikan urutan PR/migrasi perlu diperbaiki; ini tidak dengan sendirinya membuktikan tabel atau fitur tertentu rusak. Audit ini tidak membaca baris data, tidak membuktikan backup/restore Production, tidak memvalidasi seluruh alur modul, dan tidak menerapkan perubahan database.
+
+
+## PR #1–#11 yang ditutup
+
+Pemeriksaan REST GitHub pada 14 November 2026 menunjukkan PR #1 sampai #11 berstatus **closed, not merged**. PR #13, “Supabase-only runtime cutover and customer-managed baseline”, kemudian digabung pada 30 Oktober 2026 dengan cakupan sangat luas (460 file). Jadi PR #1–#11 tidak boleh dianggap merged hanya karena ditutup, tetapi juga jangan dibuka atau digabung ulang sebagai satu rangkaian lama.
+
+Source `main` saat ini menggunakan migrasi bernomor dan bernama lebih baru untuk banyak area fondasi tersebut (misalnya `tenant_profile_foundation`, `public_ppdb_runtime`, `ppdb_admin_workflows`, `master_data_onboarding`, dan `finance_runtime`). Sejumlah file dari PR awal memakai nomor 20260604–20260618 yang tidak lagi ada pada daftar source `main`. Ini mendukung bahwa cutover berikutnya telah mengganti atau menyerap sebagian besar jalur lama, tetapi **tidak membuktikan satu per satu seluruh logic unik PR #1–#11**.
+
+Tindakan yang aman: pertahankan PR lama dalam keadaan tertutup; inventarisasi perubahan unik setiap PR lama terhadap source `main` dan PR #13, lalu port hanya logic yang benar-benar hilang ke PR baru dengan migrasi bernomor kanonis. Jangan menggabungkan branch lama atau menjalankan migrasinya tanpa review checksum/DDL dan pemeriksaan relasi ledger terlebih dahulu.
