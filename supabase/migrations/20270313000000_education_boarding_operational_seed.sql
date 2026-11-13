@@ -522,7 +522,7 @@ ins_course AS (
     actor.tenant_id, cat.id, 'Kurikulum Formal',
     'Pengantar Fiqih Ibadah',
     'Kursus sampel untuk runtime LMS operasional.',
-    'X-A',
+    grade_ref.name,
     actor.user_id,
     'published',
     'emerald',
@@ -531,6 +531,15 @@ ins_course AS (
     actor.user_id, actor.user_id
   FROM actor
   JOIN cat ON cat.tenant_id = actor.tenant_id
+  JOIN LATERAL (
+    SELECT item.name
+    FROM public.tenant_reference_items item
+    WHERE item.tenant_id = actor.tenant_id
+      AND item.domain = 'academic_grade_level'
+      AND item.status = 'active'
+    ORDER BY item.code, item.name, item.id
+    LIMIT 1
+  ) AS grade_ref ON true
   WHERE NOT EXISTS (
     SELECT 1 FROM public.lms_courses existing
     WHERE existing.tenant_id = actor.tenant_id
@@ -592,7 +601,9 @@ INSERT INTO public.lms_enrollments (
 )
 SELECT c.tenant_id, c.id, s.id, 'active', c.created_by
 FROM public.lms_courses c
-JOIN public.students s ON s.tenant_id = c.tenant_id
+JOIN public.students s
+  ON s.tenant_id = c.tenant_id
+ AND s.grade_level_reference_id = c.grade_level_reference_id
 WHERE c.client_request_id = 'c1111111-1111-4111-8111-111111111301'::uuid
   AND lower(COALESCE(s.status, '')) NOT IN (
     'archived', 'alumni', 'graduated', 'inactive', 'nonaktif', 'tidak aktif', 'disabled', 'dikeluarkan'
