@@ -3,7 +3,7 @@ import { Activity, ArrowDown, ArrowUp, Building2, Check, ChevronDown, Loader2, M
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
-import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPTabs } from "../components/ERPDesignSystem";
 
 type CrmTab = "directory" | "pipeline" | "broadcast" | "analytics";
 const CRM_TABS: Array<{ id: CrmTab; label: string }> = [
@@ -84,8 +84,17 @@ export function SupabaseCrmManager() {
   const [interactionDraft, setInteractionDraft] = useState({ interactionType: "note", direction: "internal", subject: "", summary: "" });
   const [interactionBusy, setInteractionBusy] = useState(false);
   const [loadingInteractions, setLoadingInteractions] = useState(false);
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastSubject, setBroadcastSubject] = useState("Siaran WhatsApp CRM");
+  const [broadcastBusy, setBroadcastBusy] = useState(false);
+  const [broadcastStatus, setBroadcastStatus] = useState<{ configured: boolean; endpoint?: string | null; error?: string | null } | null>(null);
+  const [broadcastResult, setBroadcastResult] = useState<{ sent?: number; failed?: number; dryRun?: boolean; recipientCount?: number; recipients?: Array<{ name: string; phone: string }>; results?: Array<{ name: string; phone: string; status: string; error?: string }> } | null>(null);
   const canManage = (role === "Admin" || role === "SuperAdmin") && user?.modulePermissions?.crm !== false;
   const selectedContact = useMemo(() => contacts.find((contact) => contact.id === selectedId) || null, [contacts, selectedId]);
+  const broadcastAudience = useMemo(
+    () => contacts.filter((item) => item.marketingConsent === "granted" && String(item.phone || "").trim()),
+    [contacts],
+  );
 
   const queryString = (cursor?: string | null) => {
     const params = new URLSearchParams();
@@ -115,6 +124,15 @@ export function SupabaseCrmManager() {
   }, [loadContacts]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (tab !== "broadcast") return;
+    let active = true;
+    crmRequest<{ configured: boolean; endpoint?: string | null; error?: string | null }>("/api/crm/broadcast/status")
+      .then((status) => { if (active) setBroadcastStatus(status); })
+      .catch((loadError: any) => { if (active) setBroadcastStatus({ configured: false, error: loadError?.message || "Status OpenWA belum dapat dimuat." }); });
+    return () => { active = false; };
+  }, [tab, user?.tenantId]);
 
   useEffect(() => {
     if (!selectedId) { setInteractions([]); setInteractionCursor(null); return; }
@@ -189,6 +207,35 @@ export function SupabaseCrmManager() {
     } catch (loadError: any) { setError(loadError?.message || "Riwayat berikutnya belum dapat dimuat."); }
   };
 
+  const runBroadcast = async (dryRun: boolean) => {
+    if (!canManage) return;
+    setBroadcastBusy(true); setError(""); setNotice(""); setBroadcastResult(null);
+    let lease: Awaited<ReturnType<typeof pendingMutationIds.acquire>> | null = null;
+    try {
+      const payload = {
+        message: broadcastMessage.trim(),
+        subject: broadcastSubject.trim() || "Siaran WhatsApp CRM",
+        contactIds: broadcastAudience.map((item) => item.id),
+        dryRun,
+      };
+      lease = await pendingMutationIds.acquire(`crm-broadcast:${user?.uid || "unknown"}`, payload);
+      const result = await crmRequest<typeof broadcastResult & { sent?: number; failed?: number }>("/api/crm/broadcasts", {
+        method: "POST",
+        body: JSON.stringify({ broadcast: { ...payload, clientRequestId: lease.requestId } }),
+      });
+      lease.clear();
+      setBroadcastResult(result || null);
+      setNotice(dryRun
+        ? `Pratinjau: ${result?.recipientCount || 0} penerima siap dikirim via OpenWA.`
+        : `Siaran selesai: ${result?.sent || 0} terkirim, ${result?.failed || 0} gagal.`);
+      if (!dryRun) await loadContacts(null, false);
+    } catch (sendError: any) {
+      setError(sendError?.message || "Siaran WhatsApp belum dapat diproses.");
+    } finally {
+      setBroadcastBusy(false);
+    }
+  };
+
   return <section className="space-y-6">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -202,10 +249,52 @@ export function SupabaseCrmManager() {
       </div>
     </header>
 
-    <ERPTabs tabs={CRM_TABS} value={tab} onChange={(id) => { setTab(id as CrmTab); setFormOpen(false); setError(""); }} ariaLabel="Bagian Relasi Wali dan Donatur" />
+    <ERPTabs tabs={CRM_TABS} value={tab} onChange={(id) => {
+      const next = id as CrmTab;
+      setTab(next);
+      setFormOpen(false);
+      setError("");
+      if (next === "pipeline" && !stageFilter) setStageFilter("lead");
+      if (next === "directory" && stageFilter === "lead") setStageFilter("");
+    }} ariaLabel="Bagian Relasi Wali dan Donatur" />
 
-    {tab === "broadcast" && <ERPFeatureStatus title="Siaran" description="Pengiriman siaran belum terhubung ke penyedia pesan dan alur persetujuan. CRM saat ini hanya mencatat relasi serta persetujuan menerima informasi; tidak ada pesan yang dikirim." />}
-    {tab === "analytics" && <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[[Users, "Total relasi", summary.totalContacts], [Activity, "Prospek terbuka", summary.openLeads], [MessageSquareText, "Interaksi 30 hari", summary.interactionsLast30Days], [ShieldCheck, "Setuju menerima informasi", summary.marketingConsentedContacts]].map(([Icon, label, value]: any) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900/70"><div className="flex items-center justify-between"><span className="text-sm text-slate-500 dark:text-slate-400">{label}</span><Icon className="h-4 w-4 text-emerald-700 dark:text-emerald-300" /></div><p className="mt-3 text-2xl font-semibold text-slate-900 dark:text-white">{loading ? "—" : Number(value).toLocaleString("id-ID")}</p></article>)}</section>}
+    {tab === "broadcast" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900/70">
+      <div>
+        <h2 className="font-semibold text-slate-900 dark:text-white">Siaran WhatsApp (OpenWA)</h2>
+        <p className="mt-1 text-sm text-slate-500">Hanya kontak dengan persetujuan menerima informasi dan nomor telepon valid. Pengiriman lewat OpenWA Easy API di server.</p>
+      </div>
+      <div className={`rounded-xl border px-4 py-3 text-sm ${broadcastStatus?.configured ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-950/25 dark:text-emerald-200" : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-950/25 dark:text-amber-200"}`}>
+        {broadcastStatus == null ? "Memeriksa konfigurasi OpenWA…"
+          : broadcastStatus.configured ? `OpenWA siap · ${broadcastStatus.endpoint}`
+            : (broadcastStatus.error || "OpenWA belum dikonfigurasi. Isi endpoint di Pengaturan dan WA_GATEWAY_API_KEY di server.")}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <article className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="text-xs text-slate-500">Setuju menerima info</p><p className="mt-2 text-2xl font-semibold">{summary.marketingConsentedContacts}</p></article>
+        <article className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="text-xs text-slate-500">Siap kirim (ada nomor)</p><p className="mt-2 text-2xl font-semibold">{broadcastAudience.length}</p></article>
+        <article className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="text-xs text-slate-500">Batas per batch</p><p className="mt-2 text-2xl font-semibold">50</p></article>
+      </div>
+      {canManage && <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/10">
+        <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Judul catatan interaksi<input className={inputClass} maxLength={200} value={broadcastSubject} onChange={(event) => setBroadcastSubject(event.target.value)} /></label>
+        <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Isi pesan WhatsApp<textarea required minLength={5} maxLength={4000} rows={4} className={inputClass} value={broadcastMessage} onChange={(event) => setBroadcastMessage(event.target.value)} placeholder="Tulis pesan siaran…" /></label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={broadcastBusy || broadcastAudience.length === 0 || broadcastMessage.trim().length < 5} className={buttonClass} onClick={() => void runBroadcast(true)}>Pratinjau audiens</button>
+          <button type="button" disabled={broadcastBusy || !broadcastStatus?.configured || broadcastAudience.length === 0 || broadcastMessage.trim().length < 5} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runBroadcast(false)}>{broadcastBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />} Kirim via OpenWA</button>
+        </div>
+      </div>}
+      {(error || notice) && tab === "broadcast" && <div role={error ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${error ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-950/30 dark:text-rose-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-200"}`}>{error || notice}</div>}
+      {broadcastResult && <div className="rounded-xl border border-slate-200 p-4 text-sm dark:border-white/10">
+        <p className="font-medium text-slate-900 dark:text-white">{broadcastResult.dryRun ? `Pratinjau · ${broadcastResult.recipientCount || 0} penerima` : `Hasil · terkirim ${broadcastResult.sent || 0} · gagal ${broadcastResult.failed || 0}`}</p>
+        {broadcastResult.dryRun && Array.isArray(broadcastResult.recipients) && broadcastResult.recipients.length > 0 && <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs text-slate-600 dark:text-slate-300">{broadcastResult.recipients.map((item, index) => <li key={`${item.phone}-${index}`}>{item.name} · {item.phone}</li>)}</ul>}
+        {!broadcastResult.dryRun && Array.isArray(broadcastResult.results) && broadcastResult.results.length > 0 && <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs text-slate-600 dark:text-slate-300">{broadcastResult.results.map((item, index) => <li key={`${item.phone}-${index}`}>{item.name} · {item.phone} · {item.status}{item.error ? ` · ${item.error}` : ""}</li>)}</ul>}
+      </div>}
+      {loading ? <div className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat audiens…</div>
+        : broadcastAudience.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada kontak berpersetujuan dengan nomor telepon.</p>
+        : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/[0.03]"><tr><th className="px-4 py-3">Nama</th><th className="px-4 py-3">Jenis</th><th className="px-4 py-3">WhatsApp</th><th className="px-4 py-3">Sumber persetujuan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{broadcastAudience.map((item) => <tr key={item.id}><td className="px-4 py-3 font-medium">{item.name}</td><td className="px-4 py-3">{CONTACT_TYPES.find(([value]) => value === item.contactType)?.[1] || item.contactType}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.phone}</td><td className="px-4 py-3">{item.consentSource || "—"}</td></tr>)}</tbody></table></div>}
+    </section>}
+    {tab === "analytics" && <section className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[[Users, "Total relasi", summary.totalContacts], [Activity, "Prospek terbuka", summary.openLeads], [MessageSquareText, "Interaksi 30 hari", summary.interactionsLast30Days], [ShieldCheck, "Setuju menerima informasi", summary.marketingConsentedContacts]].map(([Icon, label, value]: any) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900/70"><div className="flex items-center justify-between"><span className="text-sm text-slate-500 dark:text-slate-400">{label}</span><Icon className="h-4 w-4 text-emerald-700 dark:text-emerald-300" /></div><p className="mt-3 text-2xl font-semibold text-slate-900 dark:text-white">{loading ? "—" : Number(value).toLocaleString("id-ID")}</p></article>)}</div>
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900/70"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/[0.03]"><tr><th className="px-4 py-3">Tahap</th><th className="px-4 py-3 text-right">Jumlah</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{STAGES.map(([value, label]) => <tr key={value}><td className="px-4 py-3">{label}</td><td className="px-4 py-3 text-right tabular-nums">{contacts.filter((item) => item.lifecycleStage === value).length}</td></tr>)}</tbody></table></div>
+    </section>}
 
     {(tab === "directory" || tab === "pipeline") && <>
     {(error || notice) && <div role={error ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${error ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-950/30 dark:text-rose-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-200"}`}>{error || notice}</div>}
@@ -215,7 +304,7 @@ export function SupabaseCrmManager() {
     </div>
 
     <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-950/25 dark:text-sky-200">
-      <div className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p><strong>Pengiriman kampanye belum diaktifkan.</strong> CRM ini hanya menyimpan relasi dan catatan interaksi. Sistem tidak mengirim email atau pesan otomatis; persetujuan pemasaran dicatat terpisah.</p></div>
+      <div className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p><strong>Siaran WhatsApp memakai OpenWA.</strong> Hanya kontak berpersetujuan yang dikirim dari tab Siaran. Email massal belum tersedia; catatan interaksi tetap dicatat per pengiriman.</p></div>
     </div>
 
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,0.8fr)]">

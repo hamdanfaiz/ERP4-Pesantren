@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Activity, AlertCircle, BookOpen, Boxes, CalendarClock, CalendarDays, Check, ClipboardList, Loader2, Plus, Radio, RefreshCw, ShieldCheck, SlidersHorizontal, Users } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
-import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 
 type Question = {
@@ -46,13 +46,6 @@ const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode 
   { id: "results", label: "Hasil & Analitik", icon: <ClipboardList className="h-4 w-4" /> },
   { id: "settings", label: "Pengaturan", icon: <SlidersHorizontal className="h-4 w-4" /> },
 ];
-const CBT_PENDING: Partial<Record<Tab, string>> = {
-  dashboard: "Dashboard khusus CBT belum memiliki agregat tenant; kartu di atas hanya ringkasan data CBT yang sudah tersedia.",
-  calendar: "Jadwal sesi ujian dapat dilihat melalui Sesi Ujian, tetapi kalender khusus dan penyaringan agenda belum tersedia.",
-  packages: "Template dan paket soal terpisah belum memiliki pengelolaan, versi, dan publikasi pada API Supabase.",
-  monitor: "Pemantauan peserta secara langsung dan kanal pembaruan status ujian belum disambungkan.",
-  settings: "Sebagian aturan nilai dan pengacakan dibaca dari konfigurasi sesi; halaman konfigurasi tenant yang terpisah belum tersedia.",
-};
 const FIELD = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100";
 const BUTTON = "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50";
 const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
@@ -189,6 +182,56 @@ export function SupabaseCBTManager() {
     && Boolean(question.subjectReferenceId && question.gradeLevelReferenceId)), [snapshot.questions, exam.subjectReferenceId, exam.gradeLevelReferenceId]);
   const selectedQuestionCount = selectedQuestions.filter((id) => eligibleQuestions.some((question) => question.id === id)).length;
 
+  const dashboardStats = useMemo(() => {
+    const activeQuestions = snapshot.questions.filter((item) => item.status === "active").length;
+    const publishedExams = snapshot.exams.filter((item) => ["published", "active"].includes(String(item.status || "").toLowerCase())).length;
+    const completed = snapshot.results.filter((item) => ["completed", "submitted", "graded"].includes(String(item.status || "").toLowerCase())).length;
+    const inProgress = snapshot.results.filter((item) => ["in_progress", "assigned"].includes(String(item.status || "").toLowerCase())).length;
+    const scored = snapshot.results.filter((item) => item.score != null);
+    const averageScore = scored.length
+      ? Math.round((scored.reduce((sum, item) => sum + Number(item.score || 0), 0) / scored.length) * 10) / 10
+      : null;
+    const passed = scored.filter((item) => item.passed === true).length;
+    return { activeQuestions, publishedExams, completed, inProgress, averageScore, passed, scoredCount: scored.length };
+  }, [snapshot.exams, snapshot.questions, snapshot.results]);
+
+  const calendarDays = useMemo(() => {
+    const groups = new Map<string, Exam[]>();
+    for (const examItem of snapshot.exams) {
+      const key = new Date(examItem.startsAt).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      const list = groups.get(key) || [];
+      list.push(examItem);
+      groups.set(key, list);
+    }
+    return Array.from(groups.entries()).map(([label, exams]) => ({
+      label,
+      sortKey: Math.min(...exams.map((item) => new Date(item.startsAt).getTime())),
+      exams: exams.slice().sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()),
+    })).sort((a, b) => a.sortKey - b.sortKey);
+  }, [snapshot.exams]);
+
+  const packageRows = useMemo(() => snapshot.references.templates.map((template) => {
+    const questions = snapshot.questions.filter((item) => item.templateReferenceId === template.id);
+    const active = questions.filter((item) => item.status === "active").length;
+    return { ...template, questionCount: questions.length, activeCount: active };
+  }), [snapshot.questions, snapshot.references.templates]);
+
+  const monitorRows = useMemo(() => {
+    const byExam = new Map<string, { title: string; assigned: number; inProgress: number; completed: number; graded: number }>();
+    for (const result of snapshot.results) {
+      const key = result.examTitle || "Ujian";
+      const row = byExam.get(key) || { title: key, assigned: 0, inProgress: 0, completed: 0, graded: 0 };
+      const status = String(result.status || "").toLowerCase();
+      if (status === "assigned") row.assigned += 1;
+      else if (status === "in_progress") row.inProgress += 1;
+      else if (status === "graded") row.graded += 1;
+      else if (["completed", "submitted"].includes(status)) row.completed += 1;
+      else row.assigned += 1;
+      byExam.set(key, row);
+    }
+    return Array.from(byExam.values());
+  }, [snapshot.results]);
+
   const resetQuestion = () => {
     setEditingQuestionId(null);
     setForm({ subjectReferenceId: snapshot.references.subjects[0]?.id || "", gradeLevelReferenceId: snapshot.references.gradeLevels[0]?.id || "", templateReferenceId: snapshot.references.templates[0]?.id || "", text: "", options: ["", "", "", ""], correctAnswer: "0", explanation: "", difficulty: "Medium", tags: "" });
@@ -311,7 +354,69 @@ export function SupabaseCBTManager() {
     <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
     <SupabaseModuleReferenceSettings domains={["cbt_question_template"]} />
 
-    {CBT_PENDING[tab] && <ERPFeatureStatus title={CBT_REFERENCE_TABS.find((item) => item.id === tab)?.label || "Fitur CBT"} description={CBT_PENDING[tab]!} />}
+    {tab === "dashboard" && <section className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Soal aktif", value: dashboardStats.activeQuestions },
+          { label: "Sesi terbit/aktif", value: dashboardStats.publishedExams },
+          { label: "Peserta berjalan", value: dashboardStats.inProgress },
+          { label: "Peserta selesai", value: dashboardStats.completed },
+        ].map((item) => <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : item.value}</p></article>)}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+          <h2 className="font-semibold text-slate-900 dark:text-white">Ringkasan nilai</h2>
+          <p className="mt-1 text-sm text-slate-500">Dihitung dari hasil ujian yang sudah memiliki nilai pada snapshot tenant.</p>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><dt className="text-xs text-slate-500">Rata-rata nilai</dt><dd className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{dashboardStats.averageScore == null ? "—" : dashboardStats.averageScore}</dd></div>
+            <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><dt className="text-xs text-slate-500">Lulus / dinilai</dt><dd className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{dashboardStats.passed} / {dashboardStats.scoredCount}</dd></div>
+          </dl>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+          <h2 className="font-semibold text-slate-900 dark:text-white">Aksi cepat</h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="button" onClick={() => setTab("questions")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Bank soal</button>
+            <button type="button" onClick={() => setTab("exams")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Buat sesi</button>
+            <button type="button" onClick={() => setTab("monitor")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Pemantauan</button>
+            <button type="button" onClick={() => setTab("results")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Hasil</button>
+          </div>
+        </article>
+      </div>
+    </section>}
+
+    {tab === "calendar" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Kalender sesi ujian</h2><p className="mt-1 text-sm text-slate-500">Dikelompokkan dari jadwal mulai sesi yang tersimpan di Supabase.</p></div><button type="button" onClick={() => setTab("exams")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Kelola sesi</button></div>
+      {loading ? <p className="text-sm text-slate-500">Memuat jadwal…</p> : calendarDays.length ? <div className="space-y-4">{calendarDays.map((day) => <article key={day.label} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><h3 className="text-sm font-semibold text-slate-900 dark:text-white">{day.label}</h3><ul className="mt-3 space-y-2">{day.exams.map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-white/5"><div><p className="font-medium text-slate-800 dark:text-slate-100">{item.title}</p><p className="text-xs text-slate-500">{item.subject} · {item.grade} · {new Date(item.startsAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}–{new Date(item.endsAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</p></div><span className="rounded-lg bg-white px-2 py-1 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">{cbtStatusLabel(item.status)} · {item.assignedCount} peserta</span></li>)}</ul></article>)}</div> : <p className="text-sm text-slate-500">Belum ada sesi ujian terjadwal.</p>}
+    </section>}
+
+    {tab === "packages" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+      <div><h2 className="font-semibold text-slate-900 dark:text-white">Paket soal tenant</h2><p className="mt-1 text-sm text-slate-500">Paket dikelola lewat pengaturan kategori modul CBT di atas. Jumlah soal dihitung dari bank soal yang memakai paket tersebut.</p></div>
+      {loading ? <p className="text-sm text-slate-500">Memuat paket…</p> : packageRows.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{packageRows.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3>{item.description && <p className="mt-1 text-xs text-slate-500">{item.description}</p>}</div><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{item.activeCount} aktif / {item.questionCount} soal</span><button type="button" onClick={() => { setForm((current) => ({ ...current, templateReferenceId: item.id })); setTab("questions"); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Buka di bank soal</button></div></article>)}</div> : <p className="text-sm text-slate-500">Belum ada paket soal. Tambahkan melalui panel pengaturan kategori modul CBT.</p>}
+    </section>}
+
+    {tab === "monitor" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Pemantauan status peserta</h2><p className="mt-1 text-sm text-slate-500">Agregat status penugasan dari snapshot Supabase. Muat ulang untuk memperbarui angka.</p></div><button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button></div>
+      {loading ? <p className="text-sm text-slate-500">Memuat pemantauan…</p> : monitorRows.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Ujian</th><th className="p-3">Ditugaskan</th><th className="p-3">Berjalan</th><th className="p-3">Selesai</th><th className="p-3">Dinilai</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{monitorRows.map((row) => <tr key={row.title}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{row.title}</td><td className="p-3">{row.assigned}</td><td className="p-3">{row.inProgress}</td><td className="p-3">{row.completed}</td><td className="p-3">{row.graded}</td></tr>)}</tbody></table></div> : <p className="text-sm text-slate-500">Belum ada peserta ujian untuk dipantau.</p>}
+      {!loading && snapshot.results.length > 0 && <button type="button" onClick={() => setTab("results")} className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Lihat rincian hasil</button>}
+    </section>}
+
+    {tab === "settings" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+      <div><h2 className="font-semibold text-slate-900 dark:text-white">Pengaturan penilaian sesi</h2><p className="mt-1 text-sm text-slate-500">Nilai bawaan tenant dipakai saat membuat sesi baru. Perubahan per sesi tetap diatur di formulir Sesi Ujian.</p></div>
+      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {[
+          { label: "Penilaian otomatis", value: snapshot.settings.autoGrading ? "Aktif" : "Nonaktif" },
+          { label: "Acak soal bawaan", value: snapshot.settings.shuffleQuestions ? "Aktif" : "Nonaktif" },
+          { label: "Poin benar", value: snapshot.settings.correctPoints },
+          { label: "Poin salah", value: snapshot.settings.wrongPoints },
+          { label: "Poin kosong", value: snapshot.settings.blankPoints },
+          { label: "Sumber konfigurasi", value: snapshot.settings.sourceSystem === "legacy_firestore" ? "Migrasi arsip" : "Bawaan Supabase" },
+        ].map((item) => <div key={item.label} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><dt className="text-xs text-slate-500">{item.label}</dt><dd className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">{item.value}</dd></div>)}
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => { setExam((current) => ({ ...current, correctPoints: snapshot.settings.correctPoints, wrongPoints: snapshot.settings.wrongPoints, blankPoints: snapshot.settings.blankPoints, shuffleQuestions: snapshot.settings.shuffleQuestions })); setTab("exams"); }} className={BUTTON}>Terapkan ke formulir sesi baru</button>
+        <button type="button" onClick={() => setTab("exams")} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Buka Sesi Ujian</button>
+      </div>
+    </section>}
 
     {tab === "questions" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">

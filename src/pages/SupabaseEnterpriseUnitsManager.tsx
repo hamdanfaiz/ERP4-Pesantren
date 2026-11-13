@@ -32,8 +32,13 @@ type UnmappedStudent = { id: string; name: string; nis: string; grade: string | 
 type UnmappedSnapshot = { candidates: UnmappedCandidate[]; candidateCount: number; students: UnmappedStudent[]; studentCount: number; limit: number; offset: number };
 type UnmappedExpense = { id: string; category: string; description: string; department: string; amount: number; date: string; status: string; requesterName: string; hasLedgerEntry: boolean };
 type UnmappedFinanceSnapshot = { expenses: UnmappedExpense[]; expenseCount: number; limit: number; offset: number };
+type FinanceBill = { id: string; santriName: string; type: string; period: string; amount: number; paidAmount: number; status: string; date: string; unitId?: string | null; unitName?: string };
+type FinanceExpense = { id: string; description: string; category: string; amount: number; date: string; status: string; unitId: string | null; unitName: string; department: string };
+type FinanceLedger = { id: string; type: string; description: string; amount: number; date: string; unitId?: string | null; unitName?: string | null };
+type FinanceLinkSnapshot = { bills: FinanceBill[]; expenses: FinanceExpense[]; ledger: FinanceLedger[] };
 type Draft = { code: string; name: string; unitType: UnitType; location: string };
 type EnterpriseTab = "dashboard" | "registry" | "transfers" | "billing" | "analytics";
+const EMPTY_FINANCE_LINK: FinanceLinkSnapshot = { bills: [], expenses: [], ledger: [] };
 
 const ENTERPRISE_TABS: Array<{ id: EnterpriseTab; label: string }> = [
   { id: "dashboard", label: "Ringkasan Gabungan" },
@@ -83,6 +88,10 @@ function actionLabel(value: UnitEvent["action"]) {
   return value === "create" ? "Unit dibuat" : value === "update" ? "Data unit diperbarui" : "Status unit diubah";
 }
 
+function currencyIdr(value: number) {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
+}
+
 export function SupabaseEnterpriseUnitsManager() {
   const { user } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
@@ -106,6 +115,9 @@ export function SupabaseEnterpriseUnitsManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [activeTab, setActiveTab] = useState<EnterpriseTab>("dashboard");
+  const [financeLink, setFinanceLink] = useState<FinanceLinkSnapshot>(EMPTY_FINANCE_LINK);
+  const [financeLinkLoading, setFinanceLinkLoading] = useState(false);
+  const [financeLinkError, setFinanceLinkError] = useState("");
   const canMapFinanceRecords = user?.role === "SuperAdmin"
     || (user?.role === "Admin" && user.modulePermissions?.finance !== false);
 
@@ -177,6 +189,35 @@ export function SupabaseEnterpriseUnitsManager() {
     else { setFinanceMappingReady(false); setFinanceMappingLoading(false); }
     return () => { current = false; };
   }, [refresh, refreshUnmapped, refreshUnmappedFinance, canMapFinanceRecords, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (activeTab !== "transfers" && activeTab !== "billing" && activeTab !== "analytics") return;
+    if (!canMapFinanceRecords) {
+      setFinanceLink(EMPTY_FINANCE_LINK);
+      setFinanceLinkError("Ringkasan keuangan per unit memerlukan akses modul Keuangan.");
+      setFinanceLinkLoading(false);
+      return;
+    }
+    let active = true;
+    setFinanceLinkLoading(true);
+    setFinanceLinkError("");
+    requestUnits("/api/finance/snapshot")
+      .then((result) => {
+        if (!active) return;
+        setFinanceLink({
+          bills: Array.isArray(result.bills) ? result.bills : [],
+          expenses: Array.isArray(result.expenses) ? result.expenses : [],
+          ledger: Array.isArray(result.ledger) ? result.ledger : [],
+        });
+      })
+      .catch((loadError: unknown) => {
+        if (!active) return;
+        setFinanceLink(EMPTY_FINANCE_LINK);
+        setFinanceLinkError(loadError instanceof Error ? loadError.message : "Data keuangan per unit belum dapat dimuat.");
+      })
+      .finally(() => { if (active) setFinanceLinkLoading(false); });
+    return () => { active = false; };
+  }, [activeTab, canMapFinanceRecords, user?.tenantId, user?.uid]);
 
   const filteredUnits = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("id-ID");
@@ -317,7 +358,7 @@ export function SupabaseEnterpriseUnitsManager() {
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Unit aktif</p><p className="mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-400">{loading ? "—" : activeCount}</p></div>
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Peristiwa audit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : snapshot.events.length}</p></div>
         </div>
-        <ERPFeatureStatus title="Ringkasan lintas unit" status="Ringkasan tenant tersedia" tone="available" description="Angka di atas berasal dari daftar unit dan riwayat audit tenant yang termuat. Konsolidasi santri, pegawai, saldo kas, pendapatan, dan capaian lintas unit belum tersedia pada API saat ini." />
+        <ERPFeatureStatus title="Ringkasan lintas unit" status="Terhubung ke registri & Keuangan" tone="available" description="Jumlah unit dan audit berasal dari registri tenant. Mutasi, tagihan, dan ringkasan keuangan per unit ada di tab Transfer, Tagihan, dan Analitik." />
       </div> : activeTab === "registry" ? <>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Total unit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : snapshot.units.length}</p></div>
@@ -385,10 +426,58 @@ export function SupabaseEnterpriseUnitsManager() {
         <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 id="enterprise-units-audit-title" className="font-semibold text-slate-900 dark:text-white">Riwayat perubahan</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Menampilkan hingga 100 perubahan unit terbaru.</p></div>
         {loading ? <div className="p-6 text-sm text-slate-500">Memuat riwayat…</div> : snapshot.events.length === 0 ? <div className="p-8 text-center text-sm text-slate-500">Belum ada perubahan yang tercatat.</div> : <ol className="divide-y divide-slate-100 dark:divide-slate-800">{snapshot.events.map((item) => <li key={item.id} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{actionLabel(item.action)} <span className="font-semibold">{String(item.after.name || item.after.code || "unit")}</span></p><p className="mt-1 text-xs text-slate-500">ID aktor: {item.actorUserId.slice(0, 8)}…</p></div><time className="text-xs text-slate-500" dateTime={item.createdAt}>{formatDate(item.createdAt)}</time></li>)}</ol>}
       </section>
-      </> : <ERPFeatureStatus
-        title={ENTERPRISE_TABS.find((tab) => tab.id === activeTab)?.label || "Manajemen Multi-Unit"}
-        description={activeTab === "transfers" ? "Transfer dana atau aset antar-unit belum memiliki alur persetujuan, pencatatan buku besar, dan API khusus. Tidak ada transaksi yang dapat dibuat dari tab ini." : activeTab === "billing" ? "Tagihan antar-unit belum memiliki kontrak dan pencatatan transaksi. Jangan gunakan tagihan manual pada tab ini sebagai saldo yang sah." : "Analitik pendapatan dan biaya per unit belum tersedia. Ringkasan saat ini hanya menampilkan jumlah unit aktif dan peristiwa audit tenant."}
-      />}
+      </> : activeTab === "transfers" ? <div className="space-y-4">
+        <aside className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/20 dark:text-sky-200">Mutasi di bawah diambil dari buku besar dan pengeluaran modul Keuangan yang sudah punya unit. Pengajuan baru tetap dibuat di Keuangan; pemetaan pengeluaran lama ada di Registri Unit.</aside>
+        {financeLinkError && <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{financeLinkError}</span></div>}
+        {financeLinkLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat mutasi keuangan…</div>
+          : <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500">Entri buku besar</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{financeLink.ledger.length}</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500">Pengeluaran bertunit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{financeLink.expenses.filter((item) => item.unitId).length}</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500">Belum dipetakan</p><p className="mt-2 text-2xl font-bold text-amber-700 dark:text-amber-300">{unmappedFinance.expenseCount}</p></div>
+            </div>
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+              <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Buku besar per unit</h2></div>
+              {financeLink.ledger.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Belum ada posting buku besar bertunit.</p>
+                : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Tanggal</th><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Jenis</th><th className="px-4 py-3">Uraian</th><th className="px-4 py-3 text-right">Nominal</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{financeLink.ledger.slice(0, 50).map((row) => <tr key={row.id}><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDate(row.date)}</td><td className="px-4 py-3">{row.unitName || "Belum dipetakan"}</td><td className="px-4 py-3">{row.type === "income" ? "Penerimaan" : row.type === "expense" ? "Pengeluaran" : row.type}</td><td className="px-4 py-3">{row.description}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(row.amount)}</td></tr>)}</tbody></table></div>}
+            </section>
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+              <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Pengeluaran per unit</h2></div>
+              {financeLink.expenses.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Belum ada pengeluaran tenant.</p>
+                : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Tanggal</th><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Uraian</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Nominal</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{financeLink.expenses.slice(0, 50).map((row) => <tr key={row.id}><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.date}</td><td className="px-4 py-3">{row.unitName || "Belum dipetakan"}</td><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{row.description}</p><p className="text-xs text-slate-500">{row.category} · {row.department}</p></td><td className="px-4 py-3">{row.status === "approved" ? "Disetujui" : row.status === "rejected" ? "Ditolak" : "Menunggu"}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(row.amount)}</td></tr>)}</tbody></table></div>}
+            </section>
+          </>}
+      </div> : activeTab === "billing" ? <div className="space-y-4">
+        <aside className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/20 dark:text-sky-200">Tagihan di bawah adalah tagihan santri/calon dari modul Keuangan yang sudah tertaut unit. Penerbitan tagihan baru tetap di menu Keuangan.</aside>
+        {financeLinkError && <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{financeLinkError}</span></div>}
+        {financeLinkLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat tagihan…</div>
+          : financeLink.bills.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-white/15">Belum ada tagihan pada tenant ini.</p>
+          : <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Tagihan per unit</h2><p className="mt-1 text-xs text-slate-500">{financeLink.bills.length} tagihan dari Keuangan</p></div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Santri / perihal</th><th className="px-4 py-3">Periode</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Tagihan</th><th className="px-4 py-3 text-right">Terbayar</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{financeLink.bills.slice(0, 80).map((bill) => <tr key={bill.id}><td className="px-4 py-3">{bill.unitName || "Belum dipetakan"}</td><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{bill.santriName}</p><p className="text-xs text-slate-500">{bill.type}</p></td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{bill.period}</td><td className="px-4 py-3">{bill.status}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(bill.amount)}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(bill.paidAmount)}</td></tr>)}</tbody></table></div>
+          </section>}
+      </div> : activeTab === "analytics" ? <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Total unit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : snapshot.units.length}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Unit aktif</p><p className="mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-400">{loading ? "—" : activeCount}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Jenis unit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : new Set(snapshot.units.map((unit) => unit.unitType)).size}</p></div>
+        </div>
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Sebaran jenis unit</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Dihitung dari registri unit tenant.</p></div>
+          {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+            : <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Jenis</th><th className="px-4 py-3 text-right">Jumlah</th><th className="px-4 py-3 text-right">Aktif</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{UNIT_TYPES.map((type) => { const rows = snapshot.units.filter((unit) => unit.unitType === type.value); if (!rows.length) return null; return <tr key={type.value}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{type.label}</td><td className="px-4 py-3 text-right tabular-nums">{rows.length}</td><td className="px-4 py-3 text-right tabular-nums">{rows.filter((unit) => unit.status === "active").length}</td></tr>; })}</tbody></table></div>}
+        </section>
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Ringkasan keuangan per unit</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Penerimaan dari tagihan terbayar dan pengeluaran disetujui pada modul Keuangan.</p></div>
+          {financeLinkError && <div role="alert" className="m-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{financeLinkError}</span></div>}
+          {financeLinkLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+            : <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Unit</th><th className="px-4 py-3 text-right">Tagihan terbayar</th><th className="px-4 py-3 text-right">Pengeluaran disetujui</th><th className="px-4 py-3 text-right">Selisih</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{snapshot.units.map((unit) => {
+              const paid = financeLink.bills.filter((bill) => bill.unitId === unit.id).reduce((sum, bill) => sum + Number(bill.paidAmount || 0), 0);
+              const spent = financeLink.expenses.filter((expense) => expense.unitId === unit.id && expense.status === "approved").reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+              return <tr key={unit.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{unit.name}<div className="text-xs text-slate-400">{unit.code}</div></td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(paid)}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(spent)}</td><td className={`px-4 py-3 text-right tabular-nums ${paid - spent < 0 ? "text-rose-700" : "text-emerald-700"}`}>{currencyIdr(paid - spent)}</td></tr>;
+            })}</tbody></table></div>}
+        </section>
+      </div> : null}
     </section>
   );
 }

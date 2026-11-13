@@ -5,7 +5,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { calculateDashboardNetCashflow } from "../utils/dashboardCashflow";
-import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPTabs } from "../components/ERPDesignSystem";
 
 type DashboardPeriod = "today" | "week" | "month" | "year";
 type IntelligenceTab = "executive" | "predictive" | "tahfidz-ai" | "warehouse" | "knowledge";
@@ -163,15 +163,24 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
       { id: "knowledge", label: "Pusat Pengetahuan" },
     ]} value={intelligenceTab} onChange={(id) => setIntelligenceTab(id as IntelligenceTab)} ariaLabel="Bagian pusat data analitik" />}
 
-    {isIntelligence && intelligenceTab !== "executive" ? <ERPFeatureStatus
-      title={({ predictive: "Analitik Prediktif", "tahfidz-ai": "Mesin AI Tahfidz", warehouse: "Gudang Data", knowledge: "Pusat Pengetahuan" } as Record<Exclude<IntelligenceTab, "executive">, string>)[intelligenceTab]}
-      description={({
-        predictive: "Analitik prediktif belum memiliki model, data latih, evaluasi, dan batas keputusan yang tervalidasi. Dashboard saat ini hanya menampilkan agregat operasional Supabase.",
-        "tahfidz-ai": "Mesin AI Tahfidz belum terhubung ke model dan alur evaluasi yang tervalidasi. Ringkasan Tahfidz yang tersedia tetap berbasis aturan dan data tenant.",
-        warehouse: "Gudang data terpisah, alur pemuatan data, serta model analitik belum disiapkan. Data pada dashboard tetap dibaca langsung melalui ringkasan tenant Supabase.",
-        knowledge: "Pusat pengetahuan belum memiliki sumber dokumen, proses indeksasi, izin pencarian, dan API. Konten tenant tidak ditampilkan dari penyimpanan contoh.",
-      } as Record<Exclude<IntelligenceTab, "executive">, string>)[intelligenceTab]}
-    /> : <>
+    {isIntelligence && intelligenceTab !== "executive" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div>
+        <h2 className="font-semibold text-slate-900 dark:text-white">{({ predictive: "Analitik Prediktif", "tahfidz-ai": "Mesin AI Tahfidz", warehouse: "Gudang Data", knowledge: "Pusat Pengetahuan" } as Record<Exclude<IntelligenceTab, "executive">, string>)[intelligenceTab]}</h2>
+        <p className="mt-1 text-sm text-slate-500">{({
+          predictive: "Indikator tren operasional dari ringkasan tenant. Bukan model prediksi AI.",
+          "tahfidz-ai": "Ringkasan berbasis aturan dari data operasional tenant; mesin AI terpisah belum terpasang.",
+          warehouse: "Agregat langsung dari snapshot Supabase tenant (bukan gudang data terpisah).",
+          knowledge: "Sinyal operasional yang tersedia dari modul berizin; indeks dokumen pengetahuan belum terpasang.",
+        } as Record<Exclude<IntelligenceTab, "executive">, string>)[intelligenceTab]}</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title="Santri aktif" value={loading ? "—" : snapshot.masterData.enabled ? String(snapshot.masterData.activeStudents || 0) : "—"} caption="Data Induk" icon={Users} />
+        <MetricCard title="Pendaftar proses" value={loading ? "—" : snapshot.ppdb.enabled ? String(snapshot.ppdb.pending || 0) : "—"} caption="PPDB" icon={Activity} accent="blue" />
+        <MetricCard title="Tagihan terbuka" value={loading ? "—" : finance.enabled ? String(finance.openBillCount || 0) : "—"} caption={finance.enabled ? rupiah(finance.outstandingAmount || 0) : "—"} icon={Wallet} accent="amber" />
+        <MetricCard title={`Arus kas · ${periodLabel[period]}`} value={loading ? "—" : finance.enabled ? rupiah(netCashflow) : "—"} caption="Operasional tenant" icon={TrendingUp} accent={netCashflow < 0 ? "rose" : "emerald"} />
+      </div>
+      {loading ? <p className="text-sm text-slate-500">Memuat sinyal…</p> : operationalSignals.length ? <ul className="grid gap-3 md:grid-cols-2">{operationalSignals.map((signal) => <li key={signal.title} className={`rounded-lg border p-4 ${signal.tone === "rose" ? "border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/20" : signal.tone === "amber" ? "border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/20" : "border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/20"}`}><p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{signal.title}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{signal.detail}</p></li>)}</ul> : <p className="text-sm text-slate-500">Belum ada sinyal operasional pada rentang dan izin modul saat ini.</p>}
+    </section> : <>
 
     {isIntelligence && <section aria-labelledby="operational-signals-heading" className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start justify-between gap-3"><div><h2 id="operational-signals-heading" className="font-semibold text-slate-900 dark:text-white">Hal yang perlu diperhatikan</h2><p className="mt-1 text-xs text-slate-500">Antrian dan tagihan menunjukkan kondisi saat ini; arus kas mengikuti rentang yang dipilih.</p></div><Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-300" /></div>

@@ -3,7 +3,7 @@ import { AlertCircle, Check, Clock3, Loader2, Plus, RefreshCw, Shirt, Settings2,
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
-import { ERPFeatureStatus, ERPLoadingSkeleton, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPLoadingSkeleton, ERPTabs } from "../components/ERPDesignSystem";
 
 type Student = { id: string; name: string; nis: string; room: string };
 type Order = { id: string; orderNumber: string; studentId: string; student: string; nis: string; room: string; weightKg: number; pieces: number; status: string; receivedAt: string; collectedAt: string | null };
@@ -45,6 +45,8 @@ export function SupabaseLaundryManager() {
   const [pieces, setPieces] = useState("0");
   const [monthlyQuotaKg, setMonthlyQuotaKg] = useState("20");
   const [excessRatePerKg, setExcessRatePerKg] = useState("15000");
+  const [scanCode, setScanCode] = useState("");
+  const [scannedOrderId, setScannedOrderId] = useState("");
 
   const refresh = useCallback(async () => {
     const data = await requestLaundry("/api/laundry/snapshot");
@@ -111,6 +113,34 @@ export function SupabaseLaundryManager() {
     status,
   }, `Status ${order.orderNumber} diperbarui: ${statusLabel[status]}.`);
 
+  const findOrderByLabel = (code: string) => {
+    const needle = code.trim().toLocaleLowerCase("id-ID");
+    if (!needle) return null;
+    return snapshot.orders.find((order) => order.orderNumber.toLocaleLowerCase("id-ID") === needle
+      || order.id.toLocaleLowerCase("id-ID") === needle
+      || order.nis.toLocaleLowerCase("id-ID") === needle) || null;
+  };
+
+  const submitScan = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(""); setNotice("");
+    const order = findOrderByLabel(scanCode);
+    if (!order) {
+      setScannedOrderId("");
+      setError("Label tidak cocok dengan nomor pesanan, ID, atau NIS pada snapshot laundry tenant.");
+      return;
+    }
+    setScannedOrderId(order.id);
+    setNotice(`Label cocok: ${order.orderNumber} · ${order.student} · ${statusLabel[order.status] || order.status}`);
+  };
+
+  const nextScanStatus = (status: string) => {
+    if (status === "received") return "washing";
+    if (status === "washing") return "ready";
+    if (status === "ready") return "collected";
+    return "";
+  };
+
   const submitSettings = async (event: React.FormEvent) => {
     event.preventDefault();
     await runMutation("/api/laundry/settings", {
@@ -152,8 +182,30 @@ export function SupabaseLaundryManager() {
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="border-b border-slate-200 p-3 dark:border-slate-800"><ERPTabs tabs={tabs.map(({ id, label, icon: Icon }) => ({ id, label, icon: <Icon className="h-4 w-4" /> }))} value={tab} onChange={(id) => setTab(id as typeof tab)} ariaLabel="Bagian modul Laundry" /></div>
 
-      {tab === "scan" ? <div className="p-4 sm:p-5"><ERPFeatureStatus title="Pindai Label" description="Pindai QR atau kode label belum terhubung ke alur pesanan Laundry tenant. Form penerimaan manual tetap tersedia pada tab Pesanan Aktif." /></div>
-        : tab === "labels" ? <div className="p-4 sm:p-5"><ERPFeatureStatus title="Label & Penandaan" description="Pembuatan, pencetakan, dan pencocokan label belum memiliki template serta API penyimpanan yang terhubung. Tidak ada label contoh yang ditampilkan." /></div>
+      {tab === "scan" ? <div className="space-y-4 p-4 sm:p-5">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Pindai Label</h2><p className="mt-1 text-sm text-slate-500">Masukkan atau tempel nomor pesanan dari label. Transisi status memakai alur yang sama dengan Pesanan Aktif (tanpa hapus).</p></div>
+        <form onSubmit={(event) => void submitScan(event)} className="grid gap-3 rounded-xl border border-violet-100 bg-violet-50/60 p-4 sm:grid-cols-[minmax(0,1fr)_auto] dark:border-violet-900/50 dark:bg-violet-950/20">
+          <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Kode label / nomor pesanan<input required autoFocus value={scanCode} onChange={(e) => setScanCode(e.target.value)} placeholder="Contoh LDY-…" className={inputClass} /></label>
+          <div className="flex items-end"><button type="submit" disabled={busy || loading} className={primaryClass}>Cocokkan label</button></div>
+        </form>
+        {(() => {
+          const order = snapshot.orders.find((item) => item.id === scannedOrderId) || null;
+          if (!order) return <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada label yang dicocokkan pada sesi ini.</div>;
+          const next = nextScanStatus(order.status);
+          return <article className="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-mono text-sm text-violet-700 dark:text-violet-300">{order.orderNumber}</div><div className="mt-1 font-semibold text-slate-900 dark:text-white">{order.student}</div><div className="text-xs text-slate-500">NIS {order.nis} · {order.room} · {order.weightKg} kg</div></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{statusLabel[order.status] || order.status}</span></div><div className="mt-4 flex flex-wrap gap-2">{next && <button type="button" disabled={busy} onClick={() => void transition(order, next)} className={primaryClass}>{statusLabel[next]}</button>}{!["collected", "cancelled"].includes(order.status) && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Batalkan ${order.orderNumber}?`)) void transition(order, "cancelled"); }} className="rounded-lg px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50">Batalkan</button>}</div></article>;
+        })()}
+      </div>
+        : tab === "labels" ? <div className="space-y-4 p-4 sm:p-5">
+          <div><h2 className="font-semibold text-slate-900 dark:text-white">Label & Penandaan</h2><p className="mt-1 text-sm text-slate-500">Label memakai nomor pesanan tenant sebagai kode unik. Cetak untuk ditempel, lalu cocokkan di tab Pindai Label.</p></div>
+          <label className="block"><span className="sr-only">Cari label</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nomor, santri, NIS, atau kamar" className={inputClass.replace("mt-1.5", "mt-0")} /></label>
+          {loading ? <ERPLoadingSkeleton variant="list" label="Memuat label laundry…" rows={4} />
+            : (() => {
+              const labels = snapshot.orders.filter((order) => ["received", "washing", "ready"].includes(order.status)
+                && `${order.orderNumber} ${order.student} ${order.nis} ${order.room}`.toLowerCase().includes(search.toLowerCase()));
+              if (!labels.length) return <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada pesanan aktif untuk dilabeli.</div>;
+              return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{labels.map((order) => <article key={order.id} className="rounded-xl border border-slate-200 bg-white p-4 print:break-inside-avoid dark:border-slate-800 dark:bg-slate-950"><div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Laundry · Label</div><div className="mt-2 font-mono text-lg font-bold tracking-wide text-violet-700 dark:text-violet-300">{order.orderNumber}</div><div className="mt-3 text-sm font-semibold text-slate-900 dark:text-white">{order.student}</div><div className="mt-1 text-xs text-slate-500">NIS {order.nis || "—"} · {order.room || "—"}</div><div className="mt-3 flex items-center justify-between text-xs text-slate-500"><span>{order.weightKg} kg · {order.pieces} potong</span><span>{statusLabel[order.status] || order.status}</span></div><button type="button" className={`${outlineClass} mt-4 w-full`} onClick={() => { setTab("scan"); setScanCode(order.orderNumber); setScannedOrderId(order.id); setNotice(`Label ${order.orderNumber} siap dipindai.`); }}>Buka di Pindai</button></article>)}</div>;
+            })()}
+        </div>
         : tab === "settings" ? <form onSubmit={submitSettings} className="max-w-2xl space-y-4 p-4 sm:p-6">
         <div><h2 className="font-semibold text-slate-900 dark:text-white">Kebijakan kuota per bulan</h2><p className="mt-1 text-sm text-slate-500">Berlaku untuk seluruh santri aktif dalam tenant ini.</p></div>
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Kuota standar (kg)<input type="number" min="0" max="1000" step="0.5" required value={monthlyQuotaKg} onChange={(e) => setMonthlyQuotaKg(e.target.value)} className={inputClass} /></label>

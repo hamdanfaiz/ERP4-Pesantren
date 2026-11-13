@@ -34,6 +34,14 @@ import {
   listCommunicationAnnouncements,
 } from "./src/server/communicationAnnouncements";
 import {
+  createCommunicationDirectMessage,
+  createCommunicationTicket,
+  listCommunicationOps,
+  transitionCommunicationDirectMessage,
+  transitionCommunicationTicket,
+  upsertCommunicationTemplate,
+} from "./src/server/communicationOps";
+import {
   getTenantSystemSettings,
   saveTenantSystemSettings,
   SystemSettingsStoreError,
@@ -134,8 +142,10 @@ import {
   listSupabaseCrmInteractionsPage,
   recordSupabaseCrmInteraction,
   saveSupabaseCrmContact,
+  sendSupabaseCrmOpenWaBroadcast,
   SupabaseCrmError,
 } from "./src/server/supabaseCrm";
+import { getOpenWaStatus, OpenWaGatewayError } from "./src/server/openWaGateway";
 
 import {
   createSupabaseLaundryOrder,
@@ -716,6 +726,7 @@ async function startServer() {
   const crmRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseCrmError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof OpenWaGatewayError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase CRM endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan CRM Supabase belum dapat diproses." });
   };
@@ -2163,6 +2174,32 @@ async function startServer() {
     } catch (error) { return crmRouteError(res, error); }
   });
 
+  app.get("/api/crm/broadcast/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCrmActor(uid);
+      return res.json(await getOpenWaStatus(actor.tenantId));
+    } catch (error) { return crmRouteError(res, error); }
+  });
+
+  app.post("/api/crm/broadcasts", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCrmActor(uid);
+      if (actor.role !== "Admin" && actor.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Siaran WhatsApp hanya untuk Admin tenant." });
+      }
+      const result = await sendSupabaseCrmOpenWaBroadcast(actor.tenantId, actor.uid, actor.role, req.body?.broadcast || {});
+      return res.status(result.dryRun ? 200 : 201).json(result);
+    } catch (error) { return crmRouteError(res, error); }
+  });
+
   app.post("/api/documents", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
@@ -3307,6 +3344,89 @@ async function startServer() {
       code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
       error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
     });
+  });
+
+  app.get("/api/communication/ops", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      return res.json(await listCommunicationOps(actor.tenantId, actor));
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/tickets", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await createCommunicationTicket(actor.tenantId, actor, req.body || {});
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/tickets/:ticketId/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await transitionCommunicationTicket(actor.tenantId, actor, String(req.params.ticketId || ""), req.body || {});
+      return res.json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/messages", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await createCommunicationDirectMessage(actor.tenantId, actor, req.body || {});
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/messages/:messageId/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await transitionCommunicationDirectMessage(actor.tenantId, actor, String(req.params.messageId || ""), req.body || {});
+      return res.json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/templates", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await upsertCommunicationTemplate(actor.tenantId, actor, req.body || {});
+      return res.status(201).json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
   });
 
   // AI/OCR routes remain closed until auth, tenant scope, and rate limits are enforced.

@@ -1,30 +1,33 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import React, { useState } from "react";
-import { CalendarCheck, ClipboardList, ShieldAlert, UserRoundCog, Wrench } from "lucide-react";
+import { BedDouble, CalendarCheck, ClipboardList, ShieldAlert, UserRoundCog, Wrench } from "lucide-react";
 import { SupabaseBoardingDisciplineManager } from "./SupabaseBoardingDisciplineManager";
 import { SupabaseBoardingPermitsManager } from "./SupabaseBoardingPermitsManager";
 import { SupabaseBoardingAttendanceManager } from "./SupabaseBoardingAttendanceManager";
 import { SupabaseBoardingAssignmentsManager } from "./SupabaseBoardingAssignmentsManager";
 import { SupabaseBoardingFacilityOpsManager } from "./SupabaseBoardingFacilityOpsManager";
+import { SupabaseBoardingRoomsManager } from "./SupabaseBoardingRoomsManager";
 import { supabaseRuntimeEnabled } from "../runtimeBackend";
 import { ERPTabs } from "../components/ERPDesignSystem";
 
+const BOARDING_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_RUNTIME_ENABLED"));
 const PERMITS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED"));
 const DISCIPLINE_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED"));
 const ATTENDANCE_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED"));
 const ASSIGNMENTS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED"));
 const FACILITY_OPS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED"));
-type Section = "permits" | "discipline" | "attendance" | "assignments" | "facility-ops";
+type Section = "rooms" | "permits" | "discipline" | "attendance" | "assignments" | "facility-ops";
 
 export function SupabaseBoardingManager() {
   const sections = [
+    { id: "rooms" as const, label: "Penempatan Kamar", icon: <BedDouble className="h-4 w-4" />, enabled: BOARDING_ENABLED, flag: "SUPABASE_BOARDING_RUNTIME_ENABLED" },
     { id: "permits" as const, label: "Perizinan", icon: <ClipboardList className="h-4 w-4" />, enabled: PERMITS_ENABLED, flag: "SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED" },
     { id: "discipline" as const, label: "Kedisiplinan", icon: <ShieldAlert className="h-4 w-4" />, enabled: DISCIPLINE_ENABLED, flag: "SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED" },
     { id: "attendance" as const, label: "Kehadiran", icon: <CalendarCheck className="h-4 w-4" />, enabled: ATTENDANCE_ENABLED, flag: "SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED" },
     { id: "assignments" as const, label: "Penugasan", icon: <UserRoundCog className="h-4 w-4" />, enabled: ASSIGNMENTS_ENABLED, flag: "SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED" },
     { id: "facility-ops" as const, label: "Fasilitas", icon: <Wrench className="h-4 w-4" />, enabled: FACILITY_OPS_ENABLED, flag: "SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED" },
   ];
-  const [section, setSection] = useState<Section>(sections.find((item) => item.enabled)?.id || "permits");
+  const [section, setSection] = useState<Section>(sections.find((item) => item.enabled)?.id || "rooms");
   const selected = sections.find((item) => item.id === section) || sections[0];
   const tabs = sections.map((item) => ({
     ...item,
@@ -33,6 +36,7 @@ export function SupabaseBoardingManager() {
   return <div className="space-y-5">
     <ERPTabs tabs={tabs} value={selected.id} onChange={(id) => setSection(id as Section)} ariaLabel="Navigasi modul Asrama" />
     {!selected.enabled ? <UnavailableSection label={selected.label} flag={selected.flag} />
+      : selected.id === "rooms" ? <SupabaseBoardingRoomsManager />
       : selected.id === "permits" ? <SupabaseBoardingPermitsManager />
       : selected.id === "discipline" ? <SupabaseBoardingDisciplineManager />
         : selected.id === "attendance" ? <SupabaseBoardingAttendanceManager />

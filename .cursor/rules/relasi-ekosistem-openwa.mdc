@@ -1,0 +1,26 @@
+---
+description: Kontrak Relasi & Ekosistem, Analitik, dan OpenWA — baca checkpoint sebelum mengubah CRM/alumni/donasi/marketplace/broadcast.
+globs: src/pages/Supabase{Alumni,Crm,Donation,Marketplace,Dashboard}*.tsx,src/server/{openWaGateway,supabaseCrm,supabaseDonation,supabaseMarketplace,supabaseAlumni}.ts,server.ts,docs/active/00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md,docs/active/10_MODULES/{PARENT_CRM,ALUMNI_NETWORK,MARKETPLACE}.md
+alwaysApply: false
+---
+
+# Relasi & Ekosistem + OpenWA
+
+Baca penuh: `docs/active/00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md`.
+
+## Runtime
+
+- Flag: `SUPABASE_ALUMNI|CRM|DONATION|MARKETPLACE_RUNTIME_ENABLED` (fail-closed).
+- OpenWA: HTTP Easy API saja (`openWaGateway.ts`). Endpoint dari `integrations.waGatewayEndpoint` atau `WA_GATEWAY_ENDPOINT`. Kunci hanya `WA_GATEWAY_API_KEY`.
+- Siaran CRM: `GET /api/crm/broadcast/status`, `POST /api/crm/broadcasts`. Hanya consent `granted` + nomor valid; max 50; catat interaksi outbound.
+
+## Jangan
+
+- Embed `@open-wa/wa-automate` di proses Express.
+- Klaim email/SMS massal atau model AI Intelligence sudah ada.
+- Apply ulang migrasi Relasi yang sudah terpasang di PTSAS tanpa bukti ledger.
+- Isi UI dengan data contoh sebagai pengganti API kosong (Tracer survei, komunitas event, warehouse).
+
+## Setelah ubah
+
+Verifikasi status/dry-run broadcast dan snapshot modul terkait; catat hasil di checkpoint bila perilaku kontrak berubah.

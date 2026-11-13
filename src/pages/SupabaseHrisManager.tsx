@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertCircle, Award, CalendarClock, CalendarDays, CheckCircle2, ClipboardCheck, Loader2, MapPin, Plus, RefreshCw, Search, UserPlus, Users, Wallet, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
-import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 
 type Employee = {
@@ -35,14 +35,6 @@ const HRIS_TABS: Array<{ id: HrisTab; label: string; icon: React.ReactNode }> = 
   { id: "hiring", label: "Rekrutmen", icon: <UserPlus className="h-4 w-4" /> },
   { id: "analytics", label: "Analitik SDM", icon: <Activity className="h-4 w-4" /> },
 ];
-const HRIS_PENDING: Partial<Record<HrisTab, string>> = {
-  tracking: "Pelacakan lokasi pegawai belum tersedia. Fitur ini memerlukan kebijakan persetujuan, batas retensi lokasi, dan kontrol akses sebelum integrasi dibuat.",
-  shifts: "Perencanaan shift, pemeriksaan bentrok, dan pertukaran jadwal belum tersambung ke backend Supabase.",
-  payroll: "Penggajian, komponen upah, potongan, penguncian periode, dan bukti pembayaran belum tersedia.",
-  performance: "Sasaran kerja, penilaian berkala, dan persetujuan kinerja belum memiliki alur tersimpan.",
-  hiring: "Lowongan, kandidat, tahapan seleksi, dan persetujuan perekrutan belum tersedia.",
-  analytics: "Analitik SDM per periode dan unit belum disediakan oleh API tenant.",
-};
 const EMPTY_DRAFT: EmployeeDraft = {
   employeeNumber: "", fullName: "", jobTitle: "", jobTitleReferenceId: "", department: "", organizationUnitId: null, email: "", phone: "", hireDate: "", employmentStatus: "active",
 };
@@ -198,7 +190,7 @@ export function SupabaseHrisManager() {
         <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(e?.message || "Gagal memuat ulang." )).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
       </header>
 
-      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Fase Supabase ini mencakup direktori pegawai, kehadiran manual, serta pencatatan dan persetujuan cuti oleh Admin. Fitur cuti belum menghitung saldo atau mengubah kehadiran/payroll; payroll, rekrutmen, biometrik, pelacakan lokasi, dan analitik belum tersambung. Gunakan alasan umum dan hindari memasukkan rincian diagnosis kesehatan.</div>
+      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Direktori, kehadiran, cuti, dan ringkasan operasional tersambung ke snapshot tenant. Slip gaji, GPS, dan pipeline kandidat belum punya API khusus—tab terkait menampilkan basis data yang sudah ada. Gunakan alasan cuti umum dan hindari diagnosis kesehatan.</div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
@@ -206,7 +198,6 @@ export function SupabaseHrisManager() {
       <SupabaseModuleReferenceSettings domains={["hris_job_title"]} />
 
       {loading ? <div role="status" className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 p-12 text-sm text-slate-500 dark:border-white/10"><Loader2 className="h-4 w-4 animate-spin" />Memuat data tenant…</div> : <>
-        {HRIS_PENDING[tab] && <ERPFeatureStatus title={HRIS_TABS.find((item) => item.id === tab)?.label || "Fitur SDM"} description={HRIS_PENDING[tab]!} />}
         {tab === "employees" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:max-w-md"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari nama, nomor, jabatan, atau unit" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm dark:border-white/10 dark:bg-slate-950" /></div>
@@ -235,6 +226,69 @@ export function SupabaseHrisManager() {
           </div>
           <div className="grid gap-3 sm:grid-cols-3"><Metric label="Total catatan" value={snapshot.leaveRequests.length} /><Metric label="Menunggu keputusan" value={snapshot.leaveRequests.filter((item) => item.status === "pending").length} /><Metric label="Disetujui" value={snapshot.leaveRequests.filter((item) => item.status === "approved").length} /></div>
           {snapshot.leaveRequests.length === 0 ? <EmptyState text="Belum ada catatan cuti pada tenant ini." /> : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[820px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Jenis</th><th className="px-4 py-3">Periode</th><th className="px-4 py-3">Alasan</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.leaveRequests.map((item) => <tr key={item.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{employeeById.get(item.employeeId)?.fullName || "Pegawai tidak tersedia"}<div className="text-xs text-slate-400">{employeeById.get(item.employeeId)?.employeeNumber || ""}</div></td><td className="px-4 py-3">{leaveTypeText(item.leaveType)}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.startsOn} – {item.endsOn}<div className="text-xs text-slate-400">{leaveDayCount(item)} hari kalender</div></td><td className="max-w-xs whitespace-normal px-4 py-3 text-slate-600 dark:text-slate-300">{item.reason}</td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.status === "approved" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : item.status === "rejected" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"}`}>{leaveStatusText(item.status)}</span>{item.reviewNote && <div className="mt-1 max-w-[180px] whitespace-normal text-xs text-slate-400">{item.reviewNote}</div>}</td><td className="px-4 py-3 text-right">{item.status === "pending" && <button type="button" onClick={() => { setError(""); setReviewingLeave(item); setLeaveDecision("approved"); setReviewNote(""); }} className="rounded-md px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30">Tinjau</button>}</td></tr>)}</tbody></table></div>}
+        </section>}
+
+        {tab === "analytics" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Ringkasan SDM tenant</h2><p className="mt-1 text-sm text-slate-500">Angka dihitung dari snapshot pegawai, kehadiran, dan cuti yang sudah termuat.</p></div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric label="Pegawai aktif" value={snapshot.employees.filter((item) => item.employmentStatus === "active").length} />
+            <Metric label="Kehadiran hari ini" value={snapshot.attendance.filter((item) => item.workDate === today() && (item.status === "present" || item.status === "late" || item.status === "remote")).length} />
+            <Metric label="Cuti menunggu" value={snapshot.leaveRequests.filter((item) => item.status === "pending").length} />
+            <Metric label="Unit kerja tertaut" value={new Set(snapshot.employees.map((item) => item.organizationUnitId).filter(Boolean)).size} />
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Unit kerja</th><th className="px-4 py-3 text-right">Pegawai</th><th className="px-4 py-3 text-right">Aktif</th></tr></thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                {snapshot.organizationUnits.length === 0 ? <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-500">Belum ada unit organisasi. Tambahkan unit di Manajemen Multi-Unit.</td></tr>
+                  : snapshot.organizationUnits.map((unit) => {
+                    const linked = snapshot.employees.filter((item) => item.organizationUnitId === unit.id);
+                    return <tr key={unit.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{unit.name}<div className="text-xs text-slate-400">{unit.code}</div></td><td className="px-4 py-3 text-right tabular-nums">{linked.length}</td><td className="px-4 py-3 text-right tabular-nums">{linked.filter((item) => item.employmentStatus === "active").length}</td></tr>;
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </section>}
+
+        {tab === "shifts" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Jadwal kehadiran tercatat</h2><p className="mt-1 text-sm text-slate-500">Menampilkan catatan kehadiran sebagai jadwal operasional harian. Perencanaan shift bentrok dan tukar jadwal belum punya API khusus.</p></div>
+          {snapshot.attendance.length === 0 ? <EmptyState text="Belum ada catatan kehadiran. Catat kehadiran di tab Kehadiran." />
+            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Tanggal</th><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Masuk</th><th className="px-4 py-3">Pulang</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{[...snapshot.attendance].sort((a, b) => b.workDate.localeCompare(a.workDate)).slice(0, 100).map((item) => <tr key={item.id}><td className="px-4 py-3">{item.workDate}</td><td className="px-4 py-3 font-medium">{employeeById.get(item.employeeId)?.fullName || "Pegawai tidak tersedia"}</td><td className="px-4 py-3">{attendanceText(item.status)}</td><td className="px-4 py-3">{shortTime(item.checkInAt)}</td><td className="px-4 py-3">{shortTime(item.checkOutAt)}</td></tr>)}</tbody></table></div>}
+        </section>}
+
+        {tab === "tracking" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kehadiran terakhir pegawai</h2><p className="mt-1 text-sm text-slate-500">Ringkasan status kehadiran terkini per pegawai aktif. Pelacakan GPS/geofence tidak dijalankan pada fase ini.</p></div>
+          {snapshot.employees.filter((item) => item.employmentStatus === "active").length === 0 ? <EmptyState text="Belum ada pegawai aktif." />
+            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Kehadiran terakhir</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Masuk</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.employees.filter((item) => item.employmentStatus === "active").map((employee) => {
+              const latest = [...snapshot.attendance].filter((item) => item.employeeId === employee.id).sort((a, b) => b.workDate.localeCompare(a.workDate))[0];
+              return <tr key={employee.id}><td className="px-4 py-3 font-medium">{employee.fullName}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{employee.department || "—"}</td><td className="px-4 py-3">{latest?.workDate || "—"}</td><td className="px-4 py-3">{latest ? attendanceText(latest.status) : "Belum ada"}</td><td className="px-4 py-3">{latest ? shortTime(latest.checkInAt) : "—"}</td></tr>;
+            })}</tbody></table></div>}
+        </section>}
+
+        {tab === "payroll" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Basis data penggajian</h2><p className="mt-1 text-sm text-slate-500">Daftar pegawai aktif sebagai penerima. Komponen gaji, potongan, dan slip pembayaran belum disimpan di backend.</p></div>
+          <div className="grid gap-3 sm:grid-cols-3"><Metric label="Calon penerima aktif" value={snapshot.employees.filter((item) => item.employmentStatus === "active").length} /><Metric label="On leave" value={snapshot.employees.filter((item) => item.employmentStatus === "on_leave").length} /><Metric label="Nonaktif / berakhir" value={snapshot.employees.filter((item) => item.employmentStatus === "inactive" || item.employmentStatus === "terminated").length} /></div>
+          {snapshot.employees.length === 0 ? <EmptyState text="Tambahkan pegawai di Direktori Pegawai sebelum menyusun penggajian." />
+            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Nomor</th><th className="px-4 py-3">Jabatan</th><th className="px-4 py-3">Status</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.employees.map((employee) => <tr key={employee.id}><td className="px-4 py-3 font-medium">{employee.fullName}</td><td className="px-4 py-3">{employee.employeeNumber}</td><td className="px-4 py-3">{employee.jobTitle || "—"}</td><td className="px-4 py-3">{employmentText(employee.employmentStatus)}</td></tr>)}</tbody></table></div>}
+        </section>}
+
+        {tab === "performance" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Indikator kehadiran pegawai</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari catatan kehadiran dan cuti. Form penilaian sasaran kerja belum tersedia.</p></div>
+          {snapshot.employees.length === 0 ? <EmptyState text="Belum ada pegawai untuk dianalisis." />
+            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[700px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3 text-right">Hadir</th><th className="px-4 py-3 text-right">Terlambat</th><th className="px-4 py-3 text-right">Tidak hadir</th><th className="px-4 py-3 text-right">Cuti disetujui</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.employees.map((employee) => {
+              const rows = snapshot.attendance.filter((item) => item.employeeId === employee.id);
+              const leaves = snapshot.leaveRequests.filter((item) => item.employeeId === employee.id && item.status === "approved").length;
+              return <tr key={employee.id}><td className="px-4 py-3 font-medium">{employee.fullName}</td><td className="px-4 py-3 text-right tabular-nums">{rows.filter((item) => item.status === "present" || item.status === "remote").length}</td><td className="px-4 py-3 text-right tabular-nums">{rows.filter((item) => item.status === "late").length}</td><td className="px-4 py-3 text-right tabular-nums">{rows.filter((item) => item.status === "absent").length}</td><td className="px-4 py-3 text-right tabular-nums">{leaves}</td></tr>;
+            })}</tbody></table></div>}
+        </section>}
+
+        {tab === "hiring" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kebutuhan jabatan</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari katalog jabatan dan pengisian pegawai saat ini. Pipeline kandidat/lowongan belum tersimpan.</p></div>
+          {snapshot.jobTitleOptions.length === 0 ? <EmptyState text="Tambahkan jabatan di pengaturan kategori modul SDM." />
+            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Jabatan</th><th className="px-4 py-3 text-right">Terisi</th><th className="px-4 py-3 text-right">Aktif</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.jobTitleOptions.map((title) => {
+              const linked = snapshot.employees.filter((item) => item.jobTitleReferenceId === title.id);
+              return <tr key={title.id}><td className="px-4 py-3 font-medium">{title.name}<div className="text-xs text-slate-400">{title.code}</div></td><td className="px-4 py-3 text-right tabular-nums">{linked.length}</td><td className="px-4 py-3 text-right tabular-nums">{linked.filter((item) => item.employmentStatus === "active").length}</td></tr>;
+            })}</tbody></table></div>}
         </section>}
       </>}
 
