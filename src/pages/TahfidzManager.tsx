@@ -3737,7 +3737,8 @@ export function TahfidzManager() {
         <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">{rosterLoadingMore ? "Memuat…" : "Muat santri berikutnya"}</button>
       </div>}
 
-      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-max mb-6 border border-slate-200 dark:border-white/5">
+      <nav className="mb-6 max-w-full overflow-x-auto overscroll-x-contain" aria-label="Navigasi modul Tahfidz">
+      <div className="flex w-max min-w-full gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/5 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
         <button
           onClick={() => setActiveTab("dashboard")}
           className={cn(
@@ -3849,6 +3850,7 @@ export function TahfidzManager() {
           {isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah"}
         </button>
       </div>
+      </nav>
 
       {activeTab === "dashboard" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseDashboard() : renderDashboard())}
       {activeTab === "halaqah" && renderHalaqahManagement()}
