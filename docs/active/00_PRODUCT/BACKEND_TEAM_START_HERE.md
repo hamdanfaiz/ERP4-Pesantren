@@ -1,3 +1,5 @@
+> **Agent / multi-agent:** mulai dari [AGENT_START_HERE.md](AGENT_START_HERE.md). Untuk Relasi & Ekosistem + OpenWA (13 Nov 2026) baca [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md). Checkpoint di bawah ini tetap relevan untuk ledger Production dan gerbang migrasi umum.
+
 ## Checkpoint otoritatif — 11 November 2026, preflight baca-saja Production
 
 ### Source dan CI

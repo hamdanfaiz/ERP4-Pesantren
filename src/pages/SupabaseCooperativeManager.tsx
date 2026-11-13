@@ -1,19 +1,21 @@
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, BarChart3, Check, Loader2, Package, Plus, RefreshCw, ShoppingCart, Truck, Wallet, X } from "lucide-react";
+import { AlertCircle, BarChart3, Check, Loader2, Package, Plus, RefreshCw, ShoppingCart, Truck, Users, Wallet, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { DEFAULT_TENANT_TIME_ZONE } from "../utils/businessDate";
 import { pendingMutationIds } from "../utils/pendingMutationId";
-import { ERPFeatureStatus, ERPLoadingSkeleton, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPLoadingSkeleton, ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
+type CooperativeStaffRow = { uid: string; name: string; email: string; role: string; status: string; hasCooperativeAccess: boolean };
 
 type Product = { id: string; sku: string; name: string; category: string; stock: number; costPrice: number; price: number; reorderPoint: number; expiryDate: string; status: string };
 type WalletAccount = { id: string; studentId: string; student: string; nis: string; grade: string; balance: number; limit: number; status: "Active" | "Blocked" };
 type Supplier = { id: string; name: string; category: string; contact: string; pic: string; status: string };
 type Sale = { id: string; walletId: string; studentId: string; studentName: string; grade: string; date: string; businessDate: string; total: number; status: string; items: Array<{ id: string; name: string; quantity: number; price: number; lineTotal: number }> };
 type ReferenceChoice = { id: string; code: string; name: string; description: string };
-type Snapshot = { timeZone: string; businessDate: string; products: Product[]; suppliers: Supplier[]; productCategories: ReferenceChoice[]; supplierCategories: ReferenceChoice[]; wallets: WalletAccount[]; sales: Sale[]; walletLedger: Array<{ id: string; walletId: string; studentId: string; type: string; amount: number; balanceAfter: number; reference: string; createdAt: string }> };
+type ParentMonitorRow = { guardianId: string; guardianName: string; guardianStatus: string; relationship: string; hasLinkedAccount: boolean; studentId: string; studentName: string; nis: string; grade: string; studentStatus: string; walletId: string | null; balance: number | null; dailyLimit: number | null; walletStatus: string; recentSaleCount: number; recentSaleTotal: number; lastSaleAt: string | null };
+type Snapshot = { timeZone: string; businessDate: string; products: Product[]; suppliers: Supplier[]; productCategories: ReferenceChoice[]; supplierCategories: ReferenceChoice[]; wallets: WalletAccount[]; sales: Sale[]; walletLedger: Array<{ id: string; walletId: string; studentId: string; type: string; amount: number; balanceAfter: number; reference: string; createdAt: string }>; parentMonitoring: ParentMonitorRow[] };
 type CartLine = { productId: string; quantity: number };
 type ProductDraft = { id?: string; sku: string; name: string; categoryReferenceId: string; costPrice: string; price: string; stock: string; reorderPoint: string; expiryDate: string };
 type SupplierDraft = { id?: string; name: string; categoryReferenceId: string; contact: string; pic: string };
@@ -40,7 +42,7 @@ type LegacyFinancialMappings = {
   confirmCompleteHistory: boolean;
 };
 
-const EMPTY: Snapshot = { timeZone: DEFAULT_TENANT_TIME_ZONE, businessDate: "", products: [], suppliers: [], productCategories: [], supplierCategories: [], wallets: [], sales: [], walletLedger: [] };
+const EMPTY: Snapshot = { timeZone: DEFAULT_TENANT_TIME_ZONE, businessDate: "", products: [], suppliers: [], productCategories: [], supplierCategories: [], wallets: [], sales: [], walletLedger: [], parentMonitoring: [] };
 const inputClass = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white";
 const primaryClass = "inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50";
 const outlineClass = "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
@@ -116,12 +118,46 @@ export function SupabaseCooperativeManager() {
   const [financialBusy, setFinancialBusy] = useState(false);
   const [financialApplyBusy, setFinancialApplyBusy] = useState(false);
   const [financialDirty, setFinancialDirty] = useState(false);
+  const [staffRows, setStaffRows] = useState<CooperativeStaffRow[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffError, setStaffError] = useState("");
   const financialMappingRevision = useRef(0);
   const financialPreviewRequestId = useRef(0);
 
   const refresh = useCallback(async () => {
     const payload = await requestCooperative("/api/cooperative/snapshot");
     setSnapshot({ ...EMPTY, ...payload });
+  }, []);
+
+  const refreshStaff = useCallback(async () => {
+    setStaffLoading(true);
+    setStaffError("");
+    try {
+      const payload = await requestCooperative("/api/users?limit=100&offset=0");
+      const users = Array.isArray(payload.users) ? payload.users : [];
+      setStaffRows(users
+        .filter((item: any) => ["Admin", "SuperAdmin", "Ustadz"].includes(String(item.role || "")))
+        .map((item: any) => {
+          const permissions = item.modulePermissions && typeof item.modulePermissions === "object" ? item.modulePermissions : {};
+          const hasCooperativeAccess = item.role === "SuperAdmin"
+            || permissions.cooperative === true
+            || (item.role === "Admin" && permissions.cooperative !== false);
+          return {
+            uid: String(item.uid || item.id || ""),
+            name: String(item.name || ""),
+            email: String(item.email || ""),
+            role: String(item.role || ""),
+            status: String(item.status || "active"),
+            hasCooperativeAccess,
+          } as CooperativeStaffRow;
+        })
+        .filter((item: CooperativeStaffRow) => item.uid && item.hasCooperativeAccess));
+    } catch (loadError: any) {
+      setStaffRows([]);
+      setStaffError(loadError?.message || "Direktori petugas koperasi belum dapat dimuat.");
+    } finally {
+      setStaffLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -134,6 +170,11 @@ export function SupabaseCooperativeManager() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "staff") return;
+    void refreshStaff();
+  }, [activeTab, refreshStaff, user?.tenantId, user?.uid]);
 
   const products = useMemo(() => snapshot.products.filter((item) => item.status === "active" && `${item.sku} ${item.name} ${item.category}`.toLowerCase().includes(search.toLowerCase())), [snapshot.products, search]);
   const selectedWallet = snapshot.wallets.find((item) => item.id === walletId) || null;
@@ -307,7 +348,7 @@ export function SupabaseCooperativeManager() {
     { id: "analytics", label: "Analitik", icon: BarChart3 },
     { id: "wallets", label: "Dompet Santri", icon: Wallet },
     { id: "parent-monitoring", label: "Pantauan Wali", icon: Wallet },
-    { id: "staff", label: "Petugas", icon: Truck },
+    { id: "staff", label: "Petugas", icon: Users },
     { id: "transactions", label: "Riwayat Transaksi", icon: BarChart3 },
     ...(legacyArchiveImportEnabled ? [{ id: "migration", label: "Impor Arsip", icon: RefreshCw }] : []),
   ];
@@ -331,8 +372,31 @@ export function SupabaseCooperativeManager() {
       <div className="px-4 pt-4"><SupabaseModuleReferenceSettings domains={["cooperative_product_category", "cooperative_supplier_category"]} /></div>
       {loading ? <div className="p-4"><ERPLoadingSkeleton variant="panel" label="Memuat data Koperasi…" rows={4} /></div> : <div className="p-4 sm:p-5">
         {activeTab === "analytics" && <div className="space-y-4"><div><h2 className="font-semibold text-slate-900 dark:text-white">Analitik koperasi</h2><p className="mt-1 text-xs text-slate-500">Angka berikut dihitung dari transaksi yang dimuat untuk tenant aktif, bukan laporan lintas halaman.</p></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[{ label: "Transaksi termuat", value: snapshot.sales.length }, { label: "Nilai transaksi termuat", value: money(snapshot.sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0)) }, { label: "Produk aktif", value: snapshot.products.filter((item) => item.status === "active").length }, { label: "Stok perlu diperiksa", value: lowStockCount }].map((item) => <article key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">{item.label}</p><p className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{loading ? "—" : item.value}</p></article>)}</div></div>}
-        {activeTab === "parent-monitoring" && <ERPFeatureStatus title="Pantauan Wali" description="Menu tetap terlihat mengikuti acuan. Tampilan pantauan dompet dan transaksi khusus wali belum memiliki API dengan cakupan relasi wali–santri yang diverifikasi, sehingga data tidak dibuka dari halaman Admin ini." />}
-        {activeTab === "staff" && <ERPFeatureStatus title="Petugas koperasi" status="Akun dikelola pada Manajemen Pengguna" tone="available" description="Peran kasir mengikuti akun dan izin modul. Direktori petugas khusus koperasi belum tersedia; pengelolaan akun dan hak akses dilakukan melalui Manajemen Pengguna." />}
+        {activeTab === "parent-monitoring" && <div className="space-y-4">
+          <div><h2 className="font-semibold text-slate-900 dark:text-white">Pantauan Wali</h2><p className="mt-1 text-xs text-slate-500">Relasi wali–santri dari data kanonis tenant, digabung dengan saldo dompet dan transaksi yang termuat. Perubahan status/batas dompet tetap lewat tab Dompet Santri (tanpa hapus keras).</p></div>
+          <label className="block"><span className="sr-only">Cari wali atau santri</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama wali, santri, atau NIS" className={inputClass.replace("mt-1.5", "mt-0")} /></label>
+          {(() => {
+            const needle = search.trim().toLocaleLowerCase("id-ID");
+            const rows = (snapshot.parentMonitoring || []).filter((row) => !needle || [row.guardianName, row.studentName, row.nis, row.grade].some((field) => String(field || "").toLocaleLowerCase("id-ID").includes(needle)));
+            if (!rows.length) return <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada relasi wali–santri yang dapat dipantau.</div>;
+            return <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Wali</th><th className="p-3">Santri</th><th className="p-3 text-right">Saldo / Batas</th><th className="p-3">Dompet</th><th className="p-3 text-right">Transaksi termuat</th><th className="p-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{rows.map((row) => <tr key={`${row.guardianId}:${row.studentId}`}><td className="p-3"><div className="font-medium text-slate-900 dark:text-white">{row.guardianName}</div><div className="text-xs text-slate-500">{row.relationship} · {row.hasLinkedAccount ? "akun terhubung" : "belum punya akun"} · {row.guardianStatus || "—"}</div></td><td className="p-3"><div className="font-medium text-slate-900 dark:text-white">{row.studentName}</div><div className="text-xs text-slate-500">NIS {row.nis || "—"} · {row.grade || "—"}</div></td><td className="p-3 text-right">{row.balance == null ? "—" : <><div className="font-semibold">{money(row.balance)}</div><div className="text-xs text-slate-500">batas {money(row.dailyLimit || 0)}</div></>}</td><td className="p-3"><span className={row.walletStatus === "Active" ? "text-emerald-700" : row.walletStatus === "Blocked" ? "text-rose-700" : "text-slate-500"}>{row.walletStatus === "Active" ? "Aktif" : row.walletStatus === "Blocked" ? "Diblokir" : "Belum ada"}</span></td><td className="p-3 text-right"><div className="font-medium">{row.recentSaleCount}</div><div className="text-xs text-slate-500">{money(row.recentSaleTotal)}</div></td><td className="p-3 text-right">{row.walletId ? <button type="button" className={outlineClass} onClick={() => { const wallet = snapshot.wallets.find((item) => item.id === row.walletId); if (wallet) void updateWalletPolicy(wallet); }}>Atur dompet</button> : <span className="text-xs text-slate-500">Buat lewat Dompet</span>}</td></tr>)}</tbody></table></div>;
+          })()}
+        </div>}
+        {activeTab === "staff" && <div className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-slate-900 dark:text-white">Petugas koperasi</h2>
+              <p className="mt-1 text-xs text-slate-500">Akun tenant dengan izin modul Koperasi. Buat, ubah peran, atau nonaktifkan akun lewat Manajemen Pengguna.</p>
+            </div>
+            <button type="button" onClick={() => void refreshStaff()} disabled={staffLoading} className={outlineClass}>
+              <RefreshCw className={staffLoading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang
+            </button>
+          </div>
+          {staffError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">{staffError}</div>}
+          {staffLoading ? <ERPLoadingSkeleton variant="list" label="Memuat petugas koperasi…" rows={4} />
+            : staffRows.length ? <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Nama</th><th className="p-3">Email</th><th className="p-3">Peran</th><th className="p-3">Status</th><th className="p-3">Akses koperasi</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{staffRows.map((row) => <tr key={row.uid}><td className="p-3 font-medium text-slate-900 dark:text-white">{row.name || "—"}</td><td className="p-3 text-slate-600 dark:text-slate-300">{row.email || "—"}</td><td className="p-3">{row.role}</td><td className="p-3"><span className={row.status === "active" ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}>{row.status === "active" ? "Aktif" : row.status === "disabled" ? "Nonaktif" : row.status}</span></td><td className="p-3 text-emerald-700 dark:text-emerald-300">Ya</td></tr>)}</tbody></table></div>
+              : <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada akun dengan izin Koperasi. Tambahkan atau aktifkan izin di Manajemen Pengguna.</div>}
+        </div>}
         {activeTab === "pos" && <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
           <div className="space-y-4"><label className="block"><span className="text-xs font-medium text-slate-500">Cari produk</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nama, SKU, kategori" className={inputClass} /></label>
             {products.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <button key={product.id} type="button" disabled={product.stock < 1} onClick={() => setCart((current) => { const existing = current.find((line) => line.productId === product.id); return existing ? current.map((line) => line.productId === product.id ? { ...line, quantity: Math.min(product.stock, line.quantity + 1) } : line) : [...current, { productId: product.id, quantity: 1 }]; })} className="rounded-xl border border-slate-200 p-4 text-left hover:border-orange-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:hover:border-orange-500/40"><div className="text-xs text-slate-500">{product.category || "Umum"} · stok {product.stock}</div><div className="mt-1 font-semibold text-slate-900 dark:text-white">{product.name}</div><div className="mt-3 font-semibold text-orange-700 dark:text-orange-300">{money(product.price)}</div></button>)}</div> : <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada produk pada tenant ini.</div>}

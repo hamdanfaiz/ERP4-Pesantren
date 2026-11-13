@@ -5,6 +5,8 @@ Folder ini berisi dokumen pekerjaan, fitur, dan rancangan arsitektur yang **masi
 Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `completed` atau gabungkan ke panduan utama bila sesuai.
 
 ## Kesiapan produk
+- [**Agent Start Here**](00_PRODUCT/AGENT_START_HERE.md) — wajib dibaca semua agent sebelum mengubah kode/skema/flag/data.
+- [Checkpoint Relasi & Ekosistem + OpenWA — 13 Nov 2026](00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md) — perubahan Alumni/CRM/Donasi/Marketplace/Analitik, integrasi OpenWA, dan backlog lanjutan.
 - [Kesiapan Komersial dan Go-Live](00_PRODUCT/COMMERCIAL_READINESS.md) — kontrak produk self-hosted, bukti teknis, dan tahapan pilot/deploy.
 - [Progres penyelesaian pengembangan — 30 Okt 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — estimasi progres pengembangan sekitar 73%, tidak termasuk pelaksanaan deployment dan UAT oleh tim penerapan.
 - [Checkpoint penempatan menu — 1 Nov 2026](00_PRODUCT/MODULE_OWNERSHIP_CHECKPOINT_2026-11-01.md) — lokasi menu pada modul pemilik, batas katalog baca-saja, hasil pemeriksaan lokal, dan gate yang masih terbuka.

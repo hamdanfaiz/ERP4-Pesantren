@@ -5,7 +5,7 @@ import { AlertCircle, BookOpen, CheckCircle2, CircleCheck, ClipboardList, FilePl
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
-import { ERPFeatureStatus, ERPLoadingSkeleton, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPLoadingSkeleton, ERPTabs } from "../components/ERPDesignSystem";
 
 type Material = { id: string; title: string; material_type: "video" | "pdf" | "link" | "text"; resource_url: string; body: string; duration_seconds: number | null; display_order: number };
 type Module = { id: string; title: string; description: string; display_order: number; materials: Material[] };
@@ -313,22 +313,90 @@ export function SupabaseLMSManager() {
     };
   }, [snapshot, publishedAssignments, isAdmin, role]);
 
+  const videoLibrary = useMemo(() => {
+    const rows: Array<{ id: string; title: string; resource_url: string; courseTitle: string; moduleTitle: string }> = [];
+    for (const courseItem of snapshot.courses) {
+      for (const moduleItem of courseItem.modules) {
+        for (const material of moduleItem.materials) {
+          if (material.material_type !== "video") continue;
+          rows.push({
+            id: material.id,
+            title: material.title,
+            resource_url: material.resource_url,
+            courseTitle: courseItem.title,
+            moduleTitle: moduleItem.title,
+          });
+        }
+      }
+    }
+    return rows;
+  }, [snapshot.courses]);
+
+  const instructorDirectory = useMemo(() => snapshot.instructors.map((instructor) => {
+    const courses = snapshot.courses.filter((courseItem) => courseItem.instructorUserId === instructor.id);
+    return {
+      id: instructor.id,
+      name: instructor.name,
+      courseCount: courses.length,
+      publishedCount: courses.filter((courseItem) => courseItem.status === "published").length,
+      courses: courses.map((courseItem) => courseItem.title),
+    };
+  }), [snapshot.courses, snapshot.instructors]);
+
+  const materialDiscussions = useMemo(() => {
+    const materialMeta = new Map<string, { materialTitle: string; courseTitle: string }>();
+    for (const courseItem of snapshot.courses) {
+      for (const moduleItem of courseItem.modules) {
+        for (const material of moduleItem.materials) {
+          materialMeta.set(material.id, { materialTitle: material.title, courseTitle: courseItem.title });
+        }
+      }
+    }
+    return snapshot.comments
+      .map((comment) => ({
+        ...comment,
+        materialTitle: materialMeta.get(comment.materialId)?.materialTitle || "Materi",
+        courseTitle: materialMeta.get(comment.materialId)?.courseTitle || "Kursus",
+      }))
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  }, [snapshot.comments, snapshot.courses]);
+
   if (!["Admin", "SuperAdmin", "Ustadz", "Santri"].includes(role || "")) return <div className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">LMS Supabase tersedia untuk Admin, Ustadz, dan Santri yang memiliki izin modul.</div>;
 
   return <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-7">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-400/10 dark:text-indigo-200"><ShieldCheck className="h-3.5 w-3.5" />Sumber data: Supabase tenant</div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Pembelajaran Digital (LMS)</h1><p className="mt-1 text-sm text-slate-500">Kursus, materi, progres, tugas, dan penilaian terhubung ke roster tenant.</p></div><button type="button" onClick={() => { notifyReloadRef.current = true; setNotice(""); void refresh(); }} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button></header>
-    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"><strong>LMS tenant aktif.</strong> Dashboard, katalog, materi, pendaftaran, progres, pengumpulan, dan nilai memakai data Supabase. Ulasan sebaya terstruktur dan sertifikat belum tersedia.</div>
+    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"><strong>LMS tenant aktif.</strong> Dashboard, kategori, kursus, pustaka video, pengajar, tugas, pengumpulan, dan komentar materi memakai data Supabase tenant.</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}{notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
     {isAdmin && LEGACY_LMS_IMPORT_ENABLED && <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Migrasi katalog lama</h2><p className="mt-1 text-sm text-slate-500">Pratinjau membaca kategori, kursus, modul, materi, dan tugas pesantren dari arsip Firebase. Pengumpulan tugas contoh dengan angka agregat tidak diimpor.</p></div><button type="button" onClick={() => void previewLegacyImport()} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200"><RefreshCw className="h-4 w-4" />Buat pratinjau</button></div>{legacyImportPreview && <><div className="grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6">{[["Kategori", legacyImportPreview.counts.categories], ["Kursus", legacyImportPreview.counts.courses], ["Modul", legacyImportPreview.counts.modules], ["Materi", legacyImportPreview.counts.materials], ["Tugas", legacyImportPreview.counts.assignments], ["Sudah cocok", legacyImportPreview.counts.alreadyImported]].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><span className="text-slate-500">{label}</span><strong className="ml-2 text-slate-900 dark:text-white">{value}</strong></div>)}</div>{legacyImportPreview.issueCount > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><p className="font-semibold">{legacyImportPreview.blockingCount} konflik memblokir impor</p><ul className="mt-2 space-y-1">{legacyImportPreview.issues.slice(0, 8).map((issue, index) => <li key={`${issue.recordRef}-${index}`}>{issue.code} · referensi {issue.recordRef || "—"}</li>)}</ul></div>}<div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-slate-500">Data sumber {legacyImportPreview.snapshotFingerprint.slice(0, 16)}… · {legacyImportPreview.counts.ready} data siap</span><button type="button" onClick={() => void applyLegacyImport()} disabled={busy || !legacyImportPreview.canApply} className={PRIMARY}><FilePlus2 className="h-4 w-4" />Terapkan impor</button></div></>}</section>}
     {loading
       ? <ERPLoadingSkeleton variant="metrics" label="Memuat ringkasan LMS…" rows={3} />
       : <div className="grid gap-3 sm:grid-cols-3">{[{ title: "Kursus", value: snapshot.courses.length, icon: BookOpen }, { title: "Santri di roster", value: isAdmin ? snapshot.students.length : snapshot.enrollments.length, icon: Users }, { title: "Tugas", value: snapshot.assignments.length, icon: ClipboardList }].map((item) => <article key={item.title} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500">{item.title}<item.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{item.value}</p></article>)}</div>}
     <ERPTabs tabs={LMS_TABS} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian LMS Pembelajaran" />
-    {tab === "categories" && <ERPFeatureStatus title="Kategori kursus" status="Tersedia di Kursus & Materi" tone="available" description="Kategori dapat dibuat dan dikelola di formulir Kursus pada halaman Kursus & Materi; halaman kategori terpisah belum diperlukan untuk menyimpan data." action={<button type="button" onClick={() => setTab("courses")} className={PRIMARY}>Buka Kursus & Materi</button>} />}
-    {tab === "video-library" && <ERPFeatureStatus title="Pustaka video" status="Materi video tersedia di Kursus & Materi" tone="available" description="Materi video dapat ditambahkan ke modul kursus. Katalog video lintas kursus dan unggah/penyimpanan video privat belum tersedia." action={<button type="button" onClick={() => setTab("courses")} className={PRIMARY}>Buka Kursus & Materi</button>} />}
-    {tab === "peer-review" && <ERPFeatureStatus title="Ulasan sebaya LMS" description="Komentar materi tersedia, tetapi tugas ulasan antar-santri, penugasan penilai, moderasi, dan pembatasan halaqah/kelas belum diimplementasikan." />}
-    {tab === "instructor" && <ERPFeatureStatus title="Pengajar kursus" status="Penugasan tersedia di Kursus & Materi" tone="available" description="Pengajar dipilih pada formulir kursus dan tersimpan bersama kursus. Direktori serta analitik pengajar khusus belum tersedia." action={<button type="button" onClick={() => setTab("courses")} className={PRIMARY}>Buka Kursus & Materi</button>} />}
     {loading ? <ERPLoadingSkeleton variant="panel" label="Memuat data LMS tenant…" rows={4} /> : <>
+      {tab === "categories" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.78fr)]">
+        <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+          <div><h2 className="font-semibold text-slate-900 dark:text-white">Katalog kategori</h2><p className="mt-1 text-sm text-slate-500">Kategori dipakai saat membuat kursus baru.</p></div>
+          {snapshot.categories.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.categories.map((item) => {
+            const courseCount = snapshot.courses.filter((courseItem) => courseItem.categoryId === item.id || courseItem.category === item.name).length;
+            return <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-3"><div><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3>{item.description && <p className="mt-1 text-sm text-slate-500">{item.description}</p>}</div><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{courseCount} kursus</span></article>;
+          })}</div> : <p className="text-sm text-slate-500">Belum ada kategori. Admin dapat menambahkannya di formulir sebelah.</p>}
+        </section>
+        {isAdmin ? <form onSubmit={saveCategory} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><h2 className="font-semibold">Tambah kategori</h2><label className={LABEL}>Nama pilihan<input required maxLength={100} className={INPUT} value={category.name} onChange={(e) => setCategory({ ...category, name: e.target.value })} /></label><label className={LABEL}>Deskripsi<textarea required minLength={8} maxLength={1000} rows={3} className={INPUT} placeholder="Jelaskan cakupan kategori; harus berbeda dari nama pilihan." value={category.description} onChange={(e) => setCategory({ ...category, description: e.target.value })} /></label><button disabled={busy || !category.name.trim() || category.description.trim().length < 8 || category.description.trim().toLocaleLowerCase("id-ID") === category.name.trim().toLocaleLowerCase("id-ID")} className={PRIMARY}><Plus className="h-4 w-4" />Simpan kategori</button></form> : <section className="rounded-2xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 dark:border-white/10">Hanya Admin yang dapat menambah kategori kursus.</section>}
+      </div>}
+      {tab === "video-library" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Pustaka video kursus</h2><p className="mt-1 text-sm text-slate-500">Materi bertipe video dari seluruh kursus yang dapat diakses akun ini.</p></div><button type="button" onClick={() => setTab("courses")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Kelola di Kursus</button></div>
+        {videoLibrary.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{videoLibrary.map((item) => <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-3"><div><h3 className="font-medium text-slate-900 dark:text-white">{item.title}</h3><p className="mt-1 text-xs text-slate-500">{item.courseTitle} · {item.moduleTitle}</p></div>{item.resource_url ? <a href={item.resource_url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-indigo-700 underline dark:text-indigo-300">Buka video</a> : <span className="text-xs text-slate-500">Tanpa URL</span>}</article>)}</div> : <p className="text-sm text-slate-500">Belum ada materi video. Tambahkan materi bertipe Video pada Kursus & Materi.</p>}
+      </section>}
+      {tab === "instructor" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Direktori pengajar LMS</h2><p className="mt-1 text-sm text-slate-500">Pengajar berasal dari profil tenant dan dihubungkan ke kursus saat kursus dibuat.</p></div>
+        {instructorDirectory.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{instructorDirectory.map((item) => <article key={item.id} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.courseCount} kursus · {item.publishedCount} terbit</p>{item.courses.length > 0 && <ul className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">{item.courses.slice(0, 4).map((courseTitle) => <li key={courseTitle}>• {courseTitle}</li>)}{item.courses.length > 4 && <li>… dan {item.courses.length - 4} lagi</li>}</ul>}</article>)}</div> : <p className="text-sm text-slate-500">Belum ada pengajar yang dapat ditugaskan ke kursus.</p>}
+        {isAdmin && <button type="button" onClick={() => setTab("courses")} className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Tugaskan pengajar lewat formulir kursus</button>}
+      </section>}
+      {tab === "peer-review" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Diskusi materi</h2><p className="mt-1 text-sm text-slate-500">Komentar materi dari peserta kursus. Alur penugasan ulasan sebaya terpisah belum tersedia; gunakan komentar dan pengumpulan tugas yang sudah ada.</p></div>
+        {materialDiscussions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{materialDiscussions.map((item) => <article key={item.id} className="py-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-medium text-slate-900 dark:text-white">{item.studentName}</p><p className="mt-1 text-xs text-slate-500">{item.courseTitle} · {item.materialTitle}</p></div><span className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString("id-ID")}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{item.comment}</p></article>)}</div> : <p className="text-sm text-slate-500">Belum ada komentar materi. Santri dapat menulis komentar saat membuka materi di Kursus & Materi.</p>}
+      </section>}
+
       {tab === "dashboard" && <section className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[

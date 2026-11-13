@@ -1,5 +1,7 @@
 # Modul Marketplace ERP4 Pesantren
 
+> **Status runtime (13 Nov 2026):** katalog, stok, pesanan, dan kategori referensi `marketplace_product_category` aktif di Supabase Production PTSAS; UI inventaris mendukung create/update/arsip produk. Rating/area-chart aspiratif belum wajib. Checkpoint Relasi: [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](../00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md).
+
 ## Tujuan
 Menyediakan portal e-commerce mutakhir yang menghubungkan entitas wali santri, jejaring alumni, maupun masyarakat publik (Public) menuju produk-produk kewirausahaan santri (Student Biz), penjualan seragam, hingga merchandise resmi institusi asrama. Modul ini bertujuan menanamkan kemandirian ekonomi pesantren lewat otomatisasi pemesanan (Order Tracking).
 

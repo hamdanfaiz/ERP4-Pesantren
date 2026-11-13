@@ -200,3 +200,103 @@ export async function recordSupabaseCrmInteraction(tenantId: string, actorId: st
   if (!uuid(result?.interactionId)) throw new SupabaseCrmError(503, "Respons pencatatan interaksi CRM tidak valid.");
   return { interactionId: result.interactionId, alreadyApplied: result.alreadyApplied === true };
 }
+
+export type CrmBroadcastDraft = {
+  clientRequestId: string;
+  message: string;
+  subject?: string;
+  contactIds?: string[];
+  dryRun?: boolean;
+};
+
+export async function sendSupabaseCrmOpenWaBroadcast(
+  tenantId: string,
+  actorId: string,
+  role: string,
+  raw: CrmBroadcastDraft,
+) {
+  if (!uuid(tenantId) || !uuid(actorId) || !uuid(raw?.clientRequestId)) {
+    throw new SupabaseCrmError(400, "ID permintaan siaran CRM tidak valid.");
+  }
+  const message = cleanText(raw.message, 4000, "Isi siaran", true) || "";
+  if (message.length < 5) throw new SupabaseCrmError(400, "Isi siaran minimal 5 karakter.");
+  const subject = cleanText(raw.subject, 200, "Judul siaran") || "Siaran WhatsApp CRM";
+  const requestedIds = Array.isArray(raw.contactIds)
+    ? [...new Set(raw.contactIds.filter((id) => uuid(id)))]
+    : [];
+  if (requestedIds.length > 50) throw new SupabaseCrmError(400, "Maksimal 50 penerima per siaran.");
+
+  const { openWaSendText, normalizeOpenWaChatId, OpenWaGatewayError, getOpenWaStatus } = await import("./openWaGateway");
+  const status = await getOpenWaStatus(tenantId);
+  if (!status.configured && !raw.dryRun) {
+    throw new SupabaseCrmError(503, status.error || "OpenWA belum dikonfigurasi.");
+  }
+
+  const audience: Array<{ id: string; name: string; phone: string; chatId: string }> = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 20; page += 1) {
+    const batch = await listSupabaseCrmContactsPage(tenantId, actorId, role, { cursor, pageSize: 100 });
+    for (const contact of batch.contacts) {
+      if (contact.marketingConsent !== "granted") continue;
+      if (requestedIds.length && !requestedIds.includes(contact.id)) continue;
+      const chatId = normalizeOpenWaChatId(contact.phone);
+      if (!chatId) continue;
+      audience.push({ id: contact.id, name: contact.name, phone: contact.phone, chatId });
+    }
+    cursor = batch.nextCursor;
+    if (!cursor) break;
+  }
+  if (requestedIds.length) {
+    const found = new Set(audience.map((item) => item.id));
+    const missing = requestedIds.filter((id) => !found.has(id));
+    if (missing.length) {
+      throw new SupabaseCrmError(400, "Sebagian kontak dipilih tidak memiliki persetujuan atau nomor WhatsApp valid.");
+    }
+  }
+  if (!audience.length) {
+    throw new SupabaseCrmError(400, "Tidak ada penerima: butuh persetujuan menerima info dan nomor telepon valid.");
+  }
+  if (audience.length > 50) {
+    throw new SupabaseCrmError(400, "Audiens melebihi 50 penerima. Persempit daftar atau kirim bertahap.");
+  }
+
+  if (raw.dryRun) {
+    return {
+      dryRun: true,
+      configured: status.configured,
+      provider: "open-wa",
+      recipientCount: audience.length,
+      recipients: audience.map(({ id, name, phone, chatId }) => ({ id, name, phone, chatId })),
+    };
+  }
+
+  const results: Array<{ contactId: string; name: string; phone: string; status: "sent" | "failed"; error?: string; messageId?: string | null }> = [];
+  for (const recipient of audience) {
+    try {
+      const sent = await openWaSendText(tenantId, recipient.chatId, message);
+      await recordSupabaseCrmInteraction(tenantId, actorId, role, {
+        clientRequestId: randomUUID(),
+        contactId: recipient.id,
+        interactionType: "message",
+        direction: "outbound",
+        subject,
+        summary: `OpenWA · ${message.slice(0, 500)}`,
+      });
+      results.push({ contactId: recipient.id, name: recipient.name, phone: recipient.phone, status: "sent", messageId: sent.messageId });
+    } catch (error) {
+      const detail = error instanceof OpenWaGatewayError || error instanceof SupabaseCrmError
+        ? error.message
+        : "Pengiriman gagal.";
+      results.push({ contactId: recipient.id, name: recipient.name, phone: recipient.phone, status: "failed", error: detail });
+    }
+  }
+
+  return {
+    dryRun: false,
+    provider: "open-wa",
+    clientRequestId: raw.clientRequestId,
+    sent: results.filter((item) => item.status === "sent").length,
+    failed: results.filter((item) => item.status === "failed").length,
+    results,
+  };
+}

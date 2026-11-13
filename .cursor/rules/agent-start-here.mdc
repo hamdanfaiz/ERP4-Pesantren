@@ -1,0 +1,23 @@
+---
+description: Semua agent wajib membaca handoff dan checkpoint aktif sebelum mengubah kode, skema, flag, atau data Production.
+alwaysApply: true
+---
+
+# Baca dulu sebelum bertindak
+
+Sebelum mengubah repository ini:
+
+1. Baca `docs/active/00_PRODUCT/AGENT_START_HERE.md`.
+2. Baca checkpoint modul yang relevan di `docs/active/00_PRODUCT/` (untuk Relasi/OpenWA: `CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md`).
+3. Patuhi aturan selalu-aktif: `supabase-project.mdc`, `academic-production.mdc` bila menyentuh akademik.
+4. Pakai skill `.cursor/skills/erp4-pesantren/SKILL.md` untuk env/runtime/Supabase.
+5. Ikuti Karpathy lokal (`.cursor/skills/karpathy-guidelines`) — bedah, terverifikasi, tanpa redesign spekulatif.
+
+Jangan:
+
+- menyambung staging VQE atau project Supabase lain untuk ERP ini;
+- mengarang fitur AI/warehouse/broadcast channel yang belum punya API;
+- mengaktifkan flag runtime sebelum objek yang dipanggil halaman ada;
+- menyalin secret ke chat, commit, aturan, atau variabel `VITE_`.
+
+Setelah batch kerja berarti, perbarui checkpoint terkait atau buat checkpoint bertanggal baru agar agent berikutnya tidak mengulang atau bertabrakan.

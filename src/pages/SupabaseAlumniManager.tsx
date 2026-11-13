@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { getAccessToken } from "../authSession";
 import { createAlumniClientRequestId, getStableAlumniRequestIdentity, type AlumniRequestIdentity } from "../lib/alumniWorkflow";
 import { normalizeTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
-import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPTabs } from "../components/ERPDesignSystem";
 
 type Alumni = { id: string; studentId: string; name: string; nis: string; grade: string; graduationYear: number; graduatedAt: string };
 type EligibleStudent = { id: string; name: string; nis: string; grade: string; status: string };
@@ -128,7 +128,7 @@ export function SupabaseAlumniManager() {
 
       <section className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
-          <div><h2 className="font-semibold text-slate-900 dark:text-white">Alumni terdaftar</h2><p className="mt-1 text-xs text-slate-500">Tracer study, kegiatan komunitas, dan donasi belum ditampilkan sebagai data operasional Supabase.</p></div>
+          <div><h2 className="font-semibold text-slate-900 dark:text-white">Alumni terdaftar</h2><p className="mt-1 text-xs text-slate-500">Direktori kelulusan tenant. Tab Tracer, Komunitas, dan Donasi memakai daftar yang sama atau modul Donasi & Wakaf.</p></div>
           <label className="relative block w-full sm:max-w-xs"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, NIS, angkatan…" className="w-full rounded-lg border border-slate-200 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700" /></label>
         </div>
         {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat data Alumni tenant…</div>
@@ -137,7 +137,51 @@ export function SupabaseAlumniManager() {
       </section>
 
       {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation"><form onSubmit={handleGraduate} className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800"><div><h2 className="font-semibold text-slate-900 dark:text-white">Catat Kelulusan</h2><p className="mt-1 text-xs text-slate-500">Perubahan status Santri dan pencatatan Alumni diproses atomik.</p></div><button type="button" onClick={() => setModalOpen(false)} aria-label="Tutup" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div><div className="space-y-4 p-5"><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Santri<select required value={studentId} onChange={(event) => setStudentId(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700"><option value="">Pilih santri tanpa profil Alumni</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}{student.nis ? ` · ${student.nis}` : ""} · {student.status}</option>)}</select><span className="mt-1.5 block text-xs font-normal text-slate-500">Status lama Alumni tetap dapat dipilih jika profil kelulusannya belum tercatat.</span></label><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal kelulusan<input type="date" required value={graduatedAt} onChange={(event) => setGraduatedAt(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700" /></label><p className="text-xs text-slate-500">Pilih tanggal berdasarkan dokumen kelulusan. Tahun angkatan diambil dari tanggal tersebut; data status lama tidak digunakan untuk menebak tanggal.</p></div><div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800"><button type="button" onClick={() => setModalOpen(false)} disabled={saving} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">Batal</button><button type="submit" disabled={!studentId || saving} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Simpan Kelulusan</button></div></form></div>}
-      </> : <ERPFeatureStatus title={ALUMNI_TABS.find((item) => item.id === tab)?.label || "Fitur Alumni"} description={tab === "tracer" ? "Tracer study, status pekerjaan, dan survei lulusan belum memiliki formulir, izin data, ataupun tabel Supabase." : tab === "community" ? "Keanggotaan komunitas, kegiatan, dan komunikasi alumni belum memiliki sumber data tenant Supabase." : "Donasi alumni belum terhubung; penerimaan dan pencatatan donasi harus dikelola melalui modul Donasi & Wakaf."} />}
+      </> : tab === "tracer" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Ringkasan angkatan</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari profil kelulusan tenant. Survei pekerjaan/pendidikan lanjutan belum punya formulir tersimpan.</p></div>
+        {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+          : alumni.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada alumni untuk ditelusuri.</p>
+          : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[480px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Angkatan</th><th className="px-4 py-3 text-right">Jumlah alumni</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{Object.entries(alumni.reduce<Record<string, number>>((acc, item) => { const key = String(item.graduationYear); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).sort((a, b) => Number(b[0]) - Number(a[0])).map(([year, count]) => <tr key={year}><td className="px-4 py-3 font-medium">{year}</td><td className="px-4 py-3 text-right tabular-nums">{count}</td></tr>)}</tbody></table></div>}
+      </section> : tab === "community" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Anggota komunitas alumni</h2><p className="mt-1 text-sm text-slate-500">Keanggotaan mengikuti direktori kelulusan tenant. Kegiatan komunitas terpisah belum punya API.</p></div>
+        {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+          : filteredAlumni.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada anggota komunitas alumni.</p>
+          : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{filteredAlumni.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800"><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-xs text-slate-500">Angkatan {item.graduationYear}{item.nis ? ` · NIS ${item.nis}` : ""}</p></article>)}</div>}
+      </section> : <AlumniDonationsPanel />}
     </div>
   );
+}
+
+function AlumniDonationsPanel() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [rows, setRows] = useState<Array<{ id: string; donorName: string; amount: number; status: string; receiptNumber: string; receivedAt: string }>>([]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    requestAlumni("/api/donation/snapshot")
+      .then((result) => {
+        if (!active) return;
+        const donations = Array.isArray(result.donations) ? result.donations : [];
+        setRows(donations.slice(0, 50).map((item: any) => ({
+          id: String(item.id),
+          donorName: String(item.donor_name || item.donorName || "Donatur"),
+          amount: Number(item.amount || 0),
+          status: String(item.status || ""),
+          receiptNumber: String(item.receipt_number || item.receiptNumber || "—"),
+          receivedAt: String(item.received_at || item.receivedAt || ""),
+        })));
+      })
+      .catch((cause: any) => { if (active) setError(cause?.message || "Data donasi belum dapat dimuat."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+  return <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <div><h2 className="font-semibold text-slate-900 dark:text-white">Penerimaan Donasi & Wakaf</h2><p className="mt-1 text-sm text-slate-500">Terhubung ke modul Donasi & Wakaf. Pencatatan baru dan void dilakukan di menu Donasi & Wakaf.</p></div>
+    {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</div>}
+    {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+      : rows.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada transaksi donasi pada tenant ini.</p>
+      : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Kwitansi</th><th className="px-4 py-3">Donatur</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Nominal</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{rows.map((row) => <tr key={row.id}><td className="px-4 py-3 font-mono text-xs">{row.receiptNumber}</td><td className="px-4 py-3">{row.donorName}</td><td className="px-4 py-3">{row.status}</td><td className="px-4 py-3 text-right tabular-nums">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(row.amount)}</td></tr>)}</tbody></table></div>}
+  </section>;
 }

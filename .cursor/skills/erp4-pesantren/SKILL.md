@@ -26,6 +26,13 @@ This repository is the ERP4 Pesantren application. The interface is React (Vite)
 
 Skills for this checkout live in `.cursor/skills`.
 
+## Multi-agent handoff (read first)
+
+- Mandatory: `docs/active/00_PRODUCT/AGENT_START_HERE.md`
+- Relasi & Ekosistem + Analitik + OpenWA (13 Nov 2026): `docs/active/00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md`
+- Cursor rules: `.cursor/rules/agent-start-here.mdc` (always), `.cursor/rules/relasi-ekosistem-openwa.mdc` (when touching those modules)
+- WhatsApp: OpenWA Easy API via `WA_GATEWAY_ENDPOINT` / tenant `waGatewayEndpoint` + `WA_GATEWAY_API_KEY`. Do not embed wa-automate in the Express process.
+
 ## UI consistency (agent rules)
 
 - Loading while data is in flight: `.cursor/rules/ui-loading-skeleton.mdc` — use `ERPLoadingSkeleton` from `src/components/ERPDesignSystem.tsx`.
