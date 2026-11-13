@@ -111,8 +111,15 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 148);
+assert.equal(sourceMigrationsWithSql.length, 149);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
+const quranCatalogMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270320000000_tahfidz_quran_surah_catalog.sql');
+assert(quranCatalogMigration, 'Canonical Quran reference data and Tahfidz validation need a forward-only migration.');
+assert.match(quranCatalogMigration.statements.join('\n'), /CREATE TABLE IF NOT EXISTS public\.quran_surahs/i);
+assert.match(quranCatalogMigration.statements.join('\n'), /surah_number SMALLINT/);
+assert.match(quranCatalogMigration.statements.join('\n'), /REVOKE ALL ON TABLE public\.quran_surahs FROM PUBLIC, anon, authenticated/i);
+assert.match(quranCatalogMigration.statements.join('\n'), /GRANT SELECT ON TABLE public\.quran_surahs TO service_role/i);
+assert.match(quranCatalogMigration.statements.join('\n'), /DROP TRIGGER IF EXISTS tahfidz_records_validate_quran_reference_insert/i);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270306000000_library_book_category_reference_writes.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
@@ -432,7 +439,7 @@ assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 101);
+assert.equal(productionBaseline.pending.length, 102);
 assert.deepEqual(
   productionBaseline.outOfOrderPending.map(({ version }) => version),
   [...productionMissingMigrationVersions],
@@ -515,3 +522,4 @@ assert.match(READ_ONLY_LEDGER_QUERY, /COMMIT/);
 assert.doesNotMatch(READ_ONLY_LEDGER_QUERY, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE)\b/i);
 
 console.log('Supabase migration preflight logic passed: version/name/SQL lineage comparison, safe SQL parsing, duplicate/unknown versions, TLS enforcement, and read-only SQL.');
+
