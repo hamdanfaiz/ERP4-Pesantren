@@ -1,0 +1,23 @@
+---
+description: Kontrak rapor semester Akademik, ambang KKTP, wali kelas, dan penerbitan.
+globs: src/pages/SupabaseAcademic*.tsx,src/server/supabaseAcademic.ts,server.ts,supabase/migrations/*academic_report*,supabase/tests/academic_report_card.test.sql
+alwaysApply: false
+---
+
+# Rapor semester Akademik
+
+Kontrak ini berlaku untuk E-Rapor, catatan wali kelas, dan ambang KKTP. Jangan menyalin layar Firestore lama dan jangan mengubah rapor yang sudah terbit.
+
+- Satu tenant hanya punya satu semester berstatus `open`. Semester yang sudah memiliki rapor terbit tidak diubah tanggal atau namanya. Menutup semester ditolak selama masih ada rapor draf atau menunggu pengesahan.
+- Ambang KKTP tersimpan per tenant. Jika belum ada baris pengaturan, ambangnya 75. Nilai di bawah ambang berstatus `Needed`; nilai yang sama atau lebih tinggi berstatus `None`.
+- Nilai harian memakai ambang yang berlaku saat disimpan. Rapor terbit menyimpan ambang dan baris nilainya sendiri. Mengubah ambang kemudian tidak menulis ulang rapor terbit, tetapi mengembalikan rapor yang baru divalidasi menjadi draf.
+- Wali kelas adalah satu pengajar aktif untuk satu kelas pada semester terbuka. Ustadz hanya menyusun catatan dan validasi untuk kelas itu. Admin menetapkan wali, ambang, semester, dan penerbitan.
+- Kunci `academic` yang tidak ada mengikuti hak peran. Nilai eksplisit selain `true` menolak akses. `super_admin` tidak bergantung pada kunci itu.
+- Alur satu santri pada semester terbuka: catatan wali kelas, validasi, penerbitan. Validasi membutuhkan catatan dan minimal satu nilai yang tanggal penyimpanannya, dalam zona Asia/Jakarta, jatuh di dalam rentang semester. Nilai di luar rentang tidak masuk.
+- Penerbitan membekukan baris nilai. Jika nilai atau ambang berubah sesudah validasi, penerbitan ditolak dan wali kelas memvalidasi ulang. Rapor terbit tidak dapat diubah.
+- Santri dan Wali hanya membaca rapor terbit untuk santri yang memang tertaut ke akun mereka. Pemanggilan baca rapor terbit di server harus dilakukan setelah tautan itu diperiksa.
+- Browser tidak membaca tabel rapor secara langsung. Perubahan lewat `apply_academic_report_action`, dibatasi ke `service_role`, dan setiap permintaan memakai `client_request_id`.
+- Pilihan kelas dan pengajar pada layar rapor ditolak jika lebih dari 200. Daftar santri semester ditolak jika lebih dari 500.
+- File migrasi `20270309000000_academic_report_card.sql` adalah sumber kontrak dan sudah terpasang di Production PTSAS. Jangan menerapkan ulang file itu. Jangan menyalakan `SUPABASE_ACADEMIC_RUNTIME_ENABLED` selama objek yang dipanggil halaman Akademik belum ada. Penyelesaian objek itu mengikuti `academic-production.mdc`.
+
+Aturan akses database project tetap di `supabase-project.mdc`.

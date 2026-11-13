@@ -1,0 +1,42 @@
+---
+description: Wajib beri notifikasi interaktif setelah aksi pengguna (simpan, muat ulang, gagal) agar status jelas.
+globs: src/pages/**/*.tsx,src/components/**/*.tsx
+alwaysApply: false
+---
+
+# Notifikasi aksi untuk umpan balik UI
+
+Setelah pengguna menekan aksi (simpan, terapkan, muat ulang, hapus), tampilkan status hasil di halaman—jangan diam tanpa umpan balik.
+
+## Wajib
+
+- Sukses: `role="status"` dengan gaya emerald (border/bg/teks hijau). Contoh: “Ringkasan berhasil dimuat ulang.”
+- Gagal: `role="alert"` dengan gaya rose. Jangan mengganti alert dengan toast tersembunyi.
+- Muat ulang manual: set flag/`notifyReloadRef` agar notice sukses hanya muncul setelah reload yang dipicu tombol, bukan fetch awal halaman.
+- Bersihkan notice saat aksi baru dimulai atau tab diganti, supaya pesan lama tidak menyesatkan.
+- Teks notifikasi dalam bahasa Indonesia, singkat, spesifik ke aksi.
+
+## Jangan
+
+- Jangan mengandalkan hanya `console.log` atau perubahan data diam-diam tanpa banner status.
+- Jangan memakai modal sukses untuk aksi rutin (simpan/muat ulang); banner inline cukup.
+- Jangan menghapus skeleton loading demi notifikasi; keduanya bisa berdampingan (lihat `ui-loading-skeleton.mdc`).
+
+## Contoh singkat
+
+```tsx
+{notice && (
+  <div role="status" className="…emerald…">
+    <Check className="h-4 w-4" />
+    {notice}
+  </div>
+)}
+{error && (
+  <div role="alert" className="…rose…">
+    <AlertCircle className="h-4 w-4" />
+    {error}
+  </div>
+)}
+```
+
+Terapkan saat menambah atau mengubah halaman yang punya aksi pengguna. Jangan merombak semua modul sekaligus tanpa permintaan.

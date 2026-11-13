@@ -84,6 +84,7 @@ export function UserManagementView() {
   const [page, setPage] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const userListRequestId = useRef(0);
+  const notifyUsersReloadRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQueryForFetch, setSearchQueryForFetch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
@@ -210,8 +211,14 @@ export function UserManagementView() {
         return;
       }
       setUsers(Array.isArray(data.users) ? data.users : []);
+      if (notifyUsersReloadRef.current) {
+        setActionSuccessMessage('Daftar pengguna berhasil dimuat ulang.');
+        setTimeout(() => setActionSuccessMessage(null), 4000);
+        notifyUsersReloadRef.current = false;
+      }
     } catch (err: any) {
       if (requestId !== userListRequestId.current) return;
+      notifyUsersReloadRef.current = false;
       setUsers([]);
       setTotalUsers(0);
       setErrorBanner(err.message || 'Gagal menghubungi server untuk memuat pengguna.');
@@ -559,7 +566,7 @@ export function UserManagementView() {
     }
 
     if (currentRole === 'Admin' && (targetUser.role === 'SuperAdmin' || targetUser.role === 'Admin')) {
-      alert('Admin tidak memiliki izin mengubah status SuperAdmin atau sesama Admin.');
+      setErrorBanner('Admin tidak memiliki izin mengubah status SuperAdmin atau sesama Admin.');
       return;
     }
 
@@ -584,13 +591,20 @@ export function UserManagementView() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.error || 'Gagal mengubah status pengguna.');
+        setErrorBanner(data.error || 'Gagal mengubah status pengguna.');
         return;
       }
 
+      setErrorBanner(null);
+      setActionSuccessMessage(
+        nextStatus === 'disabled'
+          ? `Akun "${targetUser.name}" berhasil dinonaktifkan.`
+          : `Akun "${targetUser.name}" berhasil diaktifkan kembali.`,
+      );
+      setTimeout(() => setActionSuccessMessage(null), 5000);
       fetchUsers();
     } catch (err: any) {
-      alert(err.message || 'Gagal mengubah status pengguna.');
+      setErrorBanner(err.message || 'Gagal mengubah status pengguna.');
     }
   };
 
@@ -633,7 +647,10 @@ export function UserManagementView() {
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => fetchUsers()}
+            onClick={() => {
+              notifyUsersReloadRef.current = true;
+              void fetchUsers();
+            }}
             disabled={isLoading}
             className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors flex items-center gap-2"
             title="Muat ulang data"

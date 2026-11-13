@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { AlertCircle, CalendarDays, CheckCircle2, Loader2, Megaphone, Plus, RefreshCw, Send, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
-import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPFeatureStatus, ERPLoadingSkeleton, ERPTabs } from "../components/ERPDesignSystem";
 
 type CommunicationTab = "announcements" | "helpdesk" | "messages" | "permits" | "templates";
 const COMMUNICATION_TABS: Array<{ id: CommunicationTab; label: string }> = [
@@ -158,7 +158,7 @@ export function SupabaseCommunicationHub() {
       {migrationPreview && <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/20"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-slate-900 dark:text-white">Pratinjau migrasi pengumuman lama</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Dipindai {migrationPreview.scanned ?? 0}; siap {migrationPreview.ready ?? 0}; perlu rekonsiliasi {migrationPreview.blockingIssues?.length ?? 0}.</p></div>{SUPABASE_COMMUNICATION_IMPORT && migrationPreview.canApply && migrationPreview.previewFingerprint && <button onClick={() => void migrateLegacyAnnouncements(true)} disabled={migrationBusy} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{migrationBusy ? "Mengimpor…" : "Terapkan impor"}</button>}</div>{migrationPreview.blockingIssues?.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-rose-700 dark:text-rose-300">{migrationPreview.blockingIssues.slice(0, 20).map((issue: any, index: number) => <li key={`${issue.sourceId}-${index}`}>{issue.sourceId}: {issue.reason}</li>)}</ul>}</section>}
 
       {tab === "announcements" && <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        {loading ? <div role="status" className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat pengumuman…</div>
+        {loading ? <div className="p-4"><ERPLoadingSkeleton variant="list" label="Memuat pengumuman…" rows={4} /></div>
           : announcements.length ? <div className="divide-y divide-slate-200 dark:divide-slate-800">{announcements.map((announcement) => {
               const isRead = announcement.readByCurrentUser;
               const expanded = expandedId === announcement.id;

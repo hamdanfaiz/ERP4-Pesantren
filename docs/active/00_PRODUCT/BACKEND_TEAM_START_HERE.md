@@ -1,4 +1,36 @@
-## Checkpoint otoritatif — 8 November 2026, sesudah PR #86
+## Checkpoint otoritatif — 11 November 2026, preflight baca-saja Production
+
+### Source dan CI
+
+- `origin/main` dan checkout ini berada pada `fd937f4876aa1069500694b9bc20ec70eef8ee14`, merge PR #90. Source berisi **140** file migrasi; versi terakhir `20270308000000_academic_class_unit_admin_role_baseline`.
+- GitHub Actions [run #42482785770](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42482785770) pada SHA itu lulus **3/3 job**: build/guard frontend, migrasi/API/pgTAP, dan instalasi NPM. Check Supabase Preview juga sukses dan menaut ke dashboard VQE. Sesi ini tidak membaca ulang ledger VQE, jadi angka 140/140 di [panduan UAT](../05_ARCHITECTURE/FRONTEND_UAT_HANDOFF.md) tetap bukti 8 November.
+- PR #91 (`ui: seragamkan pesan dan permukaan modul`, head `4585d25`) masih **draft** dan belum masuk `main`.
+- Checkout ini memakai `.env` yang diabaikan Git dan mengarah ke PTSAS Production. Jangan menjalankan UAT atau server aplikasi dari checkout ini.
+
+### Production PTSAS — kueri baca-saja
+
+- Project `ptsasgdvgrbdtgyqieie`, PostgreSQL 17.11, database `postgres`. Transaksi dibuka `READ ONLY` dan ditutup `ROLLBACK`. Tidak ada migrasi, data, atau perubahan Production.
+- Ledger: **47** versi. Versi terakhir tercatat `20261206000000`. **45** versi punya nama dan statement SQL yang cocok dengan file source setelah kanonikalisasi preflight. Dua baris tanpa nama dan tanpa payload SQL: `20261205000000` dan `20261206000000`.
+- Objek `20261206000000` tetap ada meskipun payload ledger kosong: tabel `ppdb_legacy_import_batches`, fungsi `import_legacy_ppdb_candidates`, dan indeks `candidates_legacy_source_record_uq`. Kecocokan SQL penuh kedua versi itu tidak bisa dibuktikan dari ledger.
+- **93** versi source belum tercatat. Dua di antaranya lebih lama daripada versi terakhir ledger, jadi preflight berhenti dengan `HENTIKAN`: `20261031104213_master_data_import_create_only` dan `20261031225438_master_data_audit_feed`. Objek keduanya belum ada (`master_data_audit_events`, `capture_master_data_audit_event`, `create_master_data_structure_if_absent`).
+- `save_tenant_system_settings(uuid, uuid, timestamp with time zone, jsonb)` sudah ada dan definisinya tidak memuat `PT409`. `assign_tenant_academic_class_unit` serta `get_tenant_unmapped_academic_classes` belum ada. PR #86 dan PR #90 belum menjadi definisi yang aktif di Production.
+- Katalog `public`: **119/119** tabel RLS dan FORCE RLS. Lima policy, semuanya `PERMISSIVE SELECT` untuk `authenticated`, pada `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`. Grant `SELECT` `authenticated` hanya pada kelima tabel itu. `anon` tidak dapat `EXECUTE` fungsi `public`. `authenticated` dapat `EXECUTE` empat helper `SECURITY DEFINER`: `current_app_role()`, `current_tenant_id()`, `has_module_access(text)`, `is_tenant_admin()`.
+- Bucket Storage yang terlihat: `erp4-private-finance-proofs` dan `ppdb-documents`, keduanya privat dan berbatas ukuran. Tidak ada nama objek atau isi berkas yang dibaca.
+
+Daftar 93 versi dan batas bukti ada di [rekonsiliasi baca-saja 11 November](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-11.md). **Daftar itu bukan rencana migrasi.** Jangan menjalankan `db push` atau menerapkan 93 file untuk menyamakan jumlah ledger.
+
+### Gerbang yang masih terbuka
+
+1. Backup yang dapat dipulihkan, lalu rehearsal urutan migrasi pada salinan terisolasi. Dua versi ledger tanpa payload dan dua file yang lebih tua dari kepala ledger harus diselesaikan di rencana itu sebelum apa pun dijalankan ke Production.
+2. UAT browser Admin/Wali dan lintas modul pada staging VQE, dari checkout yang host-nya `vqemuyzveuirlkvdggjd`, bukan dari `.env` Production ini.
+3. Ulangi preflight ledger VQE pada source `fd937f4` yang sama. Bukti 140/140 terakhir adalah 8 November.
+4. Clean install, upgrade, dan restore di host target tetap belum diuji sesi ini.
+
+**Kesimpulan:** source `main` pada `fd937f4` lulus CI 3/3, dan preflight Production kali ini benar-benar dijalankan. Production masih pada 47 versi ledger sampai `20261206000000`. Produk belum siap deploy.
+
+---
+
+## Checkpoint historis — 8 November 2026, sesudah PR #86
 
 ### Source dan pengujian yang terbukti
 

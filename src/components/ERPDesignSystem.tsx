@@ -162,6 +162,72 @@ export function ERPLoadingState({
   );
 }
 
+export type ERPLoadingSkeletonVariant = "metrics" | "list" | "panel" | "form";
+
+/** Placeholder layout while tenant data is in flight. Prefer this over blank space or spinner-only copy. */
+export function ERPLoadingSkeleton({
+  variant = "panel",
+  label = "Memuat data tenant…",
+  rows = 4,
+  className = "",
+}: {
+  variant?: ERPLoadingSkeletonVariant;
+  label?: string;
+  rows?: number;
+  className?: string;
+}) {
+  const count = Math.min(Math.max(rows, 1), 8);
+  return (
+    <div className={"erp-loading-skeleton " + className} role="status" aria-live="polite" aria-busy="true">
+      <span className="sr-only">{label}</span>
+      {variant === "metrics" && (
+        <div className="erp-loading-skeleton-metrics" aria-hidden="true">
+          {Array.from({ length: Math.min(count, 4) }, (_, index) => (
+            <div key={index} className="erp-loading-skeleton-card">
+              <span className="erp-skeleton-line erp-skeleton-line-sm" />
+              <span className="erp-skeleton-line erp-skeleton-line-lg" />
+            </div>
+          ))}
+        </div>
+      )}
+      {variant === "list" && (
+        <div className="erp-loading-skeleton-list" aria-hidden="true">
+          {Array.from({ length: count }, (_, index) => (
+            <div key={index} className="erp-loading-skeleton-row">
+              <span className="erp-skeleton-line erp-skeleton-line-md" />
+              <span className="erp-skeleton-line erp-skeleton-line-sm" />
+            </div>
+          ))}
+        </div>
+      )}
+      {variant === "form" && (
+        <div className="erp-loading-skeleton-form" aria-hidden="true">
+          {Array.from({ length: count }, (_, index) => (
+            <div key={index} className="erp-loading-skeleton-field">
+              <span className="erp-skeleton-line erp-skeleton-line-xs" />
+              <span className="erp-skeleton-line erp-skeleton-line-field" />
+            </div>
+          ))}
+        </div>
+      )}
+      {variant === "panel" && (
+        <div className="erp-loading-skeleton-panel" aria-hidden="true">
+          <span className="erp-skeleton-line erp-skeleton-line-md" />
+          <span className="erp-skeleton-line erp-skeleton-line-sm" />
+          <div className="erp-loading-skeleton-list">
+            {Array.from({ length: count }, (_, index) => (
+              <div key={index} className="erp-loading-skeleton-row">
+                <span className="erp-skeleton-line erp-skeleton-line-md" />
+                <span className="erp-skeleton-line erp-skeleton-line-sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export type ERPTableColumn<T> = {
   key: string;
   header: ReactNode;

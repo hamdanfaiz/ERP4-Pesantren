@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Activity, ChevronLeft, ChevronRight, Download, RefreshCw, ShieldCheck } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Activity, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, RefreshCw, ShieldCheck } from "lucide-react";
 import { listSupabaseMasterDataAuditPage, type SupabaseMasterDataAuditEntry } from "../services/masterDataApi";
 
 const actionLabels: Record<SupabaseMasterDataAuditEntry["action"], string> = {
@@ -86,7 +86,9 @@ export function SupabaseMasterDataAuditPanel() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const notifyReloadRef = useRef(false);
   const cursor = cursors[cursors.length - 1] ?? null;
 
   useEffect(() => {
@@ -95,10 +97,18 @@ export function SupabaseMasterDataAuditPanel() {
     setError("");
     void listSupabaseMasterDataAuditPage({ cursor, pageSize: 50, action, entityType })
       .then((result) => {
-        if (current) setPage({ records: result.records, hasMore: result.hasMore, nextCursor: result.nextCursor });
+        if (!current) return;
+        setPage({ records: result.records, hasMore: result.hasMore, nextCursor: result.nextCursor });
+        if (notifyReloadRef.current) {
+          setNotice("Jejak audit berhasil dimuat ulang.");
+          notifyReloadRef.current = false;
+        }
       })
       .catch((cause: unknown) => {
-        if (current) setError(cause instanceof Error ? cause.message : "Jejak audit belum dapat dimuat.");
+        if (!current) return;
+        notifyReloadRef.current = false;
+        setNotice("");
+        setError(cause instanceof Error ? cause.message : "Jejak audit belum dapat dimuat.");
       })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
@@ -133,10 +143,19 @@ export function SupabaseMasterDataAuditPanel() {
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Riwayat perubahan lintas sesi untuk tenant ini. Nilai data pribadi tidak disimpan di log.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setReloadKey((value) => value + 1)} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5">
+          <button type="button" onClick={() => { notifyReloadRef.current = true; setNotice(""); setReloadKey((value) => value + 1); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5">
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Muat ulang
           </button>
-          <button type="button" onClick={() => downloadPageCsv(visibleRecords)} disabled={!visibleRecords.length || loading} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" onClick={() => {
+            if (!visibleRecords.length) {
+              setError("Tidak ada jejak audit untuk diekspor pada halaman ini.");
+              setNotice("");
+              return;
+            }
+            downloadPageCsv(visibleRecords);
+            setError("");
+            setNotice("Halaman jejak audit berhasil diekspor ke CSV.");
+          }} disabled={!visibleRecords.length || loading} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
             <Download className="h-4 w-4" /> Ekspor halaman
           </button>
         </div>
@@ -147,6 +166,8 @@ export function SupabaseMasterDataAuditPanel() {
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
           <p>Log memuat jenis aksi, ID internal, UID aktor, dan nama kolom yang berubah. Nilai nama, NIK, NIS, alamat, atau isi record tidak dimasukkan ke log.</p>
         </div>
+        {notice && <div role="status" className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
+        {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_12rem_12rem_auto]">
           <label className="text-xs font-medium text-slate-600 dark:text-slate-300">

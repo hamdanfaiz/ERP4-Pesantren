@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Activity, AlertCircle, BookOpen, RefreshCw, TrendingUp, Users, Wallet } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Activity, AlertCircle, BookOpen, CheckCircle2, RefreshCw, TrendingUp, Users, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getAccessToken } from "../authSession";
@@ -58,8 +58,10 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
   const [snapshot, setSnapshot] = useState<DashboardSnapshot>(emptySnapshot);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
   const [intelligenceTab, setIntelligenceTab] = useState<IntelligenceTab>("executive");
+  const notifyReloadRef = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -71,8 +73,20 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     }
     setLoading(true);
     loadDashboard(period, surface, controller.signal)
-      .then((result) => { if (!controller.signal.aborted) setSnapshot(result); })
-      .catch((loadError: any) => { if (!controller.signal.aborted) setError(loadError?.message || "Ringkasan dashboard belum dapat dimuat."); })
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setSnapshot(result);
+        if (notifyReloadRef.current) {
+          setNotice("Ringkasan berhasil dimuat ulang.");
+          notifyReloadRef.current = false;
+        }
+      })
+      .catch((loadError: any) => {
+        if (controller.signal.aborted) return;
+        setNotice("");
+        notifyReloadRef.current = false;
+        setError(loadError?.message || "Ringkasan dashboard belum dapat dimuat.");
+      })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [period, reloadVersion, role, surface, user?.tenantId, user?.uid]);
@@ -133,11 +147,12 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
         <select id="dashboard-period" value={period} onChange={(event) => setPeriod(event.target.value as DashboardPeriod)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
           <option value="today">Hari ini</option><option value="week">7 hari</option><option value="month">30 hari</option><option value="year">365 hari</option>
         </select>
-        <button onClick={() => setReloadVersion((value) => value + 1)} disabled={loading} aria-label="Muat ulang ringkasan" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Muat ulang</button>
+        <button onClick={() => { notifyReloadRef.current = true; setNotice(""); setReloadVersion((value) => value + 1); }} disabled={loading} aria-label="Muat ulang ringkasan" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Muat ulang</button>
       </div>
     </header>
 
     <div role="note" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">{isIntelligence ? "Indikator ini dihitung dengan aturan transparan dari catatan Supabase; halaman ini tidak membuat prediksi AI. Data tiap modul hanya ditampilkan bila akun memiliki izinnya." : "Ringkasan dihitung dari catatan Supabase pada tenant ini. Tenant baru dimulai tanpa data contoh; tambahkan data melalui modul terkait untuk mengisi indikator."}</div>
+    {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
 
     {isIntelligence && <ERPTabs tabs={[
