@@ -23,5 +23,14 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
+  // Type-check release entry points and source tests; archived screens stay out of the active compile graph.
+  "include": [
+    "src/main.tsx",
+    "src/vite-env.d.ts",
+    "server.ts",
+    "vite.config.ts",
+    "scripts/**/*.ts",
+    "scripts/**/*.tsx"
+  ],
   "exclude": ["supabase/**/*"]
 }
