@@ -736,21 +736,20 @@ export function SettingsManager() {
                       <Send className="w-5 h-5 text-emerald-400" />
                       <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Integrasi WhatsApp (Notifikasi Wali & Pengajar)</h3>
                     </div>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Rahasia server-side</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Kredensial terlindungi</span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Integrasi memakai OpenWA Easy API (<code>@open-wa/wa-automate</code>). Token tidak boleh disimpan di browser. Simpan sebagai <code>WA_GATEWAY_API_KEY</code> di environment server (sama dengan <code>--api-key</code> proses OpenWA). Endpoint opsional juga bisa dari <code>WA_GATEWAY_ENDPOINT</code>.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Kredensial integrasi dilindungi dan tidak ditampilkan pada layar ini.</p>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat URL API OpenWA</label>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat layanan WhatsApp</label>
                     <input
                       type="url"
                       value={integrations.waGatewayEndpoint || ''}
                       onChange={e => setIntegrations({...integrations, waGatewayEndpoint: e.target.value})}
-                      placeholder="http://127.0.0.1:8080"
                       className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
                     />
                   </div>
                   <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-3 text-xs text-slate-500 dark:text-slate-400">
-                    Contoh jalankan: <code>npx @open-wa/wa-automate --session-id erp4 --host 127.0.0.1 --port 8080 --api-key &quot;…&quot;</code>. ERP mengirim ke <code>/api/messages/sendText</code>. Siaran CRM hanya ke kontak yang menyetujui menerima informasi.
+                    Alamat layanan ini digunakan untuk notifikasi WhatsApp. Kontak penerima harus menyetujui komunikasi.
                   </div>
                 </div>
 
