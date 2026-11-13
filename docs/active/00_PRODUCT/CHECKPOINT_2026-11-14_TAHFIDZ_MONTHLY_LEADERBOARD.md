@@ -1,7 +1,7 @@
 # Checkpoint Tahfidz — Papan Peringkat Bulanan
 
 Tanggal: 14 November 2026
-Status: implementasi lokal selesai; uji database dan UAT belum selesai.
+Status: implementasi dan CI selesai; UAT dengan akun belum selesai.
 Cakupan: papan peringkat Ziyadah bulanan pada dashboard Tahfidz.
 
 ## Perubahan
@@ -11,7 +11,7 @@ Cakupan: papan peringkat Ziyadah bulanan pada dashboard Tahfidz.
 - Admin dan SuperAdmin mendapat cakupan tenant aktif. Ustadz hanya mendapat santri dari halaqah aktifnya, dan skornya hanya menghitung setoran dari halaqah yang ditugaskan kepadanya.
 - Santri dan Wali tidak mendapat daftar nama santri lain. Respons tidak menyertakan NIS dan endpoint memakai `Cache-Control: no-store`.
 - Menghapus kartu leaderboard lama yang menampilkan nama berdasarkan urutan ID dan angka tetap.
-- Menambahkan endpoint autentikasi `GET /api/tahfidz/leaderboard`, RPC service-role-only, indeks parsial Ziyadah, dan 21 pemeriksaan pgTAP pada suite roster Tahfidz.
+- Menambahkan endpoint autentikasi `GET /api/tahfidz/leaderboard`, RPC service-role-only, indeks parsial Ziyadah, dan 22 pemeriksaan pgTAP pada suite roster Tahfidz.
 
 ## File utama
 
@@ -29,14 +29,13 @@ Cakupan: papan peringkat Ziyadah bulanan pada dashboard Tahfidz.
 - `npm run test:migration-preflight` — lulus setelah daftar migrasi source dan hitungan pending fixture diperbarui.
 - `npm run test:api-route-auth-policy` — lulus; route baru masuk daftar API privat yang memerlukan autentikasi.
 - `npm run test:supabase-quran-catalog` — lulus untuk kasus layanan tidak tersedia yang harus gagal-aman.
-- Uji pgTAP belum dijalankan lokal karena Docker CLI/daemon dan Supabase CLI tidak tersedia di workspace ini. Suite pgTAP telah ditambah tetapi hasil CI belum ada.
+- Uji pgTAP tidak dijalankan lokal karena Docker CLI/daemon dan Supabase CLI tidak tersedia di workspace ini. GitHub Actions lulus untuk replay migrasi dari batas Production, suite database (68 file, 1.717 assertion keseluruhan; 73 assertion pada suite roster Tahfidz), API/auth/tenant, Storage, backup/restore lokal, build frontend, Docker image, dan instalasi NPM.
 
 ## Yang belum terverifikasi
 
-1. Jalankan `supabase test db` di CI atau lingkungan lokal yang memiliki Docker; pastikan 73 assertion pada `tahfidz_roster_pagination.test.sql` lulus.
-2. Setelah pukul 05.00 WIB, UAT UI dengan Admin, Ustadz, Santri, dan Wali pada lingkungan yang disetujui. Pastikan Ustadz tidak mendapat catatan halaqah lain dan Santri/Wali tidak melihat peringkat teman.
-3. Periksa empty state tenant tanpa setoran dan pembaruan leaderboard setelah setoran baru tersimpan.
-4. Backend reviewer menilai DDL, index, dan urutan migrasi sebelum penerapan.
+1. Setelah pukul 05.00 WIB, UAT UI dengan Admin, Ustadz, Santri, dan Wali pada lingkungan yang disetujui. Pastikan Ustadz tidak mendapat catatan halaqah lain dan Santri/Wali tidak melihat peringkat teman.
+2. Periksa empty state tenant tanpa setoran dan pembaruan leaderboard setelah setoran baru tersimpan.
+3. Backend reviewer menilai DDL, indeks, dan urutan migrasi sebelum penerapan.
 
 ## Batas perubahan
 
