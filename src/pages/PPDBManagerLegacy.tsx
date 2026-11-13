@@ -98,6 +98,21 @@ const STAGES: RegistrationStage[] = [
   "Rejected",
 ];
 
+const STAGE_LABELS: Record<RegistrationStage, string> = {
+  Registered: "Terdaftar",
+  "Document Review": "Pemeriksaan Dokumen",
+  "Entry Exam": "Ujian Masuk",
+  Interview: "Wawancara",
+  Accepted: "Diterima",
+  Rejected: "Ditolak",
+};
+
+const getStageLabel = (stage: string) =>
+  STAGE_LABELS[stage as RegistrationStage] ?? stage;
+
+const getGradeLabel = (grade: string) =>
+  grade === "University" ? "Perguruan Tinggi" : grade;
+
 export function PPDBManager() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<
@@ -518,7 +533,7 @@ export function PPDBManager() {
 
       if (invalidCandidates.length > 0) {
         setError(
-          `Cannot move ${invalidCandidates.length} candidate(s) to Entry Exam. They must complete the Document Checklist first.`,
+          `Tidak dapat memindahkan ${invalidCandidates.length} pendaftar ke Ujian Masuk. Selesaikan daftar periksa dokumen terlebih dahulu.`,
         );
         setTimeout(() => setError(null), 5000);
         return;
@@ -531,7 +546,7 @@ export function PPDBManager() {
       );
       if (invalidCandidates.length > 0) {
         setError(
-          `Cannot move ${invalidCandidates.length} candidate(s) to Interview. They must complete the Entry Exam Scoring first.`,
+          `Tidak dapat memindahkan ${invalidCandidates.length} pendaftar ke Wawancara. Selesaikan penilaian Ujian Masuk terlebih dahulu.`,
         );
         setTimeout(() => setError(null), 5000);
         return;
@@ -547,7 +562,7 @@ export function PPDBManager() {
 
       if (invalidCandidates.length > 0) {
         setError(
-          `Cannot accept ${invalidCandidates.length} candidate(s). They must complete Document Review, Entry Exam, and Interview Evaluation first.`,
+          `Tidak dapat menerima ${invalidCandidates.length} pendaftar. Selesaikan pemeriksaan dokumen, Ujian Masuk, dan penilaian wawancara terlebih dahulu.`,
         );
         setTimeout(() => setError(null), 5000);
         return;
@@ -567,14 +582,14 @@ export function PPDBManager() {
     if (selectedCandidates.length === 0) return;
 
     const headers = [
-      "Registration ID",
-      "Name",
-      "Previous School",
-      "Grade",
-      "Phone",
-      "Stage",
-      "Date Applied",
-      "Score",
+      "Nomor Pendaftaran",
+      "Nama",
+      "Asal Sekolah",
+      "Jenjang",
+      "Telepon",
+      "Tahap",
+      "Tanggal Pendaftaran",
+      "Nilai",
     ];
     const csvContent = [
       headers.join(","),
@@ -583,9 +598,9 @@ export function PPDBManager() {
           c.registrationId,
           `"${c.name}"`,
           `"${c.previousSchool}"`,
-          c.grade,
+          getGradeLabel(c.grade),
           `"${c.phone}"`,
-          c.stage,
+          getStageLabel(c.stage),
           c.dateApplied,
           c.score || "",
         ].join(","),
@@ -625,7 +640,7 @@ export function PPDBManager() {
         !candidate.documents.reportCards
       ) {
         setError(
-          `${candidate.name} cannot be moved to Entry Exam without completing the Document Checklist.`,
+          `${candidate.name} belum dapat dipindahkan ke Ujian Masuk sebelum daftar periksa dokumennya lengkap.`,
         );
         setTimeout(() => setError(null), 5000);
         return;
@@ -635,7 +650,7 @@ export function PPDBManager() {
     if (targetStage === "Interview") {
       if (!candidate.examScores) {
         setError(
-          `${candidate.name} cannot be moved to Interview without completing the Entry Exam Scoring.`,
+          `${candidate.name} belum dapat dipindahkan ke Wawancara sebelum penilaian Ujian Masuk selesai.`,
         );
         setTimeout(() => setError(null), 5000);
         return;
@@ -646,14 +661,14 @@ export function PPDBManager() {
       const allowedPreviousStages = ["Interview", "Accepted"];
       if (!allowedPreviousStages.includes(candidate.stage)) {
         setError(
-          `${candidate.name} cannot be Accepted yet. They must complete prior stages first.`,
+          `${candidate.name} belum dapat diterima sebelum menyelesaikan tahap sebelumnya.`,
         );
         setTimeout(() => setError(null), 5000);
         return;
       }
       if (!candidate.interviewScores) {
         setError(
-          `${candidate.name} cannot be Accepted without completing the Interview Evaluation.`,
+          `${candidate.name} belum dapat diterima sebelum penilaian wawancara selesai.`,
         );
         setTimeout(() => setError(null), 5000);
         return;
@@ -737,26 +752,26 @@ export function PPDBManager() {
     e.preventDefault();
 
     const errors: Record<string, string> = {};
-    if (!formData.name?.trim()) errors.name = "Full Name is required";
-    if (!formData.registrationId?.trim()) errors.registrationId = "Registration ID is required";
-    if (!formData.nik?.trim()) errors.nik = "NIK is required";
-    if (!formData.pob?.trim()) errors.pob = "Place of Birth is required";
-    if (!formData.dob?.trim()) errors.dob = "Date of Birth is required";
-    if (!formData.phone?.trim()) errors.phone = "Phone Number is required";
-    if (!formData.grade?.trim()) errors.grade = "Grade is required";
-    if (!formData.previousSchool?.trim()) errors.previousSchool = "Previous School is required";
-    if (!formData.address?.trim()) errors.address = "Address is required";
-    if (!formData.fatherName?.trim()) errors.fatherName = "Father's Name is required";
-    if (!formData.motherName?.trim()) errors.motherName = "Mother's Name is required";
-    if (!formData.whatsappPhone?.trim()) errors.whatsappPhone = "WhatsApp Phone is required";
-    if (!formData.documents?.kk) errors.kk = "Kartu Keluarga (KK) file is required";
-    if (!formData.documents?.birthCertificate) errors.birthCertificate = "Akta Kelahiran file is required";
-    if (!formData.documents?.pasPhoto) errors.pasPhoto = "Pas Photo file is required";
+    if (!formData.name?.trim()) errors.name = "Nama lengkap wajib diisi";
+    if (!formData.registrationId?.trim()) errors.registrationId = "Nomor pendaftaran wajib diisi";
+    if (!formData.nik?.trim()) errors.nik = "NIK wajib diisi";
+    if (!formData.pob?.trim()) errors.pob = "Tempat lahir wajib diisi";
+    if (!formData.dob?.trim()) errors.dob = "Tanggal lahir wajib diisi";
+    if (!formData.phone?.trim()) errors.phone = "Nomor telepon wajib diisi";
+    if (!formData.grade?.trim()) errors.grade = "Jenjang wajib diisi";
+    if (!formData.previousSchool?.trim()) errors.previousSchool = "Asal sekolah wajib diisi";
+    if (!formData.address?.trim()) errors.address = "Alamat wajib diisi";
+    if (!formData.fatherName?.trim()) errors.fatherName = "Nama ayah wajib diisi";
+    if (!formData.motherName?.trim()) errors.motherName = "Nama ibu wajib diisi";
+    if (!formData.whatsappPhone?.trim()) errors.whatsappPhone = "Nomor WhatsApp wajib diisi";
+    if (!formData.documents?.kk) errors.kk = "Berkas Kartu Keluarga (KK) wajib diunggah";
+    if (!formData.documents?.birthCertificate) errors.birthCertificate = "Berkas Akta Kelahiran wajib diunggah";
+    if (!formData.documents?.pasPhoto) errors.pasPhoto = "Berkas pasfoto wajib diunggah";
 
     const registrationId = normalizePpdbIdentity(formData.registrationId);
     const nik = normalizePpdbIdentity(formData.nik).replace(/\D/g, "");
     const nisn = normalizePpdbIdentity(formData.nisn).replace(/\D/g, "");
-    if (registrationId.length > 60) errors.registrationId = "Registration ID maksimal 60 karakter";
+    if (registrationId.length > 60) errors.registrationId = "Nomor pendaftaran maksimal 60 karakter";
     if (!/^\d{16}$/.test(nik)) errors.nik = "NIK harus terdiri dari 16 digit";
     if (nisn && !/^\d{10}$/.test(nisn)) errors.nisn = "NISN harus terdiri dari 10 digit";
 
@@ -804,7 +819,7 @@ export function PPDBManager() {
           Promise.all(identityValues.map(({ kind, value }) => transaction.get(ppdbIdentityReservationRef(user.tenantId, kind, value)))),
         ]);
         if (registrationSnapshot.exists() || legacySnapshots[0].docs.length > 0) {
-          throw new Error("Registration ID " + registrationId + " sudah digunakan pada pesantren ini.");
+          throw new Error("Nomor pendaftaran " + registrationId + " sudah digunakan pada pesantren ini.");
         }
         identityValues.forEach((item, index) => {
           if (identitySnapshots[index].exists() || legacySnapshots[index + 1].docs.length > 0) {
@@ -896,10 +911,10 @@ export function PPDBManager() {
           <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-200 dark:border-white/5">
             <div>
               <h3 className="font-medium text-slate-800 dark:text-slate-200">
-                Unscheduled Candidates
+                Pendaftar Belum Terjadwal
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Drag to schedule ({unassigned.length})
+                Seret untuk menjadwalkan ({unassigned.length})
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -930,7 +945,7 @@ export function PPDBManager() {
                 disabled={unassigned.length === 0}
                 className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-amber-500/20"
               >
-                Auto Assign
+                Atur Jadwal Otomatis
               </button>
               <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500 hidden sm:block">
                 <Clock className="w-5 h-5" />
@@ -964,7 +979,7 @@ export function PPDBManager() {
             ))}
             {unassigned.length === 0 && (
               <div className="h-32 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-white/5 rounded-lg text-sm text-slate-500">
-                All candidates scheduled
+                Semua pendaftar sudah terjadwal
               </div>
             )}
           </div>
@@ -1069,9 +1084,9 @@ export function PPDBManager() {
                   ))}
                   {slotCandidates.length === 0 && (
                     <div className="col-span-full h-full flex flex-col items-center justify-center text-slate-500 py-4 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-lg bg-black/20">
-                      <span className="text-sm">Drag candidates here</span>
+                      <span className="text-sm">Seret pendaftar ke sini</span>
                       <span className="text-xs mt-1">
-                        Or click 'Auto Assign'
+                        Atau klik “Atur Jadwal Otomatis”
                       </span>
                     </div>
                   )}
@@ -1133,9 +1148,9 @@ export function PPDBManager() {
         >
           <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-200 dark:border-white/5">
             <div>
-              <h3 className="font-medium text-slate-800 dark:text-slate-200">Pending Interviews</h3>
+              <h3 className="font-medium text-slate-800 dark:text-slate-200">Wawancara Menunggu Jadwal</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Ready to schedule ({unassigned.length})
+                Siap dijadwalkan ({unassigned.length})
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1167,7 +1182,7 @@ export function PPDBManager() {
                 disabled={unassigned.length === 0}
                 className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:hover:bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-purple-500/20"
               >
-                Auto Assign
+                Atur Jadwal Otomatis
               </button>
               <div className="p-2 bg-purple-500/10 rounded-lg text-purple-500 hidden sm:block">
                 <Users className="w-5 h-5" />
@@ -1201,7 +1216,7 @@ export function PPDBManager() {
             ))}
             {unassigned.length === 0 && (
               <div className="h-32 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-white/5 rounded-lg text-sm text-slate-500">
-                All scheduled
+                Semua sudah terjadwal
               </div>
             )}
           </div>
@@ -1211,11 +1226,11 @@ export function PPDBManager() {
           <div className="bg-purple-900/10 border border-purple-500/20 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h4 className="text-sm font-medium text-purple-300">
-                Pending Notifications
+                Pemberitahuan Belum Dikirim
               </h4>
               <p className="text-xs text-purple-400/70 mt-1">
-                {assignedButNotNotified.length} candidates need to be informed
-                of their slot details.
+                {assignedButNotNotified.length} pendaftar perlu menerima informasi
+                jadwal wawancara.
               </p>
             </div>
             <button
@@ -1230,7 +1245,7 @@ export function PPDBManager() {
               className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
             >
               <Send className="w-4 h-4" />
-              Notify{" "}
+              Kirim Pemberitahuan{" "}
               {assignedButNotNotified.length > 0
                 ? `(${assignedButNotNotified.length})`
                 : ""}
@@ -1260,7 +1275,7 @@ export function PPDBManager() {
                         {slot.label}
                       </h4>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Interviewer: {slot.interviewer}
+                        Pewawancara: {slot.interviewer}
                       </p>
                     </div>
                   </div>
@@ -1408,9 +1423,9 @@ export function PPDBManager() {
                   ))}
                   {slotCandidates.length === 0 && (
                     <div className="col-span-full h-full flex flex-col items-center justify-center text-slate-500 py-4 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-lg bg-black/20">
-                      <span className="text-sm">Drag candidates here</span>
+                      <span className="text-sm">Seret pendaftar ke sini</span>
                       <span className="text-xs mt-1">
-                        Or click 'Auto Assign'
+                        Atau klik “Atur Jadwal Otomatis”
                       </span>
                     </div>
                   )}
@@ -1425,7 +1440,8 @@ export function PPDBManager() {
 
   const chartData = useMemo(() => {
     return [...STAGES, "Rejected"].map((stage) => ({
-      name: stage,
+      name: getStageLabel(stage),
+      stage,
       count: candidates.filter((c) => c.stage === stage).length,
     }));
   }, [candidates]);
@@ -1446,8 +1462,8 @@ export function PPDBManager() {
       }
     });
     return [
-      { name: "Completed", value: completed, color: "#10b981" },
-      { name: "Incomplete", value: incomplete, color: "#f59e0b" },
+      { name: "Lengkap", value: completed, color: "#10b981" },
+      { name: "Belum Lengkap", value: incomplete, color: "#f59e0b" },
     ];
   }, [candidates]);
 
@@ -1473,7 +1489,7 @@ export function PPDBManager() {
                     "bg-current/10",
                   )}
                 >
-                  {stage}
+                  {getStageLabel(stage)}
                 </span>
                 <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
                   {stageCandidates.length}
@@ -1495,15 +1511,15 @@ export function PPDBManager() {
           );
 
           return (
-            <div key={grade} className="flex gap-4 items-stretch group">
+            <div key={getGradeLabel(grade)} className="flex gap-4 items-stretch group">
               {/* Swimlane Header (Sticky) */}
               <div className="w-[80px] sm:w-[120px] flex-shrink-0 sticky left-0 z-10 bg-slate-50 dark:bg-[#0a0a0a] flex flex-col justify-center border-r border-slate-200 dark:border-white/5 p-4 shadow-[4px_0_10px_rgba(0,0,0,0.5)]">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                   <GraduationCap className="w-5 h-5 text-emerald-500 hidden sm:block" />
-                  {grade}
+                  {getGradeLabel(grade)}
                 </h3>
                 <span className="text-xs font-medium text-slate-500 mt-1">
-                  {gradeCandidates.length} applicants
+                  {gradeCandidates.length} pendaftar
                 </span>
               </div>
 
@@ -1515,7 +1531,7 @@ export function PPDBManager() {
 
                 return (
                   <div
-                    key={`${grade}-${stage}`}
+                    key={`${getGradeLabel(grade)}-${stage}`}
                     className="min-w-[300px] w-[300px] flex-shrink-0 bg-white/[0.02] rounded-xl border border-slate-200 dark:border-white/5 flex flex-col min-h-[140px] group-hover:border-slate-200 dark:border-white/10 transition-colors"
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, stage)}
@@ -1544,7 +1560,7 @@ export function PPDBManager() {
                               {({ loading }) => (
                                 <button
                                   className="text-[10px] text-slate-500 hover:text-emerald-400 transition-colors"
-                                  title="Download Summary"
+                                  title="Unduh Ringkasan"
                                   disabled={loading}
                                 >
                                   <Download className="w-3.5 h-3.5" />
@@ -1560,7 +1576,7 @@ export function PPDBManager() {
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
                               {candidate.score !== undefined && (
                                 <span className="px-1.5 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 font-mono text-[10px]">
-                                  Score: {candidate.score}
+                                  Nilai: {candidate.score}
                                 </span>
                               )}
                               {candidate.nis && (
@@ -1622,7 +1638,7 @@ export function PPDBManager() {
                       ))}
                       {stageCandidates.length === 0 && (
                         <div className="h-full min-h-[60px] flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-lg text-xs text-slate-600 bg-white/[0.01]">
-                          Drop here
+                          Letakkan di sini
                         </div>
                       )}
                     </div>
@@ -1644,7 +1660,7 @@ export function PPDBManager() {
             <span className="bg-emerald-500/20 px-2 py-0.5 rounded text-emerald-300">
               {selectedIds.length}
             </span>{" "}
-            candidates selected
+            pendaftar dipilih
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -1652,7 +1668,7 @@ export function PPDBManager() {
               className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors "
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export CSV</span>
+              <span className="hidden sm:inline">Ekspor CSV</span>
             </button>
             <select
               value={bulkActionStage}
@@ -1661,20 +1677,20 @@ export function PPDBManager() {
               }
               className="bg-black/40 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-sm text-emerald-100 focus:outline-none focus:border-emerald-400"
             >
-              <option value="">Move to Stage...</option>
+              <option value="">Pindahkan ke Tahap...</option>
               {STAGES.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {getStageLabel(s)}
                 </option>
               ))}
-              <option value="Rejected">Rejected</option>
+              <option value="Rejected">{getStageLabel("Rejected")}</option>
             </select>
             <button
               onClick={handleBulkUpdate}
               disabled={!bulkActionStage}
               className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20"
             >
-              Update Bulk
+              Perbarui yang Dipilih
             </button>
           </div>
         </div>
@@ -1692,16 +1708,16 @@ export function PPDBManager() {
                 />
               </th>
               <th className="p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Candidate
+                Nama Pendaftar
               </th>
               <th className="p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Registration ID
+                Nomor Pendaftaran
               </th>
               <th className="p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">
-                Previous School
+                Asal Sekolah
               </th>
               <th className="p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Stage
+                Tahap
               </th>
               <th className="p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">
                 Pembayaran
@@ -1710,7 +1726,7 @@ export function PPDBManager() {
                 Nilai CBT
               </th>
               <th className="p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">
-                Actions
+                Tindakan
               </th>
             </tr>
           </thead>
@@ -1777,7 +1793,7 @@ export function PPDBManager() {
                         getStageColor(candidate.stage),
                       )}
                     >
-                      {candidate.stage}
+                      {getStageLabel(candidate.stage)}
                     </span>
                     {candidate.nis && (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 block w-fit mt-1">
@@ -1881,7 +1897,7 @@ export function PPDBManager() {
                           <div className="flex justify-between items-center">
                             <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
                               <FileText className="w-3.5 h-3.5" />
-                              Applicant Details & Documents
+                              Data dan Dokumen Pendaftar
                             </label>
                             <div className="flex items-center gap-2">
                               <PDFDownloadLink
@@ -1943,7 +1959,7 @@ export function PPDBManager() {
                             </div>
                             <div>
                               <div className="text-[10px] text-slate-500 uppercase">
-                                Place & Date of Birth
+                                Tempat & Tanggal Lahir
                               </div>
                               <div className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
                                 {candidate.pob || "-"}{" "}
@@ -1970,7 +1986,7 @@ export function PPDBManager() {
                               { key: "reportCards", label: "Rapor" },
                               { key: "ijazah", label: "STTB/Ijazah" },
                               { key: "skhun", label: "SKHUN/Daftar Nilai" },
-                              { key: "pasPhoto", label: "Pas Photo 3x4" },
+                              { key: "pasPhoto", label: "Pasfoto 3x4" },
                             ].map((doc) => (
                               <div
                                 key={doc.key}
@@ -2025,7 +2041,7 @@ export function PPDBManager() {
                         <div className="flex flex-col gap-3">
                           <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
                             <Activity className="w-3.5 h-3.5" />
-                            Entry Exam Scoring
+                            Penilaian Ujian Masuk
                           </label>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             {["math", "science", "english"].map((subject) => (
@@ -2033,9 +2049,7 @@ export function PPDBManager() {
                                 key={subject}
                                 className="flex flex-col gap-1.5"
                               >
-                                <span className="text-xs text-slate-500 capitalize">
-                                  {subject}
-                                </span>
+                                <span className="text-xs text-slate-500 capitalize">{subject === "math" ? "Matematika" : subject === "science" ? "IPA" : "Bahasa Inggris"}</span>
                                 <input
                                   type="number"
                                   min="0"
@@ -2066,19 +2080,19 @@ export function PPDBManager() {
                         <div className="flex flex-col gap-3">
                           <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
                             <Users className="w-3.5 h-3.5" />
-                            Interview Evaluation
+                            Penilaian Wawancara
                           </label>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             {[
                               {
                                 key: "academicPotential",
-                                label: "Academic Potential",
+                                label: "Potensi Akademik",
                               },
                               {
                                 key: "personality",
-                                label: "Personality & Attitude",
+                                label: "Kepribadian & Sikap",
                               },
-                              { key: "communication", label: "Communication" },
+                              { key: "communication", label: "Komunikasi" },
                             ].map((metric) => (
                               <div
                                 key={metric.key}
@@ -2105,12 +2119,12 @@ export function PPDBManager() {
                                   onClick={(e) => e.stopPropagation()}
                                   className="bg-black/40  rounded-md px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
                                 >
-                                  <option value="">Score 1-5...</option>
-                                  <option value="1">1 - Poor</option>
-                                  <option value="2">2 - Fair</option>
-                                  <option value="3">3 - Good</option>
-                                  <option value="4">4 - Very Good</option>
-                                  <option value="5">5 - Excellent</option>
+                                  <option value="">Nilai 1–5...</option>
+                                  <option value="1">1 - Sangat Kurang</option>
+                                  <option value="2">2 - Kurang</option>
+                                  <option value="3">3 - Cukup</option>
+                                  <option value="4">4 - Baik</option>
+                                  <option value="5">5 - Sangat Baik</option>
                                 </select>
                               </div>
                             ))}
@@ -2122,7 +2136,7 @@ export function PPDBManager() {
                           <div className="flex items-center justify-between">
                             <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                               <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
-                              Status Pembayaran & Keuangan (FinanceManager)
+                              Status Pembayaran & Keuangan
                             </label>
                             <span className="text-[10px] text-slate-400">
                               Terintegrasi otomatis ke buku kas penerimaan pesantren
@@ -2312,7 +2326,7 @@ export function PPDBManager() {
                                         syncedAt: new Date().toISOString(),
                                         cbtExamId: candidate.examSlot || "CBT-SES-001",
                                         passed: avg >= 75,
-                                        averageScore: avg,
+                                        averageNilai: avg,
                                       },
                                     });
                                     showToast(
@@ -2471,10 +2485,10 @@ export function PPDBManager() {
                         <div className="flex flex-col gap-2">
                           <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5" />
-                            Internal Notes & Comments
+                            Catatan Internal & Umpan Balik
                           </label>
                           <textarea
-                            placeholder={`Add internal notes or reviewer feedback about ${candidate.name}...`}
+                            placeholder={`Tambahkan catatan atau umpan balik peninjau tentang ${candidate.name}...`}
                             value={
                               tempNotes[candidate.id] !== undefined
                                 ? tempNotes[candidate.id]
@@ -2507,7 +2521,7 @@ export function PPDBManager() {
                                   }}
                                   className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20"
                                 >
-                                  Save Notes
+                                  Simpan Catatan
                                 </button>
                               </div>
                             )}
@@ -2607,10 +2621,10 @@ export function PPDBManager() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-medium text-slate-700 dark:text-slate-300 border-b border-emerald-500 pb-1 inline-block">
-              PPDB & Admissions
+              PPDB dan Penerimaan Santri
             </h1>
             <p className="text-slate-500 text-sm mt-2">
-              Manage new student registrations, exams, and onboarding pipeline.
+              Kelola pendaftaran santri baru, ujian, dan proses penerimaan.
             </p>
           </div>
 
@@ -2674,7 +2688,7 @@ export function PPDBManager() {
               className="flex items-center gap-2 bg-slate-800 text-slate-300 px-3 py-2 rounded-lg font-medium text-sm hover:bg-slate-700 transition-colors border border-slate-700"
             >
               <Sparkles className="w-4 h-4 text-emerald-400" />
-              <span className="hidden sm:inline">Public Portal</span>
+              <span className="hidden sm:inline">Portal Pendaftaran</span>
             </button>
             <button
               onClick={() => {
@@ -2685,7 +2699,7 @@ export function PPDBManager() {
               className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-900/20"
             >
               <Plus className="w-4 h-4" />
-              Add Candidate
+              Tambah Pendaftar
             </button>
           </div>
         </div>
@@ -2697,7 +2711,7 @@ export function PPDBManager() {
               <div className="bg-slate-50 dark:bg-[#0a0a0a] rounded-xl p-4 border border-slate-200 dark:border-white/5 flex items-center justify-between">
                 <div>
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    Total Applicants
+                    Total Pendaftar
                   </div>
                   <div className="text-2xl font-serif text-white">
                     {candidates.length}
@@ -2707,7 +2721,7 @@ export function PPDBManager() {
               <div className="bg-slate-50 dark:bg-[#0a0a0a] rounded-xl p-4 border border-slate-200 dark:border-white/5 flex items-center justify-between">
                 <div>
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    In Pipeline
+                    Dalam Proses
                   </div>
                   <div className="text-2xl font-serif text-white">
                     {
@@ -2721,7 +2735,7 @@ export function PPDBManager() {
               <div className="bg-slate-50 dark:bg-[#0a0a0a] rounded-xl p-4 border border-slate-200 dark:border-white/5 flex items-center justify-between">
                 <div>
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    Interviews
+                    Wawancara
                   </div>
                   <div className="text-2xl font-serif text-white">
                     {candidates.filter((c) => c.stage === "Interview").length}
@@ -2730,9 +2744,7 @@ export function PPDBManager() {
               </div>
               <div className="bg-slate-50 dark:bg-[#0a0a0a] rounded-xl p-4 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]">
                 <div>
-                  <div className="text-xs font-semibold text-emerald-500/70 uppercase tracking-wider mb-1">
-                    Accepted
-                  </div>
+                  <div className="text-xs font-semibold text-emerald-500/70 uppercase tracking-wider mb-1">Diterima</div>
                   <div className="text-2xl font-serif text-emerald-400">
                     {candidates.filter((c) => c.stage === "Accepted").length}
                   </div>
@@ -2745,7 +2757,7 @@ export function PPDBManager() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-emerald-500" />
-                Pipeline Distribution
+                Sebaran Tahapan
               </h3>
             </div>
             <div className="h-[120px] w-full">
@@ -2780,7 +2792,7 @@ export function PPDBManager() {
                     {chartData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={getStageColorHex(entry.name)}
+                        fill={getStageColorHex(entry.stage)}
                       />
                     ))}
                   </Bar>
@@ -2793,7 +2805,7 @@ export function PPDBManager() {
             <div className="mb-2">
               <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-emerald-500" />
-                Docs Completion
+                Kelengkapan Dokumen
               </h3>
             </div>
             <div className="h-[100px] w-full">
@@ -2828,11 +2840,11 @@ export function PPDBManager() {
             <div className="flex items-center gap-4 mt-2 justify-center">
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">Completed</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">Lengkap</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">Incomplete</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">Belum Lengkap</span>
               </div>
             </div>
           </div>
@@ -2862,23 +2874,23 @@ export function PPDBManager() {
                 <option value="All">Semua Tahap ({candidates.length})</option>
                 {STAGES.map((stage) => (
                   <option key={stage} value={stage}>
-                    {stage} ({candidates.filter((c) => c.stage === stage).length})
+                    {getStageLabel(stage)} ({candidates.filter((c) => c.stage === stage).length})
                   </option>
                 ))}
               </select>
 
-              {/* Gender Filter */}
+              {/* Filter Jenis Kelamin */}
               <select
                 value={genderFilter}
                 onChange={(e) => setGenderFilter(e.target.value as "All" | "L" | "P")}
                 className="bg-slate-50 dark:bg-[#0a0a0a] rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 px-3 py-2 border border-slate-200/50 dark:border-white/5"
               >
-                <option value="All">Semua Gender</option>
+                <option value="All">Semua Jenis Kelamin</option>
                 <option value="L">Putra (L)</option>
                 <option value="P">Putri (P)</option>
               </select>
 
-              {/* Grade / Jenjang Filter */}
+              {/* Filter Jenjang */}
               <select
                 value={gradeFilter}
                 onChange={(e) => setGradeFilter(e.target.value)}
@@ -2908,7 +2920,7 @@ export function PPDBManager() {
                 onChange={(e) => setSyncFilter(e.target.value as any)}
                 className="bg-slate-50 dark:bg-[#0a0a0a] rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 px-3 py-2 border border-slate-200/50 dark:border-white/5"
               >
-                <option value="All">Status Sync Master</option>
+                <option value="All">Status Sinkronisasi Data Induk</option>
                 <option value="synced">Sudah Sync</option>
                 <option value="unsynced">Belum Sync</option>
               </select>
@@ -2932,7 +2944,7 @@ export function PPDBManager() {
                   className="px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 bg-rose-950/30 hover:bg-rose-950/50 border border-rose-500/20 transition-colors flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-3 h-3" />
-                  Reset Filter
+                  Atur Ulang Filter
                 </button>
               )}
             </div>
@@ -3045,13 +3057,13 @@ export function PPDBManager() {
           />
         )}
 
-        {/* Add Candidate Modal */}
+        {/* Tambah Pendaftar Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="glass-panel  rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
               <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-black/40 shrink-0">
                 <h3 className="font-medium text-slate-800 dark:text-slate-200">
-                  Add New Candidate
+                  Tambah Pendaftar Baru
                 </h3>
                 <button
                   type="button"
@@ -3083,7 +3095,7 @@ export function PPDBManager() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                      Registration ID <span className="text-red-400">*</span>
+                      Nomor Pendaftaran <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="text"
@@ -3112,7 +3124,7 @@ export function PPDBManager() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                      Full Name <span className="text-red-400">*</span>
+                      Nama Lengkap <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="text"
@@ -3128,7 +3140,7 @@ export function PPDBManager() {
                           ? "border-red-500/50 focus:border-red-500"
                           : "border-slate-200 dark:border-white/10 focus:border-emerald-500",
                       )}
-                      placeholder="Student's name"
+                      placeholder="Nama santri"
                     />
                     {formErrors.name && (
                       <div className="text-red-400 text-[10px] mt-1">
@@ -3140,7 +3152,7 @@ export function PPDBManager() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                      Grade
+                      Jenjang
                     </label>
                     <select
                       value={formData.grade || "SMP"}
@@ -3153,13 +3165,13 @@ export function PPDBManager() {
                       <option value="SD">SD</option>
                       <option value="SMP">SMP</option>
                       <option value="SMA">SMA</option>
-                      <option value="University">University</option>
+                      <option value="University">Perguruan Tinggi</option>
                       <option value="LTQ">LTQ</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                      Stage
+                      Tahap
                     </label>
                     <select
                       value={formData.stage || "Registered"}
@@ -3173,7 +3185,7 @@ export function PPDBManager() {
                     >
                       {STAGES.map((s) => (
                         <option key={s} value={s}>
-                          {s}
+                          {getStageLabel(s)}
                         </option>
                       ))}
                     </select>
@@ -3181,7 +3193,7 @@ export function PPDBManager() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                    Previous School
+                    Asal Sekolah
                   </label>
                   <input
                     type="text"
@@ -3199,7 +3211,7 @@ export function PPDBManager() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                      Phone Number
+                      Nomor Telepon
                     </label>
                     <input
                       type="text"
@@ -3241,7 +3253,7 @@ export function PPDBManager() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                      Date of Birth
+                      Tanggal Lahir
                     </label>
                     <input
                       type="date"
@@ -3254,7 +3266,7 @@ export function PPDBManager() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                      Gender
+                      Jenis Kelamin
                     </label>
                     <select
                       value={formData.gender || "L"}
@@ -3285,12 +3297,12 @@ export function PPDBManager() {
 
                 <div className="border-t border-slate-200 dark:border-white/5 pt-4">
                   <h4 className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-3">
-                    Parent Information
+                    Data Orang Tua/Wali
                   </h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                        Father's Name
+                        Nama Ayah
                       </label>
                       <input
                         type="text"
@@ -3306,7 +3318,7 @@ export function PPDBManager() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                        Mother's Name
+                        Nama Ibu
                       </label>
                       <input
                         type="text"
@@ -3342,7 +3354,7 @@ export function PPDBManager() {
 
                 <div className="border-t border-slate-200 dark:border-white/5 pt-4">
                   <h4 className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-3">
-                    Upload Documents
+                    Unggah Dokumen
                   </h4>
                   <div className="grid grid-cols-2 gap-4">
                     {[
@@ -3351,7 +3363,7 @@ export function PPDBManager() {
                       { key: "reportCards", label: "Rapor" },
                       { key: "ijazah", label: "STTB/Ijazah" },
                       { key: "skhun", label: "SKHUN/Daftar Nilai" },
-                      { key: "pasPhoto", label: "Pas Photo 3x4" },
+                      { key: "pasPhoto", label: "Pasfoto 3x4" },
                     ].map((doc) => (
                       <div
                         key={doc.key}
@@ -3388,8 +3400,8 @@ export function PPDBManager() {
                             {formData.documents?.[
                               doc.key as keyof typeof formData.documents
                             ]
-                              ? "File Selected"
-                              : "Choose File"}
+                              ? "Berkas Dipilih"
+                              : "Pilih Berkas"}
                           </div>
                         </div>
                       </div>
@@ -3403,13 +3415,13 @@ export function PPDBManager() {
                     onClick={() => setIsModalOpen(false)}
                     className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:bg-white/5 transition-colors"
                   >
-                    Cancel
+                    Batal
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
                   >
-                    Save Candidate
+                    Simpan Pendaftar
                   </button>
                 </div>
               </form>
@@ -3427,7 +3439,7 @@ export function PPDBManager() {
                     <Sparkles className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-base text-white">Smart Allocate &amp; Selection Engine</h3>
+                    <h3 className="font-bold text-base text-white">Alokasi dan Seleksi Otomatis</h3>
                     <p className="text-xs text-slate-400">Otomatisasi seleksi nilai KKM, jadwal ujian, &amp; kapasitas kuota santri</p>
                   </div>
                 </div>
@@ -3452,7 +3464,7 @@ export function PPDBManager() {
                   )}
                 >
                   <UserCheck className="w-4 h-4" />
-                  Promosi Nilai (Auto-Promote)
+                  Promosi Nilai Otomatis
                 </button>
                 <button
                   onClick={() => setSmartTab("schedule")}
@@ -3476,7 +3488,7 @@ export function PPDBManager() {
                   )}
                 >
                   <Users className="w-4 h-4" />
-                  Keseimbangan Kuota Gender
+                  Keseimbangan Kuota Jenis Kelamin
                 </button>
               </div>
 
@@ -3499,14 +3511,14 @@ export function PPDBManager() {
                           className="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
                         >
                           {STAGES.map((s) => (
-                            <option key={s} value={s}>{s}</option>
+                            <option key={s} value={s}>{getStageLabel(s)}</option>
                           ))}
                         </select>
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                          Standar Nilai KKM (Passing Grade)
+                          Standar Nilai Minimum (KKM)
                         </label>
                         <input
                           type="number"
@@ -3528,7 +3540,7 @@ export function PPDBManager() {
                           className="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
                         >
                           {STAGES.map((s) => (
-                            <option key={s} value={s}>{s}</option>
+                            <option key={s} value={s}>{getStageLabel(s)}</option>
                           ))}
                         </select>
                       </div>
@@ -3868,7 +3880,7 @@ export function PPDBManager() {
               </div>
               <div className="flex gap-8 relative z-10">
                 <div className="w-32 h-40 border-2 border-dashed border-gray-400 flex items-center justify-center text-gray-400 text-sm font-medium bg-gray-50 shrink-0">
-                  Pas Foto 3x4
+                  Pasfoto 3x4
                 </div>
                 <div className="w-full space-y-4">
                   <div className="grid grid-cols-3 gap-2 border-b border-gray-200 pb-2">
