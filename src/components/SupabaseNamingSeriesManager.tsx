@@ -16,13 +16,13 @@ const SERIES_HELP: Record<TenantNamingSeriesKey, string> = {
   nis: "NIS dibuat saat pendaftaran PPDB diterima atau santri baru dicatat di Data Induk. Polanya tetap 10 digit: tahun masuk, kode jenjang, lalu nomor urut 4 digit.",
   ppdb_registration: "Nomor pendaftaran dibuat ketika calon santri baru dicatat atau mengirim pendaftaran publik.",
   employee_number: "Nomor pegawai dibuat otomatis saat data pegawai baru disimpan. Nomor yang sudah terbit tidak berubah saat data pegawai diperbarui.",
-  building_code: "Kode gedung dibuat backend saat gedung baru disimpan. ID historis tidak berubah.",
-  room_code: "Kode kamar dibuat backend saat kamar baru disimpan. Hubungan kamar ke gedung tetap memakai ID.",
-  class_code: "Kode kelas dibuat backend saat kelas baru disimpan. Hubungan kelas ke jenjang tetap tervalidasi.",
-  document_number: "Nomor dokumen dibuat backend saat surat atau dokumen dicatat. Nomor historis tetap dipertahankan.",
-  finance_receipt: "Nomor kuitansi dibuat backend saat pembayaran dinyatakan lunas dan dicatat ke buku besar.",
-  asset_code: "Kode aset tetap dibuat backend saat aset baru didaftarkan. Kode yang sudah terbit tidak diubah.",
-  inventory_item_code: "Kode inventaris dibuat backend saat barang baru didaftarkan. Kode yang sudah terbit tidak diubah.",
+  building_code: "Kode gedung dibuat otomatis saat data gedung disimpan. Kode yang sudah terbit tidak berubah.",
+  room_code: "Kode kamar dibuat otomatis saat data kamar disimpan. Hubungan kamar ke gedung tetap terjaga.",
+  class_code: "Kode kelas dibuat otomatis saat data kelas disimpan. Hubungan kelas ke jenjang tetap terjaga.",
+  document_number: "Nomor dokumen dibuat otomatis saat surat atau dokumen dicatat. Nomor lama tetap dipertahankan.",
+  finance_receipt: "Nomor kuitansi dibuat otomatis saat pembayaran dinyatakan lunas dan dicatat.",
+  asset_code: "Kode aset dibuat otomatis saat aset baru didaftarkan. Kode yang sudah terbit tidak diubah.",
+  inventory_item_code: "Kode inventaris dibuat otomatis saat barang baru didaftarkan. Kode yang sudah terbit tidak diubah.",
   donation_receipt: "Nomor kuitansi donasi dibuat otomatis dan konsisten dengan transaksi serta audit donasi.",
   waqf_asset_code: "Kode aset wakaf dibuat otomatis saat aset dicatat dan tidak dapat diubah setelah terbit.",
   laundry_order_number: "Nomor pesanan laundry dibuat otomatis saat transaksi diterima dan tetap sama saat dicoba ulang.",
@@ -105,7 +105,8 @@ export function SupabaseNamingSeriesManager() {
     } catch (cause: any) {
       setSeries([]);
       setNotice("");
-      setError(cause?.message || "Aturan penomoran tenant belum dapat dimuat.");
+      console.error("Naming series load failed:", cause);
+      setError("Aturan penomoran belum dapat dimuat. Periksa koneksi lalu coba kembali.");
     } finally {
       setLoading(false);
     }
@@ -143,7 +144,8 @@ export function SupabaseNamingSeriesManager() {
       setSeries((current) => current.map((row) => row.seriesKey === saved.seriesKey ? saved : row));
       setNotice("Aturan " + saved.displayName + " berhasil disimpan.");
     } catch (cause: any) {
-      setError(cause?.message || "Aturan penomoran belum dapat disimpan.");
+      console.error("Naming series save failed:", cause);
+      setError("Aturan penomoran belum dapat disimpan. Periksa koneksi lalu coba kembali.");
     } finally {
       setSavingKey(null);
     }
@@ -155,7 +157,7 @@ export function SupabaseNamingSeriesManager() {
     <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"><Hash className="h-5 w-5" /></span>
-      <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">Atur lima belas pola nomor bisnis tenant lintas modul. ID teknis tetap UUID dan dibuat basis data; kode bisnis diterbitkan backend dengan penghitung transaksional serta perlindungan unik per jenis data.</p></div>
+        <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">Atur pola nomor untuk NIS dan kode operasional pesantren. Nomor dibuat otomatis dan tidak digunakan ulang.</p></div>
       </div>
       <button type="button" className={SECONDARY} onClick={() => void refresh({ notify: true })} disabled={loading || savingKey !== null}><RefreshCw className={"h-4 w-4 " + (loading ? "animate-spin" : "")} />Muat ulang</button>
     </header>
@@ -166,11 +168,11 @@ export function SupabaseNamingSeriesManager() {
     <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-300">
       NIS mempertahankan format 10 digit. Nomor dokumen, kuitansi, kode aset, pesanan, dan produk dibuat otomatis; seri yang sudah terbit tidak digunakan ulang.
     </div>
-    {!isAdmin && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Aturan penomoran hanya dapat diubah oleh Admin tenant.</div>}
+    {!isAdmin && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Hanya Admin yang dapat mengubah aturan penomoran.</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
-    {loading ? <div role="status" className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 p-12 text-sm text-slate-500 dark:border-white/10"><Loader2 className="h-4 w-4 animate-spin" />Memuat aturan tenant…</div>
-      : sortedSeries.length === 0 ? <div className="rounded-xl border border-dashed border-slate-200 p-10 text-center text-sm text-slate-500 dark:border-white/10">Aturan penomoran belum tersedia untuk tenant ini.</div>
+    {loading ? <div role="status" className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 p-12 text-sm text-slate-500 dark:border-white/10"><Loader2 className="h-4 w-4 animate-spin" />Memuat aturan penomoran…</div>
+      : sortedSeries.length === 0 ? <div className="rounded-xl border border-dashed border-slate-200 p-10 text-center text-sm text-slate-500 dark:border-white/10">Aturan penomoran belum tersedia.</div>
         : <div className="grid gap-4 xl:grid-cols-3">{sortedSeries.map((item) => <article key={item.seriesKey} className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-white/10">
           <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.displayName}</h3><p className="mt-1 text-xs text-slate-500">{moduleLabel(item.moduleId)}</p></div><label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"><input type="checkbox" checked={item.isActive} disabled={!isAdmin || savingKey !== null} onChange={(event) => update(item.seriesKey, { isActive: event.target.checked })} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />Aktif</label></div>
           <p className="min-h-10 text-sm text-slate-600 dark:text-slate-300">{SERIES_HELP[item.seriesKey]}</p>

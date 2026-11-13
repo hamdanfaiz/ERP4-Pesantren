@@ -174,7 +174,7 @@ for (const tabId of ['entities', 'structure', 'naming', 'audit']) {
 }
 assert.doesNotMatch(masterDataTabs[1], /id:\s*["']references["']/,
   'Reference catalogs must live with their owning modules instead of a generic Master Data tab.');
-assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?koneksi runtime Supabase belum diaktifkan[\s\S]*?<\/section>\)/,
+assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?Pengaturan penomoran belum tersedia saat ini[\s\S]*?<\/section>\)/,
   'Naming Series must show a clear unavailable state rather than disappear or fall through to mock CRUD when runtime is disabled.');
 assert.match(masterDataSource, /const isTenantConfigurationTab = activeTab === ["']naming["'];/,
   'Naming Series configuration must not expose mock record actions when runtime is disabled.');

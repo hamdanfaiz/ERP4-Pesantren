@@ -321,7 +321,7 @@ export function MasterDataManager() {
         return;
       }
       const label = kind === "structures" ? "struktur Gedung, Kamar, dan Kelas" : "data Santri dan relasi Wali";
-      if (!window.confirm("Impor " + (preview.planned || 0) + " record " + label + " ke tenant aktif? Data yang ada tidak akan dihapus. Pastikan backup dan pratinjau sudah ditinjau.")) return;
+      if (!window.confirm("Impor " + (preview.planned || 0) + " entri " + label + " ke pesantren ini? Data yang sudah ada tidak akan dihapus. Pastikan salinan cadangan dan hasil pratinjau sudah ditinjau.")) return;
     }
 
     setLegacyMigrationPreviews((current) => ({ ...current, [kind]: null }));
@@ -347,7 +347,7 @@ export function MasterDataManager() {
         result.errors?.length ? "error" : "success");
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Impor arsip Master Data belum dapat diproses.", "error");
+      showToast(error instanceof Error ? error.message : "Impor arsip Data Induk belum dapat diproses.", "error");
     } finally {
       setLegacyMigrationBusy(null);
     }
@@ -511,7 +511,7 @@ export function MasterDataManager() {
         setDataSources((prev) => ({ ...prev, [activeSubTab]: [] }));
         if (activeTab === "entities" && activeSubTab === "Santri") {
           setServerStudentHasMore(false);
-          showToast(error instanceof Error ? error.message : "Daftar santri belum dapat dimuat.", "error");
+          showToast("Daftar santri belum dapat dimuat. Periksa koneksi lalu coba kembali.", "error");
         }
       }
     };
@@ -666,7 +666,7 @@ export function MasterDataManager() {
       } else if (activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab)) {
         await deleteSupabaseMasterDataStructure(activeSubTab as "Gedung" | "Kamar" | "Kelas", String(record.id));
       } else {
-        throw new Error("Kategori ini belum tersedia pada runtime Supabase.");
+        throw new Error("Kategori ini belum dapat dikelola dari sini.");
       }
       setDataSources((prev) => ({
         ...prev,
@@ -676,7 +676,7 @@ export function MasterDataManager() {
       if (selectedRecord?.id === record.id) setSelectedRecord(null);
       showToast(`Data "${record.name}" berhasil diarsipkan atau dihapus.`, "success");
     } catch (error: any) {
-      showToast(error?.message || "Perubahan data Supabase gagal.", "error");
+      showToast("Perubahan belum berhasil disimpan. Periksa koneksi lalu coba kembali.", "error");
     } finally {
       setRecordToDelete(null);
     }
@@ -846,7 +846,7 @@ export function MasterDataManager() {
       return;
     }
     if (!user?.tenantId) {
-      showToast("Tenant aktif tidak ditemukan. Muat ulang sesi sebelum menyimpan.", "error");
+      showToast("Sesi pesantren tidak valid. Masuk kembali sebelum menyimpan.", "error");
       return;
     }
 
@@ -887,7 +887,7 @@ export function MasterDataManager() {
           category: activeSubTab,
         });
       } else {
-        throw new Error("Kategori ini belum tersedia pada runtime Supabase.");
+        throw new Error("Kategori ini belum dapat dikelola dari sini.");
       }
       setDataSources((prev) => ({
         ...prev,
@@ -901,7 +901,7 @@ export function MasterDataManager() {
       setIsModalOpen(false);
       showToast(`Data "${savedRecord.name}" berhasil ${modalMode === "add" ? "disimpan" : "diperbarui"}.`, "success");
     } catch (error: any) {
-      showToast(error?.message || "Gagal menyimpan data ke Supabase.", "error");
+      showToast("Data belum berhasil disimpan. Periksa koneksi lalu coba kembali.", "error");
     }
   };
 
@@ -1492,7 +1492,7 @@ export function MasterDataManager() {
             <div>
               <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Migrasi arsip Master Data</h2>
               <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500 dark:text-slate-400">
-                Pratinjau membaca arsip Firestore tenant aktif tanpa menulis data. Terapkan impor hanya setelah konflik, relasi, dan backup ditinjau. Selesaikan impor struktur sebelum impor santri.
+                Pratinjau tidak mengubah data. Tinjau konflik, relasi, dan salinan cadangan sebelum menerapkan impor. Impor struktur sebelum impor santri.
               </p>
             </div>
             <span className="inline-flex w-fit items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
@@ -1621,7 +1621,7 @@ export function MasterDataManager() {
                 mode: "export",
                 kind: activeTab === "entities" ? "students" : "structures",
                 category: SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab) ? activeSubTab as "Gedung" | "Kamar" | "Kelas" : undefined,
-              })} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10" title="Ekspor seluruh data tenant dari backend">
+              })} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10" title="Ekspor seluruh data dalam cakupan akses Anda">
                 <Download className="h-4 w-4" />
                 <span>Ekspor Data</span>
               </button>
@@ -1666,10 +1666,10 @@ export function MasterDataManager() {
       {activeTab === "naming" ? (SUPABASE_MASTER_DATA_RUNTIME ? <SupabaseNamingSeriesManager /> : <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-8">
         <header className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"><Hash className="h-5 w-5" /></span>
-          <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">ID teknis dibuat otomatis oleh basis data. Nomor yang dibaca pengguna, seperti NIS dan kode operasional, diterbitkan otomatis melalui Naming Series tenant.</p></div>
+          <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">Atur pola nomor untuk NIS dan kode operasional pesantren.</p></div>
         </header>
         <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
-          Pengaturan seri belum dapat dimuat di pratinjau ini karena koneksi runtime Supabase belum diaktifkan. Menu dan fungsi penomoran tersedia setelah backend staging dikonfigurasi. Tidak ada data contoh atau perubahan lokal yang ditampilkan di sini.
+          Pengaturan penomoran belum tersedia saat ini. Hubungi administrator pesantren untuk informasi lebih lanjut.
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {["NIS dan nomor pendaftaran", "Nomor pegawai", "Gedung, kamar, dan kelas", "Dokumen dan kuitansi", "Aset, persediaan, dan wakaf", "Laundry, koperasi, dan marketplace"].map((label) => <div key={label} className="rounded-xl border border-slate-200 p-4 text-sm font-medium text-slate-700 dark:border-white/10 dark:text-slate-200">{label}</div>)}

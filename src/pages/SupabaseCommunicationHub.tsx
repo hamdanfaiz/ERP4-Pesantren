@@ -355,7 +355,6 @@ export function SupabaseCommunicationHub() {
       </header>
 
       <ERPTabs tabs={COMMUNICATION_TABS} value={tab} onChange={(id) => { setTab(id as CommunicationTab); setComposeOpen(false); setMigrationPreview(null); setError(""); setNotice(""); }} ariaLabel="Bagian Pusat Komunikasi" />
-      {tab === "announcements" && <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Pengumuman dan konfirmasi baca tersimpan pada backend Supabase tenant aktif.</div>}
       {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 

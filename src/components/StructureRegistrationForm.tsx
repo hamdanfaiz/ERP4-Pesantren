@@ -121,7 +121,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
                 className="w-full cursor-not-allowed bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm opacity-80"
                 placeholder={isEdit ? '' : 'Diterbitkan backend saat disimpan'}
               />
-              {!isEdit && <p className="mt-1 text-xs text-slate-500">Kode unik diterbitkan dalam transaksi tenant dan tidak perlu diisi.</p>}
+              {!isEdit && <p className="mt-1 text-xs text-slate-500">Kode unik dibuat otomatis setelah data disimpan.</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nama *</label>

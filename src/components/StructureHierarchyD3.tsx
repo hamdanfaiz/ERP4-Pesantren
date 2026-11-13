@@ -308,7 +308,7 @@ export const StructureHierarchyD3: React.FC = () => {
       <div className="p-12 text-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
         <Layers className="w-12 h-12 mx-auto mb-4 opacity-30" />
         <h3 className="font-semibold text-lg text-slate-700 dark:text-slate-300 mb-1">{loadError ? 'Struktur belum dapat dimuat' : 'Belum ada data struktur'}</h3>
-        <p role={loadError ? 'alert' : undefined} className="text-sm">{loadError || 'Tambahkan Gedung, Kamar, atau Kelas pada tenant ini untuk membangun peta struktur.'}</p>
+        <p role={loadError ? 'alert' : undefined} className="text-sm">{loadError || 'Tambahkan Gedung, Kamar, atau Kelas pada pesantren ini untuk membangun peta struktur.'}</p>
         {loadError && <button type="button" onClick={() => setReloadToken((value) => value + 1)} className="mt-4 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Coba lagi</button>}
       </div>
     );

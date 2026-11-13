@@ -251,7 +251,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
 
     try {
       if (formData.type !== 'Santri') {
-        throw new Error('Kategori ini belum tersedia pada runtime Supabase.');
+        throw new Error('Kategori ini belum dapat ditambahkan dari formulir ini.');
       }
       const studentPayload = {
         ...result.data,
@@ -264,7 +264,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
         type: 'Santri',
         tenantId: user?.tenantId,
       });
-      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" tersimpan dengan NIS ${savedData.nis || 'otomatis'} dan pemeriksaan keunikan backend.` });
+      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" berhasil disimpan dengan NIS ${savedData.nis || 'otomatis'}.` });
       if (onSuccess) onSuccess(savedData);
     } catch (error) {
       console.error("Error adding document: ", error);
@@ -304,10 +304,10 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
           <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 animate-in fade-in duration-200">
             <div className="flex items-center gap-2 font-bold text-sm text-amber-300 mb-1.5">
               <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
-              <span>Peringatan Deteksi Duplikasi Identitas (Rekomendasi 3)</span>
+              <span>Periksa data identitas</span>
             </div>
             <p className="text-xs text-amber-300/80 mb-2">
-              Sistem mendeteksi atribut unik yang telah terdaftar pada entitas lain dalam basis data. Mohon periksa kembali agar tidak terjadi benturan integritas data:
+              Satu atau beberapa identitas telah digunakan pada data lain. Periksa data berikut sebelum menyimpan:
             </p>
             <ul className="text-xs space-y-1 list-disc list-inside bg-black/30 p-2.5 rounded-lg border border-amber-500/20 font-mono text-[11px]">
               {conflicts.map((c, i) => (
@@ -348,7 +348,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 value={formData.identifier}
                 readOnly
                 className="w-full cursor-not-allowed bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm opacity-80"
-                placeholder="Diterbitkan backend saat data santri disimpan"
+                placeholder="Terbit otomatis setelah data santri disimpan"
               />
               <p className="mt-1 text-xs text-slate-500">NIS baru dibuat otomatis setelah jenjang dipilih; NIS yang sudah terbit tidak dapat diubah dari formulir ini.</p>
             </div>
@@ -533,7 +533,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 </div>
                 {formData.type === 'Santri' && (
                   <>
-                    {/* Penempatan santri dari struktur tenant Supabase */}
+                    {/* Penempatan santri dari struktur pesantren */}
                     <div className="md:col-span-2 lg:col-span-3 bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-4 space-y-4">
                       <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
                         <div className="flex items-center gap-2">
@@ -543,7 +543,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                           </h4>
                         </div>
                         <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded">
-                          Data Struktur Tenant
+                          Struktur Pesantren
                         </span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -641,7 +641,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                               ? `Penempatan saat ini: ${formData.halaqah || formData.halaqahId}`
                               : "Belum ditetapkan"}
                           </div>
-                          <p className="mt-1 text-xs text-slate-400">Penempatan halaqah dikelola melalui modul Tahfidz agar relasinya memakai data halaqah tenant yang aktif.</p>
+                          <p className="mt-1 text-xs text-slate-400">Kelola penempatan halaqah melalui modul Tahfidz.</p>
                         </div>
                       </div>
                     </div>

@@ -446,7 +446,7 @@ export function SupabasePpdbManager() {
         </div>
       </header>
 
-      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Mode Supabase: layar ini mengelola daftar, tahap, nilai, penilaian Al-Qur’an dan Tahfidz, serta pendaftaran santri secara transaksional. Pendaftaran publik yang diaktifkan menyimpan berkas pada Storage privat. {PPDB_DOCUMENTS_ENABLED ? "Pengelolaan lampiran Admin dikonfigurasi aktif di UI ini dan tetap melalui API backend tenant." : "Pengelolaan lampiran Admin belum diaktifkan pada konfigurasi UI ini; bucket tetap privat."} Admin dapat menerbitkan tagihan kandidat setelah migrasi modul Keuangan dan fitur PPDB–Keuangan diaktifkan.</div>
+      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Kelola pendaftar, tahapan seleksi, nilai, serta penilaian Al-Qur’an dan Tahfidz. {PPDB_DOCUMENTS_ENABLED ? "Lampiran pendaftar dapat dikelola melalui menu ini." : "Pengelolaan lampiran belum tersedia saat ini."}</div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
@@ -580,7 +580,7 @@ function CandidateBilling({
     <div><h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tagihan PPDB</h3><p className="mt-1 text-xs text-slate-500">Tagihan masuk ke modul Keuangan dan tertaut ke santri saat pendaftaran selesai. Wali melihatnya setelah akun wali dan santri terhubung.</p></div>
     {renderBill("registration", "Biaya pendaftaran", candidate.bills?.registration)}
     {candidate.stage === "Accepted" && renderBill("tuition", "Uang pangkal", candidate.bills?.tuition)}
-    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Belum aktif: migrasi Keuangan dan fitur PPDB–Keuangan harus disiapkan terlebih dahulu.</p>}
+    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Penerbitan tagihan belum tersedia saat ini.</p>}
     {enabled && !canManage && <p className="text-xs text-amber-700 dark:text-amber-300">Akses modul Keuangan diperlukan untuk menerbitkan tagihan.</p>}
     {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
     {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice}</p>}
@@ -680,7 +680,7 @@ function CandidateDocumentManager({
       </div>;
     })}</div>
     <p className="text-[11px] text-slate-500">Maksimal 1 MB per lampiran. Format PDF, JPG, dan PNG. Lampiran yang sudah ada tidak dapat ditimpa dari layar ini.</p>
-    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Unggah dan unduh belum diaktifkan. Operator perlu menerapkan migrasi serta menuntaskan uji Storage sebelum mengaktifkan fiturnya.</p>}
+    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Unggah dan unduh lampiran belum tersedia saat ini.</p>}
     {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
     {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice} Jika status belum berubah, muat ulang detail pendaftar.</p>}
   </section>;
