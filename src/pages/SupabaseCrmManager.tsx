@@ -260,13 +260,13 @@ export function SupabaseCrmManager() {
 
     {tab === "broadcast" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900/70">
       <div>
-        <h2 className="font-semibold text-slate-900 dark:text-white">Siaran WhatsApp (OpenWA)</h2>
-        <p className="mt-1 text-sm text-slate-500">Hanya kontak dengan persetujuan menerima informasi dan nomor telepon valid. Pengiriman lewat OpenWA Easy layanan di sistem.</p>
+        <h2 className="font-semibold text-slate-900 dark:text-white">Siaran WhatsApp</h2>
+        <p className="mt-1 text-sm text-slate-500">Pesan hanya dikirim kepada kontak yang menyetujui informasi dan memiliki nomor telepon valid.</p>
       </div>
       <div className={`rounded-xl border px-4 py-3 text-sm ${broadcastStatus?.configured ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-950/25 dark:text-emerald-200" : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-950/25 dark:text-amber-200"}`}>
-        {broadcastStatus == null ? "Memeriksa konfigurasi OpenWA…"
-          : broadcastStatus.configured ? `OpenWA siap · ${broadcastStatus.endpoint}`
-            : (broadcastStatus.error || "OpenWA belum dikonfigurasi. Isi endpoint di Pengaturan dan WA_GATEWAY_API_KEY di sistem.")}
+        {broadcastStatus == null ? "Memeriksa layanan WhatsApp…"
+          : broadcastStatus.configured ? "Pengiriman WhatsApp siap digunakan."
+            : "Pengiriman WhatsApp belum tersedia saat ini."}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <article className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="text-xs text-slate-500">Setuju menerima info</p><p className="mt-2 text-2xl font-semibold">{summary.marketingConsentedContacts}</p></article>
