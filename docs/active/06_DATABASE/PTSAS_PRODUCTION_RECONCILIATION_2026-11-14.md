@@ -22,6 +22,8 @@ Yang dibaca: daftar migrasi, katalog tabel/privilege/policy, definisi beberapa f
 
 Tiga versi ledger yang namanya kosong adalah `20261205000000`, `20261206000000`, dan `20270118000000`. Pemeriksaan ini mencocokkan nomor versi dan nama file, bukan membuktikan bahwa seluruh SQL file cocok dengan DDL yang saat ini terpasang.
 
+Kepala ledger Production adalah `20270316000000` (`communication_ops_runtime`), sedangkan versi source tertua yang belum tercatat adalah `20261207000000`. Artinya, selisih terjadi di tengah urutan riwayat, bukan hanya sebagai migrasi baru di ekor. `db push` biasa tidak boleh digunakan sebelum setiap celah diurutkan dan direkonsiliasi.
+
 ## Katalog akses yang teramati
 
 - Tidak ditemukan grant tabel kepada `PUBLIC` atau `anon`.
@@ -47,6 +49,7 @@ Tiga versi ledger yang namanya kosong adalah `20261205000000`, `20261206000000`,
 - Ada satu pasangan indeks duplikat pada `document_records`: `document_records_tenant_document_number_uq` dan `document_records_tenant_number_normalized_uq`. Source `20270227000000_remove_redundant_document_number_index.sql` menghapus indeks yang redundan.
 - 89 indeks dinilai belum digunakan. Ini temuan INFO yang bergantung pada statistik workload/reset; jangan menghapus indeks hanya berdasarkan snapshot advisor.
 - Source memiliki `20270217000000_index_tenant_choice_foreign_keys.sql`. Jumlah temuan 269 harus ditinjau per FK; jangan menganggap satu migrasi ini pasti menyelesaikan semuanya.
+- Health Advisor tidak mengembalikan temuan pada snapshot ini.
 
 Rujukan advisor: [Security Advisor Production](https://supabase.com/dashboard/project/ptsasgdvgrbdtgyqieie/advisors/security) dan [Performance Advisor Production](https://supabase.com/dashboard/project/ptsasgdvgrbdtgyqieie/advisors/performance). Perlindungan kata sandi bocor dapat ditinjau dari Supabase Dashboard → Authentication → Settings.
 
