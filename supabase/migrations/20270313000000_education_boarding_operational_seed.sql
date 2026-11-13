@@ -188,16 +188,30 @@ WHERE NOT EXISTS (
     AND (existing.code = sample.code OR lower(btrim(existing.name)) = lower(sample.name))
 );
 
--- 4) CBT settings, questions, one published exam, and assignments.
+-- 4) CBT settings and sample records use active, tenant-owned catalog choices.
+-- If a tenant has no active grade, its CBT sample questions and exam are skipped;
+-- migrations never create a free-text grade to satisfy the sample data.
 INSERT INTO public.cbt_tenant_settings (
   tenant_id, subjects, grades, templates, auto_grading, shuffle_questions,
   correct_points, wrong_points, blank_points, source_system, created_by, updated_by
 )
 SELECT
   actor.tenant_id,
-  ARRAY['Fiqih', 'Matematika', 'Bahasa Arab'],
-  ARRAY['X-A', 'X-B', 'XI-A', 'XI-B', 'XII-A', 'XII-B'],
-  ARRAY['Pilihan Ganda Standar', 'Pilihan Ganda Tahfidz'],
+  ARRAY(
+    SELECT item.name FROM public.tenant_reference_items item
+    WHERE item.tenant_id = actor.tenant_id AND item.domain = 'academic_subject' AND item.status = 'active'
+    ORDER BY item.code, item.name, item.id LIMIT 100
+  ),
+  ARRAY(
+    SELECT item.name FROM public.tenant_reference_items item
+    WHERE item.tenant_id = actor.tenant_id AND item.domain = 'academic_grade_level' AND item.status = 'active'
+    ORDER BY item.code, item.name, item.id LIMIT 100
+  ),
+  ARRAY(
+    SELECT item.name FROM public.tenant_reference_items item
+    WHERE item.tenant_id = actor.tenant_id AND item.domain = 'cbt_question_template' AND item.status = 'active'
+    ORDER BY item.code, item.name, item.id LIMIT 100
+  ),
   true, false, 1, 0, 0, 'supabase_runtime', actor.user_id, actor.user_id
 FROM (
   SELECT DISTINCT ON (tenant_id) tenant_id, user_id
@@ -217,33 +231,62 @@ WITH actor AS (
 ),
 seed_questions AS (
   SELECT * FROM (VALUES
-    ('Fiqih', 'X-A', 'Pilihan Ganda Standar', '<p>Berapa rakaat shalat Subuh?</p>',
+    ('Fiqih', 'Pilihan Ganda Standar', '<p>Berapa rakaat shalat Subuh?</p>',
       '["1","2","3","4"]'::jsonb, 1::smallint, 'Easy',
       'a1111111-1111-4111-8111-111111111101'::uuid),
-    ('Fiqih', 'X-A', 'Pilihan Ganda Standar', '<p>Apa rukun wudhu yang pertama?</p>',
+    ('Fiqih', 'Pilihan Ganda Standar', '<p>Apa rukun wudhu yang pertama?</p>',
       '["Niat","Membasuh muka","Membasuh tangan","Mengusap kepala"]'::jsonb, 0::smallint, 'Medium',
       'a1111111-1111-4111-8111-111111111102'::uuid),
-    ('Matematika', 'X-A', 'Pilihan Ganda Standar', '<p>Hasil dari 12 + 8 adalah?</p>',
+    ('Matematika', 'Pilihan Ganda Standar', '<p>Hasil dari 12 + 8 adalah?</p>',
       '["18","19","20","21"]'::jsonb, 2::smallint, 'Easy',
       'a1111111-1111-4111-8111-111111111103'::uuid),
-    ('Bahasa Arab', 'X-A', 'Pilihan Ganda Standar', '<p>Arti kata kitabun adalah?</p>',
+    ('Bahasa Arab', 'Pilihan Ganda Standar', '<p>Arti kata kitabun adalah?</p>',
       '["Pulpen","Buku","Meja","Kursi"]'::jsonb, 1::smallint, 'Easy',
       'a1111111-1111-4111-8111-111111111104'::uuid),
-    ('Fiqih', 'X-A', 'Pilihan Ganda Tahfidz', '<p>Surah Al-Fatihah memiliki berapa ayat?</p>',
+    ('Fiqih', 'Pilihan Ganda Tahfidz', '<p>Surah Al-Fatihah memiliki berapa ayat?</p>',
       '["5","6","7","8"]'::jsonb, 2::smallint, 'Medium',
       'a1111111-1111-4111-8111-111111111105'::uuid)
-  ) AS q(subject, grade, template, question_html, options, correct_answer, difficulty, client_request_id)
+  ) AS q(subject_name, template_name, question_html, options, correct_answer, difficulty, client_request_id)
 )
 INSERT INTO public.cbt_questions (
   tenant_id, subject, grade, template, question_html, options, correct_answer, explanation,
   difficulty, tags, status, source_system, client_request_id, created_by, updated_by
 )
 SELECT
-  actor.tenant_id, q.subject, q.grade, q.template, q.question_html, q.options, q.correct_answer,
-  '', q.difficulty, ARRAY['seed']::text[], 'active', 'supabase_runtime', q.client_request_id,
-  actor.user_id, actor.user_id
+  actor.tenant_id, subject_ref.name, grade_ref.name, template_ref.name, q.question_html, q.options,
+  q.correct_answer, '', q.difficulty, ARRAY['seed']::text[], 'active', 'supabase_runtime',
+  q.client_request_id, actor.user_id, actor.user_id
 FROM actor
 CROSS JOIN seed_questions q
+JOIN LATERAL (
+  SELECT item.name
+  FROM public.tenant_reference_items item
+  WHERE item.tenant_id = actor.tenant_id
+    AND item.domain = 'academic_subject'
+    AND item.status = 'active'
+    AND lower(btrim(item.name)) = lower(btrim(q.subject_name))
+  ORDER BY item.code, item.id
+  LIMIT 1
+) AS subject_ref ON true
+JOIN LATERAL (
+  SELECT item.name
+  FROM public.tenant_reference_items item
+  WHERE item.tenant_id = actor.tenant_id
+    AND item.domain = 'academic_grade_level'
+    AND item.status = 'active'
+  ORDER BY item.code, item.name, item.id
+  LIMIT 1
+) AS grade_ref ON true
+JOIN LATERAL (
+  SELECT item.name
+  FROM public.tenant_reference_items item
+  WHERE item.tenant_id = actor.tenant_id
+    AND item.domain = 'cbt_question_template'
+    AND item.status = 'active'
+    AND lower(btrim(item.name)) = lower(btrim(q.template_name))
+  ORDER BY item.code, item.id
+  LIMIT 1
+) AS template_ref ON true
 WHERE NOT EXISTS (
   SELECT 1 FROM public.cbt_questions existing
   WHERE existing.tenant_id = actor.tenant_id AND existing.client_request_id = q.client_request_id
@@ -263,8 +306,8 @@ INSERT INTO public.cbt_exams (
 SELECT
   actor.tenant_id,
   'Ujian Sampel Fiqih Semester Ganjil',
-  'Fiqih',
-  'X-A',
+  subject_ref.name,
+  grade_ref.name,
   now() - interval '1 day',
   now() + interval '30 days',
   45,
@@ -273,6 +316,25 @@ SELECT
   'a1111111-1111-4111-8111-111111111201'::uuid,
   actor.user_id, actor.user_id
 FROM actor
+JOIN LATERAL (
+  SELECT item.name
+  FROM public.tenant_reference_items item
+  WHERE item.tenant_id = actor.tenant_id
+    AND item.domain = 'academic_subject'
+    AND item.status = 'active'
+    AND lower(btrim(item.name)) = 'fiqih'
+  ORDER BY item.code, item.id
+  LIMIT 1
+) AS subject_ref ON true
+JOIN LATERAL (
+  SELECT item.name
+  FROM public.tenant_reference_items item
+  WHERE item.tenant_id = actor.tenant_id
+    AND item.domain = 'academic_grade_level'
+    AND item.status = 'active'
+  ORDER BY item.code, item.name, item.id
+  LIMIT 1
+) AS grade_ref ON true
 WHERE NOT EXISTS (
   SELECT 1 FROM public.cbt_exams existing
   WHERE existing.tenant_id = actor.tenant_id
@@ -285,6 +347,7 @@ FROM public.cbt_exams e
 JOIN public.cbt_questions q
   ON q.tenant_id = e.tenant_id
  AND q.subject = e.subject
+ AND q.grade = e.grade
  AND q.status = 'active'
 WHERE e.client_request_id = 'a1111111-1111-4111-8111-111111111201'::uuid
   AND NOT EXISTS (
@@ -297,7 +360,9 @@ INSERT INTO public.cbt_exam_assignments (
 )
 SELECT e.tenant_id, e.id, s.id, 'assigned', e.created_by
 FROM public.cbt_exams e
-JOIN public.students s ON s.tenant_id = e.tenant_id
+JOIN public.students s
+  ON s.tenant_id = e.tenant_id
+ AND s.grade_level_reference_id = e.grade_level_reference_id
 WHERE e.client_request_id = 'a1111111-1111-4111-8111-111111111201'::uuid
   AND lower(COALESCE(s.status, '')) NOT IN (
     'archived', 'alumni', 'graduated', 'inactive', 'nonaktif', 'tidak aktif', 'disabled', 'dikeluarkan'
