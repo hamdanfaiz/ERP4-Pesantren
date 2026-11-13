@@ -115,6 +115,12 @@ jobs:
       - name: Verify CBT calendar tenant dates and month navigation
         run: npm run test:cbt-calendar
 
+      - name: Verify CBT decision dashboard metrics
+        run: npm run test:cbt-dashboard
+
+      - name: Verify CBT tenant question package summaries
+        run: npm run test:cbt-packages
+
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow
 

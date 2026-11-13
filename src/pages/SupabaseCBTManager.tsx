@@ -6,6 +6,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
+import { deriveCbtDashboardSummary } from "../lib/cbtDashboard";
+import { deriveCbtPackageSummaries } from "../lib/cbtPackages";
 import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate } from "../lib/tenantTimeZone";
 
 type Question = {
@@ -98,6 +100,7 @@ export function SupabaseCBTManager() {
   const todayInTenant = tenantDate(new Date(), tenantTimeZone);
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [tab, setTab] = useState<Tab>("questions");
+  const [dashboardNow, setDashboardNow] = useState(() => Date.now());
   const [calendarMonth, setCalendarMonth] = useState(() => cbtTenantMonthKey(new Date(), tenantTimeZone));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => tenantDate(new Date(), tenantTimeZone));
   const [loading, setLoading] = useState(true);
@@ -125,6 +128,11 @@ export function SupabaseCBTManager() {
     setCalendarMonth(today.slice(0, 7));
     setSelectedCalendarDate(today);
   }, [user?.tenantId, tenantTimeZone]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setDashboardNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
@@ -194,18 +202,9 @@ export function SupabaseCBTManager() {
     && Boolean(question.subjectReferenceId && question.gradeLevelReferenceId)), [snapshot.questions, exam.subjectReferenceId, exam.gradeLevelReferenceId]);
   const selectedQuestionCount = selectedQuestions.filter((id) => eligibleQuestions.some((question) => question.id === id)).length;
 
-  const dashboardStats = useMemo(() => {
-    const activeQuestions = snapshot.questions.filter((item) => item.status === "active").length;
-    const publishedExams = snapshot.exams.filter((item) => ["published", "active"].includes(String(item.status || "").toLowerCase())).length;
-    const completed = snapshot.results.filter((item) => ["completed", "submitted", "graded"].includes(String(item.status || "").toLowerCase())).length;
-    const inProgress = snapshot.results.filter((item) => ["in_progress", "assigned"].includes(String(item.status || "").toLowerCase())).length;
-    const scored = snapshot.results.filter((item) => item.score != null);
-    const averageScore = scored.length
-      ? Math.round((scored.reduce((sum, item) => sum + Number(item.score || 0), 0) / scored.length) * 10) / 10
-      : null;
-    const passed = scored.filter((item) => item.passed === true).length;
-    return { activeQuestions, publishedExams, completed, inProgress, averageScore, passed, scoredCount: scored.length };
-  }, [snapshot.exams, snapshot.questions, snapshot.results]);
+  const dashboardSummary = useMemo(() => deriveCbtDashboardSummary(snapshot.exams, snapshot.results, dashboardNow), [snapshot.exams, snapshot.results, dashboardNow]);
+  const formatDashboardPercent = (value: number | null) => value === null ? "—" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value)}%`;
+  const formatDashboardScore = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value);
 
   const calendarDays = useMemo(() => buildCbtCalendarGrid(calendarMonth, tenantTimeZone, todayInTenant), [calendarMonth, tenantTimeZone, todayInTenant]);
   const calendarWeeks = useMemo(() => Array.from({ length: 6 }, (_, index) => calendarDays.slice(index * 7, index * 7 + 7)), [calendarDays]);
@@ -227,11 +226,7 @@ export function SupabaseCBTManager() {
     setSelectedCalendarDate(todayInTenant);
   };
 
-  const packageRows = useMemo(() => snapshot.references.templates.map((template) => {
-    const questions = snapshot.questions.filter((item) => item.templateReferenceId === template.id);
-    const active = questions.filter((item) => item.status === "active").length;
-    return { ...template, questionCount: questions.length, activeCount: active };
-  }), [snapshot.questions, snapshot.references.templates]);
+  const cbtPackages = useMemo(() => deriveCbtPackageSummaries(snapshot.references.templates, snapshot.questions), [snapshot.references.templates, snapshot.questions]);
 
   const monitorRows = useMemo(() => {
     const byExam = new Map<string, { title: string; assigned: number; inProgress: number; completed: number; graded: number }>();
@@ -374,31 +369,31 @@ export function SupabaseCBTManager() {
     {tab === "dashboard" && <section className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Soal aktif", value: dashboardStats.activeQuestions },
-          { label: "Sesi terbit/aktif", value: dashboardStats.publishedExams },
-          { label: "Peserta berjalan", value: dashboardStats.inProgress },
-          { label: "Peserta selesai", value: dashboardStats.completed },
-        ].map((item) => <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : item.value}</p></article>)}
+          { label: "Sesi berlangsung", value: dashboardSummary.ongoingSessions, detail: "Sedang dibuka", icon: Radio },
+          { label: "Jadwal mendatang", value: dashboardSummary.upcomingSessions, detail: "Sesi terbit berikutnya", icon: CalendarClock },
+          { label: "Penyelesaian penugasan", value: formatDashboardPercent(dashboardSummary.completionRate), detail: `${dashboardSummary.completedAssignments} dari ${dashboardSummary.totalAssignments} penugasan`, icon: ClipboardList },
+          { label: "Kelulusan peserta", value: formatDashboardPercent(dashboardSummary.passRate), detail: `${dashboardSummary.scoredAssignments} peserta dinilai`, icon: ShieldCheck },
+        ].map((item) => <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-start justify-between gap-3"><div><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : item.value}</p><p className="mt-1 text-xs text-slate-500">{loading ? "Memuat data…" : item.detail}</p></div><item.icon className="h-5 w-5 shrink-0 text-indigo-700" /></div></article>)}
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-          <h2 className="font-semibold text-slate-900 dark:text-white">Ringkasan nilai</h2>
-          <p className="mt-1 text-sm text-slate-500">Dihitung dari hasil ujian yang sudah memiliki nilai pada snapshot tenant.</p>
-          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><dt className="text-xs text-slate-500">Rata-rata nilai</dt><dd className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{dashboardStats.averageScore == null ? "—" : dashboardStats.averageScore}</dd></div>
-            <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><dt className="text-xs text-slate-500">Lulus / dinilai</dt><dd className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{dashboardStats.passed} / {dashboardStats.scoredCount}</dd></div>
-          </dl>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-4 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Jadwal ujian berikutnya</h2><p className="mt-1 text-xs text-slate-500">Waktu mengikuti zona pesantren: {tenantTimeZone}.</p></div><button type="button" onClick={() => setTab("calendar")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Buka kalender</button></header>
+          {loading ? <div role="status" className="p-8 text-sm text-slate-500">Memuat jadwal…</div> : dashboardSummary.upcomingExams.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{dashboardSummary.upcomingExams.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)}</p></div><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></article>)}</div> : <div className="p-8 text-center text-sm text-slate-500">Belum ada jadwal ujian terbit yang akan datang.</div>}
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-          <h2 className="font-semibold text-slate-900 dark:text-white">Aksi cepat</h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" onClick={() => setTab("questions")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Bank soal</button>
-            <button type="button" onClick={() => setTab("exams")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Buat sesi</button>
-            <button type="button" onClick={() => setTab("monitor")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Pemantauan</button>
-            <button type="button" onClick={() => setTab("results")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Hasil</button>
-          </div>
+        <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-4 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Hasil terbaru</h2><p className="mt-1 text-xs text-slate-500">Rata-rata nilai: {formatDashboardScore(dashboardSummary.averageScore)}</p></div><button type="button" onClick={() => setTab("results")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Lihat semua hasil</button></header>
+          {loading ? <div role="status" className="p-8 text-sm text-slate-500">Memuat hasil…</div> : dashboardSummary.latestResults.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{dashboardSummary.latestResults.map((item) => <article key={item.assignmentId} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.studentName}</h3><p className="mt-1 text-sm text-slate-500">{item.examTitle}{item.className ? ` · ${item.className}` : ""}</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.submittedAt || "", tenantTimeZone)}</p></div><div className="text-right"><p className="font-semibold text-slate-900 dark:text-white">{item.score == null ? "Belum dinilai" : formatDashboardScore(item.score)}</p>{item.passed !== null && <span className={item.passed ? "text-xs text-emerald-700 dark:text-emerald-300" : "text-xs text-rose-700 dark:text-rose-300"}>{item.passed ? "Lulus" : "Belum lulus"}</span>}</div></article>)}</div> : <div className="p-8 text-center text-sm text-slate-500">Hasil ujian akan tampil setelah peserta mengumpulkan ujian.</div>}
         </article>
       </div>
+      <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <h2 className="font-semibold text-slate-900 dark:text-white">Aksi cepat</h2>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" onClick={() => setTab("questions")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Bank soal</button>
+          <button type="button" onClick={() => setTab("exams")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Buat sesi</button>
+          <button type="button" onClick={() => setTab("monitor")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Pemantauan</button>
+          <button type="button" onClick={() => setTab("results")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Hasil</button>
+        </div>
+      </article>
     </section>}
 
     {tab === "calendar" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
@@ -437,9 +432,9 @@ export function SupabaseCBTManager() {
       </div>
     </section>}
 
-    {tab === "packages" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-      <div><h2 className="font-semibold text-slate-900 dark:text-white">Paket soal tenant</h2><p className="mt-1 text-sm text-slate-500">Paket dikelola lewat pengaturan kategori modul CBT di atas. Jumlah soal dihitung dari bank soal yang memakai paket tersebut.</p></div>
-      {loading ? <p className="text-sm text-slate-500">Memuat paket…</p> : packageRows.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{packageRows.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3>{item.description && <p className="mt-1 text-xs text-slate-500">{item.description}</p>}</div><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{item.activeCount} aktif / {item.questionCount} soal</span><button type="button" onClick={() => { setForm((current) => ({ ...current, templateReferenceId: item.id })); setTab("questions"); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Buka di bank soal</button></div></article>)}</div> : <p className="text-sm text-slate-500">Belum ada paket soal. Tambahkan melalui panel pengaturan kategori modul CBT.</p>}
+    {tab === "packages" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Paket soal ujian</h2><p className="mt-1 text-sm text-slate-500">Ringkasan diambil dari kategori tenant dan soal yang terhubung.</p></div><button type="button" onClick={() => setTab("questions")} className={BUTTON}><BookOpen className="h-4 w-4" />Buka bank soal</button></header>
+      {loading ? <div role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat paket soal…</div> : error ? <div className="p-8 text-sm text-slate-600 dark:text-slate-300">Paket soal belum dapat ditampilkan. Muat ulang untuk mencoba kembali.</div> : cbtPackages.length ? <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">{cbtPackages.map((item) => <article key={item.id} className="flex min-h-64 flex-col rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-sm text-slate-500">{item.description || "Belum ada keterangan paket."}</p></div><Boxes className="h-5 w-5 shrink-0 text-indigo-700" /></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Soal aktif</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.activeQuestions}</p></div><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Jumlah soal</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.totalQuestions}</p></div></div><div className="mt-4 space-y-2 text-xs"><div><span className="font-semibold text-slate-600 dark:text-slate-300">Mata pelajaran: </span><span className="text-slate-500">{item.subjects.length ? item.subjects.join(", ") : "Belum ada soal"}</span></div><div><span className="font-semibold text-slate-600 dark:text-slate-300">Jenjang: </span><span className="text-slate-500">{item.gradeLevels.length ? item.gradeLevels.join(", ") : "Belum ada soal"}</span></div></div><button type="button" onClick={() => { setSearch(item.name); setTab("questions"); }} disabled={!item.totalQuestions} className="mt-auto pt-5 text-left text-sm font-semibold text-indigo-700 hover:text-indigo-900 disabled:cursor-not-allowed disabled:text-slate-400 dark:text-indigo-300 dark:hover:text-indigo-200">{item.totalQuestions ? "Lihat soal dalam paket →" : "Belum ada soal dalam paket ini"}</button></article>)}</div> : <div className="p-10 text-center"><Boxes className="mx-auto h-8 w-8 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Belum ada paket soal</h3><p className="mx-auto mt-1 max-w-lg text-sm text-slate-500">Tambahkan kategori paket CBT dan referensi mata pelajaran melalui pengaturan modul, lalu susun soal untuk kategori tersebut.</p></div>}
     </section>}
 
     {tab === "monitor" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
