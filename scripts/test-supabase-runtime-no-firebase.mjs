@@ -468,6 +468,8 @@ const customerCopyGuards = [
   { path: 'src/pages/SupabaseGeneralAffairManager.tsx', pattern: /Sesi Supabase tidak ditemukan|data tenant|inventaris tenant|ledger inventaris|belum punya API|runtime/i },
   { path: 'src/pages/SupabaseLMSManager.tsx', pattern: /Sesi Supabase tidak tersedia|tenant Supabase|LMS Supabase|arsip Firebase|data LMS tenant|profil tenant|kursus tenant|snapshot tenant|katalog tenant|Admin tenant/i },
   { path: 'src/pages/SupabasePpdbManager.tsx', pattern: /Sesi Supabase tidak ditemukan|calon santri Supabase|tenant aktif diperlukan|Backend belum|Admin tenant|calon santri tenant|tenant ini|transaksi Supabase/i },
+  { path: 'src/pages/SupabaseCrmManager.tsx', pattern: /WA_GATEWAY_API_KEY|broadcastStatus\.endpoint|OpenWA Easy|Memeriksa konfigurasi OpenWA/i },
+  { path: 'src/pages/SupabaseCBTManager.tsx', pattern: /pesantren key yang cocok|Simpan ke|\. sistem memindai/i },
 ];
 for (const { path: relativePath, pattern } of customerCopyGuards) {
   const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
