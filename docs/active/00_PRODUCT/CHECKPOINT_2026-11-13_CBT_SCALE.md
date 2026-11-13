@@ -25,7 +25,7 @@
 
 ## Pemeriksaan lokal
 
-Lulus lokal: lint, build, test CBT, test pemetaan pesan, preflight sumber migrasi, cakupan workflow CI, API-route auth policy, flags, dan konfigurasi deployment pelanggan. CI pada head `d55df95066b025883fc99d29e1961778da4b00a4` lulus pada ketiga job required: frontend/build guard, migrations/API/pgTAP, dan instalasi pelanggan. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. Supabase Preview dilewati karena preview branch dinonaktifkan.
+Lulus lokal: lint, build, test CBT, test pemetaan pesan, preflight sumber migrasi, cakupan workflow CI, API-route auth policy, flags, dan konfigurasi deployment pelanggan. GitHub Actions run #1616 pada head `ebae253e5fa4c5eff894ec55642b3a9e7519bc8b` lulus pada ketiga job required: frontend/build guard, migrations/API/pgTAP, dan instalasi pelanggan. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. Supabase Preview dilewati karena preview branch dinonaktifkan.
 
 Belum lulus/terbukti:
 
