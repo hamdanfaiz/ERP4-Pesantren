@@ -143,6 +143,8 @@ Inventaris nama tabel langsung berbeda pada dua arah meskipun jumlah totalnya be
 
 Ini hanya selisih **nama relasi**. Tipe kolom, constraint, index, function, trigger, RLS policy, privilege, dan isi tabel belum dibandingkan.
 
+Khusus Tahfidz, `quran_surahs` ada di VQE tetapi tidak ada di Production. VQE memiliki alias ledger lama `20261109145507 tahfidz_quran_surah_catalog`, sedangkan file source saat ini adalah `20270320000000_tahfidz_quran_surah_catalog.sql`; versi source itu juga belum tercatat di ledger PTSAS. Struktur kolom, check/unique constraint, dan primary key VQE cocok dengan definisi tabel dalam source. Hitungan agregat saja menunjukkan 114 nomor surat unik dari 1–114 dan tidak ada record di luar batas; nama/record tidak dibaca atau disalin. Tim perlu merekonsiliasi alias VQE terhadap source, lalu merencanakan penerapan beserta seed katalog ke Production secara terpisah. Jangan menghapus objek hanya karena tidak ada pada salah satu inventaris.
+
 Lihat juga [snapshot ledger VQE 13 November](VQE_STAGING_MIGRATION_LEDGER_DRIFT_2026-11-13.md). Snapshot Production ini tidak memperbaiki alias atau ledger staging.
 
 ## Urutan kerja yang disarankan bagi tim backend
