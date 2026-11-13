@@ -228,7 +228,7 @@ export function ExportModal({
                 </div>
                 <div className="font-semibold text-xs text-slate-200">Standard CSV</div>
                 <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                  Format teks murni kompatibel dengan software database pihak ketiga.
+                  Format teks murni kompatibel dengan software basis data pihak ketiga.
                 </div>
               </button>
 
@@ -247,7 +247,7 @@ export function ExportModal({
                 </div>
                 <div className="font-semibold text-xs text-slate-200">JSON File</div>
                 <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                  Format terstruktur hierarkis untuk backup & integrasi API developer.
+                  Format terstruktur hierarkis untuk backup & integrasi layanan developer.
                 </div>
               </button>
             </div>

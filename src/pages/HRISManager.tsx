@@ -1235,7 +1235,7 @@ function ShiftPlannerView() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl p-5 shadow-sm">
         <div>
-          <h3 className="font-semibold text-slate-800 dark:text-slate-200">Weekly Shift Roster</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-200">Weekly Shift daftar santri</h3>
           <p className="text-sm text-slate-500 flex items-center gap-2"><CalendarRange className="w-4 h-4" /> June 8 - June 14, 2026</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

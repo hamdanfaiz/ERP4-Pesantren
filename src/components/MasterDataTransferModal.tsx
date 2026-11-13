@@ -93,7 +93,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
 
   const handleApply = async () => {
     if (!preview || preview.readyCount < 1 || preview.errorCount > 0) return;
-    if (!window.confirm("Impor " + preview.readyCount + " record " + label + " untuk pesantren ini? Record yang sudah ada akan dilewati dan tidak ditimpa.")) return;
+    if (!window.confirm("Impor " + preview.readyCount + " data " + label + " untuk pesantren ini? Data yang sudah ada akan dilewati dan tidak ditimpa.")) return;
     setBusy("apply");
     setError("");
     setResult(null);

@@ -40,7 +40,7 @@ const buttonClass = "inline-flex items-center justify-center gap-2 rounded-xl bo
 
 async function crmRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi tidak ditemukan. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
@@ -241,7 +241,7 @@ export function SupabaseCrmManager() {
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">Relasi pesantren</p>
         <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">CRM Pesantren</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Kelola relasi wali, calon wali, alumni, donatur, dan mitra dalam ruang data tenant pesantren.</p>
+        <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Kelola relasi wali, calon wali, alumni, donatur, dan mitra dalam ruang data pesantren.</p>
       </div>
       <div className="flex gap-2">
         <button type="button" onClick={() => void refresh()} className={buttonClass} aria-label="Muat ulang kontak CRM"><RefreshCw className="h-4 w-4" /> Muat ulang</button>
@@ -261,12 +261,12 @@ export function SupabaseCrmManager() {
     {tab === "broadcast" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900/70">
       <div>
         <h2 className="font-semibold text-slate-900 dark:text-white">Siaran WhatsApp (OpenWA)</h2>
-        <p className="mt-1 text-sm text-slate-500">Hanya kontak dengan persetujuan menerima informasi dan nomor telepon valid. Pengiriman lewat OpenWA Easy API di server.</p>
+        <p className="mt-1 text-sm text-slate-500">Hanya kontak dengan persetujuan menerima informasi dan nomor telepon valid. Pengiriman lewat OpenWA Easy layanan di sistem.</p>
       </div>
       <div className={`rounded-xl border px-4 py-3 text-sm ${broadcastStatus?.configured ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-950/25 dark:text-emerald-200" : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-950/25 dark:text-amber-200"}`}>
         {broadcastStatus == null ? "Memeriksa konfigurasi OpenWA…"
           : broadcastStatus.configured ? `OpenWA siap · ${broadcastStatus.endpoint}`
-            : (broadcastStatus.error || "OpenWA belum dikonfigurasi. Isi endpoint di Pengaturan dan WA_GATEWAY_API_KEY di server.")}
+            : (broadcastStatus.error || "OpenWA belum dikonfigurasi. Isi endpoint di Pengaturan dan WA_GATEWAY_API_KEY di sistem.")}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <article className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="text-xs text-slate-500">Setuju menerima info</p><p className="mt-2 text-2xl font-semibold">{summary.marketingConsentedContacts}</p></article>
@@ -321,7 +321,7 @@ export function SupabaseCrmManager() {
           <table className="w-full min-w-[680px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/[0.03] dark:text-slate-400"><tr><th className="px-4 py-3 font-semibold">Nama relasi</th><th className="px-4 py-3 font-semibold">Jenis</th><th className="px-4 py-3 font-semibold">Tahap</th><th className="px-4 py-3 font-semibold">Interaksi</th></tr></thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {loading && <tr><td colSpan={4} className="px-4 py-12 text-center text-slate-500"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />Memuat kontak tenant…</td></tr>}
+              {loading && <tr><td colSpan={4} className="px-4 py-12 text-center text-slate-500"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />Memuat kontak pesantren…</td></tr>}
               {!loading && contacts.map((contact) => <tr key={contact.id} onClick={() => setSelectedId(contact.id)} className={`cursor-pointer transition hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 ${selectedId === contact.id ? "bg-emerald-50 dark:bg-emerald-950/30" : ""}`}>
                 <td className="px-4 py-3"><div className="font-semibold text-slate-900 dark:text-white">{contact.name}</div><div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">{contact.organizationName ? <><Building2 className="h-3 w-3" />{contact.organizationName}</> : contact.email || contact.phone || "Belum ada detail kontak"}</div></td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{typeLabel(contact.contactType)}</td>
@@ -363,7 +363,7 @@ export function SupabaseCrmManager() {
 
     {formOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
       <form onSubmit={saveContact} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">{editingId ? "Perbarui kontak" : "Tambah kontak"}</h2><p className="mt-1 text-sm text-slate-500">Semua data tersimpan untuk tenant pesantren aktif.</p></div><button type="button" onClick={() => setFormOpen(false)} className={buttonClass} aria-label="Tutup formulir"><X className="h-4 w-4" /></button></div>
+        <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">{editingId ? "Perbarui kontak" : "Tambah kontak"}</h2><p className="mt-1 text-sm text-slate-500">Semua data tersimpan untuk pesantren aktif.</p></div><button type="button" onClick={() => setFormOpen(false)} className={buttonClass} aria-label="Tutup formulir"><X className="h-4 w-4" /></button></div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Nama kontak<input required minLength={2} maxLength={160} className={inputClass} value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
           <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Jenis kontak<select className={inputClass} value={draft.contactType} onChange={(event) => setDraft((current) => ({ ...current, contactType: event.target.value as ContactType }))}>{CONTACT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

@@ -67,7 +67,7 @@ export function SupabaseBoardingDisciplineManager() {
       createRequestId.current = null;
       setOpenForm(false);
       setForm((current) => ({ ...current, offense: "", points: 1, incidentDate: today(), photoUrl: "", resolution: "" }));
-      setNotice("Catatan kedisiplinan tersimpan di Supabase dan tercatat pada audit tenant.");
+      setNotice("Catatan kedisiplinan tersimpan dan tercatat pada audit pesantren.");
       try { await refresh(); } catch { setError("Catatan sudah tersimpan, tetapi daftar belum dapat dimuat ulang."); }
     } catch (e: any) { setError(e?.message || "Catatan belum dapat disimpan."); }
     finally { setSaving(""); }
@@ -81,7 +81,7 @@ export function SupabaseBoardingDisciplineManager() {
       await resolveSupabaseBoardingDiscipline(incidentId, id);
       requestIds.current.delete(incidentId);
       await refresh();
-      setNotice("Catatan pelanggaran diselesaikan dan perubahan tersimpan pada audit tenant.");
+      setNotice("Catatan pelanggaran diselesaikan dan perubahan tersimpan pada audit pesantren.");
     } catch (e: any) { setError(e?.message || "Status catatan belum dapat diperbarui."); }
     finally { setSaving(""); }
   };
@@ -92,7 +92,7 @@ export function SupabaseBoardingDisciplineManager() {
       const report = await migrateSupabaseBoardingDiscipline(apply, importReport?.previewFingerprint);
       setImportReport(report);
       if (apply) { await refresh(); setNotice(`Impor histori kedisiplinan selesai: ${report.imported} baru, ${report.unchanged} sudah sama.`); }
-    } catch (e: any) { setError(e?.message || "Preview/impor histori belum dapat diproses."); }
+    } catch (e: any) { setError(e?.message || "Pratinjau atau impor catatan kedisiplinan belum dapat diproses."); }
     finally { setImportBusy(false); }
   };
 
@@ -102,9 +102,9 @@ export function SupabaseBoardingDisciplineManager() {
 
   return <section className="space-y-6">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div><div className="flex items-center gap-2 text-sm font-semibold text-amber-700"><ShieldAlert className="h-4 w-4" />Asrama · Kedisiplinan · Supabase</div>
+      <div><div className="flex items-center gap-2 text-sm font-semibold text-amber-700"><ShieldAlert className="h-4 w-4" />Asrama · Kedisiplinan ·</div>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Catatan Kedisiplinan</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600">Catatan terikat pada tenant dan profil santri. Pencatatan serta penyelesaian divalidasi server dan masuk ke audit.</p></div>
+        <p className="mt-1 max-w-2xl text-sm text-slate-600">Catatan terikat pada pesantren dan profil santri. Pencatatan serta penyelesaian divalidasi sistem dan masuk ke audit.</p></div>
       <div className="flex gap-2">
         <button type="button" onClick={() => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"><RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
         {snapshot.canManage && <button type="button" onClick={() => { setError(""); createRequestId.current = crypto.randomUUID(); setOpenForm(true); }} disabled={!snapshot.students.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-4 w-4" />Catat pelanggaran</button>}
@@ -120,21 +120,21 @@ export function SupabaseBoardingDisciplineManager() {
 
     {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
-    <div role="note" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"><span className="font-semibold">Cakupan layar:</span> Pencatatan pelanggaran dan penyelesaiannya tersimpan di Supabase. Kehadiran, penugasan staf, audit asrama, dan tiket fasilitas dikelola melalui layar masing-masing.</div>
+    <div role="note" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Catatan pelanggaran dan tindak lanjutnya dapat dikelola pada halaman ini.</div>
 
     {canImport && <section className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-indigo-950">Impor histori kedisiplinan dari Firebase</h2><p className="mt-1 text-sm text-indigo-800">Pratinjau harus bersih sebelum diterapkan. Identitas ambigu dan foto lokal/non-HTTPS perlu direkonsiliasi lebih dulu.</p></div>
-        <button type="button" onClick={() => void runImport(false)} disabled={importBusy} className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50">{importBusy ? "Memproses…" : "Preview impor"}</button></div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-indigo-950">Impor histori kedisiplinan dari data lama</h2><p className="mt-1 text-sm text-indigo-800">Pratinjau harus bersih sebelum diterapkan. Identitas ambigu dan foto lokal/non-HTTPS perlu direkonsiliasi lebih dulu.</p></div>
+        <button type="button" onClick={() => void runImport(false)} disabled={importBusy} className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50">{importBusy ? "Memproses…" : "Pratinjau impor"}</button></div>
       {importReport && <div className="mt-4 space-y-2 border-t border-indigo-200 pt-3 text-sm text-indigo-950"><div>{importReport.sourceCount} sumber · {importReport.planned} siap · {importReport.alreadyImported} sudah sama · {importReport.issues.length} perlu rekonsiliasi</div>
-        {importReport.canApply && importReport.dryRun && <button type="button" onClick={() => void runImport(true)} disabled={importBusy} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">{importBusy ? "Mengimpor…" : "Terapkan snapshot ini"}</button>}
+        {importReport.canApply && importReport.dryRun && <button type="button" onClick={() => void runImport(true)} disabled={importBusy} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">{importBusy ? "Mengimpor…" : "Terapkan data saat ini ini"}</button>}
         {importReport.issues.length > 0 && <ul className="max-h-40 list-disc space-y-1 overflow-auto pl-5 text-xs text-rose-800">{importReport.issues.map((item, index) => <li key={`${item.sourceId}-${index}`}><span className="font-mono">{item.sourceId}:</span> {item.reason}</li>)}</ul>}
         {importReport.warnings.length > 0 && <ul className="max-h-32 list-disc space-y-1 overflow-auto pl-5 text-xs text-amber-800">{importReport.warnings.map((item, index) => <li key={`${item.sourceId}-${index}`}><span className="font-mono">{item.sourceId}:</span> {item.reason}</li>)}</ul>}</div>}
     </section>}
 
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-slate-900">Riwayat pelanggaran</h2><p className="mt-1 text-xs text-slate-500">Data dan filter dibatasi ke tenant aktif.</p></div><input aria-label="Cari catatan kedisiplinan" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari santri, NIS, kamar, pelanggaran…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs" /></div>
-      {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" />Memuat data tenant…</div>
-        : visibleIncidents.length === 0 ? <div className="p-12 text-center"><ClipboardCheck className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-medium text-slate-700">Belum ada catatan pelanggaran</p><p className="mt-1 text-sm text-slate-500">Catatan tenant akan muncul di sini setelah tersimpan.</p></div>
+      <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-slate-900">Riwayat pelanggaran</h2><p className="mt-1 text-xs text-slate-500">Data dan filter dibatasi ke pesantren aktif.</p></div><input aria-label="Cari catatan kedisiplinan" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari santri, NIS, kamar, pelanggaran…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs" /></div>
+      {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" />Memuat data pesantren…</div>
+        : visibleIncidents.length === 0 ? <div className="p-12 text-center"><ClipboardCheck className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-medium text-slate-700">Belum ada catatan pelanggaran</p><p className="mt-1 text-sm text-slate-500">Catatan pesantren akan muncul di sini setelah tersimpan.</p></div>
           : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3 font-semibold">Santri</th><th className="px-4 py-3 font-semibold">Pelanggaran</th><th className="px-4 py-3 font-semibold">Poin</th><th className="px-4 py-3 font-semibold">Tanggal</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100">{visibleIncidents.map((incident) => <tr key={incident.id} className="align-top hover:bg-slate-50/70">
             <td className="px-4 py-4"><div className="font-semibold text-slate-900">{incident.santriName}</div><div className="mt-1 text-xs text-slate-500">NIS {incident.nis || "—"} · Kamar {incident.room || "—"}</div></td>
             <td className="px-4 py-4"><div className="font-medium text-slate-800">{incident.offense}</div><div className="mt-1 text-xs text-slate-500">{incident.category}{incident.resolution ? ` · Tindak lanjut: ${incident.resolution}` : ""}</div>{incident.photoUrl && <a className="mt-1 inline-block text-xs font-medium text-indigo-700 underline" href={incident.photoUrl} target="_blank" rel="noreferrer">Lihat bukti</a>}</td>

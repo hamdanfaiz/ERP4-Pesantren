@@ -126,7 +126,7 @@ export function SupabaseDocumentManager() {
 
   const createDocument = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!canManage) { setError("Akses pengelolaan Dokumen Digital hanya tersedia untuk Admin tenant."); return; }
+    if (!canManage) { setError("Akses pengelolaan Dokumen Digital hanya tersedia untuk Admin pesantren."); return; }
     setSaving(true); setError(""); setNotice("");
     try {
       const payload = { ...draft, subject: draft.subject.trim(), senderName: draft.senderName.trim(), recipientName: draft.recipientName.trim(), summary: draft.summary.trim() };
@@ -134,7 +134,7 @@ export function SupabaseDocumentManager() {
       await documentRequest("/api/documents", { method: "POST", body: JSON.stringify({ document: { ...payload, clientRequestId: lease.requestId } }) });
       lease.clear();
       setFormOpen(false); setDraft(INITIAL_DRAFT);
-      setNotice("Dokumen terdaftar dan tercatat pada tenant ini.");
+      setNotice("Dokumen terdaftar dan tercatat pada pesantren ini.");
       await fetchPage(null, false);
     } catch (saveError: any) { setError(saveError?.message || "Dokumen belum dapat didaftarkan."); }
     finally { setSaving(false); }

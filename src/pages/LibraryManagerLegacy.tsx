@@ -1184,7 +1184,7 @@ export function LibraryManager() {
                    </div>
                    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-2">Secure Viewer Ready</h3>
                    <p className="text-slate-500 text-sm mb-6">
-                     No file content available for preview. Upload a document to view it here.
+                     Isi berkas belum tersedia untuk pratinjau. Unggah dokumen untuk melihatnya di sini.
                    </p>
                    <button onClick={() => setViewingAsset(null)} className="bg-indigo-600 text-white font-medium px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors">
                      Close Viewer

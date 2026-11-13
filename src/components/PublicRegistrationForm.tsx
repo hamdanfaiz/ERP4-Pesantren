@@ -188,7 +188,7 @@ export function PublicRegistrationForm({
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Gagal menyimpan data pendaftaran. Silakan coba kembali.");
-      if (!payload.candidate?.id || !payload.candidate?.registrationId) throw new Error("Server tidak mengembalikan nomor pendaftaran yang valid.");
+      if (!payload.candidate?.id || !payload.candidate?.registrationId) throw new Error("sistem tidak mengembalikan nomor pendaftaran yang valid.");
       const fullCandidate = payload.candidate as Candidate;
       setSubmittedCandidate(fullCandidate);
       submissionRequestRef.current = null;

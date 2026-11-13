@@ -88,7 +88,7 @@ export function GenericCRUD({
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this record?")) return;
+    if (!window.confirm("Apakah Anda yakin ingin menghapus data ini?")) return;
     try {
       await deleteDoc(doc(db, collectionName, id));
     } catch (err) {

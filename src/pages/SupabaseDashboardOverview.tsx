@@ -25,7 +25,7 @@ function rupiah(value: number) {
 
 async function loadDashboard(period: DashboardPeriod, surface: "dashboard" | "intelligence", signal?: AbortSignal) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi tidak ditemukan. Silakan masuk kembali.");
   const query = new URLSearchParams({ period, surface });
   const response = await fetch(`/api/dashboard/snapshot?${query.toString()}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },

@@ -889,7 +889,7 @@ const LegacyAssetsModule = () => {
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
           <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
             <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm flex items-center gap-2">
-              <Database className="w-4 h-4 text-blue-600" /> Daftar Fasilitas & Inventaris Fisik (Real-time Firestore)
+              <Database className="w-4 h-4 text-blue-600" /> Daftar Fasilitas & Inventaris Fisik (pembaruan langsung)
             </h4>
             <span className="text-xs text-slate-500 font-medium">{filteredFacilities.length} Item Ditampilkan</span>
           </div>
@@ -985,7 +985,7 @@ const LegacyAssetsModule = () => {
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
           <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
             <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm flex items-center gap-2">
-              <Package className="w-4 h-4 text-emerald-600" /> Stok Logistik & Habis Pakai (Real-time Firestore)
+              <Package className="w-4 h-4 text-emerald-600" /> Stok Logistik & Habis Pakai (pembaruan langsung)
             </h4>
             <span className="text-xs text-slate-500 font-medium">{filteredInventory.length} Item Ditampilkan</span>
           </div>
@@ -1205,7 +1205,7 @@ const LegacyAssetsModule = () => {
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <button type="button" onClick={() => setIsAddFacilityOpen(false)} className="px-4 py-2 border rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100">Batal</button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Simpan ke Firestore</button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Simpan ke arsip lama</button>
               </div>
             </form>
           </div>
@@ -1313,7 +1313,7 @@ const LegacyAssetsModule = () => {
             <div className="text-center">
               <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Hapus Fasilitas?</h3>
               <p className="text-slate-500 text-xs mt-1">
-                Apakah Anda yakin ingin menghapus data aset <span className="font-semibold text-slate-800 dark:text-slate-200">{deleteFacilityModal.name}</span> ({deleteFacilityModal.id}) dari Firestore?
+                Apakah Anda yakin ingin menghapus data aset <span className="font-semibold text-slate-800 dark:text-slate-200">{deleteFacilityModal.name}</span> ({deleteFacilityModal.id}) dari arsip lama?
               </p>
             </div>
             <div className="flex gap-2 pt-2">
@@ -1651,7 +1651,7 @@ const LegacyAssetsModule = () => {
             <div className="text-center">
               <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Hapus Item Logistik?</h3>
               <p className="text-slate-500 text-xs mt-1">
-                Apakah Anda yakin ingin menghapus item <span className="font-semibold text-slate-800 dark:text-slate-200">{deleteInventoryModal.name}</span> ({deleteInventoryModal.id}) dari Firestore?
+                Apakah Anda yakin ingin menghapus item <span className="font-semibold text-slate-800 dark:text-slate-200">{deleteInventoryModal.name}</span> ({deleteInventoryModal.id}) dari arsip lama?
               </p>
             </div>
             <div className="flex gap-2 pt-2">
@@ -1824,7 +1824,7 @@ const ProcurementModule = () => {
 
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-          <h4 className="font-medium text-slate-700 dark:text-slate-300">Database Vendor & Rating</h4>
+          <h4 className="font-medium text-slate-700 dark:text-slate-300">basis data Vendor & Rating</h4>
         </div>
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {VENDORS.map(v => (
@@ -3022,7 +3022,7 @@ const MasterDataGA = () => {
                     <item.icon className="w-6 h-6" />
                   </div>
                   <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 group-hover:bg-blue-50 group-hover:text-blue-600 dark:group-hover:bg-blue-900/40 dark:group-hover:text-blue-300 transition-colors">
-                    {item.count} Record
+                      {item.count} Catatan
                   </span>
                 </div>
                 <h4 className="font-bold text-slate-800 dark:text-slate-200 text-base mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{item.title}</h4>

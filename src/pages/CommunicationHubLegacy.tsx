@@ -107,7 +107,7 @@ export function CommunicationHub() {
     if (!user?.tenantId || !user?.uid) {
       setSupabaseAnnouncements([]);
       setSupabaseAnnouncementsLoading(false);
-      setSupabaseAnnouncementsError('Profil tenant aktif diperlukan untuk membaca pengumuman.');
+      setSupabaseAnnouncementsError('Profil pesantren aktif diperlukan untuk membaca pengumuman.');
       return () => { active = false; };
     }
     setSupabaseAnnouncementsLoading(true);
@@ -141,7 +141,7 @@ export function CommunicationHub() {
       });
       setAnnouncementMigrationReport(payload);
     } catch (error: any) {
-      setAnnouncementMigrationError(error?.message || 'Preview/impor pengumuman belum dapat diproses.');
+      setAnnouncementMigrationError(error?.message || 'Pratinjau atau impor pengumuman belum dapat diproses.');
     } finally {
       setIsAnnouncementMigrationBusy(false);
     }
@@ -288,7 +288,7 @@ export function CommunicationHub() {
           <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/20 dark:text-rose-300">{supabaseAnnouncementsError}</div>
         )}
         {SUPABASE_COMMUNICATION_ANNOUNCEMENTS && supabaseAnnouncementsLoading ? (
-          <div role="status" className="rounded-xl border border-slate-200 bg-white/50 px-4 py-8 text-center text-sm text-slate-500 dark:border-white/5 dark:bg-black/20">Memuat pengumuman tenant…</div>
+          <div role="status" className="rounded-xl border border-slate-200 bg-white/50 px-4 py-8 text-center text-sm text-slate-500 dark:border-white/5 dark:bg-black/20">Memuat pengumuman pesantren…</div>
         ) : relevantAnnouncements.length === 0 ? (
           <div className="text-center py-12 text-slate-500 bg-black/20 rounded-xl border border-white/5">
             <Megaphone className="w-8 h-8 mx-auto mb-3 opacity-50" />
@@ -374,7 +374,7 @@ export function CommunicationHub() {
         <div role="alert" className="m-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/20 dark:text-rose-300">{supabaseAnnouncementsError}</div>
       )}
       {SUPABASE_COMMUNICATION_ANNOUNCEMENTS && supabaseAnnouncementsLoading && (
-        <div role="status" className="px-4 py-6 text-center text-sm text-slate-500">Memuat pengumuman tenant…</div>
+        <div role="status" className="px-4 py-6 text-center text-sm text-slate-500">Memuat pengumuman pesantren…</div>
       )}
       <table className="w-full text-left border-collapse">
         <thead>
@@ -746,7 +746,7 @@ export function CommunicationHub() {
               className="flex items-center gap-2 rounded-lg border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-50 dark:border-indigo-500/30 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
             >
               <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Preview Impor Pengumuman</span>
+                 <span className="hidden sm:inline">Pratinjau Impor Pengumuman</span>
             </button>
           )}
           {canCreateInCurrentTab && (
@@ -768,14 +768,14 @@ export function CommunicationHub() {
           <section role="dialog" aria-modal="true" aria-labelledby="announcement-migration-title" className="glass-panel w-full max-w-2xl overflow-hidden rounded-xl shadow-2xl">
             <header className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-white/5">
               <div>
-                <h2 id="announcement-migration-title" className="font-semibold text-slate-800 dark:text-slate-100">Migrasi Pengumuman Lama</h2>
-                <p className="mt-1 text-xs text-slate-500">Preview membaca Firestore tenant ini; apply menyimpan snapshot ke Supabase sekali.</p>
+                 <h2 id="announcement-migration-title" className="font-semibold text-slate-800 dark:text-slate-100">Impor Pengumuman Lama</h2>
+                 <p className="mt-1 text-xs text-slate-500">Tinjau pengumuman sebelum diimpor. Data asal tetap tersimpan.</p>
               </div>
               <button type="button" onClick={() => setIsAnnouncementMigrationOpen(false)} className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10">Tutup</button>
             </header>
             <div className="space-y-4 p-5">
               {announcementMigrationError && <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/20 dark:text-rose-300">{announcementMigrationError}</div>}
-              {isAnnouncementMigrationBusy && <div role="status" className="text-sm text-slate-500">Memeriksa snapshot tenant…</div>}
+               {isAnnouncementMigrationBusy && <div role="status" className="text-sm text-slate-500">Memeriksa pengumuman pesantren…</div>}
               {announcementMigrationReport && (
                 <>
                   {announcementMigrationReport.ok ? (
@@ -798,14 +798,14 @@ export function CommunicationHub() {
                   )}
                   {Array.isArray(announcementMigrationReport.warnings) && announcementMigrationReport.warnings.length > 0 && (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">
-                      Statistik baca lama yang tidak dapat dikaitkan ke identitas akan disimpan sebagai hitungan agregat, terpisah dari konfirmasi baru. {announcementMigrationReport.warnings.length} record memiliki hitungan agregat.
+                       Statistik baca lama yang tidak dapat dikaitkan dengan identitas disimpan sebagai jumlah gabungan, terpisah dari konfirmasi baru. {announcementMigrationReport.warnings.length} data memiliki jumlah gabungan.
                     </div>
                   )}
                 </>
               )}
             </div>
             <footer className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-white/5">
-              <button type="button" disabled={isAnnouncementMigrationBusy} onClick={() => void runAnnouncementMigration(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">Refresh Preview</button>
+               <button type="button" disabled={isAnnouncementMigrationBusy} onClick={() => void runAnnouncementMigration(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">Perbarui Pratinjau</button>
               <button type="button" disabled={isAnnouncementMigrationBusy || announcementMigrationReport?.canApply !== true || !announcementMigrationReport?.previewFingerprint || announcementMigrationReport?.ok === true} onClick={() => void runAnnouncementMigration(true)} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">{isAnnouncementMigrationBusy ? 'Memproses…' : 'Konfirmasi & Impor'}</button>
             </footer>
           </section>

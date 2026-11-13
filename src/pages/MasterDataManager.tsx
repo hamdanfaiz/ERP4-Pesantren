@@ -343,7 +343,7 @@ export function MasterDataManager() {
         setLegacyMigrationPreviews((current) => ({ ...current, [kind]: result }));
         showToast(result.errors?.length
           ? "Pratinjau selesai dengan " + result.errors.length + " konflik yang perlu diselesaikan."
-          : "Pratinjau selesai: " + (result.planned || 0) + " record siap ditinjau.",
+          : "Pratinjau selesai: " + (result.planned || 0) + " data siap ditinjau.",
         result.errors?.length ? "error" : "success");
       }
     } catch (error) {
@@ -863,8 +863,8 @@ export function MasterDataManager() {
       return;
     }
     if (modalMode === "edit" && String(result.data.id || "").trim() !== String(editingId || "").trim()) {
-      setFormErrors({ id: "ID record tidak dapat diubah setelah data dibuat." });
-      showToast("ID record tidak dapat diubah setelah data dibuat.", "error");
+      setFormErrors({ id: "ID data tidak dapat diubah setelah data dibuat." });
+      showToast("ID data tidak dapat diubah setelah data dibuat.", "error");
       return;
     }
 
@@ -1490,7 +1490,7 @@ export function MasterDataManager() {
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Migrasi arsip Master Data</h2>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Impor arsip Data Induk</h2>
               <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500 dark:text-slate-400">
                 Pratinjau tidak mengubah data. Tinjau konflik, relasi, dan salinan cadangan sebelum menerapkan impor. Impor struktur sebelum impor santri.
               </p>
@@ -1537,7 +1537,7 @@ export function MasterDataManager() {
                       {typeof preview.legacyStructureCount === "number" && (
                         <p>Struktur {preview.legacyStructureCount} · Santri sumber {preview.legacyStudentCount || 0} · Penempatan kamar belum cocok unik {preview.studentsWithoutUnambiguousRoom || 0}</p>
                       )}
-                      {typeof preview.legacyGuardianCount === "number" && <p>Record Wali sumber {preview.legacyGuardianCount}</p>}
+                      {typeof preview.legacyGuardianCount === "number" && <p>Data wali dari sumber {preview.legacyGuardianCount}</p>}
                       {(preview.errors || []).slice(0, 4).map((item: any, index: number) => (
                         <p key={"error-" + index} className="rounded-md bg-rose-50 px-2 py-1.5 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200">{item.category || "Konflik"} · {item.message}</p>
                       ))}
@@ -1903,7 +1903,7 @@ export function MasterDataManager() {
                         </p>
                         <div className="mt-2 text-xs bg-black/40 border border-slate-200 dark:border-white/5 rounded-lg p-2.5 text-slate-700 dark:text-slate-300 flex items-center justify-between">
                           <div className="truncate">
-                            Record:{" "}
+                        Data:{" "}
                             <span className="font-semibold text-white">
                               {log.recordName}
                             </span>{" "}
@@ -2188,7 +2188,7 @@ export function MasterDataManager() {
                   <div className="absolute top-0 right-0 h-full w-full max-w-[400px] glass-panel border-l border-slate-200 dark:border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-20 flex flex-col animate-in slide-in-from-right duration-300 print:relative print:w-full print:max-w-none print:shadow-none print:bg-white print:text-black print:border-none print:h-auto print:block">
                     <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-black/40 print:hidden">
                       <h3 className="font-medium text-slate-800 dark:text-slate-200">
-                        Record Profile
+                        Profil Data
                       </h3>
                       <button
                         onClick={() => setSelectedRecord(null)}
@@ -2458,7 +2458,7 @@ export function MasterDataManager() {
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                           <span className="font-semibold text-slate-800 dark:text-slate-100">
                                             {{
-                                              baseline_snapshot: "Kondisi saat cutover",
+                                              baseline_snapshot: "Kondisi awal penggunaan",
                                               initial_assignment: "Penempatan awal",
                                               assigned: "Penempatan kamar",
                                               moved: "Perpindahan kamar",
@@ -2479,11 +2479,11 @@ export function MasterDataManager() {
                                           </p>
                                         )}
                                         <p className="mt-1 text-slate-500 dark:text-slate-400">
-                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : entry.changeSource === "migration_baseline" ? "Snapshot cutover" : "Sistem"}
+                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : entry.changeSource === "migration_baseline" ? "Kondisi awal penggunaan" : "Sistem"}
                                         </p>
                                         {entry.eventType === "baseline_snapshot" && (
                                           <p className="mt-2 text-amber-700 dark:text-amber-300">
-                                            Kondisi ini dicatat saat migrasi; riwayat sebelum tanggal tersebut tidak tersedia.
+                                            Kondisi ini dicatat pada awal penggunaan; riwayat sebelum tanggal tersebut tidak tersedia.
                                           </p>
                                         )}
                                       </div>

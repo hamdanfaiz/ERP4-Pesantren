@@ -45,7 +45,7 @@ export const StructureHierarchyD3: React.FC = () => {
 
     if (!tenantId) {
       setData([]);
-      setLoadError('Profil tenant aktif diperlukan untuk membaca struktur.');
+      setLoadError('Profil pesantren aktif diperlukan untuk membaca struktur.');
       setIsLoading(false);
       return () => { active = false; };
     }
@@ -55,7 +55,7 @@ export const StructureHierarchyD3: React.FC = () => {
       .catch((error: any) => {
         if (!active) return;
         setData([]);
-        setLoadError(error?.message || 'Struktur tenant belum dapat dimuat dari Supabase.');
+        setLoadError(error?.message || 'Struktur pesantren belum dapat dimuat saat ini.');
         setIsLoading(false);
       });
 

@@ -1644,7 +1644,7 @@ export function LMSManager() {
                     />
                     {newCourse.videoUrl && getYoutubeThumbnail(newCourse.videoUrl) && (
                       <div className="mt-2 aspect-video bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden flex items-center justify-center">
-                        <img src={getYoutubeThumbnail(newCourse.videoUrl)} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                        <img src={getYoutubeThumbnail(newCourse.videoUrl)} alt="Pratinjau gambar video" className="w-full h-full object-cover" />
                       </div>
                     )}
                   </div>
@@ -1727,7 +1727,7 @@ export function LMSManager() {
                     />
                     {newVideoUpload.url && getYoutubeThumbnail(newVideoUpload.url) && (
                       <div className="mt-2 aspect-video bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden flex items-center justify-center">
-                        <img src={getYoutubeThumbnail(newVideoUpload.url)} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                        <img src={getYoutubeThumbnail(newVideoUpload.url)} alt="Pratinjau gambar video" className="w-full h-full object-cover" />
                       </div>
                     )}
                   </div>
@@ -1817,7 +1817,7 @@ export function LMSManager() {
                          </div>
                       ) : (
                         <>
-                          <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80" alt="Class preview" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+                          <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80" alt="Pratinjau kelas" className="absolute inset-0 w-full h-full object-cover opacity-50" />
                           <button className="w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all transform group-hover:scale-110 z-10 shadow-xl">
                             <PlayCircle className="w-8 h-8" />
                           </button>
