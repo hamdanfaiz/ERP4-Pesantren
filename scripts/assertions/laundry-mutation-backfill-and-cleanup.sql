@@ -187,6 +187,8 @@ WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 
 DELETE FROM public.lms_enrollments
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.lms_material_progress
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.lms_materials
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.lms_course_modules
