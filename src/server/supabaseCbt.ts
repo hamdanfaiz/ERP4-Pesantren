@@ -772,9 +772,10 @@ export function normalizeCbtAdminExamPageQuery(input: Record<string, unknown>): 
   }
   const readInstant = (value: unknown, label: string) => {
     if (value === undefined || value === null || value === "") return null;
-    const match = typeof value === "string"
-      ? /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/.exec(value)
-      : null;
+    if (typeof value !== "string") {
+      throw new SupabaseCbtError(400, `Batas waktu ${label} tidak valid.`);
+    }
+    const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/.exec(value);
     if (!match || value.length > 40) {
       throw new SupabaseCbtError(400, `Batas waktu ${label} tidak valid.`);
     }
@@ -1125,3 +1126,4 @@ export async function submitSupabaseCbtAttempt(tenantId: string, actorId: string
     method: "POST", body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_attempt_id: attemptId }),
   });
 }
+
