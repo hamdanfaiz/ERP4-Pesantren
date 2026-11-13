@@ -97,6 +97,17 @@ function cbtStatusLabel(status: string) {
   return labels[status.toLowerCase()] || status;
 }
 
+function cbtImportIssueLabel(code: string) {
+  const labels: Record<string, string> = {
+    record_limit_exceeded: "Jumlah data melebihi batas impor.",
+    duplicate_source_id: "Ada soal dengan nomor yang tercatat lebih dari sekali.",
+    invalid_source_id: "Sebagian soal belum memiliki nomor yang valid.",
+    invalid_question_record: "Sebagian data belum lengkap atau formatnya belum sesuai.",
+    source_changed_after_import: "Sebagian data berubah sejak terakhir diperiksa.",
+  };
+  return labels[code] || "Sebagian data perlu diperiksa sebelum diimpor.";
+}
+
 function ImportPreviewDetails({ preview }: { preview: ImportPreview | null }) {
   if (!preview) return null;
   return <div className="space-y-3">
@@ -104,10 +115,9 @@ function ImportPreviewDetails({ preview }: { preview: ImportPreview | null }) {
       { label: "Data sumber", value: preview.counts.source }, { label: "Siap diimpor", value: preview.counts.ready },
       { label: "Sudah diimpor", value: preview.counts.alreadyImported }, { label: "Tidak valid", value: preview.counts.invalid },
     ].map((item) => <div key={item.label} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><div className="text-xs text-slate-500">{item.label}</div><div className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.value}</div></div>)}</div>
-    <p className="break-all text-xs text-slate-400">Sidik digital data: {preview.snapshotFingerprint}</p>
     <div className="rounded-xl border border-slate-200 dark:border-white/10">
-      <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium dark:border-white/10">Temuan ({preview.issueCount})</div>
-      {preview.issues.length ? <ul className="divide-y divide-slate-100 dark:divide-white/5">{preview.issues.map((issue, index) => <li key={issue.recordRef + issue.code + index} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-xs"><span className="font-medium text-slate-700 dark:text-slate-200">{issue.code}</span><span className="text-slate-500">Ref {issue.recordRef || "—"} · {issue.severity}</span></li>)}</ul> : <p className="p-4 text-sm text-slate-500">Tidak ada konflik pada data ini.</p>}
+      <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium dark:border-white/10">Perlu ditinjau ({preview.issueCount})</div>
+      {preview.issues.length ? <ul className="divide-y divide-slate-100 dark:divide-white/5">{preview.issues.map((issue, index) => <li key={`${issue.code}-${index}`} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm"><span className="font-medium text-slate-700 dark:text-slate-200">{cbtImportIssueLabel(issue.code)}</span><span className={issue.severity === "blocking" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}>{issue.severity === "blocking" ? "Perlu diperbaiki" : "Perhatian"}</span></li>)}</ul> : <p className="p-4 text-sm text-slate-500">Semua data memenuhi pemeriksaan.</p>}
     </div>
     <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data dapat diterapkan. Server akan memeriksa ulang sidik digital sebelum penerapan." : "Data belum dapat diterapkan; perbaiki konflik atau selesaikan rekonsiliasi terlebih dahulu."}</p>
   </div>;
@@ -776,7 +786,7 @@ export function SupabaseCBTManager() {
         setNotice(`Impor selesai: ${Number(result.imported || 0)} soal baru, ${Number(result.skipped || 0)} sudah pernah diimpor.`);
         await refresh();
       }
-    } catch (cause: any) { setError(cause?.message || "Impor bank soal CBT belum dapat diproses."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor bank soal CBT belum dapat diproses.")); }
     finally { setSaving(false); }
   };
 
@@ -797,7 +807,7 @@ export function SupabaseCBTManager() {
         settingsAppliedTenant.current = "";
         await refresh();
       }
-    } catch (cause: any) { setError(cause?.message || "Impor konfigurasi CBT belum dapat diproses."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor konfigurasi CBT belum dapat diproses.")); }
     finally { setSaving(false); }
   };
 
@@ -830,7 +840,7 @@ export function SupabaseCBTManager() {
       setSelectedQuestions([]); setSelectedStudents([]);
       setExam((current) => ({ ...current, title: "", startsAt: localDateTimeOffset(60), endsAt: localDateTimeOffset(180) }));
       await refresh();
-    } catch (cause: any) { setError(cause?.message || "Ujian belum dapat dibuat."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Ujian belum dapat dibuat.")); }
     finally { setSaving(false); }
   };
 
