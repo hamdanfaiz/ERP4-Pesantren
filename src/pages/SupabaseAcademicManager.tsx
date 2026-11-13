@@ -340,7 +340,7 @@ export function SupabaseAcademicManager() {
       if (!Array.isArray(result.students) || result.students.length > 50 || typeof result.hasMore !== "boolean"
         || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor || result.nextCursor === cursorValue))
         || (!result.hasMore && result.nextCursor != null)) {
-        throw new Error("Halaman daftar santri santri belum lengkap.");
+        throw new Error("Daftar santri yang dimuat belum lengkap.");
       }
       setStudentRoster((current) => {
         if (!cursorValue) return result.students;
