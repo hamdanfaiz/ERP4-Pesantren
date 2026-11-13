@@ -1888,7 +1888,11 @@ export function TahfidzManager() {
               </div>
               <Trophy className="h-5 w-5 shrink-0 text-amber-500" aria-hidden="true" />
             </div>
-            {monthlyLeaderboardLoading || monthlyLeaderboardScopeKey !== currentMonthlyLeaderboardScopeKey ? (
+            {!SUPABASE_TAHFIDZ_RUNTIME ? (
+              <p role="status" className="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                Papan peringkat belum tersedia saat ini.
+              </p>
+            ) : monthlyLeaderboardLoading || monthlyLeaderboardScopeKey !== currentMonthlyLeaderboardScopeKey ? (
               <div role="status" aria-live="polite" aria-busy="true" className="p-4">
                 <ERPLoadingSkeleton variant="list" label="Memuat papan peringkat Ziyadah…" rows={4} />
               </div>
