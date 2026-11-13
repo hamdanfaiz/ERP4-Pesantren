@@ -98,7 +98,8 @@ assert.ok(integrationDefaults.includes('waGatewayEndpoint: ""') && integrationDe
 assert.ok(mobileDefaults.includes('supportWhatsapp: ""'), "New tenant support contact must start unconfigured");
 for (const placeholder of ["AI Studio", "pesantrenaistudio.edu", "+62 812 3456 7890", "wagw.example.com"]) assert.ok(!settingsService.includes(placeholder), `Demo value remains in tenant defaults: ${placeholder}`);
 for (const stale of ["AI Studio automatically", "Secrets panel in the AI Studio", "Cloud Run Secret Manager", "MY_GEMINI_API_KEY", "MY_APP_URL"]) assert.ok(!envExample.includes(stale), `.env.example still contains obsolete setup text: ${stale}`);
-assert.ok(settingsUi.includes("penyimpanan rahasia milik environment deployment"), "Settings UI must explain generic customer secret storage");
+assert.ok(settingsUi.includes("Kredensial integrasi dilindungi dan tidak ditampilkan pada layar ini."), "Settings UI must explain secret handling in user-facing language");
+assert.ok(!settingsUi.includes("WA_GATEWAY_API_KEY") && !settingsUi.includes("WA_GATEWAY_ENDPOINT"), "Settings UI must not expose backend environment variable names");
 assert.ok(settingsUi.includes('placeholder="ERP4 Pesantren | {schoolName}"'), "Settings UI page-title example must match the product brand");
 assert.ok(appUi.includes("schoolName: 'ERP4 Pesantren'") && appUi.includes("orgInfo.schoolName || 'ERP4 Pesantren'") && appUi.includes("`ERP4 Pesantren | ${schoolName}`"), "App defaults and browser title must use ERP4 Pesantren");
 assert.ok(sidebarUi.includes(": 'ERP4 Pesantren'}</h1>"), "Sidebar fallback must use ERP4 Pesantren");
