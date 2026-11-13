@@ -34,6 +34,7 @@
     "test:finance-unit-filter": "tsx scripts/test-finance-unit-filter.ts",
     "test:library-legacy-import": "tsx scripts/test-library-legacy-import.ts",
     "test:business-date": "tsx scripts/test-business-date.ts",
+    "test:cbt-calendar": "tsx scripts/test-cbt-calendar.ts",
     "test:rbac-permissions": "tsx scripts/test-rbac-permissions.ts",
     "test:auth-recovery-redirect": "tsx scripts/test-auth-recovery-redirect.ts",
     "test:document-list-filters": "tsx scripts/test-document-list-filters.ts",

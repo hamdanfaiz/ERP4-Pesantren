@@ -112,6 +112,9 @@ jobs:
       - name: Verify tenant business-day calculations
         run: npm run test:business-date
 
+      - name: Verify CBT calendar tenant dates and month navigation
+        run: npm run test:cbt-calendar
+
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow
 
