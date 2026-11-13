@@ -120,7 +120,7 @@ assert.match(quranCatalogMigration.statements.join('\n'), /surah_number SMALLINT
 assert.match(quranCatalogMigration.statements.join('\n'), /REVOKE ALL ON TABLE public\.quran_surahs FROM PUBLIC, anon, authenticated/i);
 assert.match(quranCatalogMigration.statements.join('\n'), /GRANT SELECT ON TABLE public\.quran_surahs TO service_role/i);
 assert.match(quranCatalogMigration.statements.join('\n'), /DROP TRIGGER IF EXISTS tahfidz_records_validate_quran_reference_insert/i);
-const tahfidzLeaderboardMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270321000000_tahfidz_monthly_leaderboard.sql');
+const tahfidzLeaderboardMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270327000000_tahfidz_monthly_leaderboard.sql');
 assert(tahfidzLeaderboardMigration, 'Tahfidz leaderboard must be backed by a forward-only persisted-data migration.');
 assert.match(tahfidzLeaderboardMigration.statements.join('\n'), /CREATE INDEX IF NOT EXISTS tahfidz_records_monthly_ziyadah_idx/i);
 assert.match(tahfidzLeaderboardMigration.statements.join('\n'), /CREATE OR REPLACE FUNCTION public\.get_tahfidz_monthly_leaderboard/i);

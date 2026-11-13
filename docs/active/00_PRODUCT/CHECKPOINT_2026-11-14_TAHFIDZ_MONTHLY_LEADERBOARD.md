@@ -15,7 +15,7 @@ Cakupan: papan peringkat Ziyadah bulanan pada dashboard Tahfidz.
 
 ## File utama
 
-- `supabase/migrations/20270321000000_tahfidz_monthly_leaderboard.sql`
+- `supabase/migrations/20270327000000_tahfidz_monthly_leaderboard.sql` (setelah batch CBT #112 pada versi 20270321000000–20270326000000)
 - `supabase/tests/tahfidz_roster_pagination.test.sql`
 - `src/server/supabaseTahfidz.ts`
 - `server.ts`
