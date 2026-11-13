@@ -14,15 +14,16 @@ Ditemukan beberapa PR bertumpuk yang tidak aman digabung berurutan tanpa rekonsi
 | #97 | 20270315000000 `cbt_admin_dashboard_summary` | 20270315000000 `lms_dashboard_operational_fill` | Rekonsiliasi/memversi ulang sebelum dipindahkan ke jalur utama. |
 | #98 | 20270316000000 `cbt_admin_question_keyset_pages` | 20270316000000 `communication_ops_runtime` | Rekonsiliasi/memversi ulang sebelum dipindahkan ke jalur utama. |
 | #99, #100, #102 | 20270317000000–20270319000000: CBT roster, assignment, ujian | Tidak ada file dengan versi tersebut pada source `main` yang diperiksa; ledger VQE memiliki versi 17–19 tanpa file source yang cocok | Bandingkan DDL staging dan ledger dengan source sebelum memberi versi kanonis. Jangan menjalankan `db push` untuk “mengejar” ledger. |
-| #112 | 20270321000000–20270326000000: seluruh rangkaian CBT admin | 20270321000000 bertabrakan dengan migrasi leaderboard Tahfidz di PR #116; beberapa fungsinya juga hadir pada PR #96–#102 | Tetapkan satu rangkaian CBT kanonis dan urutan versi yang bebas benturan; hindari menggabungkan dua jalur yang memuat implementasi tumpang tindih. |
-| #116 | 20270321000000 `tahfidz_monthly_leaderboard` | Bertabrakan dengan 20270321000000 `cbt_tenant_settings_write_api` di PR #112 | Pilih versi akhir setelah rencana urutan CBT/Tahfidz disepakati; tes preflight dan dokumentasi harus diperbarui. |
+| #112 | 20270321000000–20270326000000: seluruh rangkaian CBT admin | Versi awal sempat bertabrakan dengan #116; fungsi CBT juga bersinggungan dengan #96–#102 | **Nomor benturan dengan #116 telah diselesaikan di branch:** pertahankan CBT pada 21–26 dan jangan gabungkan lagi implementasi CBT yang sama dari stack #96–#102 sebelum parity diperiksa. Ledger VQE 17–19 tetap perlu pemetaan alias ke source/DDL. |
+| #116 | `20270327000000` `tahfidz_monthly_leaderboard` (branch sekarang) | Nomor awal `20270321000000` berbenturan dengan #112; sudah dipindahkan ke 27 setelah urutan CBT | Urutan source bebas benturan terhadap #112. Tetap jalankan preflight/CI; jangan terapkan ke database sebelum ledger dan objek target direkonsiliasi. |
 
 ## Status kerja yang terverifikasi
 
 - `main` saat audit memuat 150 file migrasi source; `main` memiliki migrasi 20270309000000–20270316000000 dengan nama seperti pada tabel.
 - VQE staging memiliki catatan ledger versi 20270317000000–20270319000000 yang tidak ada di source `main` saat dibandingkan, sesuai laporan rekonsiliasi. Ini dapat mencerminkan migrasi dari jalur PR lama; perlu inspeksi DDL staging dan ledger sebelum mengubah nama atau isi file.
-- PR #114 (katalog Quran/tab Tahfidz) dan #115 (pesan UI) tidak menambahkan migrasi. CI hijau, tetapi catatan PR menyatakan UAT visual/browser masih belum dikonfirmasi.
-- PR #116 tetap draft; CI pada head `6495bd00203ad4ca667069946e492b84d58e1612` sudah lulus pada run [#1653](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43501516746). UAT peran Admin/Ustadz/Santri/Wali juga belum selesai.
+- PR #114 (katalog Quran/tab Tahfidz) dan #115 (pesan UI) tidak menambahkan migrasi. UAT Admin VQE sudah mengonfirmasi 10 tab, scrollbar horizontal, 114 surah, serta rentang ayat terikat pada katalog; tenant uji tidak memiliki santri sehingga simpan-baca setoran dan UAT ponsel belum terbukti.
+- PR #112 kini memuat merge commit ke `main` terbaru dan penanganan diagnostik impor yang ramah pengguna. Ketiga job CI lulus pada head `c6aee56e2639a1c6154b668e0cf4b41b884ed2ef`. PR terbuka dan mergeable menurut metadata GitHub; tinjauan overlap CBT dengan #96–#102 masih diperlukan sebelum memutuskan merge/penutupan stack.
+- PR #116 tetap draft. Migrasi leaderboard telah dipindahkan ke `20270327000000`; head `5c68c95e0a6e5fe5bec85090b88fdf0ee6fd94af` memiliki instalasi NPM sukses, sementara job database/pgTAP dan frontend masih berjalan. UAT role leaderboard belum selesai.
 - PR #118 (dokumen kesiapan) sudah digabung ke `main` pada 14 November 2026. Penggabungan ini hanya mengubah dokumentasi.
 
 ## Urutan aman untuk tim backend
@@ -36,7 +37,7 @@ Ditemukan beberapa PR bertumpuk yang tidak aman digabung berurutan tanpa rekonsi
 
 ## Batas kesimpulan
 
-Benturan versi membuktikan urutan PR/migrasi perlu diperbaiki; ini tidak dengan sendirinya membuktikan tabel atau fitur tertentu rusak. Audit ini tidak membaca baris data, tidak membuktikan backup/restore Production, tidak memvalidasi seluruh alur modul, dan tidak menerapkan perubahan database.
+Benturan versi membuktikan urutan PR/migrasi perlu diperbaiki; ini tidak dengan sendirinya membuktikan tabel atau fitur tertentu rusak. Benturan langsung #112/#116 sudah dihilangkan pada source melalui urutan #112 21–26 lalu #116 27. Audit ini tidak membaca baris data, tidak membuktikan backup/restore Production, tidak memvalidasi seluruh alur modul, dan tidak menerapkan perubahan database.
 
 
 ## PR #1–#11 yang ditutup

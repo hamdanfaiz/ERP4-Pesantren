@@ -2,15 +2,15 @@
 
 ## Addendum otoritatif — checkpoint 14 November 2026
 
-Source `main` saat rekonsiliasi adalah `82082bf` dengan 150 file migrasi. PR #112 berada pada head `734dd3a` (156 migrasi), masih open dan `mergeable: false`; CI #1620 lulus 3/3 pada head PR sebelum rekonsiliasi. Penggabungan lokal tanpa commit terhadap `main` terbaru hanya konflik pada dokumen ini; source lain dapat digabung otomatis. Belum ada commit atau push dari rekonsiliasi ini.
+Source `main` saat rekonsiliasi adalah `82082bf` dengan 150 file migrasi. Branch PR #112 telah menerima merge commit dua-parent `b7c5fef` terhadap main tersebut, lalu perbaikan pesan impor. Head PR sekarang `c6aee56e2639a1c6154b668e0cf4b41b884ed2ef`; GitHub menyatakan `mergeable: true` dan ketiga job required CI lulus. PR terbuka dan belum digabung karena audit overlap CBT #96–#102 masih perlu diselesaikan.
 
-PR #112 berisi enam migrasi CBT `20270321000000`–`20270326000000`. Migrasi pertama bertabrakan dengan leaderboard PR #116 yang juga memakai `20270321000000`; fungsi dan UI CBT juga bersinggungan dengan rangkaian #96–#102. Pilih satu rangkaian kanonis dan beri urutan versi unik sebelum push atau merge. Tidak ada migrasi yang diterapkan oleh rekonsiliasi lokal ini.
+PR #112 berisi enam migrasi CBT `20270321000000`–`20270326000000`. PR #116 semula memakai versi pertama yang sama; branch #116 kini telah diurutkan ulang ke `20270327000000`, sehingga benturan nomor langsung di source teratasi. Rangkaian CBT lama #96–#102 masih tumpang tindih dan harus direkonsiliasi sebelum digabung atau ditutup. Ledger/DDL VQE serta Production belum direkonsiliasi oleh perubahan source ini. Tidak ada migrasi yang diterapkan ke database.
 
 ### Status source dan UAT
 
-- PR #114 CI lulus 3/3; UAT Admin VQE 14 Nov membuktikan seluruh 10 subtab terlihat, scrollbar tab horizontal, 114 surah, isi Al-Fatihah, serta pilihan rentang ayat tanpa teks bebas. Roster tenant akun uji kosong, jadi simpan-baca belum diuji; ponsel juga belum diuji. Detail tercatat di percakapan PR #114.
+- PR #114 CI lulus 3/3; UAT Admin VQE membuktikan seluruh 10 subtab terlihat, scrollbar tab horizontal, 114 surah, isi Al-Fatihah, serta pilihan rentang ayat tanpa teks bebas. Roster tenant akun uji kosong, jadi simpan-baca belum diuji; ponsel juga belum diuji. Detail tercatat di percakapan PR #114.
 - PR #115 CI lulus 3/3; pemeriksaan antarmuka lintas modul masih belum selesai.
-- PR #116 CI lulus 3/3, tetapi masih draft. UAT akses Admin/Ustadz/Santri/Wali belum dilakukan.
+- PR #116 masih draft. Setelah migrasi dipindahkan ke `20270327000000`, CI terbaru pada head `5c68c95e0a6e5fe5bec85090b88fdf0ee6fd94af` sedang berjalan: instalasi NPM lulus; build frontend dan migrasi/pgTAP belum selesai. UAT akses Admin/Ustadz/Santri/Wali belum dilakukan.
 - PR #91 memiliki 34 konflik kode terhadap `main` terbaru. Rangkaian CBT #96–#102 bertumpuk dan perlu direkonsiliasi sebagai satu stack.
 ### Status backend live
 
@@ -23,10 +23,11 @@ Kecocokan ledger Production adalah **97/150 (64,7%) versi dan nama**. Ini ukuran
 
 ### Status source dan PR
 
-- PR #114 (validasi katalog Surah dan tab Tahfidz) serta #115 (pesan komersial lintas modul) memiliki CI hijau. Keduanya masih terbuka; UAT browser/visual belum dikonfirmasi.
-- PR #116 (leaderboard bulanan Tahfidz) memiliki CI hijau pada head terbaru, tetapi masih draft. UAT Admin/Ustadz/Santri/Wali dan keadaan tanpa data masih diperlukan.
-- PR #112 (CBT skala besar) CI-nya hijau, tetapi GitHub menandai cabang `dirty`; migrasi `20270321000000` berbenturan dengan PR #116. PR #91/#92 serta rangkaian #96–#102 juga memiliki benturan timestamp terhadap source `main` atau ledger VQE. Jangan gabungkan branch tersebut apa adanya.
-- PR #1–#11 berstatus closed tanpa merge; PR #13 sudah merged sebagai cutover besar. Ini tidak membuktikan tiap perubahan lama telah hadir satu per satu. Pertahankan status lama dan port hanya logic yang terbukti belum ada melalui PR terpisah.
+- PR #112 terbuka, tidak draft, dan mergeable setelah merge commit terhadap `main`; tiga job CI lulus pada head terkini. Nomor migrasi CBT 21–26 bebas benturan langsung dengan leaderboard #116 yang kini memakai 27. Stack #96–#102 masih memiliki fungsi CBT yang tumpang tindih dan harus diperiksa terhadap #112 sebelum ditutup.
+- PR #114 (validasi katalog Surah dan tab Tahfidz) memiliki CI hijau. UAT Admin VQE membuktikan 10 tab, scrollbar horizontal, 114 surah, dan pemilihan ayat yang tervalidasi. Tenant tanpa santri menghalangi uji simpan-baca; tampilan ponsel juga belum diperiksa.
+- PR #115 (pesan komersial lintas modul) memiliki CI hijau; tinjauan antarmuka lintas modul belum selesai.
+- PR #116 (leaderboard bulanan Tahfidz) tetap draft. Nomor migrasi sudah dipindah ke 27; dari tiga job CI terbaru, instalasi NPM lulus dan dua lainnya masih berjalan. UAT tiap peran dan privasi leaderboard belum dibuktikan.
+- PR #91 memiliki konflik source; #92 berbasis padanya dan perlu audit dependency. PR #1–#11 berstatus closed tanpa merge; PR #13 sudah merged sebagai cutover besar. Ini tidak membuktikan tiap perubahan lama telah hadir satu per satu. Pertahankan PR lama dan port hanya logic yang terbukti belum ada melalui PR terpisah.
 
 ### Gerbang penyelesaian
 
