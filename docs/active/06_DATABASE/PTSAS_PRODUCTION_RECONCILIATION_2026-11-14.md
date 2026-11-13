@@ -119,6 +119,30 @@ Snapshot baca-saja pada staging `vqemuyzveuirlkvdggjd` dibandingkan dengan sourc
 - 6 versi ledger tidak mempunyai file source bernomor sama: tiga alias Tahfidz `20261109145507`, `20261109145522`, `20261109145534`, serta versi CBT `20270317000000`, `20270318000000`, `20270319000000`.
 - Katalog staging memuat 169 tabel `public`, semuanya melaporkan RLS aktif. Health Advisor staging tidak mengembalikan temuan; Security Advisor menandai perlindungan kata sandi bocor nonaktif dan Performance Advisor memiliki temuan INFO.
 
+Inventaris nama tabel langsung berbeda pada dua arah meskipun jumlah totalnya berdekatan. Ini membuktikan VQE saat ini belum menjadi salinan schema Production yang setara dan tidak boleh dipakai sebagai rehearsal Production tanpa rekonsiliasi.
+
+| Hanya ada di PTSAS Production (10) | Hanya ada di VQE staging (17) |
+| --- | --- |
+| `academic_settings` | `library_book_import_batches` |
+| `academic_terms` | `hris_employee_import_batches` |
+| `academic_homeroom_assignments` | `library_circulation_import_batches` |
+| `academic_report_cards` | `marketplace_mutation_requests` |
+| `academic_report_actions` | `donation_mutation_requests` |
+| `communication_templates` | `lms_submission_requests` |
+| `communication_tickets` | `lms_submission_grade_events` |
+| `communication_ticket_events` | `lms_learning_record_requests` |
+| `communication_direct_messages` | `cooperative_financial_import_batches` |
+| `communication_direct_message_events` | `cooperative_financial_import_records` |
+| — | `ppdb_document_access_events` |
+| — | `ppdb_document_upload_requests` |
+| — | `ppdb_document_upload_events` |
+| — | `finance_legacy_unit_assignment_requests` |
+| — | `guardian_candidate_accounts` |
+| — | `quran_surahs` |
+| — | `tahfidz_target_bulk_write_requests` |
+
+Ini hanya selisih **nama relasi**. Tipe kolom, constraint, index, function, trigger, RLS policy, privilege, dan isi tabel belum dibandingkan.
+
 Lihat juga [snapshot ledger VQE 13 November](VQE_STAGING_MIGRATION_LEDGER_DRIFT_2026-11-13.md). Snapshot Production ini tidak memperbaiki alias atau ledger staging.
 
 ## Urutan kerja yang disarankan bagi tim backend
