@@ -35,7 +35,7 @@ const STATUS_STYLE: Record<Status, string> = {
 
 async function documentRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi masuk tidak ditemukan. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
@@ -231,7 +231,7 @@ export function SupabaseDocumentManager() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">Administrasi pesantren</p>
           <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">Dokumen Digital</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Catat surat masuk, surat keluar, dan dokumen internal dengan alur telaah serta arsip per tenant.</p>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Catat surat masuk, surat keluar, dan dokumen internal dengan alur telaah serta arsip pesantren.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => void refresh()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10" aria-label="Muat ulang dokumen">
@@ -264,7 +264,7 @@ export function SupabaseDocumentManager() {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             {tab === "all" && <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"><span>Jenis dokumen</span><select value={directionFilter} onChange={(event) => setDirectionFilter(event.target.value as DirectionFilter)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-200"><option value="all">Semua jenis</option><option value="incoming">Surat masuk</option><option value="outgoing">Surat keluar</option><option value="internal">Dokumen internal</option></select></label>}
-            <span className="text-xs text-slate-500 dark:text-slate-400">Data dibatasi pada tenant aktif</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Data hanya untuk pesantren ini</span>
           </div>
         </div>
 
@@ -306,7 +306,7 @@ export function SupabaseDocumentManager() {
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Jenis dokumen<select value={draft.direction} onChange={(event) => setDraft((item) => ({ ...item, direction: event.target.value as Direction }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white"><option value="incoming">Surat masuk</option><option value="outgoing">Surat keluar</option><option value="internal">Dokumen internal</option></select></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal dokumen<input required type="date" value={draft.documentDate} onChange={(event) => setDraft((item) => ({ ...item, documentDate: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
-            <div role="note" className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-800 dark:border-sky-400/20 dark:bg-sky-400/5 dark:text-sky-200 sm:col-span-2">Nomor dokumen mengikuti aturan Naming Series tenant dan tidak perlu diketik.</div>
+            <div role="note" className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-800 dark:border-sky-400/20 dark:bg-sky-400/5 dark:text-sky-200 sm:col-span-2">Nomor dokumen mengikuti aturan penomoran pesantren dan tidak perlu diketik.</div>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">Perihal<input required maxLength={240} value={draft.subject} onChange={(event) => setDraft((item) => ({ ...item, subject: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Pengirim<input maxLength={200} value={draft.senderName} onChange={(event) => setDraft((item) => ({ ...item, senderName: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Penerima<input maxLength={200} value={draft.recipientName} onChange={(event) => setDraft((item) => ({ ...item, recipientName: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>

@@ -93,7 +93,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
 
   const handleApply = async () => {
     if (!preview || preview.readyCount < 1 || preview.errorCount > 0) return;
-    if (!window.confirm("Impor " + preview.readyCount + " record " + label + " ke tenant aktif? Record yang sudah ada akan dilewati dan tidak ditimpa.")) return;
+    if (!window.confirm("Impor " + preview.readyCount + " record " + label + " untuk pesantren ini? Record yang sudah ada akan dilewati dan tidak ditimpa.")) return;
     setBusy("apply");
     setError("");
     setResult(null);
@@ -134,7 +134,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
                 </label>
               )}
               <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-600 dark:border-white/10 dark:text-slate-300">
-                Ekspor mengambil seluruh data pada tenant yang dapat diakses akun ini, bukan hanya halaman yang sedang tampil. Batasnya {kind === "students" ? "20.000 santri" : "10.000 struktur"} per berkas.
+                Ekspor mengambil seluruh data pada pesantren yang dapat diakses akun ini, bukan hanya halaman yang sedang tampil. Batasnya {kind === "students" ? "20.000 santri" : "10.000 struktur"} per berkas.
               </div>
               <button type="button" disabled={busy !== null} onClick={() => void handleExport()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50">
                 {busy === "export" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}

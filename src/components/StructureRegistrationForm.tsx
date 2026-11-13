@@ -75,7 +75,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
         id: idToUse,
         category: type,
       });
-      setMessage({ type: 'success', text: 'Data ${type.toLowerCase()} berhasil disimpan.' });
+      setMessage({ type: 'success', text: `Data ${type.toLowerCase()} berhasil disimpan.` });
       onSuccess?.(saved);
     } catch (error) {
       console.error("Error saving document: ", error);

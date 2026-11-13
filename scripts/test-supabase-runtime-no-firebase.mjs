@@ -459,6 +459,20 @@ assert.deepEqual(
 const structureRegistrationSource = fs.readFileSync(path.join(root, 'src/components/StructureRegistrationForm.tsx'), 'utf8');
 assert.doesNotMatch(structureRegistrationSource, /Runtime Supabase Master Data|berhasil disimpan ke Supabase|Diterbitkan backend saat disimpan/,
   'Customer-facing structure forms must not expose provider or implementation details.');
+const customerCopyGuards = [
+  { path: 'src/components/MasterDataTransferModal.tsx', pattern: /ke tenant aktif\?|pada tenant yang dapat diakses/i },
+  { path: 'src/components/SupabaseReferenceCatalogManager.tsx', pattern: /jenjang tenant|unik per tenant/i },
+  { path: 'src/pages/SupabaseAcademicManager.tsx', pattern: /Sesi Supabase tidak ditemukan|Data Akademik Supabase belum|tenant Supabase|Memuat data tenant|tenant ini|arsip tenant/i },
+  { path: 'src/pages/SupabaseCommunicationHub.tsx', pattern: /Sesi Supabase tidak ditemukan|Layanan Komunikasi Supabase|tenant Supabase|tenant ini|runtime Asrama|Admin tenant|dalam tenant/i },
+  { path: 'src/pages/SupabaseDocumentManager.tsx', pattern: /Sesi Supabase tidak ditemukan|per tenant|tenant aktif|Naming Series tenant/i },
+  { path: 'src/pages/SupabaseGeneralAffairManager.tsx', pattern: /Sesi Supabase tidak ditemukan|data tenant|inventaris tenant|ledger inventaris|belum punya API|runtime/i },
+  { path: 'src/pages/SupabaseLMSManager.tsx', pattern: /Sesi Supabase tidak tersedia|tenant Supabase|LMS Supabase|arsip Firebase|data LMS tenant|profil tenant|kursus tenant|snapshot tenant|katalog tenant|Admin tenant/i },
+  { path: 'src/pages/SupabasePpdbManager.tsx', pattern: /Sesi Supabase tidak ditemukan|calon santri Supabase|tenant aktif diperlukan|Backend belum|Admin tenant|calon santri tenant|tenant ini|transaksi Supabase/i },
+];
+for (const { path: relativePath, pattern } of customerCopyGuards) {
+  const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
+  assert.doesNotMatch(source, pattern, `${relativePath} must keep technical operator copy out of customer screens.`);
+}
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
 console.log('Browser persistence policy passed (no active localStorage writes; sessionStorage limited to Supabase Auth and temporary idempotency keys).');
 
