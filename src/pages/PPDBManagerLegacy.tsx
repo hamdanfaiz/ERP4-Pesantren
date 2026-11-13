@@ -376,7 +376,7 @@ export function PPDBManager() {
       for (const c of eligible) {
         batch.update(doc(db, "candidates", c.id), {
           stage: smartPromoteTarget,
-          notes: (c.notes ? c.notes + " | " : "") + `Auto-Promoted: Nilai ${c.score || 0} ≥ KKM ${smartMinScore}`,
+          notes: (c.notes ? c.notes + " | " : "") + `Dipromosikan otomatis: nilai ${c.score || 0} ≥ KKM ${smartMinScore}`,
         });
         count++;
         if (count % 450 === 0) {
@@ -730,14 +730,18 @@ export function PPDBManager() {
               updatedDocs.pasPhoto;
 
             let newNotes = c.notes || "";
+            const checklistNoteMarkers = [
+              "✓ Document checklist verified complete",
+              "✓ Daftar periksa dokumen telah lengkap setelah berkas berhasil diunggah.",
+            ];
             if (
               requiredBase &&
               requiredDocs &&
-              !newNotes.includes("✓ Document checklist verified complete")
+              !checklistNoteMarkers.some((marker) => newNotes.includes(marker))
             ) {
               newNotes =
                 newNotes +
-                "\n\n✓ Document checklist verified complete upon successful upload.";
+                "\n\n✓ Daftar periksa dokumen telah lengkap setelah berkas berhasil diunggah.";
             }
 
             // we only updated docs in the first step as simplified, to avoid complex merge we will just update everything:
