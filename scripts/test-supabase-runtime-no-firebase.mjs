@@ -251,26 +251,33 @@ const cbtSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseCBTMa
 for (const feature of ['dashboard', 'calendar', 'packages', 'monitor', 'settings']) {
   assert.ok(cbtSource.includes(`id: "${feature}"`), `CBT reference submenu ${feature} must remain visible.`);
 }
-assert.match(cbtSource, /CBT_PENDING\[tab\]\s*&&\s*<ERPFeatureStatus/,
-  'Unavailable CBT reference screens must explain their backend status.');
+for (const feature of ['dashboard', 'calendar', 'packages', 'monitor', 'settings']) {
+  assert.ok(cbtSource.includes(`tab === "${feature}" &&`), `CBT ${feature} tab must render its module screen.`);
+}
 const lmsSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLMSManager.tsx'), 'utf8');
 for (const feature of ['dashboard', 'categories', 'video-library', 'assessments', 'peer-review', 'instructor']) {
   assert.ok(lmsSource.includes(`id: "${feature}"`), `LMS reference submenu ${feature} must remain visible.`);
 }
-assert.match(lmsSource, /tab === "peer-review"\s*&&\s*<ERPFeatureStatus/,
-  'LMS peer review must not silently disappear or display demo data.');
+for (const feature of ['dashboard', 'categories', 'video-library', 'assessments', 'peer-review', 'instructor']) {
+  assert.ok(lmsSource.includes(`tab === "${feature}" &&`), `LMS ${feature} tab must render its module screen.`);
+}
 const hrisSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseHrisManager.tsx'), 'utf8');
 for (const feature of ['tracking', 'shifts', 'payroll', 'performance', 'hiring', 'analytics']) {
   assert.ok(hrisSource.includes(`id: "${feature}"`), `HRIS reference submenu ${feature} must remain visible.`);
+  assert.ok(hrisSource.includes(`tab === "${feature}" &&`), `HRIS ${feature} tab must render its module screen.`);
 }
-assert.match(hrisSource, /HRIS_PENDING\[tab\]\s*&&\s*<ERPFeatureStatus/,
-  'Unsupported HRIS reference screens must show readiness information.');
 const alumniSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAlumniManager.tsx'), 'utf8');
 for (const feature of ['directory', 'tracer', 'community', 'donations']) {
   assert.ok(alumniSource.includes(`id: "${feature}"`), `Alumni reference submenu ${feature} must remain visible.`);
 }
-assert.match(alumniSource, /tab === "directory"\s*\?\s*<>[\s\S]*?<ERPFeatureStatus/,
-  'Unimplemented Alumni sections must show an explicit readiness state instead of directory content.');
+assert.match(alumniSource, /tab === "directory"\s*\?\s*<>[\s\S]*?<section/,
+  'Alumni directory must render its tenant-backed screen.');
+assert.match(alumniSource, /tab === "tracer"\s*\?\s*<section/,
+  'Alumni tracer study must render its module screen.');
+assert.match(alumniSource, /tab === "community"\s*\?\s*<section/,
+  'Alumni community must render its module screen.');
+assert.match(alumniSource, /requestAlumni\("\/api\/donation\/snapshot"\)/,
+  'Alumni donations must read its backend module instead of demo data.');
 const librarySource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLibraryManager.tsx'), 'utf8');
 assert.match(librarySource, /id:\s*["']digital["']\s*,\s*label:\s*["']Perpustakaan Digital["']/,
   'The digital library submenu must remain visible when the Storage feature flag is closed.');
@@ -448,6 +455,7 @@ assert.deepEqual(
 );
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
 console.log('Browser persistence policy passed (no active localStorage writes; sessionStorage limited to Supabase Auth and temporary idempotency keys).');
+
 
 
 
