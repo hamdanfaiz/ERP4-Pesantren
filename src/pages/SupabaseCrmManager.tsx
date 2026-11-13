@@ -226,7 +226,7 @@ export function SupabaseCrmManager() {
       lease.clear();
       setBroadcastResult(result || null);
       setNotice(dryRun
-        ? `Pratinjau: ${result?.recipientCount || 0} penerima siap dikirim via OpenWA.`
+        ? `Pratinjau: ${result?.recipientCount || 0} kontak memenuhi syarat untuk siaran.`
         : `Siaran selesai: ${result?.sent || 0} terkirim, ${result?.failed || 0} gagal.`);
       if (!dryRun) await loadContacts(null, false);
     } catch (sendError: any) {
@@ -278,7 +278,7 @@ export function SupabaseCrmManager() {
         <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Isi pesan WhatsApp<textarea required minLength={5} maxLength={4000} rows={4} className={inputClass} value={broadcastMessage} onChange={(event) => setBroadcastMessage(event.target.value)} placeholder="Tulis pesan siaran…" /></label>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={broadcastBusy || broadcastAudience.length === 0 || broadcastMessage.trim().length < 5} className={buttonClass} onClick={() => void runBroadcast(true)}>Pratinjau audiens</button>
-          <button type="button" disabled={broadcastBusy || !broadcastStatus?.configured || broadcastAudience.length === 0 || broadcastMessage.trim().length < 5} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runBroadcast(false)}>{broadcastBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />} Kirim via OpenWA</button>
+          <button type="button" disabled={broadcastBusy || !broadcastStatus?.configured || broadcastAudience.length === 0 || broadcastMessage.trim().length < 5} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runBroadcast(false)}>{broadcastBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />} Kirim pesan</button>
         </div>
       </div>}
       {(error || notice) && tab === "broadcast" && <div role={error ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${error ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-950/30 dark:text-rose-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-200"}`}>{error || notice}</div>}
@@ -304,7 +304,7 @@ export function SupabaseCrmManager() {
     </div>
 
     <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-950/25 dark:text-sky-200">
-      <div className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p><strong>Siaran WhatsApp memakai OpenWA.</strong> Hanya kontak berpersetujuan yang dikirim dari tab Siaran. Email massal belum tersedia; catatan interaksi tetap dicatat per pengiriman.</p></div>
+      <div className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p><strong>Persetujuan kontak selalu diperiksa.</strong> Riwayat interaksi dicatat untuk setiap pengiriman.</p></div>
     </div>
 
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,0.8fr)]">
