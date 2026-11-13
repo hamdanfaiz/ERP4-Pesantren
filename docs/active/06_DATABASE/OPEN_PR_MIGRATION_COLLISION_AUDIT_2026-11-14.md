@@ -23,7 +23,7 @@ Ditemukan beberapa PR bertumpuk yang tidak aman digabung berurutan tanpa rekonsi
 - VQE staging memiliki catatan ledger versi 20270317000000–20270319000000 yang tidak ada di source `main` saat dibandingkan, sesuai laporan rekonsiliasi. Ini dapat mencerminkan migrasi dari jalur PR lama; perlu inspeksi DDL staging dan ledger sebelum mengubah nama atau isi file.
 - PR #114 (katalog Quran/tab Tahfidz) dan #115 (pesan UI) tidak menambahkan migrasi. UAT Admin VQE sudah mengonfirmasi 10 tab, scrollbar horizontal, 114 surah, serta rentang ayat terikat pada katalog; tenant uji tidak memiliki santri sehingga simpan-baca setoran dan UAT ponsel belum terbukti.
 - PR #112 kini memuat merge commit ke `main` terbaru dan penanganan diagnostik impor yang ramah pengguna. Ketiga job CI lulus pada head `c6aee56e2639a1c6154b668e0cf4b41b884ed2ef`. PR terbuka dan mergeable menurut metadata GitHub; tinjauan overlap CBT dengan #96–#102 masih diperlukan sebelum memutuskan merge/penutupan stack.
-- PR #116 tetap draft. Migrasi leaderboard telah dipindahkan ke `20270327000000`; head `5c68c95e0a6e5fe5bec85090b88fdf0ee6fd94af` memiliki instalasi NPM sukses, sementara job database/pgTAP dan frontend masih berjalan. UAT role leaderboard belum selesai.
+- PR #116 tetap draft. Migrasi leaderboard telah dipindahkan ke `20270327000000`; semua 3 job CI lulus pada head `5c68c95e0a6e5fe5bec85090b88fdf0ee6fd94af`. UAT role, perhitungan leaderboard live pada roster sintetis, serta keadaan tanpa catatan belum selesai.
 - PR #118 (dokumen kesiapan) sudah digabung ke `main` pada 14 November 2026. Penggabungan ini hanya mengubah dokumentasi.
 
 ## Urutan aman untuk tim backend

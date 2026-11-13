@@ -10,7 +10,7 @@ PR #112 berisi enam migrasi CBT `20270321000000`–`20270326000000`. PR #116 sem
 
 - PR #114 CI lulus 3/3; UAT Admin VQE membuktikan seluruh 10 subtab terlihat, scrollbar tab horizontal, 114 surah, isi Al-Fatihah, serta pilihan rentang ayat tanpa teks bebas. Roster tenant akun uji kosong, jadi simpan-baca belum diuji; ponsel juga belum diuji. Detail tercatat di percakapan PR #114.
 - PR #115 CI lulus 3/3; pemeriksaan antarmuka lintas modul masih belum selesai.
-- PR #116 masih draft. Setelah migrasi dipindahkan ke `20270327000000`, CI terbaru pada head `5c68c95e0a6e5fe5bec85090b88fdf0ee6fd94af` sedang berjalan: instalasi NPM lulus; build frontend dan migrasi/pgTAP belum selesai. UAT akses Admin/Ustadz/Santri/Wali belum dilakukan.
+- PR #116 masih draft. Setelah migrasi dipindahkan ke `20270327000000`, ketiga job CI lulus pada head `5c68c95e0a6e5fe5bec85090b88fdf0ee6fd94af`. UAT akses Admin/Ustadz/Santri/Wali dan leaderboard pada roster sintetis belum selesai.
 - PR #91 memiliki 34 konflik kode terhadap `main` terbaru. Rangkaian CBT #96–#102 bertumpuk dan perlu direkonsiliasi sebagai satu stack.
 ### Status backend live
 
@@ -26,7 +26,7 @@ Kecocokan ledger Production adalah **97/150 (64,7%) versi dan nama**. Ini ukuran
 - PR #112 terbuka, tidak draft, dan mergeable setelah merge commit terhadap `main`; tiga job CI lulus pada head terkini. Nomor migrasi CBT 21–26 bebas benturan langsung dengan leaderboard #116 yang kini memakai 27. Stack #96–#102 masih memiliki fungsi CBT yang tumpang tindih dan harus diperiksa terhadap #112 sebelum ditutup.
 - PR #114 (validasi katalog Surah dan tab Tahfidz) memiliki CI hijau. UAT Admin VQE membuktikan 10 tab, scrollbar horizontal, 114 surah, dan pemilihan ayat yang tervalidasi. Tenant tanpa santri menghalangi uji simpan-baca; tampilan ponsel juga belum diperiksa.
 - PR #115 (pesan komersial lintas modul) memiliki CI hijau; tinjauan antarmuka lintas modul belum selesai.
-- PR #116 (leaderboard bulanan Tahfidz) tetap draft. Nomor migrasi sudah dipindah ke 27; dari tiga job CI terbaru, instalasi NPM lulus dan dua lainnya masih berjalan. UAT tiap peran dan privasi leaderboard belum dibuktikan.
+- PR #116 (leaderboard bulanan Tahfidz) tetap draft. Nomor migrasi sudah dipindah ke 27 dan semua CI lulus. UAT tiap peran dan privasi leaderboard belum dibuktikan.
 - PR #91 memiliki konflik source; #92 berbasis padanya dan perlu audit dependency. PR #1–#11 berstatus closed tanpa merge; PR #13 sudah merged sebagai cutover besar. Ini tidak membuktikan tiap perubahan lama telah hadir satu per satu. Pertahankan PR lama dan port hanya logic yang terbukti belum ada melalui PR terpisah.
 
 ### Gerbang penyelesaian
