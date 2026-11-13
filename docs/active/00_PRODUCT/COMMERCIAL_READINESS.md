@@ -2,7 +2,7 @@
 
 ## Addendum otoritatif — checkpoint 14 November 2026
 
-Source `main` saat rekonsiliasi adalah `82082bf` dengan 150 file migrasi. Branch PR #112 telah menerima merge commit dua-parent `b7c5fef` terhadap main tersebut, lalu perbaikan pesan impor. Head PR sekarang `c6aee56e2639a1c6154b668e0cf4b41b884ed2ef`; GitHub menyatakan `mergeable: true` dan ketiga job required CI lulus. PR terbuka dan belum digabung karena audit overlap CBT #96–#102 masih perlu diselesaikan.
+Source `main` saat rekonsiliasi adalah `82082bf` dengan 150 file migrasi. Branch PR #112 telah menerima merge commit dua-parent `b7c5fef` terhadap main tersebut, lalu perbaikan pesan impor pada commit `c6aee56`. CI 3/3 lulus pada commit implementasi itu. Head branch terkini `38c1674606455af2a76dd62509cddc84b37a4b89` hanya menambahkan dokumentasi audit parity/status; GitHub menyatakan PR mergeable. PR terbuka dan belum digabung karena review kesetaraan UI/TypeScript dan pemetaan rilis backend masih perlu diselesaikan.
 
 PR #112 berisi enam migrasi CBT `20270321000000`–`20270326000000`. PR #116 semula memakai versi pertama yang sama; branch #116 kini telah diurutkan ulang ke `20270327000000`, sehingga benturan nomor langsung di source teratasi. Rangkaian CBT lama #96–#102 masih tumpang tindih dan harus direkonsiliasi sebelum digabung atau ditutup. Ledger/DDL VQE serta Production belum direkonsiliasi oleh perubahan source ini. Tidak ada migrasi yang diterapkan ke database.
 
