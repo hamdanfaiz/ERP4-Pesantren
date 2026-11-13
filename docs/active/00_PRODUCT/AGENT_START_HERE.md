@@ -28,6 +28,7 @@ Baca dokumen ini **sebelum** mengubah kode, skema, flag, data Production, atau m
 | Area | Dokumen |
 | --- | --- |
 | Relasi & Ekosistem + Analitik + OpenWA (13 Nov 2026) | [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md) |
+| Papan Peringkat Tahfidz bulanan (14 Nov 2026) | [CHECKPOINT_2026-11-14_TAHFIDZ_MONTHLY_LEADERBOARD.md](CHECKPOINT_2026-11-14_TAHFIDZ_MONTHLY_LEADERBOARD.md) |
 | Akademik Production | `.cursor/rules/academic-production.mdc` + `academic-report-card.mdc` |
 | Flag & visibilitas menu | [MODULE_VISIBILITY_AND_RUNTIME_FLAGS.md](MODULE_VISIBILITY_AND_RUNTIME_FLAGS.md) |
 | Handoff backend umum | [BACKEND_TEAM_START_HERE.md](BACKEND_TEAM_START_HERE.md) |

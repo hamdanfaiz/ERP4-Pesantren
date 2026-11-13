@@ -59,6 +59,7 @@ import {
 import {
   assignSupabaseTahfidzMembership,
   listSupabaseTahfidzAchievementPage,
+  listSupabaseTahfidzMonthlyLeaderboard,
   listSupabaseTahfidzSessions,
   listSupabaseTahfidzRosterPage,
   listSupabaseTahfidzSnapshot,
@@ -3171,6 +3172,17 @@ async function startServer() {
       return res.json(await listSupabaseTahfidzAchievementPage(
         actor.tenantId, actor.uid, actor.role, req.query.cursor,
       ));
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.get("/api/tahfidz/leaderboard", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Layanan Tahfidz belum tersedia." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      return res.json(await listSupabaseTahfidzMonthlyLeaderboard(actor.tenantId, actor.uid, actor.role));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 

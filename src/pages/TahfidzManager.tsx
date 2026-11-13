@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import React, { useState, useEffect, useRef } from "react";
 import { TahfidzStudentSearchSelect } from "../components/TahfidzStudentSearchSelect";
+import { ERPLoadingSkeleton } from "../components/ERPDesignSystem";
 import {
   Search,
   Filter,
@@ -68,6 +69,24 @@ import {
 
 const SUPABASE_TAHFIDZ_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED"));
 const SUPABASE_TAHFIDZ_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED") === 'true';
+
+type TahfidzLeaderboardEntry = {
+  position: number;
+  studentId: string;
+  name: string;
+  grade: string;
+  halaqah: string;
+  setoranCount: number;
+  activeDays: number;
+};
+
+type TahfidzMonthlyLeaderboard = {
+  periodStart: string;
+  periodEnd: string;
+  metric: "Ziyadah";
+  participants: number;
+  entries: TahfidzLeaderboardEntry[];
+};
 
 async function requestSupabaseTahfidzApi(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -551,6 +570,11 @@ export function TahfidzManager() {
   const [achievementLoading, setAchievementLoading] = useState(false);
   const [achievementError, setAchievementError] = useState("");
   const achievementRequestSequence = useRef(0);
+  const [monthlyLeaderboard, setMonthlyLeaderboard] = useState<TahfidzMonthlyLeaderboard | null>(null);
+  const [monthlyLeaderboardLoading, setMonthlyLeaderboardLoading] = useState(false);
+  const [monthlyLeaderboardError, setMonthlyLeaderboardError] = useState("");
+  const [monthlyLeaderboardScopeKey, setMonthlyLeaderboardScopeKey] = useState("");
+  const monthlyLeaderboardRequestSequence = useRef(0);
 
   useEffect(() => {
     if (role !== "Walisantri") {
@@ -686,6 +710,75 @@ export function TahfidzManager() {
       if (requestSequence === achievementRequestSequence.current) setAchievementLoading(false);
     }
   };
+
+  const loadSupabaseTahfidzMonthlyLeaderboard = async () => {
+    const requestSequence = ++monthlyLeaderboardRequestSequence.current;
+    const requestScopeKey = `${user?.tenantId || ""}:${user?.uid || ""}:${role}`;
+    // Clear the prior actor/tenant scope before displaying the next request.
+    setMonthlyLeaderboard(null);
+    setMonthlyLeaderboardScopeKey(requestScopeKey);
+    setMonthlyLeaderboardLoading(true);
+    setMonthlyLeaderboardError("");
+    try {
+      const payload = await requestSupabaseTahfidzApi("/api/tahfidz/leaderboard");
+      if (requestSequence !== monthlyLeaderboardRequestSequence.current) return;
+      const rawEntries = Array.isArray(payload.entries) ? payload.entries : [];
+      if (rawEntries.some((entry: unknown) => !entry || typeof entry !== "object" || Array.isArray(entry))) {
+        throw new Error("Data papan peringkat Tahfidz tidak valid.");
+      }
+      const entries: TahfidzLeaderboardEntry[] = rawEntries.map((entry: any) => ({
+        position: Number(entry.position),
+        studentId: String(entry.studentId || ""),
+        name: String(entry.name || ""),
+        grade: String(entry.grade || ""),
+        halaqah: String(entry.halaqah || ""),
+        setoranCount: Number(entry.setoranCount),
+        activeDays: Number(entry.activeDays),
+      }));
+      if (entries.length > 5 || !/^\d{4}-\d{2}-\d{2}$/.test(String(payload.periodStart || ""))
+        || !/^\d{4}-\d{2}-\d{2}$/.test(String(payload.periodEnd || ""))
+        || payload.metric !== "Ziyadah"
+        || !Number.isSafeInteger(Number(payload.participants)) || Number(payload.participants) < entries.length
+        || String(payload.periodStart).slice(0, 7) !== String(payload.periodEnd).slice(0, 7)
+        || String(payload.periodStart).slice(8) !== "01"
+        || new Set(entries.map((entry) => entry.studentId)).size !== entries.length
+        || entries.some((entry, index) => !/^[0-9a-f-]{36}$/i.test(entry.studentId)
+          || !entry.name || entry.name.length > 180 || entry.grade.length > 120 || entry.halaqah.length > 120
+          || !Number.isSafeInteger(entry.position) || entry.position !== index + 1
+          || !Number.isSafeInteger(entry.setoranCount) || entry.setoranCount < 1
+          || !Number.isSafeInteger(entry.activeDays) || entry.activeDays < 1 || entry.activeDays > entry.setoranCount)) {
+        throw new Error("Papan peringkat Tahfidz belum dapat dimuat.");
+      }
+      setMonthlyLeaderboard({
+        periodStart: String(payload.periodStart),
+        periodEnd: String(payload.periodEnd),
+        metric: "Ziyadah",
+        participants: Number(payload.participants),
+        entries,
+      });
+    } catch (error: any) {
+      if (requestSequence === monthlyLeaderboardRequestSequence.current) {
+        setMonthlyLeaderboardError(error?.message || "Papan peringkat Tahfidz belum dapat dimuat.");
+      }
+    } finally {
+      if (requestSequence === monthlyLeaderboardRequestSequence.current) setMonthlyLeaderboardLoading(false);
+    }
+  };
+
+  const canViewTahfidzLeaderboard = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
+  const currentMonthlyLeaderboardScopeKey = `${user?.tenantId || ""}:${user?.uid || ""}:${role}`;
+  useEffect(() => {
+    if (!SUPABASE_TAHFIDZ_RUNTIME || activeTab !== "dashboard" || !canViewTahfidzLeaderboard) {
+      setMonthlyLeaderboard(null);
+      setMonthlyLeaderboardError("");
+      setMonthlyLeaderboardLoading(false);
+      setMonthlyLeaderboardScopeKey("");
+      monthlyLeaderboardRequestSequence.current += 1;
+      return;
+    }
+    void loadSupabaseTahfidzMonthlyLeaderboard();
+    return () => { monthlyLeaderboardRequestSequence.current += 1; };
+  }, [activeTab, user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz, records[0]?.id]);
 
   useEffect(() => {
     if (!SUPABASE_TAHFIDZ_RUNTIME || activeTab !== "badges") return;
@@ -1597,66 +1690,6 @@ export function TahfidzManager() {
           </div>
         </div>
 
-        {/* Leaderboard Widget */}
-        <div className="lg:col-span-1 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
-          <div className="bg-white dark:bg-black/40 border border-slate-200 dark:border-white/5 rounded-2xl p-6 shadow-sm sticky top-6">
-            <div className="flex items-center justify-between mb-6 border-b border-slate-200 dark:border-white/10 pb-4">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-500" />
-                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                  Leaderboard
-                </h3>
-              </div>
-              <span className="text-[10px] px-2 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 font-medium rounded uppercase tracking-wider">
-                Bulan Ini
-              </span>
-            </div>
-
-            <div className="space-y-4">
-              {[...displaySantri]
-                .sort((a, b) => b.id.localeCompare(a.id))
-                .slice(0, 5)
-                .map((s, i) => (
-                  <div
-                    key={s.id}
-                    className="flex items-center gap-3 group cursor-pointer"
-                  >
-                    <div
-                      className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border shrink-0 transition-all",
-                        i === 0
-                          ? "bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-500/20 dark:border-amber-500/30 group-hover:scale-110"
-                          : i === 1
-                            ? "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/10 dark:text-slate-300 dark:border-white/5 group-hover:scale-110"
-                            : i === 2
-                              ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-900/50 group-hover:scale-110"
-                              : "bg-slate-50 text-slate-500 border-transparent dark:bg-white/5 dark:text-slate-400",
-                      )}
-                    >
-                      {i === 0 ? <Medal className="w-4 h-4" /> : i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                        {s.name}
-                      </h4>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-slate-500 truncate">
-                          {s.grade}
-                        </span>
-                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 rounded">
-                          {15 - i * 2} Hal
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-
-            <button className="w-full mt-6 py-2 text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors border border-slate-200 dark:border-transparent">
-              Lihat Peringkat Lengkap
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Floating Quick Actions Menu */}
@@ -1768,6 +1801,10 @@ export function TahfidzManager() {
     const targetCoverage = totalStudents
       ? `${studentsWithTarget}/${totalStudents}`
       : "0/0";
+    const leaderboardPeriodLabel = monthlyLeaderboard
+      ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })
+        .format(new Date(`${monthlyLeaderboard.periodEnd}T00:00:00Z`))
+      : "Bulan berjalan";
     const metricCards = [
       { label: "Santri dalam Roster", value: totalStudents, tone: "emerald" },
       { label: "Halaqah Aktif", value: halaqahList.length, tone: "blue" },
@@ -1795,7 +1832,7 @@ export function TahfidzManager() {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className={`grid grid-cols-1 gap-6 ${canViewTahfidzLeaderboard ? "xl:grid-cols-3" : "xl:grid-cols-2"}`}>
           <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -1843,6 +1880,50 @@ export function TahfidzManager() {
               {!dashboardFollowUps && followUpRows.length === 6 && santriList.length > followUpRows.length && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Daftar ini berdasarkan halaman roster yang telah dimuat.</p>}
             </div>
           </section>
+          {canViewTahfidzLeaderboard && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
+              <div>
+                <h2 className="font-semibold text-slate-900 dark:text-slate-100">Papan Peringkat Ziyadah</h2>
+                <p className="mt-1 text-sm text-slate-500">Setoran bulan {leaderboardPeriodLabel}</p>
+              </div>
+              <Trophy className="h-5 w-5 shrink-0 text-amber-500" aria-hidden="true" />
+            </div>
+            {monthlyLeaderboardLoading || monthlyLeaderboardScopeKey !== currentMonthlyLeaderboardScopeKey ? (
+              <div role="status" aria-live="polite" aria-busy="true" className="p-4">
+                <ERPLoadingSkeleton variant="list" label="Memuat papan peringkat Ziyadah…" rows={4} />
+              </div>
+            ) : monthlyLeaderboardError ? (
+              <div role="alert" className="m-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-800 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-200">
+                <p>{monthlyLeaderboardError}</p>
+                <button type="button" onClick={() => void loadSupabaseTahfidzMonthlyLeaderboard()} className="mt-2 font-semibold underline underline-offset-2">Coba lagi</button>
+              </div>
+            ) : monthlyLeaderboard?.entries.length ? (
+              <>
+                <ol className="divide-y divide-slate-100 dark:divide-white/5">
+                  {monthlyLeaderboard.entries.map((entry) => (
+                    <li key={entry.studentId} className="flex items-center gap-3 px-5 py-3">
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${entry.position === 1 ? "border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"}`}>
+                        {entry.position === 1 ? <Medal className="h-4 w-4" aria-label="Peringkat pertama" /> : entry.position}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{entry.name}</p>
+                        <p className="truncate text-xs text-slate-500">{entry.grade || "Kelas belum tercatat"}{entry.halaqah ? ` · ${entry.halaqah}` : ""}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{entry.setoranCount} setoran</p>
+                        <p className="text-[11px] text-slate-500">{entry.activeDays} hari aktif</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">
+                  {monthlyLeaderboard.participants} santri memiliki setoran Ziyadah pada periode ini. Peringkat mengikuti jumlah setoran, lalu jumlah hari aktif.
+                </p>
+              </>
+            ) : (
+              <p className="px-5 py-8 text-center text-sm text-slate-500">Belum ada setoran Ziyadah pada bulan ini.</p>
+            )}
+          </section>}
         </div>
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
