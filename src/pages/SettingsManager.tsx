@@ -736,21 +736,21 @@ export function SettingsManager() {
                       <Send className="w-5 h-5 text-emerald-400" />
                       <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Integrasi WhatsApp (Notifikasi Wali & Pengajar)</h3>
                     </div>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Rahasia server-side</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Kredensial terlindungi</span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Token WhatsApp tidak boleh dimasukkan atau disimpan di browser maupun pengaturan ERP. Simpan sebagai rahasia server bernama <code>WA_GATEWAY_API_KEY</code> di penyimpanan rahasia milik environment deployment.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Kredensial integrasi dilindungi dan tidak ditampilkan pada layar ini.</p>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat URL API</label>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat URL API OpenWA</label>
                     <input
                       type="url"
                       value={integrations.waGatewayEndpoint || ''}
                       onChange={e => setIntegrations({...integrations, waGatewayEndpoint: e.target.value})}
-                      placeholder="https://api.whatsapp-gateway.com/v1/send"
+                      placeholder="http://127.0.0.1:8080"
                       className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
                     />
                   </div>
                   <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-3 text-xs text-slate-500 dark:text-slate-400">
-                    Pengiriman dan uji koneksi WhatsApp belum aktif sampai backend gateway dikonfigurasi. Status tidak disimulasikan sebagai koneksi berhasil.
+                    Contoh jalankan: <code>npx @open-wa/wa-automate --session-id erp4 --host 127.0.0.1 --port 8080 --api-key &quot;…&quot;</code>. ERP mengirim ke <code>/api/messages/sendText</code>. Siaran CRM hanya ke kontak yang menyetujui menerima informasi.
                   </div>
                 </div>
 
