@@ -38,7 +38,7 @@ Belum lulus/terbukti:
 Inventaris read-only terkini menunjukkan:
 
 - **PTSAS Production:** 100 versi sampai `20270316000000`; 56 versi source belum tercatat, dan tiga versi (`20261205000000`, `20261206000000`, `20270118000000`) tidak mengembalikan nama. Semua versi yang tercatat cocok dengan nomor versi source, tetapi kesetaraan DDL/isi belum diverifikasi.
-- **VQE staging:** 150 versi; source saat ini berisi 156. Enam migrasi CBT dalam PR sudah ada pada VQE dengan versi lama `20270314000000`–`20270319000000`, sedangkan branch ini menomorinya `20270321000000`–`20270326000000`. Migrasi katalog Quran juga memiliki perbedaan versi. Ada migrasi lain yang hanya terdapat pada salah satu ledger.
+- **VQE staging:** 150 versi; source saat ini berisi 156. Ada 12 versi source yang belum tercatat persis, enam versi VQE yang tidak ada pada source saat ini, dan empat nomor versi dengan nama yang berbeda (`20270312000000`, `20270314000000`, `20270315000000`, `20270316000000`). Enam migration CBT lama tercatat pada VQE sebagai `20270314000000`–`20270319000000`; source main memakai `20270321000000`–`20270326000000`. Katalog Quran juga tercatat di VQE pada `20261109145507`, sementara source memakai `20270320000000`.
 - Kesembilan RPC CBT dan sepuluh indeks yang dibutuhkan terlihat pada katalog VQE; fungsi-fungsinya berstatus `SECURITY INVOKER`. Definisi fungsi aktual belum dibandingkan byte-per-byte/semantik dengan SQL branch.
 
 Jangan menjalankan `db push` untuk menutup semua versi ledger yang hilang. CI saat ini menjalankan fixture historis dan bukan replay terhadap inventaris Production/VQE terkini. Tim backend perlu merekonsiliasi dependency, DDL, dan bukti backup/restore sebelum migrasi Production. Tidak ada migrasi/database yang diubah.
