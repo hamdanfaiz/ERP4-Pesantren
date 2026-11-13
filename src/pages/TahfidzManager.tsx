@@ -5025,7 +5025,7 @@ export function TahfidzManager() {
                     <select
                       value={formData.juz || ""}
                       onChange={(e) => {
-                        const juzNum = parseInt(e.target.value);
+                        const juzNum = e.target.value ? parseInt(e.target.value, 10) : "";
                         setFormData({
                           ...formData,
                           juz: juzNum,
@@ -5052,6 +5052,7 @@ export function TahfidzManager() {
                     <select
                       required
                       value={formData.surah || ""}
+                      disabled={isSurahListLoading || Boolean(surahListError) || !surahList.length}
                       onChange={(e) => {
                         const surahVal = e.target.value;
                         const surah = surahList.find(
@@ -5087,9 +5088,9 @@ export function TahfidzManager() {
                           });
                         }
                       }}
-                      className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <option value="">-- Surah --</option>
+                      <option value="">{isSurahListLoading ? "Memuat Surah…" : surahListError ? "Katalog Surah tidak tersedia" : "-- Pilih Surah --"}</option>
                       {(() => {
                         let availableSurahs = surahList;
                         if (formData.juz) {
@@ -5119,8 +5120,14 @@ export function TahfidzManager() {
                     <select
                       required
                       value={formData.ayatStart || ""}
+                      disabled={isSurahListLoading || Boolean(surahListError) || !formData.surah || !surahList.length}
                       onChange={(e) => {
-                        const startAyat = parseInt(e.target.value);
+                        const startValue = e.target.value;
+                        if (!startValue) {
+                          setFormData({ ...formData, ayatStart: "", ayatEnd: "", ayat: "" });
+                          return;
+                        }
+                        const startAyat = parseInt(startValue, 10);
                         let newJuz = formData.juz;
                         if (formData.surahNomor) {
                           const matchingJuz = JUZ_MAPPING.find((j) => {
@@ -5145,14 +5152,24 @@ export function TahfidzManager() {
                           });
                           if (matchingJuz) newJuz = matchingJuz.juz;
                         }
+                        const selectedJuz = newJuz ? JUZ_MAPPING.find((juz) => juz.juz === newJuz) : null;
+                        const maxAyah = selectedJuz && formData.surahNomor === selectedJuz.end.surah
+                          ? Math.min(Number(formData.ayatCount || 286), selectedJuz.end.ayat)
+                          : Number(formData.ayatCount || 286);
+                        const currentEnd = parseInt(formData.ayatEnd || "", 10);
+                        const nextEnd = String(Math.max(startAyat, Math.min(
+                          Number.isInteger(currentEnd) ? currentEnd : startAyat,
+                          Math.max(startAyat, maxAyah),
+                        )));
                         setFormData({
                           ...formData,
                           juz: newJuz,
-                          ayatStart: e.target.value,
-                          ayat: `${e.target.value}-${formData.ayatEnd || e.target.value}`,
+                          ayatStart: startValue,
+                          ayatEnd: nextEnd,
+                          ayat: `${startValue}-${nextEnd}`,
                         });
                       }}
-                      className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <option value="">-- Mulai --</option>
                       {(() => {
@@ -5187,14 +5204,16 @@ export function TahfidzManager() {
                     <select
                       required
                       value={formData.ayatEnd || ""}
+                      disabled={isSurahListLoading || Boolean(surahListError) || !formData.surah || !formData.ayatStart || !surahList.length}
                       onChange={(e) => {
+                        const endValue = e.target.value;
                         setFormData({
                           ...formData,
-                          ayatEnd: e.target.value,
-                          ayat: `${formData.ayatStart || e.target.value}-${e.target.value}`,
+                          ayatEnd: endValue,
+                          ayat: formData.ayatStart && endValue ? `${formData.ayatStart}-${endValue}` : "",
                         });
                       }}
-                      className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <option value="">-- Selesai --</option>
                       {(() => {
@@ -5225,6 +5244,13 @@ export function TahfidzManager() {
                     </select>
                   </div>
                 </div>
+
+                {SUPABASE_TAHFIDZ_RUNTIME && surahListError && (
+                  <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/20 dark:text-rose-300">
+                    <p>{surahListError}</p>
+                    <button type="button" onClick={() => setSurahListAttempt((attempt) => attempt + 1)} className="mt-1 font-semibold underline underline-offset-2">Coba muat ulang katalog</button>
+                  </div>
+                )}
 
                 <div className="bg-slate-50 dark:bg-white/[0.02] p-4 rounded-xl border border-slate-200 dark:border-white/5 space-y-4">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10 pb-2">
@@ -5301,7 +5327,8 @@ export function TahfidzManager() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20"
+                  disabled={SUPABASE_TAHFIDZ_RUNTIME && (isSurahListLoading || Boolean(surahListError) || !surahList.length || !formData.surah || !formData.ayatStart || !formData.ayatEnd)}
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20"
                 >
                   Simpan Setoran
                 </button>
