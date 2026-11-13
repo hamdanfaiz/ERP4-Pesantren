@@ -456,6 +456,9 @@ assert.deepEqual(
   ['src/pages/Unsafe.tsx:setItem'],
   'The browser persistence policy must reject a localStorage record-write regression.',
 );
+const structureRegistrationSource = fs.readFileSync(path.join(root, 'src/components/StructureRegistrationForm.tsx'), 'utf8');
+assert.doesNotMatch(structureRegistrationSource, /Runtime Supabase Master Data|berhasil disimpan ke Supabase|Diterbitkan backend saat disimpan/,
+  'Customer-facing structure forms must not expose provider or implementation details.');
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
 console.log('Browser persistence policy passed (no active localStorage writes; sessionStorage limited to Supabase Auth and temporary idempotency keys).');
 
