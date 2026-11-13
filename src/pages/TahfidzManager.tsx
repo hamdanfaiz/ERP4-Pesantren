@@ -766,7 +766,7 @@ export function TahfidzManager() {
       setRecordsHasMore(false);
       setRecordsNextCursor("");
       setRecordsOldestDate("");
-      setTahfidzError("Profil pesantren aktif diperlukan untuk membaca data Tahfidz.");
+      setTahfidzError("Profil pesantren pada akun ini belum aktif. Hubungi Admin pesantren.");
       setTahfidzLoading(false);
       return () => { active = false; };
     }
@@ -925,7 +925,7 @@ export function TahfidzManager() {
 
   const handleTahfidzImport = async (apply = false) => {
     if (!SUPABASE_TAHFIDZ_RUNTIME || !SUPABASE_TAHFIDZ_IMPORT) return;
-    if (apply && !window.confirm("Impor pengaturan halaqah dan penempatan dari arsip lama? Pastikan pratinjau sudah diperiksa.")) return;
+    if (apply && !window.confirm("Impor konfigurasi halaqah dan penempatan dari data lama ke pesantren ini? Pastikan pratinjau sudah diperiksa.")) return;
     apply ? setIsApplyingTahfidzImport(true) : setIsPreviewingTahfidzImport(true);
     setTahfidzError("");
     try {
@@ -1078,7 +1078,7 @@ export function TahfidzManager() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {SUPABASE_TAHFIDZ_RUNTIME && SUPABASE_TAHFIDZ_IMPORT && canManageTahfidz && <button onClick={() => void handleTahfidzImport(false)} disabled={isPreviewingTahfidzImport || isApplyingTahfidzImport} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
-            {isPreviewingTahfidzImport ? "Memindai…" : "Pratinjau Impor Data Lama"}
+            {isPreviewingTahfidzImport ? "Memindai…" : "Pratinjau Impor Data Tahfidz"}
           </button>}
           {(!SUPABASE_TAHFIDZ_RUNTIME || canManageTahfidz) && <button onClick={() => openHalaqahForm()} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
             <Plus className="w-4 h-4" /> Tambah Halaqah
@@ -1102,7 +1102,7 @@ export function TahfidzManager() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {SUPABASE_TAHFIDZ_RUNTIME && !tahfidzLoading && displayHalaqah.length === 0 && (
           <div className="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/10">
-            Belum ada halaqah aktif di pesantren ini. Admin dapat membuat halaqah setelah daftar ustadz aktif tersedia.
+            Belum ada halaqah aktif. Admin dapat membuatnya setelah daftar ustadz pengampu tersedia.
           </div>
         )}
         {displayHalaqah.map((halaqah) => {
@@ -1777,7 +1777,7 @@ export function TahfidzManager() {
     return (
       <div className="space-y-6">
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200">
-          Ringkasan santri dan target dihitung berdasarkan data akun Anda. Tabel santri dimuat bertahap; grafik menunjukkan jumlah setoran, bukan jumlah halaman atau juz.
+          Ringkasan santri dan target mengikuti hak akses akun Anda. Daftar dimuat bertahap; grafik menunjukkan jumlah setoran, bukan halaman atau juz.
         </div>
         {rosterHasMore && <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
           <span>Menampilkan {santriList.length} dari {totalStudents} santri pada daftar. Ringkasan tindak lanjut dihitung terpisah untuk seluruh data yang dapat Anda akses.</span>
@@ -1848,7 +1848,7 @@ export function TahfidzManager() {
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">Halaqah</h2>
-              <p className="mt-1 text-sm text-slate-500">Kelompok aktif di pesantren ini</p>
+              <p className="mt-1 text-sm text-slate-500">Halaqah aktif</p>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-white/5">
               {halaqahList.length ? halaqahList.map((halaqah) => (
@@ -1865,7 +1865,7 @@ export function TahfidzManager() {
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">Setoran Terbaru</h2>
-              <p className="mt-1 text-sm text-slate-500">Catatan setoran tersimpan</p>
+              <p className="mt-1 text-sm text-slate-500">Riwayat setoran terbaru</p>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-white/5">
               {records.slice(0, 6).length ? records.slice(0, 6).map((record) => (
@@ -1901,7 +1901,7 @@ export function TahfidzManager() {
       return (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-900">
           <h2 className="font-semibold text-slate-900 dark:text-slate-100">Data santri belum tertaut</h2>
-          <p className="mt-2 text-sm text-slate-500">Hubungi Admin untuk memastikan akun Anda terhubung ke data santri yang tepat.</p>
+          <p className="mt-2 text-sm text-slate-500">Hubungi Admin pesantren untuk menghubungkan akun Anda dengan data santri.</p>
         </div>
       );
     }
@@ -1978,7 +1978,7 @@ export function TahfidzManager() {
                 </article>
               )) : <p className="px-5 py-8 text-center text-sm text-slate-500">Belum ada catatan setoran tersimpan.</p>}
           </div>
-          <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Total hafalan dan grafik progres belum tersedia karena jumlah hafalan kumulatif belum dicatat.</p>
+          <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Ringkasan total hafalan belum tersedia. Riwayat setoran tetap dapat dilihat di bawah.</p>
         </section>
       </div>
     );
@@ -1990,7 +1990,7 @@ export function TahfidzManager() {
         <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             <h2 className="font-semibold text-slate-900 dark:text-slate-100">Target Harian Santri</h2>
-            <p className="mt-1 text-sm text-slate-500">{isTahfidzLearner ? "Target aktif untuk santri yang tertaut dengan akun ini." : "Target hafalan aktif."}</p>
+            <p className="mt-1 text-sm text-slate-500">{isTahfidzLearner ? "Target aktif untuk santri yang tertaut dengan akun ini." : "Target aktif untuk santri dalam cakupan akun Anda."}</p>
           </div>
           {canManageTargets && <button onClick={() => setIsTargetModalOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">
             <Plus className="h-4 w-4" /> Atur Target
@@ -3699,11 +3699,11 @@ export function TahfidzManager() {
             <span className="hidden sm:inline">
               {isReminderEnabled ? "Pengingat Aktif" : "Aktifkan Pengingat"}
             </span>
-          </button> : <button type="button" disabled title="Pengingat belum tersedia saat ini." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Bell className="h-4 w-4" /><span>Aktifkan Pengingat</span></button>}
+          </button> : <button type="button" disabled aria-label="Pengingat belum tersedia" title="Pengingat belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Bell className="h-4 w-4" /><span>Aktifkan Pengingat</span></button>}
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button className="flex items-center gap-2 bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors shadow-sm">
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Ekspor Laporan</span>
-          </button> : <button type="button" disabled title="Ekspor laporan khusus Tahfidz belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Download className="h-4 w-4" /><span>Ekspor Laporan</span></button>}
+          </button> : <button type="button" disabled aria-label="Ekspor laporan belum tersedia" title="Ekspor laporan belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Download className="h-4 w-4" /><span>Ekspor Laporan</span></button>}
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() => {
               setSelectedSantri(displaySantri[0]);
@@ -3724,7 +3724,6 @@ export function TahfidzManager() {
         </div>
       </div>
 
-      {SUPABASE_TAHFIDZ_RUNTIME && <p className="-mt-4 text-xs leading-5 text-slate-500" role="note">Pengingat, ekspor laporan khusus Tahfidz, dan penilaian audio belum tersedia.</p>}
 
       {SUPABASE_TAHFIDZ_RUNTIME && (tahfidzLoading || tahfidzError) && (
         <div className={cn("flex flex-col gap-2 rounded-xl border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between", tahfidzError ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-200" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300")}>
@@ -3973,7 +3972,7 @@ export function TahfidzManager() {
       {isHalaqahModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-black/80">
           <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
-            <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">{editingHalaqah ? "Ubah Halaqah" : "Tambah Halaqah"}</h2><p className="mt-1 text-sm text-slate-500">Simpan perubahan untuk memperbarui data halaqah.</p></div>
+            <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">{editingHalaqah ? "Ubah Halaqah" : "Tambah Halaqah"}</h2><p className="mt-1 text-sm text-slate-500">Isi data halaqah, lalu simpan untuk menerapkan perubahan.</p></div>
             <div className="space-y-4 p-5">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nama halaqah<input value={halaqahForm.name} onChange={(e) => setHalaqahForm({ ...halaqahForm, name: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40" maxLength={120} /></label>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Ustadz pengampu<select value={halaqahForm.ustadzUserId} onChange={(e) => setHalaqahForm({ ...halaqahForm, ustadzUserId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih ustadz…</option>{ustadzOptions.map((option) => <option key={option.userId} value={option.userId}>{option.name}</option>)}</select></label>
@@ -3988,7 +3987,7 @@ export function TahfidzManager() {
       {isMembershipModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-black/80">
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
-            <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">Tempatkan Santri ke Halaqah</h2><p className="mt-1 text-sm text-slate-500">Penempatan santri akan diperbarui setelah Anda menyimpan.</p></div>
+            <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">Tempatkan Santri ke Halaqah</h2><p className="mt-1 text-sm text-slate-500">Santri akan ditempatkan ke halaqah setelah Anda menyimpan perubahan.</p></div>
             <div className="space-y-4 p-5">
               <div><span className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri</span>{SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
                 key={tahfidzStudentScopeKey}
