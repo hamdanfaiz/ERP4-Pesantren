@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { deriveCbtDashboardSummary } from "../src/lib/cbtDashboard";
+import { deriveCbtDashboardSummary, summarizeCbtAssignmentsByExam } from "../src/lib/cbtDashboard";
 
 const now = Date.parse("2026-11-12T03:00:00.000Z");
 const exams = [
@@ -22,6 +22,18 @@ const summary = deriveCbtDashboardSummary(exams, assignments, now);
 assert.equal(summary.ongoingSessions, 1, "only published or active sessions in their time window count as ongoing");
 assert.equal(summary.upcomingSessions, 2, "draft, cancelled, invalid, and ongoing sessions are not upcoming");
 assert.deepEqual(summary.upcomingExams.map((exam) => exam.id), ["earlier", "later"], "upcoming sessions sort by start time");
+
+const additionalUpcoming = Array.from({ length: 7 }, (_, index) => ({
+  id: `future-${index + 1}`,
+  title: `Ujian mendatang ${index + 1}`,
+  startsAt: new Date(now + (10 + index) * 24 * 60 * 60 * 1000).toISOString(),
+  endsAt: new Date(now + (10 + index) * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(),
+  status: "published",
+}));
+const largeSchedule = deriveCbtDashboardSummary([...exams, ...additionalUpcoming], [], now);
+assert.equal(largeSchedule.upcomingSessions, 9, "total upcoming count includes exams beyond the five-item preview");
+assert.equal(largeSchedule.upcomingExams.length, 5, "the preview remains bounded to five exams");
+assert.deepEqual(largeSchedule.upcomingExams.map((exam) => exam.id), ["earlier", "later", "future-1", "future-2", "future-3"], "the bounded preview keeps the earliest upcoming exams in order");
 assert.equal(summary.totalAssignments, 5, "all assignments in the tenant snapshot are counted");
 assert.equal(summary.completedAssignments, 3, "completed, submitted, and graded assignments count as complete");
 assert.equal(summary.completionRate, 60, "completion percentage uses the full assignment count");
@@ -35,4 +47,33 @@ assert.equal(empty.completionRate, null, "empty tenants do not display a mislead
 assert.equal(empty.averageScore, null, "empty tenants do not display a sample average");
 assert.equal(empty.passRate, null, "pass rate is unavailable until a result has a decision");
 
-console.log("CBT decision dashboard: 13 assertions passed");
+const assignmentCounts = summarizeCbtAssignmentsByExam(
+  [
+    { examId: "exam-a", status: "completed" },
+    { examId: "exam-b", status: "assigned" },
+    { examId: "exam-a", status: "in_progress" },
+    { examId: "exam-a", status: "completed" },
+  ],
+  (assignment) => assignment.examId,
+  (assignment) => assignment.status,
+);
+assert.equal(assignmentCounts.get("exam-a")?.assignedCount, 3, "assignment counts aggregate each exam in one pass");
+assert.equal(assignmentCounts.get("exam-a")?.completedCount, 2, "completed counts preserve the completed status rule");
+assert.equal(assignmentCounts.get("exam-b")?.assignedCount, 1, "separate exam counts remain isolated");
+assert.equal(assignmentCounts.get("exam-b")?.completedCount, 0, "uncompleted exams retain a zero completed count");
+assert.equal(assignmentCounts.size, 2, "only exams with assignments are indexed");
+
+const bulkAssignments = Array.from({ length: 10_000 }, (_, index) => ({
+  examId: `exam-${index % 100}`,
+  status: Math.floor(index / 100) % 5 === 0 ? "completed" : "assigned",
+}));
+const bulkCounts = summarizeCbtAssignmentsByExam(
+  bulkAssignments,
+  (assignment) => assignment.examId,
+  (assignment) => assignment.status,
+);
+assert.equal(bulkCounts.size, 100, "large synthetic assignment lists retain a separate aggregate for each exam");
+assert.equal(bulkCounts.get("exam-0")?.assignedCount, 100, "large synthetic assignment totals remain exact");
+assert.equal(bulkCounts.get("exam-0")?.completedCount, 20, "large synthetic completed totals remain exact");
+
+console.log("CBT decision dashboard and linear assignment index: 24 assertions passed");

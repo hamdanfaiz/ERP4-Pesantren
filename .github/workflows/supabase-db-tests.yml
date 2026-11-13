@@ -106,6 +106,12 @@ jobs:
       - name: Verify customer deployment feature flag wiring
         run: npm run test:customer-deployment-flags
 
+      - name: Verify customer Compose variables are documented
+        run: npm run test:customer-compose-env
+
+      - name: Verify customer-facing error copy
+        run: npm run test:user-messages
+
       - name: Verify trusted reverse proxy hop configuration
         run: npm run test:trusted-proxy-hops
 
@@ -123,6 +129,21 @@ jobs:
 
       - name: Verify CBT persisted session monitoring
         run: npm run test:cbt-monitor
+
+      - name: Verify tenant CBT question pagination and cursor validation
+        run: npm run test:cbt-question-pagination
+
+      - name: Verify tenant CBT student roster pagination and cursor validation
+        run: npm run test:cbt-student-roster-pagination
+
+      - name: Verify tenant CBT assignment pagination and cursor validation
+        run: npm run test:cbt-assignment-pagination
+
+      - name: Verify tenant CBT exam pagination and cursor validation
+        run: npm run test:cbt-exam-pagination
+
+      - name: Verify tenant CBT settings validation
+        run: npm run test:cbt-settings-write
 
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow

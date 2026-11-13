@@ -15,14 +15,14 @@ This repository is the ERP4 Pesantren application. The interface is React (Vite)
 - The process reads the gitignored `.env` at the repository root. `fromoutside/.env` is the source copy that was aligned into that file.
 - Browser configuration is `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` only.
 - `SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`, `SUPABASE_DB_PASSWORD`, and the PII keys stay on the server. Do not print them, commit them, or copy them into a `VITE_` variable.
-- The only database for this checkout is Production PTSAS `ptsasgdvgrbdtgyqieie` at `https://ptsasgdvgrbdtgyqieie.supabase.co`.
-- Do not connect to, query, migrate, or copy data into staging VQE `vqemuyzveuirlkvdggjd`. Ignore leftover `STAGING_` keys and older notes that tell an agent to use staging.
+- Production is PTSAS `ptsasgdvgrbdtgyqieie`; staging rehearsal is VQE `vqemuyzveuirlkvdggjd` for the release path authorized by the owner on 13 November 2026.
+- Verify the target project ref before any database connection. Keep staging and Production credentials separate; never copy dummy data between them.
 
 ## Runtime
 
 - `npm run dev` starts `tsx server.ts` and serves the React app.
 - Module flags in `.env` are fail-closed. A flag that is `false` keeps that module off.
-- Do not apply the full unrecorded migration gap to Production just to make the ledger count match. Academic work and the objects it calls are authorized on Production by `.cursor/rules/academic-production.mdc`.
+- Do not apply the full unrecorded migration gap to Production just to make the ledger count match. Prefer local/CI checks, VQE staging rehearsal, dependency reconciliation, and recoverable backup evidence. A direct Production release is allowed only when the same release gates are independently proven against Production, the exact reviewed migration set is known, and the backend team has supplied recoverable backup evidence. Academic work and the objects it calls are authorized on Production by `.cursor/rules/academic-production.mdc`.
 
 Skills for this checkout live in `.cursor/skills`.
 

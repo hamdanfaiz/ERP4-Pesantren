@@ -2812,6 +2812,69 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       'CBT grade choices resolve from the tenant-owned grade catalog.');
     assert.ok(cbtInitialSnapshot.references.templates.some((item) => item.id === cbtQuestionTemplateId),
       'CBT template choices resolve from the tenant-owned CBT catalog.');
+    assert.deepEqual(cbtInitialSnapshot.questions, [],
+      'The broad Admin snapshot keeps the compatibility field empty instead of downloading the question bank.');
+    assert.deepEqual(cbtInitialSnapshot.exams, [],
+      'The broad Admin snapshot keeps exam rows empty so large tenants use the paginated endpoint.');
+    const cbtInitialExamPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/exams?limit=50`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtInitialExamPageResponse.status, 200, 'An authorized tenant Admin can page CBT exams.');
+    const cbtInitialExamPage = await cbtInitialExamPageResponse.json();
+    assert.ok(Array.isArray(cbtInitialExamPage.items) && cbtInitialExamPage.items.length <= 50,
+      'The CBT exam endpoint returns a bounded page.');
+    assert.equal(typeof cbtInitialExamPage.hasMore, 'boolean', 'The CBT exam page reports whether another page exists.');
+    const cbtExamPageLimitDenied = await fetch(`${referenceApiBase}/api/cbt/admin/exams?limit=101`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtExamPageLimitDenied.status, 400, 'The CBT exam endpoint rejects a page larger than its bound.');
+    const cbtInitialQuestionPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/questions?limit=50`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtInitialQuestionPageResponse.status, 200, 'An authorized tenant Admin can page the CBT question bank.');
+    const cbtInitialQuestionPage = await cbtInitialQuestionPageResponse.json();
+    assert.ok(Array.isArray(cbtInitialQuestionPage.items) && cbtInitialQuestionPage.items.length <= 50,
+      'The CBT question endpoint returns a bounded page.');
+    const requestCbtStudentPage = (token, query = { limit: 50 }) => fetch(`${referenceApiBase}/api/cbt/admin/students/page`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(query),
+    });
+    const cbtInitialStudentPageResponse = await requestCbtStudentPage(adminToken);
+    assert.equal(cbtInitialStudentPageResponse.status, 200, 'An authorized tenant Admin can page the CBT participant roster.');
+    const cbtInitialStudentPage = await cbtInitialStudentPageResponse.json();
+    assert.ok(Array.isArray(cbtInitialStudentPage.items) && cbtInitialStudentPage.items.length <= 50,
+      'The CBT student endpoint returns a bounded roster page.');
+    assert.equal(typeof cbtInitialStudentPage.hasMore, 'boolean', 'The CBT student page reports whether another page exists.');
+    assert.ok(cbtInitialStudentPage.items.every((item) =>
+      Object.keys(item).sort().join(',') === 'className,grade,id,name'
+      && typeof item.id === 'string' && typeof item.name === 'string'),
+    'The CBT roster exposes only minimal student labels and never returns NIS or identity fields.');
+    const requestCbtAssignmentPage = (token, query = { view: "results", limit: 50 }) => fetch(`${referenceApiBase}/api/cbt/admin/assignments/page`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(query),
+    });
+    const cbtInitialAssignmentPageResponse = await requestCbtAssignmentPage(adminToken);
+    assert.equal(cbtInitialAssignmentPageResponse.status, 200, "An authorized tenant Admin can page CBT results.");
+    const cbtInitialAssignmentPage = await cbtInitialAssignmentPageResponse.json();
+    assert.ok(Array.isArray(cbtInitialAssignmentPage.items) && cbtInitialAssignmentPage.items.length <= 50,
+      "The CBT assignment endpoint returns a bounded page.");
+    assert.equal(typeof cbtInitialAssignmentPage.hasMore, "boolean");
+    const cbtInitialMonitorPageResponse = await requestCbtAssignmentPage(adminToken, { view: "monitor", limit: 50 });
+    assert.equal(cbtInitialMonitorPageResponse.status, 200, "An authorized tenant Admin can page active CBT monitoring rows.");
+    const cbtInitialMonitorPage = await cbtInitialMonitorPageResponse.json();
+    assert.ok(cbtInitialMonitorPage.items.every((item) => ["assigned", "in_progress"].includes(item.status)),
+      "The monitor endpoint returns only waiting and in-progress assignments.");
+    assert.ok(cbtInitialAssignmentPage.items.every((item) =>
+      typeof item.assignmentId === "string" && typeof item.studentName === "string"
+      && typeof item.examTitle === "string" && typeof item.className === "string"
+      && !Object.hasOwn(item, "studentId") && !Object.hasOwn(item, "nis")),
+    "Assignment pages expose minimal labels and never expose NIS or student IDs.");
+    const cbtAssignmentPageLimitDenied = await requestCbtAssignmentPage(adminToken, { view: "results", limit: 101 });
+    assert.equal(cbtAssignmentPageLimitDenied.status, 400, "The CBT assignment endpoint rejects a page larger than its bound.");
+    const cbtStudentPageLimitDenied = await requestCbtStudentPage(adminToken, { limit: 101 });
+    assert.equal(cbtStudentPageLimitDenied.status, 400, 'The CBT roster endpoint rejects a page larger than its bound.');
 
     const cbtPermissionDenied = await fetch(`${referenceApiBase}/api/cbt/admin`, {
       headers: { Authorization: `Bearer ${limitedAdminToken}` },
@@ -2821,13 +2884,60 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       headers: { Authorization: `Bearer ${ustadzToken}` },
     });
     assert.equal(cbtRoleDenied.status, 403, 'A non-admin with CBT permission cannot manage the question bank or exam.');
+    const cbtQuestionPermissionDenied = await fetch(`${referenceApiBase}/api/cbt/admin/questions`, {
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
+    });
+    assert.equal(cbtQuestionPermissionDenied.status, 403, 'An Admin without CBT permission cannot page the question bank.');
+    const cbtQuestionRoleDenied = await fetch(`${referenceApiBase}/api/cbt/admin/questions`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(cbtQuestionRoleDenied.status, 403, 'A non-admin cannot page the managed question bank.');
+    const cbtExamPermissionDenied = await fetch(`${referenceApiBase}/api/cbt/admin/exams`, {
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
+    });
+    assert.equal(cbtExamPermissionDenied.status, 403, 'An Admin without CBT permission cannot page the exam list.');
+    const cbtExamRoleDenied = await fetch(`${referenceApiBase}/api/cbt/admin/exams`, {
+      headers: { Authorization: `Bearer ${ustadzToken}` },
+    });
+    assert.equal(cbtExamRoleDenied.status, 403, 'A non-admin cannot page managed CBT exams.');
+    const cbtStudentPermissionDenied = await requestCbtStudentPage(limitedAdminToken);
+    assert.equal(cbtStudentPermissionDenied.status, 403, 'An Admin without CBT permission cannot page the participant roster.');
+    const cbtStudentRoleDenied = await requestCbtStudentPage(ustadzToken);
+    assert.equal(cbtStudentRoleDenied.status, 403, 'A non-admin cannot page the managed participant roster.');
+    const cbtAssignmentPermissionDenied = await requestCbtAssignmentPage(limitedAdminToken);
+    assert.equal(cbtAssignmentPermissionDenied.status, 403, 'An Admin without CBT permission cannot page assignments.');
+    const cbtAssignmentRoleDenied = await requestCbtAssignmentPage(ustadzToken);
+    assert.equal(cbtAssignmentRoleDenied.status, 403, 'A non-admin cannot page managed CBT assignments.');
     const otherTenantCbtSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/admin`, {
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
     });
     assert.equal(otherTenantCbtSnapshotResponse.status, 200, 'A separately authorized Admin can read only their own tenant CBT snapshot.');
     const otherTenantCbtSnapshot = await otherTenantCbtSnapshotResponse.json();
-    assert.equal(otherTenantCbtSnapshot.questions.length, 0, 'Tenant B must not see Tenant A CBT questions.');
+    assert.deepEqual(otherTenantCbtSnapshot.questions, [],
+      'The broad tenant snapshot keeps the question bank empty.');
+    const otherTenantCbtQuestionPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/questions?limit=50`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(otherTenantCbtQuestionPageResponse.status, 200);
+    assert.deepEqual((await otherTenantCbtQuestionPageResponse.json()).items, [],
+      'Tenant B cannot see Tenant A questions through the paged endpoint.');
+    const otherTenantCbtExamPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/exams?limit=50`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(otherTenantCbtExamPageResponse.status, 200);
+    assert.deepEqual((await otherTenantCbtExamPageResponse.json()).items, [],
+      'Tenant B cannot see Tenant A exams through the paged endpoint.');
+    const otherTenantCbtStudentPageResponse = await requestCbtStudentPage(otherTenantMarketplaceAdminToken);
+    assert.equal(otherTenantCbtStudentPageResponse.status, 200);
+    const otherTenantCbtStudentPage = await otherTenantCbtStudentPageResponse.json();
+    const tenantAStudentIds = new Set(cbtInitialStudentPage.items.map((item) => item.id));
+    assert.ok(otherTenantCbtStudentPage.items.every((item) => !tenantAStudentIds.has(item.id)),
+      'Tenant B cannot see the roster page returned for Tenant A.');
     assert.equal(otherTenantCbtSnapshot.exams.length, 0, 'Tenant B must not see Tenant A exams.');
+    const otherTenantCbtAssignmentPage = await requestCbtAssignmentPage(otherTenantMarketplaceAdminToken);
+    assert.equal(otherTenantCbtAssignmentPage.status, 200);
+    assert.deepEqual((await otherTenantCbtAssignmentPage.json()).items, [],
+      "Tenant B cannot see Tenant A's CBT assignments.");
 
     const cbtQuestionRequestId = randomUUID();
     const cbtQuestionPayload = {
@@ -2895,6 +3005,14 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     });
     assert.equal(cbtExamRetry.status, 200, 'Retrying the same CBT exam request is idempotent.');
     assert.deepEqual(await cbtExamRetry.json(), { id: cbtExam.id, alreadyApplied: true });
+
+    const assignedCbtPageResponse = await requestCbtAssignmentPage(adminToken, { view: "results", search: cbtExamPayload.exam.title });
+    assert.equal(assignedCbtPageResponse.status, 200);
+    const assignedCbtPage = await assignedCbtPageResponse.json();
+    assert.ok(assignedCbtPage.items.some((item) => item.examTitle === cbtExamPayload.exam.title && item.status === "assigned"),
+      "Admin can read the new tenant-scoped assignment from a page.");
+    assert.ok(assignedCbtPage.items.every((item) => item.examTitle === cbtExamPayload.exam.title),
+      "Server-side activity search is applied before pagination.");
 
     const tenantBStudentToken = await signIn(anon, users[2]);
     const tenantBStudentSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/student`, {
@@ -2978,12 +3096,32 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     });
     assert.equal(cbtAdminAfterSubmitResponse.status, 200);
     const cbtAdminAfterSubmit = await cbtAdminAfterSubmitResponse.json();
-    assert.equal(cbtAdminAfterSubmit.questions.find((item) => item.id === cbtQuestion.id)?.correctAnswer, 1,
-      'The answer key remains available only in the authorized Admin snapshot.');
-    assert.equal(cbtAdminAfterSubmit.exams.find((item) => item.id === cbtExam.id)?.completedCount, 1,
-      'Admin analytics reflect the completed assignment.');
-    assert.equal(cbtAdminAfterSubmit.results.find((item) => item.examTitle === cbtExamPayload.exam.title)?.score, 100,
-      'Admin results include the persisted score.');
+    assert.deepEqual(cbtAdminAfterSubmit.questions, [],
+      'The broad Admin snapshot keeps the compatibility field empty after submission.');
+    assert.deepEqual(cbtAdminAfterSubmit.exams, [],
+      'The broad Admin snapshot keeps exam rows empty after submission so large tenants use the paginated endpoint.');
+    const cbtAdminQuestionPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/questions?limit=50&search=Berapakah`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtAdminQuestionPageResponse.status, 200);
+    const cbtAdminQuestionPage = await cbtAdminQuestionPageResponse.json();
+    assert.equal(cbtAdminQuestionPage.items.find((item) => item.id === cbtQuestion.id)?.correctAnswer, 1,
+      'The answer key is available only through the authorized paged Admin endpoint.');
+    const cbtAdminAfterSubmitExamPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/exams?limit=50`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtAdminAfterSubmitExamPageResponse.status, 200,
+      'The authorized Admin can refresh the persisted exam list after submission.');
+    const cbtAdminAfterSubmitExamPage = await cbtAdminAfterSubmitExamPageResponse.json();
+    assert.equal(cbtAdminAfterSubmitExamPage.items.find((item) => item.id === cbtExam.id)?.completedCount, 1,
+      'The paginated exam list reflects the completed assignment count.');
+    const cbtAdminResultsResponse = await requestCbtAssignmentPage(adminToken, { view: "results", search: cbtExamPayload.exam.title });
+    assert.equal(cbtAdminResultsResponse.status, 200);
+    const cbtAdminResultsPage = await cbtAdminResultsResponse.json();
+    assert.equal(cbtAdminResultsPage.items.find((item) => item.examTitle === cbtExamPayload.exam.title)?.score, 100,
+      'The paged Admin results include the persisted score.');
+    assert.equal(cbtAdminAfterSubmitExamPage.items.find((item) => item.id === cbtExam.id)?.completedCount, 1,
+      'Per-exam assignment aggregates reflect the completed assignment.');
 
     const lmsNoPermissionUser = await createUserFixture(admin, tenantIds[0], 'admin', 'active', 'lms-denied', { lms: false });
     users.push(lmsNoPermissionUser);

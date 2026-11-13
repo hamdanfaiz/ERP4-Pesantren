@@ -6,9 +6,9 @@ Baca dokumen ini **sebelum** mengubah kode, skema, flag, data Production, atau m
 
 | Aturan | Sumber |
 | --- | --- |
-| Database hanya Production PTSAS `ptsasgdvgrbdtgyqieie` | `.cursor/rules/supabase-project.mdc` |
-| Jangan pakai staging VQE `vqemuyzveuirlkvdggjd` | aturan yang sama + skill `erp4-pesantren` |
-| Jangan ubah skema/data/proses kecuali diminta eksplisit | aturan Supabase + Karpathy lokal |
+| PTSAS `ptsasgdvgrbdtgyqieie` adalah Production kanonis; VQE `vqemuyzveuirlkvdggjd` adalah staging rehearsal untuk urutan rilis yang diminta pemilik | `.cursor/rules/supabase-project.mdc` |
+| Jangan salin data dummy atau mengubah database live sebelum CI, preflight target, dan dependensi migrasi ditinjau | aturan Supabase + checkpoint modul |
+| Perubahan skema/runtime hanya dalam cakupan tugas eksplisit; rilis Production memerlukan set migrasi terverifikasi, dependensi cocok, dan bukti backup/restore | aturan Supabase + `COMMERCIAL_READINESS.md` |
 | Jangan `db push` seluruh selisih ledger hanya agar jumlah versi sama | `academic-production.mdc` |
 | Secrets hanya di `.env` / secret manager; jangan commit / chat | skill `erp4-pesantren` |
 | Flag runtime fail-closed; jangan nyalakan flag sebelum objek yang dipanggil ada | `MODULE_VISIBILITY_AND_RUNTIME_FLAGS.md` |
@@ -30,12 +30,14 @@ Baca dokumen ini **sebelum** mengubah kode, skema, flag, data Production, atau m
 | Relasi & Ekosistem + Analitik + OpenWA (13 Nov 2026) | [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md) |
 | Akademik Production | `.cursor/rules/academic-production.mdc` + `academic-report-card.mdc` |
 | Flag & visibilitas menu | [MODULE_VISIBILITY_AND_RUNTIME_FLAGS.md](MODULE_VISIBILITY_AND_RUNTIME_FLAGS.md) |
+| CBT skala besar & paginasi | [CBT_LARGE_TENANT_PAGINATION_DESIGN.md](CBT_LARGE_TENANT_PAGINATION_DESIGN.md) |
+| Checkpoint CBT skala besar (13 Nov 2026) | [CHECKPOINT_2026-11-13_CBT_SCALE.md](CHECKPOINT_2026-11-13_CBT_SCALE.md) |
 | Handoff backend umum | [BACKEND_TEAM_START_HERE.md](BACKEND_TEAM_START_HERE.md) |
 | Kesiapan komersial | [COMMERCIAL_READINESS.md](COMMERCIAL_READINESS.md) |
 
 ## 4. Cara kerja yang konsisten
 
-- **Sukses = terverifikasi.** Setelah mengubah API/UI, buktikan dengan status HTTP / dry-run / baca snapshot tenant; jangan klaim “selesai” tanpa bukti.
+- **Sukses = terverifikasi.** Setelah mengubah API/UI, buktikan dengan test/CI. Utamakan urutan lokal → CI → VQE staging → PTSAS Production; rilis langsung ke Production boleh bila set migrasi, drift/dependensi, backup/restore, dan pemeriksaan keamanan Production terbukti. Jangan klaim “selesai” tanpa bukti.
 - **Stub vs kontrak.** Jika UI bilang “belum punya API”, jangan pura-pura menyambungkan ke data contoh. Buat API/migrasi hanya jika diminta dan sesuai dependensi.
 - **OpenWA.** Jangan embed `@open-wa/wa-automate` di proses ERP. ERP memanggil Easy API HTTP; kunci di `WA_GATEWAY_API_KEY`; endpoint di pengaturan tenant atau `WA_GATEWAY_ENDPOINT`.
 - **Commit.** Hanya jika user meminta. Jangan commit `.env`.

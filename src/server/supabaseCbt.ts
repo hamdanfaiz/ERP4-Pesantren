@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 
 type Row = Record<string, any>;
@@ -68,6 +70,327 @@ function mapQuestion(row: Row) {
   };
 }
 
+
+
+const CBT_QUESTION_PAGE_ORDER = "created_at.desc,id.asc";
+const CBT_QUESTION_PAGE_SIZE_DEFAULT = 50;
+const CBT_QUESTION_PAGE_SIZE_MAX = 100;
+
+export type NormalizedCbtQuestionPageQuery = {
+  pageSize: number;
+  search: string;
+  status: "all" | "active" | "archived";
+  subjectReferenceId: string | null;
+  gradeLevelReferenceId: string | null;
+  templateReferenceId: string | null;
+  cursor: string | null;
+};
+
+export function normalizeCbtQuestionPageQuery(input: Record<string, unknown>): NormalizedCbtQuestionPageQuery {
+  const rawLimit = input.limit;
+  let pageSize = CBT_QUESTION_PAGE_SIZE_DEFAULT;
+  if (rawLimit !== undefined && rawLimit !== null && rawLimit !== "") {
+    if ((typeof rawLimit !== "string" && typeof rawLimit !== "number") || !/^\d+$/.test(String(rawLimit))) {
+      throw new SupabaseCbtError(400, "Ukuran halaman soal tidak valid.");
+    }
+    pageSize = Number(rawLimit);
+  }
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > CBT_QUESTION_PAGE_SIZE_MAX) {
+    throw new SupabaseCbtError(400, "Ukuran halaman soal harus antara 1 dan 100.");
+  }
+
+  const rawSearch = input.search;
+  if (rawSearch !== undefined && rawSearch !== null && typeof rawSearch !== "string") {
+    throw new SupabaseCbtError(400, "Pencarian soal tidak valid.");
+  }
+  const search = typeof rawSearch === "string" ? rawSearch.trim() : "";
+  if (search.length > 100) throw new SupabaseCbtError(400, "Pencarian soal maksimal 100 karakter.");
+  if (search.length > 0 && search.length < 3) {
+    throw new SupabaseCbtError(400, "Pencarian soal harus terdiri dari minimal 3 karakter.");
+  }
+
+  const rawStatus = input.status === undefined || input.status === null || input.status === "" ? "all" : input.status;
+  if (typeof rawStatus !== "string" || !["all", "active", "archived"].includes(rawStatus)) {
+    throw new SupabaseCbtError(400, "Status soal tidak valid.");
+  }
+  const referenceId = (value: unknown, label: string): string | null => {
+    if (value === undefined || value === null || value === "") return null;
+    if (!isUuid(value)) throw new SupabaseCbtError(400, "Filter " + label + " tidak valid.");
+    return String(value).toLowerCase();
+  };
+  const rawCursor = input.cursor;
+  if (rawCursor !== undefined && rawCursor !== null && typeof rawCursor !== "string") {
+    throw new SupabaseCbtError(400, "Penanda halaman soal tidak valid.");
+  }
+  const cursor = typeof rawCursor === "string" ? rawCursor : null;
+  if (cursor && (cursor.length > 2048 || !/^[A-Za-z0-9_-]+$/.test(cursor))) {
+    throw new SupabaseCbtError(400, "Penanda halaman soal tidak valid.");
+  }
+  return {
+    pageSize,
+    search,
+    status: rawStatus as "all" | "active" | "archived",
+    subjectReferenceId: referenceId(input.subjectReferenceId, "mata pelajaran"),
+    gradeLevelReferenceId: referenceId(input.gradeLevelReferenceId, "jenjang"),
+    templateReferenceId: referenceId(input.templateReferenceId, "paket"),
+    cursor,
+  };
+}
+
+function questionCursorFilterKey(tenantId: string, filters: NormalizedCbtQuestionPageQuery) {
+  return JSON.stringify({
+    tenantId: tenantId.toLowerCase(),
+    order: CBT_QUESTION_PAGE_ORDER,
+    pageSize: filters.pageSize,
+    search: filters.search,
+    status: filters.status,
+    subjectReferenceId: filters.subjectReferenceId,
+    gradeLevelReferenceId: filters.gradeLevelReferenceId,
+    templateReferenceId: filters.templateReferenceId,
+  });
+}
+
+export function encodeCbtQuestionPageCursor(
+  tenantId: string, filters: NormalizedCbtQuestionPageQuery, row: Row,
+) {
+  const createdAt = typeof row.created_at === "string" ? row.created_at : "";
+  if (!isUuid(row.id) || !Number.isFinite(Date.parse(createdAt))) {
+    throw new SupabaseCbtError(503, "Penanda halaman soal tidak dapat dibuat.");
+  }
+  return Buffer.from(JSON.stringify({
+    version: 1,
+    order: CBT_QUESTION_PAGE_ORDER,
+    tenantId: tenantId.toLowerCase(),
+    createdAt,
+    id: String(row.id).toLowerCase(),
+    filters: questionCursorFilterKey(tenantId, filters),
+  }), "utf8").toString("base64url");
+}
+
+export function decodeCbtQuestionPageCursor(
+  cursor: string, tenantId: string, filters: NormalizedCbtQuestionPageQuery,
+) {
+  let value: Row;
+  try { value = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")); }
+  catch { throw new SupabaseCbtError(400, "Penanda halaman soal tidak valid."); }
+  const createdAt = typeof value?.createdAt === "string" ? Date.parse(value.createdAt) : Number.NaN;
+  if (!value || value.version !== 1 || value.order !== CBT_QUESTION_PAGE_ORDER
+    || value.tenantId !== tenantId.toLowerCase() || value.filters !== questionCursorFilterKey(tenantId, filters)
+    || !isUuid(value.id) || !Number.isFinite(createdAt)) {
+    throw new SupabaseCbtError(400, "Penanda halaman soal tidak cocok dengan filter saat ini.");
+  }
+  return { createdAt: value.createdAt, id: String(value.id).toLowerCase() };
+}
+
+export async function listSupabaseCbtQuestionPage(tenantIdentifier: string, input: Record<string, unknown>) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  const filters = normalizeCbtQuestionPageQuery(input);
+  const cursor = filters.cursor ? decodeCbtQuestionPageCursor(filters.cursor, tenantId, filters) : null;
+  const rows = await request("/rest/v1/rpc/list_cbt_admin_question_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_page_size: filters.pageSize + 1,
+      p_cursor_created_at: cursor?.createdAt || null,
+      p_cursor_id: cursor?.id || null,
+      p_search: filters.search || null,
+      p_status: filters.status === "all" ? null : filters.status,
+      p_subject_reference_id: filters.subjectReferenceId,
+      p_grade_level_reference_id: filters.gradeLevelReferenceId,
+      p_template_reference_id: filters.templateReferenceId,
+    }),
+  });
+  if (!Array.isArray(rows) || rows.length > filters.pageSize + 1) {
+    throw new SupabaseCbtError(503, "Halaman bank soal CBT belum dapat diverifikasi.");
+  }
+  const hasMore = rows.length > filters.pageSize;
+  const pageRows = (rows as Row[]).slice(0, filters.pageSize);
+  const lastRow = pageRows[pageRows.length - 1];
+  return {
+    items: pageRows.map(mapQuestion),
+    hasMore,
+    nextCursor: hasMore && lastRow ? encodeCbtQuestionPageCursor(tenantId, filters, lastRow) : null,
+  };
+}
+
+
+const CBT_STUDENT_PAGE_ORDER = "name.asc,id.asc";
+const CBT_STUDENT_PAGE_SIZE_DEFAULT = 50;
+const CBT_STUDENT_PAGE_SIZE_MAX = 100;
+
+export type NormalizedCbtStudentPageQuery = {
+  pageSize: number;
+  search: string;
+  cursor: string | null;
+};
+
+export function normalizeCbtStudentPageQuery(input: Record<string, unknown>): NormalizedCbtStudentPageQuery {
+  const rawLimit = input.limit;
+  let pageSize = CBT_STUDENT_PAGE_SIZE_DEFAULT;
+  if (rawLimit !== undefined && rawLimit !== null && rawLimit !== "") {
+    if ((typeof rawLimit !== "string" && typeof rawLimit !== "number") || !/^\d+$/.test(String(rawLimit))) {
+      throw new SupabaseCbtError(400, "Ukuran halaman daftar santri tidak valid.");
+    }
+    pageSize = Number(rawLimit);
+  }
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > CBT_STUDENT_PAGE_SIZE_MAX) {
+    throw new SupabaseCbtError(400, "Ukuran halaman daftar santri harus antara 1 dan 100.");
+  }
+
+  const rawSearch = input.search;
+  if (rawSearch !== undefined && rawSearch !== null && typeof rawSearch !== "string") {
+    throw new SupabaseCbtError(400, "Pencarian santri tidak valid.");
+  }
+  const search = typeof rawSearch === "string" ? rawSearch.normalize("NFKC").trim() : "";
+  if (search.length > 100) throw new SupabaseCbtError(400, "Pencarian santri maksimal 100 karakter.");
+  if (search.length > 0 && Array.from(search).length < 3) {
+    throw new SupabaseCbtError(400, "Pencarian santri harus terdiri dari minimal 3 karakter.");
+  }
+
+  const rawCursor = input.cursor;
+  if (rawCursor !== undefined && rawCursor !== null && typeof rawCursor !== "string") {
+    throw new SupabaseCbtError(400, "Penanda halaman santri tidak valid.");
+  }
+  const cursor = typeof rawCursor === "string" ? rawCursor : null;
+  if (cursor && (cursor.length > 2048 || !/^[A-Za-z0-9_-]+$/.test(cursor))) {
+    throw new SupabaseCbtError(400, "Penanda halaman santri tidak valid.");
+  }
+  return { pageSize, search, cursor };
+}
+
+function cbtStudentCursorFilterKey(tenantId: string, filters: NormalizedCbtStudentPageQuery) {
+  return JSON.stringify({
+    tenantId: tenantId.toLowerCase(),
+    order: CBT_STUDENT_PAGE_ORDER,
+    pageSize: filters.pageSize,
+    search: filters.search,
+  });
+}
+
+function cbtStudentCursorEncryptionKey() {
+  const secret = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!secret) throw new SupabaseCbtError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
+  return createHash("sha256").update("erp4-cbt-student-page-cursor-v1\0").update(secret).digest();
+}
+
+export function encodeCbtStudentPageCursor(
+  tenantId: string, filters: NormalizedCbtStudentPageQuery, row: Row,
+) {
+  const name = typeof row.name === "string" ? row.name : "";
+  if (!isUuid(row.id) || !name || name.length > 180) {
+    throw new SupabaseCbtError(503, "Penanda halaman santri tidak dapat dibuat.");
+  }
+  const nonce = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", cbtStudentCursorEncryptionKey(), nonce);
+  cipher.setAAD(Buffer.from("erp4-cbt-student-page-cursor-v1", "utf8"));
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify({
+    version: 1,
+    order: CBT_STUDENT_PAGE_ORDER,
+    tenantId: tenantId.toLowerCase(),
+    name,
+    id: String(row.id).toLowerCase(),
+    filters: cbtStudentCursorFilterKey(tenantId, filters),
+  }), "utf8"), cipher.final()]);
+  return Buffer.concat([nonce, cipher.getAuthTag(), ciphertext]).toString("base64url");
+}
+
+export function decodeCbtStudentPageCursor(
+  cursor: string, tenantId: string, filters: NormalizedCbtStudentPageQuery,
+) {
+  let value: Row;
+  try {
+    const payload = Buffer.from(cursor, "base64url");
+    if (payload.toString("base64url") !== cursor || payload.length < 29) {
+      throw new Error("Invalid encrypted cursor encoding");
+    }
+    const nonce = payload.subarray(0, 12);
+    const tag = payload.subarray(12, 28);
+    const ciphertext = payload.subarray(28);
+    const decipher = createDecipheriv("aes-256-gcm", cbtStudentCursorEncryptionKey(), nonce);
+    decipher.setAAD(Buffer.from("erp4-cbt-student-page-cursor-v1", "utf8"));
+    decipher.setAuthTag(tag);
+    value = JSON.parse(Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8"));
+  } catch {
+    throw new SupabaseCbtError(400, "Penanda halaman santri tidak valid atau telah kedaluwarsa.");
+  }
+  if (!value || value.version !== 1 || value.order !== CBT_STUDENT_PAGE_ORDER
+    || value.tenantId !== tenantId.toLowerCase()
+    || value.filters !== cbtStudentCursorFilterKey(tenantId, filters)
+    || typeof value.name !== "string" || !value.name || value.name.length > 180
+    || !isUuid(value.id)) {
+    throw new SupabaseCbtError(400, "Penanda halaman santri tidak cocok dengan tenant atau pencarian saat ini.");
+  }
+  return { name: value.name, id: String(value.id).toLowerCase() };
+}
+
+async function readCbtAdminStudentLabels(tenantId: string, studentIds: string[]) {
+  if (!studentIds.length) return [];
+  const rows = await request("/rest/v1/rpc/list_cbt_admin_student_labels", {
+    method: "POST",
+    body: JSON.stringify({ p_tenant_id: tenantId, p_student_ids: studentIds }),
+  });
+  if (!Array.isArray(rows) || rows.length > studentIds.length) {
+    throw new SupabaseCbtError(503, "Nama santri pada hasil CBT belum dapat diverifikasi.");
+  }
+  return (rows as Row[]).map((row) => {
+    if (!isUuid(row?.id) || typeof row?.name !== "string" || row.name.length > 180) {
+      throw new SupabaseCbtError(503, "Nama santri pada hasil CBT belum dapat diverifikasi.");
+    }
+    return {
+      id: String(row.id),
+      name: row.name,
+      grade: typeof row.grade === "string" ? row.grade.slice(0, 100) : "",
+      className: typeof row.class_name === "string" ? row.class_name.slice(0, 180) : "",
+    };
+  });
+}
+
+export async function listSupabaseCbtAdminStudentLabels(tenantIdentifier: string, rawStudentIds: unknown) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  if (!Array.isArray(rawStudentIds) || rawStudentIds.length > 5000
+    || rawStudentIds.some((id) => !isUuid(id))) {
+    throw new SupabaseCbtError(400, "Daftar peserta CBT tidak valid.");
+  }
+  return readCbtAdminStudentLabels(tenantId, [...new Set(rawStudentIds.map((id) => String(id).toLowerCase()))]);
+}
+
+export async function listSupabaseCbtAdminStudentPage(tenantIdentifier: string, input: Record<string, unknown>) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  const filters = normalizeCbtStudentPageQuery(input);
+  const cursor = filters.cursor ? decodeCbtStudentPageCursor(filters.cursor, tenantId, filters) : null;
+  const rows = await request("/rest/v1/rpc/list_cbt_admin_student_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_page_size: filters.pageSize + 1,
+      p_cursor_name: cursor?.name || null,
+      p_cursor_id: cursor?.id || null,
+      p_search: filters.search || null,
+    }),
+  });
+  if (!Array.isArray(rows) || rows.length > filters.pageSize + 1) {
+    throw new SupabaseCbtError(503, "Halaman daftar santri CBT belum dapat diverifikasi.");
+  }
+  const hasMore = rows.length > filters.pageSize;
+  const pageRows = (rows as Row[]).slice(0, filters.pageSize);
+  const lastRow = pageRows[pageRows.length - 1];
+  return {
+    items: pageRows.map((row) => {
+      if (!isUuid(row?.id) || typeof row?.name !== "string" || !row.name || row.name.length > 180) {
+        throw new SupabaseCbtError(503, "Halaman daftar santri CBT belum dapat diverifikasi.");
+      }
+      return {
+        id: String(row.id),
+        name: row.name,
+        grade: typeof row.grade === "string" ? row.grade.slice(0, 100) : "",
+        className: typeof row.class_name === "string" ? row.class_name.slice(0, 180) : "",
+      };
+    }),
+    hasMore,
+    nextCursor: hasMore && lastRow ? encodeCbtStudentPageCursor(tenantId, filters, lastRow) : null,
+  };
+}
+
 async function activeReferenceName(tenantId: string, domain: string, referenceId: unknown, label: string) {
   if (!isUuid(referenceId)) throw new SupabaseCbtError(400, `Pilih ${label} dari katalog tenant.`);
   const params = new URLSearchParams({
@@ -88,58 +411,501 @@ async function tenantIdFrom(identifier: string) {
   return value;
 }
 
+export type CbtTenantSettingsWrite = {
+  autoGrading: true;
+  shuffleQuestions: boolean;
+  correctPoints: number;
+  wrongPoints: number;
+  blankPoints: number;
+};
+
+export function normalizeCbtTenantSettingsWrite(value: unknown): CbtTenantSettingsWrite {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new SupabaseCbtError(400, "Pengaturan CBT tidak valid.");
+  const item = value as Row;
+  const keys = Object.keys(item).sort();
+  const expected = ["autoGrading", "blankPoints", "correctPoints", "shuffleQuestions", "wrongPoints"].sort();
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) {
+    throw new SupabaseCbtError(400, "Pengaturan CBT tidak sesuai format.");
+  }
+  if (item.autoGrading !== true || typeof item.shuffleQuestions !== "boolean") {
+    throw new SupabaseCbtError(400, "Penilaian otomatis wajib aktif dan pengacakan soal harus berupa pilihan ya atau tidak.");
+  }
+  const boundedScore = (raw: unknown, label: string, minimum: number, maximum: number) => {
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < minimum || raw > maximum
+      || Math.abs(raw * 100 - Math.round(raw * 100)) > 1e-8) {
+      throw new SupabaseCbtError(400, `${label} harus berada pada rentang yang didukung dengan paling banyak dua angka desimal.`);
+    }
+    return raw;
+  };
+  return {
+    autoGrading: true,
+    shuffleQuestions: item.shuffleQuestions,
+    correctPoints: boundedScore(item.correctPoints, "Poin jawaban benar", 0, 100),
+    wrongPoints: boundedScore(item.wrongPoints, "Poin jawaban salah", -100, 100),
+    blankPoints: boundedScore(item.blankPoints, "Poin tidak dijawab", -100, 100),
+  };
+}
+
+export async function saveSupabaseCbtTenantSettings(
+  tenantIdentifier: string, actorId: string, expectedUpdatedAt: unknown, value: unknown,
+) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  if (!isUuid(actorId)) throw new SupabaseCbtError(403, "Profil Admin tidak dapat diverifikasi.");
+  let expectedStamp: string | null = null;
+  if (expectedUpdatedAt !== null && expectedUpdatedAt !== undefined && expectedUpdatedAt !== "") {
+    if (typeof expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(expectedUpdatedAt))) {
+      throw new SupabaseCbtError(400, "Versi pengaturan CBT tidak valid. Muat ulang sebelum menyimpan.");
+    }
+    expectedStamp = expectedUpdatedAt;
+  }
+  const settings = normalizeCbtTenantSettingsWrite(value);
+  const result = await request("/rest/v1/rpc/save_cbt_tenant_settings", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_updated_at: expectedStamp,
+      p_settings: settings,
+    }),
+  });
+  if (!result || result.saved !== true || typeof result.updatedAt !== "string" || !Number.isFinite(Date.parse(result.updatedAt))) {
+    throw new SupabaseCbtError(503, "Pengaturan CBT belum dapat diverifikasi setelah disimpan.");
+  }
+  return { saved: true, updatedAt: result.updatedAt };
+}
+
+
+export type CbtAdminDashboardSummary = {
+  activeQuestions: number;
+  totalExams: number;
+  ongoingSessions: number;
+  upcomingSessions: number;
+  totalAssignments: number;
+  completedAssignments: number;
+  completionRate: number | null;
+  assignmentStatusCounts: { assigned: number; in_progress: number; completed: number; missed: number };
+  scoredAssignments: number;
+  averageScore: number | null;
+  passRate: number | null;
+  upcomingExams: Array<{
+    id: string; title: string; subject: string; grade: string; startsAt: string; endsAt: string;
+    durationMinutes: number; status: string; assignedCount: number; completedCount: number;
+  }>;
+  latestResults: Array<{
+    assignmentId: string; examTitle: string; studentName: string; className: string;
+    status: string; score: number | null; passed: boolean | null; submittedAt: string;
+  }>;
+  asOf: string;
+};
+
+function summaryCount(value: unknown) {
+  const result = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(result) || result < 0) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  return result;
+}
+
+function summaryNumber(value: unknown) {
+  if (value == null) return null;
+  const result = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(result)) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  return result;
+}
+
+function summaryPercent(value: unknown) {
+  const result = summaryNumber(value);
+  if (result !== null && (result < 0 || result > 100)) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  return result;
+}
+
+function summaryText(value: unknown, maxLength: number) {
+  if (typeof value !== "string" || value.length > maxLength) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  return value;
+}
+
+export async function getSupabaseCbtAdminDashboardSummary(tenantIdentifier: string): Promise<CbtAdminDashboardSummary> {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  const value = await request("/rest/v1/rpc/get_cbt_admin_dashboard_summary", {
+    method: "POST",
+    body: JSON.stringify({ p_tenant_id: tenantId }),
+  });
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  const row = value as Row;
+  const asOf = summaryText(row.asOf, 80);
+  if (!Number.isFinite(Date.parse(asOf))) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  const statusCounts = row.assignmentStatusCounts;
+  if (!statusCounts || typeof statusCounts !== "object" || Array.isArray(statusCounts)) throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  if (!Array.isArray(row.upcomingExams) || row.upcomingExams.length > 5
+    || !Array.isArray(row.latestResults) || row.latestResults.length > 5) {
+    throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+  }
+  const upcomingExams = row.upcomingExams.map((item: Row) => {
+    const startsAt = summaryText(item?.startsAt, 80);
+    const endsAt = summaryText(item?.endsAt, 80);
+    if (!isUuid(item?.id) || !Number.isFinite(Date.parse(startsAt)) || !Number.isFinite(Date.parse(endsAt))) {
+      throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+    }
+    return {
+      id: item.id, title: summaryText(item.title, 180), subject: summaryText(item.subject, 150),
+      grade: summaryText(item.grade, 40), startsAt, endsAt,
+      durationMinutes: summaryCount(item.durationMinutes), status: summaryText(item.status, 40),
+      assignedCount: summaryCount(item.assignedCount), completedCount: summaryCount(item.completedCount),
+    };
+  });
+  const latestResults = row.latestResults.map((item: Row) => {
+    const submittedAt = summaryText(item?.submittedAt, 80);
+    if (!isUuid(item?.assignmentId) || !Number.isFinite(Date.parse(submittedAt))
+      || (item.passed !== null && typeof item.passed !== "boolean")) {
+      throw new SupabaseCbtError(503, "Ringkasan CBT belum dapat diverifikasi.");
+    }
+    return {
+      assignmentId: item.assignmentId, examTitle: summaryText(item.examTitle, 180),
+      studentName: summaryText(item.studentName, 180), className: summaryText(item.className, 180),
+      status: summaryText(item.status, 40), score: summaryNumber(item.score),
+      passed: item.passed, submittedAt,
+    };
+  });
+  return {
+    activeQuestions: summaryCount(row.activeQuestions), totalExams: summaryCount(row.totalExams),
+    ongoingSessions: summaryCount(row.ongoingSessions), upcomingSessions: summaryCount(row.upcomingSessions),
+    totalAssignments: summaryCount(row.totalAssignments), completedAssignments: summaryCount(row.completedAssignments),
+    completionRate: summaryPercent(row.completionRate),
+    assignmentStatusCounts: {
+      assigned: summaryCount(statusCounts.assigned), in_progress: summaryCount(statusCounts.in_progress),
+      completed: summaryCount(statusCounts.completed), missed: summaryCount(statusCounts.missed),
+    },
+    scoredAssignments: summaryCount(row.scoredAssignments), averageScore: summaryNumber(row.averageScore),
+    passRate: summaryPercent(row.passRate), upcomingExams, latestResults, asOf,
+  };
+}
+
+
+const CBT_ADMIN_ASSIGNMENT_PAGE_ORDER = "assigned_at.desc,id.asc";
+const CBT_ADMIN_ASSIGNMENT_PAGE_SIZE_DEFAULT = 50;
+const CBT_ADMIN_ASSIGNMENT_PAGE_SIZE_MAX = 100;
+const CBT_ADMIN_ASSIGNMENT_VIEWS = new Set(["monitor", "results"]);
+
+export type NormalizedCbtAdminAssignmentPageQuery = {
+  pageSize: number;
+  view: "monitor" | "results";
+  search: string;
+  cursor: string | null;
+};
+
+export function normalizeCbtAdminAssignmentPageQuery(input: Record<string, unknown>): NormalizedCbtAdminAssignmentPageQuery {
+  const rawView = input.view;
+  if (typeof rawView !== "string" || !CBT_ADMIN_ASSIGNMENT_VIEWS.has(rawView)) {
+    throw new SupabaseCbtError(400, "Jenis daftar peserta CBT tidak valid.");
+  }
+  const rawLimit = input.limit;
+  let pageSize = CBT_ADMIN_ASSIGNMENT_PAGE_SIZE_DEFAULT;
+  if (rawLimit !== undefined && rawLimit !== null && rawLimit !== "") {
+    if ((typeof rawLimit !== "string" && typeof rawLimit !== "number") || !/^\d+$/.test(String(rawLimit))) {
+      throw new SupabaseCbtError(400, "Ukuran halaman peserta CBT tidak valid.");
+    }
+    pageSize = Number(rawLimit);
+  }
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > CBT_ADMIN_ASSIGNMENT_PAGE_SIZE_MAX) {
+    throw new SupabaseCbtError(400, "Ukuran halaman peserta CBT harus antara 1 dan 100.");
+  }
+  const rawSearch = input.search;
+  if (rawSearch !== undefined && rawSearch !== null && typeof rawSearch !== "string") {
+    throw new SupabaseCbtError(400, "Pencarian peserta CBT tidak valid.");
+  }
+  const search = typeof rawSearch === "string" ? rawSearch.normalize("NFKC").trim() : "";
+  if (search.length > 100 || (search.length > 0 && Array.from(search).length < 3)) {
+    throw new SupabaseCbtError(400, "Pencarian peserta CBT harus 3–100 karakter.");
+  }
+  const rawCursor = input.cursor;
+  if (rawCursor !== undefined && rawCursor !== null && typeof rawCursor !== "string") {
+    throw new SupabaseCbtError(400, "Penanda halaman peserta CBT tidak valid.");
+  }
+  const cursor = typeof rawCursor === "string" ? rawCursor : null;
+  if (cursor && (cursor.length > 2048 || !/^[A-Za-z0-9_-]+$/.test(cursor))) {
+    throw new SupabaseCbtError(400, "Penanda halaman peserta CBT tidak valid.");
+  }
+  return { pageSize, view: rawView as "monitor" | "results", search, cursor };
+}
+
+function cbtAdminAssignmentCursorFilterKey(tenantId: string, filters: NormalizedCbtAdminAssignmentPageQuery) {
+  return JSON.stringify({
+    tenantId: tenantId.toLowerCase(),
+    order: CBT_ADMIN_ASSIGNMENT_PAGE_ORDER,
+    pageSize: filters.pageSize,
+    view: filters.view,
+    search: filters.search,
+  });
+}
+
+function cbtAdminAssignmentCursorEncryptionKey() {
+  const secret = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!secret) throw new SupabaseCbtError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
+  return createHash("sha256").update("erp4-cbt-admin-assignment-page-cursor-v1\\0").update(secret).digest();
+}
+
+export function encodeCbtAdminAssignmentPageCursor(
+  tenantId: string, filters: NormalizedCbtAdminAssignmentPageQuery, row: Row,
+) {
+  const assignedAt = typeof row.assigned_at === "string" ? row.assigned_at : "";
+  if (!isUuid(row.assignment_id) || !Number.isFinite(Date.parse(assignedAt))) {
+    throw new SupabaseCbtError(503, "Penanda halaman peserta CBT tidak dapat dibuat.");
+  }
+  const nonce = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", cbtAdminAssignmentCursorEncryptionKey(), nonce);
+  cipher.setAAD(Buffer.from("erp4-cbt-admin-assignment-page-cursor-v1", "utf8"));
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify({
+    version: 1,
+    order: CBT_ADMIN_ASSIGNMENT_PAGE_ORDER,
+    tenantId: tenantId.toLowerCase(),
+    assignedAt,
+    assignmentId: String(row.assignment_id).toLowerCase(),
+    filters: cbtAdminAssignmentCursorFilterKey(tenantId, filters),
+  }), "utf8"), cipher.final()]);
+  return Buffer.concat([nonce, cipher.getAuthTag(), ciphertext]).toString("base64url");
+}
+
+export function decodeCbtAdminAssignmentPageCursor(
+  cursor: string, tenantId: string, filters: NormalizedCbtAdminAssignmentPageQuery,
+) {
+  let value: Row;
+  try {
+    const payload = Buffer.from(cursor, "base64url");
+    if (payload.toString("base64url") !== cursor || payload.length < 29) throw new Error("Invalid cursor encoding");
+    const decipher = createDecipheriv("aes-256-gcm", cbtAdminAssignmentCursorEncryptionKey(), payload.subarray(0, 12));
+    decipher.setAAD(Buffer.from("erp4-cbt-admin-assignment-page-cursor-v1", "utf8"));
+    decipher.setAuthTag(payload.subarray(12, 28));
+    value = JSON.parse(Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString("utf8"));
+  } catch {
+    throw new SupabaseCbtError(400, "Penanda halaman peserta CBT tidak valid atau telah kedaluwarsa.");
+  }
+  if (!value || value.version !== 1 || value.order !== CBT_ADMIN_ASSIGNMENT_PAGE_ORDER
+    || value.tenantId !== tenantId.toLowerCase()
+    || value.filters !== cbtAdminAssignmentCursorFilterKey(tenantId, filters)
+    || typeof value.assignedAt !== "string" || !Number.isFinite(Date.parse(value.assignedAt))
+    || !isUuid(value.assignmentId)) {
+    throw new SupabaseCbtError(400, "Penanda halaman peserta CBT tidak cocok dengan tenant atau pencarian saat ini.");
+  }
+  return { assignedAt: value.assignedAt, assignmentId: String(value.assignmentId).toLowerCase() };
+}
+
+export async function listSupabaseCbtAdminAssignmentPage(tenantIdentifier: string, input: Record<string, unknown>) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  const filters = normalizeCbtAdminAssignmentPageQuery(input);
+  const cursor = filters.cursor ? decodeCbtAdminAssignmentPageCursor(filters.cursor, tenantId, filters) : null;
+  const rows = await request("/rest/v1/rpc/list_cbt_admin_assignment_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_page_size: filters.pageSize + 1,
+      p_view: filters.view,
+      p_cursor_assigned_at: cursor?.assignedAt || null,
+      p_cursor_assignment_id: cursor?.assignmentId || null,
+      p_search: filters.search || null,
+    }),
+  });
+  if (!Array.isArray(rows) || rows.length > filters.pageSize + 1) {
+    throw new SupabaseCbtError(503, "Halaman penugasan CBT belum dapat diverifikasi.");
+  }
+  const hasMore = rows.length > filters.pageSize;
+  const pageRows = rows.slice(0, filters.pageSize) as Row[];
+  const lastRow = pageRows[pageRows.length - 1];
+  const items = pageRows.map((row) => {
+    const assignedAt = summaryText(row.assigned_at, 80);
+    const submittedAt = row.submitted_at == null ? null : summaryText(row.submitted_at, 80);
+    const status = summaryText(row.status, 40);
+    if (!isUuid(row.assignment_id) || !Number.isFinite(Date.parse(assignedAt))
+      || (submittedAt !== null && !Number.isFinite(Date.parse(submittedAt)))
+      || !["assigned", "in_progress", "completed", "missed"].includes(status)
+      || (row.passed !== null && row.passed !== undefined && typeof row.passed !== "boolean")) {
+      throw new SupabaseCbtError(503, "Halaman penugasan CBT belum dapat diverifikasi.");
+    }
+    return {
+      assignmentId: String(row.assignment_id).toLowerCase(),
+      examTitle: summaryText(row.exam_title, 180),
+      studentName: summaryText(row.student_name, 180),
+      className: typeof row.class_name === "string" ? row.class_name.slice(0, 180) : "",
+      status,
+      score: summaryNumber(row.score),
+      passed: row.passed == null ? null : row.passed,
+      submittedAt,
+      correct: row.correct_count == null ? null : summaryCount(row.correct_count),
+      wrong: row.wrong_count == null ? null : summaryCount(row.wrong_count),
+      blank: row.blank_count == null ? null : summaryCount(row.blank_count),
+    };
+  });
+  return {
+    items,
+    hasMore,
+    nextCursor: hasMore && lastRow ? encodeCbtAdminAssignmentPageCursor(tenantId, filters, lastRow) : null,
+  };
+}
+
+const CBT_ADMIN_EXAM_PAGE_ORDER = "starts_at.desc,id.asc";
+const CBT_ADMIN_EXAM_PAGE_SIZE_DEFAULT = 50;
+const CBT_ADMIN_EXAM_PAGE_SIZE_MAX = 100;
+
+export type NormalizedCbtAdminExamPageQuery = {
+  pageSize: number;
+  startsAtFrom: string | null;
+  startsAtUntil: string | null;
+  cursor: string | null;
+};
+
+export function normalizeCbtAdminExamPageQuery(input: Record<string, unknown>): NormalizedCbtAdminExamPageQuery {
+  const rawLimit = input.limit;
+  let pageSize = CBT_ADMIN_EXAM_PAGE_SIZE_DEFAULT;
+  if (rawLimit !== undefined && rawLimit !== null && rawLimit !== "") {
+    if ((typeof rawLimit !== "string" && typeof rawLimit !== "number") || !/^\d+$/.test(String(rawLimit))) {
+      throw new SupabaseCbtError(400, "Ukuran halaman ujian tidak valid.");
+    }
+    pageSize = Number(rawLimit);
+  }
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > CBT_ADMIN_EXAM_PAGE_SIZE_MAX) {
+    throw new SupabaseCbtError(400, "Ukuran halaman ujian harus antara 1 dan 100.");
+  }
+  const cursorValue = input.cursor;
+  if (cursorValue !== undefined && cursorValue !== null && typeof cursorValue !== "string") {
+    throw new SupabaseCbtError(400, "Penanda halaman ujian tidak valid.");
+  }
+  const cursor = typeof cursorValue === "string" ? cursorValue : null;
+  if (cursor && (cursor.length > 2048 || !/^[A-Za-z0-9_-]+$/.test(cursor))) {
+    throw new SupabaseCbtError(400, "Penanda halaman ujian tidak valid.");
+  }
+  const readInstant = (value: unknown, label: string) => {
+    if (value === undefined || value === null || value === "") return null;
+    if (typeof value !== "string") {
+      throw new SupabaseCbtError(400, `Batas waktu ${label} tidak valid.`);
+    }
+    const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/.exec(value);
+    if (!match || value.length > 40) {
+      throw new SupabaseCbtError(400, `Batas waktu ${label} tidak valid.`);
+    }
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) throw new SupabaseCbtError(400, `Batas waktu ${label} tidak valid.`);
+    const expectedIso = `${match[1]}.${(match[2] || "").padEnd(3, "0") || "000"}Z`;
+    const normalized = new Date(timestamp).toISOString();
+    if (normalized !== expectedIso) throw new SupabaseCbtError(400, `Batas waktu ${label} tidak valid.`);
+    return normalized;
+  };
+  const startsAtFrom = readInstant(input.startsAtFrom, "awal");
+  const startsAtUntil = readInstant(input.startsAtUntil, "akhir");
+  if ((startsAtFrom === null) !== (startsAtUntil === null)
+    || (startsAtFrom && startsAtUntil && Date.parse(startsAtUntil) <= Date.parse(startsAtFrom))
+    || (startsAtFrom && startsAtUntil && Date.parse(startsAtUntil) - Date.parse(startsAtFrom) > 33 * 86_400_000)) {
+    throw new SupabaseCbtError(400, "Rentang kalender ujian tidak valid.");
+  }
+  return { pageSize, startsAtFrom, startsAtUntil, cursor };
+}
+
+function cbtAdminExamCursorFilterKey(tenantId: string, filters: NormalizedCbtAdminExamPageQuery) {
+  return JSON.stringify({
+    tenantId: tenantId.toLowerCase(), order: CBT_ADMIN_EXAM_PAGE_ORDER,
+    pageSize: filters.pageSize, startsAtFrom: filters.startsAtFrom, startsAtUntil: filters.startsAtUntil,
+  });
+}
+
+function cbtAdminExamCursorEncryptionKey() {
+  const secret = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!secret) throw new SupabaseCbtError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
+  return createHash("sha256").update("erp4-cbt-admin-exam-page-cursor-v1\\0").update(secret).digest();
+}
+
+export function encodeCbtAdminExamPageCursor(tenantId: string, filters: NormalizedCbtAdminExamPageQuery, row: Row) {
+  const startsAt = typeof row.starts_at === "string" ? row.starts_at : "";
+  if (!isUuid(row.id) || !Number.isFinite(Date.parse(startsAt))) {
+    throw new SupabaseCbtError(503, "Penanda halaman ujian tidak dapat dibuat.");
+  }
+  const nonce = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", cbtAdminExamCursorEncryptionKey(), nonce);
+  cipher.setAAD(Buffer.from("erp4-cbt-admin-exam-page-cursor-v1", "utf8"));
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify({
+    version: 1, order: CBT_ADMIN_EXAM_PAGE_ORDER, tenantId: tenantId.toLowerCase(),
+    startsAt, examId: String(row.id).toLowerCase(), filters: cbtAdminExamCursorFilterKey(tenantId, filters),
+  }), "utf8"), cipher.final()]);
+  return Buffer.concat([nonce, cipher.getAuthTag(), ciphertext]).toString("base64url");
+}
+
+export function decodeCbtAdminExamPageCursor(cursor: string, tenantId: string, filters: NormalizedCbtAdminExamPageQuery) {
+  let value: Row;
+  try {
+    const payload = Buffer.from(cursor, "base64url");
+    if (payload.toString("base64url") !== cursor || payload.length < 29) throw new Error("Invalid cursor encoding");
+    const decipher = createDecipheriv("aes-256-gcm", cbtAdminExamCursorEncryptionKey(), payload.subarray(0, 12));
+    decipher.setAAD(Buffer.from("erp4-cbt-admin-exam-page-cursor-v1", "utf8"));
+    decipher.setAuthTag(payload.subarray(12, 28));
+    value = JSON.parse(Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString("utf8"));
+  } catch {
+    throw new SupabaseCbtError(400, "Penanda halaman ujian tidak valid atau telah kedaluwarsa.");
+  }
+  if (!value || value.version !== 1 || value.order !== CBT_ADMIN_EXAM_PAGE_ORDER
+    || value.tenantId !== tenantId.toLowerCase() || value.filters !== cbtAdminExamCursorFilterKey(tenantId, filters)
+    || typeof value.startsAt !== "string" || !Number.isFinite(Date.parse(value.startsAt)) || !isUuid(value.examId)) {
+    throw new SupabaseCbtError(400, "Penanda halaman ujian tidak cocok dengan tenant atau rentang kalender saat ini.");
+  }
+  return { startsAt: value.startsAt, examId: String(value.examId).toLowerCase() };
+}
+
+export async function listSupabaseCbtAdminExamPage(tenantIdentifier: string, input: Record<string, unknown>) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  const filters = normalizeCbtAdminExamPageQuery(input);
+  const cursor = filters.cursor ? decodeCbtAdminExamPageCursor(filters.cursor, tenantId, filters) : null;
+  const rows = await request("/rest/v1/rpc/list_cbt_admin_exam_page", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId, p_page_size: filters.pageSize + 1,
+      p_cursor_starts_at: cursor?.startsAt || null, p_cursor_exam_id: cursor?.examId || null,
+      p_starts_at_from: filters.startsAtFrom, p_starts_at_until: filters.startsAtUntil,
+    }),
+  });
+  if (!Array.isArray(rows) || rows.length > filters.pageSize + 1) {
+    throw new SupabaseCbtError(503, "Halaman daftar ujian belum dapat diverifikasi.");
+  }
+  const hasMore = rows.length > filters.pageSize;
+  const pageRows = rows.slice(0, filters.pageSize) as Row[];
+  const items = pageRows.map((row) => {
+    const status = summaryText(row.status, 40);
+    const startsAt = summaryText(row.starts_at, 80);
+    const endsAt = summaryText(row.ends_at, 80);
+    if (!isUuid(row.id) || !Number.isFinite(Date.parse(startsAt)) || !Number.isFinite(Date.parse(endsAt))
+      || Date.parse(endsAt) <= Date.parse(startsAt) || !["draft", "published", "closed"].includes(status)) {
+      throw new SupabaseCbtError(503, "Halaman daftar ujian belum dapat diverifikasi.");
+    }
+    return {
+      id: String(row.id).toLowerCase(), title: summaryText(row.title, 180),
+      subject: summaryText(row.subject, 150), grade: summaryText(row.grade, 40),
+      subjectReferenceId: row.subject_reference_id == null ? "" : String(row.subject_reference_id),
+      gradeLevelReferenceId: row.grade_level_reference_id == null ? "" : String(row.grade_level_reference_id),
+      startsAt, endsAt, durationMinutes: summaryCount(row.duration_minutes),
+      passingScore: summaryNumber(row.passing_score) ?? 75, status,
+      assignedCount: summaryCount(row.assigned_count), completedCount: summaryCount(row.completed_count),
+    };
+  });
+  const lastRow = pageRows[pageRows.length - 1];
+  return {
+    items, hasMore,
+    nextCursor: hasMore && lastRow ? encodeCbtAdminExamPageCursor(tenantId, filters, lastRow) : null,
+  };
+}
+
 export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
   const referenceRows = (domain: string) => request("/rest/v1/tenant_reference_items?" + new URLSearchParams({
     select: "id,name,description", tenant_id: "eq." + tenantId, domain: "eq." + domain,
     status: "eq.active", order: "name.asc,id.asc", limit: "1001",
   }).toString());
-  const [questionRows, examRows, assignmentRows, attemptRows, studentRows, classRows, settingsRows, subjectReferences, gradeLevelReferences, templateReferences] = await Promise.all([
-    readPostgrestRowsInPages<Row>({
-      request,
-      path: `/rest/v1/cbt_questions?${new URLSearchParams({ select: "id,subject,grade,template,subject_reference_id,grade_level_reference_id,template_reference_id,question_html,options,correct_answer,explanation,difficulty,tags,status,created_at,updated_at", tenant_id: "eq." + tenantId, order: "updated_at.desc,id.asc" })}`,
-      maxRows: 2000,
-      onIncomplete: () => new SupabaseCbtError(503, "Bank soal CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
-    }),
-    readPostgrestRowsInPages<Row>({
-      request,
-      path: `/rest/v1/cbt_exams?${new URLSearchParams({ select: "id,title,subject,grade,subject_reference_id,grade_level_reference_id,starts_at,ends_at,duration_minutes,passing_score,correct_points,wrong_points,blank_points,shuffle_questions,status,created_at", tenant_id: "eq." + tenantId, order: "starts_at.desc,id.asc" })}`,
-      maxRows: 500,
-      onIncomplete: () => new SupabaseCbtError(503, "Daftar ujian CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
-    }),
-    readPostgrestRowsInPages<Row>({
-      request,
-      path: `/rest/v1/cbt_exam_assignments?${new URLSearchParams({ select: "id,exam_id,student_id,status,assigned_at", tenant_id: "eq." + tenantId, order: "assigned_at.desc,id.asc" })}`,
-      maxRows: 5000,
-      onIncomplete: () => new SupabaseCbtError(503, "Daftar penugasan CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
-    }),
-    readPostgrestRowsInPages<Row>({
-      request,
-      path: `/rest/v1/cbt_attempts?${new URLSearchParams({ select: "id,assignment_id,score,passed,correct_count,wrong_count,blank_count,submitted_at,expires_at", tenant_id: "eq." + tenantId, order: "submitted_at.desc.nullslast,id.asc" })}`,
-      maxRows: 5000,
-      onIncomplete: () => new SupabaseCbtError(503, "Hasil ujian CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
-    }),
-    readPostgrestRowsInPages<Row>({
-      request,
-      path: `/rest/v1/students?${new URLSearchParams({ select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, order: "name.asc,id.asc" })}`,
-      maxRows: 2000,
-      onIncomplete: () => new SupabaseCbtError(503, "Roster CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
-    }),
-    readPostgrestRowsInPages<Row>({
-      request,
-      path: `/rest/v1/master_data_records?${new URLSearchParams({ select: "id,name,status", tenant_id: "eq." + tenantId, category: "eq.Kelas", order: "name.asc,id.asc" })}`,
-      maxRows: 500,
-      onIncomplete: () => new SupabaseCbtError(503, "Daftar kelas CBT melewati batas aman atau hasil pemindaian tidak lengkap."),
-    }),
+  const [settingsRows, subjectReferences, gradeLevelReferences, templateReferences, packageAggregateRows] = await Promise.all([
     request("/rest/v1/cbt_tenant_settings?" + new URLSearchParams({
       // Subject, grade, and question-template choices are sourced from the tenant
       // reference catalog below. Legacy imported text arrays are provenance only.
-      select: "auto_grading,shuffle_questions,correct_points,wrong_points,blank_points,source_system",
+      select: "auto_grading,shuffle_questions,correct_points,wrong_points,blank_points,source_system,updated_at",
       tenant_id: "eq." + tenantId, limit: "2",
     }).toString()),
     referenceRows("academic_subject"),
     referenceRows("academic_grade_level"),
     referenceRows("cbt_question_template"),
+    request("/rest/v1/rpc/get_cbt_question_package_summary", {
+      method: "POST",
+      body: JSON.stringify({ p_tenant_id: tenantId }),
+    }),
   ]);
   if (!Array.isArray(settingsRows) || settingsRows.length > 1) {
     throw new SupabaseCbtError(503, "Pengaturan CBT tenant belum dapat diverifikasi.");
@@ -152,62 +918,48 @@ export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
     wrongPoints: storedSettings?.wrong_points == null ? 0 : Number(storedSettings.wrong_points),
     blankPoints: storedSettings?.blank_points == null ? 0 : Number(storedSettings.blank_points),
     sourceSystem: String(storedSettings?.source_system || "defaults"),
+    updatedAt: storedSettings?.updated_at == null ? null : String(storedSettings.updated_at),
   };
-  const attemptsByAssignment = new Map<string, Row>();
-  for (const attempt of attemptRows) {
-    if (!attemptsByAssignment.has(String(attempt.assignment_id))) {
-      attemptsByAssignment.set(String(attempt.assignment_id), attempt);
+  if (!Array.isArray(packageAggregateRows)) {
+    throw new SupabaseCbtError(503, "Ringkasan paket soal CBT belum dapat diverifikasi.");
+  }
+  const packageAggregates = new Map<string, Row>();
+  for (const aggregate of packageAggregateRows as Row[]) {
+    const templateId = String(aggregate?.templateReferenceId || "");
+    if (!isUuid(templateId) || packageAggregates.has(templateId)) {
+      throw new SupabaseCbtError(503, "Ringkasan paket soal CBT belum dapat diverifikasi.");
     }
+    packageAggregates.set(templateId, aggregate);
   }
-  const assignmentsByExam = new Map<string, Row[]>();
-  for (const assignment of assignmentRows as Row[]) {
-    assignmentsByExam.set(String(assignment.exam_id), [...(assignmentsByExam.get(String(assignment.exam_id)) || []), assignment]);
-  }
-  const activeStudents = (studentRows as Row[]).filter((student) =>
-    !["archived", "alumni", "graduated", "inactive", "nonaktif", "dikeluarkan"].includes(String(student.status || "").toLowerCase()));
-  const studentById = new Map<string, Row>(activeStudents.map((student): [string, Row] => [String(student.id), student]));
-  const classById = new Map<string, string>((classRows as Row[])
-    .filter((row) => !["inactive", "nonaktif", "disabled", "arsip"].includes(String(row.status || "").toLowerCase()))
-    .map((row): [string, string] => [String(row.id), String(row.name || "")]));
-  const students = activeStudents.map((student) => ({
-    id: String(student.id), name: String(student.name || ""), grade: String(student.grade || ""),
-    className: classById.get(String(student.class_id || "")) || "",
-  }));
-  const exams = (examRows as Row[]).map((exam) => ({
-    id: String(exam.id), title: String(exam.title), subject: String(exam.subject), grade: String(exam.grade),
-    subjectReferenceId: exam.subject_reference_id == null ? "" : String(exam.subject_reference_id),
-    gradeLevelReferenceId: exam.grade_level_reference_id == null ? "" : String(exam.grade_level_reference_id),
-    startsAt: exam.starts_at, endsAt: exam.ends_at, durationMinutes: Number(exam.duration_minutes),
-    passingScore: Number(exam.passing_score), correctPoints: Number(exam.correct_points),
-    wrongPoints: Number(exam.wrong_points), blankPoints: Number(exam.blank_points),
-    shuffleQuestions: Boolean(exam.shuffle_questions), status: String(exam.status),
-    assignedCount: (assignmentsByExam.get(String(exam.id)) || []).length,
-    completedCount: (assignmentsByExam.get(String(exam.id)) || []).filter((row) => row.status === "completed").length,
-  }));
-  const results = (assignmentRows as Row[]).map((assignment) => {
-    const attempt = attemptsByAssignment.get(String(assignment.id));
-    const student = studentById.get(String(assignment.student_id));
-    const exam = exams.find((row) => row.id === String(assignment.exam_id));
+  const packageSummaries = (Array.isArray(templateReferences) ? templateReferences as Row[] : []).map((template) => {
+    const templateId = String(template?.id || "");
+    if (!isUuid(templateId)) throw new SupabaseCbtError(503, "Katalog paket soal CBT belum dapat diverifikasi.");
+    const aggregate = packageAggregates.get(templateId);
+    const names = (value: unknown) => {
+      if (!Array.isArray(value) || value.length > 1000) throw new SupabaseCbtError(503, "Ringkasan paket soal CBT belum dapat diverifikasi.");
+      const result = value.map((name) => summaryText(name, 150));
+      if (new Set(result).size !== result.length) throw new SupabaseCbtError(503, "Ringkasan paket soal CBT belum dapat diverifikasi.");
+      return result;
+    };
     return {
-      assignmentId: String(assignment.id), examTitle: exam?.title || "Ujian",
-      studentName: String(student?.name || "Santri diarsipkan"), className: String(student ? classById.get(String(student.class_id || "")) || "" : ""),
-      status: String(assignment.status), score: attempt?.score == null ? null : Number(attempt.score),
-      passed: attempt?.passed == null ? null : Boolean(attempt.passed),
-      correct: attempt?.correct_count == null ? null : Number(attempt.correct_count),
-      wrong: attempt?.wrong_count == null ? null : Number(attempt.wrong_count),
-      blank: attempt?.blank_count == null ? null : Number(attempt.blank_count),
-      submittedAt: attempt?.submitted_at || null,
+      id: templateId,
+      name: summaryText(template.name, 150),
+      description: typeof template.description === "string" ? template.description.slice(0, 1000) : "",
+      totalQuestions: summaryCount(aggregate?.totalQuestions ?? 0),
+      activeQuestions: summaryCount(aggregate?.activeQuestions ?? 0),
+      subjects: names(aggregate?.subjects ?? []),
+      gradeLevels: names(aggregate?.gradeLevels ?? []),
     };
   });
   return {
-    questions: (questionRows as Row[]).map(mapQuestion),
-    exams, results, students, settings,
+    questions: [], packageSummaries,
+    exams: [], results: [], students: [], settings,
     references: {
       subjects: Array.isArray(subjectReferences) ? subjectReferences : [],
       gradeLevels: Array.isArray(gradeLevelReferences) ? gradeLevelReferences : [],
       templates: Array.isArray(templateReferences) ? templateReferences : [],
     },
-    classes: [...new Set(students.map((student) => student.className).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id")),
+    classes: [],
   };
 }
 
