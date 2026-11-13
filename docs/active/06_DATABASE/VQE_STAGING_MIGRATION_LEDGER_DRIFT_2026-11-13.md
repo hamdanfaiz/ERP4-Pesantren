@@ -58,3 +58,27 @@ CI lokal yang lulus membuktikan replay pada database lokal terisolasi. CI terseb
 6. Rekonsiliasi PTSAS Production secara terpisah. Jangan memakai VQE ledger sebagai bukti keadaan Production dan jangan menjalankan repair/push Production dari dokumen ini.
 
 Status integrasi/riwayat ini belum menjadi persetujuan untuk mengubah VQE atau Production.
+
+
+## Tindak lanjut baca-saja PTSAS Production — 13 November 2026
+
+Pemeriksaan metadata terbaru dilakukan terpisah dari audit staging, melalui konektor Supabase Production. Pemeriksaan ini hanya membaca ledger migrasi, metadata jumlah tabel/RLS, dan Security Advisor; tidak membaca nilai record aplikasi, menjalankan SQL perubahan, melakukan migration repair, atau mengubah Production.
+
+- Ref Production: `ptsasgdvgrbdtgyqieie`; source pembanding: `main` pada commit `ebea706ef4ac4724fa9c0e2a5a580f949d941228`.
+- Source memiliki **148 file migrasi**, sampai `20270315000000_lms_dashboard_operational_fill`.
+- Ledger Production memiliki **100 versi**, dari `20260603000000` sampai `20270316000000`.
+- **99 versi** memiliki nomor yang sama pada source. Ada **49 versi source yang belum tercatat** dan satu versi Production-only, `20270316000000 communication_ops_runtime`, yang tidak memiliki file bernomor sama di source.
+- Selisih versi bukan bukti bahwa DDL tertentu hilang atau aman untuk diterapkan. Fungsi, constraint, indeks, policy/grant, isi dua migration berpayload kosong, dan urutan replay belum dibandingkan.
+- Katalog mengembalikan **162 tabel public**, semuanya melaporkan RLS aktif. Security Advisor memberi 157 temuan INFO untuk tabel yang RLS-nya aktif tanpa policy. Hasil ini bukan audit grant atau bukti keamanan API; tim harus memastikan akses langsung memang tertutup dan server API tetap menegakkan tenant/role.
+- Advisor juga menandai satu fungsi dengan `search_path` mutable: `public.erp4_ppdb_update_updated_at_column`; empat helper `SECURITY DEFINER` dapat dijalankan role `authenticated` (`current_app_role`, `current_tenant_id`, `has_module_access`, `is_tenant_admin`). Source memberi hak eksekusi tersebut untuk helper RLS, tetapi definisi/grant live perlu ditinjau tim sebelum menyimpulkan aman.
+- Auth Advisor melaporkan perlindungan kata sandi bocor dinonaktifkan. Health Advisor tidak mengembalikan temuan.
+
+### Tindak lanjut tim backend
+
+1. Jalankan rekonsiliasi source-versus-Production yang meninjau definisi objek dan provenance `20270316000000`; jangan menerapkan atau menandai migration hanya untuk menyamakan hitungan.
+2. Verifikasi table grants, policy, function definitions/search path, serta alasan helper RLS harus dapat dieksekusi oleh `authenticated`.
+3. Putuskan dan dokumentasikan pengaktifan perlindungan kata sandi bocor sesuai paket/konfigurasi Auth.
+4. Simpan backup yang dapat dipulihkan dan buktikan restore; lalu rehearsal urutan migration pada salinan sebelum persetujuan deploy.
+5. Jangan menjalankan `db push`, migration repair, reset, atau perubahan Auth/DDL Production berdasarkan snapshot ini.
+
+Status ini adalah inventaris metadata baca-saja; bukan validasi DDL Production, uji RLS end-to-end, backup/restore, atau persetujuan deploy.
