@@ -26,6 +26,11 @@ This repository is the ERP4 Pesantren application. The interface is React (Vite)
 
 Skills for this checkout live in `.cursor/skills`.
 
+## UI consistency (agent rules)
+
+- Loading while data is in flight: `.cursor/rules/ui-loading-skeleton.mdc` — use `ERPLoadingSkeleton` from `src/components/ERPDesignSystem.tsx`.
+- Feedback after user actions: `.cursor/rules/ui-action-notifications.mdc` — inline `role="status"` / `role="alert"` banners.
+
 ## Academic report card
 
 Semester report cards, the KKTP threshold, homeroom comments, and publication follow `.cursor/rules/academic-report-card.mdc`. Finish the Academic module and the related objects its screens call on Production PTSAS, as required by `.cursor/rules/academic-production.mdc`. The report-card migration is already applied; do not apply `supabase/migrations/20270309000000_academic_report_card.sql` again. Do not turn on `SUPABASE_ACADEMIC_RUNTIME_ENABLED` while those called objects are still missing.

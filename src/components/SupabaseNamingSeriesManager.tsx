@@ -95,13 +95,16 @@ export function SupabaseNamingSeriesManager() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { notify?: boolean }) => {
     setLoading(true);
     setError("");
+    if (!options?.notify) setNotice("");
     try {
       setSeries(await listSupabaseTenantNamingSeries());
+      if (options?.notify) setNotice("Aturan penomoran berhasil dimuat ulang.");
     } catch (cause: any) {
       setSeries([]);
+      setNotice("");
       setError(cause?.message || "Aturan penomoran tenant belum dapat dimuat.");
     } finally {
       setLoading(false);
@@ -154,7 +157,7 @@ export function SupabaseNamingSeriesManager() {
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"><Hash className="h-5 w-5" /></span>
       <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">Atur lima belas pola nomor bisnis tenant lintas modul. ID teknis tetap UUID dan dibuat basis data; kode bisnis diterbitkan backend dengan penghitung transaksional serta perlindungan unik per jenis data.</p></div>
       </div>
-      <button type="button" className={SECONDARY} onClick={() => void refresh()} disabled={loading || savingKey !== null}><RefreshCw className={"h-4 w-4 " + (loading ? "animate-spin" : "")} />Muat ulang</button>
+      <button type="button" className={SECONDARY} onClick={() => void refresh({ notify: true })} disabled={loading || savingKey !== null}><RefreshCw className={"h-4 w-4 " + (loading ? "animate-spin" : "")} />Muat ulang</button>
     </header>
 
     <div role="note" className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">
