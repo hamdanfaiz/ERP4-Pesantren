@@ -4,7 +4,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SET LOCAL TIME ZONE 'UTC';
-SELECT plan(62);
+SELECT plan(74);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -185,6 +185,40 @@ SELECT throws_ok($$SELECT public.record_tahfidz_daily_target(
   1.00::NUMERIC, 1.00::NUMERIC, 'standard', NULL, 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000520'
 )$$, '22023', 'Target aktif harus berlaku pada hari ini atau sebelumnya dan tidak berakhir di masa lalu', 'target that already ended is rejected');
 
+-- Global Quran references are complete, server-only, and enforced for every new setoran.
+SELECT is((SELECT count(*)::INTEGER FROM public.quran_surahs), 114, 'Quran catalog contains all 114 Surahs');
+SELECT is((SELECT sum(ayah_count)::INTEGER FROM public.quran_surahs), 6236, 'Quran catalog contains the expected 6,236 ayat');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.quran_surahs'::regclass), 'Quran catalog has RLS enabled');
+SELECT ok((SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.quran_surahs'::regclass), 'Quran catalog forces RLS');
+SELECT ok(NOT has_table_privilege('anon', 'public.quran_surahs', 'SELECT'), 'anon cannot read the Quran catalog directly');
+SELECT ok(NOT has_table_privilege('authenticated', 'public.quran_surahs', 'SELECT'), 'authenticated cannot read the Quran catalog directly');
+SELECT ok(has_table_privilege('service_role', 'public.quran_surahs', 'SELECT'), 'trusted server role can read the Quran catalog');
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_constraint
+  WHERE conrelid = 'public.tahfidz_records'::regclass
+    AND conname = 'tahfidz_records_surah_number_fk'
+), 'Tahfidz records have a Surah reference foreign key');
+SELECT is((public.record_tahfidz_setoran(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+  (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+  'Ziyadah', 'Al-Fatihah', 1, 7, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
+  'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000590'
+)->>'alreadyRecorded'), 'false', 'valid Surah and Ayah range still records successfully');
+SELECT is((SELECT surah_number::INTEGER FROM public.tahfidz_records
+  WHERE client_request_id = 'd1800000-0000-4000-8000-000000000590'), 1, 'new setoran stores its canonical Surah reference');
+SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+  (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+  'Ziyadah', 'Surah tidak terdaftar', 1, 2, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
+  'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000591'
+)$$, '23514', 'Surah setoran tidak ditemukan pada katalog referensi', 'free-text Surah values are rejected');
+SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+  (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+  'Ziyadah', 'Al-Fatihah', 1, 8, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
+  'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000592'
+)$$, '23514', 'Rentang ayat melampaui jumlah ayat Surah', 'Ayah numbers beyond the selected Surah are rejected');
+
 -- Tenant-scoped tables are forced through RLS and browser roles cannot call write RPCs.
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.tahfidz_halaqahs'::regclass), 'halaqahs has RLS enabled');
 SELECT ok((SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.tahfidz_halaqahs'::regclass), 'halaqahs forces RLS');
@@ -215,4 +249,5 @@ SELECT ok(has_function_privilege('service_role', to_regprocedure('public.record_
 
 SELECT * FROM finish();
 ROLLBACK;
+
 

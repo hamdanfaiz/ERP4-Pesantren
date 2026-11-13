@@ -424,17 +424,47 @@ export function TahfidzManager() {
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [surahList, setSurahList] = useState<any[]>([]);
+  const [isSurahListLoading, setIsSurahListLoading] = useState(SUPABASE_TAHFIDZ_RUNTIME);
+  const [surahListError, setSurahListError] = useState("");
+  const [surahListAttempt, setSurahListAttempt] = useState(0);
 
   useEffect(() => {
-    fetch("/api/quran/surat")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.data) {
-          setSurahList(data.data);
+    const controller = new AbortController();
+    const loadSurahs = async () => {
+      setIsSurahListLoading(true);
+      setSurahListError("");
+      try {
+        const data = SUPABASE_TAHFIDZ_RUNTIME
+          ? await requestSupabaseTahfidzApi("/api/tahfidz/references/surahs", { signal: controller.signal })
+          : await fetch("/api/quran/surat", { signal: controller.signal }).then(async (response) => {
+            if (!response.ok) throw new Error("Daftar Surah belum dapat dimuat.");
+            return response.json();
+          });
+        const entries = Array.isArray(data?.data) ? data.data : [];
+        const validEntries = entries.filter((item: any) =>
+          Number.isInteger(Number(item?.nomor))
+          && Number(item.nomor) >= 1
+          && Number(item.nomor) <= 114
+          && typeof item?.namaLatin === "string"
+          && item.namaLatin.trim().length > 0
+          && Number.isInteger(Number(item?.jumlahAyat))
+          && Number(item.jumlahAyat) >= 1
+          && Number(item.jumlahAyat) <= 286,
+        );
+        if (validEntries.length !== 114) throw new Error("Katalog Surah belum lengkap. Coba muat ulang.");
+        setSurahList(validEntries.sort((left: any, right: any) => Number(left.nomor) - Number(right.nomor)));
+      } catch (error: any) {
+        if (error?.name !== "AbortError") {
+          setSurahList([]);
+          setSurahListError(error?.message || "Daftar Surah belum dapat dimuat. Coba kembali.");
         }
-      })
-      .catch(console.error);
-  }, [user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz]);
+      } finally {
+        if (!controller.signal.aborted) setIsSurahListLoading(false);
+      }
+    };
+    void loadSurahs();
+    return () => controller.abort();
+  }, [user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz, surahListAttempt]);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [isHalaqahModalOpen, setIsHalaqahModalOpen] = useState(false);
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
@@ -1993,7 +2023,7 @@ export function TahfidzManager() {
   const renderRecords = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Quick Entry Form */}
-      {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-end">
+      {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:flex-wrap gap-4 items-end">
         <div className="w-full md:w-auto flex-1">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Santri
@@ -2022,28 +2052,76 @@ export function TahfidzManager() {
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Surah
           </label>
-          <input
+          {SUPABASE_TAHFIDZ_RUNTIME ? <select
+            required
+            value={formData.surah || ""}
+            disabled={isSurahListLoading || Boolean(surahListError) || !surahList.length || isSavingRecord}
+            onChange={(event) => {
+              const selected = surahList.find((item) => item.namaLatin === event.target.value);
+              setFormData((current: any) => ({
+                ...current,
+                surah: selected?.namaLatin || "",
+                surahNomor: selected?.nomor ?? null,
+                ayatCount: selected?.jumlahAyat ?? null,
+                ayatStart: "",
+                ayatEnd: "",
+                ayat: "",
+              }));
+            }}
+            className="w-full min-w-44 bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">{isSurahListLoading ? "Memuat Surah…" : "Pilih Surah"}</option>
+            {surahList.map((surah) => <option key={surah.nomor} value={surah.namaLatin}>{surah.nomor}. {surah.namaLatin}</option>)}
+          </select> : <input
             type="text"
             placeholder="Misal: Al-Baqarah"
             value={formData.surah || ""}
-            onChange={(e) =>
-              setFormData({ ...formData, surah: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, surah: e.target.value })}
             className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-          />
+          />}
         </div>
-        <div className="w-full md:w-32">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
-            Ayat
-          </label>
-          <input
-            type="text"
-            placeholder="Misal: 1-10"
-            value={formData.ayat || ""}
-            onChange={(e) => setFormData({ ...formData, ayat: e.target.value })}
-            className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-          />
-        </div>
+        {SUPABASE_TAHFIDZ_RUNTIME ? <>
+          <div className="w-full md:w-28">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Dari ayat</label>
+            <select
+              value={formData.ayatStart || ""}
+              disabled={!formData.surah || isSurahListLoading || Boolean(surahListError) || isSavingRecord}
+              onChange={(event) => {
+                const start = event.target.value;
+                const nextEnd = formData.ayatEnd && Number(formData.ayatEnd) >= Number(start) ? formData.ayatEnd : start;
+                setFormData((current: any) => ({ ...current, ayatStart: start, ayatEnd: nextEnd, ayat: start ? `${start}-${nextEnd}` : "" }));
+              }}
+              className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Pilih</option>
+              {Array.from({ length: Number(formData.ayatCount || 0) }, (_, index) => index + 1).map((ayah) => <option key={ayah} value={ayah}>{ayah}</option>)}
+            </select>
+          </div>
+          <div className="w-full md:w-28">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Sampai ayat</label>
+            <select
+              value={formData.ayatEnd || ""}
+              disabled={!formData.ayatStart || isSurahListLoading || Boolean(surahListError) || isSavingRecord}
+              onChange={(event) => {
+                const end = event.target.value;
+                setFormData((current: any) => ({ ...current, ayatEnd: end, ayat: current.ayatStart && end ? `${current.ayatStart}-${end}` : "" }));
+              }}
+              className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Pilih</option>
+              {Array.from({ length: Number(formData.ayatCount || 0) }, (_, index) => index + 1)
+                .filter((ayah) => !formData.ayatStart || ayah >= Number(formData.ayatStart))
+                .map((ayah) => <option key={ayah} value={ayah}>{ayah}</option>)}
+            </select>
+          </div>
+          {surahListError && <div role="alert" className="w-full text-xs text-rose-700 dark:text-rose-300 md:w-auto md:max-w-48">
+            <p>{surahListError}</p>
+            <button type="button" onClick={() => setSurahListAttempt((attempt) => attempt + 1)} className="mt-1 font-semibold underline">Coba lagi</button>
+          </div>}
+        </> : <div className="w-full md:w-32">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Ayat</label>
+          <input type="text" placeholder="Misal: 1-10" value={formData.ayat || ""} onChange={(e) => setFormData({ ...formData, ayat: e.target.value })} className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+        </div>}
         <div className="w-full md:w-auto">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Tipe
@@ -2073,7 +2151,7 @@ export function TahfidzManager() {
         </>}
         <button
           onClick={handleInputSubmit}
-          disabled={!(SUPABASE_TAHFIDZ_RUNTIME ? formData.studentId : formData.santriName) || !formData.surah || !formData.ayat || (SUPABASE_TAHFIDZ_RUNTIME && (!formData.fluency || !formData.tajweed)) || isSavingRecord}
+          disabled={!(SUPABASE_TAHFIDZ_RUNTIME ? formData.studentId : formData.santriName) || !formData.surah || !formData.ayat || (SUPABASE_TAHFIDZ_RUNTIME && (!formData.ayatStart || !formData.ayatEnd || !surahList.length || isSurahListLoading || Boolean(surahListError) || !formData.fluency || !formData.tajweed)) || isSavingRecord}
           className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20 whitespace-nowrap flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" /> Entri Cepat
@@ -6158,3 +6236,4 @@ export function TahfidzManager() {
     </div>
   );
 }
+
