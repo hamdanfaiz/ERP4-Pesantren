@@ -247,6 +247,14 @@ WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.boarding_attendance_sessions
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 
+DELETE FROM public.library_circulations
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.library_write_requests
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.library_digital_assets
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.library_digital_asset_upload_requests
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.library_books
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.academic_report_cards
