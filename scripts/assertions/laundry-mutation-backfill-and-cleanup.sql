@@ -187,7 +187,38 @@ WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 
 DELETE FROM public.lms_enrollments
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+
+-- Remove immutable LMS audit/idempotency rows only in this isolated CI fixture.
+ALTER TABLE public.lms_submission_requests
+  DISABLE TRIGGER lms_submission_requests_immutable;
+DELETE FROM public.lms_submission_requests
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+ALTER TABLE public.lms_submission_requests
+  ENABLE TRIGGER lms_submission_requests_immutable;
+
+ALTER TABLE public.lms_submission_grade_events
+  DISABLE TRIGGER lms_submission_grade_events_immutable;
+DELETE FROM public.lms_submission_grade_events
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+ALTER TABLE public.lms_submission_grade_events
+  ENABLE TRIGGER lms_submission_grade_events_immutable;
+
+ALTER TABLE public.lms_learning_record_requests
+  DISABLE TRIGGER lms_learning_record_requests_immutable;
+DELETE FROM public.lms_learning_record_requests
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+ALTER TABLE public.lms_learning_record_requests
+  ENABLE TRIGGER lms_learning_record_requests_immutable;
+
+DELETE FROM public.lms_submissions
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.lms_material_progress
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.lms_student_notes
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.lms_material_comments
+WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
+DELETE FROM public.lms_assignments
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
 DELETE FROM public.lms_materials
 WHERE tenant_id='e1500000-0000-4000-8000-000000000009';
