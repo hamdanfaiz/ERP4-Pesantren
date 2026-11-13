@@ -1078,7 +1078,7 @@ export function TahfidzManager() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {SUPABASE_TAHFIDZ_RUNTIME && SUPABASE_TAHFIDZ_IMPORT && canManageTahfidz && <button onClick={() => void handleTahfidzImport(false)} disabled={isPreviewingTahfidzImport || isApplyingTahfidzImport} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
-            {isPreviewingTahfidzImport ? "Memindai…" : "Pratinjau Impor Halaqah"}
+            {isPreviewingTahfidzImport ? "Memindai…" : "Pratinjau Impor Data Tahfidz"}
           </button>}
           {(!SUPABASE_TAHFIDZ_RUNTIME || canManageTahfidz) && <button onClick={() => openHalaqahForm()} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
             <Plus className="w-4 h-4" /> Tambah Halaqah
@@ -1102,7 +1102,7 @@ export function TahfidzManager() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {SUPABASE_TAHFIDZ_RUNTIME && !tahfidzLoading && displayHalaqah.length === 0 && (
           <div className="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/10">
-            Belum ada halaqah aktif. Admin dapat membuat halaqah setelah tersedia daftar ustadz pengampu.
+            Belum ada halaqah aktif. Admin dapat membuatnya setelah daftar ustadz pengampu tersedia.
           </div>
         )}
         {displayHalaqah.map((halaqah) => {
@@ -1777,7 +1777,7 @@ export function TahfidzManager() {
     return (
       <div className="space-y-6">
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200">
-          Ringkasan santri dan cakupan target mengikuti hak akses akun Anda. Daftar santri dimuat bertahap; grafik menunjukkan jumlah setoran, bukan jumlah halaman atau juz.
+          Ringkasan santri dan target mengikuti hak akses akun Anda. Daftar dimuat bertahap; grafik menunjukkan jumlah setoran, bukan halaman atau juz.
         </div>
         {rosterHasMore && <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
           <span>Menampilkan {santriList.length} dari {totalStudents} santri pada roster. Ringkasan tindak lanjut dihitung terpisah untuk seluruh cakupan akun Anda.</span>
