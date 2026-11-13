@@ -1,5 +1,19 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
+
+## Addendum otoritatif — 13 November 2026
+
+Bagian ini memperbarui status source, CI, staging, dan inventaris metadata Production. Catatan yang lebih lama tetap berguna sebagai arsip, tetapi angka migrasi Production/VQE di dalamnya sudah digantikan oleh snapshot ini. Tidak ada perubahan DDL, data, Auth, atau konfigurasi di PTSAS Production.
+
+- Source `main` pada commit `ebea706ef4ac4724fa9c0e2a5a580f949d941228` berisi **148 file migrasi** sampai `20270315000000`. PR #103 dan #104 sudah merged. CI PR-head #1584 untuk #104 dan #1586 untuk #103 berhasil; merge commit main tidak memiliki run workflow tersendiri dalam konektor saat snapshot diperiksa.
+- Hostinger preview sementara berhasil membangun dan menampilkan beranda serta halaman masuk menggunakan VQE staging. Login nyata, alur simpan-baca, dan UAT per role belum diverifikasi.
+- VQE `vqemuyzveuirlkvdggjd` mencatat **150 versi**. Tujuh versi ledger tidak punya source file bernomor sama; lima file source belum tercatat di VQE. Rinciannya ada di [snapshot drift VQE](../06_DATABASE/VQE_STAGING_MIGRATION_LEDGER_DRIFT_2026-11-13.md). Jangan jalankan migration repair atau `db push` sebelum asal DDL dan baseline staging disepakati.
+- PTSAS Production `ptsasgdvgrbdtgyqieie` mencatat **100 versi**; 99 cocok berdasarkan nomor dengan source, 49 source version belum tercatat, dan `20270316000000 communication_ops_runtime` hanya muncul di ledger live. Ini inventaris ledger, bukan bukti kondisi DDL atau rencana untuk menerapkan 49 file.
+- Katalog Production mengembalikan **162 tabel public** dan semuanya RLS aktif. Security Advisor menandai 157 tabel RLS tanpa policy (INFO), satu fungsi dengan search_path mutable, empat helper SECURITY DEFINER yang executable untuk `authenticated`, serta perlindungan kata sandi bocor yang nonaktif. Temuan ini membutuhkan verifikasi DDL/grant oleh tim backend; status RLS aktif sendiri tidak membuktikan seluruh API aman.
+- PR #38–#40 sudah merged. Stack CBT PR #97–#100 dan #102 masih open; #101 merged. PR bertingkat harus ditinjau dan digabung sesuai dependency/CI, bukan digabung melompati base. PR #105 memuat dokumen rekonsiliasi baca-saja yang kini dilengkapi snapshot Production.
+
+**Keputusan rilis:** ERP4 tetap **belum siap dinyatakan siap komersial atau go-live**. Tim backend masih perlu meninjau rekonsiliasi DDL dan ledger Production, mengecek grant/RLS/RPC, membuktikan backup/restore, menyelesaikan review stack PR, serta melakukan UAT login, tenant, modul dan Storage. PTSAS Production tetap tidak berubah.
+
 > **Status otoritatif — 11 November 2026.** Source `main` berada pada `fd937f4876aa1069500694b9bc20ec70eef8ee14` (merge PR #90), 140 file migrasi. CI pada SHA itu lulus 3/3 job di [run #42482785770](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42482785770). PR #91 masih draft dan belum masuk `main`.
 >
 > Preflight baca-saja PTSAS Production `ptsasgdvgrbdtgyqieie` pada tanggal yang sama: PostgreSQL 17.11, ledger 47 versi sampai `20261206000000`, 45 versi cocok nama dan SQL-nya dengan source, 2 versi tanpa payload, 93 versi source belum tercatat, 119/119 tabel `public` ber-RLS dan FORCE RLS. Transaksi `READ ONLY` ditutup `ROLLBACK`. Tidak ada perubahan Production. Daftar selisih bukan rencana migrasi. Lihat [rekonsiliasi 11 November](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-11.md) dan [handoff backend](BACKEND_TEAM_START_HERE.md).
