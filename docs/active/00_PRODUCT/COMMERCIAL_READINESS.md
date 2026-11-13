@@ -6,6 +6,8 @@ Source `main` saat rekonsiliasi adalah `82082bf` dengan 150 file migrasi. Branch
 
 PR #112 berisi enam migrasi CBT `20270321000000`–`20270326000000`. PR #116 semula memakai versi pertama yang sama; branch #116 kini telah diurutkan ulang ke `20270327000000`, sehingga benturan nomor langsung di source teratasi. Rangkaian CBT lama #96–#102 masih tumpang tindih dan harus direkonsiliasi sebelum digabung atau ditutup. Ledger/DDL VQE serta Production belum direkonsiliasi oleh perubahan source ini. Tidak ada migrasi yang diterapkan ke database.
 
+Perbandingan source menunjukkan keenam SQL migrasi dan enam suite pgTAP dari PR #96–#100/#102 identik dengan salinan bernomor baru di #112 setelah normalisasi line ending. Tidak ada migrasi/test database unik yang tertinggal pada stack tersebut; perubahan UI/TypeScript tetap perlu review sebelum menutup PR anak. Setelah #112 ditinjau dan digabung, PR anak dapat ditutup sebagai superseded jika pemeriksaan kode tidak menemukan fitur unik.
+
 ### Status source dan UAT
 
 - PR #114 CI lulus 3/3; UAT Admin VQE membuktikan seluruh 10 subtab terlihat, scrollbar tab horizontal, 114 surah, isi Al-Fatihah, serta pilihan rentang ayat tanpa teks bebas. Roster tenant akun uji kosong, jadi simpan-baca belum diuji; ponsel juga belum diuji. Detail tercatat di percakapan PR #114.
@@ -23,7 +25,7 @@ Kecocokan ledger Production adalah **97/150 (64,7%) versi dan nama**. Ini ukuran
 
 ### Status source dan PR
 
-- PR #112 terbuka, tidak draft, dan mergeable setelah merge commit terhadap `main`; tiga job CI lulus pada head terkini. Nomor migrasi CBT 21–26 bebas benturan langsung dengan leaderboard #116 yang kini memakai 27. Stack #96–#102 masih memiliki fungsi CBT yang tumpang tindih dan harus diperiksa terhadap #112 sebelum ditutup.
+- PR #112 terbuka, tidak draft, dan mergeable setelah merge commit terhadap `main`; tiga job CI lulus pada commit implementasi. Nomor migrasi CBT 21–26 bebas benturan langsung dengan leaderboard #116 yang kini memakai 27. Keenam migrasi dan suite pgTAP dari stack #96–#100/#102 sudah dibandingkan dan identik dengan salinan di #112; review kesetaraan UI/TypeScript masih perlu dilakukan sebelum menutup PR anak.
 - PR #114 (validasi katalog Surah dan tab Tahfidz) memiliki CI hijau. UAT Admin VQE membuktikan 10 tab, scrollbar horizontal, 114 surah, dan pemilihan ayat yang tervalidasi. Tenant tanpa santri menghalangi uji simpan-baca; tampilan ponsel juga belum diperiksa.
 - PR #115 (pesan komersial lintas modul) memiliki CI hijau; tinjauan antarmuka lintas modul belum selesai.
 - PR #116 (leaderboard bulanan Tahfidz) tetap draft. Nomor migrasi sudah dipindah ke 27 dan semua CI lulus. UAT tiap peran dan privasi leaderboard belum dibuktikan.
