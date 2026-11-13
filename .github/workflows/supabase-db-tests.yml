@@ -73,6 +73,8 @@ jobs:
         run: npm run test:tahfidz-session-pagination
       - name: Verify Tahfidz achievement thresholds
         run: npm run test:tahfidz-achievements
+      - name: Verify Supabase Quran catalog validation
+        run: npm run test:supabase-quran-catalog
 
       - name: Verify PPDB CSV import parsing and identity preservation
         run: bun run test:ppdb-csv-import
@@ -407,3 +409,4 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+
