@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { PUBLIC_CLIENT_RUNTIME_CONFIG_KEYS } from "./src/publicRuntimeConfigKeys";
 import { createHash, randomUUID } from "node:crypto";
 import { resolveTrustedProxyHops } from "./src/server/trustedProxyHops";
+import { listSupabaseQuranSurahs, SupabaseQuranCatalogError } from "./src/server/supabaseQuranCatalog";
 import { Buffer } from "node:buffer";
 import {
   IdentityConflictError,
@@ -3089,6 +3090,20 @@ async function startServer() {
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 
+  app.get("/api/tahfidz/references/surahs", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      await loadTahfidzActor(uid);
+      return res.json({ data: await listSupabaseQuranSurahs() });
+    } catch (error) {
+      if (error instanceof SupabaseQuranCatalogError) return res.status(error.status).json({ error: error.message });
+      return tahfidzRouteError(res, error);
+    }
+  });
+
   app.get("/api/tahfidz/roster", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
@@ -4254,3 +4269,4 @@ async function startServer() {
 }
 
 startServer();
+
