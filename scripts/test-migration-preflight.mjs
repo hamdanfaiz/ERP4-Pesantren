@@ -111,7 +111,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 140);
+assert.equal(sourceMigrationsWithSql.length, 148);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270306000000_library_book_category_reference_writes.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
@@ -388,11 +388,11 @@ const observedStagingMigrations = sourceMigrationsWithSql
   }));
 assert.equal(observedStagingMigrations.length, 49);
 const stagingBaselineSource = sourceMigrationsWithSql.filter(({ version }) => version <= '20270302000000');
-assert.equal(stagingBaselineSource.length, 134);
+assert.equal(stagingBaselineSource.length, 135);
 const stagingBaseline = compareMigrationVersions(stagingBaselineSource, observedStagingMigrations);
 assert.equal(stagingBaseline.appliedCount, 49);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(stagingBaseline.pending.length, 85);
+assert.equal(stagingBaseline.pending.length, 86);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
 assert.equal(stagingBaseline.pending.at(-1).version, '20270302000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
@@ -432,7 +432,7 @@ assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 93);
+assert.equal(productionBaseline.pending.length, 101);
 assert.deepEqual(
   productionBaseline.outOfOrderPending.map(({ version }) => version),
   [...productionMissingMigrationVersions],

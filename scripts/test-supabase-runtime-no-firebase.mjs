@@ -222,8 +222,13 @@ assert.match(academicSource, /!\[\"schedule\",\s*\"conflict-resolver\",\s*\"teac
   'Academic owner reference tabs must be limited to Admin roles.');
 assert.match(academicSource, /activeTab === "teachers"\s*\?\s*<TeacherDirectory[\s\S]*?activeTab === "subjects"\s*\?\s*<SubjectReferenceList[\s\S]*?activeTab === "curricula"\s*\?\s*<CurriculumReferenceList/,
   'Moved academic reference tabs must render their tenant-backed views in the Academic module.');
-assert.match(academicSource, /activeTab === "report-card"\s*\?\s*<ERPFeatureStatus/,
-  'E-Rapor must show its current backend readiness instead of falling through to the assessment form.');
+assert.match(academicSource, /activeTab === "report-card"\s*\?\s*<SupabaseAcademicReportPanel\s+isAdmin=\{isAdmin\}\s*\/>/,
+  'E-Rapor must render its tenant-backed report workspace.');
+const academicReportSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAcademicReportPanel.tsx'), 'utf8');
+assert.match(academicReportSource, /reportRequest\("\/api\/academic\/report-cards"/,
+  'E-Rapor must request its tenant workspace from the Supabase API.');
+assert.match(academicReportSource, /error && <div role="alert"/,
+  'E-Rapor must show backend readiness and request errors to the operator.');
 const generalAffairSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseGeneralAffairManager.tsx'), 'utf8');
 assert.match(generalAffairSource, /id:\s*"booking",\s*label:\s*"Pemesanan Fasilitas"/,
   'Facility booking must be owned by Sarana & Prasarana.');

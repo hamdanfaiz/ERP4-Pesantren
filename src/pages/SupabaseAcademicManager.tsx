@@ -1,7 +1,7 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, BookOpen, CalendarDays, Check, ClipboardList, FileText, Plus, RefreshCw, ShieldCheck, Users, Wrench } from "lucide-react";
+import { AlertCircle, BookOpen, CalendarDays, Check, ClipboardList, FileText, Loader2, Plus, RefreshCw, ShieldCheck, Users, Wrench } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { SupabaseAcademicPortal } from "./SupabaseAcademicPortal";
