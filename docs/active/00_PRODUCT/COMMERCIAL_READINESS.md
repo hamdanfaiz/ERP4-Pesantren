@@ -2,7 +2,7 @@
 
 Status di bagian ini menggantikan snapshot bertanggal yang lebih lama di bawah.
 
-- `main` saat ini berada di `ae9633ec13bfb7fabb3f5d2ae9ae77e6a149e0a7`, setelah PR #101 dan PR #109–#111 digabung. PR #112 menambahkan pagination/API CBT tenant besar, berada di Open/Ready for review, dan Actions #1618 lulus 3/3 pada head `a6c5d265f662afa8f3f5334403c1cb3780905987`.
+- `main` saat ini berada di `ae9633ec13bfb7fabb3f5d2ae9ae77e6a149e0a7`, setelah PR #101, #103–#106, dan #109–#111 digabung; `main` berisi 150 file migrasi. PR #112 menambah enam migrasi pagination/API CBT tenant besar (156 di branch PR), Open/Ready for review; Actions #1618 lulus 3/3 pada head kode `a6c5d265f662afa8f3f5334403c1cb3780905987`.
 - Pembacaan metadata PTSAS Production mencatat 100 versi ledger sampai `20270316000000`; source branch PR #112 memiliki 156 file migrasi. Ada 56 versi source yang belum tercatat persis dan tiga entri ledger tanpa nama. Angka tersebut tidak boleh dipakai sebagai daftar untuk menjalankan semua migrasi.
 - Sepuluh indeks dan sembilan RPC batch CBT belum ada di PTSAS. Pemeriksaan katalog memastikan kolom dan tipe yang dipakai batch tersedia; DDL keseluruhan, restore Production, serta dampak lock indeks belum dibuktikan.
 - VQE staging telah memiliki fungsi/index ekuivalen dari migrasi CBT terdahulu; definisi fungsi dicocokkan dengan source dan role execute diperiksa. Hindari menjalankan ulang DDL tersebut hanya untuk mengganti nomor versi.
@@ -12,9 +12,11 @@ Status di bagian ini menggantikan snapshot bertanggal yang lebih lama di bawah.
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
 
-## Addendum otoritatif — 13 November 2026
+## Arsip snapshot — 13 November 2026, sebelum PR #109–#111 dan PR #112
 
-Bagian ini memperbarui status source, CI, staging, dan inventaris metadata Production. Catatan yang lebih lama tetap berguna sebagai arsip, tetapi angka migrasi Production/VQE di dalamnya sudah digantikan oleh snapshot ini. Tidak ada perubahan DDL, data, Auth, atau konfigurasi di PTSAS Production.
+Bagian ini merekam snapshot lebih awal pada tanggal yang sama. Gunakan **Status terbaru** di atas untuk keadaan terkini.
+
+Snapshot ini memperbarui status source, CI, staging, dan inventaris metadata Production sebelum PR #109–#111 digabung serta PR #112 dibuka. Tidak ada perubahan DDL, data, Auth, atau konfigurasi di PTSAS Production.
 
 - Source `main` pada commit `ebea706ef4ac4724fa9c0e2a5a580f949d941228` berisi **148 file migrasi** sampai `20270315000000`. PR #103 dan #104 sudah merged. CI PR-head #1584 untuk #104 dan #1586 untuk #103 berhasil; merge commit main tidak memiliki run workflow tersendiri dalam konektor saat snapshot diperiksa.
 - Hostinger preview sementara berhasil membangun dan menampilkan beranda serta halaman masuk menggunakan VQE staging. Login nyata, alur simpan-baca, dan UAT per role belum diverifikasi.
