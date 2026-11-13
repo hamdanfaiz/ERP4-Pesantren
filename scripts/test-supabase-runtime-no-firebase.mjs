@@ -74,9 +74,12 @@ visit(serverEntryPoint);
 assert.ok(visited.has(serverEntryPoint), 'Server runtime entry point server.ts was not checked.');
 assert.deepEqual(violations, [], `Firebase must not appear in the active frontend or server import graph:\n${violations.join('\n')}`);
 const packageManifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-const firebaseProductionDependencies = Object.keys(packageManifest.dependencies || {}).filter(isFirebasePackage);
-assert.deepEqual(firebaseProductionDependencies, [], 'Firebase packages must not be installed as production runtime dependencies.');
-console.log(`Supabase-only runtime import graphs passed (${visited.size} modules checked from src/main.tsx and server.ts; no Firebase production dependencies).`);
+const firebaseDependencies = [...Object.keys(packageManifest.dependencies || {}), ...Object.keys(packageManifest.devDependencies || {})]
+  .filter(isFirebasePackage);
+assert.deepEqual(firebaseDependencies, [], 'Firebase packages must not be installed in this application.');
+assert.equal(compilerOptions.paths?.['firebase/firestore'], undefined,
+  'TypeScript must not mask Firebase imports; retired screens stay outside active compile roots.');
+console.log(`Supabase-only runtime import graphs passed (${visited.size} modules checked from src/main.tsx and server.ts; Firebase packages absent).`);
 
 const appPath = path.join(root, 'src', 'App.tsx');
 const appText = fs.readFileSync(appPath, 'utf8');
