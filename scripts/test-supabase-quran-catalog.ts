@@ -50,7 +50,7 @@ async function run() {
       error instanceof SupabaseQuranCatalogError && error.status === 503);
 
     const tahfidzUi = readFileSync(fileURLToPath(new URL("../src/pages/TahfidzManager.tsx", import.meta.url)), "utf8");
-    assert.match(tahfidzUi, /SUPABASE_TAHFIDZ_RUNTIME\\s*\\?\\s*await requestSupabaseTahfidzApi\\("\\/api\\/tahfidz\\/references\\/surahs"/);
+    assert.match(tahfidzUi, /SUPABASE_TAHFIDZ_RUNTIME\s*\?\s*await requestSupabaseTahfidzApi\("\/api\/tahfidz\/references\/surahs"/);
     const recordsStart = tahfidzUi.indexOf("const renderRecords = () => (");
     const recordsEnd = tahfidzUi.indexOf("const renderTargets = () => (", recordsStart);
     assert.ok(recordsStart >= 0 && recordsEnd > recordsStart, "Tahfidz quick-entry UI boundary should exist");
@@ -59,9 +59,9 @@ async function run() {
     const surahLegacyFallback = recordsUi.indexOf(" : <input", surahSelectStart);
     assert.ok(surahSelectStart >= 0 && surahLegacyFallback > surahSelectStart, "Supabase mode must render the catalogue-backed Surah select");
     const supabaseSurahSelect = recordsUi.slice(surahSelectStart, surahLegacyFallback);
-    assert.match(supabaseSurahSelect, /surahList\\.map\\(/, "Surah options must come from the loaded reference catalogue");
-    assert.match(recordsUi, /formData\\.ayatCount/, "Ayah options must use the selected Surah reference count");
-    assert.match(recordsUi, /ayah >= Number\\(formData\\.ayatStart\\)/, "End ayah choices must not precede the start ayah");
+    assert.match(supabaseSurahSelect, /surahList\.map\(/, "Surah options must come from the loaded reference catalogue");
+    assert.match(recordsUi, /formData\.ayatCount/, "Ayah options must use the selected Surah reference count");
+    assert.match(recordsUi, /ayah >= Number\(formData\.ayatStart\)/, "End ayah choices must not precede the start ayah");
     assert.doesNotMatch(tahfidzUi, /belum terhubung ke layanan backend dan tidak menjalankan aksi/i, "Operator-facing backend notes must not appear in the Tahfidz UI");
     assert.match(tahfidzUi, /aria-label="Penilaian audio AI belum tersedia"/);
 
