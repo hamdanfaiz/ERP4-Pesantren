@@ -27,7 +27,7 @@ Kepala ledger Production adalah `20270316000000` (`communication_ops_runtime`), 
 ## Katalog akses yang teramati
 
 - Tidak ditemukan grant tabel kepada `PUBLIC` atau `anon`.
-- Role `authenticated` memiliki privilege pada 5 tabel; kelimanya mempunyai policy.
+- Pemeriksaan privilege efektif mengembalikan nol akses tabel untuk `anon`. Role `authenticated` hanya mempunyai `SELECT` pada 5 tabel tersebut; tidak ada `INSERT`, `UPDATE`, `DELETE`, atau `TRUNCATE` pada tabel `public`.
 - Role `service_role` memiliki privilege pada 157 tabel. Karena role ini melewati RLS, jalur backend yang menggunakannya wajib memvalidasi identitas, role, tenant, dan permission sebelum setiap operasi.
 - Ada 5 policy `SELECT` pada tabel `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`.
 - Sebanyak 157 tabel RLS memiliki nol policy. Dengan grant yang teramati, akses langsung dari browser untuk tabel-tabel itu tertutup. Ini bukan bukti bahwa route backend aman; route server harus diaudit terpisah.
