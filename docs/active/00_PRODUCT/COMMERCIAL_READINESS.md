@@ -1,3 +1,14 @@
+# Status terbaru — 13 November 2026
+
+Status di bagian ini menggantikan snapshot bertanggal yang lebih lama di bawah.
+
+- `main` saat ini berada di `ae9633ec13bfb7fabb3f5d2ae9ae77e6a149e0a7`, setelah PR #101 dan PR #109–#111 digabung. PR #112 menambahkan pagination/API CBT tenant besar, berada di Open/Ready for review, dan Actions #1618 lulus 3/3 pada head `a6c5d265f662afa8f3f5334403c1cb3780905987`.
+- Pembacaan metadata PTSAS Production mencatat 100 versi ledger sampai `20270316000000`; source branch PR #112 memiliki 156 file migrasi. Ada 56 versi source yang belum tercatat persis dan tiga entri ledger tanpa nama. Angka tersebut tidak boleh dipakai sebagai daftar untuk menjalankan semua migrasi.
+- Sepuluh indeks dan sembilan RPC batch CBT belum ada di PTSAS. Pemeriksaan katalog memastikan kolom dan tipe yang dipakai batch tersedia; DDL keseluruhan, restore Production, serta dampak lock indeks belum dibuktikan.
+- VQE staging telah memiliki fungsi/index ekuivalen dari migrasi CBT terdahulu; definisi fungsi dicocokkan dengan source dan role execute diperiksa. Hindari menjalankan ulang DDL tersebut hanya untuk mengganti nomor versi.
+- PR #112 dapat ditinjau oleh tim sekarang; [runbook rilis terarah](../06_DATABASE/CBT_BATCH_PRODUCTION_RELEASE_2026-11-13.md) memuat allowlist enam migrasi dan urutan rilis yang tidak menutup gap migrasi lain.
+- Tidak ada perubahan pada VQE atau PTSAS dalam sesi pemeriksaan ini. Produk belum dinyatakan siap Production atau komersial: UAT browser CBT, backup/restore Production, serta bukti runtime pascamigrasi belum lengkap.
+
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
 

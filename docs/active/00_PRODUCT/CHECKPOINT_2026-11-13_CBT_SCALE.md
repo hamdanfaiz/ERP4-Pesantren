@@ -9,8 +9,8 @@
 ## Progres yang dapat dibuktikan
 
 - Implementasi source CBT untuk batch ini: **100%**.
-- Verifikasi otomatis dan penyerahan untuk tinjauan: **100%**; PR #112 terbuka sebagai draft dan tiga job required CI lulus pada head `834ec73` (run #1617).
-- Kesiapan migrasi live untuk batch ini: **belum dapat dinyatakan**. VQE dan PTSAS memiliki ledger yang berbeda dari source; CBT objects ada di VQE tetapi kesetaraan definisi belum dibuktikan.
+- Verifikasi otomatis untuk source dan penyerahan tinjauan: **100%**; PR #112 Open/Ready for review. Tiga job required CI lulus pada head `a6c5d26` (run #1618).
+- Kesiapan migrasi live untuk batch ini: **belum dapat dinyatakan**. VQE sudah memiliki objek ekuivalen; PTSAS belum memiliki RPC/indeks CBT batch. Dependency kolom sudah dicek, tetapi DDL keseluruhan, backup/restore, beban indeks, dan UAT belum tuntas.
 - Progres keseluruhan ERP tidak dihitung ulang dari satu batch ini. Nilai lama tidak dapat dianggap metrik akurat tanpa inventaris dan bobot fitur yang sama.
 
 ## Perubahan pada branch
@@ -25,7 +25,7 @@
 
 ## Pemeriksaan lokal
 
-Lulus lokal: lint, build, test CBT, test pemetaan pesan, preflight sumber migrasi, cakupan workflow CI, API-route auth policy, flags, dan konfigurasi deployment pelanggan. GitHub Actions run #1617 pada head `834ec73cb61f441af13525adac41857bd154044f` lulus pada ketiga job required: frontend/build guard, migrations/API/pgTAP, dan instalasi pelanggan. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. Supabase Preview dilewati karena preview branch dinonaktifkan.
+Lulus lokal: lint, build, test CBT, test pemetaan pesan, preflight sumber migrasi, cakupan workflow CI, API-route auth policy, flags, dan konfigurasi deployment pelanggan. GitHub Actions run #1618 pada head `a6c5d265f662afa8f3f5334403c1cb3780905987` lulus pada ketiga job required: frontend/build guard, migrations/API/pgTAP, dan instalasi pelanggan. Build masih memberi peringatan ukuran chunk PDF sekitar 1,46 MB. Supabase Preview dilewati karena preview branch dinonaktifkan.
 
 Belum lulus/terbukti:
 
@@ -42,17 +42,24 @@ Inventaris read-only terkini menunjukkan:
 - Sepuluh fungsi CBT/Tahfidz yang diperiksa ada di VQE; isi body setiap fungsi cocok dengan source setelah normalisasi whitespace, dan seluruhnya `SECURITY INVOKER`. Sembilan RPC Admin hanya dapat dieksekusi `service_role`; fungsi validasi katalog tidak dapat dieksekusi oleh `anon`, `authenticated`, atau `service_role`.
 - Sepuluh indeks untuk ringkasan, pencarian, dan pagination CBT serta ekstensi `pg_trgm` di schema `extensions` juga ada di VQE; definisi katalog sesuai dengan key/condition yang diminta migration batch. Pada PTSAS Production, kesepuluh fungsi dan kesepuluh indeks itu belum ada.
 
-Jangan menjalankan `db push` untuk menutup semua versi ledger yang hilang. Pemeriksaan fungsi/index ini menunjukkan objek CBT batch sudah tersedia di VQE, tetapi ledger staging tetap berbeda; di PTSAS objek batch belum tersedia. CI saat ini menjalankan fixture historis dan bukan replay terhadap inventaris Production/VQE terkini. Tim backend perlu merekonsiliasi dependency, DDL, dan bukti backup/restore sebelum migrasi Production. Tidak ada migrasi/database yang diubah.
+### Pembaruan pembacaan target rilis — 13 November 2026
+
+- Pemilik mengizinkan rilis langsung ke PTSAS bila aman; jalur staging tetap dipakai bila membantu verifikasi. Izin ini tidak menghilangkan pemeriksaan backup/pemulihan atau rekonsiliasi DDL.
+- GitHub PR #112 saat ini **Open, Ready for review** (bukan Draft), berbasis `main` `ae9633ec13bfb7fabb3f5d2ae9ae77e6a149e0a7`. Head `a6c5d265f662afa8f3f5334403c1cb3780905987`, CI run #1618 lulus 3/3 job.
+- Pembacaan ulang PTSAS menunjukkan 100 entri ledger sampai `20270316000000`; tiga entri lama tidak mengembalikan nama. Sembilan fungsi dan sepuluh indeks CBT yang dibutuhkan batch ini belum ada di Production. Pemeriksaan katalog read-only menemukan seluruh kolom dan tipe kolom yang langsung dirujuk keenam migrasi sudah tersedia pada tabel CBT, santri, profil, tenant, referensi, dan data induk. Ini pemeriksaan dependensi terbatas, bukan bukti DDL keseluruhan sama dengan source.
+- VQE berisi 150 entri ledger sampai migrasi CBT `20270319000000`. Di sana fungsi/index ekuivalen dari rangkaian CBT lama sudah ada dan definisinya cocok dengan source batch setelah normalisasi whitespace. Karena itu, jangan menjalankan ulang migrasi yang sama hanya untuk menambah nomor versi baru. UAT terhadap VQE sebaiknya memakai objek yang telah ada.
+- Temuan tersebut membuat rilis CBT terarah layak disiapkan tanpa menutup semua selisih ledger Production. Runbook kandidat dan daftar migrasi allowlist ada di [Rilis terarah CBT ke PTSAS](../06_DATABASE/CBT_BATCH_PRODUCTION_RELEASE_2026-11-13.md). Belum ada migrasi yang dijalankan: koneksi MCP Production di sesi ini read-only, sementara bukti restore Production serta penilaian beban pembuatan indeks masih harus diberikan tim backend.
+
+Jangan menjalankan `db push` untuk menutup semua versi ledger yang hilang. Pemeriksaan fungsi/index ini menunjukkan objek CBT batch sudah tersedia di VQE, tetapi ledger staging tetap berbeda; di PTSAS objek batch belum tersedia. CI saat ini menjalankan fixture historis dan bukan replay terhadap inventaris Production/VQE terkini. Tim backend perlu meninjau DDL/dependensi, bukti backup/restore, dan beban indeks sebelum menerapkan allowlist Production. Tidak ada migrasi/database yang diubah.
 
 Urutan yang diutamakan: source → CI → VQE staging → PTSAS Production. Pemilik mengizinkan rilis langsung Production jika target, migrasi persis, dependensi/drift, seluruh CI, keamanan, dan backup/restore telah dibuktikan. Batch ini belum memenuhi gate live dan belum diterapkan.
 
 ## Langkah berikutnya
 
 1. Tim meninjau PR #112 dan seluruh required checks pada head yang sama.
-2. Samakan lineage migration VQE dengan source atau jalankan pemeriksaan API/UAT tanpa mengulang migration yang telah ada.
-3. Tim backend merekonsiliasi 56 versi Production yang belum tercatat, tiga metadata nama kosong, DDL/dependency, serta backup/restore.
-4. UATkan layar dan alur CBT dengan akun/data sintetis tenant; jangan menyalin atau mengubah data dummy yang disediakan tim.
-5. Setelah satu target release lolos seluruh gate, terapkan hanya set migration yang disetujui dan aktifkan flag CBT setelah objek yang dipakai tersedia.
+2. UATkan CBT dengan tenant uji VQE memakai objek yang sudah tersedia; jangan menjalankan ulang migrasi ekuivalen.
+3. Untuk Production, tim backend mengambil backup dan membuktikan restore ke clone, memeriksa ketergantungan DDL langsung, dan memperkirakan lock/durasi 10 indeks.
+4. Setelah gate tersebut lulus, terapkan hanya allowlist enam migrasi di runbook, verifikasi fungsi/grant/index, lalu deploy kode aplikasi yang sesuai dan smoke test tenant. Jangan menjalankan `db push` massal atau menandai migrasi lain sebagai selesai.
 
 ## Batas keselamatan
 
