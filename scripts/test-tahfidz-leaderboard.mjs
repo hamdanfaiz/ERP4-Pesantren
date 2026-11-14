@@ -47,6 +47,10 @@ assert.match(server, /ziyadahActiveDays: Number\(student\.ziyadahActiveDays\)/,
   "Server must map the active-day metric.");
 assert.match(server, /student\.ziyadahActiveDays > student\.ziyadahRecords/,
   "Server must reject impossible active-day counts.");
+assert.match(activeDaysMigration, /'participants', v_participants/,
+  "Leaderboard must return the total number of students with persisted monthly Ziyadah records.");
+assert.match(server, /participants: Number\(result\.participants\)/,
+  "Server must validate and expose the total leaderboard participant count.");
 assert.match(routes, /app\.get\("\/api\/tahfidz\/leaderboard", requireAuth/,
   "Leaderboard endpoint must require an authenticated session.");
 assert.match(routes, /listSupabaseTahfidzLeaderboard\(\s*actor\.tenantId, actor\.uid, actor\.role/,
@@ -82,6 +86,8 @@ assert.match(dbTests, /monthly leaderboard uses tenant-local active days to brea
   "Database regression tests must verify active days decide ties after count and ayahs.");
 assert.match(dbTests, /monthly leaderboard exposes the active day count/,
   "Database regression tests must assert returned active-day metrics.");
+assert.match(dbTests, /participant count includes every scored student beyond the selected page limit/,
+  "Database regression tests must verify the total participant count is independent of the requested top-N limit.");
 assert.match(dbTests, /monthly leaderboard tie-break competitor has one active day/,
   "Database regression tests must include an equal-count equal-ayah competitor.");
 assert.match(dbTests, /monthly leaderboard counts persisted Ziyadah records but excludes Murojaah/,
