@@ -18,7 +18,7 @@ Kecocokan ledger Production adalah **97/150 (64,7%) versi dan nama**. Ini ukuran
 
 - PR #114 (validasi katalog Surah dan tab Tahfidz) serta #115 (pesan komersial lintas modul) memiliki CI hijau. Keduanya masih terbuka; UAT browser/visual belum dikonfirmasi.
 - PR #116 (leaderboard bulanan Tahfidz) memiliki CI hijau pada head terbaru, tetapi masih draft. UAT Admin/Ustadz/Santri/Wali dan keadaan tanpa data masih diperlukan.
-- PR #112 (CBT skala besar) CI-nya hijau, tetapi GitHub menandai cabang `dirty`; migrasi `20270321000000` berbenturan dengan PR #116. PR #91/#92 serta rangkaian #96–#102 juga memiliki benturan timestamp terhadap source `main` atau ledger VQE. Jangan gabungkan branch tersebut apa adanya.
+- PR #112 (CBT skala besar) CI-nya hijau, tetapi GitHub menandai cabang `dirty`; migrasi `20270321000000` berbenturan dengan PR #116. Cabang PR #92 kini diselaraskan ke head PR #91 dan indeks FK dipindahkan ke migrasi `20270330000000` setelah rangkaian Tahfidz `20270327000000`–`20270329000000`; CI pada head baru masih menunggu. Tidak ada database cloud yang diubah. PR #96–#102 tetap harus diperiksa terhadap source dan ledger sebelum merge.
 - PR #1–#11 berstatus closed tanpa merge; PR #13 sudah merged sebagai cutover besar. Ini tidak membuktikan tiap perubahan lama telah hadir satu per satu. Pertahankan status lama dan port hanya logic yang terbukti belum ada melalui PR terpisah.
 
 ### Gerbang penyelesaian
