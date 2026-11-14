@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 5038)
+Total output lines: 439
+
 name: Supabase database tests
 
 on:
@@ -81,7 +84,7 @@ jobs:
         run: npm run test:tahfidz-target-print
       - name: Verify Tahfidz bulk targets use atomic tenant-scoped API
         run: npm run test:tahfidz-bulk-targets
-- name: Verify Supabase Quran catalog validation
+      - name: Verify Supabase Quran catalog validation
         run: npm run test:supabase-quran-catalog
 
       - name: Verify PPDB CSV import parsing and identity preservation
@@ -238,8 +241,7 @@ jobs:
               const config = JSON.parse(response);
               if (config.VITE_SUPABASE_URL !== "https://supabase.example.invalid") throw new Error("Runtime Supabase URL was not emitted");
               if (config.VITE_SUPABASE_PUBLISHABLE_KEY !== "sb_publishable_ci_placeholder") throw new Error("Runtime publishable key was not emitted");
-              if (config.VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED !== "true") throw new Error("Runtime browser feature flag was not emitted");
-              if (response.includes("sb_secret_ci_placeholder")) throw new Error("Server secret leaked into browser runtime config");
+              if (config.VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED !== "true") throw new Error("Ru…38 tokens truncated…to browser runtime config");
             });
           '
           status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:38123/api/users)
@@ -435,4 +437,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+
 
