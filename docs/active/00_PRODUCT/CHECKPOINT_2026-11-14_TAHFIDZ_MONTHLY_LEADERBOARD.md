@@ -39,11 +39,19 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - GitHub Actions lulus: replay migrasi dari batas Production, 69 file suite pgTAP (1.739 assertion), pemeriksaan konkurensi NIS/slot Ustadz/penempatan kamar, API/auth/isolasi tenant, Storage, backup/restore lokal, frontend/container, serta instalasi NPM. Runner membuktikan target di bawah presisi dua desimal ditolak.
 - PC lokal tidak memiliki Docker dan Supabase lokal di port `54322`; uji database dijalankan di runner GitHub terisolasi.
 
+## Audit VQE staging (baca-saja, 14 November 2026)
+
+- Ledger VQE memuat 150 versi; source branch memuat 152 file migrasi. VQE melewatkan delapan versi source: `20270215500000`, `20270309000000`, `20270310000000`, `20270311000000`, `20270313000000`, `20270320000000`, `20270327000000`, dan `20270328000000`.
+- VQE juga menyimpan enam versi yang tidak ada pada source saat ini: `20261109145507`, `20261109145522`, `20261109145534`, `20270317000000`, `20270318000000`, dan `20270319000000`. Tiga versi lama itu bernama katalog surah, leaderboard, dan target massal Tahfidz; source memakai versi `20270320`, `20270327`, dan `20270328`.
+- Katalog leaderboard dan batch target memang sudah ada di VQE. Metadata tabel batch cocok dengan kolom, kunci, FK, dan checks yang diharapkan; RLS dipaksa, akses baca klien tertutup, dan akses service role sesuai. RPC batch VQE berstatus `SECURITY INVOKER`, tetapi belum memiliki validasi presisi dua desimal yang baru ditambahkan.
+- Migrasi batch source saat ini memakai `CREATE TABLE` tanpa `IF NOT EXISTS`; karena tabel tersebut sudah ada di VQE, migrasi tidak boleh didorong langsung ke sana. Selisih ledger umum di atas perlu direkonsiliasi sebelum `db push`/UAT berbasis branch. Pemeriksaan ini hanya membaca metadata; tidak ada perubahan cloud.
+
 ## Yang belum terverifikasi
 
 1. UAT UI dengan Admin, Ustadz, Santri, dan Wali memakai roster sintetis pada lingkungan yang disetujui. Pastikan cakupan halaqah, privasi leaderboard, dan akses target benar untuk tiap peran.
 2. Periksa tenant tanpa setoran, perubahan leaderboard setelah setoran tersimpan, batch target sukses, dan batch yang dibatalkan karena satu santri tidak sah.
 3. Backend reviewer menilai DDL, indeks, batas transaksi, dan urutan migrasi sebelum penerapan.
+4. Rekonsiliasi ledger VQE terhadap source sebelum menjalankan migrasi #116; jangan memakai `db push` langsung pada ledger yang berbeda ini.
 
 ## Batas perubahan
 
