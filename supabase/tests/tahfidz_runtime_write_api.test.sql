@@ -4,7 +4,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SET LOCAL TIME ZONE 'UTC';
-SELECT plan(92);
+SELECT plan(93);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -304,9 +304,15 @@ SELECT is((public.list_tahfidz_leaderboard(
 SELECT is((public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5
 )->'students'->0->>'ziyadahActiveDays'), '1', 'Ustadz active-day totals stay within the assigned halaqah');
-SELECT is(jsonb_array_length((public.list_tahfidz_leaderboard(
+SELECT is((public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5
-)->'students')), 0, 'Ustadz cannot see leaderboard students outside assigned halaqahs');
+)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000202', 'Ustadz sees a student in their assigned halaqah');
+SELECT ok(NOT EXISTS (
+  SELECT 1 FROM jsonb_array_elements((public.list_tahfidz_leaderboard(
+    'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5
+  )->'students')) AS visible_student
+  WHERE visible_student->>'id' = 'd1800000-0000-4000-8000-000000000201'
+), 'Ustadz cannot see leaderboard students outside assigned halaqahs');
 SELECT throws_ok($$SELECT public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd2800000-0000-4000-8000-000000000021', 'admin', CURRENT_DATE, 5
 )$$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'administrator from another tenant cannot read leaderboard data');
