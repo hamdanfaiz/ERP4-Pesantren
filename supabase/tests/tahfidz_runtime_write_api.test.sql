@@ -325,25 +325,25 @@ SELECT ok(NOT EXISTS (
 SELECT throws_ok($$SELECT public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd2800000-0000-4000-8000-000000000021', 'admin', CURRENT_DATE, 5
 )$$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'administrator from another tenant cannot read leaderboard data');
-SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'santri', CURRENT_DATE, 5
-)$, '42501', 'Role tidak dapat membaca leaderboard Tahfidz', 'learner role cannot read other students leaderboard data');
-SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000014', 'wali_santri', CURRENT_DATE, 5
-)$, '42501', 'Role tidak dapat membaca leaderboard Tahfidz', 'guardian role cannot read other students leaderboard data');
+SELECT throws_ok($q$SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'santri', CURRENT_DATE, 5 
+)$q$, '42501', 'Role tidak dapat membaca leaderboard Tahfidz', 'learner role cannot read other students leaderboard data');
+SELECT throws_ok($q$SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000014', 'wali_santri', CURRENT_DATE, 5 
+)$q$, '42501', 'Role tidak dapat membaca leaderboard Tahfidz', 'guardian role cannot read other students leaderboard data');
 UPDATE public.profiles SET module_permissions = '{"tahfidz":false}'::jsonb
 WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND user_id = 'd1800000-0000-4000-8000-000000000011';
-SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5
-)$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'leaderboard rejects an Admin without Tahfidz permission');
+SELECT throws_ok($q$SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5 
+)$q$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'leaderboard rejects an Admin without Tahfidz permission');
 UPDATE public.profiles SET module_permissions = '{"tahfidz":true}'::jsonb
 WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND user_id = 'd1800000-0000-4000-8000-000000000011';
-SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'admin', CURRENT_DATE, 5
-)$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'leaderboard rejects an actor-role mismatch');
-SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 21
-)$, '22023', 'Parameter leaderboard Tahfidz tidak valid', 'leaderboard rejects a requested limit above 20');
+SELECT throws_ok($q$SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'admin', CURRENT_DATE, 5 
+)$q$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'leaderboard rejects an actor-role mismatch');
+SELECT throws_ok($q$SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 21 
+)$q$, '22023', 'Parameter leaderboard Tahfidz tidak valid', 'leaderboard rejects a requested limit above 20');
 SELECT ok(NOT has_function_privilege('anon', to_regprocedure('public.list_tahfidz_leaderboard(uuid,uuid,text,date,integer)'), 'EXECUTE'), 'anon cannot execute Tahfidz leaderboard RPC');
 SELECT ok(NOT has_function_privilege('authenticated', to_regprocedure('public.list_tahfidz_leaderboard(uuid,uuid,text,date,integer)'), 'EXECUTE'), 'authenticated cannot execute Tahfidz leaderboard RPC');
 SELECT ok(has_function_privilege('service_role', to_regprocedure('public.list_tahfidz_leaderboard(uuid,uuid,text,date,integer)'), 'EXECUTE'), 'trusted server role can execute Tahfidz leaderboard RPC');
