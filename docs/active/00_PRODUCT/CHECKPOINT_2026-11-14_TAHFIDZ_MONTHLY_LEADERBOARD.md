@@ -1,7 +1,7 @@
 # Checkpoint Tahfidz — Leaderboard dan Target Massal
 
 Tanggal: 14 November 2026
-Status: fitur PR #116 dan perbaikan katalog/tab dari PR #114 telah disatukan secara lokal pada branch integrasi `codex/tahfidz-pr114-116-integration-20261114`. Build dan pemeriksaan lokal lulus; push branch gabungan dan UAT browser masih menunggu.
+Status: fitur PR #116 dan perbaikan katalog/tab PR #114 telah disatukan dan dipush ke branch PR #116 pada commit `3ca5f444daed76814df56da7c21155e126c906fd`. Build dan pemeriksaan lokal lulus; CI pascapush serta UAT browser masih menunggu.
 Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak santri.
 
 ## Perubahan
@@ -54,7 +54,7 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - Branch ini kini mempertahankan leaderboard dan API target massal PR #116 sekaligus pemilih Surah/ayat dari katalog Supabase, validasi nama/rentang ayat di server, penanganan katalog gagal-aman, dan tab Tahfidz yang dapat digulir dari PR #114.
 - Uji katalog memeriksa skenario katalog lengkap, tidak lengkap, urutan tidak valid, layanan gagal, pilihan Surah berbasis referensi, batas jumlah ayat, serta penolakan rentang yang tidak valid.
 - `npm run lint`, `npm run build`, dan paket tes lokal yang tercantum pada bagian verifikasi 14 November lulus setelah penggabungan source ini.
-- Perubahan belum dipush ke branch PR #116 pada checkpoint ini. Setelah dipush, CI baru harus selesai sebelum status PR diperbarui.
+- Integrasi sudah dipush ke branch PR #116 pada commit `3ca5f444daed76814df56da7c21155e126c906fd`. GitHub Actions baru sedang menjalankan job `Supabase database tests` (run `43602114221`); tunggu seluruh job selesai sebelum status PR diperbarui.
 - UAT interaksi dengan akun staging dan roster sintetis belum dibuktikan. Jangan menyatakan PR siap merge hanya berdasarkan build/test lokal.
 
 ## Audit VQE staging (baca-saja, 14 November 2026)
