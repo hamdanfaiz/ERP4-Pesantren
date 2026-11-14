@@ -433,6 +433,8 @@ export async function listSupabaseTahfidzLeaderboard(
   });
   if (!result || typeof result !== "object" || !Array.isArray(result.students)
     || result.students.length > pageSize || typeof result.hasMore !== "boolean"
+    || !Number.isSafeInteger(Number(result.participants)) || Number(result.participants) < result.students.length
+    || (result.hasMore && Number(result.participants) <= result.students.length)
     || !/^\d{4}-\d{2}-\d{2}$/.test(String(result.periodStart || ""))
     || !/^\d{4}-\d{2}-\d{2}$/.test(String(result.businessDate || ""))) {
     throw new SupabaseTahfidzError(503, "Peringkat Tahfidz belum dapat dimuat.");
@@ -461,6 +463,7 @@ export async function listSupabaseTahfidzLeaderboard(
     businessDate: String(result.businessDate),
     students,
     hasMore: result.hasMore,
+    participants: Number(result.participants),
   };
 }
 
