@@ -1,5 +1,18 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
+## Snapshot source dan PR — 15 November 2026
+
+Informasi berikut mencatat keadaan GitHub dan hasil CI saat checkpoint ini. Rincian database Production/VQE di addendum 14 November di bawah tetap merupakan snapshot pada tanggal tersebut; tidak ada pemeriksaan database live baru atau perubahan cloud pada checkpoint ini.
+
+- `main` berada pada `82082bf1c8fa806e420ae555ca38f0700694b9af`. Enam PR masih terbuka dan belum memiliki review: #91, #92, #112, #114, #115, dan #121.
+- PR #91 terbuka dan mergeable pada head `fa35805393a844298ffc286d159751fd5c29677e`; run CI penuh [43643928260](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43643928260) lulus 3/3 job.
+- PR #92 terbuka, ditumpuk di atas #91, head `3a590683a9518937d621a9860c5843f50f46a259`. Run penuh [43645637063](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43645637063) lulus 3/3 job; satu percobaan berikutnya dibatalkan. CI #121 berikutnya juga menjalankan stack #91 → #92 → #121.
+- PR #121 terbuka dan non-draft, ditumpuk di atas #92, head `b7b4391b480953371b2fa49fe9be05196f4e36fd`. Run penuh [43652401611](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43652401611) lulus 3/3 job, termasuk uji pgTAP dan validasi presisi target Tahfidz.
+- PR #112 (CBT), #114 (katalog Surah dan gulir tab Tahfidz), serta #115 (pesan pengguna) masing-masing lulus 3/3 job CI pada head terkini: [#112](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43593723047), [#114](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43612776259), [#115](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43612560262). Pemeriksaan Supabase Preview dilewati; CI memakai database lokal sintetis.
+- PR #116 telah ditutup tanpa merge karena digantikan PR #121. Pengujian presisi target yang unik dari #116 sudah dibawa ke #121; leaderboard kanonis berada di rangkaian #91 → #92 → #121.
+
+Semua enam PR terbuka masih memerlukan review tim backend. UAT browser lintas role dan seluruh modul belum lengkap. DDL/ledger aktual Production, urutan penerapan, serta bukti backup dan restore Production juga tetap menjadi gerbang tim backend. Karena itu statusnya **siap ditinjau, belum siap dinyatakan selesai atau siap deploy**. CI hijau pada source dan fixture sintetis tidak membuktikan keberhasilan migrasi Production atau penggunaan end-to-end di hosting.
+
 
 ## Addendum otoritatif — checkpoint 14 November 2026
 
@@ -246,4 +259,5 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - Daftar izin Admin yang secara eksplisit ditolak dibuka pada Sidebar agar menu tersembunyi dapat diketahui. Aturan RBAC tidak dilonggarkan.
 - Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
 - Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
+
 
