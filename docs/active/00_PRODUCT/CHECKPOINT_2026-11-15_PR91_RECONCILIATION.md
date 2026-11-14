@@ -107,3 +107,10 @@ Lihat [SUPABASE_LEDGER_SNAPSHOT_2026-11-15_PR91.md](../06_DATABASE/SUPABASE_LEDG
 - Tren historis mengecualikan bulan berjalan yang belum lengkap dan mengikuti aturan arus kas yang ada. Papan peringkat dan pencarian hanya berjalan saat tab dibuka, memakai endpoint tenant yang sudah menerapkan autentikasi serta izin modul.
 - Pemeriksaan lokal: `npm run test:dashboard-finance-trend`, `npm run test:dashboard-cashflow`, `npm run test:ci-coverage` (67 skrip dijadwalkan), `npm run lint`, `npm run build`, dan `git diff --check` lulus. Uji CI pada head remote baru masih perlu diperiksa.
 - Tidak ada perubahan skema, migrasi, data Supabase, atau Production.
+
+## CI terbaru PR #91 — 15 November 2026
+
+- Commit aplikasi/migrasi `f7de777fe6aee4ff6cf47d4517f250087b64f1a7` lulus **3/3 job** pada GitHub Actions run [#1729](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43643203073): migrasi/API/pgTAP, build frontend dan pemeriksaan image pelanggan, serta pemasangan paket NPM.
+- Job database mereplay rangkaian migrasi pada Supabase lokal terisolasi dengan baseline Production simulasi, lalu menjalankan pgTAP dan pemeriksaan integrasi termasuk tenant/auth, transaksi bersamaan, Storage, dan backup/restore lokal. Tidak ada perubahan pada VQE atau PTSAS Production.
+- Satu percobaan sebelumnya menemukan typo pembatas dollar pada pgTAP untuk target Murojaah di bawah dua desimal. Tes diperbaiki; run #1729 mengonfirmasi job database lulus.
+- Hasil ini adalah bukti pada source head tersebut. PR #91 masih open dan belum merged; tinjauan konflik migrasi dengan PR lain, UAT peran di browser, serta gate Production tim backend tetap terbuka. Tidak ada alasan untuk mengirim semua migrasi yang belum tercatat ke Production.
