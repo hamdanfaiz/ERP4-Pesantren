@@ -5,8 +5,8 @@
 - Worktree: `erp4-pr91-main-reconcile-20261114`
 - Branch: `codex/pr91-main-reconcile-20261114`
 - Rekonsiliasi PR #91 dengan `main` `82082bf1` telah didorong melalui commit `07284469f2e09b8f521a5d52e90d3c437073f23f`. Indentasi langkah Quran pada workflow CI diperbaiki setelahnya. Pembaruan Analitik Tenant dan tesnya berada pada commit `480f46d8776e254409766e4adf709f0dee9c0014`. PR #91 tetap terbuka dan belum digabung.
-- Tidak ada migrasi yang diterapkan ke database. Production PTSAS tidak diubah; staging VQE tidak digunakan.
-- Aturan repo saat ini menetapkan Production PTSAS sebagai satu-satunya proyek database yang boleh dipakai. Jangan sambungkan atau query VQE.
+- Tidak ada migrasi yang diterapkan ke database. Production PTSAS dan staging VQE tidak diubah. Pada pembaruan 15 November, ledger VQE dibaca hanya untuk metadata migrasi.
+- PTSAS adalah Production; VQE adalah staging. VQE belum dianggap salinan Production yang setara. Jangan menjalankan migration repair atau `db push` pada keduanya sebelum DDL/provenance, urutan migrasi, backup, dan restore diverifikasi.
 
 ## Pembaruan metadata Production (15 November 2026)
 
@@ -73,11 +73,21 @@ Belum terverifikasi:
 3. Serahkan rekonsiliasi DDL aktual, 53 versi selisih, urutan migrasi, dan rehearsal pemulihan kepada tim backend sebelum perubahan Production.
 4. Jalankan workflow `Supabase database tests` pada branch PR setelah pembaruan Analitik Tenant melalui jalur `workflow_dispatch` atau pastikan event PR menghasilkan job. Pastikan tiga job benar-benar tercatat dan lulus; 0 job bukan CI lulus. PR #91 sudah didorong agar bisa ditinjau. Jangan gabungkan ke `main` atau menerapkan migrasi ke Production sebelum gate yang relevan selesai.
 
+## Pembaruan rekonsiliasi ledger staging — 15 November 2026
+
+Snapshot baru membandingkan ledger PTSAS dan VQE dengan 153 file migrasi pada source PR #91 `bf6b7ca625e6700001f5f000c1dd698ec36e0f10`. Hanya metadata ledger yang dibaca; tidak ada row aplikasi atau DDL baru yang dibaca dan tidak ada database yang diubah.
+
+- PTSAS Production: 100 versi ledger; 53 versi source belum tercatat; 3 nama ledger kosong.
+- VQE staging: 150 versi ledger; 9 versi source belum tercatat; 6 versi ledger tidak memiliki file source bernomor sama; 4 nama berbeda pada versi yang sama.
+- Kedua ledger memiliki pola drift berbeda. Kecocokan nomor/nama saja tidak membuktikan DDL aktual, data, policy, atau urutan replay cocok.
+
+Lihat [SUPABASE_LEDGER_SNAPSHOT_2026-11-15_PR91.md](../06_DATABASE/SUPABASE_LEDGER_SNAPSHOT_2026-11-15_PR91.md) untuk daftar versi dan langkah backend. Snapshot ini memperbarui catatan sebelumnya bahwa VQE tidak diperiksa. Tidak ada migration repair, `db push`, atau penerapan Production yang dilakukan.
+
 ## Larangan dan batas checkpoint
 
 - Jangan menghapus atau mengubah ledger database untuk membuat nomor tampak cocok.
 - Jangan menjalankan `db push`, migration repair, atau perubahan cloud.
-- Jangan menggunakan VQE; kebijakan repo saat ini hanya mengizinkan PTSAS Production.
+- VQE digunakan sebagai pembanding ledger staging secara baca-saja; jangan mengubah skema/ledger VQE atau Production sampai rekonsiliasi dan rehearsal disetujui.
 - Jangan commit `.env`, secret, key PII, atau data pengguna.
 - PR #91 belum dinyatakan selesai/siap merge: build/lint lulus, tetapi review diff, uji database/integrasi, dan gate Production tim backend masih tersisa.
 
