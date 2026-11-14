@@ -67,7 +67,9 @@ BEGIN
     OR cardinality(p_student_ids) > 250 OR array_position(p_student_ids, NULL) IS NOT NULL
     OR p_period_start IS NULL OR (p_period_end IS NOT NULL AND p_period_end < p_period_start)
     OR p_ziyadah_pages_per_day IS NULL OR p_ziyadah_pages_per_day < 0 OR p_ziyadah_pages_per_day > 100
+    OR p_ziyadah_pages_per_day <> trunc(p_ziyadah_pages_per_day, 2)
     OR p_murojaah_pages_per_day IS NULL OR p_murojaah_pages_per_day < 0 OR p_murojaah_pages_per_day > 100
+    OR p_murojaah_pages_per_day <> trunc(p_murojaah_pages_per_day, 2)
     OR (p_ziyadah_pages_per_day = 0 AND p_murojaah_pages_per_day = 0)
     OR p_target_policy IS NULL OR p_target_policy NOT IN ('standard', 'strict')
     OR length(COALESCE(p_notes, '')) > 1000
