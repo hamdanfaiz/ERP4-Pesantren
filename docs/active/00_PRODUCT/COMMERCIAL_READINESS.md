@@ -1,18 +1,36 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
 
-## Addendum otoritatif — 13 November 2026
+## Addendum otoritatif — checkpoint 14 November 2026
 
-Bagian ini memperbarui status source, CI, staging, dan inventaris metadata Production. Catatan yang lebih lama tetap berguna sebagai arsip, tetapi angka migrasi Production/VQE di dalamnya sudah digantikan oleh snapshot ini. Tidak ada perubahan DDL, data, Auth, atau konfigurasi di PTSAS Production.
+Snapshot ini membedakan source aplikasi dari dokumentasi dan database live. Source aplikasi `main` tetap pada `b0824476cb6d0207925283f15cb6f0d2714e54a3`; commit `a168e48030c127cb0fe802f36e6e11f44e239d66` hanya menambahkan PR dokumentasi #119. PR #117 dan #118 juga hanya dokumentasi. Source memuat 150 file migrasi.
 
-- Source `main` pada commit `ebea706ef4ac4724fa9c0e2a5a580f949d941228` berisi **148 file migrasi** sampai `20270315000000`. PR #103 dan #104 sudah merged. CI PR-head #1584 untuk #104 dan #1586 untuk #103 berhasil; merge commit main tidak memiliki run workflow tersendiri dalam konektor saat snapshot diperiksa.
-- Hostinger preview sementara berhasil membangun dan menampilkan beranda serta halaman masuk menggunakan VQE staging. Login nyata, alur simpan-baca, dan UAT per role belum diverifikasi.
-- VQE `vqemuyzveuirlkvdggjd` mencatat **150 versi**. Tujuh versi ledger tidak punya source file bernomor sama; lima file source belum tercatat di VQE. Rinciannya ada di [snapshot drift VQE](../06_DATABASE/VQE_STAGING_MIGRATION_LEDGER_DRIFT_2026-11-13.md). Jangan jalankan migration repair atau `db push` sebelum asal DDL dan baseline staging disepakati.
-- PTSAS Production `ptsasgdvgrbdtgyqieie` mencatat **100 versi**; 99 cocok berdasarkan nomor dengan source, 49 source version belum tercatat, dan `20270316000000 communication_ops_runtime` hanya muncul di ledger live. Ini inventaris ledger, bukan bukti kondisi DDL atau rencana untuk menerapkan 49 file.
-- Katalog Production mengembalikan **162 tabel public** dan semuanya RLS aktif. Security Advisor menandai 157 tabel RLS tanpa policy (INFO), satu fungsi dengan search_path mutable, empat helper SECURITY DEFINER yang executable untuk `authenticated`, serta perlindungan kata sandi bocor yang nonaktif. Temuan ini membutuhkan verifikasi DDL/grant oleh tim backend; status RLS aktif sendiri tidak membuktikan seluruh API aman.
-- PR #38–#40 sudah merged. Stack CBT PR #97–#100 dan #102 masih open; #101 merged. PR bertingkat harus ditinjau dan digabung sesuai dependency/CI, bukan digabung melompati base. PR #105 memuat dokumen rekonsiliasi baca-saja yang kini dilengkapi snapshot Production.
+### Status backend live
 
-**Keputusan rilis:** ERP4 tetap **belum siap dinyatakan siap komersial atau go-live**. Tim backend masih perlu meninjau rekonsiliasi DDL dan ledger Production, mengecek grant/RLS/RPC, membuktikan backup/restore, menyelesaikan review stack PR, serta melakukan UAT login, tenant, modul dan Storage. PTSAS Production tetap tidak berubah.
+- **PTSAS Production** memuat 100 baris ledger; 97 versi/nama cocok persis dengan source, 3 nama ledger kosong, 50 versi source belum tercatat, dan tidak ada versi ledger-only. Head ledger `20270316000000`; source tertua yang belum tercatat `20261207000000`. Selisih berada di tengah riwayat; tidak aman mengejar semuanya dengan `db push`.
+- **VQE staging** memuat 150 baris ledger: 140 cocok, 6 file source belum tercatat, 4 versi bernama berbeda, dan 6 versi ledger tanpa file bernomor sama. Ada migrasi CBT 17–19 yang tidak punya file source bernomor sama.
+- Inventaris live menampilkan **162 tabel PTSAS** dan **169 tabel VQE**; RLS aktif pada seluruh tabel `public` yang diperiksa. Katalog `quran_surahs` ada di VQE, tetapi belum ada di PTSAS. Ini belum membuktikan seluruh kebijakan RLS atau tiap endpoint memagari role dan tenant dengan benar.
+- Laporan [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-14.md) dan [audit benturan versi PR](../06_DATABASE/OPEN_PR_MIGRATION_COLLISION_AUDIT_2026-11-14.md) berisi rincian dan langkah backend. Tidak ada DDL, baris data, atau berkas Storage yang diubah dalam checkpoint ini.
+
+Kecocokan ledger Production adalah **97/150 (64,7%) versi dan nama**. Ini ukuran rekonsiliasi migrasi, bukan persentase penyelesaian fitur ERP.
+
+### Status source dan PR
+
+- PR #114 (validasi katalog Surah dan tab Tahfidz) serta #115 (pesan komersial lintas modul) memiliki CI hijau. Keduanya masih terbuka; UAT browser/visual belum dikonfirmasi.
+- PR #116 (leaderboard bulanan Tahfidz) memiliki CI hijau pada head terbaru, tetapi masih draft. UAT Admin/Ustadz/Santri/Wali dan keadaan tanpa data masih diperlukan.
+- PR #112 (CBT skala besar) CI-nya hijau, tetapi GitHub menandai cabang `dirty`; migrasi `20270321000000` berbenturan dengan PR #116. PR #91/#92 serta rangkaian #96–#102 juga memiliki benturan timestamp terhadap source `main` atau ledger VQE. Jangan gabungkan branch tersebut apa adanya.
+- PR #1–#11 berstatus closed tanpa merge; PR #13 sudah merged sebagai cutover besar. Ini tidak membuktikan tiap perubahan lama telah hadir satu per satu. Pertahankan status lama dan port hanya logic yang terbukti belum ada melalui PR terpisah.
+
+### Gerbang penyelesaian
+
+Produk **belum siap dinyatakan go-live atau komersial**. Sebelum tim backend deploy, perlu:
+1. menyelesaikan urutan PR dan versi migrasi tanpa benturan;
+2. memeriksa DDL Production, tiga metadata ledger kosong, serta 50 versi yang belum tercatat satu per satu;
+3. membuktikan backup dan restore Production;
+4. merekonsiliasi staging ke satu source kanonis lalu rehearsal migrasi;
+5. menyelesaikan UAT antarmuka dan simpan-baca peran/tenant untuk modul inti, Storage, responsif, dan instalasi target.
+
+CI hijau pada database lokal sintetis adalah bukti source yang terbatas; CI tidak menggantikan UAT browser atau verifikasi Production. Tidak ada persentase total pengembangan yang dapat dibuktikan tanpa denominator fitur dan bukti UAT yang disepakati.
 
 > **Status otoritatif — 11 November 2026.** Source `main` berada pada `fd937f4876aa1069500694b9bc20ec70eef8ee14` (merge PR #90), 140 file migrasi. CI pada SHA itu lulus 3/3 job di [run #42482785770](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42482785770). PR #91 masih draft dan belum masuk `main`.
 >
