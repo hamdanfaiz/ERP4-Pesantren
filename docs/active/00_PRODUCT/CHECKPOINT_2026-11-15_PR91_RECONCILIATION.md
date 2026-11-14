@@ -66,6 +66,14 @@ Belum terverifikasi:
 - Uji integrasi API yang melakukan loopback, Storage HTTP, login, dan browser belum seluruhnya dijalankan pada checkpoint ini.
 - Pemeriksaan Production yang memerlukan DDL aktual dan bukti backup/restore menjadi pekerjaan tim backend; tidak dilakukan dari worktree ini. Advisor dan katalog metadata read-only sudah menghasilkan tindak lanjut terdokumentasi tanpa menulis ke Production.
 
+
+## Koreksi Tahfidz: validasi Surah dan ayat pada server
+
+- Jalur pencatatan setoran memverifikasi aktor tenant aktif, memuat katalog Surah Supabase, lalu menolak nama atau rentang ayat yang tidak cocok sebelum RPC transaksi. Nilai yang ditulis memakai ejaan kanonis katalog, bukan kapitalisasi dari input pengguna.
+- Tes request sintetis membuktikan rentang ayat di luar jumlah ayat ditolak sebelum RPC, sedangkan input valid dengan kapitalisasi berbeda disimpan memakai nama kanonis.
+- `npm run test:supabase-quran-catalog`, `npm run test:tahfidz-quran-catalog`, `npm run lint`, dan `npm run build` lulus lokal. Build tetap mencatat peringatan ukuran chunk PDF yang sudah ada.
+- UAT browser dan simpan-baca dengan akun pengguna belum terbukti; tidak ada perubahan database atau Production.
+
 ## Urutan lanjut yang aman
 
 1. Lanjutkan tinjauan diff merge #91 per modul; temuan Tahfidz yang telah ditangani dibatasi pada scope cache leaderboard dan reset pilihan target saat hak akses berubah.

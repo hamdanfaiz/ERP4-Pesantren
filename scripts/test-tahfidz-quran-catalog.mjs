@@ -46,6 +46,23 @@ assert.doesNotMatch(route, /equran\.id/,
   "Tahfidz catalog route must not proxy the external Quran API.");
 
 const tahfidz = read("src", "pages", "TahfidzManager.tsx");
+const tahfidzService = read("src", "server", "supabaseTahfidz.ts");
+const setoranStart = tahfidzService.indexOf("export async function recordSupabaseTahfidzSetoran(");
+const peerReviewStart = tahfidzService.indexOf("export async function listSupabaseTahfidzPeerReviews(", setoranStart);
+assert.ok(setoranStart >= 0 && peerReviewStart > setoranStart,
+  "Setoran server handler must remain identifiable for catalog validation checks.");
+const setoranService = tahfidzService.slice(setoranStart, peerReviewStart);
+assert.match(setoranService, /await listSupabaseQuranSurahs\(\)/,
+  "The server must load its authoritative Quran catalog before recording a setoran.");
+assert.match(setoranService, /isValidSupabaseQuranAyahRange\(quranCatalog, surahName, start, end\)/,
+  "The server must reject Surah names and Ayah ranges that do not match the canonical catalog.");
+assert.match(setoranService, /p_surah_name:\s*canonicalSurah\.namaLatin/,
+  "The server must persist the catalog's canonical Surah label instead of user-entered casing.");
+assert.ok(setoranService.indexOf("resolveSupabaseTahfidzActor(") < setoranService.indexOf("await listSupabaseQuranSurahs()"),
+  "The authenticated tenant actor must be verified before reading the catalog for a write.");
+assert.ok(setoranService.indexOf("isValidSupabaseQuranAyahRange(quranCatalog, surahName, start, end)")
+  < setoranService.indexOf("/rest/v1/rpc/record_tahfidz_setoran"),
+  "Catalog validation must finish before the setoran transaction is called.");
 assert.match(tahfidz, /requestSupabaseTahfidzApi\(["']\/api\/tahfidz\/references\/surahs["']/,
   "Tahfidz quick entry must read Surah options from the Supabase-backed endpoint.");
 const surahLoadingStart = tahfidz.indexOf("const loadSurahs = async () =>");
@@ -112,4 +129,5 @@ for (const phrase of ["Quran catalog contains all 114 Surahs", "free-text Surah 
 }
 
 console.log("Tahfidz references passed: 114 Surahs, 6,236 Ayahs, tenant-linked API fixtures, and database-backed entry.");
+
 

@@ -4,6 +4,7 @@ import { isValidTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
 import { buildTahfidzRecordPageParams, encodeTahfidzRecordCursor, TAHFIDZ_RECORD_PAGE_SIZE } from "../lib/tahfidzRecordPagination";
 import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch, TAHFIDZ_ROSTER_PAGE_SIZE } from "../lib/tahfidzRosterPagination";
 import { buildTahfidzSessionPageParams, encodeTahfidzSessionCursor, TAHFIDZ_SESSION_PAGE_SIZE } from "../lib/tahfidzSessionPagination";
+import { findSupabaseQuranSurah, isValidSupabaseQuranAyahRange, listSupabaseQuranSurahs, SupabaseQuranCatalogError } from "./supabaseQuranCatalog";
 
 type JsonObject = Record<string, any>;
 
@@ -885,6 +886,19 @@ export async function recordSupabaseTahfidzSetoran(
   if (!performedAt) throw new SupabaseTahfidzError(400, "Waktu setoran tidak valid.");
 
   const supabaseUserId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  let quranCatalog: Awaited<ReturnType<typeof listSupabaseQuranSurahs>>;
+  try {
+    quranCatalog = await listSupabaseQuranSurahs();
+  } catch (error) {
+    if (error instanceof SupabaseQuranCatalogError) {
+      throw new SupabaseTahfidzError(error.status, error.message);
+    }
+    throw error;
+  }
+  const canonicalSurah = findSupabaseQuranSurah(quranCatalog, surahName);
+  if (!canonicalSurah || !isValidSupabaseQuranAyahRange(quranCatalog, surahName, start, end)) {
+    throw new SupabaseTahfidzError(400, "Surah atau rentang ayat tidak sesuai dengan katalog.");
+  }
 
   const result = await supabaseRequest("/rest/v1/rpc/record_tahfidz_setoran", {
     method: "POST",
@@ -893,7 +907,7 @@ export async function recordSupabaseTahfidzSetoran(
       p_student_id: studentId,
       p_halaqah_id: halaqahId,
       p_activity_type: activityType,
-      p_surah_name: surahName,
+      p_surah_name: canonicalSurah.namaLatin,
       p_ayah_start: start,
       p_ayah_end: end,
       p_fluency_grade: fluencyGrade,
