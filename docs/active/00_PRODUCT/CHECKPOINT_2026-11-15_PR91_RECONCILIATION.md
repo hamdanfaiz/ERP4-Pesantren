@@ -4,7 +4,7 @@
 
 - Worktree: `erp4-pr91-main-reconcile-20261114`
 - Branch: `codex/pr91-main-reconcile-20261114`
-- Rekonsiliasi PR #91 dengan `main` `82082bf1` telah didorong. Commit rekonsiliasi kode `07284469f2e09b8f521a5d52e90d3c437073f23f` menggabungkan head lama PR `f66cbbd4` dengan `main` dan memiliki tree `eaf09e6b6c57fe327084e50ecbac8fa7d44420fc`. Sesudahnya, checkpoint diperbarui pada `58ee7564` dan indentasi satu langkah workflow CI diperbaiki pada `7b0f8352`. Head PR saat ini `7b0f83522e254fcb46ab1c54a1b40eaadf85512f`; PR masih open, belum di-merge, dan GitHub menandai `mergeable: true`.
+- Rekonsiliasi PR #91 dengan `main` `82082bf1` telah didorong melalui commit `07284469f2e09b8f521a5d52e90d3c437073f23f`. Indentasi langkah Quran pada workflow CI diperbaiki setelahnya. Pembaruan Analitik Tenant dan tesnya berada pada commit `480f46d8776e254409766e4adf709f0dee9c0014`. PR #91 tetap terbuka dan belum digabung.
 - Tidak ada migrasi yang diterapkan ke database. Production PTSAS tidak diubah; staging VQE tidak digunakan.
 - Aturan repo saat ini menetapkan Production PTSAS sebagai satu-satunya proyek database yang boleh dipakai. Jangan sambungkan atau query VQE.
 
@@ -58,7 +58,7 @@ Build Vite mentransformasi 3.513 modul dan menghasilkan frontend serta `dist/ser
 
 Dependensi lokal lengkap untuk pemeriksaan ini dengan menyalin paket dari worktree saudara yang memiliki resolusi versi sama pada seluruh 686 entri lockfile aktif. Perubahan berada di `node_modules` yang diabaikan Git; `package.json`, lockfile, `.env`, dan database tidak diubah.
 
-GitHub Actions pada head PR sebelumnya (`f66cbbd4f1f002f4ed0909b2ffbabb7a81ae169b`) lulus pada run `1495`, 3/3 job, termasuk replay migrasi/pgTAP terisolasi, API/auth/tenant, konkurensi, Storage, backup/restore lokal, instalasi npm, build, dan smoke test Docker image. Itu bukan bukti CI untuk hasil merge terbaru. Push runs `1701` dan `1702` tidak menghasilkan job; setelah indentasi YAML diperbaiki, run `1703` pada `7b0f8352` juga tercatat gagal dengan 0 job, tanpa check-run atau log Actions untuk menentukan sebab. Perbaikan workflow menghilangkan kesalahan indentasi yang ditemukan pada baris 84, tetapi belum membuktikan Actions dapat menjalankan job. Build, typecheck, dan cakupan workflow terbaru telah diverifikasi lokal; CI penuh pada exact head masih terbuka.
+GitHub Actions pada head PR sebelumnya (`f66cbbd4f1f002f4ed0909b2ffbabb7a81ae169b`) lulus pada run `1495`, 3/3 job, termasuk replay migrasi/pgTAP terisolasi, API/auth/tenant, konkurensi, Storage, backup/restore lokal, instalasi npm, build, dan smoke test Docker image. Itu bukan bukti CI untuk hasil merge terbaru. Push runs `1701` dan `1702` tidak menghasilkan job; setelah indentasi YAML diperbaiki, run `1703` pada `7b0f8352` juga tercatat gagal dengan 0 job, tanpa check-run atau log Actions untuk menentukan sebab. Perbaikan workflow menghilangkan kesalahan indentasi yang ditemukan pada baris 84, tetapi belum membuktikan Actions dapat menjalankan job. Build, typecheck, dan cakupan workflow terbaru telah diverifikasi lokal; CI penuh pada exact head masih terbuka. Pemeriksaan head analitik `480f46d` juga belum menemukan run GitHub Actions yang dipicu oleh PR; hasil CI untuk perubahan tersebut masih terbuka.
 
 Belum terverifikasi:
 
@@ -71,7 +71,7 @@ Belum terverifikasi:
 1. Lanjutkan tinjauan diff merge #91 per modul; temuan Tahfidz yang telah ditangani dibatasi pada scope cache leaderboard dan reset pilihan target saat hak akses berubah.
 2. Jalankan uji pgTAP serta uji loopback/API di lingkungan yang mengizinkan koneksi lokal; Docker hanya diperlukan untuk Supabase lokal/pgTAP, bukan untuk build, lint, atau unit test source.
 3. Serahkan rekonsiliasi DDL aktual, 53 versi selisih, urutan migrasi, dan rehearsal pemulihan kepada tim backend sebelum perubahan Production.
-4. Jalankan workflow `Supabase database tests` pada head remote `7b0f83522e254fcb46ab1c54a1b40eaadf85512f` melalui jalur `workflow_dispatch` atau pastikan event PR menghasilkan job. Pastikan tiga job benar-benar tercatat dan lulus; 0 job bukan CI lulus. PR #91 sudah didorong agar bisa ditinjau. Jangan gabungkan ke `main` atau menerapkan migrasi ke Production sebelum gate yang relevan selesai.
+4. Jalankan workflow `Supabase database tests` pada branch PR setelah pembaruan Analitik Tenant melalui jalur `workflow_dispatch` atau pastikan event PR menghasilkan job. Pastikan tiga job benar-benar tercatat dan lulus; 0 job bukan CI lulus. PR #91 sudah didorong agar bisa ditinjau. Jangan gabungkan ke `main` atau menerapkan migrasi ke Production sebelum gate yang relevan selesai.
 
 ## Larangan dan batas checkpoint
 
