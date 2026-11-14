@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, KeyRound, LoaderCircle, ShieldCheck } from "lucide-react";
 import { supabase } from "../utils/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { toERPUserMessage } from "../utils/userMessages";
 
 export function GuardianInvitationActivationView({
   token,
@@ -77,7 +78,7 @@ export function GuardianInvitationActivationView({
         }
         if (!cancelled) setEmail(verifiedEmail);
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Sesi undangan tidak valid.");
+        if (!cancelled) setError(toERPUserMessage(cause, "Tautan aktivasi tidak valid atau telah kedaluwarsa. Minta undangan baru."));
       } finally {
         if (!cancelled) setIsPreparing(false);
       }
@@ -112,7 +113,7 @@ export function GuardianInvitationActivationView({
         throw new Error("Sesi masuk tidak sesuai dengan email undangan.");
       }
       const { error: passwordError } = await supabase.auth.updateUser({ password });
-      if (passwordError) throw new Error(passwordError.message || "Kata sandi baru tidak dapat disimpan.");
+      if (passwordError) throw new Error("Kata sandi baru belum dapat disimpan. Pastikan memenuhi ketentuan lalu coba kembali.");
 
       // Updating the password may refresh the user's session. Use the latest bearer
       // token for the server-side invitation claim rather than the pre-update token.
@@ -139,7 +140,7 @@ export function GuardianInvitationActivationView({
       setSuccess(true);
       onActivated();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Aktivasi akun Wali gagal.");
+      setError(toERPUserMessage(cause, "Aktivasi akun Wali belum berhasil. Buka kembali undangan terbaru lalu coba lagi."));
     } finally {
       setIsSubmitting(false);
     }
@@ -157,7 +158,7 @@ export function GuardianInvitationActivationView({
           </h1>
           <p className="text-xs text-slate-400 mt-2">
             {success
-              ? "Akun Anda sudah tertaut ke data Wali dan santri pada tenant pesantren."
+              ? "Akun Anda telah terhubung dengan data wali dan santri."
               : "Konfirmasi email undangan dan buat kata sandi Anda sendiri."}
           </p>
         </header>
@@ -219,7 +220,7 @@ export function GuardianInvitationActivationView({
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
               />
             </div>
-            <p className="text-[11px] text-slate-400">Gunakan minimal 12 karakter. Kata sandi dikelola oleh Supabase Auth dan tidak disimpan oleh ERP.</p>
+            <p className="text-[11px] text-slate-400">Gunakan kata sandi minimal 12 karakter yang belum pernah digunakan pada akun lain.</p>
             <button
               type="submit"
               disabled={isSubmitting || isPreparing || !email}

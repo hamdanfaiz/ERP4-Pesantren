@@ -15,7 +15,7 @@ let serviceClient: SupabaseClient | null = null;
 function client(): SupabaseClient {
   const url = String(process.env.SUPABASE_URL || "").trim();
   const key = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!url || !key) throw new SupabaseCrmError(503, "Konfigurasi backend Supabase belum lengkap.");
+  if (!url || !key) throw new SupabaseCrmError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   if (!serviceClient) serviceClient = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
   return serviceClient;
 }
@@ -280,14 +280,15 @@ export async function sendSupabaseCrmOpenWaBroadcast(
         interactionType: "message",
         direction: "outbound",
         subject,
-        summary: `OpenWA · ${message.slice(0, 500)}`,
+        summary: `Siaran WhatsApp · ${message.slice(0, 500)}`,
       });
       results.push({ contactId: recipient.id, name: recipient.name, phone: recipient.phone, status: "sent", messageId: sent.messageId });
     } catch (error) {
-      const detail = error instanceof OpenWaGatewayError || error instanceof SupabaseCrmError
-        ? error.message
-        : "Pengiriman gagal.";
-      results.push({ contactId: recipient.id, name: recipient.name, phone: recipient.phone, status: "failed", error: detail });
+      const status = error instanceof OpenWaGatewayError || error instanceof SupabaseCrmError
+        ? error.status
+        : "unexpected";
+      console.error("CRM WhatsApp recipient delivery failed:", status);
+      results.push({ contactId: recipient.id, name: recipient.name, phone: recipient.phone, status: "failed", error: "Pesan belum berhasil dikirim. Periksa nomor penerima atau coba lagi." });
     }
   }
 

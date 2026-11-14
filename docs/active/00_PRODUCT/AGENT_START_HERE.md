@@ -27,6 +27,8 @@ Baca dokumen ini **sebelum** mengubah kode, skema, flag, data Production, atau m
 
 | Area | Dokumen |
 | --- | --- |
+| PR #91: build/lint + regresi lintas modul lulus; gate DB/merge tersisa (15 Nov 2026) | [CHECKPOINT_2026-11-15_PR91_RECONCILIATION.md](CHECKPOINT_2026-11-15_PR91_RECONCILIATION.md) |
+| Snapshot advisor dan ledger Production PTSAS (15 Nov 2026) | [PTSAS_PRODUCTION_ADVISOR_REVIEW_2026-11-15.md](../06_DATABASE/PTSAS_PRODUCTION_ADVISOR_REVIEW_2026-11-15.md) |
 | Relasi & Ekosistem + Analitik + OpenWA (13 Nov 2026) | [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md) |
 | Akademik Production | `.cursor/rules/academic-production.mdc` + `academic-report-card.mdc` |
 | Flag & visibilitas menu | [MODULE_VISIBILITY_AND_RUNTIME_FLAGS.md](MODULE_VISIBILITY_AND_RUNTIME_FLAGS.md) |

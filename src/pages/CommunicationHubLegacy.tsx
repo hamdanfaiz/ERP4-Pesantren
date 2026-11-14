@@ -107,7 +107,7 @@ export function CommunicationHub() {
     if (!user?.tenantId || !user?.uid) {
       setSupabaseAnnouncements([]);
       setSupabaseAnnouncementsLoading(false);
-      setSupabaseAnnouncementsError('Profil tenant aktif diperlukan untuk membaca pengumuman.');
+      setSupabaseAnnouncementsError('Profil pesantren ini diperlukan untuk membaca pengumuman.');
       return () => { active = false; };
     }
     setSupabaseAnnouncementsLoading(true);
@@ -288,7 +288,7 @@ export function CommunicationHub() {
           <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/20 dark:text-rose-300">{supabaseAnnouncementsError}</div>
         )}
         {SUPABASE_COMMUNICATION_ANNOUNCEMENTS && supabaseAnnouncementsLoading ? (
-          <div role="status" className="rounded-xl border border-slate-200 bg-white/50 px-4 py-8 text-center text-sm text-slate-500 dark:border-white/5 dark:bg-black/20">Memuat pengumuman tenant…</div>
+          <div role="status" className="rounded-xl border border-slate-200 bg-white/50 px-4 py-8 text-center text-sm text-slate-500 dark:border-white/5 dark:bg-black/20">Memuat pengumuman…</div>
         ) : relevantAnnouncements.length === 0 ? (
           <div className="text-center py-12 text-slate-500 bg-black/20 rounded-xl border border-white/5">
             <Megaphone className="w-8 h-8 mx-auto mb-3 opacity-50" />
@@ -374,7 +374,7 @@ export function CommunicationHub() {
         <div role="alert" className="m-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/20 dark:text-rose-300">{supabaseAnnouncementsError}</div>
       )}
       {SUPABASE_COMMUNICATION_ANNOUNCEMENTS && supabaseAnnouncementsLoading && (
-        <div role="status" className="px-4 py-6 text-center text-sm text-slate-500">Memuat pengumuman tenant…</div>
+        <div role="status" className="px-4 py-6 text-center text-sm text-slate-500">Memuat pengumuman…</div>
       )}
       <table className="w-full text-left border-collapse">
         <thead>
@@ -414,7 +414,7 @@ export function CommunicationHub() {
                       style={{ width: `${item.totalTarget > 0 ? Math.min(100, (item.readCount / item.totalTarget) * 100) : 0}%` }}
                     />
                   </div>
-                  <span title={item.legacyReadCount > 0 ? `Termasuk ${item.legacyReadCount} hitungan baca agregat dari migrasi lama` : undefined} className="text-xs text-slate-500 dark:text-slate-400 font-mono">{item.readCount}/{item.totalTarget}</span>
+                  <span title={item.legacyReadCount > 0 ? `Termasuk ${item.legacyReadCount} catatan baca dari data terdahulu` : undefined} className="text-xs text-slate-500 dark:text-slate-400 font-mono">{item.readCount}/{item.totalTarget}</span>
                 </div>
               </td>
               <td className="p-4">
@@ -769,13 +769,13 @@ export function CommunicationHub() {
             <header className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-white/5">
               <div>
                 <h2 id="announcement-migration-title" className="font-semibold text-slate-800 dark:text-slate-100">Migrasi Pengumuman Lama</h2>
-                <p className="mt-1 text-xs text-slate-500">Preview membaca Firestore tenant ini; apply menyimpan snapshot ke Supabase sekali.</p>
+                <p className="mt-1 text-xs text-slate-500">Tinjau pengumuman yang akan diimpor. Data baru dicatat setelah Anda memilih Terapkan.</p>
               </div>
               <button type="button" onClick={() => setIsAnnouncementMigrationOpen(false)} className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10">Tutup</button>
             </header>
             <div className="space-y-4 p-5">
               {announcementMigrationError && <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/20 dark:text-rose-300">{announcementMigrationError}</div>}
-              {isAnnouncementMigrationBusy && <div role="status" className="text-sm text-slate-500">Memeriksa snapshot tenant…</div>}
+              {isAnnouncementMigrationBusy && <div role="status" className="text-sm text-slate-500">Memeriksa data pengumuman…</div>}
               {announcementMigrationReport && (
                 <>
                   {announcementMigrationReport.ok ? (
@@ -1042,7 +1042,7 @@ export function CommunicationHub() {
 
       <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden">
         {/* Navigation Tabs */}
-        <div className="border-b border-slate-200 dark:border-white/5 bg-black/40 overflow-x-auto">
+        <div className="erp-tab-scroll border-b border-slate-200 dark:border-white/5 bg-black/40">
           <div className="flex p-2 gap-2 min-w-max">
             {[
               { id: 'announcements', label: 'Announcements', icon: <Megaphone className="w-4 h-4" />, visible: true },

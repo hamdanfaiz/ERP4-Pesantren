@@ -2,6 +2,7 @@ import { useAuth } from '../contexts/AuthContext';
 import React, { useEffect, useState } from 'react';
 import { listSupabaseReferenceItems, upsertSupabaseMasterDataStudent, type SupabaseReferenceItem } from '../services/masterDataApi';
 import { Users, Save, X, CheckCircle2, AlertTriangle, Loader2, Link2, UserCheck, Building2, Home, BookOpen, UserPlus, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { toERPUserMessage } from '../utils/userMessages';
 
 interface EntityRegistrationFormProps {
   onSuccess?: (savedData?: any) => void;
@@ -98,7 +99,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     listSupabaseReferenceItems('academic_grade_level')
       .then((items) => { if (active) setGradeLevels(items.filter((item) => item.status === 'active')); })
       .catch((error) => {
-        if (active) setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Katalog jenjang belum dapat dimuat.' });
+        if (active) setMessage({ type: 'error', text: toERPUserMessage(error, 'Katalog jenjang belum dapat dimuat. Coba kembali.') });
       });
     return () => { active = false; };
   }, [user?.tenantId, user?.uid]);
@@ -251,7 +252,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
 
     try {
       if (formData.type !== 'Santri') {
-        throw new Error('Kategori ini belum tersedia pada runtime Supabase.');
+        throw new Error('Kategori ini belum dapat dipilih.');
       }
       const studentPayload = {
         ...result.data,
@@ -264,11 +265,11 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
         type: 'Santri',
         tenantId: user?.tenantId,
       });
-      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" tersimpan dengan NIS ${savedData.nis || 'otomatis'} dan pemeriksaan keunikan backend.` });
+      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" tersimpan dengan NIS ${savedData.nis || 'otomatis'}.` });
       if (onSuccess) onSuccess(savedData);
     } catch (error) {
       console.error("Error adding document: ", error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal menyimpan data.' });
+      setMessage({ type: 'error', text: toERPUserMessage(error, 'Data santri belum dapat disimpan. Periksa kembali data lalu coba lagi.') });
     } finally {
       setIsSubmitting(false);
     }
@@ -348,7 +349,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 value={formData.identifier}
                 readOnly
                 className="w-full cursor-not-allowed bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-sm opacity-80"
-                placeholder="Diterbitkan backend saat data santri disimpan"
+                placeholder="Dibuat otomatis saat data santri disimpan"
               />
               <p className="mt-1 text-xs text-slate-500">NIS baru dibuat otomatis setelah jenjang dipilih; NIS yang sudah terbit tidak dapat diubah dari formulir ini.</p>
             </div>
@@ -543,7 +544,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                           </h4>
                         </div>
                         <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded">
-                          Data Struktur Tenant
+                          Data Struktur Pesantren
                         </span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -641,7 +642,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                               ? `Penempatan saat ini: ${formData.halaqah || formData.halaqahId}`
                               : "Belum ditetapkan"}
                           </div>
-                          <p className="mt-1 text-xs text-slate-400">Penempatan halaqah dikelola melalui modul Tahfidz agar relasinya memakai data halaqah tenant yang aktif.</p>
+                          <p className="mt-1 text-xs text-slate-400">Penempatan halaqah dikelola melalui modul Tahfidz agar relasinya menggunakan data halaqah yang aktif.</p>
                         </div>
                       </div>
                     </div>

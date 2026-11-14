@@ -4,6 +4,21 @@
 
 Audit hanya membaca nama file migrasi pada `main`, file yang diubah tiap PR, status PR, dan ledger staging yang sudah direkap pada [rekonsiliasi Production 14 November](PTSAS_PRODUCTION_RECONCILIATION_2026-11-14.md). Tidak ada SQL dijalankan ke database, tidak ada data aplikasi dibaca, dan tidak ada perubahan skema atau data.
 
+## Tindak lanjut lokal PR #91 — 14 November 2026
+
+Dalam rekonsiliasi lokal PR #91 terhadap `main`, versi bentrok diselesaikan tanpa mengubah database:
+
+| Fitur | Source kanonis lokal | Catatan lineage |
+| --- | --- | --- |
+| Katalog Surah Tahfidz | `20270320000000_tahfidz_quran_surah_catalog.sql` | Menggunakan migrasi kanonis yang sudah ada di `main`; SQL lama staging tetap diverifikasi lewat fingerprint historis. |
+| Leaderboard Tahfidz | `20270327000000_tahfidz_persisted_leaderboard.sql` | Dipisahkan dari versi Akademik `20270310000000`; alias ledger VQE lama tetap menunggu rekonsiliasi. |
+| Target Tahfidz massal | `20270328000000_tahfidz_bulk_daily_target_write_api.sql` | Dipisahkan dari versi Akademik `20270311000000`; alias ledger VQE lama tetap menunggu rekonsiliasi. |
+| Presisi target Tahfidz | `20270329000000_tahfidz_target_decimal_precision.sql` | Dipisahkan dari kode NIS Akademik `20270312000000`; migrasi ini belum tercatat pada snapshot ledger VQE. |
+
+Tiga versi baru dipilih setelah rentang benturan yang tercatat untuk PR terbuka #92, #96–#102, #112, dan #116. Periksa ulang branch dan ledger staging sebelum promosi karena PR terbuka dapat berubah. File Quran lama dipindahkan dari direktori migrasi aktif ke fixture uji; migrasi source aktif tetap satu per versi.
+
+Preflight tetap **menghentikan** penerapan sampai alias lama VQE (`20261109145507`, `20261109145522`, `20261109145534`) direkonsiliasi secara terkontrol. Fingerprint Quran membuktikan kecocokan dengan SQL lama yang tercatat, tetapi tidak menjalankan migration repair. Production PTSAS dan VQE tidak diubah pada tindak lanjut ini.
+
 Ditemukan beberapa PR bertumpuk yang tidak aman digabung berurutan tanpa rekonsiliasi versi:
 
 | PR / cabang kerja | Versi di PR | Migrasi berbeda yang sudah ada di `main` | Tindakan sebelum penggabungan |

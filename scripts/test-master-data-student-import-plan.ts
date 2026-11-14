@@ -45,6 +45,10 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 try {
   const rows = [
     { id: "source-valid", name: "Santri Valid", gender: "L", grade: "VII", className: "VII A", room: "Kamar A" },
+    { id: "source-status-aktif", name: "Santri Status Aktif", gender: "L", grade: "VII", className: "VII A", status: "Aktif" },
+    { id: "source-status-tidak-aktif", name: "Santri Status Tidak Aktif", gender: "L", grade: "VII", className: "VII A", status: "Tidak Aktif" },
+    { id: "source-status-ditangguhkan", name: "Santri Status Ditangguhkan", gender: "L", grade: "VII", className: "VII A", status: "Ditangguhkan" },
+    { id: "source-status-invalid", name: "Santri Status Tidak Dikenal", gender: "L", grade: "VII", className: "VII A", status: "Lepas" },
     { id: "source-derived-building", name: "Santri Gedung Turunan", gender: "L", grade: "VII", room: "Kamar A" },
     { id: "source-free-grade", name: "Jenjang Bebas", gender: "L", grade: "VII Bebas" },
     { id: "source-wrong-class", name: "Kelas Tidak Sesuai", gender: "L", grade: "VII", className: "VIII A" },
@@ -59,6 +63,11 @@ try {
   const byId = new Map(result.items.map((item: any) => [item.id, item]));
 
   assert.equal(byId.get("source-valid")?.status, "ready", "active grade, class, room, and gender relation should pass");
+  assert.equal(byId.get("source-status-aktif")?.status, "ready", "Indonesian active status should be accepted");
+  assert.equal(byId.get("source-status-tidak-aktif")?.status, "ready", "Indonesian inactive status should be accepted");
+  assert.equal(byId.get("source-status-ditangguhkan")?.status, "ready", "Indonesian suspended status should be accepted");
+  assert.equal(byId.get("source-status-invalid")?.status, "error", "unknown status values must be rejected");
+  assert.match(byId.get("source-status-invalid")?.messages.join(" ") || "", /Status harus Aktif, Tidak Aktif, Alumni, atau Ditangguhkan\./, "status validation should use Indonesian labels");
   assert.equal(byId.get("source-derived-building")?.status, "ready", "building should be derived from the selected room");
   assert.equal(byId.get("source-free-grade")?.status, "error", "free-typed grade must fail against the active tenant catalog");
   assert.equal(byId.get("source-wrong-class")?.status, "error", "class and grade must match");
@@ -72,9 +81,12 @@ try {
   const plannedRecords = rpcPayloads.map((payload) => payload.p_student);
   assert.equal(plannedRecords.find((record) => record.sourceRecordId === "source-valid")?.grade, "VII", "grade must remain the canonical grade label");
   assert.equal(plannedRecords.find((record) => record.sourceRecordId === "source-valid")?.classId, "CLASS-VII", "class must map to its own className column");
+  assert.equal(plannedRecords.find((record) => record.sourceRecordId === "source-status-aktif")?.status, "Active", "Indonesian active status should map to the canonical database value");
+  assert.equal(plannedRecords.find((record) => record.sourceRecordId === "source-status-tidak-aktif")?.status, "Inactive", "Indonesian inactive status should map to the canonical database value");
+  assert.equal(plannedRecords.find((record) => record.sourceRecordId === "source-status-ditangguhkan")?.status, "Suspended", "Indonesian suspended status should map to the canonical database value");
   assert.equal(plannedRecords.find((record) => record.sourceRecordId === "source-derived-building")?.buildingId, "BUILDING-A", "room import must derive the tenant building ID");
   assert.equal(rpcPayloads.length, result.readyCount, "only rows passing relational validation may reach backend preflight");
-  console.log("Master Data student import plan checks passed: active tenant catalog, class/grade link, room/building parent, gender, inactive references, and batch capacity.");
+  console.log("Master Data student import plan checks passed: tenant references, room capacity, Indonesian status aliases, and canonical status mapping.");
 } finally {
   globalThis.fetch = originalFetch;
 }

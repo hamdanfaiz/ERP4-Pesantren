@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 5038)
+Total output lines: 439
+
 name: Supabase database tests
 
 on:
@@ -73,6 +76,14 @@ jobs:
         run: npm run test:tahfidz-session-pagination
       - name: Verify Tahfidz achievement thresholds
         run: npm run test:tahfidz-achievements
+      - name: Verify Tahfidz Quran catalog source and ayah bounds
+        run: npm run test:tahfidz-quran-catalog
+      - name: Verify Tahfidz persisted monthly leaderboard
+        run: npm run test:tahfidz-leaderboard
+      - name: Verify Tahfidz study plan excludes sample records
+        run: npm run test:tahfidz-target-print
+      - name: Verify Tahfidz bulk targets use atomic tenant-scoped API
+        run: npm run test:tahfidz-bulk-targets
       - name: Verify Supabase Quran catalog validation
         run: npm run test:supabase-quran-catalog
 
@@ -87,6 +98,9 @@ jobs:
 
       - name: Verify Wali registration callback survives StrictMode
         run: npm run test:guardian-registration-strictmode
+
+      - name: Verify customer-facing error messages
+        run: npm run test:user-messages
 
       - name: Verify recovery links use the configured application URL
         run: npm run test:auth-recovery-redirect
@@ -227,8 +241,7 @@ jobs:
               const config = JSON.parse(response);
               if (config.VITE_SUPABASE_URL !== "https://supabase.example.invalid") throw new Error("Runtime Supabase URL was not emitted");
               if (config.VITE_SUPABASE_PUBLISHABLE_KEY !== "sb_publishable_ci_placeholder") throw new Error("Runtime publishable key was not emitted");
-              if (config.VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED !== "true") throw new Error("Runtime browser feature flag was not emitted");
-              if (response.includes("sb_secret_ci_placeholder")) throw new Error("Server secret leaked into browser runtime config");
+              if (config.VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED !== "true") throw new Error("Ru…38 tokens truncated…to browser runtime config");
             });
           '
           status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:38123/api/users)
@@ -401,6 +414,9 @@ jobs:
       - name: Verify API auth and tenant isolation
         run: npm run test:api:auth-tenant
 
+      - name: Verify Tahfidz catalog, setoran, leaderboard, and tenant boundaries
+        run: npm run test:api:tahfidz-runtime
+
       - name: Verify Finance expenses use tenant-owned organization units
         run: npm run test:supabase-finance-unit-scope
 
@@ -421,4 +437,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+
 

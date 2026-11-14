@@ -158,8 +158,8 @@ assert.ok(!fs.existsSync(path.join(root, 'src', 'pages', 'EcosystemManager.tsx')
 assert.ok(!fs.readFileSync(path.join(root, '.env.example'), 'utf8').includes('PAYMENT_GATEWAY_SECRET_KEY'),
   'The initial release must not expose a payment gateway configuration placeholder.');
 const tahfidzSource = fs.readFileSync(path.join(root, 'src', 'pages', 'TahfidzManager.tsx'), 'utf8');
-assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && <button[\s\S]*?title="AI Audio Assessment"/,
-  'Mock AI audio actions must remain hidden outside the Supabase Tahfidz runtime.');
+assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && <button[\s\S]*?title="Penilaian audio otomatis"/,
+  'Demo-only audio assessment actions must remain hidden in the Supabase Tahfidz runtime and use Indonesian copy.');
 assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && selectedSantri && \(/,
   'The mock AI assessment modal must not render in the Supabase Tahfidz runtime.');
 
@@ -174,8 +174,8 @@ for (const tabId of ['entities', 'structure', 'naming', 'audit']) {
 }
 assert.doesNotMatch(masterDataTabs[1], /id:\s*["']references["']/,
   'Reference catalogs must live with their owning modules instead of a generic Master Data tab.');
-assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?koneksi runtime Supabase belum diaktifkan[\s\S]*?<\/section>\)/,
-  'Naming Series must show a clear unavailable state rather than disappear or fall through to mock CRUD when runtime is disabled.');
+assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?Pengaturan penomoran belum tersedia saat ini\.[\s\S]*?<\/section>\)/,
+  'Naming Series must show a clear customer-facing unavailable state rather than disappear or fall through to mock CRUD when runtime is disabled.');
 assert.match(masterDataSource, /const isTenantConfigurationTab = activeTab === ["']naming["'];/,
   'Naming Series configuration must not expose mock record actions when runtime is disabled.');
 assert.match(masterDataSource, /const visibleSubTabs = SUB_TABS\[activeTab\] \|\| \[\]/,
@@ -204,16 +204,77 @@ assert.match(masterDataSource, /return labels\[value\.toLowerCase\(\)\] \|\| val
   'Master Data status values must be displayed in Indonesian without changing their stored values.');
 assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
+const centralStructureSource = fs.readFileSync(path.join(root, 'src', 'services', 'centralStructureService.ts'), 'utf8');
+assert.doesNotMatch(centralStructureSource, /supabaseRuntimeEnabled\(/,
+  'Tenant structure API polling must follow explicit runtime gates, not the Supabase-only data-source mode.');
+for (const [constant, flag] of [
+  ['SUPABASE_MASTER_DATA_RUNTIME', 'VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED'],
+  ['SUPABASE_BOARDING_RUNTIME', 'VITE_SUPABASE_BOARDING_RUNTIME_ENABLED'],
+]) {
+  assert.match(centralStructureSource, new RegExp(`${constant}\\s*=\\s*publicRuntimeConfigValue\\(["']${flag}["']\\)\\s*===\\s*["']true["']`),
+    `Tenant structure ${constant} must be disabled unless ${flag} is explicitly true.`);
+}
+assert.match(tahfidzSource, /requestSupabaseTahfidzApi\(["']\/api\/tahfidz\/references\/surahs["']/,
+  'Tahfidz must load Surah choices from the Supabase-backed Quran reference endpoint.');
+const quickEntryStart = tahfidzSource.indexOf('{/* Quick Entry Form */}');
+const recordsTableStart = tahfidzSource.indexOf('<div className="bg-white dark:bg-white\/[0.02]', quickEntryStart);
+assert.ok(quickEntryStart >= 0 && recordsTableStart > quickEntryStart,
+  'Tahfidz quick-entry form boundaries must remain discoverable for regression checks.');
+const quickEntrySource = tahfidzSource.slice(quickEntryStart, recordsTableStart);
+assert.match(quickEntrySource, /SUPABASE_TAHFIDZ_RUNTIME \? <select[\s\S]*?aria-label="Surah setoran cepat"[\s\S]*?surahList\.map\(\(surah\)/,
+  'Quick-entry Surah must be selected from the loaded Quran reference list.');
+assert.match(quickEntrySource, /aria-label="Ayat mulai setoran cepat"[\s\S]*?Array\.from\(\{ length: Number\(formData\.ayatCount \|\| 0\) \}/,
+  'Quick-entry starting Ayah must be chosen from the selected Surah verse count.');
+assert.match(quickEntrySource, /aria-label="Ayat akhir setoran cepat"[\s\S]*?Array\.from\(\{ length: Number\(formData\.ayatCount \|\| 0\) \}[\s\S]*?ayah >= Number\(formData\.ayatStart\)/,
+  'Quick-entry ending Ayah must be chosen from the selected Surah verse count.');
+const supabaseSurahControlStart = quickEntrySource.indexOf('SUPABASE_TAHFIDZ_RUNTIME ? <select');
+const legacySurahControlStart = quickEntrySource.indexOf(': <input', supabaseSurahControlStart);
+assert.ok(supabaseSurahControlStart >= 0 && legacySurahControlStart > supabaseSurahControlStart,
+  'Surah choices must use a controlled Supabase dropdown while legacy demo mode remains an explicit fallback.');
+assert.doesNotMatch(quickEntrySource.slice(supabaseSurahControlStart, legacySurahControlStart), /<input\b/,
+  'The Supabase runtime Surah control must not accept free text.');
 const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
+assert.doesNotMatch(boardingSource, /supabaseRuntimeEnabled\(/,
+  'Asrama feature availability must follow explicit browser runtime flags, not the Supabase-only data-source mode.');
+for (const [constant, flag] of [
+  ['PERMITS_ENABLED', 'VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED'],
+  ['DISCIPLINE_ENABLED', 'VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED'],
+  ['ATTENDANCE_ENABLED', 'VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED'],
+  ['ASSIGNMENTS_ENABLED', 'VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED'],
+  ['FACILITY_OPS_ENABLED', 'VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED'],
+]) {
+  assert.match(boardingSource, new RegExp(`${constant}\\s*=\\s*publicRuntimeConfigValue\\(["']${flag}["']\\)\\s*===\\s*["']true["']`),
+    `Asrama ${constant} must be disabled unless ${flag} is explicitly true.`);
+}
 for (const section of ['permits', 'discipline', 'attendance', 'assignments', 'facility-ops']) {
   assert.match(boardingSource, new RegExp(`id:\\s*["']${section}["']`), `Asrama must keep the ${section} section visible in the Supabase runtime.`);
 }
 assert.match(boardingSource, /<ERPTabs\s+tabs=\{tabs\}/,
   'Asrama sections must use the shared tab component.');
-assert.match(boardingSource, /<UnavailableSection\s+label=\{selected\.label\}\s+flag=\{selected\.flag\}\s*\/>/,
+assert.match(boardingSource, /!selected\.enabled\s*\?\s*<UnavailableSection\s+label=\{selected\.label\}\s*\/>/,
   'Disabled Asrama sections must show an explicit readiness state instead of disappearing.');
+assert.match(boardingSource, /Fitur ini belum tersedia saat ini\./,
+  'Unavailable Asrama sections must use customer-facing copy without operator instructions.');
 assert.doesNotMatch(boardingSource, /if\s*\(!available\.length\)\s*return\s+null/,
   'Asrama must not render a blank screen when runtime gates are closed.');
+const boardingStyles = fs.readFileSync(path.join(root, 'src', 'index.css'), 'utf8');
+assert.match(boardingStyles, /\.erp-panel\s*\{[^}]*background:\s*var\(--erp-surface\)/s,
+  'Shared ERP panels must use the theme surface token.');
+assert.match(boardingStyles, /\.dark\s*\{[^}]*--erp-surface:\s*#0f172a/s,
+  'Dark mode must provide the shared ERP panel surface.');
+for (const file of [
+  'SupabaseBoardingPermitsManager.tsx',
+  'SupabaseBoardingDisciplineManager.tsx',
+  'SupabaseBoardingAttendanceManager.tsx',
+  'SupabaseBoardingAssignmentsManager.tsx',
+  'SupabaseBoardingFacilityOpsManager.tsx',
+]) {
+  const source = fs.readFileSync(path.join(root, 'src', 'pages', file), 'utf8');
+  assert.match(source, /bg-\[var\(--erp-surface\)\]|erp-panel/,
+    `${file} must use the shared ERP surface token for its content panels.`);
+  assert.doesNotMatch(source, /\bbg-white(?:\/[^\s"'\x60]+)?/,
+    `${file} must not hard-code white content panels that diverge from the active ERP theme.`);
+}
 const academicSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAcademicManager.tsx'), 'utf8');
 for (const feature of ['report-card', 'conflict-resolver']) {
   assert.ok(academicSource.includes(`id: "${feature}"`), `Academic reference submenu ${feature} must remain visible.`);

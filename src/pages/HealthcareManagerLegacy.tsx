@@ -627,7 +627,7 @@ export function HealthcareManager() {
       )}
 
       <div className="bg-slate-50 dark:bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden">
-        <div className="border-b border-slate-200 dark:border-white/5 bg-black/40 overflow-x-auto">
+        <div className="erp-tab-scroll border-b border-slate-200 dark:border-white/5 bg-black/40">
           <div className="flex p-2 gap-2 min-w-max">
             {[
               { id: 'visits', label: 'Riwayat Kunjungan UKS', icon: <Stethoscope className="w-4 h-4" /> },

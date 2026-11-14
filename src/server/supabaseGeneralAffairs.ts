@@ -9,7 +9,7 @@ export class SupabaseGeneralAffairsError extends Error {
 function config() {
   const url = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   const key = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!url || !key) throw new SupabaseGeneralAffairsError(503, "Konfigurasi backend Supabase belum lengkap.");
+  if (!url || !key) throw new SupabaseGeneralAffairsError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   return { url, key };
 }
 

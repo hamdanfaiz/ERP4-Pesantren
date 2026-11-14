@@ -75,7 +75,7 @@ export const ppdbIntegrationService = {
       const previousBilling = billingSnapshot.exists() ? billingSnapshot.data() : {};
       const nextPaidAmount = details.paidAmount ?? (details.status === 'Paid' ? details.amount : 0);
       const previousPaidAmount = Number(previousBilling.paidAmount || 0);
-      if (!candidateSnapshot.exists() || candidateSnapshot.data().tenantId !== tenantId) throw new Error('Kandidat tidak ditemukan pada tenant aktif.');
+      if (!candidateSnapshot.exists() || candidateSnapshot.data().tenantId !== tenantId) throw new Error('Kandidat tidak ditemukan pada pesantren ini.');
       const payment = { ...(candidateSnapshot.data().payment || {}) };
       const feeKey = paymentType === 'registration' ? 'registrationFee' : 'tuitionFee';
       payment[feeKey] = {

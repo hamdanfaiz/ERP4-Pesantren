@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { KeyRound, ShieldCheck, AlertCircle, Eye, EyeOff, LogOut, CheckCircle2 } from 'lucide-react';
@@ -39,7 +40,7 @@ export function ForcePasswordChangeModal() {
 
       setSuccess(true);
     } catch (err: any) {
-      const msg = err.message || 'Gagal mengubah kata sandi. Silakan coba kembali.';
+      const msg = toERPUserMessage(err, 'Gagal mengubah kata sandi. Silakan coba kembali.');
       setError(msg);
     } finally {
       setIsSubmitting(false);

@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Loader2, MessageSquareText, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -45,7 +46,7 @@ const SECONDARY = "inline-flex items-center justify-center gap-2 rounded-xl bord
 
 async function requestPeerReview(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
@@ -90,7 +91,7 @@ export function SupabaseTahfidzPeerReview() {
       });
     } catch (cause: any) {
       setSnapshot(EMPTY);
-      setError(cause?.message || "Penilaian Tahfidz belum dapat dimuat.");
+      setError(toERPUserMessage(cause, "Penilaian Tahfidz belum dapat dimuat."));
     } finally {
       setLoading(false);
     }
@@ -128,7 +129,7 @@ export function SupabaseTahfidzPeerReview() {
       setNotice(result.alreadyApplied ? "Penilaian sudah tersimpan dan menunggu tinjauan Ustadz." : "Penilaian tersimpan dan menunggu tinjauan Ustadz.");
       setReloadVersion((value) => value + 1);
     } catch (cause: any) {
-      setError(cause?.message || "Penilaian belum terkonfirmasi. Ulangi dengan isi yang sama jika koneksi terputus.");
+      setError(toERPUserMessage(cause, "Penilaian belum terkonfirmasi. Ulangi dengan isi yang sama jika koneksi terputus."));
     } finally {
       setBusyId("");
     }
@@ -151,7 +152,7 @@ export function SupabaseTahfidzPeerReview() {
       setNotice(decision === "approved" ? "Penilaian disetujui dan kini terlihat di halaqah." : "Penilaian ditolak. Catatan perbaikan dikirim kepada Santri.");
       setReloadVersion((value) => value + 1);
     } catch (cause: any) {
-      setError(cause?.message || "Keputusan moderasi belum terkonfirmasi.");
+      setError(toERPUserMessage(cause, "Keputusan moderasi belum terkonfirmasi."));
     } finally {
       setBusyId("");
     }

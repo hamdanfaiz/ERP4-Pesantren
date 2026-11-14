@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { lazy, useRef, useState, useEffect } from "react";
 import {
   Sparkles,
@@ -105,7 +106,7 @@ export function PublicRegistrationForm({
       .catch((error) => {
         if (active) {
           setIsPublicRegistrationAvailable(false);
-          setSubmitError(error.message || "Pendaftaran online sedang tidak tersedia.");
+          setSubmitError(toERPUserMessage(error, "Pendaftaran online sedang tidak tersedia."));
         }
       });
     return () => { active = false; };
@@ -144,7 +145,7 @@ export function PublicRegistrationForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isPublicRegistrationAvailable) {
-      setSubmitError("Pendaftaran online belum dibuka atau layanan server belum dikonfigurasi. Silakan hubungi panitia pesantren.");
+      setSubmitError("Pendaftaran online belum dibuka. Silakan hubungi panitia pesantren.");
       return;
     }
     setIsSubmitting(true);
@@ -188,7 +189,7 @@ export function PublicRegistrationForm({
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Gagal menyimpan data pendaftaran. Silakan coba kembali.");
-      if (!payload.candidate?.id || !payload.candidate?.registrationId) throw new Error("Server tidak mengembalikan nomor pendaftaran yang valid.");
+      if (!payload.candidate?.id || !payload.candidate?.registrationId) throw new Error("Nomor pendaftaran belum dapat dibuat. Silakan coba kembali.");
       const fullCandidate = payload.candidate as Candidate;
       setSubmittedCandidate(fullCandidate);
       submissionRequestRef.current = null;
@@ -196,7 +197,7 @@ export function PublicRegistrationForm({
       onSubmit?.(fullCandidate);
     } catch (error: any) {
       console.error("Error creating candidate:", error);
-      setSubmitError(error?.message || "Gagal menyimpan data pendaftaran ke server. Silakan coba beberapa saat lagi.");
+      setSubmitError("Pendaftaran belum dapat dikirim. Periksa kembali data Anda atau hubungi panitia pesantren.");
     } finally {
       setIsSubmitting(false);
     }

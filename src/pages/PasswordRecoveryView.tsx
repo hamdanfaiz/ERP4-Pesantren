@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, KeyRound, LoaderCircle, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, supabaseClientConfigured } from '../utils/supabase';
+import { toERPUserMessage } from '../utils/userMessages';
 
 type Props = {
   onCompleted: () => void;
@@ -33,7 +34,7 @@ export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
 
     if (!verificationPromise.current) verificationPromise.current = (async (): Promise<RecoveryVerification> => {
       try {
-        if (!supabaseClientConfigured()) return { ok: false, message: 'Layanan pemulihan akun belum dikonfigurasi. Hubungi administrator.' };
+        if (!supabaseClientConfigured()) return { ok: false, message: 'Layanan pemulihan akun belum tersedia saat ini. Hubungi administrator pesantren.' };
 
         const query = new URLSearchParams(window.location.search);
         const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -72,7 +73,7 @@ export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
 
         return { ok: true };
       } catch (cause) {
-        return { ok: false, message: cause instanceof Error ? cause.message : 'Tautan pemulihan tidak dapat diverifikasi.' };
+        return { ok: false, message: toERPUserMessage(cause, 'Tautan pemulihan tidak dapat diverifikasi. Minta tautan baru dari halaman masuk.') };
       }
     })();
 
@@ -111,7 +112,7 @@ export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
       try { await supabase.auth.signOut(); } catch { /* The password is already updated; returning to sign-in remains safe. */ }
       setCompleted(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Kata sandi belum dapat diperbarui.');
+      setError(toERPUserMessage(cause, 'Kata sandi belum dapat diperbarui. Pastikan memenuhi ketentuan lalu coba kembali.'));
     } finally {
       setIsSaving(false);
     }
@@ -153,7 +154,7 @@ export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
               <label htmlFor="recovery-password-confirm" className="mb-1.5 block text-xs font-semibold text-slate-300">Ulangi kata sandi baru</label>
               <input id="recovery-password-confirm" type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} className={CONTROL} />
             </div>
-            <p className="text-xs leading-5 text-slate-400">Minimal 12 karakter. Password diproses oleh Supabase Auth dan tidak disimpan di browser sebagai data aplikasi.</p>
+            <p className="text-xs leading-5 text-slate-400">Gunakan kata sandi minimal 12 karakter yang belum pernah digunakan pada akun lain.</p>
             <button type="submit" disabled={isSaving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
               {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
               {isSaving ? 'Memperbarui kata sandi…' : 'Simpan kata sandi baru'}

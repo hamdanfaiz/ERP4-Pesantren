@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { tenantScopedQuery, tenantRecord } from '../firebaseUtils';
 import { useAuth } from '../contexts/AuthContext';
 import React, { useState } from 'react';
@@ -130,7 +131,7 @@ export function BulkOperationsModal({
       onClose();
     } catch (err: any) {
       console.error(err);
-      setErrorMessage(`Gagal memproses bulk delete: ${err.message || 'Error basis data'}`);
+      setErrorMessage(`Gagal memproses bulk delete: ${toERPUserMessage(err, 'Error basis data')}`);
     } finally {
       setIsProcessing(false);
     }
@@ -187,7 +188,7 @@ export function BulkOperationsModal({
       onClose();
     } catch (err: any) {
       console.error(err);
-      setErrorMessage(`Gagal memproses re-assignment massal: ${err.message || 'Error basis data'}`);
+      setErrorMessage(`Gagal memproses re-assignment massal: ${toERPUserMessage(err, 'Error basis data')}`);
     } finally {
       setIsProcessing(false);
     }

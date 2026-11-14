@@ -19,7 +19,7 @@ let adminClient: SupabaseClient | null = null;
 function client(): SupabaseClient {
   const url = String(process.env.SUPABASE_URL || "").trim();
   const key = String(process.env.SUPABASE_SECRET_KEY || "").trim();
-  if (!url || !key) throw new SupabaseCooperativeError(503, "Konfigurasi backend Supabase belum lengkap.");
+  if (!url || !key) throw new SupabaseCooperativeError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   if (!adminClient) adminClient = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
   return adminClient;
 }

@@ -556,7 +556,7 @@ export function DashboardOverview() {
             Ringkasan Eksekutif Pesantren
           </h1>
           <p className="text-slate-500 text-sm mt-2">
-            Metrik operasional dan performa keuangan real-time untuk tenant aktif sesuai wewenang akun.
+            Metrik operasional dan performa keuangan real-time untuk pesantren ini sesuai wewenang akun.
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5 text-xs bg-black/40 border border-slate-200 dark:border-white/5 rounded-lg p-1">
@@ -730,7 +730,7 @@ export function DashboardOverview() {
                 <div className="h-48 flex flex-col items-center justify-center text-center p-4">
                   <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-2 opacity-80" />
                   <p className="text-sm font-medium text-slate-300">Semua Tagihan Selesai</p>
-                  <p className="text-xs text-slate-500 mt-1">Tidak ada tagihan tertunggak atau terbuka pada tenant ini.</p>
+                  <p className="text-xs text-slate-500 mt-1">Tidak ada tagihan tertunggak atau terbuka pada pesantren ini.</p>
                 </div>
               )
             ) : (
@@ -916,7 +916,7 @@ export function DashboardOverview() {
                     Ringkasan Keuangan
                   </h4>
                   <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                    {canReadFinance ? (openBillings.length > 0 ? <>Ada <strong>{openBillings.length}</strong> tagihan terbuka dengan estimasi sisa <strong>{formatRupiah(outstandingAmount)}</strong>.</> : "Tidak ada tagihan terbuka yang terdeteksi pada data tenant ini.") : "Akses data keuangan tidak diberikan untuk akun ini."}
+                    {canReadFinance ? (openBillings.length > 0 ? <>Ada <strong>{openBillings.length}</strong> tagihan terbuka dengan estimasi sisa <strong>{formatRupiah(outstandingAmount)}</strong>.</> : "Tidak ada tagihan terbuka yang terdeteksi pada data pesantren ini.") : "Akses data keuangan tidak diberikan untuk akun ini."}
                   </p>
                 </div>
               </div>
@@ -957,7 +957,7 @@ export function DashboardOverview() {
                   </h4>
                   <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                     {canReadMasterData ? (
-                      <>Tercatat <strong>{activeStudents.length}</strong> santri aktif ({studentGenderSummary[0].count} putra, {studentGenderSummary[1].count} putri) terdaftar pada tenant aktif.</>
+                      <>Tercatat <strong>{activeStudents.length}</strong> santri aktif ({studentGenderSummary[0].count} putra, {studentGenderSummary[1].count} putri) terdaftar pada pesantren ini.</>
                     ) : (
                       "Akses data master santri tidak diberikan untuk akun ini."
                     )}

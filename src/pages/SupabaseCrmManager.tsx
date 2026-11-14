@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, ArrowDown, ArrowUp, Building2, Check, ChevronDown, Loader2, MessageSquareText, Plus, RefreshCw, Search, ShieldCheck, Users, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -40,7 +41,7 @@ const buttonClass = "inline-flex items-center justify-center gap-2 rounded-xl bo
 
 async function crmRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
@@ -87,7 +88,7 @@ export function SupabaseCrmManager() {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastSubject, setBroadcastSubject] = useState("Siaran WhatsApp CRM");
   const [broadcastBusy, setBroadcastBusy] = useState(false);
-  const [broadcastStatus, setBroadcastStatus] = useState<{ configured: boolean; endpoint?: string | null; error?: string | null } | null>(null);
+  const [broadcastStatus, setBroadcastStatus] = useState<{ configured: boolean } | null>(null);
   const [broadcastResult, setBroadcastResult] = useState<{ sent?: number; failed?: number; dryRun?: boolean; recipientCount?: number; recipients?: Array<{ name: string; phone: string }>; results?: Array<{ name: string; phone: string; status: string; error?: string }> } | null>(null);
   const canManage = (role === "Admin" || role === "SuperAdmin") && user?.modulePermissions?.crm !== false;
   const selectedContact = useMemo(() => contacts.find((contact) => contact.id === selectedId) || null, [contacts, selectedId]);
@@ -119,7 +120,7 @@ export function SupabaseCrmManager() {
   const refresh = useCallback(async () => {
     setError(""); setNotice(""); setLoading(true);
     try { await loadContacts(null, false); }
-    catch (loadError: any) { setError(loadError?.message || "Daftar kontak CRM belum dapat dimuat."); }
+    catch (loadError: any) { setError(toERPUserMessage(loadError, "Daftar kontak CRM belum dapat dimuat.")); }
     finally { setLoading(false); }
   }, [loadContacts]);
 
@@ -128,9 +129,9 @@ export function SupabaseCrmManager() {
   useEffect(() => {
     if (tab !== "broadcast") return;
     let active = true;
-    crmRequest<{ configured: boolean; endpoint?: string | null; error?: string | null }>("/api/crm/broadcast/status")
+    crmRequest<{ configured: boolean }>("/api/crm/broadcast/status")
       .then((status) => { if (active) setBroadcastStatus(status); })
-      .catch((loadError: any) => { if (active) setBroadcastStatus({ configured: false, error: loadError?.message || "Status OpenWA belum dapat dimuat." }); });
+      .catch(() => { if (active) setBroadcastStatus({ configured: false }); });
     return () => { active = false; };
   }, [tab, user?.tenantId]);
 
@@ -140,7 +141,7 @@ export function SupabaseCrmManager() {
     setLoadingInteractions(true);
     crmRequest<InteractionPage>(`/api/crm/contacts/${encodeURIComponent(selectedId)}/interactions`)
       .then((result) => { if (active) { setInteractions(Array.isArray(result.interactions) ? result.interactions : []); setInteractionCursor(result.nextCursor || null); } })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Riwayat interaksi belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Riwayat interaksi belum dapat dimuat.")); })
       .finally(() => { if (active) setLoadingInteractions(false); });
     return () => { active = false; };
   }, [selectedId]);
@@ -169,7 +170,7 @@ export function SupabaseCrmManager() {
       });
       lease.clear(); setFormOpen(false); setNotice(editingId ? "Kontak berhasil diperbarui." : "Kontak berhasil ditambahkan.");
       await loadContacts(null, false);
-    } catch (saveError: any) { setError(saveError?.message || "Kontak belum dapat disimpan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Kontak belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -187,7 +188,7 @@ export function SupabaseCrmManager() {
       const result = await crmRequest<InteractionPage>(`/api/crm/contacts/${encodeURIComponent(selectedContact.id)}/interactions`);
       setInteractions(result.interactions || []); setInteractionCursor(result.nextCursor || null);
       await loadContacts(null, false);
-    } catch (saveError: any) { setError(saveError?.message || "Interaksi belum dapat dicatat."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Interaksi belum dapat dicatat.")); }
     finally { setInteractionBusy(false); }
   };
 
@@ -195,7 +196,7 @@ export function SupabaseCrmManager() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true); setError("");
     try { await loadContacts(nextCursor, true); }
-    catch (loadError: any) { setError(loadError?.message || "Halaman berikutnya belum dapat dimuat."); }
+    catch (loadError: any) { setError(toERPUserMessage(loadError, "Halaman berikutnya belum dapat dimuat.")); }
     finally { setLoadingMore(false); }
   };
 
@@ -204,7 +205,7 @@ export function SupabaseCrmManager() {
     try {
       const result = await crmRequest<InteractionPage>(`/api/crm/contacts/${encodeURIComponent(selectedId)}/interactions?cursor=${encodeURIComponent(interactionCursor)}`);
       setInteractions((current) => [...current, ...(result.interactions || [])]); setInteractionCursor(result.nextCursor || null);
-    } catch (loadError: any) { setError(loadError?.message || "Riwayat berikutnya belum dapat dimuat."); }
+    } catch (loadError: any) { setError(toERPUserMessage(loadError, "Riwayat berikutnya belum dapat dimuat.")); }
   };
 
   const runBroadcast = async (dryRun: boolean) => {
@@ -226,11 +227,11 @@ export function SupabaseCrmManager() {
       lease.clear();
       setBroadcastResult(result || null);
       setNotice(dryRun
-        ? `Pratinjau: ${result?.recipientCount || 0} penerima siap dikirim via OpenWA.`
+        ? `Pratinjau: ${result?.recipientCount || 0} penerima memenuhi syarat.`
         : `Siaran selesai: ${result?.sent || 0} terkirim, ${result?.failed || 0} gagal.`);
       if (!dryRun) await loadContacts(null, false);
     } catch (sendError: any) {
-      setError(sendError?.message || "Siaran WhatsApp belum dapat diproses.");
+      setError(toERPUserMessage(sendError, "Siaran WhatsApp belum dapat diproses saat ini. Silakan coba kembali."));
     } finally {
       setBroadcastBusy(false);
     }
@@ -241,7 +242,7 @@ export function SupabaseCrmManager() {
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">Relasi pesantren</p>
         <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">CRM Pesantren</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Kelola relasi wali, calon wali, alumni, donatur, dan mitra dalam ruang data tenant pesantren.</p>
+        <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Kelola relasi wali, calon wali, alumni, donatur, dan mitra pesantren.</p>
       </div>
       <div className="flex gap-2">
         <button type="button" onClick={() => void refresh()} className={buttonClass} aria-label="Muat ulang kontak CRM"><RefreshCw className="h-4 w-4" /> Muat ulang</button>
@@ -260,13 +261,13 @@ export function SupabaseCrmManager() {
 
     {tab === "broadcast" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900/70">
       <div>
-        <h2 className="font-semibold text-slate-900 dark:text-white">Siaran WhatsApp (OpenWA)</h2>
-        <p className="mt-1 text-sm text-slate-500">Hanya kontak dengan persetujuan menerima informasi dan nomor telepon valid. Pengiriman lewat OpenWA Easy API di server.</p>
+        <h2 className="font-semibold text-slate-900 dark:text-white">Siaran WhatsApp</h2>
+        <p className="mt-1 text-sm text-slate-500">Hanya kontak yang menyetujui menerima informasi dan memiliki nomor telepon valid yang dapat dipilih.</p>
       </div>
       <div className={`rounded-xl border px-4 py-3 text-sm ${broadcastStatus?.configured ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-950/25 dark:text-emerald-200" : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-950/25 dark:text-amber-200"}`}>
-        {broadcastStatus == null ? "Memeriksa konfigurasi OpenWA…"
-          : broadcastStatus.configured ? `OpenWA siap · ${broadcastStatus.endpoint}`
-            : (broadcastStatus.error || "OpenWA belum dikonfigurasi. Isi endpoint di Pengaturan dan WA_GATEWAY_API_KEY di server.")}
+        {broadcastStatus == null ? "Memeriksa layanan WhatsApp…"
+          : broadcastStatus.configured ? "Layanan WhatsApp siap digunakan."
+            : "Layanan WhatsApp belum tersedia saat ini. Hubungi administrator pesantren."}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <article className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="text-xs text-slate-500">Setuju menerima info</p><p className="mt-2 text-2xl font-semibold">{summary.marketingConsentedContacts}</p></article>
@@ -278,7 +279,7 @@ export function SupabaseCrmManager() {
         <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Isi pesan WhatsApp<textarea required minLength={5} maxLength={4000} rows={4} className={inputClass} value={broadcastMessage} onChange={(event) => setBroadcastMessage(event.target.value)} placeholder="Tulis pesan siaran…" /></label>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={broadcastBusy || broadcastAudience.length === 0 || broadcastMessage.trim().length < 5} className={buttonClass} onClick={() => void runBroadcast(true)}>Pratinjau audiens</button>
-          <button type="button" disabled={broadcastBusy || !broadcastStatus?.configured || broadcastAudience.length === 0 || broadcastMessage.trim().length < 5} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runBroadcast(false)}>{broadcastBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />} Kirim via OpenWA</button>
+          <button type="button" disabled={broadcastBusy || !broadcastStatus?.configured || broadcastAudience.length === 0 || broadcastMessage.trim().length < 5} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runBroadcast(false)}>{broadcastBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareText className="h-4 w-4" />} Kirim WhatsApp</button>
         </div>
       </div>}
       {(error || notice) && tab === "broadcast" && <div role={error ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${error ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-950/30 dark:text-rose-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-200"}`}>{error || notice}</div>}
@@ -296,6 +297,8 @@ export function SupabaseCrmManager() {
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900/70"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/[0.03]"><tr><th className="px-4 py-3">Tahap</th><th className="px-4 py-3 text-right">Jumlah</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{STAGES.map(([value, label]) => <tr key={value}><td className="px-4 py-3">{label}</td><td className="px-4 py-3 text-right tabular-nums">{contacts.filter((item) => item.lifecycleStage === value).length}</td></tr>)}</tbody></table></div>
     </section>}
 
+
+
     {(tab === "directory" || tab === "pipeline") && <>
     {(error || notice) && <div role={error ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${error ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-950/30 dark:text-rose-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-200"}`}>{error || notice}</div>}
 
@@ -304,7 +307,7 @@ export function SupabaseCrmManager() {
     </div>
 
     <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-950/25 dark:text-sky-200">
-      <div className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p><strong>Siaran WhatsApp memakai OpenWA.</strong> Hanya kontak berpersetujuan yang dikirim dari tab Siaran. Email massal belum tersedia; catatan interaksi tetap dicatat per pengiriman.</p></div>
+      <div className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p><strong>Siaran WhatsApp menghormati persetujuan penerima.</strong> Hanya kontak yang menyetujui penerimaan informasi yang dipilih. Email massal belum tersedia; setiap pengiriman tetap tercatat sebagai interaksi.</p></div>
     </div>
 
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,0.8fr)]">
@@ -321,7 +324,7 @@ export function SupabaseCrmManager() {
           <table className="w-full min-w-[680px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/[0.03] dark:text-slate-400"><tr><th className="px-4 py-3 font-semibold">Nama relasi</th><th className="px-4 py-3 font-semibold">Jenis</th><th className="px-4 py-3 font-semibold">Tahap</th><th className="px-4 py-3 font-semibold">Interaksi</th></tr></thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {loading && <tr><td colSpan={4} className="px-4 py-12 text-center text-slate-500"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />Memuat kontak tenant…</td></tr>}
+              {loading && <tr><td colSpan={4} className="px-4 py-12 text-center text-slate-500"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />Memuat kontak…</td></tr>}
               {!loading && contacts.map((contact) => <tr key={contact.id} onClick={() => setSelectedId(contact.id)} className={`cursor-pointer transition hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 ${selectedId === contact.id ? "bg-emerald-50 dark:bg-emerald-950/30" : ""}`}>
                 <td className="px-4 py-3"><div className="font-semibold text-slate-900 dark:text-white">{contact.name}</div><div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">{contact.organizationName ? <><Building2 className="h-3 w-3" />{contact.organizationName}</> : contact.email || contact.phone || "Belum ada detail kontak"}</div></td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{typeLabel(contact.contactType)}</td>
@@ -363,7 +366,7 @@ export function SupabaseCrmManager() {
 
     {formOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
       <form onSubmit={saveContact} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">{editingId ? "Perbarui kontak" : "Tambah kontak"}</h2><p className="mt-1 text-sm text-slate-500">Semua data tersimpan untuk tenant pesantren aktif.</p></div><button type="button" onClick={() => setFormOpen(false)} className={buttonClass} aria-label="Tutup formulir"><X className="h-4 w-4" /></button></div>
+        <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">{editingId ? "Perbarui kontak" : "Tambah kontak"}</h2><p className="mt-1 text-sm text-slate-500">Data akan tersimpan pada pesantren ini.</p></div><button type="button" onClick={() => setFormOpen(false)} className={buttonClass} aria-label="Tutup formulir"><X className="h-4 w-4" /></button></div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Nama kontak<input required minLength={2} maxLength={160} className={inputClass} value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
           <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Jenis kontak<select className={inputClass} value={draft.contactType} onChange={(event) => setDraft((current) => ({ ...current, contactType: event.target.value as ContactType }))}>{CONTACT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

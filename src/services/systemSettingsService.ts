@@ -1,6 +1,10 @@
 import { getAccessToken } from "../authSession";
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { ModuleId } from "../types";
 import { UserRole, ROLE_MODULES, isModuleAccessible, getAllowedModulesForUser } from "../rbac";
+
+export const SYSTEM_SETTINGS_RUNTIME_ENABLED =
+  publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS") === "true";
 
 export interface GeneralSettings {
   academicYear: string;
@@ -127,7 +131,7 @@ async function requestSupabaseSettingsApi(path: string, init: RequestInit = {}) 
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch(path, { ...init, headers, cache: "no-store" });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new SettingsRequestError(response.status, payload.error || "Pengaturan tenant belum dapat diproses.");
+  if (!response.ok) throw new SettingsRequestError(response.status, payload.error || "Pengaturan belum dapat diproses.");
   return payload;
 }
 
@@ -200,7 +204,7 @@ class SystemSettingsService {
       ? { ...this.defaultSettings(), tenantId: nextTenantId }
       : this.defaultSettings();
     this.notify();
-    if (nextTenantId) this.initRealtimeSync(nextTenantId);
+    if (nextTenantId && SYSTEM_SETTINGS_RUNTIME_ENABLED) this.initRealtimeSync(nextTenantId);
   }
 
   private initRealtimeSync(tenantId: string) {
@@ -236,7 +240,7 @@ class SystemSettingsService {
         this.notify();
       } catch (error) {
         if (active && this.activeTenantId === tenantId && !this.settingsReady) {
-          this.settingsLoadError = "Pengaturan tenant belum dapat dimuat dari Supabase. Periksa koneksi lalu coba lagi.";
+          this.settingsLoadError = "Pengaturan belum dapat dimuat. Periksa koneksi lalu coba lagi.";
           this.notify();
         }
         console.warn("Supabase settings sync failed:", error instanceof Error ? error.message : "unknown error");
@@ -313,6 +317,9 @@ class SystemSettingsService {
   }
 
   public async saveSettings(partial: Partial<SystemSettings>): Promise<void> {
+    if (!SYSTEM_SETTINGS_RUNTIME_ENABLED) {
+      throw new Error("Pengaturan pesantren belum tersedia saat ini.");
+    }
     const tenantId = this.activeTenantId;
     if (!tenantId) throw new Error("Tenant aktif wajib tersedia sebelum pengaturan disimpan.");
     if (!this.settingsReady) {
