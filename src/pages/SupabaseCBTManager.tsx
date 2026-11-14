@@ -60,7 +60,7 @@ const EMPTY_STUDENT_PAGE: StudentPage = { items: [], hasMore: false, nextCursor:
 const EMPTY_ASSIGNMENT_PAGE: AssignmentPage = { items: [], hasMore: false, nextCursor: null };
 const EMPTY_EXAM_PAGE: ExamPage = { items: [], hasMore: false, nextCursor: null };
 const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
-  { id: "dashboard", label: "Dashboard", icon: <Activity className="h-4 w-4" /> },
+  { id: "dashboard", label: "Dasbor", icon: <Activity className="h-4 w-4" /> },
   { id: "calendar", label: "Kalender Ujian", icon: <CalendarDays className="h-4 w-4" /> },
   { id: "packages", label: "Paket Ujian", icon: <Boxes className="h-4 w-4" /> },
   { id: "questions", label: "Bank Soal & Builder", icon: <BookOpen className="h-4 w-4" /> },
@@ -75,7 +75,7 @@ const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
 
 async function requestCbt(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", "Bearer " + token);
   headers.set("Accept", "application/json");
@@ -119,7 +119,7 @@ function ImportPreviewDetails({ preview }: { preview: ImportPreview | null }) {
       <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium dark:border-white/10">Perlu ditinjau ({preview.issueCount})</div>
       {preview.issues.length ? <ul className="divide-y divide-slate-100 dark:divide-white/5">{preview.issues.map((issue, index) => <li key={`${issue.code}-${index}`} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm"><span className="font-medium text-slate-700 dark:text-slate-200">{cbtImportIssueLabel(issue.code)}</span><span className={issue.severity === "blocking" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}>{issue.severity === "blocking" ? "Perlu diperbaiki" : "Perhatian"}</span></li>)}</ul> : <p className="p-4 text-sm text-slate-500">Semua data memenuhi pemeriksaan.</p>}
     </div>
-    <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data dapat diterapkan. Server akan memeriksa ulang sidik digital sebelum penerapan." : "Data belum dapat diterapkan; perbaiki konflik atau selesaikan rekonsiliasi terlebih dahulu."}</p>
+    <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data siap diterapkan setelah Anda meninjau ringkasan ini." : "Data belum dapat diterapkan. Periksa kembali data yang ditandai."}</p>
   </div>;
 }
 
@@ -695,7 +695,7 @@ export function SupabaseCBTManager() {
         blankPoints: savedSettings.blankPoints,
         shuffleQuestions: savedSettings.shuffleQuestions,
       });
-      setNotice("Pengaturan ujian berhasil disimpan untuk tenant ini.");
+      setNotice("Pengaturan ujian berhasil disimpan.");
     } catch (cause: any) {
       if (Number(cause?.status) === 409) {
         settingsDirtyRef.current = false;
@@ -836,7 +836,7 @@ export function SupabaseCBTManager() {
           },
         }),
       });
-      setNotice("Ujian dan penugasan tersimpan pada tenant Supabase.");
+      setNotice("Ujian dan penugasan berhasil disimpan.");
       setSelectedQuestions([]); setSelectedStudents([]);
       setExam((current) => ({ ...current, title: "", startsAt: localDateTimeOffset(60), endsAt: localDateTimeOffset(180) }));
       await refresh();
@@ -845,15 +845,14 @@ export function SupabaseCBTManager() {
   };
 
   if (role !== "Admin" && role !== "SuperAdmin") {
-    return <section className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Pengelolaan bank soal dan jadwal ujian hanya tersedia untuk Admin tenant.</section>;
+    return <section className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Pengelolaan bank soal dan jadwal ujian hanya tersedia bagi administrator.</section>;
   }
 
   return <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-400/10 dark:text-indigo-200"><ShieldCheck className="h-3.5 w-3.5" />Sumber data: Supabase tenant</div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Ujian Berbasis Komputer (CBT)</h1>
-        <p className="mt-1 text-sm text-slate-500">Bank soal, sesi ujian, penugasan santri, dan hasil pemeriksaan tersimpan di backend.</p>
+        <p className="mt-1 text-sm text-slate-500">Kelola bank soal, jadwal ujian, penugasan santri, dan hasil ujian.</p>
       </div>
       <button type="button" onClick={() => { setQuestionListRevision((revision) => revision + 1); void refresh(); }} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
@@ -898,7 +897,7 @@ export function SupabaseCBTManager() {
     </section>}
 
     {tab === "settings" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <header className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Pengaturan ujian tenant</h2><p className="mt-1 text-sm text-slate-500">Nilai ini menjadi pengaturan awal saat membuat sesi baru. Sesi yang sudah dibuat tidak berubah.</p>{snapshot.settings.updatedAt && <p className="mt-1 text-xs text-slate-500">Terakhir disimpan {formatTenantDateTime(snapshot.settings.updatedAt, tenantTimeZone)}</p>}</header>
+      <header className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Pengaturan ujian</h2><p className="mt-1 text-sm text-slate-500">Nilai ini menjadi pengaturan awal saat membuat sesi baru. Sesi yang sudah dibuat tidak berubah.</p>{snapshot.settings.updatedAt && <p className="mt-1 text-xs text-slate-500">Terakhir disimpan {formatTenantDateTime(snapshot.settings.updatedAt, tenantTimeZone)}</p>}</header>
       {loading ? <div role="status" className="flex items-center gap-2 p-6 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat pengaturan…</div> : <form onSubmit={saveSettings} className="space-y-5 p-5">
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="font-medium text-slate-800 dark:text-slate-100">Penilaian otomatis</p><p className="mt-1 text-sm text-slate-500">Soal pilihan ganda dinilai otomatis setelah peserta mengumpulkan ujian.</p><label className="mt-3 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200"><input type="checkbox" checked={true} disabled aria-label="Penilaian otomatis aktif" />Aktif</label></div>
@@ -915,7 +914,7 @@ export function SupabaseCBTManager() {
 
     {tab === "monitor" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10">
-        <div><h2 className="font-semibold text-slate-900 dark:text-white">Pemantauan peserta ujian</h2><p className="mt-1 text-sm text-slate-500">Status penugasan yang tersimpan pada tenant ini.</p><p className="mt-1 text-xs text-slate-500">{snapshotUpdatedAt ? `Data diperbarui ${formatTenantDateTime(snapshotUpdatedAt, tenantTimeZone)}` : "Waktu pembaruan belum tersedia"}</p></div>
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Pemantauan peserta ujian</h2><p className="mt-1 text-sm text-slate-500">Status penugasan peserta ujian.</p><p className="mt-1 text-xs text-slate-500">{snapshotUpdatedAt ? `Data diperbarui ${formatTenantDateTime(snapshotUpdatedAt, tenantTimeZone)}` : "Waktu pembaruan belum tersedia"}</p></div>
         <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang status</button>
       </header>
       <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1018,7 +1017,7 @@ export function SupabaseCBTManager() {
           <div className="space-y-2"><span className={LABEL}>Opsi jawaban</span>{form.options.map((option, index) => <div key={index} className="flex items-center gap-2"><span className="w-6 text-xs font-bold text-slate-500">{String.fromCharCode(65 + index)}</span><input aria-label={"Opsi " + String.fromCharCode(65 + index)} maxLength={1000} className={FIELD + " mt-0"} value={option} onChange={(e) => setForm({ ...form, options: form.options.map((value, optionIndex) => optionIndex === index ? e.target.value : value) })} /></div>)}</div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Indeks jawaban benar<select className={FIELD} value={form.correctAnswer} onChange={(e) => setForm({ ...form, correctAnswer: e.target.value })}>{form.options.map((_, index) => <option key={index} value={index}>{String.fromCharCode(65 + index)}</option>)}</select></label><label className={LABEL}>Tag, pisahkan dengan koma<input className={FIELD} value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></label></div>
           <label className={LABEL}>Pembahasan<textarea rows={2} maxLength={4000} className={FIELD} value={form.explanation} onChange={(e) => setForm({ ...form, explanation: e.target.value })} /></label>
-          <div className="flex gap-2">{editingQuestionId && <button type="button" onClick={resetQuestion} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Batal</button>}<button type="submit" disabled={saving || !snapshot.references.subjects.length || !snapshot.references.gradeLevels.length || !snapshot.references.templates.length || !form.subjectReferenceId || !form.gradeLevelReferenceId || !form.templateReferenceId} className={BUTTON + " flex-1"}>{saving ? "Menyimpan…" : "Simpan ke Supabase"}</button></div>
+          <div className="flex gap-2">{editingQuestionId && <button type="button" onClick={resetQuestion} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Batal</button>}<button type="submit" disabled={saving || !snapshot.references.subjects.length || !snapshot.references.gradeLevels.length || !snapshot.references.templates.length || !form.subjectReferenceId || !form.gradeLevelReferenceId || !form.templateReferenceId} className={BUTTON + " flex-1"}>{saving ? "Menyimpan…" : "Simpan soal"}</button></div>
         </form>
       </section>
     </div>}
@@ -1033,7 +1032,7 @@ export function SupabaseCBTManager() {
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <h2 className="mb-4 font-semibold text-slate-900 dark:text-white">Buat jadwal ujian</h2>
-        {loading ? <p className="text-sm text-slate-500">Memuat roster tenant…</p> : <form onSubmit={submitExam} className="space-y-3">
+        {loading ? <p className="text-sm text-slate-500">Memuat daftar santri…</p> : <form onSubmit={submitExam} className="space-y-3">
           <label className={LABEL}>Nama ujian<input required maxLength={180} className={FIELD} value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} /></label>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={exam.subjectReferenceId} onChange={(e) => { setExam({ ...exam, subjectReferenceId: e.target.value, gradeLevelReferenceId: "" }); setSelectedQuestions([]); setBuilderQuestionPage(EMPTY_QUESTION_PAGE); builderQuestionPageFilter.current = ""; }}><option value="">Pilih mata pelajaran</option>{snapshot.references.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Jenjang<select required className={FIELD} value={exam.gradeLevelReferenceId} onChange={(e) => { setExam({ ...exam, gradeLevelReferenceId: e.target.value }); setSelectedQuestions([]); setBuilderQuestionPage(EMPTY_QUESTION_PAGE); builderQuestionPageFilter.current = ""; }}><option value="">Pilih jenjang</option>{snapshot.references.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mulai<input type="datetime-local" required className={FIELD} value={exam.startsAt} onChange={(e) => setExam({ ...exam, startsAt: e.target.value })} /></label><label className={LABEL}>Akhir jendela<input type="datetime-local" required className={FIELD} value={exam.endsAt} onChange={(e) => setExam({ ...exam, endsAt: e.target.value })} /></label></div>
