@@ -4,7 +4,7 @@
 
 - Worktree: `erp4-pr91-main-reconcile-20261114`
 - Branch: `codex/pr91-main-reconcile-20261114`
-- Rekonsiliasi lokal PR #91 dengan `origin/main` `82082bf1` sudah menjadi commit merge `f63dbf3011bf371d3ecaf16043f6e9b7f6cab12d` (parent: head PR `f66cbbd4` dan `main` `82082bf1`); tidak ada konflik Git tersisa. Push ke branch PR gagal karena Git Credential Manager tidak dapat dijalankan oleh lingkungan kerja. PR remote masih menunjuk ke `f66cbbd4`, tetap open, dan belum di-merge ke `main`.
+- Rekonsiliasi PR #91 dengan `main` `82082bf1` telah didorong ke branch PR. Commit remote `07284469f2e09b8f521a5d52e90d3c437073f23f` memiliki tree yang sama dengan worktree lokal (`eaf09e6b6c57fe327084e50ecbac8fa7d44420fc`); graph-nya menggabungkan head lama PR `f66cbbd4` dan `main` `82082bf1`, tanpa konflik Git. PR tetap open, belum di-merge, dan GitHub menandai `mergeable: true`.
 - Tidak ada migrasi yang diterapkan ke database. Production PTSAS tidak diubah; staging VQE tidak digunakan.
 - Aturan repo saat ini menetapkan Production PTSAS sebagai satu-satunya proyek database yang boleh dipakai. Jangan sambungkan atau query VQE.
 
@@ -52,13 +52,13 @@ Lulus pada worktree ini:
 
 Semua 16 skrip `.mjs` di atas lulus. Selain itu, **39 dari 39 skrip uji TypeScript lulus** melalui `tsx`; cakupannya termasuk pagination, impor, aturan akses, akademik, CBT, wali, PPDB, keuangan, perpustakaan, alumni, Tahfidz, dan trusted-proxy. `test:trusted-proxy-hops` lulus setelah izin jaringan sesi dibuka; sebelumnya sandbox menolak loopback, tidak ada assertion aplikasi yang gagal.
 
-Setelah pembaruan scope cache leaderboard, `node scripts/test-tahfidz-leaderboard.mjs` lulus (88 assertion pgTAP terdeteksi sesuai rencana tes), `npm run lint` (**tsc --noEmit**) lulus, dan `npm run build` lulus (3.513 modul). Peringatan chunk besar tetap sama.
+Setelah pembaruan scope cache leaderboard, `node scripts/test-tahfidz-leaderboard.mjs` lulus (88 assertion pgTAP terdeteksi sesuai rencana tes), `npm run lint` (**tsc --noEmit**) lulus, dan `npm run build` lulus (3.513 modul). Pada 15 November, ketiga perintah `npm run lint`, `npm run build`, dan `npm run test:ci-coverage` diulang pada tree yang sama dengan commit remote; semuanya lulus. `test:ci-coverage` hanya memastikan 66 skrip paket dijadwalkan di workflow, bukan menjalankan 66 skrip tersebut.
 
 Build Vite mentransformasi 3.513 modul dan menghasilkan frontend serta `dist/server.cjs`. Peringatan nonfatal: paket Zod memiliki anotasi `@__PURE__` yang diabaikan Rollup, dan beberapa chunk melebihi 500 kB (bundle PDF terbesar sekitar 1,46 MB); ini perlu ditinjau untuk performa pemuatan.
 
 Dependensi lokal lengkap untuk pemeriksaan ini dengan menyalin paket dari worktree saudara yang memiliki resolusi versi sama pada seluruh 686 entri lockfile aktif. Perubahan berada di `node_modules` yang diabaikan Git; `package.json`, lockfile, `.env`, dan database tidak diubah.
 
-GitHub Actions untuk head PR #91 sebelumnya (`f66cbbd4f1f002f4ed0909b2ffbabb7a81ae169b`) juga terverifikasi lulus pada run `1495`, 3/3 job. CI menjalankan replay migrasi dan pgTAP pada Supabase lokal terisolasi, uji API/auth/tenant, transaksi bersamaan, Storage, backup/restore lokal, pemasangan npm pelanggan, typecheck/build, dan smoke test Docker image pelanggan. Ini bukti kuat untuk commit head tersebut, tetapi belum mencakup hasil merge `main` yang saat ini hanya ada di worktree lokal; hasil merge perlu CI baru setelah direkonsiliasi dan dipush.
+GitHub Actions pada head PR sebelumnya (`f66cbbd4f1f002f4ed0909b2ffbabb7a81ae169b`) lulus pada run `1495`, 3/3 job, termasuk replay migrasi/pgTAP terisolasi, API/auth/tenant, konkurensi, Storage, backup/restore lokal, instalasi npm, build, dan smoke test Docker image. Itu bukan bukti CI untuk hasil merge terbaru. Run push `1701` untuk commit `07284469` tercatat gagal, tetapi API GitHub tidak mengembalikan job apa pun (`total_count: 0`) dan commit check hanya menampilkan Supabase Preview berstatus skipped. Karena tidak ada job/log/annotation, penyebab kegagalan belum dapat ditentukan; hasil ini tidak boleh dilaporkan sebagai tes aplikasi yang gagal maupun sebagai CI lulus. Build, typecheck, dan cakupan workflow terbaru telah diverifikasi lokal, sementara CI penuh pada exact head masih terbuka.
 
 Belum terverifikasi:
 
@@ -71,7 +71,7 @@ Belum terverifikasi:
 1. Lanjutkan tinjauan diff merge #91 per modul; temuan Tahfidz yang telah ditangani dibatasi pada scope cache leaderboard dan reset pilihan target saat hak akses berubah.
 2. Jalankan uji pgTAP serta uji loopback/API di lingkungan yang mengizinkan koneksi lokal; Docker hanya diperlukan untuk Supabase lokal/pgTAP, bukan untuk build, lint, atau unit test source.
 3. Serahkan rekonsiliasi DDL aktual, 53 versi selisih, urutan migrasi, dan rehearsal pemulihan kepada tim backend sebelum perubahan Production.
-4. Setelah kredensial GitHub tersedia bagi proses kerja, dorong commit `f63dbf3` ke branch `codex/product-copy-cleanup-20261108` agar CI baru dan tinjauan tim dapat berjalan. Jangan gabungkan ke `main` atau menerapkan migrasi ke Production sebelum gate yang relevan selesai.
+4. Jalankan atau minta tim backend menjalankan workflow `Supabase database tests` untuk head remote `07284469f2e09b8f521a5d52e90d3c437073f23f`; pastikan ada tiga job nyata dengan hasil lulus sebelum menyatakan CI head ini hijau. PR #91 sudah didorong agar bisa ditinjau. Jangan gabungkan ke `main` atau menerapkan migrasi ke Production sebelum gate yang relevan selesai.
 
 ## Larangan dan batas checkpoint
 
@@ -80,3 +80,4 @@ Belum terverifikasi:
 - Jangan menggunakan VQE; kebijakan repo saat ini hanya mengizinkan PTSAS Production.
 - Jangan commit `.env`, secret, key PII, atau data pengguna.
 - PR #91 belum dinyatakan selesai/siap merge: build/lint lulus, tetapi review diff, uji database/integrasi, dan gate Production tim backend masih tersisa.
+
