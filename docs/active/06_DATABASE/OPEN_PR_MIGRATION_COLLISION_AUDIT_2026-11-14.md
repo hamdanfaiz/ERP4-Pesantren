@@ -92,3 +92,9 @@ Bagian ini memperbarui status PR dan benturan migrasi setelah pemeriksaan exact 
 ### Gate dan status
 
 PR #91 telah mempunyai bukti CI hijau pada exact head dan siap untuk **review source oleh tim backend**. Jangan menyebutnya siap deploy/Production: keputusan migrasi terhadap PR #92/#112/#116, review formal, UAT browser multi-role, pemeriksaan DDL Production, dan bukti pemulihan backup masih merupakan gate terpisah. Tidak ada database Production atau VQE yang diubah dalam tindak lanjut ini.
+
+### Pembaruan pengamanan presisi target massal — 15 November 2026
+
+Pembaruan pada source PR #91: migrasi `20270328000000_tahfidz_bulk_daily_target_write_api.sql` kini menolak target Ziyadah maupun Murojaah yang memiliki lebih dari dua angka desimal sebelum iterasi/tulis. pgTAP menguji kedua nilai invalid dan merencanakan 22 assertion. Ini menutup perbedaan perlindungan presisi bulk yang sebelumnya dicatat sebagai kelebihan PR #116. CI pada exact commit baru menjadi bukti setelah run selesai; perubahan ini tidak diterapkan ke database cloud.
+
+Tabrakan nomor migrasi `20270327000000` dan perbedaan kontrak leaderboard PR #91/#116 tetap perlu keputusan source kanonis.
