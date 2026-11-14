@@ -10,6 +10,24 @@ export type QuranSurahReference = {
   jumlahAyat: number;
 };
 
+export function isValidSupabaseQuranAyahRange(
+  catalog: QuranSurahReference[],
+  surahName: string,
+  start: number,
+  end: number,
+): boolean {
+  const normalizedName = String(surahName || "").trim().toLocaleLowerCase("id-ID");
+  const surah = catalog.find((item) => item.namaLatin.toLocaleLowerCase("id-ID") === normalizedName);
+  return Boolean(
+    surah
+    && Number.isInteger(start)
+    && Number.isInteger(end)
+    && start >= 1
+    && end >= start
+    && end <= surah.jumlahAyat
+  );
+}
+
 export class SupabaseQuranCatalogError extends Error {
   status: number;
 

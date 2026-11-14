@@ -3,7 +3,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(51);
+SELECT plan(73);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -176,6 +176,85 @@ SELECT throws_ok(
   $$SELECT public.list_tahfidz_achievement_page('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','admin',CURRENT_DATE,NULL,100)$$,
   '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'achievement RPC rejects an actor-role mismatch'
 );
+
+-- Fixed synthetic dates keep leaderboard assertions deterministic across months and years.
+INSERT INTO public.tahfidz_records (
+  id, tenant_id, student_id, halaqah_id, activity_type, surah_name, ayah_start, ayah_end,
+  performed_at, recorded_by_user_id, client_request_id
+)
+VALUES (
+  'd1900000-0000-4000-8000-000000000604',
+  'd1900000-0000-4000-8000-000000000009',
+  'd1900000-0000-4000-8000-000000000201',
+  'd1900000-0000-4000-8000-000000000401',
+  'Ziyadah', 'Al-Baqarah', 3, 4,
+  TIMESTAMP '2030-11-14 12:00' AT TIME ZONE 'Asia/Jakarta',
+  'd1900000-0000-4000-8000-000000000011',
+  'd1900000-0000-4000-8000-000000000704'
+);
+INSERT INTO public.tahfidz_halaqahs (id, tenant_id, name, ustadz_user_id, ustadz_name, status)
+VALUES ('d1900000-0000-4000-8000-000000000402', 'd1900000-0000-4000-8000-000000000009', 'Halaqah Lain', NULL, 'Ustadz Lain', 'active');
+INSERT INTO public.tahfidz_records (
+  id, tenant_id, student_id, halaqah_id, activity_type, surah_name, ayah_start, ayah_end,
+  performed_at, recorded_by_user_id, client_request_id
+)
+VALUES (
+  'd1900000-0000-4000-8000-000000000605',
+  'd1900000-0000-4000-8000-000000000009',
+  'd1900000-0000-4000-8000-000000000202',
+  'd1900000-0000-4000-8000-000000000402',
+  'Ziyadah', 'Al-Fatihah', 3, 4,
+  TIMESTAMP '2030-11-12 09:00' AT TIME ZONE 'Asia/Jakarta',
+  'd1900000-0000-4000-8000-000000000011',
+  'd1900000-0000-4000-8000-000000000705'
+);
+INSERT INTO public.tahfidz_records (
+  id, tenant_id, student_id, halaqah_id, activity_type, surah_name, ayah_start, ayah_end,
+  performed_at, recorded_by_user_id, client_request_id
+)
+VALUES
+  ('d1900000-0000-4000-8000-000000000606', 'd1900000-0000-4000-8000-000000000009', 'd1900000-0000-4000-8000-000000000202', 'd1900000-0000-4000-8000-000000000401', 'Ziyadah', 'Al-Fatihah', 5, 6, TIMESTAMP '2030-11-11 09:00' AT TIME ZONE 'Asia/Jakarta', 'd1900000-0000-4000-8000-000000000011', 'd1900000-0000-4000-8000-000000000706'),
+  ('d1900000-0000-4000-8000-000000000607', 'd1900000-0000-4000-8000-000000000009', 'd1900000-0000-4000-8000-000000000202', 'd1900000-0000-4000-8000-000000000401', 'Ziyadah', 'Al-Fatihah', 7, 7, TIMESTAMP '2030-11-13 09:00' AT TIME ZONE 'Asia/Jakarta', 'd1900000-0000-4000-8000-000000000011', 'd1900000-0000-4000-8000-000000000707'),
+  ('d1900000-0000-4000-8000-000000000608', 'd1900000-0000-4000-8000-000000000009', 'd1900000-0000-4000-8000-000000000203', 'd1900000-0000-4000-8000-000000000401', 'Ziyadah', 'Al-Baqarah', 5, 6, TIMESTAMP '2030-11-13 11:00' AT TIME ZONE 'Asia/Jakarta', 'd1900000-0000-4000-8000-000000000011', 'd1900000-0000-4000-8000-000000000708');
+
+SELECT has_function('public', 'get_tahfidz_monthly_leaderboard', ARRAY['uuid','uuid','text','date','integer'], 'monthly Tahfidz leaderboard RPC exists');
+SELECT ok(NOT has_function_privilege('anon', 'public.get_tahfidz_monthly_leaderboard(uuid,uuid,text,date,integer)', 'EXECUTE'), 'anonymous users cannot execute leaderboard RPC');
+SELECT ok(NOT has_function_privilege('authenticated', 'public.get_tahfidz_monthly_leaderboard(uuid,uuid,text,date,integer)', 'EXECUTE'), 'authenticated clients cannot bypass the trusted leaderboard API');
+SELECT ok(has_function_privilege('service_role', 'public.get_tahfidz_monthly_leaderboard(uuid,uuid,text,date,integer)', 'EXECUTE'), 'trusted server can execute leaderboard RPC');
+SELECT is((public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',5)->>'participants')::INTEGER, 2, 'Admin participant count reflects students with persisted Ziyadah records');
+SELECT is(jsonb_array_length(public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',5)->'entries'), 2, 'Admin sees ranked students only when they have a monthly Ziyadah record');
+SELECT is((public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',5)->'entries'->0->>'studentId'), 'd1900000-0000-4000-8000-000000000202', 'highest persisted monthly setoran total ranks first');
+SELECT is((public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',5)->'entries'->0->>'setoranCount'), '3', 'ranking metric counts stored Ziyadah records');
+SELECT is((public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',5)->'entries'->0->>'activeDays'), '3', 'tie-break activity uses distinct tenant-local calendar days');
+SELECT ok(NOT ((public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',5)->'entries'->0) ? 'nis'), 'leaderboard output never includes NIS');
+SELECT is(jsonb_array_length(public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','ustadz',DATE '2030-11-13',5)->'entries'), 1, 'Ustadz ranking is restricted to students in assigned active halaqahs');
+SELECT is((public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','ustadz',DATE '2030-11-13',5)->'entries'->0->>'studentId'), 'd1900000-0000-4000-8000-000000000202', 'Ustadz cannot see another halaqah student in leaderboard');
+SELECT is((public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','ustadz',DATE '2030-11-13',5)->'entries'->0->>'setoranCount'), '2', 'Ustadz score excludes records from a different halaqah');
+SELECT is((public.get_tahfidz_monthly_leaderboard('d2900000-0000-4000-8000-000000000009','d2900000-0000-4000-8000-000000000021','admin',DATE '2030-11-13',5)->>'participants')::INTEGER, 0, 'tenant B leaderboard never includes tenant A records');
+SELECT throws_ok(
+  $$SELECT public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000013','santri',DATE '2030-11-13',5)$$,
+  '42501', 'Role tidak dapat melihat papan peringkat Tahfidz', 'student role cannot read peer leaderboard'
+);
+SELECT throws_ok(
+  $$SELECT public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000014','wali_santri',DATE '2030-11-13',5)$$,
+  '42501', 'Role tidak dapat melihat papan peringkat Tahfidz', 'guardian role cannot read other students leaderboard'
+);
+SELECT throws_ok(
+  $$SELECT public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000015','admin',DATE '2030-11-13',5)$$,
+  '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'leaderboard rejects an Admin without Tahfidz permission'
+);
+SELECT throws_ok(
+  $$SELECT public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000012','admin',DATE '2030-11-13',5)$$,
+  '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'leaderboard rejects actor-role mismatch'
+);
+SELECT throws_ok(
+  $$SELECT public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',21)$$,
+  '22023', 'Parameter papan peringkat Tahfidz tidak valid', 'leaderboard result limit above 20 is rejected'
+);
+SELECT is(jsonb_array_length(public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',1)->'entries'), 1, 'leaderboard respects a bounded requested result count');
+SELECT is((SELECT jsonb_agg(entry.value->>'position' ORDER BY entry.ordinality)::TEXT
+  FROM jsonb_array_elements(public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',5)->'entries') WITH ORDINALITY AS entry(value, ordinality)), '["1", "2"]', 'leaderboard ranks are deterministic and contiguous');
+SELECT ok(NOT (public.get_tahfidz_monthly_leaderboard('d1900000-0000-4000-8000-000000000009','d1900000-0000-4000-8000-000000000011','admin',DATE '2030-11-13',5)->'entries') @> '[{"studentId":"d1900000-0000-4000-8000-000000000201"}]'::JSONB, 'records after the tenant business date are excluded');
 
 
 -- A volume smoke test keeps tenant keyset pagination stable on a large synthetic roster.
