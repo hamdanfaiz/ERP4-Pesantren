@@ -1409,6 +1409,69 @@ export async function recordSupabaseTahfidzTarget(
 }
 
 
+export async function recordSupabaseTahfidzTargetsBulk(
+  tenantIdentifier: string,
+  actorSupabaseUid: string,
+  legacyRole: string,
+  payloadValue: unknown
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const expectedRole = legacySupabaseRole(legacyRole);
+  if (!expectedRole) throw new SupabaseTahfidzError(403, "Role ini tidak dapat mengatur target Tahfidz.");
+  if (!payloadValue || typeof payloadValue !== "object" || Array.isArray(payloadValue)) {
+    throw new SupabaseTahfidzError(400, "Data target massal Tahfidz tidak valid.");
+  }
+  const payload = payloadValue as JsonObject;
+  if (!Array.isArray(payload.studentIds) || payload.studentIds.length < 1 || payload.studentIds.length > 250) {
+    throw new SupabaseTahfidzError(400, "Pilih antara 1 sampai 250 santri untuk target massal.");
+  }
+  const studentIds = payload.studentIds.map((value: unknown) => String(value || "").trim().toLowerCase());
+  if (studentIds.some((studentId: string) => !isUuid(studentId))) {
+    throw new SupabaseTahfidzError(400, "Daftar santri target massal tidak valid.");
+  }
+  const canonicalStudentIds = [...studentIds].sort();
+  if (new Set(canonicalStudentIds).size !== canonicalStudentIds.length) {
+    throw new SupabaseTahfidzError(400, "Santri yang sama tidak boleh dipilih lebih dari sekali.");
+  }
+  const periodStart = targetDate(payload.periodStart, "Tanggal mulai target")!;
+  const periodEnd = targetDate(payload.periodEnd, "Tanggal akhir target", true);
+  if (periodEnd && periodEnd < periodStart) throw new SupabaseTahfidzError(400, "Tanggal akhir tidak boleh sebelum tanggal mulai.");
+  const ziyadahPagesPerDay = targetPages(payload.ziyadahPagesPerDay, "Target ziyadah");
+  const murojaahPagesPerDay = targetPages(payload.murojaahPagesPerDay, "Target muroja'ah");
+  if (ziyadahPagesPerDay === 0 && murojaahPagesPerDay === 0) {
+    throw new SupabaseTahfidzError(400, "Minimal satu target harian harus lebih dari nol.");
+  }
+  const policy = String(payload.policy || "").trim();
+  if (!["standard", "strict"].includes(policy)) throw new SupabaseTahfidzError(400, "Kebijakan target tidak valid.");
+  const notes = boundedText(payload.notes, 1000, "Catatan target");
+  const requestId = String(payload.clientRequestId || "").trim();
+  if (!isUuid(requestId)) throw new SupabaseTahfidzError(400, "Kunci permintaan target massal tidak valid.");
+  const supabaseUserId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
+  const result = await supabaseRequest("/rest/v1/rpc/record_tahfidz_daily_targets_bulk", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_student_ids: canonicalStudentIds,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+      p_ziyadah_pages_per_day: ziyadahPagesPerDay,
+      p_murojaah_pages_per_day: murojaahPagesPerDay,
+      p_target_policy: policy,
+      p_notes: notes || null,
+      p_created_by_user_id: supabaseUserId,
+      p_expected_role: expectedRole,
+      p_client_request_id: requestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true
+    || Number(result.count) !== canonicalStudentIds.length
+    || !Array.isArray(result.targets) || result.targets.length !== canonicalStudentIds.length) {
+    throw new SupabaseTahfidzError(503, "Backend belum mengonfirmasi penyimpanan seluruh target.");
+  }
+  return result as JsonObject;
+}
+
+
 async function resolveSupabaseTahfidzActor(tenantId: string, actorSupabaseUid: string, expectedRole: string) {
   if (!isUuid(actorSupabaseUid)) throw new SupabaseTahfidzError(401, "Sesi pengguna Supabase tidak valid.");
   if (!["admin", "super_admin", "ustadz", "santri", "wali_santri"].includes(expectedRole)) {

@@ -512,6 +512,9 @@ export function TahfidzManager() {
   const pendingSetoranRequest = useRef<{ signature: string; requestId: string; payload: Record<string, any> } | null>(null);
   const pendingWriteRequestIds = useRef(new Map<string, string>());
   const [isSavingTarget, setIsSavingTarget] = useState(false);
+  const [targetFormError, setTargetFormError] = useState("");
+  const [selectedTargetStudentIds, setSelectedTargetStudentIds] = useState<string[]>([]);
+  const [bulkTargetStudentIds, setBulkTargetStudentIds] = useState<string[]>([]);
   const [targetForm, setTargetForm] = useState({
     studentId: "",
     ziyadahPagesPerDay: "1",
@@ -575,6 +578,12 @@ export function TahfidzManager() {
   const [monthlyLeaderboardError, setMonthlyLeaderboardError] = useState("");
   const [monthlyLeaderboardScopeKey, setMonthlyLeaderboardScopeKey] = useState("");
   const monthlyLeaderboardRequestSequence = useRef(0);
+
+  useEffect(() => {
+    setSelectedTargetStudentIds([]);
+    setBulkTargetStudentIds([]);
+    setTargetFormError("");
+  }, [user?.tenantId, user?.uid]);
 
   useEffect(() => {
     if (role !== "Walisantri") {
@@ -914,11 +923,13 @@ export function TahfidzManager() {
       setIsTargetModalOpen(false);
       return;
     }
-    if (!targetForm.studentId) {
-      setTahfidzError("Pilih santri sebelum menyimpan target.");
+    const targetStudentIds = [...bulkTargetStudentIds];
+    if (!targetStudentIds.length && !targetForm.studentId) {
+      setTargetFormError("Pilih santri sebelum menyimpan target.");
       return;
     }
     setIsSavingTarget(true);
+    setTargetFormError("");
     setTahfidzError("");
     try {
       const target = {
@@ -927,19 +938,25 @@ export function TahfidzManager() {
         ziyadahPagesPerDay: Number(targetForm.ziyadahPagesPerDay),
         murojaahPagesPerDay: Number(targetForm.murojaahPagesPerDay),
       };
-      const signature = JSON.stringify({ action: "target", tenantId: user?.tenantId || "", userId: user?.uid || "", target });
+      const isBulk = targetStudentIds.length > 0;
+      const requestPayload = isBulk ? { ...target, studentIds: [...targetStudentIds].sort() } : target;
+      const signature = JSON.stringify({ action: isBulk ? "target-bulk" : "target", tenantId: user?.tenantId || "", userId: user?.uid || "", target: requestPayload });
       const clientRequestId = tahfidzWriteRequestId(signature);
-      await requestSupabaseTahfidzApi("/api/tahfidz/targets", {
+      await requestSupabaseTahfidzApi(isBulk ? "/api/tahfidz/targets/bulk" : "/api/tahfidz/targets", {
         method: "POST",
-        body: JSON.stringify({ target: { ...target, clientRequestId } }),
+        body: JSON.stringify({ target: { ...requestPayload, clientRequestId } }),
       });
       releaseTahfidzWriteRequestId(signature, clientRequestId);
       setIsTargetModalOpen(false);
       setDashboardActionStudent(null);
+      setBulkTargetStudentIds([]);
+      if (isBulk) setSelectedTargetStudentIds((current) => current.filter((id) => !targetStudentIds.includes(id)));
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Target tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang snapshot sebelum melakukan perubahan berikutnya."); }
     } catch (error: any) {
-      setTahfidzError(error?.message || "Target Tahfidz belum dapat disimpan.");
+      const message = error?.message || "Target Tahfidz belum dapat disimpan.";
+      setTargetFormError(message);
+      setTahfidzError(message);
     } finally {
       setIsSavingTarget(false);
     }
@@ -2077,26 +2094,33 @@ export function TahfidzManager() {
             <h2 className="font-semibold text-slate-900 dark:text-slate-100">Target Harian Santri</h2>
             <p className="mt-1 text-sm text-slate-500">{isTahfidzLearner ? "Target aktif untuk santri yang tertaut dengan akun ini." : "Target aktif ditarik dari backend Supabase."}</p>
           </div>
-          {canManageTargets && <button onClick={() => setIsTargetModalOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">
-            <Plus className="h-4 w-4" /> Atur Target
-          </button>}
+          {canManageTargets && <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setTargetFormError(""); setBulkTargetStudentIds([]); setTargetForm({ studentId: "", ziyadahPagesPerDay: "1", murojaahPagesPerDay: "0.5", periodStart: currentTenantDate(), periodEnd: "", policy: "standard" }); setIsTargetModalOpen(true); }} className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-400/10">
+              <Plus className="h-4 w-4" /> Atur Target
+            </button>
+            <button type="button" disabled={!selectedTargetStudentIds.length || selectedTargetStudentIds.length > 250} onClick={() => { setTargetFormError(""); setBulkTargetStudentIds([...selectedTargetStudentIds]); setTargetForm({ studentId: "", ziyadahPagesPerDay: "1", murojaahPagesPerDay: "0.5", periodStart: currentTenantDate(), periodEnd: "", policy: "standard" }); setIsTargetModalOpen(true); }} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
+              <Users className="h-4 w-4" /> Atur Target Terpilih ({selectedTargetStudentIds.length})
+            </button>
+            {selectedTargetStudentIds.length > 250 && <p className="basis-full text-xs text-amber-700 dark:text-amber-300">Pilih maksimal 250 santri dalam satu penerapan target.</p>}
+          </div>}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left text-sm">
-            <thead className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-white/10"><tr><th className="px-3 py-3">Santri</th><th className="px-3 py-3">Halaqah</th><th className="px-3 py-3">Ziyadah / hari</th><th className="px-3 py-3">Muroja'ah / hari</th><th className="px-3 py-3">Periode</th><th className="px-3 py-3">Kebijakan</th><th className="px-3 py-3">Aksi</th></tr></thead>
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-white/10"><tr>{canManageTargets && <th className="w-10 px-3 py-3"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-emerald-600" aria-label="Pilih semua santri yang termuat" checked={santriList.length > 0 && santriList.every((student) => selectedTargetStudentIds.includes(String(student.id)))} onChange={(event) => { const visibleIds = santriList.map((student) => String(student.id)); setSelectedTargetStudentIds((current) => event.target.checked ? [...new Set([...current, ...visibleIds])] : current.filter((id) => !visibleIds.includes(id))); }} /></th>}<th className="px-3 py-3">Santri</th><th className="px-3 py-3">Halaqah</th><th className="px-3 py-3">Ziyadah / hari</th><th className="px-3 py-3">Muroja'ah / hari</th><th className="px-3 py-3">Periode</th><th className="px-3 py-3">Kebijakan</th><th className="px-3 py-3">Aksi</th></tr></thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
               {santriList.map((student) => (
                 <tr key={student.id}>
+                  {canManageTargets && <td className="px-3 py-3"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-emerald-600" aria-label={`Pilih santri ${student.name}`} checked={selectedTargetStudentIds.includes(String(student.id))} onChange={(event) => setSelectedTargetStudentIds((current) => event.target.checked ? [...new Set([...current, String(student.id)])] : current.filter((id) => id !== String(student.id)))} /></td>}
                   <td className="px-3 py-3"><span className="font-medium text-slate-800 dark:text-slate-200">{student.name}</span><span className="block text-xs text-slate-500">{student.nis}</span></td>
                   <td className="px-3 py-3 text-slate-600 dark:text-slate-400">{student.halaqah || "Belum ditempatkan"}</td>
                   <td className="px-3 py-3">{student.target ? `${student.target.ziyadahPagesPerDay} halaman` : "Belum diatur"}</td>
                   <td className="px-3 py-3">{student.target ? `${student.target.murojaahPagesPerDay} halaman` : "Belum diatur"}</td>
                   <td className="px-3 py-3 text-slate-600 dark:text-slate-400">{student.target ? `${student.target.periodStart} – ${student.target.periodEnd || "seterusnya"}` : "—"}</td>
                   <td className="px-3 py-3 capitalize">{student.target?.policy || "—"}</td>
-          <td className="px-3 py-3">{canManageTargets ? <button onClick={() => { setTargetForm({ studentId: student.id, ziyadahPagesPerDay: String(student.target?.ziyadahPagesPerDay ?? 1), murojaahPagesPerDay: String(student.target?.murojaahPagesPerDay ?? 0.5), periodStart: student.target?.periodStart || currentTenantDate(), periodEnd: student.target?.periodEnd || "", policy: student.target?.policy || "standard" }); setIsTargetModalOpen(true); }} className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-white/10 dark:text-emerald-400 dark:hover:bg-white/5">Sesuaikan</button> : "—"}</td>
+          <td className="px-3 py-3">{canManageTargets ? <button onClick={() => { setTargetFormError(""); setBulkTargetStudentIds([]); setTargetForm({ studentId: student.id, ziyadahPagesPerDay: String(student.target?.ziyadahPagesPerDay ?? 1), murojaahPagesPerDay: String(student.target?.murojaahPagesPerDay ?? 0.5), periodStart: student.target?.periodStart || currentTenantDate(), periodEnd: student.target?.periodEnd || "", policy: student.target?.policy || "standard" }); setIsTargetModalOpen(true); }} className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-white/10 dark:text-emerald-400 dark:hover:bg-white/5">Sesuaikan</button> : "—"}</td>
                 </tr>
               ))}
-              {!santriList.length && <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-500">{tahfidzLoading ? "Memuat data…" : "Belum ada data santri."}</td></tr>}
+              {!santriList.length && <tr><td colSpan={canManageTargets ? 8 : 7} className="px-3 py-8 text-center text-slate-500">{tahfidzLoading ? "Memuat data…" : "Belum ada data santri."}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -3965,15 +3989,15 @@ export function TahfidzManager() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    Set Target Harian
+                    {bulkTargetStudentIds.length ? `Atur Target untuk ${bulkTargetStudentIds.length} Santri` : "Set Target Harian"}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Atur komitmen ziyadah dan muroja'ah
+                    {bulkTargetStudentIds.length ? "Perubahan diterapkan dalam satu transaksi; semua santri harus memenuhi aturan tenant dan halaqah." : "Atur komitmen ziyadah dan muroja'ah"}
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => { setIsTargetModalOpen(false); setDashboardActionStudent(null); }}
+                onClick={() => { setIsTargetModalOpen(false); setDashboardActionStudent(null); setBulkTargetStudentIds([]); setTargetFormError(""); }}
                 className="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-colors text-slate-500"
               >
                 <X className="w-4 h-4" />
@@ -3981,7 +4005,10 @@ export function TahfidzManager() {
             </div>
 
             <div className="p-6 space-y-5">
-              <div>
+              {targetFormError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-200">{targetFormError}</p>}
+              {bulkTargetStudentIds.length ? <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200">
+                Target ini akan diterapkan kepada <strong>{bulkTargetStudentIds.length} santri terpilih</strong>. Jika satu santri tidak valid atau berada di luar halaqah tugas Ustadz, seluruh perubahan dibatalkan.
+              </div> : <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                   Pilih Santri
                 </label>
@@ -3995,7 +4022,7 @@ export function TahfidzManager() {
                   onSelect={(student) => setTargetForm((current) => ({ ...current, studentId: String(student?.id || "") }))}
                 /> : <select value={targetForm.studentId || ""} onChange={(event) => setTargetForm((current) => ({ ...current, studentId: event.target.value }))} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 dark:border-white/10 dark:bg-black/40 dark:text-slate-200"><option value="">Pilih santri…</option>{selectableSantri.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.nis}</option>)}</select>}
                 {rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}
-              </div>
+              </div>}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -4038,17 +4065,17 @@ export function TahfidzManager() {
 
             <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40 flex justify-end gap-3">
               <button
-                onClick={() => { setIsTargetModalOpen(false); setDashboardActionStudent(null); }}
+                onClick={() => { setIsTargetModalOpen(false); setDashboardActionStudent(null); setBulkTargetStudentIds([]); setTargetFormError(""); }}
                 className="px-4 py-2 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/5 font-medium transition-colors border border-slate-200 dark:border-transparent bg-white dark:bg-slate-900"
               >
                 Batal
               </button>
               <button
                 onClick={() => void handleTargetSubmit()}
-                disabled={isSavingTarget || !targetForm.studentId}
+                disabled={isSavingTarget || (bulkTargetStudentIds.length ? bulkTargetStudentIds.length > 250 : !targetForm.studentId)}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
               >
-                {isSavingTarget ? "Menyimpan…" : "Simpan Target"}
+                {isSavingTarget ? "Menyimpan…" : bulkTargetStudentIds.length ? `Terapkan ke ${bulkTargetStudentIds.length} Santri` : "Simpan Target"}
               </button>
             </div>
           </div>
