@@ -39,6 +39,16 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - GitHub Actions lulus: replay migrasi dari batas Production, 69 file suite pgTAP (1.739 assertion), pemeriksaan konkurensi NIS/slot Ustadz/penempatan kamar, API/auth/isolasi tenant, Storage, backup/restore lokal, frontend/container, serta instalasi NPM. Runner membuktikan target di bawah presisi dua desimal ditolak.
 - PC lokal tidak memiliki Docker dan Supabase lokal di port `54322`; uji database dijalankan di runner GitHub terisolasi.
 
+### Verifikasi lanjutan (14 November 2026)
+
+- `npm run build` — lulus pada preview worktree yang memakai file UI Tahfidz dari branch ini. Ada peringatan ukuran chunk dan anotasi `zod`, tetapi tidak menghentikan build.
+- `npm run lint` — lulus.
+- `npm run test:supabase-quran-catalog`, `npm run test:tahfidz-achievements`, `npm run test:tahfidz-record-pagination`, `npm run test:tahfidz-session-pagination`, `npm run test:tahfidz-membership-date`, `npm run test:migration-preflight`, dan `npm run test:supabase-runtime-no-firebase` — lulus.
+- Tes katalog menampilkan log `503` sebagai skenario negatif yang memang disimulasikan untuk memastikan sistem gagal-aman; itu bukan hasil pembacaan live.
+- Baca-saja langsung ke katalog `quran_surahs` VQE mengembalikan HTTP `200`, 114 Surah, nomor berurutan 1–114. Tidak membaca data santri dan tidak menulis ke database.
+- Server preview lokal di `127.0.0.1:3000` merespons `/health/live` dan `/health/ready` dengan `200`. Runtime config menunjukkan Tahfidz dan Data Induk aktif; flag PPDB, onboarding PPDB, dan lampiran PPDB masih nonaktif pada konfigurasi VQE yang digunakan.
+- Belum menjalankan UAT visual dengan Admin/Ustadz/Santri/Wali pada sesi browser, serta belum menguji perubahan data karena memerlukan sesi login dan skenario sintetis yang disepakati.
+
 ## Audit VQE staging (baca-saja, 14 November 2026)
 
 - Ledger VQE memuat 150 versi; source branch memuat 152 file migrasi. VQE melewatkan delapan versi source: `20270215500000`, `20270309000000`, `20270310000000`, `20270311000000`, `20270313000000`, `20270320000000`, `20270327000000`, dan `20270328000000`.
@@ -58,3 +68,4 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - Migrasi hanya ditambahkan ke source; tidak diterapkan pada Supabase staging atau Production.
 - Jangan jalankan `db push` otomatis atau menjalankan migrasi pada Production dari checkpoint ini. Rekonsiliasi ledger/DDL dan persetujuan backend tetap diperlukan.
 - Jangan mengganti alur ranking dengan data contoh atau membocorkan nama santri kepada role Santri/Wali.
+
