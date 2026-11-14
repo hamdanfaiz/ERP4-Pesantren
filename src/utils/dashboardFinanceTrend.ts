@@ -20,6 +20,12 @@ function finiteAmount(value: unknown): number {
   return Number.isFinite(amount) ? amount : 0;
 }
 
+export function hasDashboardFinanceActivity(rows: DashboardFinanceTrendInput[] | undefined): boolean {
+  return Array.isArray(rows) && rows.some((row) =>
+    [row?.income, row?.expense, row?.walletDeposits, row?.walletRedemptions].some((value) => finiteAmount(value) !== 0),
+  );
+}
+
 /** Returns closed UTC months only, so a partial current month is not compared as if complete. */
 export function getCompletedDashboardFinanceTrend(
   rows: DashboardFinanceTrendInput[],
