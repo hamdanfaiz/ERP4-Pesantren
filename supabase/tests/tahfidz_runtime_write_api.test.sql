@@ -4,7 +4,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SET LOCAL TIME ZONE 'UTC';
-SELECT plan(93);
+SELECT plan(99);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -280,6 +280,9 @@ SELECT is((public.list_tahfidz_leaderboard(
 SELECT is((public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5
 )->'students'->0->>'ziyadahActiveDays'), '2', 'monthly leaderboard exposes the active day count');
+SELECT ok(NOT ((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5
+)->'students'->0) ? 'nis'), 'leaderboard output never includes student NIS');
 SELECT is((public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5
 )->'students'->1->>'id'), 'd1800000-0000-4000-8000-000000000202', 'monthly leaderboard uses tenant-local active days to break ties');
@@ -307,6 +310,12 @@ SELECT is((public.list_tahfidz_leaderboard(
 SELECT is((public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5
 )->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000202', 'Ustadz sees a student in their assigned halaqah');
+SELECT ok((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1
+)->>'hasMore')::BOOLEAN
+AND jsonb_array_length((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1
+)->'students')) = 1, 'leaderboard limit is bounded and signals additional results');
 SELECT ok(NOT EXISTS (
   SELECT 1 FROM jsonb_array_elements((public.list_tahfidz_leaderboard(
     'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5
@@ -316,9 +325,25 @@ SELECT ok(NOT EXISTS (
 SELECT throws_ok($$SELECT public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd2800000-0000-4000-8000-000000000021', 'admin', CURRENT_DATE, 5
 )$$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'administrator from another tenant cannot read leaderboard data');
-SELECT throws_ok($$SELECT public.list_tahfidz_leaderboard(
+SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'santri', CURRENT_DATE, 5
-)$$, '42501', 'Role tidak dapat membaca leaderboard Tahfidz', 'learner role cannot read other students leaderboard data');
+)$, '42501', 'Role tidak dapat membaca leaderboard Tahfidz', 'learner role cannot read other students leaderboard data');
+SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000014', 'wali_santri', CURRENT_DATE, 5
+)$, '42501', 'Role tidak dapat membaca leaderboard Tahfidz', 'guardian role cannot read other students leaderboard data');
+UPDATE public.profiles SET module_permissions = '{"tahfidz":false}'::jsonb
+WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND user_id = 'd1800000-0000-4000-8000-000000000011';
+SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5
+)$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'leaderboard rejects an Admin without Tahfidz permission');
+UPDATE public.profiles SET module_permissions = '{"tahfidz":true}'::jsonb
+WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND user_id = 'd1800000-0000-4000-8000-000000000011';
+SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'admin', CURRENT_DATE, 5
+)$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'leaderboard rejects an actor-role mismatch');
+SELECT throws_ok($SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 21
+)$, '22023', 'Parameter leaderboard Tahfidz tidak valid', 'leaderboard rejects a requested limit above 20');
 SELECT ok(NOT has_function_privilege('anon', to_regprocedure('public.list_tahfidz_leaderboard(uuid,uuid,text,date,integer)'), 'EXECUTE'), 'anon cannot execute Tahfidz leaderboard RPC');
 SELECT ok(NOT has_function_privilege('authenticated', to_regprocedure('public.list_tahfidz_leaderboard(uuid,uuid,text,date,integer)'), 'EXECUTE'), 'authenticated cannot execute Tahfidz leaderboard RPC');
 SELECT ok(has_function_privilege('service_role', to_regprocedure('public.list_tahfidz_leaderboard(uuid,uuid,text,date,integer)'), 'EXECUTE'), 'trusted server role can execute Tahfidz leaderboard RPC');
