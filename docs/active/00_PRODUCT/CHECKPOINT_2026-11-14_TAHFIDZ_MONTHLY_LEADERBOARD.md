@@ -64,6 +64,13 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - Katalog leaderboard dan batch target memang sudah ada di VQE. Metadata tabel batch cocok dengan kolom, kunci, FK, dan checks yang diharapkan; RLS dipaksa, akses baca klien tertutup, dan akses service role sesuai. RPC batch VQE berstatus `SECURITY INVOKER`, tetapi belum memiliki validasi presisi dua desimal yang baru ditambahkan.
 - Migrasi batch source saat ini memakai `CREATE TABLE` tanpa `IF NOT EXISTS`; karena tabel tersebut sudah ada di VQE, migrasi tidak boleh didorong langsung ke sana. Selisih ledger umum di atas perlu direkonsiliasi sebelum `db push`/UAT berbasis branch. Pemeriksaan ini hanya membaca metadata; tidak ada perubahan cloud.
 
+### Konfirmasi katalog RPC dan hak akses baca-saja (14 November 2026)
+
+- Pemeriksaan `pg_catalog`/`information_schema` mengonfirmasi tabel tanda terima batch VQE sudah ada dengan 12 kolom, primary key tenant/request, foreign key tenant dan profil pembuat, serta check constraints; RLS dan FORCE RLS aktif.
+- `anon` dan `authenticated` tidak memiliki SELECT/INSERT pada tabel tanda terima. `service_role` memiliki SELECT/INSERT. Tabel tidak memiliki policy klien; aksesnya tetap melalui RPC server.
+- `record_tahfidz_daily_target` adalah `SECURITY INVOKER`, `search_path=pg_catalog, public`, dan memvalidasi presisi dua desimal. `record_tahfidz_daily_targets_bulk` juga `SECURITY INVOKER` dengan search path tetap; RPC hanya dapat dijalankan `service_role`, tetapi definisi VQE saat ini belum memvalidasi presisi dua desimal. Source PR #116 menambahkan validasi tersebut.
+- Hasil ini menguatkan batas akses staging, tetapi bukan uji simpan-baca API, transaksi batch, role/tenant lintas akun, atau bukti bahwa DDL VQE sama dengan source. Karena tabel batch sudah ada dan file source dimulai dengan `CREATE TABLE` tanpa kondisi, jangan menjalankan source migration secara langsung pada VQE.
+
 ## Yang belum terverifikasi
 
 1. UAT UI dengan Admin, Ustadz, Santri, dan Wali memakai roster sintetis pada lingkungan yang disetujui. Pastikan cakupan halaqah, privasi leaderboard, dan akses target benar untuk tiap peran.
@@ -86,4 +93,5 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - Migrasi hanya ditambahkan ke source; tidak diterapkan pada Supabase staging atau Production.
 - Jangan jalankan `db push` otomatis atau menjalankan migrasi pada Production dari checkpoint ini. Rekonsiliasi ledger/DDL dan persetujuan backend tetap diperlukan.
 - Jangan mengganti alur ranking dengan data contoh atau membocorkan nama santri kepada role Santri/Wali.
+
 
