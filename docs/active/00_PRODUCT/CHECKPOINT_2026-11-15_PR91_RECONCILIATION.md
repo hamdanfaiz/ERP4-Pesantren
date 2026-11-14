@@ -70,7 +70,7 @@ Belum terverifikasi:
 ## Koreksi Tahfidz: validasi Surah dan ayat pada server
 
 - Jalur pencatatan setoran memverifikasi aktor tenant aktif, memuat katalog Surah Supabase, lalu menolak nama atau rentang ayat yang tidak cocok sebelum RPC transaksi. Nilai yang ditulis memakai ejaan kanonis katalog, bukan kapitalisasi dari input pengguna.
-- Tes request sintetis membuktikan rentang ayat di luar jumlah ayat ditolak sebelum RPC, sedangkan input valid dengan kapitalisasi berbeda disimpan memakai nama kanonis.
+- Tes request sintetis membuktikan Surah tidak dikenal dan rentang di luar jumlah ayat ditolak sebelum RPC, katalog yang hanya berisi 113 Surah menyebabkan penolakan 503 tanpa RPC, dan input valid dengan kapitalisasi berbeda disimpan memakai nama kanonis.
 - `npm run test:supabase-quran-catalog`, `npm run test:tahfidz-quran-catalog`, `npm run lint`, dan `npm run build` lulus lokal. Build tetap mencatat peringatan ukuran chunk PDF yang sudah ada.
 - UAT browser dan simpan-baca dengan akun pengguna belum terbukti; tidak ada perubahan database atau Production.
 

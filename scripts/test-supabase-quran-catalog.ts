@@ -99,6 +99,17 @@ async function run() {
       (error: unknown) => error instanceof SupabaseTahfidzError && error.status === 400,
     );
     assert.equal(setoranWrites, 0, "A verse outside the selected Surah must be rejected before the transaction RPC.");
+    await assert.rejects(
+      recordSupabaseTahfidzSetoran(
+        tenantId,
+        actorId,
+        "Admin",
+        "Admin Uji",
+        makeSetoran("Unknown", "1-2", "00000000-0000-4000-8000-000000000007"),
+      ),
+      (error: unknown) => error instanceof SupabaseTahfidzError && error.status === 400,
+    );
+    assert.equal(setoranWrites, 0, "An unknown Surah must be rejected before the transaction RPC.");
 
     const stored = await recordSupabaseTahfidzSetoran(
       tenantId,
@@ -114,6 +125,32 @@ async function run() {
     globalThis.fetch = (async () => new Response(JSON.stringify(rows.slice(0, 113)), { status: 200 })) as typeof fetch;
     await assert.rejects(listSupabaseQuranSurahs(), (error: unknown) =>
       error instanceof SupabaseQuranCatalogError && /belum lengkap/.test(error.message));
+
+    globalThis.fetch = (async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/rest/v1/tenants") {
+        return new Response(JSON.stringify([{ id: tenantId, status: "active" }]), { status: 200 });
+      }
+      if (url.pathname === "/rest/v1/profiles") {
+        return new Response(JSON.stringify([{ user_id: actorId, role: "admin", status: "active" }]), { status: 200 });
+      }
+      if (url.pathname === "/rest/v1/quran_surahs") {
+        return new Response(JSON.stringify(rows.slice(0, 113)), { status: 200 });
+      }
+      if (url.pathname === "/rest/v1/rpc/record_tahfidz_setoran") setoranWrites += 1;
+      throw new Error(`Unexpected request for an incomplete Quran catalog: ${url.pathname}`);
+    }) as typeof fetch;
+    await assert.rejects(
+      recordSupabaseTahfidzSetoran(
+        tenantId,
+        actorId,
+        "Admin",
+        "Admin Uji",
+        makeSetoran("Surah 1", "1-7", "00000000-0000-4000-8000-000000000008"),
+      ),
+      (error: unknown) => error instanceof SupabaseTahfidzError && error.status === 503,
+    );
+    assert.equal(setoranWrites, 1, "An incomplete catalog must fail closed without another transaction RPC.");
 
     const outOfOrderRows = [...rows];
     outOfOrderRows[0] = { ...outOfOrderRows[0], surah_number: 2 };
