@@ -1,7 +1,7 @@
 # Checkpoint Tahfidz — Leaderboard dan Target Massal
 
 Tanggal: 14 November 2026
-Status: fitur leaderboard dan target massal sudah ada di PR #116; validasi target pecahan diperbaiki. CI mengonfirmasi penolakan itu, lalu menemukan dua ekspektasi pesan test yang tidak cocok dan kini sudah diselaraskan; UAT akun belum selesai.
+Status: CI GitHub lulus pada commit `c394da9` untuk fitur dan migrasi; UAT antarmuka berbasis akun/roster sintetis belum selesai.
 Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak santri.
 
 ## Perubahan
@@ -36,11 +36,12 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - `npm run test:api-route-auth-policy` — lulus; route baru masuk daftar API privat yang memerlukan autentikasi.
 - `npm run test:private-api-schema`, `npm run test:ci-coverage`, `npm run test:tahfidz-membership-date`, dan `npm run test:tahfidz-achievements` — lulus.
 - `npm run test:supabase-quran-catalog` — lulus untuk kasus layanan tidak tersedia yang harus gagal-aman.
-- Uji pgTAP dan API/auth/tenant lokal belum berjalan karena Supabase lokal tidak tersedia di port `54322` dan Docker tidak terpasang. CI pada `47426f6` mengungkap target sub-cent dibulatkan. CI berikutnya membuktikan penolakan sudah bekerja tetapi mendeteksi dua ekspektasi teks pada pgTAP yang keliru; test diselaraskan dan menunggu CI ulang.
+- GitHub Actions lulus: replay migrasi dari batas Production, 69 file suite pgTAP (1.739 assertion), pemeriksaan konkurensi NIS/slot Ustadz/penempatan kamar, API/auth/isolasi tenant, Storage, backup/restore lokal, frontend/container, serta instalasi NPM. Runner membuktikan target di bawah presisi dua desimal ditolak.
+- PC lokal tidak memiliki Docker dan Supabase lokal di port `54322`; uji database dijalankan di runner GitHub terisolasi.
 
 ## Yang belum terverifikasi
 
-1. UAT UI dengan Admin, Ustadz, Santri, dan Wali pada lingkungan yang disetujui. Pastikan cakupan halaqah, privasi leaderboard, dan akses target benar untuk tiap peran.
+1. UAT UI dengan Admin, Ustadz, Santri, dan Wali memakai roster sintetis pada lingkungan yang disetujui. Pastikan cakupan halaqah, privasi leaderboard, dan akses target benar untuk tiap peran.
 2. Periksa tenant tanpa setoran, perubahan leaderboard setelah setoran tersimpan, batch target sukses, dan batch yang dibatalkan karena satu santri tidak sah.
 3. Backend reviewer menilai DDL, indeks, batas transaksi, dan urutan migrasi sebelum penerapan.
 
