@@ -1,4 +1,5 @@
 import { listGuardianStudentIds } from "./identityStore";
+import { isValidSupabaseQuranAyahRange, listSupabaseQuranSurahs } from "./supabaseQuranCatalog";
 import { createHash } from "node:crypto";
 import { isValidTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
 import { buildTahfidzRecordPageParams, encodeTahfidzRecordCursor, TAHFIDZ_RECORD_PAGE_SIZE } from "../lib/tahfidzRecordPagination";
@@ -875,6 +876,15 @@ export async function recordSupabaseTahfidzSetoran(
   }
   const surahName = boundedText(payload.surahName, 100, "Nama surah", true);
   const { start, end } = parseAyahRange(payload.ayahRange);
+  let quranCatalog;
+  try {
+    quranCatalog = await listSupabaseQuranSurahs();
+  } catch {
+    throw new SupabaseTahfidzError(503, "Katalog Surah belum dapat dimuat. Silakan coba lagi.");
+  }
+  if (!isValidSupabaseQuranAyahRange(quranCatalog, surahName, start, end)) {
+    throw new SupabaseTahfidzError(400, "Surah dan rentang ayat tidak sesuai dengan pilihan yang tersedia.");
+  }
   const fluencyGrade = validGrade(payload.fluencyGrade, "Nilai kelancaran");
   const tajweedGrade = validGrade(payload.tajweedGrade, "Nilai tajwid");
   const notes = boundedText(payload.notes, 2000, "Catatan");

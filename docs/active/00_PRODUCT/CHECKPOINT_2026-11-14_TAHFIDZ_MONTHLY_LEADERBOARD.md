@@ -1,7 +1,7 @@
 # Checkpoint Tahfidz — Leaderboard dan Target Massal
 
 Tanggal: 14 November 2026
-Status: CI GitHub lulus pada commit `c394da9` untuk fitur dan migrasi; UAT antarmuka berbasis akun/roster sintetis belum selesai.
+Status: fitur PR #116 dan perbaikan katalog/tab dari PR #114 telah disatukan secara lokal pada branch integrasi `codex/tahfidz-pr114-116-integration-20261114`. Build dan pemeriksaan lokal lulus; push branch gabungan dan UAT browser masih menunggu.
 Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak santri.
 
 ## Perubahan
@@ -48,6 +48,14 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - Baca-saja langsung ke katalog `quran_surahs` VQE mengembalikan HTTP `200`, 114 Surah, nomor berurutan 1–114. Tidak membaca data santri dan tidak menulis ke database.
 - Server preview lokal di `127.0.0.1:3000` merespons `/health/live` dan `/health/ready` dengan `200`. Runtime config menunjukkan Tahfidz dan Data Induk aktif; flag PPDB, onboarding PPDB, dan lampiran PPDB masih nonaktif pada konfigurasi VQE yang digunakan.
 - Belum menjalankan UAT visual dengan Admin/Ustadz/Santri/Wali pada sesi browser, serta belum menguji perubahan data karena memerlukan sesi login dan skenario sintetis yang disepakati.
+
+## Integrasi katalog dan tab dari PR #114
+
+- Branch ini kini mempertahankan leaderboard dan API target massal PR #116 sekaligus pemilih Surah/ayat dari katalog Supabase, validasi nama/rentang ayat di server, penanganan katalog gagal-aman, dan tab Tahfidz yang dapat digulir dari PR #114.
+- Uji katalog memeriksa skenario katalog lengkap, tidak lengkap, urutan tidak valid, layanan gagal, pilihan Surah berbasis referensi, batas jumlah ayat, serta penolakan rentang yang tidak valid.
+- `npm run lint`, `npm run build`, dan paket tes lokal yang tercantum pada bagian verifikasi 14 November lulus setelah penggabungan source ini.
+- Perubahan belum dipush ke branch PR #116 pada checkpoint ini. Setelah dipush, CI baru harus selesai sebelum status PR diperbarui.
+- UAT interaksi dengan akun staging dan roster sintetis belum dibuktikan. Jangan menyatakan PR siap merge hanya berdasarkan build/test lokal.
 
 ## Audit VQE staging (baca-saja, 14 November 2026)
 
