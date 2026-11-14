@@ -4,7 +4,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SET LOCAL TIME ZONE 'UTC';
-SELECT plan(99);
+SELECT plan(100);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -316,6 +316,9 @@ SELECT ok((public.list_tahfidz_leaderboard(
 AND jsonb_array_length((public.list_tahfidz_leaderboard(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1
 )->'students')) = 1, 'leaderboard limit is bounded and signals additional results');
+SELECT is((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1
+)->>'participants')::INTEGER, 2, 'participant count includes every scored student beyond the selected page limit');
 SELECT ok(NOT EXISTS (
   SELECT 1 FROM jsonb_array_elements((public.list_tahfidz_leaderboard(
     'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5
