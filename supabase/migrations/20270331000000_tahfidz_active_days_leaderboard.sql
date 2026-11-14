@@ -22,6 +22,7 @@ DECLARE
   v_scope_check JSONB;
   v_students JSONB := '[]'::JSONB;
   v_has_more BOOLEAN := FALSE;
+  v_participants BIGINT := 0;
 BEGIN
   IF p_tenant_id IS NULL OR p_actor_user_id IS NULL OR p_business_date IS NULL
     OR p_limit IS NULL OR p_limit < 1 OR p_limit > 20 THEN
@@ -101,7 +102,8 @@ BEGIN
       monthly_scores.*,
       row_number() OVER (
         ORDER BY ziyadah_records DESC, ziyadah_ayahs DESC, ziyadah_active_days DESC, student_name, id
-      )::INTEGER AS position
+      )::INTEGER AS position,
+      count(*) OVER () AS participant_count
     FROM monthly_scores
   ), limited AS (
     SELECT * FROM ranked ORDER BY position LIMIT p_limit + 1
@@ -117,15 +119,17 @@ BEGIN
       'ziyadahAyahs', limited.ziyadah_ayahs,
       'ziyadahActiveDays', limited.ziyadah_active_days
     ) ORDER BY limited.position) FILTER (WHERE limited.position <= p_limit), '[]'::JSONB),
-    COALESCE(bool_or(limited.position > p_limit), FALSE)
-  INTO v_students, v_has_more
+    COALESCE(bool_or(limited.position > p_limit), FALSE),
+    COALESCE(max(limited.participant_count), 0)
+  INTO v_students, v_has_more, v_participants
   FROM limited;
 
   RETURN jsonb_build_object(
     'periodStart', v_period_start,
     'businessDate', p_business_date,
     'students', v_students,
-    'hasMore', v_has_more
+    'hasMore', v_has_more,
+    'participants', v_participants
   );
 END;
 $$;
