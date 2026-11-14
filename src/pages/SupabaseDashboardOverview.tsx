@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertCircle, BookOpen, CheckCircle2, RefreshCw, TrendingUp, Users, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { calculateDashboardNetCashflow } from "../utils/dashboardCashflow";
-import { getCompletedDashboardFinanceTrend } from "../utils/dashboardFinanceTrend";
+import { getCompletedDashboardFinanceTrend, hasDashboardFinanceActivity } from "../utils/dashboardFinanceTrend";
 import { ERPTabs } from "../components/ERPDesignSystem";
+
+const SupabaseDashboardBarChart = React.lazy(() => import("../components/SupabaseDashboardBarChart").then((module) => ({ default: module.SupabaseDashboardBarChart })));
 
 type DashboardPeriod = "today" | "week" | "month" | "year";
 type IntelligenceTab = "executive" | "predictive" | "tahfidz-ai" | "warehouse" | "knowledge";
@@ -213,6 +214,7 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
 
   const finance = snapshot.finance;
   const netCashflow = calculateDashboardNetCashflow(finance);
+  const hasMonthlyFinanceActivity = hasDashboardFinanceActivity(finance.monthlyTrend);
   const periodLabel: Record<DashboardPeriod, string> = { today: "Hari ini", week: "7 hari terakhir", month: "30 hari terakhir", year: "365 hari terakhir" };
   const financeTrend = useMemo(
     () => getCompletedDashboardFinanceTrend(finance.monthlyTrend || []),
@@ -314,7 +316,7 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
             </> : <p className="text-sm text-slate-500">Belum cukup data untuk membandingkan dua bulan lengkap.</p>}
           </div>
           <div className="h-72" aria-label="Grafik tren keuangan bulanan">
-            <ResponsiveContainer width="100%" height="100%"><BarChart data={financeTrend} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.25} vertical={false} /><XAxis dataKey="month" tickFormatter={monthLabel} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} /><YAxis tickFormatter={(value) => new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value || 0))} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} /><Tooltip labelFormatter={(value) => monthLabel(String(value))} formatter={(value: any) => rupiah(Number(value || 0))} /><Legend /><Bar dataKey="income" name="Pendapatan" fill="#059669" radius={[4, 4, 0, 0]} /><Bar dataKey="walletDeposits" name="Titipan masuk" fill="#2563eb" radius={[4, 4, 0, 0]} /><Bar dataKey="expense" name="Pengeluaran" fill="#e11d48" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>
+            <React.Suspense fallback={<p role="status" className="flex h-full items-center justify-center text-sm text-slate-500">Memuat grafik…</p>}><SupabaseDashboardBarChart kind="finance-completed" data={financeTrend} /></React.Suspense>
           </div>
           <p className="text-xs text-slate-500">Grafik menunjukkan catatan aktual, bukan ramalan. Titipan santri ditampilkan terpisah dari pendapatan.</p>
         </>}
@@ -374,12 +376,12 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     <section className="grid gap-6 xl:grid-cols-2">
       <article className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Alur pendaftaran PPDB</h2><p className="mt-1 text-xs text-slate-500">Jumlah calon santri per tahap seleksi.</p></div><Activity className="h-5 w-5 text-blue-600 dark:text-blue-300" /></div>
-        {loading ? <p className="mt-8 text-sm text-slate-500">Memuat data…</p> : !snapshot.ppdb.enabled ? <p className="mt-8 text-sm text-slate-500">{error ? "Ringkasan PPDB Supabase belum dapat dimuat." : "Data PPDB disembunyikan karena izin modul tidak tersedia."}</p> : stageRows.length ? <div className="mt-5 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={stageRows} margin={{ top: 8, right: 8, left: -18, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.25} vertical={false} /><XAxis dataKey="stage" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} /><YAxis allowDecimals={false} stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} /><Tooltip /><Bar dataKey="jumlah" name="Calon santri" fill="#2563eb" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div> : <p className="mt-8 text-sm text-slate-500">Belum ada calon santri di Supabase.</p>}
+        {loading ? <p className="mt-8 text-sm text-slate-500">Memuat data…</p> : !snapshot.ppdb.enabled ? <p className="mt-8 text-sm text-slate-500">{error ? "Ringkasan PPDB Supabase belum dapat dimuat." : "Data PPDB disembunyikan karena izin modul tidak tersedia."}</p> : stageRows.length ? <div className="mt-5 h-64"><React.Suspense fallback={<p role="status" className="flex h-full items-center justify-center text-sm text-slate-500">Memuat grafik…</p>}><SupabaseDashboardBarChart kind="ppdb-stages" data={stageRows} /></React.Suspense></div> : <p className="mt-8 text-sm text-slate-500">Belum ada calon santri di Supabase.</p>}
       </article>
 
       <article className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Arus kas tercatat</h2><p className="mt-1 text-xs text-slate-500">Pendapatan, titipan masuk/pemakaian, dan pengeluaran per bulan.</p></div><TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-300" /></div>
-        {loading ? <p className="mt-8 text-sm text-slate-500">Memuat data…</p> : !finance.enabled ? <p className="mt-8 text-sm text-slate-500">{error ? "Ringkasan keuangan Supabase belum dapat dimuat." : "Data keuangan disembunyikan karena izin modul tidak tersedia."}</p> : finance.monthlyTrend?.length ? <div className="mt-5 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={finance.monthlyTrend} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.25} vertical={false} /><XAxis dataKey="month" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} /><YAxis tickFormatter={(value) => new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value || 0))} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} /><Tooltip formatter={(value: any) => rupiah(Number(value || 0))} /><Legend /><Bar dataKey="income" name="Pendapatan" fill="#059669" radius={[4, 4, 0, 0]} /><Bar dataKey="walletDeposits" name="Titipan masuk" fill="#2563eb" radius={[4, 4, 0, 0]} /><Bar dataKey="walletRedemptions" name="Titipan digunakan" fill="#a855f7" radius={[4, 4, 0, 0]} /><Bar dataKey="expense" name="Pengeluaran" fill="#e11d48" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div> : <p className="mt-8 text-sm text-slate-500">Belum ada mutasi keuangan pada buku besar Supabase.</p>}
+        {loading ? <p className="mt-8 text-sm text-slate-500">Memuat data…</p> : !finance.enabled ? <p className="mt-8 text-sm text-slate-500">{error ? "Ringkasan keuangan Supabase belum dapat dimuat." : "Data keuangan disembunyikan karena izin modul tidak tersedia."}</p> : hasMonthlyFinanceActivity ? <div className="mt-5 h-64"><React.Suspense fallback={<p role="status" className="flex h-full items-center justify-center text-sm text-slate-500">Memuat grafik…</p>}><SupabaseDashboardBarChart kind="finance-monthly" data={finance.monthlyTrend || []} /></React.Suspense></div> : <p className="mt-8 text-sm text-slate-500">Belum ada mutasi keuangan pada buku besar Supabase.</p>}
       </article>
     </section>
 
