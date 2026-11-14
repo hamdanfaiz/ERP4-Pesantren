@@ -81,3 +81,11 @@ Belum terverifikasi:
 - Jangan commit `.env`, secret, key PII, atau data pengguna.
 - PR #91 belum dinyatakan selesai/siap merge: build/lint lulus, tetapi review diff, uji database/integrasi, dan gate Production tim backend masih tersisa.
 
+
+
+## Pembaruan Analitik Tenant — 15 November 2026
+
+- Tab Analitik kini memisahkan tren keuangan dari dua bulan kalender lengkap, papan peringkat setoran Tahfidz, cakupan agregat PPDB/Data Induk/Keuangan, dan pencarian arsip Dokumen Digital; tab tidak lagi mengulang kartu yang sama.
+- Tren historis mengecualikan bulan berjalan yang belum lengkap dan mengikuti aturan arus kas yang ada. Papan peringkat dan pencarian hanya berjalan saat tab dibuka, memakai endpoint tenant yang sudah menerapkan autentikasi serta izin modul.
+- Pemeriksaan lokal: `npm run test:dashboard-finance-trend`, `npm run test:dashboard-cashflow`, `npm run test:ci-coverage` (67 skrip dijadwalkan), `npm run lint`, `npm run build`, dan `git diff --check` lulus. Uji CI pada head remote baru masih perlu diperiksa.
+- Tidak ada perubahan skema, migrasi, data Supabase, atau Production.

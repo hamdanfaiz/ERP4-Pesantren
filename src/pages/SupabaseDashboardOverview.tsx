@@ -5,6 +5,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { calculateDashboardNetCashflow } from "../utils/dashboardCashflow";
+import { getCompletedDashboardFinanceTrend } from "../utils/dashboardFinanceTrend";
 import { ERPTabs } from "../components/ERPDesignSystem";
 
 type DashboardPeriod = "today" | "week" | "month" | "year";
@@ -14,6 +15,22 @@ type DashboardSnapshot = {
   masterData: { enabled: boolean; activeStudents?: number; maleStudents?: number; femaleStudents?: number };
   finance: { enabled: boolean; openBillCount?: number; outstandingAmount?: number; unpaidCount?: number; partialCount?: number; verificationCount?: number; periodIncome?: number; periodExpense?: number; periodWalletDeposits?: number; periodWalletRedemptions?: number; walletLiability?: number; monthlyTrend?: Array<{ month: string; income: number; expense: number; walletDeposits?: number; walletRedemptions?: number }> };
 };
+type TahfidzLeaderboard = {
+  businessDate: string;
+  periodStart: string;
+  students: Array<{ id: string; rank: number; name: string; grade: string; halaqah: string; ziyadahRecords: number; ziyadahAyahs: number }>;
+  hasMore: boolean;
+};
+type DocumentSearchResult = {
+  id: string;
+  documentNumber: string;
+  direction: "incoming" | "outgoing" | "internal";
+  subject: string;
+  senderName: string | null;
+  recipientName: string | null;
+  documentDate: string;
+  status: string;
+};
 
 const emptySnapshot: DashboardSnapshot = {
   ppdb: { enabled: false }, masterData: { enabled: false }, finance: { enabled: false },
@@ -21,6 +38,20 @@ const emptySnapshot: DashboardSnapshot = {
 
 function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
+}
+
+function monthLabel(month: string) {
+  const date = new Date(`${month}-01T00:00:00.000Z`);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(date)
+    : month;
+}
+
+function monthChangeCaption(current: number, previous: number, previousMonth: string) {
+  const difference = current - previous;
+  const movement = difference > 0 ? "Naik" : difference < 0 ? "Turun" : "Tidak berubah";
+  const percentage = previous === 0 ? "" : ` (${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(Math.abs(difference / Math.abs(previous) * 100))}%)`;
+  return `${movement} ${rupiah(Math.abs(difference))}${percentage} dibanding ${monthLabel(previousMonth)}.`;
 }
 
 async function loadDashboard(period: DashboardPeriod, surface: "dashboard" | "intelligence", signal?: AbortSignal) {
@@ -35,6 +66,22 @@ async function loadDashboard(period: DashboardPeriod, surface: "dashboard" | "in
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Ringkasan dashboard belum dapat dimuat.");
   return payload as DashboardSnapshot;
+}
+
+async function loadTahfidzLeaderboard(limit: 5 | 20, signal?: AbortSignal): Promise<TahfidzLeaderboard> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+  const response = await fetch(`/api/tahfidz/leaderboard?limit=${limit}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    cache: "no-store",
+    signal,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Capaian Tahfidz belum dapat dimuat.");
+  if (!payload || !Array.isArray(payload.students) || typeof payload.businessDate !== "string") {
+    throw new Error("Format capaian Tahfidz tidak valid.");
+  }
+  return payload as TahfidzLeaderboard;
 }
 
 function MetricCard({ title, value, caption, icon: Icon, accent = "emerald" }: {
@@ -54,6 +101,13 @@ function MetricCard({ title, value, caption, icon: Icon, accent = "emerald" }: {
 
 export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?: "dashboard" | "intelligence" }) {
   const { role, user } = useAuth();
+  const isIntelligence = surface === "intelligence";
+  const canViewTahfidz = Boolean(user)
+    && ["Admin", "SuperAdmin"].includes(role || "")
+    && user?.modulePermissions?.tahfidz !== false;
+  const canSearchDocuments = Boolean(user)
+    && ["Admin", "SuperAdmin"].includes(role || "")
+    && user?.modulePermissions?.document !== false;
   const [period, setPeriod] = useState<DashboardPeriod>("year");
   const [snapshot, setSnapshot] = useState<DashboardSnapshot>(emptySnapshot);
   const [loading, setLoading] = useState(true);
@@ -61,6 +115,15 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
   const [notice, setNotice] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
   const [intelligenceTab, setIntelligenceTab] = useState<IntelligenceTab>("executive");
+  const [tahfidzLeaderboard, setTahfidzLeaderboard] = useState<TahfidzLeaderboard | null>(null);
+  const [tahfidzLeaderboardLoading, setTahfidzLeaderboardLoading] = useState(false);
+  const [tahfidzLeaderboardError, setTahfidzLeaderboardError] = useState("");
+  const [tahfidzLeaderboardLimit, setTahfidzLeaderboardLimit] = useState<5 | 20>(5);
+  const [tahfidzReloadVersion, setTahfidzReloadVersion] = useState(0);
+  const [documentSearchQuery, setDocumentSearchQuery] = useState("");
+  const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
+  const [documentSearchLoading, setDocumentSearchLoading] = useState(false);
+  const [documentSearchError, setDocumentSearchError] = useState("");
   const notifyReloadRef = useRef(false);
 
   useEffect(() => {
@@ -91,10 +154,73 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     return () => controller.abort();
   }, [period, reloadVersion, role, surface, user?.tenantId, user?.uid]);
 
+  useEffect(() => {
+    if (!isIntelligence || intelligenceTab !== "tahfidz-ai" || !canViewTahfidz) {
+      setTahfidzLeaderboard(null);
+      setTahfidzLeaderboardError("");
+      setTahfidzLeaderboardLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setTahfidzLeaderboard(null);
+    setTahfidzLeaderboardError("");
+    setTahfidzLeaderboardLoading(true);
+    loadTahfidzLeaderboard(tahfidzLeaderboardLimit, controller.signal)
+      .then((result) => { if (!controller.signal.aborted) setTahfidzLeaderboard(result); })
+      .catch((loadError: any) => {
+        if (!controller.signal.aborted) setTahfidzLeaderboardError(loadError?.message || "Capaian Tahfidz belum dapat dimuat.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setTahfidzLeaderboardLoading(false); });
+    return () => controller.abort();
+  }, [canViewTahfidz, intelligenceTab, isIntelligence, tahfidzLeaderboardLimit, tahfidzReloadVersion, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    const query = documentSearchQuery.trim();
+    if (!isIntelligence || intelligenceTab !== "knowledge" || !canSearchDocuments || query.length < 2) {
+      setDocumentSearchResults([]);
+      setDocumentSearchError("");
+      setDocumentSearchLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setDocumentSearchLoading(true);
+      setDocumentSearchError("");
+      try {
+        const token = await getAccessToken();
+        if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+        const params = new URLSearchParams({ search: query });
+        const response = await fetch(`/api/documents?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Pencarian dokumen belum dapat diproses.");
+        if (!payload || !Array.isArray(payload.documents)) throw new Error("Hasil pencarian dokumen tidak valid.");
+        if (!controller.signal.aborted) setDocumentSearchResults(payload.documents.slice(0, 20));
+      } catch (searchError: any) {
+        if (!controller.signal.aborted) {
+          setDocumentSearchResults([]);
+          setDocumentSearchError(searchError?.message || "Pencarian dokumen belum dapat diproses.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setDocumentSearchLoading(false);
+      }
+    }, 300);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [canSearchDocuments, documentSearchQuery, intelligenceTab, isIntelligence, user?.tenantId, user?.uid]);
+
   const finance = snapshot.finance;
   const netCashflow = calculateDashboardNetCashflow(finance);
-  const isIntelligence = surface === "intelligence";
   const periodLabel: Record<DashboardPeriod, string> = { today: "Hari ini", week: "7 hari terakhir", month: "30 hari terakhir", year: "365 hari terakhir" };
+  const financeTrend = useMemo(
+    () => getCompletedDashboardFinanceTrend(finance.monthlyTrend || []),
+    [finance.monthlyTrend],
+  );
+  const financeComparison = financeTrend.length >= 2
+    ? { previous: financeTrend[financeTrend.length - 2], latest: financeTrend[financeTrend.length - 1] }
+    : null;
   const stageRows = useMemo(() => (snapshot.ppdb.stages || []).map((entry) => ({
     stage: ({ Registered: "Terdaftar", "Document Review": "Verifikasi", "Entry Exam": "Ujian", Interview: "Wawancara", Accepted: "Diterima", Rejected: "Ditolak", Withdrawn: "Mengundurkan diri" } as Record<string, string>)[entry.stage] || entry.stage,
     jumlah: Number(entry.count || 0),
@@ -157,30 +283,80 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
 
     {isIntelligence && <ERPTabs tabs={[
       { id: "executive", label: "Dasbor Eksekutif" },
-      { id: "predictive", label: "Analitik Prediktif" },
-      { id: "tahfidz-ai", label: "Mesin AI Tahfidz" },
-      { id: "warehouse", label: "Gudang Data" },
-      { id: "knowledge", label: "Pusat Pengetahuan" },
+      { id: "predictive", label: "Tren Keuangan" },
+      { id: "tahfidz-ai", label: "Capaian Tahfidz" },
+      { id: "warehouse", label: "Ringkasan Data" },
+      { id: "knowledge", label: "Pencarian Dokumen" },
     ]} value={intelligenceTab} onChange={(id) => setIntelligenceTab(id as IntelligenceTab)} ariaLabel="Bagian pusat data analitik" />}
 
-    {isIntelligence && intelligenceTab !== "executive" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <div>
-        <h2 className="font-semibold text-slate-900 dark:text-white">{({ predictive: "Analitik Prediktif", "tahfidz-ai": "Mesin AI Tahfidz", warehouse: "Gudang Data", knowledge: "Pusat Pengetahuan" } as Record<Exclude<IntelligenceTab, "executive">, string>)[intelligenceTab]}</h2>
-        <p className="mt-1 text-sm text-slate-500">{({
-          predictive: "Indikator tren operasional dari ringkasan tenant. Bukan model prediksi AI.",
-          "tahfidz-ai": "Ringkasan berbasis aturan dari data operasional tenant; mesin AI terpisah belum terpasang.",
-          warehouse: "Agregat langsung dari snapshot Supabase tenant (bukan gudang data terpisah).",
-          knowledge: "Sinyal operasional yang tersedia dari modul berizin; indeks dokumen pengetahuan belum terpasang.",
-        } as Record<Exclude<IntelligenceTab, "executive">, string>)[intelligenceTab]}</p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Santri aktif" value={loading ? "—" : snapshot.masterData.enabled ? String(snapshot.masterData.activeStudents || 0) : "—"} caption="Data Induk" icon={Users} />
-        <MetricCard title="Pendaftar proses" value={loading ? "—" : snapshot.ppdb.enabled ? String(snapshot.ppdb.pending || 0) : "—"} caption="PPDB" icon={Activity} accent="blue" />
-        <MetricCard title="Tagihan terbuka" value={loading ? "—" : finance.enabled ? String(finance.openBillCount || 0) : "—"} caption={finance.enabled ? rupiah(finance.outstandingAmount || 0) : "—"} icon={Wallet} accent="amber" />
-        <MetricCard title={`Arus kas · ${periodLabel[period]}`} value={loading ? "—" : finance.enabled ? rupiah(netCashflow) : "—"} caption="Operasional tenant" icon={TrendingUp} accent={netCashflow < 0 ? "rose" : "emerald"} />
-      </div>
-      {loading ? <p className="text-sm text-slate-500">Memuat sinyal…</p> : operationalSignals.length ? <ul className="grid gap-3 md:grid-cols-2">{operationalSignals.map((signal) => <li key={signal.title} className={`rounded-lg border p-4 ${signal.tone === "rose" ? "border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/20" : signal.tone === "amber" ? "border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/20" : "border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/20"}`}><p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{signal.title}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{signal.detail}</p></li>)}</ul> : <p className="text-sm text-slate-500">Belum ada sinyal operasional pada rentang dan izin modul saat ini.</p>}
-    </section> : <>
+    {isIntelligence ? <>
+      {intelligenceTab === "executive" && <>
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indikator eksekutif">
+          <MetricCard title="Santri aktif" value={loading ? "—" : snapshot.masterData.enabled ? String(snapshot.masterData.activeStudents || 0) : "—"} caption={snapshot.masterData.enabled ? `${snapshot.masterData.maleStudents || 0} putra · ${snapshot.masterData.femaleStudents || 0} putri` : "Data tidak termasuk ringkasan ini"} icon={Users} />
+          <MetricCard title="Pendaftar dalam proses" value={loading ? "—" : snapshot.ppdb.enabled ? String(snapshot.ppdb.pending || 0) : "—"} caption={snapshot.ppdb.enabled ? `${snapshot.ppdb.accepted || 0} sudah diterima` : "Data tidak termasuk ringkasan ini"} icon={Activity} accent="blue" />
+          <MetricCard title="Sisa tagihan" value={loading ? "—" : finance.enabled ? rupiah(finance.outstandingAmount || 0) : "—"} caption={finance.enabled ? `${finance.openBillCount || 0} tagihan belum lunas` : "Data tidak termasuk ringkasan ini"} icon={Wallet} accent="amber" />
+          <MetricCard title={`Arus kas · ${periodLabel[period]}`} value={loading ? "—" : finance.enabled ? rupiah(netCashflow) : "—"} caption={finance.enabled ? "Penerimaan tunai dan titipan dikurangi pengeluaran; bukan saldo bank." : "Data tidak termasuk ringkasan ini"} icon={TrendingUp} accent={netCashflow < 0 ? "rose" : "emerald"} />
+        </section>
+        <section aria-labelledby="operational-signals-heading" className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-start justify-between gap-3"><div><h2 id="operational-signals-heading" className="font-semibold text-slate-900 dark:text-white">Hal yang perlu diperhatikan</h2><p className="mt-1 text-xs text-slate-500">Sinyal dihitung dari catatan dan modul yang dapat diakses pada tenant ini.</p></div><Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-300" /></div>
+          {loading ? <p className="mt-5 text-sm text-slate-500">Menghitung indikator…</p> : operationalSignals.length > 0 ? <ul className="mt-4 grid gap-3 md:grid-cols-2">{operationalSignals.map((signal) => <li key={signal.title} className={`rounded-lg border p-4 ${signal.tone === "rose" ? "border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/20" : signal.tone === "amber" ? "border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/20" : "border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/20"}`}><p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{signal.title}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{signal.detail}</p></li>)}</ul> : <p className="mt-5 text-sm text-slate-600 dark:text-slate-300">Tidak ada tindak lanjut pada data yang tersedia saat ini.</p>}
+        </section>
+      </>}
+
+      {intelligenceTab === "predictive" && <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Perbandingan tren keuangan</h2><p className="mt-1 text-sm text-slate-500">Perbandingan memakai dua bulan kalender lengkap terakhir. Bulan berjalan tidak dimasukkan agar angkanya tidak dibandingkan dalam kondisi belum lengkap.</p></div>
+        {loading ? <p role="status" className="text-sm text-slate-500">Memuat tren keuangan…</p> : !finance.enabled ? <p className="text-sm text-slate-500">Ringkasan keuangan tidak tersedia pada akun ini.</p> : !financeTrend.some((row) => row.income || row.expense || row.walletDeposits || row.walletRedemptions) ? <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada mutasi keuangan pada bulan-bulan lengkap yang dapat dibandingkan.</p> : <>
+          <div className="grid gap-3 md:grid-cols-3">
+            {financeComparison ? <>
+              <MetricCard title={`Pendapatan · ${monthLabel(financeComparison.latest.month)}`} value={rupiah(financeComparison.latest.income)} caption={monthChangeCaption(financeComparison.latest.income, financeComparison.previous.income, financeComparison.previous.month)} icon={Wallet} />
+              <MetricCard title={`Pengeluaran · ${monthLabel(financeComparison.latest.month)}`} value={rupiah(financeComparison.latest.expense)} caption={monthChangeCaption(financeComparison.latest.expense, financeComparison.previous.expense, financeComparison.previous.month)} icon={Activity} accent="amber" />
+              <MetricCard title={`Arus kas bersih · ${monthLabel(financeComparison.latest.month)}`} value={rupiah(financeComparison.latest.netCashflow)} caption={monthChangeCaption(financeComparison.latest.netCashflow, financeComparison.previous.netCashflow, financeComparison.previous.month)} icon={TrendingUp} accent={financeComparison.latest.netCashflow < 0 ? "rose" : "emerald"} />
+            </> : <p className="text-sm text-slate-500">Belum cukup data untuk membandingkan dua bulan lengkap.</p>}
+          </div>
+          <div className="h-72" aria-label="Grafik tren keuangan bulanan">
+            <ResponsiveContainer width="100%" height="100%"><BarChart data={financeTrend} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.25} vertical={false} /><XAxis dataKey="month" tickFormatter={monthLabel} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} /><YAxis tickFormatter={(value) => new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value || 0))} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} /><Tooltip labelFormatter={(value) => monthLabel(String(value))} formatter={(value: any) => rupiah(Number(value || 0))} /><Legend /><Bar dataKey="income" name="Pendapatan" fill="#059669" radius={[4, 4, 0, 0]} /><Bar dataKey="walletDeposits" name="Titipan masuk" fill="#2563eb" radius={[4, 4, 0, 0]} /><Bar dataKey="expense" name="Pengeluaran" fill="#e11d48" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>
+          </div>
+          <p className="text-xs text-slate-500">Grafik menunjukkan catatan aktual, bukan ramalan. Titipan santri ditampilkan terpisah dari pendapatan.</p>
+        </>}
+      </section>}
+
+      {intelligenceTab === "tahfidz-ai" && <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Papan peringkat setoran</h2><p className="mt-1 text-sm text-slate-500">Urutan berdasarkan catatan setoran Ziyadah pada periode berjalan. Nilai ini tidak memakai penilaian bacaan otomatis.</p></div>{tahfidzLeaderboard && <p className="text-xs text-slate-500">Periode {tahfidzLeaderboard.periodStart} · data hingga {tahfidzLeaderboard.businessDate}</p>}</div>
+        {!canViewTahfidz ? <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Data Tahfidz tidak tersedia pada akun ini.</p>
+          : tahfidzLeaderboardLoading ? <p role="status" className="p-4 text-sm text-slate-500">Memuat capaian Tahfidz…</p>
+            : tahfidzLeaderboardError ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/20 dark:text-rose-200"><span>{tahfidzLeaderboardError}</span><button type="button" onClick={() => setTahfidzReloadVersion((value) => value + 1)} className="font-semibold underline">Coba lagi</button></div>
+              : !tahfidzLeaderboard ? <p className="text-sm text-slate-500">Capaian Tahfidz belum tersedia.</p>
+                : tahfidzLeaderboard.students.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada setoran Ziyadah pada periode ini.</p>
+                  : <>
+                    <ol className="divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">{tahfidzLeaderboard.students.map((student) => <li key={student.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:gap-4"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-bold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300">{student.rank}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{student.name}</p><p className="text-xs text-slate-500">{[student.grade, student.halaqah].filter(Boolean).join(" · ") || "Santri"}</p></div><div className="text-right"><p className="text-sm font-semibold text-slate-900 dark:text-white">{student.ziyadahAyahs} ayat</p><p className="text-xs text-slate-500">{student.ziyadahRecords} setoran</p></div></li>)}</ol>
+                    {tahfidzLeaderboard.hasMore && tahfidzLeaderboardLimit === 5 && <button type="button" onClick={() => setTahfidzLeaderboardLimit(20)} disabled={tahfidzLeaderboardLoading} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">Tampilkan 20 santri</button>}
+                  </>}
+      </section>}
+
+      {intelligenceTab === "warehouse" && <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Cakupan ringkasan tenant</h2><p className="mt-1 text-sm text-slate-500">Angka berikut berasal dari agregat tenant. Informasi identitas santri dan detail transaksi tidak ditampilkan di halaman ini.</p></div>
+        {loading ? <p role="status" className="text-sm text-slate-500">Memuat ringkasan data…</p> : <div className="grid gap-3 md:grid-cols-3">
+          {[
+            { name: "PPDB", enabled: snapshot.ppdb.enabled, value: snapshot.ppdb.enabled ? `${snapshot.ppdb.total || 0} pendaftar · ${snapshot.ppdb.accepted || 0} diterima` : "Tidak termasuk ringkasan" },
+            { name: "Data Induk", enabled: snapshot.masterData.enabled, value: snapshot.masterData.enabled ? `${snapshot.masterData.activeStudents || 0} santri aktif · ${snapshot.masterData.maleStudents || 0} putra · ${snapshot.masterData.femaleStudents || 0} putri` : "Tidak termasuk ringkasan" },
+            { name: "Keuangan", enabled: finance.enabled, value: finance.enabled ? `${finance.openBillCount || 0} tagihan terbuka · ${rupiah(finance.outstandingAmount || 0)} tersisa` : "Tidak termasuk ringkasan" },
+          ].map((item) => <article key={item.name} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800"><div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold text-slate-900 dark:text-white">{item.name}</h3><span className={`rounded-full px-2 py-1 text-xs ${item.enabled ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>{item.enabled ? "Tersedia" : "Terbatas"}</span></div><p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{error ? "Ringkasan belum dapat dimuat." : item.value}</p></article>)}
+        </div>}
+      </section>}
+
+      {intelligenceTab === "knowledge" && <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Cari arsip dokumen</h2><p className="mt-1 text-sm text-slate-500">Cari nomor, perihal, nama pengirim atau penerima, dan ringkasan pada arsip Dokumen Digital tenant ini.</p></div>
+        {!canSearchDocuments ? <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Arsip dokumen tidak tersedia pada akun ini.</p> : <>
+          <label className="sr-only" htmlFor="intelligence-document-search">Kata pencarian dokumen</label>
+          <input id="intelligence-document-search" type="search" value={documentSearchQuery} maxLength={120} onChange={(event) => setDocumentSearchQuery(event.target.value)} placeholder="Cari nomor atau perihal dokumen…" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:border-slate-700 dark:bg-slate-950/40 dark:text-white" />
+          {documentSearchQuery.trim().length < 2 ? <p className="text-sm text-slate-500">Masukkan sedikitnya dua karakter untuk mencari.</p>
+            : documentSearchLoading ? <p role="status" className="text-sm text-slate-500">Mencari arsip…</p>
+              : documentSearchError ? <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/20 dark:text-rose-200">{documentSearchError}</p>
+                : documentSearchResults.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">Tidak ada dokumen yang cocok dengan pencarian.</p>
+                  : <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">{documentSearchResults.map((document) => <li key={document.id} className="px-4 py-3"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{document.subject}</p><p className="mt-1 text-xs text-slate-500">{document.documentNumber} · {document.direction === "incoming" ? "Surat masuk" : document.direction === "outgoing" ? "Surat keluar" : "Dokumen internal"}</p></div><span className="shrink-0 text-xs text-slate-500">{document.documentDate}</span></div></li>)}</ul>}
+        </>}
+      </section>}
+    </> : <>
 
     {isIntelligence && <section aria-labelledby="operational-signals-heading" className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start justify-between gap-3"><div><h2 id="operational-signals-heading" className="font-semibold text-slate-900 dark:text-white">Hal yang perlu diperhatikan</h2><p className="mt-1 text-xs text-slate-500">Antrian dan tagihan menunjukkan kondisi saat ini; arus kas mengikuti rentang yang dipilih.</p></div><Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-300" /></div>
@@ -213,3 +389,4 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     </>}
   </main>;
 }
+

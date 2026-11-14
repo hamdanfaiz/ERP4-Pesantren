@@ -141,6 +141,9 @@ jobs:
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow
 
+      - name: Verify closed-month finance trend calculations
+        run: npm run test:dashboard-finance-trend
+
       - name: Verify Master Data pagination and nested PII minimization
         run: npm run test:master-data-pagination
 
