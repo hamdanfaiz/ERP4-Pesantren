@@ -4,6 +4,7 @@ import { getAccessToken } from '../authSession';
 import React, { useState, useEffect, useRef } from "react";
 import { TahfidzStudentSearchSelect } from "../components/TahfidzStudentSearchSelect";
 import { ERPTabs } from "../components/ERPDesignSystem";
+import { toERPUserMessage } from "../utils/userMessages";
 import {
   Search,
   Filter,
@@ -55,10 +56,7 @@ import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBa
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTime } from "../lib/tenantTimeZone";
 import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
 import { getTahfidzAchievementProgress } from "../lib/tahfidzAchievements";
-import { TAHFIDZ_RECORD_MAX_PAGE_SIZE } from "../lib/tahfidzRecordPaginationConstants";
 import { cn, generateUniqueId } from "../lib/utils";
-import { toERPUserMessage } from "../utils/userMessages";
-import { downloadTransferCsv } from "../utils/dataTransferCsv";
 import {
   AreaChart,
   Area,
@@ -72,21 +70,6 @@ import {
 
 const SUPABASE_TAHFIDZ_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED"));
 const SUPABASE_TAHFIDZ_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED") === 'true';
-const TAHFIDZ_REPORT_PAGE_SIZE = TAHFIDZ_RECORD_MAX_PAGE_SIZE;
-const TAHFIDZ_REPORT_MAX_ROWS = 50_000;
-
-function nextTenantCalendarDate(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) throw new Error("Tanggal laporan Tahfidz tidak valid.");
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const current = new Date(Date.UTC(year, month - 1, day));
-  if (current.getUTCFullYear() !== year || current.getUTCMonth() + 1 !== month || current.getUTCDate() !== day) {
-    throw new Error("Tanggal laporan Tahfidz tidak valid.");
-  }
-  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
-}
 
 async function requestSupabaseTahfidzApi(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -96,8 +79,8 @@ async function requestSupabaseTahfidzApi(path: string, init: RequestInit = {}) {
   const response = await fetch(path, { ...init, headers, cache: 'no-store' });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const responseError = new Error(payload.error || 'Data Tahfidz belum dapat diproses.');
-    throw new Error(toERPUserMessage(responseError, 'Layanan Tahfidz belum dapat diproses saat ini. Silakan hubungi pengelola pesantren.'));
+    const responseError = payload.error || 'Data Tahfidz belum dapat diproses.';
+    throw new Error(toERPUserMessage(responseError, 'Layanan Tahfidz belum dapat diproses saat ini. Silakan coba kembali.'));
   }
   return payload;
 }
@@ -433,6 +416,7 @@ export function TahfidzManager() {
   const [isMilestoneModalOpen, setIsMilestoneModalOpen] = useState(false);
   const [isPrintPlanOpen, setIsPrintPlanOpen] = useState(false);
   const [printPlanStudentId, setPrintPlanStudentId] = useState("");
+  const [printPlanScopeKey, setPrintPlanScopeKey] = useState("");
   const [isPeerReviewOpen, setIsPeerReviewOpen] = useState(false);
   const [selectedReview, setSelectedReview] = useState<any>(null);
   const [isInputOpen, setIsInputOpen] = useState(false);
@@ -447,44 +431,47 @@ export function TahfidzManager() {
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [surahList, setSurahList] = useState<any[]>([]);
-  const [isSurahListLoading, setIsSurahListLoading] = useState(true);
-  const [surahListError, setSurahListError] = useState(false);
+  const [isSurahListLoading, setIsSurahListLoading] = useState(SUPABASE_TAHFIDZ_RUNTIME);
+  const [surahListError, setSurahListError] = useState("");
   const [surahListAttempt, setSurahListAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    setIsSurahListLoading(true);
-    setSurahListError(false);
-    fetch("/api/tahfidz/references/surahs", { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Quran reference request failed.");
-        return res.json();
-      })
-      .then((data) => {
+    const loadSurahs = async () => {
+      setIsSurahListLoading(true);
+      setSurahListError("");
+      try {
+        const data = SUPABASE_TAHFIDZ_RUNTIME
+          ? await requestSupabaseTahfidzApi("/api/tahfidz/references/surahs", { signal: controller.signal })
+          : await fetch("/api/quran/surat", { signal: controller.signal }).then(async (response) => {
+            if (!response.ok) throw new Error("Daftar Surah belum dapat dimuat.");
+            return response.json();
+          });
         const entries = Array.isArray(data?.data) ? data.data : [];
-        const validSurahs = entries.filter((item: any) =>
+        const validEntries = entries.filter((item: any) =>
           Number.isInteger(Number(item?.nomor))
           && Number(item.nomor) >= 1
           && Number(item.nomor) <= 114
           && typeof item?.namaLatin === "string"
           && item.namaLatin.trim().length > 0
           && Number.isInteger(Number(item?.jumlahAyat))
-          && Number(item.jumlahAyat) > 0,
+          && Number(item.jumlahAyat) >= 1
+          && Number(item.jumlahAyat) <= 286,
         );
-        if (!validSurahs.length) throw new Error("Quran reference catalog is empty.");
-        setSurahList(validSurahs);
-      })
-      .catch((error) => {
+        if (validEntries.length !== 114) throw new Error("Katalog Surah belum lengkap. Coba muat ulang.");
+        setSurahList(validEntries.sort((left: any, right: any) => Number(left.nomor) - Number(right.nomor)));
+      } catch (error: any) {
         if (error?.name !== "AbortError") {
           setSurahList([]);
-          setSurahListError(true);
+          setSurahListError(error?.message || "Daftar Surah belum dapat dimuat. Coba kembali.");
         }
-      })
-      .finally(() => {
+      } finally {
         if (!controller.signal.aborted) setIsSurahListLoading(false);
-      });
+      }
+    };
+    void loadSurahs();
     return () => controller.abort();
-  }, [surahListAttempt]);
+  }, [user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz, surahListAttempt]);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [isHalaqahModalOpen, setIsHalaqahModalOpen] = useState(false);
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
@@ -531,7 +518,10 @@ export function TahfidzManager() {
   useEffect(() => {
     pendingSetoranRequest.current = null;
     pendingWriteRequestIds.current.clear();
-  }, [user?.tenantId, user?.uid, timeZone]);
+    setSelectedTargetStudentIds([]);
+    setBulkTargetStudentIds([]);
+    setTargetFormError("");
+  }, [user?.tenantId, user?.uid, role, user?.modulePermissions?.tahfidz, timeZone]);
 
   const tahfidzWriteRequestId = (signature: string) => {
     const existing = pendingWriteRequestIds.current.get(signature);
@@ -552,6 +542,13 @@ export function TahfidzManager() {
     }
   };
   const [santriList, setSantriList] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : SANTRI_DATA);
+  const printPlanStudent = santriList.find((student) => String(student.id) === printPlanStudentId) || null;
+  const currentPrintPlanScopeKey = `${user?.tenantId || ""}:${user?.uid || ""}`;
+  useEffect(() => {
+    setIsPrintPlanOpen(false);
+    setPrintPlanStudentId("");
+    setPrintPlanScopeKey("");
+  }, [user?.tenantId, user?.uid]);
   const [rosterHasMore, setRosterHasMore] = useState(false);
   const [rosterNextCursor, setRosterNextCursor] = useState("");
   const [rosterLoadingMore, setRosterLoadingMore] = useState(false);
@@ -564,17 +561,13 @@ export function TahfidzManager() {
   const [rosterSearchLoading, setRosterSearchLoading] = useState(false);
   const rosterSearchRequestSequence = useRef(0);
   const [records, setRecords] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : INITIAL_RECORDS);
+  const printPlanRecords = printPlanStudent
+    ? records.filter((record) => String(record.studentId) === String(printPlanStudent.id)).slice(0, 5)
+    : [];
   const [recordsHasMore, setRecordsHasMore] = useState(false);
   const [recordsNextCursor, setRecordsNextCursor] = useState("");
   const [recordsOldestDate, setRecordsOldestDate] = useState("");
   const [recordsLoadingMore, setRecordsLoadingMore] = useState(false);
-  const [isTahfidzReportModalOpen, setIsTahfidzReportModalOpen] = useState(false);
-  const [reportStartDate, setReportStartDate] = useState(() => `${currentTenantDate().slice(0, 7)}-01`);
-  const [reportEndDate, setReportEndDate] = useState(() => currentTenantDate());
-  const [isExportingTahfidzReport, setIsExportingTahfidzReport] = useState(false);
-  const [reportExportProgress, setReportExportProgress] = useState(0);
-  const [reportExportError, setReportExportError] = useState("");
-  const [reportExportStatus, setReportExportStatus] = useState("");
   const [achievementRows, setAchievementRows] = useState<any[]>([]);
   const [achievementHasMore, setAchievementHasMore] = useState(false);
   const [achievementNextCursor, setAchievementNextCursor] = useState("");
@@ -586,16 +579,8 @@ export function TahfidzManager() {
   const [leaderboardError, setLeaderboardError] = useState("");
   const [leaderboardLimit, setLeaderboardLimit] = useState<5 | 20>(5);
   const leaderboardRequestSequence = useRef(0);
-
-  useEffect(() => {
-    setIsPrintPlanOpen(false);
-    setPrintPlanStudentId("");
-    setSelectedTargetStudentIds([]);
-    setBulkTargetStudentIds([]);
-    setTargetFormError("");
-  }, [user?.tenantId, user?.uid]);
-
-  const printPlanStudent = santriList.find((student) => String(student.id) === printPlanStudentId) || null;
+  const [leaderboardScope, setLeaderboardScope] = useState("");
+  const currentLeaderboardScopeKey = `${user?.tenantId || ""}:${user?.uid || ""}:${role}:${String(user?.modulePermissions?.tahfidz ?? "")}`;
 
   useEffect(() => {
     if (role !== "Walisantri") {
@@ -673,115 +658,9 @@ export function TahfidzManager() {
       setRecordsNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
       if (incoming[incoming.length - 1]?.date) setRecordsOldestDate(incoming[incoming.length - 1].date);
     } catch (error: any) {
-      setTahfidzError(toERPUserMessage(error, "Riwayat setoran berikutnya belum dapat dimuat."));
+      setTahfidzError(error?.message || "Riwayat setoran berikutnya belum dapat dimuat.");
     } finally {
       setRecordsLoadingMore(false);
-    }
-  };
-
-  const exportTahfidzReport = async () => {
-    if (!SUPABASE_TAHFIDZ_RUNTIME) {
-      const legacyRows = records.map((record) => ({
-        Tanggal: record.date,
-        Waktu: record.time,
-        NIS: record.nis || "",
-        "Nama Santri": record.santriName,
-        "Jenis Kegiatan": record.type,
-        Surah: record.surah,
-        "Rentang Ayat": record.ayat,
-        Kelancaran: record.fluency,
-        Tajwid: record.tajweed,
-        Catatan: record.notes,
-        "Dicatat Oleh": record.ust,
-      }));
-      if (legacyRows.length) downloadTransferCsv(`laporan-tahfidz-${currentTenantDate()}.csv`, Object.keys(legacyRows[0]), legacyRows);
-      return;
-    }
-    if (isExportingTahfidzReport) return;
-    if (!reportStartDate || !reportEndDate || reportStartDate > reportEndDate || reportEndDate > currentTenantDate()) {
-      setReportExportError("Pilih rentang tanggal yang valid dan tidak melewati hari ini.");
-      setReportExportStatus("");
-      return;
-    }
-
-    setIsExportingTahfidzReport(true);
-    setReportExportProgress(0);
-    setReportExportError("");
-    setReportExportStatus("");
-    try {
-      const from = tenantLocalDateTimeToIso(`${reportStartDate}T00:00`, timeZone);
-      const to = tenantLocalDateTimeToIso(`${nextTenantCalendarDate(reportEndDate)}T00:00`, timeZone);
-      const allRecords: any[] = [];
-      const seenIds = new Set<string>();
-      const seenCursors = new Set<string>();
-      let cursor = "";
-      let pageCount = 0;
-
-      while (true) {
-        pageCount += 1;
-        if (pageCount > Math.ceil(TAHFIDZ_REPORT_MAX_ROWS / TAHFIDZ_REPORT_PAGE_SIZE) + 1) {
-          throw new Error("Ekspor melewati batas halaman yang diizinkan. Persempit rentang tanggal dan coba kembali.");
-        }
-        const params = new URLSearchParams({
-          pageSize: String(TAHFIDZ_REPORT_PAGE_SIZE),
-          from,
-          to,
-        });
-        if (cursor) params.set("cursor", cursor);
-        const page = await requestSupabaseTahfidzApi(`/api/tahfidz/records?${params.toString()}`);
-        if (!Array.isArray(page.records)) throw new Error("Data laporan Tahfidz belum dapat dibaca.");
-        const incoming = page.records as any[];
-        if (allRecords.length + incoming.length > TAHFIDZ_REPORT_MAX_ROWS) {
-          setReportExportError("Rentang tanggal memuat lebih dari 50.000 catatan. Persempit rentang tanggal, lalu coba kembali.");
-          return;
-        }
-        for (const record of incoming) {
-          const id = String(record?.id || "");
-          if (!id || seenIds.has(id)) throw new Error("Urutan catatan laporan tidak konsisten. Muat ulang halaman dan coba kembali.");
-          seenIds.add(id);
-          allRecords.push(record);
-        }
-        setReportExportProgress(allRecords.length);
-        if (page.hasMore !== true) break;
-        const nextCursor = typeof page.nextCursor === "string" ? page.nextCursor : "";
-        if (!nextCursor || nextCursor === cursor || seenCursors.has(nextCursor)) {
-          throw new Error("Halaman laporan belum lengkap. Muat ulang halaman dan coba kembali.");
-        }
-        seenCursors.add(nextCursor);
-        cursor = nextCursor;
-      }
-
-      if (!allRecords.length) {
-        setReportExportStatus("Tidak ada catatan setoran pada rentang tanggal tersebut.");
-        return;
-      }
-      const rows = allRecords.map((record) => {
-        const performedAt = new Date(record.performedAt);
-        return {
-          Tanggal: Number.isNaN(performedAt.getTime()) ? "" : currentTenantDate(performedAt),
-          Waktu: Number.isNaN(performedAt.getTime()) ? "" : currentTenantTime(performedAt),
-          NIS: record.nis || "",
-          "Nama Santri": record.studentName || "Santri tidak tersedia",
-          "Jenis Kegiatan": record.activityType || "",
-          Surah: record.surah || "",
-          "Ayat Mulai": record.ayahStart ?? "",
-          "Ayat Akhir": record.ayahEnd ?? "",
-          Kelancaran: record.fluency || "Belum dinilai",
-          Tajwid: record.tajweed || "Belum dinilai",
-          Catatan: record.notes || "",
-          "Dicatat Oleh": record.recordedByName || "",
-        };
-      });
-      downloadTransferCsv(
-        `laporan-tahfidz-${reportStartDate}-${reportEndDate}.csv`,
-        Object.keys(rows[0]),
-        rows,
-      );
-      setReportExportStatus(`${rows.length.toLocaleString("id-ID")} catatan berhasil diekspor.`);
-    } catch (error: any) {
-      setReportExportError(toERPUserMessage(error, "Laporan Tahfidz belum dapat diekspor saat ini."));
-    } finally {
-      setIsExportingTahfidzReport(false);
     }
   };
 
@@ -801,7 +680,7 @@ export function TahfidzManager() {
       setRosterHasMore(page.hasMore === true);
       setRosterNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
-      setTahfidzError(toERPUserMessage(error, "Halaman roster santri berikutnya belum dapat dimuat."));
+      setTahfidzError(error?.message || "Halaman roster santri berikutnya belum dapat dimuat.");
     } finally {
       setRosterLoadingMore(false);
     }
@@ -831,7 +710,7 @@ export function TahfidzManager() {
       setAchievementNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
       if (requestSequence === achievementRequestSequence.current) {
-        setAchievementError(toERPUserMessage(error, "Pencapaian Tahfidz belum dapat dimuat."));
+        setAchievementError(error?.message || "Pencapaian Tahfidz belum dapat dimuat.");
       }
     } finally {
       if (requestSequence === achievementRequestSequence.current) setAchievementLoading(false);
@@ -842,11 +721,14 @@ export function TahfidzManager() {
     const requestSequence = ++leaderboardRequestSequence.current;
     setLeaderboardLoading(true);
     setLeaderboardError("");
+    setLeaderboard(null);
+    setLeaderboardScope("");
     setLeaderboardLimit(limit);
     try {
       const result = await requestSupabaseTahfidzApi(`/api/tahfidz/leaderboard?limit=${limit}`);
       if (requestSequence !== leaderboardRequestSequence.current) return;
       setLeaderboard(result);
+      setLeaderboardScope(currentLeaderboardScopeKey);
     } catch (error: any) {
       if (requestSequence === leaderboardRequestSequence.current) {
         setLeaderboardError(toERPUserMessage(error, "Peringkat Tahfidz belum dapat dimuat."));
@@ -889,7 +771,7 @@ export function TahfidzManager() {
       setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
       if (requestSequence === rosterSearchRequestSequence.current && requestedSearch === searchQuery.trim()) {
-        setTahfidzError(toERPUserMessage(error, "Hasil pencarian santri berikutnya belum dapat dimuat."));
+        setTahfidzError(error?.message || "Hasil pencarian santri berikutnya belum dapat dimuat.");
       }
     } finally {
       if (requestSequence === rosterSearchRequestSequence.current) setRosterSearchLoading(false);
@@ -922,7 +804,7 @@ export function TahfidzManager() {
           setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
         })
         .catch((error: any) => {
-          if (active && requestSequence === rosterSearchRequestSequence.current) setTahfidzError(toERPUserMessage(error, "Pencarian roster santri belum dapat dimuat."));
+          if (active && requestSequence === rosterSearchRequestSequence.current) setTahfidzError(error?.message || "Pencarian roster santri belum dapat dimuat.");
         })
         .finally(() => { if (active && requestSequence === rosterSearchRequestSequence.current) setRosterSearchLoading(false); });
     }, 250);
@@ -942,7 +824,7 @@ export function TahfidzManager() {
       setRecordsHasMore(false);
       setRecordsNextCursor("");
       setRecordsOldestDate("");
-      setTahfidzError("Profil pesantren ini diperlukan untuk membaca data Tahfidz.");
+      setTahfidzError("Profil tenant aktif diperlukan untuk membaca data Tahfidz.");
       setTahfidzLoading(false);
       return () => { active = false; };
     }
@@ -964,7 +846,7 @@ export function TahfidzManager() {
         setRecordsHasMore(false);
         setRecordsNextCursor("");
         setRecordsOldestDate("");
-        setTahfidzError(toERPUserMessage(error, "Data Tahfidz belum dapat dimuat."));
+        setTahfidzError(error?.message || "Data Tahfidz belum dapat dimuat.");
       })
       .finally(() => { if (active) setTahfidzLoading(false); });
     return () => { active = false; };
@@ -1000,6 +882,10 @@ export function TahfidzManager() {
     const targetStudentIds = [...bulkTargetStudentIds];
     if (!targetStudentIds.length && !targetForm.studentId) {
       setTargetFormError("Pilih santri sebelum menyimpan target.");
+      return;
+    }
+    if (targetStudentIds.length > 250) {
+      setTargetFormError("Pilih maksimal 250 santri dalam satu penerapan target.");
       return;
     }
     setIsSavingTarget(true);
@@ -1076,7 +962,7 @@ export function TahfidzManager() {
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Halaqah tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang snapshot sebelum melakukan perubahan berikutnya."); }
     } catch (error: any) {
-      setTahfidzError(toERPUserMessage(error, "Halaqah belum dapat disimpan."));
+      setTahfidzError(error?.message || "Halaqah belum dapat disimpan.");
     } finally {
       setIsSavingHalaqah(false);
     }
@@ -1103,7 +989,7 @@ export function TahfidzManager() {
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Penempatan tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang snapshot sebelum melakukan perubahan berikutnya."); }
     } catch (error: any) {
-      setTahfidzError(toERPUserMessage(error, "Penempatan halaqah belum dapat disimpan."));
+      setTahfidzError(error?.message || "Penempatan halaqah belum dapat disimpan.");
     } finally {
       setIsSavingMembership(false);
     }
@@ -1111,7 +997,7 @@ export function TahfidzManager() {
 
   const handleTahfidzImport = async (apply = false) => {
     if (!SUPABASE_TAHFIDZ_RUNTIME || !SUPABASE_TAHFIDZ_IMPORT) return;
-    if (apply && !window.confirm("Impor pengaturan halaqah dan penempatan saat ini? Pastikan pratinjau sudah sesuai.")) return;
+    if (apply && !window.confirm("Impor konfigurasi halaqah dan penempatan saat ini dari Firestore ke tenant Supabase? Pastikan hasil preview sudah direkonsiliasi.")) return;
     apply ? setIsApplyingTahfidzImport(true) : setIsPreviewingTahfidzImport(true);
     setTahfidzError("");
     try {
@@ -1129,7 +1015,7 @@ export function TahfidzManager() {
         catch { setTahfidzError("Impor selesai, tetapi snapshot terbaru belum dapat dimuat."); }
       }
     } catch (error: any) {
-      setTahfidzError(toERPUserMessage(error, "Preview impor Tahfidz belum dapat diproses."));
+      setTahfidzError(error?.message || "Preview impor Tahfidz belum dapat diproses.");
     } finally {
       setIsPreviewingTahfidzImport(false);
       setIsApplyingTahfidzImport(false);
@@ -1139,12 +1025,7 @@ export function TahfidzManager() {
   const handleInputSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (SUPABASE_TAHFIDZ_RUNTIME) {
-      const student = santriList.find((item) => String(item.id) === String(formData.studentId || ""))
-        || (formData.studentId && formData.halaqahId ? {
-          id: String(formData.studentId),
-          name: String(formData.santriName || ""),
-          halaqahId: String(formData.halaqahId),
-        } : null);
+      const student = santriList.find((item) => String(item.id) === String(formData.studentId || ""));
       if (!student || !student.halaqahId) {
         setTahfidzError("Pilih santri yang sudah ditempatkan pada halaqah aktif.");
         return;
@@ -1215,7 +1096,7 @@ export function TahfidzManager() {
           ? { ...item, lastSetoran: `${formData.surah}: ${ayahRange}` }
           : item));
       } catch (error: any) {
-        setTahfidzError(toERPUserMessage(error, "Setoran belum dapat disimpan."));
+        setTahfidzError(error?.message || "Setoran belum dapat disimpan.");
         return;
       } finally {
         setIsSavingRecord(false);
@@ -1280,7 +1161,7 @@ export function TahfidzManager() {
       {SUPABASE_TAHFIDZ_RUNTIME && SUPABASE_TAHFIDZ_IMPORT && tahfidzImportPreview && (
         <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h3 className="font-semibold text-slate-900 dark:text-slate-100">Pratinjau impor pengaturan Tahfidz</h3><p className="mt-1 text-xs text-slate-500">{tahfidzImportPreview.sourceCount?.halaqahs || 0} halaqah · {tahfidzImportPreview.sourceCount?.students || 0} santri · {tahfidzImportPreview.planned?.memberships || 0} penempatan direncanakan</p></div>
+            <div><h3 className="font-semibold text-slate-900 dark:text-slate-100">Pratinjau impor konfigurasi Tahfidz</h3><p className="mt-1 text-xs text-slate-500">{tahfidzImportPreview.sourceCount?.halaqahs || 0} halaqah · {tahfidzImportPreview.sourceCount?.students || 0} santri · {tahfidzImportPreview.planned?.memberships || 0} penempatan direncanakan</p></div>
             {tahfidzImportPreview.canApply && tahfidzImportPreview.dryRun && <button onClick={() => void handleTahfidzImport(true)} disabled={isApplyingTahfidzImport} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{isApplyingTahfidzImport ? "Mengimpor…" : "Terapkan hasil preview"}</button>}
           </div>
           {!!tahfidzImportPreview.errors?.length && <div className="text-sm text-rose-700 dark:text-rose-300">{tahfidzImportPreview.errors.map((issue: any) => <p key={`${issue.category}-${issue.id}`}>{issue.category} {issue.id}: {issue.message}</p>)}</div>}
@@ -1293,7 +1174,7 @@ export function TahfidzManager() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {SUPABASE_TAHFIDZ_RUNTIME && !tahfidzLoading && displayHalaqah.length === 0 && (
           <div className="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/10">
-            Belum ada halaqah aktif pada pesantren ini. Admin dapat membuat halaqah setelah daftar ustadz aktif tersedia.
+            Belum ada halaqah aktif pada tenant ini. Admin dapat membuat halaqah setelah daftar ustadz aktif tersedia.
           </div>
         )}
         {displayHalaqah.map((halaqah) => {
@@ -1732,7 +1613,7 @@ export function TahfidzManager() {
                                 setIsAssessmentOpen(true);
                               }}
                               className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border border-transparent hover:border-emerald-200 dark:hover:border-emerald-500/30 transition-colors shadow-sm"
-                              title="AI Audio Assessment"
+                              title="Penilaian audio otomatis"
                             >
                               <Mic className="w-4 h-4" />
                             </button>}
@@ -1917,6 +1798,9 @@ export function TahfidzManager() {
   );
 
   const renderSupabaseDashboard = () => {
+    const currentLeaderboard = leaderboardScope === currentLeaderboardScopeKey
+      ? leaderboard
+      : null;
     const today = currentTenantDate();
     const todayRecords = records.filter((record) => record.date === today);
     const studentsWithoutTargets = Number(rosterStats?.studentsWithoutTarget ?? santriList.filter((student) => !student.target).length);
@@ -1968,7 +1852,7 @@ export function TahfidzManager() {
     return (
       <div className="space-y-6">
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200">
-          Ringkasan mencakup seluruh santri yang dapat Anda akses. Daftar santri dimuat bertahap; grafik menunjukkan jumlah setoran, bukan jumlah halaman atau juz.
+          Ringkasan roster dan cakupan target dihitung tepat di backend Supabase untuk cakupan akun Anda. Tabel santri dimuat bertahap; grafik menunjukkan jumlah setoran, bukan jumlah halaman atau juz.
         </div>
         {rosterHasMore && <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
           <span>Menampilkan {santriList.length} dari {totalStudents} santri pada roster. Ringkasan tindak lanjut dihitung terpisah untuk seluruh cakupan akun Anda.</span>
@@ -2025,7 +1909,7 @@ export function TahfidzManager() {
                   </div>
                   <div className="flex flex-wrap gap-1.5 sm:justify-end">
                     {student.reasons.map((reason: string) => <span key={reason} className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">{reason}</span>)}
-                    {canManageTargets && student.reasons.includes("Target harian belum ditetapkan") && <button type="button" onClick={() => { setTargetFormError(""); setBulkTargetStudentIds([]); setDashboardActionStudent(student); setTargetForm({ studentId: student.id, ziyadahPagesPerDay: "1", murojaahPagesPerDay: "0.5", periodStart: currentTenantDate(), periodEnd: "", policy: "standard" }); setIsTargetModalOpen(true); }} className="rounded-full border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-400/10">Tetapkan target</button>}
+                    {canManageTargets && student.reasons.includes("Target harian belum ditetapkan") && <button type="button" onClick={() => { setDashboardActionStudent(student); setTargetForm({ studentId: student.id, ziyadahPagesPerDay: "1", murojaahPagesPerDay: "0.5", periodStart: currentTenantDate(), periodEnd: "", policy: "standard" }); setIsTargetModalOpen(true); }} className="rounded-full border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-400/10">Tetapkan target</button>}
                     {canManageTahfidz && student.reasons.includes("Belum ditempatkan pada halaqah") && <button type="button" onClick={() => { setDashboardActionStudent(student); setMembershipForm({ halaqahId: "", studentId: student.id, startsOn: currentTenantDate() }); setIsMembershipModalOpen(true); }} className="rounded-full border border-blue-200 px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-400/10">Tempatkan ke halaqah</button>}
                   </div>
                 </div>
@@ -2039,7 +1923,7 @@ export function TahfidzManager() {
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">Halaqah</h2>
-              <p className="mt-1 text-sm text-slate-500">Data kelompok aktif dari pesantren ini</p>
+              <p className="mt-1 text-sm text-slate-500">Data kelompok aktif dari tenant ini</p>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-white/5">
               {halaqahList.length ? halaqahList.map((halaqah) => (
@@ -2056,7 +1940,7 @@ export function TahfidzManager() {
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">Setoran Terbaru</h2>
-              <p className="mt-1 text-sm text-slate-500">Setoran terbaru</p>
+              <p className="mt-1 text-sm text-slate-500">Catatan yang tersimpan di Supabase</p>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-white/5">
               {records.slice(0, 6).length ? records.slice(0, 6).map((record) => (
@@ -2077,23 +1961,23 @@ export function TahfidzManager() {
               <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-4 w-4 text-amber-500" /> Peringkat Setoran Ziyadah</h2>
               <p className="mt-1 text-sm text-slate-500">Berdasarkan catatan Ziyadah tersimpan bulan ini; cakupan mengikuti akses tenant atau halaqah Anda.</p>
             </div>
-            {leaderboard?.periodStart && <span className="w-fit rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold capitalize text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
-              {new Date(`${leaderboard.periodStart}T00:00:00Z`).toLocaleDateString("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })}
+            {currentLeaderboard?.periodStart && <span className="w-fit rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold capitalize text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+              {new Date(`${currentLeaderboard.periodStart}T00:00:00Z`).toLocaleDateString("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })}
             </span>}
           </div>
           {leaderboardError && <div role="alert" className="flex flex-col gap-2 p-5 text-sm text-rose-800 dark:text-rose-200 sm:flex-row sm:items-center sm:justify-between">
             <span>{leaderboardError}</span>
             <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(leaderboardLimit)} className="shrink-0 font-semibold underline">Coba lagi</button>
           </div>}
-          {leaderboardLoading && !leaderboard && <p role="status" className="p-5 text-sm text-slate-500">Memuat peringkat…</p>}
-          {!leaderboardLoading && !leaderboardError && (leaderboard?.students?.length || 0) === 0 && <div className="p-8 text-center">
+          {leaderboardLoading && !currentLeaderboard && <p role="status" className="p-5 text-sm text-slate-500">Memuat peringkat…</p>}
+          {!leaderboardLoading && !leaderboardError && (currentLeaderboard?.students?.length || 0) === 0 && <div className="p-8 text-center">
             <Trophy className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
             <p className="mt-3 font-medium text-slate-700 dark:text-slate-200">Belum ada setoran Ziyadah bulan ini.</p>
             <p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah setoran tersimpan.</p>
           </div>}
-          {!!leaderboard?.students?.length && <>
+          {!!currentLeaderboard?.students?.length && <>
             <ol className="divide-y divide-slate-100 dark:divide-white/5">
-              {leaderboard.students.map((student: any) => <li key={student.id} className="flex items-center gap-3 px-5 py-3.5">
+              {currentLeaderboard.students.map((student: any) => <li key={student.id} className="flex items-center gap-3 px-5 py-3.5">
                 <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold", student.rank === 1 ? "border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300")}>
                   {student.rank === 1 ? <Medal className="h-4 w-4" /> : student.rank}
                 </span>
@@ -2107,7 +1991,7 @@ export function TahfidzManager() {
                 </div>
               </li>)}
             </ol>
-            {leaderboard.hasMore && <div className="border-t border-slate-100 px-5 py-3 text-center dark:border-white/5">
+            {currentLeaderboard.hasMore && <div className="border-t border-slate-100 px-5 py-3 text-center dark:border-white/5">
               {leaderboardLimit === 5
                 ? <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(20)} disabled={leaderboardLoading} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">Tampilkan 20 teratas</button>
                 : <p className="text-xs text-slate-500">Menampilkan 20 teratas. Peringkat dihitung dari jumlah setoran, lalu jumlah ayat sebagai pemecah seri.</p>}
@@ -2135,7 +2019,7 @@ export function TahfidzManager() {
       return (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-900">
           <h2 className="font-semibold text-slate-900 dark:text-slate-100">Data santri belum tertaut</h2>
-          <p className="mt-2 text-sm text-slate-500">Hubungi Admin untuk menautkan akun dengan data santri Anda.</p>
+          <p className="mt-2 text-sm text-slate-500">Minta Admin memeriksa tautan profil akun dengan data santri pada tenant pesantren.</p>
         </div>
       );
     }
@@ -2212,7 +2096,7 @@ export function TahfidzManager() {
                 </article>
               )) : <p className="px-5 py-8 text-center text-sm text-slate-500">Belum ada catatan setoran tersimpan.</p>}
           </div>
-          <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Ringkasan total hafalan belum tersedia. Progres setoran tetap dapat dilihat pada riwayat.</p>
+          <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Total hafalan dan grafik progres belum ditampilkan karena backend belum menyimpan ukuran hafalan kumulatif yang dapat diverifikasi.</p>
         </section>
       </div>
     );
@@ -2224,7 +2108,7 @@ export function TahfidzManager() {
         <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             <h2 className="font-semibold text-slate-900 dark:text-slate-100">Target Harian Santri</h2>
-            <p className="mt-1 text-sm text-slate-500">{isTahfidzLearner ? "Target aktif untuk santri yang tertaut dengan akun ini." : "Target aktif santri dalam pesantren ini."}</p>
+            <p className="mt-1 text-sm text-slate-500">{isTahfidzLearner ? "Target aktif untuk santri yang tertaut dengan akun ini." : "Target aktif ditarik dari backend Supabase."}</p>
           </div>
           {canManageTargets && <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => { setTargetFormError(""); setBulkTargetStudentIds([]); setTargetForm({ studentId: "", ziyadahPagesPerDay: "1", murojaahPagesPerDay: "0.5", periodStart: currentTenantDate(), periodEnd: "", policy: "standard" }); setIsTargetModalOpen(true); }} className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-400/10">
@@ -2249,7 +2133,46 @@ export function TahfidzManager() {
                   <td className="px-3 py-3">{student.target ? `${student.target.murojaahPagesPerDay} halaman` : "Belum diatur"}</td>
                   <td className="px-3 py-3 text-slate-600 dark:text-slate-400">{student.target ? `${student.target.periodStart} – ${student.target.periodEnd || "seterusnya"}` : "—"}</td>
                   <td className="px-3 py-3 capitalize">{student.target?.policy || "—"}</td>
-          <td className="px-3 py-3"><div className="flex items-center gap-2">{canManageTargets && <button onClick={() => { setTargetFormError(""); setBulkTargetStudentIds([]); setTargetForm({ studentId: student.id, ziyadahPagesPerDay: String(student.target?.ziyadahPagesPerDay ?? 1), murojaahPagesPerDay: String(student.target?.murojaahPagesPerDay ?? 0.5), periodStart: student.target?.periodStart || currentTenantDate(), periodEnd: student.target?.periodEnd || "", policy: student.target?.policy || "standard" }); setIsTargetModalOpen(true); }} className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-white/10 dark:text-emerald-400 dark:hover:bg-white/5">Sesuaikan</button>}<button type="button" onClick={() => { setPrintPlanStudentId(String(student.id)); setIsPrintPlanOpen(true); }} aria-label={`Cetak rencana hafalan ${student.name}`} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"><Printer className="h-3.5 w-3.5" />Cetak</button></div></td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      {canManageTargets && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTargetFormError("");
+                            setBulkTargetStudentIds([]);
+                            setTargetForm({
+                              studentId: student.id,
+                              ziyadahPagesPerDay: String(student.target?.ziyadahPagesPerDay ?? 1),
+                              murojaahPagesPerDay: String(student.target?.murojaahPagesPerDay ?? 0.5),
+                              periodStart: student.target?.periodStart || currentTenantDate(),
+                              periodEnd: student.target?.periodEnd || "",
+                              policy: student.target?.policy || "standard",
+                            });
+                            setIsTargetModalOpen(true);
+                          }}
+                          className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-white/10 dark:text-emerald-400 dark:hover:bg-white/5"
+                        >
+                          Sesuaikan
+                        </button>
+                      )}
+                      {SUPABASE_TAHFIDZ_RUNTIME && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrintPlanScopeKey(currentPrintPlanScopeKey);
+                            setPrintPlanStudentId(String(student.id));
+                            setIsPrintPlanOpen(true);
+                          }}
+                          aria-label={`Cetak rencana hafalan ${student.name}`}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
+                        >
+                          <Printer className="h-3.5 w-3.5" /> Cetak
+                        </button>
+                      )}
+                      {!canManageTargets && !SUPABASE_TAHFIDZ_RUNTIME ? "—" : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!santriList.length && <tr><td colSpan={canManageTargets ? 8 : 7} className="px-3 py-8 text-center text-slate-500">{tahfidzLoading ? "Memuat data…" : "Belum ada data santri."}</td></tr>}
@@ -2261,15 +2184,10 @@ export function TahfidzManager() {
     </div>
   );
 
-  const selectedQuickEntrySurah = surahList.find(
-    (surah) => Number(surah.nomor) === Number(formData.surahNomor),
-  );
-  const quickEntryAyahCount = Number(selectedQuickEntrySurah?.jumlahAyat || 0);
-
   const renderRecords = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Quick Entry Form */}
-      {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-end">
+      {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:flex-wrap gap-4 items-end">
         <div className="w-full md:w-auto flex-1">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Santri
@@ -2294,95 +2212,83 @@ export function TahfidzManager() {
           </select>}
           {SUPABASE_TAHFIDZ_RUNTIME && rosterHasMore && <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="mt-1 text-xs font-semibold text-emerald-700 underline underline-offset-2 disabled:opacity-50 dark:text-emerald-300">{rosterLoadingMore ? "Memuat santri…" : "Santri belum terlihat? Muat halaman berikutnya"}</button>}
         </div>
-        <div className="w-full md:w-52">
+        <div className="w-full md:w-auto">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Surah
           </label>
-          <select
+          {SUPABASE_TAHFIDZ_RUNTIME ? <select
             required
             aria-label="Surah setoran cepat"
-            value={formData.surahNomor ? String(formData.surahNomor) : ""}
-            disabled={isSurahListLoading || surahListError || isSavingRecord}
-            onChange={(e) => {
-              const selectedSurah = surahList.find((surah) => String(surah.nomor) === e.target.value);
-              setFormData({
-                ...formData,
-                surah: selectedSurah?.namaLatin || "",
-                surahNomor: selectedSurah ? Number(selectedSurah.nomor) : null,
-                ayatCount: selectedSurah ? Number(selectedSurah.jumlahAyat) : null,
+            value={formData.surah || ""}
+            disabled={isSurahListLoading || Boolean(surahListError) || !surahList.length || isSavingRecord}
+            onChange={(event) => {
+              const selected = surahList.find((item) => item.namaLatin === event.target.value);
+              setFormData((current: any) => ({
+                ...current,
+                surah: selected?.namaLatin || "",
+                surahNomor: selected?.nomor ?? null,
+                ayatCount: selected?.jumlahAyat ?? null,
                 ayatStart: "",
                 ayatEnd: "",
                 ayat: "",
-              });
+              }));
             }}
-            className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full min-w-44 bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <option value="">
-              {isSurahListLoading ? "Memuat daftar surah…" : surahListError ? "Daftar surah belum tersedia" : "Pilih surah…"}
-            </option>
-            {surahList.map((surah) => (
-              <option key={surah.nomor} value={surah.nomor}>
-                {surah.nomor}. {surah.namaLatin}
-              </option>
-            ))}
-          </select>
+            <option value="">{isSurahListLoading ? "Memuat Surah…" : "Pilih Surah"}</option>
+            {surahList.map((surah) => <option key={surah.nomor} value={surah.namaLatin}>{surah.nomor}. {surah.namaLatin}</option>)}
+          </select> : <input
+            type="text"
+            placeholder="Misal: Al-Baqarah"
+            value={formData.surah || ""}
+            onChange={(e) => setFormData({ ...formData, surah: e.target.value })}
+            className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+          />}
         </div>
-        <div className="w-full md:w-48">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
-            Ayat
-          </label>
-          <div className="grid grid-cols-2 gap-2">
+        {SUPABASE_TAHFIDZ_RUNTIME ? <>
+          <div className="w-full md:w-28">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Dari ayat</label>
             <select
-              required
               aria-label="Ayat mulai setoran cepat"
               value={formData.ayatStart || ""}
-              disabled={!selectedQuickEntrySurah || isSavingRecord}
-              onChange={(e) => {
-                const start = Number(e.target.value);
-                const previousEnd = Number(formData.ayatEnd || 0);
-                const end = previousEnd >= start ? String(previousEnd) : "";
-                setFormData({
-                  ...formData,
-                  ayatStart: e.target.value,
-                  ayatEnd: end,
-                  ayat: end ? `${start}-${end}` : "",
-                });
+              disabled={!formData.surah || isSurahListLoading || Boolean(surahListError) || isSavingRecord}
+              onChange={(event) => {
+                const start = event.target.value;
+                const nextEnd = formData.ayatEnd && Number(formData.ayatEnd) >= Number(start) ? formData.ayatEnd : start;
+                setFormData((current: any) => ({ ...current, ayatStart: start, ayatEnd: nextEnd, ayat: start ? `${start}-${nextEnd}` : "" }));
               }}
-              className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-2 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">Mulai</option>
-              {Array.from({ length: quickEntryAyahCount }, (_, index) => index + 1).map((ayah) => (
-                <option key={ayah} value={ayah}>{ayah}</option>
-              ))}
-            </select>
-            <select
-              required
-              aria-label="Ayat akhir setoran cepat"
-              value={formData.ayatEnd || ""}
-              disabled={!selectedQuickEntrySurah || !formData.ayatStart || isSavingRecord}
-              onChange={(e) => {
-                const end = Number(e.target.value);
-                const start = Number(formData.ayatStart);
-                setFormData({ ...formData, ayatEnd: e.target.value, ayat: `${start}-${end}` });
-              }}
-              className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-2 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <option value="">Sampai</option>
-              {Array.from(
-                { length: Math.max(0, quickEntryAyahCount - Number(formData.ayatStart || 1) + 1) },
-                (_, index) => Number(formData.ayatStart || 1) + index,
-              ).map((ayah) => (
-                <option key={ayah} value={ayah}>{ayah}</option>
-              ))}
+              <option value="">Pilih</option>
+              {Array.from({ length: Number(formData.ayatCount || 0) }, (_, index) => index + 1).map((ayah) => <option key={ayah} value={ayah}>{ayah}</option>)}
             </select>
           </div>
-          {surahListError && <div role="status" className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-rose-700 dark:text-rose-300">
-            <span>Daftar surah belum dapat dimuat.</span>
-            <button type="button" onClick={() => setSurahListAttempt((attempt) => attempt + 1)} disabled={isSurahListLoading || isSavingRecord} className="font-semibold underline underline-offset-2 disabled:cursor-wait disabled:opacity-60">
-              Coba lagi
-            </button>
+          <div className="w-full md:w-28">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Sampai ayat</label>
+            <select
+              aria-label="Ayat akhir setoran cepat"
+              value={formData.ayatEnd || ""}
+              disabled={!formData.ayatStart || isSurahListLoading || Boolean(surahListError) || isSavingRecord}
+              onChange={(event) => {
+                const end = event.target.value;
+                setFormData((current: any) => ({ ...current, ayatEnd: end, ayat: current.ayatStart && end ? `${current.ayatStart}-${end}` : "" }));
+              }}
+              className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Pilih</option>
+              {Array.from({ length: Number(formData.ayatCount || 0) }, (_, index) => index + 1)
+                .filter((ayah) => !formData.ayatStart || ayah >= Number(formData.ayatStart))
+                .map((ayah) => <option key={ayah} value={ayah}>{ayah}</option>)}
+            </select>
+          </div>
+          {surahListError && <div role="alert" className="w-full text-xs text-rose-700 dark:text-rose-300 md:w-auto md:max-w-48">
+            <p>{surahListError}</p>
+            <button type="button" onClick={() => setSurahListAttempt((attempt) => attempt + 1)} className="mt-1 font-semibold underline">Coba lagi</button>
           </div>}
-        </div>
+        </> : <div className="w-full md:w-32">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Ayat</label>
+          <input type="text" placeholder="Misal: 1-10" value={formData.ayat || ""} onChange={(e) => setFormData({ ...formData, ayat: e.target.value })} className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+        </div>}
         <div className="w-full md:w-auto">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Tipe
@@ -2412,7 +2318,7 @@ export function TahfidzManager() {
         </>}
         <button
           onClick={handleInputSubmit}
-          disabled={!(SUPABASE_TAHFIDZ_RUNTIME ? formData.studentId : formData.santriName) || !formData.surah || !formData.ayat || (SUPABASE_TAHFIDZ_RUNTIME && (!formData.fluency || !formData.tajweed)) || isSavingRecord}
+          disabled={!(SUPABASE_TAHFIDZ_RUNTIME ? formData.studentId : formData.santriName) || !formData.surah || !formData.ayat || (SUPABASE_TAHFIDZ_RUNTIME && (!formData.ayatStart || !formData.ayatEnd || !surahList.length || isSurahListLoading || Boolean(surahListError) || !formData.fluency || !formData.tajweed)) || isSavingRecord}
           className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20 whitespace-nowrap flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" /> Entri Cepat
@@ -3928,8 +3834,8 @@ export function TahfidzManager() {
 
   return (
     <div className="space-y-6 max-w-7xl w-full mx-auto pb-12">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
-        <div className="min-w-0">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+        <div>
           <h1 className="text-2xl font-bold tracking-tight text-emerald-800 dark:text-emerald-400 hidden-border">
             Sistem Tahfidz ITQAN
           </h1>
@@ -3938,7 +3844,7 @@ export function TahfidzManager() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+        <div className="flex items-center gap-3">
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() =>
               isReminderEnabled
@@ -3960,24 +3866,11 @@ export function TahfidzManager() {
             <span className="hidden sm:inline">
               {isReminderEnabled ? "Pengingat Aktif" : "Aktifkan Pengingat"}
             </span>
-          </button> : <button type="button" disabled title="Pengingat belum tersedia saat ini." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Bell className="h-4 w-4" /><span>Aktifkan Pengingat</span></button>}
-          <button
-            type="button"
-            onClick={() => {
-              if (!SUPABASE_TAHFIDZ_RUNTIME) {
-                void exportTahfidzReport();
-                return;
-              }
-              setReportExportError("");
-              setReportExportStatus("");
-              setIsTahfidzReportModalOpen(true);
-            }}
-            disabled={isExportingTahfidzReport}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-white/10 dark:bg-black/40 dark:text-slate-300 dark:hover:bg-white/5"
-          >
-            <Download className="h-4 w-4" />
+          </button> : <button type="button" disabled title="Pengingat belum terhubung ke layanan notifikasi Supabase." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Bell className="h-4 w-4" /><span>Aktifkan Pengingat</span></button>}
+          {!SUPABASE_TAHFIDZ_RUNTIME ? <button className="flex items-center gap-2 bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors shadow-sm">
+            <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Ekspor Laporan</span>
-          </button>
+          </button> : <button type="button" disabled title="Ekspor laporan Tahfidz belum tersedia saat ini." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Download className="h-4 w-4" /><span>Ekspor Laporan</span></button>}
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() => {
               setSelectedSantri(displaySantri[0]);
@@ -3986,8 +3879,8 @@ export function TahfidzManager() {
             className="flex items-center gap-2 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors border border-emerald-200 dark:border-emerald-500/20 shadow-sm"
           >
             <Mic className="w-4 h-4" />
-            Penilaian Suara Otomatis
-          </button> : <button type="button" disabled title="Penilaian suara belum tersedia saat ini." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />Penilaian Suara</button>}
+            Penilaian audio otomatis
+          </button> : <button type="button" disabled title="Fitur penilaian audio otomatis belum tersedia saat ini." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />Penilaian audio otomatis</button>}
           {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <button
             onClick={startNewTahfidzRecord}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"
@@ -4000,8 +3893,8 @@ export function TahfidzManager() {
 
       {SUPABASE_TAHFIDZ_RUNTIME && (tahfidzLoading || tahfidzError) && (
         <div className={cn("flex flex-col gap-2 rounded-xl border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between", tahfidzError ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-200" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300")}>
-          <span>{tahfidzError || "Memuat ringkasan Tahfidz…"}</span>
-          {tahfidzError && <button onClick={() => { setTahfidzLoading(true); setTahfidzError(""); void refreshSupabaseTahfidz().catch((error: any) => setTahfidzError(toERPUserMessage(error, "Data belum dapat dimuat."))).finally(() => setTahfidzLoading(false)); }} className="font-semibold underline underline-offset-2">Coba lagi</button>}
+          <span>{tahfidzError || "Memuat snapshot tenant Tahfidz dari Supabase…"}</span>
+          {tahfidzError && <button onClick={() => { setTahfidzLoading(true); setTahfidzError(""); void refreshSupabaseTahfidz().catch((error: any) => setTahfidzError(error?.message || "Data belum dapat dimuat.")).finally(() => setTahfidzLoading(false)); }} className="font-semibold underline underline-offset-2">Coba lagi</button>}
         </div>
       )}
       {SUPABASE_TAHFIDZ_RUNTIME && rosterHasMore && <div className="flex flex-col gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
@@ -4012,20 +3905,20 @@ export function TahfidzManager() {
       <ERPTabs
         tabs={[
           { id: "dashboard", label: "Ringkasan Halaqah" },
-          { id: "records", label: "Riwayat Setoran Terbaru" },
+          { id: "records", label: "Riwayat Setoran" },
           { id: "targets", label: "Target & Rapor" },
           { id: "talaqqi", label: "Jadwal Talaqqi" },
           { id: "exams", label: "Munaqasyah" },
           { id: "parent", label: "Portal Wali Santri" },
           { id: "peer-review", label: "Penilaian Antar-Santri" },
-          { id: "quran", label: "Al-Qur'an" },
+          { id: "quran", label: "Al-Quran" },
           { id: "badges", label: "Pencapaian Tahfidz" },
           { id: "halaqah", label: isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah" },
         ]}
         value={activeTab}
         onChange={setActiveTab}
         ariaLabel="Bagian Sistem Tahfidz"
-        className="mb-6"
+        className="min-w-0 mb-6"
       />
 
       {activeTab === "dashboard" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseDashboard() : renderDashboard())}
@@ -4061,11 +3954,12 @@ export function TahfidzManager() {
                     {bulkTargetStudentIds.length ? `Atur Target untuk ${bulkTargetStudentIds.length} Santri` : "Set Target Harian"}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {bulkTargetStudentIds.length ? "Perubahan diterapkan dalam satu transaksi; semua santri harus memenuhi aturan tenant dan halaqah." : "Atur komitmen ziyadah dan muroja'ah"}
+                    {bulkTargetStudentIds.length ? "Perubahan diterapkan dalam satu transaksi untuk semua santri terpilih." : "Atur komitmen ziyadah dan muroja'ah"}
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => { setIsTargetModalOpen(false); setDashboardActionStudent(null); setBulkTargetStudentIds([]); setTargetFormError(""); }}
                 className="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-colors text-slate-500"
               >
@@ -4122,8 +4016,8 @@ export function TahfidzManager() {
                   Tipe Sanksi/Reward (Opsional)
                 </label>
                 <select value={targetForm.policy} onChange={(e) => setTargetForm({ ...targetForm, policy: e.target.value })} className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-                  <option value="standard">Standar</option>
-                  <option value="strict">Ketat</option>
+                  <option value="standard">Standard</option>
+                  <option value="strict">Strict</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -4134,12 +4028,14 @@ export function TahfidzManager() {
 
             <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40 flex justify-end gap-3">
               <button
+                type="button"
                 onClick={() => { setIsTargetModalOpen(false); setDashboardActionStudent(null); setBulkTargetStudentIds([]); setTargetFormError(""); }}
                 className="px-4 py-2 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/5 font-medium transition-colors border border-slate-200 dark:border-transparent bg-white dark:bg-slate-900"
               >
                 Batal
               </button>
               <button
+                type="button"
                 onClick={() => void handleTargetSubmit()}
                 disabled={isSavingTarget || (bulkTargetStudentIds.length ? bulkTargetStudentIds.length > 250 : !targetForm.studentId)}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
@@ -4154,7 +4050,7 @@ export function TahfidzManager() {
       {isHalaqahModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-black/80">
           <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
-            <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">{editingHalaqah ? "Ubah Halaqah" : "Tambah Halaqah"}</h2><p className="mt-1 text-sm text-slate-500">Simpan perubahan data halaqah.</p></div>
+            <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">{editingHalaqah ? "Ubah Halaqah" : "Tambah Halaqah"}</h2><p className="mt-1 text-sm text-slate-500">Perubahan disimpan melalui API tenant Supabase.</p></div>
             <div className="space-y-4 p-5">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nama halaqah<input value={halaqahForm.name} onChange={(e) => setHalaqahForm({ ...halaqahForm, name: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40" maxLength={120} /></label>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Ustadz pengampu<select value={halaqahForm.ustadzUserId} onChange={(e) => setHalaqahForm({ ...halaqahForm, ustadzUserId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"><option value="">Pilih ustadz…</option>{ustadzOptions.map((option) => <option key={option.userId} value={option.userId}>{option.name}</option>)}</select></label>
@@ -4169,7 +4065,7 @@ export function TahfidzManager() {
       {isMembershipModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-black/80">
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
-            <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">Tempatkan Santri ke Halaqah</h2><p className="mt-1 text-sm text-slate-500">Santri akan ditempatkan pada halaqah yang dipilih.</p></div>
+            <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">Tempatkan Santri ke Halaqah</h2><p className="mt-1 text-sm text-slate-500">Penempatan aktif akan disimpan pada tenant Supabase.</p></div>
             <div className="space-y-4 p-5">
               <div><span className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri</span>{SUPABASE_TAHFIDZ_RUNTIME ? <TahfidzStudentSearchSelect
                 key={tahfidzStudentScopeKey}
@@ -4185,41 +4081,6 @@ export function TahfidzManager() {
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"><button onClick={() => { setIsMembershipModalOpen(false); setDashboardActionStudent(null); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button onClick={() => void handleMembershipSubmit()} disabled={isSavingMembership || !membershipForm.studentId || !membershipForm.halaqahId || !membershipForm.startsOn} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">{isSavingMembership ? "Menyimpan…" : "Simpan Penempatan"}</button></div>
           </div>
-        </div>
-      )}
-
-      {isTahfidzReportModalOpen && SUPABASE_TAHFIDZ_RUNTIME && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-black/80">
-          <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="tahfidz-report-title"
-            onSubmit={(event) => { event.preventDefault(); void exportTahfidzReport(); }}
-            className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"
-          >
-            <div className="border-b border-slate-200 p-5 dark:border-white/10">
-              <h2 id="tahfidz-report-title" className="font-semibold text-slate-900 dark:text-slate-100">Ekspor Laporan Tahfidz</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Unduh catatan setoran yang dapat diakses akun Anda pada periode pilihan.</p>
-            </div>
-            <div className="space-y-4 p-5">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Tanggal mulai
-                  <input type="date" value={reportStartDate} max={reportEndDate || undefined} onChange={(event) => setReportStartDate(event.target.value)} disabled={isExportingTahfidzReport} required className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40" />
-                </label>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Tanggal akhir
-                  <input type="date" value={reportEndDate} min={reportStartDate || undefined} max={currentTenantDate()} onChange={(event) => setReportEndDate(event.target.value)} disabled={isExportingTahfidzReport} required className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40" />
-                </label>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Berkas CSV dibatasi 50.000 catatan per ekspor. Jika batas terlampaui, persempit rentang tanggal.</p>
-              {isExportingTahfidzReport && <p role="status" className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/30 dark:text-blue-200">Menyiapkan {reportExportProgress.toLocaleString("id-ID")} catatan…</p>}
-              {reportExportError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/20 dark:bg-rose-950/30 dark:text-rose-200">{reportExportError}</p>}
-              {reportExportStatus && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-200">{reportExportStatus}</p>}
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20">
-              <button type="button" onClick={() => setIsTahfidzReportModalOpen(false)} disabled={isExportingTahfidzReport} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-300">Tutup</button>
-              <button type="submit" disabled={isExportingTahfidzReport || !reportStartDate || !reportEndDate || reportStartDate > reportEndDate} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">{isExportingTahfidzReport ? "Menyiapkan…" : "Unduh CSV"}</button>
-            </div>
-          </form>
         </div>
       )}
 
@@ -4858,7 +4719,7 @@ export function TahfidzManager() {
         </div>
       )}
 
-      {/* Modal ringkasan perkembangan otomatis */}
+      {/* Automated Progress Summary Modal */}
       {isSummaryOpen && selectedSantri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
@@ -4869,7 +4730,7 @@ export function TahfidzManager() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    Ringkasan Perkembangan Otomatis
+                    Automated Progress Summary
                   </h3>
                   <p className="text-xs text-slate-500">
                     {selectedSantri.name} • {selectedSantri.nis}
@@ -5517,11 +5378,7 @@ export function TahfidzManager() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingRecord || (SUPABASE_TAHFIDZ_RUNTIME && (
-                    !formData.studentId || !formData.halaqahId || !formData.surah
-                    || !formData.ayatStart || !formData.ayatEnd || !formData.fluency || !formData.tajweed
-                  ))}
-                  className="bg-emerald-600 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20"
                 >
                   Simpan Setoran
                 </button>
@@ -5542,7 +5399,7 @@ export function TahfidzManager() {
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200">
-                    Penilaian Suara Otomatis
+                    Penilaian audio otomatis
                   </h3>
                   <p className="text-xs text-slate-500">
                     {selectedSantri.name} • {selectedSantri.nis}
@@ -6141,7 +5998,7 @@ export function TahfidzManager() {
             <div className="w-full bg-slate-50 dark:bg-black/40 rounded-2xl p-4 flex gap-4 divide-x divide-slate-200 dark:divide-slate-800 relative z-10">
               <div className="flex-1 text-center">
                 <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
-                  Poin Pengalaman
+                  XP Points
                 </div>
                 <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1">
                   <Sparkles className="w-4 h-4" /> 500
@@ -6149,10 +6006,10 @@ export function TahfidzManager() {
               </div>
               <div className="flex-1 text-center">
                 <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
-                  Lencana Baru
+                  Badge Baru
                 </div>
                 <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
-                  <Medal className="w-5 h-5" /> Emas
+                  <Medal className="w-5 h-5" /> Gold
                 </div>
               </div>
             </div>
@@ -6264,12 +6121,12 @@ export function TahfidzManager() {
         </div>
       )}
 
-      {isPrintPlanOpen && SUPABASE_TAHFIDZ_RUNTIME && printPlanStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 print:static print:block print:bg-white print:p-0">
+      {isPrintPlanOpen && SUPABASE_TAHFIDZ_RUNTIME && printPlanStudent && printPlanScopeKey === currentPrintPlanScopeKey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 print:static print:block print:bg-white print:p-0" role="dialog" aria-modal="true" aria-labelledby="tahfidz-print-plan-title">
           <section className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
             <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10 print:hidden">
-              <div><h2 className="font-semibold">Rencana Target Hafalan</h2><p className="mt-1 text-sm text-slate-500">Dicetak dari data Tahfidz tenant yang sedang aktif.</p></div>
-              <div className="flex items-center gap-2"><button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500"><Printer className="h-4 w-4" />Cetak</button><button type="button" onClick={() => setIsPrintPlanOpen(false)} aria-label="Tutup rencana hafalan" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><X className="h-4 w-4" /></button></div>
+              <div><h2 id="tahfidz-print-plan-title" className="font-semibold">Rencana Target Hafalan</h2><p className="mt-1 text-sm text-slate-500">Dicetak dari data Tahfidz tenant yang sedang aktif.</p></div>
+              <div className="flex items-center gap-2"><button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500"><Printer className="h-4 w-4" />Cetak</button><button type="button" onClick={() => { setIsPrintPlanOpen(false); setPrintPlanStudentId(""); setPrintPlanScopeKey(""); }} aria-label="Tutup rencana hafalan" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><X className="h-4 w-4" /></button></div>
             </header>
             <div className="overflow-y-auto p-6 print:overflow-visible print:p-0">
               <article className="mx-auto max-w-2xl space-y-6 print:max-w-none">
@@ -6282,9 +6139,25 @@ export function TahfidzManager() {
                 </dl>
                 <section className="rounded-xl border border-slate-200 p-4 dark:border-white/10 print:rounded-none">
                   <h2 className="font-semibold">Target harian aktif</h2>
-                  {printPlanStudent.target ? <><div className="mt-3 grid gap-3 sm:grid-cols-2"><div><p className="text-xs text-slate-500">Ziyadah</p><p className="mt-1 font-medium">{printPlanStudent.target.ziyadahPagesPerDay} halaman per hari</p></div><div><p className="text-xs text-slate-500">Muroja'ah</p><p className="mt-1 font-medium">{printPlanStudent.target.murojaahPagesPerDay} halaman per hari</p></div><div><p className="text-xs text-slate-500">Periode</p><p className="mt-1 font-medium">{printPlanStudent.target.periodStart} – {printPlanStudent.target.periodEnd || "seterusnya"}</p></div><div><p className="text-xs text-slate-500">Kebijakan</p><p className="mt-1 font-medium">{printPlanStudent.target.policy === "strict" ? "Ketat" : "Standar"}</p></div></div></> : <p className="mt-2 text-sm text-slate-500">Belum ada target aktif yang tercatat untuk santri ini.</p>}
+                  {printPlanStudent.target ? <div className="mt-3 grid gap-3 sm:grid-cols-2"><div><p className="text-xs text-slate-500">Ziyadah</p><p className="mt-1 font-medium">{printPlanStudent.target.ziyadahPagesPerDay} halaman per hari</p></div><div><p className="text-xs text-slate-500">Muroja'ah</p><p className="mt-1 font-medium">{printPlanStudent.target.murojaahPagesPerDay} halaman per hari</p></div><div><p className="text-xs text-slate-500">Periode</p><p className="mt-1 font-medium">{printPlanStudent.target.periodStart} – {printPlanStudent.target.periodEnd || "seterusnya"}</p></div><div><p className="text-xs text-slate-500">Kebijakan</p><p className="mt-1 font-medium">{printPlanStudent.target.policy === "strict" ? "Ketat" : "Standar"}</p></div></div> : <p className="mt-2 text-sm text-slate-500">Belum ada target aktif yang tercatat untuk santri ini.</p>}
                 </section>
-                <section><h2 className="font-semibold">Setoran terbaru yang termuat</h2>{records.filter((record) => String(record.studentId) === String(printPlanStudent.id)).slice(0, 5).length ? <ul className="mt-3 divide-y divide-slate-200 border-y border-slate-200 dark:divide-white/10 dark:border-white/10">{records.filter((record) => String(record.studentId) === String(printPlanStudent.id)).slice(0, 5).map((record) => <li key={record.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span>{record.date} · {record.type} · QS. {record.surah}, ayat {record.ayat}</span><span className="text-xs text-slate-500">Kelancaran {record.fluency === "N/A" ? "Belum dinilai" : record.fluency} · Tajwid {record.tajweed === "N/A" ? "Belum dinilai" : record.tajweed}</span></li>)}</ul> : <p className="mt-2 text-sm text-slate-500">Belum ada setoran pada riwayat yang termuat.</p>}</section>
+                <section>
+                  <h2 className="font-semibold">Setoran terbaru yang termuat</h2>
+                  {printPlanRecords.length ? (
+                    <ul className="mt-3 divide-y divide-slate-200 border-y border-slate-200 dark:divide-white/10 dark:border-white/10">
+                      {printPlanRecords.map((record) => (
+                        <li key={record.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                          <span>{record.date} · {record.type} · QS. {record.surah}, ayat {record.ayat}</span>
+                          <span className="text-xs text-slate-500">
+                            Kelancaran {record.fluency === "N/A" ? "Belum dinilai" : record.fluency} · Tajwid {record.tajweed === "N/A" ? "Belum dinilai" : record.tajweed}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-500">Belum ada setoran pada riwayat yang termuat.</p>
+                  )}
+                </section>
                 <p className="border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-white/10">Rencana ini mencerminkan data yang tersimpan saat dicetak. Setoran terbaru menampilkan paling banyak lima catatan yang sudah dimuat.</p>
               </article>
             </div>

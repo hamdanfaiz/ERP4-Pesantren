@@ -4,8 +4,8 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 const [migration, targetMigration, databaseTest, server, store, ui, manifest] = await Promise.all([
-  read("supabase/migrations/20270311000000_tahfidz_bulk_daily_target_write_api.sql"),
-  read("supabase/migrations/20270312000000_tahfidz_target_decimal_precision.sql"),
+  read("supabase/migrations/20270328000000_tahfidz_bulk_daily_target_write_api.sql"),
+  read("supabase/migrations/20270329000000_tahfidz_target_decimal_precision.sql"),
   read("supabase/tests/tahfidz_bulk_target_write_api.test.sql"),
   read("server.ts"),
   read("src/server/supabaseTahfidz.ts"),

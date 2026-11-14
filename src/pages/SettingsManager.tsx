@@ -724,7 +724,7 @@ export function SettingsManager() {
                     <Database className="w-5 h-5 text-indigo-400" /> Integrasi Komunikasi Otomatis
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Pemberitahuan otomatis melalui WhatsApp dan email belum tersedia.
+                    WhatsApp dapat digunakan setelah alamat layanannya diatur. Pengiriman email otomatis belum tersedia.
                   </p>
                 </div>
 
@@ -735,18 +735,16 @@ export function SettingsManager() {
                       <Send className="w-5 h-5 text-emerald-400" />
                       <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Integrasi WhatsApp (Notifikasi Wali & Pengajar)</h3>
                     </div>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Belum aktif</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Pengaturan tersedia</span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Integrasi WhatsApp belum tersedia saat ini.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Alamat ini digunakan untuk layanan pesan WhatsApp. Pastikan penerima menyetujui komunikasi.</p>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat layanan</label>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat layanan WhatsApp</label>
                     <input
                       type="url"
                       value={integrations.waGatewayEndpoint || ''}
                       onChange={e => setIntegrations({...integrations, waGatewayEndpoint: e.target.value})}
-                      placeholder="Belum tersedia"
-                      disabled
-                      className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-500 opacity-60 dark:text-slate-400"
+                      className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
                     />
                   </div>
                 </div>

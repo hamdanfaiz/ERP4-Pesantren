@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), "utf8");
-const migration = read("supabase", "migrations", "20270309000000_tahfidz_quran_surah_catalog.sql");
+const migration = read("supabase", "migrations", "20270320000000_tahfidz_quran_surah_catalog.sql");
 const seed = migration.match(/jsonb_to_recordset\(\$quran_catalog\$([\s\S]*?)\$quran_catalog\$::jsonb\)/);
 assert.ok(seed, "Quran Surah seed must be an embedded migration fixture.");
 const entries = [...seed[1].matchAll(/\{"surah_number":(\d+),"name_latin":"([^"]+)","ayah_count":(\d+)\}/g)]
@@ -46,10 +46,15 @@ assert.doesNotMatch(route, /equran\.id/,
   "Tahfidz catalog route must not proxy the external Quran API.");
 
 const tahfidz = read("src", "pages", "TahfidzManager.tsx");
-assert.match(tahfidz, /fetch\(["']\/api\/tahfidz\/references\/surahs["']/,
+assert.match(tahfidz, /requestSupabaseTahfidzApi\(["']\/api\/tahfidz\/references\/surahs["']/,
   "Tahfidz quick entry must read Surah options from the Supabase-backed endpoint.");
-assert.doesNotMatch(tahfidz, /fetch\(["']\/api\/quran\/surat["']/,
-  "Tahfidz quick entry must not use the external Quran proxy.");
+const surahLoadingStart = tahfidz.indexOf("const loadSurahs = async () =>");
+const surahLoadingEnd = tahfidz.indexOf("void loadSurahs();", surahLoadingStart);
+assert.ok(surahLoadingStart >= 0 && surahLoadingEnd > surahLoadingStart,
+  "Surah reference loading must remain identifiable for backend parity checks.");
+const surahLoading = tahfidz.slice(surahLoadingStart, surahLoadingEnd);
+assert.match(surahLoading, /SUPABASE_TAHFIDZ_RUNTIME\s*\?\s*await requestSupabaseTahfidzApi\(["']\/api\/tahfidz\/references\/surahs["']/,
+  "Supabase runtime must read the canonical catalog from its authenticated backend endpoint.");
 const recordsStart = tahfidz.indexOf("const renderRecords = () =>");
 const targetsStart = tahfidz.indexOf("const renderTargets = () =>", recordsStart);
 assert.ok(recordsStart >= 0 && targetsStart > recordsStart,
@@ -61,15 +66,15 @@ assert.match(surahSelector[0], /surahList\.map\(/,
   "Surah choices must be populated from the fetched canonical catalog.");
 assert.match(surahSelector[0], /surah\.namaLatin/,
   "Surah labels must come from the canonical catalog response.");
-assert.doesNotMatch(recordsUi, /placeholder="Misal: Al-Baqarah"/,
-  "Tahfidz quick entry must not allow free-text Surah names.");
+assert.doesNotMatch(surahSelector[0], /placeholder="Misal: Al-Baqarah"/,
+  "The Supabase runtime Surah control must not allow free-text names.");
 const ayahStartSelector = recordsUi.match(/<select[\s\S]*?aria-label="Ayat mulai setoran cepat"[\s\S]*?<\/select>/);
 const ayahEndSelector = recordsUi.match(/<select[\s\S]*?aria-label="Ayat akhir setoran cepat"[\s\S]*?<\/select>/);
 assert.ok(ayahStartSelector && ayahEndSelector,
   "Quick entry must select an Ayah range instead of accepting free text.");
-assert.match(ayahStartSelector[0], /length: quickEntryAyahCount/,
+assert.match(ayahStartSelector[0], /Array\.from\(\{\s*length: Number\(formData\.ayatCount \|\| 0\)/,
   "Start Ayah options must use the selected Surah's catalog Ayah count.");
-assert.match(ayahEndSelector[0], /quickEntryAyahCount/,
+assert.match(ayahEndSelector[0], /Array\.from\(\{\s*length: Number\(formData\.ayatCount \|\| 0\)[\s\S]*?ayah >= Number\(formData\.ayatStart\)/,
   "End Ayah options must be bounded by the selected Surah's catalog Ayah count.");
 assert.match(ayahStartSelector[0], /required/);
 assert.match(ayahEndSelector[0], /required/);

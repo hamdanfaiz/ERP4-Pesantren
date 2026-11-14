@@ -201,3 +201,4 @@ SELECT throws_ok($$SELECT public.moderate_tenant_tahfidz_peer_review(
 
 SELECT * FROM finish();
 ROLLBACK;
+

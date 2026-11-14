@@ -91,6 +91,42 @@ async function rows(path: string, limit: number, label: string) {
   });
 }
 
+/** Progress PK is (tenant_id, student_id, material_id); single-column uniqueness would collapse peers. */
+async function progressRows(path: string, maxRows: number, label: string) {
+  const separator = path.indexOf("?");
+  const resourcePath = separator < 0 ? path : path.slice(0, separator);
+  const baseParams = new URLSearchParams(separator < 0 ? "" : path.slice(separator + 1));
+  baseParams.set("order", "student_id.asc,material_id.asc");
+  const result: Row[] = [];
+  const seen = new Set<string>();
+  const pageSize = 500;
+  for (let offset = 0; offset <= maxRows; offset += pageSize) {
+    const requested = Math.min(pageSize, maxRows + 1 - result.length);
+    if (requested < 1) break;
+    const params = new URLSearchParams(baseParams);
+    params.set("limit", String(requested));
+    params.set("offset", String(offset));
+    const page = await request(`${resourcePath}?${params.toString()}`);
+    if (!Array.isArray(page) || page.length > requested) {
+      throw new SupabaseLmsError(503, `Data ${label} melewati batas aman tampilan LMS atau hasil pemindaian tidak lengkap.`);
+    }
+    if (page.length === 0) return result;
+    for (const row of page as Row[]) {
+      const key = `${String(row.student_id || "")}:${String(row.material_id || "")}`;
+      if (!key || key === ":" || seen.has(key)) {
+        throw new SupabaseLmsError(503, `Data ${label} melewati batas aman tampilan LMS atau hasil pemindaian tidak lengkap.`);
+      }
+      seen.add(key);
+      result.push(row);
+    }
+    if (result.length > maxRows) {
+      throw new SupabaseLmsError(503, `Data ${label} melewati batas aman tampilan LMS atau hasil pemindaian tidak lengkap.`);
+    }
+    if (page.length < requested) return result;
+  }
+  throw new SupabaseLmsError(503, `Data ${label} melewati batas aman tampilan LMS atau hasil pemindaian tidak lengkap.`);
+}
+
 export async function getSupabaseLmsLegacyImportContext(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
   const tenants = await rows("/rest/v1/tenants?" + new URLSearchParams({ select: "id,legacy_tenant_key", id: "eq." + tenantId, limit: "2" }).toString(), 1, "legacy tenant mapping");
@@ -164,13 +200,18 @@ export async function getSupabaseLmsSnapshot(tenantIdentifier: string, actorId: 
   ]);
   const moduleIds = moduleRows.map((row) => String(row.id));
   const assignmentIds = assignmentRows.map((row) => String(row.id));
-  const [materialRows, studentRows, submissionRows, progressRows, noteRows] = await Promise.all([
+  const [materialRows, studentRows, submissionRows, noteRows] = await Promise.all([
     moduleIds.length ? rows("/rest/v1/lms_materials?" + new URLSearchParams({ select: "id,module_id,title,material_type,resource_url,body,duration_seconds,display_order", tenant_id: "eq." + tenantId, module_id: inUuid(moduleIds, "module material"), order: "display_order.asc", limit: "5001" }).toString(), 5000, "material") : Promise.resolve([]),
     isStudent ? Promise.resolve([]) : (!isTeacher ? rows("/rest/v1/students?" + new URLSearchParams({ select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, limit: "2001" }).toString(), 2000, "student roster") : [...new Set(enrollmentRows.map((row) => String(row.student_id)))].length ? rows("/rest/v1/students?" + new URLSearchParams({ select: "id,name,grade,class_id,status", tenant_id: "eq." + tenantId, id: inUuid([...new Set(enrollmentRows.map((row) => String(row.student_id)))], "enrolled student roster") , limit: "2001" }).toString(), 2000, "student roster") : Promise.resolve([])),
     assignmentIds.length ? rows("/rest/v1/lms_submissions?" + new URLSearchParams({ select: "id,assignment_id,student_id,response_text,resource_url,submitted_at,score,feedback,graded_by,graded_at", tenant_id: "eq." + tenantId, assignment_id: inUuid(assignmentIds, "assignment submission"), ...(isStudent ? { student_id: "eq." + studentId } : {}), order: "submitted_at.desc", limit: "5001" }).toString(), 5000, "submission") : Promise.resolve([]),
-    isStudent ? rows("/rest/v1/lms_material_progress?" + new URLSearchParams({ select: "material_id,position_seconds,completed_at,updated_at", tenant_id: "eq." + tenantId, student_id: "eq." + studentId, limit: "2001" }).toString(), 2000, "progress") : Promise.resolve([]),
     isStudent ? rows("/rest/v1/lms_student_notes?" + new URLSearchParams({ select: "id,material_id,timestamp_seconds,note,created_at", tenant_id: "eq." + tenantId, student_id: "eq." + studentId, order: "created_at.desc", limit: "2001" }).toString(), 2000, "notes") : Promise.resolve([]),
   ]);
+  const materialIds = materialRows.map((row) => String(row.id));
+  const progressRowList = isStudent
+    ? await progressRows("/rest/v1/lms_material_progress?" + new URLSearchParams({ select: "material_id,student_id,position_seconds,completed_at,updated_at", tenant_id: "eq." + tenantId, student_id: "eq." + studentId, limit: "2001" }).toString(), 2000, "progress")
+    : materialIds.length
+      ? await progressRows("/rest/v1/lms_material_progress?" + new URLSearchParams({ select: "material_id,student_id,position_seconds,completed_at,updated_at", tenant_id: "eq." + tenantId, material_id: inUuid(materialIds, "course material progress"), limit: "5001" }).toString(), 5000, "progress")
+      : [];
   const commentRows = isStudent && materialRows.length
     ? await rows("/rest/v1/lms_material_comments?" + new URLSearchParams({ select: "id,material_id,student_id,timestamp_seconds,comment,created_at", tenant_id: "eq." + tenantId, material_id: inUuid(materialRows.map((row) => String(row.id)), "material comment"), order: "created_at.asc", limit: "5001" }).toString(), 5000, "comments")
     : [];
@@ -203,7 +244,12 @@ export async function getSupabaseLmsSnapshot(tenantIdentifier: string, actorId: 
     responseText: String(row.response_text || ""), resourceUrl: String(row.resource_url || ""), submittedAt: row.submitted_at,
     score: row.score == null ? null : Number(row.score), feedback: String(row.feedback || ""), gradedAt: row.graded_at || null,
   }));
-  const progress = progressRows.map((row) => ({ materialId: String(row.material_id), positionSeconds: Number(row.position_seconds), completedAt: row.completed_at || null }));
+  const progress = progressRowList.map((row) => ({
+    materialId: String(row.material_id),
+    studentId: row.student_id == null ? "" : String(row.student_id),
+    positionSeconds: Number(row.position_seconds),
+    completedAt: row.completed_at || null,
+  }));
   const notes = noteRows.map((row) => ({ id: String(row.id), materialId: String(row.material_id), timestampSeconds: Number(row.timestamp_seconds), note: String(row.note), createdAt: row.created_at }));
   const comments = commentRows.map((row) => ({ id: String(row.id), materialId: String(row.material_id), studentName: studentById.get(String(row.student_id))?.name || "Santri", timestampSeconds: Number(row.timestamp_seconds), comment: String(row.comment), createdAt: row.created_at }));
   return { courses, categories, gradeLevels, instructors: instructorRows.map((row) => ({ id: String(row.user_id), name: String(row.display_name || "Pengajar") })), students, enrollments: enrollmentRows, assignments, submissions, progress, notes, comments };

@@ -1,27 +1,21 @@
 # Modul Alumni Directory & Network
 
+> **Status runtime (13 Nov 2026):** direktori kelulusan Supabase aktif; Tracer/Komunitas memakai data direktori; tab Donasi Alumni membaca modul Donasi & Wakaf. Survei tracer, event komunitas, dan job board **belum** punya API. Lihat [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](../00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md).
+
 ## Tujuan
-Mengelola konektivitas lintas generasi alumni, memantau sebaran karir dan pendidikan lanjutan melalui *Tracer Study*, memfasilitasi bursa kerja (job-boards) serta mengintegrasikan inisiatif donasi (Endowment/Philanthropy).
 
-## Fitur Utama
+Mencatat kelulusan santri menjadi profil alumni tenant dan menampilkan ringkasan angkatan / keanggotaan sederhana.
 
-1. **Alumni Directory**
-   - Basis data dinamis interaktif yang dirender menggunakan Recharts UI, menghubungkan langsung master database `Alumni`.
-   - Mengelompokkan profil dengan *Year Filter* dan kemampuan pencarian berbasis alamat / status aktivitas (employed/studying/entrepreneurship).
+## Yang sudah tersedia
 
-2. **Tracer Study Analytics**
-   - Menampilkan visualisasi pie-chart (`Recharts`) tentang distribusi aktivitas terkini (PNS, BUMN, Universitas, Wiraswasta, dsb).
-   - Menampilkan grafik batang tren kelulusan per tahun.
-   - Dashboard pengelolaan kampanye pengumpulan data tracer study dengan form progress rate metrics.
+1. **Direktori** — daftar alumni + catat kelulusan (`GET /api/alumni`, `POST /api/alumni/graduations`)
+2. **Tracer (terbatas)** — agregat jumlah per tahun angkatan dari profil kelulusan
+3. **Komunitas (terbatas)** — daftar anggota = direktori alumni
+4. **Donasi Alumni** — feed transaksi dari `/api/donation/snapshot` (CRUD di menu Donasi & Wakaf)
 
-3. **Community & Events**
-   - *Agenda & Reuni*: Menjadwalkan kalender event seperti Webinar, kumpul lintas angkatan, dan kajian rutin.
-   - *Job Boards*: Bursa kerja khusus alumni untuk menjalin jejaring profesional dan karir secara eksklusif.
+## Yang belum (backlog)
 
-4. **Donation & Endowment**
-   - Kampanye *Philanthropy Progress*: melacak target pengumpulan dana pembangunan masjid, beasiswa santri, dan pembebasan lahan dengan progress-bar responsif.
-   - Visualisasi pencapaian kontribusi finansial alumni (e.g. *Total Alumni Endowment* widget) berikut log transaksi donasi secara periodik.
-
-## Rencana Pengembangan Lanjutan
-- Membuka landing page / portal publik opsional untuk alumni agar mereka bisa me-register mandiri dan upload CV secara mandiri (terintegrasi *auto-approval* admin).
-- Implementasi e-payment gateway (seperti Midtrans/Xendit) untuk channel kampanye wakaf digital yang langsung link ke database donatur.
+- Form & penyimpanan Tracer Study (pekerjaan/kuliah/wirausaha)
+- Agenda reuni, job board, portal registrasi mandiri alumni
+- Update/hapus profil alumni (API hanya create kelulusan)
+- Payment gateway khusus endowment (di luar kontrak Relasi saat ini)

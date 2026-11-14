@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const migration = fs.readFileSync(path.join(root, "supabase/migrations/20270310000000_tahfidz_persisted_leaderboard.sql"), "utf8");
+const migration = fs.readFileSync(path.join(root, "supabase/migrations/20270327000000_tahfidz_persisted_leaderboard.sql"), "utf8");
 const server = fs.readFileSync(path.join(root, "src/server/supabaseTahfidz.ts"), "utf8");
 const routes = fs.readFileSync(path.join(root, "server.ts"), "utf8");
 const page = fs.readFileSync(path.join(root, "src/pages/TahfidzManager.tsx"), "utf8");
@@ -42,6 +42,12 @@ assert.match(routes, /listSupabaseTahfidzLeaderboard\(\s*actor\.tenantId, actor\
 
 assert.match(page, /\/api\/tahfidz\/leaderboard\?limit=\$\{limit\}/,
   "Tahfidz dashboard must load ranking data from the authenticated backend.");
+assert.match(page, /currentLeaderboardScopeKey = `\$\{user\?\.tenantId \|\| ""\}:\$\{user\?\.uid \|\| ""\}:\$\{role\}:\$\{String\(user\?\.modulePermissions\?\.tahfidz \?\? ""\)\}`/,
+  "Leaderboard view scope must include the active role and Tahfidz permission to prevent stale cross-scope display.");
+assert.match(page, /setLeaderboardScope\(currentLeaderboardScopeKey\)/,
+  "A leaderboard response must be tagged with the role and permission scope that requested it.");
+assert.match(page, /leaderboardScope === currentLeaderboardScopeKey/,
+  "Leaderboard results must stay hidden when the current access scope differs from the requesting scope.");
 const dashboardStart = page.indexOf("const renderSupabaseDashboard = () => {");
 const dashboardEnd = page.indexOf("const renderSupabaseParentDashboard = () => {", dashboardStart);
 assert.ok(dashboardStart >= 0 && dashboardEnd > dashboardStart,

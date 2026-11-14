@@ -1,7 +1,29 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, type Plugin} from 'vite';
+import {defineConfig, loadEnv, type Plugin} from 'vite';
+import {PUBLIC_CLIENT_RUNTIME_CONFIG_KEYS} from './src/publicRuntimeConfigKeys';
+
+function erp4RuntimeConfig(): Plugin {
+  return {
+    name: 'erp4-runtime-config',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const pathname = (req.url || '').split('?')[0];
+        if (pathname !== '/runtime-config.json') return next();
+        const fileEnv = loadEnv(server.config.mode, server.config.root, '');
+        const config = Object.fromEntries(
+          PUBLIC_CLIENT_RUNTIME_CONFIG_KEYS.map((key) => [key, String(fileEnv[key] || '')]),
+        );
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.end(JSON.stringify(config));
+      });
+    },
+  };
+}
 
 function firebaseClientBundleGuard(): Plugin {
   return {
@@ -23,7 +45,7 @@ function firebaseClientBundleGuard(): Plugin {
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss(), firebaseClientBundleGuard()],
+    plugins: [erp4RuntimeConfig(), react(), tailwindcss(), firebaseClientBundleGuard()],
     build: {
       rollupOptions: {
         output: {
@@ -47,10 +69,16 @@ export default defineConfig(() => {
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:3000',
+          changeOrigin: true,
+        },
+      },
     },
   };
 });

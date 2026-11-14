@@ -111,10 +111,61 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 144);
-assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270312000000_tahfidz_target_decimal_precision.sql'));
-assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270311000000_tahfidz_bulk_daily_target_write_api.sql'));
+assert.equal(sourceMigrationsWithSql.length, 153);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
+const quranCatalogMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270320000000_tahfidz_quran_surah_catalog.sql');
+assert(quranCatalogMigration, 'Canonical Quran reference data and Tahfidz validation need a forward-only migration.');
+assert.match(quranCatalogMigration.statements.join('\n'), /CREATE TABLE IF NOT EXISTS public\.quran_surahs/i);
+assert.match(quranCatalogMigration.statements.join('\n'), /surah_number SMALLINT/);
+assert.match(quranCatalogMigration.statements.join('\n'), /REVOKE ALL ON TABLE public\.quran_surahs FROM PUBLIC, anon, authenticated/i);
+assert.match(quranCatalogMigration.statements.join('\n'), /GRANT SELECT ON TABLE public\.quran_surahs TO service_role/i);
+assert.match(quranCatalogMigration.statements.join('\n'), /DROP TRIGGER IF EXISTS tahfidz_records_validate_quran_reference_insert/i);
+const quranLegacySql = readFileSync(new URL('../supabase/tests/fixtures/applied-migrations/20261109145507_tahfidz_quran_surah_catalog.sql', import.meta.url), 'utf8');
+const quranLegacyAlias = compareMigrationVersions([quranCatalogMigration], [{
+  version: '20261109145507',
+  name: 'tahfidz_quran_surah_catalog',
+  statements: canonicalizeMigrationStatements(quranLegacySql),
+}]);
+assert.deepEqual(quranLegacyAlias.unknownApplied, []);
+assert.equal(quranLegacyAlias.statementMismatches.length, 0, 'VQE Quran alias must match the pinned historical SQL fingerprint.');
+assert.deepEqual(quranLegacyAlias.migrationAliasesPendingRepair, [{
+  from: '20261109145507', to: '20270320000000', name: 'tahfidz_quran_surah_catalog',
+}]);
+assert.equal(quranLegacyAlias.canContinueToStagingReview, false, 'The alias remains blocked until ledger repair is explicitly reviewed.');
+const alteredQuranAlias = compareMigrationVersions([quranCatalogMigration], [{
+  version: '20261109145507',
+  name: 'tahfidz_quran_surah_catalog',
+  statements: ['CREATE TABLE public.quran_surahs (surah_number text)'],
+}]);
+assert.equal(alteredQuranAlias.statementMismatches.length, 1, 'Unrecognized SQL must not pass as a verified Quran alias.');
+for (const aliasCase of [
+  {
+    from: '20261109145522',
+    to: '20270327000000',
+    name: 'tahfidz_persisted_leaderboard',
+    fileName: '20270327000000_tahfidz_persisted_leaderboard.sql',
+  },
+  {
+    from: '20261109145534',
+    to: '20270328000000',
+    name: 'tahfidz_bulk_daily_target_write_api',
+    fileName: '20270328000000_tahfidz_bulk_daily_target_write_api.sql',
+  },
+]) {
+  const canonical = sourceMigrationsWithSql.find(({ fileName }) => fileName === aliasCase.fileName);
+  assert(canonical, `Canonical migration is missing: ${aliasCase.fileName}`);
+  const aliasReport = compareMigrationVersions([canonical], [{
+    version: aliasCase.from,
+    name: aliasCase.name,
+    statements: canonical.statements,
+  }]);
+  assert.deepEqual(aliasReport.unknownApplied, []);
+  assert.equal(aliasReport.statementMismatches.length, 0, `${aliasCase.name} staging SQL must match exactly.`);
+  assert.deepEqual(aliasReport.migrationAliasesPendingRepair, [{
+    from: aliasCase.from, to: aliasCase.to, name: aliasCase.name,
+  }]);
+  assert.equal(aliasReport.canContinueToStagingReview, false, `${aliasCase.name} remains blocked pending ledger reconciliation.`);
+}
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270306000000_library_book_category_reference_writes.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
@@ -390,11 +441,11 @@ const observedStagingMigrations = sourceMigrationsWithSql
   }));
 assert.equal(observedStagingMigrations.length, 49);
 const stagingBaselineSource = sourceMigrationsWithSql.filter(({ version }) => version <= '20270302000000');
-assert.equal(stagingBaselineSource.length, 134);
+assert.equal(stagingBaselineSource.length, 135);
 const stagingBaseline = compareMigrationVersions(stagingBaselineSource, observedStagingMigrations);
 assert.equal(stagingBaseline.appliedCount, 49);
 assert.equal(stagingBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(stagingBaseline.pending.length, 85);
+assert.equal(stagingBaseline.pending.length, 86);
 assert.equal(stagingBaseline.pending[0].version, '20261207000000');
 assert.equal(stagingBaseline.pending.at(-1).version, '20270302000000');
 assert.equal(stagingBaseline.outOfOrderPending.length, 0);
@@ -407,47 +458,9 @@ assert.deepEqual(stagingBaseline.statementMismatches.map(({ version, reason }) =
 assert.equal(stagingBaseline.canContinueToStagingReview, false);
 assert.match(formatReport(stagingBaseline), /HENTIKAN/);
 
-// Read-only VQE inventory from 2026-11-12: 140 source migrations through
-// 20270308000000 plus three Tahfidz migrations whose exact SQL is stored under
-// older timestamps. The source statements below are paired with ledger aliases
-// only after live statement arrays matched exactly after newline normalization.
-const vqeTahfidzAliases = [
-  { from: '20261109145507', to: '20270309000000', name: 'tahfidz_quran_surah_catalog' },
-  { from: '20261109145522', to: '20270310000000', name: 'tahfidz_persisted_leaderboard' },
-  { from: '20261109145534', to: '20270311000000', name: 'tahfidz_bulk_daily_target_write_api' },
-];
-const vqeSourceThroughCurrentLedger = sourceMigrationsWithSql
-  .filter(({ version }) => version <= '20270308000000');
-assert.equal(vqeSourceThroughCurrentLedger.length, 140);
-const observedVqeMigrations = [
-  ...vqeSourceThroughCurrentLedger.map(({ version, fileName, statements }) => ({
-    version,
-    name: fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, ''),
-    statements,
-  })),
-  ...vqeTahfidzAliases.map((alias) => {
-    const source = sourceMigrationsWithSql.find(({ version }) => version === alias.to);
-    assert(source, `VQE alias target is missing from source: ${alias.to}`);
-    return { version: alias.from, name: alias.name, statements: source.statements };
-  }),
-];
-assert.equal(observedVqeMigrations.length, 143);
-const vqeBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedVqeMigrations);
-assert.equal(vqeBaseline.appliedCount, 143);
-assert.equal(vqeBaseline.latestAppliedVersion, '20270311000000');
-assert.deepEqual(vqeBaseline.pending.map(({ version }) => version), ['20270312000000']);
-assert.deepEqual(vqeBaseline.unknownApplied, []);
-assert.deepEqual(vqeBaseline.nameMismatches, []);
-assert.deepEqual(vqeBaseline.statementMismatches, []);
-assert.deepEqual(vqeBaseline.migrationAliasesPendingRepair, vqeTahfidzAliases);
-assert.deepEqual(vqeBaseline.validatedMigrationAliases, vqeTahfidzAliases);
-assert.equal(vqeBaseline.canContinueToStagingReview, false);
-assert.match(formatReport(vqeBaseline), /SQL cocok persis: 20261109145507 → 20270309000000/);
-assert.match(formatReport(vqeBaseline), /20270312000000_tahfidz_target_decimal_precision\.sql/);
-
 // Regression fixture for the read-only PTSAS Production inventory captured on
-// 2026-11-12: 48 ledger rows, two missing older migrations, two existing rows
-// with missing name/statement metadata, and a later version/name collision.
+// 2026-11-06: 47 applied versions through 20261206000000, two missing older
+// migrations, and two existing rows with missing name/statement metadata.
 const productionMissingMigrationVersions = new Set([
   '20261031104213',
   '20261031225438',
@@ -468,38 +481,26 @@ const observedProductionMigrations = productionSourceAtBoundary
       : fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, ''),
     statements: productionMissingMetadataVersions.has(version) ? null : statements,
   }));
-const conflictingProductionMigration = sourceMigrationsWithSql.find(
-  ({ version }) => version === '20270309000000'
-);
-assert(conflictingProductionMigration, 'The source Tahfidz catalog migration must be present for the Production collision fixture.');
-// Use the source SQL only to isolate the observed name collision in this test;
-// this is not evidence about the SQL stored in the live Production ledger.
-observedProductionMigrations.push({
-  version: '20270309000000',
-  name: 'academic_report_card',
-  statements: conflictingProductionMigration.statements,
-});
-assert.equal(observedProductionMigrations.length, 48);
+assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
-assert.equal(productionBaseline.appliedCount, 48);
-assert.equal(productionBaseline.latestAppliedVersion, '20270309000000');
-assert.equal(productionBaseline.pending.length, 96);
-assert.equal(productionBaseline.outOfOrderPending.length, 93);
-for (const version of productionMissingMigrationVersions) {
-  assert(productionBaseline.outOfOrderPending.some((migration) => migration.version === version));
-}
+assert.equal(productionBaseline.appliedCount, 47);
+assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
+assert.equal(productionBaseline.pending.length, 106);
+assert.deepEqual(
+  productionBaseline.outOfOrderPending.map(({ version }) => version),
+  [...productionMissingMigrationVersions],
+);
 assert.equal(productionBaseline.unknownApplied.length, 0);
 assert.deepEqual(
   productionBaseline.nameMismatches.map(({ version }) => version),
-  [...productionMissingMetadataVersions, '20270309000000'],
+  [...productionMissingMetadataVersions],
 );
 assert.deepEqual(
   productionBaseline.statementMismatches.map(({ version, reason }) => ({ version, reason })),
   [...productionMissingMetadataVersions].map((version) => ({ version, reason: 'missing' })),
 );
 assert.equal(productionBaseline.canContinueToStagingReview, false);
-assert.match(formatReport(productionBaseline), /nama migration pada ledger kosong atau berbeda/);
-assert.match(formatReport(productionBaseline), /20270309000000.*ledger=academic_report_card.*repository=tahfidz_quran_surah_catalog/);
+assert.match(formatReport(productionBaseline), /lebih lama dari versi terakhir database/);
 assert.match(formatReport(productionBaseline), /20261031104213.*master_data_import_create_only/);
 assert.match(formatReport(productionBaseline), /20261031225438.*master_data_audit_feed/);
 assert.match(formatReport(productionBaseline), /statement SQL pada ledger kosong/);
@@ -567,3 +568,4 @@ assert.match(READ_ONLY_LEDGER_QUERY, /COMMIT/);
 assert.doesNotMatch(READ_ONLY_LEDGER_QUERY, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE)\b/i);
 
 console.log('Supabase migration preflight logic passed: version/name/SQL lineage comparison, safe SQL parsing, duplicate/unknown versions, TLS enforcement, and read-only SQL.');
+

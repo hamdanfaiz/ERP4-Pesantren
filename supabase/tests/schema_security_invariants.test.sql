@@ -57,6 +57,7 @@ WITH app_tables AS (
   WHERE n.nspname = 'public'
     AND c.relkind IN ('r', 'p')
     AND c.relname <> 'tenants'
+    -- Canonical Quran references are global lookup data, not tenant-owned records.
     AND c.relname <> 'quran_surahs'
     AND NOT EXISTS (
       SELECT 1
@@ -333,4 +334,3 @@ SELECT is(
 
 SELECT * FROM finish();
 ROLLBACK;
-

@@ -81,6 +81,8 @@ jobs:
         run: npm run test:tahfidz-target-print
       - name: Verify Tahfidz bulk targets use atomic tenant-scoped API
         run: npm run test:tahfidz-bulk-targets
+- name: Verify Supabase Quran catalog validation
+        run: npm run test:supabase-quran-catalog
 
       - name: Verify PPDB CSV import parsing and identity preservation
         run: bun run test:ppdb-csv-import
@@ -120,6 +122,18 @@ jobs:
 
       - name: Verify tenant business-day calculations
         run: npm run test:business-date
+
+      - name: Verify CBT calendar tenant dates and month navigation
+        run: npm run test:cbt-calendar
+
+      - name: Verify CBT decision dashboard metrics
+        run: npm run test:cbt-dashboard
+
+      - name: Verify CBT tenant question package summaries
+        run: npm run test:cbt-packages
+
+      - name: Verify CBT persisted session monitoring
+        run: npm run test:cbt-monitor
 
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow
@@ -325,14 +339,39 @@ jobs:
             exit 1
           fi
 
-      - name: Verify and clean synthetic migration backfill rows
+      - name: Verify synthetic migration backfill rows
         run: |
           db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
           if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then
-            echo "Refusing to verify or clean anything except the isolated local Supabase database." >&2
+            echo "Refusing to verify anything except the isolated local Supabase database." >&2
             exit 1
           fi
           psql "$db_url" --set ON_ERROR_STOP=1 --file scripts/assertions/laundry-mutation-backfill-and-cleanup.sql
+
+      - name: Reset isolated local database after migration rehearsal
+        run: |
+          db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
+          if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then
+            echo "Refusing to reset anything except the isolated local Supabase database." >&2
+            exit 1
+          fi
+          supabase db reset --local --no-seed
+          reset_db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
+          if [[ ! "$reset_db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then
+            echo "Refusing to verify anything except the isolated local Supabase database after reset." >&2
+            exit 1
+          fi
+          applied_count="$(psql "$reset_db_url" --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT count(*) FROM supabase_migrations.schema_migrations")"
+          source_count="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
+          if [[ "$applied_count" != "$source_count" ]]; then
+            echo "Post-rehearsal local reset migration count mismatch: applied=$applied_count source=$source_count" >&2
+            exit 1
+          fi
+          fixture_count="$(psql "$reset_db_url" --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT count(*) FROM public.tenants WHERE id='e1500000-0000-4000-8000-000000000009'")"
+          if [[ "$fixture_count" != "0" ]]; then
+            echo "Synthetic rehearsal tenant remains after the isolated local reset." >&2
+            exit 1
+          fi
 
       - name: Run database tests
         run: npm run test:db
@@ -396,3 +435,4 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+

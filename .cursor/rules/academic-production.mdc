@@ -1,0 +1,20 @@
+---
+description: Pengembangan Akademik dan relasinya dilanjutkan di Production PTSAS, bukan di staging.
+alwaysApply: true
+---
+
+# Akademik dilanjutkan di Production
+
+Database pengembangan adalah Production PTSAS `ptsasgdvgrbdtgyqieie` di `https://ptsasgdvgrbdtgyqieie.supabase.co`. Jangan mengembangkan, migrasi, atau menyalin data ke staging VQE `vqemuyzveuirlkvdggjd`. Abaikan kunci `STAGING_` dan catatan lama yang menyuruh memakai staging.
+
+Modul Akademik, beserta objek yang dipanggil layar dan API-nya, harus diselesaikan di Production ini. Yang masih belum ada dan wajib diselesaikan:
+
+- unit organisasi yang dirujuk catatan akademik dan santri
+- katalog `tenant_reference_items` untuk mata pelajaran, kurikulum, jenis penilaian, dan fasilitas
+- kolom `class_reference_id` serta `organization_unit_id` yang dibaca snapshot Akademik
+- `get_tenant_academic_roster_page`, `get_tenant_academic_class_page`, `get_tenant_unmapped_academic_classes`, dan `assign_tenant_academic_class_unit`
+- migrasi Akademik source sesudah `20261120000000` yang belum tercatat, kecuali `20270309000000` yang sudah terpasang
+
+Terapkan hanya migrasi yang dibutuhkan rantai itu, sesuai urutan dependensinya. Jangan menjalankan `db push` seluruh selisih ledger hanya agar jumlah versinya sama. Jangan menyalin data tenant atau data aplikasi dari staging.
+
+Jangan menerapkan ulang `20270309000000_academic_report_card.sql`. Jangan menyalakan `SUPABASE_ACADEMIC_RUNTIME_ENABLED` atau `VITE_SUPABASE_ACADEMIC_RUNTIME_ENABLED` sebelum objek yang dipanggil halaman Akademik ada. Kontrak rapor tetap di `academic-report-card.mdc`. Akses database tetap di `supabase-project.mdc`.

@@ -1,34 +1,56 @@
-## Checkpoint otoritatif — 9 November 2026, 13.13 WIB
+> **Agent / multi-agent:** mulai dari [AGENT_START_HERE.md](AGENT_START_HERE.md). Untuk Relasi & Ekosistem + OpenWA (13 Nov 2026) baca [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md). Checkpoint di bawah ini tetap relevan untuk ledger Production dan gerbang migrasi umum.
+
+## Checkpoint otoritatif — 11 November 2026, preflight baca-saja Production
+
+### Source dan CI
+
+- `origin/main` dan checkout ini berada pada `fd937f4876aa1069500694b9bc20ec70eef8ee14`, merge PR #90. Source berisi **140** file migrasi; versi terakhir `20270308000000_academic_class_unit_admin_role_baseline`.
+- GitHub Actions [run #42482785770](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42482785770) pada SHA itu lulus **3/3 job**: build/guard frontend, migrasi/API/pgTAP, dan instalasi NPM. Check Supabase Preview juga sukses dan menaut ke dashboard VQE. Sesi ini tidak membaca ulang ledger VQE, jadi angka 140/140 di [panduan UAT](../05_ARCHITECTURE/FRONTEND_UAT_HANDOFF.md) tetap bukti 8 November.
+- PR #91 (`ui: seragamkan pesan dan permukaan modul`, head `4585d25`) masih **draft** dan belum masuk `main`.
+- Checkout ini memakai `.env` yang diabaikan Git dan mengarah ke PTSAS Production. Jangan menjalankan UAT atau server aplikasi dari checkout ini.
+
+### Production PTSAS — kueri baca-saja
+
+- Project `ptsasgdvgrbdtgyqieie`, PostgreSQL 17.11, database `postgres`. Transaksi dibuka `READ ONLY` dan ditutup `ROLLBACK`. Tidak ada migrasi, data, atau perubahan Production.
+- Ledger: **47** versi. Versi terakhir tercatat `20261206000000`. **45** versi punya nama dan statement SQL yang cocok dengan file source setelah kanonikalisasi preflight. Dua baris tanpa nama dan tanpa payload SQL: `20261205000000` dan `20261206000000`.
+- Objek `20261206000000` tetap ada meskipun payload ledger kosong: tabel `ppdb_legacy_import_batches`, fungsi `import_legacy_ppdb_candidates`, dan indeks `candidates_legacy_source_record_uq`. Kecocokan SQL penuh kedua versi itu tidak bisa dibuktikan dari ledger.
+- **93** versi source belum tercatat. Dua di antaranya lebih lama daripada versi terakhir ledger, jadi preflight berhenti dengan `HENTIKAN`: `20261031104213_master_data_import_create_only` dan `20261031225438_master_data_audit_feed`. Objek keduanya belum ada (`master_data_audit_events`, `capture_master_data_audit_event`, `create_master_data_structure_if_absent`).
+- `save_tenant_system_settings(uuid, uuid, timestamp with time zone, jsonb)` sudah ada dan definisinya tidak memuat `PT409`. `assign_tenant_academic_class_unit` serta `get_tenant_unmapped_academic_classes` belum ada. PR #86 dan PR #90 belum menjadi definisi yang aktif di Production.
+- Katalog `public`: **119/119** tabel RLS dan FORCE RLS. Lima policy, semuanya `PERMISSIVE SELECT` untuk `authenticated`, pada `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`. Grant `SELECT` `authenticated` hanya pada kelima tabel itu. `anon` tidak dapat `EXECUTE` fungsi `public`. `authenticated` dapat `EXECUTE` empat helper `SECURITY DEFINER`: `current_app_role()`, `current_tenant_id()`, `has_module_access(text)`, `is_tenant_admin()`.
+- Bucket Storage yang terlihat: `erp4-private-finance-proofs` dan `ppdb-documents`, keduanya privat dan berbatas ukuran. Tidak ada nama objek atau isi berkas yang dibaca.
+
+Daftar 93 versi dan batas bukti ada di [rekonsiliasi baca-saja 11 November](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-11.md). **Daftar itu bukan rencana migrasi.** Jangan menjalankan `db push` atau menerapkan 93 file untuk menyamakan jumlah ledger.
+
+### Gerbang yang masih terbuka
+
+1. Backup yang dapat dipulihkan, lalu rehearsal urutan migrasi pada salinan terisolasi. Dua versi ledger tanpa payload dan dua file yang lebih tua dari kepala ledger harus diselesaikan di rencana itu sebelum apa pun dijalankan ke Production.
+2. UAT browser Admin/Wali dan lintas modul pada staging VQE, dari checkout yang host-nya `vqemuyzveuirlkvdggjd`, bukan dari `.env` Production ini.
+3. Ulangi preflight ledger VQE pada source `fd937f4` yang sama. Bukti 140/140 terakhir adalah 8 November.
+4. Clean install, upgrade, dan restore di host target tetap belum diuji sesi ini.
+
+**Kesimpulan:** source `main` pada `fd937f4` lulus CI 3/3, dan preflight Production kali ini benar-benar dijalankan. Production masih pada 47 versi ledger sampai `20261206000000`. Produk belum siap deploy.
+
+---
+
+## Checkpoint historis — 8 November 2026, sesudah PR #86
 
 ### Source dan pengujian yang terbukti
 
-- `main` berada pada merge commit PR #90 `fd937f4876aa1069500694b9bc20ec70eef8ee14`. PR #91 tetap **Draft/Open**, head `cf3cf0ba9e46d6110a50a715e3149a2c6e7bfcaa`, 40 commit di depan main dan 140 file berubah. CI run [#1438](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42571060017) lulus **3/3 job** setelah laporan UAT ditambahkan.
-- CI #1438 menjalankan replay migration pada Supabase lokal terisolasi, API auth/tenant, pgTAP, Storage, backup/restore lokal, typecheck/build, guard tanpa Firebase, Docker, dan instalasi paket pelanggan. Ini bukan bukti restore Production, UAT CRUD seluruh modul, atau kesamaan DDL Production.
-- Laporan UAT staging terbaru: [UAT Browser Smoke 9 November](UAT_BROWSER_SMOKE_2026-11-09.md). Laporan tersebut masuk ke PR #91 pada commit `cf3cf0b`.
-
-### UAT staging yang dibuktikan
-
-- Admin UAT masuk sendiri pada preview lokal `127.0.0.1:3000`, dengan environment VQE `vqemuyzveuirlkvdggjd`. Pemeriksaan hanya baca/navigasi; tidak ada record atau transaksi yang disimpan, dan Production tidak diubah.
-- Data Induk, Ringkasan, Tahfidz, Asrama, Dokumen Digital, LMS, Perpustakaan, SDM, CBT, dan Analitik dapat dibuka. Data tenant uji kosong; pada CBT tombol simpan soal nonaktif karena mata pelajaran dan paket soal belum tersedia.
-- PPDB, Keuangan, Komunikasi, UKS, Koperasi, Laundry, Multi-Unit, Anggaran, Sarana-Prasarana, Alumni, CRM, Donasi/Wakaf, dan Marketplace menampilkan layanan belum tersedia. Akademik gagal memuat data/referensi. Beberapa subfitur LMS/Perpustakaan/Sarana-Prasarana memiliki gap yang dicatat pada laporan UAT.
-- Pemeriksaan browser berjalan pada checkout lokal yang berubah dan **bukan source yang sama dengan head PR #91**. Karena itu belum membuktikan UAT source-match, CRUD lintas modul, matriks role/tenant lewat UI, UAT Wali, atau viewport ponsel.
+- `main` berada pada merge commit `c219bbb467e1d2db3385abcaa7b8b1ee14ef0ad9`. PR #86, perbaikan HTTP 409 pada simpan Pengaturan Tenant, sudah merged. PR #1–#11 tetap closed tanpa merge karena implementasi utamanya digantikan source lebih baru.
+- Kandidat PR #86 `c34fed60a41c0e13e37e03281b650abffcd58fc7` lulus CI 3/3: migration/API/pgTAP, frontend/runtime Docker, dan instalasi NPM. [Run #42459060708](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42459060708). Supabase Preview dilewati. Belum ditemukan run terpisah pasca-merge ke `main`.
+- Job database memakai Supabase lokal terisolasi dan fixture sintetis. Log membuktikan API round-trip terpilih, relasi, persistence, idempotensi, role dan isolasi tenant lintas Akademik, CBT, LMS, HRIS, Koperasi, CRM, komunikasi, Laundry, Donasi/Wakaf, Dokumen, Kesehatan, Tahfidz, Perpustakaan, fasilitas, Urusan Umum, PPDB dan Finance; juga Storage, konkurensi NIS/asrama/Tahfidz, serta backup/restore satu record sintetis.
+- Bukti itu bukan UAT browser semua menu, form, role dan modul, bukan backup/restore Production, dan bukan bukti instalasi/upgrade/restore pada host pelanggan.
 
 ### Backend, staging, dan Production
 
-- VQE: ledger versi/nama sebelumnya cocok 140/140 dengan source. Di `.env` lokal, flag PPDB, Keuangan, dan Akademik yang diperiksa bernilai `false`. File `.env` tidak disalin atau dipublikasikan.
-- PTSAS Production: snapshot metadata baca-saja yang tersedia menunjukkan 119 tabel `public` dengan RLS aktif dan 47 entri migration ledger. DDL aktual, isi semua policy, urutan migration, route/RPC, backup, dan restore Production belum diverifikasi. Production tidak disentuh.
-- Selisih ledger bukan daftar migration siap dijalankan. Lihat [rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-09.md) dan [triase Advisors VQE](../06_DATABASE/VQE_STAGING_ADVISORS_2026-11-09.md).
+- VQE `vqemuyzveuirlkvdggjd` terdeteksi `ACTIVE_HEALTHY` dengan PostgreSQL 17.11.0.003. `list_migrations` menunjukkan 139 entri sampai `20270307000000_tenant_settings_conflict_http_409`. Query metadata baca-saja mengonfirmasi versi/nama ledger dan definisi `save_tenant_system_settings` yang memakai `PT409`.
+- Pemeriksaan tersebut membuktikan keberadaan migrasi Pengaturan Tenant di VQE, bukan kecocokan penuh seluruh DDL atau UAT setiap modul. Jalankan preflight versi/nama/SQL terhadap seluruh source yang sama sebelum langkah staging berikutnya.
+- Konektor sesi ini masih menolak baca PTSAS Production. Snapshot operator terdahulu menyebut 47 entri ledger dan 119 tabel public ber-RLS + FORCE RLS; angka itu belum diverifikasi ulang dan bukan bukti DDL cocok dengan source `main`. Tidak ada perubahan Production.
+- Tim backend menangani schema diff Production, review dependensi/urutan migration, backup/restore rehearsal, dry-run dan UAT hosting. Jangan menjalankan migration Production hanya untuk menyamakan jumlah ledger.
 
-### Tindak lanjut dan status
-
-1. Sinkronkan checkout lokal yang kini berbeda dari PR; jangan mendorong perubahan lokal sekaligus.
-2. Tim backend meninjau PR #91 dan menyiapkan referensi data sintetis serta gerbang runtime VQE per modul, lalu lakukan UAT tulis-baca dengan fixture dan hapus setelah bukti tersimpan.
-3. Selesaikan UAT source-match, responsif, role/tenant dan alur penting.
-4. Tim backend membandingkan DDL Production dengan source, meninjau urutan migration, dan membuktikan backup/restore di target terisolasi.
-5. Clean install/upgrade di VPS dan on-premise serta UAT hosting sasaran tetap diperlukan sebelum go-live.
-
-**Kesimpulan:** PR #91 siap untuk ditinjau tim dan CI 3/3, tetapi tetap Draft/Open. Produk belum siap deploy/go-live atau dinyatakan matang secara komersial.
+**Kesimpulan:** source `main` tersedia untuk review tim backend; pengujian otomatis sintetis lulus pada kandidat PR #86, tetapi seluruh fitur/fungsi belum selesai diuji dan produk belum dinyatakan siap deploy. Persentase terukur checkpoint ini adalah 3/3 job CI (100% dari job run itu), bukan persentase keseluruhan ERP. Lihat [checkpoint CI dan staging](CHECKPOINT_2026-11-08_CI_AND_STAGING.md).
 ---
+
 ## Checkpoint historis — setelah merge PR #38–#40, PR #43, dan PR #47, 7 November 2026
 
 ### Source dan verifikasi

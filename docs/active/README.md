@@ -5,12 +5,14 @@ Folder ini berisi dokumen pekerjaan, fitur, dan rancangan arsitektur yang **masi
 Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `completed` atau gabungkan ke panduan utama bila sesuai.
 
 ## Kesiapan produk
-- [Kesiapan Komersial dan Handoff Backend](00_PRODUCT/COMMERCIAL_READINESS.md) — status otoritatif, bukti, risiko migrasi, dan tahapan handoff per 12 November 2026.
-- [Checkpoint pengembangan — 12 Nov 2026](00_PRODUCT/CHECKPOINT_2026-11-12_RESUME.md) — posisi PR #91, progress, batas aman, penghambat, dan langkah saat melanjutkan.
-- [Checkpoint jeda pengembangan — 10 Nov 2026 (historis)](00_PRODUCT/CHECKPOINT_2026-11-10_PAUSE.md) — snapshot sebelum UAT Tahfidz terbaru; jangan gunakan sebagai status terkini.
+- [**Agent Start Here**](00_PRODUCT/AGENT_START_HERE.md) — wajib dibaca semua agent sebelum mengubah kode, skema, flag, atau data.
+- [Kesiapan Komersial dan Handoff Backend](00_PRODUCT/COMMERCIAL_READINESS.md) — status, bukti, risiko migrasi, dan tahapan handoff; periksa tanggal snapshot sebelum menggunakannya.
+- [Checkpoint pengembangan — 12 Nov 2026](00_PRODUCT/CHECKPOINT_2026-11-12_RESUME.md) — posisi PR #91, penghambat, dan langkah saat melanjutkan.
+- [Checkpoint Relasi & Ekosistem + OpenWA — 13 Nov 2026](00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md) — perubahan Alumni/CRM/Donasi/Marketplace/Analitik, integrasi OpenWA, dan backlog lanjutan.
+- [Checkpoint jeda pengembangan — 10 Nov 2026 (historis)](00_PRODUCT/CHECKPOINT_2026-11-10_PAUSE.md) — snapshot historis sebelum UAT Tahfidz terbaru.
 - [UAT API VQE staging — 10–11 Nov 2026](00_PRODUCT/VQE_STAGING_API_UAT_2026-11-10.md) — hasil Dokumen Digital, PPDB/Keuangan, Perpustakaan, Tahfidz, serta isolasi fixture sintetis.
-- [Rekonsiliasi ledger migrasi PTSAS Production dan VQE](06_DATABASE/PRODUCTION_MIGRATION_LEDGER_RECONCILIATION_2026-11-11.md) — perbandingan nomor/nama migrasi source dengan ledger kedua project, alias staging, serta langkah yang harus diselesaikan tim sebelum migrasi Production.
-- [Progres historis — 30 Okt 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — arsip checkpoint lama; gunakan dokumen Kesiapan Komersial di atas untuk status dan estimasi terbaru.
+- [Rekonsiliasi ledger migrasi PTSAS Production dan VQE](06_DATABASE/PRODUCTION_MIGRATION_LEDGER_RECONCILIATION_2026-11-11.md) — perbandingan nomor/nama migrasi source dengan ledger kedua proyek, alias staging, dan langkah rekonsiliasi.
+- [Progres historis — 30 Okt 2026](05_ARCHITECTURE/PROJECT_COMPLETION_PROGRESS_2026-10-30.md) — arsip historis, bukan ukuran status terkini.
 - [Checkpoint penempatan menu — 1 Nov 2026](00_PRODUCT/MODULE_OWNERSHIP_CHECKPOINT_2026-11-01.md) — lokasi menu pada modul pemilik, batas katalog baca-saja, hasil pemeriksaan lokal, dan gate yang masih terbuka.
 - [Audit paritas submodul dan isi tab AI Studio — 9 Nov 2026](00_PRODUCT/AI_STUDIO_TAB_LEVEL_PARITY_2026-11-09.md) — perbandingan fitur per tab, termasuk status yang benar-benar tersambung dan gap yang masih perlu dibangun.
 

@@ -1,4 +1,4 @@
-type SurahReferenceRow = {
+type SupabaseQuranSurahRow = {
   surah_number: number;
   name_latin: string;
   ayah_count: number;
@@ -65,7 +65,7 @@ export async function listSupabaseQuranSurahs(): Promise<QuranSurahReference[]> 
     throw new SupabaseQuranCatalogError(503, "Katalog Surah belum lengkap. Silakan hubungi administrator.");
   }
 
-  const catalog = rows.map((row: SurahReferenceRow, index: number) => {
+  const catalog = rows.map((row: SupabaseQuranSurahRow, index: number) => {
     const expectedNumber = index + 1;
     if (Number(row?.surah_number) !== expectedNumber
       || typeof row?.name_latin !== "string"
@@ -88,3 +88,4 @@ export async function listSupabaseQuranSurahs(): Promise<QuranSurahReference[]> 
   }
   return catalog;
 }
+

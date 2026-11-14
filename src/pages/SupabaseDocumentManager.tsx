@@ -1,4 +1,3 @@
-import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArrowDownToLine, ArrowDownWideNarrow, FileText, Inbox, Loader2, Plus, RefreshCw, Search, Send, ShieldCheck, UploadCloud, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -6,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabase";
 import { pendingMutationIds } from "../utils/pendingMutationId";
 import { tenantBusinessDate } from "../utils/businessDate";
-import { ERPEmptyState, ERPErrorState, ERPFeatureStatus, ERPLoadingState, ERPNotice, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPTabs } from "../components/ERPDesignSystem";
 
 type Direction = "incoming" | "outgoing" | "internal";
 type Status = "registered" | "in_review" | "approved" | "rejected" | "archived";
@@ -36,20 +35,14 @@ const STATUS_STYLE: Record<Status, string> = {
 
 async function documentRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch(path, { ...init, headers, cache: "no-store" });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    if (response.status === 401) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
-    if (response.status === 403) throw new Error("Anda tidak memiliki akses untuk melakukan tindakan ini.");
-    if (response.status === 404) throw new Error("Dokumen atau lampiran tidak ditemukan.");
-    if (response.status === 409) throw new Error("Data berubah saat diproses. Muat ulang halaman lalu coba lagi.");
-    throw new Error("Dokumen belum dapat diproses. Coba lagi.");
-  }
+  if (!response.ok) throw new Error(body.error || "Layanan Dokumen Digital belum dapat diproses.");
   return body as T;
 }
 
@@ -106,7 +99,7 @@ export function SupabaseDocumentManager() {
   const refresh = useCallback(async () => {
     setError("");
     try { await fetchPage(null, false); }
-    catch (loadError: any) { setError(toERPUserMessage(loadError, "Daftar dokumen belum dapat dimuat.")); }
+    catch (loadError: any) { setError(loadError?.message || "Daftar dokumen belum dapat dimuat."); }
   }, [fetchPage]);
 
   useEffect(() => {
@@ -114,7 +107,7 @@ export function SupabaseDocumentManager() {
     const timer = window.setTimeout(() => {
       setLoading(true); setError("");
       void fetchPage(null, false)
-        .catch((loadError: any) => { if (mounted) setError(toERPUserMessage(loadError, "Daftar dokumen belum dapat dimuat.")); })
+        .catch((loadError: any) => { if (mounted) setError(loadError?.message || "Daftar dokumen belum dapat dimuat."); })
         .finally(() => { if (mounted) setLoading(false); });
     }, query.trim() ? 250 : 0);
     return () => { mounted = false; window.clearTimeout(timer); listRequestSequence.current += 1; };
@@ -133,7 +126,7 @@ export function SupabaseDocumentManager() {
 
   const createDocument = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!canManage) { setError("Hanya Admin yang dapat mengelola Dokumen Digital."); return; }
+    if (!canManage) { setError("Akses pengelolaan Dokumen Digital hanya tersedia untuk Admin tenant."); return; }
     setSaving(true); setError(""); setNotice("");
     try {
       const payload = { ...draft, subject: draft.subject.trim(), senderName: draft.senderName.trim(), recipientName: draft.recipientName.trim(), summary: draft.summary.trim() };
@@ -141,9 +134,9 @@ export function SupabaseDocumentManager() {
       await documentRequest("/api/documents", { method: "POST", body: JSON.stringify({ document: { ...payload, clientRequestId: lease.requestId } }) });
       lease.clear();
       setFormOpen(false); setDraft(INITIAL_DRAFT);
-      setNotice("Dokumen berhasil dicatat.");
+      setNotice("Dokumen terdaftar dan tercatat pada tenant ini.");
       await fetchPage(null, false);
-    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Dokumen belum dapat didaftarkan.")); }
+    } catch (saveError: any) { setError(saveError?.message || "Dokumen belum dapat didaftarkan."); }
     finally { setSaving(false); }
   };
 
@@ -153,7 +146,7 @@ export function SupabaseDocumentManager() {
       await documentRequest(`/api/documents/${encodeURIComponent(document.id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
       setNotice(`Status dokumen ${document.documentNumber} diperbarui menjadi “${STATUS_LABEL[status]}”.`);
       await fetchPage(null, false);
-    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Status dokumen belum dapat diperbarui.")); }
+    } catch (saveError: any) { setError(saveError?.message || "Status dokumen belum dapat diperbarui."); }
     finally { setBusyDocumentId(""); }
   };
 
@@ -187,7 +180,7 @@ export function SupabaseDocumentManager() {
       lease.clear();
       setNotice(`PDF berhasil disimpan secara privat pada dokumen ${document.documentNumber}.`);
       await fetchPage(null, false);
-    } catch (uploadError: any) { setError(toERPUserMessage(uploadError, "Lampiran belum dapat disimpan.")); }
+    } catch (uploadError: any) { setError(uploadError?.message || "Lampiran belum dapat disimpan."); }
     finally { setBusyDocumentId(""); setUploadTarget(""); }
   };
 
@@ -196,14 +189,14 @@ export function SupabaseDocumentManager() {
     try {
       const result = await documentRequest<{ signedUrl: string }>(`/api/documents/attachments/${encodeURIComponent(attachment.id)}/download-url`);
       window.open(result.signedUrl, "_blank", "noopener,noreferrer");
-    } catch (downloadError: any) { setError(toERPUserMessage(downloadError, "Lampiran belum dapat dibuka.")); }
+    } catch (downloadError: any) { setError(downloadError?.message || "Lampiran belum dapat dibuka."); }
   };
 
   const loadMore = async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true); setError("");
     try { await fetchPage(nextCursor, true); }
-    catch (loadError: any) { setError(toERPUserMessage(loadError, "Halaman berikutnya belum dapat dimuat.")); }
+    catch (loadError: any) { setError(loadError?.message || "Halaman berikutnya belum dapat dimuat."); }
     finally { setLoadingMore(false); }
   };
 
@@ -238,7 +231,7 @@ export function SupabaseDocumentManager() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">Administrasi pesantren</p>
           <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">Dokumen Digital</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Catat, telaah, dan arsipkan surat masuk, surat keluar, serta dokumen internal pesantren.</p>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Catat surat masuk, surat keluar, dan dokumen internal dengan alur telaah serta arsip per tenant.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => void refresh()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10" aria-label="Muat ulang dokumen">
@@ -248,8 +241,7 @@ export function SupabaseDocumentManager() {
         </div>
       </header>
 
-      {error && <ERPNotice tone="error">{error}</ERPNotice>}
-      {notice && <ERPNotice tone="success">{notice}</ERPNotice>}
+      {(error || notice) && <div role={error ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${error ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-950/30 dark:text-rose-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-200"}`}>{error || notice}</div>}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {(["incoming", "outgoing", "internal"] as Direction[]).map((direction) => {
@@ -272,14 +264,19 @@ export function SupabaseDocumentManager() {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             {tab === "all" && <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"><span>Jenis dokumen</span><select value={directionFilter} onChange={(event) => setDirectionFilter(event.target.value as DirectionFilter)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-200"><option value="all">Semua jenis</option><option value="incoming">Surat masuk</option><option value="outgoing">Surat keluar</option><option value="internal">Dokumen internal</option></select></label>}
-            <span className="text-xs text-slate-500 dark:text-slate-400">Data pesantren</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Data dibatasi pada tenant aktif</span>
           </div>
         </div>
 
-        {tab === "ocr" ? <ERPFeatureStatus title="Pemindai OCR" description="Fitur ini belum tersedia saat ini." />
-          : loading ? <ERPLoadingState label="Memuat daftar dokumen…" className="min-h-56" />
-          : error && documents.length === 0 ? <ERPErrorState title="Dokumen belum dapat dimuat" description="Silakan coba lagi beberapa saat." className="min-h-56" action={<button type="button" onClick={() => void refresh()} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Coba lagi</button>} />
-          : filtered.length === 0 ? <ERPEmptyState title={query.trim() || directionFilter !== "all" || tab !== "all" ? "Dokumen tidak ditemukan" : "Belum ada dokumen"} description={query.trim() || directionFilter !== "all" || tab !== "all" ? "Ubah kata pencarian atau filter untuk melihat hasil lain." : "Catat surat atau dokumen pertama."} className="min-h-56" action={canManage && !query.trim() && directionFilter === "all" && tab === "all" ? <button type="button" onClick={() => setFormOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"><Plus className="h-4 w-4" /> Catat dokumen</button> : undefined} />
+        {tab === "ocr" ? (loading ? <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="h-5 w-5 animate-spin" /> Memuat berkas…</div>
+          : <div className="space-y-4 p-4 sm:p-5">
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">OCR otomatis belum punya layanan ekstraksi teks. Tab ini menampilkan berkas PDF yang sudah diunggah agar dapat ditelaah dan diunduh secara manual.</div>
+            {documents.filter((item) => item.attachments.length > 0).length === 0 ? <div className="flex min-h-40 flex-col items-center justify-center text-center"><UploadCloud className="h-8 w-8 text-slate-300" /><p className="mt-3 text-sm text-slate-500">Belum ada lampiran PDF. Unggah dari tab dokumen, lalu kembali ke sini untuk menelaah berkas.</p>{canManage && <button type="button" onClick={() => setFormOpen(true)} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"><Plus className="h-4 w-4" /> Catat dokumen</button>}</div>
+              : <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">{documents.filter((item) => item.attachments.length > 0).map((document) => <article key={document.id} className="p-4"><div className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs dark:bg-white/5">{document.documentNumber}</span><span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[document.status]}`}>{STATUS_LABEL[document.status]}</span></div><h3 className="mt-2 font-semibold text-slate-900 dark:text-white">{document.subject}</h3><div className="mt-3 flex flex-wrap gap-2">{document.attachments.map((attachment) => <button key={attachment.id} type="button" onClick={() => void downloadAttachment(attachment)} className="inline-flex max-w-full items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-emerald-300 hover:text-emerald-700 dark:border-white/10 dark:text-slate-300"><ArrowDownToLine className="h-3.5 w-3.5" /><span className="max-w-56 truncate">{attachment.fileName}</span><span className="text-slate-400">{formatFileSize(attachment.fileSize)}</span></button>)}{canManage && document.status !== "archived" && <button type="button" disabled={busyDocumentId === document.id} onClick={() => chooseAttachment(document.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium dark:border-white/10"><UploadCloud className="h-3.5 w-3.5" /> Tambah PDF</button>}</div></article>)}</div>}
+          </div>)
+          : loading ? <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="h-5 w-5 animate-spin" /> Memuat daftar dokumen...</div>
+          : error && documents.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center"><FileText className="h-9 w-9 text-slate-300 dark:text-slate-600" /><h2 className="mt-3 font-medium text-slate-800 dark:text-slate-200">Dokumen belum dapat dimuat</h2><p className="mt-1 max-w-lg text-sm text-slate-500">Periksa koneksi atau kesiapan layanan Supabase, lalu coba muat ulang.</p><button type="button" onClick={() => void refresh()} className="mt-4 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Coba lagi</button></div>
+          : filtered.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center"><FileText className="h-9 w-9 text-slate-300 dark:text-slate-600" /><h2 className="mt-3 font-medium text-slate-800 dark:text-slate-200">{query.trim() || directionFilter !== "all" || tab !== "all" ? "Dokumen tidak ditemukan" : "Belum ada dokumen"}</h2><p className="mt-1 max-w-lg text-sm text-slate-500">{query.trim() || directionFilter !== "all" || tab !== "all" ? "Ubah kata pencarian atau filter untuk melihat hasil lain." : "Catat surat atau dokumen pertama. Data contoh tidak ditampilkan pada runtime Supabase."}</p>{canManage && !query.trim() && directionFilter === "all" && tab === "all" && <button type="button" onClick={() => setFormOpen(true)} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"><Plus className="h-4 w-4" /> Catat dokumen</button>}</div>
           : <div className="divide-y divide-slate-100 dark:divide-white/5">
             {filtered.map((document) => <article key={document.id} className="p-4 sm:px-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -309,6 +306,7 @@ export function SupabaseDocumentManager() {
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Jenis dokumen<select value={draft.direction} onChange={(event) => setDraft((item) => ({ ...item, direction: event.target.value as Direction }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white"><option value="incoming">Surat masuk</option><option value="outgoing">Surat keluar</option><option value="internal">Dokumen internal</option></select></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal dokumen<input required type="date" value={draft.documentDate} onChange={(event) => setDraft((item) => ({ ...item, documentDate: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
+            <div role="note" className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-800 dark:border-sky-400/20 dark:bg-sky-400/5 dark:text-sky-200 sm:col-span-2">Nomor dokumen mengikuti aturan Naming Series tenant dan tidak perlu diketik.</div>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">Perihal<input required maxLength={240} value={draft.subject} onChange={(event) => setDraft((item) => ({ ...item, subject: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Pengirim<input maxLength={200} value={draft.senderName} onChange={(event) => setDraft((item) => ({ ...item, senderName: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>
             <label className="space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">Penerima<input maxLength={200} value={draft.recipientName} onChange={(event) => setDraft((item) => ({ ...item, recipientName: event.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>

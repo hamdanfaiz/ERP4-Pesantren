@@ -1,25 +1,25 @@
-import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, BookOpen, CheckCircle2, CircleCheck, ClipboardList, FilePlus2, Loader2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, BookOpen, CheckCircle2, CircleCheck, ClipboardList, FilePlus2, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
-import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPLoadingSkeleton, ERPTabs } from "../components/ERPDesignSystem";
 
 type Material = { id: string; title: string; material_type: "video" | "pdf" | "link" | "text"; resource_url: string; body: string; duration_seconds: number | null; display_order: number };
 type Module = { id: string; title: string; description: string; display_order: number; materials: Material[] };
 type Course = { id: string; title: string; description: string; grade: string; gradeLevelReferenceId: string; categoryId: string | null; category: string; instructorUserId: string; status: string; color: string; modules: Module[]; enrollmentCount: number };
 type Assignment = { id: string; courseId: string; moduleId: string | null; title: string; instructions: string; dueAt: string | null; allowLate: boolean; maxScore: number; status: string };
 type Submission = { id: string; assignmentId: string; assignmentTitle: string; studentId: string; studentName: string; responseText: string; resourceUrl: string; submittedAt: string; score: number | null; feedback: string; gradedAt: string | null };
-type Snapshot = { courses: Course[]; categories: Array<{ id: string; name: string; description: string }>; gradeLevels: Array<{ id: string; name: string; description: string }>; instructors: Array<{ id: string; name: string }>; students: Array<{ id: string; name: string; grade: string; className: string }>; enrollments: Array<{ course_id: string; student_id: string; status: string }>; assignments: Assignment[]; submissions: Submission[]; progress: Array<{ materialId: string; positionSeconds: number; completedAt: string | null }>; notes: Array<{ id: string; materialId: string; timestampSeconds: number; note: string; createdAt: string }>; comments: Array<{ id: string; materialId: string; studentName: string; timestampSeconds: number; comment: string; createdAt: string }> };
+type ProgressRow = { materialId: string; studentId?: string; positionSeconds: number; completedAt: string | null };
+type Snapshot = { courses: Course[]; categories: Array<{ id: string; name: string; description: string }>; gradeLevels: Array<{ id: string; name: string; description: string }>; instructors: Array<{ id: string; name: string }>; students: Array<{ id: string; name: string; grade: string; className: string }>; enrollments: Array<{ course_id: string; student_id: string; status: string }>; assignments: Assignment[]; submissions: Submission[]; progress: ProgressRow[]; notes: Array<{ id: string; materialId: string; timestampSeconds: number; note: string; createdAt: string }>; comments: Array<{ id: string; materialId: string; studentName: string; timestampSeconds: number; comment: string; createdAt: string }> };
 type Tab = "dashboard" | "courses" | "categories" | "video-library" | "assessments" | "submissions" | "peer-review" | "instructor";
 type ImportPreview = { snapshotFingerprint: string; counts: Record<string, number>; issues: Array<{ code: string; recordRef: string; severity: string }>; issueCount: number; blockingCount: number; canApply: boolean };
 
 const EMPTY: Snapshot = { courses: [], categories: [], gradeLevels: [], instructors: [], students: [], enrollments: [], assignments: [], submissions: [], progress: [], notes: [], comments: [] };
 const LMS_TABS: Array<{ id: Tab; label: string }> = [
-  { id: "dashboard", label: "Dasbor" },
+  { id: "dashboard", label: "Dashboard" },
   { id: "courses", label: "Kursus & Materi" },
   { id: "categories", label: "Kategori" },
   { id: "video-library", label: "Pustaka Video" },
@@ -35,7 +35,7 @@ const LEGACY_LMS_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeCon
 
 async function requestLms(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Supabase tidak tersedia. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", "Bearer " + token);
   headers.set("Accept", "application/json");
@@ -55,12 +55,13 @@ function lmsMaterialTypeLabel(type: string) { return ({ video: "Video", pdf: "PD
 export function SupabaseLMSManager() {
   const { role, user } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
-  const [tab, setTab] = useState<Tab>("courses");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const notifyReloadRef = useRef(false);
   const [category, setCategory] = useState({ name: "", description: "" });
   const [course, setCourse] = useState({ title: "", description: "", gradeLevelReferenceId: "", categoryId: "", instructorUserId: "", status: "published", color: "indigo" });
   const [moduleDraft, setModuleDraft] = useState({ title: "", description: "" });
@@ -83,7 +84,15 @@ export function SupabaseLMSManager() {
       const result = await requestLms("/api/lms/snapshot");
       setSnapshot({ ...EMPTY, ...result });
       setSelectedCourseId((current) => result.courses?.some((item: Course) => item.id === current) ? current : result.courses?.[0]?.id || "");
-    } catch (cause: any) { setSnapshot(EMPTY); setError(toERPUserMessage(cause, "Data LMS belum dapat dimuat.")); }
+      if (notifyReloadRef.current) {
+        setNotice("Data LMS berhasil dimuat ulang.");
+        notifyReloadRef.current = false;
+      }
+    } catch (cause: any) {
+      setSnapshot(EMPTY);
+      setError(cause?.message || "Data LMS belum dapat dimuat.");
+      notifyReloadRef.current = false;
+    }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
 
@@ -93,18 +102,18 @@ export function SupabaseLMSManager() {
       const result = await requestLms("/api/lms/legacy/import", { method: "POST", body: JSON.stringify({ action: "preview" }) });
       setLegacyImportPreview(result);
       setNotice(result.canApply ? "Pratinjau impor selesai. Tinjau hitungan dan konflik sebelum menerapkan." : "Pratinjau selesai; perbaiki konflik atau periksa apakah data sumber memang kosong.");
-    } catch (cause: any) { setError(toERPUserMessage(cause, "Pratinjau impor LMS gagal.")); }
+    } catch (cause: any) { setError(cause?.message || "Pratinjau impor LMS gagal."); }
     finally { setBusy(false); }
   };
 
   const applyLegacyImport = async () => {
-    if (!legacyImportPreview?.canApply || !window.confirm(`Impor ${legacyImportPreview.counts.ready} data katalog kursus sekarang?`)) return;
+    if (!legacyImportPreview?.canApply || !window.confirm(`Terapkan ${legacyImportPreview.counts.ready} record katalog LMS ke tenant Supabase?`)) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const result = await requestLms("/api/lms/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: legacyImportPreview.snapshotFingerprint }) });
       setNotice(`Impor LMS selesai: ${result.imported} record ditambahkan, ${result.skipped} record dikenali sudah sama.`);
       setLegacyImportPreview(null); await refresh();
-    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor LMS gagal; tidak ada hasil yang dikonfirmasi.")); }
+    } catch (cause: any) { setError(cause?.message || "Impor LMS gagal; tidak ada hasil yang dikonfirmasi."); }
     finally { setBusy(false); }
   };
 
@@ -118,7 +127,7 @@ export function SupabaseLMSManager() {
       lease?.clear();
       if (action === "course" && result.id) setSelectedCourseId(String(result.id));
       setNotice(message); await refresh(); return result;
-    } catch (cause: any) { setError(toERPUserMessage(cause, "Perubahan LMS belum terkonfirmasi. Ulangi dengan data yang sama bila koneksi terputus.")); return null; }
+    } catch (cause: any) { setError(cause?.message || "Perubahan LMS belum terkonfirmasi. Ulangi dengan data yang sama bila koneksi terputus."); return null; }
     finally { setBusy(false); }
   };
 
@@ -134,7 +143,7 @@ export function SupabaseLMSManager() {
     const grade = snapshot.gradeLevels.find((item) => item.id === course.gradeLevelReferenceId)?.name || "";
     const item = { ...course, grade, instructorUserId };
     const lease = await pendingMutationIds.acquire(`lms:${user?.tenantId || ""}:${user?.uid || ""}:course`, item);
-    const result = await catalogWrite("course", { ...item, clientRequestId: lease.requestId }, "Kursus berhasil disimpan.", lease);
+    const result = await catalogWrite("course", { ...item, clientRequestId: lease.requestId }, "Kursus tersimpan di tenant Supabase.", lease);
     if (result) setCourse({ title: "", description: "", gradeLevelReferenceId: "", categoryId: "", instructorUserId: "", status: "published", color: "indigo" });
   };
 
@@ -180,7 +189,7 @@ export function SupabaseLMSManager() {
       });
       lease.clear();
       setNotice("Pengumpulan tugas tersimpan."); await refresh();
-    } catch (cause: any) { setError(toERPUserMessage(cause, "Pengumpulan belum terkonfirmasi. Ulangi dengan jawaban yang sama jika koneksi terputus.")); }
+    } catch (cause: any) { setError(cause?.message || "Pengumpulan belum terkonfirmasi. Ulangi dengan jawaban yang sama jika koneksi terputus."); }
     finally { setBusy(false); }
   };
 
@@ -195,7 +204,7 @@ export function SupabaseLMSManager() {
       });
       lease.clear();
       setNotice("Nilai dan umpan balik tersimpan."); await refresh();
-    } catch (cause: any) { setError(toERPUserMessage(cause, "Penilaian belum terkonfirmasi. Ulangi dengan data yang sama jika koneksi terputus.")); }
+    } catch (cause: any) { setError(cause?.message || "Penilaian belum terkonfirmasi. Ulangi dengan data yang sama jika koneksi terputus."); }
     finally { setBusy(false); }
   };
 
@@ -204,7 +213,7 @@ export function SupabaseLMSManager() {
     try {
       await requestLms("/api/lms/progress", { method: "POST", body: JSON.stringify({ materialId: material.id, positionSeconds: material.duration_seconds || 0, completed: true }) });
       setNotice("Kemajuan materi tersimpan."); await refresh();
-    } catch (cause: any) { setError(toERPUserMessage(cause, "Kemajuan belum tersimpan.")); }
+    } catch (cause: any) { setError(cause?.message || "Kemajuan belum tersimpan."); }
     finally { setBusy(false); }
   };
 
@@ -230,7 +239,7 @@ export function SupabaseLMSManager() {
         : (kind === "note" ? "Catatan pribadi tersimpan." : "Komentar materi terkirim."));
       await refresh();
     } catch (cause: any) {
-      setError(toERPUserMessage(cause, "Catatan belum terkonfirmasi. Ulangi dengan isi yang sama jika koneksi terputus."));
+      setError(cause?.message || "Catatan belum terkonfirmasi. Ulangi dengan isi yang sama jika koneksi terputus.");
     } finally { setBusy(false); }
   };
 
@@ -238,22 +247,184 @@ export function SupabaseLMSManager() {
   const publishedAssignments = snapshot.assignments.filter((item) => item.status === "published");
   const ownSubmission = (assignmentId: string) => snapshot.submissions.find((item) => item.assignmentId === assignmentId);
   const classCourseOptions = isAdmin ? snapshot.courses : snapshot.courses.filter((item) => item.instructorUserId === user?.uid);
+  const dashboard = useMemo(() => {
+    const now = Date.now();
+    const materialCount = snapshot.courses.reduce((sum, course) => sum + course.modules.reduce((moduleSum, module) => moduleSum + module.materials.length, 0), 0);
+    const activeEnrollments = snapshot.enrollments.filter((item) => String(item.status || "").toLowerCase() === "active");
+    const overdueAssignments = publishedAssignments.filter((item) => item.dueAt && new Date(item.dueAt).getTime() < now);
+    const pendingGrade = snapshot.submissions.filter((item) => item.score == null);
+    const graded = snapshot.submissions.filter((item) => item.score != null);
+    const completedProgress = snapshot.progress.filter((item) => item.completedAt);
+    const progressStudents = new Set(completedProgress.map((item) => item.studentId || "").filter(Boolean));
+    const studentById = new Map(snapshot.students.map((item) => [item.id, item]));
+    const classBuckets = new Map<string, { className: string; graded: number; totalScore: number; completedMaterials: number }>();
+    for (const submission of graded) {
+      const student = studentById.get(submission.studentId);
+      const className = student?.className || student?.grade || "Tanpa kelas";
+      const bucket = classBuckets.get(className) || { className, graded: 0, totalScore: 0, completedMaterials: 0 };
+      bucket.graded += 1;
+      bucket.totalScore += Number(submission.score || 0);
+      classBuckets.set(className, bucket);
+    }
+    for (const row of completedProgress) {
+      if (!row.studentId) continue;
+      const student = studentById.get(row.studentId);
+      const className = student?.className || student?.grade || (role === "Santri" ? "Saya" : "Tanpa kelas");
+      const bucket = classBuckets.get(className) || { className, graded: 0, totalScore: 0, completedMaterials: 0 };
+      bucket.completedMaterials += 1;
+      classBuckets.set(className, bucket);
+    }
+    const classAchievement = [...classBuckets.values()]
+      .map((item) => ({
+        className: item.className,
+        graded: item.graded,
+        averageScore: item.graded ? Math.round((item.totalScore / item.graded) * 10) / 10 : null,
+        completedMaterials: item.completedMaterials,
+      }))
+      .sort((left, right) => right.graded - left.graded || right.completedMaterials - left.completedMaterials || left.className.localeCompare(right.className, "id"));
+    const courseActivity = snapshot.courses.map((course) => {
+      const courseAssignments = snapshot.assignments.filter((item) => item.courseId === course.id);
+      const courseAssignmentIds = new Set(courseAssignments.map((item) => item.id));
+      const courseSubmissions = snapshot.submissions.filter((item) => courseAssignmentIds.has(item.assignmentId));
+      const courseMaterialIds = new Set(course.modules.flatMap((module) => module.materials.map((material) => material.id)));
+      const courseProgressDone = snapshot.progress.filter((item) => courseMaterialIds.has(item.materialId) && item.completedAt).length;
+      return {
+        id: course.id,
+        title: course.title,
+        status: course.status,
+        enrollments: course.enrollmentCount,
+        materials: courseMaterialIds.size,
+        assignments: courseAssignments.length,
+        submissions: courseSubmissions.length,
+        progressDone: courseProgressDone,
+      };
+    });
+    return {
+      materialCount,
+      enrollmentCount: activeEnrollments.length,
+      overdueCount: overdueAssignments.length,
+      pendingGradeCount: pendingGrade.length,
+      gradedCount: graded.length,
+      completedProgressCount: completedProgress.length,
+      progressStudentCount: progressStudents.size,
+      overdueAssignments,
+      courseActivity,
+      classAchievement,
+    };
+  }, [snapshot, publishedAssignments, isAdmin, role]);
 
-  if (!["Admin", "SuperAdmin", "Ustadz", "Santri"].includes(role || "")) return <div className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">Modul Pembelajaran Digital hanya tersedia untuk Admin, Ustadz, dan Santri yang memiliki izin.</div>;
+  const videoLibrary = useMemo(() => {
+    const rows: Array<{ id: string; title: string; resource_url: string; courseTitle: string; moduleTitle: string }> = [];
+    for (const courseItem of snapshot.courses) {
+      for (const moduleItem of courseItem.modules) {
+        for (const material of moduleItem.materials) {
+          if (material.material_type !== "video") continue;
+          rows.push({
+            id: material.id,
+            title: material.title,
+            resource_url: material.resource_url,
+            courseTitle: courseItem.title,
+            moduleTitle: moduleItem.title,
+          });
+        }
+      }
+    }
+    return rows;
+  }, [snapshot.courses]);
+
+  const instructorDirectory = useMemo(() => snapshot.instructors.map((instructor) => {
+    const courses = snapshot.courses.filter((courseItem) => courseItem.instructorUserId === instructor.id);
+    return {
+      id: instructor.id,
+      name: instructor.name,
+      courseCount: courses.length,
+      publishedCount: courses.filter((courseItem) => courseItem.status === "published").length,
+      courses: courses.map((courseItem) => courseItem.title),
+    };
+  }), [snapshot.courses, snapshot.instructors]);
+
+  const materialDiscussions = useMemo(() => {
+    const materialMeta = new Map<string, { materialTitle: string; courseTitle: string }>();
+    for (const courseItem of snapshot.courses) {
+      for (const moduleItem of courseItem.modules) {
+        for (const material of moduleItem.materials) {
+          materialMeta.set(material.id, { materialTitle: material.title, courseTitle: courseItem.title });
+        }
+      }
+    }
+    return snapshot.comments
+      .map((comment) => ({
+        ...comment,
+        materialTitle: materialMeta.get(comment.materialId)?.materialTitle || "Materi",
+        courseTitle: materialMeta.get(comment.materialId)?.courseTitle || "Kursus",
+      }))
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  }, [snapshot.comments, snapshot.courses]);
+
+  if (!["Admin", "SuperAdmin", "Ustadz", "Santri"].includes(role || "")) return <div className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">LMS Supabase tersedia untuk Admin, Ustadz, dan Santri yang memiliki izin modul.</div>;
 
   return <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-7">
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-400/10 dark:text-indigo-200"><ShieldCheck className="h-3.5 w-3.5" />Data pesantren</div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Pembelajaran Digital (LMS)</h1><p className="mt-1 text-sm text-slate-500">Kelola kursus, materi, progres belajar, tugas, dan penilaian santri.</p></div><button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button></header>
-    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">Penilaian antarsantri, sertifikat, dan statistik lanjutan belum tersedia saat ini.</div>
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-400/10 dark:text-indigo-200"><ShieldCheck className="h-3.5 w-3.5" />Sumber data: Supabase tenant</div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Pembelajaran Digital (LMS)</h1><p className="mt-1 text-sm text-slate-500">Kursus, materi, progres, tugas, dan penilaian terhubung ke roster tenant.</p></div><button type="button" onClick={() => { notifyReloadRef.current = true; setNotice(""); void refresh(); }} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button></header>
+    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"><strong>LMS tenant aktif.</strong> Dashboard, kategori, kursus, pustaka video, pengajar, tugas, pengumpulan, dan komentar materi memakai data Supabase tenant.</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}{notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
-    {isAdmin && LEGACY_LMS_IMPORT_ENABLED && <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Impor katalog kursus</h2><p className="mt-1 text-sm text-slate-500">Tinjau kategori, kursus, modul, materi, dan tugas yang akan diimpor. Pengumpulan tugas contoh tidak disertakan.</p></div><button type="button" onClick={() => void previewLegacyImport()} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200"><RefreshCw className="h-4 w-4" />Buat pratinjau</button></div>{legacyImportPreview && <><div className="grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6">{[["Kategori", legacyImportPreview.counts.categories], ["Kursus", legacyImportPreview.counts.courses], ["Modul", legacyImportPreview.counts.modules], ["Materi", legacyImportPreview.counts.materials], ["Tugas", legacyImportPreview.counts.assignments], ["Sudah cocok", legacyImportPreview.counts.alreadyImported]].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><span className="text-slate-500">{label}</span><strong className="ml-2 text-slate-900 dark:text-white">{value}</strong></div>)}</div>{legacyImportPreview.issueCount > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><p className="font-semibold">{legacyImportPreview.blockingCount} data perlu diperiksa sebelum impor. Pastikan kategori, kursus, dan materi saling sesuai.</p></div>}<div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-slate-500">{legacyImportPreview.counts.ready} data siap untuk diimpor</span><button type="button" onClick={() => void applyLegacyImport()} disabled={busy || !legacyImportPreview.canApply} className={PRIMARY}><FilePlus2 className="h-4 w-4" />Terapkan impor</button></div></>}</section>}
-    <div className="grid gap-3 sm:grid-cols-3">{[{ title: "Kursus", value: snapshot.courses.length, icon: BookOpen }, { title: "Santri di roster", value: isAdmin ? snapshot.students.length : snapshot.enrollments.length, icon: Users }, { title: "Tugas", value: snapshot.assignments.length, icon: ClipboardList }].map((item) => <article key={item.title} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500">{item.title}<item.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{item.value}</p></article>)}</div>
+    {isAdmin && LEGACY_LMS_IMPORT_ENABLED && <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Migrasi katalog lama</h2><p className="mt-1 text-sm text-slate-500">Pratinjau membaca kategori, kursus, modul, materi, dan tugas pesantren dari arsip Firebase. Pengumpulan tugas contoh dengan angka agregat tidak diimpor.</p></div><button type="button" onClick={() => void previewLegacyImport()} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200"><RefreshCw className="h-4 w-4" />Buat pratinjau</button></div>{legacyImportPreview && <><div className="grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6">{[["Kategori", legacyImportPreview.counts.categories], ["Kursus", legacyImportPreview.counts.courses], ["Modul", legacyImportPreview.counts.modules], ["Materi", legacyImportPreview.counts.materials], ["Tugas", legacyImportPreview.counts.assignments], ["Sudah cocok", legacyImportPreview.counts.alreadyImported]].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><span className="text-slate-500">{label}</span><strong className="ml-2 text-slate-900 dark:text-white">{value}</strong></div>)}</div>{legacyImportPreview.issueCount > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><p className="font-semibold">{legacyImportPreview.blockingCount} konflik memblokir impor</p><ul className="mt-2 space-y-1">{legacyImportPreview.issues.slice(0, 8).map((issue, index) => <li key={`${issue.recordRef}-${index}`}>{issue.code} · referensi {issue.recordRef || "—"}</li>)}</ul></div>}<div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-slate-500">Data sumber {legacyImportPreview.snapshotFingerprint.slice(0, 16)}… · {legacyImportPreview.counts.ready} data siap</span><button type="button" onClick={() => void applyLegacyImport()} disabled={busy || !legacyImportPreview.canApply} className={PRIMARY}><FilePlus2 className="h-4 w-4" />Terapkan impor</button></div></>}</section>}
+    {loading
+      ? <ERPLoadingSkeleton variant="metrics" label="Memuat ringkasan LMS…" rows={3} />
+      : <div className="grid gap-3 sm:grid-cols-3">{[{ title: "Kursus", value: snapshot.courses.length, icon: BookOpen }, { title: "Santri di roster", value: isAdmin ? snapshot.students.length : snapshot.enrollments.length, icon: Users }, { title: "Tugas", value: snapshot.assignments.length, icon: ClipboardList }].map((item) => <article key={item.title} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500">{item.title}<item.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{item.value}</p></article>)}</div>}
     <ERPTabs tabs={LMS_TABS} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian LMS Pembelajaran" />
-    {tab === "dashboard" && <ERPFeatureStatus title="Dashboard LMS" description="Ringkasan aktivitas kursus dan capaian pembelajaran belum tersedia." />}
-    {tab === "categories" && <ERPFeatureStatus title="Kategori kursus" status="Tersedia di Kursus & Materi" tone="available" description="Kategori kursus dapat dikelola melalui formulir Kursus & Materi." action={<button type="button" onClick={() => setTab("courses")} className={PRIMARY}>Buka Kursus & Materi</button>} />}
-    {tab === "video-library" && <ERPFeatureStatus title="Pustaka video" status="Materi tersedia di Kursus & Materi" tone="available" description="Materi video dapat ditambahkan saat mengelola kursus. Pustaka video terpisah belum tersedia." action={<button type="button" onClick={() => setTab("courses")} className={PRIMARY}>Buka Kursus & Materi</button>} />}
-    {tab === "peer-review" && <ERPFeatureStatus title="Ulasan sebaya LMS" description="Penugasan dan moderasi ulasan antar-santri belum tersedia." />}
-    {tab === "instructor" && <ERPFeatureStatus title="Pengajar kursus" status="Dikelola di Kursus & Materi" tone="available" description="Pengajar dapat dipilih saat mengelola kursus." action={<button type="button" onClick={() => setTab("courses")} className={PRIMARY}>Buka Kursus & Materi</button>} />}
-    {loading ? <div role="status" className="flex justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900"><Loader2 className="h-4 w-4 animate-spin" />Memuat LMS…</div> : <>
+    {loading ? <ERPLoadingSkeleton variant="panel" label="Memuat data LMS tenant…" rows={4} /> : <>
+      {tab === "categories" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.78fr)]">
+        <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+          <div><h2 className="font-semibold text-slate-900 dark:text-white">Katalog kategori</h2><p className="mt-1 text-sm text-slate-500">Kategori dipakai saat membuat kursus baru.</p></div>
+          {snapshot.categories.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.categories.map((item) => {
+            const courseCount = snapshot.courses.filter((courseItem) => courseItem.categoryId === item.id || courseItem.category === item.name).length;
+            return <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-3"><div><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3>{item.description && <p className="mt-1 text-sm text-slate-500">{item.description}</p>}</div><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{courseCount} kursus</span></article>;
+          })}</div> : <p className="text-sm text-slate-500">Belum ada kategori. Admin dapat menambahkannya di formulir sebelah.</p>}
+        </section>
+        {isAdmin ? <form onSubmit={saveCategory} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><h2 className="font-semibold">Tambah kategori</h2><label className={LABEL}>Nama pilihan<input required maxLength={100} className={INPUT} value={category.name} onChange={(e) => setCategory({ ...category, name: e.target.value })} /></label><label className={LABEL}>Deskripsi<textarea required minLength={8} maxLength={1000} rows={3} className={INPUT} placeholder="Jelaskan cakupan kategori; harus berbeda dari nama pilihan." value={category.description} onChange={(e) => setCategory({ ...category, description: e.target.value })} /></label><button disabled={busy || !category.name.trim() || category.description.trim().length < 8 || category.description.trim().toLocaleLowerCase("id-ID") === category.name.trim().toLocaleLowerCase("id-ID")} className={PRIMARY}><Plus className="h-4 w-4" />Simpan kategori</button></form> : <section className="rounded-2xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 dark:border-white/10">Hanya Admin yang dapat menambah kategori kursus.</section>}
+      </div>}
+      {tab === "video-library" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">Pustaka video kursus</h2><p className="mt-1 text-sm text-slate-500">Materi bertipe video dari seluruh kursus yang dapat diakses akun ini.</p></div><button type="button" onClick={() => setTab("courses")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Kelola di Kursus</button></div>
+        {videoLibrary.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{videoLibrary.map((item) => <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-3"><div><h3 className="font-medium text-slate-900 dark:text-white">{item.title}</h3><p className="mt-1 text-xs text-slate-500">{item.courseTitle} · {item.moduleTitle}</p></div>{item.resource_url ? <a href={item.resource_url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-indigo-700 underline dark:text-indigo-300">Buka video</a> : <span className="text-xs text-slate-500">Tanpa URL</span>}</article>)}</div> : <p className="text-sm text-slate-500">Belum ada materi video. Tambahkan materi bertipe Video pada Kursus & Materi.</p>}
+      </section>}
+      {tab === "instructor" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Direktori pengajar LMS</h2><p className="mt-1 text-sm text-slate-500">Pengajar berasal dari profil tenant dan dihubungkan ke kursus saat kursus dibuat.</p></div>
+        {instructorDirectory.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{instructorDirectory.map((item) => <article key={item.id} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.courseCount} kursus · {item.publishedCount} terbit</p>{item.courses.length > 0 && <ul className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">{item.courses.slice(0, 4).map((courseTitle) => <li key={courseTitle}>• {courseTitle}</li>)}{item.courses.length > 4 && <li>… dan {item.courses.length - 4} lagi</li>}</ul>}</article>)}</div> : <p className="text-sm text-slate-500">Belum ada pengajar yang dapat ditugaskan ke kursus.</p>}
+        {isAdmin && <button type="button" onClick={() => setTab("courses")} className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Tugaskan pengajar lewat formulir kursus</button>}
+      </section>}
+      {tab === "peer-review" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Diskusi materi</h2><p className="mt-1 text-sm text-slate-500">Komentar materi dari peserta kursus. Alur penugasan ulasan sebaya terpisah belum tersedia; gunakan komentar dan pengumpulan tugas yang sudah ada.</p></div>
+        {materialDiscussions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{materialDiscussions.map((item) => <article key={item.id} className="py-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-medium text-slate-900 dark:text-white">{item.studentName}</p><p className="mt-1 text-xs text-slate-500">{item.courseTitle} · {item.materialTitle}</p></div><span className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString("id-ID")}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{item.comment}</p></article>)}</div> : <p className="text-sm text-slate-500">Belum ada komentar materi. Santri dapat menulis komentar saat membuka materi di Kursus & Materi.</p>}
+      </section>}
+
+      {tab === "dashboard" && <section className="space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Materi kursus", value: dashboard.materialCount },
+            { label: "Pendaftaran aktif", value: dashboard.enrollmentCount },
+            { label: "Progres selesai", value: dashboard.completedProgressCount },
+            { label: "Tugas terlambat", value: dashboard.overdueCount },
+          ].map((item) => <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{item.value}</p></article>)}
+        </div>
+        <div className="grid gap-5 lg:grid-cols-2">
+          <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+            <h2 className="font-semibold text-slate-900 dark:text-white">Aktivitas kursus</h2>
+            <p className="mt-1 text-sm text-slate-500">Ringkasan pendaftaran, materi, tugas, dan progres selesai per kursus tenant.</p>
+            {dashboard.courseActivity.length ? <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">{dashboard.courseActivity.map((course) => <div key={course.id} className="flex flex-wrap items-start justify-between gap-3 py-3"><div><p className="font-medium text-slate-900 dark:text-white">{course.title}</p><p className="mt-1 text-xs text-slate-500">{lmsStatusLabel(course.status)} · {course.enrollments} santri · {course.materials} materi</p></div><p className="text-xs text-slate-500">{course.assignments} tugas · {course.submissions} pengumpulan · {course.progressDone} progres selesai</p></div>)}</div> : <p className="mt-4 text-sm text-slate-500">Belum ada kursus pada cakupan akun ini.</p>}
+          </article>
+          <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+            <h2 className="font-semibold text-slate-900 dark:text-white">Capaian per kelas</h2>
+            <p className="mt-1 text-sm text-slate-500">Nilai yang sudah dinilai dan materi selesai, dikelompokkan dari roster kelas.</p>
+            {dashboard.classAchievement.length ? <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">{dashboard.classAchievement.map((item) => <div key={item.className} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="font-medium text-slate-900 dark:text-white">{item.className}</p><p className="mt-1 text-xs text-slate-500">{item.completedMaterials} materi selesai · {item.graded} nilai</p></div><p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.averageScore == null ? "Belum ada nilai" : `Rata-rata ${item.averageScore}`}</p></div>)}</div> : <p className="mt-4 text-sm text-slate-500">Belum ada capaian kelas dari progres atau nilai yang tersedia.</p>}
+            <p className="mt-4 text-xs text-slate-500">Pengumpulan menunggu nilai: {dashboard.pendingGradeCount} · sudah dinilai: {dashboard.gradedCount} · santri dengan progres selesai: {dashboard.progressStudentCount}</p>
+          </article>
+        </div>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+          <h2 className="font-semibold text-slate-900 dark:text-white">Tugas terlambat</h2>
+          <p className="mt-1 text-sm text-slate-500">Tugas terbit yang tenggatnya sudah lewat pada snapshot tenant.</p>
+          {dashboard.overdueAssignments.length ? <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">{dashboard.overdueAssignments.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="font-medium text-slate-900 dark:text-white">{item.title}</p><p className="mt-1 text-xs text-slate-500">{snapshot.courses.find((course) => course.id === item.courseId)?.title || "Kursus"} · tenggat {item.dueAt ? new Date(item.dueAt).toLocaleString("id-ID") : "—"}</p></div><button type="button" className="text-xs font-semibold text-indigo-700 dark:text-indigo-300" onClick={() => setTab("assessments")}>Buka tugas</button></div>)}</div> : <p className="mt-4 text-sm text-slate-500">Tidak ada tugas terlambat pada data yang dimuat.</p>}
+        </article>
+      </section>}
       {tab === "courses" && <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.78fr)]">
         <section className="space-y-3">{snapshot.courses.length ? snapshot.courses.map((item) => <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div className="flex flex-wrap items-start justify-between gap-3"><button type="button" onClick={() => { setSelectedCourseId(item.id); setMaterialDraft((old) => ({ ...old, moduleId: "" })); }} className="text-left"><h2 className="font-semibold text-slate-900 dark:text-white">{item.title}</h2><p className="mt-1 text-sm text-slate-500">{item.category} · {item.grade || "Semua jenjang"} · {lmsStatusLabel(item.status)}</p></button><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{item.enrollmentCount} santri</span></div>{item.description && <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{item.description}</p>}{selectedCourseId === item.id && <div className="mt-5 space-y-4 border-t border-slate-100 pt-4 dark:border-white/10">
           {item.modules.map((module) => <div key={module.id} className="rounded-xl bg-slate-50 p-4 dark:bg-white/5"><h3 className="font-medium text-slate-800 dark:text-slate-100">{module.display_order + 1}. {module.title}</h3>{module.description && <p className="mt-1 text-xs text-slate-500">{module.description}</p>}<div className="mt-3 space-y-3">{module.materials.map((material) => { const done = completedMaterialIds.has(material.id); const studentNoteList = snapshot.notes.filter((note) => note.materialId === material.id); const commentList = snapshot.comments.filter((comment) => comment.materialId === material.id); return <div key={material.id} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-900"><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="text-sm font-medium text-slate-800 dark:text-slate-100">{material.title}</div><div className="text-xs text-slate-500">{lmsMaterialTypeLabel(material.material_type)}</div></div>{material.resource_url && <a href={material.resource_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-700 underline dark:text-indigo-300">Buka materi</a>}</div>{material.body && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">{material.body}</p>}{role === "Santri" && <div className="mt-3 space-y-2"><button type="button" disabled={busy || done} onClick={() => void markComplete(material)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-800 disabled:opacity-50 dark:border-emerald-400/20 dark:text-emerald-200"><CircleCheck className="h-3.5 w-3.5" />{done ? "Selesai" : "Tandai selesai"}</button><div className="grid gap-2 sm:grid-cols-2"><div><textarea rows={2} maxLength={3000} aria-label="Catatan pribadi" placeholder="Catatan pribadi" className={INPUT} value={noteDraft[material.id] || ""} onChange={(e) => setNoteDraft((old) => ({ ...old, [material.id]: e.target.value }))} /><button type="button" disabled={busy || !noteDraft[material.id]?.trim()} onClick={() => void addLearningRecord("note", material.id)} className="mt-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">Simpan catatan</button>{studentNoteList.slice(0,2).map((note) => <p key={note.id} className="mt-1 text-xs text-slate-500">Catatan: {note.note}</p>)}</div><div><textarea rows={2} maxLength={3000} aria-label="Komentar materi" placeholder="Komentar untuk peserta kursus" className={INPUT} value={commentDraft[material.id] || ""} onChange={(e) => setCommentDraft((old) => ({ ...old, [material.id]: e.target.value }))} /><button type="button" disabled={busy || !commentDraft[material.id]?.trim()} onClick={() => void addLearningRecord("comment", material.id)} className="mt-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">Kirim komentar</button>{commentList.slice(-2).map((comment) => <p key={comment.id} className="mt-1 text-xs text-slate-500">{comment.studentName}: {comment.comment}</p>)}</div></div></div>}</div>; })}</div></div>)}
@@ -261,7 +432,7 @@ export function SupabaseLMSManager() {
           {canManage && <div className="grid gap-4 lg:grid-cols-2"><form onSubmit={saveModule} className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-white/10"><h3 className="text-sm font-semibold">Tambah modul</h3><input required maxLength={180} className={INPUT} placeholder="Nama modul" value={moduleDraft.title} onChange={(e) => setModuleDraft({ ...moduleDraft, title: e.target.value })} /><input maxLength={3000} className={INPUT} placeholder="Deskripsi" value={moduleDraft.description} onChange={(e) => setModuleDraft({ ...moduleDraft, description: e.target.value })} /><button disabled={busy} className={PRIMARY}><Plus className="h-4 w-4" />Tambah modul</button></form><form onSubmit={saveMaterial} className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-white/10"><h3 className="text-sm font-semibold">Tambah materi</h3><select required className={INPUT} value={materialDraft.moduleId} onChange={(e) => setMaterialDraft({ ...materialDraft, moduleId: e.target.value })}><option value="">Pilih modul</option>{item.modules.map((module) => <option key={module.id} value={module.id}>{module.title}</option>)}</select><input required maxLength={180} className={INPUT} placeholder="Judul materi" value={materialDraft.title} onChange={(e) => setMaterialDraft({ ...materialDraft, title: e.target.value })} /><select className={INPUT} value={materialDraft.type} onChange={(e) => setMaterialDraft({ ...materialDraft, type: e.target.value })}><option value="video">Video</option><option value="pdf">PDF</option><option value="link">Tautan</option><option value="text">Teks</option></select>{materialDraft.type === "text" ? <textarea required rows={3} maxLength={12000} className={INPUT} placeholder="Isi materi" value={materialDraft.body} onChange={(e) => setMaterialDraft({ ...materialDraft, body: e.target.value })} /> : <input type="url" required pattern="https://.*" className={INPUT} placeholder="URL HTTPS materi" value={materialDraft.url} onChange={(e) => setMaterialDraft({ ...materialDraft, url: e.target.value })} />}<button disabled={busy || !item.modules.length} className={PRIMARY}><Plus className="h-4 w-4" />Simpan materi</button></form></div>}
         </div>}</article>) : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900">Belum ada kursus yang diterbitkan atau ditugaskan untuk akun ini.</div>}</section>
         {canManage && <aside className="space-y-5">{isAdmin && <form onSubmit={saveCategory} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><h2 className="font-semibold">Kategori kursus</h2><label className={LABEL}>Nama pilihan<input required maxLength={100} className={INPUT} value={category.name} onChange={(e) => setCategory({ ...category, name: e.target.value })} /></label><label className={LABEL}>Deskripsi<textarea required minLength={8} maxLength={1000} rows={3} className={INPUT} placeholder="Jelaskan cakupan kategori; harus berbeda dari nama pilihan." value={category.description} onChange={(e) => setCategory({ ...category, description: e.target.value })} /></label><p className="text-xs text-slate-500">Nama kategori menjadi pilihan kursus; deskripsi menjelaskan cakupan dan penggunaannya.</p><button disabled={busy || !category.name.trim() || category.description.trim().length < 8 || category.description.trim().toLocaleLowerCase("id-ID") === category.name.trim().toLocaleLowerCase("id-ID")} className={PRIMARY}><Plus className="h-4 w-4" />Simpan kategori</button></form>}
-          <form onSubmit={saveCourse} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><h2 className="font-semibold">Buat kursus</h2><label className={LABEL}>Judul<input required maxLength={180} className={INPUT} value={course.title} onChange={(e) => setCourse({ ...course, title: e.target.value })} /></label><label className={LABEL}>Kategori<select required className={INPUT} value={course.categoryId} onChange={(e) => setCourse({ ...course, categoryId: e.target.value })}><option value="">Pilih kategori kursus</option>{snapshot.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><span className="mt-1 block text-xs font-normal text-slate-500">Pilih kategori kursus dari daftar. Admin dapat menambahkannya melalui formulir Kategori kursus.</span>{!snapshot.categories.length && <span className="mt-1 block text-xs font-normal text-amber-700">Admin perlu membuat kategori kursus sebelum kursus baru dapat disimpan.</span>}</label><label className={LABEL}>Jenjang<select className={INPUT} value={course.gradeLevelReferenceId} onChange={(e) => setCourse({ ...course, gradeLevelReferenceId: e.target.value })}><option value="">Semua jenjang</option>{snapshot.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><span className="mt-1 block text-xs font-normal text-slate-500">Pilih jenjang dari katalog Akademik, atau biarkan “Semua jenjang”.</span></label>{isAdmin && <label className={LABEL}>Pengajar<select required className={INPUT} value={course.instructorUserId} onChange={(e) => setCourse({ ...course, instructorUserId: e.target.value })}><option value="">Pilih pengajar</option>{snapshot.instructors.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label className={LABEL}>Deskripsi<textarea rows={3} maxLength={5000} className={INPUT} value={course.description} onChange={(e) => setCourse({ ...course, description: e.target.value })} /></label><label className={LABEL}>Status<select className={INPUT} value={course.status} onChange={(e) => setCourse({ ...course, status: e.target.value })}><option value="draft">Draf</option><option value="published">Terbit</option></select></label><button disabled={busy || !course.categoryId || !snapshot.categories.some((item) => item.id === course.categoryId) || (isAdmin && !snapshot.instructors.length)} className={PRIMARY}><Plus className="h-4 w-4" />Simpan kursus</button></form>
+          <form onSubmit={saveCourse} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><h2 className="font-semibold">Buat kursus</h2><label className={LABEL}>Judul<input required maxLength={180} className={INPUT} value={course.title} onChange={(e) => setCourse({ ...course, title: e.target.value })} /></label><label className={LABEL}>Kategori<select required className={INPUT} value={course.categoryId} onChange={(e) => setCourse({ ...course, categoryId: e.target.value })}><option value="">Pilih kategori kursus</option>{snapshot.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><span className="mt-1 block text-xs font-normal text-slate-500">Kategori dipilih dari katalog tenant. Admin dapat menambahkannya pada formulir Kategori kursus.</span>{!snapshot.categories.length && <span className="mt-1 block text-xs font-normal text-amber-700">Admin tenant perlu membuat kategori kursus sebelum kursus baru dapat disimpan.</span>}</label><label className={LABEL}>Jenjang<select className={INPUT} value={course.gradeLevelReferenceId} onChange={(e) => setCourse({ ...course, gradeLevelReferenceId: e.target.value })}><option value="">Semua jenjang</option>{snapshot.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><span className="mt-1 block text-xs font-normal text-slate-500">Pilih jenjang dari katalog Akademik, atau biarkan “Semua jenjang”.</span></label>{isAdmin && <label className={LABEL}>Pengajar<select required className={INPUT} value={course.instructorUserId} onChange={(e) => setCourse({ ...course, instructorUserId: e.target.value })}><option value="">Pilih pengajar</option>{snapshot.instructors.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label className={LABEL}>Deskripsi<textarea rows={3} maxLength={5000} className={INPUT} value={course.description} onChange={(e) => setCourse({ ...course, description: e.target.value })} /></label><label className={LABEL}>Status<select className={INPUT} value={course.status} onChange={(e) => setCourse({ ...course, status: e.target.value })}><option value="draft">Draf</option><option value="published">Terbit</option></select></label><button disabled={busy || !course.categoryId || !snapshot.categories.some((item) => item.id === course.categoryId) || (isAdmin && !snapshot.instructors.length)} className={PRIMARY}><Plus className="h-4 w-4" />Simpan kursus</button></form>
           {isAdmin && <form onSubmit={enrollStudent} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><h2 className="font-semibold">Tugaskan santri ke kursus</h2><select required className={INPUT} value={enrollment.courseId} onChange={(e) => setEnrollment({ ...enrollment, courseId: e.target.value })}><option value="">Pilih kursus</option>{snapshot.courses.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select><select required className={INPUT} value={enrollment.studentId} onChange={(e) => setEnrollment({ ...enrollment, studentId: e.target.value })}><option value="">Pilih santri</option>{snapshot.students.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.className || item.grade}</option>)}</select><button disabled={busy || !snapshot.students.length} className={PRIMARY}><Users className="h-4 w-4" />Tugaskan</button></form>}
         </aside>}
       </div>}

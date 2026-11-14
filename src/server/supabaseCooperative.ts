@@ -95,7 +95,7 @@ async function callRpc<T = any>(name: string, args: Row): Promise<T> {
 
 export async function getSupabaseCooperativeSnapshot(tenantId: string) {
   assertUuid(tenantId, "Tenant");
-  const [tenantResult, products, suppliers, wallets, sales, saleItems, ledger, productCategories, supplierCategories] = await Promise.all([
+  const [tenantResult, products, suppliers, wallets, sales, saleItems, ledger, productCategories, supplierCategories, guardiansResult, guardianLinksResult, guardianAccountsResult] = await Promise.all([
     client().from("tenants").select("time_zone").eq("id", tenantId).eq("status", "active").maybeSingle(),
     rows("cooperative_products", tenantId, "id,sku,name,category,stock_quantity,cost_price,unit_price,reorder_point,expiry_date,status,updated_at", "name.asc"),
     rows("cooperative_suppliers", tenantId, "id,name,category,contact,pic,status,updated_at", "name.asc"),
@@ -105,9 +105,15 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
     rows("cooperative_wallet_ledger", tenantId, "id,wallet_id,student_id,sale_id,entry_type,amount_delta,balance_after,reference,created_at", "created_at.desc", 5000),
     listSupabaseReferenceItems(tenantId, "cooperative_product_category"),
     listSupabaseReferenceItems(tenantId, "cooperative_supplier_category"),
+    client().from("guardians").select("id,name,status").eq("tenant_id", tenantId).order("name", { ascending: true }).limit(5000),
+    client().from("guardian_students").select("guardian_id,student_id,relationship").eq("tenant_id", tenantId).limit(5000),
+    client().from("guardian_user_accounts").select("guardian_id,user_id,status").eq("tenant_id", tenantId).limit(5000),
   ]);
   if (tenantResult.error) mapStoreError(tenantResult.error);
   if (!tenantResult.data) throw new SupabaseCooperativeError(403, "Tenant aktif tidak ditemukan.");
+  if (guardiansResult.error) mapStoreError(guardiansResult.error);
+  if (guardianLinksResult.error) mapStoreError(guardianLinksResult.error);
+  if (guardianAccountsResult.error) mapStoreError(guardianAccountsResult.error);
   const timeZone = String(tenantResult.data.time_zone || DEFAULT_TENANT_TIME_ZONE);
   let businessDate: string;
   try {
@@ -116,9 +122,13 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
     throw new SupabaseCooperativeError(503, "Zona waktu tenant tidak valid untuk ringkasan koperasi.");
   }
 
+  const guardianRows = (guardiansResult.data || []) as Row[];
+  const guardianLinks = (guardianLinksResult.data || []) as Row[];
+  const guardianAccounts = (guardianAccountsResult.data || []) as Row[];
   const studentIds = [...new Set([
     ...wallets.map((wallet) => String(wallet.student_id || "")),
     ...sales.map((sale) => String(sale.student_id || "")),
+    ...guardianLinks.map((link) => String(link.student_id || "")),
   ].filter(Boolean))];
   const studentById = new Map<string, Row>();
   if (studentIds.length) {
@@ -152,6 +162,50 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
     }]);
   }
   const walletById = new Map(wallets.map((wallet) => [String(wallet.id), wallet]));
+  const walletByStudentId = new Map(wallets.map((wallet) => [String(wallet.student_id), wallet]));
+  const salesByStudentId = new Map<string, Row[]>();
+  for (const sale of sales) {
+    const studentId = String(sale.student_id || "");
+    if (!studentId) continue;
+    salesByStudentId.set(studentId, [...(salesByStudentId.get(studentId) || []), sale]);
+  }
+  const accountUserByGuardian = new Map<string, string>();
+  for (const account of guardianAccounts) {
+    if (String(account.status || "").toLowerCase() !== "active") continue;
+    accountUserByGuardian.set(String(account.guardian_id), String(account.user_id));
+  }
+  const guardianById = new Map(guardianRows.map((guardian) => [String(guardian.id), guardian]));
+  const parentMonitoring = guardianLinks.map((link) => {
+    const guardianId = String(link.guardian_id || "");
+    const studentId = String(link.student_id || "");
+    const guardian = guardianById.get(guardianId);
+    const student = studentById.get(studentId);
+    const wallet = walletByStudentId.get(studentId);
+    const studentSales = salesByStudentId.get(studentId) || [];
+    const spentLoaded = studentSales.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
+    return {
+      guardianId,
+      guardianName: String(guardian?.name || "Wali"),
+      guardianStatus: String(guardian?.status || ""),
+      relationship: String(link.relationship || "Wali"),
+      hasLinkedAccount: accountUserByGuardian.has(guardianId),
+      studentId,
+      studentName: String(student?.name || "Santri"),
+      nis: String(student?.nis || ""),
+      grade: String(student?.grade || student?.class_id || ""),
+      studentStatus: String(student?.status || ""),
+      walletId: wallet ? String(wallet.id) : null,
+      balance: wallet ? Number(wallet.balance) : null,
+      dailyLimit: wallet ? Number(wallet.daily_limit) : null,
+      walletStatus: wallet
+        ? (wallet.status === "active" && String(student?.status || "").toLowerCase() === "active" ? "Active" : "Blocked")
+        : "None",
+      recentSaleCount: studentSales.length,
+      recentSaleTotal: spentLoaded,
+      lastSaleAt: studentSales[0] ? String(studentSales[0].created_at) : null,
+    };
+  }).sort((left, right) => left.guardianName.localeCompare(right.guardianName, "id-ID")
+    || left.studentName.localeCompare(right.studentName, "id-ID"));
 
   return {
     timeZone,
@@ -201,6 +255,7 @@ export async function getSupabaseCooperativeSnapshot(tenantId: string) {
       reference: item.reference,
       createdAt: item.created_at,
     })),
+    parentMonitoring,
   };
 }
 

@@ -765,13 +765,14 @@ export async function saveSupabaseAcademicRecord(
     if (!Number.isFinite(score) || score < 0 || score > 100) throw new SupabaseAcademicError(400, "Nilai harus berupa angka 0–100.");
     const category = text(item.category, "Kategori", 20, true);
     if (!["Formative", "Summative"].includes(category)) throw new SupabaseAcademicError(400, "Kategori penilaian tidak valid.");
+    const kktpThreshold = await academicKktpThreshold(tenantId);
     record = {
       studentId, studentName: String(student.name || ""), className: studentClassName, teacherUserId,
       subject: String(subjectReference.name), subjectReferenceId: String(subjectReference.id),
       assessmentType: String(assessmentReference.name), assessmentTypeReferenceId: String(assessmentReference.id),
       ...(student.class_id ? { classReferenceId: String(student.class_id) } : {}),
       teacherName: String(teacher.display_name),
-      category, score, remedialStatus: score < 75 ? "Needed" : "None",
+      category, score, remedialStatus: score < kktpThreshold ? "Needed" : "None",
     };
   }
   if (unitsEnabled) {
@@ -807,6 +808,73 @@ export async function saveSupabaseAcademicRecord(
   });
   if (!result?.id) throw new SupabaseAcademicError(503, "Penyimpanan data akademik belum dapat dikonfirmasi.");
   return { id: String(result.id), alreadyApplied: Boolean(result.alreadyApplied) };
+}
+
+const REPORT_ACTIONS = ["save_term", "close_term", "save_threshold", "assign_homeroom", "save_comment", "reopen_card", "validate_card", "publish_card"] as const;
+
+function academicExpectedRole(role: string) {
+  if (role === "Admin") return "admin";
+  if (role === "SuperAdmin") return "super_admin";
+  if (role === "Ustadz") return "ustadz";
+  return "";
+}
+
+export async function academicKktpThreshold(tenantId: string) {
+  const result = await request("/rest/v1/rpc/academic_kktp_threshold", {
+    method: "POST",
+    body: JSON.stringify({ p_tenant_id: tenantId }),
+  });
+  const value = typeof result === "number" ? result : Number(result);
+  if (!Number.isFinite(value) || value < 0 || value > 100) throw new SupabaseAcademicError(503, "Ambang KKTP belum dapat dibaca.");
+  return value;
+}
+
+export async function getSupabaseAcademicReportWorkspace(tenantId: string, actorId: string, role: string) {
+  const expectedRole = academicExpectedRole(role);
+  if (!expectedRole || !isUuid(actorId)) throw new SupabaseAcademicError(403, "Akses rapor Akademik tidak diizinkan.");
+  const result = await request("/rest/v1/rpc/get_academic_report_workspace", {
+    method: "POST",
+    body: JSON.stringify({ p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: expectedRole }),
+  });
+  if (!result || result.success !== true) throw new SupabaseAcademicError(503, "Ruang rapor akademik belum dapat dibaca.");
+  return result as Row;
+}
+
+export async function applySupabaseAcademicReportAction(tenantId: string, actorId: string, role: string, input: unknown) {
+  const expectedRole = academicExpectedRole(role);
+  if (!expectedRole || !isUuid(actorId) || !input || typeof input !== "object" || Array.isArray(input)) {
+    throw new SupabaseAcademicError(403, "Akses rapor Akademik tidak diizinkan.");
+  }
+  const body = input as Row;
+  const action = String(body.action || "");
+  const clientRequestId = String(body.clientRequestId || "");
+  const payload = body.payload;
+  if (!REPORT_ACTIONS.includes(action as typeof REPORT_ACTIONS[number]) || !isUuid(clientRequestId) || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new SupabaseAcademicError(400, "Permintaan rapor akademik tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/apply_academic_report_action", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: expectedRole,
+      p_action: action,
+      p_payload: payload,
+      p_client_request_id: clientRequestId,
+    }),
+  });
+  if (!result || result.success !== true) throw new SupabaseAcademicError(503, "Perubahan rapor belum dapat dikonfirmasi.");
+  return result as Row;
+}
+
+export async function getPublishedAcademicReportCards(tenantId: string, studentId: string) {
+  if (!isUuid(studentId)) throw new SupabaseAcademicError(400, "Tautan data santri tidak valid.");
+  const result = await request("/rest/v1/rpc/get_published_academic_report_cards", {
+    method: "POST",
+    body: JSON.stringify({ p_tenant_id: tenantId, p_student_id: studentId }),
+  });
+  if (!Array.isArray(result)) throw new SupabaseAcademicError(503, "Rapor terbit belum dapat dibaca.");
+  return result;
 }
 
 export { request as academicSupabaseRequest, resolveTenantId as resolveAcademicTenantId };

@@ -205,7 +205,7 @@ SELECT ok(EXISTS (
 SELECT is((public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
   (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
-  'Ziyadah', 'Al-Fatihah', 1, 7, NULL, NULL, NULL, '2026-10-25 09:00:00+00',
+  'Ziyadah', 'Al-Fatihah', 1, 7, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
   'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000590'
 )->>'alreadyRecorded'), 'false', 'valid Surah and Ayah range still records successfully');
 SELECT is((SELECT surah_number::INTEGER FROM public.tahfidz_records
@@ -213,13 +213,13 @@ SELECT is((SELECT surah_number::INTEGER FROM public.tahfidz_records
 SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
   (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
-  'Ziyadah', 'Surah tidak terdaftar', 1, 2, NULL, NULL, NULL, '2026-10-25 09:00:00+00',
+  'Ziyadah', 'Surah tidak terdaftar', 1, 2, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
   'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000591'
 )$$, '23514', 'Surah setoran tidak ditemukan pada katalog referensi', 'free-text Surah values are rejected');
 SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
   (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
-  'Ziyadah', 'Al-Fatihah', 1, 8, NULL, NULL, NULL, '2026-10-25 09:00:00+00',
+  'Ziyadah', 'Al-Fatihah', 1, 8, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
   'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000592'
 )$$, '23514', 'Rentang ayat melampaui jumlah ayat Surah', 'Ayah numbers beyond the selected Surah are rejected');
 

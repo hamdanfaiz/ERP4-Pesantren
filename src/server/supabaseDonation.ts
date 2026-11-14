@@ -89,7 +89,7 @@ export async function getSupabaseDonationSnapshot(tenantIdentifier: string) {
       totalConfirmed: confirmed.reduce((sum, row) => sum + Number(row.amount || 0), 0),
       donationCount: confirmed.length,
       donorCount: donors.filter((row) => row.status === "active").length,
-      recurringDonorCount: 0,
+      recurringDonorCount: [...donorTotals.values()].filter((item) => item.count > 1).length,
       waqfAssetCount: assets.filter((row) => row.status !== "disposed").length,
       waqfAssetValue: assets.filter((row) => row.status !== "disposed").reduce((sum, row) => sum + Number(row.estimated_value || 0), 0),
       monthly: [...monthly.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-12).map(([month, total]) => ({ month, total })),

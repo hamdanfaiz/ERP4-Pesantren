@@ -1,26 +1,28 @@
 # Modul Parent CRM & Donor Relations
 
+> **Status runtime (13 Nov 2026):** jalur Supabase aktif di Production PTSAS untuk direktori kontak, pipeline tahap, interaksi, analitik agregat, dan **siaran WhatsApp via OpenWA**. Detail kontrak, flag, API, dan backlog: [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](../00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md). Agent wajib baca checkpoint itu sebelum mengubah modul ini.
+
 ## Tujuan
-Memfasilitasi manajemen siklus hidup dan membangun relasi mendalam ("Lifecycle Management") dengan Calon Wali Santri (Prospects), Wali Santri Aktif (Parents), Alumni, dan Donatur (Donors) yang terintegrasi penuh dengan mesin siaran (Broadcast Engine).
 
-## Fitur Utama
+Mengelola relasi wali, calon wali, alumni, donatur, dan mitra dalam ruang data tenant; mencatat interaksi; mengirim siaran WhatsApp hanya ke kontak yang menyetujui menerima informasi.
 
-1. **Integrated Contact Directory**
-   - Basis kontak omnichannel yang menampilkan segmen entitas (Prospect, Parent, Alumni, Donor).
-   - Fitur Filter berdasarkan tipe entitas dan "Search by Name / Email".
-   - Menampilkan metrik *LTV (Lifetime Value)* yang bermanfaat untuk prioritas follow-up bagi donatur / prospect VIP.
-   - Status tracking individual (*Lead*, *Engaged*, *Active*, *Lost*) lengkap dengan rekam jejak "Last Touch".
+## Yang sudah tersedia
 
-2. **Lifecycle Pipelines (Visual Kanban)**
-   - Kanban board pipeline yang memudahkan konversi stage dan akuisisi lead dari 'Lead' menjadi 'Active'.
-   - Pemetaan cepat per kategori dengan indikator warna (Prospect: Amber, Parent: Blue, Donor: Rose, Alumni: Emerald).
-   - Terintegrasi fitur kalkulasi akumulatif LTV per pipeline stage.
+1. **Direktori kontak** — jenis `parent | prospect | alumni | donor | partner`, tahap lifecycle, consent pemasaran, pencarian, pagination.
+2. **Alur prospek** — filter tahap (UI memakai daftar yang sama dengan direktori).
+3. **Interaksi** — create catatan (`call | email | meeting | message | note`); immutable setelah tersimpan.
+4. **Siaran OpenWA** — `GET /api/crm/broadcast/status`, `POST /api/crm/broadcasts` (dry-run + kirim); max 50; consent + nomor wajib.
+5. **Analitik tab** — ringkasan jumlah kontak / open leads / interaksi 30 hari / consent; distribusi tahap dari halaman termuat.
 
-3. **Unified Broadcast Engine**
-   - Panel eksekusi kampanye yang men-support komunikasi via *Email*, *WhatsApp*, dan *SMS*.
-   - Tabel "Campaign Tracking" memantau status penyebaran pesan dari "Draft", ke "Scheduled", hingga ke tahap "Sent".
-   - Kumpulan top-header widget menyediakan metrik *Average Open Rate* dan kalkulasi *Conversion Rate*.
+## Yang belum (jangan diklaim selesai)
 
-4. **Acquisition Demographics & Analytics**
-   - Dashboard analitik ditenagai *Recharts* yang menyajikan data distribusi kategori kontak via elemen *PieChart*.
-   - Histogram matriks waktu nyata dari *"Monthly Interactions / Acquisition"* (Bar Chart) untuk monitoring peningkatan retensi dan kampanye selama Q1-Q4 tahun ajaran berjalan.
+- Kanban visual LTV / open-rate / conversion rate seperti aspirasi produk lama
+- Email atau SMS massal
+- Hapus kontak (hanya create/update)
+- Provider selain OpenWA Easy API untuk WhatsApp
+
+## Konfigurasi OpenWA
+
+- Endpoint: Pengaturan tenant `integrations.waGatewayEndpoint` atau env `WA_GATEWAY_ENDPOINT`
+- Kunci: env server `WA_GATEWAY_API_KEY` saja
+- Proses OpenWA dijalankan terpisah (`npx @open-wa/wa-automate …`); ERP hanya HTTP client

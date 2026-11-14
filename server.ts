@@ -35,6 +35,14 @@ import {
   listCommunicationAnnouncements,
 } from "./src/server/communicationAnnouncements";
 import {
+  createCommunicationDirectMessage,
+  createCommunicationTicket,
+  listCommunicationOps,
+  transitionCommunicationDirectMessage,
+  transitionCommunicationTicket,
+  upsertCommunicationTemplate,
+} from "./src/server/communicationOps";
+import {
   getTenantSystemSettings,
   saveTenantSystemSettings,
   SystemSettingsStoreError,
@@ -137,8 +145,10 @@ import {
   listSupabaseCrmInteractionsPage,
   recordSupabaseCrmInteraction,
   saveSupabaseCrmContact,
+  sendSupabaseCrmOpenWaBroadcast,
   SupabaseCrmError,
 } from "./src/server/supabaseCrm";
+import { getOpenWaStatus, OpenWaGatewayError } from "./src/server/openWaGateway";
 
 import {
   createSupabaseLaundryOrder,
@@ -187,6 +197,9 @@ import {
   getSupabaseAcademicPortalPage,
   getSupabaseAcademicPortalStudent,
   getSupabaseAcademicSnapshot,
+  applySupabaseAcademicReportAction,
+  getPublishedAcademicReportCards,
+  getSupabaseAcademicReportWorkspace,
   getSupabaseUnmappedAcademicClasses,
   saveSupabaseAcademicRecord,
   SupabaseAcademicError,
@@ -726,6 +739,10 @@ async function startServer() {
   const crmRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
     if (error instanceof SupabaseCrmError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
+    if (error instanceof OpenWaGatewayError) {
+      console.error("Supabase CRM WhatsApp delivery failed:", error.status);
+      return res.status(error.status).json({ error: "Pengiriman WhatsApp tidak berhasil. Periksa pesan dan nomor penerima, lalu coba lagi." });
+    }
     console.error("Supabase CRM endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan CRM belum dapat diproses saat ini. Silakan coba kembali." });
   };
@@ -843,7 +860,7 @@ async function startServer() {
   };
   const academicRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil akun belum dapat diverifikasi. Silakan masuk kembali atau hubungi administrator pesantren." });
-    if (error instanceof IdentityConflictError) return res.status(403).json({ error: error.message });
+    if (error instanceof IdentityConflictError) return res.status(403).json({ error: customerApiErrorMessage(403, error.message) });
     if (error instanceof SupabaseAcademicError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
     console.error("Supabase academic endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Layanan Akademik belum dapat diproses saat ini. Silakan coba kembali." });
@@ -1208,7 +1225,8 @@ async function startServer() {
         students = [await getSupabaseAcademicPortalStudent(actor.tenantId, studentId)];
       }
       const page = await getSupabaseAcademicPortalPage(actor.tenantId, studentId, req.query.cursor);
-      return res.json({ ...page, students, selectedStudentId: studentId });
+      const reportCards = await getPublishedAcademicReportCards(actor.tenantId, studentId);
+      return res.json({ ...page, students, selectedStudentId: studentId, reportCards });
     } catch (error) { return academicRouteError(res, error); }
   });
 
@@ -1323,6 +1341,29 @@ async function startServer() {
       const actor = await loadAcademicActor(uid);
       if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Pemetaan kelas hanya tersedia untuk Admin tenant." });
       const result = await assignSupabaseAcademicClassUnit(actor.tenantId, actor.uid, actor.role, req.body);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.get("/api/academic/report-cards", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicActor(uid);
+      return res.json(await getSupabaseAcademicReportWorkspace(actor.tenantId, actor.uid, actor.role));
+    } catch (error) { return academicRouteError(res, error); }
+  });
+
+  app.post("/api/academic/report-cards", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadAcademicActor(uid);
+      const result = await applySupabaseAcademicReportAction(actor.tenantId, actor.uid, actor.role, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return academicRouteError(res, error); }
   });
@@ -2146,6 +2187,33 @@ async function startServer() {
       const actor = await loadCrmActor(uid);
       const result = await recordSupabaseCrmInteraction(actor.tenantId, actor.uid, actor.role, req.body?.interaction || {});
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return crmRouteError(res, error); }
+  });
+
+  app.get("/api/crm/broadcast/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCrmActor(uid);
+      const status = await getOpenWaStatus(actor.tenantId);
+      return res.json({ configured: Boolean(status.configured) });
+    } catch (error) { return crmRouteError(res, error); }
+  });
+
+  app.post("/api/crm/broadcasts", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCrmActor(uid);
+      if (actor.role !== "Admin" && actor.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Siaran WhatsApp hanya untuk Admin tenant." });
+      }
+      const result = await sendSupabaseCrmOpenWaBroadcast(actor.tenantId, actor.uid, actor.role, req.body?.broadcast || {});
+      return res.status(result.dryRun ? 200 : 201).json(result);
     } catch (error) { return crmRouteError(res, error); }
   });
 
@@ -3075,6 +3143,20 @@ async function startServer() {
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 
+  app.get("/api/tahfidz/references/surahs", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      await loadTahfidzActor(uid);
+      return res.json({ data: await listSupabaseQuranSurahs() });
+    } catch (error) {
+      if (error instanceof SupabaseQuranCatalogError) return res.status(error.status).json({ error: customerApiErrorMessage(error.status, error.message) });
+      return tahfidzRouteError(res, error);
+    }
+  });
+
   app.get("/api/tahfidz/roster", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
@@ -3339,6 +3421,89 @@ async function startServer() {
       code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
       error: "Impor arsip lama telah dihentikan. Buat data awal langsung melalui modul ERP.",
     });
+  });
+
+  app.get("/api/communication/ops", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      return res.json(await listCommunicationOps(actor.tenantId, actor));
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/tickets", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await createCommunicationTicket(actor.tenantId, actor, req.body || {});
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/tickets/:ticketId/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await transitionCommunicationTicket(actor.tenantId, actor, String(req.params.ticketId || ""), req.body || {});
+      return res.json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/messages", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await createCommunicationDirectMessage(actor.tenantId, actor, req.body || {});
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/messages/:messageId/status", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await transitionCommunicationDirectMessage(actor.tenantId, actor, String(req.params.messageId || ""), req.body || {});
+      return res.json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
+  });
+
+  app.post("/api/communication/templates", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCommunicationActor(uid);
+      const result = await upsertCommunicationTemplate(actor.tenantId, actor, req.body || {});
+      return res.status(201).json(result);
+    } catch (error) {
+      return communicationRouteError(res, error);
+    }
   });
 
   // AI/OCR routes remain closed until auth, tenant scope, and rate limits are enforced.

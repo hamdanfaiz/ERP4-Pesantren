@@ -1,10 +1,9 @@
-import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, AlertCircle, Check, ClipboardList, Loader2, Plus, RefreshCw, Save, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
-import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
+import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 
 type BudgetLine = {
@@ -41,6 +40,9 @@ type BudgetPlan = {
 type OrganizationUnit = { id: string; code: string; name: string; status: "active" | "inactive" };
 type BudgetCategory = { id: string; code: string; name: string; description: string };
 type Snapshot = { plans: BudgetPlan[]; units: OrganizationUnit[]; budgetCategories: BudgetCategory[]; financeLocked: boolean };
+type FinanceBookRow = { id: string; type: string; description: string; amount: number; date: string; unitId?: string | null; unitName?: string | null };
+type FinanceBillRow = { id: string; santriName: string; type: string; period: string; amount: number; paidAmount: number; status: string; unitId?: string | null; unitName?: string };
+type FinanceExpenseRow = { id: string; description: string; amount: number; status: string; unitId: string | null; unitName: string };
 type DraftLine = { categoryReferenceId: string; allocatedAmount: string };
 type Draft = { unitId: string; periodLabel: string; periodStart: string; periodEnd: string; notes: string; lines: DraftLine[] };
 type BudgetTab = "budget" | "forecast" | "expenses" | "approvals" | "books" | "statements" | "cashflow";
@@ -78,7 +80,7 @@ function statusLabel(status: BudgetPlan["status"]) {
 
 async function requestBudget(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
@@ -114,6 +116,9 @@ export function SupabaseFinanceBudgetManager() {
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [mappingUnitSelections, setMappingUnitSelections] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
+  const [financeBooks, setFinanceBooks] = useState<{ ledger: FinanceBookRow[]; bills: FinanceBillRow[]; expenses: FinanceExpenseRow[] }>({ ledger: [], bills: [], expenses: [] });
+  const [financeBooksLoading, setFinanceBooksLoading] = useState(false);
+  const [financeBooksError, setFinanceBooksError] = useState("");
 
   const refresh = useCallback(async () => {
     const result = await requestBudget("/api/erp/budget/snapshot");
@@ -134,10 +139,33 @@ export function SupabaseFinanceBudgetManager() {
           setSelectedUnitId((current) => current || units.find((unit: OrganizationUnit) => unit.status === "active")?.id || "");
         }
       })
-      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Data anggaran belum dapat dimuat.")); })
+      .catch((loadError: any) => { if (active) setError(loadError?.message || "Data anggaran belum dapat dimuat."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [refresh, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (view !== "books" && view !== "statements" && view !== "forecast") return;
+    let active = true;
+    setFinanceBooksLoading(true);
+    setFinanceBooksError("");
+    requestBudget("/api/finance/snapshot")
+      .then((result) => {
+        if (!active) return;
+        setFinanceBooks({
+          ledger: Array.isArray(result.ledger) ? result.ledger : [],
+          bills: Array.isArray(result.bills) ? result.bills : [],
+          expenses: Array.isArray(result.expenses) ? result.expenses : [],
+        });
+      })
+      .catch((loadError: any) => {
+        if (!active) return;
+        setFinanceBooks({ ledger: [], bills: [], expenses: [] });
+        setFinanceBooksError(loadError?.message || "Data buku Keuangan belum dapat dimuat.");
+      })
+      .finally(() => { if (active) setFinanceBooksLoading(false); });
+    return () => { active = false; };
+  }, [view, user?.tenantId, user?.uid]);
 
   const activeUnits = useMemo(() => snapshot.units.filter((unit) => unit.status === "active"), [snapshot.units]);
   const selectedUnit = snapshot.units.find((unit) => unit.id === selectedUnitId) || null;
@@ -169,7 +197,7 @@ export function SupabaseFinanceBudgetManager() {
       try { await refresh(); }
       catch { setError("Perubahan sudah tersimpan, tetapi daftar belum berhasil dimuat. Tekan Muat ulang."); }
     } catch (saveError: any) {
-      setError(toERPUserMessage(saveError, "Perubahan anggaran belum dapat disimpan."));
+      setError(saveError?.message || "Perubahan anggaran belum dapat disimpan.");
     } finally {
       setSaving(false);
     }
@@ -205,7 +233,7 @@ export function SupabaseFinanceBudgetManager() {
   const removeLine = (index: number) => setDraft((current) => ({ ...current, lines: current.lines.length === 1 ? current.lines : current.lines.filter((_, lineIndex) => lineIndex !== index) }));
 
   if (role !== "Admin" && role !== "SuperAdmin") {
-    return <main className="mx-auto max-w-5xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">Anggaran hanya dapat dikelola oleh Admin.</main>;
+    return <main className="mx-auto max-w-5xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">Anggaran hanya dapat dikelola Admin tenant.</main>;
   }
 
   return (
@@ -216,7 +244,7 @@ export function SupabaseFinanceBudgetManager() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Keuangan & Anggaran</h1>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">Susun RKAT per periode dan pantau realisasi dari pengeluaran yang disetujui serta tercatat di buku Keuangan.</p>
         </div>
-        <button type="button" className={OUTLINE} disabled={loading || saving} onClick={() => { setLoading(true); setError(""); refresh().catch((e: any) => setError(toERPUserMessage(e, "Data anggaran belum dapat dimuat."))).finally(() => setLoading(false)); }}>
+        <button type="button" className={OUTLINE} disabled={loading || saving} onClick={() => { setLoading(true); setError(""); refresh().catch((e: any) => setError(e?.message || "Data anggaran belum dapat dimuat.")).finally(() => setLoading(false)); }}>
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang
         </button>
       </header>
@@ -224,10 +252,11 @@ export function SupabaseFinanceBudgetManager() {
       <ERPTabs tabs={BUDGET_TABS} value={view} onChange={(id) => { setView(id as BudgetTab); setError(""); setNotice(""); }} ariaLabel="Bagian Keuangan dan Anggaran" />
       <SupabaseModuleReferenceSettings domains={["finance_expense_category"]} />
 
-      {view === "budget" ? <>
-      {snapshot.financeLocked && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">Buku Keuangan sedang ditutup. Pengelolaan RKAT tidak memposting transaksi; pengeluaran tetap mengikuti kontrol buku Keuangan.</div>}
       {error && <div role="alert" className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><Check className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
+
+      {view === "budget" ? <>
+      {snapshot.financeLocked && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">Buku Keuangan sedang ditutup. Pengelolaan RKAT tidak memposting transaksi; pengeluaran tetap mengikuti kontrol buku Keuangan.</div>}
 
       <section aria-label="Ringkasan anggaran aktif" className="grid gap-3 sm:grid-cols-3">
         {[
@@ -280,12 +309,52 @@ export function SupabaseFinanceBudgetManager() {
           </article>;
         })}</div>}
       </section>
-      </> : <ERPFeatureStatus
-        title={BUDGET_TABS.find((item) => item.id === view)?.label || "Keuangan & Anggaran"}
-        status={view === "expenses" || view === "approvals" || view === "books" || view === "cashflow" ? "Sebagian fungsi tersedia pada modul terkait" : "Belum tersedia"}
-        tone={view === "expenses" || view === "approvals" || view === "books" || view === "cashflow" ? "available" : "warning"}
-        description={view === "forecast" ? "Proyeksi anggaran berdasarkan tren belum tersedia. RKAT tetap menampilkan alokasi dan realisasi yang tercatat." : view === "expenses" ? "Catatan pengeluaran dikelola melalui modul Keuangan. Proyeksi otomatis terhadap anggaran belum tersedia." : view === "approvals" ? "Persetujuan rancangan RKAT dilakukan pada bagian Budget & RKAT." : view === "books" ? "Buku besar dan unit dikelola melalui modul Keuangan. Pembukuan gabungan antarunit belum tersedia." : view === "statements" ? "Laporan keuangan resmi belum tersedia. Ringkasan ini tidak menggantikan laporan akuntansi." : "Arus kas tercatat dapat dilihat pada ringkasan utama. Analisis arus kas per anggaran belum tersedia."}
-      />}
+      </> : view === "approvals" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Antrian persetujuan RKAT</h2><p className="mt-1 text-sm text-slate-500">Rancangan yang masih berstatus draf dapat disetujui di sini. Alur multi-tahap terpisah belum tersedia.</p></div>
+        {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat antrian…</div>
+          : snapshot.plans.filter((plan) => plan.status === "draft").length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Tidak ada rancangan yang menunggu persetujuan.</p>
+          : <ul className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.plans.filter((plan) => plan.status === "draft").map((plan) => {
+            const allocated = plan.lines.reduce((sum, line) => sum + Number(line.allocatedAmount || 0), 0);
+            return <li key={plan.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium text-slate-900 dark:text-white">{plan.periodLabel}</p><p className="mt-1 text-xs text-slate-500">{plan.unitCode ? `${plan.unitCode} · ${plan.unitName}` : "Unit belum dipetakan"} · {dateLabel(plan.periodStart)} – {dateLabel(plan.periodEnd)} · {currency(allocated)}</p></div><button type="button" className={PRIMARY} disabled={saving || plan.lines.length === 0 || plan.needsUnitMapping} onClick={() => void mutation("approve", null, plan.id)}><Check className="h-4 w-4" />Setujui</button></li>;
+          })}</ul>}
+      </section> : view === "expenses" || view === "cashflow" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">{view === "expenses" ? "Realisasi terhadap anggaran" : "Sisa alokasi aktif"}</h2><p className="mt-1 text-sm text-slate-500">{view === "expenses" ? "Realisasi diambil dari pengeluaran yang sudah disetujui dan tercatat pada buku Keuangan untuk unit serta periode yang sama. Catat pengeluaran baru di modul Keuangan." : "Sisa dihitung dari alokasi rencana aktif dikurangi realisasi tercatat. Analisis arus kas multi-periode belum tersedia."}</p></div>
+        <div className="grid gap-3 sm:grid-cols-3"><Metric label="Alokasi aktif" value={currency(totals.allocated)} /><Metric label="Realisasi" value={currency(totals.actual)} /><Metric label="Sisa" value={currency(totals.remaining)} /></div>
+        {!activePlan ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada rencana aktif untuk unit terpilih.</p>
+          : activePlan.lines.length === 0 ? <p className="text-sm text-slate-500">Rencana aktif belum memiliki baris alokasi.</p>
+          : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-3 py-2.5">Bagian</th><th className="px-3 py-2.5">Kategori</th><th className="px-3 py-2.5 text-right">Alokasi</th><th className="px-3 py-2.5 text-right">Realisasi</th><th className="px-3 py-2.5 text-right">Sisa</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{activePlan.lines.map((line) => <tr key={line.id}><td className="px-3 py-2.5">{line.department}</td><td className="px-3 py-2.5">{line.category}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(line.allocatedAmount)}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(line.actualAmount)}</td><td className={`px-3 py-2.5 text-right tabular-nums ${line.allocatedAmount - line.actualAmount < 0 ? "font-semibold text-rose-700" : ""}`}>{currency(line.allocatedAmount - line.actualAmount)}</td></tr>)}</tbody></table></div>}
+      </section> : view === "forecast" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Proyeksi sisa alokasi</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari rencana aktif dan realisasi tercatat. Model tren multi-tahun belum tersedia.</p></div>
+        <div className="grid gap-3 sm:grid-cols-3"><Metric label="Alokasi aktif" value={currency(totals.allocated)} /><Metric label="Realisasi" value={currency(totals.actual)} /><Metric label="Proyeksi sisa" value={currency(totals.remaining)} /></div>
+        {snapshot.plans.filter((plan) => plan.status !== "closed").length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada rencana aktif untuk diproyeksikan.</p>
+          : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-3 py-2.5">Periode</th><th className="px-3 py-2.5">Unit</th><th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5 text-right">Alokasi</th><th className="px-3 py-2.5 text-right">Realisasi</th><th className="px-3 py-2.5 text-right">Sisa</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.plans.filter((plan) => plan.status !== "closed").map((plan) => {
+            const allocated = plan.lines.reduce((sum, line) => sum + Number(line.allocatedAmount || 0), 0);
+            const actual = plan.lines.reduce((sum, line) => sum + Number(line.actualAmount ?? 0), 0);
+            return <tr key={plan.id}><td className="px-3 py-2.5 font-medium">{plan.periodLabel}</td><td className="px-3 py-2.5">{plan.unitCode ? `${plan.unitCode} · ${plan.unitName}` : "Belum dipetakan"}</td><td className="px-3 py-2.5">{statusLabel(plan.status)}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(allocated)}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(actual)}</td><td className={`px-3 py-2.5 text-right tabular-nums ${allocated - actual < 0 ? "text-rose-700" : ""}`}>{currency(allocated - actual)}</td></tr>;
+          })}</tbody></table></div>}
+      </section> : view === "books" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Buku besar tenant</h2><p className="mt-1 text-sm text-slate-500">Entri berasal dari modul Keuangan. Pembukuan berpasangan multi-entitas terpisah belum tersedia.</p></div>
+        {financeBooksError && <div role="alert" className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{financeBooksError}</div>}
+        {financeBooksLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat buku besar…</div>
+          : financeBooks.ledger.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada posting buku besar.</p>
+          : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-3 py-2.5">Tanggal</th><th className="px-3 py-2.5">Unit</th><th className="px-3 py-2.5">Jenis</th><th className="px-3 py-2.5">Uraian</th><th className="px-3 py-2.5 text-right">Nominal</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{financeBooks.ledger.slice(0, 80).map((row) => <tr key={row.id}><td className="px-3 py-2.5">{dateLabel(String(row.date).slice(0, 10))}</td><td className="px-3 py-2.5">{row.unitName || "Belum dipetakan"}</td><td className="px-3 py-2.5">{row.type === "income" ? "Penerimaan" : row.type === "expense" ? "Pengeluaran" : row.type}</td><td className="px-3 py-2.5">{row.description}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(row.amount)}</td></tr>)}</tbody></table></div>}
+      </section> : view === "statements" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Ringkasan laporan operasional</h2><p className="mt-1 text-sm text-slate-500">Bukan laporan akuntansi formal. Angka diambil dari tagihan terbayar dan pengeluaran disetujui pada Keuangan.</p></div>
+        {financeBooksError && <div role="alert" className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{financeBooksError}</div>}
+        {financeBooksLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat ringkasan…</div>
+          : (() => {
+            const income = financeBooks.bills.reduce((sum, bill) => sum + Number(bill.paidAmount || 0), 0);
+            const expense = financeBooks.expenses.filter((item) => item.status === "approved").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            return <>
+              <div className="grid gap-3 sm:grid-cols-3"><Metric label="Penerimaan terbayar" value={currency(income)} /><Metric label="Pengeluaran disetujui" value={currency(expense)} /><Metric label="Selisih operasional" value={currency(income - expense)} /></div>
+              <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-3 py-2.5">Unit</th><th className="px-3 py-2.5 text-right">Penerimaan</th><th className="px-3 py-2.5 text-right">Pengeluaran</th><th className="px-3 py-2.5 text-right">Selisih</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.units.map((unit) => {
+                const unitIncome = financeBooks.bills.filter((bill) => bill.unitId === unit.id).reduce((sum, bill) => sum + Number(bill.paidAmount || 0), 0);
+                const unitExpense = financeBooks.expenses.filter((item) => item.unitId === unit.id && item.status === "approved").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+                return <tr key={unit.id}><td className="px-3 py-2.5 font-medium">{unit.code} · {unit.name}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(unitIncome)}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(unitExpense)}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(unitIncome - unitExpense)}</td></tr>;
+              })}</tbody></table></div>
+            </>;
+          })()}
+      </section> : null}
     </main>
   );
 }

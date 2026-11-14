@@ -2,19 +2,26 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+const lockfile = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
 const runtimeDependencies = Object.keys(manifest.dependencies || {});
 const devDependencies = Object.keys(manifest.devDependencies || {});
-const firebaseRuntimePackages = runtimeDependencies.filter((name) =>
+const firebasePackages = [...runtimeDependencies, ...devDependencies].filter((name) =>
   name === 'firebase' || name === 'firebase-admin' || name.startsWith('@firebase/'),
+);
+const lockedFirebasePackages = Object.keys(lockfile.packages || {}).filter((name) =>
+  /^node_modules\/(?:firebase|firebase-admin|@firebase)(?:\/|$)/.test(name),
 );
 
 assert.deepEqual(
-  firebaseRuntimePackages,
+  firebasePackages,
   [],
-  `Firebase packages must not be installed in production: ${firebaseRuntimePackages.join(', ')}`,
+  `Firebase packages must not be installed: ${firebasePackages.join(', ')}`,
+);
+assert.deepEqual(
+  lockedFirebasePackages,
+  [],
+  `The lockfile must not install Firebase packages: ${lockedFirebasePackages.join(', ')}`,
 );
 assert.ok(runtimeDependencies.includes('@supabase/supabase-js'), 'Supabase client must remain available at runtime.');
-assert.ok(devDependencies.includes('firebase'), 'Legacy Firebase client types remain available only for development builds.');
-assert.ok(!devDependencies.includes('firebase-admin'), 'Firebase Admin must be removed; the server no longer reads Firestore.');
 
-console.log('Production dependency boundary passed: Firebase Admin is absent and Supabase remains a runtime dependency.');
+console.log('Dependency boundary passed: Firebase is absent and Supabase remains a runtime dependency.');

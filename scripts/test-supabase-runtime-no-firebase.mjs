@@ -74,9 +74,12 @@ visit(serverEntryPoint);
 assert.ok(visited.has(serverEntryPoint), 'Server runtime entry point server.ts was not checked.');
 assert.deepEqual(violations, [], `Firebase must not appear in the active frontend or server import graph:\n${violations.join('\n')}`);
 const packageManifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-const firebaseProductionDependencies = Object.keys(packageManifest.dependencies || {}).filter(isFirebasePackage);
-assert.deepEqual(firebaseProductionDependencies, [], 'Firebase packages must not be installed as production runtime dependencies.');
-console.log(`Supabase-only runtime import graphs passed (${visited.size} modules checked from src/main.tsx and server.ts; no Firebase production dependencies).`);
+const firebaseDependencies = [...Object.keys(packageManifest.dependencies || {}), ...Object.keys(packageManifest.devDependencies || {})]
+  .filter(isFirebasePackage);
+assert.deepEqual(firebaseDependencies, [], 'Firebase packages must not be installed in this application.');
+assert.equal(compilerOptions.paths?.['firebase/firestore'], undefined,
+  'TypeScript must not mask Firebase imports; retired screens stay outside active compile roots.');
+console.log(`Supabase-only runtime import graphs passed (${visited.size} modules checked from src/main.tsx and server.ts; Firebase packages absent).`);
 
 const appPath = path.join(root, 'src', 'App.tsx');
 const appText = fs.readFileSync(appPath, 'utf8');
@@ -155,8 +158,8 @@ assert.ok(!fs.existsSync(path.join(root, 'src', 'pages', 'EcosystemManager.tsx')
 assert.ok(!fs.readFileSync(path.join(root, '.env.example'), 'utf8').includes('PAYMENT_GATEWAY_SECRET_KEY'),
   'The initial release must not expose a payment gateway configuration placeholder.');
 const tahfidzSource = fs.readFileSync(path.join(root, 'src', 'pages', 'TahfidzManager.tsx'), 'utf8');
-assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && <button[\s\S]*?title="AI Audio Assessment"/,
-  'Mock AI audio actions must remain hidden outside the Supabase Tahfidz runtime.');
+assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && <button[\s\S]*?title="Penilaian audio otomatis"/,
+  'Demo-only audio assessment actions must remain hidden in the Supabase Tahfidz runtime and use Indonesian copy.');
 assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && selectedSantri && \(/,
   'The mock AI assessment modal must not render in the Supabase Tahfidz runtime.');
 
@@ -211,21 +214,25 @@ for (const [constant, flag] of [
   assert.match(centralStructureSource, new RegExp(`${constant}\\s*=\\s*publicRuntimeConfigValue\\(["']${flag}["']\\)\\s*===\\s*["']true["']`),
     `Tenant structure ${constant} must be disabled unless ${flag} is explicitly true.`);
 }
-assert.match(tahfidzSource, /fetch\(["']\/api\/tahfidz\/references\/surahs["']/,
+assert.match(tahfidzSource, /requestSupabaseTahfidzApi\(["']\/api\/tahfidz\/references\/surahs["']/,
   'Tahfidz must load Surah choices from the Supabase-backed Quran reference endpoint.');
 const quickEntryStart = tahfidzSource.indexOf('{/* Quick Entry Form */}');
 const recordsTableStart = tahfidzSource.indexOf('<div className="bg-white dark:bg-white\/[0.02]', quickEntryStart);
 assert.ok(quickEntryStart >= 0 && recordsTableStart > quickEntryStart,
   'Tahfidz quick-entry form boundaries must remain discoverable for regression checks.');
 const quickEntrySource = tahfidzSource.slice(quickEntryStart, recordsTableStart);
-assert.match(quickEntrySource, /aria-label="Surah setoran cepat"[\s\S]*?surahList\.map\(\(surah\)/,
+assert.match(quickEntrySource, /SUPABASE_TAHFIDZ_RUNTIME \? <select[\s\S]*?aria-label="Surah setoran cepat"[\s\S]*?surahList\.map\(\(surah\)/,
   'Quick-entry Surah must be selected from the loaded Quran reference list.');
-assert.match(quickEntrySource, /aria-label="Ayat mulai setoran cepat"[\s\S]*?quickEntryAyahCount/,
+assert.match(quickEntrySource, /aria-label="Ayat mulai setoran cepat"[\s\S]*?Array\.from\(\{ length: Number\(formData\.ayatCount \|\| 0\) \}/,
   'Quick-entry starting Ayah must be chosen from the selected Surah verse count.');
-assert.match(quickEntrySource, /aria-label="Ayat akhir setoran cepat"[\s\S]*?quickEntryAyahCount/,
+assert.match(quickEntrySource, /aria-label="Ayat akhir setoran cepat"[\s\S]*?Array\.from\(\{ length: Number\(formData\.ayatCount \|\| 0\) \}[\s\S]*?ayah >= Number\(formData\.ayatStart\)/,
   'Quick-entry ending Ayah must be chosen from the selected Surah verse count.');
-assert.doesNotMatch(quickEntrySource, /<input\b/,
-  'Tahfidz quick-entry must not accept free-text Surah or Ayah values.');
+const supabaseSurahControlStart = quickEntrySource.indexOf('SUPABASE_TAHFIDZ_RUNTIME ? <select');
+const legacySurahControlStart = quickEntrySource.indexOf(': <input', supabaseSurahControlStart);
+assert.ok(supabaseSurahControlStart >= 0 && legacySurahControlStart > supabaseSurahControlStart,
+  'Surah choices must use a controlled Supabase dropdown while legacy demo mode remains an explicit fallback.');
+assert.doesNotMatch(quickEntrySource.slice(supabaseSurahControlStart, legacySurahControlStart), /<input\b/,
+  'The Supabase runtime Surah control must not accept free text.');
 const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
 assert.doesNotMatch(boardingSource, /supabaseRuntimeEnabled\(/,
   'Asrama feature availability must follow explicit browser runtime flags, not the Supabase-only data-source mode.');
@@ -279,8 +286,13 @@ assert.match(academicSource, /!\[\"schedule\",\s*\"conflict-resolver\",\s*\"teac
   'Academic owner reference tabs must be limited to Admin roles.');
 assert.match(academicSource, /activeTab === "teachers"\s*\?\s*<TeacherDirectory[\s\S]*?activeTab === "subjects"\s*\?\s*<SubjectReferenceList[\s\S]*?activeTab === "curricula"\s*\?\s*<CurriculumReferenceList/,
   'Moved academic reference tabs must render their tenant-backed views in the Academic module.');
-assert.match(academicSource, /activeTab === "report-card"\s*\?\s*<ERPFeatureStatus/,
-  'E-Rapor must show its current backend readiness instead of falling through to the assessment form.');
+assert.match(academicSource, /activeTab === "report-card"\s*\?\s*<SupabaseAcademicReportPanel\s+isAdmin=\{isAdmin\}\s*\/>/,
+  'E-Rapor must render its tenant-backed report workspace.');
+const academicReportSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAcademicReportPanel.tsx'), 'utf8');
+assert.match(academicReportSource, /reportRequest\("\/api\/academic\/report-cards"/,
+  'E-Rapor must request its tenant workspace from the Supabase API.');
+assert.match(academicReportSource, /error && <div role="alert"/,
+  'E-Rapor must show backend readiness and request errors to the operator.');
 const generalAffairSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseGeneralAffairManager.tsx'), 'utf8');
 assert.match(generalAffairSource, /id:\s*"booking",\s*label:\s*"Pemesanan Fasilitas"/,
   'Facility booking must be owned by Sarana & Prasarana.');
@@ -303,26 +315,33 @@ const cbtSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseCBTMa
 for (const feature of ['dashboard', 'calendar', 'packages', 'monitor', 'settings']) {
   assert.ok(cbtSource.includes(`id: "${feature}"`), `CBT reference submenu ${feature} must remain visible.`);
 }
-assert.match(cbtSource, /CBT_PENDING\[tab\]\s*&&\s*<ERPFeatureStatus/,
-  'Unavailable CBT reference screens must explain their backend status.');
+for (const feature of ['dashboard', 'calendar', 'packages', 'monitor', 'settings']) {
+  assert.ok(cbtSource.includes(`tab === "${feature}" &&`), `CBT ${feature} tab must render its module screen.`);
+}
 const lmsSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLMSManager.tsx'), 'utf8');
 for (const feature of ['dashboard', 'categories', 'video-library', 'assessments', 'peer-review', 'instructor']) {
   assert.ok(lmsSource.includes(`id: "${feature}"`), `LMS reference submenu ${feature} must remain visible.`);
 }
-assert.match(lmsSource, /tab === "peer-review"\s*&&\s*<ERPFeatureStatus/,
-  'LMS peer review must not silently disappear or display demo data.');
+for (const feature of ['dashboard', 'categories', 'video-library', 'assessments', 'peer-review', 'instructor']) {
+  assert.ok(lmsSource.includes(`tab === "${feature}" &&`), `LMS ${feature} tab must render its module screen.`);
+}
 const hrisSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseHrisManager.tsx'), 'utf8');
 for (const feature of ['tracking', 'shifts', 'payroll', 'performance', 'hiring', 'analytics']) {
   assert.ok(hrisSource.includes(`id: "${feature}"`), `HRIS reference submenu ${feature} must remain visible.`);
+  assert.ok(hrisSource.includes(`tab === "${feature}" &&`), `HRIS ${feature} tab must render its module screen.`);
 }
-assert.match(hrisSource, /HRIS_PENDING\[tab\]\s*&&\s*<ERPFeatureStatus/,
-  'Unsupported HRIS reference screens must show readiness information.');
 const alumniSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAlumniManager.tsx'), 'utf8');
 for (const feature of ['directory', 'tracer', 'community', 'donations']) {
   assert.ok(alumniSource.includes(`id: "${feature}"`), `Alumni reference submenu ${feature} must remain visible.`);
 }
-assert.match(alumniSource, /tab === "directory"\s*\?\s*<>[\s\S]*?<ERPFeatureStatus/,
-  'Unimplemented Alumni sections must show an explicit readiness state instead of directory content.');
+assert.match(alumniSource, /tab === "directory"\s*\?\s*<>[\s\S]*?<section/,
+  'Alumni directory must render its tenant-backed screen.');
+assert.match(alumniSource, /tab === "tracer"\s*\?\s*<section/,
+  'Alumni tracer study must render its module screen.');
+assert.match(alumniSource, /tab === "community"\s*\?\s*<section/,
+  'Alumni community must render its module screen.');
+assert.match(alumniSource, /requestAlumni\("\/api\/donation\/snapshot"\)/,
+  'Alumni donations must read its backend module instead of demo data.');
 const librarySource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLibraryManager.tsx'), 'utf8');
 assert.match(librarySource, /id:\s*["']digital["']\s*,\s*label:\s*["']Perpustakaan Digital["']/,
   'The digital library submenu must remain visible when the Storage feature flag is closed.');
@@ -500,6 +519,7 @@ assert.deepEqual(
 );
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
 console.log('Browser persistence policy passed (no active localStorage writes; sessionStorage limited to Supabase Auth and temporary idempotency keys).');
+
 
 
 

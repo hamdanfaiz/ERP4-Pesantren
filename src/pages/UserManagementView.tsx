@@ -1,4 +1,3 @@
-import { toERPUserMessage } from "../utils/userMessages";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
@@ -12,7 +11,6 @@ import {
 } from '../rbac';
 import { ALL_MODULE_LIST } from '../services/systemSettingsService';
 import { ModuleId } from '../types';
-import { ERPNotice } from '../components/ERPDesignSystem';
 import { 
   Users, 
   UserPlus, 
@@ -31,6 +29,7 @@ import {
   Copy, 
   ExternalLink,
   ShieldAlert,
+  ServerOff,
   UserCheck,
   UserX,
   Sparkles,
@@ -85,11 +84,13 @@ export function UserManagementView() {
   const [page, setPage] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const userListRequestId = useRef(0);
+  const notifyUsersReloadRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQueryForFetch, setSearchQueryForFetch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const [backendErrorCode, setBackendErrorCode] = useState<string | null>(null);
   const [isIdentityUnavailable, setIsIdentityUnavailable] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
@@ -156,6 +157,7 @@ export function UserManagementView() {
     const requestId = ++userListRequestId.current;
     const normalizedSearchQuery = searchQueryForFetch.trim();
     setErrorBanner(null);
+    setBackendErrorCode(null);
     setIsIdentityUnavailable(false);
 
     if (normalizedSearchQuery && normalizedSearchQuery.length < 3) {
@@ -181,18 +183,22 @@ export function UserManagementView() {
       if (requestId !== userListRequestId.current) return;
 
       if (res.status === 503) {
+        const data = await res.json().catch(() => ({}));
         if (requestId !== userListRequestId.current) return;
         setIsIdentityUnavailable(true);
-        setErrorBanner('Layanan identitas sedang mengalami gangguan. Silakan coba lagi beberapa saat lagi.');
+        setBackendErrorCode(data.code || 'SUPABASE_IDENTITY_UNAVAILABLE');
+        setErrorBanner(data.error || 'Layanan identitas Supabase tidak tersedia.');
         setUsers([]);
         setTotalUsers(0);
         return;
       }
 
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         if (requestId !== userListRequestId.current) return;
         setIsIdentityUnavailable(false);
-        throw new Error('Daftar pengguna belum dapat dimuat. Silakan coba lagi.');
+        setBackendErrorCode(data.code || 'REQUEST_FAILED');
+        throw new Error(data.error || 'Gagal memuat daftar pengguna tenant.');
       }
 
       const data = await res.json();
@@ -205,11 +211,17 @@ export function UserManagementView() {
         return;
       }
       setUsers(Array.isArray(data.users) ? data.users : []);
+      if (notifyUsersReloadRef.current) {
+        setActionSuccessMessage('Daftar pengguna berhasil dimuat ulang.');
+        setTimeout(() => setActionSuccessMessage(null), 4000);
+        notifyUsersReloadRef.current = false;
+      }
     } catch (err: any) {
       if (requestId !== userListRequestId.current) return;
+      notifyUsersReloadRef.current = false;
       setUsers([]);
       setTotalUsers(0);
-      setErrorBanner('Daftar pengguna belum dapat dimuat. Silakan coba lagi.');
+      setErrorBanner(err.message || 'Gagal menghubungi server untuk memuat pengguna.');
     } finally {
       if (requestId === userListRequestId.current) setIsLoading(false);
     }
@@ -235,12 +247,12 @@ export function UserManagementView() {
           cache: 'no-store',
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error('Unit organisasi belum dapat dimuat. Coba lagi.');
+        if (!response.ok) throw new Error(payload.error || 'Unit organisasi tidak dapat dimuat.');
         if (active) setOrganizationUnits(Array.isArray(payload.units) ? payload.units : []);
       } catch (loadError) {
         if (active) {
           setOrganizationUnits([]);
-          setUnitLoadError('Unit organisasi belum dapat dimuat. Coba lagi.');
+          setUnitLoadError(loadError instanceof Error ? loadError.message : 'Unit organisasi tidak dapat dimuat.');
         }
       } finally {
         if (active) setIsLoadingOrganizationUnits(false);
@@ -261,13 +273,13 @@ export function UserManagementView() {
           headers: { Authorization: "Bearer " + token },
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error("Daftar calon wali belum dapat dimuat. Coba lagi.");
+        if (!response.ok) throw new Error(payload.error || "Data Wali tidak dapat dimuat.");
         if (!cancelled) {
           setGuardianCandidates(Array.isArray(payload.guardians) ? payload.guardians : []);
           setSelectedGuardianId("");
         }
       } catch (error) {
-        if (!cancelled) setCreateError("Daftar calon wali belum dapat dimuat. Coba lagi.");
+        if (!cancelled) setCreateError(error instanceof Error ? error.message : "Data Wali tidak dapat dimuat.");
       } finally {
         if (!cancelled) setIsLoadingGuardians(false);
       }
@@ -344,7 +356,7 @@ export function UserManagementView() {
           }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error('Undangan belum dapat dibuat. Periksa data dan coba kembali.');
+        if (!res.ok) throw new Error(data.error || 'Gagal membuat undangan Wali.');
         if (data.linkedExistingAccount === true) {
           setIsCreateModalOpen(false);
           setActionSuccessMessage('Akun Wali terverifikasi berhasil ditautkan ke data Master Data.');
@@ -384,20 +396,20 @@ export function UserManagementView() {
 
       if (res.status === 503) {
         setIsIdentityUnavailable(true);
-        throw new Error('Layanan akun sedang tidak tersedia. Silakan coba lagi beberapa saat.');
+        throw new Error(data.error || 'Layanan Supabase Auth belum tersedia pada backend.');
       }
 
       if (!res.ok) {
-        throw new Error('Akun belum dapat dibuat. Periksa data yang diisi, lalu coba lagi.');
+        throw new Error(data.error || 'Gagal membuat pengguna baru.');
       }
 
       setIsCreateModalOpen(false);
-      setActionSuccessMessage(`Pengguna "${createName}" berhasil dibuat. Pengguna perlu membuat kata sandi saat pertama masuk.`);
+      setActionSuccessMessage(`Pengguna "${createName}" berhasil dibuat dengan status mustChangePassword=true.`);
       setTimeout(() => setActionSuccessMessage(null), 5000);
       setPage(0);
       void fetchUsers(0);
     } catch (err: any) {
-      setCreateError('Akun belum dapat dibuat. Periksa koneksi dan coba kembali.');
+      setCreateError(err.message || 'Terjadi kesalahan saat membuat pengguna.');
     } finally {
       setIsCreating(false);
     }
@@ -488,11 +500,11 @@ export function UserManagementView() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 503) {
-        throw new Error('Layanan akun sedang tidak tersedia. Silakan coba lagi beberapa saat.');
+        throw new Error(data.error || 'Layanan Supabase Auth belum tersedia pada backend.');
       }
 
       if (!res.ok) {
-        throw new Error('Perubahan akun belum dapat disimpan. Periksa data dan hak akses, lalu coba lagi.');
+        throw new Error(data.error || 'Gagal memperbarui data pengguna.');
       }
 
       setEditingUser(null);
@@ -500,7 +512,7 @@ export function UserManagementView() {
       setTimeout(() => setActionSuccessMessage(null), 5000);
       fetchUsers();
     } catch (err: any) {
-      setEditError('Perubahan akun belum dapat disimpan. Periksa koneksi dan coba kembali.');
+      setEditError(err.message || 'Terjadi kesalahan saat memperbarui pengguna.');
     } finally {
       setIsUpdating(false);
     }
@@ -525,24 +537,24 @@ export function UserManagementView() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 503) {
-        alert('Layanan akun sedang tidak tersedia. Silakan coba lagi beberapa saat.');
+        alert(data.error || 'Layanan Supabase Auth belum tersedia pada backend.');
         return;
       }
 
       if (!res.ok) {
-        alert('Tautan pemulihan belum dapat dikirim. Coba lagi.');
+        alert(data.error || 'Gagal memproses reset kata sandi.');
         return;
       }
 
       setResetFeedback({
         uid: targetUser.uid,
-        message: toERPUserMessage(data, 'Tautan reset kata sandi berhasil disiapkan.'),
+        message: data.message || 'Tautan reset kata sandi berhasil disiapkan.',
         link: data.resetLink,
       });
       setActionSuccessMessage(`Tautan reset kata sandi berhasil dibuat untuk ${targetUser.email}.`);
       setTimeout(() => setActionSuccessMessage(null), 6000);
     } catch (err: any) {
-      alert('Tautan pemulihan belum dapat dikirim. Coba lagi.');
+      alert(err.message || 'Gagal mengirim reset password.');
     }
   };
 
@@ -554,7 +566,7 @@ export function UserManagementView() {
     }
 
     if (currentRole === 'Admin' && (targetUser.role === 'SuperAdmin' || targetUser.role === 'Admin')) {
-      alert('Admin tidak memiliki izin mengubah status SuperAdmin atau sesama Admin.');
+      setErrorBanner('Admin tidak memiliki izin mengubah status SuperAdmin atau sesama Admin.');
       return;
     }
 
@@ -579,13 +591,20 @@ export function UserManagementView() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert('Status akun belum dapat diperbarui. Coba lagi.');
+        setErrorBanner(data.error || 'Gagal mengubah status pengguna.');
         return;
       }
 
+      setErrorBanner(null);
+      setActionSuccessMessage(
+        nextStatus === 'disabled'
+          ? `Akun "${targetUser.name}" berhasil dinonaktifkan.`
+          : `Akun "${targetUser.name}" berhasil diaktifkan kembali.`,
+      );
+      setTimeout(() => setActionSuccessMessage(null), 5000);
       fetchUsers();
     } catch (err: any) {
-      alert('Status akun belum dapat diperbarui. Coba lagi.');
+      setErrorBanner(err.message || 'Gagal mengubah status pengguna.');
     }
   };
 
@@ -618,17 +637,20 @@ export function UserManagementView() {
             <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Manajemen Pengguna & Akses</h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1.5">
               <Building2 className="w-3 h-3" />
-              Pesantren: {currentActor?.tenantName || 'Belum ditetapkan'}
+              Tenant: {currentActor?.tenantName || currentActor?.tenantId || 'Terisolasi'}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Kelola akun staf, santri, dan wali santri serta atur hak akses setiap modul.
+            Kelola akun staf, santri, dan wali santri dengan isolasi tenant dan pembatasan hak akses modul per pengguna.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => fetchUsers()}
+            onClick={() => {
+              notifyUsersReloadRef.current = true;
+              void fetchUsers();
+            }}
             disabled={isLoading}
             className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors flex items-center gap-2"
             title="Muat ulang data"
@@ -649,18 +671,42 @@ export function UserManagementView() {
 
       {/* Success Notification */}
       {actionSuccessMessage && (
-        <ERPNotice tone="success">{actionSuccessMessage}</ERPNotice>
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-sm flex items-center gap-3 animate-fadeIn">
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />
+          <span>{actionSuccessMessage}</span>
+        </div>
       )}
 
       {/* Error / SDK Warning Banner */}
       {isIdentityUnavailable && (
-        <ERPNotice tone="warning" title="Layanan identitas sedang terganggu">
-          {errorBanner} Silakan coba lagi beberapa saat lagi. Jika masalah berlanjut, hubungi administrator pesantren.
-        </ERPNotice>
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs space-y-2">
+          <div className="flex items-center gap-2 font-bold text-sm">
+            <ServerOff className="w-4 h-4 text-amber-500 shrink-0" />
+            <span>
+              Layanan identitas Supabase belum tersedia
+            </span>
+          </div>
+          <p className="leading-relaxed">
+            {errorBanner}
+          </p>
+          <div className="p-3 bg-black/10 dark:bg-black/30 rounded-lg font-mono text-[11px] leading-relaxed space-y-1">
+            <div className="font-semibold text-slate-800 dark:text-slate-200">Periksa konfigurasi backend Supabase:</div>
+            <div>Pastikan <code>SUPABASE_URL</code> dan <code>SUPABASE_SECRET_KEY</code> tersedia hanya pada server, serta migrasi profil tenant telah diterapkan.</div>
+            <div>Jangan menaruh secret key di variabel frontend atau mengirimkannya ke browser.</div>
+          </div>
+        </div>
       )}
 
       {errorBanner && !isIdentityUnavailable && (
-        <ERPNotice tone="error">{errorBanner}</ERPNotice>
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-sm flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <div className="space-y-0.5">
+            <div className="font-semibold">{errorBanner}</div>
+            {backendErrorCode && (
+              <div className="text-[11px] font-mono text-red-500/80">Kode: {backendErrorCode}</div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Filter & Search Bar */}
@@ -734,7 +780,7 @@ export function UserManagementView() {
                   <td colSpan={5} className="py-12 text-center text-slate-400">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
-                      <span>Memuat data pengguna...</span>
+                      <span>Memuat data pengguna tenant...</span>
                     </div>
                   </td>
                 </tr>
@@ -745,7 +791,7 @@ export function UserManagementView() {
                     <div>Tidak ada pengguna ditemukan.</div>
                     {isIdentityUnavailable && (
                       <p className="text-[11px] text-amber-500/80 mt-1">
-                        Silakan coba lagi beberapa saat lagi.
+                        Pastikan backend Supabase dan tabel profil tenant tersedia.
                       </p>
                     )}
                   </td>
@@ -792,7 +838,7 @@ export function UserManagementView() {
                         <div>
                           {getRoleBadge(item.role)}
                           <div className="text-[10px] text-slate-400 mt-1">
-                            Pesantren: <span className="font-mono">{item.tenantName || 'Pesantren ini'}</span>
+                            Tenant: <span className="font-mono">{item.tenantName || item.tenantId}</span>
                           </div>
                           {item.role === 'Ustadz' && (
                             <div className="text-[10px] text-slate-400 mt-1">
@@ -952,7 +998,7 @@ export function UserManagementView() {
                 <div>
                   <h3 className="font-bold text-base">Tambah Pengguna Baru</h3>
                   <p className="text-xs text-slate-300">
-                    Pesantren: <strong>{currentActor?.tenantName || 'Pesantren ini'}</strong> (ditetapkan otomatis)
+                    Tenant: <strong>{currentActor?.tenantName || currentActor?.tenantId}</strong> (Otomatis & Imutabel)
                   </p>
                 </div>
               </div>
@@ -1075,9 +1121,9 @@ export function UserManagementView() {
                   {unitLoadError ? (
                     <p role="alert" className="text-[10px] text-red-600 dark:text-red-400">{unitLoadError}</p>
                   ) : isLoadingOrganizationUnits ? (
-                    <p role="status" className="text-[10px] text-slate-500 dark:text-slate-400">Memuat unit aktif pada pesantren ini…</p>
+                    <p role="status" className="text-[10px] text-slate-500 dark:text-slate-400">Memuat unit aktif pada tenant ini…</p>
                   ) : organizationUnits.length === 0 ? (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400">Belum ada unit aktif. Buat unit organisasi terlebih dahulu sebelum membuat akun Ustadz.</p>
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">Belum ada unit aktif. Buat unit organisasi tenant terlebih dahulu sebelum membuat akun Ustadz.</p>
                   ) : (
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">Akun Ustadz hanya dapat mengajukan pengeluaran untuk unit yang ditugaskan di sini.</p>
                   )}
@@ -1123,7 +1169,7 @@ export function UserManagementView() {
                 </div>
 
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  🛡️ <strong>Kata sandi sementara hanya berlaku untuk aktivasi pertama. Pengguna akan diminta menggantinya saat pertama kali masuk.</strong>
+                  🛡️ <strong>Perlindungan kredensial:</strong> Kata sandi sementara hanya digunakan untuk aktivasi pertama kali. Pengguna diwajibkan mengubah kata sandi saat pertama kali login (<code>mustChangePassword=true</code>). Kata sandi tidak disimpan sebagai plaintext di tabel profil, log, atau respons server.
                 </p>
               </div>
                 </>
@@ -1158,7 +1204,7 @@ export function UserManagementView() {
                       className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white"
                     />
                     <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-                      NIS diverifikasi ke data santri aktif pada pesantren ini. Akun Wali hanya dapat ditautkan jika relasi Wali sudah tercatat di Master Data.
+                      NIS diverifikasi ke data santri aktif pada tenant ini. Akun Wali hanya dapat ditautkan jika relasi Wali sudah tercatat di Master Data.
                     </p>
                   </div>
                 </div>
@@ -1190,7 +1236,7 @@ export function UserManagementView() {
                     </p>
                   ) : (
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Hak akses akun Santri mengikuti relasi wali yang aktif pada pesantren. Wali membuat kata sandi sendiri melalui tautan aktivasi.
+                      Hak akses santri mengikuti seluruh relasi aktif Wali pada tenant. Wali membuat kata sandi sendiri melalui tautan aktivasi.
                     </p>
                   )}
                   {guardianInviteLink && (
@@ -1248,7 +1294,7 @@ export function UserManagementView() {
                         }}
                         className="text-emerald-500 hover:underline"
                       >
-                        Pilih Semua {currentRole === 'Admin' ? 'Modul' : ''}
+                        Pilih Semua {currentRole === 'Admin' ? 'Modul Tenant' : ''}
                       </button>
                       <span className="text-slate-400">•</span>
                       <button
@@ -1450,9 +1496,9 @@ export function UserManagementView() {
                   {unitLoadError ? (
                     <p role="alert" className="text-[10px] text-red-600 dark:text-red-400">{unitLoadError}</p>
                   ) : isLoadingOrganizationUnits ? (
-                    <p role="status" className="text-[10px] text-slate-500 dark:text-slate-400">Memuat unit aktif pada pesantren ini…</p>
+                    <p role="status" className="text-[10px] text-slate-500 dark:text-slate-400">Memuat unit aktif pada tenant ini…</p>
                   ) : organizationUnits.length === 0 ? (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400">Belum ada unit aktif. Buat unit organisasi terlebih dahulu sebelum menetapkan akun Ustadz.</p>
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">Belum ada unit aktif. Buat unit organisasi tenant terlebih dahulu sebelum menetapkan akun Ustadz.</p>
                   ) : (
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">Finance memakai unit aktif ini untuk membatasi pengajuan dan pembacaan pengeluaran Ustadz.</p>
                   )}
@@ -1480,7 +1526,7 @@ export function UserManagementView() {
                         }}
                         className="text-emerald-500 hover:underline"
                       >
-                        Pilih Semua {currentRole === 'Admin' ? 'Modul' : ''}
+                        Pilih Semua {currentRole === 'Admin' ? 'Modul Tenant' : ''}
                       </button>
                       <span className="text-slate-400">•</span>
                       <button

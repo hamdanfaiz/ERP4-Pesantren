@@ -1,0 +1,152 @@
+{
+  "installed_on": "2026-10-29",
+  "scope": "project-only",
+  "adaptation": "explicit invocation and ERP4 Pesantren integration contract",
+  "skills": {
+    "anti-slop-design": {
+      "repository": "sickn33/antigravity-awesome-skills",
+      "commit": "8ac798c68618837d8888125885c8db215724d2be",
+      "path": "skills/anti-slop-design",
+      "upstream_url": "https://github.com/sickn33/antigravity-awesome-skills/tree/8ac798c68618837d8888125885c8db215724d2be/skills/anti-slop-design",
+      "upstream_file_sha256": {
+        "SKILL.md": "e1ca1e07d1702d4bcc5f3bec701e5517ac36f3ce57342f7712eb61d3b0176893"
+      },
+      "attribution": "Community collection attributes wwewtech/anti-slop-design; downloaded collection revision is recorded above."
+    },
+    "codebase-design": {
+      "repository": "mattpocock/skills",
+      "commit": "59db609eb1e18aaf59b63284d0e52255aff0c63c",
+      "path": "skills/engineering/codebase-design",
+      "upstream_url": "https://github.com/mattpocock/skills/tree/59db609eb1e18aaf59b63284d0e52255aff0c63c/skills/engineering/codebase-design",
+      "upstream_file_sha256": {
+        "DEEPENING.md": "f3dd099ce99289bd213914d8ee3e2429b78309c3957ca4583f7659551b1d53c1",
+        "DESIGN-IT-TWICE.md": "52b52e75655a27aea59c6966b410bac82448968ad46ef1ebb9f07c274e3ae010",
+        "SKILL.md": "2c20617f87ec8af6a434859f381b2f061a69b530444e74eb39e78bb016a6d1e2",
+        "agents/openai.yaml": "edebc9e4fcfe102114012575eaa9600b9b5fd08c311664f389c36e7bc717740f"
+      }
+    },
+    "frontend-design": {
+      "repository": "anthropics/skills",
+      "commit": "ca45fc496a3436251f191354091d557da31c15b5",
+      "path": "skills/frontend-design",
+      "upstream_url": "https://github.com/anthropics/skills/tree/ca45fc496a3436251f191354091d557da31c15b5/skills/frontend-design",
+      "upstream_file_sha256": {
+        "LICENSE.txt": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+        "SKILL.md": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3"
+      }
+    },
+    "micro-interactions": {
+      "repository": "solinkz/micro-interactions-skill",
+      "commit": "3796c3e5c2762989b6ff4d761b88224c6a94b418",
+      "path": "skills/micro-interactions",
+      "upstream_url": "https://github.com/solinkz/micro-interactions-skill/tree/3796c3e5c2762989b6ff4d761b88224c6a94b418/skills/micro-interactions",
+      "upstream_file_sha256": {
+        "SKILL.md": "65fe325d9213d8666f623e36d2a8ba5e521247184ecc5ae575bbb562d67ccc8a"
+      }
+    },
+    "web-design-guidelines": {
+      "repository": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "path": "skills/web-design-guidelines",
+      "upstream_url": "https://github.com/vercel-labs/agent-skills/tree/1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62/skills/web-design-guidelines",
+      "upstream_file_sha256": {
+        "SKILL.md": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f"
+      }
+    },
+    "ponytail": {
+      "repository": "DietrichGebert/ponytail",
+      "commit": "7801d061243d7b753bad0e0b3c057cd250b11755",
+      "path": "skills/ponytail",
+      "upstream_url": "https://github.com/DietrichGebert/ponytail/tree/7801d061243d7b753bad0e0b3c057cd250b11755/skills/ponytail",
+      "upstream_file_sha256": {
+        "SKILL.md": "9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509"
+      }
+    },
+    "ponytail-audit": {
+      "repository": "DietrichGebert/ponytail",
+      "commit": "7801d061243d7b753bad0e0b3c057cd250b11755",
+      "path": "skills/ponytail-audit",
+      "upstream_url": "https://github.com/DietrichGebert/ponytail/tree/7801d061243d7b753bad0e0b3c057cd250b11755/skills/ponytail-audit",
+      "upstream_file_sha256": {
+        "SKILL.md": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
+      }
+    },
+    "ponytail-review": {
+      "repository": "DietrichGebert/ponytail",
+      "commit": "7801d061243d7b753bad0e0b3c057cd250b11755",
+      "path": "skills/ponytail-review",
+      "upstream_url": "https://github.com/DietrichGebert/ponytail/tree/7801d061243d7b753bad0e0b3c057cd250b11755/skills/ponytail-review",
+      "upstream_file_sha256": {
+        "SKILL.md": "33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e"
+      }
+    },
+    "remotion": {
+      "repository": "remotion-dev/skills",
+      "commit": "30d4553ecd46fbc5212fd0ff006ae43af522158b",
+      "path": "skills/remotion-best-practices",
+      "upstream_url": "https://github.com/remotion-dev/skills/tree/30d4553ecd46fbc5212fd0ff006ae43af522158b/skills/remotion-best-practices",
+      "upstream_monorepo": "https://github.com/remotion-dev/remotion/tree/main/packages/skills",
+      "upstream_file_sha256": {
+        "SKILL.md": "8616471a86b6f78017049690fc569972ffe0efaa7d35d6c4d255a77df1210db1"
+      },
+      "attribution": "Official Remotion Agent Skills suite from remotion-dev/remotion monorepo (packages/skills) distributed via remotion-dev/skills."
+    },
+    "karpathy-guidelines": {
+      "repository": "multica-ai/andrej-karpathy-skills",
+      "commit": "2c606141936f1eeef17fa3043a72095b4765b9c2",
+      "path": "skills/karpathy-guidelines",
+      "upstream_url": "https://github.com/multica-ai/andrej-karpathy-skills/tree/2c606141936f1eeef17fa3043a72095b4765b9c2/skills/karpathy-guidelines",
+      "upstream_file_sha256": {
+        "SKILL.md": "6e22cc54cb02a5e98ae42d06d9d7292db0c1b43894831b32879beb0166b2aea7"
+      },
+      "installed_on": "2026-11-02",
+      "attribution": "Plugin manifest names forrestchang as author and MIT as license; the repository ships no separate LICENSE file. Only the skill entrypoint was copied, not the upstream CLAUDE.md or Cursor rule."
+    },
+    "grill-me": {
+      "repository": "mattpocock/skills",
+      "commit": "4ae2317ddb22b046e26455e4f9c9b3aaaf62212d",
+      "path": "skills/productivity/grill-me",
+      "upstream_url": "https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/skills/productivity/grill-me",
+      "installed_on": "2026-11-07",
+      "attribution": "Upstream file only says to call grilling. This checkout points at the existing grilling skill."
+    },
+    "superpowers": {
+      "repository": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "path": "skills",
+      "upstream_url": "https://github.com/obra/superpowers/tree/22f0b463e7a5e579904dd6211a520321035526f7/skills",
+      "installed_on": "2026-11-07",
+      "attribution": "Library copied under .agents/skills/superpowers/library. Each SKILL.md is explicit-only. using-superpowers does not run before every reply."
+    },
+    "vibesec": {
+      "repository": "tawgroup/vibesec",
+      "commit": "7ed42c0bd97853b632167e7fa31ea087e04c4d20",
+      "path": "skills/vibesec",
+      "upstream_url": "https://github.com/tawgroup/vibesec/tree/7ed42c0bd97853b632167e7fa31ea087e04c4d20/skills/vibesec",
+      "installed_on": "2026-11-07",
+      "attribution": "Checklist copied. Report only unless the user asks for a specific fix."
+    },
+    "playwright": {
+      "repository": "anthropics/skills",
+      "commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "path": "skills/webapp-testing",
+      "upstream_url": "https://github.com/anthropics/skills/tree/2c5958ecac7cee2b583967a2c4981d0f4a75c579/skills/webapp-testing",
+      "installed_on": "2026-11-07",
+      "attribution": "Local skill named playwright. Helper scripts that start a server were not copied."
+    },
+    "claude-mem": {
+      "repository": "thedotmack/claude-mem",
+      "commit": "31ebffbb112260183c91bbf901a4da22e241018f",
+      "path": "plugin/skills",
+      "upstream_url": "https://github.com/thedotmack/claude-mem/tree/31ebffbb112260183c91bbf901a4da22e241018f",
+      "installed_on": "2026-11-07",
+      "attribution": "Description only. The worker, hooks, and MCP were not installed."
+    }
+  },
+  "pinned_web_guidelines": {
+    "repository": "vercel-labs/web-interface-guidelines",
+    "commit": "434b7f91364665f2f733b310ec54809bf8f37937",
+    "path": "command.md",
+    "sha256": "d246b026f4f29b5823a9cc857f9edf3d2507002e055e32040cadeaf3b38e0234"
+  }
+}

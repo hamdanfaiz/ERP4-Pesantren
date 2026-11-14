@@ -1,0 +1,36 @@
+---
+description: Wajib tampilkan skeleton loading saat data tenant masih dimuat, agar pengguna tahu proses berjalan.
+globs: src/pages/**/*.tsx,src/components/**/*.tsx
+alwaysApply: false
+---
+
+# Skeleton loading untuk muatan data
+
+Saat layar atau panel menunggu data Supabase/API, jangan biarkan area konten kosong tanpa sinyal proses. Gunakan skeleton yang meniru layout hasil akhir.
+
+## Wajib
+
+- Saat `loading` / `isLoading` / fetch awal snapshot: tampilkan `ERPLoadingSkeleton` dari `src/components/ERPDesignSystem.tsx` (atau pola setara yang sudah ada di file yang sama).
+- Bungkus dengan `role="status"`, `aria-live="polite"`, dan `aria-busy="true"`. Teks status boleh di `sr-only` jika skeleton visual sudah cukup.
+- Pilih `variant` yang mendekati layout target: `metrics` (kartu angka), `list` (daftar/jadwal), `panel` (konten bertingkat), `form` (form samping).
+- Tombol **Muat ulang** tetap `disabled` saat loading; ikon refresh boleh `animate-spin`.
+- Bedakan tiga keadaan: **loading** (skeleton) ≠ **kosong** (empty state) ≠ **error** (`role="alert"`).
+
+## Jangan
+
+- Jangan hanya menampilkan teks "Memuat…" pada area yang biasanya berisi kartu, tabel, atau daftar—kecuali area itu memang satu baris status kecil.
+- Jangan memakai skeleton setelah data selesai; skeleton hilang saat `loading === false`.
+- Jangan redesign token/warna; pakai kelas `erp-loading-skeleton` / `erp-skeleton-line` yang sudah ada.
+- Jangan menghapus notifikasi aksi (`role="status"` sukses/emerald) demi skeleton; keduanya bisa berdampingan seperti pola Sistem Inti.
+
+## Contoh singkat
+
+```tsx
+{loading
+  ? <ERPLoadingSkeleton variant="list" label="Memuat jadwal tenant…" rows={4} />
+  : rows.length === 0
+    ? <Empty label="Belum ada data." />
+    : <List rows={rows} />}
+```
+
+Terapkan saat menambah atau mengubah halaman yang memuat data. Jangan merombak semua modul sekaligus tanpa permintaan.

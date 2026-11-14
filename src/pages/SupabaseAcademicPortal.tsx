@@ -15,6 +15,17 @@ type Assessment = {
   className: string;
   updatedAt: string;
 };
+type ReportLine = { subject: string; assessmentType: string; category: string; score: number; remedialStatus: string };
+type PublishedReport = {
+  id: string;
+  termName: string;
+  startsOn: string;
+  endsOn: string;
+  comment: string;
+  threshold: number;
+  lines: ReportLine[];
+  publishedAt: string;
+};
 
 async function loadPortalPage(studentId?: string, cursor?: string) {
   const token = await getAccessToken();
@@ -45,6 +56,7 @@ export function SupabaseAcademicPortal() {
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState(user?.linkedSantriId || "");
   const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [reportCards, setReportCards] = useState<PublishedReport[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,6 +80,7 @@ export function SupabaseAcademicPortal() {
       }
       const page = Array.isArray(payload.assessments) ? payload.assessments as Assessment[] : [];
       setAssessments((current) => append ? [...current, ...page] : page);
+      if (!append) setReportCards(Array.isArray(payload.reportCards) ? payload.reportCards as PublishedReport[] : []);
       setHasMore(Boolean(payload.hasMore));
       setNextCursor(typeof payload.nextCursor === "string" ? payload.nextCursor : null);
     } catch (cause) {
@@ -76,6 +89,7 @@ export function SupabaseAcademicPortal() {
       if (!append) {
         setStudents([]);
         setAssessments([]);
+        setReportCards([]);
         setHasMore(false);
         setNextCursor(null);
       }
@@ -118,7 +132,12 @@ export function SupabaseAcademicPortal() {
       </select>
     </section>}
 
-    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">Daftar ini menampilkan catatan penilaian yang telah dimasukkan pengajar. Nilai ini bukan rapor resmi atau nilai rata-rata akhir; hubungi pengajar untuk klarifikasi.</div>
+    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">Riwayat di bawah ini adalah nilai harian. Rapor resmi hanya yang berstatus terbit pada bagian E-Rapor.</div>
+
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">E-Rapor terbit</h2></div>
+      {loading ? <div role="status" className="p-6 text-sm text-slate-500">Memuat rapor…</div> : reportCards.length === 0 ? <p className="p-6 text-sm text-slate-500">Belum ada rapor yang diterbitkan untuk santri ini.</p> : <div className="divide-y divide-slate-100 dark:divide-white/5">{reportCards.map((card) => <article key={card.id} className="space-y-2 p-5"><h3 className="font-semibold text-slate-900 dark:text-white">{card.termName}</h3><p className="text-xs text-slate-500">{card.startsOn} – {card.endsOn} · ambang KKTP {card.threshold} · terbit {formatDate(card.publishedAt)}</p><p className="text-sm text-slate-700 dark:text-slate-200">{card.comment}</p>{Array.isArray(card.lines) && <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">{card.lines.map((line, index) => <li key={`${card.id}-${index}`}>{line.subject} · {line.assessmentType} · {line.score} · {line.remedialStatus === "Needed" ? "Perlu tindak lanjut" : "Tuntas"}</li>)}</ul>}</article>)}</div>}
+    </section>
 
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
 

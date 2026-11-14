@@ -139,7 +139,21 @@ assert.match(settingsService, /if \(!SYSTEM_SETTINGS_RUNTIME_ENABLED\)[\s\S]{0,1
 assert.match(settingsUi, /if \(!SUPABASE_SYSTEM_SETTINGS\)[\s\S]{0,260}<ERPFeatureStatus/, "Disabled system settings must show a customer-facing unavailable state");
 for (const stale of ["AI Studio automatically", "Secrets panel in the AI Studio", "Cloud Run Secret Manager", "MY_GEMINI_API_KEY", "MY_APP_URL"]) assert.ok(!envExample.includes(stale), `.env.example still contains obsolete setup text: ${stale}`);
 assert.ok(settingsUi.includes("Pengiriman pemberitahuan melalui email belum tersedia."), "Settings UI must not imply that an unimplemented email integration can send messages");
-assert.doesNotMatch(settingsUi, /Host SMTP|Port SMTP|WA_GATEWAY_API_KEY|penyimpanan rahasia milik environment deployment/, "Settings UI must not expose inactive integration controls or operator-only secret instructions");
+assert.match(settingsUi, /value=\{integrations\.waGatewayEndpoint\s*\|\|\s*''\}/, "Tenant admins must retain the supported WhatsApp service-address setting");
+assert.ok(settingsUi.includes("Pastikan penerima menyetujui komunikasi."), "WhatsApp settings must preserve the recipient-consent reminder");
+assert.doesNotMatch(settingsUi, /SMTP Host|SMTP Port|Server SMTP|smtpHost|smtpPort|WA_GATEWAY_API_KEY|penyimpanan rahasia milik environment deployment/, "Settings UI must not expose inactive email controls or server secrets");
+const crmUi = read("src/pages/SupabaseCrmManager.tsx");
+const crmService = read("src/server/supabaseCrm.ts");
+assert.doesNotMatch(crmUi, /OpenWA|WA_GATEWAY_API_KEY|broadcastStatus\.(?:error|endpoint)/i,
+  "CRM screens must not expose provider internals, server secrets, or raw status details");
+assert.match(crmUi, /broadcastStatus\.configured \? "Layanan WhatsApp siap digunakan\."/,
+  "CRM status must show a customer-facing message rather than the service endpoint");
+assert.match(server, /res\.json\(\{ configured: Boolean\(status\.configured\) \}\)/,
+  "The CRM status API must return only its availability state");
+assert.match(crmService, /error: "Pesan belum berhasil dikirim\./,
+  "Per-recipient WhatsApp failures must use customer-facing copy");
+assert.doesNotMatch(crmService, /error:\s*detail/,
+  "Provider error details must not be returned to CRM users");
 assert.doesNotMatch(hrisUi, /Fase Supabase|backend Supabase|payroll, rekrutmen, biometrik|belum tersambung/i,
   "HRIS UI must not expose implementation-phase or disconnected-feature operator copy");
 assert.match(hrisUi, /Saldo cuti dan jadwal kehadiran belum diperbarui otomatis/,

@@ -613,6 +613,59 @@ tbody tr:hover td, .erp-table tbody tr:hover td { background: color-mix(in srgb,
 .dark .erp-notice-warning { border-color: rgba(251, 191, 36, .28); color: #fde68a; background: rgba(120, 53, 15, .2); }
 .dark .erp-notice-error { border-color: rgba(248, 113, 113, .28); color: #fecaca; background: rgba(127, 29, 29, .2); }
 @keyframes erp-spin { to { transform: rotate(360deg); } }
+
+.erp-loading-skeleton {
+  display: grid;
+  gap: .75rem;
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-card-radius);
+  background: var(--erp-state-surface);
+  padding: 1rem;
+}
+.erp-loading-skeleton-metrics {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+.erp-loading-skeleton-card,
+.erp-loading-skeleton-row,
+.erp-loading-skeleton-field,
+.erp-loading-skeleton-panel {
+  display: grid;
+  gap: .5rem;
+}
+.erp-loading-skeleton-card {
+  border: 1px solid var(--erp-border);
+  border-radius: .75rem;
+  padding: .875rem;
+  background: color-mix(in srgb, var(--erp-state-surface) 70%, white);
+}
+.erp-loading-skeleton-list { display: grid; gap: .65rem; }
+.erp-loading-skeleton-row {
+  border: 1px solid var(--erp-border);
+  border-radius: .75rem;
+  padding: .85rem 1rem;
+}
+.erp-skeleton-line {
+  display: block;
+  height: .7rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--erp-border) 70%, transparent), color-mix(in srgb, var(--erp-border) 35%, transparent), color-mix(in srgb, var(--erp-border) 70%, transparent));
+  background-size: 200% 100%;
+  animation: erp-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+.erp-skeleton-line-xs { width: 28%; height: .55rem; }
+.erp-skeleton-line-sm { width: 42%; }
+.erp-skeleton-line-md { width: 68%; }
+.erp-skeleton-line-lg { width: 36%; height: 1.35rem; }
+.erp-skeleton-line-field { width: 100%; height: 2.25rem; border-radius: .65rem; }
+@keyframes erp-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .erp-skeleton-line { animation: none; }
+}
 @media (max-width: 640px) {
   .erp-page-container { padding: .75rem; }
   div:has(> .erp-tab-control) { align-items: stretch !important; }

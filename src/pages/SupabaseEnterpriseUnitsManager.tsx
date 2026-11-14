@@ -4,7 +4,6 @@ import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { pendingMutationIds } from "../utils/pendingMutationId";
 import { ERPFeatureStatus, ERPTabs } from "../components/ERPDesignSystem";
-import { toERPUserMessage } from "../utils/userMessages";
 
 type UnitType = "pesantren" | "sekolah" | "klinik" | "usaha" | "yayasan" | "lainnya";
 type UnitStatus = "active" | "inactive";
@@ -33,8 +32,13 @@ type UnmappedStudent = { id: string; name: string; nis: string; grade: string | 
 type UnmappedSnapshot = { candidates: UnmappedCandidate[]; candidateCount: number; students: UnmappedStudent[]; studentCount: number; limit: number; offset: number };
 type UnmappedExpense = { id: string; category: string; description: string; department: string; amount: number; date: string; status: string; requesterName: string; hasLedgerEntry: boolean };
 type UnmappedFinanceSnapshot = { expenses: UnmappedExpense[]; expenseCount: number; limit: number; offset: number };
+type FinanceBill = { id: string; santriName: string; type: string; period: string; amount: number; paidAmount: number; status: string; date: string; unitId?: string | null; unitName?: string };
+type FinanceExpense = { id: string; description: string; category: string; amount: number; date: string; status: string; unitId: string | null; unitName: string; department: string };
+type FinanceLedger = { id: string; type: string; description: string; amount: number; date: string; unitId?: string | null; unitName?: string | null };
+type FinanceLinkSnapshot = { bills: FinanceBill[]; expenses: FinanceExpense[]; ledger: FinanceLedger[] };
 type Draft = { code: string; name: string; unitType: UnitType; location: string };
 type EnterpriseTab = "dashboard" | "registry" | "transfers" | "billing" | "analytics";
+const EMPTY_FINANCE_LINK: FinanceLinkSnapshot = { bills: [], expenses: [], ledger: [] };
 
 const ENTERPRISE_TABS: Array<{ id: EnterpriseTab; label: string }> = [
   { id: "dashboard", label: "Ringkasan Gabungan" },
@@ -64,20 +68,16 @@ function formatDate(value: string) {
 }
 
 async function requestUnits(path: string, init: RequestInit = {}) {
-  try {
-    const token = await getAccessToken();
-    if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
-    const headers = new Headers(init.headers || {});
-    headers.set("Authorization", "Bearer " + token);
-    headers.set("Accept", "application/json");
-    if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-    const response = await fetch(path, { ...init, headers, cache: "no-store" });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || "Layanan Manajemen Multi-Unit belum dapat diproses.");
-    return body;
-  } catch (cause) {
-    throw new Error(toERPUserMessage(cause, "Layanan Manajemen Multi-Unit belum dapat diproses. Coba kembali."));
-  }
+  const token = await getAccessToken();
+  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  const headers = new Headers(init.headers || {});
+  headers.set("Authorization", "Bearer " + token);
+  headers.set("Accept", "application/json");
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const response = await fetch(path, { ...init, headers, cache: "no-store" });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || "Layanan Manajemen Multi-Unit belum dapat diproses.");
+  return body;
 }
 
 function typeLabel(value: UnitType) {
@@ -86,6 +86,10 @@ function typeLabel(value: UnitType) {
 
 function actionLabel(value: UnitEvent["action"]) {
   return value === "create" ? "Unit dibuat" : value === "update" ? "Data unit diperbarui" : "Status unit diubah";
+}
+
+function currencyIdr(value: number) {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
 export function SupabaseEnterpriseUnitsManager() {
@@ -111,6 +115,9 @@ export function SupabaseEnterpriseUnitsManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [activeTab, setActiveTab] = useState<EnterpriseTab>("dashboard");
+  const [financeLink, setFinanceLink] = useState<FinanceLinkSnapshot>(EMPTY_FINANCE_LINK);
+  const [financeLinkLoading, setFinanceLinkLoading] = useState(false);
+  const [financeLinkError, setFinanceLinkError] = useState("");
   const canMapFinanceRecords = user?.role === "SuperAdmin"
     || (user?.role === "Admin" && user.modulePermissions?.finance !== false);
 
@@ -141,7 +148,7 @@ export function SupabaseEnterpriseUnitsManager() {
       setMappingReady(true);
     } catch (loadError: unknown) {
       setMappingReady(false);
-      setMappingError(toERPUserMessage(loadError, "Daftar data yang belum memiliki unit tidak dapat dimuat."));
+      setMappingError(loadError instanceof Error ? loadError.message : "Daftar data yang belum memiliki unit tidak dapat dimuat.");
     } finally { setMappingLoading(false); }
   }, []);
 
@@ -159,7 +166,7 @@ export function SupabaseEnterpriseUnitsManager() {
       setFinanceMappingReady(true);
     } catch (loadError: unknown) {
       setFinanceMappingReady(false);
-      setFinanceMappingError(toERPUserMessage(loadError, "Daftar pengeluaran tanpa unit tidak dapat dimuat."));
+      setFinanceMappingError(loadError instanceof Error ? loadError.message : "Daftar pengeluaran tanpa unit tidak dapat dimuat.");
     } finally { setFinanceMappingLoading(false); }
   }, []);
 
@@ -175,13 +182,42 @@ export function SupabaseEnterpriseUnitsManager() {
           setBackendReady(true);
         }
       })
-      .catch((loadError: unknown) => { if (current) { setBackendReady(false); setError(toERPUserMessage(loadError, "Data unit belum dapat dimuat. Coba kembali.")); } })
+      .catch((loadError: unknown) => { if (current) { setBackendReady(false); setError(loadError instanceof Error ? loadError.message : "Data unit belum dapat dimuat."); } })
       .finally(() => { if (current) setLoading(false); });
     void refreshUnmapped();
     if (canMapFinanceRecords) void refreshUnmappedFinance();
     else { setFinanceMappingReady(false); setFinanceMappingLoading(false); }
     return () => { current = false; };
   }, [refresh, refreshUnmapped, refreshUnmappedFinance, canMapFinanceRecords, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (activeTab !== "transfers" && activeTab !== "billing" && activeTab !== "analytics") return;
+    if (!canMapFinanceRecords) {
+      setFinanceLink(EMPTY_FINANCE_LINK);
+      setFinanceLinkError("Ringkasan keuangan per unit memerlukan akses modul Keuangan.");
+      setFinanceLinkLoading(false);
+      return;
+    }
+    let active = true;
+    setFinanceLinkLoading(true);
+    setFinanceLinkError("");
+    requestUnits("/api/finance/snapshot")
+      .then((result) => {
+        if (!active) return;
+        setFinanceLink({
+          bills: Array.isArray(result.bills) ? result.bills : [],
+          expenses: Array.isArray(result.expenses) ? result.expenses : [],
+          ledger: Array.isArray(result.ledger) ? result.ledger : [],
+        });
+      })
+      .catch((loadError: unknown) => {
+        if (!active) return;
+        setFinanceLink(EMPTY_FINANCE_LINK);
+        setFinanceLinkError(loadError instanceof Error ? loadError.message : "Data keuangan per unit belum dapat dimuat.");
+      })
+      .finally(() => { if (active) setFinanceLinkLoading(false); });
+    return () => { active = false; };
+  }, [activeTab, canMapFinanceRecords, user?.tenantId, user?.uid]);
 
   const filteredUnits = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("id-ID");
@@ -195,7 +231,7 @@ export function SupabaseEnterpriseUnitsManager() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!backendReady) { setError("Layanan unit belum siap. Muat ulang data sebelum menyimpan."); return; }
-    if (!user?.tenantId || !user.uid) { setError("Profil pesantren tidak tersedia. Muat ulang halaman."); return; }
+    if (!user?.tenantId || !user.uid) { setError("Profil tenant tidak tersedia. Muat ulang sesi Anda."); return; }
     const payload = { action: editingId ? "update" : "create", ...(editingId ? { unitId: editingId } : {}), unit: draft };
     setSaving(true); setError(""); setNotice("");
     try {
@@ -211,7 +247,7 @@ export function SupabaseEnterpriseUnitsManager() {
       try { await refresh(); }
       catch { setError("Perubahan tersimpan, tetapi daftar belum dapat dimuat ulang. Gunakan tombol muat ulang."); }
     } catch (saveError: unknown) {
-      setError(toERPUserMessage(saveError, "Perubahan unit belum berhasil disimpan. Coba kembali."));
+      setError(saveError instanceof Error ? saveError.message : "Perubahan unit belum berhasil disimpan.");
     } finally { setSaving(false); }
   };
 
@@ -231,7 +267,7 @@ export function SupabaseEnterpriseUnitsManager() {
       try { await refresh(); }
       catch { setError("Status tersimpan, tetapi daftar belum dapat dimuat ulang. Gunakan tombol muat ulang."); }
     } catch (saveError: unknown) {
-      setError(toERPUserMessage(saveError, "Status unit belum berhasil diubah. Coba kembali."));
+      setError(saveError instanceof Error ? saveError.message : "Status unit belum berhasil diubah.");
     } finally { setSaving(false); }
   };
 
@@ -257,7 +293,7 @@ export function SupabaseEnterpriseUnitsManager() {
       setNotice(`${label} berhasil dipetakan ke unit ${selectedUnit.name}.`);
       await refreshUnmapped(unmapped.offset);
     } catch (mappingSaveError: unknown) {
-      setMappingError(toERPUserMessage(mappingSaveError, "Pemetaan unit belum berhasil disimpan. Coba kembali."));
+      setMappingError(mappingSaveError instanceof Error ? mappingSaveError.message : "Pemetaan unit belum berhasil disimpan.");
     } finally { setMappingRequest(""); }
   };
 
@@ -280,7 +316,7 @@ export function SupabaseEnterpriseUnitsManager() {
       setNotice(`Pengeluaran berhasil dipetakan ke unit ${selectedUnit.name}.`);
       await refreshUnmappedFinance(unmappedFinance.offset);
     } catch (mappingSaveError: unknown) {
-      setFinanceMappingError(toERPUserMessage(mappingSaveError, "Pemetaan pengeluaran belum berhasil disimpan. Coba kembali."));
+      setFinanceMappingError(mappingSaveError instanceof Error ? mappingSaveError.message : "Pemetaan pengeluaran belum berhasil disimpan.");
     } finally { setMappingRequest(""); }
   };
 
@@ -304,7 +340,7 @@ export function SupabaseEnterpriseUnitsManager() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">Organisasi pesantren</p>
           <h1 id="enterprise-units-title" className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Manajemen Multi-Unit</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">Kelola daftar unit pesantren. Perubahan tercatat pada riwayat aktivitas dan dapat dicoba kembali setelah koneksi pulih.</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">Kelola daftar unit di dalam tenant pesantren. Perubahan dicatat pada riwayat audit dan aman untuk dicoba ulang saat koneksi terputus.</p>
         </div>
         {activeTab === "registry" && <button type="button" className={PRIMARY} disabled={loading || saving || !backendReady} onClick={() => { setEditingId(null); setDraft(EMPTY_DRAFT); setFormOpen(true); setError(""); setNotice(""); }}>
           <Plus className="h-4 w-4" /> Tambah unit
@@ -322,7 +358,7 @@ export function SupabaseEnterpriseUnitsManager() {
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Unit aktif</p><p className="mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-400">{loading ? "—" : activeCount}</p></div>
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Peristiwa audit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : snapshot.events.length}</p></div>
         </div>
-        <ERPFeatureStatus title="Ringkasan lintas unit" status="Sebagian tersedia" tone="available" description="Ringkasan ini menampilkan daftar unit dan riwayat perubahan. Rekap gabungan santri, pegawai, keuangan, dan capaian lintas unit belum tersedia." />
+        <ERPFeatureStatus title="Ringkasan lintas unit" status="Terhubung ke registri & Keuangan" tone="available" description="Jumlah unit dan audit berasal dari registri tenant. Mutasi, tagihan, dan ringkasan keuangan per unit ada di tab Transfer, Tagihan, dan Analitik." />
       </div> : activeTab === "registry" ? <>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Total unit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : snapshot.units.length}</p></div>
@@ -341,7 +377,7 @@ export function SupabaseEnterpriseUnitsManager() {
         </div>
         {mappingError && <div role="alert" className="m-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{mappingError}</span></div>}
         {mappingLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat data yang belum dipetakan…</div>
-          : !mappingReady ? <div className="p-8 text-center text-sm text-slate-500">Pemetaan unit belum tersedia.</div>
+          : !mappingReady ? <div className="p-8 text-center text-sm text-slate-500">Pemetaan belum tersedia pada konfigurasi runtime ini.</div>
           : unmapped.candidateCount + unmapped.studentCount === 0 ? <div className="p-8 text-center text-sm text-slate-500">Semua calon santri dan santri telah memiliki unit.</div>
           : <>
             {unmapped.candidates.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><caption className="px-4 pb-2 pt-4 text-left font-semibold text-slate-800 dark:text-slate-200">Calon santri tanpa unit ({unmapped.candidateCount})</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Calon santri</th><th className="px-4 py-3">Pendaftaran</th><th className="px-4 py-3">Tahap</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmapped.candidates.map((candidate) => { const selectionKey = `candidate:${candidate.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; return <tr key={selectionKey}><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{candidate.name}</p>{candidate.hasLinkedStudent && <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Sudah menjadi santri; unit akan tersinkron</p>}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{candidate.registrationId}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{candidate.stage || "—"}</td><td className="px-4 py-3"><select aria-label={`Unit untuk calon santri ${candidate.name}`} className={FIELD} disabled={Boolean(mappingRequest)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest)} onClick={() => void assignUnit("candidate", candidate.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>}
@@ -357,7 +393,7 @@ export function SupabaseEnterpriseUnitsManager() {
         </div>
         {financeMappingError && <div role="alert" className="m-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{financeMappingError}</span></div>}
         {financeMappingLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat pengeluaran lama…</div>
-          : !financeMappingReady ? <div className="p-8 text-center text-sm text-slate-500">Pemetaan unit untuk Keuangan belum tersedia.</div>
+          : !financeMappingReady ? <div className="p-8 text-center text-sm text-slate-500">Pemetaan Finance belum tersedia pada konfigurasi runtime ini.</div>
           : unmappedFinance.expenseCount === 0 ? <div className="p-8 text-center text-sm text-slate-500">Semua pengeluaran lama sudah memiliki unit.</div>
           : <>
             <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><caption className="sr-only">Pengeluaran lama yang belum dipetakan ke unit</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Pengeluaran</th><th className="px-4 py-3">Tanggal / status</th><th className="px-4 py-3">Buku besar</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmappedFinance.expenses.map((expense) => { const selectionKey = `finance-expense:${expense.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; const status = expense.status === "approved" ? "Disetujui" : expense.status === "rejected" ? "Ditolak" : "Menunggu persetujuan"; return <tr key={selectionKey}><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{expense.description}</p><p className="mt-1 text-xs text-slate-500">{expense.category} · {expense.department} · {expense.requesterName}</p></td><td className="px-4 py-3 text-slate-600 dark:text-slate-300"><p>{expense.date}</p><p className="mt-1 text-xs">{status}</p></td><td className="px-4 py-3">{expense.hasLedgerEntry ? <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">Tercatat</span> : <span className="text-xs text-slate-500">Belum ada</span>}<p className="mt-1 font-semibold text-slate-800 dark:text-slate-200">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(expense.amount)}</p></td><td className="px-4 py-3"><select aria-label={`Unit untuk pengeluaran ${expense.description}`} className={FIELD} disabled={Boolean(mappingRequest)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest) || !backendReady} onClick={() => void assignFinanceExpenseUnit(expense.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>
@@ -378,11 +414,11 @@ export function SupabaseEnterpriseUnitsManager() {
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="font-semibold text-slate-900 dark:text-white">Daftar unit</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Kode unit unik untuk setiap pesantren.</p></div>
-          <div className="flex gap-2"><label className="relative block"><span className="sr-only">Cari unit</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input className={`${FIELD} pl-9 sm:w-64`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari unit…" /></label><button type="button" className={OUTLINE} onClick={() => { setLoading(true); setError(""); refresh().catch((refreshError: unknown) => setError(toERPUserMessage(refreshError, "Data unit belum dapat dimuat. Coba kembali."))).finally(() => setLoading(false)); }} disabled={loading || saving} aria-label="Muat ulang daftar"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button></div>
+          <div><h2 className="font-semibold text-slate-900 dark:text-white">Daftar unit</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Kode unit unik untuk setiap tenant.</p></div>
+          <div className="flex gap-2"><label className="relative block"><span className="sr-only">Cari unit</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input className={`${FIELD} pl-9 sm:w-64`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari unit…" /></label><button type="button" className={OUTLINE} onClick={() => { setLoading(true); setError(""); refresh().catch((refreshError: unknown) => setError(refreshError instanceof Error ? refreshError.message : "Data unit belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading || saving} aria-label="Muat ulang daftar"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button></div>
         </div>
         {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500" role="status"><Loader2 className="h-4 w-4 animate-spin" /> Memuat data unit…</div>
-          : filteredUnits.length === 0 ? <div className="p-12 text-center"><Building2 className="mx-auto h-9 w-9 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-800 dark:text-slate-200">{snapshot.units.length ? "Unit tidak ditemukan" : "Belum ada unit"}</h3><p className="mt-1 text-sm text-slate-500">{snapshot.units.length ? "Ubah kata pencarian atau bersihkan pencarian." : "Tambahkan unit organisasi pertama untuk pesantren ini."}</p></div>
+          : filteredUnits.length === 0 ? <div className="p-12 text-center"><Building2 className="mx-auto h-9 w-9 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-800 dark:text-slate-200">{snapshot.units.length ? "Unit tidak ditemukan" : "Belum ada unit"}</h3><p className="mt-1 text-sm text-slate-500">{snapshot.units.length ? "Ubah kata pencarian atau bersihkan pencarian." : "Tambahkan unit organisasi pertama untuk tenant ini."}</p></div>
           : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Jenis</th><th className="px-4 py-3">Lokasi</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{filteredUnits.map((unit) => <tr key={unit.id}><td className="px-4 py-4"><p className="font-semibold text-slate-900 dark:text-white">{unit.name}</p><p className="mt-1 font-mono text-xs text-slate-500">{unit.code}</p></td><td className="px-4 py-4 text-slate-600 dark:text-slate-300">{typeLabel(unit.unitType)}</td><td className="px-4 py-4 text-slate-600 dark:text-slate-300">{unit.location || "—"}</td><td className="px-4 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${unit.status === "active" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>{unit.status === "active" ? "Aktif" : "Nonaktif"}</span></td><td className="px-4 py-4"><div className="flex justify-end gap-2"><button className={OUTLINE} type="button" onClick={() => startEdit(unit)} disabled={saving || !backendReady} aria-label={`Ubah ${unit.name}`}><Pencil className="h-4 w-4" /><span className="sr-only">Ubah</span></button><button className={OUTLINE} type="button" onClick={() => toggleStatus(unit)} disabled={saving || !backendReady} aria-label={unit.status === "active" ? `Nonaktifkan ${unit.name}` : `Aktifkan ${unit.name}`}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : unit.status === "active" ? <CircleOff className="h-4 w-4" /> : <Check className="h-4 w-4" />}<span className="sr-only">{unit.status === "active" ? "Nonaktifkan" : "Aktifkan"}</span></button></div></td></tr>)}</tbody></table></div>}
       </div>
 
@@ -390,10 +426,58 @@ export function SupabaseEnterpriseUnitsManager() {
         <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 id="enterprise-units-audit-title" className="font-semibold text-slate-900 dark:text-white">Riwayat perubahan</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Menampilkan hingga 100 perubahan unit terbaru.</p></div>
         {loading ? <div className="p-6 text-sm text-slate-500">Memuat riwayat…</div> : snapshot.events.length === 0 ? <div className="p-8 text-center text-sm text-slate-500">Belum ada perubahan yang tercatat.</div> : <ol className="divide-y divide-slate-100 dark:divide-slate-800">{snapshot.events.map((item) => <li key={item.id} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{actionLabel(item.action)} <span className="font-semibold">{String(item.after.name || item.after.code || "unit")}</span></p><p className="mt-1 text-xs text-slate-500">ID aktor: {item.actorUserId.slice(0, 8)}…</p></div><time className="text-xs text-slate-500" dateTime={item.createdAt}>{formatDate(item.createdAt)}</time></li>)}</ol>}
       </section>
-      </> : <ERPFeatureStatus
-        title={ENTERPRISE_TABS.find((tab) => tab.id === activeTab)?.label || "Manajemen Multi-Unit"}
-        description={activeTab === "transfers" ? "Pemindahan dana atau aset antarunit belum tersedia." : activeTab === "billing" ? "Penagihan antarunit belum tersedia." : "Analisis pendapatan dan biaya setiap unit belum tersedia."}
-      />}
+      </> : activeTab === "transfers" ? <div className="space-y-4">
+        <aside className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/20 dark:text-sky-200">Mutasi di bawah diambil dari buku besar dan pengeluaran modul Keuangan yang sudah punya unit. Pengajuan baru tetap dibuat di Keuangan; pemetaan pengeluaran lama ada di Registri Unit.</aside>
+        {financeLinkError && <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{financeLinkError}</span></div>}
+        {financeLinkLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat mutasi keuangan…</div>
+          : <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500">Entri buku besar</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{financeLink.ledger.length}</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500">Pengeluaran bertunit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{financeLink.expenses.filter((item) => item.unitId).length}</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500">Belum dipetakan</p><p className="mt-2 text-2xl font-bold text-amber-700 dark:text-amber-300">{unmappedFinance.expenseCount}</p></div>
+            </div>
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+              <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Buku besar per unit</h2></div>
+              {financeLink.ledger.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Belum ada posting buku besar bertunit.</p>
+                : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Tanggal</th><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Jenis</th><th className="px-4 py-3">Uraian</th><th className="px-4 py-3 text-right">Nominal</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{financeLink.ledger.slice(0, 50).map((row) => <tr key={row.id}><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDate(row.date)}</td><td className="px-4 py-3">{row.unitName || "Belum dipetakan"}</td><td className="px-4 py-3">{row.type === "income" ? "Penerimaan" : row.type === "expense" ? "Pengeluaran" : row.type}</td><td className="px-4 py-3">{row.description}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(row.amount)}</td></tr>)}</tbody></table></div>}
+            </section>
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+              <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Pengeluaran per unit</h2></div>
+              {financeLink.expenses.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Belum ada pengeluaran tenant.</p>
+                : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Tanggal</th><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Uraian</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Nominal</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{financeLink.expenses.slice(0, 50).map((row) => <tr key={row.id}><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.date}</td><td className="px-4 py-3">{row.unitName || "Belum dipetakan"}</td><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{row.description}</p><p className="text-xs text-slate-500">{row.category} · {row.department}</p></td><td className="px-4 py-3">{row.status === "approved" ? "Disetujui" : row.status === "rejected" ? "Ditolak" : "Menunggu"}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(row.amount)}</td></tr>)}</tbody></table></div>}
+            </section>
+          </>}
+      </div> : activeTab === "billing" ? <div className="space-y-4">
+        <aside className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/20 dark:text-sky-200">Tagihan di bawah adalah tagihan santri/calon dari modul Keuangan yang sudah tertaut unit. Penerbitan tagihan baru tetap di menu Keuangan.</aside>
+        {financeLinkError && <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{financeLinkError}</span></div>}
+        {financeLinkLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat tagihan…</div>
+          : financeLink.bills.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-white/15">Belum ada tagihan pada tenant ini.</p>
+          : <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Tagihan per unit</h2><p className="mt-1 text-xs text-slate-500">{financeLink.bills.length} tagihan dari Keuangan</p></div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Santri / perihal</th><th className="px-4 py-3">Periode</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Tagihan</th><th className="px-4 py-3 text-right">Terbayar</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{financeLink.bills.slice(0, 80).map((bill) => <tr key={bill.id}><td className="px-4 py-3">{bill.unitName || "Belum dipetakan"}</td><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{bill.santriName}</p><p className="text-xs text-slate-500">{bill.type}</p></td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{bill.period}</td><td className="px-4 py-3">{bill.status}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(bill.amount)}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(bill.paidAmount)}</td></tr>)}</tbody></table></div>
+          </section>}
+      </div> : activeTab === "analytics" ? <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Total unit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : snapshot.units.length}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Unit aktif</p><p className="mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-400">{loading ? "—" : activeCount}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500 dark:text-slate-400">Jenis unit</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : new Set(snapshot.units.map((unit) => unit.unitType)).size}</p></div>
+        </div>
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Sebaran jenis unit</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Dihitung dari registri unit tenant.</p></div>
+          {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+            : <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Jenis</th><th className="px-4 py-3 text-right">Jumlah</th><th className="px-4 py-3 text-right">Aktif</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{UNIT_TYPES.map((type) => { const rows = snapshot.units.filter((unit) => unit.unitType === type.value); if (!rows.length) return null; return <tr key={type.value}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{type.label}</td><td className="px-4 py-3 text-right tabular-nums">{rows.length}</td><td className="px-4 py-3 text-right tabular-nums">{rows.filter((unit) => unit.status === "active").length}</td></tr>; })}</tbody></table></div>}
+        </section>
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Ringkasan keuangan per unit</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Penerimaan dari tagihan terbayar dan pengeluaran disetujui pada modul Keuangan.</p></div>
+          {financeLinkError && <div role="alert" className="m-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{financeLinkError}</span></div>}
+          {financeLinkLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+            : <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Unit</th><th className="px-4 py-3 text-right">Tagihan terbayar</th><th className="px-4 py-3 text-right">Pengeluaran disetujui</th><th className="px-4 py-3 text-right">Selisih</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{snapshot.units.map((unit) => {
+              const paid = financeLink.bills.filter((bill) => bill.unitId === unit.id).reduce((sum, bill) => sum + Number(bill.paidAmount || 0), 0);
+              const spent = financeLink.expenses.filter((expense) => expense.unitId === unit.id && expense.status === "approved").reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+              return <tr key={unit.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{unit.name}<div className="text-xs text-slate-400">{unit.code}</div></td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(paid)}</td><td className="px-4 py-3 text-right tabular-nums">{currencyIdr(spent)}</td><td className={`px-4 py-3 text-right tabular-nums ${paid - spent < 0 ? "text-rose-700" : "text-emerald-700"}`}>{currencyIdr(paid - spent)}</td></tr>;
+            })}</tbody></table></div>}
+        </section>
+      </div> : null}
     </section>
   );
 }
