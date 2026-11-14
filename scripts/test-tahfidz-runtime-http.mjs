@@ -343,7 +343,7 @@ async function main() {
       headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ record: { ...setoranInput, surahName: 'Surah Bebas Uji', clientRequestId: randomUUID() } }),
     });
-    await readJson(invalidSurah, 409, 'Reject a free-text Surah value');
+    await readJson(invalidSurah, 400, 'Reject a free-text Surah value');
 
     console.log('Tahfidz API integration passed: catalog, halaqah, membership, canonical setoran, idempotency, saved Surah/Ayah relation, leaderboard, linked Santri scope, write denial, and tenant isolation.');
   } catch (error) {
