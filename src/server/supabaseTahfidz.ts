@@ -445,12 +445,15 @@ export async function listSupabaseTahfidzLeaderboard(
     halaqah: String(student.halaqah || ""),
     ziyadahRecords: Number(student.ziyadahRecords),
     ziyadahAyahs: Number(student.ziyadahAyahs),
+    ziyadahActiveDays: Number(student.ziyadahActiveDays),
   }));
   if (students.some((student, index) => !isUuid(student.id)
     || !student.name.trim()
     || student.rank !== index + 1
     || !Number.isSafeInteger(student.ziyadahRecords) || student.ziyadahRecords < 1
-    || !Number.isSafeInteger(student.ziyadahAyahs) || student.ziyadahAyahs < 1)) {
+    || !Number.isSafeInteger(student.ziyadahAyahs) || student.ziyadahAyahs < 1
+    || !Number.isSafeInteger(student.ziyadahActiveDays) || student.ziyadahActiveDays < 1
+    || student.ziyadahActiveDays > student.ziyadahRecords)) {
     throw new SupabaseTahfidzError(503, "Data peringkat Tahfidz tidak valid.");
   }
   return {

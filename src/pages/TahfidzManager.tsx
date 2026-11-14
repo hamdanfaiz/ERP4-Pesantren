@@ -1988,13 +1988,14 @@ export function TahfidzManager() {
                 <div className="shrink-0 text-right">
                   <p className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{student.ziyadahRecords} setoran</p>
                   <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahAyahs} ayat</p>
+                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahActiveDays} hari aktif</p>
                 </div>
               </li>)}
             </ol>
             {currentLeaderboard.hasMore && <div className="border-t border-slate-100 px-5 py-3 text-center dark:border-white/5">
               {leaderboardLimit === 5
                 ? <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(20)} disabled={leaderboardLoading} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">Tampilkan 20 teratas</button>
-                : <p className="text-xs text-slate-500">Menampilkan 20 teratas. Peringkat dihitung dari jumlah setoran, lalu jumlah ayat sebagai pemecah seri.</p>}
+                : <p className="text-xs text-slate-500">Menampilkan 20 teratas. Urutan memakai jumlah setoran, jumlah ayat, lalu hari aktif sebagai pemecah seri.</p>}
             </div>}
           </>}
         </section>}

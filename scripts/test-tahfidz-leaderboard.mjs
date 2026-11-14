@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const migration = fs.readFileSync(path.join(root, "supabase/migrations/20270327000000_tahfidz_persisted_leaderboard.sql"), "utf8");
 const server = fs.readFileSync(path.join(root, "src/server/supabaseTahfidz.ts"), "utf8");
+const activeDaysMigration = fs.readFileSync(path.join(root, "supabase/migrations/20270331000000_tahfidz_active_days_leaderboard.sql"), "utf8");
+const dashboard = fs.readFileSync(path.join(root, "src/pages/SupabaseDashboardOverview.tsx"), "utf8");
 const routes = fs.readFileSync(path.join(root, "server.ts"), "utf8");
 const page = fs.readFileSync(path.join(root, "src/pages/TahfidzManager.tsx"), "utf8");
 const dbTests = fs.readFileSync(path.join(root, "supabase/tests/tahfidz_runtime_write_api.test.sql"), "utf8");
@@ -28,6 +30,12 @@ assert.match(migration, /REVOKE ALL ON FUNCTION public\.list_tahfidz_leaderboard
   "Leaderboard RPC must not be callable directly by browser roles.");
 assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.list_tahfidz_leaderboard[\s\S]*?TO service_role/,
   "Only the trusted server role should execute the leaderboard RPC.");
+assert.match(activeDaysMigration, /count\(DISTINCT \(record\.performed_at AT TIME ZONE v_time_zone\)::DATE\)[\s\S]*?AS ziyadah_active_days/i,
+  "Leaderboard must count distinct tenant-local Ziyadah activity days.");
+assert.match(activeDaysMigration, /ORDER BY ziyadah_records DESC, ziyadah_ayahs DESC, ziyadah_active_days DESC, student_name, id/,
+  "Active days must break ties only after setoran and ayah totals.");
+assert.match(activeDaysMigration, /\x27ziyadahActiveDays\x27, limited\.ziyadah_active_days/,
+  "The RPC must return the validated active-day metric.");
 
 assert.match(server, /export async function listSupabaseTahfidzLeaderboard\(/,
   "Server must expose a validated leaderboard reader.");
@@ -35,6 +43,10 @@ assert.match(server, /\["Admin", "SuperAdmin", "Ustadz"\]\.includes\(role\)/,
   "Leaderboard must not reveal other learners to Santri or Walisantri accounts.");
 assert.match(server, /\/rest\/v1\/rpc\/list_tahfidz_leaderboard/,
   "Server must read the persisted leaderboard RPC.");
+assert.match(server, /ziyadahActiveDays: Number\(student\.ziyadahActiveDays\)/,
+  "Server must map the active-day metric.");
+assert.match(server, /student\.ziyadahActiveDays > student\.ziyadahRecords/,
+  "Server must reject impossible active-day counts.");
 assert.match(routes, /app\.get\("\/api\/tahfidz\/leaderboard", requireAuth/,
   "Leaderboard endpoint must require an authenticated session.");
 assert.match(routes, /listSupabaseTahfidzLeaderboard\(\s*actor\.tenantId, actor\.uid, actor\.role/,
@@ -42,6 +54,12 @@ assert.match(routes, /listSupabaseTahfidzLeaderboard\(\s*actor\.tenantId, actor\
 
 assert.match(page, /\/api\/tahfidz\/leaderboard\?limit=\$\{limit\}/,
   "Tahfidz dashboard must load ranking data from the authenticated backend.");
+assert.match(page, /student\.ziyadahActiveDays/,
+  "Tahfidz UI must show active days from the persisted leaderboard.");
+assert.match(dashboard, /ziyadahActiveDays: number/,
+  "Overview leaderboard type must include active days.");
+assert.match(dashboard, /student\.ziyadahActiveDays/,
+  "Overview leaderboard must display active days.");
 assert.match(page, /currentLeaderboardScopeKey = `\$\{user\?\.tenantId \|\| ""\}:\$\{user\?\.uid \|\| ""\}:\$\{role\}:\$\{String\(user\?\.modulePermissions\?\.tahfidz \?\? ""\)\}`/,
   "Leaderboard view scope must include the active role and Tahfidz permission to prevent stale cross-scope display.");
 assert.match(page, /setLeaderboardScope\(currentLeaderboardScopeKey\)/,
@@ -60,6 +78,12 @@ assert.match(supabaseDashboard, /\["Admin", "SuperAdmin", "Ustadz"\]\.includes\(
 assert.match(supabaseDashboard, /student\.ziyadahRecords/,
   "Leaderboard UI must show the persisted setoran count, not fixed display values.");
 
+assert.match(dbTests, /monthly leaderboard uses tenant-local active days to break ties/,
+  "Database regression tests must verify active days decide ties after count and ayahs.");
+assert.match(dbTests, /monthly leaderboard exposes the active day count/,
+  "Database regression tests must assert returned active-day metrics.");
+assert.match(dbTests, /monthly leaderboard tie-break competitor has one active day/,
+  "Database regression tests must include an equal-count equal-ayah competitor.");
 assert.match(dbTests, /monthly leaderboard counts persisted Ziyadah records but excludes Murojaah/,
   "Database regression tests must distinguish Ziyadah from Murojaah.");
 assert.match(dbTests, /Ustadz cannot see leaderboard students outside assigned halaqahs/,
