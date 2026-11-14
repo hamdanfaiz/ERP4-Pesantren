@@ -54,7 +54,7 @@ try {
   await assert.rejects(invalidSingleTarget, (error: unknown) =>
     error instanceof Error
       && "status" in error && error.status === 400
-      && error.message.includes("dua angka di belakang koma"));
+      && error.message.includes("dua angka desimal"));
   assert.equal(requestBodies.length, 0, "invalid single targets are rejected before a write request");
 
   const invalidBulkTarget = recordSupabaseTahfidzTargetsBulk(tenantId, actorId, "Admin", {
@@ -68,7 +68,7 @@ try {
   await assert.rejects(invalidBulkTarget, (error: unknown) =>
     error instanceof Error
       && "status" in error && error.status === 400
-      && error.message.includes("dua angka di belakang koma"));
+      && error.message.includes("dua angka desimal"));
   assert.equal(requestBodies.length, 0, "invalid bulk targets are rejected before a write request");
 
   const result = await recordSupabaseTahfidzTargetsBulk(tenantId, actorId, "Admin", {
