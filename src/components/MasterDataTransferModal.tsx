@@ -93,7 +93,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
 
   const handleApply = async () => {
     if (!preview || preview.readyCount < 1 || preview.errorCount > 0) return;
-    if (!window.confirm("Impor " + preview.readyCount + " record " + label + " ke tenant aktif? Record yang sudah ada akan dilewati dan tidak ditimpa.")) return;
+    if (!window.confirm("Impor " + preview.readyCount + " data " + label + " untuk pesantren ini? Data yang sudah ada akan dilewati dan tidak ditimpa.")) return;
     setBusy("apply");
     setError("");
     setResult(null);
@@ -116,7 +116,7 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
             <h2 id="master-data-transfer-title" className="text-base font-semibold text-slate-900 dark:text-white">
               {mode === "export" ? "Ekspor data " : "Impor data "}{label}
             </h2>
-            <p className="mt-1 text-xs text-slate-500">Sumber data tenant aktif · CSV UTF-8 · maksimal 250 baris per impor</p>
+            <p className="mt-1 text-xs text-slate-500">Data untuk pesantren ini · CSV UTF-8 · maksimal 250 baris per impor</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Tutup" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5"><X className="h-4 w-4" /></button>
         </header>
@@ -129,12 +129,12 @@ export function MasterDataTransferModal({ isOpen, mode, kind, structureCategory,
                   <input type="checkbox" checked={includeSensitive} onChange={(event) => setIncludeSensitive(event.target.checked)} className="mt-1 accent-emerald-600" />
                   <span>
                     <span className="block font-semibold text-slate-800 dark:text-slate-100">Sertakan identitas pribadi dan kontak</span>
-                    <span className="mt-1 block text-xs leading-5 text-slate-600 dark:text-slate-300">Menambahkan NIK, NISN, nomor telepon, surel, alamat, dan kontak wali. Data NIK/NISN tetap terenkripsi di backend dan hanya dibuka untuk berkas unduhan Admin.</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-600 dark:text-slate-300">Menambahkan NIK, NISN, nomor telepon, surel, alamat, dan kontak wali. Data identitas dilindungi dan hanya disertakan dalam berkas unduhan Admin.</span>
                   </span>
                 </label>
               )}
               <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-600 dark:border-white/10 dark:text-slate-300">
-                Ekspor mengambil seluruh data pada tenant yang dapat diakses akun ini, bukan hanya halaman yang sedang tampil. Batasnya {kind === "students" ? "20.000 santri" : "10.000 struktur"} per berkas.
+                Ekspor mengambil seluruh data pada pesantren yang dapat diakses akun ini, bukan hanya halaman yang sedang tampil. Batasnya {kind === "students" ? "20.000 santri" : "10.000 struktur"} per berkas.
               </div>
               <button type="button" disabled={busy !== null} onClick={() => void handleExport()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50">
                 {busy === "export" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}

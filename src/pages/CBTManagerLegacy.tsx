@@ -962,7 +962,7 @@ export function CBTManager() {
          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
             <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                <MonitorPlay className="w-5 h-5 text-sky-500" />
-               Live Preview
+               Pratinjau Langsung
             </h3>
          </div>
          <div className="p-6 overflow-y-auto w-full">
@@ -979,7 +979,7 @@ export function CBTManager() {
                    </span>
                 </div>
 
-                <div className="prose dark:prose-invert max-w-none font-medium text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={{ __html: questionFormData.text || '<p class="text-slate-400 italic">Enter question content to preview...</p>' }} />
+                <div className="prose dark:prose-invert max-w-none font-medium text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={{ __html: questionFormData.text || '<p class="text-slate-400 italic">Masukkan isi soal untuk melihat pratinjau...</p>' }} />
 
                 <div className="space-y-3 pt-4">
                    {questionFormData.options.map((opt, idx) => (
@@ -1159,7 +1159,7 @@ export function CBTManager() {
                              <button
                                onClick={() => setPreviewQuestion(q)}
                                className="p-1.5 border border-slate-200 dark:border-white/10 rounded text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors shadow-sm"
-                               title="Preview Question"
+                               title="Pratinjau Soal"
                              >
                                 <Eye className="w-4 h-4" />
                              </button>
@@ -1206,7 +1206,7 @@ export function CBTManager() {
               <p className="text-sm text-slate-500 dark:text-slate-400">Monitor active exam sessions in real-time.</p>
            </div>
            <div className="text-right">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Server Time</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">sistem Time</div>
               <div className="font-mono font-medium text-slate-800 dark:text-slate-200 bg-white dark:bg-black/40 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10">
                  {currentTime.toLocaleTimeString()}
               </div>
@@ -1608,7 +1608,7 @@ export function CBTManager() {
                             <button
                               onClick={() => setPreviewQuestion(q)}
                               className="p-2 border border-slate-200 dark:border-white/10 rounded-lg text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:border-sky-400 transition-colors bg-white dark:bg-slate-800 shadow-sm dark:shadow-none"
-                              title="Preview Question"
+                              title="Pratinjau Soal"
                             >
                                <Eye className="w-4 h-4" />
                             </button>

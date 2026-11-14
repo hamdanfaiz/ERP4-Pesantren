@@ -92,9 +92,9 @@ export function SupabaseBoardingRoomsManager() {
   return <section className="space-y-5">
     <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700"><BedDouble className="h-4 w-4" />Asrama · Penempatan kamar · Supabase</div>
+        <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700"><BedDouble className="h-4 w-4" />Asrama · Penempatan kamar ·</div>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Penempatan Kamar Santri</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600">Tetapkan atau lepaskan kamar aktif dari Data Induk. Kapasitas kamar diperbarui secara transaksional di tenant.</p>
+        <p className="mt-1 max-w-2xl text-sm text-slate-600">Tetapkan atau lepaskan kamar aktif dari Data Induk. Kapasitas kamar diperbarui secara transaksional di pesantren.</p>
       </div>
       <button type="button" onClick={() => { setLoading(true); setError(""); void refresh().catch((cause: any) => setError(cause?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
         <RefreshCw className="h-4 w-4" />Muat ulang
@@ -103,7 +103,7 @@ export function SupabaseBoardingRoomsManager() {
 
     {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
-    {!canManage && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Pengubahan penempatan kamar hanya tersedia bagi Admin tenant. Anda tetap dapat melihat daftar santri.</div>}
+    {!canManage && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Pengubahan penempatan kamar hanya tersedia bagi Admin pesantren. Anda tetap dapat melihat daftar santri.</div>}
 
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -114,7 +114,7 @@ export function SupabaseBoardingRoomsManager() {
         <input aria-label="Cari santri" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, NIS, kamar, kelas…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 sm:max-w-xs" />
       </div>
       {loading ? <div className="p-4"><ERPLoadingSkeleton variant="list" label="Memuat penempatan kamar…" rows={5} /></div>
-        : !visible.length ? <div className="p-10 text-center text-sm text-slate-500">Belum ada santri pada snapshot asrama.</div>
+        : !visible.length ? <div className="p-10 text-center text-sm text-slate-500">Belum ada santri pada data saat ini asrama.</div>
           : <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>

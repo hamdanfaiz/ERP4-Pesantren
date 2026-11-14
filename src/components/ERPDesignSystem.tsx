@@ -167,7 +167,7 @@ export type ERPLoadingSkeletonVariant = "metrics" | "list" | "panel" | "form";
 /** Placeholder layout while tenant data is in flight. Prefer this over blank space or spinner-only copy. */
 export function ERPLoadingSkeleton({
   variant = "panel",
-  label = "Memuat data tenant…",
+  label = "Memuat data pesantren…",
   rows = 4,
   className = "",
 }: {

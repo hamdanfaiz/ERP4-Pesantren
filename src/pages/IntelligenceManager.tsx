@@ -509,7 +509,7 @@ function KnowledgeHub() {
           <div className="space-y-6">
              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
                 <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2">
-                  <Database className="w-5 h-5 text-indigo-500" /> Vector Database Metrics
+                  <Database className="w-5 h-5 text-indigo-500" /> Vector basis data Metrics
                 </h3>
                 <div className="space-y-6">
                   <div>
@@ -532,7 +532,7 @@ function KnowledgeHub() {
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-slate-500">Storage Footprint</span>
+                      <span className="text-slate-500">penyimpanan Footprint</span>
                       <span className="font-bold text-amber-600 dark:text-amber-400">420GB</span>
                     </div>
                     <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full">

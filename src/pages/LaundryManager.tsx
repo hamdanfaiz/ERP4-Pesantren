@@ -539,7 +539,7 @@ export function LaundryManager() {
                    </div>
                    <div>
                      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">New Laundry Order</h3>
-                     <p className="text-xs text-slate-500">Record incoming laundry weight</p>
+                     <p className="text-xs text-slate-500">Catat berat cucian yang masuk</p>
                    </div>
                 </div>
                 <div className="flex items-center gap-2">

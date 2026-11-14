@@ -79,7 +79,7 @@ const PPDB_CSV_TEMPLATE = [
 
 async function requestPpdb(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi masuk tidak ditemukan. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
@@ -92,7 +92,7 @@ async function requestPpdb(path: string, init: RequestInit = {}) {
 
 async function downloadPpdbDocument(candidate: Candidate, key: CandidateDocumentKey, label: string) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi masuk tidak ditemukan. Silakan masuk kembali.");
   const response = await fetch(`/api/ppdb/candidates/${encodeURIComponent(candidate.id)}/documents/${encodeURIComponent(key)}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
@@ -196,7 +196,7 @@ export function SupabasePpdbManager() {
       setCandidates([]);
       setGradeLevels([]);
       setHasMore(false); setNextCursor(null); setLoadedQueryKey(queryKey);
-      setError(loadError?.message || "Daftar calon santri Supabase belum dapat dimuat.");
+      setError(loadError?.message || "Daftar calon santri belum dapat dimuat.");
     } finally {
       if (requestId === requestSequence.current) setLoading(false);
     }
@@ -303,7 +303,7 @@ export function SupabasePpdbManager() {
 
   const createCandidate = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!user?.tenantId || !user.uid) { setError("Profil Admin dan tenant aktif diperlukan."); return; }
+    if (!user?.tenantId || !user.uid) { setError("Profil Admin dan pesantren aktif diperlukan."); return; }
     const candidate = { ...newCandidate, email: newCandidate.email.trim().toLowerCase() };
     const gradeReference = gradeLevels.find((item) => item.name === candidate.grade);
     if (!gradeReference) { setCreateError("Pilih jenjang aktif dari modul Akademik sebelum menyimpan."); return; }
@@ -349,7 +349,7 @@ export function SupabasePpdbManager() {
         body: JSON.stringify({ candidates: csvCandidates }),
       });
       if (!Array.isArray(result.rows) || result.rows.length !== csvCandidates.length) {
-        throw new Error("Backend belum memberikan hasil pemeriksaan untuk seluruh baris.");
+        throw new Error("Pemeriksaan belum mencakup seluruh baris. Periksa berkas lalu coba kembali.");
       }
       setCsvPreview(result.rows as CsvPreviewRow[]);
     } catch (previewError: any) { setCsvError(previewError?.message || "Pratinjau CSV belum dapat diselesaikan."); }
@@ -357,7 +357,7 @@ export function SupabasePpdbManager() {
   };
 
   const applyCsvImport = async () => {
-    if (!user?.tenantId || !user.uid) { setCsvError("Profil Admin dan tenant aktif diperlukan."); return; }
+    if (!user?.tenantId || !user.uid) { setCsvError("Profil Admin dan pesantren aktif diperlukan."); return; }
     if (!csvPreview?.length || csvPreview.some((row) => row.status !== "ready")) {
       setCsvError("Perbaiki semua baris yang ditandai duplikat atau tidak valid, lalu buat pratinjau kembali."); return;
     }
@@ -425,7 +425,7 @@ export function SupabasePpdbManager() {
           waliPhone: onboardingDraft.guardianPhone,
         } }),
       });
-      setNotice(`${onboardingCandidate.name} berhasil didaftarkan sebagai santri dengan NIS ${result.nis}. Data santri, wali, dan reservasi NIS tersimpan melalui transaksi Supabase.`);
+      setNotice(`${onboardingCandidate.name} berhasil didaftarkan sebagai santri dengan NIS ${result.nis}. Data santri, wali, dan reservasi NIS tersimpan bersama.`);
       setOnboardingCandidate(null);
       await refresh();
     } catch (saveError: any) {
@@ -433,12 +433,12 @@ export function SupabasePpdbManager() {
     } finally { setOnboardingSaving(false); }
   };
 
-  if (!canManagePpdb) return <div className="mx-auto max-w-3xl p-6"><div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"><ShieldAlert className="mb-2 h-5 w-5" />Akses PPDB hanya tersedia untuk Admin tenant dengan izin modul PPDB.</div></div>;
+  if (!canManagePpdb) return <div className="mx-auto max-w-3xl p-6"><div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"><ShieldAlert className="mb-2 h-5 w-5" />Akses PPDB hanya tersedia untuk Admin dengan izin modul PPDB.</div></div>;
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 p-4 md:p-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Penerimaan Santri Baru</h1><p className="mt-1 text-sm text-slate-500">Data calon santri tenant dibaca dari Supabase. Perubahan status, nilai, dan catatan divalidasi di database.</p></div>
+        <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Penerimaan Santri Baru</h1><p className="mt-1 text-sm text-slate-500">Kelola pendaftaran, nilai, dan catatan calon santri untuk pesantren ini.</p></div>
         <div className="flex flex-wrap gap-2">
           {PPDB_RUNTIME_ENABLED && <button type="button" onClick={() => { setCsvImportOpen(true); setCsvError(""); }} className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-200 dark:hover:bg-emerald-950/30"><FileSpreadsheet className="h-4 w-4" />Impor CSV</button>}
           {PPDB_RUNTIME_ENABLED && <button type="button" onClick={() => { setError(""); setCreateError(""); setCreateOpen(true); }} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"><Plus className="h-4 w-4" />Tambah pendaftar</button>}
@@ -446,17 +446,17 @@ export function SupabasePpdbManager() {
         </div>
       </header>
 
-      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Mode Supabase: layar ini mengelola daftar, tahap, nilai, penilaian Al-Qur’an dan Tahfidz, serta pendaftaran santri secara transaksional. Pendaftaran publik yang diaktifkan menyimpan berkas pada Storage privat. {PPDB_DOCUMENTS_ENABLED ? "Pengelolaan lampiran Admin dikonfigurasi aktif di UI ini dan tetap melalui API backend tenant." : "Pengelolaan lampiran Admin belum diaktifkan pada konfigurasi UI ini; bucket tetap privat."} Admin dapat menerbitkan tagihan kandidat setelah migrasi modul Keuangan dan fitur PPDB–Keuangan diaktifkan.</div>
+      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Kelola pendaftar, tahapan seleksi, nilai, serta penilaian Al-Qur’an dan Tahfidz. {PPDB_DOCUMENTS_ENABLED ? "Lampiran pendaftar dapat dikelola melalui menu ini." : "Pengelolaan lampiran belum tersedia saat ini."}</div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1"><label className="relative block"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, nomor pendaftaran, sekolah, telepon" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>{searchTerm.length > 0 && searchTerm.length < 3 && <p role="note" className="mt-1 text-xs text-slate-500">Pencarian seluruh tenant memerlukan minimal 3 karakter.</p>}</div>
+          <div className="relative flex-1"><label className="relative block"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, nomor pendaftaran, sekolah, telepon" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white" /></label>{searchTerm.length > 0 && searchTerm.length < 3 && <p role="note" className="mt-1 text-xs text-slate-500">Masukkan minimal 3 karakter untuk mencari.</p>}</div>
           <select aria-label="Filter tahap PPDB" value={stageFilter} onChange={(event) => setStageFilter(event.target.value as "All" | Stage)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-white/10 dark:bg-slate-950 dark:text-white"><option value="All">Semua tahap</option>{STAGES.map((stage) => <option key={stage} value={stage}>{STAGE_LABELS[stage]}</option>)}</select>
         </div>
-        {queryLoading ? <div role="status" className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat daftar PPDB tenant…</div>
-          : candidates.length === 0 ? <div className="rounded-xl border border-dashed border-slate-200 p-10 text-center text-sm text-slate-500 dark:border-white/10">{searchTerm.length > 0 && searchTerm.length < 3 ? "Masukkan minimal 3 karakter untuk mencari semua pendaftar tenant." : serverSearch || stageFilter !== "All" ? "Tidak ada calon santri yang cocok dengan filter." : "Belum ada calon santri di Supabase untuk tenant ini."}</div>
+        {queryLoading ? <div role="status" className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat daftar pendaftar…</div>
+          : candidates.length === 0 ? <div className="rounded-xl border border-dashed border-slate-200 p-10 text-center text-sm text-slate-500 dark:border-white/10">{searchTerm.length > 0 && searchTerm.length < 3 ? "Masukkan minimal 3 karakter untuk mencari pendaftar." : serverSearch || stageFilter !== "All" ? "Tidak ada calon santri yang cocok dengan filter." : "Belum ada calon santri di pesantren ini."}</div>
           : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-white/10"><th className="px-3 py-3">Pendaftar</th><th className="px-3 py-3">Sekolah / jenjang</th><th className="px-3 py-3">Tanggal</th><th className="px-3 py-3">Tahap</th><th className="px-3 py-3"></th></tr></thead><tbody>{candidates.map((candidate) => {
             const draft = draftFor(candidate);
             const expanded = expandedId === candidate.id;
@@ -467,9 +467,9 @@ export function SupabasePpdbManager() {
       </section>
       {expandedId && candidates.some((candidate) => candidate.id === expandedId) && <CandidateDocumentManager candidate={candidates.find((candidate) => candidate.id === expandedId)!} enabled={PPDB_DOCUMENTS_ENABLED} tenantId={user?.tenantId || ""} actorUserId={user?.uid || ""} onUpdated={() => { void refresh(); }} />}
       {csvImportOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-5"><section role="dialog" aria-modal="true" aria-labelledby="ppdb-csv-title" className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
-        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div><h2 id="ppdb-csv-title" className="text-lg font-bold text-slate-900 dark:text-white">Impor pendaftar dari CSV</h2><p className="mt-1 text-sm text-slate-500">Pratinjau memeriksa kelengkapan dan duplikasi pada tenant ini. Tidak ada data yang disimpan sebelum Anda menekan “Impor pendaftar”.</p></div><button type="button" aria-label="Tutup impor CSV" onClick={closeCsvImport} disabled={csvSaving || csvLoading} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
+        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div><h2 id="ppdb-csv-title" className="text-lg font-bold text-slate-900 dark:text-white">Impor pendaftar dari CSV</h2><p className="mt-1 text-sm text-slate-500">Pratinjau memeriksa kelengkapan dan duplikasi untuk pesantren ini. Tidak ada data yang disimpan sebelum Anda menekan “Impor pendaftar”.</p></div><button type="button" aria-label="Tutup impor CSV" onClick={closeCsvImport} disabled={csvSaving || csvLoading} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
         <div className="space-y-4 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200"><p>Gunakan CSV UTF-8, maksimal 100 pendaftar dan 1 MB per berkas. Tanggal lahir harus berformat YYYY-MM-DD. NIK/NISN dikirim langsung ke server untuk pemeriksaan dan tidak ditampilkan dalam hasil.</p><button type="button" onClick={downloadCsvTemplate} className="shrink-0 rounded-lg border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-800 hover:bg-sky-100 dark:border-sky-700 dark:bg-slate-900 dark:text-sky-200">Unduh templat</button></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200"><p>Gunakan CSV UTF-8, maksimal 100 pendaftar dan 1 MB per berkas. Tanggal lahir harus berformat YYYY-MM-DD. NIK/NISN dikirim langsung ke sistem untuk pemeriksaan dan tidak ditampilkan dalam hasil.</p><button type="button" onClick={downloadCsvTemplate} className="shrink-0 rounded-lg border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-800 hover:bg-sky-100 dark:border-sky-700 dark:bg-slate-900 dark:text-sky-200">Unduh templat</button></div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Berkas CSV<input type="file" accept=".csv,text/csv" onChange={(event) => void handleCsvFile(event)} disabled={csvLoading || csvSaving} className="mt-1.5 block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-emerald-800 hover:file:bg-emerald-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200" /></label>
           {csvFileName && <div className="text-xs text-slate-500">{csvFileName} · {csvCandidates.length} baris pendaftar siap diperiksa.</div>}
           {csvLoading && <div role="status" className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memeriksa data CSV…</div>}
@@ -478,8 +478,8 @@ export function SupabasePpdbManager() {
         </div><footer className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><button type="button" onClick={closeCsvImport} disabled={csvSaving || csvLoading} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Tutup</button><button type="button" onClick={() => void previewCsv()} disabled={csvLoading || csvSaving || !csvCandidates.length} className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-950/30">{csvLoading && <Loader2 className="h-4 w-4 animate-spin" />}Buat pratinjau</button><button type="button" onClick={() => void applyCsvImport()} disabled={csvSaving || csvLoading || !csvPreview?.length || csvPreview.some((row) => row.status !== "ready")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{csvSaving && <Loader2 className="h-4 w-4 animate-spin" />}{csvSaving ? "Menyimpan batch…" : `Impor ${csvCandidates.length || ""} pendaftar`}</button></footer>
       </section></div>}
       {createOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-5"><form onSubmit={(event) => void createCandidate(event)} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
-        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Tambah pendaftar</h2><p className="mt-1 text-sm text-slate-500">Nomor pendaftaran dibuat otomatis dan diperiksa unik dalam transaksi tenant.</p></div><button type="button" aria-label="Tutup formulir" onClick={() => setCreateOpen(false)} disabled={createSaving} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
-        <div className="space-y-5 p-5"><p role="note" className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200">Nomor pendaftaran akan dibuat otomatis saat data berhasil disimpan. NIK dan NISN dienkripsi di server sebelum disimpan. Formulir ini belum mengunggah lampiran; dokumen pendaftar tetap berstatus belum diterima.</p>
+        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Tambah pendaftar</h2><p className="mt-1 text-sm text-slate-500">Nomor pendaftaran dibuat otomatis dan diperiksa unik dalam satu transaksi.</p></div><button type="button" aria-label="Tutup formulir" onClick={() => setCreateOpen(false)} disabled={createSaving} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
+        <div className="space-y-5 p-5"><p role="note" className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200">Nomor pendaftaran akan dibuat otomatis saat data berhasil disimpan. NIK dan NISN dienkripsi di sistem sebelum disimpan. Formulir ini belum mengunggah lampiran; dokumen pendaftar tetap berstatus belum diterima.</p>
           {createError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">{createError}</div>}
           <section className="space-y-3"><h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Data pendaftar</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Nama lengkap<input required maxLength={120} value={newCandidate.name} onChange={(event) => setNewCandidate({ ...newCandidate, name: event.target.value })} className={FORM_CONTROL} /></label>
@@ -507,8 +507,8 @@ export function SupabasePpdbManager() {
         </div><footer className="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><button type="button" onClick={() => setCreateOpen(false)} disabled={createSaving} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Batal</button><button type="submit" disabled={createSaving || !gradeLevels.length || !newCandidate.grade} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{createSaving && <Loader2 className="h-4 w-4 animate-spin" />}{createSaving ? "Menyimpan…" : "Simpan pendaftar"}</button></footer>
       </form></div>}
       {onboardingCandidate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={(event) => void submitOnboarding(event)} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"><header className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white"><UserCheck className="h-5 w-5 text-emerald-600" />Pendaftaran santri diterima</h2><p className="mt-1 text-sm text-slate-500">{onboardingCandidate.name} · {onboardingCandidate.registrationId} · {onboardingCandidate.grade}</p></div><button type="button" aria-label="Tutup" onClick={() => setOnboardingCandidate(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5"><X className="h-5 w-5" /></button></header>
-        <div className="space-y-4 p-5"><p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200">Pembuatan data santri, wali, klaim identitas, reservasi NIS, dan kapasitas kamar dijalankan dalam satu transaksi Supabase. Jika ada data yang berbenturan, seluruh transaksi ditolak.</p>
-          {onboardingLoading && <div role="status" className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat struktur tenant dan nomor NIS…</div>}
+        <div className="space-y-4 p-5"><p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200">Data santri, wali, dan penempatan asrama disimpan bersama. Jika ada nomor atau data yang sudah digunakan, seluruh proses dibatalkan.</p>
+          {onboardingLoading && <div role="status" className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat data asrama dan nomor pendaftaran…</div>}
           {!onboardingLoading && !onboardingError && onboardingClasses.length === 0 && <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Belum ada kelas aktif di Master Data. Lengkapi data kelas sebelum mendaftarkan calon santri.</div>}
           {!onboardingLoading && !onboardingError && onboardingRooms.length === 0 && <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Belum ada kamar aktif yang sesuai jenis kelamin dan kapasitas calon santri. Atur jenis kelamin kamar atau gedung, hubungan gedung–kamar, dan kapasitas di Master Data terlebih dahulu.</div>}
           <div className="grid gap-4 sm:grid-cols-2"><div role="note" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200 sm:col-span-2">NIS 10 digit dibuat otomatis dari tahun masuk, jenjang, dan nomor urut. Pemeriksaan keunikan serta reservasi dilakukan dalam transaksi yang sama dengan pendaftaran santri.</div>
@@ -580,7 +580,7 @@ function CandidateBilling({
     <div><h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tagihan PPDB</h3><p className="mt-1 text-xs text-slate-500">Tagihan masuk ke modul Keuangan dan tertaut ke santri saat pendaftaran selesai. Wali melihatnya setelah akun wali dan santri terhubung.</p></div>
     {renderBill("registration", "Biaya pendaftaran", candidate.bills?.registration)}
     {candidate.stage === "Accepted" && renderBill("tuition", "Uang pangkal", candidate.bills?.tuition)}
-    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Belum aktif: migrasi Keuangan dan fitur PPDB–Keuangan harus disiapkan terlebih dahulu.</p>}
+    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Penerbitan tagihan belum tersedia saat ini.</p>}
     {enabled && !canManage && <p className="text-xs text-amber-700 dark:text-amber-300">Akses modul Keuangan diperlukan untuk menerbitkan tagihan.</p>}
     {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
     {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice}</p>}
@@ -640,7 +640,7 @@ function CandidateDocumentManager({
     if (!["application/pdf", "image/jpeg", "image/png"].includes(file.type)) {
       setError("Pilih berkas PDF, JPG, atau PNG."); return;
     }
-    if (!tenantId || !actorUserId) { setError("Profil Admin dan tenant aktif diperlukan."); return; }
+    if (!tenantId || !actorUserId) { setError("Profil Admin dan pesantren aktif diperlukan."); return; }
     setUploading(key);
     try {
       const { base64, sha256 } = await fileAsBase64(file);
@@ -666,7 +666,7 @@ function CandidateDocumentManager({
   };
 
   return <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
-    <div><h3 className="text-sm font-semibold text-slate-900 dark:text-white">Lampiran PPDB · {candidate.name}</h3><p className="mt-1 text-xs text-slate-500">Berkas disimpan privat. Akses dan unggahan diproses server setelah izin Admin serta tenant diverifikasi.</p></div>
+    <div><h3 className="text-sm font-semibold text-slate-900 dark:text-white">Lampiran PPDB · {candidate.name}</h3><p className="mt-1 text-xs text-slate-500">Berkas disimpan privat. Unggahan hanya dapat dilakukan oleh Admin yang memiliki izin PPDB.</p></div>
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{PPDB_DOCUMENT_LABELS.map(({ key, label }) => {
       const hasFile = candidate.documents.downloadable[key];
       const isRecorded = candidate.documents[key];
@@ -680,7 +680,7 @@ function CandidateDocumentManager({
       </div>;
     })}</div>
     <p className="text-[11px] text-slate-500">Maksimal 1 MB per lampiran. Format PDF, JPG, dan PNG. Lampiran yang sudah ada tidak dapat ditimpa dari layar ini.</p>
-    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Unggah dan unduh belum diaktifkan. Operator perlu menerapkan migrasi serta menuntaskan uji Storage sebelum mengaktifkan fiturnya.</p>}
+    {!enabled && <p className="text-xs text-amber-700 dark:text-amber-300">Unggah dan unduh lampiran belum tersedia saat ini.</p>}
     {error && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
     {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice} Jika status belum berubah, muat ulang detail pendaftar.</p>}
   </section>;

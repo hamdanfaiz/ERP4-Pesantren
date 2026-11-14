@@ -491,7 +491,7 @@ export function DonationManagerLegacy() {
                  <button
                     onClick={() => setIsRecordDonationModalOpen(true)}
                     className="px-4 py-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:hover:bg-emerald-500/30 rounded-lg font-medium transition text-sm flex items-center gap-2 shadow-sm">
-                    <HandCoins className="w-4 h-4" /> Record Donation
+                    <HandCoins className="w-4 h-4" /> Catat Donasi
                  </button>
                  <button
                     onClick={() => setIsDonorModalOpen(true)}
@@ -774,7 +774,7 @@ export function DonationManagerLegacy() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Record New Donation</h3>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Catat Donasi Baru</h3>
               <button onClick={() => setIsRecordDonationModalOpen(false)} className="text-slate-400 hover:text-slate-500 dark:hover:text-slate-300">
                 <X className="w-5 h-5" />
               </button>
@@ -825,7 +825,7 @@ export function DonationManagerLegacy() {
                   setNewDonation({ donorName: '', amount: 0, campaign: '', method: 'Bank Transfer' });
                 }
               }} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
-                <FileText className="w-4 h-4" /> Record & Generate Receipt
+                <FileText className="w-4 h-4" /> Catat & Buat Kwitansi
               </button>
             </div>
           </div>

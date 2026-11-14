@@ -2722,7 +2722,7 @@ export function AcademicManager() {
                     : "text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
                 )}
               >
-                <FileText className="w-3.5 h-3.5" /> E-Rapor Card Preview
+                <FileText className="w-3.5 h-3.5" /> Pratinjau Kartu E-Rapor
               </button>
             </div>
 

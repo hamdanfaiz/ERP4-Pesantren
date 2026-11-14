@@ -360,10 +360,10 @@ export function ImportPreviewModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                Wizard Impor Data {activeSubTab} (Rekomendasi 4)
+                 Impor Data {activeSubTab}
               </h3>
               <p className="text-xs text-slate-400">
-                Pra-validasi skema Zod, deteksi konflik identitas massal, dan preview interaktif sebelum commit ke database.
+                 Periksa format data dan temukan identitas ganda sebelum menyimpan perubahan.
               </p>
             </div>
           </div>
@@ -405,7 +405,7 @@ export function ImportPreviewModal({
                   Unggah File CSV atau JSON Data {activeSubTab}
                 </h4>
                 <p className="text-xs text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
-                  Pilih file spreadsheet dari komputer Anda. Sistem akan memindai format identitas (NIK 16 digit, NISN 10 digit, NUPTK), memastikan tidak ada konflik, dan menampilkan preview lengkap.
+                   Pilih lembar kerja dari komputer Anda. Sistem akan memeriksa format identitas (NIK 16 digit, NISN 10 digit, NUPTK), menemukan data ganda, dan menampilkan pratinjau lengkap.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                   <button
@@ -442,12 +442,12 @@ export function ImportPreviewModal({
                     <ShieldAlert className="w-4 h-4" /> Pencegahan Duplikasi
                   </div>
                   <p className="text-slate-400 leading-relaxed">
-                    Mendeteksi jika ada NIK atau NISN yang telah terdaftar di database yayasan maupun ganda di file yang sama.
+                    Mendeteksi jika ada NIK atau NISN yang telah terdaftar di basis data yayasan maupun ganda di file yang sama.
                   </p>
                 </div>
                 <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/80 space-y-1.5">
                   <div className="font-semibold text-blue-400 flex items-center gap-1.5">
-                    <RefreshCw className="w-4 h-4" /> Preview Interaktif
+                  <RefreshCw className="w-4 h-4" /> Pratinjau Interaktif
                   </div>
                   <p className="text-slate-400 leading-relaxed">
                     Dapat memilih hanya baris yang bersih, mengecualikan baris error, dan mengunduh laporan revisi data.
@@ -697,7 +697,7 @@ export function ImportPreviewModal({
                       className="accent-emerald-500"
                     />
                     <span className="text-slate-300">
-                      <b>Perbarui (Overwrite):</b> Timpa atribut data yang ada jika ID sudah terdaftar di database.
+                      <b>Perbarui (Overwrite):</b> Timpa atribut data yang ada jika ID sudah terdaftar di basis data.
                     </span>
                   </label>
                 </div>
@@ -735,7 +735,7 @@ export function ImportPreviewModal({
                 {isProcessing ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Menyimpan ke Firestore...</span>
+                    <span>Menyimpan ke arsip lama...</span>
                   </>
                 ) : (
                   <>
