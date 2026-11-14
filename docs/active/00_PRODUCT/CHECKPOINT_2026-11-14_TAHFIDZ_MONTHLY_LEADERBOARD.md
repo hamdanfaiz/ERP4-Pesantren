@@ -1,7 +1,7 @@
 # Checkpoint Tahfidz — Leaderboard dan Target Massal
 
 Tanggal: 14 November 2026
-Status: fitur PR #116 dan perbaikan katalog/tab PR #114 telah disatukan dan dipush ke branch PR #116 pada commit `3ca5f444daed76814df56da7c21155e126c906fd`. Build dan pemeriksaan lokal lulus; CI pascapush serta UAT browser masih menunggu.
+Status: source PR #116 dan perbaikan katalog/tab PR #114 sudah terintegrasi. Branch PR #116 disinkronkan dengan `main` pada commit `7364d5e205bfd6e30c529f9cc7a6e8c27ea0dccc`; perbandingan GitHub menunjukkan branch tidak tertinggal. CI terbaru yang mencakup source aplikasi lulus 3/3 job pada commit `1e7c44484a699a4b27c2135a63fd862049b0fc1d`; CI khusus commit sinkronisasi belum tersedia. UAT lintas peran serta peninjauan migrasi belum selesai sehingga PR tetap draft.
 Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak santri.
 
 ## Perubahan
@@ -54,7 +54,7 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - Branch ini kini mempertahankan leaderboard dan API target massal PR #116 sekaligus pemilih Surah/ayat dari katalog Supabase, validasi nama/rentang ayat di server, penanganan katalog gagal-aman, dan tab Tahfidz yang dapat digulir dari PR #114.
 - Uji katalog memeriksa skenario katalog lengkap, tidak lengkap, urutan tidak valid, layanan gagal, pilihan Surah berbasis referensi, batas jumlah ayat, serta penolakan rentang yang tidak valid.
 - `npm run lint`, `npm run build`, dan paket tes lokal yang tercantum pada bagian verifikasi 14 November lulus setelah penggabungan source ini.
-- Integrasi sudah dipush ke branch PR #116 pada commit `3ca5f444daed76814df56da7c21155e126c906fd`. GitHub Actions baru sedang menjalankan job `Supabase database tests` (run `43602114221`); tunggu seluruh job selesai sebelum status PR diperbarui.
+- GitHub Actions run [#1695](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43607316104) pada head source `1e7c44484a699a4b27c2135a63fd862049b0fc1d` lulus 3/3 job. Cakupan mencakup build frontend/container, migrasi/API/pgTAP, replay database dari batas Production pada Supabase lokal CI, backup/restore lokal, dan instalasi NPM. Commit sinkronisasi `7364d5e205bfd6e30c529f9cc7a6e8c27ea0dccc` hanya menggabungkan perubahan dokumentasi `main`; belum ada workflow baru yang tercatat pada commit tersebut.
 - UAT interaksi dengan akun staging dan roster sintetis belum dibuktikan. Jangan menyatakan PR siap merge hanya berdasarkan build/test lokal.
 
 ## Audit VQE staging (baca-saja, 14 November 2026)
@@ -72,7 +72,7 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - Hasil ini menguatkan batas akses staging, tetapi bukan uji simpan-baca API, transaksi batch, role/tenant lintas akun, atau bukti bahwa DDL VQE sama dengan source. Karena tabel batch sudah ada dan file source dimulai dengan `CREATE TABLE` tanpa kondisi, jangan menjalankan source migration secara langsung pada VQE.
 - Benturan ledger `20270316000000` kini terkonfirmasi: VQE mencatat `cbt_admin_question_keyset_pages`, sedangkan source saat ini memakai versi yang sama untuk `communication_ops_runtime`. Katalog VQE tidak menemukan lima tabel maupun enam RPC yang dibuat oleh migration komunikasi. Karena penerapan migrasi umumnya mencocokkan versi, `db push` dapat menganggap migration komunikasi sudah diterapkan padahal objeknya belum ada.
 - Empat migration CBT lama VQE (`20270316000000`–`20270319000000`) dibandingkan dengan salinan kanonis PR #112 (`20270323000000`–`20270326000000`). Setelah normalisasi line ending, SHA-256 isi setiap pasangan sama persis. Ini membuktikan DDL CBT historis yang diterapkan, tetapi tidak menghilangkan benturan versi 16 dengan migration komunikasi.
-- PR #112 masih terbuka dan memiliki rangkaian source CBT versi `20270321000000`–`20270326000000`; PR #116 saat ini masih berbasis `main` yang lebih lama. Urutan rilis harus menyelesaikan/review stack CBT dahulu, lalu memperbarui basis PR #116 dan menjalankan ulang CI gabungan. Jangan menutup gap ledger dengan migration no-op atau repair yang tidak membuktikan efek DDL.
+- PR #112 masih terbuka dengan rangkaian source CBT `20270321000000`–`20270326000000`, sementara PR #116 memakai `20270327000000`–`20270328000000`. PR #116 kini sudah mencakup head `main` `82082bf1c8fa806e420ae555ca38f0700694b9af` melalui merge commit `7364d5e205bfd6e30c529f9cc7a6e8c27ea0dccc`; branch tidak tertinggal dari `main`. Riwayat VQE di atas adalah audit baca-saja sebelumnya; jangan menerapkan migrasi atau melakukan repair ledger tanpa rekonsiliasi dan tinjauan backend.
 
 ## Yang belum terverifikasi
 
@@ -87,7 +87,7 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - Ditambahkan `test:tahfidz-target-precision` untuk memastikan target tunggal dan batch dengan presisi berlebih ditolak sebelum RPC, serta batch valid dinormalisasi dan dikirim dengan konteks actor server. Tes ini dimasukkan ke workflow CI.
 - `npm run test:tahfidz-target-precision`, `npm run lint`, `npm run test:ci-coverage`, seluruh tes Tahfidz/katalog/preflight/route-auth yang tercantum pada checkpoint, dan `npm run build` lulus pada worktree ini. Coverage guard memastikan semua 61 skrip tes package dijadwalkan dalam workflow database CI.
 - Build masih memberi peringatan ukuran chunk `react-pdf.browser` sekitar 1,46 MB serta anotasi komentar Zod dari dependency; build tetap sukses.
-- Pemeriksaan GitHub Actions run `43602270610` lulus 3/3 job pada head sebelum perbaikan presisi. Setelah commit perbaikan dipush, CI baru perlu lulus lagi sebelum status PR berubah.
+- Pemeriksaan GitHub Actions run `43607316104` (run #1695) lulus 3/3 job pada source PR yang sudah memuat validasi presisi target dan tes regresinya. Commit sinkronisasi sesudahnya hanya menggabungkan tiga dokumen dari `main`; belum ada CI terpisah yang tercatat pada head sinkronisasi. PR tetap draft dan tidak dinyatakan siap merge.
 - Preview pada port 3000 tidak dapat dimulai karena port ditolak sebagai sudah terpakai; tidak terlihat proses yang memilikinya. Server berhasil dinyalakan pada `127.0.0.1:3002`, tetapi pemeriksaan HTTP dari sesi ini dibatasi izin socket sehingga UAT browser belum terbukti. Jangan hentikan proses port 3000 yang tidak dikenal.
 - Docker tidak diperlukan untuk build atau tes aplikasi ini. Tes database penuh memakai Supabase lokal terisolasi di CI; Docker lokal hanya diperlukan bila operator memilih menjalankan stack Supabase di PC.
 
