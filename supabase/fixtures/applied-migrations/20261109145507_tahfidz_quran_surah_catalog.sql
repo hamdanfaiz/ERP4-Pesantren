@@ -213,3 +213,4 @@ COMMENT ON COLUMN public.tahfidz_records.surah_number IS
   'Relasi opsional untuk riwayat lama; seluruh setoran baru diikat ke katalog Surah oleh trigger.';
 
 COMMIT;
+

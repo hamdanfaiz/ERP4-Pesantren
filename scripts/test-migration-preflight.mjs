@@ -120,7 +120,7 @@ assert.match(quranCatalogMigration.statements.join('\n'), /surah_number SMALLINT
 assert.match(quranCatalogMigration.statements.join('\n'), /REVOKE ALL ON TABLE public\.quran_surahs FROM PUBLIC, anon, authenticated/i);
 assert.match(quranCatalogMigration.statements.join('\n'), /GRANT SELECT ON TABLE public\.quran_surahs TO service_role/i);
 assert.match(quranCatalogMigration.statements.join('\n'), /DROP TRIGGER IF EXISTS tahfidz_records_validate_quran_reference_insert/i);
-const quranLegacySql = readFileSync(new URL('../supabase/tests/fixtures/applied-migrations/20261109145507_tahfidz_quran_surah_catalog.sql', import.meta.url), 'utf8');
+const quranLegacySql = readFileSync(new URL('../supabase/fixtures/applied-migrations/20261109145507_tahfidz_quran_surah_catalog.sql', import.meta.url), 'utf8');
 const quranLegacyAlias = compareMigrationVersions([quranCatalogMigration], [{
   version: '20261109145507',
   name: 'tahfidz_quran_surah_catalog',
@@ -568,4 +568,5 @@ assert.match(READ_ONLY_LEDGER_QUERY, /COMMIT/);
 assert.doesNotMatch(READ_ONLY_LEDGER_QUERY, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE)\b/i);
 
 console.log('Supabase migration preflight logic passed: version/name/SQL lineage comparison, safe SQL parsing, duplicate/unknown versions, TLS enforcement, and read-only SQL.');
+
 
