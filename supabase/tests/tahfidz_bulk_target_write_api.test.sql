@@ -117,12 +117,12 @@ SELECT throws_ok($$SELECT public.record_tahfidz_daily_targets_bulk(
   'e1800000-0000-4000-8000-000000000009', ARRAY['e1800000-0000-4000-8000-000000000201'::UUID],
   CURRENT_DATE, NULL, 0.123::NUMERIC, 0.50::NUMERIC, 'standard', NULL,
   'e1800000-0000-4000-8000-000000000011', 'admin', 'e1800000-0000-4000-8000-000000000507'
-)$$, '22023', 'Data target harian Tahfidz tidak valid', 'sub-cent page target is rejected rather than rounded');
+)$$, '22023', 'Data target massal Tahfidz tidak valid', 'sub-cent page target is rejected rather than rounded');
 SELECT throws_ok($$SELECT public.record_tahfidz_daily_targets_bulk(
   'e1800000-0000-4000-8000-000000000009', ARRAY['e1800000-0000-4000-8000-000000000201'::UUID],
   CURRENT_DATE, NULL, 1.00::NUMERIC, 0.123::NUMERIC, 'standard', NULL,
   'e1800000-0000-4000-8000-000000000011', 'admin', 'e1800000-0000-4000-8000-000000000508'
-)$$, '22023', 'Data target harian Tahfidz tidak valid', 'sub-cent murojaah target is rejected rather than rounded');
+)$$, '22023', 'Data target massal Tahfidz tidak valid', 'sub-cent murojaah target is rejected rather than rounded');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.tahfidz_target_bulk_write_requests'::regclass), 'batch request ledger has RLS enabled');
 SELECT ok((SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.tahfidz_target_bulk_write_requests'::regclass), 'batch request ledger forces RLS');
 SELECT ok(NOT has_table_privilege('anon', 'public.tahfidz_target_bulk_write_requests', 'SELECT'), 'anon cannot read the batch request ledger');

@@ -1,7 +1,7 @@
 # Checkpoint Tahfidz — Leaderboard dan Target Massal
 
 Tanggal: 14 November 2026
-Status: fitur leaderboard dan target massal sudah ada di PR #116; CI menemukan validasi pembulatan target sub-halaman dan perbaikannya sedang dikirim; UAT dengan akun belum selesai.
+Status: fitur leaderboard dan target massal sudah ada di PR #116; validasi target pecahan diperbaiki. CI mengonfirmasi penolakan itu, lalu menemukan dua ekspektasi pesan test yang tidak cocok dan kini sudah diselaraskan; UAT akun belum selesai.
 Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak santri.
 
 ## Perubahan
@@ -36,7 +36,7 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 - `npm run test:api-route-auth-policy` — lulus; route baru masuk daftar API privat yang memerlukan autentikasi.
 - `npm run test:private-api-schema`, `npm run test:ci-coverage`, `npm run test:tahfidz-membership-date`, dan `npm run test:tahfidz-achievements` — lulus.
 - `npm run test:supabase-quran-catalog` — lulus untuk kasus layanan tidak tersedia yang harus gagal-aman.
-- Uji pgTAP dan API/auth/tenant lokal belum berjalan karena Supabase lokal tidak tersedia di port `54322` dan Docker tidak terpasang. CI pada `47426f6` mengungkap target sub-cent dibulatkan; validasi dan assertion pgTAP diperbaiki, menunggu CI ulang.
+- Uji pgTAP dan API/auth/tenant lokal belum berjalan karena Supabase lokal tidak tersedia di port `54322` dan Docker tidak terpasang. CI pada `47426f6` mengungkap target sub-cent dibulatkan. CI berikutnya membuktikan penolakan sudah bekerja tetapi mendeteksi dua ekspektasi teks pada pgTAP yang keliru; test diselaraskan dan menunggu CI ulang.
 
 ## Yang belum terverifikasi
 
