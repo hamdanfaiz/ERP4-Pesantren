@@ -73,6 +73,8 @@ jobs:
         run: npm run test:tahfidz-session-pagination
       - name: Verify Tahfidz achievement thresholds
         run: npm run test:tahfidz-achievements
+      - name: Verify Tahfidz target precision before database writes
+        run: npm run test:tahfidz-target-precision
       - name: Verify Supabase Quran catalog validation
         run: npm run test:supabase-quran-catalog
 

@@ -64,6 +64,7 @@
     "test:tahfidz-record-pagination": "tsx scripts/test-tahfidz-record-pagination.ts",
     "test:tahfidz-session-pagination": "tsx scripts/test-tahfidz-session-pagination.ts",
     "test:tahfidz-achievements": "tsx scripts/test-tahfidz-achievements.ts",
+    "test:tahfidz-target-precision": "tsx scripts/test-tahfidz-target-precision.ts",
     "test:supabase-quran-catalog": "tsx scripts/test-supabase-quran-catalog.ts",
     "test:academic-portal": "tsx scripts/test-academic-portal.ts",
     "test:academic-record-pagination": "tsx scripts/test-academic-record-pagination.ts",

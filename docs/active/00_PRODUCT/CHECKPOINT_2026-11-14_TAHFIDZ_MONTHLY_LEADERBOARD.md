@@ -71,6 +71,16 @@ Cakupan: papan peringkat Ziyadah bulanan dan penetapan target harian ke banyak s
 3. Backend reviewer menilai DDL, indeks, batas transaksi, dan urutan migrasi sebelum penerapan.
 4. Rekonsiliasi ledger VQE terhadap source sebelum menjalankan migrasi #116; jangan memakai `db push` langsung pada ledger yang berbeda ini.
 
+## Verifikasi lanjutan setelah checkpoint (14 November 2026)
+
+- Audit menemukan API server sebelumnya meneruskan target halaman dengan presisi lebih dari dua angka ke RPC. Validasi server kini menolak nilai itu sebelum operasi tulis, sejalan dengan batas presisi migrasi.
+- Ditambahkan `test:tahfidz-target-precision` untuk memastikan target tunggal dan batch dengan presisi berlebih ditolak sebelum RPC, serta batch valid dinormalisasi dan dikirim dengan konteks actor server. Tes ini dimasukkan ke workflow CI.
+- `npm run test:tahfidz-target-precision`, `npm run lint`, `npm run test:ci-coverage`, seluruh tes Tahfidz/katalog/preflight/route-auth yang tercantum pada checkpoint, dan `npm run build` lulus pada worktree ini. Coverage guard memastikan semua 61 skrip tes package dijadwalkan dalam workflow database CI.
+- Build masih memberi peringatan ukuran chunk `react-pdf.browser` sekitar 1,46 MB serta anotasi komentar Zod dari dependency; build tetap sukses.
+- Pemeriksaan GitHub Actions run `43602270610` lulus 3/3 job pada head sebelum perbaikan presisi. Setelah commit perbaikan dipush, CI baru perlu lulus lagi sebelum status PR berubah.
+- Preview pada port 3000 tidak dapat dimulai karena port ditolak sebagai sudah terpakai; tidak terlihat proses yang memilikinya. Server berhasil dinyalakan pada `127.0.0.1:3002`, tetapi pemeriksaan HTTP dari sesi ini dibatasi izin socket sehingga UAT browser belum terbukti. Jangan hentikan proses port 3000 yang tidak dikenal.
+- Docker tidak diperlukan untuk build atau tes aplikasi ini. Tes database penuh memakai Supabase lokal terisolasi di CI; Docker lokal hanya diperlukan bila operator memilih menjalankan stack Supabase di PC.
+
 ## Batas perubahan
 
 - Migrasi hanya ditambahkan ke source; tidak diterapkan pada Supabase staging atau Production.

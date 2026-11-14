@@ -1356,9 +1356,13 @@ function targetPages(value: unknown, label: string): number {
   if ((typeof value !== "number" && typeof value !== "string") || value === "") {
     throw new SupabaseTahfidzError(400, label + " tidak valid.");
   }
-  const pages = Number(value);
+  const normalized = typeof value === "string" ? value.trim() : String(value);
+  const pages = Number(normalized);
   if (!Number.isFinite(pages) || pages < 0 || pages > 100) {
     throw new SupabaseTahfidzError(400, label + " harus berada di antara 0 dan 100 halaman.");
+  }
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
+    throw new SupabaseTahfidzError(400, label + " maksimal memiliki dua angka di belakang koma.");
   }
   return pages;
 }
