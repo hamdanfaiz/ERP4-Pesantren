@@ -9,7 +9,7 @@ This package runs the ERP web application and API in a hardened container. It co
 - Applied and verified database migrations before enabling any `SUPABASE_*_RUNTIME_ENABLED` feature flag.
 - The Document Digital workflow requires `20270117000000_document_center_core.sql` and a reviewed private Storage bucket before setting `SUPABASE_DOCUMENT_RUNTIME_ENABLED=true`.
 - Document attachments are PDF-only and limited to 25 MiB; OCR and digital-signature workflows are not included in this runtime slice.
-- A TLS reverse proxy and a DNS name for production access. Keep port 3000 private to that proxy or the trusted network.
+- A TLS reverse proxy and a DNS name for production access. Docker Compose binds the application to `127.0.0.1` by default; point a host reverse proxy to `http://127.0.0.1:3000` and do not expose that port publicly.
 
 ### Kepercayaan reverse proxy
 
@@ -103,6 +103,8 @@ docker compose -f docker-compose.yml up -d
 ```
 
 Keep a separate ignored `.env` and secret store on every host. The image archive contains application code, not customer credentials or data.
+
+The default published port is loopback-only (`127.0.0.1:${ERP4_HTTP_PORT:-3000}:3000`) so clients reach the application through the host's TLS reverse proxy. If the proxy runs in another container, place both services on an explicitly private Docker network and remove the host port mapping in a reviewed Compose override; do not change it to `0.0.0.0` as a shortcut.
 
 Compose sets `NODE_ENV=production` and disables the legacy Firebase Admin and settings-cleanup gates. The container runs as the unprivileged `node` user, has a read-only root filesystem, and drops Linux capabilities. `/health/live` confirms the process is running; `/health/ready` confirms the Supabase profile store responds and is used by the container health check. Health responses disclose no credentials or database error details.
 

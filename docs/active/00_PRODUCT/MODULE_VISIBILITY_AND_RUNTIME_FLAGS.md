@@ -20,7 +20,7 @@ Menu yang terlihat berarti role boleh membuka modul menurut RBAC. Itu tidak memb
 
 - Lima bagian Asrama—Perizinan, Kedisiplinan, Kehadiran, Penugasan, dan Fasilitas—tetap ditampilkan. Jika gerbang servernya masih tertutup, bagian itu menampilkan status belum aktif dan nama gerbang yang harus disiapkan; layar tidak lagi kosong.
 - Akademik kini menampilkan E-Rapor dan Konflik Jadwal sebagai status belum tersedia, tanpa membuka formulir Penilaian pada tab yang belum punya API.
-- CBT menampilkan semua area referensi; Dashboard, Kalender, Paket, Pemantauan Langsung, dan Pengaturan menjelaskan bagian backend yang belum ada. Bank Soal, Sesi Ujian, dan Hasil tetap menggunakan fungsi Supabase yang tersedia.
+- CBT mempertahankan Dashboard, Kalender, Paket, Bank Soal/Builder, Sesi Ujian, Pemantauan, Hasil, dan Pengaturan. Source branch `codex/cbt-scale-main-20261113` menambahkan API berhalaman serta RPC agregat/pengaturan; keenam migration `20270321000000`–`20270326000000` masih menunggu CI dan rehearsal. Sampai source dan migrasi target tersedia, runtime tetap fail-closed. UI menyampaikan status layanan dengan pesan pengguna, bukan instruksi operator.
 - LMS menampilkan Dashboard, Kursus, Kategori, Pustaka Video, Tugas/Penilaian, Pengumpulan, Ulasan Sebaya, dan Pengajar. Tab yang dikelola lewat Kursus mengarahkan ke halaman tersebut; yang belum tersedia menampilkan status, tanpa data contoh.
 - HCM menampilkan seluruh sembilan area referensi; payroll, pelacakan, shift, kinerja, rekrutmen, dan analitik memberi keterangan bahwa API belum tersedia.
 - Perpustakaan Digital tetap terlihat saat Storage ditutup dan menampilkan status kesiapan tanpa daftar/unggah palsu.

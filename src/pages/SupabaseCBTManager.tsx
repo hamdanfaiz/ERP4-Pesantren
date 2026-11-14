@@ -6,10 +6,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
-import { deriveCbtDashboardSummary } from "../lib/cbtDashboard";
-import { deriveCbtMonitorSummary } from "../lib/cbtMonitor";
-import { deriveCbtPackageSummaries } from "../lib/cbtPackages";
-import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate } from "../lib/tenantTimeZone";
+import { toERPUserMessage } from "../utils/userMessages";
+import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate, tenantLocalDateTimeToIso } from "../lib/tenantTimeZone";
 
 type Question = {
   id: string; subject: string; grade: string; template: string; subjectReferenceId: string;
@@ -28,21 +26,41 @@ type Result = {
 };
 type CbtSettings = {
   autoGrading: boolean; shuffleQuestions: boolean;
-  correctPoints: number; wrongPoints: number; blankPoints: number; sourceSystem: string;
+  correctPoints: number; wrongPoints: number; blankPoints: number; sourceSystem: string; updatedAt: string | null;
 };
 type ReferenceOption = { id: string; name: string; description: string };
+type CbtPackageSummary = ReferenceOption & {
+  totalQuestions: number; activeQuestions: number; subjects: string[]; gradeLevels: string[];
+};
+type QuestionPage = { items: Question[]; hasMore: boolean; nextCursor: string | null };
+type StudentPage = { items: Student[]; hasMore: boolean; nextCursor: string | null };
+type AssignmentPage = { items: Result[]; hasMore: boolean; nextCursor: string | null };
+type ExamPage = { items: Exam[]; hasMore: boolean; nextCursor: string | null };
+type DashboardSummary = {
+  activeQuestions: number; totalExams: number; ongoingSessions: number; upcomingSessions: number;
+  totalAssignments: number; completedAssignments: number; completionRate: number | null;
+  assignmentStatusCounts: { assigned: number; in_progress: number; completed: number; missed: number };
+  scoredAssignments: number; averageScore: number | null; passRate: number | null;
+  upcomingExams: Array<Pick<Exam, "id" | "title" | "subject" | "grade" | "startsAt" | "endsAt" | "durationMinutes" | "status" | "assignedCount" | "completedCount">>;
+  latestResults: Array<Pick<Result, "assignmentId" | "examTitle" | "studentName" | "className" | "status" | "score" | "passed" | "submittedAt">>;
+};
 type Snapshot = {
   questions: Question[]; students: Student[]; exams: Exam[]; results: Result[]; classes: string[];
   settings: CbtSettings;
   references: { subjects: ReferenceOption[]; gradeLevels: ReferenceOption[]; templates: ReferenceOption[] };
+  packageSummaries: CbtPackageSummary[];
 };
 type Tab = "dashboard" | "calendar" | "packages" | "questions" | "exams" | "monitor" | "results" | "settings" | "import";
 type ImportPreview = { snapshotFingerprint: string; counts: { source: number; ready: number; alreadyImported: number; invalid: number }; issues: Array<{ code: string; recordRef: string; severity: string }>; issueCount: number; blockingCount: number; canApply: boolean };
 
-const EMPTY_SETTINGS: CbtSettings = { autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults" };
-const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS, references: { subjects: [], gradeLevels: [], templates: [] } };
+const EMPTY_SETTINGS: CbtSettings = { autoGrading: true, shuffleQuestions: false, correctPoints: 1, wrongPoints: 0, blankPoints: 0, sourceSystem: "defaults", updatedAt: null };
+const EMPTY: Snapshot = { questions: [], students: [], exams: [], results: [], classes: [], settings: EMPTY_SETTINGS, references: { subjects: [], gradeLevels: [], templates: [] }, packageSummaries: [] };
+const EMPTY_QUESTION_PAGE: QuestionPage = { items: [], hasMore: false, nextCursor: null };
+const EMPTY_STUDENT_PAGE: StudentPage = { items: [], hasMore: false, nextCursor: null };
+const EMPTY_ASSIGNMENT_PAGE: AssignmentPage = { items: [], hasMore: false, nextCursor: null };
+const EMPTY_EXAM_PAGE: ExamPage = { items: [], hasMore: false, nextCursor: null };
 const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
-  { id: "dashboard", label: "Dashboard", icon: <Activity className="h-4 w-4" /> },
+  { id: "dashboard", label: "Dasbor", icon: <Activity className="h-4 w-4" /> },
   { id: "calendar", label: "Kalender Ujian", icon: <CalendarDays className="h-4 w-4" /> },
   { id: "packages", label: "Paket Ujian", icon: <Boxes className="h-4 w-4" /> },
   { id: "questions", label: "Bank Soal & Builder", icon: <BookOpen className="h-4 w-4" /> },
@@ -57,14 +75,14 @@ const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
 
 async function requestCbt(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", "Bearer " + token);
   headers.set("Accept", "application/json");
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch(path, { ...init, headers, cache: "no-store" });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || "Layanan CBT belum dapat diproses.");
+  if (!response.ok) throw Object.assign(new Error(body.error || "Layanan CBT belum dapat diproses."), { status: response.status });
   return body;
 }
 
@@ -79,6 +97,17 @@ function cbtStatusLabel(status: string) {
   return labels[status.toLowerCase()] || status;
 }
 
+function cbtImportIssueLabel(code: string) {
+  const labels: Record<string, string> = {
+    record_limit_exceeded: "Jumlah data melebihi batas impor.",
+    duplicate_source_id: "Ada soal dengan nomor yang tercatat lebih dari sekali.",
+    invalid_source_id: "Sebagian soal belum memiliki nomor yang valid.",
+    invalid_question_record: "Sebagian data belum lengkap atau formatnya belum sesuai.",
+    source_changed_after_import: "Sebagian data berubah sejak terakhir diperiksa.",
+  };
+  return labels[code] || "Sebagian data perlu diperiksa sebelum diimpor.";
+}
+
 function ImportPreviewDetails({ preview }: { preview: ImportPreview | null }) {
   if (!preview) return null;
   return <div className="space-y-3">
@@ -86,12 +115,11 @@ function ImportPreviewDetails({ preview }: { preview: ImportPreview | null }) {
       { label: "Data sumber", value: preview.counts.source }, { label: "Siap diimpor", value: preview.counts.ready },
       { label: "Sudah diimpor", value: preview.counts.alreadyImported }, { label: "Tidak valid", value: preview.counts.invalid },
     ].map((item) => <div key={item.label} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><div className="text-xs text-slate-500">{item.label}</div><div className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.value}</div></div>)}</div>
-    <p className="break-all text-xs text-slate-400">Sidik digital data: {preview.snapshotFingerprint}</p>
     <div className="rounded-xl border border-slate-200 dark:border-white/10">
-      <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium dark:border-white/10">Temuan ({preview.issueCount})</div>
-      {preview.issues.length ? <ul className="divide-y divide-slate-100 dark:divide-white/5">{preview.issues.map((issue, index) => <li key={issue.recordRef + issue.code + index} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-xs"><span className="font-medium text-slate-700 dark:text-slate-200">{issue.code}</span><span className="text-slate-500">Ref {issue.recordRef || "—"} · {issue.severity}</span></li>)}</ul> : <p className="p-4 text-sm text-slate-500">Tidak ada konflik pada data ini.</p>}
+      <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium dark:border-white/10">Perlu ditinjau ({preview.issueCount})</div>
+      {preview.issues.length ? <ul className="divide-y divide-slate-100 dark:divide-white/5">{preview.issues.map((issue, index) => <li key={`${issue.code}-${index}`} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm"><span className="font-medium text-slate-700 dark:text-slate-200">{cbtImportIssueLabel(issue.code)}</span><span className={issue.severity === "blocking" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}>{issue.severity === "blocking" ? "Perlu diperbaiki" : "Perhatian"}</span></li>)}</ul> : <p className="p-4 text-sm text-slate-500">Semua data memenuhi pemeriksaan.</p>}
     </div>
-    <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data dapat diterapkan. Server akan memeriksa ulang sidik digital sebelum penerapan." : "Data belum dapat diterapkan; perbaiki konflik atau selesaikan rekonsiliasi terlebih dahulu."}</p>
+    <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data siap diterapkan setelah Anda meninjau ringkasan ini." : "Data belum dapat diterapkan. Periksa kembali data yang ditandai."}</p>
   </div>;
 }
 
@@ -100,10 +128,28 @@ export function SupabaseCBTManager() {
   const tenantTimeZone = user?.tenantTimeZone || DEFAULT_TENANT_TIME_ZONE;
   const todayInTenant = tenantDate(new Date(), tenantTimeZone);
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
+  const [examPage, setExamPage] = useState<ExamPage>(EMPTY_EXAM_PAGE);
+  const [calendarPage, setCalendarPage] = useState<ExamPage>(EMPTY_EXAM_PAGE);
+  const [examPageLoading, setExamPageLoading] = useState(false);
+  const [calendarPageLoading, setCalendarPageLoading] = useState(false);
+  const [examPageError, setExamPageError] = useState("");
+  const [calendarPageError, setCalendarPageError] = useState("");
+  const [examListRevision, setExamListRevision] = useState(0);
+  const [calendarPageRevision, setCalendarPageRevision] = useState(0);
+  const [serverDashboardSummary, setServerDashboardSummary] = useState<DashboardSummary | null>(null);
   const [tab, setTab] = useState<Tab>("questions");
-  const [dashboardNow, setDashboardNow] = useState(() => Date.now());
   const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<string | null>(null);
   const [monitorSearch, setMonitorSearch] = useState("");
+  const [resultsSearch, setResultsSearch] = useState("");
+  const [monitorPage, setMonitorPage] = useState<AssignmentPage>(EMPTY_ASSIGNMENT_PAGE);
+  const [resultsPage, setResultsPage] = useState<AssignmentPage>(EMPTY_ASSIGNMENT_PAGE);
+  const [monitorPageLoading, setMonitorPageLoading] = useState(false);
+  const [resultsPageLoading, setResultsPageLoading] = useState(false);
+  const [monitorPageError, setMonitorPageError] = useState("");
+  const [resultsPageError, setResultsPageError] = useState("");
+  const [activityPageRevision, setActivityPageRevision] = useState(0);
+  const [settingsDraft, setSettingsDraft] = useState<CbtSettings>(EMPTY_SETTINGS);
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => cbtTenantMonthKey(new Date(), tenantTimeZone));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => tenantDate(new Date(), tenantTimeZone));
   const [loading, setLoading] = useState(true);
@@ -112,6 +158,23 @@ export function SupabaseCBTManager() {
   const [notice, setNotice] = useState("");
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [questionStatus, setQuestionStatus] = useState<"all" | "active" | "archived">("all");
+  const [questionTemplateFilter, setQuestionTemplateFilter] = useState("all");
+  const [questionListRevision, setQuestionListRevision] = useState(0);
+  const [questionPage, setQuestionPage] = useState<QuestionPage>(EMPTY_QUESTION_PAGE);
+  const [questionPageLoading, setQuestionPageLoading] = useState(false);
+  const [questionPageError, setQuestionPageError] = useState("");
+  const [builderQuestionPage, setBuilderQuestionPage] = useState<QuestionPage>(EMPTY_QUESTION_PAGE);
+  const [builderQuestionPageLoading, setBuilderQuestionPageLoading] = useState(false);
+  const [builderQuestionPageError, setBuilderQuestionPageError] = useState("");
+  const questionPageRequestId = useRef(0);
+  const examPageRequestId = useRef(0);
+  const calendarPageRequestId = useRef(0);
+  const builderQuestionPageRequestId = useRef(0);
+  const studentPageRequestId = useRef(0);
+  const monitorAssignmentPageRequestId = useRef(0);
+  const resultsAssignmentPageRequestId = useRef(0);
+  const builderQuestionPageFilter = useRef("");
   const [form, setForm] = useState({
     subjectReferenceId: "", gradeLevelReferenceId: "", templateReferenceId: "", text: "", options: ["", "", "", ""],
     correctAnswer: "0", explanation: "", difficulty: "Medium", tags: "",
@@ -122,9 +185,23 @@ export function SupabaseCBTManager() {
   });
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [studentPage, setStudentPage] = useState<StudentPage>(EMPTY_STUDENT_PAGE);
+  const [studentPageLoading, setStudentPageLoading] = useState(false);
+  const [studentPageError, setStudentPageError] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [settingsImportPreview, setSettingsImportPreview] = useState<ImportPreview | null>(null);
   const settingsAppliedTenant = useRef("");
+  const settingsDirtyRef = useRef(false);
+
+  const calendarRange = useMemo(() => {
+    const nextMonth = shiftCbtCalendarMonth(calendarMonth, 1);
+    return {
+      startsAtFrom: tenantLocalDateTimeToIso(`${calendarMonth}-01T00:00`, tenantTimeZone),
+      startsAtUntil: tenantLocalDateTimeToIso(`${nextMonth}-01T00:00`, tenantTimeZone),
+    };
+  }, [calendarMonth, tenantTimeZone]);
 
   useEffect(() => {
     const today = tenantDate(new Date(), tenantTimeZone);
@@ -133,36 +210,84 @@ export function SupabaseCBTManager() {
   }, [user?.tenantId, tenantTimeZone]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setDashboardNow(Date.now()), 60_000);
+    const interval = window.setInterval(() => {
+      void requestCbt("/api/cbt/admin/summary").then((result) => {
+        const candidate = result?.summary;
+        if (candidate && typeof candidate === "object") setServerDashboardSummary(candidate as DashboardSummary);
+      }).catch(() => undefined);
+    }, 60_000);
     return () => window.clearInterval(interval);
   }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
+    setServerDashboardSummary(null);
+    let summaryLoaded = false;
     try {
-      const result = await requestCbt("/api/cbt/admin");
+      const [snapshotRequest, summaryRequest] = await Promise.allSettled([
+        requestCbt("/api/cbt/admin"),
+        requestCbt("/api/cbt/admin/summary"),
+      ]);
+      if (summaryRequest.status === "fulfilled") {
+        const candidate = summaryRequest.value?.summary;
+        const validSummary = candidate && typeof candidate === "object";
+        setServerDashboardSummary(validSummary ? candidate as DashboardSummary : null);
+        summaryLoaded = Boolean(validSummary);
+      }
+      if (snapshotRequest.status === "rejected") throw snapshotRequest.reason;
+      const result = snapshotRequest.value;
       const references = result.references && typeof result.references === "object" ? {
         subjects: Array.isArray(result.references.subjects) ? result.references.subjects : [],
         gradeLevels: Array.isArray(result.references.gradeLevels) ? result.references.gradeLevels : [],
         templates: Array.isArray(result.references.templates) ? result.references.templates : [],
       } : EMPTY.references;
+      const settings = result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } as CbtSettings : EMPTY_SETTINGS;
       setSnapshot({
         questions: Array.isArray(result.questions) ? result.questions : [],
+        packageSummaries: Array.isArray(result.packageSummaries) ? result.packageSummaries : [],
         exams: Array.isArray(result.exams) ? result.exams : [],
         results: Array.isArray(result.results) ? result.results : [],
         students: Array.isArray(result.students) ? result.students : [],
         classes: Array.isArray(result.classes) ? result.classes : [],
-        settings: result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } : EMPTY_SETTINGS,
+        settings,
         references,
       });
       setSnapshotUpdatedAt(new Date().toISOString());
-      const settings = result.settings && typeof result.settings === "object" ? { ...EMPTY_SETTINGS, ...result.settings } as CbtSettings : EMPTY_SETTINGS;
+      setActivityPageRevision((revision) => revision + 1);
+      setExamListRevision((revision) => revision + 1);
+      setCalendarPageRevision((revision) => revision + 1);
       const tenantId = String(user?.tenantId || "");
       if (tenantId && settingsAppliedTenant.current !== tenantId) {
         settingsAppliedTenant.current = tenantId;
+        settingsDirtyRef.current = false;
+        setSettingsDirty(false);
+        setSettingsDraft(settings);
         setEditingQuestionId(null);
         setSelectedQuestions([]);
         setSelectedStudents([]);
+        studentPageRequestId.current += 1;
+        setStudentPage(EMPTY_STUDENT_PAGE);
+        setStudentSearch("");
+        setStudentPageError("");
+        examPageRequestId.current += 1;
+        calendarPageRequestId.current += 1;
+        setExamPage(EMPTY_EXAM_PAGE);
+        setCalendarPage(EMPTY_EXAM_PAGE);
+        setExamPageError("");
+        setCalendarPageError("");
+        monitorAssignmentPageRequestId.current += 1;
+        resultsAssignmentPageRequestId.current += 1;
+        setMonitorPage(EMPTY_ASSIGNMENT_PAGE);
+        setResultsPage(EMPTY_ASSIGNMENT_PAGE);
+        setMonitorPageError("");
+        setResultsPageError("");
+        setMonitorSearch("");
+        setResultsSearch("");
+        questionPageRequestId.current += 1;
+        builderQuestionPageRequestId.current += 1;
+        builderQuestionPageFilter.current = "";
+        setQuestionPage(EMPTY_QUESTION_PAGE);
+        setBuilderQuestionPage(EMPTY_QUESTION_PAGE);
         setImportPreview(null);
         setSettingsImportPreview(null);
         setForm({
@@ -179,6 +304,7 @@ export function SupabaseCBTManager() {
           blankPoints: settings.blankPoints, shuffleQuestions: settings.shuffleQuestions,
         }));
       } else {
+        if (!settingsDirtyRef.current) setSettingsDraft(settings);
         setForm((current) => ({
           ...current,
           subjectReferenceId: references.subjects.some((item: ReferenceOption) => item.id === current.subjectReferenceId) ? current.subjectReferenceId : references.subjects[0]?.id || "",
@@ -189,36 +315,424 @@ export function SupabaseCBTManager() {
           ...current,
           subjectReferenceId: references.subjects.some((item: ReferenceOption) => item.id === current.subjectReferenceId) ? current.subjectReferenceId : references.subjects[0]?.id || "",
           gradeLevelReferenceId: references.gradeLevels.some((item: ReferenceOption) => item.id === current.gradeLevelReferenceId) ? current.gradeLevelReferenceId : references.gradeLevels[0]?.id || "",
+          correctPoints: current.title.trim() ? current.correctPoints : settings.correctPoints,
+          wrongPoints: current.title.trim() ? current.wrongPoints : settings.wrongPoints,
+          blankPoints: current.title.trim() ? current.blankPoints : settings.blankPoints,
+          shuffleQuestions: current.title.trim() ? current.shuffleQuestions : settings.shuffleQuestions,
         }));
       }
-    } catch (cause: any) { setSnapshot(EMPTY); setSnapshotUpdatedAt(null); setError(cause?.message || "Data CBT Supabase belum dapat dimuat."); }
+      return true;
+    } catch (cause: any) {
+      setSnapshot(EMPTY); setSnapshotUpdatedAt(null);
+      setError(summaryLoaded
+        ? "Ringkasan CBT tersedia, tetapi daftar soal, sesi, dan hasil belum dapat dimuat. Silakan muat ulang."
+        : toERPUserMessage(cause, "Data ujian belum dapat dimuat. Silakan coba lagi."));
+      return false;
+    }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const visibleQuestions = useMemo(() => snapshot.questions.filter((question) =>
-    [question.subject, question.grade, question.template, question.text, question.tags.join(" ")]
-      .join(" ").toLowerCase().includes(search.toLowerCase())), [snapshot.questions, search]);
-  const eligibleQuestions = useMemo(() => snapshot.questions.filter((question) => question.status === "active"
-    && question.subjectReferenceId === exam.subjectReferenceId
-    && question.gradeLevelReferenceId === exam.gradeLevelReferenceId
-    && Boolean(question.subjectReferenceId && question.gradeLevelReferenceId)), [snapshot.questions, exam.subjectReferenceId, exam.gradeLevelReferenceId]);
-  const selectedQuestionCount = selectedQuestions.filter((id) => eligibleQuestions.some((question) => question.id === id)).length;
+  const loadQuestionPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++questionPageRequestId.current;
+    setQuestionPageError("");
+    setQuestionPageLoading(true);
+    if (!append) setQuestionPage(EMPTY_QUESTION_PAGE);
+    const params = new URLSearchParams({ limit: "50", status: questionStatus });
+    const normalizedSearch = search.trim();
+    if (normalizedSearch) params.set("search", normalizedSearch);
+    if (questionTemplateFilter !== "all") params.set("templateReferenceId", questionTemplateFilter);
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const result = await requestCbt("/api/cbt/admin/questions?" + params.toString());
+      if (requestId !== questionPageRequestId.current) return;
+      if (!Array.isArray(result.items) || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))) {
+        throw new Error("Halaman bank soal belum dapat diverifikasi.");
+      }
+      setQuestionPage((current) => {
+        const merged = new Map<string, Question>(append ? current.items.map((item): [string, Question] => [item.id, item]) : []);
+        for (const item of result.items as Question[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === questionPageRequestId.current) {
+        setQuestionPageError(toERPUserMessage(cause, "Bank soal belum dapat dimuat. Silakan coba lagi."));
+      }
+    } finally {
+      if (requestId === questionPageRequestId.current) setQuestionPageLoading(false);
+    }
+  }, [questionStatus, questionTemplateFilter, search, user?.tenantId, user?.uid]);
 
-  const dashboardSummary = useMemo(() => deriveCbtDashboardSummary(snapshot.exams, snapshot.results, dashboardNow), [snapshot.exams, snapshot.results, dashboardNow]);
-  const monitorSummary = useMemo(() => deriveCbtMonitorSummary(snapshot.results, monitorSearch), [snapshot.results, monitorSearch]);
-  const formatDashboardPercent = (value: number | null) => value === null ? "—" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value)}%`;
-  const formatDashboardScore = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value);
+  useEffect(() => {
+    if (tab !== "questions") return;
+    const normalizedSearch = search.trim();
+    if (normalizedSearch && normalizedSearch.length < 3) {
+      questionPageRequestId.current += 1;
+      setQuestionPage(EMPTY_QUESTION_PAGE);
+      setQuestionPageError("");
+      setQuestionPageLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void loadQuestionPage(null, false); }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      questionPageRequestId.current += 1;
+    };
+  }, [tab, search, questionStatus, questionTemplateFilter, questionListRevision, user?.tenantId, user?.uid, loadQuestionPage]);
+
+
+  const loadStudentPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++studentPageRequestId.current;
+    setStudentPageError("");
+    setStudentPageLoading(true);
+    if (!append) setStudentPage(EMPTY_STUDENT_PAGE);
+    const normalizedSearch = studentSearch.trim();
+    const resultQuery: Record<string, unknown> = { limit: 50 };
+    if (normalizedSearch) resultQuery.search = normalizedSearch;
+    if (cursor) resultQuery.cursor = cursor;
+    try {
+      const result = await requestCbt("/api/cbt/admin/students/page", {
+        method: "POST",
+        body: JSON.stringify(resultQuery),
+      });
+      if (requestId !== studentPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.id !== "string"
+          || typeof item.name !== "string" || typeof item.grade !== "string" || typeof item.className !== "string")) {
+        throw new Error("Halaman daftar santri CBT belum dapat diverifikasi.");
+      }
+      setStudentPage((current) => {
+        const merged = new Map<string, Student>(append ? current.items.map((item): [string, Student] => [item.id, item]) : []);
+        for (const item of result.items as Student[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === studentPageRequestId.current) {
+        setStudentPageError(toERPUserMessage(cause, "Daftar santri belum dapat dimuat. Silakan coba lagi."));
+      }
+    } finally {
+      if (requestId === studentPageRequestId.current) setStudentPageLoading(false);
+    }
+  }, [studentSearch, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "exams" || loading) return;
+    const normalizedSearch = studentSearch.trim();
+    if (normalizedSearch && Array.from(normalizedSearch).length < 3) {
+      studentPageRequestId.current += 1;
+      setStudentPage(EMPTY_STUDENT_PAGE);
+      setStudentPageError("");
+      setStudentPageLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void loadStudentPage(null, false); }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      studentPageRequestId.current += 1;
+    };
+  }, [tab, loading, studentSearch, user?.tenantId, user?.uid, loadStudentPage]);
+
+  const loadExamPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++examPageRequestId.current;
+    setExamPageError("");
+    setExamPageLoading(true);
+    if (!append) setExamPage(EMPTY_EXAM_PAGE);
+    const params = new URLSearchParams({ limit: "50" });
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const result = await requestCbt("/api/cbt/admin/exams?" + params.toString());
+      if (requestId !== examPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.id !== "string" || typeof item.title !== "string"
+          || typeof item.subject !== "string" || typeof item.grade !== "string" || typeof item.startsAt !== "string"
+          || typeof item.endsAt !== "string" || typeof item.assignedCount !== "number" || typeof item.completedCount !== "number")) {
+        throw new Error("Halaman daftar ujian CBT belum dapat diverifikasi.");
+      }
+      setExamPage((current) => {
+        const merged = new Map<string, Exam>(append ? current.items.map((item): [string, Exam] => [item.id, item]) : []);
+        for (const item of result.items as Exam[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === examPageRequestId.current) setExamPageError(toERPUserMessage(cause, "Daftar ujian belum dapat dimuat. Silakan coba lagi."));
+    } finally {
+      if (requestId === examPageRequestId.current) setExamPageLoading(false);
+    }
+  }, [user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "exams" || loading) return;
+    void loadExamPage(null, false);
+    return () => { examPageRequestId.current += 1; };
+  }, [tab, loading, examListRevision, user?.tenantId, user?.uid, loadExamPage]);
+
+  const loadCalendarPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++calendarPageRequestId.current;
+    setCalendarPageError("");
+    setCalendarPageLoading(true);
+    if (!append) setCalendarPage(EMPTY_EXAM_PAGE);
+    const params = new URLSearchParams({ limit: "50", startsAtFrom: calendarRange.startsAtFrom, startsAtUntil: calendarRange.startsAtUntil });
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const result = await requestCbt("/api/cbt/admin/exams?" + params.toString());
+      if (requestId !== calendarPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.id !== "string" || typeof item.title !== "string"
+          || typeof item.startsAt !== "string" || typeof item.endsAt !== "string")) {
+        throw new Error("Halaman kalender CBT belum dapat diverifikasi.");
+      }
+      setCalendarPage((current) => {
+        const merged = new Map<string, Exam>(append ? current.items.map((item): [string, Exam] => [item.id, item]) : []);
+        for (const item of result.items as Exam[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === calendarPageRequestId.current) setCalendarPageError(toERPUserMessage(cause, "Jadwal ujian kalender belum dapat dimuat. Silakan coba lagi."));
+    } finally {
+      if (requestId === calendarPageRequestId.current) setCalendarPageLoading(false);
+    }
+  }, [calendarRange.startsAtFrom, calendarRange.startsAtUntil, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "calendar" || loading) return;
+    void loadCalendarPage(null, false);
+    return () => { calendarPageRequestId.current += 1; };
+  }, [tab, loading, calendarMonth, calendarPageRevision, user?.tenantId, user?.uid, loadCalendarPage]);
+
+  const loadMonitorAssignmentPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++monitorAssignmentPageRequestId.current;
+    setMonitorPageError("");
+    setMonitorPageLoading(true);
+    if (!append) setMonitorPage(EMPTY_ASSIGNMENT_PAGE);
+    try {
+      const result = await requestCbt("/api/cbt/admin/assignments/page", {
+        method: "POST",
+        body: JSON.stringify({ view: "monitor", limit: 50, search: monitorSearch.trim(), ...(cursor ? { cursor } : {}) }),
+      });
+      if (requestId !== monitorAssignmentPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.assignmentId !== "string"
+          || typeof item.examTitle !== "string" || typeof item.studentName !== "string"
+          || typeof item.className !== "string" || !["assigned", "in_progress"].includes(item.status))) {
+        throw new Error("Halaman pemantauan peserta CBT belum dapat diverifikasi.");
+      }
+      setMonitorPage((current) => {
+        const merged = new Map<string, Result>(append ? current.items.map((item): [string, Result] => [item.assignmentId, item]) : []);
+        for (const item of result.items as Result[]) merged.set(item.assignmentId, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === monitorAssignmentPageRequestId.current) {
+        setMonitorPageError(toERPUserMessage(cause, "Status peserta belum dapat dimuat. Silakan coba lagi."));
+      }
+    } finally {
+      if (requestId === monitorAssignmentPageRequestId.current) setMonitorPageLoading(false);
+    }
+  }, [monitorSearch, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "monitor") return;
+    const normalizedSearch = monitorSearch.trim();
+    if (normalizedSearch && Array.from(normalizedSearch).length < 3) {
+      monitorAssignmentPageRequestId.current += 1;
+      setMonitorPage(EMPTY_ASSIGNMENT_PAGE);
+      setMonitorPageError("");
+      setMonitorPageLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void loadMonitorAssignmentPage(null, false); }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      monitorAssignmentPageRequestId.current += 1;
+    };
+  }, [tab, monitorSearch, activityPageRevision, user?.tenantId, user?.uid, loadMonitorAssignmentPage]);
+
+  const loadResultsPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++resultsAssignmentPageRequestId.current;
+    setResultsPageError("");
+    setResultsPageLoading(true);
+    if (!append) setResultsPage(EMPTY_ASSIGNMENT_PAGE);
+    try {
+      const result = await requestCbt("/api/cbt/admin/assignments/page", {
+        method: "POST",
+        body: JSON.stringify({ view: "results", limit: 50, search: resultsSearch.trim(), ...(cursor ? { cursor } : {}) }),
+      });
+      if (requestId !== resultsAssignmentPageRequestId.current) return;
+      if (!Array.isArray(result.items) || result.items.length > 50 || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))
+        || result.items.some((item: any) => !item || typeof item.assignmentId !== "string"
+          || typeof item.examTitle !== "string" || typeof item.studentName !== "string"
+          || typeof item.className !== "string" || typeof item.status !== "string")) {
+        throw new Error("Halaman hasil CBT belum dapat diverifikasi.");
+      }
+      setResultsPage((current) => {
+        const merged = new Map<string, Result>(append ? current.items.map((item): [string, Result] => [item.assignmentId, item]) : []);
+        for (const item of result.items as Result[]) merged.set(item.assignmentId, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === resultsAssignmentPageRequestId.current) {
+        setResultsPageError(toERPUserMessage(cause, "Hasil dan penugasan belum dapat dimuat. Silakan coba lagi."));
+      }
+    } finally {
+      if (requestId === resultsAssignmentPageRequestId.current) setResultsPageLoading(false);
+    }
+  }, [resultsSearch, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "results") return;
+    const normalizedSearch = resultsSearch.trim();
+    if (normalizedSearch && Array.from(normalizedSearch).length < 3) {
+      resultsAssignmentPageRequestId.current += 1;
+      setResultsPage(EMPTY_ASSIGNMENT_PAGE);
+      setResultsPageError("");
+      setResultsPageLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void loadResultsPage(null, false); }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      resultsAssignmentPageRequestId.current += 1;
+    };
+  }, [tab, resultsSearch, activityPageRevision, user?.tenantId, user?.uid, loadResultsPage]);
+
+  const builderQuestionFilterKey = JSON.stringify([
+    user?.tenantId || "", exam.subjectReferenceId, exam.gradeLevelReferenceId, questionListRevision,
+  ]);
+  const loadBuilderQuestionPage = useCallback(async (cursor: string | null, append: boolean) => {
+    const requestId = ++builderQuestionPageRequestId.current;
+    setBuilderQuestionPageError("");
+    setBuilderQuestionPageLoading(true);
+    if (!append) setBuilderQuestionPage(EMPTY_QUESTION_PAGE);
+    const params = new URLSearchParams({
+      limit: "50", status: "active",
+      subjectReferenceId: exam.subjectReferenceId,
+      gradeLevelReferenceId: exam.gradeLevelReferenceId,
+    });
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const result = await requestCbt("/api/cbt/admin/questions?" + params.toString());
+      if (requestId !== builderQuestionPageRequestId.current) return;
+      if (!Array.isArray(result.items) || typeof result.hasMore !== "boolean"
+        || (result.hasMore && (typeof result.nextCursor !== "string" || !result.nextCursor))) {
+        throw new Error("Daftar soal builder belum dapat diverifikasi.");
+      }
+      setBuilderQuestionPage((current) => {
+        const merged = new Map<string, Question>(append ? current.items.map((item): [string, Question] => [item.id, item]) : []);
+        for (const item of result.items as Question[]) merged.set(item.id, item);
+        return { items: [...merged.values()], hasMore: result.hasMore, nextCursor: result.nextCursor || null };
+      });
+    } catch (cause: any) {
+      if (requestId === builderQuestionPageRequestId.current) {
+        setBuilderQuestionPageError(toERPUserMessage(cause, "Soal untuk builder belum dapat dimuat."));
+      }
+    } finally {
+      if (requestId === builderQuestionPageRequestId.current) setBuilderQuestionPageLoading(false);
+    }
+  }, [exam.subjectReferenceId, exam.gradeLevelReferenceId, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    if (tab !== "exams") return;
+    if (!exam.subjectReferenceId || !exam.gradeLevelReferenceId) {
+      builderQuestionPageRequestId.current += 1;
+      builderQuestionPageFilter.current = "";
+      setBuilderQuestionPage(EMPTY_QUESTION_PAGE);
+      setBuilderQuestionPageError("");
+      setSelectedQuestions([]);
+      return;
+    }
+    if (builderQuestionPageFilter.current === builderQuestionFilterKey) return;
+    builderQuestionPageFilter.current = builderQuestionFilterKey;
+    setBuilderQuestionPage(EMPTY_QUESTION_PAGE);
+    setSelectedQuestions([]);
+    void loadBuilderQuestionPage(null, false);
+    return () => {
+      builderQuestionPageRequestId.current += 1;
+      builderQuestionPageFilter.current = "";
+    };
+  }, [tab, exam.subjectReferenceId, exam.gradeLevelReferenceId, builderQuestionFilterKey, loadBuilderQuestionPage]);
+
+  const updateSettingsDraft = (patch: Partial<CbtSettings>) => {
+    settingsDirtyRef.current = true;
+    setSettingsDirty(true);
+    setSettingsDraft((current) => ({ ...current, ...patch }));
+  };
+
+  const saveSettings = async (event: React.FormEvent) => {
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    try {
+      const result = await requestCbt("/api/cbt/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          expectedUpdatedAt: snapshot.settings.updatedAt,
+          settings: {
+            autoGrading: true,
+            shuffleQuestions: settingsDraft.shuffleQuestions,
+            correctPoints: settingsDraft.correctPoints,
+            wrongPoints: settingsDraft.wrongPoints,
+            blankPoints: settingsDraft.blankPoints,
+          },
+        }),
+      });
+      if (typeof result.updatedAt !== "string" || !Number.isFinite(Date.parse(result.updatedAt))) {
+        throw new Error("Pengaturan CBT belum dapat diverifikasi setelah disimpan.");
+      }
+      const savedSettings = { ...settingsDraft, autoGrading: true, sourceSystem: "supabase_runtime", updatedAt: result.updatedAt };
+      settingsDirtyRef.current = false;
+      setSettingsDirty(false);
+      setSettingsDraft(savedSettings);
+      setSnapshot((current) => ({ ...current, settings: savedSettings }));
+      setExam((current) => current.title.trim() ? current : {
+        ...current,
+        correctPoints: savedSettings.correctPoints,
+        wrongPoints: savedSettings.wrongPoints,
+        blankPoints: savedSettings.blankPoints,
+        shuffleQuestions: savedSettings.shuffleQuestions,
+      });
+      setNotice("Pengaturan ujian berhasil disimpan.");
+    } catch (cause: any) {
+      if (Number(cause?.status) === 409) {
+        settingsDirtyRef.current = false;
+        setSettingsDirty(false);
+        if (await refresh()) {
+          setNotice("Pengaturan CBT berubah sejak halaman dimuat. Versi terbaru sudah dimuat; tinjau kembali sebelum menyimpan.");
+          return;
+        }
+      }
+      setError(toERPUserMessage(cause, "Pengaturan ujian belum dapat disimpan. Silakan muat ulang lalu coba lagi."));
+    } finally { setSaving(false); }
+  };
+
+  const visibleQuestions = questionPage.items;
+  const eligibleQuestions = builderQuestionPage.items;
+  const selectedQuestionCount = selectedQuestions.filter((id) => eligibleQuestions.some((question) => question.id === id)).length;
 
   const calendarDays = useMemo(() => buildCbtCalendarGrid(calendarMonth, tenantTimeZone, todayInTenant), [calendarMonth, tenantTimeZone, todayInTenant]);
   const calendarWeeks = useMemo(() => Array.from({ length: 6 }, (_, index) => calendarDays.slice(index * 7, index * 7 + 7)), [calendarDays]);
-  const examsByCalendarDate = useMemo(() => groupCbtExamsByTenantDate(snapshot.exams, tenantTimeZone), [snapshot.exams, tenantTimeZone]);
+  const examsByCalendarDate = useMemo(() => groupCbtExamsByTenantDate(calendarPage.items, tenantTimeZone), [calendarPage.items, tenantTimeZone]);
+  const cbtPackages = snapshot.packageSummaries;
   const selectedCalendarExams = examsByCalendarDate.get(selectedCalendarDate) || [];
   const calendarMonthLabel = useMemo(() => new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${calendarMonth}-01T12:00:00.000Z`)), [calendarMonth]);
   const selectedCalendarDateLabel = useMemo(() => selectedCalendarDate
     ? new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${selectedCalendarDate}T12:00:00.000Z`))
     : "Tanggal ujian", [selectedCalendarDate]);
+  const dashboardSummary = serverDashboardSummary;
+  const monitorSummary = {
+    totalAssignments: serverDashboardSummary?.totalAssignments ?? 0,
+    inProgressCount: serverDashboardSummary?.assignmentStatusCounts.in_progress ?? 0,
+    waitingCount: serverDashboardSummary?.assignmentStatusCounts.assigned ?? 0,
+    completedCount: serverDashboardSummary?.assignmentStatusCounts.completed ?? 0,
+    missedCount: serverDashboardSummary?.assignmentStatusCounts.missed ?? 0,
+    activeParticipants: monitorPage.items,
+  };
+  const formatDashboardPercent = (value: number | null) => value === null ? "—" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value)}%`;
+  const formatDashboardScore = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(value);
 
   const moveCalendarMonth = (offset: number) => {
     const nextMonth = shiftCbtCalendarMonth(calendarMonth, offset);
@@ -230,8 +744,6 @@ export function SupabaseCBTManager() {
     setCalendarMonth(todayInTenant.slice(0, 7));
     setSelectedCalendarDate(todayInTenant);
   };
-
-  const cbtPackages = useMemo(() => deriveCbtPackageSummaries(snapshot.references.templates, snapshot.questions), [snapshot.references.templates, snapshot.questions]);
 
   const resetQuestion = () => {
     setEditingQuestionId(null);
@@ -252,9 +764,11 @@ export function SupabaseCBTManager() {
           question: { ...form, options, correctAnswer: Number(form.correctAnswer), tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) },
         }),
       });
-      setNotice(editingQuestionId ? "Soal diperbarui di Supabase." : "Soal ditambahkan ke bank tenant.");
-      resetQuestion(); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Soal belum dapat disimpan."); }
+      setNotice(editingQuestionId ? "Soal berhasil diperbarui." : "Soal berhasil ditambahkan ke bank soal.");
+      resetQuestion();
+      setQuestionListRevision((revision) => revision + 1);
+      await refresh();
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Soal belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -272,7 +786,7 @@ export function SupabaseCBTManager() {
         setNotice(`Impor selesai: ${Number(result.imported || 0)} soal baru, ${Number(result.skipped || 0)} sudah pernah diimpor.`);
         await refresh();
       }
-    } catch (cause: any) { setError(cause?.message || "Impor bank soal CBT belum dapat diproses."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor bank soal CBT belum dapat diproses.")); }
     finally { setSaving(false); }
   };
 
@@ -293,7 +807,7 @@ export function SupabaseCBTManager() {
         settingsAppliedTenant.current = "";
         await refresh();
       }
-    } catch (cause: any) { setError(cause?.message || "Impor konfigurasi CBT belum dapat diproses."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor konfigurasi CBT belum dapat diproses.")); }
     finally { setSaving(false); }
   };
 
@@ -322,41 +836,88 @@ export function SupabaseCBTManager() {
           },
         }),
       });
-      setNotice("Ujian dan penugasan tersimpan pada tenant Supabase.");
+      setNotice("Ujian dan penugasan berhasil disimpan.");
       setSelectedQuestions([]); setSelectedStudents([]);
       setExam((current) => ({ ...current, title: "", startsAt: localDateTimeOffset(60), endsAt: localDateTimeOffset(180) }));
       await refresh();
-    } catch (cause: any) { setError(cause?.message || "Ujian belum dapat dibuat."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Ujian belum dapat dibuat.")); }
     finally { setSaving(false); }
   };
 
   if (role !== "Admin" && role !== "SuperAdmin") {
-    return <section className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Pengelolaan bank soal dan jadwal ujian hanya tersedia untuk Admin tenant.</section>;
+    return <section className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Pengelolaan bank soal dan jadwal ujian hanya tersedia bagi administrator.</section>;
   }
 
   return <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-400/10 dark:text-indigo-200"><ShieldCheck className="h-3.5 w-3.5" />Sumber data: Supabase tenant</div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Ujian Berbasis Komputer (CBT)</h1>
-        <p className="mt-1 text-sm text-slate-500">Bank soal, sesi ujian, penugasan santri, dan hasil pemeriksaan tersimpan di backend.</p>
+        <p className="mt-1 text-sm text-slate-500">Kelola bank soal, jadwal ujian, penugasan santri, dan hasil ujian.</p>
       </div>
-      <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
+      <button type="button" onClick={() => { setQuestionListRevision((revision) => revision + 1); void refresh(); }} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
 
-    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"><strong>Peralihan CBT bertahap.</strong> Bank soal lama dapat dipratinjau lalu diimpor oleh Admin pesantren. Slot statis dan ujian contoh tidak menjadi data migrasi. Pengendali fitur tetap harus nonaktif sampai migrasi basis data dan pengujian akhir selesai.</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
     <div className="grid gap-3 sm:grid-cols-3">
-      {[{ label: "Bank soal", value: snapshot.questions.filter((item) => item.status === "active").length, icon: BookOpen }, { label: "Ujian", value: snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: snapshot.results.length, icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
+      {[{ label: "Bank soal", value: serverDashboardSummary?.activeQuestions ?? "—", icon: BookOpen }, { label: "Ujian", value: serverDashboardSummary?.totalExams ?? snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: serverDashboardSummary?.totalAssignments ?? "—", icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
     </div>
 
     <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
     <SupabaseModuleReferenceSettings domains={["cbt_question_template"]} />
 
-    {tab === "dashboard" && <section className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    {tab === "dashboard" && <div className="space-y-5">
+      {loading ? <div role="status" className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900"><Loader2 className="h-4 w-4 animate-spin" />Memuat ringkasan ujian…</div> : !dashboardSummary ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">Ringkasan ujian belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : <>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Ujian berlangsung", value: dashboardSummary.ongoingSessions, detail: "Sesi yang sedang dibuka", icon: Radio },
+            { label: "Jadwal mendatang", value: dashboardSummary.upcomingSessions, detail: "Sesi terbit berikutnya", icon: CalendarClock },
+            { label: "Penyelesaian peserta", value: formatDashboardPercent(dashboardSummary.completionRate), detail: `${dashboardSummary.completedAssignments} dari ${dashboardSummary.totalAssignments} penugasan`, icon: ClipboardList },
+            { label: "Kelulusan", value: formatDashboardPercent(dashboardSummary.passRate), detail: `${dashboardSummary.scoredAssignments} peserta memiliki nilai`, icon: ShieldCheck },
+          ].map((item) => <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between gap-2 text-sm text-slate-500"><span>{item.label}</span><item.icon className="h-4 w-4 shrink-0 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{item.value}</p><p className="mt-1 text-xs text-slate-500">{item.detail}</p></article>)}
+        </div>
+        <div className="grid items-start gap-5 xl:grid-cols-2">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-4 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Jadwal ujian berikutnya</h2><p className="mt-1 text-xs text-slate-500">Zona waktu pesantren: {tenantTimeZone}</p></div><button type="button" onClick={() => setTab("exams")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Kelola sesi</button></div>
+            {dashboardSummary.upcomingExams.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{dashboardSummary.upcomingExams.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)}</p></div><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></article>)}</div> : <div className="p-8 text-center text-sm text-slate-500">Belum ada jadwal ujian terbit yang akan datang.</div>}
+          </section>
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-4 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Hasil terbaru</h2><p className="mt-1 text-xs text-slate-500">Rata-rata nilai: {formatDashboardScore(dashboardSummary.averageScore)}</p></div><button type="button" onClick={() => setTab("results")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Lihat hasil</button></div>
+            {dashboardSummary.latestResults.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{dashboardSummary.latestResults.map((item) => <article key={item.assignmentId} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.studentName}</h3><p className="mt-1 text-sm text-slate-500">{item.examTitle}{item.className ? ` · ${item.className}` : ""}</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.submittedAt || "", tenantTimeZone)}</p></div><div className="text-right"><p className="font-semibold text-slate-900 dark:text-white">{item.score == null ? "Belum dinilai" : formatDashboardScore(item.score)}</p>{item.passed !== null && <span className={item.passed ? "text-xs text-emerald-700 dark:text-emerald-300" : "text-xs text-rose-700 dark:text-rose-300"}>{item.passed ? "Lulus" : "Belum lulus"}</span>}</div></article>)}</div> : <div className="p-8 text-center text-sm text-slate-500">Hasil ujian akan tampil setelah peserta mengumpulkan ujian.</div>}
+          </section>
+        </div>
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-400/20 dark:bg-indigo-400/5"><div><h2 className="font-semibold text-slate-900 dark:text-white">Kelola evaluasi belajar</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Susun soal, terbitkan jadwal, dan tinjau capaian peserta dari bagian CBT.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setTab("questions")} className={BUTTON}><BookOpen className="h-4 w-4" />Bank soal</button><button type="button" onClick={() => setTab("packages")} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><Boxes className="mr-2 inline h-4 w-4" />Paket soal</button><button type="button" onClick={() => setTab("calendar")} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><CalendarDays className="mr-2 inline h-4 w-4" />Kalender</button></div></section>
+      </>}
+    </div>}
+
+    {tab === "packages" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Paket soal ujian</h2><p className="mt-1 text-sm text-slate-500">Paket dikelompokkan dari kategori CBT pesantren dan jumlah soal yang tersimpan.</p></div><button type="button" onClick={() => setTab("questions")} className={BUTTON}><BookOpen className="h-4 w-4" />Buka bank soal</button></header>
+      {loading ? <div role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat paket soal…</div> : error ? <div role="status" className="p-8 text-sm text-slate-600 dark:text-slate-300">Paket soal belum dapat ditampilkan. Silakan muat ulang untuk mencoba kembali.</div> : cbtPackages.length ? <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">{cbtPackages.map((item) => <article key={item.id} className="flex min-h-64 flex-col rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-sm text-slate-500">{item.description || "Belum ada keterangan paket."}</p></div><Boxes className="h-5 w-5 shrink-0 text-indigo-700" /></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Soal tersedia</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.activeQuestions}</p></div><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Jumlah tersimpan</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.totalQuestions}</p></div></div><div className="mt-4 space-y-2 text-xs"><div><span className="font-semibold text-slate-600 dark:text-slate-300">Mata pelajaran: </span><span className="text-slate-500">{item.subjects.length ? item.subjects.join(", ") : "Belum ada soal"}</span></div><div><span className="font-semibold text-slate-600 dark:text-slate-300">Jenjang: </span><span className="text-slate-500">{item.gradeLevels.length ? item.gradeLevels.join(", ") : "Belum ada soal"}</span></div></div><button type="button" onClick={() => { setSearch(""); setQuestionStatus("all"); setQuestionTemplateFilter(item.id); setTab("questions"); }} disabled={!item.totalQuestions} className="mt-auto pt-5 text-left text-sm font-semibold text-indigo-700 hover:text-indigo-900 disabled:cursor-not-allowed disabled:text-slate-400 dark:text-indigo-300 dark:hover:text-indigo-200">{item.totalQuestions ? "Lihat soal dalam paket →" : "Belum ada soal dalam paket ini"}</button></article>)}</div> : <div className="p-10 text-center"><Boxes className="mx-auto h-8 w-8 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Belum ada paket soal</h3><p className="mx-auto mt-1 max-w-lg text-sm text-slate-500">Tambahkan kategori paket CBT dan referensi mata pelajaran melalui pengaturan modul, lalu susun soal untuk paket tersebut.</p></div>}
+    </section>}
+
+    {tab === "settings" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <header className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Pengaturan ujian</h2><p className="mt-1 text-sm text-slate-500">Nilai ini menjadi pengaturan awal saat membuat sesi baru. Sesi yang sudah dibuat tidak berubah.</p>{snapshot.settings.updatedAt && <p className="mt-1 text-xs text-slate-500">Terakhir disimpan {formatTenantDateTime(snapshot.settings.updatedAt, tenantTimeZone)}</p>}</header>
+      {loading ? <div role="status" className="flex items-center gap-2 p-6 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat pengaturan…</div> : <form onSubmit={saveSettings} className="space-y-5 p-5">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="font-medium text-slate-800 dark:text-slate-100">Penilaian otomatis</p><p className="mt-1 text-sm text-slate-500">Soal pilihan ganda dinilai otomatis setelah peserta mengumpulkan ujian.</p><label className="mt-3 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200"><input type="checkbox" checked={true} disabled aria-label="Penilaian otomatis aktif" />Aktif</label></div>
+          <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm text-slate-700 dark:border-white/10 dark:text-slate-200"><input type="checkbox" className="mt-1" checked={settingsDraft.shuffleQuestions} onChange={(event) => updateSettingsDraft({ shuffleQuestions: event.target.checked })} /><span><span className="block font-medium">Acak urutan soal</span><span className="mt-1 block text-slate-500">Menjadi nilai awal untuk sesi ujian baru; dapat disesuaikan saat membuat sesi.</span></span></label>
+        </div>
+        <div><h3 className="mb-3 font-medium text-slate-800 dark:text-slate-100">Bobot penilaian awal</h3><div className="grid gap-3 sm:grid-cols-3">
+          <label className={LABEL}>Poin jawaban benar<input type="number" min="0" max="100" step="0.01" required className={FIELD} value={settingsDraft.correctPoints} onChange={(event) => updateSettingsDraft({ correctPoints: Number(event.target.value) })} /></label>
+          <label className={LABEL}>Poin jawaban salah<input type="number" min="-100" max="100" step="0.01" required className={FIELD} value={settingsDraft.wrongPoints} onChange={(event) => updateSettingsDraft({ wrongPoints: Number(event.target.value) })} /></label>
+          <label className={LABEL}>Poin tidak dijawab<input type="number" min="-100" max="100" step="0.01" required className={FIELD} value={settingsDraft.blankPoints} onChange={(event) => updateSettingsDraft({ blankPoints: Number(event.target.value) })} /></label>
+        </div><p className="mt-2 text-xs text-slate-500">Rentang poin: jawaban benar 0–100; jawaban salah dan kosong −100–100. Maksimal dua angka desimal.</p></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-white/10"><p className="text-sm text-slate-500">Perubahan hanya memengaruhi sesi ujian yang dibuat setelah pengaturan disimpan.</p><button type="submit" disabled={saving || !settingsDirty} className={BUTTON}><Check className="h-4 w-4" />{saving ? "Menyimpan…" : "Simpan pengaturan"}</button></div>
+      </form>}
+    </section>}
+
+    {tab === "monitor" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10">
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Pemantauan peserta ujian</h2><p className="mt-1 text-sm text-slate-500">Status penugasan peserta ujian.</p><p className="mt-1 text-xs text-slate-500">{snapshotUpdatedAt ? `Data diperbarui ${formatTenantDateTime(snapshotUpdatedAt, tenantTimeZone)}` : "Waktu pembaruan belum tersedia"}</p></div>
+        <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang status</button>
+      </header>
+      <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: "Sesi berlangsung", value: dashboardSummary.ongoingSessions, detail: "Sedang dibuka", icon: Radio },
           { label: "Jadwal mendatang", value: dashboardSummary.upcomingSessions, detail: "Sesi terbit berikutnya", icon: CalendarClock },
@@ -364,15 +925,15 @@ export function SupabaseCBTManager() {
           { label: "Kelulusan peserta", value: formatDashboardPercent(dashboardSummary.passRate), detail: `${dashboardSummary.scoredAssignments} peserta dinilai`, icon: ShieldCheck },
         ].map((item) => <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-start justify-between gap-3"><div><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : item.value}</p><p className="mt-1 text-xs text-slate-500">{loading ? "Memuat data…" : item.detail}</p></div><item.icon className="h-5 w-5 shrink-0 text-indigo-700" /></div></article>)}
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-4 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Jadwal ujian berikutnya</h2><p className="mt-1 text-xs text-slate-500">Waktu mengikuti zona pesantren: {tenantTimeZone}.</p></div><button type="button" onClick={() => setTab("calendar")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Buka kalender</button></header>
-          {loading ? <div role="status" className="p-8 text-sm text-slate-500">Memuat jadwal…</div> : dashboardSummary.upcomingExams.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{dashboardSummary.upcomingExams.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)}</p></div><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></article>)}</div> : <div className="p-8 text-center text-sm text-slate-500">Belum ada jadwal ujian terbit yang akan datang.</div>}
-        </article>
-        <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-4 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Hasil terbaru</h2><p className="mt-1 text-xs text-slate-500">Rata-rata nilai: {formatDashboardScore(dashboardSummary.averageScore)}</p></div><button type="button" onClick={() => setTab("results")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Lihat semua hasil</button></header>
-          {loading ? <div role="status" className="p-8 text-sm text-slate-500">Memuat hasil…</div> : dashboardSummary.latestResults.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{dashboardSummary.latestResults.map((item) => <article key={item.assignmentId} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.studentName}</h3><p className="mt-1 text-sm text-slate-500">{item.examTitle}{item.className ? ` · ${item.className}` : ""}</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.submittedAt || "", tenantTimeZone)}</p></div><div className="text-right"><p className="font-semibold text-slate-900 dark:text-white">{item.score == null ? "Belum dinilai" : formatDashboardScore(item.score)}</p>{item.passed !== null && <span className={item.passed ? "text-xs text-emerald-700 dark:text-emerald-300" : "text-xs text-rose-700 dark:text-rose-300"}>{item.passed ? "Lulus" : "Belum lulus"}</span>}</div></article>)}</div> : <div className="p-8 text-center text-sm text-slate-500">Hasil ujian akan tampil setelah peserta mengumpulkan ujian.</div>}
-        </article>
+      <div className="space-y-4 border-t border-slate-200 p-4 dark:border-white/10">
+        <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Cari peserta, ujian, atau kelas<input aria-label="Cari peserta, ujian, atau kelas" className={FIELD + " mt-2"} value={monitorSearch} onChange={(event) => setMonitorSearch(event.target.value)} placeholder="Ketik nama atau kelas" /></label>
+        {monitorSearch.trim().length > 0 && Array.from(monitorSearch.trim()).length < 3 && <p className="text-xs text-slate-500">Masukkan minimal 3 karakter untuk mencari.</p>}
+        {monitorPageLoading && !monitorPage.items.length ? <div role="status" className="flex items-center gap-2 rounded-xl bg-slate-50 p-5 text-sm text-slate-500 dark:bg-white/5"><Loader2 className="h-4 w-4 animate-spin" />Memuat status peserta…</div> : monitorPageError && !monitorPage.items.length ? <div role="alert" className="rounded-xl bg-slate-50 p-5 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">{monitorPageError}</div> : monitorSummary.activeParticipants.length ? <>
+          {monitorPageError && <div role="alert" className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">{monitorPageError}</div>}
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{monitorSummary.activeParticipants.map((item) => <tr key={item.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{item.studentName}</td><td className="p-3">{item.examTitle}</td><td className="p-3">{item.className || "—"}</td><td className="p-3"><span className={item.status === "in_progress" ? "rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-300" : "rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"}>{cbtStatusLabel(item.status)}</span></td></tr>)}</tbody></table></div>
+          {monitorPageLoading && <p role="status" className="text-center text-xs text-slate-500">Memuat peserta berikutnya…</p>}
+          {monitorPage.hasMore && <button type="button" onClick={() => void loadMonitorAssignmentPage(monitorPage.nextCursor, true)} disabled={monitorPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{monitorPageLoading ? "Memuat…" : "Muat peserta lainnya"}</button>}
+        </> : <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-white/10"><p className="font-medium text-slate-800 dark:text-slate-100">{monitorSearch.trim() ? "Tidak ada penugasan aktif yang cocok." : "Belum ada peserta ujian aktif."}</p><p className="mt-1 text-sm text-slate-500">Peserta dengan status menunggu atau sedang mengerjakan akan muncul di sini.</p></div>}
       </div>
       <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <h2 className="font-semibold text-slate-900 dark:text-white">Aksi cepat</h2>
@@ -415,62 +976,36 @@ export function SupabaseCBTManager() {
           </div>
         </div>
       </div>
+      {calendarPageError && <div role="alert" className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><span>{calendarPageError}</span><button type="button" onClick={() => void loadCalendarPage(null, false)} className="rounded-lg border border-rose-300 px-3 py-1.5 font-semibold dark:border-rose-300/30">Coba lagi</button></div>}
+      {calendarPageLoading && <p role="status" className="px-4 pb-3 text-center text-xs text-slate-500">Memuat jadwal ujian kalender…</p>}
+      {calendarPage.hasMore && <div className="border-t border-slate-200 p-3 text-center dark:border-white/10"><button type="button" onClick={() => void loadCalendarPage(calendarPage.nextCursor, true)} disabled={calendarPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{calendarPageLoading ? "Memuat…" : "Muat jadwal lainnya pada bulan ini"}</button></div>}
       <div className="border-t border-slate-200 p-4 dark:border-white/10">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold capitalize text-slate-900 dark:text-white">{selectedCalendarDateLabel}</h3><button type="button" onClick={() => setTab("exams")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Buka sesi ujian</button></div>
-        {loading ? <div role="status" className="flex items-center gap-2 py-5 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat jadwal ujian…</div> : selectedCalendarExams.length ? <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">{selectedCalendarExams.map((item) => <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 p-4"><div><h4 className="font-semibold text-slate-900 dark:text-white">{item.title}</h4><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)} – {formatTenantDateTime(item.endsAt, tenantTimeZone)}</p></div><div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-lg bg-slate-100 px-2 py-1 text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span><span className="text-slate-500">{item.assignedCount} peserta · {item.completedCount} selesai</span></div></article>)}</div> : <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-white/10">{snapshot.exams.length ? "Tidak ada sesi ujian pada tanggal ini." : "Belum ada jadwal ujian tersimpan."}</div>}
-      </div>
-    </section>}
-
-    {tab === "packages" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-white">Paket soal ujian</h2><p className="mt-1 text-sm text-slate-500">Ringkasan diambil dari kategori tenant dan soal yang terhubung.</p></div><button type="button" onClick={() => setTab("questions")} className={BUTTON}><BookOpen className="h-4 w-4" />Buka bank soal</button></header>
-      {loading ? <div role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat paket soal…</div> : error ? <div className="p-8 text-sm text-slate-600 dark:text-slate-300">Paket soal belum dapat ditampilkan. Muat ulang untuk mencoba kembali.</div> : cbtPackages.length ? <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">{cbtPackages.map((item) => <article key={item.id} className="flex min-h-64 flex-col rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-900 dark:text-white">{item.name}</h3><p className="mt-1 text-sm text-slate-500">{item.description || "Belum ada keterangan paket."}</p></div><Boxes className="h-5 w-5 shrink-0 text-indigo-700" /></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Soal aktif</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.activeQuestions}</p></div><div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-xs text-slate-500">Jumlah soal</p><p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{item.totalQuestions}</p></div></div><div className="mt-4 space-y-2 text-xs"><div><span className="font-semibold text-slate-600 dark:text-slate-300">Mata pelajaran: </span><span className="text-slate-500">{item.subjects.length ? item.subjects.join(", ") : "Belum ada soal"}</span></div><div><span className="font-semibold text-slate-600 dark:text-slate-300">Jenjang: </span><span className="text-slate-500">{item.gradeLevels.length ? item.gradeLevels.join(", ") : "Belum ada soal"}</span></div></div><button type="button" onClick={() => { setSearch(item.name); setTab("questions"); }} disabled={!item.totalQuestions} className="mt-auto pt-5 text-left text-sm font-semibold text-indigo-700 hover:text-indigo-900 disabled:cursor-not-allowed disabled:text-slate-400 dark:text-indigo-300 dark:hover:text-indigo-200">{item.totalQuestions ? "Lihat soal dalam paket →" : "Belum ada soal dalam paket ini"}</button></article>)}</div> : <div className="p-10 text-center"><Boxes className="mx-auto h-8 w-8 text-slate-400" /><h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Belum ada paket soal</h3><p className="mx-auto mt-1 max-w-lg text-sm text-slate-500">Tambahkan kategori paket CBT dan referensi mata pelajaran melalui pengaturan modul, lalu susun soal untuk kategori tersebut.</p></div>}
-    </section>}
-
-    {tab === "monitor" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10">
-        <div><h2 className="font-semibold text-slate-900 dark:text-white">Pemantauan peserta ujian</h2><p className="mt-1 text-sm text-slate-500">Status penugasan dari data tenant Supabase. Muat ulang untuk mengambil pembaruan.</p><p className="mt-1 text-xs text-slate-500">{snapshotUpdatedAt ? `Data diperbarui ${formatTenantDateTime(snapshotUpdatedAt, tenantTimeZone)}` : "Waktu pembaruan belum tersedia"}</p></div>
-        <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang status</button>
-      </header>
-      <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-        {[
-          { label: "Total penugasan", value: monitorSummary.totalAssignments },
-          { label: "Sedang dikerjakan", value: monitorSummary.inProgressCount },
-          { label: "Belum dimulai", value: monitorSummary.waitingCount },
-          { label: "Selesai", value: monitorSummary.completedCount },
-          { label: "Sudah dinilai", value: monitorSummary.gradedCount },
-          { label: "Tidak hadir", value: monitorSummary.missedCount },
-        ].map((item) => <article key={item.label} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{loading ? "—" : item.value}</p></article>)}
-      </div>
-      <div className="space-y-4 border-t border-slate-200 p-4 dark:border-white/10">
-        <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Cari peserta, ujian, atau kelas<input aria-label="Cari peserta, ujian, atau kelas" className={FIELD + " mt-2"} value={monitorSearch} onChange={(event) => setMonitorSearch(event.target.value)} placeholder="Ketik nama atau kelas" /></label>
-        {loading ? <div role="status" className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500 dark:bg-white/5">Memuat status peserta…</div> : error ? <div role="status" className="rounded-xl bg-slate-50 p-5 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">Status peserta belum dapat ditampilkan. Muat ulang untuk mencoba kembali.</div> : monitorSummary.activeParticipants.length ? <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{monitorSummary.activeParticipants.map((item) => <tr key={item.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{item.studentName}</td><td className="p-3">{item.examTitle}</td><td className="p-3">{item.className || "—"}</td><td className="p-3"><span className={item.status.trim().toLowerCase() === "in_progress" ? "rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-300" : "rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"}>{cbtStatusLabel(item.status)}</span></td></tr>)}</tbody></table></div> : <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-white/10"><p className="font-medium text-slate-800 dark:text-slate-100">{monitorSummary.totalAssignments ? "Tidak ada penugasan aktif yang cocok." : "Belum ada peserta yang ditugaskan."}</p><p className="mt-1 text-sm text-slate-500">Peserta yang belum memulai atau sedang mengerjakan akan muncul di sini.</p></div>}
-        {monitorSummary.otherCount > 0 && <p className="text-xs text-slate-500">{monitorSummary.otherCount} penugasan memiliki status lain dan tetap dihitung dalam total.</p>}
-        {!loading && monitorSummary.totalAssignments > 0 && <button type="button" onClick={() => setTab("results")} className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Lihat rincian hasil</button>}
-      </div>
-    </section>}
-
-    {tab === "settings" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-      <div><h2 className="font-semibold text-slate-900 dark:text-white">Pengaturan penilaian sesi</h2><p className="mt-1 text-sm text-slate-500">Nilai bawaan tenant dipakai saat membuat sesi baru. Perubahan per sesi tetap diatur di formulir Sesi Ujian.</p></div>
-      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {[
-          { label: "Penilaian otomatis", value: snapshot.settings.autoGrading ? "Aktif" : "Nonaktif" },
-          { label: "Acak soal bawaan", value: snapshot.settings.shuffleQuestions ? "Aktif" : "Nonaktif" },
-          { label: "Poin benar", value: snapshot.settings.correctPoints },
-          { label: "Poin salah", value: snapshot.settings.wrongPoints },
-          { label: "Poin kosong", value: snapshot.settings.blankPoints },
-          { label: "Sumber konfigurasi", value: snapshot.settings.sourceSystem === "legacy_firestore" ? "Migrasi arsip" : "Bawaan Supabase" },
-        ].map((item) => <div key={item.label} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><dt className="text-xs text-slate-500">{item.label}</dt><dd className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">{item.value}</dd></div>)}
-      </dl>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => { setExam((current) => ({ ...current, correctPoints: snapshot.settings.correctPoints, wrongPoints: snapshot.settings.wrongPoints, blankPoints: snapshot.settings.blankPoints, shuffleQuestions: snapshot.settings.shuffleQuestions })); setTab("exams"); }} className={BUTTON}>Terapkan ke formulir sesi baru</button>
-        <button type="button" onClick={() => setTab("exams")} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Buka Sesi Ujian</button>
+        {calendarPageLoading && !calendarPage.items.length ? <div role="status" className="flex items-center gap-2 py-5 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat jadwal ujian…</div> : selectedCalendarExams.length ? <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">{selectedCalendarExams.map((item) => <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 p-4"><div><h4 className="font-semibold text-slate-900 dark:text-white">{item.title}</h4><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)}–{formatTenantDateTime(item.endsAt, tenantTimeZone)}</p></div><div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-lg bg-slate-100 px-2 py-1 text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span><span className="text-slate-500">{item.assignedCount} peserta · {item.completedCount} selesai</span></div></article>)}</div> : <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-white/10">{(serverDashboardSummary?.totalExams || 0) > 0 ? "Tidak ada ujian pada tanggal ini." : "Belum ada jadwal ujian tersimpan."}</div>}
       </div>
     </section>}
 
     {tab === "questions" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between"><h2 className="font-semibold text-slate-900 dark:text-white">Bank soal tenant</h2><input aria-label="Cari soal" className={FIELD + " mt-0 sm:max-w-xs"} placeholder="Cari soal, subjek, atau tag" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-        {loading ? <div role="status" className="flex justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat bank soal…</div> : visibleQuestions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{visibleQuestions.map((question) => <article key={question.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap gap-2 text-xs text-slate-500"><span>{question.subject}</span><span>·</span><span>{question.grade}</span><span>·</span><span>{question.template}</span>{question.status !== "active" && <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-white/10">Arsip</span>}</div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{question.text}</p><ol className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">{question.options.map((option, index) => <li key={index} className={index === question.correctAnswer ? "font-semibold text-emerald-700 dark:text-emerald-300" : ""}>{String.fromCharCode(65 + index)}. {option}</li>)}</ol></div><button type="button" disabled={question.status !== "active"} onClick={() => editQuestion(question)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-200">Ubah</button></div></article>)}</div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada soal. Gunakan formulir Tambah soal untuk mulai menyusun bank soal pada tenant ini.</div>}
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10">
+          <h2 className="font-semibold text-slate-900 dark:text-white">Bank soal pesantren</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <input aria-label="Cari soal" className={FIELD + " mt-0"} placeholder="Cari teks soal, subjek, atau tag" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <select aria-label="Filter status soal" className={FIELD + " mt-0"} value={questionStatus} onChange={(event) => setQuestionStatus(event.target.value as "all" | "active" | "archived")}>
+              <option value="all">Semua status</option><option value="active">Aktif</option><option value="archived">Diarsipkan</option>
+            </select>
+            <select aria-label="Filter paket soal" className={FIELD + " mt-0"} value={questionTemplateFilter} onChange={(event) => setQuestionTemplateFilter(event.target.value)}>
+              <option value="all">Semua paket</option>{snapshot.references.templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </div>
+          {search.trim().length > 0 && search.trim().length < 3 && <p className="text-xs text-amber-700 dark:text-amber-300">Masukkan sedikitnya 3 karakter untuk mencari.</p>}
+        </div>
+        {questionPageLoading && !visibleQuestions.length ? <div role="status" className="flex justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat halaman bank soal…</div>
+          : visibleQuestions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{visibleQuestions.map((question) => <article key={question.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap gap-2 text-xs text-slate-500"><span>{question.subject}</span><span>·</span><span>{question.grade}</span><span>·</span><span>{question.template}</span>{question.status !== "active" && <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-white/10">Arsip</span>}</div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{question.text}</p><ol className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">{question.options.map((option, index) => <li key={index} className={index === question.correctAnswer ? "font-semibold text-emerald-700 dark:text-emerald-300" : ""}>{String.fromCharCode(65 + index)}. {option}</li>)}</ol></div><button type="button" disabled={question.status !== "active"} onClick={() => editQuestion(question)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-200">Ubah</button></div></article>)}</div>
+          : questionPageError ? null : <div className="p-10 text-center text-sm text-slate-500">{search.trim() || questionTemplateFilter !== "all" || questionStatus !== "all" ? "Tidak ada soal yang sesuai dengan pencarian dan filter." : "Belum ada soal. Gunakan formulir Tambah soal untuk mulai menyusun bank soal pada pesantren ini."}</div>}
+        {questionPageError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-t border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><span>{questionPageError}</span><button type="button" onClick={() => void loadQuestionPage(null, false)} className="rounded-lg border border-rose-300 px-3 py-1.5 font-semibold dark:border-rose-300/30">Coba lagi</button></div>}
+        {questionPageLoading && visibleQuestions.length > 0 && <p role="status" className="border-t border-slate-200 p-3 text-center text-xs text-slate-500 dark:border-white/10">Memuat halaman soal berikutnya…</p>}
+        {questionPage.hasMore && <div className="border-t border-slate-200 p-4 text-center dark:border-white/10"><button type="button" onClick={() => void loadQuestionPage(questionPage.nextCursor, true)} disabled={questionPageLoading} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">Muat soal berikutnya</button></div>}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div className="mb-4 flex items-center gap-2"><Plus className="h-4 w-4 text-indigo-700" /><h2 className="font-semibold text-slate-900 dark:text-white">{editingQuestionId ? "Ubah soal" : "Tambah soal"}</h2></div>
@@ -482,7 +1017,7 @@ export function SupabaseCBTManager() {
           <div className="space-y-2"><span className={LABEL}>Opsi jawaban</span>{form.options.map((option, index) => <div key={index} className="flex items-center gap-2"><span className="w-6 text-xs font-bold text-slate-500">{String.fromCharCode(65 + index)}</span><input aria-label={"Opsi " + String.fromCharCode(65 + index)} maxLength={1000} className={FIELD + " mt-0"} value={option} onChange={(e) => setForm({ ...form, options: form.options.map((value, optionIndex) => optionIndex === index ? e.target.value : value) })} /></div>)}</div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Indeks jawaban benar<select className={FIELD} value={form.correctAnswer} onChange={(e) => setForm({ ...form, correctAnswer: e.target.value })}>{form.options.map((_, index) => <option key={index} value={index}>{String.fromCharCode(65 + index)}</option>)}</select></label><label className={LABEL}>Tag, pisahkan dengan koma<input className={FIELD} value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></label></div>
           <label className={LABEL}>Pembahasan<textarea rows={2} maxLength={4000} className={FIELD} value={form.explanation} onChange={(e) => setForm({ ...form, explanation: e.target.value })} /></label>
-          <div className="flex gap-2">{editingQuestionId && <button type="button" onClick={resetQuestion} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Batal</button>}<button type="submit" disabled={saving || !snapshot.references.subjects.length || !snapshot.references.gradeLevels.length || !snapshot.references.templates.length || !form.subjectReferenceId || !form.gradeLevelReferenceId || !form.templateReferenceId} className={BUTTON + " flex-1"}>{saving ? "Menyimpan…" : "Simpan ke Supabase"}</button></div>
+          <div className="flex gap-2">{editingQuestionId && <button type="button" onClick={resetQuestion} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Batal</button>}<button type="submit" disabled={saving || !snapshot.references.subjects.length || !snapshot.references.gradeLevels.length || !snapshot.references.templates.length || !form.subjectReferenceId || !form.gradeLevelReferenceId || !form.templateReferenceId} className={BUTTON + " flex-1"}>{saving ? "Menyimpan…" : "Simpan soal"}</button></div>
         </form>
       </section>
     </div>}
@@ -490,26 +1025,59 @@ export function SupabaseCBTManager() {
     {tab === "exams" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
       <section className="rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Ujian tersimpan</h2></div>
-        {snapshot.exams.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.exams.map((item) => <article key={item.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></div><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{new Date(item.startsAt).toLocaleString("id-ID")} · {item.assignedCount} peserta · {item.completedCount} selesai</p></article>)}</div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada sesi ujian.</div>}
+        {examPageLoading && !examPage.items.length ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat daftar ujian…</div> : examPage.items.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{examPage.items.map((item) => <article key={item.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></div><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)} · {item.assignedCount} peserta · {item.completedCount} selesai</p></article>)}</div> : examPageError ? null : <div className="p-10 text-center text-sm text-slate-500">Belum ada sesi ujian.</div>}
+        {examPageError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-t border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><span>{examPageError}</span><button type="button" onClick={() => void loadExamPage(null, false)} className="rounded-lg border border-rose-300 px-3 py-1.5 font-semibold dark:border-rose-300/30">Coba lagi</button></div>}
+        {examPageLoading && examPage.items.length > 0 && <p role="status" className="border-t border-slate-200 p-3 text-center text-xs text-slate-500 dark:border-white/10">Memuat ujian berikutnya…</p>}
+        {examPage.hasMore && <div className="border-t border-slate-200 p-4 text-center dark:border-white/10"><button type="button" onClick={() => void loadExamPage(examPage.nextCursor, true)} disabled={examPageLoading} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{examPageLoading ? "Memuat…" : "Muat ujian berikutnya"}</button></div>}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <h2 className="mb-4 font-semibold text-slate-900 dark:text-white">Buat jadwal ujian</h2>
-        {loading ? <p className="text-sm text-slate-500">Memuat roster tenant…</p> : <form onSubmit={submitExam} className="space-y-3">
+        {loading ? <p className="text-sm text-slate-500">Memuat daftar santri…</p> : <form onSubmit={submitExam} className="space-y-3">
           <label className={LABEL}>Nama ujian<input required maxLength={180} className={FIELD} value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} /></label>
-          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={exam.subjectReferenceId} onChange={(e) => { setExam({ ...exam, subjectReferenceId: e.target.value, gradeLevelReferenceId: "" }); setSelectedQuestions([]); }}><option value="">Pilih mata pelajaran</option>{snapshot.references.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Jenjang<select required className={FIELD} value={exam.gradeLevelReferenceId} onChange={(e) => { setExam({ ...exam, gradeLevelReferenceId: e.target.value }); setSelectedQuestions([]); }}><option value="">Pilih jenjang</option>{snapshot.references.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
+          <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mata pelajaran<select required className={FIELD} value={exam.subjectReferenceId} onChange={(e) => { setExam({ ...exam, subjectReferenceId: e.target.value, gradeLevelReferenceId: "" }); setSelectedQuestions([]); setBuilderQuestionPage(EMPTY_QUESTION_PAGE); builderQuestionPageFilter.current = ""; }}><option value="">Pilih mata pelajaran</option>{snapshot.references.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className={LABEL}>Jenjang<select required className={FIELD} value={exam.gradeLevelReferenceId} onChange={(e) => { setExam({ ...exam, gradeLevelReferenceId: e.target.value }); setSelectedQuestions([]); setBuilderQuestionPage(EMPTY_QUESTION_PAGE); builderQuestionPageFilter.current = ""; }}><option value="">Pilih jenjang</option>{snapshot.references.gradeLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
           <div className="grid gap-3 sm:grid-cols-2"><label className={LABEL}>Mulai<input type="datetime-local" required className={FIELD} value={exam.startsAt} onChange={(e) => setExam({ ...exam, startsAt: e.target.value })} /></label><label className={LABEL}>Akhir jendela<input type="datetime-local" required className={FIELD} value={exam.endsAt} onChange={(e) => setExam({ ...exam, endsAt: e.target.value })} /></label></div>
           <div className="grid gap-3 sm:grid-cols-3"><label className={LABEL}>Durasi (menit)<input type="number" min="1" max="600" required className={FIELD} value={exam.durationMinutes} onChange={(e) => setExam({ ...exam, durationMinutes: Number(e.target.value) })} /></label><label className={LABEL}>Nilai lulus<input type="number" min="0" max="100" step="any" className={FIELD} value={exam.passingScore} onChange={(e) => setExam({ ...exam, passingScore: Number(e.target.value) })} /></label><label className={LABEL}>Status<select className={FIELD} value={exam.status} onChange={(e) => setExam({ ...exam, status: e.target.value })}><option value="draft">Draf</option><option value="published">Terbit</option></select></label></div>
           <div className="grid gap-3 sm:grid-cols-3"><label className={LABEL}>Poin jawaban benar<input type="number" min="0" max="100" step="any" className={FIELD} value={exam.correctPoints} onChange={(e) => setExam({ ...exam, correctPoints: Number(e.target.value) })} /></label><label className={LABEL}>Poin jawaban salah<input type="number" min="-100" max="100" step="any" className={FIELD} value={exam.wrongPoints} onChange={(e) => setExam({ ...exam, wrongPoints: Number(e.target.value) })} /></label><label className={LABEL}>Poin tidak dijawab<input type="number" min="-100" max="100" step="any" className={FIELD} value={exam.blankPoints} onChange={(e) => setExam({ ...exam, blankPoints: Number(e.target.value) })} /></label></div>
-          <fieldset className="space-y-2"><legend className={LABEL}>Soal ({selectedQuestionCount} dipilih)</legend><div className="max-h-40 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">{eligibleQuestions.map((question) => <label key={question.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedQuestions.includes(question.id)} onChange={(e) => setSelectedQuestions((current) => e.target.checked ? [...current, question.id] : current.filter((id) => id !== question.id))} />{question.text}</label>)}{!eligibleQuestions.length && <p className="p-2 text-xs text-slate-500">Buat soal dengan subjek dan jenjang yang sama terlebih dahulu.</p>}</div></fieldset>
-          <fieldset className="space-y-2"><legend className={LABEL}>Peserta santri ({selectedStudents.length} dipilih)</legend><div className="max-h-44 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">{snapshot.students.map((student) => <label key={student.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={(e) => setSelectedStudents((current) => e.target.checked ? [...current, student.id] : current.filter((id) => id !== student.id))} /><span>{student.name}<span className="ml-1 text-slate-400">{student.className || student.grade}</span></span></label>)}</div></fieldset>
-          <button type="submit" disabled={saving || !eligibleQuestions.length || !selectedQuestionCount || !selectedStudents.length || !snapshot.students.length} className={BUTTON + " w-full"}>{saving ? "Menyimpan…" : "Simpan sesi & tugaskan santri"}</button>
+          <fieldset className="space-y-2"><legend className={LABEL}>Soal ({selectedQuestionCount} dipilih)</legend>
+            {builderQuestionPage.items.length > 0 && <p className="text-xs text-slate-500">Menampilkan {builderQuestionPage.items.length} soal aktif untuk mata pelajaran dan jenjang ini.</p>}
+            <div className="max-h-40 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">
+              {eligibleQuestions.map((question) => <label key={question.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedQuestions.includes(question.id)} disabled={!selectedQuestions.includes(question.id) && selectedQuestions.length >= 500} onChange={(e) => setSelectedQuestions((current) => e.target.checked ? [...current, question.id] : current.filter((id) => id !== question.id))} />{question.text}</label>)}
+              {builderQuestionPageLoading && !eligibleQuestions.length && <p role="status" className="p-2 text-xs text-slate-500">Memuat soal yang sesuai…</p>}
+              {builderQuestionPageError && <p role="alert" className="p-2 text-xs text-rose-700 dark:text-rose-300">{builderQuestionPageError}</p>}
+              {!builderQuestionPageLoading && !builderQuestionPageError && !eligibleQuestions.length && <p className="p-2 text-xs text-slate-500">Belum ada soal aktif dengan mata pelajaran dan jenjang ini.</p>}
+            </div>
+            {builderQuestionPage.hasMore && <button type="button" onClick={() => void loadBuilderQuestionPage(builderQuestionPage.nextCursor, true)} disabled={builderQuestionPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{builderQuestionPageLoading ? "Memuat…" : "Muat soal lainnya"}</button>}
+            {builderQuestionPageError && <button type="button" onClick={() => void loadBuilderQuestionPage(builderQuestionPage.items.length ? builderQuestionPage.nextCursor : null, builderQuestionPage.items.length > 0)} disabled={builderQuestionPageLoading} className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-400/20 dark:text-rose-300">Coba muat ulang soal</button>}
+          </fieldset>
+          <fieldset className="space-y-2"><legend className={LABEL}>Peserta santri ({selectedStudents.length} dipilih, maksimal 500 per ujian)</legend>
+            <label className={LABEL}>Cari nama atau NIS santri<input aria-label="Cari nama atau NIS santri" maxLength={100} className={FIELD} value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} placeholder="Ketik minimal 3 karakter untuk mencari" /></label>
+            {studentSearch.trim().length > 0 && Array.from(studentSearch.trim()).length < 3 && <p className="text-xs text-slate-500">Masukkan minimal 3 karakter untuk mencari.</p>}
+            <div className="max-h-44 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">
+              {studentPage.items.map((student) => <label key={student.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedStudents.includes(student.id)} disabled={!selectedStudents.includes(student.id) && selectedStudents.length >= 500} onChange={(e) => setSelectedStudents((current) => e.target.checked ? current.includes(student.id) ? current : [...current, student.id] : current.filter((id) => id !== student.id))} /><span>{student.name}<span className="ml-1 text-slate-400">{student.className || student.grade}</span></span></label>)}
+              {studentPageLoading && <p role="status" className="p-2 text-xs text-slate-500">Memuat daftar santri…</p>}
+              {studentPageError && <p role="alert" className="p-2 text-xs text-rose-700 dark:text-rose-300">{studentPageError}</p>}
+              {!studentPageLoading && !studentPageError && !studentPage.items.length && !(studentSearch.trim().length > 0 && Array.from(studentSearch.trim()).length < 3) && <p className="p-2 text-xs text-slate-500">Santri tidak ditemukan.</p>}
+            </div>
+            {studentPage.hasMore && <button type="button" onClick={() => void loadStudentPage(studentPage.nextCursor, true)} disabled={studentPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{studentPageLoading ? "Memuat…" : "Muat santri lainnya"}</button>}
+            {studentPageError && <button type="button" onClick={() => void loadStudentPage(studentPage.items.length ? studentPage.nextCursor : null, studentPage.items.length > 0)} disabled={studentPageLoading} className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-400/20 dark:text-rose-300">Coba muat ulang santri</button>}
+          </fieldset>
+          <button type="submit" disabled={saving || !eligibleQuestions.length || !selectedQuestionCount || !selectedStudents.length || selectedStudents.length > 500} className={BUTTON + " w-full"}>{saving ? "Menyimpan…" : "Simpan sesi & tugaskan santri"}</button>
         </form>}
       </section>
     </div>}
 
     {tab === "results" && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Hasil ujian dan penugasan</h2></div>
-      {snapshot.results.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th><th className="p-3">Nilai</th><th className="p-3">Keputusan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.results.map((result) => <tr key={result.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{result.studentName}</td><td className="p-3">{result.examTitle}</td><td className="p-3">{result.className || "—"}</td><td className="p-3">{cbtStatusLabel(result.status)}</td><td className="p-3">{result.score == null ? "—" : result.score}</td><td className="p-3">{result.passed == null ? "—" : result.passed ? "Lulus" : "Belum lulus"}</td></tr>)}</tbody></table></div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada peserta ujian.</div>}
+      <div className="space-y-4 p-4">
+        <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Cari peserta, ujian, atau kelas<input aria-label="Cari peserta, ujian, atau kelas" className={FIELD + " mt-2"} value={resultsSearch} onChange={(event) => setResultsSearch(event.target.value)} placeholder="Ketik minimal 3 karakter" /></label>
+        {resultsSearch.trim().length > 0 && Array.from(resultsSearch.trim()).length < 3 && <p className="text-xs text-slate-500">Masukkan minimal 3 karakter untuk mencari.</p>}
+        {resultsPageLoading && !resultsPage.items.length ? <div role="status" className="flex items-center gap-2 rounded-xl bg-slate-50 p-5 text-sm text-slate-500 dark:bg-white/5"><Loader2 className="h-4 w-4 animate-spin" />Memuat hasil ujian…</div> : resultsPageError && !resultsPage.items.length ? <div role="alert" className="rounded-xl bg-slate-50 p-5 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">{resultsPageError}</div> : resultsPage.items.length ? <>
+          {resultsPageError && <div role="alert" className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">{resultsPageError}</div>}
+          <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5"><tr><th className="p-3">Santri</th><th className="p-3">Ujian</th><th className="p-3">Kelas</th><th className="p-3">Status</th><th className="p-3">Nilai</th><th className="p-3">Keputusan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{resultsPage.items.map((result) => <tr key={result.assignmentId}><td className="p-3 font-medium text-slate-800 dark:text-slate-100">{result.studentName}</td><td className="p-3">{result.examTitle}</td><td className="p-3">{result.className || "—"}</td><td className="p-3">{cbtStatusLabel(result.status)}</td><td className="p-3">{result.score == null ? "—" : result.score}</td><td className="p-3">{result.passed == null ? "—" : result.passed ? "Lulus" : "Belum lulus"}</td></tr>)}</tbody></table></div>
+          {resultsPageLoading && <p role="status" className="text-center text-xs text-slate-500">Memuat hasil berikutnya…</p>}
+          {resultsPage.hasMore && <button type="button" onClick={() => void loadResultsPage(resultsPage.nextCursor, true)} disabled={resultsPageLoading} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{resultsPageLoading ? "Memuat…" : "Muat hasil lainnya"}</button>}
+        </> : <div className="p-6 text-center text-sm text-slate-500">{resultsSearch.trim() ? "Tidak ada hasil yang cocok." : "Belum ada peserta ujian."}</div>}
+      </div>
     </section>}
 
     {legacyArchiveImportEnabled && tab === "import" && <div className="grid gap-5 xl:grid-cols-2">

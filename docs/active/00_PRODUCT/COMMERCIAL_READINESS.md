@@ -1,10 +1,19 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-
 ## Addendum otoritatif — checkpoint 14 November 2026
 
-Snapshot ini membedakan source aplikasi dari dokumentasi dan database live. Source aplikasi `main` tetap pada `b0824476cb6d0207925283f15cb6f0d2714e54a3`; commit `a168e48030c127cb0fe802f36e6e11f44e239d66` hanya menambahkan PR dokumentasi #119. PR #117 dan #118 juga hanya dokumentasi. Source memuat 150 file migrasi.
+Source `main` saat rekonsiliasi adalah `82082bf` dengan 150 file migrasi. Branch PR #112 telah menerima merge commit dua-parent `b7c5fef` terhadap main tersebut, lalu perbaikan pesan impor pada commit `c6aee56`. CI 3/3 lulus pada commit implementasi itu. Head branch terkini `38c1674606455af2a76dd62509cddc84b37a4b89` hanya menambahkan dokumentasi audit parity/status; GitHub menyatakan PR mergeable. PR terbuka dan belum digabung karena review kesetaraan UI/TypeScript dan pemetaan rilis backend masih perlu diselesaikan.
 
+PR #112 berisi enam migrasi CBT `20270321000000`–`20270326000000`. PR #116 semula memakai versi pertama yang sama; branch #116 kini telah diurutkan ulang ke `20270327000000`, sehingga benturan nomor langsung di source teratasi. Rangkaian CBT lama #96–#102 masih tumpang tindih dan harus direkonsiliasi sebelum digabung atau ditutup. Ledger/DDL VQE serta Production belum direkonsiliasi oleh perubahan source ini. Tidak ada migrasi yang diterapkan ke database.
+
+Perbandingan source menunjukkan keenam SQL migrasi dan enam suite pgTAP dari PR #96–#100/#102 identik dengan salinan bernomor baru di #112 setelah normalisasi line ending. Tidak ada migrasi/test database unik yang tertinggal pada stack tersebut; perubahan UI/TypeScript tetap perlu review sebelum menutup PR anak. Setelah #112 ditinjau dan digabung, PR anak dapat ditutup sebagai superseded jika pemeriksaan kode tidak menemukan fitur unik.
+
+### Status source dan UAT
+
+- PR #114 CI lulus 3/3; UAT Admin VQE membuktikan seluruh 10 subtab terlihat, scrollbar tab horizontal, 114 surah, isi Al-Fatihah, serta pilihan rentang ayat tanpa teks bebas. Roster tenant akun uji kosong, jadi simpan-baca belum diuji; ponsel juga belum diuji. Detail tercatat di percakapan PR #114.
+- PR #115 CI lulus 3/3; pemeriksaan antarmuka lintas modul masih belum selesai.
+- PR #116 masih draft. Setelah migrasi dipindahkan ke `20270327000000`, ketiga job CI lulus pada head `5c68c95e0a6e5fe5bec85090b88fdf0ee6fd94af`. UAT akses Admin/Ustadz/Santri/Wali dan leaderboard pada roster sintetis belum selesai.
+- PR #91 memiliki 34 konflik kode terhadap `main` terbaru. Rangkaian CBT #96–#102 bertumpuk dan perlu direkonsiliasi sebagai satu stack.
 ### Status backend live
 
 - **PTSAS Production** memuat 100 baris ledger; 97 versi/nama cocok persis dengan source, 3 nama ledger kosong, 50 versi source belum tercatat, dan tidak ada versi ledger-only. Head ledger `20270316000000`; source tertua yang belum tercatat `20261207000000`. Selisih berada di tengah riwayat; tidak aman mengejar semuanya dengan `db push`.
@@ -16,10 +25,11 @@ Kecocokan ledger Production adalah **97/150 (64,7%) versi dan nama**. Ini ukuran
 
 ### Status source dan PR
 
-- PR #114 (validasi katalog Surah dan tab Tahfidz) serta #115 (pesan komersial lintas modul) memiliki CI hijau. Keduanya masih terbuka; UAT browser/visual belum dikonfirmasi.
-- PR #116 (leaderboard bulanan Tahfidz) memiliki CI hijau pada head terbaru, tetapi masih draft. UAT Admin/Ustadz/Santri/Wali dan keadaan tanpa data masih diperlukan.
-- PR #112 (CBT skala besar) CI-nya hijau, tetapi GitHub menandai cabang `dirty`; migrasi `20270321000000` berbenturan dengan PR #116. PR #91/#92 serta rangkaian #96–#102 juga memiliki benturan timestamp terhadap source `main` atau ledger VQE. Jangan gabungkan branch tersebut apa adanya.
-- PR #1–#11 berstatus closed tanpa merge; PR #13 sudah merged sebagai cutover besar. Ini tidak membuktikan tiap perubahan lama telah hadir satu per satu. Pertahankan status lama dan port hanya logic yang terbukti belum ada melalui PR terpisah.
+- PR #112 terbuka, tidak draft, dan mergeable setelah merge commit terhadap `main`; tiga job CI lulus pada commit implementasi. Nomor migrasi CBT 21–26 bebas benturan langsung dengan leaderboard #116 yang kini memakai 27. Keenam migrasi dan suite pgTAP dari stack #96–#100/#102 sudah dibandingkan dan identik dengan salinan di #112; review kesetaraan UI/TypeScript masih perlu dilakukan sebelum menutup PR anak.
+- PR #114 (validasi katalog Surah dan tab Tahfidz) memiliki CI hijau. UAT Admin VQE membuktikan 10 tab, scrollbar horizontal, 114 surah, dan pemilihan ayat yang tervalidasi. Tenant tanpa santri menghalangi uji simpan-baca; tampilan ponsel juga belum diperiksa.
+- PR #115 (pesan komersial lintas modul) memiliki CI hijau; tinjauan antarmuka lintas modul belum selesai.
+- PR #116 (leaderboard bulanan Tahfidz) tetap draft. Nomor migrasi sudah dipindah ke 27 dan semua CI lulus. UAT tiap peran dan privasi leaderboard belum dibuktikan.
+- PR #91 memiliki konflik source; #92 berbasis padanya dan perlu audit dependency. PR #1–#11 berstatus closed tanpa merge; PR #13 sudah merged sebagai cutover besar. Ini tidak membuktikan tiap perubahan lama telah hadir satu per satu. Pertahankan PR lama dan port hanya logic yang terbukti belum ada melalui PR terpisah.
 
 ### Gerbang penyelesaian
 
@@ -246,4 +256,3 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - Daftar izin Admin yang secara eksplisit ditolak dibuka pada Sidebar agar menu tersembunyi dapat diketahui. Aturan RBAC tidak dilonggarkan.
 - Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
 - Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
-

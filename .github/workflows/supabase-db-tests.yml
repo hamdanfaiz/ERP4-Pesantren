@@ -106,6 +106,12 @@ jobs:
       - name: Verify customer deployment feature flag wiring
         run: npm run test:customer-deployment-flags
 
+      - name: Verify customer Compose variables are documented
+        run: npm run test:customer-compose-env
+
+      - name: Verify customer-facing error copy
+        run: npm run test:user-messages
+
       - name: Verify trusted reverse proxy hop configuration
         run: npm run test:trusted-proxy-hops
 
@@ -123,6 +129,21 @@ jobs:
 
       - name: Verify CBT persisted session monitoring
         run: npm run test:cbt-monitor
+
+      - name: Verify tenant CBT question pagination and cursor validation
+        run: npm run test:cbt-question-pagination
+
+      - name: Verify tenant CBT student roster pagination and cursor validation
+        run: npm run test:cbt-student-roster-pagination
+
+      - name: Verify tenant CBT assignment pagination and cursor validation
+        run: npm run test:cbt-assignment-pagination
+
+      - name: Verify tenant CBT exam pagination and cursor validation
+        run: npm run test:cbt-exam-pagination
+
+      - name: Verify tenant CBT settings validation
+        run: npm run test:cbt-settings-write
 
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow
@@ -283,10 +304,10 @@ jobs:
       - name: Start isolated local Supabase
         run: supabase start
 
-      - name: Reset the isolated database to the Production boundary
+      - name: Reset isolated database to historical Production baseline (2026-11-06)
         run: supabase db reset --local --version 20261206000000 --no-seed
 
-      - name: Recreate the exact Production migration gaps in local Supabase
+      - name: Recreate historical Production migration gaps in local Supabase
         run: |
           db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
           if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then

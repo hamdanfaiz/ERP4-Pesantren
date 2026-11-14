@@ -10,6 +10,7 @@ alwaysApply: true
 - Saat diminta menyambungkan, query, atau mengakses database, baca nilai dari `.env` di root repo: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_JWKS_URL`, dan parameter `SUPABASE_DB_*`.
 - Password database ada di `.env` sebagai `SUPABASE_DB_PASSWORD`. Connection string yang sudah di-encode ada di `SUPABASE_DB_URL`. Jangan menyalin password ke file yang di-commit.
 - `SUPABASE_SECRET_KEY` hanya untuk server atau agent. Jangan menyalinnya ke file yang di-commit, ke aturan, ke kode browser, atau ke variabel `VITE_`.
-- Sebelum memakai konektor Supabase, pastikan URL project-nya sama dengan URL di atas. Jika tertaut ke project lain, jangan query project itu untuk ERP ini; pakai kredensial di `.env`.
-- Jangan mengubah skema, data, tampilan, proses, atau aturan aplikasi kecuali diminta secara eksplisit.
-- Database yang dipakai hanya Production PTSAS `ptsasgdvgrbdtgyqieie`. Jangan menyambung, query, migrasi, atau menyalin data ke staging VQE `vqemuyzveuirlkvdggjd`. Abaikan kunci `STAGING_` dan instruksi lama yang menyuruh memakai staging.
+- Sebelum memakai konektor Supabase, pastikan URL cocok dengan target tugas. PTSAS adalah Production; VQE adalah staging yang disetujui pemilik untuk rehearsal rilis ini.
+- Pemilik mengarahkan urutan source/build lokal → CI → VQE staging → PTSAS Production, dan mengizinkan penerapan langsung Production bila aman. Untuk semua target, pastikan versi dan dependency migration cocok; jangan menyalin data dummy.
+- Jangan menerapkan migration ke VQE sebelum seluruh required CI checks lulus. Jangan menerapkan ke PTSAS hanya agar jumlah ledger sama. Utamakan rehearsal VQE; rilis langsung PTSAS boleh hanya jika set migrasi persis, dependensi/drift Production, CI, pemeriksaan keamanan, dan bukti backup/restore yang dapat dipulihkan telah ditinjau. Koordinasikan bukti operasional dengan tim backend.
+- Credentials untuk masing-masing target harus diverifikasi berdasarkan `SUPABASE_PROJECT_REF` dan host tanpa mencetak secret/URL penuh. Jangan memakai konektor dengan project yang tidak cocok dan jangan menggunakan secret Production untuk staging atau sebaliknya.

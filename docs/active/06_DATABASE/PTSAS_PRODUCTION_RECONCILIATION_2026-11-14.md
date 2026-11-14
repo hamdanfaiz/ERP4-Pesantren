@@ -161,4 +161,3 @@ Lihat juga [snapshot ledger VQE 13 November](VQE_STAGING_MIGRATION_LEDGER_DRIFT_
 ## Kesimpulan operasional
 
 Production **belum layak menerima `db push` otomatis** dari keadaan yang terlihat. Perbedaan 50 versi, tiga nama ledger kosong, dan temuan katalog yang cocok dengan migrasi source yang belum tercatat harus direkonsiliasi terhadap DDL aktual lebih dahulu. Dokumen ini hanya memberi bukti dan urutan kerja; tidak memberi otorisasi untuk mengubah PTSAS Production.
-
