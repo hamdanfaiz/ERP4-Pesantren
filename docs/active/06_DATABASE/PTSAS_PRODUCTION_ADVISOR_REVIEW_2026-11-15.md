@@ -64,6 +64,10 @@ Advisor Auth memberi peringatan bahwa perlindungan terhadap sandi yang diketahui
 5. Tinjau dan aktifkan perlindungan sandi bocor melalui pengaturan Auth Production.
 6. Tim backend tetap menjalankan prosedur backup/restore, rehearsal staging, dan persetujuan jendela rilis. Snapshot ini bukan bukti pemulihan Production dan bukan izin untuk mengubahnya.
 
+## Rotasi kredensial sebelum go-live
+
+Pastikan Supabase secret key dan password database yang pernah dibagikan selama pengembangan sudah dirotasi di PTSAS Production. Jika belum, perlakukan sebagai kredensial terekspos: buat nilai baru, perbarui hanya secret server-side pada environment deploy yang benar, uji koneksi, lalu cabut nilai lama. Jangan memasukkan nilai baru ke Git atau chat. Rotasi belum dilakukan oleh pemeriksaan ini.
+
 ## Batas klaim
 
 Snapshot advisor dan metadata ini tidak membuktikan kesetaraan DDL lengkap, perilaku seluruh route, UAT semua role/modul, atau kemampuan memulihkan backup. Tidak ada perubahan cloud pada pemeriksaan ini.
