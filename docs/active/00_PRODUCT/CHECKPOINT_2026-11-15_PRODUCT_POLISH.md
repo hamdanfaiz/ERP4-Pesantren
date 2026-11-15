@@ -23,10 +23,11 @@
 ## Perubahan cloud dan publikasi
 
 - Migration baru belum diterapkan ke VQE staging maupun PTSAS Production. Tidak ada data atau skema live yang diubah.
-- **Diperbarui 15 November 2026:** Hostinger preview sementara tersambung ke repo `hamdanfaiz/ERP4-Pesantren`, branch `main`, dengan auto-deploy aktif. Deployment `b0e9a2ff294a68c4458676eada56c96aa2954635` berstatus Completed / Current. Ini hanya preview VQE, bukan domain produksi `erp4-pesantren.tlusur.com`.
+- **Diperbarui 15 November 2026:** Hostinger preview sementara tersambung ke repo `hamdanfaiz/ERP4-Pesantren`, branch `main`, dengan auto-deploy aktif. Deployment terkini `ed7bdf02ab1e84d49e15532d6d63cf6a5537d5ea` berstatus Completed / Current; commit tersebut hanya dokumentasi dan source aplikasi tetap sama dengan `b0e9a2ff294a68c4458676eada56c96aa2954635`. Ini hanya preview VQE, bukan domain produksi `erp4-pesantren.tlusur.com`.
 - Pemeriksaan baca-saja setelah memuat ulang preview Admin UAT: istilah provider/backend tidak tampak pada layar yang diperiksa; kontainer Asrama tampil gelap dan enam tab dapat digulir. Pemeriksaan tidak melakukan tindakan tulis.
 - **Diperbarui 15 November 2026:** flag `SUPABASE_ACADEMIC_RUNTIME_ENABLED=true` ditambahkan pada konfigurasi Hostinger preview VQE; redeploy konfigurasi selesai. Akademik kini memuat tampilan dan kondisi kosong tanpa pesan kegagalan. Tenant staging belum memiliki kelas, mata pelajaran, jadwal, jurnal, atau penilaian; UAT simpan-baca belum terbukti.
 - Akses tulis MCP Production tidak tersedia pada pemeriksaan terakhir. Rilis database perlu menunggu rehearsal dan akses tulis yang sah; jangan menjalankan `db push` terhadap Production hanya berdasarkan build lokal.
+- Inventaris baca-saja terbaru menemukan ketidaksesuaian source/ledger pada VQE dan PTSAS. Rincian 9 versi source belum tercatat di VQE, 4 benturan nama versi, 6 versi VQE di luar source, serta 53 versi source belum tercatat di PTSAS ada di [rekonsiliasi source dan ledger 15 November](../06_DATABASE/SOURCE_LEDGER_RECONCILIATION_2026-11-15.md). Ini metadata saja, bukan kesimpulan tentang DDL live.
 
 ## Gerbang berikutnya
 
