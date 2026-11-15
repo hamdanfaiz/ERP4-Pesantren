@@ -219,35 +219,32 @@ SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000592'
 )$$, '23514', 'Rentang ayat melampaui jumlah ayat Surah', 'Ayah numbers beyond the selected Surah are rejected');
 
--- Monthly ranking is derived from saved Ziyadah records and follows current tenant and halaqah scope.
-SELECT public.record_tahfidz_setoran(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
-  (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
-  'Ziyadah', 'Al-Fatihah', 1, 3, 'A', 'A', NULL, (CURRENT_DATE + TIME '07:00')::TIMESTAMPTZ,
-  'd1800000-0000-4000-8000-000000000011', 'Admin A', 'admin', 'd1800000-0000-4000-8000-000000000593'
-);
-SELECT public.record_tahfidz_setoran(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
-  (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-0000-8000-000000000009' AND name = 'Halaqah C'),
-  'Ziyadah', 'Al-Fatihah', 4, 5, 'A', 'A', NULL, (CURRENT_DATE + TIME '07:15')::TIMESTAMPTZ,
-  'd1800000-0000-4000-8000-000000000011', 'Admin A', 'admin', 'd1800000-0000-4000-8000-000000000594'
-);
-SELECT public.record_tahfidz_setoran(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000202', 'd1800000-0000-4000-8000-000000000402',
-  'Ziyadah', 'Al-Fatihah', 1, 3, 'A', 'A', NULL, ((CURRENT_DATE - 1) + TIME '07:00')::TIMESTAMPTZ,
-  'd1800000-0000-4000-8000-000000000011', 'Admin A', 'admin', 'd1800000-0000-4000-8000-000000000595'
-);
-SELECT public.record_tahfidz_setoran(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000202', 'd1800000-0000-4000-8000-000000000402',
-  'Ziyadah', 'Al-Fatihah', 4, 5, 'A', 'A', NULL, (CURRENT_DATE + TIME '07:15')::TIMESTAMPTZ,
-  'd1800000-0000-4000-8000-000000000011', 'Admin A', 'admin', 'd1800000-0000-4000-8000-000000000596'
-);
-SELECT public.record_tahfidz_setoran(
-  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
-  (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-0000-8000-000000000009' AND name = 'Halaqah C'),
-  'Muroja''ah', 'Al-Fatihah', 1, 7, 'A', 'A', NULL, (CURRENT_DATE + TIME '07:30')::TIMESTAMPTZ,
-  'd1800000-0000-4000-8000-000000000011', 'Admin A', 'admin', 'd1800000-0000-4000-8000-000000000597'
-);
+-- The write RPC and role guards are tested above. Seed this aggregate fixture
+-- directly so leaderboard assertions isolate query behavior from write-policy tests.
+INSERT INTO public.tahfidz_records (
+  tenant_id, student_id, halaqah_id, activity_type, surah_name, surah_number,
+  ayah_start, ayah_end, fluency_grade, tajweed_grade, performed_at,
+  recorded_by_user_id, recorded_by_name, client_request_id
+)
+VALUES
+  ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+    (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+    'Ziyadah', 'Al-Fatihah', 1, 1, 3, 'A', 'A', (CURRENT_DATE + TIME '07:00')::TIMESTAMPTZ,
+    'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000593'),
+  ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+    (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+    'Ziyadah', 'Al-Fatihah', 1, 4, 5, 'A', 'A', (CURRENT_DATE + TIME '07:15')::TIMESTAMPTZ,
+    'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000594'),
+  ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000202', 'd1800000-0000-4000-8000-000000000402',
+    'Ziyadah', 'Al-Fatihah', 1, 1, 3, 'A', 'A', ((CURRENT_DATE - 1) + TIME '07:00')::TIMESTAMPTZ,
+    'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000595'),
+  ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000202', 'd1800000-0000-4000-8000-000000000402',
+    'Ziyadah', 'Al-Fatihah', 1, 4, 5, 'A', 'A', (CURRENT_DATE + TIME '07:15')::TIMESTAMPTZ,
+    'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000596'),
+  ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+    (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+    'Muroja''ah', 'Al-Fatihah', 1, 1, 7, 'A', 'A', (CURRENT_DATE + TIME '07:30')::TIMESTAMPTZ,
+    'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000597');
 SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'tahfidz_records_ziyadah_leaderboard_idx'), 'leaderboard has a partial covering index for Ziyadah records');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000202', 'monthly ranking uses tenant-local active days to break equal setoran and ayah totals');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->0->>'ziyadahActiveDays'), '2', 'leaderboard returns distinct active days');
@@ -300,5 +297,6 @@ SELECT ok(has_function_privilege('service_role', to_regprocedure('public.record_
 
 SELECT * FROM finish();
 ROLLBACK;
+
 
 
