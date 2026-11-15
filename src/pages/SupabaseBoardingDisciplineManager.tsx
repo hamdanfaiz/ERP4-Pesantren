@@ -1,7 +1,7 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LoaderCircle, Plus, RotateCcw, ShieldAlert } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardCheck, LoaderCircle, Plus, RotateCcw, ShieldAlert } from "lucide-react";
 import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
 import { toERPUserMessage } from "../utils/userMessages";
@@ -129,14 +129,14 @@ export function SupabaseBoardingDisciplineManager() {
 
     {canImport && <section className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-indigo-950">Impor histori kedisiplinan dari data lama</h2><p className="mt-1 text-sm text-indigo-800">Pratinjau harus bersih sebelum diterapkan. Identitas ambigu dan foto lokal/non-HTTPS perlu direkonsiliasi lebih dulu.</p></div>
-        <button type="button" onClick={() => void runImport(false)} disabled={importBusy} className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50">{importBusy ? "Memproses…" : "Pratinjau impor"}</button></div>
+        <button type="button" onClick={() => void runImport(false)} disabled={importBusy} className="rounded-lg border border-indigo-300 bg-[var(--erp-surface)] px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50">{importBusy ? "Memproses…" : "Pratinjau impor"}</button></div>
       {importReport && <div className="mt-4 space-y-2 border-t border-indigo-200 pt-3 text-sm text-indigo-950"><div>{importReport.sourceCount} sumber · {importReport.planned} siap · {importReport.alreadyImported} sudah sama · {importReport.issues.length} perlu rekonsiliasi</div>
         {importReport.canApply && importReport.dryRun && <button type="button" onClick={() => void runImport(true)} disabled={importBusy} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">{importBusy ? "Mengimpor…" : "Terapkan hasil impor"}</button>}
         {importReport.issues.length > 0 && <ul className="max-h-40 list-disc space-y-1 overflow-auto pl-5 text-xs text-rose-800">{importReport.issues.map((item, index) => <li key={`${item.sourceId}-${index}`}><span className="font-mono">{item.sourceId}:</span> {item.reason}</li>)}</ul>}
         {importReport.warnings.length > 0 && <ul className="max-h-32 list-disc space-y-1 overflow-auto pl-5 text-xs text-amber-800">{importReport.warnings.map((item, index) => <li key={`${item.sourceId}-${index}`}><span className="font-mono">{item.sourceId}:</span> {item.reason}</li>)}</ul>}</div>}
     </section>}
 
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-[var(--erp-surface)] shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-slate-900">Riwayat pelanggaran</h2><p className="mt-1 text-xs text-slate-500">Data dan filter dibatasi ke pesantren aktif.</p></div><input aria-label="Cari catatan kedisiplinan" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari santri, NIS, kamar, pelanggaran…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs" /></div>
       {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" />Memuat data pesantren…</div>
         : visibleIncidents.length === 0 ? <div className="p-12 text-center"><ClipboardCheck className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-medium text-slate-700">Belum ada catatan pelanggaran</p><p className="mt-1 text-sm text-slate-500">Catatan pesantren akan muncul di sini setelah tersimpan.</p></div>

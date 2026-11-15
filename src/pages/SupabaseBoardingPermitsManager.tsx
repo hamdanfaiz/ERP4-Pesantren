@@ -1,7 +1,7 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ClipboardList, LoaderCircle, Plus, RotateCcw, X } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, ClipboardList, LoaderCircle, Plus, RotateCcw, X } from "lucide-react";
 import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
 import { toERPUserMessage } from "../utils/userMessages";
@@ -204,7 +204,7 @@ export function SupabaseBoardingPermitsManager() {
       {SUPABASE_BOARDING_PERMITS_IMPORT && ["Admin", "SuperAdmin"].includes(role) && <section className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
            <div><h2 className="font-semibold text-indigo-950">Impor riwayat izin lama</h2><p className="mt-1 text-sm text-indigo-800">Pratinjau mencocokkan santri dengan pesantren ini dan menandai data yang perlu diperbaiki sebelum impor.</p></div>
-           <button type="button" onClick={() => void runLegacyImport(false)} disabled={importBusy} className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50">{importBusy ? "Memproses…" : "Pratinjau impor"}</button>
+           <button type="button" onClick={() => void runLegacyImport(false)} disabled={importBusy} className="rounded-lg border border-indigo-300 bg-[var(--erp-surface)] px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-[var(--erp-surface-subtle)] disabled:opacity-50">{importBusy ? "Memproses…" : "Pratinjau impor"}</button>
         </div>
         {importReport && <div className="mt-4 space-y-2 border-t border-indigo-200 pt-3 text-sm text-indigo-950">
           <div>{importReport.sourceCount} catatan arsip · {importReport.planned} siap diimpor · {importReport.alreadyImported} sudah tercatat · {importReport.issues.length} perlu diperiksa</div>
@@ -214,7 +214,7 @@ export function SupabaseBoardingPermitsManager() {
         </div>}
       </section>}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface)] shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 className="font-semibold text-slate-900">Daftar izin</h2><p className="mt-1 text-xs text-slate-500">{canManage ? "Lingkup data mengikuti pesantren dan izin modul." : "Hanya permohonan milik santri yang tertaut pada profil Anda."}</p></div>
           <input aria-label="Cari permohonan izin" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari santri, NIS, kamar…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs" />

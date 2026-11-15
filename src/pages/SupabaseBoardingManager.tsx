@@ -44,7 +44,7 @@ export function SupabaseBoardingManager() {
   </div>;
 }
 
-function UnavailableSection({ label }: { label: string; flag: string }) {
+function UnavailableSection({ label }: { label: string }) {
   return <section role="status" className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
     <h2 className="font-semibold">{label} belum tersedia</h2>
     <p className="mt-2 leading-6">Fitur ini belum tersedia saat ini.</p>
