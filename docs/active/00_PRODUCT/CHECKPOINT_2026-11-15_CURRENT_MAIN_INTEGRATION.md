@@ -71,6 +71,14 @@ Ada empat benturan versi dengan nama berbeda antara source dan ledger VQE: versi
 
 Beberapa file source yang belum tercatat melakukan `UPDATE` atau `INSERT` pada referensi kelas, pengaturan/semester akademik, penempatan asrama, identitas NIS, atau aktivitas LMS; file lain menambah tabel, indeks, dan RPC. Karena itu jangan menjalankan `db push` atau `migration repair` otomatis. Tim backend perlu membandingkan isi SQL dan DDL objek aktual VQE untuk setiap pasangan/versi tersebut, menentukan migrasi forward-only yang diperlukan, lalu menguji pada staging. Production tidak diperiksa atau diubah dalam langkah ini.
 
+Pemeriksaan katalog baca-saja atas 37 objek utama yang dideklarasikan oleh migrasi Akademik, Komunikasi, indeks FK, dan leaderboard Tahfidz menemukan 36 objek belum ada di VQE. RPC leaderboard lama memang ada, tetapi definisinya tidak memuat ranking `ziyadah_active_days` dan respons `ziyadahActiveDays` dari source terbaru. Ini mengonfirmasi bahwa staging belum menyamai sebagian DDL source; hasilnya hanya berlaku untuk objek yang diperiksa, bukan diff DDL lengkap.
+
+## Status PR lama dan jalur integrasi
+
+GitHub menunjukkan PR #1–#11 berstatus closed dan `merged=false`. Ini disengaja: deskripsi PR #13 yang sudah merged secara eksplisit menyatakan #1–#11 ditutup sebagai *superseded*, bukan digabung satu per satu. PR #12 dan #13 serta PR #38–#40, #101, dan #106 berstatus merged. PR lama #1–#11 tidak perlu dibuka kembali atau digabung terpisah; hal itu berisiko membawa ulang migrasi dan implementasi lama.
+
+Enam PR source yang masih open saat audit adalah #91, #92, #112, #114, #115, dan #121. Branch review integrasi pada tautan di bawah menggabungkan head enam PR itu untuk ditinjau sebagai satu kandidat; branch tersebut belum di-merge ke `main`. CI #1762 dan #1763 lulus 3/3 pada source terakhir sebelum audit dokumentasi ini.
+
 ## Langkah lanjut yang aman
 
 1. Branch review gabungan sudah tersedia untuk tim backend di [GitHub](https://github.com/hamdanfaiz/ERP4-Pesantren/tree/codex/integration-current-main-20261115); CI #1763 lulus 3/3.
