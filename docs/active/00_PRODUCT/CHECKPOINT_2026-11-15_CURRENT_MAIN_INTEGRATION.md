@@ -81,7 +81,7 @@ Enam PR source yang masih open saat audit adalah #91, #92, #112, #114, #115, dan
 
 ## Langkah lanjut yang aman
 
-1. Branch review gabungan sudah tersedia untuk tim backend di [GitHub](https://github.com/hamdanfaiz/ERP4-Pesantren/tree/codex/integration-current-main-20261115); CI #1763 lulus 3/3.
+1. Branch review gabungan tersedia di [PR draft #122](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/122) untuk tinjauan terpadu; PR belum di-merge. Actions [run #1775](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43674050459) lulus **3/3 job** pada head PR exact `14b3e111`; database Production dan staging tidak ditulis.
 2. Tim backend meninjau rekonsiliasi VQE di atas sebelum menerapkan migrasi apa pun; migrasi belum disinkronkan ke staging.
 3. Gunakan [Matriks Runtime Modul dan Visibilitas](MODULE_RUNTIME_FLAG_MATRIX.md) untuk mengidentifikasi flag dan prasyarat tiap modul; jangan mengaktifkan semuanya sekaligus.
 4. Setelah staging dan flag modul siap, jalankan UAT browser untuk role/modul yang diaktifkan dan alur simpan-baca.
