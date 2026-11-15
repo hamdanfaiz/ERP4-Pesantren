@@ -221,18 +221,21 @@ const recordsTableStart = tahfidzSource.indexOf('<div className="bg-white dark:b
 assert.ok(quickEntryStart >= 0 && recordsTableStart > quickEntryStart,
   'Tahfidz quick-entry form boundaries must remain discoverable for regression checks.');
 const quickEntrySource = tahfidzSource.slice(quickEntryStart, recordsTableStart);
-assert.match(quickEntrySource, /SUPABASE_TAHFIDZ_RUNTIME \? <select[\s\S]*?aria-label="Surah setoran cepat"[\s\S]*?surahList\.map\(\(surah\)/,
-  'Quick-entry Surah must be selected from the loaded Quran reference list.');
+assert.match(quickEntrySource, /<select[\s\S]*?aria-label="Surah setoran cepat"[\s\S]*?surahList\.map\(\(surah\)/,
+  'Quick-entry Surah must always be selected from the loaded Quran reference list.');
 assert.match(quickEntrySource, /aria-label="Ayat mulai setoran cepat"[\s\S]*?Array\.from\(\{ length: Number\(formData\.ayatCount \|\| 0\) \}/,
   'Quick-entry starting Ayah must be chosen from the selected Surah verse count.');
 assert.match(quickEntrySource, /aria-label="Ayat akhir setoran cepat"[\s\S]*?Array\.from\(\{ length: Number\(formData\.ayatCount \|\| 0\) \}[\s\S]*?ayah >= Number\(formData\.ayatStart\)/,
   'Quick-entry ending Ayah must be chosen from the selected Surah verse count.');
-const supabaseSurahControlStart = quickEntrySource.indexOf('SUPABASE_TAHFIDZ_RUNTIME ? <select');
-const legacySurahControlStart = quickEntrySource.indexOf(': <input', supabaseSurahControlStart);
-assert.ok(supabaseSurahControlStart >= 0 && legacySurahControlStart > supabaseSurahControlStart,
-  'Surah choices must use a controlled Supabase dropdown while legacy demo mode remains an explicit fallback.');
-assert.doesNotMatch(quickEntrySource.slice(supabaseSurahControlStart, legacySurahControlStart), /<input\b/,
-  'The Supabase runtime Surah control must not accept free text.');
+const surahLabelIndex = quickEntrySource.indexOf('aria-label="Surah setoran cepat"');
+const surahControlStart = quickEntrySource.lastIndexOf('<select', surahLabelIndex);
+const surahControlEnd = quickEntrySource.indexOf('</select>', surahControlStart);
+assert.ok(surahControlStart >= 0 && surahControlEnd > surahControlStart,
+  'Quick-entry Surah choices must use a select control in every runtime mode.');
+assert.match(quickEntrySource.slice(surahControlStart, surahControlEnd), /surahList\.map\(\(surah\)/,
+  'Quick-entry Surah options must come from the loaded Quran catalog.');
+assert.doesNotMatch(quickEntrySource, /placeholder="Misal: Al-Baqarah"|placeholder="Misal: 1-10"|<input[^>]+aria-label="Surah setoran cepat"/,
+  'Quick-entry Surah and Ayah fields must not accept free text.');
 const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
 assert.doesNotMatch(boardingSource, /supabaseRuntimeEnabled\(/,
   'Asrama feature availability must follow explicit browser runtime flags, not the Supabase-only data-source mode.');

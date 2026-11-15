@@ -4499,18 +4499,6 @@ async function startServer() {
     }
   });
 
-  app.get("/api/tahfidz/references/surahs", requireAuth, async (_req, res) => {
-    try {
-      const data = await listSupabaseQuranSurahs();
-      res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-      res.json({ code: 200, message: "Katalog Surah berhasil dimuat.", data });
-    } catch (e: any) {
-      const error = e instanceof SupabaseQuranCatalogError ? e : null;
-      if (!error) console.error("Supabase Quran catalog failed:", e?.name || "error");
-      res.status(error?.status || 503).json({ error: error?.message || "Katalog Surah belum dapat dimuat. Silakan coba kembali." });
-    }
-  });
-
   app.get("/api/quran/surat", async (_req, res) => {
     try {
       const response = await fetch("https://equran.id/api/v2/surat");

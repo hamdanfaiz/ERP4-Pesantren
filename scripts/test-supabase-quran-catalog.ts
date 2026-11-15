@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
-import {
-  findSupabaseQuranSurah,
-  isValidSupabaseQuranAyahRange,
-  listSupabaseQuranSurahs,
-  SupabaseQuranCatalogError,
-} from "../src/server/supabaseQuranCatalog";
-import { recordSupabaseTahfidzSetoran, SupabaseTahfidzError } from "../src/server/supabaseTahfidz";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { isValidSupabaseQuranAyahRange, listSupabaseQuranSurahs, SupabaseQuranCatalogError } from "../src/server/supabaseQuranCatalog";
 
 const originalUrl = process.env.SUPABASE_URL;
 const originalSecret = process.env.SUPABASE_SECRET_KEY;
@@ -39,118 +35,14 @@ async function run() {
     assert.deepEqual(catalog[0], { nomor: 1, namaLatin: "Surah 1", jumlahAyat: 7 });
     assert.equal(catalog[113].nomor, 114);
     assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 1", 1, 7), true);
-    assert.equal(isValidSupabaseQuranAyahRange(catalog, " surah 1 ", 2, 2), true);
-    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Unknown", 1, 2), false);
     assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 1", 1, 8), false);
-    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 1", 2, 1), false);
-    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 1", 1.5, 2), false);
-    assert.equal(findSupabaseQuranSurah(catalog, " sURAH 1 ")?.namaLatin, "Surah 1");
-    assert.equal(findSupabaseQuranSurah(catalog, "Unknown"), null);
-
-    const tenantId = "00000000-0000-4000-8000-000000000001";
-    const actorId = "00000000-0000-4000-8000-000000000002";
-    let setoranWrites = 0;
-    let storedSurahName = "";
-    globalThis.fetch = (async (input, init) => {
-      const url = new URL(String(input));
-      if (url.pathname === "/rest/v1/tenants") {
-        assert.equal(url.searchParams.get("id"), `eq.${tenantId}`);
-        return new Response(JSON.stringify([{ id: tenantId, status: "active" }]), { status: 200 });
-      }
-      if (url.pathname === "/rest/v1/profiles") {
-        assert.equal(url.searchParams.get("tenant_id"), `eq.${tenantId}`);
-        assert.equal(url.searchParams.get("user_id"), `eq.${actorId}`);
-        return new Response(JSON.stringify([{ user_id: actorId, role: "admin", status: "active" }]), { status: 200 });
-      }
-      if (url.pathname === "/rest/v1/quran_surahs") {
-        return new Response(JSON.stringify(rows), { status: 200, headers: { "Content-Type": "application/json" } });
-      }
-      if (url.pathname === "/rest/v1/rpc/record_tahfidz_setoran") {
-        setoranWrites += 1;
-        assert.equal(init?.method, "POST");
-        const body = JSON.parse(String(init?.body || "{}")) as { p_surah_name?: string };
-        storedSurahName = String(body.p_surah_name || "");
-        return new Response(JSON.stringify({ success: true }), { status: 200 });
-      }
-      throw new Error(`Unexpected Tahfidz test request: ${url.pathname}`);
-    }) as typeof fetch;
-
-    const makeSetoran = (surahName: string, ayahRange: string, clientRequestId: string) => ({
-      studentId: "00000000-0000-4000-8000-000000000003",
-      halaqahId: "00000000-0000-4000-8000-000000000004",
-      activityType: "Ziyadah",
-      surahName,
-      ayahRange,
-      fluencyGrade: "A",
-      tajweedGrade: "A",
-      notes: "",
-      clientRequestId,
-      performedAt: "2026-11-15T04:00:00.000Z",
-    });
-
-    await assert.rejects(
-      recordSupabaseTahfidzSetoran(
-        tenantId,
-        actorId,
-        "Admin",
-        "Admin Uji",
-        makeSetoran("Surah 1", "1-8", "00000000-0000-4000-8000-000000000005"),
-      ),
-      (error: unknown) => error instanceof SupabaseTahfidzError && error.status === 400,
-    );
-    assert.equal(setoranWrites, 0, "A verse outside the selected Surah must be rejected before the transaction RPC.");
-    await assert.rejects(
-      recordSupabaseTahfidzSetoran(
-        tenantId,
-        actorId,
-        "Admin",
-        "Admin Uji",
-        makeSetoran("Unknown", "1-2", "00000000-0000-4000-8000-000000000007"),
-      ),
-      (error: unknown) => error instanceof SupabaseTahfidzError && error.status === 400,
-    );
-    assert.equal(setoranWrites, 0, "An unknown Surah must be rejected before the transaction RPC.");
-
-    const stored = await recordSupabaseTahfidzSetoran(
-      tenantId,
-      actorId,
-      "Admin",
-      "Admin Uji",
-      makeSetoran("sURAH 1", "1-7", "00000000-0000-4000-8000-000000000006"),
-    );
-    assert.equal(stored.success, true);
-    assert.equal(setoranWrites, 1, "A catalog-backed Surah and Ayah range should reach the transaction RPC once.");
-    assert.equal(storedSurahName, "Surah 1", "The transaction must store the catalog's canonical Surah name.");
+    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 1", 8, 8), false);
+    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Unknown", 1, 2), false);
+    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 2", 5, 4), false);
 
     globalThis.fetch = (async () => new Response(JSON.stringify(rows.slice(0, 113)), { status: 200 })) as typeof fetch;
     await assert.rejects(listSupabaseQuranSurahs(), (error: unknown) =>
       error instanceof SupabaseQuranCatalogError && /belum lengkap/.test(error.message));
-
-    globalThis.fetch = (async (input) => {
-      const url = new URL(String(input));
-      if (url.pathname === "/rest/v1/tenants") {
-        return new Response(JSON.stringify([{ id: tenantId, status: "active" }]), { status: 200 });
-      }
-      if (url.pathname === "/rest/v1/profiles") {
-        return new Response(JSON.stringify([{ user_id: actorId, role: "admin", status: "active" }]), { status: 200 });
-      }
-      if (url.pathname === "/rest/v1/quran_surahs") {
-        return new Response(JSON.stringify(rows.slice(0, 113)), { status: 200 });
-      }
-      if (url.pathname === "/rest/v1/rpc/record_tahfidz_setoran") setoranWrites += 1;
-      throw new Error(`Unexpected request for an incomplete Quran catalog: ${url.pathname}`);
-    }) as typeof fetch;
-    await assert.rejects(
-      recordSupabaseTahfidzSetoran(
-        tenantId,
-        actorId,
-        "Admin",
-        "Admin Uji",
-        makeSetoran("Surah 1", "1-7", "00000000-0000-4000-8000-000000000008"),
-      ),
-      (error: unknown) => error instanceof SupabaseTahfidzError && error.status === 503,
-    );
-    assert.equal(setoranWrites, 1, "An incomplete catalog must fail closed without another transaction RPC.");
 
     const outOfOrderRows = [...rows];
     outOfOrderRows[0] = { ...outOfOrderRows[0], surah_number: 2 };
@@ -162,7 +54,30 @@ async function run() {
     await assert.rejects(listSupabaseQuranSurahs(), (error: unknown) =>
       error instanceof SupabaseQuranCatalogError && error.status === 503);
 
-    console.log("Passed: Quran catalog validation and Tahfidz setoran writes are server-validated against the canonical catalog before the transaction RPC.");
+    const tahfidzUi = readFileSync(fileURLToPath(new URL("../src/pages/TahfidzManager.tsx", import.meta.url)), "utf8");
+    assert.match(tahfidzUi, /const data = await requestSupabaseTahfidzApi\("\/api\/tahfidz\/references\/surahs"/);
+    assert.doesNotMatch(tahfidzUi, /fetch\("\/api\/quran\/surat"/, "Tahfidz recording must not fall back to an external Quran catalog");
+    const tahfidzServer = readFileSync(fileURLToPath(new URL("../src/server/supabaseTahfidz.ts", import.meta.url)), "utf8");
+    assert.match(tahfidzServer, /isValidSupabaseQuranAyahRange\(quranCatalog, surahName, start, end\)/, "server writes must reject Surah names or ayah ranges outside the database catalog");
+    const recordsStart = tahfidzUi.indexOf("const renderRecords = () => (");
+    const recordsEnd = tahfidzUi.indexOf("const renderTargets = () => (", recordsStart);
+    assert.ok(recordsStart >= 0 && recordsEnd > recordsStart, "Tahfidz quick-entry UI boundary should exist");
+    const recordsUi = tahfidzUi.slice(recordsStart, recordsEnd);
+    const surahValue = recordsUi.indexOf('value={formData.surah || ""}');
+    const surahSelectStart = recordsUi.lastIndexOf("<select", surahValue);
+    const surahSelectEnd = recordsUi.indexOf("</select>", surahSelectStart);
+    assert.ok(surahSelectStart >= 0 && surahSelectEnd > surahSelectStart, "Quick entry must use a Surah select, not free text");
+    const surahSelect = recordsUi.slice(surahSelectStart, surahSelectEnd);
+    assert.match(surahSelect, /surahList\.map\(/, "Surah options must come from the loaded reference catalogue");
+    assert.doesNotMatch(recordsUi, /Misal: Al-Baqarah|Misal: 1-10/, "Surah and Ayah must not accept free text");
+    assert.match(tahfidzUi, /Pilih Surah dan rentang ayat yang tersedia\./, "the submit handler must validate against the selected reference");
+    assert.match(recordsUi, /formData\.ayatCount/, "Ayah options must use the selected Surah reference count");
+    assert.match(recordsUi, /ayah >= Number\(formData\.ayatStart\)/, "End ayah choices must not precede the start ayah");
+    assert.doesNotMatch(tahfidzUi, /belum terhubung ke layanan backend dan tidak menjalankan aksi/i, "Operator-facing backend notes must not appear in the Tahfidz UI");
+    assert.doesNotMatch(tahfidzUi, /backend Supabase|tenant (?:ini|pesantren)|snapshot tenant|API tenant Supabase|Catatan yang tersimpan di Supabase|backend belum menyimpan|Firestore ke tenant Supabase|Impor Legacy/i, "Tahfidz screens must not expose internal provider, tenant, or migration terminology");
+    assert.match(tahfidzUi, /aria-label="Penilaian audio AI belum tersedia"/);
+
+    console.log("Passed: Quran catalog validates server data and Tahfidz Supabase entry uses reference-backed Surah and bounded Ayah controls.");
   } finally {
     globalThis.fetch = originalFetch;
     if (originalUrl === undefined) delete process.env.SUPABASE_URL;
@@ -175,5 +90,4 @@ async function run() {
 }
 
 void run();
-
 

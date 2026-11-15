@@ -1,9 +1,9 @@
 # Rilis terarah CBT ke PTSAS Production
 
-**Tanggal pemeriksaan:** 13 November 2026  
-**Target:** `ptsasgdvgrbdtgyqieie` (PTSAS Production)  
-**Source:** PR #112, head `a6c5d265f662afa8f3f5334403c1cb3780905987`  
-**Status:** Kandidat rilis untuk tinjauan backend; belum diterapkan.
+- **Tanggal pemeriksaan:** 13 November 2026
+- **Target:** `ptsasgdvgrbdtgyqieie` (PTSAS Production)
+- **Source:** PR #112, head `a6c5d265f662afa8f3f5334403c1cb3780905987`
+- **Status:** Kandidat rilis untuk tinjauan backend; belum diterapkan.
 
 ## Keputusan dan batas
 

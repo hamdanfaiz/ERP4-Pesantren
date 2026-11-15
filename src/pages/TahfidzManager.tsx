@@ -441,12 +441,7 @@ export function TahfidzManager() {
       setIsSurahListLoading(true);
       setSurahListError("");
       try {
-        const data = SUPABASE_TAHFIDZ_RUNTIME
-          ? await requestSupabaseTahfidzApi("/api/tahfidz/references/surahs", { signal: controller.signal })
-          : await fetch("/api/quran/surat", { signal: controller.signal }).then(async (response) => {
-            if (!response.ok) throw new Error("Daftar Surah belum dapat dimuat.");
-            return response.json();
-          });
+        const data = await requestSupabaseTahfidzApi("/api/tahfidz/references/surahs", { signal: controller.signal });
         const entries = Array.isArray(data?.data) ? data.data : [];
         const validEntries = entries.filter((item: any) =>
           Number.isInteger(Number(item?.nomor))
@@ -1024,6 +1019,20 @@ export function TahfidzManager() {
 
   const handleInputSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const selectedSurah = surahList.find((item) => item.namaLatin === formData.surah);
+    const ayahStart = Number(formData.ayatStart);
+    const ayahEnd = Number(formData.ayatEnd);
+    if (!selectedSurah
+      || !Number.isInteger(ayahStart)
+      || !Number.isInteger(ayahEnd)
+      || ayahStart < 1
+      || ayahEnd < ayahStart
+      || ayahEnd > Number(selectedSurah.jumlahAyat)
+      || String(formData.ayat || "") !== `${ayahStart}-${ayahEnd}`) {
+      setTahfidzError("Pilih Surah dan rentang ayat yang tersedia.");
+      return;
+    }
+    setTahfidzError("");
     if (SUPABASE_TAHFIDZ_RUNTIME) {
       const student = santriList.find((item) => String(item.id) === String(formData.studentId || ""));
       if (!student || !student.halaqahId) {
@@ -2217,7 +2226,7 @@ export function TahfidzManager() {
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Surah
           </label>
-          {SUPABASE_TAHFIDZ_RUNTIME ? <select
+          <select
             required
             aria-label="Surah setoran cepat"
             value={formData.surah || ""}
@@ -2238,18 +2247,13 @@ export function TahfidzManager() {
           >
             <option value="">{isSurahListLoading ? "Memuat Surah…" : "Pilih Surah"}</option>
             {surahList.map((surah) => <option key={surah.nomor} value={surah.namaLatin}>{surah.nomor}. {surah.namaLatin}</option>)}
-          </select> : <input
-            type="text"
-            placeholder="Misal: Al-Baqarah"
-            value={formData.surah || ""}
-            onChange={(e) => setFormData({ ...formData, surah: e.target.value })}
-            className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-          />}
+          </select>
         </div>
-        {SUPABASE_TAHFIDZ_RUNTIME ? <>
+        <>
           <div className="w-full md:w-28">
             <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Dari ayat</label>
             <select
+              required
               aria-label="Ayat mulai setoran cepat"
               value={formData.ayatStart || ""}
               disabled={!formData.surah || isSurahListLoading || Boolean(surahListError) || isSavingRecord}
@@ -2267,6 +2271,7 @@ export function TahfidzManager() {
           <div className="w-full md:w-28">
             <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Sampai ayat</label>
             <select
+              required
               aria-label="Ayat akhir setoran cepat"
               value={formData.ayatEnd || ""}
               disabled={!formData.ayatStart || isSurahListLoading || Boolean(surahListError) || isSavingRecord}
@@ -2286,10 +2291,7 @@ export function TahfidzManager() {
             <p>{surahListError}</p>
             <button type="button" onClick={() => setSurahListAttempt((attempt) => attempt + 1)} className="mt-1 font-semibold underline">Coba lagi</button>
           </div>}
-        </> : <div className="w-full md:w-32">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Ayat</label>
-          <input type="text" placeholder="Misal: 1-10" value={formData.ayat || ""} onChange={(e) => setFormData({ ...formData, ayat: e.target.value })} className="w-full bg-white dark:bg-black/40 border border-emerald-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-        </div>}
+        </>
         <div className="w-full md:w-auto">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Tipe
@@ -2319,7 +2321,7 @@ export function TahfidzManager() {
         </>}
         <button
           onClick={handleInputSubmit}
-          disabled={!(SUPABASE_TAHFIDZ_RUNTIME ? formData.studentId : formData.santriName) || !formData.surah || !formData.ayat || (SUPABASE_TAHFIDZ_RUNTIME && (!formData.ayatStart || !formData.ayatEnd || !surahList.length || isSurahListLoading || Boolean(surahListError) || !formData.fluency || !formData.tajweed)) || isSavingRecord}
+          disabled={!(SUPABASE_TAHFIDZ_RUNTIME ? formData.studentId : formData.santriName) || !formData.surah || !formData.ayatStart || !formData.ayatEnd || !formData.ayat || !surahList.length || isSurahListLoading || Boolean(surahListError) || (SUPABASE_TAHFIDZ_RUNTIME && (!formData.fluency || !formData.tajweed)) || isSavingRecord}
           className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-600/20 whitespace-nowrap flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" /> Entri Cepat
@@ -3881,7 +3883,7 @@ export function TahfidzManager() {
           >
             <Mic className="w-4 h-4" />
             Penilaian audio otomatis
-          </button> : <button type="button" disabled title="Fitur penilaian audio otomatis belum tersedia saat ini." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />Penilaian audio otomatis</button>}
+          </button> : <button type="button" disabled aria-label="Penilaian audio AI belum tersedia" title="Penilaian audio otomatis belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />Penilaian audio otomatis</button>}
           {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <button
             onClick={startNewTahfidzRecord}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"

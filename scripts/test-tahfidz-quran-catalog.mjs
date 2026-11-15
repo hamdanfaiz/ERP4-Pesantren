@@ -70,8 +70,10 @@ const surahLoadingEnd = tahfidz.indexOf("void loadSurahs();", surahLoadingStart)
 assert.ok(surahLoadingStart >= 0 && surahLoadingEnd > surahLoadingStart,
   "Surah reference loading must remain identifiable for backend parity checks.");
 const surahLoading = tahfidz.slice(surahLoadingStart, surahLoadingEnd);
-assert.match(surahLoading, /SUPABASE_TAHFIDZ_RUNTIME\s*\?\s*await requestSupabaseTahfidzApi\(["']\/api\/tahfidz\/references\/surahs["']/,
-  "Supabase runtime must read the canonical catalog from its authenticated backend endpoint.");
+assert.match(surahLoading, /const data = await requestSupabaseTahfidzApi\(["']\/api\/tahfidz\/references\/surahs["']/,
+  "Tahfidz must always read the canonical catalog from its authenticated backend endpoint.");
+assert.doesNotMatch(surahLoading, /fetch\(["']\/api\/quran\/surat["']/,
+  "Tahfidz entry must not fall back to an external Surah catalog.");
 const recordsStart = tahfidz.indexOf("const renderRecords = () =>");
 const targetsStart = tahfidz.indexOf("const renderTargets = () =>", recordsStart);
 assert.ok(recordsStart >= 0 && targetsStart > recordsStart,
@@ -89,6 +91,8 @@ const ayahStartSelector = recordsUi.match(/<select[\s\S]*?aria-label="Ayat mulai
 const ayahEndSelector = recordsUi.match(/<select[\s\S]*?aria-label="Ayat akhir setoran cepat"[\s\S]*?<\/select>/);
 assert.ok(ayahStartSelector && ayahEndSelector,
   "Quick entry must select an Ayah range instead of accepting free text.");
+assert.doesNotMatch(recordsUi, /placeholder="Misal: Al-Baqarah"|placeholder="Misal: 1-10"/,
+  "Quick entry must not allow free-text Surah or Ayah values.");
 assert.match(ayahStartSelector[0], /Array\.from\(\{\s*length: Number\(formData\.ayatCount \|\| 0\)/,
   "Start Ayah options must use the selected Surah's catalog Ayah count.");
 assert.match(ayahEndSelector[0], /Array\.from\(\{\s*length: Number\(formData\.ayatCount \|\| 0\)[\s\S]*?ayah >= Number\(formData\.ayatStart\)/,
