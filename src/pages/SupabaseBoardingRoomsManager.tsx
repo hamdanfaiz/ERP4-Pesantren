@@ -93,30 +93,30 @@ export function SupabaseBoardingRoomsManager() {
     <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300"><BedDouble className="h-4 w-4" />Asrama · Penempatan kamar</div>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Penempatan Kamar Santri</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600">Tetapkan atau lepaskan kamar aktif dari Data Induk. Jumlah penghuni dan kapasitas kamar diperbarui otomatis.</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Penempatan Kamar Santri</h1>
+        <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Tetapkan atau lepaskan kamar aktif dari Data Induk. Jumlah penghuni dan kapasitas kamar diperbarui otomatis.</p>
       </div>
-      <button type="button" onClick={() => { setLoading(true); setError(""); void refresh().catch((cause: any) => setError(cause?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <button type="button" onClick={() => { setLoading(true); setError(""); void refresh().catch((cause: any) => setError(cause?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5">
         <RefreshCw className="h-4 w-4" />Muat ulang
       </button>
     </header>
 
-    {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
-    {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
-    {!canManage && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Pengubahan penempatan kamar hanya tersedia bagi Admin pesantren. Anda tetap dapat melihat daftar santri.</div>}
+    {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-400/20 dark:text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
+    {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:bg-rose-950/30 dark:border-rose-400/20 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
+    {!canManage && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-200">Pengubahan penempatan kamar hanya tersedia bagi Admin pesantren. Anda tetap dapat melihat daftar santri.</div>}
 
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900">
+      <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
         <div>
-          <h2 className="font-semibold text-slate-900">Daftar penempatan</h2>
-          <p className="mt-1 text-xs text-slate-500">{students.length} santri · {rooms.length} kamar aktif</p>
+          <h2 className="font-semibold text-slate-900 dark:text-slate-100">Daftar penempatan</h2>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{students.length} santri · {rooms.length} kamar aktif</p>
         </div>
-        <input aria-label="Cari santri" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, NIS, kamar, kelas…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 sm:max-w-xs" />
+        <input aria-label="Cari santri" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, NIS, kamar, kelas…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 sm:max-w-xs dark:border-white/15" />
       </div>
       {loading ? <div className="p-4"><ERPLoadingSkeleton variant="list" label="Memuat penempatan kamar…" rows={5} /></div>
-        : !visible.length ? <div className="p-10 text-center text-sm text-slate-500">Belum ada santri untuk ditampilkan.</div>
+        : !visible.length ? <div className="p-10 text-center text-sm text-slate-500 dark:text-slate-400">Belum ada santri untuk ditampilkan.</div>
           : <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3">Santri</th>
                 <th className="px-4 py-3">Kamar saat ini</th>
@@ -124,24 +124,24 @@ export function SupabaseBoardingRoomsManager() {
                 {canManage && <th className="px-4 py-3 text-right">Aksi</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
               {visible.map((student) => {
                 const selected = drafts[student.id] || "";
                 const dirty = selected !== (student.roomId || "");
                 const eligibleRooms = roomsForStudent(student);
                 return <tr key={student.id}>
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-slate-900">{student.name}</div>
-                    <div className="mt-1 text-xs text-slate-500">NIS {student.nis || "—"} · {student.gender || "—"} · {student.grade || "—"}</div>
+                    <div className="font-semibold text-slate-900 dark:text-slate-100">{student.name}</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">NIS {student.nis || "—"} · {student.gender || "—"} · {student.grade || "—"}</div>
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{student.room || "Belum ditempatkan"}{student.dormitory ? <div className="text-xs text-slate-500">{student.dormitory}</div> : null}</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{student.room || "Belum ditempatkan"}{student.dormitory ? <div className="text-xs text-slate-500 dark:text-slate-400">{student.dormitory}</div> : null}</td>
                   <td className="px-4 py-3">
                     <select
                       aria-label={`Kamar untuk ${student.name}`}
                       disabled={!canManage || Boolean(saving)}
                       value={selected}
                       onChange={(event) => setDrafts((current) => ({ ...current, [student.id]: event.target.value }))}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60 dark:border-white/15"
                     >
                       <option value="">Lepas penempatan</option>
                       {eligibleRooms.map((room) => {
