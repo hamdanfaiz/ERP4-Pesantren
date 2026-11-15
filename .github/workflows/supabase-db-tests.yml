@@ -74,6 +74,9 @@ jobs:
         run: npm run test:tahfidz-session-pagination
       - name: Verify Tahfidz achievement thresholds
         run: npm run test:tahfidz-achievements
+
+      - name: Verify Tahfidz target precision before database writes
+        run: npm run test:tahfidz-target-precision
       - name: Verify Tahfidz Quran catalog source and ayah bounds
         run: npm run test:tahfidz-quran-catalog
       - name: Verify Tahfidz persisted monthly leaderboard
