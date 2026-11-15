@@ -2,7 +2,7 @@
 
 ## Tujuan dan batas
 
-Catatan ini merekam rehearsal integrasi dari `main` commit `82082bf1c8fa806e420ae555ca38f0700694b9af`. Worktree berada di `sa/_tmp_integration_current_main_20261115`, pada branch review `codex/integration-current-main-20261115`. Branch tersebut sudah di-push ke GitHub pada commit `4595ad122b743f0f33e4d30e3afba1c72e9f67ff`; belum di-merge ke `main` dan tidak diterapkan ke Supabase Production maupun VQE.
+Catatan ini merekam rehearsal integrasi dari `main` commit `82082bf1c8fa806e420ae555ca38f0700694b9af`. Worktree berada di `sa/_tmp_integration_current_main_20261115`, pada branch review `codex/integration-current-main-20261115`. Branch tersebut sudah di-push ke GitHub untuk ditinjau tim; belum di-merge ke `main` dan tidak diterapkan ke Supabase Production maupun VQE. Commit kode terakhir pada branch ini adalah `ca07d58e`; commit setelahnya hanya memperbarui dokumen.
 
 Rehearsal menggabungkan source head PR #115, #91, #92, #121, #112, dan #114. Stack Tahfidz #91 → #92 → #121 tetap menjadi satu rantai migrasi; enam migrasi CBT #112 berada pada `20270321000000`–`20270326000000`, indeks #92 pada `20270330000000`, dan leaderboard #121 pada `20270331000000`. Source rehearsal memiliki 161 file migrasi. Preflight sintetis lulus dengan 114 migrasi pending terhadap fixture yang digunakan skrip; angka fixture ini bukan snapshot Production.
 
@@ -44,14 +44,41 @@ Build masih mengeluarkan peringatan chunk `react-pdf` sekitar 1,46 MB dan koment
 - Rekonsiliasi DDL Production, keputusan urutan migrasi terhadap ledger aktual, serta bukti backup dan restore Production adalah pekerjaan tim backend. Tidak ada migration push atau perubahan database yang dilakukan di checkpoint ini.
 - PR yang menjadi sumber perubahan tetap perlu review backend sebelum merge.
 
+## Rekonsiliasi metadata migrasi VQE staging — 15 November 2026
+
+Pemeriksaan baca-saja Supabase MCP pada project staging `vqemuyzveuirlkvdggjd` menemukan 150 entri migration ledger. Branch source berisi 161 file migrasi. Perbandingan nama dan versi menemukan 140 pasangan yang cocok persis, 10 nama migrasi yang tercatat di VQE pada versi berbeda, dan 11 nama source yang tidak ada di ledger VQE. Ini hanya membandingkan metadata; belum membuktikan DDL aktual atau kesetaraan SQL.
+
+Sepuluh nama yang versinya berbeda:
+
+| File source branch | Versi/nama yang tercatat di VQE |
+| --- | --- |
+| `20270320000000_tahfidz_quran_surah_catalog` | `20261109145507_tahfidz_quran_surah_catalog` |
+| `20270321000000_cbt_tenant_settings_write_api` | `20270314000000_cbt_tenant_settings_write_api` |
+| `20270322000000_cbt_admin_dashboard_summary` | `20270315000000_cbt_admin_dashboard_summary` |
+| `20270323000000_cbt_admin_question_keyset_pages` | `20270316000000_cbt_admin_question_keyset_pages` |
+| `20270324000000_cbt_admin_student_roster_pages` | `20270317000000_cbt_admin_student_roster_pages` |
+| `20270325000000_cbt_admin_assignment_pages` | `20270318000000_cbt_admin_assignment_pages` |
+| `20270326000000_cbt_admin_exam_pages` | `20270319000000_cbt_admin_exam_pages` |
+| `20270327000000_tahfidz_persisted_leaderboard` | `20261109145522_tahfidz_persisted_leaderboard` |
+| `20270328000000_tahfidz_bulk_daily_target_write_api` | `20261109145534_tahfidz_bulk_daily_target_write_api` |
+| `20270329000000_tahfidz_target_decimal_precision` | `20270312000000_tahfidz_target_decimal_precision` |
+
+Sebelas nama source yang belum tercatat di VQE:
+
+`20270215500000_sample_class_grade_labels`, `20270309000000_academic_report_card`, `20270310000000_academic_sample_catalog`, `20270311000000_academic_sample_term`, `20270312000000_sample_nis_grade_codes`, `20270313000000_education_boarding_operational_seed`, `20270314000000_education_boarding_operational_fill`, `20270315000000_lms_dashboard_operational_fill`, `20270316000000_communication_ops_runtime`, `20270330000000_add_core_composite_fk_indexes`, dan `20270331000000_tahfidz_active_days_leaderboard`.
+
+Ada empat benturan versi dengan nama berbeda antara source dan ledger VQE: versi `20270312000000` adalah `sample_nis_grade_codes` di source tetapi `tahfidz_target_decimal_precision` di VQE; versi `20270314000000` adalah `education_boarding_operational_fill` vs `cbt_tenant_settings_write_api`; versi `20270315000000` adalah `lms_dashboard_operational_fill` vs `cbt_admin_dashboard_summary`; dan versi `20270316000000` adalah `communication_ops_runtime` vs `cbt_admin_question_keyset_pages`. Nama saja tidak membuktikan bahwa dua file berisi SQL yang setara.
+
+Beberapa file source yang belum tercatat melakukan `UPDATE` atau `INSERT` pada referensi kelas, pengaturan/semester akademik, penempatan asrama, identitas NIS, atau aktivitas LMS; file lain menambah tabel, indeks, dan RPC. Karena itu jangan menjalankan `db push` atau `migration repair` otomatis. Tim backend perlu membandingkan isi SQL dan DDL objek aktual VQE untuk setiap pasangan/versi tersebut, menentukan migrasi forward-only yang diperlukan, lalu menguji pada staging. Production tidak diperiksa atau diubah dalam langkah ini.
+
 ## Langkah lanjut yang aman
 
 1. Branch review gabungan sudah tersedia untuk tim backend di [GitHub](https://github.com/hamdanfaiz/ERP4-Pesantren/tree/codex/integration-current-main-20261115); CI #1763 lulus 3/3.
-2. Minta review tim backend terhadap merge resolution CBT/Tahfidz dan daftar migrasi.
-3. Jalankan UAT browser pada VQE staging untuk role dan modul yang diaktifkan; flag VQE saat ini belum mengaktifkan semua modul.
+2. Tim backend meninjau rekonsiliasi VQE di atas sebelum menerapkan migrasi apa pun; migrasi belum disinkronkan ke staging.
+3. Setelah staging dan flag modul siap, jalankan UAT browser untuk role/modul yang diaktifkan dan alur simpan-baca.
 4. Tim backend menyelesaikan pemeriksaan DDL, backup, restore, dan urutan rilis Production sebelum menyetujui deploy.
 
 ## Checkpoint source lokal
 
-Head integrasi awal sebelum perbaikan UI/copy dan cakupan CI: `b5c7e8c` (`docs: record current main integration checkpoint`). Head branch review sebelum pembaruan checkpoint ini: `4595ad1` (`docs: record green integration workflow`), diverifikasi CI #1763 lulus 3/3. Pembaruan checkpoint ini bersifat dokumentasi saja; ini bukan merge ke `main` atau status merge PR sumber.
+Head integrasi awal sebelum perbaikan UI/copy dan cakupan CI: `b5c7e8c` (`docs: record current main integration checkpoint`). Source code terakhir yang diverifikasi pada branch review: `ca07d58e` (Actions #1762 lulus 3/3); pembaruan setelahnya hanya dokumentasi. Ini bukan merge ke `main` atau status merge PR sumber.
 
