@@ -174,7 +174,7 @@ for (const tabId of ['entities', 'structure', 'naming', 'audit']) {
 }
 assert.doesNotMatch(masterDataTabs[1], /id:\s*["']references["']/,
   'Reference catalogs must live with their owning modules instead of a generic Master Data tab.');
-assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?koneksi runtime Supabase belum diaktifkan[\s\S]*?<\/section>\)/,
+assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?Pengaturan penomoran belum tersedia saat ini[\s\S]*?<\/section>\)/,
   'Naming Series must show a clear unavailable state rather than disappear or fall through to mock CRUD when runtime is disabled.');
 assert.match(masterDataSource, /const isTenantConfigurationTab = activeTab === ["']naming["'];/,
   'Naming Series configuration must not expose mock record actions when runtime is disabled.');
@@ -456,6 +456,25 @@ assert.deepEqual(
   ['src/pages/Unsafe.tsx:setItem'],
   'The browser persistence policy must reject a localStorage record-write regression.',
 );
+const structureRegistrationSource = fs.readFileSync(path.join(root, 'src/components/StructureRegistrationForm.tsx'), 'utf8');
+assert.doesNotMatch(structureRegistrationSource, /Runtime Supabase Master Data|berhasil disimpan ke Supabase|Diterbitkan backend saat disimpan/,
+  'Customer-facing structure forms must not expose provider or implementation details.');
+const customerCopyGuards = [
+  { path: 'src/components/MasterDataTransferModal.tsx', pattern: /ke tenant aktif\?|pada tenant yang dapat diakses/i },
+  { path: 'src/components/SupabaseReferenceCatalogManager.tsx', pattern: /jenjang tenant|unik per tenant/i },
+  { path: 'src/pages/SupabaseAcademicManager.tsx', pattern: /Sesi Supabase tidak ditemukan|Data Akademik Supabase belum|tenant Supabase|Memuat data tenant|tenant ini|arsip tenant/i },
+  { path: 'src/pages/SupabaseCommunicationHub.tsx', pattern: /Sesi Supabase tidak ditemukan|Layanan Komunikasi Supabase|tenant Supabase|tenant ini|runtime Asrama|Admin tenant|dalam tenant/i },
+  { path: 'src/pages/SupabaseDocumentManager.tsx', pattern: /Sesi Supabase tidak ditemukan|per tenant|tenant aktif|Naming Series tenant/i },
+  { path: 'src/pages/SupabaseGeneralAffairManager.tsx', pattern: /Sesi Supabase tidak ditemukan|data tenant|inventaris tenant|ledger inventaris|belum punya API|runtime/i },
+  { path: 'src/pages/SupabaseLMSManager.tsx', pattern: /Sesi Supabase tidak tersedia|tenant Supabase|LMS Supabase|arsip Firebase|data LMS tenant|profil tenant|kursus tenant|snapshot tenant|katalog tenant|Admin tenant/i },
+  { path: 'src/pages/SupabasePpdbManager.tsx', pattern: /Sesi Supabase tidak ditemukan|calon santri Supabase|tenant aktif diperlukan|Backend belum|Admin tenant|calon santri tenant|tenant ini|transaksi Supabase/i },
+  { path: 'src/pages/SupabaseCrmManager.tsx', pattern: /WA_GATEWAY_API_KEY|broadcastStatus\.endpoint|OpenWA Easy|Memeriksa konfigurasi OpenWA/i },
+  { path: 'src/pages/SupabaseCBTManager.tsx', pattern: /pesantren key yang cocok|Simpan ke|\. sistem memindai/i },
+];
+for (const { path: relativePath, pattern } of customerCopyGuards) {
+  const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
+  assert.doesNotMatch(source, pattern, `${relativePath} must keep technical operator copy out of customer screens.`);
+}
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
 console.log('Browser persistence policy passed (no active localStorage writes; sessionStorage limited to Supabase Auth and temporary idempotency keys).');
 

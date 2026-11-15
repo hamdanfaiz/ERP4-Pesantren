@@ -80,7 +80,7 @@ function statusLabel(status: BudgetPlan["status"]) {
 
 async function requestBudget(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi tidak ditemukan. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/json");
@@ -233,7 +233,7 @@ export function SupabaseFinanceBudgetManager() {
   const removeLine = (index: number) => setDraft((current) => ({ ...current, lines: current.lines.length === 1 ? current.lines : current.lines.filter((_, lineIndex) => lineIndex !== index) }));
 
   if (role !== "Admin" && role !== "SuperAdmin") {
-    return <main className="mx-auto max-w-5xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">Anggaran hanya dapat dikelola Admin tenant.</main>;
+    return <main className="mx-auto max-w-5xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">Anggaran hanya dapat dikelola Admin pesantren.</main>;
   }
 
   return (
@@ -333,7 +333,7 @@ export function SupabaseFinanceBudgetManager() {
             return <tr key={plan.id}><td className="px-3 py-2.5 font-medium">{plan.periodLabel}</td><td className="px-3 py-2.5">{plan.unitCode ? `${plan.unitCode} · ${plan.unitName}` : "Belum dipetakan"}</td><td className="px-3 py-2.5">{statusLabel(plan.status)}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(allocated)}</td><td className="px-3 py-2.5 text-right tabular-nums">{currency(actual)}</td><td className={`px-3 py-2.5 text-right tabular-nums ${allocated - actual < 0 ? "text-rose-700" : ""}`}>{currency(allocated - actual)}</td></tr>;
           })}</tbody></table></div>}
       </section> : view === "books" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-        <div><h2 className="font-semibold text-slate-900 dark:text-white">Buku besar tenant</h2><p className="mt-1 text-sm text-slate-500">Entri berasal dari modul Keuangan. Pembukuan berpasangan multi-entitas terpisah belum tersedia.</p></div>
+        <div><h2 className="font-semibold text-slate-900 dark:text-white">Buku besar pesantren</h2><p className="mt-1 text-sm text-slate-500">Entri berasal dari modul Keuangan. Pembukuan berpasangan multi-entitas terpisah belum tersedia.</p></div>
         {financeBooksError && <div role="alert" className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{financeBooksError}</div>}
         {financeBooksLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat buku besar…</div>
           : financeBooks.ledger.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada posting buku besar.</p>

@@ -621,7 +621,7 @@ export function AlumniManager() {
                   ))}
                 </select>
                 <p className="text-xs text-slate-500 mt-2">
-                  This will move the selected student to the Alumni directory and record their graduation date.
+                  Santri terpilih akan dipindahkan ke daftar alumni dan tanggal kelulusannya akan dicatat.
                 </p>
               </div>
             </div>

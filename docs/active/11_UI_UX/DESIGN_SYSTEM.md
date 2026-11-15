@@ -11,6 +11,7 @@ Dokumen ini menjadi acuan visual dan pola interaksi bersama untuk frontend ERP4 
 - **Aman untuk data operasional:** konfirmasi tindakan destruktif, jelaskan status penyimpanan, dan tampilkan error yang dapat ditindaklanjuti.
 - **Responsif dan aksesibel:** fungsi utama bisa dipakai dengan keyboard, fokus terlihat, teks terbaca, dan konten tidak hilang pada layar kecil.
 - **Bahasa utama antarmuka adalah Bahasa Indonesia.** Jelaskan istilah teknis yang tidak umum pada konteksnya.
+- **Pesan produk memakai bahasa pengguna:** jangan tampilkan nama provider/database, flag runtime, rincian API atau migrasi, dan instruksi untuk tim teknis. Simpan detail diagnostik di log dan panduan operasi. Jika fitur belum tersedia, nyatakan dengan jelas tanpa memberi kesan bahwa fitur sudah berfungsi.
 
 ## 2. Tipografi
 

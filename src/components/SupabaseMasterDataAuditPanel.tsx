@@ -140,7 +140,7 @@ export function SupabaseMasterDataAuditPanel() {
           <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
             <Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> Jejak Audit Data Induk
           </h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Riwayat perubahan lintas sesi untuk tenant ini. Nilai data pribadi tidak disimpan di log.</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Riwayat perubahan lintas sesi untuk pesantren ini. Nilai data pribadi tidak disimpan di log.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => { notifyReloadRef.current = true; setNotice(""); setReloadKey((value) => value + 1); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5">
@@ -164,7 +164,7 @@ export function SupabaseMasterDataAuditPanel() {
       <div className="space-y-4 p-4 sm:p-6">
         <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950 dark:border-sky-400/20 dark:bg-sky-400/5 dark:text-sky-100">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>Log memuat jenis aksi, ID internal, UID aktor, dan nama kolom yang berubah. Nilai nama, NIK, NIS, alamat, atau isi record tidak dimasukkan ke log.</p>
+          <p>Riwayat mencatat jenis perubahan, waktu, pelaku, dan kolom yang berubah tanpa menyimpan nama, NIK, NIS, alamat, atau isi data pribadi.</p>
         </div>
         {notice && <div role="status" className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
         {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
@@ -172,7 +172,7 @@ export function SupabaseMasterDataAuditPanel() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_12rem_12rem_auto]">
           <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
             Cari pada halaman ini
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ID record atau aktor" className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 dark:border-white/15 dark:bg-slate-950 dark:text-white" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ID data atau nama pengguna" className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 dark:border-white/15 dark:bg-slate-950 dark:text-white" />
           </label>
           <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
             Aksi
@@ -195,7 +195,7 @@ export function SupabaseMasterDataAuditPanel() {
             <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="mt-2 font-semibold underline">Coba lagi</button>
           </div>
         ) : loading ? (
-          <div role="status" className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-400">Memuat jejak audit tenant…</div>
+          <div role="status" className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-400">Memuat jejak audit pesantren…</div>
         ) : page.records.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-white/15 dark:bg-slate-950/40">
             <Activity className="mx-auto h-8 w-8 text-slate-400" />

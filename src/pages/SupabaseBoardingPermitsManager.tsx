@@ -101,7 +101,7 @@ export function SupabaseBoardingPermitsManager() {
         endDate: form.endDate,
       });
       await refresh();
-      setNotice("Permohonan izin tersimpan di Supabase dengan status menunggu persetujuan.");
+      setNotice("Permohonan izin tersimpan dengan status menunggu persetujuan.");
       setIsFormOpen(false);
       createRequestId.current = null;
       setForm((current) => ({ ...current, reason: "", startDate: today, endDate: today }));
@@ -159,10 +159,10 @@ export function SupabaseBoardingPermitsManager() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
-            <ClipboardList className="h-4 w-4" /> Asrama · Izin Santri · Supabase
+            <ClipboardList className="h-4 w-4" /> Asrama · Izin Santri ·
           </div>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Permohonan Izin</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">Data tenant dimuat dari backend. Identitas santri dan transisi persetujuan diverifikasi di server.</p>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">Data pesantren dimuat dari sistem. Identitas santri dan transisi persetujuan diverifikasi di sistem.</p>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
@@ -182,12 +182,12 @@ export function SupabaseBoardingPermitsManager() {
 
       {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
       {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><span className="font-semibold">Tahap migrasi:</span> halaman ini mencakup alur izin asrama. Disiplin, kehadiran, staf, audit, dan tiket fasilitas masih menunggu cutover backend sebelum runtime asrama penuh diaktifkan.</div>
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Halaman ini digunakan untuk mengajukan dan mengelola izin santri.</div>
 
       {SUPABASE_BOARDING_PERMITS_IMPORT && ["Admin", "SuperAdmin"].includes(role) && <section className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="font-semibold text-indigo-950">Impor riwayat izin dari Firebase</h2><p className="mt-1 text-sm text-indigo-800">Pratinjau memetakan santri ke pesantren tujuan di Supabase dan menandai data yang harus diselesaikan sebelum penerapan.</p></div>
-          <button type="button" onClick={() => void runLegacyImport(false)} disabled={importBusy} className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50">{importBusy ? "Memproses…" : "Preview impor"}</button>
+           <div><h2 className="font-semibold text-indigo-950">Impor riwayat izin lama</h2><p className="mt-1 text-sm text-indigo-800">Pratinjau mencocokkan santri dengan pesantren ini dan menandai data yang perlu diperbaiki sebelum impor.</p></div>
+           <button type="button" onClick={() => void runLegacyImport(false)} disabled={importBusy} className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50">{importBusy ? "Memproses…" : "Pratinjau impor"}</button>
         </div>
         {importReport && <div className="mt-4 space-y-2 border-t border-indigo-200 pt-3 text-sm text-indigo-950">
           <div>{importReport.sourceCount} sumber · {importReport.planned} siap · {importReport.alreadyImported} sudah sama · {importReport.issues.length} perlu rekonsiliasi</div>
@@ -199,10 +199,10 @@ export function SupabaseBoardingPermitsManager() {
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="font-semibold text-slate-900">Daftar izin</h2><p className="mt-1 text-xs text-slate-500">{canManage ? "Lingkup data mengikuti tenant dan permission modul." : "Hanya permohonan milik santri yang tertaut pada profil Anda."}</p></div>
+          <div><h2 className="font-semibold text-slate-900">Daftar izin</h2><p className="mt-1 text-xs text-slate-500">{canManage ? "Lingkup data mengikuti pesantren dan izin modul." : "Hanya permohonan milik santri yang tertaut pada profil Anda."}</p></div>
           <input aria-label="Cari permohonan izin" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari santri, NIS, kamar…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs" />
         </div>
-        {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" />Memuat data tenant…</div>
+        {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" />Memuat data pesantren…</div>
           : visiblePermits.length === 0 ? <div className="p-12 text-center"><ClipboardList className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-medium text-slate-700">Belum ada permohonan izin</p><p className="mt-1 text-sm text-slate-500">Data akan muncul setelah permohonan dibuat melalui akun yang tertaut.</p></div>
             : <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3 font-semibold">Santri</th><th className="px-4 py-3 font-semibold">Jenis / alasan</th><th className="px-4 py-3 font-semibold">Periode</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Tindakan</th></tr></thead>

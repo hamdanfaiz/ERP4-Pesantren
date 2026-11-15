@@ -319,7 +319,7 @@ export function BulkOperationsModal({
                       <span>Hapus Permanen</span>
                     </div>
                     <span className="text-[11px] text-slate-400 mt-1">
-                      Hapus dokumen secara permanen dari Cloud Firestore. Tindakan ini tidak dapat dibatalkan.
+                      Hapus dokumen secara permanen dari arsip data lama. Tindakan ini tidak dapat dibatalkan.
                     </span>
                   </label>
                 </div>

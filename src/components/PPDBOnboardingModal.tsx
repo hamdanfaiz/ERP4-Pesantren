@@ -128,7 +128,7 @@ export function PPDBOnboardingModal({
     } catch (err) {
       console.error(err);
       setNis("");
-      showToast("NIS belum dapat dibuat. Pastikan sesi, koneksi, dan tenant aktif.", "error");
+      showToast("NIS belum dapat dibuat. Pastikan sesi, koneksi, dan pesantren aktif.", "error");
     } finally {
       setIsGeneratingNis(false);
     }
@@ -162,7 +162,7 @@ export function PPDBOnboardingModal({
     }
 
     if (!user?.tenantId) {
-      showToast("Akun Anda belum terhubung ke tenant pesantren.", "error");
+      showToast("Akun Anda belum terhubung ke pesantren.", "error");
       return;
     }
 
@@ -550,7 +550,7 @@ export function PPDBOnboardingModal({
                         />
                       </div>
                       <div className="sm:col-span-2 p-3 rounded-xl bg-amber-950/20 border border-amber-500/20 text-[11px] text-amber-200">
-                        Akun portal wali belum dibuat. Aktivasi harus dilakukan melalui provisioning Firebase Auth yang aman; tidak ada password default yang disimpan atau dikirim.
+                         Akun portal wali belum dibuat. Setelah menerima undangan, wali dapat mengatur kata sandi sendiri.
                       </div>
                     </div>
 
@@ -655,7 +655,7 @@ export function PPDBOnboardingModal({
               <div className="flex items-center gap-2 text-xs font-bold text-amber-300 uppercase tracking-wider">
                 <ShieldCheck className="w-4 h-4" /> Akun Portal Wali Menunggu Aktivasi
               </div>
-              <p className="mt-2 text-xs text-slate-400">Data wali telah ditautkan ke santri di {schoolName}. Kredensial login baru dapat diberikan setelah akun Firebase Auth dan profil tenant diprovisikan oleh administrator.</p>
+              <p className="mt-2 text-xs text-slate-400">Data wali telah ditautkan ke santri di {schoolName}. Akun portal wali dapat digunakan setelah wali menyelesaikan aktivasi.</p>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">

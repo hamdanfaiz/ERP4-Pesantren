@@ -321,7 +321,7 @@ export function MasterDataManager() {
         return;
       }
       const label = kind === "structures" ? "struktur Gedung, Kamar, dan Kelas" : "data Santri dan relasi Wali";
-      if (!window.confirm("Impor " + (preview.planned || 0) + " record " + label + " ke tenant aktif? Data yang ada tidak akan dihapus. Pastikan backup dan pratinjau sudah ditinjau.")) return;
+      if (!window.confirm("Impor " + (preview.planned || 0) + " entri " + label + " ke pesantren ini? Data yang sudah ada tidak akan dihapus. Pastikan salinan cadangan dan hasil pratinjau sudah ditinjau.")) return;
     }
 
     setLegacyMigrationPreviews((current) => ({ ...current, [kind]: null }));
@@ -343,11 +343,11 @@ export function MasterDataManager() {
         setLegacyMigrationPreviews((current) => ({ ...current, [kind]: result }));
         showToast(result.errors?.length
           ? "Pratinjau selesai dengan " + result.errors.length + " konflik yang perlu diselesaikan."
-          : "Pratinjau selesai: " + (result.planned || 0) + " record siap ditinjau.",
+          : "Pratinjau selesai: " + (result.planned || 0) + " data siap ditinjau.",
         result.errors?.length ? "error" : "success");
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Impor arsip Master Data belum dapat diproses.", "error");
+      showToast(error instanceof Error ? error.message : "Impor arsip Data Induk belum dapat diproses.", "error");
     } finally {
       setLegacyMigrationBusy(null);
     }
@@ -511,7 +511,7 @@ export function MasterDataManager() {
         setDataSources((prev) => ({ ...prev, [activeSubTab]: [] }));
         if (activeTab === "entities" && activeSubTab === "Santri") {
           setServerStudentHasMore(false);
-          showToast(error instanceof Error ? error.message : "Daftar santri belum dapat dimuat.", "error");
+          showToast("Daftar santri belum dapat dimuat. Periksa koneksi lalu coba kembali.", "error");
         }
       }
     };
@@ -666,7 +666,7 @@ export function MasterDataManager() {
       } else if (activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab)) {
         await deleteSupabaseMasterDataStructure(activeSubTab as "Gedung" | "Kamar" | "Kelas", String(record.id));
       } else {
-        throw new Error("Kategori ini belum tersedia pada runtime Supabase.");
+        throw new Error("Kategori ini belum dapat dikelola dari sini.");
       }
       setDataSources((prev) => ({
         ...prev,
@@ -676,7 +676,7 @@ export function MasterDataManager() {
       if (selectedRecord?.id === record.id) setSelectedRecord(null);
       showToast(`Data "${record.name}" berhasil diarsipkan atau dihapus.`, "success");
     } catch (error: any) {
-      showToast(error?.message || "Perubahan data Supabase gagal.", "error");
+      showToast("Perubahan belum berhasil disimpan. Periksa koneksi lalu coba kembali.", "error");
     } finally {
       setRecordToDelete(null);
     }
@@ -846,7 +846,7 @@ export function MasterDataManager() {
       return;
     }
     if (!user?.tenantId) {
-      showToast("Tenant aktif tidak ditemukan. Muat ulang sesi sebelum menyimpan.", "error");
+      showToast("Sesi pesantren tidak valid. Masuk kembali sebelum menyimpan.", "error");
       return;
     }
 
@@ -863,8 +863,8 @@ export function MasterDataManager() {
       return;
     }
     if (modalMode === "edit" && String(result.data.id || "").trim() !== String(editingId || "").trim()) {
-      setFormErrors({ id: "ID record tidak dapat diubah setelah data dibuat." });
-      showToast("ID record tidak dapat diubah setelah data dibuat.", "error");
+      setFormErrors({ id: "ID data tidak dapat diubah setelah data dibuat." });
+      showToast("ID data tidak dapat diubah setelah data dibuat.", "error");
       return;
     }
 
@@ -887,7 +887,7 @@ export function MasterDataManager() {
           category: activeSubTab,
         });
       } else {
-        throw new Error("Kategori ini belum tersedia pada runtime Supabase.");
+        throw new Error("Kategori ini belum dapat dikelola dari sini.");
       }
       setDataSources((prev) => ({
         ...prev,
@@ -901,7 +901,7 @@ export function MasterDataManager() {
       setIsModalOpen(false);
       showToast(`Data "${savedRecord.name}" berhasil ${modalMode === "add" ? "disimpan" : "diperbarui"}.`, "success");
     } catch (error: any) {
-      showToast(error?.message || "Gagal menyimpan data ke Supabase.", "error");
+      showToast("Data belum berhasil disimpan. Periksa koneksi lalu coba kembali.", "error");
     }
   };
 
@@ -1490,9 +1490,9 @@ export function MasterDataManager() {
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Migrasi arsip Master Data</h2>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Impor arsip Data Induk</h2>
               <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500 dark:text-slate-400">
-                Pratinjau membaca arsip Firestore tenant aktif tanpa menulis data. Terapkan impor hanya setelah konflik, relasi, dan backup ditinjau. Selesaikan impor struktur sebelum impor santri.
+                Pratinjau tidak mengubah data. Tinjau konflik, relasi, dan salinan cadangan sebelum menerapkan impor. Impor struktur sebelum impor santri.
               </p>
             </div>
             <span className="inline-flex w-fit items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
@@ -1537,7 +1537,7 @@ export function MasterDataManager() {
                       {typeof preview.legacyStructureCount === "number" && (
                         <p>Struktur {preview.legacyStructureCount} · Santri sumber {preview.legacyStudentCount || 0} · Penempatan kamar belum cocok unik {preview.studentsWithoutUnambiguousRoom || 0}</p>
                       )}
-                      {typeof preview.legacyGuardianCount === "number" && <p>Record Wali sumber {preview.legacyGuardianCount}</p>}
+                      {typeof preview.legacyGuardianCount === "number" && <p>Data wali dari sumber {preview.legacyGuardianCount}</p>}
                       {(preview.errors || []).slice(0, 4).map((item: any, index: number) => (
                         <p key={"error-" + index} className="rounded-md bg-rose-50 px-2 py-1.5 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200">{item.category || "Konflik"} · {item.message}</p>
                       ))}
@@ -1621,7 +1621,7 @@ export function MasterDataManager() {
                 mode: "export",
                 kind: activeTab === "entities" ? "students" : "structures",
                 category: SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab) ? activeSubTab as "Gedung" | "Kamar" | "Kelas" : undefined,
-              })} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10" title="Ekspor seluruh data tenant dari backend">
+              })} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10" title="Ekspor seluruh data dalam cakupan akses Anda">
                 <Download className="h-4 w-4" />
                 <span>Ekspor Data</span>
               </button>
@@ -1666,10 +1666,10 @@ export function MasterDataManager() {
       {activeTab === "naming" ? (SUPABASE_MASTER_DATA_RUNTIME ? <SupabaseNamingSeriesManager /> : <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-8">
         <header className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"><Hash className="h-5 w-5" /></span>
-          <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">ID teknis dibuat otomatis oleh basis data. Nomor yang dibaca pengguna, seperti NIS dan kode operasional, diterbitkan otomatis melalui Naming Series tenant.</p></div>
+          <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">Aturan Penomoran</h2><p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">Atur pola nomor untuk NIS dan kode operasional pesantren.</p></div>
         </header>
         <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
-          Pengaturan seri belum dapat dimuat di pratinjau ini karena koneksi runtime Supabase belum diaktifkan. Menu dan fungsi penomoran tersedia setelah backend staging dikonfigurasi. Tidak ada data contoh atau perubahan lokal yang ditampilkan di sini.
+          Pengaturan penomoran belum tersedia saat ini. Hubungi administrator pesantren untuk informasi lebih lanjut.
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {["NIS dan nomor pendaftaran", "Nomor pegawai", "Gedung, kamar, dan kelas", "Dokumen dan kuitansi", "Aset, persediaan, dan wakaf", "Laundry, koperasi, dan marketplace"].map((label) => <div key={label} className="rounded-xl border border-slate-200 p-4 text-sm font-medium text-slate-700 dark:border-white/10 dark:text-slate-200">{label}</div>)}
@@ -1903,7 +1903,7 @@ export function MasterDataManager() {
                         </p>
                         <div className="mt-2 text-xs bg-black/40 border border-slate-200 dark:border-white/5 rounded-lg p-2.5 text-slate-700 dark:text-slate-300 flex items-center justify-between">
                           <div className="truncate">
-                            Record:{" "}
+                        Data:{" "}
                             <span className="font-semibold text-white">
                               {log.recordName}
                             </span>{" "}
@@ -2188,7 +2188,7 @@ export function MasterDataManager() {
                   <div className="absolute top-0 right-0 h-full w-full max-w-[400px] glass-panel border-l border-slate-200 dark:border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-20 flex flex-col animate-in slide-in-from-right duration-300 print:relative print:w-full print:max-w-none print:shadow-none print:bg-white print:text-black print:border-none print:h-auto print:block">
                     <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-black/40 print:hidden">
                       <h3 className="font-medium text-slate-800 dark:text-slate-200">
-                        Record Profile
+                        Profil Data
                       </h3>
                       <button
                         onClick={() => setSelectedRecord(null)}
@@ -2458,7 +2458,7 @@ export function MasterDataManager() {
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                           <span className="font-semibold text-slate-800 dark:text-slate-100">
                                             {{
-                                              baseline_snapshot: "Kondisi saat cutover",
+                                              baseline_snapshot: "Kondisi awal penggunaan",
                                               initial_assignment: "Penempatan awal",
                                               assigned: "Penempatan kamar",
                                               moved: "Perpindahan kamar",
@@ -2479,11 +2479,11 @@ export function MasterDataManager() {
                                           </p>
                                         )}
                                         <p className="mt-1 text-slate-500 dark:text-slate-400">
-                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : entry.changeSource === "migration_baseline" ? "Snapshot cutover" : "Sistem"}
+                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : entry.changeSource === "migration_baseline" ? "Kondisi awal penggunaan" : "Sistem"}
                                         </p>
                                         {entry.eventType === "baseline_snapshot" && (
                                           <p className="mt-2 text-amber-700 dark:text-amber-300">
-                                            Kondisi ini dicatat saat migrasi; riwayat sebelum tanggal tersebut tidak tersedia.
+                                            Kondisi ini dicatat pada awal penggunaan; riwayat sebelum tanggal tersebut tidak tersedia.
                                           </p>
                                         )}
                                       </div>

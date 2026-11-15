@@ -45,10 +45,9 @@ export function SupabaseBoardingManager() {
   </div>;
 }
 
-function UnavailableSection({ label, flag }: { label: string; flag: string }) {
+function UnavailableSection({ label }: { label: string; flag: string }) {
   return <section role="status" className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
-    <h2 className="font-semibold">{label} belum diaktifkan</h2>
-    <p className="mt-2 leading-6">Menu tetap ditampilkan agar cakupan Asrama tidak hilang. Data belum dapat dibaca atau ditulis sebelum API Supabase, migrasi, izin tenant, dan UAT untuk bagian ini siap.</p>
-    <p className="mt-3 rounded-lg bg-white/70 px-3 py-2 font-mono text-xs dark:bg-black/20">Gerbang server: {flag}</p>
+    <h2 className="font-semibold">{label} belum tersedia</h2>
+    <p className="mt-2 leading-6">Fitur ini belum tersedia saat ini.</p>
   </section>;
 }

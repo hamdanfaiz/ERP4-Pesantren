@@ -966,7 +966,7 @@ export function BoardingManager() {
               className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-indigo-500 transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Record</span>
+              <span className="hidden sm:inline">Tambah Catatan</span>
             </button>
           )}
         </div>
@@ -1402,7 +1402,7 @@ export function BoardingManager() {
                   Cancel
                 </button>
                 <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                  Save Record
+                  Simpan Catatan
                 </button>
               </div>
             </form>

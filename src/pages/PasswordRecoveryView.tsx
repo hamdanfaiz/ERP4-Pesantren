@@ -153,7 +153,7 @@ export function PasswordRecoveryView({ onCompleted, onBack }: Props) {
               <label htmlFor="recovery-password-confirm" className="mb-1.5 block text-xs font-semibold text-slate-300">Ulangi kata sandi baru</label>
               <input id="recovery-password-confirm" type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} className={CONTROL} />
             </div>
-            <p className="text-xs leading-5 text-slate-400">Minimal 12 karakter. Password diproses oleh Supabase Auth dan tidak disimpan di browser sebagai data aplikasi.</p>
+            <p className="text-xs leading-5 text-slate-400">Gunakan minimal 12 karakter. Kata sandi Anda dikelola secara aman dan tidak disimpan dalam data pesantren.</p>
             <button type="submit" disabled={isSaving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
               {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
               {isSaving ? 'Memperbarui kata sandi…' : 'Simpan kata sandi baru'}

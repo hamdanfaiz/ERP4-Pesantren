@@ -556,7 +556,7 @@ export function DashboardOverview() {
             Ringkasan Eksekutif Pesantren
           </h1>
           <p className="text-slate-500 text-sm mt-2">
-            Metrik operasional dan performa keuangan real-time untuk tenant aktif sesuai wewenang akun.
+            Metrik operasional dan performa keuangan real-time untuk pesantren aktif sesuai wewenang akun.
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5 text-xs bg-black/40 border border-slate-200 dark:border-white/5 rounded-lg p-1">
@@ -612,14 +612,14 @@ export function DashboardOverview() {
           trend="up"
           trendValue={canReadPpdb ? acceptedCandidates + " diterima" : "akses terbatas"}
           progress={canReadPpdb ? ppdbConversion : undefined}
-          statusText={canReadPpdb ? "REAL-TIME TENANT" : "AKSES PPDB TERBATAS"}
+          statusText={canReadPpdb ? "REAL-TIME pesantren" : "AKSES PPDB TERBATAS"}
         />
         <KPICard
           title="Santri Aktif"
           value={canReadMasterData ? activeStudents.length : "—"}
           icon={BookOpen}
           trendValue={canReadMasterData ? "data master" : "akses terbatas"}
-          statusText={canReadMasterData ? "RECORD AKTIF" : "AKSES MASTER DATA TERBATAS"}
+          statusText={canReadMasterData ? "CATATAN AKTIF" : "AKSES DATA INDUK TERBATAS"}
         />
         <KPICard
           title="Arus kas bersih"
@@ -675,7 +675,7 @@ export function DashboardOverview() {
                   Status Tagihan Terbuka
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Rekapitulasi sisa kewajiban pembayaran santri pada tenant saat ini
+                  Rekapitulasi sisa kewajiban pembayaran santri pada pesantren saat ini
                 </p>
               </div>
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
@@ -730,7 +730,7 @@ export function DashboardOverview() {
                 <div className="h-48 flex flex-col items-center justify-center text-center p-4">
                   <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-2 opacity-80" />
                   <p className="text-sm font-medium text-slate-300">Semua Tagihan Selesai</p>
-                  <p className="text-xs text-slate-500 mt-1">Tidak ada tagihan tertunggak atau terbuka pada tenant ini.</p>
+                  <p className="text-xs text-slate-500 mt-1">Tidak ada tagihan tertunggak atau terbuka pada pesantren ini.</p>
                 </div>
               )
             ) : (
@@ -741,7 +741,7 @@ export function DashboardOverview() {
           </div>
           <div className="pt-3 mt-4 border-t border-slate-200/30 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-500">
             <span>Sistem Billing Pesantren</span>
-            <span>Ledger Terverifikasi</span>
+            <span>Transaksi Terverifikasi</span>
           </div>
         </div>
 
@@ -916,7 +916,7 @@ export function DashboardOverview() {
                     Ringkasan Keuangan
                   </h4>
                   <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                    {canReadFinance ? (openBillings.length > 0 ? <>Ada <strong>{openBillings.length}</strong> tagihan terbuka dengan estimasi sisa <strong>{formatRupiah(outstandingAmount)}</strong>.</> : "Tidak ada tagihan terbuka yang terdeteksi pada data tenant ini.") : "Akses data keuangan tidak diberikan untuk akun ini."}
+                    {canReadFinance ? (openBillings.length > 0 ? <>Ada <strong>{openBillings.length}</strong> tagihan terbuka dengan estimasi sisa <strong>{formatRupiah(outstandingAmount)}</strong>.</> : "Tidak ada tagihan terbuka yang terdeteksi pada data pesantren ini.") : "Akses data keuangan tidak diberikan untuk akun ini."}
                   </p>
                 </div>
               </div>
@@ -957,7 +957,7 @@ export function DashboardOverview() {
                   </h4>
                   <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                     {canReadMasterData ? (
-                      <>Tercatat <strong>{activeStudents.length}</strong> santri aktif ({studentGenderSummary[0].count} putra, {studentGenderSummary[1].count} putri) terdaftar pada tenant aktif.</>
+                      <>Tercatat <strong>{activeStudents.length}</strong> santri aktif ({studentGenderSummary[0].count} putra, {studentGenderSummary[1].count} putri) terdaftar pada pesantren aktif.</>
                     ) : (
                       "Akses data master santri tidak diberikan untuk akun ini."
                     )}
@@ -973,7 +973,7 @@ export function DashboardOverview() {
       <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-3 group">
         <div className="flex flex-col gap-2 transition-all duration-300 opacity-0 translate-y-4 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto">
           <button className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium px-4 py-2 rounded-lg shadow-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-end gap-2 border border-slate-200 dark:border-slate-700 whitespace-nowrap transition-colors">
-            Input New Tahfidz Record{" "}
+            Catat Setoran Tahfidz{" "}
             <BookOpen className="w-4 h-4 text-emerald-500" />
           </button>
           <button className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium px-4 py-2 rounded-lg shadow-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-end gap-2 border border-slate-200 dark:border-slate-700 whitespace-nowrap transition-colors">

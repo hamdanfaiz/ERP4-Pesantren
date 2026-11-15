@@ -157,7 +157,7 @@ export function GuardianInvitationActivationView({
           </h1>
           <p className="text-xs text-slate-400 mt-2">
             {success
-              ? "Akun Anda sudah tertaut ke data Wali dan santri pada tenant pesantren."
+              ? "Akun Anda sudah tertaut ke data Wali dan santri di pesantren ini."
               : "Konfirmasi email undangan dan buat kata sandi Anda sendiri."}
           </p>
         </header>
@@ -219,7 +219,7 @@ export function GuardianInvitationActivationView({
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
               />
             </div>
-            <p className="text-[11px] text-slate-400">Gunakan minimal 12 karakter. Kata sandi dikelola oleh Supabase Auth dan tidak disimpan oleh ERP.</p>
+            <p className="text-[11px] text-slate-400">Gunakan minimal 12 karakter. Kata sandi Anda dikelola secara aman dan tidak disimpan dalam data pesantren.</p>
             <button
               type="submit"
               disabled={isSubmitting || isPreparing || !email}
