@@ -3805,7 +3805,7 @@ export function TahfidzManager() {
 
   return (
     <div className="space-y-6 max-w-7xl w-full mx-auto pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+      <div className="flex flex-col gap-4 border-b border-slate-200 dark:border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-emerald-800 dark:text-emerald-400 hidden-border">
             Sistem Tahfidz ITQAN
@@ -3815,7 +3815,7 @@ export function TahfidzManager() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() =>
               isReminderEnabled
