@@ -14,7 +14,12 @@ import {
   type BoardingPermitsImportReport,
 } from "../services/boardingPermitsApi";
 
-const PERMIT_TYPES = ["Pulang", "Keluar Area", "Kegiatan Eksternal", "Izin Wali Santri"];
+const PERMIT_TYPES = [
+  { value: "Pulang", label: "Pulang" },
+  { value: "Keluar Area", label: "Keluar Area" },
+  { value: "Kegiatan Eksternal", label: "Kegiatan Eksternal" },
+  { value: "Izin Walisantri (Parental Leave)", label: "Izin Wali Santri" },
+];
 const SUPABASE_BOARDING_PERMITS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED") === "true";
 
 function localDateInputValue() {
@@ -60,7 +65,7 @@ export function SupabaseBoardingPermitsManager() {
   const createRequestId = useRef<string | null>(null);
   const statusRequestIds = useRef(new Map<string, string>());
   const today = useMemo(localDateInputValue, []);
-  const [form, setForm] = useState({ studentId: "", type: PERMIT_TYPES[0], reason: "", startDate: today, endDate: today });
+  const [form, setForm] = useState({ studentId: "", type: PERMIT_TYPES[0].value, reason: "", startDate: today, endDate: today });
 
   const refresh = useCallback(async () => {
     setError("");
@@ -220,7 +225,7 @@ export function SupabaseBoardingPermitsManager() {
               <tbody className="divide-y divide-slate-100">
                 {visiblePermits.map((permit) => <tr key={permit.id} className="align-top hover:bg-slate-50/70">
                   <td className="px-4 py-4"><div className="font-semibold text-slate-900">{permit.santriName}</div><div className="mt-1 text-xs text-slate-500">NIS {permit.nis || "—"} · Kamar {permit.room}</div></td>
-                  <td className="px-4 py-4"><div className="font-medium text-slate-800">{permit.type}</div><div className="mt-1 max-w-xs text-xs text-slate-500">{permit.reason}</div></td>
+                  <td className="px-4 py-4"><div className="font-medium text-slate-800">{PERMIT_TYPES.find((type) => type.value === permit.type)?.label || permit.type}</div><div className="mt-1 max-w-xs text-xs text-slate-500">{permit.reason}</div></td>
                   <td className="whitespace-nowrap px-4 py-4 text-slate-700">{permit.startDate}<div className="mt-1 text-xs text-slate-500">s.d. {permit.endDate}</div></td>
                   <td className="px-4 py-4"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyle(permit.status)}`}>{permitStatusLabel(permit.status)}</span></td>
                   <td className="px-4 py-4 text-right">
@@ -241,7 +246,7 @@ export function SupabaseBoardingPermitsManager() {
           <div className="flex items-start justify-between"><div><h2 className="text-lg font-bold text-slate-900">Ajukan izin asrama</h2><p className="mt-1 text-sm text-slate-500">Permohonan masuk ke alur persetujuan petugas.</p></div><button type="button" onClick={() => setIsFormOpen(false)} disabled={saving === "new"} aria-label="Tutup" className="rounded-md p-1 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button></div>
           {(role === "Admin" || role === "SuperAdmin" || role === "Ustadz") && <label className="block text-sm font-medium text-slate-700">Santri<select required value={form.studentId} onChange={(event) => setForm({ ...form, studentId: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="" disabled>Pilih santri</option>{snapshot.students.map((student: BoardingPermitStudent) => <option key={student.id} value={student.id}>{student.name} ({student.nis || "tanpa NIS"})</option>)}</select></label>}
           {!(role === "Admin" || role === "SuperAdmin" || role === "Ustadz") && <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">{snapshot.students[0]?.name || "Santri tertaut"}</div>}
-          <label className="block text-sm font-medium text-slate-700">Jenis izin<select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2">{PERMIT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+          <label className="block text-sm font-medium text-slate-700">Jenis izin<select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2">{PERMIT_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></label>
           <label className="block text-sm font-medium text-slate-700">Alasan<textarea required maxLength={1000} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} rows={3} className="mt-1 block w-full resize-y rounded-lg border border-slate-300 px-3 py-2" /></label>
           <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium text-slate-700">Mulai<input required type="date" value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="block text-sm font-medium text-slate-700">Sampai<input required type="date" min={form.startDate} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label></div>
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onClick={() => setIsFormOpen(false)} disabled={saving === "new"} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Batal</button><button type="submit" disabled={saving === "new" || !form.studentId || !form.reason.trim()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{saving === "new" && <LoaderCircle className="h-4 w-4 animate-spin" />}Simpan permohonan</button></div>

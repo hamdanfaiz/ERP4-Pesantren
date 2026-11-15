@@ -224,7 +224,7 @@ export function BoardingManager() {
       if (role === 'Santri') {
         setToast({ message: "Permit requested successfully. A notification has been sent to your Musyrif for approval.", type: 'success' });
       } else if (role === 'Walisantri') {
-        setToast({ message: "Parental Leave Permit requested successfully. A notification has been sent to your child's Musyrif for approval.", type: 'success' });
+        setToast({ message: "Permohonan izin Wali berhasil dikirim kepada Musyrif santri untuk disetujui.", type: 'success' });
       } else {
         setToast({ message: "Permit berhasil dicatat.", type: 'success' });
       }
@@ -1302,7 +1302,7 @@ export function BoardingManager() {
                           <option value="Pulang">Pulang</option>
                           <option value="Keluar Area">Keluar Area</option>
                           <option value="Kegiatan Eksternal">Kegiatan Eksternal</option>
-                          <option value="Izin Wali Santri">Izin Wali Santri</option>
+                          <option value="Izin Walisantri (Parental Leave)">Izin Wali Santri</option>
                         </select>
                       </div>
                       <div>
