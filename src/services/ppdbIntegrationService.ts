@@ -57,7 +57,7 @@ export const ppdbIntegrationService = {
     }
   ): Promise<{ receiptNo: string; invoiceId: string }> {
     const tenantId = (candidate as any).tenantId;
-    if (!tenantId || !candidate.id || !candidate.registrationId) throw new Error('Kandidat belum memiliki tenant dan identitas PPDB yang valid.');
+    if (!tenantId || !candidate.id || !candidate.registrationId) throw new Error('Calon santri belum memiliki identitas pendaftaran yang valid.');
     if (!Number.isFinite(details.amount) || details.amount <= 0) throw new Error('Nominal pembayaran harus lebih besar dari nol.');
     const today = new Date().toISOString().slice(0, 10);
     const invoiceId = 'INV-PPDB-' + candidate.registrationId + '-' + (paymentType === 'registration' ? 'REG' : 'SPP');
@@ -75,7 +75,7 @@ export const ppdbIntegrationService = {
       const previousBilling = billingSnapshot.exists() ? billingSnapshot.data() : {};
       const nextPaidAmount = details.paidAmount ?? (details.status === 'Paid' ? details.amount : 0);
       const previousPaidAmount = Number(previousBilling.paidAmount || 0);
-      if (!candidateSnapshot.exists() || candidateSnapshot.data().tenantId !== tenantId) throw new Error('Kandidat tidak ditemukan pada tenant aktif.');
+      if (!candidateSnapshot.exists() || candidateSnapshot.data().tenantId !== tenantId) throw new Error('Calon santri tidak ditemukan pada pesantren aktif.');
       const payment = { ...(candidateSnapshot.data().payment || {}) };
       const feeKey = paymentType === 'registration' ? 'registrationFee' : 'tuitionFee';
       payment[feeKey] = {
@@ -106,7 +106,7 @@ export const ppdbIntegrationService = {
 
   async batchGenerateRegistrationBills(candidates: Candidate[], feeAmount: number = 250000, requestedTenantId?: string): Promise<number> {
     const tenantId = requestedTenantId || (candidates[0] as any)?.tenantId;
-    if (!tenantId) throw new Error('Tenant aktif wajib disertakan saat menerbitkan tagihan PPDB.');
+    if (!tenantId) throw new Error('Pesantren aktif belum tersedia untuk menerbitkan tagihan PPDB.');
     if (!Number.isFinite(feeAmount) || feeAmount <= 0) throw new Error('Nominal tagihan pendaftaran tidak valid.');
     const today = new Date().toISOString().slice(0, 10);
     let addedCount = 0;
@@ -138,7 +138,7 @@ export const ppdbIntegrationService = {
 
   async batchGenerateAcceptedTuitionBills(acceptedCandidates: Candidate[], tuitionAmount: number = 5000000, requestedTenantId?: string): Promise<number> {
     const tenantId = requestedTenantId || (acceptedCandidates[0] as any)?.tenantId;
-    if (!tenantId) throw new Error('Tenant aktif wajib disertakan saat menerbitkan tagihan daftar ulang.');
+    if (!tenantId) throw new Error('Pesantren aktif belum tersedia untuk menerbitkan tagihan daftar ulang.');
     if (!Number.isFinite(tuitionAmount) || tuitionAmount <= 0) throw new Error('Nominal daftar ulang tidak valid.');
     const today = new Date().toISOString().slice(0, 10);
     let addedCount = 0;
@@ -170,7 +170,7 @@ export const ppdbIntegrationService = {
 
   async syncPaymentsFromFinance(candidates: Candidate[], requestedTenantId?: string): Promise<number> {
     const tenantId = requestedTenantId || (candidates[0] as any)?.tenantId;
-    if (!tenantId) throw new Error('Tenant aktif wajib disertakan untuk sinkronisasi pembayaran.');
+    if (!tenantId) throw new Error('Pesantren aktif belum tersedia untuk memperbarui status pembayaran.');
     const snapshot = await getDocs(query(collection(db, 'financeBillings'), where('tenantId', '==', tenantId)));
     const bills = snapshot.docs.map(item => ({ ...item.data(), id: item.id } as any));
     let updatedCount = 0;

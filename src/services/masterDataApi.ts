@@ -92,21 +92,21 @@ export type SupabaseMasterDataAuditPage = {
 
 async function requestMasterData<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getAccessToken();
-  if (!token) throw new Error("Sesi Supabase tidak ditemukan. Silakan masuk kembali.");
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", "Bearer " + token);
   headers.set("Accept", "application/json");
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch(path, { ...init, headers, cache: "no-store" });
   const payload: any = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "Permintaan Master Data Supabase gagal diproses.");
+  if (!response.ok) throw new Error(payload.error || "Data induk belum dapat diproses.");
   return payload as T;
 }
 
 export async function listSupabaseTenantNamingSeries(): Promise<TenantNamingSeries[]> {
   const result = await requestMasterData<{ records: TenantNamingSeries[] }>("/api/master-data/naming-series");
   if (!isCompleteTenantNamingSeriesCatalog(result.records)) {
-    throw new Error("Seri penomoran tenant belum lengkap.");
+    throw new Error("Pengaturan seri penomoran pesantren belum lengkap.");
   }
   return result.records;
 }

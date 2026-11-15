@@ -127,7 +127,7 @@ async function requestSupabaseSettingsApi(path: string, init: RequestInit = {}) 
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch(path, { ...init, headers, cache: "no-store" });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new SettingsRequestError(response.status, payload.error || "Pengaturan tenant belum dapat diproses.");
+  if (!response.ok) throw new SettingsRequestError(response.status, payload.error || "Pengaturan pesantren belum dapat diproses.");
   return payload;
 }
 
@@ -236,7 +236,7 @@ class SystemSettingsService {
         this.notify();
       } catch (error) {
         if (active && this.activeTenantId === tenantId && !this.settingsReady) {
-          this.settingsLoadError = "Pengaturan tenant belum dapat dimuat dari Supabase. Periksa koneksi lalu coba lagi.";
+          this.settingsLoadError = "Pengaturan belum dapat dimuat. Periksa koneksi lalu coba lagi.";
           this.notify();
         }
         console.warn("Supabase settings sync failed:", error instanceof Error ? error.message : "unknown error");
@@ -314,9 +314,9 @@ class SystemSettingsService {
 
   public async saveSettings(partial: Partial<SystemSettings>): Promise<void> {
     const tenantId = this.activeTenantId;
-    if (!tenantId) throw new Error("Tenant aktif wajib tersedia sebelum pengaturan disimpan.");
+    if (!tenantId) throw new Error("Pesantren aktif belum tersedia. Pengaturan tidak dapat disimpan.");
     if (!this.settingsReady) {
-      throw new Error("Pengaturan tenant belum selesai dimuat; penyimpanan ditolak untuk mencegah menimpa data dengan nilai awal.");
+      throw new Error("Pengaturan belum selesai dimuat. Muat ulang sebelum menyimpan agar data tidak tertimpa.");
     }
     const permissionSource = partial.permissions ?? this.settings.permissions;
     const permissions = Object.fromEntries(

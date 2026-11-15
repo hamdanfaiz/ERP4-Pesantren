@@ -66,7 +66,7 @@ export async function getNextAvailableNIS(
   existingCandidates: Candidate[] = []
 ): Promise<string> {
   const normalizedTenantId = tenantId.trim();
-  if (!normalizedTenantId) throw new Error('Tenant wajib ditentukan sebelum NIS dialokasikan.');
+  if (!normalizedTenantId) throw new Error('Pesantren aktif belum tersedia untuk membuat NIS.');
   const currentYear = new Date().getFullYear();
   const usedNis = new Set<string>();
 
@@ -130,7 +130,7 @@ const candidateRef = doc(db, 'candidates', candidateId);
       if (!snapshot.exists()) continue;
       const invoice = snapshot.data();
       if (invoice.tenantId !== tenantId || invoice.candidateId !== candidateId) {
-        throw new Error('Tagihan PPDB tidak cocok dengan tenant atau calon santri yang sedang di-onboard.');
+        throw new Error('Tagihan PPDB tidak cocok dengan pesantren aktif atau calon santri yang sedang didaftarkan.');
       }
       if (invoice.santriId && invoice.santriId !== santriId) {
         throw new Error('Tagihan PPDB sudah terhubung ke santri lain.');
@@ -157,7 +157,7 @@ export const onboardingService = {
     const roomId = assignment.roomId?.trim() || '';
     const classId = assignment.classId?.trim() || '';
 
-    if (!tenantId) throw new Error('Tenant wajib dipilih untuk onboarding.');
+    if (!tenantId) throw new Error('Pesantren aktif belum tersedia untuk pendaftaran.');
     if (!candidate.id?.trim()) throw new Error('ID calon santri tidak valid.');
     if (!/^\d{10}$/.test(nis)) throw new Error('Format NIS harus 10 digit: tahun, kode jenjang, dan nomor urut.');
     if (!roomId || !classId || !assignment.className.trim() || !assignment.roomName.trim()) {
@@ -186,7 +186,7 @@ export const onboardingService = {
     if (!currentCandidateSnapshot.exists()) throw new Error('Data calon santri tidak ditemukan.');
     const currentCandidateData = currentCandidateSnapshot.data();
     
-    if (currentCandidateData.tenantId !== tenantId) throw new Error('Tenant calon santri tidak cocok dengan sesi aktif.');
+    if (currentCandidateData.tenantId !== tenantId) throw new Error('Calon santri tidak terdaftar pada pesantren aktif.');
     if (currentCandidateData.onboardingStatus === 'Completed' || currentCandidateData.syncToMasterData === true) {
       if (typeof currentCandidateData.masterStudentId === 'string' && currentCandidateData.masterStudentId) {
 await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.registrationId, currentCandidateData.masterStudentId);
@@ -220,11 +220,11 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
     ]);
 
     if (existingNisSnapshot.docs.some((item) => item.id !== currentCandidateData.masterStudentId)) {
-      throw new Error('NIS sudah digunakan oleh santri aktif pada tenant ini.');
+      throw new Error('NIS sudah digunakan oleh santri aktif di pesantren ini.');
     }
     identityValues.forEach((item, index) => {
       if (existingIdentitySnapshots[index].docs.length > 0) {
-        throw new Error(item.kind.toUpperCase() + ' sudah digunakan oleh santri lain pada tenant ini.');
+        throw new Error(item.kind.toUpperCase() + ' sudah digunakan oleh santri lain di pesantren ini.');
       }
     });
 
@@ -245,7 +245,7 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
 
       if (!candidateSnapshot.exists()) throw new Error('Data calon santri tidak ditemukan.');
       const source = candidateSnapshot.data();
-      if (source.tenantId !== tenantId) throw new Error('Tenant calon santri tidak cocok dengan sesi aktif.');
+      if (source.tenantId !== tenantId) throw new Error('Calon santri tidak terdaftar pada pesantren aktif.');
       if (source.onboardingStatus === 'Completed' || source.syncToMasterData === true) {
         if (typeof source.masterStudentId === 'string' && source.masterStudentId) {
           return { success: true, nis: source.nis || nis, santriId: source.masterStudentId, waliId: source.masterGuardianId || '' };
@@ -262,7 +262,7 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
       identityValues.forEach((item, index) => {
         const reservation = identitySnapshots[index];
         if (reservation.exists() && reservation.data().ownerId !== candidate.id) {
-          throw new Error(item.kind.toUpperCase() + ' sudah terdaftar pada data lain di tenant ini.');
+          throw new Error(item.kind.toUpperCase() + ' sudah terdaftar pada data lain di pesantren ini.');
         }
       });
 
@@ -273,10 +273,10 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
       const classData = classSnapshot.data();
       const roomData = roomSnapshot.data();
       if (classData.tenantId !== tenantId || String(classData.category || '').toLowerCase() !== 'kelas') {
-        throw new Error('Kelas tidak valid atau berasal dari tenant lain.');
+        throw new Error('Kelas tidak valid atau bukan milik pesantren ini.');
       }
       if (roomData.tenantId !== tenantId || String(roomData.category || '').toLowerCase() !== 'kamar') {
-        throw new Error('Kamar tidak valid atau berasal dari tenant lain.');
+        throw new Error('Kamar tidak valid atau bukan milik pesantren ini.');
       }
       if (['inactive', 'nonaktif', 'disabled'].includes(String(roomData.status || '').toLowerCase())) {
         throw new Error('Kamar yang dipilih sedang tidak aktif.');
@@ -289,7 +289,7 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
         if (buildingSnapshot.exists()) {
           buildingData = buildingSnapshot.data();
           if (buildingData.tenantId !== tenantId || String(buildingData.category || '').toLowerCase() !== 'gedung') {
-            throw new Error('Gedung asrama tidak valid atau berasal dari tenant lain.');
+            throw new Error('Gedung asrama tidak valid atau bukan milik pesantren ini.');
           }
         } else if (assignment.buildingId?.trim()) {
           throw new Error('Data gedung asrama tidak ditemukan.');
@@ -371,7 +371,7 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
         if (!invoiceSnapshot.exists()) continue;
         const invoice = invoiceSnapshot.data();
         if (invoice.tenantId !== tenantId || invoice.candidateId !== candidateRef.id) {
-          throw new Error('Tagihan PPDB tidak cocok dengan tenant atau calon santri yang sedang di-onboard.');
+          throw new Error('Tagihan PPDB tidak cocok dengan pesantren aktif atau calon santri yang sedang didaftarkan.');
         }
         if (invoice.santriId && invoice.santriId !== santriRef.id) {
           throw new Error('Tagihan PPDB sudah terhubung ke santri lain.');
@@ -419,9 +419,9 @@ await linkCandidatePpdbInvoices(candidateRef.id, tenantId, currentCandidateData.
     tenantId: string
   ): Promise<{ success: number; errors: number; details: any[] }> {
     const normalizedTenantId = tenantId.trim();
-    if (!normalizedTenantId) throw new Error('Tenant wajib ditentukan sebelum onboarding massal.');
+    if (!normalizedTenantId) throw new Error('Pesantren aktif belum tersedia untuk pendaftaran massal.');
     if (candidates.some((candidate) => candidate.tenantId && candidate.tenantId !== normalizedTenantId)) {
-      throw new Error('Daftar calon santri berisi data dari tenant lain.');
+      throw new Error('Daftar calon santri berisi data dari pesantren lain.');
     }
 
     const acceptedCandidates = candidates.filter(
