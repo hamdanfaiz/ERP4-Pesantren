@@ -1,18 +1,25 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status aktual — 15 November 2026
+## Status aktual — checkpoint 15 November 2026, setelah pembaruan Hostinger
 
-Source aplikasi `main` tetap pada `b0e9a2ff294a68c4458676eada56c96aa2954635`; beberapa commit GitHub setelahnya hanya memperbarui dokumentasi. Hostinger preview tersambung ke `hamdanfaiz/ERP4-Pesantren` branch `main`; deployment `ed7bdf0` pernah terverifikasi **Completed / Current** sebelum rangkaian dokumentasi terbaru. Status deployment sesudah rangkaian tersebut belum diperiksa. Setelah memuat ulang preview, layar yang diperiksa menampilkan copy produk tanpa istilah provider/backend, dan panel Asrama menggunakan kontainer gelap serta tab yang dapat digulir.
+Source aplikasi `main` berada pada commit `c8f2372f1530b0864d00d8d57136054edd2edb0a`. Hostinger preview `lightgreen-jay-425688.hostingersite.com` terhubung ke repo `hamdanfaiz/ERP4-Pesantren`, branch `main`; deployment commit ini tercatat **Completed / Current** pada 15 November 2026 pukul 21.33 WIB. Ini preview Hostinger, bukan bukti deploy domain produksi `erp4-pesantren.tlusur.com`.
 
-Pemeriksaan UI ini hanya UAT tampilan baca-saja. Menu utama tampil, tetapi belum menguji seluruh tindakan simpan-baca. Pada preview VQE, flag `SUPABASE_ACADEMIC_RUNTIME_ENABLED=true` kini aktif dan redeploy konfigurasi Hostinger berhasil. Akademik memuat kondisi kosong tanpa kegagalan API, tetapi kelas, mata pelajaran, jadwal, jurnal, dan penilaian belum tersedia untuk menguji simpan-baca. Tidak ada isi database Supabase yang diubah. Domain produksi `erp4-pesantren.tlusur.com` dan PTSAS Production tidak disentuh.
+Pemeriksaan antarmuka baca-saja dengan sesi Admin UAT menunjukkan navigasi modul utama tersedia. Di modul Asrama, kontainer sudah memakai tema gelap dan tab submodul berada di area gulir horizontal. Layar yang terlihat berstatus kosong karena tenant staging tidak memiliki santri/kamar aktif. Pemeriksaan ini hanya visual; belum membuktikan seluruh fungsi simpan-baca, seluruh submodul, atau konsistensi istilah pada setiap layar.
 
-PR #91, #92, #112, #114, #115, #121, dan #122 masih terbuka. PR #122 masih Draft dan tidak dapat digabung langsung: basisnya `82082bf` sedangkan source `main` telah bergerak ke `b0e9a2f`, dan GitHub melaporkan cabang divergen/tidak mergeable. Jangan merge stack PR tersebut tanpa audit perubahan terhadap `main`; beberapa file dan migrasi saling bertumpuk.
+### Rekonsiliasi ledger Production baca-saja
 
-Peringkat Tahfidz memakai migration `20270401000000_tahfidz_monthly_leaderboard.sql`, yang belum diterapkan ke VQE maupun Production. Bukti build dan CI historis dirinci pada [checkpoint 15 November](CHECKPOINT_2026-11-15_PRODUCT_POLISH.md); bukti itu tidak menggantikan UAT simpan-baca, rekonsiliasi DDL Production, atau backup/restore. Produk belum dinyatakan siap komersial atau siap rilis Production.
+- Source `main` memiliki **153 file migrasi**; ledger PTSAS Production memiliki **100 entri**, dengan versi tertinggi `20270316000000`.
+- **100 versi ledger Production ditemukan di source `main`**; tidak ditemukan versi Production yang tidak memiliki file source bernomor sama.
+- **53 versi source tidak tercatat di ledger Production**. Sebanyak **49** berada sebelum atau pada versi tertinggi Production, sehingga terdapat celah di tengah riwayat migrasi. Tiga entri ledger tidak mengembalikan nama; versi ketiganya tetap ditemukan di source.
+- Ini perbandingan nomor versi/nama ledger, bukan perbandingan DDL. Selisih tersebut **bukan daftar migrasi yang aman untuk diterapkan otomatis**. DDL aktual, backup, dan bukti restore Production tidak diperiksa atau diubah dalam checkpoint ini.
 
-Pemeriksaan ledger baca-saja pada 15 November menemukan 140/153 pasangan versi-nama source cocok dengan VQE dan 97/153 cocok dengan PTSAS. Terdapat benturan versi bernama pada VQE, versi khusus VQE, versi source yang belum tercatat di kedua proyek, serta tiga nama ledger PTSAS yang tidak dikembalikan. Lihat [rekonsiliasi source dan ledger](../06_DATABASE/SOURCE_LEDGER_RECONCILIATION_2026-11-15.md); jangan menganggap angka selisih sebagai migrasi yang aman untuk diterapkan.
+### Pull request
 
+Tujuh PR masih terbuka: **#91, #92, #112, #114, #115, #121, dan #122**. GitHub saat ini menandai #91, #112, #114, #115, dan #122 `dirty` terhadap base masing-masing; #92 dan #121 bertumpu pada branch PR lain. PR #122 masih Draft. Jangan merge stack ini langsung; rekonsiliasi terhadap commit `main` terbaru `c8f2372` dan audit migrasi diperlukan lebih dulu.
 
+### Status penyelesaian
+
+Produk **belum dinyatakan siap Production atau komersial**. Pekerjaan source masih memerlukan integrasi PR yang aman dan UAT simpan-baca lintas modul/peran/tenant. Tim backend tetap perlu menyelesaikan pemeriksaan DDL, urutan migrasi, backup/restore, dan deploy domain produksi. Tidak ada persentase total yang dapat dibuktikan hanya dari build preview atau hitungan ledger.
 ## Addendum otoritatif — checkpoint 14 November 2026
 
 Snapshot ini membedakan source aplikasi dari dokumentasi dan database live. Source aplikasi `main` tetap pada `b0824476cb6d0207925283f15cb6f0d2714e54a3`; commit `a168e48030c127cb0fe802f36e6e11f44e239d66` hanya menambahkan PR dokumentasi #119. PR #117 dan #118 juga hanya dokumentasi. Source memuat 150 file migrasi.
