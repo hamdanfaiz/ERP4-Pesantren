@@ -75,6 +75,10 @@ jobs:
         run: npm run test:tahfidz-achievements
       - name: Verify Tahfidz persisted leaderboard and data scope
         run: npm run test:tahfidz-leaderboard
+      - name: Verify Tahfidz atomic bulk targets
+        run: npm run test:tahfidz-bulk-targets
+      - name: Verify Tahfidz target precision before write
+        run: npm run test:tahfidz-target-precision
       - name: Verify Supabase Quran catalog validation
         run: npm run test:supabase-quran-catalog
 

@@ -32,3 +32,22 @@
 2. Sambungkan kembali deployment Hostinger ke repo/branch source resmi dan terbitkan build yang sama dengan commit CI.
 3. UAT browser dengan Admin dan Ustadz untuk memeriksa peringkat, isolasi halaqah, tampilan Asrama, dan copy antarmuka.
 4. Tim backend menuntaskan pemeriksaan DDL Production serta bukti backup/restore sebelum menyatakan siap deploy.
+
+
+## Addendum pengembangan Tahfidz dan sinkronisasi — 15 November 2026
+
+- Pekerjaan dilanjutkan dari `origin/main` `1a7881dbac68aaaa3ec6fb4ca35ca579f2a0f3c2` pada branch fitur terpisah; perubahan ini belum didorong atau digabung ketika addendum ditulis.
+- Tahfidz kini menyiapkan penerapan target harian massal yang atomik untuk 1–250 santri. SQL menjalankan aturan target kanonis per santri dalam satu transaksi, mengikat role, pesantren, keanggotaan halaqah, dan kunci idempotensi. Jika satu santri tidak berhak atau tidak valid, seluruh batch batal.
+- Nilai target dengan pecahan lebih dari dua angka ditolak pada API dan database; angka notasi ilmiah kecil tidak dapat melewati pemeriksaan presisi.
+- Fitur massal sengaja **nonaktif secara bawaan** melalui `SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED` (server) dan `VITE_SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED` (UI). Aktifkan kedua flag hanya setelah migration yang tepat telah diterapkan dan diverifikasi pada environment terkait.
+- Copy yang tampil untuk pemesanan fasilitas, UKS, LMS, serta konfirmasi penyimpanan data induk memakai istilah operasional yang mudah dipahami, tanpa detail penyedia database atau backend.
+- Verifikasi lokal setelah perubahan: build dan TypeScript lulus; tes target Tahfidz massal, presisi, leaderboard, kontrak konfigurasi runtime, fail-closed deployment flags, routing/auth API, schema privat, migration preflight, serta cakupan CI lulus. Tes pgTAP penuh belum dapat dijalankan lokal karena Supabase CLI dan Docker tidak tersedia; hasil GitHub Actions pada commit baru masih harus diperiksa.
+- Pemeriksaan baca-saja VQE pada 15 November menemukan ledger `20261109145534` untuk `tahfidz_bulk_daily_target_write_api` dan `20270312000000` untuk `tahfidz_target_decimal_precision`. RPC serta tabel ledger batch ada, tetapi hash sumber fungsi live berbeda dari file source yang sedang disiapkan. Perbedaan hash hanya membuktikan teks fungsi tidak identik, bukan apakah perilakunya setara. Jangan jalankan ulang atau menerapkan migration ke VQE sebelum DDL dibandingkan.
+- Konektor menolak kueri metadata PTSAS Production pada sesi ini. Tidak ada perubahan database VQE maupun Production; keadaan DDL Production untuk fitur ini belum terbukti.
+
+### Syarat sebelum mengaktifkan fitur massal
+
+1. Tim backend membandingkan definisi fungsi, tabel, constraint, RLS, grant, serta ledger VQE/Production terhadap dua file migration source.
+2. Jalankan migration dan pgTAP pada staging yang rekonsiliasinya sudah jelas, kemudian uji route aplikasi dengan Admin/Ustadz serta tenant sintetis.
+3. Aktifkan dua flag hanya pada environment yang database-nya sudah lulus pemeriksaan; biarkan keduanya `false` pada Production sampai syarat itu terpenuhi.
+4. Setelah feature branch didorong, tunggu workflow database GitHub menjalankan seluruh suite pada commit yang sama. Build lokal tidak menggantikan replay pgTAP di CI.

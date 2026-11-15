@@ -87,7 +87,7 @@ export function SupabaseFacilityBooking() {
   };
   const applyImport = async () => {
     if (!SUPABASE_FACILITY_BOOKINGS_IMPORT) return;
-    if (!preview?.canApply || !window.confirm(`Terapkan pratinjau ${preview.counts.source} pemesanan lama ke tenant Supabase?`)) return;
+    if (!preview?.canApply || !window.confirm(`Terapkan pratinjau ${preview.counts.source} pemesanan lama ke data pesantren ini?`)) return;
     setImportBusy(true); setError(""); setNotice("");
     try {
       const result = await bookingRequest("/api/facility-bookings/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: preview.snapshotFingerprint }) });
