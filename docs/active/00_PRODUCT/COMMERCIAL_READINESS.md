@@ -278,3 +278,15 @@ PR #91 → #92 → #121 adalah satu stack migrasi dan sudah diuji bersama pada r
 Run #1756 pada PR #91 mencakup build dan guard Firebase, replay migrasi sintetis, pgTAP, API/auth/tenant, alur Storage dan Dokumen Digital, backup-restore database lokal, serta pemasangan NPM pelanggan. Bukti backup-restore tersebut hanya untuk lingkungan lokal sintetis; bukan bukti pemulihan Production.
 
 Belum ada perubahan DDL atau data pada VQE maupun PTSAS Production dalam pekerjaan ini. Sebelum deploy, tim backend masih perlu menyelesaikan review stack, UAT browser lintas peran dan modul, rekonsiliasi DDL/ledger Production, serta bukti backup dan pemulihan Production.
+
+## Addendum metadata Production PTSAS read-only — 15 November 2026
+
+Pemeriksaan hanya membaca metadata project PTSAS Production `ptsasgdvgrbdtgyqieie` dan daftar file pada commit stack kode PR #91 → #92 → #121 (`b7b4391b480953371b2fa49fe9be05196f4e36fd`). Tidak ada baris aplikasi, DDL, atau backup Production yang dibaca; tidak ada perubahan database.
+
+- Katalog mengembalikan **162 tabel** pada schema `public`; seluruhnya melaporkan RLS aktif. Ini tidak membuktikan isi policy aman atau bahwa setiap fungsi server telah dibatasi dengan benar.
+- Ledger `supabase_migrations.schema_migrations` memiliki **100 versi unik** sampai `20270316000000`.
+- Source stack tersebut memiliki **155 file migrasi dengan 155 versi unik**, tanpa versi duplikat.
+- **55 versi source tidak tercatat pada ledger Production.** Tidak ada versi ledger yang tak ditemukan di daftar source. Tiga baris ledger tidak memiliki nama: `20261205000000`, `20261206000000`, dan `20270118000000`. Nama lain yang tidak kosong cocok dengan nama file pada versi yang sama.
+- Selisih versi ledger adalah temuan metadata, **bukan bukti bahwa seluruh 55 perubahan aman atau perlu diterapkan**. Migrasi manual, alias historis, atau DDL aktual yang berbeda belum disingkirkan. Jangan menjalankan `db push` atau migration repair berdasarkan hitungan ini.
+
+Tim backend masih perlu membandingkan SQL/DDL aktual untuk versi yang ambigu, menyusun urutan penerapan yang disetujui, serta membuktikan backup dan pemulihannya sebelum perubahan Production.
