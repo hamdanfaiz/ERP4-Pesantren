@@ -18,7 +18,7 @@
 - `npm run test:supabase-runtime-no-firebase` — lulus; 164 modul, pemetaan rute, dependensi, dan kebijakan penyimpanan browser.
 - `npm run test:api-route-auth-policy` — lulus; 213 route privat membutuhkan autentikasi.
 - `git diff --check` — lulus.
-- Uji PostgreSQL/pgTAP belum dapat dijalankan dari komputer lokal karena Supabase CLI tidak terpasang. Hasil build bukan pengganti uji database itu; CI harus menjalankan suite setelah source disinkronkan.
+- GitHub Actions run #1789 pada commit cbab5840ed15787c14a4964a74887c22bbee0dd6 lulus 3/3 job, termasuk replay migrasi pada basis sintetis, otorisasi API, dan seluruh suite pgTAP; rencana uji leaderboard memuat 93 assertion. Supabase CLI belum tersedia di komputer lokal.
 
 ## Perubahan cloud dan publikasi
 
@@ -28,8 +28,7 @@
 
 ## Gerbang berikutnya
 
-1. Sinkronkan perubahan source ke GitHub `main` dan pastikan CI pada commit itu hijau, terutama suite migrasi dan pgTAP Tahfidz.
-2. Rehearsal migration `20270401000000` pada VQE setelah urutan PR #112/#121/#92 direkonsiliasi; jangan menganggap migration otomatis hadir di VQE atau Production.
-3. Sambungkan kembali deployment Hostinger ke repo/branch source resmi dan terbitkan build yang sama dengan commit CI.
-4. UAT browser dengan Admin dan Ustadz untuk memeriksa peringkat, isolasi halaqah, tampilan Asrama, dan copy antarmuka.
-5. Tim backend tetap harus menuntaskan pemeriksaan DDL Production serta bukti backup/restore sebelum menyatakan siap deploy.
+1. Rehearsal migrasi 20270401000000 pada VQE setelah urutan PR #112/#121/#92 direkonsiliasi; jangan menganggap migrasi otomatis hadir di VQE atau Production.
+2. Sambungkan kembali deployment Hostinger ke repo/branch source resmi dan terbitkan build yang sama dengan commit CI.
+3. UAT browser dengan Admin dan Ustadz untuk memeriksa peringkat, isolasi halaqah, tampilan Asrama, dan copy antarmuka.
+4. Tim backend menuntaskan pemeriksaan DDL Production serta bukti backup/restore sebelum menyatakan siap deploy.
