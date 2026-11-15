@@ -260,4 +260,21 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
 - Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
 
+## Addendum status handoff PR dan CI — 15 November 2026
 
+Pemeriksaan dilakukan pada head PR aktual melalui GitHub. Status ini membedakan kode yang lulus CI dari gerbang yang masih memerlukan review manusia atau bukti Production.
+
+| PR | Head yang diperiksa | Actions terakhir pada head | Status |
+|---|---|---|---|
+| #91 | `f38643b91278635a402e9689704a15e6076e20d3` | [#1756](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43654646703), 3/3 job lulus | Terbuka |
+| #92 | `3a590683a9518937d621a9860c5843f50f46a259` | [#1733](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43645637063), sukses | Terbuka |
+| #112 | `b93d02f44104edc1dfa9fa9038d9036ed6c81c03` | [#1683](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43593723047), sukses | Terbuka |
+| #114 | `eb97403a54bbb6a081504708f79d1a7967f74c19` | [#1700](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43612776259), sukses | Terbuka |
+| #115 | `dd49c3dc315f7c21de8d1272317eceaf867b285f` | [#1699](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43612560262), sukses | Terbuka |
+| #121 | `b7b4391b480953371b2fa49fe9be05196f4e36fd` | [#1752](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43652405704), 3/3 job lulus | Terbuka |
+
+PR #91 → #92 → #121 adalah satu stack migrasi dan sudah diuji bersama pada run #1752. PR #112, #114, dan #115 berdiri terpisah. Pemeriksaan daftar review menunjukkan keenam PR belum menerima review formal. Karena itu, CI yang lulus belum menjadi alasan untuk menganggap semua gerbang rilis selesai atau menutup PR.
+
+Run #1756 pada PR #91 mencakup build dan guard Firebase, replay migrasi sintetis, pgTAP, API/auth/tenant, alur Storage dan Dokumen Digital, backup-restore database lokal, serta pemasangan NPM pelanggan. Bukti backup-restore tersebut hanya untuk lingkungan lokal sintetis; bukan bukti pemulihan Production.
+
+Belum ada perubahan DDL atau data pada VQE maupun PTSAS Production dalam pekerjaan ini. Sebelum deploy, tim backend masih perlu menyelesaikan review stack, UAT browser lintas peran dan modul, rekonsiliasi DDL/ledger Production, serta bukti backup dan pemulihan Production.
