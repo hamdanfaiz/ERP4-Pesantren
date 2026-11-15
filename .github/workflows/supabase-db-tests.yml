@@ -127,6 +127,9 @@ jobs:
       - name: Verify customer-facing error copy
         run: npm run test:user-messages
 
+      - name: Verify customer-facing error message security rules
+        run: npm run test:user-messages:security
+
       - name: Verify trusted reverse proxy hop configuration
         run: npm run test:trusted-proxy-hops
 

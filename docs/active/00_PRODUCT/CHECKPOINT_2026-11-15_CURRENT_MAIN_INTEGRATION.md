@@ -28,6 +28,7 @@ Lulus:
 - `npm run test:supabase-quran-catalog` dan `npm run test:tahfidz-quran-catalog` — katalog 114 Surah/6.236 ayat dan formulir berbasis referensi.
 - Suite CBT: pengaturan tulis, dasbor, halaman pertanyaan, roster santri, penugasan, dan daftar ujian.
 - Suite pesan pengguna dan `npm run test:customer-compose-env`.
+- Pemeriksaan lanjutan menemukan bahwa `test:user-messages:security` belum dijalankan oleh workflow CI. Workflow kini menjalankan suite tersebut; `npm run test:ci-coverage` lulus untuk semua 75 skrip tes paket dan `npm run test:user-messages:security` lulus dengan 14 skenario.
 
 Build masih mengeluarkan peringatan chunk `react-pdf` sekitar 1,46 MB dan komentar anotasi Zod yang tidak dapat ditafsirkan Rollup. Build selesai dengan kode keluar 0.
 
@@ -48,4 +49,4 @@ Build masih mengeluarkan peringatan chunk `react-pdf` sekitar 1,46 MB dan koment
 
 ## Checkpoint source lokal
 
-Head rehearsal setelah merge dan koreksi Tahfidz: `6717797` (`test: integrate canonical Quran catalog entry`). Head ini adalah commit worktree lokal sementara, bukan branch remote atau status merge PR.
+Head rehearsal setelah merge dan koreksi Tahfidz sebelum penambahan pemeriksaan workflow: `b5c7e8c` (`docs: record current main integration checkpoint`). Ini adalah commit worktree lokal sementara, bukan branch remote atau status merge PR. Perubahan workflow lanjutan harus ditinjau sebagai commit setelah checkpoint tersebut.
