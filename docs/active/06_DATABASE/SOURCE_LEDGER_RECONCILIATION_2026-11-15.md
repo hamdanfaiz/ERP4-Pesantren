@@ -80,14 +80,25 @@ Hasil ini membantu mengidentifikasi asal SQL yang tercatat pada ledger, tetapi t
 
 ### Perbedaan source Tahfidz saat ini terhadap SQL staging
 
-Pencocokan terpisah dengan file `main` saat ini menunjukkan tiga definisi Tahfidz perlu ditangani dengan migrasi maju:
+Perbandingan SQL pada metadata ledger dengan file `main` menemukan perbedaan statement berikut:
 
-- Katalog Al-Qur’an: ledger `20261109145507` bukan SQL identik dengan `20270320000000_tahfidz_quran_surah_catalog.sql` saat ini (18 statement ledger, 20 source; 15 statement berurutan sama, dengan perubahan pada struktur/urutan beberapa statement).
-- Leaderboard: ledger `20261109145522` tidak identik dengan `20270401000000_tahfidz_monthly_leaderboard.sql` (5 dari 7 statement sama; fungsi dan komentar berbeda).
-- Target harian massal: ledger `20261109145534` tidak identik dengan `20270328000000_tahfidz_bulk_daily_target_write_api.sql` (10 dari 11 statement sama; definisi fungsi berbeda).
-- Presisi target desimal pada `20270312000000` cocok persis dengan file source main `20270329000000`.
+- Katalog Al-Qur’an: 18 statement ledger dibanding 20 source; 15 statement berurutan sama. Ini belum membuktikan DDL live berbeda.
+- Leaderboard: 5 dari 7 statement metadata sama; file source berisi fungsi dan agregasi peserta yang lebih baru.
+- Target harian massal: 10 dari 11 statement metadata sama; source menyertakan validasi presisi dua angka desimal.
+- Presisi target desimal pada `20270312000000` cocok persis dengan file source `20270329000000`.
 
-Karena definisi katalog, leaderboard, dan fungsi target massal berbeda, jangan mengganti alias atau menganggap fitur sudah sesuai hanya dari nama tabel/RPC. Buat migrasi maju yang idempoten berdasarkan DDL live dan dependensi, lalu rehearsal dan jalankan pgTAP pada VQE sebelum fitur terkait diaktifkan.
+### Pemeriksaan objek Tahfidz VQE yang tersedia
+
+Pemeriksaan katalog database baca-saja mengonfirmasi:
+
+- Tabel terkait Tahfidz dan `quran_surahs` yang diperiksa mengaktifkan RLS dan `FORCE ROW LEVEL SECURITY`.
+- `quran_surahs` memiliki primary key nomor surah, batas nomor 1–114, cek jumlah ayat, dan nama Latin unik. `tahfidz_records.surah_number` bertipe `smallint`, dapat kosong, dan memiliki foreign key ke katalog dengan `ON DELETE RESTRICT`.
+- Trigger insert/update referensi Surah aktif; badan fungsi `validate_tahfidz_quran_reference()` cocok persis dengan file source main setelah normalisasi.
+- Badan fungsi VQE `list_tahfidz_leaderboard()` berbeda dari file main: versi source menghitung jumlah seluruh peserta agar UI dapat menampilkan total di luar halaman.
+- Badan fungsi VQE `record_tahfidz_daily_targets_bulk()` berbeda dari file main dan belum memeriksa presisi maksimal dua angka desimal di tingkat database. Pemeriksaan API tetap harus dipertahankan, tetapi fungsi database perlu diselaraskan sebelum fitur massal diaktifkan.
+- Kedua fungsi tersebut memakai `search_path` yang dipatok. Pemeriksaan ini tidak menjalankan RPC dengan data tenant dan bukan uji simpan-baca.
+
+Temuan saat ini menunjukkan objek katalog utama telah tersedia dan validatornya sejalan dengan source, sementara dua fungsi Tahfidz belum sejalan. Jangan mengubah alias ledger berdasarkan nama saja. Setelah urutan branch PR dan versi migrasi disepakati, lakukan rehearsal perubahan fungsi yang masih tertinggal pada VQE; pastikan pgTAP, preflight, dan alur aplikasi lulus sebelum mengaktifkan fitur. Tidak ada perubahan database pada pemeriksaan ini.
 
 ## PTSAS Production — versi source yang belum tercatat
 
