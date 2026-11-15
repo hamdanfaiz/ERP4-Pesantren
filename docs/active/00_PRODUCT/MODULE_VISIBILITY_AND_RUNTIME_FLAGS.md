@@ -44,6 +44,8 @@ Audit pembanding lengkap menu AI Studio dan runtime Supabase dicatat di [Audit K
 
 ## Menu dan API punya sakelar berbeda
 
+Lihat [Matriks Runtime Modul dan Visibilitas](MODULE_RUNTIME_FLAG_MATRIX.md) untuk daftar gerbang API server, pasangan flag UI, prasyarat, dan urutan aktivasi tiap environment.
+
 - `SUPABASE_*_RUNTIME_ENABLED` adalah sakelar server yang menegakkan ketersediaan API. Default di Compose dan `.env.example` tetap `false`; API menolak operasi bila sakelar belum dibuka.
 - `VITE_SUPABASE_*_RUNTIME_ENABLED` hanya mengendalikan tampilan sebagian fitur dan tidak memberi hak akses atau mengaktifkan API. Komponen yang memakai `supabaseRuntimeEnabled` selalu memilih jalur Supabase karena `SUPABASE_ONLY_RUNTIME=true`; beberapa halaman, seperti PPDB, tetap memakai nilai VITE untuk menampilkan alur tertentu. Selaraskan tampilan dengan sakelar server saat mengonfigurasi environment.
 - Hanya nama `VITE_SUPABASE_*` yang tercantum di [`src/publicRuntimeConfigKeys.ts`](../../../src/publicRuntimeConfigKeys.ts) boleh dikirim melalui `/runtime-config.json` ke browser. Daftar tersebut tidak boleh memuat secret, service-role key, password, atau kunci PII.
