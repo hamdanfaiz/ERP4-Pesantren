@@ -2,7 +2,7 @@
 
 ## Status aktual — 15 November 2026
 
-Source aplikasi `main` tetap pada `b0e9a2ff294a68c4458676eada56c96aa2954635`; head GitHub terbaru `ed7bdf02ab1e84d49e15532d6d63cf6a5537d5ea` hanya menambahkan dokumentasi. Hostinger preview tersambung ke `hamdanfaiz/ERP4-Pesantren` branch `main` dan deployment `ed7bdf0` berstatus **Completed / Current**. Setelah memuat ulang preview, layar yang diperiksa menampilkan copy produk tanpa istilah provider/backend, dan panel Asrama menggunakan kontainer gelap serta tab yang dapat digulir.
+Source aplikasi `main` tetap pada `b0e9a2ff294a68c4458676eada56c96aa2954635`; commit GitHub setelahnya hanya memperbarui dokumentasi, terakhir `8696fe75fb5a2e20ecb864caf59709fe768ed5a0`. Hostinger preview tersambung ke `hamdanfaiz/ERP4-Pesantren` branch `main`; deployment `ed7bdf0` pernah terverifikasi **Completed / Current** sebelum rangkaian dokumentasi terbaru. Status deployment sesudah rangkaian tersebut belum diperiksa. Setelah memuat ulang preview, layar yang diperiksa menampilkan copy produk tanpa istilah provider/backend, dan panel Asrama menggunakan kontainer gelap serta tab yang dapat digulir.
 
 Pemeriksaan UI ini hanya UAT tampilan baca-saja. Menu utama tampil, tetapi belum menguji seluruh tindakan simpan-baca. Pada preview VQE, flag `SUPABASE_ACADEMIC_RUNTIME_ENABLED=true` kini aktif dan redeploy konfigurasi Hostinger berhasil. Akademik memuat kondisi kosong tanpa kegagalan API, tetapi kelas, mata pelajaran, jadwal, jurnal, dan penilaian belum tersedia untuk menguji simpan-baca. Tidak ada isi database Supabase yang diubah. Domain produksi `erp4-pesantren.tlusur.com` dan PTSAS Production tidak disentuh.
 
