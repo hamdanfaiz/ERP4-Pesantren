@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { listSupabaseQuranSurahs, SupabaseQuranCatalogError } from "../src/server/supabaseQuranCatalog";
+import { readFile } from "node:fs/promises";
+import { isValidSupabaseQuranAyahRange, listSupabaseQuranSurahs, SupabaseQuranCatalogError } from "../src/server/supabaseQuranCatalog";
 
 const originalUrl = process.env.SUPABASE_URL;
 const originalSecret = process.env.SUPABASE_SECRET_KEY;
@@ -13,6 +14,13 @@ const rows = Array.from({ length: 114 }, (_, index) => ({
 
 async function run() {
   try {
+    const tahfidzManagerSource = await readFile(
+      new URL("../src/pages/TahfidzManager.tsx", import.meta.url),
+      "utf8",
+    );
+    assert.doesNotMatch(tahfidzManagerSource, /placeholder=["']Misal:\s*(?:Al-Baqarah|1-10)/);
+    assert.doesNotMatch(tahfidzManagerSource, /generateUniqueId\(['"]Riwayat Setoran/);
+    assert.match(tahfidzManagerSource, /Pencatatan setoran belum tersedia/);
     process.env.SUPABASE_URL = "https://staging.example.invalid/";
     process.env.SUPABASE_SECRET_KEY = "sb_secret_test_only";
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -32,6 +40,12 @@ async function run() {
     assert.equal(catalog.length, 114);
     assert.deepEqual(catalog[0], { nomor: 1, namaLatin: "Surah 1", jumlahAyat: 7 });
     assert.equal(catalog[113].nomor, 114);
+    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 1", 1, 7), true);
+    assert.equal(isValidSupabaseQuranAyahRange(catalog, "  SURAH 1  ", 1, 7), true);
+    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 1", 0, 7), false);
+    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 1", 1, 8), false);
+    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Surah 1", 4, 3), false);
+    assert.equal(isValidSupabaseQuranAyahRange(catalog, "Unknown", 1, 1), false);
 
     globalThis.fetch = (async () => new Response(JSON.stringify(rows.slice(0, 113)), { status: 200 })) as typeof fetch;
     await assert.rejects(listSupabaseQuranSurahs(), (error: unknown) =>
