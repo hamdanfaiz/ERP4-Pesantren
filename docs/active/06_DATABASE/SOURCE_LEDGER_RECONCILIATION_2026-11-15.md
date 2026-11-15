@@ -57,7 +57,37 @@ Keempat konflik nama ini menghalangi penyamaan ledger otomatis. Jangan mengubah 
 | `20270318000000` | `cbt_admin_assignment_pages` |
 | `20270319000000` | `cbt_admin_exam_pages` |
 
-Kemiripan nama bukan bukti bahwa versi alias identik dengan file source yang lebih baru. Secara khusus, `tahfidz_persisted_leaderboard` tidak otomatis ekuivalen dengan `tahfidz_monthly_leaderboard`.
+Nama ledger saja tidak membuktikan kesetaraan. Pemeriksaan berikutnya mencocokkan metadata statement yang tersimpan terhadap SQL source setelah normalisasi dengan parser preflight repository. Hasilnya diringkas pada bagian **Pencocokan statement SQL** di bawah; pencocokan ini tetap bukan inspeksi DDL aktual.
+
+## Pencocokan statement SQL — VQE staging (baca-saja, 15 November)
+
+Kueri hanya mengambil `version`, `name`, `statements` dari ledger Supabase. Perbandingan memakai tokenizer/normalizer yang sama dengan skrip preflight source; tidak ada DDL atau baris data aplikasi yang dibaca.
+
+| Versi ledger VQE | Source SQL pembanding | Statement | Hasil |
+| --- | --- | ---: | --- |
+| `20261109145507` — `tahfidz_quran_surah_catalog` | Fixture SQL tersimpan pada snapshot integrasi lokal | 18 | Cocok persis setelah normalisasi |
+| `20261109145522` — `tahfidz_persisted_leaderboard` | Source historis pada snapshot branch `erp4-pr100-cbt-scale` | 7 | Cocok persis setelah normalisasi |
+| `20261109145534` — `tahfidz_bulk_daily_target_write_api` | Source historis pada snapshot branch `erp4-pr100-cbt-scale` | 11 | Cocok persis setelah normalisasi |
+| `20270312000000` — `tahfidz_target_decimal_precision` | Source `20270329000000_tahfidz_target_decimal_precision.sql` | 4 | Cocok persis setelah normalisasi |
+| `20270314000000` — `cbt_tenant_settings_write_api` | `20270321000000_cbt_tenant_settings_write_api.sql` pada snapshot branch `erp4-pr112-merge-verify-20261114` | 6 | Cocok persis setelah normalisasi |
+| `20270315000000` — `cbt_admin_dashboard_summary` | `20270322000000_cbt_admin_dashboard_summary.sql` | 7 | Cocok persis setelah normalisasi |
+| `20270316000000` — `cbt_admin_question_keyset_pages` | `20270323000000_cbt_admin_question_keyset_pages.sql` | 13 | Cocok persis setelah normalisasi |
+| `20270317000000` — `cbt_admin_student_roster_pages` | `20270324000000_cbt_admin_student_roster_pages.sql` | 10 | Cocok persis setelah normalisasi |
+| `20270318000000` — `cbt_admin_assignment_pages` | `20270325000000_cbt_admin_assignment_pages.sql` | 13 | Cocok persis setelah normalisasi |
+| `20270319000000` — `cbt_admin_exam_pages` | `20270326000000_cbt_admin_exam_pages.sql` | 7 | Cocok persis setelah normalisasi |
+
+Hasil ini membantu mengidentifikasi asal SQL yang tercatat pada ledger, tetapi tidak mengesahkan DDL live maupun menjalankan migrasi repair. Enam migrasi CBT adalah snapshot branch PR #112 yang menomori ulang migrasi; setelah branch itu diintegrasikan, urutan final dan preflight `main` tetap harus dijalankan sebelum migrasi staging.
+
+### Perbedaan source Tahfidz saat ini terhadap SQL staging
+
+Pencocokan terpisah dengan file `main` saat ini menunjukkan tiga definisi Tahfidz perlu ditangani dengan migrasi maju:
+
+- Katalog Al-Qur’an: ledger `20261109145507` bukan SQL identik dengan `20270320000000_tahfidz_quran_surah_catalog.sql` saat ini (18 statement ledger, 20 source; 15 statement berurutan sama, dengan perubahan pada struktur/urutan beberapa statement).
+- Leaderboard: ledger `20261109145522` tidak identik dengan `20270401000000_tahfidz_monthly_leaderboard.sql` (5 dari 7 statement sama; fungsi dan komentar berbeda).
+- Target harian massal: ledger `20261109145534` tidak identik dengan `20270328000000_tahfidz_bulk_daily_target_write_api.sql` (10 dari 11 statement sama; definisi fungsi berbeda).
+- Presisi target desimal pada `20270312000000` cocok persis dengan file source main `20270329000000`.
+
+Karena definisi katalog, leaderboard, dan fungsi target massal berbeda, jangan mengganti alias atau menganggap fitur sudah sesuai hanya dari nama tabel/RPC. Buat migrasi maju yang idempoten berdasarkan DDL live dan dependensi, lalu rehearsal dan jalankan pgTAP pada VQE sebelum fitur terkait diaktifkan.
 
 ## PTSAS Production — versi source yang belum tercatat
 
