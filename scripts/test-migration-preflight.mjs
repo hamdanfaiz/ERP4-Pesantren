@@ -111,7 +111,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 150);
+assert.equal(sourceMigrationsWithSql.length, 151);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
 const quranCatalogMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270320000000_tahfidz_quran_surah_catalog.sql');
 assert(quranCatalogMigration, 'Canonical Quran reference data and Tahfidz validation need a forward-only migration.');
@@ -121,6 +121,7 @@ assert.match(quranCatalogMigration.statements.join('\n'), /REVOKE ALL ON TABLE p
 assert.match(quranCatalogMigration.statements.join('\n'), /GRANT SELECT ON TABLE public\.quran_surahs TO service_role/i);
 assert.match(quranCatalogMigration.statements.join('\n'), /DROP TRIGGER IF EXISTS tahfidz_records_validate_quran_reference_insert/i);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270306000000_library_book_category_reference_writes.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270401000000_tahfidz_monthly_leaderboard.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -439,7 +440,7 @@ assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 103);
+assert.equal(productionBaseline.pending.length, 104);
 assert.deepEqual(
   productionBaseline.outOfOrderPending.map(({ version }) => version),
   [...productionMissingMigrationVersions],

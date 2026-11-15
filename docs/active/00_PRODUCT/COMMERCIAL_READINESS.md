@@ -1,5 +1,13 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
+## Status aktual — 15 November 2026
+
+Checkpoint terbaru membenahi permukaan UI Asrama, menghilangkan jargon teknis dari layar modul aktif, dan menambahkan kembali peringkat Tahfidz berbasis setoran tersimpan serta isolasi role/halaqah. Build, TypeScript, pemeriksaan routing privat, pemeriksaan runtime, dan preflight source migration lokal lulus. Uji SQL/pgTAP belum dijalankan pada mesin ini karena Supabase CLI tidak tersedia; CI setelah sinkronisasi source masih harus membuktikannya.
+
+Perubahan Tahfidz memakai migration baru `20270401000000_tahfidz_monthly_leaderboard.sql`. Migration ini **belum diterapkan** pada staging maupun Production. Hostinger masih menayangkan commit lama `82082bf1c8fa806e420ae555ca38f0700694b9af`, dengan Git provider belum tersambung dan auto-deploy mati, sehingga domain sementara belum menampilkan perubahan source terbaru. Tidak ada perubahan Production dalam checkpoint ini.
+
+Rincian bukti dan gerbang berikutnya: [checkpoint 15 November](CHECKPOINT_2026-11-15_PRODUCT_POLISH.md). Status di bagian bawah dokumen ini adalah snapshot historis 14 November dan tidak menggantikan catatan ini.
+
 
 ## Addendum otoritatif — checkpoint 14 November 2026
 

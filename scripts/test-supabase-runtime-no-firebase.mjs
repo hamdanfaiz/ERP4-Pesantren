@@ -215,6 +215,28 @@ assert.match(boardingSource, /<UnavailableSection\s+label=\{selected\.label\}\s*
   'Disabled Asrama sections must show an explicit readiness state instead of disappearing.');
 assert.doesNotMatch(boardingSource, /if\s*\(!available\.length\)\s*return\s+null/,
   'Asrama must not render a blank screen when runtime gates are closed.');
+const designSystemCss = fs.readFileSync(path.join(root, 'src', 'index.css'), 'utf8');
+assert.match(designSystemCss, /\.erp-boarding-theme\s+\[class~="bg-white"\][\s\S]*?background-color:\s*var\(--erp-surface\)\s*!important/,
+  'Asrama card surfaces must follow shared theme tokens in both color modes.');
+assert.doesNotMatch(designSystemCss, /\.dark\s+\.erp-boarding-theme\s+\[class~="bg-white"\]/,
+  'Asrama surface normalization must not depend on a dark-mode-only selector.');
+assert.match(designSystemCss, /\.erp-boarding-theme\s+input,[\s\S]*?background-color:\s*var\(--erp-surface\)/,
+  'Asrama form controls must use the shared theme surface.');
+const publicModuleCopy = [
+  'src/pages/SupabaseAcademicManager.tsx',
+  'src/pages/SupabaseCBTManager.tsx',
+  'src/pages/SupabaseCBTStudentDashboard.tsx',
+  'src/pages/SupabaseCommunicationHub.tsx',
+  'src/pages/SupabaseFinanceManager.tsx',
+  'src/pages/SupabaseGeneralAffairManager.tsx',
+  'src/pages/SupabaseGeneralAffairsAssets.tsx',
+  'src/pages/SupabaseHealthcareManager.tsx',
+  'src/pages/SupabaseLibraryManager.tsx',
+  'src/pages/SupabaseLMSManager.tsx',
+  'src/components/MasterDataTransferModal.tsx',
+].map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
+assert.doesNotMatch(publicModuleCopy, /Sumber data:\s*Supabase\s+tenant|Jalur runtime Supabase tenant|roster tenant/i,
+  'Customer screens must describe pesantren workflows without provider or backend vocabulary.');
 const academicSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAcademicManager.tsx'), 'utf8');
 for (const feature of ['report-card', 'conflict-resolver']) {
   assert.ok(academicSource.includes(`id: "${feature}"`), `Academic reference submenu ${feature} must remain visible.`);

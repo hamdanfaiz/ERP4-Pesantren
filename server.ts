@@ -60,6 +60,7 @@ import {
 import {
   assignSupabaseTahfidzMembership,
   listSupabaseTahfidzAchievementPage,
+  listSupabaseTahfidzLeaderboard,
   listSupabaseTahfidzSessions,
   listSupabaseTahfidzRosterPage,
   listSupabaseTahfidzSnapshot,
@@ -3178,6 +3179,26 @@ async function startServer() {
       const actor = await loadTahfidzActor(uid);
       return res.json(await listSupabaseTahfidzAchievementPage(
         actor.tenantId, actor.uid, actor.role, req.query.cursor,
+      ));
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.get("/api/tahfidz/leaderboard", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Fitur Tahfidz belum tersedia." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      if (req.query.limit !== undefined && typeof req.query.limit !== "string") {
+        return res.status(400).json({ error: "Jumlah peringkat Tahfidz tidak valid." });
+      }
+      const limitValue = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+      if (limitValue !== undefined && ![5, 20].includes(limitValue)) {
+        return res.status(400).json({ error: "Jumlah peringkat Tahfidz tidak valid." });
+      }
+      const actor = await loadTahfidzActor(uid);
+      return res.json(await listSupabaseTahfidzLeaderboard(
+        actor.tenantId, actor.uid, actor.role, limitValue,
       ));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
