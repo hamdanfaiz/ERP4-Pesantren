@@ -31,13 +31,14 @@ Lulus:
 - Suite pesan pengguna dan `npm run test:customer-compose-env`.
 - Pemeriksaan lanjutan menemukan bahwa `test:user-messages:security` belum dijalankan oleh workflow CI. Workflow kini menjalankan suite tersebut; `npm run test:ci-coverage` lulus untuk semua 75 skrip tes paket dan `npm run test:user-messages:security` lulus dengan 14 skenario.
 - `npm run test:customer-deployment-flags` lulus setelah ekspektasi CRM diselaraskan dengan pesan aktual dan layar email/SDM diperbaiki. `npm run lint` dan `npm run build` juga lulus ulang setelah perubahan UI ini.
+- GitHub Actions run [#1762](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43664004230) lulus **3/3 job** pada commit `ca07d58e`: frontend build/runtime guard, migrasi/API/Auth/pgTAP pada Supabase lokal terisolasi, dan instalasi paket untuk environment pelanggan. Job database mencakup replay baseline historis sintetis, suite database, API/tenant, Storage, Dokumen Digital, dan backup-restore lokal. Ini bukan pemeriksaan atau restore Production.
 
 Build masih mengeluarkan peringatan chunk `react-pdf` sekitar 1,46 MB dan komentar anotasi Zod yang tidak dapat ditafsirkan Rollup. Build selesai dengan kode keluar 0.
 
 ## Gerbang yang belum lulus atau belum dibuktikan
 
-- `npm run test:api:auth-tenant` berhenti sebelum menjalankan suite: `spawnSync supabase ENOENT`. Perintah `supabase` dan `docker` tidak tersedia pada PATH lingkungan ini. Ini bukan hasil gagal assertion; emulator belum dimulai.
-- GitHub Actions run #1761 pada commit awal branch review sedang menguji integrasi gabungan. Job frontend menemukan dua ketidaksesuaian pengujian copy; keduanya direproduksi lokal dan diperbaiki pada worktree, sehingga CI baru harus dijalankan setelah commit perbaikan didorong. Run gabungan #1752 yang sudah hijau hanya mencakup stack #91 → #92 → #121, bukan #112/#114/#115.
+- `supabase` CLI dan Docker tidak tersedia lokal, sehingga replay emulator tidak bisa dijalankan di PC ini. GitHub Actions run #1762 telah menjalankan lingkungan Supabase lokal terisolasi dan seluruh job lulus.
+- Run #1761 gagal pada pemeriksaan copy sebelum koreksi; seluruh koreksi sudah masuk commit `ca07d58e`, lalu run #1762 lulus. Run gabungan #1752 sebelumnya hanya mencakup stack #91 → #92 → #121, bukan #112/#114/#115.
 - UAT browser gabungan pada akun Admin/Ustadz/Santri/Wali, seluruh modul, perangkat ponsel, dan jalur simpan-baca tetap diperlukan.
 - Rekonsiliasi DDL Production, keputusan urutan migrasi terhadap ledger aktual, serta bukti backup dan restore Production adalah pekerjaan tim backend. Tidak ada migration push atau perubahan database yang dilakukan di checkpoint ini.
 - PR yang menjadi sumber perubahan tetap perlu review backend sebelum merge.
