@@ -2,7 +2,7 @@
 
 ## Status aktual — 15 November 2026
 
-Checkpoint terbaru membenahi permukaan UI Asrama, menghilangkan jargon teknis dari layar modul aktif, dan menambahkan kembali peringkat Tahfidz berbasis setoran tersimpan serta isolasi role/halaqah. Build, TypeScript, pemeriksaan routing privat, pemeriksaan runtime, dan preflight source migration lokal lulus. Uji SQL/pgTAP belum dijalankan pada mesin ini karena Supabase CLI tidak tersedia; CI setelah sinkronisasi source masih harus membuktikannya.
+Checkpoint terbaru membenahi permukaan UI Asrama, menghilangkan jargon teknis dari layar modul aktif, dan menambahkan kembali peringkat Tahfidz berbasis setoran tersimpan serta isolasi role/halaqah. Build, TypeScript, pemeriksaan routing privat, runtime, dan preflight migrasi lulus. GitHub Actions run #1789 pada commit cbab5840ed15787c14a4964a74887c22bbee0dd6 lulus 3/3 job, termasuk replay migrasi sintetis, otorisasi API, dan seluruh suite pgTAP; rencana uji leaderboard memuat 93 assertion.
 
 Perubahan Tahfidz memakai migration baru `20270401000000_tahfidz_monthly_leaderboard.sql`. Migration ini **belum diterapkan** pada staging maupun Production. Hostinger masih menayangkan commit lama `82082bf1c8fa806e420ae555ca38f0700694b9af`, dengan Git provider belum tersambung dan auto-deploy mati, sehingga domain sementara belum menampilkan perubahan source terbaru. Tidak ada perubahan Production dalam checkpoint ini.
 
@@ -254,4 +254,5 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - Daftar izin Admin yang secara eksplisit ditolak dibuka pada Sidebar agar menu tersembunyi dapat diketahui. Aturan RBAC tidak dilonggarkan.
 - Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
 - Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
+
 
