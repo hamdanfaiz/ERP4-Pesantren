@@ -83,8 +83,9 @@ Enam PR source yang masih open saat audit adalah #91, #92, #112, #114, #115, dan
 
 1. Branch review gabungan sudah tersedia untuk tim backend di [GitHub](https://github.com/hamdanfaiz/ERP4-Pesantren/tree/codex/integration-current-main-20261115); CI #1763 lulus 3/3.
 2. Tim backend meninjau rekonsiliasi VQE di atas sebelum menerapkan migrasi apa pun; migrasi belum disinkronkan ke staging.
-3. Setelah staging dan flag modul siap, jalankan UAT browser untuk role/modul yang diaktifkan dan alur simpan-baca.
-4. Tim backend menyelesaikan pemeriksaan DDL, backup, restore, dan urutan rilis Production sebelum menyetujui deploy.
+3. Gunakan [Matriks Runtime Modul dan Visibilitas](MODULE_RUNTIME_FLAG_MATRIX.md) untuk mengidentifikasi flag dan prasyarat tiap modul; jangan mengaktifkan semuanya sekaligus.
+4. Setelah staging dan flag modul siap, jalankan UAT browser untuk role/modul yang diaktifkan dan alur simpan-baca.
+5. Tim backend menyelesaikan pemeriksaan DDL, backup, restore, dan urutan rilis Production sebelum menyetujui deploy.
 
 ## Checkpoint source lokal
 
