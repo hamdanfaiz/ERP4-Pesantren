@@ -14,6 +14,7 @@ Rehearsal menggabungkan source head PR #115, #91, #92, #121, #112, dan #114. Sta
 - Menghapus route katalog Tahfidz duplikat yang lebih lama.
 - Menyatukan permukaan container Asrama dengan token tema ERP, menambahkan import ikon yang dipakai halaman Asrama, serta menghapus argumen status backend yang tidak digunakan.
 - Memisahkan nama perintah npm untuk dua suite pesan pengguna agar tidak saling menimpa.
+- Menghapus kolom SMTP yang memberi kesan pengiriman email sudah siap; layar Pengaturan kini menampilkan status yang jelas. Keterangan SDM diringkas agar batas fitur disampaikan dalam bahasa pengguna, tanpa istilah fase/backend.
 
 ## Pemeriksaan lokal pada worktree
 
@@ -29,13 +30,14 @@ Lulus:
 - Suite CBT: pengaturan tulis, dasbor, halaman pertanyaan, roster santri, penugasan, dan daftar ujian.
 - Suite pesan pengguna dan `npm run test:customer-compose-env`.
 - Pemeriksaan lanjutan menemukan bahwa `test:user-messages:security` belum dijalankan oleh workflow CI. Workflow kini menjalankan suite tersebut; `npm run test:ci-coverage` lulus untuk semua 75 skrip tes paket dan `npm run test:user-messages:security` lulus dengan 14 skenario.
+- `npm run test:customer-deployment-flags` lulus setelah ekspektasi CRM diselaraskan dengan pesan aktual dan layar email/SDM diperbaiki. `npm run lint` dan `npm run build` juga lulus ulang setelah perubahan UI ini.
 
 Build masih mengeluarkan peringatan chunk `react-pdf` sekitar 1,46 MB dan komentar anotasi Zod yang tidak dapat ditafsirkan Rollup. Build selesai dengan kode keluar 0.
 
 ## Gerbang yang belum lulus atau belum dibuktikan
 
 - `npm run test:api:auth-tenant` berhenti sebelum menjalankan suite: `spawnSync supabase ENOENT`. Perintah `supabase` dan `docker` tidak tersedia pada PATH lingkungan ini. Ini bukan hasil gagal assertion; emulator belum dimulai.
-- GitHub CI untuk gabungan seluruh head PR pada worktree ini belum berjalan. CI hijau yang tersedia terpisah per PR; run gabungan #1752 hanya mencakup stack #91 → #92 → #121, bukan #112/#114/#115.
+- GitHub Actions run #1761 pada commit awal branch review sedang menguji integrasi gabungan. Job frontend menemukan dua ketidaksesuaian pengujian copy; keduanya direproduksi lokal dan diperbaiki pada worktree, sehingga CI baru harus dijalankan setelah commit perbaikan didorong. Run gabungan #1752 yang sudah hijau hanya mencakup stack #91 → #92 → #121, bukan #112/#114/#115.
 - UAT browser gabungan pada akun Admin/Ustadz/Santri/Wali, seluruh modul, perangkat ponsel, dan jalur simpan-baca tetap diperlukan.
 - Rekonsiliasi DDL Production, keputusan urutan migrasi terhadap ledger aktual, serta bukti backup dan restore Production adalah pekerjaan tim backend. Tidak ada migration push atau perubahan database yang dilakukan di checkpoint ini.
 - PR yang menjadi sumber perubahan tetap perlu review backend sebelum merge.

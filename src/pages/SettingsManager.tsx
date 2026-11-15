@@ -724,7 +724,7 @@ export function SettingsManager() {
                     <Database className="w-5 h-5 text-indigo-400" /> Integrasi Komunikasi Otomatis
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Atur layanan WhatsApp dan email. Pembayaran daring belum tersedia.
+                    Atur layanan WhatsApp untuk pemberitahuan wali dan pengajar.
                   </p>
                 </div>
 
@@ -749,40 +749,11 @@ export function SettingsManager() {
                   </div>
                 </div>
 
-                {/* SMTP Email Server */}
-                <div className="p-5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/[0.02] space-y-4">
-                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Pengaturan Email Keluar</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat Server Email</label>
-                      <input 
-                        type="text" 
-                        value={integrations.smtpHost}
-                        onChange={e => setIntegrations({...integrations, smtpHost: e.target.value})}
-                        className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Port Server Email</label>
-                      <input 
-                        type="text" 
-                        value={integrations.smtpPort}
-                        onChange={e => setIntegrations({...integrations, smtpPort: e.target.value})}
-                        className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Sender Email</label>
-                      <input 
-                        type="text" 
-                        value={integrations.smtpUser || ''}
-                        onChange={e => setIntegrations({...integrations, smtpUser: e.target.value})}
-                        placeholder="noreply@pesantren.sch.id"
-                        className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <ERPFeatureStatus
+                  title="Pemberitahuan melalui email"
+                  status="Belum tersedia"
+                  description="Pengiriman pemberitahuan melalui email belum tersedia."
+                />
               </div>
             )}
 

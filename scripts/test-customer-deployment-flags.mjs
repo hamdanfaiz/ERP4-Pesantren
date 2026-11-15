@@ -146,7 +146,7 @@ const crmUi = read("src/pages/SupabaseCrmManager.tsx");
 const crmService = read("src/server/supabaseCrm.ts");
 assert.doesNotMatch(crmUi, /OpenWA|WA_GATEWAY_API_KEY|broadcastStatus\.(?:error|endpoint)/i,
   "CRM screens must not expose provider internals, server secrets, or raw status details");
-assert.match(crmUi, /broadcastStatus\.configured \? "Layanan WhatsApp siap digunakan\."/,
+assert.match(crmUi, /broadcastStatus\.configured \? "Pengiriman WhatsApp siap digunakan\."/,
   "CRM status must show a customer-facing message rather than the service endpoint");
 assert.match(server, /res\.json\(\{ configured: Boolean\(status\.configured\) \}\)/,
   "The CRM status API must return only its availability state");
