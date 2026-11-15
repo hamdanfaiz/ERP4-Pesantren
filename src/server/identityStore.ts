@@ -604,7 +604,7 @@ export async function listGuardianAccountCandidates(tenantId: string): Promise<G
       "Relasi Wali dan santri tidak dapat dibaca dari Supabase."),
     readIdentityPages((from, to) => supabase.from("students").select("id,nis,name,grade,status")
       .eq("tenant_id", tenantId).order("id", { ascending: true }).range(from, to),
-      "Daftar santri tidak dapat dibaca dari Supabase."),
+      "Daftar santri belum dapat dimuat."),
     readIdentityPages((from, to) => supabase.from("guardian_user_accounts").select("guardian_id")
       .eq("tenant_id", tenantId).order("guardian_id", { ascending: true }).range(from, to),
       "Status akun Wali tidak dapat dibaca dari Supabase."),

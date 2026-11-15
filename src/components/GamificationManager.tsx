@@ -24,7 +24,7 @@ export function getStudentBadges(studentId: string): GamificationBadge[] {
   if (studentId === 'STD-001') return [{ ...BADGES[0], earnedAt: '2023-10-01' }, { ...BADGES[1], earnedAt: '2023-10-15' }, { ...BADGES[2], earnedAt: '2023-10-20' }];
   if (studentId === 'STD-002') return [{ ...BADGES[0], earnedAt: '2023-09-15' }];
   if (studentId === 'STD-003') return [{ ...BADGES[0], earnedAt: '2023-08-10' }, { ...BADGES[4], earnedAt: '2023-10-25' }];
-  // Default fallback for preview
+  // Default fallback for pratinjau
   return [{ ...BADGES[1], earnedAt: '2023-10-29' }];
 }
 

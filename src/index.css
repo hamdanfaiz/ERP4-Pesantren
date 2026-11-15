@@ -556,3 +556,33 @@ tbody tr:hover td, .erp-table tbody tr:hover td { background: color-mix(in srgb,
   .erp-tab-control { min-height: 2.375rem; padding: .5rem .7rem !important; font-size: .8125rem !important; }
   .erp-table-wrap table { min-width: 34rem; }
 }
+
+/* Keep every Asrama tab on the shared dark surface instead of mixing light cards. */
+.dark .erp-boarding-theme [class~="bg-white"],
+.dark .erp-boarding-theme [class~="bg-white/70"],
+.dark .erp-boarding-theme [class~="bg-white/80"] {
+  background-color: var(--erp-surface) !important;
+}
+.dark .erp-boarding-theme [class~="bg-slate-50"],
+.dark .erp-boarding-theme [class~="bg-slate-100"] {
+  background-color: var(--erp-surface-subtle) !important;
+}
+.dark .erp-boarding-theme [class~="border-slate-100"],
+.dark .erp-boarding-theme [class~="border-slate-200"],
+.dark .erp-boarding-theme [class~="border-slate-300"],
+.dark .erp-boarding-theme [class~="divide-slate-100"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--erp-border) !important;
+}
+.dark .erp-boarding-theme [class~="text-slate-900"],
+.dark .erp-boarding-theme [class~="text-slate-800"] {
+  color: var(--erp-text) !important;
+}
+.dark .erp-boarding-theme [class~="text-slate-700"],
+.dark .erp-boarding-theme [class~="text-slate-600"],
+.dark .erp-boarding-theme [class~="text-slate-500"] {
+  color: var(--erp-text-muted) !important;
+}
+.dark .erp-boarding-theme [class~="hover:bg-slate-50"]:hover,
+.dark .erp-boarding-theme [class~="hover:bg-slate-50/70"]:hover {
+  background-color: var(--erp-surface-subtle) !important;
+}

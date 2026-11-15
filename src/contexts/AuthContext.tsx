@@ -67,7 +67,7 @@ function profileToAuthUser(uid: string, email: string | null, profile: Record<st
     throw new Error('Role akun tidak valid. Hubungi administrator pesantren.');
   }
   if (!tenantId) {
-    throw new Error('Akun belum terhubung ke tenant pesantren. Hubungi administrator.');
+    throw new Error('Akun belum terhubung ke pesantren. Hubungi administrator.');
   }
   if (status !== 'active') {
     throw new Error('Akun belum aktif. Hubungi administrator pesantren.');
@@ -145,7 +145,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const initializeAuth = async () => {
       try {
-        if (!supabaseClientConfigured()) throw new Error('Konfigurasi Supabase belum lengkap.');
+        if (!supabaseClientConfigured()) throw new Error('Layanan masuk belum siap. Silakan hubungi administrator pesantren.');
         if (!mounted) return;
 
         const { data } = supabase.auth.onAuthStateChange((_event, authSession) => {
@@ -210,7 +210,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let authenticatedUser: SupabaseAuthUser | null = null;
     setIsLoading(true);
     try {
-      if (!supabaseClientConfigured()) throw new Error('Konfigurasi Supabase belum lengkap.');
+      if (!supabaseClientConfigured()) throw new Error('Layanan masuk belum siap. Silakan hubungi administrator pesantren.');
       const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,

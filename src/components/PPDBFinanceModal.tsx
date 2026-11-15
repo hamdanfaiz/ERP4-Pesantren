@@ -311,7 +311,7 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
                         Sinkronisasi Dua Arah dengan Modul FinanceManager
                       </h4>
                       <p className="text-xs text-slate-400">
-                        Setiap transaksi otomatis membuat jurnal invoice/billing kas masuk di Modul Keuangan
+                        Setiap tagihan yang diterima otomatis dicatat pada Modul Keuangan
                       </p>
                     </div>
                   </div>
@@ -455,7 +455,7 @@ export const PPDBFinanceModal: React.FC<PPDBFinanceModalProps> = ({
 
               <div>
                 <label className="text-xs font-medium text-slate-300 block mb-1.5">
-                  Catatan Transaksi / No. Referensi Transfer:
+                  Catatan transaksi / nomor referensi transfer:
                 </label>
                 <input
                   type="text"

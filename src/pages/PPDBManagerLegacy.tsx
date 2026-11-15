@@ -765,7 +765,7 @@ export function PPDBManager() {
       return;
     }
     if (!user?.tenantId) {
-      showToast("Akun Anda belum terhubung ke tenant pesantren.", "error");
+      showToast("Akun Anda belum terhubung ke pesantren.", "error");
       return;
     }
     setFormErrors({});
@@ -804,11 +804,11 @@ export function PPDBManager() {
           Promise.all(identityValues.map(({ kind, value }) => transaction.get(ppdbIdentityReservationRef(user.tenantId, kind, value)))),
         ]);
         if (registrationSnapshot.exists() || legacySnapshots[0].docs.length > 0) {
-          throw new Error("Registration ID " + registrationId + " sudah digunakan pada tenant ini.");
+          throw new Error("Registration ID " + registrationId + " sudah digunakan pada pesantren ini.");
         }
         identityValues.forEach((item, index) => {
           if (identitySnapshots[index].exists() || legacySnapshots[index + 1].docs.length > 0) {
-            throw new Error(item.kind.toUpperCase() + " " + item.value + " sudah terdaftar pada tenant ini.");
+            throw new Error(item.kind.toUpperCase() + " " + item.value + " sudah terdaftar pada pesantren ini.");
           }
         });
         transaction.set(candidateRef, tenantRecord(user.tenantId, newCandidate));
@@ -1341,7 +1341,7 @@ export function PPDBManager() {
 
                       {/* Action buttons on candidate card: WhatsApp & Tahfidz */}
                       <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-800/80">
-                        {/* WhatsApp direct send & preview */}
+                        {/* WhatsApp direct send & pratinjau */}
                         <div className="flex items-center gap-1">
                           <button
                             onClick={(e) => {
@@ -1376,7 +1376,7 @@ export function PPDBManager() {
                               });
                             }}
                             className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-                            title="Preview Template Pesan WhatsApp"
+                            title="Pratinjau Template Pesan WhatsApp"
                           >
                             <FileText className="w-3 h-3" />
                           </button>
@@ -2552,7 +2552,7 @@ export function PPDBManager() {
                               <div className="p-3 bg-amber-950/30 rounded-lg border border-amber-500/20">
                                 <span className="text-[10px] text-amber-300 uppercase block">Akun Portal Wali:</span>
                                 <strong className="text-amber-200 text-xs">{candidate.waliAccountStatus === "Active" ? "Aktif" : "Menunggu Aktivasi"}</strong>
-                                <span className="text-[10px] text-slate-400 block mt-0.5">Akses diberikan setelah provisioning Firebase Auth.</span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">Akses diberikan setelah akun terverifikasi.</span>
                               </div>
                             </div>
                           ) : (
@@ -3534,7 +3534,7 @@ export function PPDBManager() {
                       </div>
                     </div>
 
-                    {/* Preview Matched Candidates */}
+                    {/* Pratinjau Matched Candidates */}
                     {(() => {
                       const matched = candidates.filter(
                         (c) => c.stage === smartPromoteSource && (c.score || 0) >= smartMinScore
@@ -3646,7 +3646,7 @@ export function PPDBManager() {
                       </div>
                     </div>
 
-                    {/* Preview Unscheduled */}
+                    {/* Pratinjau Unscheduled */}
                     {(() => {
                       const unscheduled = candidates.filter(
                         (c) =>
@@ -4056,7 +4056,7 @@ export function PPDBManager() {
         />
       )}
 
-      {/* WhatsApp Message Preview Modal */}
+      {/* WhatsApp Message Pratinjau Modal */}
       {waPreviewData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">

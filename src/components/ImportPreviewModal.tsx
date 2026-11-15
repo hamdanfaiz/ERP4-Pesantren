@@ -343,7 +343,7 @@ export function ImportPreviewModal({
       await onImportSuccess(toImport, strategy);
       onClose();
     } catch (err: any) {
-      setErrorMessage(`Gagal menyimpan data impor: ${err.message || 'Kesalahan database'}`);
+      setErrorMessage(`Gagal menyimpan data impor: ${err.message || 'Kesalahan penyimpanan data'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -363,7 +363,7 @@ export function ImportPreviewModal({
                 Wizard Impor Data {activeSubTab} (Rekomendasi 4)
               </h3>
               <p className="text-xs text-slate-400">
-                Pra-validasi skema Zod, deteksi konflik identitas massal, dan preview interaktif sebelum commit ke database.
+                Periksa format, duplikasi identitas, dan baris bermasalah sebelum menyimpan data.
               </p>
             </div>
           </div>
@@ -405,7 +405,7 @@ export function ImportPreviewModal({
                   Unggah File CSV atau JSON Data {activeSubTab}
                 </h4>
                 <p className="text-xs text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
-                  Pilih file spreadsheet dari komputer Anda. Sistem akan memindai format identitas (NIK 16 digit, NISN 10 digit, NUPTK), memastikan tidak ada konflik, dan menampilkan preview lengkap.
+                  Pilih file spreadsheet dari komputer Anda. Sistem akan memindai format identitas (NIK 16 digit, NISN 10 digit, NUPTK), memastikan tidak ada konflik, dan menampilkan pratinjau lengkap.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                   <button
@@ -442,12 +442,12 @@ export function ImportPreviewModal({
                     <ShieldAlert className="w-4 h-4" /> Pencegahan Duplikasi
                   </div>
                   <p className="text-slate-400 leading-relaxed">
-                    Mendeteksi jika ada NIK atau NISN yang telah terdaftar di database yayasan maupun ganda di file yang sama.
+                    Mendeteksi NIK atau NISN yang sudah terdaftar di pesantren atau berulang dalam file yang sama.
                   </p>
                 </div>
                 <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/80 space-y-1.5">
                   <div className="font-semibold text-blue-400 flex items-center gap-1.5">
-                    <RefreshCw className="w-4 h-4" /> Preview Interaktif
+                    <RefreshCw className="w-4 h-4" /> Pratinjau Interaktif
                   </div>
                   <p className="text-slate-400 leading-relaxed">
                     Dapat memilih hanya baris yang bersih, mengecualikan baris error, dan mengunduh laporan revisi data.
@@ -474,7 +474,7 @@ export function ImportPreviewModal({
                     </span>
                     {stats.conflicts + stats.errors > 0 && (
                       <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-rose-500/10 border border-rose-500/20 text-rose-400">
-                        Error/Konflik: <b>{stats.conflicts + stats.errors}</b>
+                        Kesalahan/Konflik: <b>{stats.conflicts + stats.errors}</b>
                       </span>
                     )}
                     <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/10 border border-blue-500/20 text-blue-300 font-mono">
@@ -502,7 +502,7 @@ export function ImportPreviewModal({
                       className="px-3 py-1.5 text-xs text-rose-300 hover:text-white bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/30 rounded-lg transition-colors flex items-center gap-1.5"
                       title="Unduh daftar baris bermasalah untuk diperbaiki di Excel"
                     >
-                      <Download className="w-3.5 h-3.5" /> Unduh Error CSV
+                      <Download className="w-3.5 h-3.5" /> Unduh Laporan CSV
                     </button>
                   )}
                 </div>
@@ -544,7 +544,7 @@ export function ImportPreviewModal({
                           : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      Error / Konflik ({stats.conflicts + stats.errors})
+                      Kesalahan / Konflik ({stats.conflicts + stats.errors})
                     </button>
                   </div>
                 </div>
@@ -574,7 +574,7 @@ export function ImportPreviewModal({
                 </div>
               </div>
 
-              {/* Data Preview Table */}
+              {/* Data Pratinjau Table */}
               <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40">
                 <div className="max-h-72 overflow-y-auto">
                   <table className="w-full text-left text-xs">
@@ -697,7 +697,7 @@ export function ImportPreviewModal({
                       className="accent-emerald-500"
                     />
                     <span className="text-slate-300">
-                      <b>Perbarui (Overwrite):</b> Timpa atribut data yang ada jika ID sudah terdaftar di database.
+                      <b>Perbarui (Overwrite):</b> Perbarui data yang sudah ada bila ID yang sama ditemukan.
                     </span>
                   </label>
                 </div>
@@ -735,7 +735,7 @@ export function ImportPreviewModal({
                 {isProcessing ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Menyimpan ke Firestore...</span>
+                    <span>Menyimpan ke arsip lama...</span>
                   </>
                 ) : (
                   <>

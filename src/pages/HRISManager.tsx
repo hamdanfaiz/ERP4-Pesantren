@@ -280,7 +280,7 @@ function AttendanceView() {
                   {[
                      { name: 'Dr. Ahmad Fauzi', time: '07:12 AM', method: 'Face Recognition', loc: 'Main Campus', status: 'On Time', coord: [-6.200000, 106.816666] },
                      { name: 'Dian Anugrah', time: '07:45 AM', method: 'Mobile GPS', loc: 'Main Campus', status: 'On Time', coord: [-6.205, 106.810] },
-                     { name: 'Budi Santoso', time: '08:15 AM', method: 'Fingerprint', loc: 'South Gate', status: 'Late', coord: [-6.198, 106.818] },
+                     { name: 'Budi Santoso', time: '08:15 AM', method: 'Sidik jari', loc: 'South Gate', status: 'Late', coord: [-6.198, 106.818] },
                   ].map((log, i) => (
                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
                         <td className="px-5 py-3 font-medium text-slate-800 dark:text-slate-200">{log.name}</td>
@@ -315,7 +315,7 @@ function AttendanceView() {
                     {[
                        { name: 'Dr. Ahmad Fauzi', time: '07:12 AM', method: 'Face Recognition', loc: 'Main Campus', address: 'Jl. Merdeka No.1, Jakarta', status: 'On Time', coord: [-6.200000, 106.816666] },
                        { name: 'Dian Anugrah', time: '07:45 AM', method: 'Mobile GPS', loc: 'Main Campus', address: 'Jl. Sudirman No. 45, Jakarta', status: 'On Time', coord: [-6.205, 106.810] },
-                       { name: 'Budi Santoso', time: '08:15 AM', method: 'Fingerprint', loc: 'South Gate', address: 'Jl. Gatot Subroto Kav. 1, Jakarta', status: 'Late', coord: [-6.198, 106.818] },
+                       { name: 'Budi Santoso', time: '08:15 AM', method: 'Sidik jari', loc: 'South Gate', address: 'Jl. Gatot Subroto Kav. 1, Jakarta', status: 'Late', coord: [-6.198, 106.818] },
                     ].map((log, idx) => (
                        <Marker key={idx} position={log.coord as [number, number]} eventHandlers={{ click: () => setSelectedMapLog(log) }}>
                          <Popup className="font-sans">
@@ -1235,7 +1235,7 @@ function ShiftPlannerView() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl p-5 shadow-sm">
         <div>
-          <h3 className="font-semibold text-slate-800 dark:text-slate-200">Weekly Shift Roster</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-200">Jadwal Shift Mingguan</h3>
           <p className="text-sm text-slate-500 flex items-center gap-2"><CalendarRange className="w-4 h-4" /> June 8 - June 14, 2026</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

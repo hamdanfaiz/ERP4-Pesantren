@@ -957,12 +957,12 @@ export function CBTManager() {
         </div>
       </div>
 
-      {/* Preview Pane */}
+      {/* Pratinjau Pane */}
       <div className="flex lg:flex lg:w-[45%] flex-col gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
             <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                <MonitorPlay className="w-5 h-5 text-sky-500" />
-               Live Preview
+               Live Pratinjau
             </h3>
          </div>
          <div className="p-6 overflow-y-auto w-full">
@@ -979,7 +979,7 @@ export function CBTManager() {
                    </span>
                 </div>
 
-                <div className="prose dark:prose-invert max-w-none font-medium text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={{ __html: questionFormData.text || '<p class="text-slate-400 italic">Enter question content to preview...</p>' }} />
+                <div className="prose dark:prose-invert max-w-none font-medium text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={{ __html: questionFormData.text || '<p class="text-slate-400 italic">Enter question content to pratinjau...</p>' }} />
 
                 <div className="space-y-3 pt-4">
                    {questionFormData.options.map((opt, idx) => (
@@ -1159,7 +1159,7 @@ export function CBTManager() {
                              <button
                                onClick={() => setPreviewQuestion(q)}
                                className="p-1.5 border border-slate-200 dark:border-white/10 rounded text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors shadow-sm"
-                               title="Preview Question"
+                               title="Pratinjau Question"
                              >
                                 <Eye className="w-4 h-4" />
                              </button>
@@ -1206,7 +1206,7 @@ export function CBTManager() {
               <p className="text-sm text-slate-500 dark:text-slate-400">Monitor active exam sessions in real-time.</p>
            </div>
            <div className="text-right">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Server Time</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Waktu saat ini</div>
               <div className="font-mono font-medium text-slate-800 dark:text-slate-200 bg-white dark:bg-black/40 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10">
                  {currentTime.toLocaleTimeString()}
               </div>
@@ -1608,7 +1608,7 @@ export function CBTManager() {
                             <button
                               onClick={() => setPreviewQuestion(q)}
                               className="p-2 border border-slate-200 dark:border-white/10 rounded-lg text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:border-sky-400 transition-colors bg-white dark:bg-slate-800 shadow-sm dark:shadow-none"
-                              title="Preview Question"
+                              title="Pratinjau Question"
                             >
                                <Eye className="w-4 h-4" />
                             </button>
@@ -2121,14 +2121,14 @@ export function CBTManager() {
         </div>
       )}
 
-      {/* Question Previewer Modal */}
+      {/* Dialog pratinjau soal */}
       {previewQuestion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800">
               <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-2xl">
                  <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                     <MonitorPlay className="w-5 h-5 text-sky-500" />
-                    Question Previewer
+                    Pratinjau Soal
                  </h2>
                  <button onClick={() => setPreviewQuestion(null)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">
                     <X className="w-5 h-5" />

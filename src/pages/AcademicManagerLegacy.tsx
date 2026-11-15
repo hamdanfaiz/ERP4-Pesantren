@@ -242,7 +242,7 @@ export function AcademicManager() {
     return list;
   }, [centralTeachers]);
 
-  // Centralized student roster lookup per class
+  // Centralized student daftar santri lookup per class
   const getStudentsForClass = (clsName: string): string[] => {
     const fromMaster = getStudentsByClass(clsName);
     if (fromMaster && fromMaster.length > 0) return fromMaster;
@@ -2722,7 +2722,7 @@ export function AcademicManager() {
                     : "text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
                 )}
               >
-                <FileText className="w-3.5 h-3.5" /> E-Rapor Card Preview
+                <FileText className="w-3.5 h-3.5" /> E-Rapor Card Pratinjau
               </button>
             </div>
 
@@ -2733,7 +2733,7 @@ export function AcademicManager() {
                 value={batchClass}
                 onChange={e => {
                   setBatchClass(e.target.value);
-                  // Auto adjust previews first student from centralized roster
+                  // Auto adjust the preview student from the class roster
                   const firstOfClass = getStudentsForClass(e.target.value)?.[0];
                   if (firstOfClass) {
                     setSelectedCommentStudent(firstOfClass);
@@ -3151,7 +3151,7 @@ export function AcademicManager() {
         {/* 3. SUB-TAB: DIGITAL REPORT CARD ENGINE (Sleek printable view) */}
         {activeSubTab === 'rapor' && (
           <div className="space-y-6 font-sans">
-            {/* If Admin/Ustadz we allow shifting report preview students */}
+            {/* If Admin/Ustadz we allow shifting report pratinjau students */}
             {!isWalisantriOrSantri && (
               <div className="bg-white dark:bg-[#0b0e17] border border-slate-200 dark:border-slate-850 p-4.5 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-sm">
                 <div className="space-y-0.5">

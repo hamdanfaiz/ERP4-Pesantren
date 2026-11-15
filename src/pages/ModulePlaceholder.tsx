@@ -45,9 +45,9 @@ export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
           <Construction className="h-6 w-6" />
         </div>
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{title} belum tersedia pada aplikasi Supabase</h2>
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{title} belum tersedia saat ini</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Modul ini belum memiliki alur operasional Supabase yang lengkap. Akses ke data lama tetap tertutup; data dummy Firestore tidak perlu disalin. Modul akan dibuka setelah skema dan relasi Supabase, API tenant, hak akses role, dan pengujian integrasinya selesai. Data contoh dapat ditambahkan langsung setelah modul siap.
+          Fitur pada modul ini belum tersedia saat ini. Silakan hubungi administrator pesantren.
         </p>
       </div>
     );
@@ -60,7 +60,7 @@ export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }
       </div>
       <h2 className="text-2xl font-serif italic text-emerald-500 mb-2">{title}</h2>
       <p className="text-slate-500 mb-8 max-w-xl">
-        Modul ini termasuk dalam rencana arsitektur tahap 1. Antarmuka dan integrasi backend sedang disiapkan.
+        Fitur modul ini belum tersedia saat ini. Silakan hubungi administrator pesantren.
       </p>
       
       <div className="bg-white/[0.02] p-6 rounded-2xl border border-slate-200 dark:border-white/5 w-full text-left">
@@ -68,7 +68,7 @@ export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }
         <ul className="space-y-3 text-sm text-slate-700 dark:text-slate-300 font-mono tracking-tight">
           <li className="flex items-center gap-3 bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5">
             <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)]"></div>
-            <span>Autentikasi Supabase / Konteks Pesantren</span>
+            <span>Akun pengguna dan data pesantren</span>
           </li>
           <li className="flex items-center gap-3 bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5">
             <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]"></div>
@@ -76,7 +76,7 @@ export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }
           </li>
           <li className="flex items-center gap-3 bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5">
             <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.6)]"></div>
-            <span>Proxy API Cloud Run <span className="opacity-50">(bila API eksternal memerlukannya)</span></span>
+            <span>Layanan eksternal (opsional) <span className="opacity-50">(bila layanan eksternal memerlukannya)</span></span>
           </li>
         </ul>
       </div>

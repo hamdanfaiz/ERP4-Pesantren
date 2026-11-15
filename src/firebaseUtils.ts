@@ -141,7 +141,7 @@ export function useTenantOperationalCollection<T extends TenantOperationalRecord
   const updateRecords = useCallback<React.Dispatch<React.SetStateAction<T[]>>>((action) => {
     const session = getAuthSession();
     if (!loadedRef.current || !tenantId || !session) {
-      setError('Data belum siap atau tenant belum aktif; perubahan belum disimpan.');
+      setError('Data belum siap atau pesantren belum aktif; perubahan belum disimpan.');
       return;
     }
     const previous = recordsRef.current;

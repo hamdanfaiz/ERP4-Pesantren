@@ -509,7 +509,7 @@ function KnowledgeHub() {
           <div className="space-y-6">
              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
                 <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2">
-                  <Database className="w-5 h-5 text-indigo-500" /> Vector Database Metrics
+                  <Database className="w-5 h-5 text-indigo-500" /> Metrik Basis Data Vektor
                 </h3>
                 <div className="space-y-6">
                   <div>
