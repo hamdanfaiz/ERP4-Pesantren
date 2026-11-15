@@ -3805,7 +3805,7 @@ export function TahfidzManager() {
 
   return (
     <div className="space-y-6 max-w-7xl w-full mx-auto pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+      <div className="flex flex-col gap-4 border-b border-slate-200 dark:border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-emerald-800 dark:text-emerald-400 hidden-border">
             Sistem Tahfidz ITQAN
@@ -3815,7 +3815,7 @@ export function TahfidzManager() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() =>
               isReminderEnabled
@@ -3873,7 +3873,8 @@ export function TahfidzManager() {
         <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">{rosterLoadingMore ? "Memuat…" : "Muat santri berikutnya"}</button>
       </div>}
 
-      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-max mb-6 border border-slate-200 dark:border-white/5">
+      <nav className="mb-6 max-w-full overflow-x-auto overscroll-x-contain" aria-label="Navigasi modul Tahfidz">
+        <div className="flex w-max min-w-full gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/5 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
         <button
           onClick={() => setActiveTab("dashboard")}
           className={cn(
@@ -3984,7 +3985,8 @@ export function TahfidzManager() {
         >
           {isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah"}
         </button>
-      </div>
+        </div>
+      </nav>
 
       {activeTab === "dashboard" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseDashboard() : renderDashboard())}
       {activeTab === "halaqah" && renderHalaqahManagement()}
