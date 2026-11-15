@@ -67,7 +67,7 @@ function profileToAuthUser(uid: string, email: string | null, profile: Record<st
     throw new Error('Role akun tidak valid. Hubungi administrator pesantren.');
   }
   if (!tenantId) {
-    throw new Error('Akun belum terhubung ke tenant pesantren. Hubungi administrator.');
+    throw new Error('Profil akun belum lengkap. Hubungi administrator pesantren.');
   }
   if (status !== 'active') {
     throw new Error('Akun belum aktif. Hubungi administrator pesantren.');
@@ -145,7 +145,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const initializeAuth = async () => {
       try {
-        if (!supabaseClientConfigured()) throw new Error('Konfigurasi Supabase belum lengkap.');
+        if (!supabaseClientConfigured()) throw new Error('Layanan masuk belum tersedia saat ini. Hubungi administrator pesantren.');
         if (!mounted) return;
 
         const { data } = supabase.auth.onAuthStateChange((_event, authSession) => {
@@ -210,14 +210,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let authenticatedUser: SupabaseAuthUser | null = null;
     setIsLoading(true);
     try {
-      if (!supabaseClientConfigured()) throw new Error('Konfigurasi Supabase belum lengkap.');
+      if (!supabaseClientConfigured()) throw new Error('Layanan masuk belum tersedia saat ini. Hubungi administrator pesantren.');
       const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
       if (error || !data.user || !data.session) {
         const invalid = !error || /invalid login credentials|invalid email or password|email not confirmed/i.test(error.message || '');
-        throw new Error(invalid ? 'Email atau kata sandi tidak cocok.' : error.message);
+        throw new Error(invalid
+          ? 'Email atau kata sandi tidak cocok.'
+          : 'Akun belum dapat diverifikasi. Periksa koneksi lalu coba kembali.');
       }
       authenticatedUser = data.user;
       setAuthSession({

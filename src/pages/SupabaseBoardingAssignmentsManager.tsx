@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, LoaderCircle, Plus, RotateCcw, UserRoundCog } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -36,7 +37,7 @@ export function SupabaseBoardingAssignmentsManager() {
       setUnitSelections(Object.fromEntries(result.unmappedLocations.map((item) => [item.id, item.parentUnitId || ""])));
       const firstStaff = result.staff[0];
       setForm({ userId: firstStaff?.id || "", locationId: result.locations.find((item) => item.category === locationType && item.organizationUnitId === firstStaff?.organizationUnitId)?.id || "" });
-    }).catch((e: any) => { if (active) setError(e?.message || "Data penugasan belum dapat dimuat."); })
+    }).catch((e: any) => { if (active) setError(toERPUserMessage(e, "Data penugasan belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -53,7 +54,7 @@ export function SupabaseBoardingAssignmentsManager() {
       await assignSupabaseBoardingLocationUnit({ category: item.category as "Gedung" | "Kamar", locationId: item.id, unitId, clientRequestId: crypto.randomUUID() });
       setNotice(`${item.category} “${item.name}” dipetakan ke unit dan dicatat pada audit.`);
       try { await refresh(); } catch { setError("Pemetaan tersimpan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Lokasi belum dapat dipetakan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Lokasi belum dapat dipetakan.")); }
     finally { setSaving(""); }
   };
 
@@ -68,7 +69,7 @@ export function SupabaseBoardingAssignmentsManager() {
       });
       setNotice("Penugasan lokasi Ustadz tersimpan pada pesantren.");
       try { await refresh(); } catch { setError("Penugasan sudah tersimpan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Penugasan belum dapat disimpan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Penugasan belum dapat disimpan.")); }
     finally { setSaving(""); }
   };
 
@@ -78,7 +79,7 @@ export function SupabaseBoardingAssignmentsManager() {
       await saveSupabaseBoardingAssignment({ assignmentId, userId, status: "inactive", clientRequestId: crypto.randomUUID() });
       setNotice("Penugasan dinonaktifkan dan tercatat pada audit.");
       try { await refresh(); } catch { setError("Penugasan sudah dinonaktifkan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Penugasan belum dapat dinonaktifkan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Penugasan belum dapat dinonaktifkan.")); }
     finally { setSaving(""); }
   };
 
@@ -94,10 +95,10 @@ export function SupabaseBoardingAssignmentsManager() {
         : !snapshot.unmappedLocations.length ? <div className="p-6 text-sm text-slate-500">Semua lokasi aktif sudah memiliki unit organisasi.</div>
           : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Lokasi</th><th className="px-4 py-3">Gedung induk</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100">{snapshot.unmappedLocations.map((item) => { const parentUnavailable = item.category === "Kamar" && item.parentId && (!item.parentUnitId || !item.parentActive); const unitMismatch = item.category === "Kamar" && item.parentId && item.parentUnitId !== unitSelections[item.id]; const selected = saving === `map:${item.id}`; const allowedUnits = item.category === "Kamar" && item.parentId && item.parentUnitId ? snapshot.units.filter((unit) => unit.id === item.parentUnitId) : snapshot.units; return <tr key={item.id}><td className="px-4 py-3"><p className="font-medium text-slate-900">{item.name}</p><p className="mt-1 font-mono text-xs text-slate-500">{item.category} · {item.id}</p></td><td className="px-4 py-3 text-slate-600">{item.parentId || "—"}{parentUnavailable && <p className="mt-1 text-xs text-amber-700">Gedung induk tidak aktif atau belum dipetakan.</p>}</td><td className="px-4 py-3"><select aria-label={`Unit untuk ${item.category} ${item.name}`} value={unitSelections[item.id] || ""} disabled={Boolean(saving) || Boolean(parentUnavailable)} onChange={(event) => setUnitSelections((current) => ({ ...current, [item.id]: event.target.value }))} className="w-full rounded-lg border border-slate-300 px-3 py-2"><option value="">Pilih unit</option>{allowedUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select>{unitMismatch && <p className="mt-1 text-xs text-rose-700">Unit kamar harus sama dengan unit gedung induk.</p>}</td><td className="px-4 py-3 text-right"><button type="button" onClick={() => void mapLocation(item)} disabled={Boolean(saving) || Boolean(parentUnavailable) || Boolean(unitMismatch) || !unitSelections[item.id]} className="rounded-lg bg-indigo-700 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:opacity-50">{selected ? "Menyimpan…" : "Tetapkan unit"}</button></td></tr>; })}</tbody></table></div>}
     </section>}
-    {(role === "Admin" || role === "SuperAdmin") && <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><h2 className="font-semibold text-slate-900">Tambah lokasi tugas</h2><p className="mt-1 text-sm text-slate-500">Penugasan gedung mencakup semua kamar dan santri yang terdaftar pada gedung tersebut.</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-4 sm:items-end"><label className="text-sm font-medium text-slate-700">Akun Ustadz<select value={form.userId} onChange={(e) => { const userId = e.target.value; const unitId = snapshot.staff.find((person) => person.id === userId)?.organizationUnitId; setForm({ userId, locationId: snapshot.locations.find((item) => item.category === locationType && item.organizationUnitId === unitId)?.id || "" }); }} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">{snapshot.staff.map((person) => <option key={person.id} value={person.id}>{person.name}{person.email ? ` · ${person.email}` : ""}</option>)}</select><span className="mt-1 block text-xs text-slate-500">Unit: {snapshot.units.find((unit) => unit.id === selectedStaff?.organizationUnitId)?.name || "Belum ditetapkan"}</span></label>
-        <label className="text-sm font-medium text-slate-700">Jenis lokasi<select value={locationType} onChange={(e) => { const nextType = e.target.value; setLocationType(nextType); setForm((current) => ({ ...current, locationId: snapshot.locations.find((item) => item.category === nextType && item.organizationUnitId === selectedStaff?.organizationUnitId)?.id || "" })); }} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"><option>Gedung</option><option>Kamar</option></select></label>
-        <label className="text-sm font-medium text-slate-700">Lokasi<select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">{locations.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unitName}</option>)}</select></label>
+    {(role === "Admin" || role === "SuperAdmin") && <section className="rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface)] p-4 shadow-sm"><h2 className="font-semibold text-[var(--erp-text)]">Tambah lokasi tugas</h2><p className="mt-1 text-sm text-[var(--erp-text-muted)]">Penugasan gedung mencakup semua kamar dan santri yang terdaftar pada gedung tersebut.</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-4 sm:items-end"><label className="text-sm font-medium text-[var(--erp-text)]">Akun Ustadz<select value={form.userId} onChange={(e) => { const userId = e.target.value; const unitId = snapshot.staff.find((person) => person.id === userId)?.organizationUnitId; setForm({ userId, locationId: snapshot.locations.find((item) => item.category === locationType && item.organizationUnitId === unitId)?.id || "" }); }} className="mt-1 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2">{snapshot.staff.map((person) => <option key={person.id} value={person.id}>{person.name}{person.email ? ` · ${person.email}` : ""}</option>)}</select><span className="mt-1 block text-xs text-[var(--erp-text-muted)]">Unit: {snapshot.units.find((unit) => unit.id === selectedStaff?.organizationUnitId)?.name || "Belum ditetapkan"}</span></label>
+        <label className="text-sm font-medium text-[var(--erp-text)]">Jenis lokasi<select value={locationType} onChange={(e) => { const nextType = e.target.value; setLocationType(nextType); setForm((current) => ({ ...current, locationId: snapshot.locations.find((item) => item.category === nextType && item.organizationUnitId === selectedStaff?.organizationUnitId)?.id || "" })); }} className="mt-1 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2"><option>Gedung</option><option>Kamar</option></select></label>
+        <label className="text-sm font-medium text-[var(--erp-text)]">Lokasi<select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className="mt-1 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2">{locations.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unitName}</option>)}</select></label>
         <button type="button" onClick={() => void save()} disabled={saving === "new" || !form.userId || !form.locationId} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"><Plus className="h-4 w-4" />{saving === "new" ? "Menyimpan…" : "Tetapkan"}</button></div>
       {!snapshot.staff.length && <p className="mt-3 text-sm text-amber-700">Belum ada akun Ustadz aktif pada pesantren.</p>}
       {snapshot.staff.length > 0 && !selectedStaff?.organizationUnitId && <p className="mt-3 text-sm text-amber-700">Akun Ustadz ini belum ditetapkan ke unit organisasi. Tetapkan unit pada Pengelolaan Pengguna terlebih dahulu.</p>}

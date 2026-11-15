@@ -901,7 +901,7 @@ export function AcademicManager() {
         {/* SEARCH AND FILTERS (DUAL CURRICULUM TOGGLE) */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           {/* Dynamic Curriculum Switcher Tabs */}
-          <div className="flex p-1 bg-slate-100 dark:bg-white/5 rounded-lg overflow-x-auto w-full sm:w-auto border border-slate-200 dark:border-white/5">
+          <div className="erp-tab-scroll flex p-1 bg-slate-100 dark:bg-white/5 rounded-lg overflow-x-auto w-full sm:w-auto border border-slate-200 dark:border-white/5">
             <button
               id="curriculum-toggle-all"
               onClick={() => setCurriculumFilter('All')}
@@ -1711,7 +1711,7 @@ export function AcademicManager() {
 
         {/* Tab Controls */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
-          <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg overflow-x-auto w-full sm:w-auto border border-slate-200 dark:border-white/5">
+          <div className="erp-tab-scroll flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg overflow-x-auto w-full sm:w-auto border border-slate-200 dark:border-white/5">
             <button
               onClick={() => setAssessmentSubTab('list')}
               className={cn(
@@ -2686,7 +2686,7 @@ export function AcademicManager() {
         {/* Dynamic Sub Tab Switcher for Admin & Ustadz */}
         {!isWalisantriOrSantri && (
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-black/40 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800/50 shadow-sm font-sans">
-            <div className="flex items-center gap-1 overflow-x-auto">
+            <div className="erp-tab-scroll flex items-center gap-1 overflow-x-auto">
               {['SuperAdmin', 'Admin'].includes(role) && (
                 <button
                   onClick={() => setReportsSubTab('leger')}
@@ -3519,7 +3519,7 @@ export function AcademicManager() {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-max mb-6 border border-slate-200 dark:border-white/5">
+      <div className="erp-tab-scroll flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-full mb-6 border border-slate-200 dark:border-white/5">
         {[
           { id: 'schedule', label: 'Jadwal & Kalender', icon: <CalendarDays className="w-4 h-4" /> },
           { id: 'kbm', label: 'KBM & Jurnal', icon: <BookOpen className="w-4 h-4" /> },

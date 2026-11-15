@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { useEffect, useRef, useState } from "react";
 
 export type TahfidzStudentSearchPage = {
@@ -92,7 +93,7 @@ export function TahfidzStudentSearchSelect({
         })
         .catch((requestError: any) => {
           if (active && sequence === requestSequence.current) {
-            setError(requestError?.message || "Pencarian santri belum dapat dimuat.");
+            setError(toERPUserMessage(requestError, "Pencarian santri belum dapat dimuat."));
           }
         })
         .finally(() => {
@@ -124,7 +125,7 @@ export function TahfidzStudentSearchSelect({
       setNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (requestError: any) {
       if (sequence === requestSequence.current) {
-        setError(requestError?.message || "Hasil pencarian berikutnya belum dapat dimuat.");
+        setError(toERPUserMessage(requestError, "Hasil pencarian berikutnya belum dapat dimuat."));
       }
     } finally {
       if (sequence === requestSequence.current) setLoading(false);

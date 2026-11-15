@@ -1,4 +1,5 @@
-import React, { type ReactNode } from "react";
+import React, { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Classed = { className?: string; children?: ReactNode };
 
@@ -22,24 +23,112 @@ export function ERPTabs({
   ariaLabel: string;
   className?: string;
 }) {
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const tabsId = useId();
+  const [scrollBounds, setScrollBounds] = useState({ hasOverflow: false, canScrollLeft: false, canScrollRight: false });
+
+  useEffect(() => {
+    const element = tabsRef.current;
+    if (!element) return;
+
+    const updateScrollBounds = () => {
+      const maxScrollLeft = Math.max(0, element.scrollWidth - element.clientWidth);
+      const nextBounds = {
+        hasOverflow: maxScrollLeft > 1,
+        canScrollLeft: element.scrollLeft > 1,
+        canScrollRight: element.scrollLeft < maxScrollLeft - 1,
+      };
+      setScrollBounds((current) => current.hasOverflow === nextBounds.hasOverflow
+        && current.canScrollLeft === nextBounds.canScrollLeft
+        && current.canScrollRight === nextBounds.canScrollRight
+        ? current
+        : nextBounds);
+    };
+
+    updateScrollBounds();
+    element.addEventListener("scroll", updateScrollBounds, { passive: true });
+    window.addEventListener("resize", updateScrollBounds, { passive: true });
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateScrollBounds) : undefined;
+    resizeObserver?.observe(element);
+    Array.from(element.children).forEach((child) => resizeObserver?.observe(child));
+    const mutationObserver = typeof MutationObserver !== "undefined" ? new MutationObserver(() => {
+      Array.from(element.children).forEach((child) => resizeObserver?.observe(child));
+      updateScrollBounds();
+    }) : undefined;
+    mutationObserver?.observe(element, { childList: true, subtree: true, characterData: true });
+
+    return () => {
+      element.removeEventListener("scroll", updateScrollBounds);
+      window.removeEventListener("resize", updateScrollBounds);
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const element = tabsRef.current;
+    const selectedTab = element?.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+    if (!element || !selectedTab) return;
+
+    const viewport = element.getBoundingClientRect();
+    const selected = selectedTab.getBoundingClientRect();
+    const leftOverflow = selected.left - viewport.left;
+    const rightOverflow = selected.right - viewport.right;
+    const distance = leftOverflow < 0 ? leftOverflow : rightOverflow > 0 ? rightOverflow : 0;
+    if (distance === 0) return;
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    element.scrollBy({ left: distance, behavior: reducedMotion ? "auto" : "smooth" });
+  }, [value]);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    const element = tabsRef.current;
+    if (!element) return;
+    const distance = Math.max(180, element.clientWidth * 0.7);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    element.scrollBy({ left: direction === "left" ? -distance : distance, behavior: reducedMotion ? "auto" : "smooth" });
+  };
+
   return (
-    <div className={"erp-tabs " + className} role="group" aria-label={ariaLabel}>
-      {tabs.map((tab) => {
-        const selected = value === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            className={"erp-tab-control " + (selected ? "is-active" : "")}
-            aria-pressed={selected}
-            disabled={tab.disabled}
-            onClick={() => onChange(tab.id)}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </button>
-        );
-      })}
+    <div className={"erp-tabs-viewport " + className}>
+      {scrollBounds.hasOverflow && <button
+        type="button"
+        className="erp-tabs-scroll-button"
+        aria-label={`Gulir ${ariaLabel} ke kiri`}
+        aria-controls={tabsId}
+        disabled={!scrollBounds.canScrollLeft}
+        onClick={() => scrollTabs("left")}
+      >
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+      </button>}
+      <div id={tabsId} ref={tabsRef} className="erp-tabs" role="group" aria-label={ariaLabel}>
+        {tabs.map((tab) => {
+          const selected = value === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={"erp-tab-control " + (selected ? "is-active" : "")}
+              aria-pressed={selected}
+              disabled={tab.disabled}
+              onClick={() => onChange(tab.id)}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {scrollBounds.hasOverflow && <button
+        type="button"
+        className="erp-tabs-scroll-button"
+        aria-label={`Gulir ${ariaLabel} ke kanan`}
+        aria-controls={tabsId}
+        disabled={!scrollBounds.canScrollRight}
+        onClick={() => scrollTabs("right")}
+      >
+        <ChevronRight className="h-4 w-4" aria-hidden="true" />
+      </button>}
     </div>
   );
 }
@@ -119,9 +208,46 @@ export function ERPErrorState({
   );
 }
 
+export type ERPNoticeTone = "info" | "success" | "warning" | "error";
+
+export function ERPNotice({
+  tone = "info",
+  title,
+  children,
+  action,
+  className = "",
+}: {
+  tone?: ERPNoticeTone;
+  title?: ReactNode;
+  children: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  const styles: Record<ERPNoticeTone, string> = {
+    info: "erp-notice-info",
+    success: "erp-notice-success",
+    warning: "erp-notice-warning",
+    error: "erp-notice-error",
+  };
+
+  return (
+    <div
+      className={`erp-notice ${styles[tone]} ${className}`}
+      role={tone === "error" ? "alert" : "status"}
+      aria-live={tone === "error" ? "assertive" : "polite"}
+    >
+      <div className="erp-notice-content">
+        {title && <h2>{title}</h2>}
+        <div>{children}</div>
+      </div>
+      {action && <div className="erp-notice-action">{action}</div>}
+    </div>
+  );
+}
+
 export function ERPFeatureStatus({
   title,
-  status = "Belum terhubung",
+  status,
   description,
   action,
   tone = "warning",
@@ -139,7 +265,7 @@ export function ERPFeatureStatus({
     <section className="erp-panel space-y-3 p-5 sm:p-6" role="status" aria-live="polite">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h2>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}>{status}</span>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}>{status || (tone === "available" ? "Tersedia" : "Belum tersedia")}</span>
       </div>
       <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">{description}</p>
       {action && <div>{action}</div>}

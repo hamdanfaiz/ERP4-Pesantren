@@ -1,8 +1,10 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, ClipboardCheck, LoaderCircle, Plus, RotateCcw, ShieldAlert } from "lucide-react";
+import { LoaderCircle, Plus, RotateCcw, ShieldAlert } from "lucide-react";
+import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
+import { toERPUserMessage } from "../utils/userMessages";
 import {
   createSupabaseBoardingDiscipline,
   listSupabaseBoardingDiscipline,
@@ -23,6 +25,7 @@ export function SupabaseBoardingDisciplineManager() {
   const [saving, setSaving] = useState("");
   const [importBusy, setImportBusy] = useState(false);
   const [error, setError] = useState("");
+  const [listError, setListError] = useState("");
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [openForm, setOpenForm] = useState(false);
@@ -34,16 +37,18 @@ export function SupabaseBoardingDisciplineManager() {
   const refresh = useCallback(async () => {
     const result = await listSupabaseBoardingDiscipline();
     setSnapshot(result);
+    setListError("");
     setForm((current) => ({ ...current, studentId: result.students.some((student) => student.id === current.studentId) ? current.studentId : result.students[0]?.id || "" }));
   }, []);
 
   useEffect(() => {
     let active = true;
+    setListError("");
     listSupabaseBoardingDiscipline().then((result) => {
       if (!active) return;
       setSnapshot(result);
       setForm((current) => ({ ...current, studentId: result.students[0]?.id || "" }));
-    }).catch((e: any) => { if (active) setError(e?.message || "Data kedisiplinan belum dapat dimuat."); })
+    }).catch((e: any) => { if (active) setListError(toERPUserMessage(e, "Data kedisiplinan belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -69,7 +74,7 @@ export function SupabaseBoardingDisciplineManager() {
       setForm((current) => ({ ...current, offense: "", points: 1, incidentDate: today(), photoUrl: "", resolution: "" }));
       setNotice("Catatan kedisiplinan tersimpan dan tercatat pada audit pesantren.");
       try { await refresh(); } catch { setError("Catatan sudah tersimpan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Catatan belum dapat disimpan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Catatan pelanggaran belum dapat disimpan.")); }
     finally { setSaving(""); }
   };
 
@@ -106,17 +111,17 @@ export function SupabaseBoardingDisciplineManager() {
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Catatan Kedisiplinan</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-600">Catatan terikat pada pesantren dan profil santri. Pencatatan serta penyelesaian divalidasi sistem dan masuk ke audit.</p></div>
       <div className="flex gap-2">
-        <button type="button" onClick={() => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"><RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
+        <button type="button" onClick={() => { setLoading(true); setListError(""); void refresh().catch((e: any) => setListError(toERPUserMessage(e, "Data kedisiplinan belum dapat dimuat."))).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface)] px-3 py-2 text-sm font-medium text-[var(--erp-text)] hover:bg-[var(--erp-surface-subtle)] disabled:opacity-50"><RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
         {snapshot.canManage && <button type="button" onClick={() => { setError(""); createRequestId.current = crypto.randomUUID(); setOpenForm(true); }} disabled={!snapshot.students.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-4 w-4" />Catat pelanggaran</button>}
       </div>
     </header>
 
     <div className="grid gap-3 sm:grid-cols-3">
-      <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="text-xs font-medium uppercase tracking-wide text-slate-500">Total catatan</div><div className="mt-2 text-2xl font-bold text-slate-900">{snapshot.incidents.length}</div></div>
+      <div className="rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface)] p-4"><div className="text-xs font-medium uppercase tracking-wide text-[var(--erp-text-muted)]">Total catatan</div><div className="mt-2 text-2xl font-bold text-[var(--erp-text)]">{snapshot.incidents.length}</div></div>
       <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4"><div className="text-xs font-medium uppercase tracking-wide text-amber-800">Belum selesai</div><div className="mt-2 text-2xl font-bold text-amber-900">{pendingCount}</div></div>
       <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4"><div className="text-xs font-medium uppercase tracking-wide text-rose-800">Akumulasi poin</div><div className="mt-2 text-2xl font-bold text-rose-900">{pointsTotal}</div></div>
     </div>
-    {role === "Ustadz" && <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">Daftar santri dan tindakan Anda dibatasi otomatis ke kamar atau gedung yang masih ditugaskan oleh Admin.</div>}
+    {role === "Ustadz" && <ERPNotice tone="info">Daftar santri mengikuti penugasan kamar atau gedung yang diberikan kepada Anda.</ERPNotice>}
 
     {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
@@ -140,21 +145,21 @@ export function SupabaseBoardingDisciplineManager() {
             <td className="px-4 py-4"><div className="font-medium text-slate-800">{incident.offense}</div><div className="mt-1 text-xs text-slate-500">{incident.category}{incident.resolution ? ` · Tindak lanjut: ${incident.resolution}` : ""}</div>{incident.photoUrl && <a className="mt-1 inline-block text-xs font-medium text-indigo-700 underline" href={incident.photoUrl} target="_blank" rel="noreferrer">Lihat bukti</a>}</td>
             <td className="px-4 py-4 font-mono text-rose-700">+{incident.points}</td><td className="whitespace-nowrap px-4 py-4 text-slate-700">{incident.date}</td>
             <td className="px-4 py-4"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${incident.resolved ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{incident.resolved ? "Selesai" : "Aktif"}</span></td>
-            <td className="px-4 py-4 text-right">{!incident.resolved ? <button type="button" onClick={() => void resolve(incident.id)} disabled={saving === incident.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">{saving === incident.id ? "Menyimpan…" : "Tandai selesai"}</button> : <span className="text-xs text-slate-400">Sudah selesai</span>}</td>
+            <td className="px-4 py-4 text-right">{!incident.resolved ? <button type="button" onClick={() => void resolve(incident.id)} disabled={saving === incident.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">{saving === incident.id ? "Menyimpan…" : "Tandai selesai"}</button> : <span className="text-xs text-[var(--erp-text-muted)]">Sudah selesai</span>}</td>
           </tr>)}</tbody></table></div>}
     </section>
 
     {openForm && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && saving !== "new") setOpenForm(false); }}>
-      <form onSubmit={(event) => void submit(event)} className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" aria-labelledby="discipline-form-title">
-        <div><h2 id="discipline-form-title" className="text-lg font-bold text-slate-900">Catat pelanggaran santri</h2><p className="mt-1 text-sm text-slate-500">Sistem akan mengambil kamar dari data santri yang terdaftar.</p></div>
-        <label className="block text-sm font-medium text-slate-700">Santri<select required value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">{snapshot.students.map((student) => <option key={student.id} value={student.id}>{student.name} {student.nis ? `· ${student.nis}` : ""}</option>)}</select></label>
-        <label className="block text-sm font-medium text-slate-700">Pelanggaran<textarea required maxLength={1000} value={form.offense} onChange={(e) => setForm({ ...form, offense: e.target.value })} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-        <div className="grid gap-3 sm:grid-cols-3"><label className="block text-sm font-medium text-slate-700">Kategori<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">{CATEGORY_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></label>
-          <label className="block text-sm font-medium text-slate-700">Poin<input required type="number" min={1} max={1000} value={form.points} onChange={(e) => setForm({ ...form, points: Number(e.target.value) })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-          <label className="block text-sm font-medium text-slate-700">Tanggal<input required type="date" value={form.incidentDate} onChange={(e) => setForm({ ...form, incidentDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label></div>
-        <label className="block text-sm font-medium text-slate-700">URL bukti HTTPS (opsional)<input type="url" pattern="https://.*" value={form.photoUrl} onChange={(e) => setForm({ ...form, photoUrl: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="https://…" /></label>
-        <label className="block text-sm font-medium text-slate-700">Rencana tindak lanjut (opsional)<textarea maxLength={2000} value={form.resolution} onChange={(e) => setForm({ ...form, resolution: e.target.value })} className="mt-1 min-h-16 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-        <div className="flex justify-end gap-2 border-t border-slate-100 pt-3"><button type="button" onClick={() => setOpenForm(false)} disabled={saving === "new"} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Batal</button><button type="submit" disabled={saving === "new" || !snapshot.students.length} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving === "new" ? "Menyimpan…" : "Simpan catatan"}</button></div>
+      <form onSubmit={(event) => void submit(event)} className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl bg-[var(--erp-surface)] p-5 shadow-xl" aria-labelledby="discipline-form-title">
+        <div><h2 id="discipline-form-title" className="text-lg font-bold text-[var(--erp-text)]">Catat pelanggaran santri</h2><p className="mt-1 text-sm text-[var(--erp-text-muted)]">Sistem akan mengambil kamar dari data santri yang terdaftar.</p></div>
+        <label className="block text-sm font-medium text-[var(--erp-text)]">Santri<select required value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} className="mt-1 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2">{snapshot.students.map((student) => <option key={student.id} value={student.id}>{student.name} {student.nis ? `· ${student.nis}` : ""}</option>)}</select></label>
+        <label className="block text-sm font-medium text-[var(--erp-text)]">Pelanggaran<textarea required maxLength={1000} value={form.offense} onChange={(e) => setForm({ ...form, offense: e.target.value })} className="mt-1 min-h-20 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2" /></label>
+        <div className="grid gap-3 sm:grid-cols-3"><label className="block text-sm font-medium text-[var(--erp-text)]">Kategori<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="mt-1 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2">{CATEGORY_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></label>
+          <label className="block text-sm font-medium text-[var(--erp-text)]">Poin<input required type="number" min={1} max={1000} value={form.points} onChange={(e) => setForm({ ...form, points: Number(e.target.value) })} className="mt-1 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2" /></label>
+          <label className="block text-sm font-medium text-[var(--erp-text)]">Tanggal<input required type="date" value={form.incidentDate} onChange={(e) => setForm({ ...form, incidentDate: e.target.value })} className="mt-1 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2" /></label></div>
+        <label className="block text-sm font-medium text-[var(--erp-text)]">URL bukti HTTPS (opsional)<input type="url" pattern="https://.*" value={form.photoUrl} onChange={(e) => setForm({ ...form, photoUrl: e.target.value })} className="mt-1 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2" placeholder="https://…" /></label>
+        <label className="block text-sm font-medium text-[var(--erp-text)]">Rencana tindak lanjut (opsional)<textarea maxLength={2000} value={form.resolution} onChange={(e) => setForm({ ...form, resolution: e.target.value })} className="mt-1 min-h-16 w-full rounded-lg border border-[var(--erp-border)] px-3 py-2" /></label>
+        <div className="flex justify-end gap-2 border-t border-[var(--erp-border)] pt-3"><button type="button" onClick={() => setOpenForm(false)} disabled={saving === "new"} className="rounded-lg border border-[var(--erp-border)] px-4 py-2 text-sm font-medium text-[var(--erp-text)]">Batal</button><button type="submit" disabled={saving === "new" || !snapshot.students.length} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving === "new" ? "Menyimpan…" : "Simpan catatan"}</button></div>
       </form>
     </div>}
   </section>;

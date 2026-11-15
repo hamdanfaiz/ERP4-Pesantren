@@ -1,5 +1,18 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
+## Snapshot source dan PR — 15 November 2026
+
+Informasi berikut mencatat keadaan GitHub dan hasil CI saat checkpoint ini. Rincian database Production/VQE di addendum 14 November di bawah tetap merupakan snapshot pada tanggal tersebut; tidak ada pemeriksaan database live baru atau perubahan cloud pada checkpoint ini.
+
+- `main` berada pada `82082bf1c8fa806e420ae555ca38f0700694b9af`. Enam PR masih terbuka dan belum memiliki review: #91, #92, #112, #114, #115, dan #121.
+- PR #91 terbuka dan mergeable. Source aplikasi pada `fa35805393a844298ffc286d159751fd5c29677e` lulus 3/3 job di [run 43643928260](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43643928260). Snapshot dokumen ini ditambahkan oleh commit dokumentasi `9e037939ca433b47e70e396d939c3c628ecc64ae`; run push #1753 dan run PR #1754 sedang memvalidasi perubahan dokumentasi itu.
+- PR #92 terbuka, ditumpuk di atas #91, head `3a590683a9518937d621a9860c5843f50f46a259`. Run penuh [43645637063](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43645637063) lulus 3/3 job; satu percobaan berikutnya dibatalkan. CI #121 berikutnya juga menjalankan stack #91 → #92 → #121.
+- PR #121 terbuka dan non-draft, ditumpuk di atas #92, head `b7b4391b480953371b2fa49fe9be05196f4e36fd`. Run penuh [43652401611](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43652401611) lulus 3/3 job, termasuk uji pgTAP dan validasi presisi target Tahfidz.
+- PR #112 (CBT), #114 (katalog Surah dan gulir tab Tahfidz), serta #115 (pesan pengguna) masing-masing lulus 3/3 job CI pada head terkini: [#112](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43593723047), [#114](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43612776259), [#115](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43612560262). Pemeriksaan Supabase Preview dilewati; CI memakai database lokal sintetis.
+- PR #116 telah ditutup tanpa merge karena digantikan PR #121. Pengujian presisi target yang unik dari #116 sudah dibawa ke #121; leaderboard kanonis berada di rangkaian #91 → #92 → #121.
+
+Semua enam PR terbuka masih memerlukan review tim backend. UAT browser lintas role dan seluruh modul belum lengkap. DDL/ledger aktual Production, urutan penerapan, serta bukti backup dan restore Production juga tetap menjadi gerbang tim backend. Karena itu statusnya **siap ditinjau, belum siap dinyatakan selesai atau siap deploy**. CI hijau pada source dan fixture sintetis tidak membuktikan keberhasilan migrasi Production atau penggunaan end-to-end di hosting.
+
 
 ## Addendum otoritatif — checkpoint 14 November 2026
 
@@ -247,3 +260,33 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
 - Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
 
+## Addendum status handoff PR dan CI — 15 November 2026
+
+Pemeriksaan dilakukan pada head PR aktual melalui GitHub. Status ini membedakan kode yang lulus CI dari gerbang yang masih memerlukan review manusia atau bukti Production.
+
+| PR | Head yang diperiksa | Actions terakhir pada head | Status |
+|---|---|---|---|
+| #91 | `f38643b91278635a402e9689704a15e6076e20d3` | [#1756](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43654646703), 3/3 job lulus | Terbuka |
+| #92 | `3a590683a9518937d621a9860c5843f50f46a259` | [#1733](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43645637063), sukses | Terbuka |
+| #112 | `b93d02f44104edc1dfa9fa9038d9036ed6c81c03` | [#1683](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43593723047), sukses | Terbuka |
+| #114 | `eb97403a54bbb6a081504708f79d1a7967f74c19` | [#1700](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43612776259), sukses | Terbuka |
+| #115 | `dd49c3dc315f7c21de8d1272317eceaf867b285f` | [#1699](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43612560262), sukses | Terbuka |
+| #121 | `b7b4391b480953371b2fa49fe9be05196f4e36fd` | [#1752](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43652405704), 3/3 job lulus | Terbuka |
+
+PR #91 → #92 → #121 adalah satu stack migrasi dan sudah diuji bersama pada run #1752. PR #112, #114, dan #115 berdiri terpisah. Pemeriksaan daftar review menunjukkan keenam PR belum menerima review formal. Karena itu, CI yang lulus belum menjadi alasan untuk menganggap semua gerbang rilis selesai atau menutup PR.
+
+Run #1756 pada PR #91 mencakup build dan guard Firebase, replay migrasi sintetis, pgTAP, API/auth/tenant, alur Storage dan Dokumen Digital, backup-restore database lokal, serta pemasangan NPM pelanggan. Bukti backup-restore tersebut hanya untuk lingkungan lokal sintetis; bukan bukti pemulihan Production.
+
+Belum ada perubahan DDL atau data pada VQE maupun PTSAS Production dalam pekerjaan ini. Sebelum deploy, tim backend masih perlu menyelesaikan review stack, UAT browser lintas peran dan modul, rekonsiliasi DDL/ledger Production, serta bukti backup dan pemulihan Production.
+
+## Addendum metadata Production PTSAS read-only — 15 November 2026
+
+Pemeriksaan hanya membaca metadata project PTSAS Production `ptsasgdvgrbdtgyqieie` dan daftar file pada commit stack kode PR #91 → #92 → #121 (`b7b4391b480953371b2fa49fe9be05196f4e36fd`). Tidak ada baris aplikasi, DDL, atau backup Production yang dibaca; tidak ada perubahan database.
+
+- Katalog mengembalikan **162 tabel** pada schema `public`; seluruhnya melaporkan RLS aktif. Ini tidak membuktikan isi policy aman atau bahwa setiap fungsi server telah dibatasi dengan benar.
+- Ledger `supabase_migrations.schema_migrations` memiliki **100 versi unik** sampai `20270316000000`.
+- Source stack tersebut memiliki **155 file migrasi dengan 155 versi unik**, tanpa versi duplikat.
+- **55 versi source tidak tercatat pada ledger Production.** Tidak ada versi ledger yang tak ditemukan di daftar source. Tiga baris ledger tidak memiliki nama: `20261205000000`, `20261206000000`, dan `20270118000000`. Nama lain yang tidak kosong cocok dengan nama file pada versi yang sama.
+- Selisih versi ledger adalah temuan metadata, **bukan bukti bahwa seluruh 55 perubahan aman atau perlu diterapkan**. Migrasi manual, alias historis, atau DDL aktual yang berbeda belum disingkirkan. Jangan menjalankan `db push` atau migration repair berdasarkan hitungan ini.
+
+Tim backend masih perlu membandingkan SQL/DDL aktual untuk versi yang ambigu, menyusun urutan penerapan yang disetujui, serta membuktikan backup dan pemulihannya sebelum perubahan Production.

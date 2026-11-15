@@ -60,7 +60,7 @@ function supabaseAdmin(): SupabaseClient {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
-    throw new IdentityUnavailableError("Layanan identitas Supabase belum dikonfigurasi di server.");
+    throw new IdentityUnavailableError("Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   }
   if (!adminClient) {
     adminClient = createClient(url, key, {

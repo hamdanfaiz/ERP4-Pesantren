@@ -52,6 +52,10 @@ VALUES
   ('d3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000202', 'd3800000-0000-4000-8000-000000000103', CURRENT_DATE - 2, 'active'),
   ('d3800000-0000-4000-8000-000000000009', 'd3800000-0000-4000-8000-000000000202', 'd3800000-0000-4000-8000-000000000104', CURRENT_DATE - 2, 'active');
 
+-- The Quran catalog is intentionally readable only by the trusted server role.
+-- Exercise the record trigger with the same role used by the runtime API.
+SET LOCAL ROLE service_role;
+
 INSERT INTO public.tahfidz_records (
   id, tenant_id, student_id, halaqah_id, activity_type, surah_name, ayah_start, ayah_end,
   performed_at, recorded_by_user_id, recorded_by_name, client_request_id
@@ -67,8 +71,6 @@ SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.tahfidz_peer_
 SELECT ok((SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.tahfidz_peer_reviews'::regclass), 'peer-review table forces row-level security');
 SELECT ok(NOT has_function_privilege('anon', 'public.submit_tenant_tahfidz_peer_review(uuid,uuid,text,uuid,text,uuid)', 'EXECUTE'), 'anon cannot call review submit RPC');
 SELECT ok(NOT has_function_privilege('authenticated', 'public.submit_tenant_tahfidz_peer_review(uuid,uuid,text,uuid,text,uuid)', 'EXECUTE'), 'authenticated cannot call review submit RPC directly');
-
-SET LOCAL ROLE service_role;
 
 UPDATE public.tahfidz_memberships SET starts_on = CURRENT_DATE + 1
 WHERE tenant_id = 'd3800000-0000-4000-8000-000000000009'

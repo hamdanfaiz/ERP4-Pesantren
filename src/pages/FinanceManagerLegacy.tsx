@@ -1423,7 +1423,7 @@ export function FinanceManager() {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-max mb-6 border border-slate-200 dark:border-white/5">
+      <div className="erp-tab-scroll flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-full mb-6 border border-slate-200 dark:border-white/5">
         {[
           { id: 'billing', label: role === 'Walisantri' ? 'Tagihan Anda & Kuitansi (SPP)' : 'Informasi Tagihan & SPP', icon: <CreditCard className="w-4 h-4" />, badge: role === 'Walisantri' ? billings.filter(b => b.status === 'Unpaid' && walisantriChildren.some(child => b.santriName.toLowerCase().includes(child.toLowerCase()))).length : billings.filter(b => b.status === 'Verification').length, visible: role !== 'Santri' },
           { id: 'pocket_money', label: role === 'Santri' ? 'Kartu Santri & Kantin' : 'E-Wallet Uang Saku & Kantin', icon: <Wallet className="w-4 h-4" />, badge: 0, visible: role === 'Walisantri' || role === 'Santri' },

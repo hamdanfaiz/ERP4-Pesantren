@@ -1,162 +1,97 @@
 import React, { useState } from 'react';
-import { 
-  BrainCircuit, Database, LineChart, BookOpen, 
-  Mic, AlertTriangle, ArrowUpRight, Activity, 
-  Cpu, Sparkles, TrendingUp, BarChart2, Server, 
-  Network, Code, Play, Search, GraduationCap, 
-  Wallet, Fingerprint, CheckCircle2, FileText, Users
-} from 'lucide-react';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, BarChart, Bar, Legend, LineChart as RechartsLineChart, Line
-} from 'recharts';
-import { cn } from '../lib/utils';
+import { Activity, BrainCircuit, Database, LineChart, Mic, BookOpen, type LucideIcon } from 'lucide-react';
+import { ERPFeatureStatus, ERPPageContainer, ERPTabs } from '../components/ERPDesignSystem';
+
+type InsightSection = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+};
+
+const INSIGHT_SECTIONS: InsightSection[] = [
+  {
+    id: 'executive',
+    label: 'Ringkasan eksekutif',
+    icon: Activity,
+    title: 'Analisis lintas modul',
+    description: 'Ringkasan operasional tersedia pada Dashboard utama. Analisis lanjutan yang menggabungkan data akademik, keuangan, dan asrama belum tersedia.',
+  },
+  {
+    id: 'predictive',
+    label: 'Analisis prediktif',
+    icon: LineChart,
+    title: 'Prediksi dan rekomendasi',
+    description: 'Prediksi penerimaan santri, risiko tunggakan, dan rekomendasi operasional belum tersedia.',
+  },
+  {
+    id: 'tahfidz-ai',
+    label: 'Analitik Tahfidz',
+    icon: Mic,
+    title: 'Analisis hafalan otomatis',
+    description: 'Pencatatan target dan setoran tersedia di modul Tahfidz. Penilaian bacaan otomatis dan prediksi capaian belum tersedia.',
+  },
+  {
+    id: 'data-warehouse',
+    label: 'Laporan lintas modul',
+    icon: Database,
+    title: 'Analisis data gabungan',
+    description: 'Analisis gabungan dari berbagai modul belum tersedia. Gunakan laporan pada modul terkait untuk melihat data operasional.',
+  },
+  {
+    id: 'knowledge',
+    label: 'Pencarian dokumen',
+    icon: BookOpen,
+    title: 'Pencarian dokumen cerdas',
+    description: 'Pencarian berbasis pertanyaan pada dokumen belum tersedia. Pengelolaan arsip tetap tersedia di modul Dokumen Digital.',
+  },
+];
 
 export function IntelligenceManager() {
-  const [activeTab, setActiveTab] = useState('executive');
+  const [activeTab, setActiveTab] = useState(INSIGHT_SECTIONS[0].id);
+  const activeSection = INSIGHT_SECTIONS.find((section) => section.id === activeTab) || INSIGHT_SECTIONS[0];
+  const ActiveIcon = activeSection.icon;
 
   return (
-    <div className="space-y-6 max-w-7xl w-full mx-auto pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <BrainCircuit className="w-8 h-8 text-emerald-500" />
-            Executive Intelligence Center
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2">Centralized AI predictions, Tahfidz scoring engine, and data warehouse analytics.</p>
-        </div>
+    <ERPPageContainer className="space-y-6">
+      <header className="flex items-center gap-3">
         <div className="flex items-center gap-3">
-          <div className="bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium shadow-sm">
-             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-             AI Engine Active
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
+            <BrainCircuit className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="erp-page-title">Analitik dan Wawasan</h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Ringkasan dan analisis untuk membantu pengambilan keputusan pesantren.</p>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="flex flex-col lg:flex-row gap-6 mt-6">
-         <div className="lg:w-64 shrink-0 space-y-1">
-            {[
-              { id: 'executive', label: 'Executive Dashboard', icon: Activity },
-              { id: 'predictive', label: 'Predictive Analytics', icon: LineChart },
-              { id: 'tahfidz-ai', label: 'AI Tahfidz Engine', icon: Mic },
-              { id: 'data-warehouse', label: 'Data Warehouse', icon: Database },
-              { id: 'knowledge', label: 'Knowledge Hub', icon: BookOpen },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all w-full text-left",
-                  activeTab === tab.id 
-                    ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-slate-700" 
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                )}
-              >
-                <tab.icon className={cn("w-5 h-5", activeTab === tab.id ? "text-emerald-500" : "")} />
-                {tab.label}
-              </button>
-            ))}
-         </div>
+      <ERPTabs
+        tabs={INSIGHT_SECTIONS.map(({ id, label, icon: Icon }) => ({ id, label, icon: <Icon className="h-4 w-4" aria-hidden="true" /> }))}
+        value={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="Jenis analitik"
+      />
 
-         <div className="flex-1 min-w-0">
-            {activeTab === 'executive' && <ExecutiveDashboard />}
-            {activeTab === 'tahfidz-ai' && <AITahfidzEngine />}
-            {activeTab === 'predictive' && <PredictiveAnalytics />}
-            {activeTab === 'data-warehouse' && <DataWarehouse />}
-            {activeTab === 'knowledge' && <KnowledgeHub />}
-         </div>
-      </div>
-    </div>
-  );
-}
-
-function ExecutiveDashboard() {
-  return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-         <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/40 dark:to-slate-900 md:col-span-2 p-6 rounded-xl border border-emerald-100 dark:border-emerald-500/20 relative overflow-hidden shadow-sm">
-            <Sparkles className="absolute top-4 right-4 w-16 h-16 text-emerald-500/10 dark:text-emerald-500/20" />
-            <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2">
-               <BrainCircuit className="w-5 h-5" /> Executive Summary
-            </h3>
-            <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed mt-2 max-w-2xl font-medium">
-              "Financial health remains secure with 8% YoY revenue growth. However, AI models indicate a 24% localized risk of tuition arrears in the SMP unit over the next 30 days. Academically, Tahfidz targets across boarding units are on track, exceeding the baseline by 12%."
-            </p>
-         </div>
-         <div className="grid grid-rows-2 gap-4">
-            <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-center">
-               <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5" /> Est. Monthly Rev</p>
-               <div className="flex items-end justify-between">
-                 <h4 className="text-2xl font-black text-slate-800 dark:text-slate-200">Rp 1.2B</h4>
-                 <span className="text-emerald-600 dark:text-emerald-400 text-sm font-bold flex items-center">+4.2%</span>
-               </div>
-            </div>
-            <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-center">
-               <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5"><GraduationCap className="w-3.5 h-3.5" /> Retention Risk</p>
-               <div className="flex items-end justify-between">
-                 <h4 className="text-xl font-black text-amber-500">Flagged</h4>
-                 <span className="text-amber-700 dark:text-amber-400 text-xs font-bold bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded">34 Students</span>
-               </div>
-            </div>
-         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
-           <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2">
-             <AlertTriangle className="w-5 h-5 text-rose-500" />
-             Intelligent Anomaly Detection
-           </h3>
-           <div className="space-y-4">
-              {[
-                { unit: "Asrama Abu Bakar", alert: "Unusual spike in late-night dorm departures (+14 anomalies).", type: "Security", color: "rose" },
-                { unit: "Unit SMP IT", alert: "Tuition default probability exceeded 15% threshold for Grade 8.", type: "Finance", color: "amber" },
-                { unit: "Unit SMA IT", alert: "Overall Tahfidz velocity is 15% below the standard historical trajectory.", type: "Academic", color: "blue" }
-              ].map((alert, i) => (
-                <div key={i} className="flex gap-4 p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 items-start">
-                   <div className={cn(
-                     "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider min-w-[80px] text-center mt-0.5",
-                     alert.color === 'rose' ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400' :
-                     alert.color === 'amber' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' :
-                     'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
-                   )}>
-                     {alert.type}
-                   </div>
-                   <div>
-                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{alert.unit}</h4>
-                      <p className="text-xs text-slate-500 mt-1">{alert.alert}</p>
-                   </div>
-                </div>
-              ))}
-           </div>
+      <section className="space-y-4" aria-labelledby="insight-section-title">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300">
+            <ActiveIcon className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 id="insight-section-title" className="text-base font-semibold text-slate-900 dark:text-white">{activeSection.title}</h2>
+            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{activeSection.label}</p>
+          </div>
         </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
-           <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">Key Performance Indicators</h3>
-           <div className="space-y-6">
-              {[
-                { label: 'Academic Excellence Index', val: 88, target: 90 },
-                { label: 'Financial Liquidity Score', val: 94, target: 85 },
-                { label: 'Operational Efficiency', val: 76, target: 80 }
-              ].map((kpi, idx) => (
-                <div key={idx}>
-                  <div className="flex justify-between text-sm font-medium mb-2">
-                    <span className="text-slate-700 dark:text-slate-300">{kpi.label}</span>
-                    <span className="text-slate-900 dark:text-white font-bold">{kpi.val}/100</span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
-                    <div 
-                      className={cn("h-full rounded-full transition-all", kpi.val >= kpi.target ? "bg-emerald-500" : "bg-amber-500")}
-                      style={{ width: `${kpi.val}%` }}
-                    ></div>
-                    <div className="absolute top-0 bottom-0 w-1 bg-slate-900 dark:bg-white z-10" style={{ left: `${kpi.target}%` }} title={`Target: ${kpi.target}`}></div>
-                  </div>
-                </div>
-              ))}
-           </div>
-        </div>
-      </div>
-    </div>
+        <ERPFeatureStatus
+          title="Status layanan"
+          status="Belum tersedia"
+          description={activeSection.description}
+          tone="warning"
+        />
+      </section>
+    </ERPPageContainer>
   );
 }
 

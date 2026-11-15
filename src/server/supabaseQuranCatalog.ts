@@ -9,6 +9,30 @@ export type QuranSurahReference = {
   namaLatin: string;
   jumlahAyat: number;
 };
+export function findSupabaseQuranSurah(
+  catalog: QuranSurahReference[],
+  surahName: string,
+): QuranSurahReference | null {
+  const normalizedName = String(surahName || "").trim().toLocaleLowerCase("id-ID");
+  return catalog.find((item) => item.namaLatin.toLocaleLowerCase("id-ID") === normalizedName) || null;
+}
+
+export function isValidSupabaseQuranAyahRange(
+  catalog: QuranSurahReference[],
+  surahName: string,
+  start: number,
+  end: number,
+): boolean {
+  const surah = findSupabaseQuranSurah(catalog, surahName);
+  return Boolean(
+    surah
+    && Number.isInteger(start)
+    && Number.isInteger(end)
+    && start >= 1
+    && end >= start
+    && end <= surah.jumlahAyat
+  );
+}
 
 export class SupabaseQuranCatalogError extends Error {
   status: number;

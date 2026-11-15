@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertCircle, BookOpen, CheckCircle2, RefreshCw, TrendingUp, Users, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { calculateDashboardNetCashflow } from "../utils/dashboardCashflow";
+import { getCompletedDashboardFinanceTrend, hasDashboardFinanceActivity } from "../utils/dashboardFinanceTrend";
 import { ERPTabs } from "../components/ERPDesignSystem";
+
+const SupabaseDashboardBarChart = React.lazy(() => import("../components/SupabaseDashboardBarChart").then((module) => ({ default: module.SupabaseDashboardBarChart })));
 
 type DashboardPeriod = "today" | "week" | "month" | "year";
 type IntelligenceTab = "executive" | "predictive" | "tahfidz-ai" | "warehouse" | "knowledge";
@@ -14,6 +16,22 @@ type DashboardSnapshot = {
   masterData: { enabled: boolean; activeStudents?: number; maleStudents?: number; femaleStudents?: number };
   finance: { enabled: boolean; openBillCount?: number; outstandingAmount?: number; unpaidCount?: number; partialCount?: number; verificationCount?: number; periodIncome?: number; periodExpense?: number; periodWalletDeposits?: number; periodWalletRedemptions?: number; walletLiability?: number; monthlyTrend?: Array<{ month: string; income: number; expense: number; walletDeposits?: number; walletRedemptions?: number }> };
 };
+type TahfidzLeaderboard = {
+  businessDate: string;
+  periodStart: string;
+  students: Array<{ id: string; rank: number; name: string; grade: string; halaqah: string; ziyadahRecords: number; ziyadahAyahs: number }>;
+  hasMore: boolean;
+};
+type DocumentSearchResult = {
+  id: string;
+  documentNumber: string;
+  direction: "incoming" | "outgoing" | "internal";
+  subject: string;
+  senderName: string | null;
+  recipientName: string | null;
+  documentDate: string;
+  status: string;
+};
 
 const emptySnapshot: DashboardSnapshot = {
   ppdb: { enabled: false }, masterData: { enabled: false }, finance: { enabled: false },
@@ -21,6 +39,20 @@ const emptySnapshot: DashboardSnapshot = {
 
 function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
+}
+
+function monthLabel(month: string) {
+  const date = new Date(`${month}-01T00:00:00.000Z`);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(date)
+    : month;
+}
+
+function monthChangeCaption(current: number, previous: number, previousMonth: string) {
+  const difference = current - previous;
+  const movement = difference > 0 ? "Naik" : difference < 0 ? "Turun" : "Tidak berubah";
+  const percentage = previous === 0 ? "" : ` (${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(Math.abs(difference / Math.abs(previous) * 100))}%)`;
+  return `${movement} ${rupiah(Math.abs(difference))}${percentage} dibanding ${monthLabel(previousMonth)}.`;
 }
 
 async function loadDashboard(period: DashboardPeriod, surface: "dashboard" | "intelligence", signal?: AbortSignal) {
@@ -35,6 +67,22 @@ async function loadDashboard(period: DashboardPeriod, surface: "dashboard" | "in
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Ringkasan dashboard belum dapat dimuat.");
   return payload as DashboardSnapshot;
+}
+
+async function loadTahfidzLeaderboard(limit: 5 | 20, signal?: AbortSignal): Promise<TahfidzLeaderboard> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+  const response = await fetch(`/api/tahfidz/leaderboard?limit=${limit}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    cache: "no-store",
+    signal,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Capaian Tahfidz belum dapat dimuat.");
+  if (!payload || !Array.isArray(payload.students) || typeof payload.businessDate !== "string") {
+    throw new Error("Format capaian Tahfidz tidak valid.");
+  }
+  return payload as TahfidzLeaderboard;
 }
 
 function MetricCard({ title, value, caption, icon: Icon, accent = "emerald" }: {
@@ -54,6 +102,13 @@ function MetricCard({ title, value, caption, icon: Icon, accent = "emerald" }: {
 
 export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?: "dashboard" | "intelligence" }) {
   const { role, user } = useAuth();
+  const isIntelligence = surface === "intelligence";
+  const canViewTahfidz = Boolean(user)
+    && ["Admin", "SuperAdmin"].includes(role || "")
+    && user?.modulePermissions?.tahfidz !== false;
+  const canSearchDocuments = Boolean(user)
+    && ["Admin", "SuperAdmin"].includes(role || "")
+    && user?.modulePermissions?.document !== false;
   const [period, setPeriod] = useState<DashboardPeriod>("year");
   const [snapshot, setSnapshot] = useState<DashboardSnapshot>(emptySnapshot);
   const [loading, setLoading] = useState(true);
@@ -61,6 +116,15 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
   const [notice, setNotice] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
   const [intelligenceTab, setIntelligenceTab] = useState<IntelligenceTab>("executive");
+  const [tahfidzLeaderboard, setTahfidzLeaderboard] = useState<TahfidzLeaderboard | null>(null);
+  const [tahfidzLeaderboardLoading, setTahfidzLeaderboardLoading] = useState(false);
+  const [tahfidzLeaderboardError, setTahfidzLeaderboardError] = useState("");
+  const [tahfidzLeaderboardLimit, setTahfidzLeaderboardLimit] = useState<5 | 20>(5);
+  const [tahfidzReloadVersion, setTahfidzReloadVersion] = useState(0);
+  const [documentSearchQuery, setDocumentSearchQuery] = useState("");
+  const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
+  const [documentSearchLoading, setDocumentSearchLoading] = useState(false);
+  const [documentSearchError, setDocumentSearchError] = useState("");
   const notifyReloadRef = useRef(false);
 
   useEffect(() => {
@@ -91,10 +155,74 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     return () => controller.abort();
   }, [period, reloadVersion, role, surface, user?.tenantId, user?.uid]);
 
+  useEffect(() => {
+    if (!isIntelligence || intelligenceTab !== "tahfidz-ai" || !canViewTahfidz) {
+      setTahfidzLeaderboard(null);
+      setTahfidzLeaderboardError("");
+      setTahfidzLeaderboardLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setTahfidzLeaderboard(null);
+    setTahfidzLeaderboardError("");
+    setTahfidzLeaderboardLoading(true);
+    loadTahfidzLeaderboard(tahfidzLeaderboardLimit, controller.signal)
+      .then((result) => { if (!controller.signal.aborted) setTahfidzLeaderboard(result); })
+      .catch((loadError: any) => {
+        if (!controller.signal.aborted) setTahfidzLeaderboardError(loadError?.message || "Capaian Tahfidz belum dapat dimuat.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setTahfidzLeaderboardLoading(false); });
+    return () => controller.abort();
+  }, [canViewTahfidz, intelligenceTab, isIntelligence, tahfidzLeaderboardLimit, tahfidzReloadVersion, user?.tenantId, user?.uid]);
+
+  useEffect(() => {
+    const query = documentSearchQuery.trim();
+    if (!isIntelligence || intelligenceTab !== "knowledge" || !canSearchDocuments || query.length < 2) {
+      setDocumentSearchResults([]);
+      setDocumentSearchError("");
+      setDocumentSearchLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setDocumentSearchLoading(true);
+      setDocumentSearchError("");
+      try {
+        const token = await getAccessToken();
+        if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+        const params = new URLSearchParams({ search: query });
+        const response = await fetch(`/api/documents?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Pencarian dokumen belum dapat diproses.");
+        if (!payload || !Array.isArray(payload.documents)) throw new Error("Hasil pencarian dokumen tidak valid.");
+        if (!controller.signal.aborted) setDocumentSearchResults(payload.documents.slice(0, 20));
+      } catch (searchError: any) {
+        if (!controller.signal.aborted) {
+          setDocumentSearchResults([]);
+          setDocumentSearchError(searchError?.message || "Pencarian dokumen belum dapat diproses.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setDocumentSearchLoading(false);
+      }
+    }, 300);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [canSearchDocuments, documentSearchQuery, intelligenceTab, isIntelligence, user?.tenantId, user?.uid]);
+
   const finance = snapshot.finance;
   const netCashflow = calculateDashboardNetCashflow(finance);
-  const isIntelligence = surface === "intelligence";
+  const hasMonthlyFinanceActivity = hasDashboardFinanceActivity(finance.monthlyTrend);
   const periodLabel: Record<DashboardPeriod, string> = { today: "Hari ini", week: "7 hari terakhir", month: "30 hari terakhir", year: "365 hari terakhir" };
+  const financeTrend = useMemo(
+    () => getCompletedDashboardFinanceTrend(finance.monthlyTrend || []),
+    [finance.monthlyTrend],
+  );
+  const financeComparison = financeTrend.length >= 2
+    ? { previous: financeTrend[financeTrend.length - 2], latest: financeTrend[financeTrend.length - 1] }
+    : null;
   const stageRows = useMemo(() => (snapshot.ppdb.stages || []).map((entry) => ({
     stage: ({ Registered: "Terdaftar", "Document Review": "Verifikasi", "Entry Exam": "Ujian", Interview: "Wawancara", Accepted: "Diterima", Rejected: "Ditolak", Withdrawn: "Mengundurkan diri" } as Record<string, string>)[entry.stage] || entry.stage,
     jumlah: Number(entry.count || 0),
@@ -157,10 +285,10 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
 
     {isIntelligence && <ERPTabs tabs={[
       { id: "executive", label: "Dasbor Eksekutif" },
-      { id: "predictive", label: "Analitik Prediktif" },
-      { id: "tahfidz-ai", label: "Mesin AI Tahfidz" },
-      { id: "warehouse", label: "Gudang Data" },
-      { id: "knowledge", label: "Pusat Pengetahuan" },
+      { id: "predictive", label: "Tren Keuangan" },
+      { id: "tahfidz-ai", label: "Capaian Tahfidz" },
+      { id: "warehouse", label: "Ringkasan Data" },
+      { id: "knowledge", label: "Pencarian Dokumen" },
     ]} value={intelligenceTab} onChange={(id) => setIntelligenceTab(id as IntelligenceTab)} ariaLabel="Bagian pusat data analitik" />}
 
     {isIntelligence && intelligenceTab !== "executive" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
@@ -213,3 +341,4 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     </>}
   </main>;
 }
+

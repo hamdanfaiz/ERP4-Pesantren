@@ -16,7 +16,7 @@ export class PpdbDocumentStorageError extends Error {
 function storageConfig() {
   const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   const secretKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!baseUrl || !secretKey) throw new PpdbDocumentStorageError(503, "Konfigurasi Storage Supabase belum lengkap.");
+  if (!baseUrl || !secretKey) throw new PpdbDocumentStorageError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   return { baseUrl, secretKey };
 }
 

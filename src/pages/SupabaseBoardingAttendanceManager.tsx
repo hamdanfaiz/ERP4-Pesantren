@@ -1,8 +1,10 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, LoaderCircle, RotateCcw, Users } from "lucide-react";
+import { LoaderCircle, RotateCcw, Users } from "lucide-react";
+import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
+import { toERPUserMessage } from "../utils/userMessages";
 import {
   listSupabaseBoardingAttendance,
   migrateSupabaseBoardingAttendance,
@@ -26,19 +28,21 @@ export function SupabaseBoardingAttendanceManager() {
   const [importBusy, setImportBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
+  const [listError, setListError] = useState("");
   const [notice, setNotice] = useState("");
   const [report, setReport] = useState<BoardingAttendanceImportReport | null>(null);
   const requestIds = useRef(new Map<string, string>());
   const refresh = useCallback(async (selectedDate = date) => {
     const result = await listSupabaseBoardingAttendance(selectedDate);
     setSnapshot(result);
+    setListError("");
   }, [date]);
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(""); setReport(null);
+    setLoading(true); setError(""); setListError(""); setReport(null);
     listSupabaseBoardingAttendance(date).then((result) => { if (active) setSnapshot(result); })
-      .catch((e: any) => { if (active) setError(e?.message || "Data kehadiran belum dapat dimuat."); })
+      .catch((e: any) => { if (active) setListError(toERPUserMessage(e, "Data kehadiran belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [date]);
@@ -64,7 +68,7 @@ export function SupabaseBoardingAttendanceManager() {
         requestIds.current.delete(requestKey);
         setNotice("Status kehadiran tersimpan dan perubahan tercatat pada audit pesantren.");
       } catch { setError("Status sudah tersimpan, tetapi daftar kehadiran belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Status kehadiran belum dapat disimpan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Status kehadiran belum dapat disimpan.")); }
     finally { setSaving(""); }
   };
 
@@ -90,9 +94,9 @@ export function SupabaseBoardingAttendanceManager() {
     </header>
 
     <div className="grid gap-3 sm:grid-cols-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="text-xs font-medium uppercase tracking-wide text-slate-500">Total santri aktif</div><div className="mt-2 text-2xl font-bold text-slate-900">{snapshot.records.length}</div></div>
+      <div className="rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface)] p-4"><div className="text-xs font-medium uppercase tracking-wide text-[var(--erp-text-muted)]">Total santri aktif</div><div className="mt-2 text-2xl font-bold text-[var(--erp-text)]">{snapshot.records.length}</div></div>
       <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4"><div className="text-xs font-medium uppercase tracking-wide text-emerald-800">Hadir</div><div className="mt-2 text-2xl font-bold text-emerald-900">{present}</div></div>
-      <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4"><div className="text-xs font-medium uppercase tracking-wide text-rose-800">Ghaib</div><div className="mt-2 text-2xl font-bold text-rose-900">{absent}</div></div>
+      <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4"><div className="text-xs font-medium uppercase tracking-wide text-rose-800">Tidak hadir</div><div className="mt-2 text-2xl font-bold text-rose-900">{absent}</div></div>
       <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4"><div className="text-xs font-medium uppercase tracking-wide text-amber-800">Belum ditandai</div><div className="mt-2 text-2xl font-bold text-amber-900">{unmarked}</div></div>
     </div>
     {role === "Ustadz" && <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">daftar santri dan pencatatan kehadiran Anda dibatasi otomatis ke kamar atau gedung yang masih ditugaskan oleh Admin.</div>}

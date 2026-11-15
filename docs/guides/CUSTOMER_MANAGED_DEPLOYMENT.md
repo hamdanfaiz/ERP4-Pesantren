@@ -43,9 +43,9 @@ SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED=false
 SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED=false
 ```
 
-### Arti pesan “Runtime Supabase belum diaktifkan operator”
+### Modul belum tersedia
 
-Pesan seperti “Runtime Master Data Supabase belum diaktifkan operator” muncul ketika flag server `SUPABASE_MASTER_DATA_RUNTIME_ENABLED` tidak disetel ke `true`. Ini adalah gerbang fail-closed pada server; pesan itu sendiri tidak menyatakan bahwa migration gagal atau bahwa uji integrasi sudah selesai. Migration, profil Admin, tenant, role, dan uji API tetap harus diverifikasi tersendiri.
+Jika flag runtime suatu modul belum aktif, API tetap menolak permintaan (fail-closed) dan aplikasi menampilkan pesan umum: “Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.” Detail flag dan konfigurasi tetap menjadi panduan operator, bukan pesan untuk pengguna. Periksa pasangan flag modul di file environment dan dokumentasi modul terkait; jangan mengaktifkan runtime sebelum migrasi, akses tenant/role, dan alur modul lolos di staging.
 
 Untuk membuka modul Master Data pada environment staging, set kedua flag berikut ke `true`, lalu mulai ulang layanan:
 

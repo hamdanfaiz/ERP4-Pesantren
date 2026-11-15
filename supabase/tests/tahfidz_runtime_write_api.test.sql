@@ -4,7 +4,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SET LOCAL TIME ZONE 'UTC';
-SELECT plan(74);
+SELECT plan(88);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -164,6 +164,10 @@ SELECT throws_ok($$SELECT public.record_tahfidz_daily_target(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE, NULL,
   2.00::NUMERIC, 1.00::NUMERIC, 'standard', NULL, 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000515'
 )$$, '23505', 'Kunci permintaan target telah digunakan untuk data berbeda', 'changed target payload cannot reuse a request ID');
+SELECT throws_ok($$SELECT public.record_tahfidz_daily_target(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE, NULL,
+  0.123::NUMERIC, 1.00::NUMERIC, 'standard', NULL, 'd1800000-0000-4000-8000-000000000011', 'admin', 'd1800000-0000-4000-8000-000000000521'
+)$$, '22023', 'Data target harian Tahfidz tidak valid', 'sub-cent page target is rejected rather than rounded');
 SELECT is((public.record_tahfidz_daily_target(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE, NULL,
   2.00::NUMERIC, 1.00::NUMERIC, 'standard', NULL, 'd1800000-0000-4000-8000-000000000012', 'ustadz', 'd1800000-0000-4000-8000-000000000516'
@@ -219,6 +223,68 @@ SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000592'
 )$$, '23514', 'Rentang ayat melampaui jumlah ayat Surah', 'Ayah numbers beyond the selected Surah are rejected');
 
+-- Model a valid historical assignment to Halaqah B, followed by the current Halaqah C assignment to Ustadz A.
+-- The old B record must not contribute to Ustadz A's current halaqah leaderboard.
+INSERT INTO public.tahfidz_memberships (tenant_id, halaqah_id, student_id, starts_on, ends_on, status)
+VALUES (
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000402', 'd1800000-0000-4000-8000-000000000201',
+  CURRENT_DATE - 10, CURRENT_DATE - 6, 'ended'
+);
+INSERT INTO public.tahfidz_records (
+  tenant_id, student_id, halaqah_id, activity_type, surah_name, ayah_start, ayah_end,
+  fluency_grade, tajweed_grade, performed_at, recorded_by_user_id, recorded_by_name, client_request_id
+) VALUES (
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201', 'd1800000-0000-4000-8000-000000000402',
+  'Ziyadah', 'Al-Fatihah', 1, 1, 'A', 'A', ((CURRENT_DATE - 7) + TIME '05:00')::TIMESTAMPTZ,
+  'd1800000-0000-4000-8000-000000000013', 'Ustadz B', 'd1800000-0000-4000-8000-000000000596'
+);
+SELECT public.record_tahfidz_setoran(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+  (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+  'Ziyadah', 'Al-Fatihah', 1, 7, 'A', 'A', NULL, (CURRENT_DATE + TIME '05:00')::TIMESTAMPTZ,
+  'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000593'
+);
+SELECT public.record_tahfidz_setoran(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+  (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+  'Muroja''ah', 'Al-Fatihah', 1, 7, 'A', 'A', NULL, (CURRENT_DATE + TIME '05:30')::TIMESTAMPTZ,
+  'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000594'
+);
+SELECT ok(EXISTS (
+  SELECT 1 FROM pg_indexes
+  WHERE schemaname = 'public' AND indexname = 'tahfidz_records_ziyadah_leaderboard_idx'
+), 'monthly leaderboard has a partial covering index for Ziyadah records');
+SELECT is((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5
+)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000201', 'tenant Admin sees the active tenant Ziyadah leader');
+SELECT is((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5
+)->'students'->0->>'ziyadahRecords'), '2', 'monthly leaderboard counts persisted Ziyadah records but excludes Murojaah');
+SELECT is((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5
+)->'students'->0->>'ziyadahAyahs'), '8', 'tenant Admin sees month ayah totals across recorded halaqahs');
+SELECT is((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5
+)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000201', 'Ustadz sees the leader in their assigned halaqah');
+SELECT is((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5
+)->'students'->0->>'ziyadahRecords'), '1', 'Ustadz leaderboard excludes records from a prior halaqah assignment');
+SELECT is((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5
+)->'students'->0->>'ziyadahAyahs'), '7', 'Ustadz ayah totals stay within the assigned halaqah');
+SELECT is(jsonb_array_length((public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5
+)->'students')), 0, 'Ustadz cannot see leaderboard students outside assigned halaqahs');
+SELECT throws_ok($$SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd2800000-0000-4000-8000-000000000021', 'admin', CURRENT_DATE, 5
+)$$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'administrator from another tenant cannot read leaderboard data');
+SELECT throws_ok($$SELECT public.list_tahfidz_leaderboard(
+  'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'santri', CURRENT_DATE, 5
+)$$, '42501', 'Role tidak dapat membaca leaderboard Tahfidz', 'learner role cannot read other students leaderboard data');
+SELECT ok(NOT has_function_privilege('anon', to_regprocedure('public.list_tahfidz_leaderboard(uuid,uuid,text,date,integer)'), 'EXECUTE'), 'anon cannot execute Tahfidz leaderboard RPC');
+SELECT ok(NOT has_function_privilege('authenticated', to_regprocedure('public.list_tahfidz_leaderboard(uuid,uuid,text,date,integer)'), 'EXECUTE'), 'authenticated cannot execute Tahfidz leaderboard RPC');
+SELECT ok(has_function_privilege('service_role', to_regprocedure('public.list_tahfidz_leaderboard(uuid,uuid,text,date,integer)'), 'EXECUTE'), 'trusted server role can execute Tahfidz leaderboard RPC');
+
 -- Tenant-scoped tables are forced through RLS and browser roles cannot call write RPCs.
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.tahfidz_halaqahs'::regclass), 'halaqahs has RLS enabled');
 SELECT ok((SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.tahfidz_halaqahs'::regclass), 'halaqahs forces RLS');
@@ -249,5 +315,4 @@ SELECT ok(has_function_privilege('service_role', to_regprocedure('public.record_
 
 SELECT * FROM finish();
 ROLLBACK;
-
 
