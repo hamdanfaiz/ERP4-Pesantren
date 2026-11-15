@@ -1,71 +1,69 @@
-# Tinjauan Metadata Advisor Production PTSAS — 15 November 2026
+# Tinjauan advisor Production PTSAS — 15 November 2026
 
-## Cakupan dan batas pemeriksaan
+## Cakupan dan batas
 
-- Proyek: Production PTSAS `ptsasgdvgrbdtgyqieie`.
-- Dilakukan melalui MCP yang tersambung ke Production, pada 15 November 2026 sekitar 00.24 WIB.
-- Hanya membaca advisor Supabase, ledger versi migrasi, dan metadata katalog PostgreSQL. Tidak membaca baris data pengguna, menjalankan DDL, mengubah konfigurasi Auth, atau menerapkan migrasi.
-- Staging VQE tidak digunakan.
+- Proyek: PTSAS Production `ptsasgdvgrbdtgyqieie`.
+- Snapshot advisor dibaca melalui Supabase MCP pada 15 November 2026 sekitar 10:26 WIB. Fungsi SQL dan katalog dibaca dengan kueri SELECT.
+- Yang diperiksa: metadata advisor, ledger migrasi, RLS/grant tabel, serta definisi dan hak EXECUTE lima fungsi yang ditandai advisor.
+- Tidak membaca baris data aplikasi, menjalankan DDL/DML, mengubah pengaturan Auth, atau menerapkan migrasi.
+- Source pembanding: branch integrasi `codex/integration-current-main-20261115`, commit kode `ca07d58e`, 161 file migrasi.
 
-## Ringkasan bukti
+## Snapshot Production
 
-| Area | Hasil saat diperiksa |
+| Area | Hasil |
 | --- | --- |
-| Migrasi tercatat Production | 100; versi tertinggi `20270316000000` |
-| File migrasi aktif pada source | 153 |
-| Versi source yang belum tercatat Production | 53 |
-| Versi Production yang tidak ditemukan pada source | 0 |
-| Entri Production tanpa nama yang dikembalikan MCP | `20261205000000`, `20261206000000`, `20270118000000` |
-| Relasi schema `public` | 162; semuanya RLS aktif dan `FORCE ROW LEVEL SECURITY` aktif |
-| Tabel `public` yang memiliki policy | 5 |
-| Tabel dengan izin SELECT untuk `authenticated` | 5, semuanya memiliki policy; izin SELECT `anon` = 0; izin tulis `anon`/`authenticated` = 0 |
+| Ledger migrasi | 100 entri; versi tertinggi bernama `20270316000000` |
+| Source aktif | 161 file migrasi |
+| Pasangan versi/nama yang cocok persis | 97 |
+| Nama source yang tidak tercatat dengan nama yang sama | 64; 3 memiliki versi ledger yang sama tetapi nama ledger tidak dikembalikan |
+| Entri ledger tanpa nama | `20261205000000`, `20261206000000`, `20270118000000` |
+| Tabel `public` | 162; seluruhnya RLS aktif dan `FORCE ROW LEVEL SECURITY` aktif |
+| Policy `public` | 5 policy pada 5 tabel |
+| Grant SELECT tabel untuk `anon` | 0 |
+| Grant SELECT tabel untuk `authenticated` | 5 |
+| Grant tulis tabel untuk `anon`/`authenticated` | 0 |
 | Advisor health | Tidak ada lint yang dikembalikan |
 
-Lima tabel dengan SELECT `authenticated` adalah `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`. Advisor `rls_enabled_no_policy` mencatat 157 tabel tanpa policy. Karena role `anon` tidak memiliki SELECT dan `authenticated` hanya memiliki SELECT pada lima tabel tersebut, temuan 157 tabel itu sendiri bukan bukti bahwa baris tabel dapat dibaca lewat Data API. Akses melalui server berprivilege tetap perlu ditinjau terpisah.
+Lima tabel dengan policy dan SELECT `authenticated`: `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`. Advisor menandai 157 tabel RLS tanpa policy. Karena tabel tersebut tidak memberi SELECT ke `anon`/`authenticated`, temuan ini sendiri tidak membuktikan barisnya dapat dibaca melalui Data API. Jalur server yang memakai kredensial istimewa tetap perlu ditinjau terpisah.
 
-## Temuan yang perlu ditangani
+Rekonsiliasi ledger lengkap dan daftar 64 source ada di [dokumen perbandingan source dengan ledger VQE/PTSAS](INTEGRATED_SOURCE_LEDGER_RECONCILIATION_2026-11-15.md). Selisih metadata tidak berarti migrasi itu pasti belum diterapkan pada skema.
 
-### Prioritas keamanan
+## Temuan keamanan
 
-1. **Empat fungsi SECURITY DEFINER masih berada di schema `public` dan dapat dipanggil role `authenticated`:** `current_app_role()`, `current_tenant_id()`, `has_module_access(text)`, dan `is_tenant_admin()`. Advisor memperingatkan bahwa fungsi tersebut dapat dipanggil sebagai RPC.
-   - Source memuat migrasi `20270210000000_internalize_tenant_rls_helpers.sql` untuk memindahkannya ke schema `private` dan mengatur hak `EXECUTE`.
-   - Versi ini tidak tercatat di ledger Production.
-   - Tim backend perlu meninjau DDL Production aktual dan kompatibilitas policy sebelum menjadwalkan migrasi. Jangan menonaktifkan fungsi tanpa memastikan policy yang bergantung padanya tetap bekerja.
-2. **Search path trigger PPDB dapat berubah.** Advisor menandai `public.erp4_ppdb_update_updated_at_column()`.
-   - Source memuat `20270209000000_harden_ppdb_trigger_search_path.sql` untuk mematok `search_path` ke `pg_catalog`.
-   - Versi ini tidak tercatat di ledger Production.
-3. **Perlindungan sandi bocor Supabase Auth belum aktif.** Ini pengaturan Auth yang perlu ditinjau dan diaktifkan oleh operator Production sesuai kebijakan organisasi; bukan migrasi SQL.
+### Fungsi pembantu tenant masih dapat dipanggil sebagai RPC
 
-### Prioritas performa dan integritas
+Advisor menandai empat fungsi `SECURITY DEFINER` di schema `public` yang dapat dieksekusi role `authenticated`: `current_app_role()`, `current_tenant_id()`, `has_module_access(text)`, dan `is_tenant_admin()`.
 
-1. **Indeks unik duplikat** pada `public.document_records`: `document_records_tenant_document_number_uq` dan `document_records_tenant_number_normalized_uq`.
-   - Source memuat `20270227000000_remove_redundant_document_number_index.sql` untuk menghapus indeks lama yang redundan.
-   - Versi ini tidak tercatat di ledger Production. Pastikan definisi aktual dan kesamaan constraint/index telah diverifikasi sebelum menghapus apa pun.
-2. Advisor melaporkan **269 foreign key tanpa indeks penutup**, **2 policy dengan auth initplan**, dan **89 indeks yang belum dipakai** pada statistik yang tersedia.
-   - Jangan membuat atau menghapus ratusan indeks secara massal. Tinjau ukuran tabel, pola query, dan periode statistik sebelum menentukan tindakan.
-   - Source memuat `20270211000000_optimize_profile_rls_initplans.sql` untuk dua policy profile yang disebut advisor; migrasi itu belum tercatat di Production.
+Definisi Production yang diperiksa bersifat `STABLE`, memakai `search_path = pg_catalog, public`, membatasi lookup profil ke `auth.uid()` yang aktif dan tenant aktif. Keluaran fungsi adalah role/tenant caller atau boolean akses modul/admin; definisi yang dibaca tidak memperlihatkan operasi tulis. Ini mengurangi risiko lintas pengguna, tetapi fungsi tetap muncul sebagai RPC pada schema API.
 
-## Rekonsiliasi urutan migrasi
+Source memiliki `20270210000000_internalize_tenant_rls_helpers.sql`, yang memindahkan fungsi ke schema `private` dan mempertahankan `EXECUTE` untuk `authenticated` agar policy tetap dapat memakainya. Migrasi itu tidak tercatat pada ledger Production. Tim backend perlu mencocokkan definisi policy/route, konfigurasi exposed schema, dan DDL aktual sebelum menerapkannya; jangan mencabut EXECUTE secara langsung karena RLS bergantung pada helper tersebut.
 
-Daftar 53 versi source yang tidak tercatat adalah hasil selisih versi, bukan rekomendasi untuk menjalankan semuanya. Migrasi berisi seed/import, penyesuaian bisnis, dan perubahan skema dengan dependensi berbeda. Jangan menjalankan `db push` atas seluruh selisih hanya untuk menyamakan jumlah ledger.
+### Search path trigger PPDB belum dipatok
 
-Empat versi yang berkaitan langsung dengan advisor di atas dan tidak tercatat di Production:
+Advisor menandai `public.erp4_ppdb_update_updated_at_column()`. Fungsi ini bukan `SECURITY DEFINER`, ACL-nya hanya mencantumkan owner `postgres`, dan definisi yang dibaca hanya mengisi `NEW.updated_at` dengan waktu saat ini. Namun `proconfig` kosong, sehingga belum ada `search_path` fungsi yang dipatok.
 
-1. `20270209000000_harden_ppdb_trigger_search_path`
-2. `20270210000000_internalize_tenant_rls_helpers`
-3. `20270211000000_optimize_profile_rls_initplans`
-4. `20270227000000_remove_redundant_document_number_index`
+Source mempunyai `20270209000000_harden_ppdb_trigger_search_path.sql` untuk mengatur `search_path = pg_catalog`. Versi itu tidak tercatat pada ledger Production. Verifikasi trigger yang merujuk ke fungsi dan terapkan perubahan forward-only setelah pemetaan urutan migrasi.
 
-Urutan nomor saja belum membuktikan bahwa semuanya aman diterapkan. Tim backend perlu mencocokkan setiap DDL dengan schema Production aktual, menyelesaikan tiga entri ledger yang nama migrasinya belum dikembalikan MCP, meninjau dependensi/policy, dan membuktikan backup dapat dipulihkan sebelum perubahan Production.
+### Perlindungan sandi bocor belum aktif
 
-## Langkah tindak lanjut untuk tim backend
+Advisor Auth memberi peringatan bahwa perlindungan terhadap sandi yang diketahui bocor belum diaktifkan. Ini pengaturan Auth, bukan migrasi SQL; pemilik Production perlu meninjau kebijakan dan dampak pengguna lalu mengaktifkannya melalui pengaturan Supabase Auth.
 
-1. Ambil snapshot katalog DDL dan ledger dari Production dengan prosedur baca-saja internal, lalu cocokkan tiga entri tanpa nama dan seluruh 53 versi yang belum tercatat dengan source yang akan dirilis.
-2. Siapkan backup/restore rehearsal dan rencana rollback di luar sesi ini.
-3. Uji migrasi yang relevan pada database PostgreSQL lokal terisolasi atau lingkungan uji resmi tim. Docker hanya diperlukan untuk menjalankan Supabase lokal; tidak diperlukan untuk pemeriksaan source atau pemeriksaan Node.
-4. Setelah tinjauan dan persetujuan rilis backend, terapkan hanya migrasi yang telah disetujui dalam urutan dependensinya; verifikasi ulang advisor, akses role, dan alur yang memakai policy/RPC.
-5. Aktifkan perlindungan sandi bocor melalui pengaturan Auth setelah penilaian dampak pengguna.
+## Temuan performa
+
+- **269 foreign key tanpa indeks penutup** (INFO). Migrasi indeks `20270330000000_add_core_composite_fk_indexes.sql` di source hanya menangani indeks terpilih; jangan menganggapnya menutup semua temuan. Pilih indeks menurut pola query, volume data, dan biaya tulis.
+- **2 policy dengan evaluasi auth per baris** (WARN): `user_profiles_select_own` dan `profiles_select_self_or_tenant_admin`. Source `20270211000000_optimize_profile_rls_initplans.sql` membungkus ekspresi auth/helper dengan subquery agar dihitung sekali per statement; versi ini belum tercatat pada ledger Production.
+- **89 indeks belum terlihat digunakan** (INFO). Statistik penggunaan mungkin belum mewakili beban normal; jangan menghapus indeks hanya dari lint ini.
+- **Satu pasangan indeks unik identik** pada `public.document_records`: `document_records_tenant_document_number_uq` dan `document_records_tenant_number_normalized_uq`. Source memiliki `20270227000000_remove_redundant_document_number_index.sql`; versi ini belum tercatat pada ledger Production. Pastikan definisi dan constraint aktual identik serta cek dependensi sebelum penghapusan.
+
+## Langkah penanganan untuk tim backend
+
+1. Cocokkan seluruh versi source yang tidak ada pada ledger dengan definisi DDL Production aktual; tandai tiap migrasi `sudah setara`, `belum diterapkan`, `digantikan`, atau `perlu forward migration`. Jangan jalankan semua selisih sekaligus.
+2. Prioritaskan verifikasi empat migrasi advisor yang relevan: `20270209000000_harden_ppdb_trigger_search_path`, `20270210000000_internalize_tenant_rls_helpers`, `20270211000000_optimize_profile_rls_initplans`, dan `20270227000000_remove_redundant_document_number_index`.
+3. Untuk helper tenant, uji policy yang memanggilnya serta konfigurasi Data API schema sebelum/sesudah internalisasi; pastikan route server tetap menegakkan identitas, role, izin modul, dan tenant.
+4. Tinjau sampel beban dan ukuran tabel sebelum menambah indeks dari temuan foreign key, dan kumpulkan statistik representatif sebelum menonaktifkan indeks yang belum terpakai.
+5. Tinjau dan aktifkan perlindungan sandi bocor melalui pengaturan Auth Production.
+6. Tim backend tetap menjalankan prosedur backup/restore, rehearsal staging, dan persetujuan jendela rilis. Snapshot ini bukan bukti pemulihan Production dan bukan izin untuk mengubahnya.
 
 ## Batas klaim
 
-Temuan ini adalah snapshot metadata dan advisor pada waktu pemeriksaan. Ini **bukan** audit isi policy secara menyeluruh, bukti migrasi berhasil, uji jalur API, bukti backup/restore, atau izin untuk mengubah Production. Temuan juga tidak membuktikan bahwa setiap tabel aman melalui route server yang memakai kredensial istimewa.
+Snapshot advisor dan metadata ini tidak membuktikan kesetaraan DDL lengkap, perilaku seluruh route, UAT semua role/modul, atau kemampuan memulihkan backup. Tidak ada perubahan cloud pada pemeriksaan ini.
