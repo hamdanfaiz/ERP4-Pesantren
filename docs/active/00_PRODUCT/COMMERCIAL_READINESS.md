@@ -1,12 +1,17 @@
+Warning: truncated output (original token count: 8897)
+Total output lines: 260
+
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
 ## Status aktual — 15 November 2026
 
-Checkpoint terbaru membenahi permukaan UI Asrama, menghilangkan jargon teknis dari layar modul aktif, dan menambahkan kembali peringkat Tahfidz berbasis setoran tersimpan serta isolasi role/halaqah. Build, TypeScript, pemeriksaan routing privat, runtime, dan preflight migrasi lulus. GitHub Actions run #1789 pada commit cbab5840ed15787c14a4964a74887c22bbee0dd6 lulus 3/3 job, termasuk replay migrasi sintetis, otorisasi API, dan seluruh suite pgTAP; rencana uji leaderboard memuat 93 assertion.
+Source `main` saat checkpoint ini berada pada `b0e9a2ff294a68c4458676eada56c96aa2954635`. Hostinger preview sementara sudah tersambung ke `hamdanfaiz/ERP4-Pesantren` branch `main`; deployment berstatus **Completed / Current** pada commit yang sama. Setelah memuat ulang preview, layar yang diperiksa menampilkan copy produk tanpa istilah provider/backend, dan panel Asrama menggunakan kontainer gelap serta tab yang dapat digulir.
 
-Perubahan Tahfidz memakai migration baru `20270401000000_tahfidz_monthly_leaderboard.sql`. Migration ini **belum diterapkan** pada staging maupun Production. Hostinger masih menayangkan commit lama `82082bf1c8fa806e420ae555ca38f0700694b9af`, dengan Git provider belum tersambung dan auto-deploy mati, sehingga domain sementara belum menampilkan perubahan source terbaru. Tidak ada perubahan Production dalam checkpoint ini.
+Pemeriksaan UI ini hanya UAT tampilan baca-saja. Menu utama tampil, tetapi belum menguji seluruh tindakan simpan-baca. Pada preview VQE, flag `SUPABASE_ACADEMIC_RUNTIME_ENABLED=true` kini aktif dan redeploy konfigurasi Hostinger berhasil. Akademik memuat kondisi kosong tanpa kegagalan API, tetapi kelas, mata pelajaran, jadwal, jurnal, dan penilaian belum tersedia untuk menguji simpan-baca. Tidak ada isi database Supabase yang diubah. Domain produksi `erp4-pesantren.tlusur.com` dan PTSAS Production tidak disentuh.
 
-Rincian bukti dan gerbang berikutnya: [checkpoint 15 November](CHECKPOINT_2026-11-15_PRODUCT_POLISH.md). Status di bagian bawah dokumen ini adalah snapshot historis 14 November dan tidak menggantikan catatan ini.
+PR #91, #92, #112, #114, #115, #121, dan #122 masih terbuka. PR #122 masih Draft dan tidak dapat digabung langsung: basisnya `82082bf` sedangkan source `main` telah bergerak ke `b0e9a2f`, dan GitHub melaporkan cabang divergen/tidak mergeable. Jangan merge stack PR tersebut tanpa audit perubahan terhadap `main`; beberapa file dan migrasi saling bertumpuk.
+
+Peringkat Tahfidz memakai migration `20270401000000_tahfidz_monthly_leaderboard.sql`, yang belum diterapkan ke VQE maupun Production. Bukti build dan CI historis dirinci pada [checkpoint 15 November](CHECKPOINT_2026-11-15_PRODUCT_POLISH.md); bukti itu tidak menggantikan UAT simpan-baca, rekonsiliasi DDL Production, atau backup/restore. Produk belum dinyatakan siap komersial atau siap rilis Production.
 
 
 ## Addendum otoritatif — checkpoint 14 November 2026
@@ -99,71 +104,7 @@ CI hijau pada database lokal sintetis adalah bukti source yang terbatas; CI tida
 
 ERP4 Pesantren ditujukan sebagai software yang dipasang dan dioperasikan untuk pesantren, bukan SaaS multi-pelanggan yang dikelola vendor. Asumsi rilis awal adalah satu instalasi untuk satu pesantren. Backend, Auth, database, Storage, domain, secret, dan backup menjadi milik/lingkup instalasi tersebut.
 
-Kolom `tenant_id` tetap menjadi batas data dan otorisasi di dalam instalasi. Keberadaannya tidak berarti semua pesantren akan ditempatkan pada satu database vendor. Dukungan beberapa pesantren dalam satu instalasi harus menjadi keputusan produk tersendiri.
-
-**Batas rilis awal:** atas keputusan pemilik, PPOB, Layanan ekosistem, dan integrasi payment gateway dikeluarkan sementara. Provider belum dipilih dan tidak ada koneksi provider yang ditawarkan pada rilis awal. Modul disembunyikan dari navigasi dan tidak bisa dibuka melalui permission yang tersimpan sebelumnya. Finance tetap mendukung pencatatan serta verifikasi pembayaran manual; settlement otomatis belum termasuk.
-
-Paket Docker ERP berkomunikasi dengan endpoint Supabase yang disediakan operator. Paket ini **belum membundel atau mengoperasikan seluruh layanan Supabase**. VPS dan on-premise berarti jalur deployment yang dituju, bukan bukti bahwa clean install di semua jenis server telah berhasil.
-
-Pendapatan yang mungkin ditawarkan mencakup lisensi, jasa instalasi, migrasi yang disetujui pelanggan, pelatihan, pemeliharaan, dan dukungan. Harga, bentuk lisensi, periode update, SLA, dan cakupan support belum ditetapkan. Jangan menjanjikan layanan SaaS, operasi offline penuh, native Windows Server, Kubernetes, atau skala tertentu sebelum dirancang dan diuji.
-
-## Status teknis berdasarkan bukti
-
-- Runtime utama menggunakan Supabase; guard CI memastikan Firebase tidak masuk ke graph frontend aktif. Pada `main` `fd937f4`, build/runtime, instalasi NPM, dan migrasi/API/pgTAP lulus di [CI #42482785770](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42482785770).
-- CI menguji round-trip API sintetis untuk Akademik, CBT, LMS, HRIS, Koperasi, CRM, komunikasi, Laundry, Donasi/Wakaf, Dokumen, Kesehatan, Tahfidz, Perpustakaan, fasilitas, dan Urusan Umum; juga NIS/asrama bersamaan, PPDB, Finance/Storage, serta backup/restore lokal satu record sintetis. Guard memastikan seluruh 55 skrip test package dijadwalkan. Ini cakupan otomatis terpilih, bukan UAT semua form, alur, dan tombol di browser.
-- PR #1–#11 ditutup tanpa merge karena implementasi utamanya digantikan source yang lebih baru. Tidak ada alasan untuk menggabungkan branch lama langsung ke `main`; lihat [audit paritas](../05_ARCHITECTURE/PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md).
-- Source `main` berisi 140 berkas migrasi. Bukti VQE 140/140 terakhir adalah 8 November dan belum diulang pada 11 November. Di Production, `save_tenant_system_settings` yang terpasang tidak memuat `PT409`.
-- Preflight baca-saja Production 11 November mengonfirmasi 47 ledger, 45 kecocokan nama/SQL, 2 payload kosong, 93 versi source belum tercatat, dan 119/119 tabel public ber-RLS + FORCE RLS. Tidak ada perubahan Production. Backup/restore dan rehearsal tetap pekerjaan tim backend. Lihat [rekonsiliasi 11 November](../06_DATABASE/PTSAS_PRODUCTION_RECONCILIATION_2026-11-11.md).
-- CI menggunakan Supabase lokal dan data sintetis. Login Admin/Wali di browser, semua CRUD/relasi UI, deployment clean-install ke VPS/on-premise, serta UAT hosting belum terbukti. Backup/restore lokal CI bukan backup/restore Production.
-- Batas rilis awal tetap: PPOB/payment gateway tidak termasuk; Peer Review Tahfidz hanya teks dan dimoderasi Ustadz. Aplikasi berjalan sebagai container yang memakai Supabase eksternal; paket tidak membundel seluruh layanan Supabase. Harga, SLA, dukungan, dan ketentuan lisensi juga belum ditetapkan.
-## Gerbang rilis komersial
-
-### 1. Skema, relasi, dan transaksi
-
-- Tim backend dapat menjalankan `npm run preflight:db-migrations` dari root source `main` untuk membandingkan versi, nama, dan statement migration dengan koneksi PostgreSQL read-only. Pastikan hostname menunjuk ke project target; jangan membagikan URL atau secret. Jika ada `HENTIKAN` atau mismatch, selesaikan rekonsiliasi sebelum rehearsal.
-- Untuk Production, rekonsiliasi ledger dan schema PTSAS secara terpisah. Preflight 11 November menunjukkan 47 versi ledger dan dua entri tanpa metadata, sedangkan source `fd937f4` memiliki 140 migration. Selisih hitungan bukan instruksi untuk menerapkan migration atau mengubah ledger. Jangan tandai versi sebagai applied tanpa bukti schema.
-- Sebelum penerapan, simpan backup yang dapat dipulihkan dan rehearsalkan seluruh urutan migration pada salinan/environment staging.
-- Verifikasi signature dan definisi function, constraint, index, RLS, Storage policy, dan Data API grant terhadap source commit yang akan dirilis.
-- Uji transaksi kritis: NIS unik bersamaan, onboarding PPDB-ke-santri, assignment kamar, pembayaran/jurnal, stok/dompet koperasi, buku dan peminjaman, sesi/setoran Tahfidz, serta idempotensi retry.
-- Isi tenant baru melalui form dan workflow ERP. Tidak ada prasyarat salin data dari Firestore.
-
-**Selesai jika:** source migration yang diuji sama dengan source release, tidak ada drift yang tidak dijelaskan, dan alur kritis berhasil pada fixture sintetis serta UAT staging.
-
-### 2. Identitas dan keamanan
-
-- Uji undangan Admin pertama, login, perubahan kata sandi awal, recovery, aktivasi Wali, pemetaan Wali–Santri, role, permission modul, tenant aktif, dan penghentian akses.
-- Pastikan pengguna satu tenant tidak dapat membaca atau mengubah tenant lain, termasuk lewat endpoint server dan Storage.
-- Rotasi secret Supabase dan password database yang pernah dibagikan melalui chat sebelum go-live. Buat key PII per instalasi, simpan di secret manager, dan uji bahwa pemulihan kunci cocok dengan backup terenkripsi.
-- Uji rate limit, audit trail, session expiry/revocation, header proxy, upload MIME/ukuran, dan penolakan akses langsung ke bucket privat.
-- Jangan mengirim service-role/secret key ke browser, bundle, log, atau repository.
-
-**Selesai jika:** matriks role × tenant lulus pada staging dan seluruh secret production dibuat/dirotasi serta dicatat oleh operator, tanpa menaruh nilainya di dokumen ini.
-
-### 3. Paket instalasi dan portabilitas
-
-- Verifikasi image dengan versi tetap pada Linux VM/VPS bersih dan satu VM/on-premise yang mewakili calon pelanggan.
-- Pastikan URL Supabase dapat dijangkau dari browser pengguna dan container server; TLS, DNS, reverse proxy, port, persistent volume, Storage, SMTP, dan secret dikonfigurasi per instalasi.
-- Buktikan image yang sama dapat dipindahkan antarenvironment dengan konfigurasi runtime; jangan mengandalkan akun AI Studio, GitHub Actions, atau project Supabase milik pembuat.
-- Simulasikan upgrade dan pemulihan database **serta Storage** ke host kedua dengan kunci dan konfigurasi tujuan yang benar.
-- Tentukan dukungan arsitektur CPU, versi Docker/Linux, ukuran resource, akses internet keluar, dan provider Supabase yang secara eksplisit diuji.
-
-**Selesai jika:** operator dapat install, upgrade, dan restore sesuai runbook di dua environment target tanpa kehilangan file atau relasi.
-
-### 4. Operasi dan tanggung jawab layanan
-
-Sebelum menjual layanan, tetapkan secara tertulis:
-
-- siapa mengelola OS, patch keamanan, Docker, database, Storage, SMTP, domain/TLS, backup, monitoring, incident response, dan biaya infrastruktur;
-- kebijakan backup/retensi/enkripsi, lokasi backup, pemilik kunci, restore drill, target RPO/RTO, dan jalur eskalasi;
-- proses upgrade, compatibility window, release notes, rollback/forward-fix, masa pemeliharaan versi, serta dukungan saat pelanggan menolak update;
-- kepemilikan/ekspor/penghapusan data dan prosedur serah-terima ketika kontrak berakhir.
-
-Jangan menjanjikan SLA ketersediaan pada instalasi yang dikelola pelanggan jika tim tidak mengelola monitoring, backup, patch, dan on-call yang diperlukan SLA itu.
-
-### 5. Pilot dan penawaran
-
-- Jalankan pilot pada pesantren yang mewakili ukuran dan kesiapan IT yang ditargetkan.
-- Ukur onboarding, waktu penyelesaian alur harian, error, kebutuhan bantuan, restore, kapasitas, dan biaya support.
+Kolom `tenant_id` tetap menjadi batas data dan otorisasi di dalam instalasi. Keberadaannya tidak berarti semua pesantren akan ditempatkan pada satu database vendor. Dukunga…1897 tokens truncated…n, error, kebutuhan bantuan, restore, kapasitas, dan biaya support.
 - Simulasikan volume serta konkurensi berdasarkan data calon pelanggan; tetapkan batas skala setelah hasil beban dan pemantauan tersedia.
 - Putuskan lisensi, harga, jumlah instalasi, biaya instalasi/pelatihan, masa update, support, perubahan khusus, garansi, dan tanggung jawab insiden.
 - Siapkan demo sintetis dan materi penawaran yang tidak memuat data pribadi maupun klaim kemampuan yang belum dibuktikan.
@@ -254,4 +195,5 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - Daftar izin Admin yang secara eksplisit ditolak dibuka pada Sidebar agar menu tersembunyi dapat diketahui. Aturan RBAC tidak dilonggarkan.
 - Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
 - Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
+
 

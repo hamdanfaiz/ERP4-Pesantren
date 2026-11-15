@@ -23,14 +23,16 @@
 ## Perubahan cloud dan publikasi
 
 - Migration baru belum diterapkan ke VQE staging maupun PTSAS Production. Tidak ada data atau skema live yang diubah.
-- Snapshot Hostinger yang terakhir diperiksa masih memakai commit `82082bf1c8fa806e420ae555ca38f0700694b9af`; dashboard menunjukkan Git provider belum tersambung dan auto-deploy mati. Karena itu tampilan domain sementara belum mencerminkan source `main` terkini.
+- **Diperbarui 15 November 2026:** Hostinger preview sementara tersambung ke repo `hamdanfaiz/ERP4-Pesantren`, branch `main`, dengan auto-deploy aktif. Deployment `b0e9a2ff294a68c4458676eada56c96aa2954635` berstatus Completed / Current. Ini hanya preview VQE, bukan domain produksi `erp4-pesantren.tlusur.com`.
+- Pemeriksaan baca-saja setelah memuat ulang preview Admin UAT: istilah provider/backend tidak tampak pada layar yang diperiksa; kontainer Asrama tampil gelap dan enam tab dapat digulir. Pemeriksaan tidak melakukan tindakan tulis.
+- **Diperbarui 15 November 2026:** flag `SUPABASE_ACADEMIC_RUNTIME_ENABLED=true` ditambahkan pada konfigurasi Hostinger preview VQE; redeploy konfigurasi selesai. Akademik kini memuat tampilan dan kondisi kosong tanpa pesan kegagalan. Tenant staging belum memiliki kelas, mata pelajaran, jadwal, jurnal, atau penilaian; UAT simpan-baca belum terbukti.
 - Akses tulis MCP Production tidak tersedia pada pemeriksaan terakhir. Rilis database perlu menunggu rehearsal dan akses tulis yang sah; jangan menjalankan `db push` terhadap Production hanya berdasarkan build lokal.
 
 ## Gerbang berikutnya
 
 1. Rehearsal migrasi 20270401000000 pada VQE setelah urutan PR #112/#121/#92 direkonsiliasi; jangan menganggap migrasi otomatis hadir di VQE atau Production.
-2. Sambungkan kembali deployment Hostinger ke repo/branch source resmi dan terbitkan build yang sama dengan commit CI.
-3. UAT browser dengan Admin dan Ustadz untuk memeriksa peringkat, isolasi halaqah, tampilan Asrama, dan copy antarmuka.
+2. Rekonsiliasi PR aktif dengan `main` sebelum merge; PR #122 saat ini Draft dan divergen, sedangkan PR komponen berbagi sebagian file/migrasi.
+3. UAT browser Admin/Ustadz dengan data sintetis terkontrol untuk peringkat, isolasi halaqah, tindakan simpan-baca, dan penanganan kegagalan API pada preview.
 4. Tim backend menuntaskan pemeriksaan DDL Production serta bukti backup/restore sebelum menyatakan siap deploy.
 
 
@@ -51,3 +53,4 @@
 2. Jalankan migration dan pgTAP pada staging yang rekonsiliasinya sudah jelas, kemudian uji route aplikasi dengan Admin/Ustadz serta tenant sintetis.
 3. Aktifkan dua flag hanya pada environment yang database-nya sudah lulus pemeriksaan; biarkan keduanya `false` pada Production sampai syarat itu terpenuhi.
 4. Setelah feature branch didorong, tunggu workflow database GitHub menjalankan seluruh suite pada commit yang sama. Build lokal tidak menggantikan replay pgTAP di CI.
+
