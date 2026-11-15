@@ -2,7 +2,7 @@
 
 ## Tujuan dan batas
 
-Catatan ini merekam rehearsal integrasi lokal dari `main` commit `82082bf1c8fa806e420ae555ca38f0700694b9af`. Worktree berada di `sa/_tmp_integration_current_main_20261115`; perubahan belum di-push, belum di-merge ke `main`, dan tidak diterapkan ke Supabase Production maupun VQE.
+Catatan ini merekam rehearsal integrasi dari `main` commit `82082bf1c8fa806e420ae555ca38f0700694b9af`. Worktree berada di `sa/_tmp_integration_current_main_20261115`, pada branch review `codex/integration-current-main-20261115`. Branch tersebut sudah di-push ke GitHub pada commit `4595ad122b743f0f33e4d30e3afba1c72e9f67ff`; belum di-merge ke `main` dan tidak diterapkan ke Supabase Production maupun VQE.
 
 Rehearsal menggabungkan source head PR #115, #91, #92, #121, #112, dan #114. Stack Tahfidz #91 → #92 → #121 tetap menjadi satu rantai migrasi; enam migrasi CBT #112 berada pada `20270321000000`–`20270326000000`, indeks #92 pada `20270330000000`, dan leaderboard #121 pada `20270331000000`. Source rehearsal memiliki 161 file migrasi. Preflight sintetis lulus dengan 114 migrasi pending terhadap fixture yang digunakan skrip; angka fixture ini bukan snapshot Production.
 
@@ -32,6 +32,7 @@ Lulus:
 - Pemeriksaan lanjutan menemukan bahwa `test:user-messages:security` belum dijalankan oleh workflow CI. Workflow kini menjalankan suite tersebut; `npm run test:ci-coverage` lulus untuk semua 75 skrip tes paket dan `npm run test:user-messages:security` lulus dengan 14 skenario.
 - `npm run test:customer-deployment-flags` lulus setelah ekspektasi CRM diselaraskan dengan pesan aktual dan layar email/SDM diperbaiki. `npm run lint` dan `npm run build` juga lulus ulang setelah perubahan UI ini.
 - GitHub Actions run [#1762](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43664004230) lulus **3/3 job** pada commit `ca07d58e`: frontend build/runtime guard, migrasi/API/Auth/pgTAP pada Supabase lokal terisolasi, dan instalasi paket untuk environment pelanggan. Job database mencakup replay baseline historis sintetis, suite database, API/tenant, Storage, Dokumen Digital, dan backup-restore lokal. Ini bukan pemeriksaan atau restore Production.
+- Run branch review [#1763](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43669187408) lulus **3/3 job** pada commit `4595ad1`, termasuk job database/migrasi/API/pgTAP. Commit ini hanya memperbarui dokumentasi terhadap source code yang sudah lulus pada #1762.
 
 Build masih mengeluarkan peringatan chunk `react-pdf` sekitar 1,46 MB dan komentar anotasi Zod yang tidak dapat ditafsirkan Rollup. Build selesai dengan kode keluar 0.
 
@@ -45,11 +46,12 @@ Build masih mengeluarkan peringatan chunk `react-pdf` sekitar 1,46 MB dan koment
 
 ## Langkah lanjut yang aman
 
-1. Push worktree ini ke branch review terpisah agar GitHub menjalankan CI gabungan; jangan menulis ke `main` atau database Production.
+1. Branch review gabungan sudah tersedia untuk tim backend di [GitHub](https://github.com/hamdanfaiz/ERP4-Pesantren/tree/codex/integration-current-main-20261115); CI #1763 lulus 3/3.
 2. Minta review tim backend terhadap merge resolution CBT/Tahfidz dan daftar migrasi.
-3. Jalankan Supabase CLI + Docker Emulator/pgTAP dan UAT browser pada VQE staging setelah alat lokal tersedia.
+3. Jalankan UAT browser pada VQE staging untuk role dan modul yang diaktifkan; flag VQE saat ini belum mengaktifkan semua modul.
 4. Tim backend menyelesaikan pemeriksaan DDL, backup, restore, dan urutan rilis Production sebelum menyetujui deploy.
 
 ## Checkpoint source lokal
 
-Head rehearsal setelah merge dan koreksi Tahfidz sebelum penambahan pemeriksaan workflow: `b5c7e8c` (`docs: record current main integration checkpoint`). Ini adalah commit worktree lokal sementara, bukan branch remote atau status merge PR. Perubahan workflow lanjutan harus ditinjau sebagai commit setelah checkpoint tersebut.
+Head integrasi awal sebelum perbaikan UI/copy dan cakupan CI: `b5c7e8c` (`docs: record current main integration checkpoint`). Head branch review sebelum pembaruan checkpoint ini: `4595ad1` (`docs: record green integration workflow`), diverifikasi CI #1763 lulus 3/3. Pembaruan checkpoint ini bersifat dokumentasi saja; ini bukan merge ke `main` atau status merge PR sumber.
+
