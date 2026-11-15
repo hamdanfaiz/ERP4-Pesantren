@@ -32,21 +32,25 @@ VALUES
 INSERT INTO public.candidates (id, tenant_id, registration_id, name, nik_ciphertext, nik_fingerprint, grade)
 VALUES
   ('d1800000-0000-4000-8000-000000000101', 'd1800000-0000-4000-8000-000000000009', 'TZW-A-001', 'Santri A', decode(repeat('ab', 44), 'hex'), decode(repeat('cd', 32), 'hex'), 'VII'),
-  ('d2800000-0000-4000-8000-000000000201', 'd2800000-0000-4000-8000-000000000009', 'TZW-B-001', 'Santri B', decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'VII');
+  ('d1800000-0000-4000-8000-000000000102', 'd1800000-0000-4000-8000-000000000009', 'TZW-A-002', 'Santri B', decode(repeat('ac', 44), 'hex'), decode(repeat('ce', 32), 'hex'), 'VII'),
+  ('d2800000-0000-4000-8000-000000000201', 'd2800000-0000-4000-8000-000000000009', 'TZW-B-001', 'Santri B Tenant Lain', decode(repeat('ef', 44), 'hex'), decode(repeat('12', 32), 'hex'), 'VII');
 INSERT INTO public.students (
   id, tenant_id, source_candidate_id, nis, name, gender, grade,
   nik_ciphertext, nik_fingerprint, status
 )
 VALUES
   ('d1800000-0000-4000-8000-000000000201', 'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000101', '9180000001', 'Santri A', 'L', 'VII', decode(repeat('34', 44), 'hex'), decode(repeat('56', 32), 'hex'), 'active'),
-  ('d2800000-0000-4000-8000-000000000301', 'd2800000-0000-4000-8000-000000000009', 'd2800000-0000-4000-8000-000000000201', '9280000001', 'Santri B', 'L', 'VII', decode(repeat('78', 44), 'hex'), decode(repeat('90', 32), 'hex'), 'active');
+  ('d1800000-0000-4000-8000-000000000202', 'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000102', '9180000002', 'Santri B', 'L', 'VII', decode(repeat('35', 44), 'hex'), decode(repeat('57', 32), 'hex'), 'active'),
+  ('d2800000-0000-4000-8000-000000000301', 'd2800000-0000-4000-8000-000000000009', 'd2800000-0000-4000-8000-000000000201', '9280000001', 'Santri B Tenant Lain', 'L', 'VII', decode(repeat('78', 44), 'hex'), decode(repeat('90', 32), 'hex'), 'active');
 
 INSERT INTO public.tahfidz_halaqahs (id, tenant_id, name, ustadz_user_id, ustadz_name, status)
 VALUES
   ('d1800000-0000-4000-8000-000000000401', 'd1800000-0000-4000-8000-000000000009', 'Halaqah A', 'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'active'),
   ('d1800000-0000-4000-8000-000000000402', 'd1800000-0000-4000-8000-000000000009', 'Halaqah B', 'd1800000-0000-4000-8000-000000000013', 'Ustadz B', 'active');
 INSERT INTO public.tahfidz_memberships (tenant_id, halaqah_id, student_id, starts_on, status)
-VALUES ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000401', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE - 5, 'active');
+VALUES
+  ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000401', 'd1800000-0000-4000-8000-000000000201', CURRENT_DATE - 5, 'active'),
+  ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000402', 'd1800000-0000-4000-8000-000000000202', CURRENT_DATE - 5, 'active');
 
 -- Setoran: valid write, idempotent replay, conflict, assigned-halaqah and tenant guards.
 SELECT is((public.record_tahfidz_setoran(
