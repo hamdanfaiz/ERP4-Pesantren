@@ -29,6 +29,7 @@ const child = spawn(process.execPath, ["dist/server.cjs"], {
     VITE_SUPABASE_URL: "https://browser.supabase.invalid",
     VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_runtime_config_test",
     VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED: "true",
+    VITE_SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED: "true",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -59,6 +60,7 @@ try {
   assert.equal(config.VITE_SUPABASE_URL, "https://browser.supabase.invalid");
   assert.equal(config.VITE_SUPABASE_PUBLISHABLE_KEY, "sb_publishable_runtime_config_test");
   assert.equal(config.VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED, "true");
+  assert.equal(config.VITE_SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED, "true");
   assert.equal(config.SUPABASE_TAHFIDZ_RUNTIME_ENABLED, undefined, "Server-only gates must not be exposed to browser config.");
   assert.ok(!bodyText.includes(secret), "Server secret must not appear in browser runtime config.");
   console.log("Runtime config HTTP smoke passed: current browser values are served uncached and server secrets remain private.");

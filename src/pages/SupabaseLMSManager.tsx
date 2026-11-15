@@ -107,11 +107,11 @@ export function SupabaseLMSManager() {
   };
 
   const applyLegacyImport = async () => {
-    if (!legacyImportPreview?.canApply || !window.confirm(`Terapkan ${legacyImportPreview.counts.ready} record katalog LMS ke tenant Supabase?`)) return;
+    if (!legacyImportPreview?.canApply || !window.confirm(`Terapkan ${legacyImportPreview.counts.ready} data katalog LMS ke pesantren ini?`)) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const result = await requestLms("/api/lms/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: legacyImportPreview.snapshotFingerprint }) });
-      setNotice(`Impor LMS selesai: ${result.imported} record ditambahkan, ${result.skipped} record dikenali sudah sama.`);
+      setNotice(`Impor LMS selesai: ${result.imported} data ditambahkan, ${result.skipped} data yang sama dilewati.`);
       setLegacyImportPreview(null); await refresh();
     } catch (cause: any) { setError(cause?.message || "Impor LMS gagal; tidak ada hasil yang dikonfirmasi."); }
     finally { setBusy(false); }

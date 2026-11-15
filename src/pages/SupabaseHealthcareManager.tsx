@@ -96,9 +96,9 @@ export function SupabaseHealthcareManager() {
     finally { setBusy(false); }
   };
   const applyLegacyImport = async () => {
-    if (!importPreview?.canApply || !window.confirm(`Impor ${importPreview.counts.ready} record UKS yang dipetakan ke daftar santri Supabase?`)) return;
+    if (!importPreview?.canApply || !window.confirm(`Impor ${importPreview.counts.ready} data UKS yang dipetakan ke daftar santri pesantren ini?`)) return;
     setBusy(true); setError(""); setNotice("");
-    try { const result = await requestHealthcare("/api/healthcare/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: importPreview.snapshotFingerprint }) }); setNotice(`Impor selesai: ${result.imported} record ditambahkan, ${result.skipped} dilewati karena sudah sama.`); setImportPreview(null); await refresh(); }
+    try { const result = await requestHealthcare("/api/healthcare/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: importPreview.snapshotFingerprint }) }); setNotice(`Impor selesai: ${result.imported} data ditambahkan, ${result.skipped} dilewati karena sudah sama.`); setImportPreview(null); await refresh(); }
     catch (cause: any) { setError(cause?.message || "Impor UKS gagal."); }
     finally { setBusy(false); }
   };

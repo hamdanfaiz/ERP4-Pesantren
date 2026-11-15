@@ -264,7 +264,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
         type: 'Santri',
         tenantId: user?.tenantId,
       });
-      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" tersimpan dengan NIS ${savedData.nis || 'otomatis'} dan pemeriksaan keunikan backend.` });
+      setMessage({ type: 'success', text: `Data ${formData.type} "${result.data.name}" tersimpan dengan NIS ${savedData.nis || 'otomatis'} dan pemeriksaan keunikan otomatis.` });
       if (onSuccess) onSuccess(savedData);
     } catch (error) {
       console.error("Error adding document: ", error);

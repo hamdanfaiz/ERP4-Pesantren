@@ -70,6 +70,7 @@ import {
   mutateSupabaseTahfidzSession,
   recordSupabaseTahfidzSetoran,
   recordSupabaseTahfidzTarget,
+  recordSupabaseTahfidzTargetsBulk,
   saveSupabaseTahfidzHalaqah,
   submitSupabaseTahfidzPeerReview,
   SupabaseTahfidzError,
@@ -667,6 +668,7 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const tahfidzRuntimeEnabled = String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const tahfidzBulkTargetsEnabled = String(process.env.SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED || "").trim().toLowerCase() === "true";
   const tahfidzRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
     if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
@@ -3304,6 +3306,22 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
       const result = await recordSupabaseTahfidzTarget(actor.tenantId, actor.uid, actor.role, req.body?.target);
+      return res.status(result.alreadyApplied ? 200 : 201).json(result);
+    } catch (error) { return tahfidzRouteError(res, error); }
+  });
+
+  app.post("/api/tahfidz/targets/bulk", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz belum tersedia." });
+    if (!tahfidzBulkTargetsEnabled) return res.status(503).json({ error: "Pengaturan target massal belum tersedia." });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadTahfidzActor(uid);
+      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) {
+        return res.status(403).json({ error: "Role ini tidak dapat mengatur target Tahfidz." });
+      }
+      const result = await recordSupabaseTahfidzTargetsBulk(actor.tenantId, actor.uid, actor.role, req.body?.target);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
   });
