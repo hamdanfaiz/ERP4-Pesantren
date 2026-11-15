@@ -6,6 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { resolveTrustedProxyHops } from "./src/server/trustedProxyHops";
 import { listSupabaseQuranSurahs, SupabaseQuranCatalogError } from "./src/server/supabaseQuranCatalog";
 import { Buffer } from "node:buffer";
+import { sanitizePublicErrorPayload } from "./src/server/publicErrorMessage.mjs";
 import {
   IdentityConflictError,
   IdentityUnavailableError,
@@ -522,6 +523,13 @@ async function startServer() {
   app.set("trust proxy", resolveTrustedProxyHops(process.env));
   app.use((_req, res, next) => {
     res.setHeader("Referrer-Policy", "no-referrer");
+    next();
+  });
+  app.use((_req, res, next) => {
+    const sendJson = res.json.bind(res);
+    res.json = ((payload?: unknown) => sendJson(
+      res.statusCode >= 400 ? sanitizePublicErrorPayload(payload) : payload,
+    )) as typeof res.json;
     next();
   });
   app.use(express.json({ limit: "5mb" }));

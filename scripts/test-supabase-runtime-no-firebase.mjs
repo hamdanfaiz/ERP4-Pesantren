@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { GENERIC_PUBLIC_ERROR, sanitizePublicErrorPayload } from '../src/server/publicErrorMessage.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const configPath = path.join(root, 'tsconfig.json');
@@ -174,7 +175,7 @@ for (const tabId of ['entities', 'structure', 'naming', 'audit']) {
 }
 assert.doesNotMatch(masterDataTabs[1], /id:\s*["']references["']/,
   'Reference catalogs must live with their owning modules instead of a generic Master Data tab.');
-assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?koneksi runtime Supabase belum diaktifkan[\s\S]*?<\/section>\)/,
+assert.match(masterDataSource, /activeTab === ["']naming["'] \? \(SUPABASE_MASTER_DATA_RUNTIME \? <SupabaseNamingSeriesManager \/> : <section[\s\S]*?Pengaturan nomor belum dapat dimuat[\s\S]*?<\/section>\)/,
   'Naming Series must show a clear unavailable state rather than disappear or fall through to mock CRUD when runtime is disabled.');
 assert.match(masterDataSource, /const isTenantConfigurationTab = activeTab === ["']naming["'];/,
   'Naming Series configuration must not expose mock record actions when runtime is disabled.');
@@ -210,7 +211,7 @@ for (const section of ['permits', 'discipline', 'attendance', 'assignments', 'fa
 }
 assert.match(boardingSource, /<ERPTabs\s+tabs=\{tabs\}/,
   'Asrama sections must use the shared tab component.');
-assert.match(boardingSource, /<UnavailableSection\s+label=\{selected\.label\}\s+flag=\{selected\.flag\}\s*\/>/,
+assert.match(boardingSource, /<UnavailableSection\s+label=\{selected\.label\}\s*\/>/,
   'Disabled Asrama sections must show an explicit readiness state instead of disappearing.');
 assert.doesNotMatch(boardingSource, /if\s*\(!available\.length\)\s*return\s+null/,
   'Asrama must not render a blank screen when runtime gates are closed.');
@@ -290,6 +291,23 @@ const archiveImportPolicy = fs.readFileSync(path.join(root, 'src', 'runtimeBacke
 assert.match(archiveImportPolicy, /export const legacyArchiveImportEnabled = false/,
   'Firestore archive imports must remain disabled after the no-copy decision.');
 const serverSource = fs.readFileSync(path.join(root, 'server.ts'), 'utf8');
+assert.equal(
+  sanitizePublicErrorPayload({ error: 'Runtime Akademik Supabase belum diaktifkan operator.' }).error,
+  GENERIC_PUBLIC_ERROR,
+  'Internal runtime and provider details must not reach a user-facing API error.',
+);
+assert.equal(
+  sanitizePublicErrorPayload({ error: 'Data tidak ditemukan pada tenant ini.' }).error,
+  'Data tidak ditemukan pada pesantren ini.',
+  'Tenant terminology in user-facing errors must use pesantren language.',
+);
+assert.equal(
+  sanitizePublicErrorPayload({ reason: 'Pencarian roster Tahfidz tidak valid.' }).reason,
+  'Pencarian daftar santri Tahfidz tidak valid.',
+  'Roster terminology in user-facing errors must use Indonesian.',
+);
+assert.match(serverSource, /res\.statusCode\s*>=\s*400\s*\?\s*sanitizePublicErrorPayload\(payload\)/,
+  'The API error copy sanitizer must apply to all failed JSON responses.');
 for (const retiredServerCapability of [
   'firebase-admin', 'initializeApp', 'getFirestore', 'LEGACY_FIREBASE_ADMIN_ENABLED',
   'readLegacyFirestoreTenantRows', 'isLegacyArchiveImportEnabled',
