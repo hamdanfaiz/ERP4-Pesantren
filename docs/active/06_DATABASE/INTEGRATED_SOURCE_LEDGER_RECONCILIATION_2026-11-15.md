@@ -2,7 +2,7 @@
 
 ## Tujuan dan ruang lingkup
 
-Catatan ini membandingkan nama/versi file pada branch review `codex/integration-current-main-20261115` (source commit kode `ca07d58e`, 161 file SQL di `supabase/migrations`) dengan migration ledger Supabase VQE staging dan PTSAS Production. Pemeriksaan menggunakan konektor Supabase MCP `list_migrations` dan hanya membaca metadata versi/nama. Tidak membaca baris aplikasi, isi DDL, kebijakan RLS, atau menjalankan perubahan.
+Catatan ini membandingkan nama/versi file pada branch review `codex/integration-current-main-20261115` (source commit kode terakhir `f370234c59f5cd973d633f90492175090f306a10`, 161 file SQL di `supabase/migrations`) dengan migration ledger Supabase VQE staging dan PTSAS Production. Pemeriksaan menggunakan konektor Supabase MCP `list_migrations` dan hanya membaca metadata versi/nama. Tidak membaca baris aplikasi, isi DDL, kebijakan RLS, atau menjalankan perubahan.
 
 Source branch menggabungkan PR #91, #92, #112, #114, #115, dan #121. Perbandingan ini bukan persetujuan migrasi dan bukan bukti bahwa objek yang tidak tercatat pada ledger belum ada di database.
 
@@ -137,3 +137,15 @@ Empat versi source bertabrakan dengan nama lain di ledger VQE: `20270312000000` 
 CI pada Supabase lokal terisolasi membuktikan replay dan suite otomatis untuk source, bukan kesamaan DDL atau pemulihan database cloud. Pemeriksaan ini tidak membaca baris aplikasi dan tidak mengubah VQE maupun PTSAS. Snapshot ini harus diperbarui bila source branch atau ledger berubah.
 
 Source/review: [branch integrasi](https://github.com/hamdanfaiz/ERP4-Pesantren/tree/codex/integration-current-main-20261115) · [checkpoint integrasi](../00_PRODUCT/CHECKPOINT_2026-11-15_CURRENT_MAIN_INTEGRATION.md)
+
+## Verifikasi katalog baca-saja Production — 15 November 2026
+
+Pemeriksaan lanjutan dilakukan melalui Supabase MCP pada PTSAS (ptsasgdvgrbdtgyqieie) memakai kueri katalog baca-saja. Tidak ada baris operasional yang dibaca dan tidak ada perubahan database.
+
+- Katalog menunjukkan **162/162 tabel** pada schema public dengan RLS aktif dan FORCE ROW LEVEL SECURITY aktif.
+- pg_policies mengembalikan **5 policy SELECT** pada candidate_documents, candidates, profiles, tenants, dan user_profiles; seluruh policy berlaku bagi authenticated. Tidak ada grant tabel untuk anon atau PUBLIC. authenticated hanya mendapat SELECT pada lima tabel tersebut dan tidak mendapat grant tulis tabel.
+- Katalog fungsi mengembalikan **244 function/procedure public**. Empat helper SECURITY DEFINER—current_app_role(), current_tenant_id(), has_module_access(text), dan is_tenant_admin()—masih memberi EXECUTE kepada authenticated. Definisi aktual yang dibaca memfilter auth.uid() ke profil aktif dan tenant aktif; tidak ditemukan akses lintas-tenant dari fungsi-fungsi tersebut. Namun, helper tetap berada di schema public, sehingga migrasi 20270210000000_internalize_tenant_rls_helpers masih menjadi hardening yang belum tercatat pada ledger Production.
+- erp4_ppdb_update_updated_at_column() bukan SECURITY DEFINER, ACL hanya owner, tetapi proconfig tidak menetapkan search_path. Ini sesuai dengan peringatan advisor dan migrasi source 20270209000000_harden_ppdb_trigger_search_path yang belum tercatat.
+- Lima policy memakai helper tenant/module yang terkonfirmasi di atas. RLS tidak dengan sendirinya membatasi route backend yang memakai service_role; pembatasan route/RPC harus tetap diperiksa terpisah.
+
+Metadata ini mempersempit audit Production, tetapi **tidak menyelesaikan rekonsiliasi DDL untuk 61 migrasi source yang belum memiliki versi ledger**, tidak membuktikan backup/restore Production, dan tidak mengizinkan penerapan migrasi otomatis. Koneksi Production tetap dipakai baca-saja.
