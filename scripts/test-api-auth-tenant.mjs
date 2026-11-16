@@ -2829,6 +2829,7 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       body: JSON.stringify({
         expectedUpdatedAt: cbtInitialSnapshot.settings.updatedAt,
         settings: {
+          autoGrading: true,
           shuffleQuestions: cbtInitialSnapshot.settings.shuffleQuestions,
           correctPoints: cbtInitialSnapshot.settings.correctPoints,
           wrongPoints: cbtInitialSnapshot.settings.wrongPoints,
@@ -2836,8 +2837,10 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
         },
       }),
     });
-    assert.equal(cbtSettingsWriteResponse.status, 200, 'An authorized tenant Admin can save CBT settings through the API.');
-    assert.equal((await cbtSettingsWriteResponse.json()).saved, true);
+    const cbtSettingsWriteResult = await cbtSettingsWriteResponse.json();
+    assert.equal(cbtSettingsWriteResponse.status, 200,
+      `An authorized tenant Admin can save CBT settings through the API: ${JSON.stringify(cbtSettingsWriteResult)}`);
+    assert.equal(cbtSettingsWriteResult.saved, true);
     const cbtSettingsReadbackResponse = await fetch(`${referenceApiBase}/api/cbt/admin`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
