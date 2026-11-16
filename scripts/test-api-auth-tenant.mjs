@@ -5312,6 +5312,7 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       const cleanupSql = [
         'BEGIN;',
         `DELETE FROM auth.users WHERE id = ANY(${userArray});`,
+        `DELETE FROM public.cbt_tenant_settings WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.profiles WHERE tenant_id = ANY(${tenantArray});`,
         `DELETE FROM public.tenants WHERE id = ANY(${tenantArray});`,
         'COMMIT;',

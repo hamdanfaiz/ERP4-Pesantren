@@ -27,6 +27,8 @@
 - GitHub Actions run #1813 pada commit `2f10633` meluluskan instalasi NPM dan build frontend/Firebase guard. Job migrasi menjalankan migration replay, 1.911 assertion pgTAP, dan tes transaksi bersamaan, lalu gagal pada integrasi API karena route pagination ujian CBT belum terdaftar (`404`). Route ringkasan, pagination, dan pengaturan CBT kini didaftarkan dengan autentikasi dan izin Admin.
 - Run #1815 pada `2271450` meluluskan migration replay, 1.911 assertion pgTAP, tes transaksi bersamaan, serta pemeriksaan API hingga operasi pengaturan CBT. Tes API kemudian gagal dengan `400` karena payload tes tidak menyertakan `autoGrading: true`, yang diwajibkan kontrak API dan sudah dikirim oleh UI. Payload tes telah diselaraskan dan diagnostik kegagalan akan menyertakan respons endpoint. CI setelah koreksi ini masih menunggu.
 
+- Run #1817 pada `b419170` meluluskan migration replay, backfill sintetis, seluruh 1.911 assertion pgTAP, tes race condition, serta round-trip API lintas modul termasuk CBT settings. Job berhenti pada cleanup fixture karena baris `cbt_tenant_settings` masih memiliki foreign key ke profil Admin sintetis; Tahfidz/Storage/backup-restore setelah step itu belum dijalankan. Cleanup kini menghapus pengaturan CBT tenant sebelum menghapus profil. CI untuk koreksi cleanup ini masih menunggu.
+
 ## UAT browser staging
 
 - Login Admin pada preview Hostinger/VQE berhasil.
