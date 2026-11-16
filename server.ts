@@ -226,8 +226,14 @@ import {
 } from "./src/server/supabaseHris";
 import {
   createSupabaseCbtExam,
+  getSupabaseCbtAdminDashboardSummary,
   getSupabaseCbtStudentSnapshot,
+  listSupabaseCbtAdminAssignmentPage,
+  listSupabaseCbtAdminExamPage,
+  listSupabaseCbtAdminStudentPage,
   listSupabaseCbtAdminSnapshot,
+  listSupabaseCbtQuestionPage,
+  saveSupabaseCbtTenantSettings,
   saveSupabaseCbtAttemptAnswers,
   startSupabaseCbtAttempt,
   submitSupabaseCbtAttempt,
@@ -1396,6 +1402,74 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadCbtAdminActor(uid);
       return res.json(await listSupabaseCbtAdminSnapshot(actor.tenantId));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.get("/api/cbt/admin/summary", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      return res.json(await getSupabaseCbtAdminDashboardSummary(actor.tenantId));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.get("/api/cbt/admin/questions", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      return res.json(await listSupabaseCbtQuestionPage(actor.tenantId, req.query as Record<string, unknown>));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.get("/api/cbt/admin/exams", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      return res.json(await listSupabaseCbtAdminExamPage(actor.tenantId, req.query as Record<string, unknown>));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.post("/api/cbt/admin/students/page", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      return res.json(await listSupabaseCbtAdminStudentPage(actor.tenantId, req.body || {}));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.post("/api/cbt/admin/assignments/page", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      return res.json(await listSupabaseCbtAdminAssignmentPage(actor.tenantId, req.body || {}));
+    } catch (error) { return cbtRouteError(res, error); }
+  });
+
+  app.put("/api/cbt/settings", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadCbtAdminActor(uid);
+      return res.json(await saveSupabaseCbtTenantSettings(
+        actor.tenantId, actor.uid, req.body?.expectedUpdatedAt, req.body?.settings,
+      ));
     } catch (error) { return cbtRouteError(res, error); }
   });
 

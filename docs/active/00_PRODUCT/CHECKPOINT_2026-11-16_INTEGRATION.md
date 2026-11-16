@@ -24,6 +24,7 @@
 - 65 dari 65 skrip uji yang tidak menulis data cloud atau membutuhkan Supabase CLI lulus, termasuk auth/RBAC, API route policy, runtime Supabase tanpa Firebase, flag deployment pelanggan, pagination CBT/Akademik/Tahfidz, dashboard, PPDB, katalog Al-Qur’an, master data, serta salin pesan.
 - Dua smoke test loopback, `test:trusted-proxy-hops` dan `test:runtime-config-http`, lulus setelah izin jaringan lokal diberikan.
 - `test:ci-coverage` memastikan semua 75 skrip tes paket tercakup CI. Angka ini menunjukkan cakupan workflow; bukan berarti semua 75 test dijalankan di mesin ini.
+- GitHub Actions run #1813 pada commit `2f10633` meluluskan instalasi NPM dan build frontend/Firebase guard. Job migrasi berhasil menjalankan migration replay, 1.911 assertion pgTAP, dan tes transaksi bersamaan, lalu gagal pada integrasi API karena route pagination ujian CBT belum terdaftar (`404`). Route ringkasan, pagination, dan pengaturan CBT kini didaftarkan dengan autentikasi dan izin Admin; tes integrasi diperluas untuk memeriksa ringkasan, simpan-baca pengaturan, serta penolakan role/permission. CI untuk perbaikan ini belum dijalankan.
 
 ## UAT browser staging
 
@@ -35,6 +36,7 @@
 
 - Tidak menjalankan tes yang membuat tenant/akun/berkas baru di Supabase staging: API Auth/tenant, Storage Keuangan, Storage Perpustakaan, Dokumen Digital, dan API Tahfidz.
 - Tidak menjalankan tes Supabase CLI/pgTAP, race condition database, atau backup-restore lokal karena Docker dan Supabase CLI tidak tersedia di lingkungan ini.
+- Inventaris ledger staging VQE yang dibaca tanpa menulis data: **150 entri**, sedangkan source memiliki **162** file migrasi. Ada 6 versi ledger yang tidak mempunyai file bernomor sama, 4 benturan nama pada versi yang sama, dan 18 file source belum tercatat. Rehearsal/`db push` staging ditahan sampai empat benturan dan enam alias lama dicocokkan dengan DDL aktual serta prosedur repair yang aman.
 - UAT simpan-baca setiap modul serta rekonsiliasi migration ledger/DDL staging tetap membutuhkan fixture staging yang cocok dan pemeriksaan tim backend.
 - Pemeriksaan DDL aktual, bukti backup/restore, urutan migrasi, serta penerapan migrasi Production tetap menjadi tugas tim backend. Tidak ada secret atau kredensial yang dimasukkan ke source.
 

@@ -2816,6 +2816,34 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       'The broad Admin snapshot keeps the compatibility field empty instead of downloading the question bank.');
     assert.deepEqual(cbtInitialSnapshot.exams, [],
       'The broad Admin snapshot keeps exam rows empty so large tenants use the paginated endpoint.');
+    const cbtSummaryResponse = await fetch(`${referenceApiBase}/api/cbt/admin/summary`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtSummaryResponse.status, 200, 'An authorized tenant Admin can load the CBT dashboard summary.');
+    const cbtSummary = await cbtSummaryResponse.json();
+    assert.equal(typeof cbtSummary.totalExams, 'number');
+    assert.equal(typeof cbtSummary.asOf, 'string');
+    const cbtSettingsWriteResponse = await fetch(`${referenceApiBase}/api/cbt/settings`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: cbtInitialSnapshot.settings.updatedAt,
+        settings: {
+          shuffleQuestions: cbtInitialSnapshot.settings.shuffleQuestions,
+          correctPoints: cbtInitialSnapshot.settings.correctPoints,
+          wrongPoints: cbtInitialSnapshot.settings.wrongPoints,
+          blankPoints: cbtInitialSnapshot.settings.blankPoints,
+        },
+      }),
+    });
+    assert.equal(cbtSettingsWriteResponse.status, 200, 'An authorized tenant Admin can save CBT settings through the API.');
+    assert.equal((await cbtSettingsWriteResponse.json()).saved, true);
+    const cbtSettingsReadbackResponse = await fetch(`${referenceApiBase}/api/cbt/admin`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtSettingsReadbackResponse.status, 200);
+    const cbtSettingsReadback = await cbtSettingsReadbackResponse.json();
+    assert.ok(cbtSettingsReadback.settings.updatedAt, 'CBT settings write returns a persisted timestamp on readback.');
     const cbtInitialExamPageResponse = await fetch(`${referenceApiBase}/api/cbt/admin/exams?limit=50`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
@@ -2900,6 +2928,18 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       headers: { Authorization: `Bearer ${ustadzToken}` },
     });
     assert.equal(cbtExamRoleDenied.status, 403, 'A non-admin cannot page managed CBT exams.');
+    const cbtSettingsPermissionDenied = await fetch(`${referenceApiBase}/api/cbt/settings`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${limitedAdminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assert.equal(cbtSettingsPermissionDenied.status, 403, 'An Admin without CBT permission cannot change CBT settings.');
+    const cbtSettingsRoleDenied = await fetch(`${referenceApiBase}/api/cbt/settings`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${ustadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assert.equal(cbtSettingsRoleDenied.status, 403, 'A non-admin cannot change CBT settings.');
     const cbtStudentPermissionDenied = await requestCbtStudentPage(limitedAdminToken);
     assert.equal(cbtStudentPermissionDenied.status, 403, 'An Admin without CBT permission cannot page the participant roster.');
     const cbtStudentRoleDenied = await requestCbtStudentPage(ustadzToken);
