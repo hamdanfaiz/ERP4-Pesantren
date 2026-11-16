@@ -29,6 +29,8 @@
 
 - Run #1817 pada `b419170` meluluskan migration replay, backfill sintetis, seluruh 1.911 assertion pgTAP, tes race condition, serta round-trip API lintas modul termasuk CBT settings. Job berhenti pada cleanup fixture karena baris `cbt_tenant_settings` masih memiliki foreign key ke profil Admin sintetis; Tahfidz/Storage/backup-restore setelah step itu belum dijalankan. Cleanup kini menghapus pengaturan CBT tenant sebelum menghapus profil. CI untuk koreksi cleanup ini masih menunggu.
 
+- Run #1819 pada `5a7bb30` meluluskan seluruh round-trip API lintas modul, tetapi cleanup gagal karena `DELETE auth.users` lebih dulu menghapus profil melalui cascade sementara foreign key CBT masih ada. Statement penghapusan `cbt_tenant_settings` kini ditempatkan sebelum Auth dan profil. Tes Tahfidz terpisah, Storage, dan backup/restore tetap terlewati sampai CI ulang lulus.
+
 ## UAT browser staging
 
 - Login Admin pada preview Hostinger/VQE berhasil.
