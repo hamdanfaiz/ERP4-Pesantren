@@ -57,7 +57,7 @@ export function CBTStudentDashboard() {
   const [questions, setQuestions] = useState<any[]>(MOCK_QUESTIONS);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [flagged, setFlagged] = useState<Record<number, boolean>>({});
+  const [flagged, setDitandai] = useState<Record<number, boolean>>({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
 
@@ -120,7 +120,7 @@ export function CBTStudentDashboard() {
     setTimeLeft(exam.duration * 60); // convert minutes to seconds
     setCurrentQuestion(0);
     setAnswers({});
-    setFlagged({});
+    setDitandai({});
   };
 
   const handleAnswer = (optionIndex: number) => {
@@ -128,7 +128,7 @@ export function CBTStudentDashboard() {
   };
 
   const toggleFlag = () => {
-    setFlagged({ ...flagged, [currentQuestion]: !flagged[currentQuestion] });
+    setDitandai({ ...flagged, [currentQuestion]: !flagged[currentQuestion] });
   };
 
   const handleSubmitExam = () => {
@@ -237,7 +237,7 @@ export function CBTStudentDashboard() {
                   )}
                 >
                   <Flag className="w-4 h-4" />
-                  {flagged[currentQuestion] ? "Flagged" : "Flag for review"}
+                  {flagged[currentQuestion] ? "Ditandai" : "Tandai untuk ditinjau"}
                 </button>
               </div>
 
@@ -327,7 +327,7 @@ export function CBTStudentDashboard() {
               <div className="grid grid-cols-4 gap-3">
                 {activeQuestions.map((_, idx) => {
                   const isAnswered = answers[idx] !== undefined;
-                  const isFlagged = flagged[idx];
+                  const isDitandai = flagged[idx];
                   const isCurrent = currentQuestion === idx;
 
                   return (
@@ -345,7 +345,7 @@ export function CBTStudentDashboard() {
                       )}
                     >
                       {idx + 1}
-                      {isFlagged && (
+                      {isDitandai && (
                         <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">
                           <Flag className="w-2 h-2 text-white" />
                         </div>

@@ -250,7 +250,7 @@ export function SupabaseCooperativeManager() {
     if (!topUpWallet) return;
     if (await runMutation(`/api/cooperative/wallets/${encodeURIComponent(topUpWallet.id)}/top-ups`, "POST", {
       amount: Number(topUpAmount), reference: topUpReference.trim(),
-    }, "Top-up tercatat pada ledger dompet.")) {
+    }, "Saldo dompet berhasil ditambahkan.")) {
       setTopUpWallet(null); setTopUpAmount(""); setTopUpReference("");
     }
   };
@@ -326,7 +326,7 @@ export function SupabaseCooperativeManager() {
     if (!Number.isInteger(delta) || delta === 0) { setError("Perubahan stok harus berupa bilangan bulat selain nol."); return; }
     const reason = window.prompt("Alasan penyesuaian stok:")?.trim();
     if (!reason) return;
-    await runMutation("/api/cooperative/stock-adjustments", "POST", { productId: product.id, delta, reason }, "Mutasi stok tercatat pada ledger.");
+    await runMutation("/api/cooperative/stock-adjustments", "POST", { productId: product.id, delta, reason }, "Perubahan stok tercatat.");
   };
 
   const updateWalletPolicy = async (wallet: WalletAccount) => {
@@ -359,7 +359,7 @@ export function SupabaseCooperativeManager() {
       <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading || busy} className={outlineClass}><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
 
-    <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Catatan migrasi:</strong> produk, pemasok, dompet, dan transaksi contoh lama tidak diimpor. Dompet baru berawal dari saldo nol. Pengisian saldo memerlukan izin Keuangan, referensi penerimaan, dan buku keuangan yang terbuka; petugas harus memverifikasi pembayaran karena aplikasi belum mencocokkan referensi ke bank atau layanan pembayaran. Pengisian saldo dicatat sebagai titipan santri, terpisah dari pendapatan. Buku kas Keuangan belum menerapkan pencatatan berpasangan.</div>
+    <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Informasi saldo:</strong> Saldo dompet santri merupakan titipan, bukan pendapatan. Pembayaran perlu diverifikasi sebelum saldo ditambahkan.</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
@@ -422,7 +422,7 @@ export function SupabaseCooperativeManager() {
           <div className="mt-6"><h3 className="font-semibold text-slate-900 dark:text-white">Mutasi saldo terbaru</h3><div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40"><tr><th className="p-3">Waktu</th><th className="p-3">Jenis / Referensi</th><th className="p-3 text-right">Perubahan</th><th className="p-3 text-right">Saldo akhir</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{snapshot.walletLedger.map((entry) => <tr key={entry.id}><td className="p-3 text-xs">{new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short", timeZone: snapshot.timeZone }).format(new Date(entry.createdAt))}</td><td className="p-3">{entry.type} · {entry.reference}</td><td className="p-3 text-right">{money(entry.amount)}</td><td className="p-3 text-right">{money(entry.balanceAfter)}</td></tr>)}</tbody></table></div></div></div>}
         {legacyArchiveImportEnabled && activeTab === "migration" && <div className="space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 className="font-semibold text-slate-900 dark:text-white">Pratinjau migrasi saldo dan transaksi</h2><p className="mt-1 max-w-3xl text-sm text-slate-500">Cocokkan dompet arsip dengan dompet santri dan produk tujuan. Saldo pembuka harus dapat direkonsiliasi dengan saldo akhir arsip setelah dikurangi seluruh penjualan yang ditemukan.</p></div>
+            <div><h2 className="font-semibold text-slate-900 dark:text-white">Pratinjau impor saldo dan transaksi</h2><p className="mt-1 max-w-3xl text-sm text-slate-500">Cocokkan dompet dan produk dengan data pesantren. Pastikan saldo awal dan seluruh penjualan yang akan diimpor sudah sesuai.</p></div>
             <button type="button" onClick={() => void runFinancialPreview()} disabled={financialBusy || busy} className={outlineClass}><RefreshCw className={financialBusy ? "h-4 w-4 animate-spin" : "h-4 w-4"} />{financialBusy ? "Menghitung…" : financialPreview ? "Hitung ulang pratinjau" : "Muat arsip dan pratinjau"}</button>
           </div>
           <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"><strong>Pratinjau arsip:</strong> belum ada data yang ditulis. Dompet dan baris produk harus dipetakan secara eksplisit; riwayat penjualan harus dinyatakan lengkap dan saldonya cocok. Penerapan memerlukan konfirmasi tambahan dan izin Admin Keuangan. HPP historis yang tidak tersedia tidak akan dihitung dari harga pokok produk saat ini.</div>
@@ -467,7 +467,7 @@ export function SupabaseCooperativeManager() {
             </section>
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200">
               <input type="checkbox" checked={financialMappings.confirmCompleteHistory} onChange={(e) => { setFinancialMappings((current) => ({ ...current, confirmCompleteHistory: e.target.checked })); markFinancialMappingChanged(); }} disabled={financialBusy || financialApplyBusy || busy} className="mt-0.5" />
-              <span>Saya telah memastikan seluruh penjualan arsip untuk periode migrasi tersedia dan saldo pembuka dapat direkonsiliasi dengan saldo akhir setiap dompet.</span>
+              <span>Saya telah memastikan seluruh penjualan pada periode impor tersedia dan saldo awal sesuai dengan saldo akhir setiap dompet.</span>
             </label>
             {financialPreview.warnings.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30"><h3 className="font-semibold text-amber-900 dark:text-amber-100">Catatan pemeriksaan</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-100">{financialPreview.warnings.map((warning) => <li key={warning.code}>{cooperativeFinancialWarningLabel(warning.code)} · {warning.count}</li>)}</ul></section>}
             {financialPreview.issues.length > 0 && <section role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30"><h3 className="font-semibold text-rose-900 dark:text-rose-100">Masalah yang menghambat ({financialPreview.blockingCount})</h3><ul className="mt-2 space-y-1 text-sm text-rose-900 dark:text-rose-100">{financialPreview.issues.map((issue, index) => <li key={issue.code + issue.recordRef + index}>{cooperativeFinancialIssueLabel(issue.code)}{issue.recordRef ? " · referensi " + issue.recordRef : ""}</li>)}</ul></section>}

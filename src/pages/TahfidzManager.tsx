@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import React, { useState, useEffect, useRef } from "react";
 import { TahfidzStudentSearchSelect } from "../components/TahfidzStudentSearchSelect";
+import { ERPTabs } from "../components/ERPDesignSystem";
+import { toERPUserMessage } from "../utils/userMessages";
 import {
   Search,
   Filter,
@@ -95,7 +97,10 @@ async function requestSupabaseTahfidzApi(path: string, init: RequestInit = {}) {
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const response = await fetch(path, { ...init, headers, cache: 'no-store' });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || 'Data Tahfidz belum dapat diproses.');
+  if (!response.ok) {
+    const responseError = payload.error || 'Data Tahfidz belum dapat diproses.';
+    throw new Error(toERPUserMessage(responseError, 'Layanan Tahfidz belum dapat diproses saat ini. Silakan coba kembali.'));
+  }
   return payload;
 }
 
@@ -429,6 +434,8 @@ export function TahfidzManager() {
   const [isExamActive, setIsExamActive] = useState(false);
   const [isMilestoneModalOpen, setIsMilestoneModalOpen] = useState(false);
   const [isPrintPlanOpen, setIsPrintPlanOpen] = useState(false);
+  const [printPlanStudentId, setPrintPlanStudentId] = useState("");
+  const [printPlanScopeKey, setPrintPlanScopeKey] = useState("");
   const [isPeerReviewOpen, setIsPeerReviewOpen] = useState(false);
   const [selectedReview, setSelectedReview] = useState<any>(null);
   const [isInputOpen, setIsInputOpen] = useState(false);
@@ -549,6 +556,13 @@ export function TahfidzManager() {
     }
   };
   const [santriList, setSantriList] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : SANTRI_DATA);
+  const printPlanStudent = santriList.find((student) => String(student.id) === printPlanStudentId) || null;
+  const currentPrintPlanScopeKey = `${user?.tenantId || ""}:${user?.uid || ""}`;
+  useEffect(() => {
+    setIsPrintPlanOpen(false);
+    setPrintPlanStudentId("");
+    setPrintPlanScopeKey("");
+  }, [user?.tenantId, user?.uid]);
   const [rosterHasMore, setRosterHasMore] = useState(false);
   const [rosterNextCursor, setRosterNextCursor] = useState("");
   const [rosterLoadingMore, setRosterLoadingMore] = useState(false);
@@ -561,6 +575,9 @@ export function TahfidzManager() {
   const [rosterSearchLoading, setRosterSearchLoading] = useState(false);
   const rosterSearchRequestSequence = useRef(0);
   const [records, setRecords] = useState<any[]>(SUPABASE_TAHFIDZ_RUNTIME ? [] : INITIAL_RECORDS);
+  const printPlanRecords = printPlanStudent
+    ? records.filter((record) => String(record.studentId) === String(printPlanStudent.id)).slice(0, 5)
+    : [];
   const [recordsHasMore, setRecordsHasMore] = useState(false);
   const [recordsNextCursor, setRecordsNextCursor] = useState("");
   const [recordsOldestDate, setRecordsOldestDate] = useState("");
@@ -1614,7 +1631,7 @@ export function TahfidzManager() {
                                 setIsAssessmentOpen(true);
                               }}
                               className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border border-transparent hover:border-emerald-200 dark:hover:border-emerald-500/30 transition-colors shadow-sm"
-                              title="AI Audio Assessment"
+                              title="Penilaian audio otomatis"
                             >
                               <Mic className="w-4 h-4" />
                             </button>}
@@ -1799,6 +1816,9 @@ export function TahfidzManager() {
   );
 
   const renderSupabaseDashboard = () => {
+    const currentLeaderboard = leaderboardScope === currentLeaderboardScopeKey
+      ? leaderboard
+      : null;
     const today = currentTenantDate();
     const todayRecords = records.filter((record) => record.date === today);
     const studentsWithoutTargets = Number(rosterStats?.studentsWithoutTarget ?? santriList.filter((student) => !student.target).length);
@@ -1983,6 +2003,50 @@ export function TahfidzManager() {
             </div>
           </section>
         </div>
+        {["Admin", "SuperAdmin", "Ustadz"].includes(role) && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+          <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-4 w-4 text-amber-500" /> Peringkat Setoran Ziyadah</h2>
+              <p className="mt-1 text-sm text-slate-500">Berdasarkan catatan Ziyadah tersimpan bulan ini; cakupan mengikuti akses tenant atau halaqah Anda.</p>
+            </div>
+            {currentLeaderboard?.periodStart && <span className="w-fit rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold capitalize text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+              {new Date(`${currentLeaderboard.periodStart}T00:00:00Z`).toLocaleDateString("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })}
+            </span>}
+          </div>
+          {leaderboardError && <div role="alert" className="flex flex-col gap-2 p-5 text-sm text-rose-800 dark:text-rose-200 sm:flex-row sm:items-center sm:justify-between">
+            <span>{leaderboardError}</span>
+            <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(leaderboardLimit)} className="shrink-0 font-semibold underline">Coba lagi</button>
+          </div>}
+          {leaderboardLoading && !currentLeaderboard && <p role="status" className="p-5 text-sm text-slate-500">Memuat peringkat…</p>}
+          {!leaderboardLoading && !leaderboardError && (currentLeaderboard?.students?.length || 0) === 0 && <div className="p-8 text-center">
+            <Trophy className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
+            <p className="mt-3 font-medium text-slate-700 dark:text-slate-200">Belum ada setoran Ziyadah bulan ini.</p>
+            <p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah setoran tersimpan.</p>
+          </div>}
+          {!!currentLeaderboard?.students?.length && <>
+            <ol className="divide-y divide-slate-100 dark:divide-white/5">
+              {currentLeaderboard.students.map((student: any) => <li key={student.id} className="flex items-center gap-3 px-5 py-3.5">
+                <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold", student.rank === 1 ? "border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300")}>
+                  {student.rank === 1 ? <Medal className="h-4 w-4" /> : student.rank}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-slate-900 dark:text-slate-100">{student.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">{student.grade || "Kelas belum diatur"}{student.halaqah ? ` · Halaqah ${student.halaqah}` : ""}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{student.ziyadahRecords} setoran</p>
+                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahAyahs} ayat</p>
+                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahActiveDays} hari aktif</p>
+                </div>
+              </li>)}
+            </ol>
+            {currentLeaderboard.hasMore && <div className="border-t border-slate-100 px-5 py-3 text-center dark:border-white/5">
+              {leaderboardLimit === 5
+                ? <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(20)} disabled={leaderboardLoading} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">Tampilkan 20 teratas</button>
+                : <p className="text-xs text-slate-500">Menampilkan 20 teratas. Urutan memakai jumlah setoran, jumlah ayat, lalu hari aktif sebagai pemecah seri.</p>}
+            </div>}
+          </>}
+        </section>}
       </div>
     );
   };
@@ -2189,6 +2253,7 @@ export function TahfidzManager() {
           </label>
           <select
             required
+            aria-label="Surah setoran cepat"
             value={formData.surah || ""}
             disabled={!SUPABASE_TAHFIDZ_RUNTIME || isSurahListLoading || Boolean(surahListError) || !surahList.length || isSavingRecord}
             onChange={(event) => {
@@ -2213,6 +2278,8 @@ export function TahfidzManager() {
           <div className="w-full md:w-28">
             <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Dari ayat</label>
             <select
+              required
+              aria-label="Ayat mulai setoran cepat"
               value={formData.ayatStart || ""}
               disabled={!SUPABASE_TAHFIDZ_RUNTIME || !formData.surah || isSurahListLoading || Boolean(surahListError) || isSavingRecord}
               onChange={(event) => {
@@ -2229,6 +2296,8 @@ export function TahfidzManager() {
           <div className="w-full md:w-28">
             <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">Sampai ayat</label>
             <select
+              required
+              aria-label="Ayat akhir setoran cepat"
               value={formData.ayatEnd || ""}
               disabled={!SUPABASE_TAHFIDZ_RUNTIME || !formData.surah || !formData.ayatStart || isSurahListLoading || Boolean(surahListError) || isSavingRecord}
               onChange={(event) => {
@@ -2469,12 +2538,26 @@ export function TahfidzManager() {
                     ¼ Juz
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setIsTargetModalOpen(true)}
-                      className="text-xs text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-1 rounded"
-                    >
-                      Sesuaikan
-                    </button>
+                    <div className="inline-flex items-center gap-2">
+                      {SUPABASE_TAHFIDZ_RUNTIME && <button
+                        type="button"
+                        onClick={() => {
+                          const student = santri;
+                          setPrintPlanScopeKey(currentPrintPlanScopeKey);
+                          setPrintPlanStudentId(String(student.id));
+                          setIsPrintPlanOpen(true);
+                        }}
+                        aria-label={`Cetak rencana hafalan ${santri.name}`}
+                        className="rounded bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+                      >Rencana</button>}
+                      <button
+                        type="button"
+                        onClick={() => setIsTargetModalOpen(true)}
+                        className="text-xs text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-1 rounded"
+                      >
+                        Sesuaikan
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -3839,7 +3922,7 @@ export function TahfidzManager() {
           >
             <Mic className="w-4 h-4" />
             AI Audio Assessment
-          </button> : <button type="button" disabled title="Penilaian audio belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />AI Audio Assessment</button>}
+          </button> : <button type="button" disabled aria-label="Penilaian audio AI belum tersedia" title="Penilaian audio belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />AI Audio Assessment</button>}
           {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <button
             onClick={startNewTahfidzRecord}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"
@@ -3861,120 +3944,23 @@ export function TahfidzManager() {
         <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">{rosterLoadingMore ? "Memuat…" : "Muat santri berikutnya"}</button>
       </div>}
 
-      <nav className="mb-6 max-w-full overflow-x-auto overscroll-x-contain" aria-label="Navigasi modul Tahfidz">
-        <div className="flex w-max min-w-full gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/5 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
-        <button
-          onClick={() => setActiveTab("dashboard")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "dashboard"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Overview Halaqah
-        </button>
-        <button
-          onClick={() => setActiveTab("records")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "records"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Log Setoran Terbaru
-        </button>
-        <button
-          onClick={() => setActiveTab("targets")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "targets"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Target & Raport
-        </button>
-        <button
-          onClick={() => setActiveTab("talaqqi")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "talaqqi"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Jadwal Talaqqi
-        </button>
-        <button
-          onClick={() => setActiveTab("exams")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "exams"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Munaqasyah
-        </button>
-        <button
-          onClick={() => setActiveTab("parent")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "parent"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Portal Wali Santri
-        </button>
-        <button
-          onClick={() => setActiveTab("peer-review")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "peer-review"
-              ? "bg-white dark:bg-[#1a1a1a] text-purple-600 dark:text-purple-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Penilaian Antar-Santri
-        </button>
-        <button
-          onClick={() => setActiveTab("quran")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "quran"
-              ? "bg-white dark:bg-[#1a1a1a] text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Al-Qur'an
-        </button>
-        <button
-          onClick={() => setActiveTab("badges")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "badges"
-              ? "bg-white dark:bg-[#1a1a1a] text-amber-600 dark:text-amber-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          Pencapaian Tahfidz
-        </button>
-        <button
-          onClick={() => setActiveTab("halaqah")}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-            activeTab === "halaqah"
-              ? "bg-white dark:bg-[#1a1a1a] text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200 dark:border-white/5"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-          )}
-        >
-          {isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah"}
-        </button>
-        </div>
-      </nav>
+            <ERPTabs
+        tabs={[
+          { id: "dashboard", label: "Overview Halaqah" },
+          { id: "records", label: "Log Setoran Terbaru" },
+          { id: "targets", label: "Target & Raport" },
+          { id: "talaqqi", label: "Jadwal Talaqqi" },
+          { id: "exams", label: "Munaqasyah" },
+          { id: "parent", label: "Portal Wali Santri" },
+          { id: "peer-review", label: "Penilaian Antar-Santri" },
+          { id: "quran", label: "Al-Qur'an" },
+          { id: "badges", label: "Pencapaian Tahfidz" },
+          { id: "halaqah", label: isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah" },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="Bagian Sistem Tahfidz"
+      />
 
       {activeTab === "dashboard" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseDashboard() : renderDashboard())}
       {activeTab === "halaqah" && renderHalaqahManagement()}
@@ -5479,7 +5465,7 @@ export function TahfidzManager() {
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200">
-                    AI Audio Assessment
+                    Penilaian audio otomatis
                   </h3>
                   <p className="text-xs text-slate-500">
                     {selectedSantri.name} • {selectedSantri.nis}
@@ -6201,8 +6187,52 @@ export function TahfidzManager() {
         </div>
       )}
 
+      {isPrintPlanOpen && SUPABASE_TAHFIDZ_RUNTIME && printPlanStudent && printPlanScopeKey === currentPrintPlanScopeKey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 print:static print:block print:bg-white print:p-0" role="dialog" aria-modal="true" aria-labelledby="tahfidz-print-plan-title">
+          <section className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
+            <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10 print:hidden">
+              <div><h2 id="tahfidz-print-plan-title" className="font-semibold">Rencana Target Hafalan</h2><p className="mt-1 text-sm text-slate-500">Dicetak dari data Tahfidz tenant yang sedang aktif.</p></div>
+              <div className="flex items-center gap-2"><button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500"><Printer className="h-4 w-4" />Cetak</button><button type="button" onClick={() => { setIsPrintPlanOpen(false); setPrintPlanStudentId(""); setPrintPlanScopeKey(""); }} aria-label="Tutup rencana hafalan" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><X className="h-4 w-4" /></button></div>
+            </header>
+            <div className="overflow-y-auto p-6 print:overflow-visible print:p-0">
+              <article className="mx-auto max-w-2xl space-y-6 print:max-w-none">
+                <div className="border-b-2 border-slate-800 pb-4"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Tahfidz · Rencana Individu</p><h1 className="mt-2 text-2xl font-bold">Rencana Target Hafalan</h1><p className="mt-1 text-sm text-slate-500">Tanggal cetak {new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone }).format(new Date())}</p></div>
+                <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+                  <div><dt className="text-xs font-semibold uppercase text-slate-500">Nama santri</dt><dd className="mt-1 font-medium">{printPlanStudent.name || "—"}</dd></div>
+                  <div><dt className="text-xs font-semibold uppercase text-slate-500">NIS</dt><dd className="mt-1 font-medium">{printPlanStudent.nis || "—"}</dd></div>
+                  <div><dt className="text-xs font-semibold uppercase text-slate-500">Kelas</dt><dd className="mt-1 font-medium">{printPlanStudent.grade || "Belum diatur"}</dd></div>
+                  <div><dt className="text-xs font-semibold uppercase text-slate-500">Halaqah</dt><dd className="mt-1 font-medium">{printPlanStudent.halaqah || "Belum ditempatkan"}</dd></div>
+                </dl>
+                <section className="rounded-xl border border-slate-200 p-4 dark:border-white/10 print:rounded-none">
+                  <h2 className="font-semibold">Target harian aktif</h2>
+                  {printPlanStudent.target ? <div className="mt-3 grid gap-3 sm:grid-cols-2"><div><p className="text-xs text-slate-500">Ziyadah</p><p className="mt-1 font-medium">{printPlanStudent.target.ziyadahPagesPerDay} halaman per hari</p></div><div><p className="text-xs text-slate-500">Muroja'ah</p><p className="mt-1 font-medium">{printPlanStudent.target.murojaahPagesPerDay} halaman per hari</p></div><div><p className="text-xs text-slate-500">Periode</p><p className="mt-1 font-medium">{printPlanStudent.target.periodStart} – {printPlanStudent.target.periodEnd || "seterusnya"}</p></div><div><p className="text-xs text-slate-500">Kebijakan</p><p className="mt-1 font-medium">{printPlanStudent.target.policy === "strict" ? "Ketat" : "Standar"}</p></div></div> : <p className="mt-2 text-sm text-slate-500">Belum ada target aktif yang tercatat untuk santri ini.</p>}
+                </section>
+                <section>
+                  <h2 className="font-semibold">Setoran terbaru yang termuat</h2>
+                  {printPlanRecords.length ? (
+                    <ul className="mt-3 divide-y divide-slate-200 border-y border-slate-200 dark:divide-white/10 dark:border-white/10">
+                      {printPlanRecords.map((record) => (
+                        <li key={record.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                          <span>{record.date} · {record.type} · QS. {record.surah}, ayat {record.ayat}</span>
+                          <span className="text-xs text-slate-500">
+                            Kelancaran {record.fluency === "N/A" ? "Belum dinilai" : record.fluency} · Tajwid {record.tajweed === "N/A" ? "Belum dinilai" : record.tajweed}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-500">Belum ada setoran pada riwayat yang termuat.</p>
+                  )}
+                </section>
+                <p className="border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-white/10">Rencana ini mencerminkan data yang tersimpan saat dicetak. Setoran terbaru menampilkan paling banyak lima catatan yang sudah dimuat.</p>
+              </article>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Printable Study Plan Modal */}
-      {isPrintPlanOpen && (
+      {isPrintPlanOpen && !SUPABASE_TAHFIDZ_RUNTIME && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40 print:hidden">

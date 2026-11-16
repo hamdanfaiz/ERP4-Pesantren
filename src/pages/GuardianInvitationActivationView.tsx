@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, KeyRound, LoaderCircle, ShieldCheck } from "lucide-react";
 import { supabase } from "../utils/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { toERPUserMessage } from "../utils/userMessages";
 
 export function GuardianInvitationActivationView({
   token,
@@ -77,7 +78,7 @@ export function GuardianInvitationActivationView({
         }
         if (!cancelled) setEmail(verifiedEmail);
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Sesi undangan tidak valid.");
+        if (!cancelled) setError(toERPUserMessage(cause, "Tautan aktivasi tidak valid atau telah kedaluwarsa. Minta undangan baru."));
       } finally {
         if (!cancelled) setIsPreparing(false);
       }
@@ -112,7 +113,7 @@ export function GuardianInvitationActivationView({
         throw new Error("Sesi masuk tidak sesuai dengan email undangan.");
       }
       const { error: passwordError } = await supabase.auth.updateUser({ password });
-      if (passwordError) throw new Error(passwordError.message || "Kata sandi baru tidak dapat disimpan.");
+      if (passwordError) throw new Error("Kata sandi baru belum dapat disimpan. Pastikan memenuhi ketentuan lalu coba kembali.");
 
       // Updating the password may refresh the user's session. Use the latest bearer
       // token for the server-side invitation claim rather than the pre-update token.
@@ -139,7 +140,7 @@ export function GuardianInvitationActivationView({
       setSuccess(true);
       onActivated();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Aktivasi akun Wali gagal.");
+      setError(toERPUserMessage(cause, "Aktivasi akun Wali belum berhasil. Buka kembali undangan terbaru lalu coba lagi."));
     } finally {
       setIsSubmitting(false);
     }

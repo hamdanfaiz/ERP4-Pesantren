@@ -7,15 +7,14 @@ import { SupabaseBoardingAttendanceManager } from "./SupabaseBoardingAttendanceM
 import { SupabaseBoardingAssignmentsManager } from "./SupabaseBoardingAssignmentsManager";
 import { SupabaseBoardingFacilityOpsManager } from "./SupabaseBoardingFacilityOpsManager";
 import { SupabaseBoardingRoomsManager } from "./SupabaseBoardingRoomsManager";
-import { supabaseRuntimeEnabled } from "../runtimeBackend";
 import { ERPTabs } from "../components/ERPDesignSystem";
 
-const BOARDING_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_RUNTIME_ENABLED"));
-const PERMITS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED"));
-const DISCIPLINE_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED"));
-const ATTENDANCE_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED"));
-const ASSIGNMENTS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED"));
-const FACILITY_OPS_ENABLED = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED"));
+const BOARDING_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_RUNTIME_ENABLED") === "true";
+const PERMITS_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED") === "true";
+const DISCIPLINE_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED") === "true";
+const ATTENDANCE_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED") === "true";
+const ASSIGNMENTS_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED") === "true";
+const FACILITY_OPS_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED") === "true";
 type Section = "rooms" | "permits" | "discipline" | "attendance" | "assignments" | "facility-ops";
 
 export function SupabaseBoardingManager() {
@@ -48,6 +47,6 @@ export function SupabaseBoardingManager() {
 function UnavailableSection({ label }: { label: string }) {
   return <section role="status" className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
     <h2 className="font-semibold">{label} belum tersedia</h2>
-    <p className="mt-2 leading-6">Bagian ini belum tersedia untuk digunakan. Silakan hubungi administrator pesantren.</p>
+    <p className="mt-2 leading-6">Fitur ini belum tersedia saat ini.</p>
   </section>;
 }

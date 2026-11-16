@@ -2,7 +2,9 @@ import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowRight, CheckCircle2, ClipboardList, LoaderCircle, Plus, RotateCcw, X } from "lucide-react";
+import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
+import { toERPUserMessage } from "../utils/userMessages";
 import {
   listSupabaseBoardingPermits,
   migrateSupabaseBoardingPermits,
@@ -57,6 +59,7 @@ export function SupabaseBoardingPermitsManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
+  const [listError, setListError] = useState("");
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -71,6 +74,7 @@ export function SupabaseBoardingPermitsManager() {
     setError("");
     const result = await listSupabaseBoardingPermits();
     setSnapshot(result);
+    setListError("");
     setForm((current) => ({
       ...current,
       studentId: result.students.some((student) => student.id === current.studentId)
@@ -82,13 +86,14 @@ export function SupabaseBoardingPermitsManager() {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setListError("");
     listSupabaseBoardingPermits()
       .then((result) => {
         if (!active) return;
         setSnapshot(result);
         setForm((current) => ({ ...current, studentId: result.students[0]?.id || "" }));
       })
-      .catch((loadError) => { if (active) setError(loadError?.message || "Data izin belum dapat dimuat."); })
+      .catch((loadError) => { if (active) setListError(toERPUserMessage(loadError, "Data izin belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -122,7 +127,7 @@ export function SupabaseBoardingPermitsManager() {
       createRequestId.current = null;
       setForm((current) => ({ ...current, reason: "", startDate: today, endDate: today }));
     } catch (submitError: any) {
-      setError(submitError?.message || "Permohonan izin belum dapat disimpan.");
+      setError(toERPUserMessage(submitError, "Permohonan izin belum dapat disimpan."));
     } finally {
       setSaving("");
     }
@@ -139,9 +144,9 @@ export function SupabaseBoardingPermitsManager() {
       await transitionSupabaseBoardingPermit(permit.id, status, requestId);
       statusRequestIds.current.delete(requestKey);
       await refresh();
-      setNotice(`Status izin ${permit.santriName} diperbarui menjadi ${status}.`);
+      setNotice(`Status izin ${permit.santriName} diperbarui menjadi ${permitStatusLabel(status)}.`);
     } catch (transitionError: any) {
-      setError(transitionError?.message || "Status izin belum dapat diperbarui.");
+      setError(toERPUserMessage(transitionError, "Status izin belum dapat diperbarui."));
       try { await refresh(); } catch { /* Keep the actionable mutation error visible. */ }
     } finally {
       setSaving("");
@@ -160,7 +165,7 @@ export function SupabaseBoardingPermitsManager() {
         setNotice(`Impor izin selesai: ${report.imported} baru, ${report.unchanged} sudah sama.`);
       }
     } catch (importError: any) {
-      setError(importError?.message || "Impor data izin lama belum dapat diproses.");
+      setError(toERPUserMessage(importError, "Data izin lama belum dapat diperiksa. Coba kembali."));
     } finally {
       setImportBusy(false);
     }

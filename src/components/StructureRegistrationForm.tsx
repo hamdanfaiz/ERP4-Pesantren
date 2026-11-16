@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { listSupabaseReferenceItems, upsertSupabaseMasterDataStructure, type SupabaseReferenceItem, type SupabaseStructureRecord } from '../services/masterDataApi';
 import { Building, Save, X, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { isActiveOnboardingStructure } from '../utils/ppdbOnboardingRooms';
+import { toERPUserMessage } from '../utils/userMessages';
 
 interface StructureRegistrationFormProps {
   onSuccess?: (savedRecord?: any) => void;
@@ -40,7 +41,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
     let active = true;
     listSupabaseReferenceItems('academic_grade_level')
       .then((items) => { if (active) setGradeLevels(items.filter((item) => item.status === 'active')); })
-      .catch((error) => { if (active) setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Katalog jenjang belum dapat dimuat.' }); });
+      .catch((error) => { if (active) setMessage({ type: 'error', text: toERPUserMessage(error, 'Katalog jenjang belum dapat dimuat. Coba kembali.') }); });
     return () => { active = false; };
   }, [type]);
 
@@ -79,7 +80,7 @@ export const StructureRegistrationForm: React.FC<StructureRegistrationFormProps>
       onSuccess?.(saved);
     } catch (error) {
       console.error("Error saving document: ", error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal menyimpan data struktur.' });
+      setMessage({ type: 'error', text: toERPUserMessage(error, 'Data struktur belum dapat disimpan. Periksa kembali data lalu coba lagi.') });
     } finally {
       setIsSubmitting(false);
     }

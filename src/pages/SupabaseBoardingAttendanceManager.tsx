@@ -2,7 +2,9 @@ import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, LoaderCircle, RotateCcw, Users } from "lucide-react";
+import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
+import { toERPUserMessage } from "../utils/userMessages";
 import {
   listSupabaseBoardingAttendance,
   migrateSupabaseBoardingAttendance,
@@ -26,19 +28,21 @@ export function SupabaseBoardingAttendanceManager() {
   const [importBusy, setImportBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
+  const [listError, setListError] = useState("");
   const [notice, setNotice] = useState("");
   const [report, setReport] = useState<BoardingAttendanceImportReport | null>(null);
   const requestIds = useRef(new Map<string, string>());
   const refresh = useCallback(async (selectedDate = date) => {
     const result = await listSupabaseBoardingAttendance(selectedDate);
     setSnapshot(result);
+    setListError("");
   }, [date]);
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(""); setReport(null);
+    setLoading(true); setError(""); setListError(""); setReport(null);
     listSupabaseBoardingAttendance(date).then((result) => { if (active) setSnapshot(result); })
-      .catch((e: any) => { if (active) setError(e?.message || "Data kehadiran belum dapat dimuat."); })
+      .catch((e: any) => { if (active) setListError(toERPUserMessage(e, "Data kehadiran belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [date]);
@@ -64,7 +68,7 @@ export function SupabaseBoardingAttendanceManager() {
         requestIds.current.delete(requestKey);
         setNotice("Status kehadiran berhasil diperbarui.");
       } catch { setError("Status sudah tersimpan, tetapi daftar kehadiran belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Status kehadiran belum dapat disimpan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Status kehadiran belum dapat disimpan.")); }
     finally { setSaving(""); }
   };
 

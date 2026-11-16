@@ -1,9 +1,10 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ClipboardCheck, LoaderCircle, RotateCcw, Wrench } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { ERPTabs } from "../components/ERPDesignSystem";
+import { ERPTabs, ERPNotice } from "../components/ERPDesignSystem";
 import {
   createSupabaseCleanlinessAudit,
   createSupabaseFacilityTicket,
@@ -53,7 +54,7 @@ export function SupabaseBoardingFacilityOpsManager() {
       setData(result);
       setAuditForm((current) => ({ ...current, roomId: result.rooms[0]?.id || "" }));
       setTicketForm((current) => ({ ...current, roomId: result.rooms[0]?.id || "" }));
-    }).catch((e: any) => { if (active) setError(e?.message || "Data fasilitas asrama belum dapat dimuat."); })
+    }).catch((e: any) => { if (active) setError(toERPUserMessage(e, "Data fasilitas asrama belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -71,7 +72,7 @@ export function SupabaseBoardingFacilityOpsManager() {
       auditRequestId.current = null;
       setNotice("Audit kebersihan berhasil disimpan.");
       try { await refresh(); } catch { setError("Audit sudah tersimpan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Audit kebersihan belum dapat disimpan."); }
+    } catch { setError("Hasil pemeriksaan belum dapat disimpan. Periksa isian lalu coba lagi."); }
     finally { setSaving(""); }
   };
   const saveTicket = async (event: React.FormEvent) => {
@@ -83,7 +84,7 @@ export function SupabaseBoardingFacilityOpsManager() {
       setTicketForm((current) => ({ ...current, issue: "", description: "", priority: "Medium" }));
       setNotice("Tiket fasilitas berhasil dibuat.");
       try { await refresh(); } catch { setError("Tiket sudah tersimpan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Tiket fasilitas belum dapat dibuat."); }
+    } catch { setError("Laporan fasilitas belum dapat dibuat. Periksa isian lalu coba lagi."); }
     finally { setSaving(""); }
   };
   const resolve = async (ticketId: string) => {
@@ -95,10 +96,10 @@ export function SupabaseBoardingFacilityOpsManager() {
       resolveRequestIds.current.delete(ticketId);
       setNotice("Tiket berhasil diselesaikan.");
       try { await refresh(); } catch { setError("Tiket sudah diselesaikan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Tiket belum dapat diselesaikan."); }
+    } catch { setError("Tiket belum dapat diselesaikan. Coba lagi."); }
     finally { setSaving(""); }
   };
-  const reload = () => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); };
+  const reload = () => { setLoading(true); setError(""); void refresh().catch(() => setError("Data fasilitas belum dapat dimuat. Coba lagi.")).finally(() => setLoading(false)); };
   const runLegacyImport = async (apply = false) => {
     if (apply && (!migrationReport?.canApply || !window.confirm("Impor data audit dan tiket lama ke data pesantren? Data sumber tidak dihapus."))) return;
     setMigrationBusy(true); setError(""); setNotice("");
@@ -109,7 +110,7 @@ export function SupabaseBoardingFacilityOpsManager() {
         setNotice(`Impor selesai: ${report.imported?.audits || 0} audit dan ${report.imported?.tickets || 0} tiket baru; record identik yang sudah ada dilewati.`);
         try { await refresh(); } catch { setError("Impor selesai, tetapi data fasilitas belum dapat dimuat ulang."); }
       }
-    } catch (e: any) { setError(e?.message || "Pratinjau impor audit dan tiket belum dapat diproses."); }
+    } catch { setError("Data pemeriksaan dan laporan fasilitas belum dapat diproses. Coba lagi."); }
     finally { setMigrationBusy(false); }
   };
 

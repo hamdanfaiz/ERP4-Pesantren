@@ -4,6 +4,7 @@ import {
   buildTahfidzRecordPageParams,
   decodeTahfidzRecordCursor,
   encodeTahfidzRecordCursor,
+  TAHFIDZ_RECORD_MAX_PAGE_SIZE,
   TAHFIDZ_RECORD_PAGE_SIZE,
 } from "../src/lib/tahfidzRecordPagination";
 import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch } from "../src/lib/tahfidzRosterPagination";
@@ -24,6 +25,12 @@ assert.equal(adminParams.get("tenant_id"), `eq.${tenantId}`);
 assert.equal(adminParams.get("order"), "performed_at.desc,id.desc");
 assert.equal(adminParams.get("limit"), "101", "satu baris tambahan dipakai untuk menentukan hasMore");
 assert.equal(adminParams.get("or"), `(performed_at.lt.${timestamp},and(performed_at.eq.${timestamp},id.lt.${studentId}))`);
+assert.equal(TAHFIDZ_RECORD_MAX_PAGE_SIZE, 500, "ukuran halaman ekspor tetap dibatasi agar tidak memenuhi respons database");
+const reportFrom = "2026-10-01T00:00:00.000Z";
+const reportTo = "2026-11-01T00:00:00.000Z";
+const reportParams = buildTahfidzRecordPageParams({ tenantId, role: "Admin", pageSize: 500, from: reportFrom, to: reportTo });
+assert.equal(reportParams?.get("limit"), "501", "halaman ekspor meminta satu baris tambahan pada batas ukuran aman");
+assert.equal(reportParams?.get("and"), `(performed_at.gte.${reportFrom},performed_at.lt.${reportTo})`, "rentang tanggal berakhir eksklusif dan terikat ke waktu tenant");
 
 const ustadzParams = buildTahfidzRecordPageParams({
   tenantId,
@@ -46,6 +53,10 @@ assert.throws(() => decodeTahfidzRecordCursor("A".repeat(513)), /Kursor riwayat/
 assert.throws(() => buildTahfidzRecordPageParams({ tenantId: "tenant", role: "Admin" }), /Tenant Tahfidz/);
 assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Ustadz", halaqahIds: ["bad-id"] }), /Cakupan halaqah/);
 assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Santri", studentIds: [studentId], cursor: "bad" }), /Kursor riwayat/);
+assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Admin", pageSize: 501 }), /Ukuran halaman/);
+assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Admin", from: reportFrom }), /rentang tanggal.*tidak lengkap/i);
+assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Admin", from: reportTo, to: reportFrom }), /rentang tanggal.*tidak valid/i);
+assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Admin", from: "2026-02-31T00:00:00.000Z", to: reportTo }), /rentang tanggal.*tidak valid/i);
 assert.throws(() => buildTahfidzRecordPageParams({ tenantId, role: "Guest" }), /Role/);
 assert.equal(normalizeTahfidzRosterCursor(studentId), studentId);
 assert.equal(normalizeTahfidzRosterCursor(null), null);
@@ -97,7 +108,11 @@ async function testRecordPageDoesNotLoadFullSnapshot() {
   }) as typeof fetch;
 
   try {
-    const page = await listSupabaseTahfidzRecordPage(tenant, actor, "Ustadz");
+    const page = await listSupabaseTahfidzRecordPage(tenant, actor, "Ustadz", undefined, {
+      pageSize: 500,
+      from: reportFrom,
+      to: reportTo,
+    });
     assert.equal(page.records.length, 1);
     assert.equal(page.records[0].studentName, "Santri Uji");
     assert.equal(page.hasMore, false);
@@ -112,6 +127,8 @@ async function testRecordPageDoesNotLoadFullSnapshot() {
     const recordsQuery = requests.find((url) => url.pathname.endsWith("/tahfidz_records"));
     assert.equal(recordsQuery?.searchParams.get("tenant_id"), `eq.${tenant}`);
     assert.equal(recordsQuery?.searchParams.get("halaqah_id"), `in.(${halaqah})`);
+    assert.equal(recordsQuery?.searchParams.get("limit"), "501");
+    assert.equal(recordsQuery?.searchParams.get("and"), `(performed_at.gte.${reportFrom},performed_at.lt.${reportTo})`);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalUrl === undefined) delete process.env.SUPABASE_URL;
@@ -288,3 +305,4 @@ await testSnapshotUsesTenantScopedRosterRpc();
 await testRosterPagePassesCursorAndSearchToRpc();
 await testUstadzWithoutHalaqahDoesNotReadTenantSessions();
 console.log("Tes pagination roster dan riwayat Tahfidz lulus.");
+

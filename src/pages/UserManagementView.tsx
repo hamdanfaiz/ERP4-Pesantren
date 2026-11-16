@@ -251,10 +251,11 @@ export function UserManagementView() {
           cache: 'no-store',
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || 'Unit organisasi tidak dapat dimuat.');
+        if (!response.ok) throw new Error('Unit organisasi tidak dapat dimuat.');
         if (active) setOrganizationUnits(Array.isArray(payload.units) ? payload.units : []);
       } catch (loadError) {
         if (active) {
+          console.error('Organization units could not be loaded:', loadError);
           setOrganizationUnits([]);
           setUnitLoadError(userFacingServiceMessage(loadError instanceof Error ? loadError.message : '', 'Unit organisasi belum dapat dimuat. Silakan coba lagi.'));
         }

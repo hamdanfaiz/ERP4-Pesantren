@@ -217,7 +217,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       if (error || !data.user || !data.session) {
         const invalid = !error || /invalid login credentials|invalid email or password|email not confirmed/i.test(error.message || '');
-        throw new Error(invalid ? 'Email atau kata sandi tidak cocok.' : error.message);
+        throw new Error(invalid
+          ? 'Email atau kata sandi tidak cocok.'
+          : 'Akun belum dapat diverifikasi. Periksa koneksi lalu coba kembali.');
       }
       authenticatedUser = data.user;
       setAuthSession({

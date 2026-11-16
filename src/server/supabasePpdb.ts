@@ -22,7 +22,7 @@ export class SupabasePpdbError extends Error {
 function serviceConfig() {
   const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   const serviceKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!baseUrl || !serviceKey) throw new SupabasePpdbError(503, "Konfigurasi backend Supabase belum lengkap.");
+  if (!baseUrl || !serviceKey) throw new SupabasePpdbError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   return { baseUrl, serviceKey };
 }
 

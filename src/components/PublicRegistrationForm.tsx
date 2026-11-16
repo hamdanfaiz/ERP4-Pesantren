@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { lazy, useRef, useState, useEffect } from "react";
 import {
   Sparkles,
@@ -70,6 +71,7 @@ export function PublicRegistrationForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gradeLevels, setGradeLevels] = useState<Array<{ id: string; name: string }>>([]);
   const [gradeLevelReferenceId, setGradeLevelReferenceId] = useState("");
+  const [isCheckingPublicRegistration, setIsCheckingPublicRegistration] = useState(true);
   const [isPublicRegistrationAvailable, setIsPublicRegistrationAvailable] = useState(false);
   const [isServerDocumentUploadEnabled, setIsServerDocumentUploadEnabled] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -79,7 +81,9 @@ export function PublicRegistrationForm({
 
   useEffect(() => {
     let active = true;
-    fetch("/api/public/ppdb/config", { headers: { Accept: "application/json" } })
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 10_000);
+    fetch("/api/public/ppdb/config", { headers: { Accept: "application/json" }, signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || "Pendaftaran PPDB belum dibuka.");
@@ -105,10 +109,18 @@ export function PublicRegistrationForm({
       .catch((error) => {
         if (active) {
           setIsPublicRegistrationAvailable(false);
-          setSubmitError(error.message || "Pendaftaran online sedang tidak tersedia.");
+          setSubmitError(toERPUserMessage(error, "Pendaftaran online sedang tidak tersedia."));
         }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+        if (active) setIsCheckingPublicRegistration(false);
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
 
   const handleFileUpload = (
@@ -238,7 +250,7 @@ export function PublicRegistrationForm({
           </div>
 
           {/* Progress Timeline (Hanya ditampilkan step 1-4) */}
-          {step <= 4 && (
+          {!isCheckingPublicRegistration && isPublicRegistrationAvailable && step <= 4 && (
             <div className="flex items-center justify-center mb-8">
               <div className="flex items-center w-full max-w-2xl">
                 {[
@@ -284,15 +296,31 @@ export function PublicRegistrationForm({
             </div>
           )}
 
-          {submitError && (
+          {submitError && isPublicRegistrationAvailable && (
             <div className="mb-6 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 flex items-center gap-3 text-sm">
               <AlertCircle className="w-5 h-5 shrink-0" />
               <span>{submitError}</span>
             </div>
           )}
 
-          {/* Form Container */}
-          {step <= 4 ? (
+          {/* Formulir hanya ditampilkan setelah jadwal pendaftaran dikonfirmasi aktif. */}
+          {isCheckingPublicRegistration ? (
+            <div role="status" aria-live="polite" className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-8 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+              <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+              <span>Memeriksa jadwal pendaftaran...</span>
+            </div>
+          ) : !isPublicRegistrationAvailable ? (
+            <section role="status" aria-live="polite" className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-500/20 dark:bg-amber-950/20">
+              <AlertCircle className="mx-auto h-8 w-8 text-amber-600 dark:text-amber-400" />
+              <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">Pendaftaran belum tersedia</h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Formulir pendaftaran belum tersedia saat ini. Untuk informasi jadwal dan persyaratan, silakan hubungi panitia pesantren.
+              </p>
+              <button type="button" onClick={onClose} className="mt-5 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
+                Kembali ke informasi pesantren
+              </button>
+            </section>
+          ) : step <= 4 ? (
             <form
               onSubmit={
                 step === 4
@@ -800,3 +828,4 @@ export function PublicRegistrationForm({
     </div>
   );
 }
+

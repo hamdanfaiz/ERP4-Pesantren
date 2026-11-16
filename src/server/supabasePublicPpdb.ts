@@ -21,7 +21,7 @@ export class SupabasePublicPpdbError extends Error {
 function serviceConfig() {
   const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   const secretKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!baseUrl || !secretKey) throw new SupabasePublicPpdbError(503, "Konfigurasi backend Supabase belum lengkap.");
+  if (!baseUrl || !secretKey) throw new SupabasePublicPpdbError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   return { baseUrl, secretKey };
 }
 
@@ -48,7 +48,7 @@ async function request(path: string, init: RequestInit = {}) {
       throw new SupabasePublicPpdbError(409, "NIK/NISN atau nomor pendaftaran sudah tercatat. Periksa kembali data calon santri.");
     }
     if (["22023", "22P02", "23514"].includes(code) || response.status === 400) {
-      throw new SupabasePublicPpdbError(400, body?.message || "Data pendaftaran atau berkas tidak valid.");
+      throw new SupabasePublicPpdbError(400, "Data pendaftaran belum dapat diproses. Periksa kembali isian formulir.");
     }
     if (code === "42501" || response.status === 403) throw new SupabasePublicPpdbError(503, "Pendaftaran untuk pesantren ini belum tersedia.");
     throw new SupabasePublicPpdbError(

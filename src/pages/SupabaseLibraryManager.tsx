@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Archive, BookOpen, Check, Clock3, Download, FileText, Loader2, Music, Plus, RefreshCw, Search, UploadCloud, Users, X } from "lucide-react";
@@ -126,7 +127,7 @@ export function SupabaseLibraryManager() {
           setSnapshot({ businessDate, books: Array.isArray(payload.books) ? payload.books : [], bookCategories: Array.isArray(payload.bookCategories) ? payload.bookCategories : [], students: Array.isArray(payload.students) ? payload.students : [], circulations: markOverdue(Array.isArray(payload.circulations) ? payload.circulations : [], businessDate), digitalAssets: Array.isArray(assetPayload.assets) ? assetPayload.assets : [] });
         }
       })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Data perpustakaan belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Data perpustakaan belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [user?.tenantId, user?.uid]);
@@ -169,7 +170,7 @@ export function SupabaseLibraryManager() {
       setCheckoutForm({ studentId: "", bookId: "", borrowedOn: latest.businessDate, dueOn: addCalendarDays(latest.businessDate, 14) });
       setCheckoutModal(true);
     } catch (loadError: any) {
-      setError(loadError?.message || "Data terbaru belum dapat dimuat.");
+      setError(toERPUserMessage(loadError, "Data terbaru belum dapat dimuat."));
     }
   };
 
@@ -182,7 +183,7 @@ export function SupabaseLibraryManager() {
       setBookModal(false);
       setNotice(editingBook ? "Data buku berhasil diperbarui." : "Buku berhasil ditambahkan.");
       try { await refresh(); } catch { setNotice("Buku berhasil disimpan, tetapi daftar belum berhasil dimuat ulang. Gunakan tombol Muat ulang."); }
-    } catch (saveError: any) { setError(saveError?.message || "Buku belum dapat disimpan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Buku belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -196,7 +197,7 @@ export function SupabaseLibraryManager() {
       setCheckoutForm({ studentId: "", bookId: "", borrowedOn: snapshot.businessDate, dueOn: addCalendarDays(snapshot.businessDate, 14) });
       setNotice("Peminjaman berhasil dicatat.");
       try { await refresh(); } catch { setNotice("Peminjaman berhasil dicatat, tetapi daftar belum berhasil dimuat ulang. Gunakan tombol Muat ulang."); }
-    } catch (checkoutError: any) { setError(checkoutError?.message || "Peminjaman belum dapat dicatat."); }
+    } catch (checkoutError: any) { setError(toERPUserMessage(checkoutError, "Peminjaman belum dapat dicatat.")); }
     finally { setSaving(false); }
   };
 
@@ -233,7 +234,7 @@ export function SupabaseLibraryManager() {
       try { await refresh(); } catch { setNotice("Berkas tersimpan, tetapi daftar belum berhasil dimuat ulang. Gunakan tombol Muat ulang."); }
       return result;
     } catch (uploadError: any) {
-      setError(uploadError?.message || "Berkas belum dapat disimpan. Anda dapat mencoba kembali dengan berkas yang sama.");
+      setError(toERPUserMessage(uploadError, "Berkas belum dapat disimpan. Anda dapat mencoba kembali dengan berkas yang sama."));
     } finally {
       setSaving(false);
       if (committed) setDigitalAssetFile(null);
@@ -246,7 +247,7 @@ export function SupabaseLibraryManager() {
       const result = await requestLibrary(`/api/library/assets/${encodeURIComponent(asset.id)}/download-url`);
       window.location.assign(result.signedUrl);
     } catch (downloadError: any) {
-      setError(downloadError?.message || "Berkas belum dapat dibuka.");
+      setError(toERPUserMessage(downloadError, "Berkas belum dapat dibuka."));
     }
   };
 
@@ -266,7 +267,7 @@ export function SupabaseLibraryManager() {
         requestLibrary("/api/library/returns", { method: "POST", body: JSON.stringify({ return: { ...payload, clientRequestId } }) }));
       setNotice("Pengembalian berhasil dicatat.");
       try { await refresh(); } catch { setNotice("Pengembalian berhasil dicatat, tetapi daftar belum berhasil dimuat ulang. Gunakan tombol Muat ulang."); }
-    } catch (returnError: any) { setError(returnError?.message || "Pengembalian belum dapat dicatat."); }
+    } catch (returnError: any) { setError(toERPUserMessage(returnError, "Pengembalian belum dapat dicatat.")); }
     finally { setSaving(false); }
   };
 
@@ -279,7 +280,7 @@ export function SupabaseLibraryManager() {
       setCirculationImportPreview(payload as CirculationImportPreview);
       setPreviewedMappingKey(mappingsKey);
     } catch (previewError: any) {
-      setCirculationImportError(previewError?.message || "Pratinjau riwayat peminjaman belum dapat dimuat.");
+      setCirculationImportError(toERPUserMessage(previewError, "Pratinjau riwayat peminjaman belum dapat dimuat."));
       setCirculationImportPreview(null);
     } finally { setCirculationImportBusy(false); }
   };
@@ -301,7 +302,7 @@ export function SupabaseLibraryManager() {
       await refresh();
       setCirculationImportOpen(false); setCirculationImportPreview(null);
     } catch (applyError: any) {
-      setCirculationImportError(applyError?.message || "Riwayat peminjaman belum dapat diimpor. Buat pratinjau ulang.");
+      setCirculationImportError(toERPUserMessage(applyError, "Riwayat peminjaman belum dapat diimpor. Buat pratinjau ulang."));
     } finally { setCirculationImportBusy(false); }
   };
 

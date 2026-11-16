@@ -7,7 +7,7 @@ interface PlaceholderProps {
   supabaseRuntimeUnavailable?: boolean;
 }
 
-export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }: PlaceholderProps) {
+export function ModulePlaceholder({ module, supabaseRuntimeUnavailable }: PlaceholderProps) {
   const titles: Partial<Record<ModuleId, string>> = {
     'master-data': 'Data Induk',
     'ppdb': 'Penerimaan Santri Baru (PPDB)',
@@ -47,7 +47,7 @@ export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }
         </div>
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{title} belum tersedia saat ini</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Fitur pada modul ini belum tersedia saat ini. Silakan hubungi administrator pesantren.
+          Fitur ini belum tersedia saat ini.
         </p>
       </div>
     );
@@ -60,7 +60,7 @@ export function ModulePlaceholder({ module, supabaseRuntimeUnavailable = false }
       </div>
       <h2 className="text-2xl font-serif italic text-emerald-500 mb-2">{title}</h2>
       <p className="text-slate-500 max-w-xl">
-        Fitur modul ini belum tersedia saat ini. Silakan hubungi administrator pesantren.
+        Fitur ini belum tersedia saat ini.
       </p>
       
     </div>

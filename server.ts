@@ -318,6 +318,8 @@ import {
   resolveSupabaseBoardingFacilityTicket,
 } from "./src/server/supabaseBoardingFacilityOps";
 
+const FEATURE_UNAVAILABLE_MESSAGE = "Layanan ini belum tersedia saat ini. Silakan coba kembali nanti.";
+
 dotenv.config();
 
 function resolveUserModulePermissions(role: string, perms?: Record<string, boolean> | null): Record<string, boolean> {
@@ -530,7 +532,7 @@ async function startServer() {
   app.use((_req, res, next) => {
     const sendJson = res.json.bind(res);
     res.json = ((payload?: unknown) => sendJson(
-      res.statusCode >= 400 ? sanitizePublicErrorPayload(payload) : payload,
+      res.statusCode >= 400 ? sanitizePublicErrorPayload(payload, res.statusCode) : payload,
     )) as typeof res.json;
     next();
   });
@@ -641,13 +643,13 @@ async function startServer() {
   };
   const communicationRouteError = (res: express.Response, error: unknown) => {
     if (error instanceof IdentityUnavailableError) {
-      return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     if (error instanceof CommunicationStoreError) {
       return res.status(error.status).json({ error: error.message });
     }
     console.error("Supabase communication endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Komunikasi Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const communicationRuntimeEnabled = String(process.env.SUPABASE_COMMUNICATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const supabasePublicPpdbRuntimeEnabled = String(process.env.SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -670,10 +672,10 @@ async function startServer() {
   const tahfidzRuntimeEnabled = String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const tahfidzBulkTargetsEnabled = String(process.env.SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED || "").trim().toLowerCase() === "true";
   const tahfidzRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Tahfidz endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Tahfidz Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
 
   const loadMasterDataActor = async (uid: string, moduleId: "master-data" | "boarding") => {
@@ -736,18 +738,18 @@ async function startServer() {
   };
   const crmRuntimeEnabled = String(process.env.SUPABASE_CRM_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const crmRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseCrmError) return res.status(error.status).json({ error: error.message });
     if (error instanceof OpenWaGatewayError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase CRM endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan CRM Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const documentRuntimeEnabled = String(process.env.SUPABASE_DOCUMENT_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const documentRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseDocumentError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Document endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Dokumen Digital Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const hrisRuntimeEnabled = String(process.env.SUPABASE_HRIS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const cooperativeRuntimeEnabled = String(process.env.SUPABASE_COOPERATIVE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -766,16 +768,16 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const cooperativeRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseCooperativeError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase cooperative endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Koperasi Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const hrisRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseHrisError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase HRIS endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan HRIS Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const masterDataRuntimeEnabled = String(process.env.SUPABASE_MASTER_DATA_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -803,13 +805,13 @@ async function startServer() {
   const donationRuntimeEnabled = String(process.env.SUPABASE_DONATION_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const facilityBookingsRuntimeEnabled = String(process.env.SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const masterDataRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseReferenceCatalogError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseNamingSeriesError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Master Data endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Master Data Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
 
   const loadPpdbActor = async (uid: string) => {
@@ -855,11 +857,11 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const academicRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof IdentityConflictError) return res.status(403).json({ error: error.message });
     if (error instanceof SupabaseAcademicError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase academic endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Akademik Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadCbtAdminActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -878,10 +880,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const cbtRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseCbtError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase CBT endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan CBT Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadLmsActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -893,10 +895,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const lmsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseLmsError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase LMS endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan LMS Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadHealthcareActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -907,10 +909,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const healthcareRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseHealthcareError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase healthcare endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan UKS Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadGeneralAffairsActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -921,10 +923,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const generalAffairsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseGeneralAffairsError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase General Affairs endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan General Affairs Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadMarketplaceActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -935,10 +937,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const marketplaceRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseMarketplaceError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Marketplace endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Marketplace Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadDonationActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -949,10 +951,10 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const donationRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseDonationError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Donation endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Donasi & Wakaf Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadFacilityBookingActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -964,18 +966,18 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const facilityBookingRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseFacilityBookingError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase facility booking endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan pemesanan fasilitas Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const ppdbRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabasePpdbError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseOnboardingError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseTahfidzError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase PPDB endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan PPDB Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
 
   const loadAlumniActor = async (uid: string) => {
@@ -993,15 +995,15 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const alumniRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseAlumniError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Alumni endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Alumni Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
 
   app.get("/api/alumni", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!alumniRuntimeEnabled) return res.status(503).json({ error: "Runtime Alumni Supabase belum diaktifkan operator." });
+    if (!alumniRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1012,7 +1014,7 @@ async function startServer() {
 
   app.post("/api/alumni/graduations", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!alumniRuntimeEnabled) return res.status(503).json({ error: "Runtime Alumni Supabase belum diaktifkan operator." });
+    if (!alumniRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1024,7 +1026,7 @@ async function startServer() {
 
   app.post("/api/ppdb/candidates/search", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: "Runtime PPDB Supabase belum diaktifkan operator." });
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1049,7 +1051,7 @@ async function startServer() {
 
   app.post("/api/ppdb/candidates/preview", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: "Runtime PPDB Supabase belum diaktifkan operator." });
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1060,7 +1062,7 @@ async function startServer() {
 
   app.post("/api/ppdb/candidates", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: "Runtime PPDB Supabase belum diaktifkan operator." });
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1079,7 +1081,7 @@ async function startServer() {
 
   app.patch("/api/ppdb/candidates/:candidateId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: "Runtime PPDB Supabase belum diaktifkan operator." });
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1096,7 +1098,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadPpdbActor(uid);
       if (!ppdbRuntimeEnabled || !ppdbDocumentsRuntimeEnabled) {
-        return res.status(503).json({ error: "Unduh berkas PPDB menunggu audit dan pengaktifan runtime Storage." });
+        return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
       }
       const document = await downloadSupabasePpdbCandidateDocument(
         actor.tenantId,
@@ -1119,7 +1121,7 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadPpdbActor(uid);
       if (!ppdbRuntimeEnabled || !ppdbDocumentsRuntimeEnabled) {
-        return res.status(503).json({ error: "Unggah berkas PPDB menunggu migration dan pengaktifan runtime Storage." });
+        return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
       }
       const result = await uploadSupabasePpdbCandidateDocument(
         actor.tenantId,
@@ -1144,7 +1146,7 @@ async function startServer() {
         throw new SupabasePpdbError(403, "Akses modul PPDB dan Keuangan diperlukan untuk menerbitkan tagihan.");
       }
       if (!ppdbRuntimeEnabled || !ppdbFinanceBillsEnabled || !financeRuntimeEnabled) {
-        return res.status(503).json({ error: "Penerbitan tagihan PPDB menunggu migration Finance dan flag runtime PPDB–Keuangan." });
+        return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
       }
       const result = await createSupabasePpdbCandidateBill(
         actor.tenantId,
@@ -1159,7 +1161,7 @@ async function startServer() {
 
   const requirePpdbOnboardingRuntime = (res: express.Response) => {
     if (!ppdbOnboardingRuntimeEnabled || !ppdbRuntimeEnabled || !masterDataRuntimeEnabled || !boardingRuntimeEnabled) {
-      res.status(503).json({ error: "Onboarding Supabase memerlukan runtime PPDB, Master Data, dan Asrama yang sudah disiapkan." });
+      res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
       return false;
     }
     return true;
@@ -1193,7 +1195,7 @@ async function startServer() {
 
   app.get("/api/academic/portal", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1228,7 +1230,7 @@ async function startServer() {
 
   app.get("/api/academic/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1242,7 +1244,7 @@ async function startServer() {
 
   app.get("/api/academic/records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1261,7 +1263,7 @@ async function startServer() {
 
   app.get("/api/academic/students", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1279,7 +1281,7 @@ async function startServer() {
   });
   app.get("/api/academic/classes", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1297,7 +1299,7 @@ async function startServer() {
   });
   app.get("/api/academic/schedule-conflicts", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1315,7 +1317,7 @@ async function startServer() {
   app.get("/api/academic/classes/unit-assignment/unmapped", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!academicRuntimeEnabled || !enterpriseUnitsRuntimeEnabled) {
-      return res.status(503).json({ error: "Pemetaan unit kelas Akademik belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -1329,7 +1331,7 @@ async function startServer() {
   app.post("/api/academic/classes/unit-assignment", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!academicRuntimeEnabled || !enterpriseUnitsRuntimeEnabled) {
-      return res.status(503).json({ error: "Pemetaan unit kelas Akademik belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -1343,7 +1345,7 @@ async function startServer() {
 
   app.get("/api/academic/report-cards", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1354,7 +1356,7 @@ async function startServer() {
 
   app.post("/api/academic/report-cards", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1366,7 +1368,7 @@ async function startServer() {
 
   app.post("/api/academic/:kind", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: "Runtime Akademik Supabase belum diaktifkan operator." });
+    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1388,7 +1390,7 @@ async function startServer() {
 
   app.get("/api/cbt/admin", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1413,7 +1415,7 @@ async function startServer() {
 
   app.post("/api/cbt/questions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1425,7 +1427,7 @@ async function startServer() {
 
   app.post("/api/cbt/exams", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1437,7 +1439,7 @@ async function startServer() {
 
   app.get("/api/cbt/student", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1448,7 +1450,7 @@ async function startServer() {
 
   app.post("/api/cbt/exams/:examId/start", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1459,7 +1461,7 @@ async function startServer() {
 
   app.put("/api/cbt/attempts/:attemptId/answers", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1470,7 +1472,7 @@ async function startServer() {
 
   app.post("/api/cbt/attempts/:attemptId/submit", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: "Runtime CBT Supabase belum diaktifkan operator." });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1481,7 +1483,7 @@ async function startServer() {
 
   app.get("/api/healthcare/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1492,7 +1494,7 @@ async function startServer() {
 
   app.post("/api/healthcare/records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1503,7 +1505,7 @@ async function startServer() {
 
   app.post("/api/healthcare/visits", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1514,7 +1516,7 @@ async function startServer() {
 
   app.post("/api/healthcare/medicines", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1525,7 +1527,7 @@ async function startServer() {
 
   app.post("/api/healthcare/stock-adjustments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: "Runtime UKS Supabase belum diaktifkan operator." });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1543,7 +1545,7 @@ async function startServer() {
 
   app.get("/api/ga/assets-snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: "Runtime aset dan inventaris GA Supabase belum diaktifkan operator." });
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1554,7 +1556,7 @@ async function startServer() {
 
   app.post("/api/ga/assets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: "Runtime aset dan inventaris GA Supabase belum diaktifkan operator." });
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1565,7 +1567,7 @@ async function startServer() {
 
   app.post("/api/ga/inventory", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: "Runtime aset dan inventaris GA Supabase belum diaktifkan operator." });
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1576,7 +1578,7 @@ async function startServer() {
 
   app.post("/api/ga/stock-adjustments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: "Runtime aset dan inventaris GA Supabase belum diaktifkan operator." });
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1594,7 +1596,7 @@ async function startServer() {
 
   app.get("/api/cooperative/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1622,7 +1624,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/products", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1632,7 +1634,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/stock-adjustments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1642,7 +1644,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/suppliers", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1652,7 +1654,7 @@ async function startServer() {
   });
   app.patch("/api/cooperative/wallets/:walletId/policy", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1662,7 +1664,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/wallets/:walletId/top-ups", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1672,7 +1674,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/sales", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: "Runtime Koperasi Supabase belum diaktifkan operator." });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1683,7 +1685,7 @@ async function startServer() {
 
   app.get("/api/marketplace/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1693,7 +1695,7 @@ async function startServer() {
   });
   app.post("/api/marketplace/products", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1703,7 +1705,7 @@ async function startServer() {
   });
   app.post("/api/marketplace/stock-adjustments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1713,7 +1715,7 @@ async function startServer() {
   });
   app.post("/api/marketplace/orders", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1723,7 +1725,7 @@ async function startServer() {
   });
   app.patch("/api/marketplace/orders/:orderId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: "Runtime Marketplace Supabase belum diaktifkan operator." });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1740,7 +1742,7 @@ async function startServer() {
 
   app.get("/api/facility-bookings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ error: "Runtime pemesanan fasilitas Supabase belum diaktifkan operator." });
+    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1750,7 +1752,7 @@ async function startServer() {
   });
   app.post("/api/facility-bookings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ error: "Runtime pemesanan fasilitas Supabase belum diaktifkan operator." });
+    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1767,7 +1769,7 @@ async function startServer() {
 
   app.get("/api/donation/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1777,7 +1779,7 @@ async function startServer() {
   });
   app.post("/api/donation/campaigns", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1787,7 +1789,7 @@ async function startServer() {
   });
   app.post("/api/donation/donors", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1797,7 +1799,7 @@ async function startServer() {
   });
   app.post("/api/donation/waqf-assets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1807,7 +1809,7 @@ async function startServer() {
   });
   app.post("/api/donation/transactions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1817,7 +1819,7 @@ async function startServer() {
   });
   app.patch("/api/donation/transactions/:donationId/void", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: "Runtime Donasi & Wakaf Supabase belum diaktifkan operator." });
+    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1828,7 +1830,7 @@ async function startServer() {
 
   app.get("/api/lms/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1846,7 +1848,7 @@ async function startServer() {
 
   app.post("/api/lms/catalog/:action", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1858,7 +1860,7 @@ async function startServer() {
 
   app.post("/api/lms/progress", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1869,7 +1871,7 @@ async function startServer() {
 
   app.post("/api/lms/learning-records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1881,7 +1883,7 @@ async function startServer() {
 
   app.post("/api/lms/assignments/:assignmentId/submissions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1892,7 +1894,7 @@ async function startServer() {
 
   app.patch("/api/lms/submissions/:submissionId/grade", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: "Runtime LMS Supabase belum diaktifkan operator." });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1916,11 +1918,11 @@ async function startServer() {
     return { ...profile, uid, tenantId };
   };
   const libraryRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseLibraryError) return res.status(error.status).json({ error: error.message });
     if (error instanceof SupabaseLibraryAssetError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase library endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Perpustakaan Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadLaundryActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -1938,17 +1940,17 @@ async function startServer() {
   };
   const laundryRuntimeEnabled = String(process.env.SUPABASE_LAUNDRY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const laundryRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseLaundryError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase laundry endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Laundry Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const dashboardRuntimeEnabled = String(process.env.SUPABASE_DASHBOARD_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const dashboardRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseDashboardError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase dashboard endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Ringkasan dashboard Supabase belum dapat dimuat." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadDashboardActor = async (uid: string, surface: "dashboard" | "intelligence") => {
     const profile = await getUserProfile(uid);
@@ -1979,7 +1981,7 @@ async function startServer() {
 
   app.get("/api/dashboard/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!dashboardRuntimeEnabled) return res.status(503).json({ error: "Runtime Dashboard Supabase belum diaktifkan operator." });
+    if (!dashboardRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2019,10 +2021,10 @@ async function startServer() {
     return actor;
   };
   const financeBudgetRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseFinanceBudgetError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Finance budget endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan anggaran Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const loadEnterpriseUnitsActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -2056,21 +2058,21 @@ async function startServer() {
     return actor;
   };
   const enterpriseUnitsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseEnterpriseUnitsError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase Enterprise units endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Manajemen Multi-Unit Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const financeRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SupabaseFinanceError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase finance endpoint failed:", error instanceof Error ? error.message : "unknown error");
-    return res.status(503).json({ error: "Layanan Finance Supabase belum dapat diproses." });
+    return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
 
   app.get("/api/library/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2081,7 +2083,7 @@ async function startServer() {
 
   app.post("/api/library/books", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2093,7 +2095,7 @@ async function startServer() {
 
   app.post("/api/library/checkout", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2105,7 +2107,7 @@ async function startServer() {
 
   app.post("/api/library/returns", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2117,7 +2119,7 @@ async function startServer() {
 
   app.get("/api/documents", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2128,7 +2130,7 @@ async function startServer() {
 
   app.get("/api/crm/contacts", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2139,7 +2141,7 @@ async function startServer() {
 
   app.get("/api/crm/contacts/:contactId/interactions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2150,7 +2152,7 @@ async function startServer() {
 
   app.post("/api/crm/contacts", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2162,7 +2164,7 @@ async function startServer() {
 
   app.put("/api/crm/contacts/:contactId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2176,7 +2178,7 @@ async function startServer() {
 
   app.post("/api/crm/interactions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2188,18 +2190,19 @@ async function startServer() {
 
   app.get("/api/crm/broadcast/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadCrmActor(uid);
-      return res.json(await getOpenWaStatus(actor.tenantId));
+      const status = await getOpenWaStatus(actor.tenantId);
+      return res.json({ configured: Boolean(status.configured) });
     } catch (error) { return crmRouteError(res, error); }
   });
 
   app.post("/api/crm/broadcasts", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: "Runtime CRM Supabase belum diaktifkan operator." });
+    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2214,7 +2217,7 @@ async function startServer() {
 
   app.post("/api/documents", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2226,7 +2229,7 @@ async function startServer() {
 
   app.patch("/api/documents/:documentId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2241,7 +2244,7 @@ async function startServer() {
 
   app.post("/api/documents/:documentId/attachments/upload-url", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2254,7 +2257,7 @@ async function startServer() {
 
   app.post("/api/documents/attachments/finalize", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2268,7 +2271,7 @@ async function startServer() {
 
   app.get("/api/documents/attachments/:attachmentId/download-url", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: "Runtime Dokumen Digital Supabase belum diaktifkan operator." });
+    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2279,7 +2282,7 @@ async function startServer() {
 
   app.get("/api/library/assets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: "Runtime Perpustakaan Supabase belum diaktifkan operator." });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (!libraryDigitalAssetsEnabled) return res.json({ enabled: false, assets: [] });
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2291,7 +2294,7 @@ async function startServer() {
 
   app.post("/api/library/assets/upload-url", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled || !libraryDigitalAssetsEnabled) return res.status(503).json({ error: "Penyimpanan bahan digital Perpustakaan belum diaktifkan operator." });
+    if (!libraryRuntimeEnabled || !libraryDigitalAssetsEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2306,7 +2309,7 @@ async function startServer() {
 
   app.post("/api/library/assets/finalize", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled || !libraryDigitalAssetsEnabled) return res.status(503).json({ error: "Penyimpanan bahan digital Perpustakaan belum diaktifkan operator." });
+    if (!libraryRuntimeEnabled || !libraryDigitalAssetsEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2319,7 +2322,7 @@ async function startServer() {
 
   app.get("/api/library/assets/:assetId/download-url", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled || !libraryDigitalAssetsEnabled) return res.status(503).json({ error: "Penyimpanan bahan digital Perpustakaan belum diaktifkan operator." });
+    if (!libraryRuntimeEnabled || !libraryDigitalAssetsEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2344,7 +2347,7 @@ async function startServer() {
 
   app.get("/api/laundry/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!laundryRuntimeEnabled) return res.status(503).json({ error: "Runtime Laundry Supabase belum diaktifkan operator." });
+    if (!laundryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2355,7 +2358,7 @@ async function startServer() {
 
   app.post("/api/laundry/orders", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!laundryRuntimeEnabled) return res.status(503).json({ error: "Runtime Laundry Supabase belum diaktifkan operator." });
+    if (!laundryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2367,7 +2370,7 @@ async function startServer() {
 
   app.post("/api/laundry/orders/:orderId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!laundryRuntimeEnabled) return res.status(503).json({ error: "Runtime Laundry Supabase belum diaktifkan operator." });
+    if (!laundryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2379,7 +2382,7 @@ async function startServer() {
 
   app.post("/api/laundry/settings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!laundryRuntimeEnabled) return res.status(503).json({ error: "Runtime Laundry Supabase belum diaktifkan operator." });
+    if (!laundryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2391,7 +2394,7 @@ async function startServer() {
 
   app.get("/api/finance/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2403,7 +2406,7 @@ async function startServer() {
   app.get("/api/erp/budget/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!financeRuntimeEnabled || !financeBudgetRuntimeEnabled) {
-      return res.status(503).json({ error: "Runtime Keuangan dan Anggaran Supabase belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2416,7 +2419,7 @@ async function startServer() {
   app.post("/api/erp/budget/mutations", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!financeRuntimeEnabled || !financeBudgetRuntimeEnabled) {
-      return res.status(503).json({ error: "Runtime Keuangan dan Anggaran Supabase belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2430,7 +2433,7 @@ async function startServer() {
   app.get("/api/enterprise/units/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!enterpriseUnitsRuntimeEnabled) {
-      return res.status(503).json({ error: "Runtime Manajemen Multi-Unit Supabase belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2443,7 +2446,7 @@ async function startServer() {
   app.post("/api/enterprise/units/mutations", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!enterpriseUnitsRuntimeEnabled) {
-      return res.status(503).json({ error: "Runtime Manajemen Multi-Unit Supabase belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2457,7 +2460,7 @@ async function startServer() {
   app.get("/api/enterprise/master-data/unit-assignment/unmapped", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!enterpriseUnitsRuntimeEnabled || !masterDataRuntimeEnabled) {
-      return res.status(503).json({ error: "Runtime Manajemen Multi-Unit dan Master Data Supabase belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2470,7 +2473,7 @@ async function startServer() {
   app.post("/api/enterprise/master-data/unit-assignment", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!enterpriseUnitsRuntimeEnabled || !masterDataRuntimeEnabled) {
-      return res.status(503).json({ error: "Runtime Manajemen Multi-Unit dan Master Data Supabase belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2484,7 +2487,7 @@ async function startServer() {
   app.get("/api/enterprise/finance/unit-assignment/unmapped", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!enterpriseUnitsRuntimeEnabled || !financeRuntimeEnabled) {
-      return res.status(503).json({ error: "Runtime Manajemen Multi-Unit dan Keuangan Supabase belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2497,7 +2500,7 @@ async function startServer() {
   app.post("/api/enterprise/finance/unit-assignment", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (!enterpriseUnitsRuntimeEnabled || !financeRuntimeEnabled) {
-      return res.status(503).json({ error: "Runtime Manajemen Multi-Unit dan Keuangan Supabase belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2510,7 +2513,7 @@ async function startServer() {
 
   app.post("/api/finance/bills", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2522,7 +2525,7 @@ async function startServer() {
 
   app.post("/api/finance/expenses", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2534,7 +2537,7 @@ async function startServer() {
 
   app.post("/api/finance/expenses/review", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2547,7 +2550,7 @@ async function startServer() {
 
   app.post("/api/finance/bills/review", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2565,7 +2568,7 @@ async function startServer() {
 
   app.post("/api/finance/lock", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Runtime Finance Supabase belum diaktifkan operator." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2578,7 +2581,7 @@ async function startServer() {
 
   app.get("/api/master-data/audit", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2595,7 +2598,7 @@ async function startServer() {
 
   app.get("/api/master-data/structures", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2632,7 +2635,7 @@ async function startServer() {
   };
   app.get("/api/master-data/references", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2651,7 +2654,7 @@ async function startServer() {
   });
   app.put("/api/master-data/references/:domain/:referenceId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2662,7 +2665,7 @@ async function startServer() {
   });
   app.post("/api/master-data/references/:domain", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2673,7 +2676,7 @@ async function startServer() {
   });
   app.get("/api/master-data/naming-series", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2684,7 +2687,7 @@ async function startServer() {
   });
   app.put("/api/master-data/naming-series/:seriesKey", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2701,7 +2704,7 @@ async function startServer() {
 
   app.post("/api/master-data/structures/import/preview", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2713,7 +2716,7 @@ async function startServer() {
 
   app.post("/api/master-data/structures/import/apply", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2731,7 +2734,7 @@ async function startServer() {
   });
   app.put("/api/master-data/structures/:category/:recordId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2743,7 +2746,7 @@ async function startServer() {
   });
   app.post("/api/master-data/structures/:category", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2756,7 +2759,7 @@ async function startServer() {
 
   app.delete("/api/master-data/structures/:category/:recordId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2768,7 +2771,7 @@ async function startServer() {
 
   app.get("/api/master-data/students", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2794,7 +2797,7 @@ async function startServer() {
   app.get("/api/master-data/students/export", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Pragma", "no-cache");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2807,7 +2810,7 @@ async function startServer() {
 
   app.post("/api/master-data/students/import/preview", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2819,7 +2822,7 @@ async function startServer() {
 
   app.post("/api/master-data/students/import/apply", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2831,7 +2834,7 @@ async function startServer() {
 
   app.get("/api/master-data/students/:studentId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2843,7 +2846,7 @@ async function startServer() {
 
   app.put("/api/master-data/students/:studentId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2855,7 +2858,7 @@ async function startServer() {
   });
   app.post("/api/master-data/students", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2868,7 +2871,7 @@ async function startServer() {
 
   app.delete("/api/master-data/students/:studentId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: "Runtime Master Data Supabase belum diaktifkan operator." });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2886,7 +2889,7 @@ async function startServer() {
   });
   app.get("/api/boarding/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingRuntimeEnabled) return res.status(503).json({ error: "Runtime asrama Supabase belum diaktifkan operator." });
+    if (!boardingRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2899,7 +2902,7 @@ async function startServer() {
 
   app.put("/api/boarding/students/:studentId/room", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingRuntimeEnabled) return res.status(503).json({ error: "Runtime asrama Supabase belum diaktifkan operator." });
+    if (!boardingRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2912,7 +2915,7 @@ async function startServer() {
 
   app.get("/api/master-data/students/:studentId/room-history", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingRuntimeEnabled) return res.status(503).json({ error: "Runtime asrama Supabase belum diaktifkan operator." });
+    if (!boardingRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2925,7 +2928,7 @@ async function startServer() {
 
   app.get("/api/boarding/permits", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: "Runtime izin asrama Supabase belum diaktifkan operator." });
+    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2936,7 +2939,7 @@ async function startServer() {
 
   app.post("/api/boarding/permits", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: "Runtime izin asrama Supabase belum diaktifkan operator." });
+    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2948,7 +2951,7 @@ async function startServer() {
 
   app.post("/api/boarding/permits/:permitId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: "Runtime izin asrama Supabase belum diaktifkan operator." });
+    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2967,7 +2970,7 @@ async function startServer() {
 
   app.get("/api/boarding/discipline", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: "Runtime kedisiplinan asrama Supabase belum diaktifkan operator." });
+    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2978,7 +2981,7 @@ async function startServer() {
 
   app.post("/api/boarding/discipline", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: "Runtime kedisiplinan asrama Supabase belum diaktifkan operator." });
+    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2990,7 +2993,7 @@ async function startServer() {
 
   app.post("/api/boarding/discipline/:incidentId/resolve", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: "Runtime kedisiplinan asrama Supabase belum diaktifkan operator." });
+    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3008,7 +3011,7 @@ async function startServer() {
 
   app.get("/api/boarding/attendance", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ error: "Runtime kehadiran asrama Supabase belum diaktifkan operator." });
+    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3019,7 +3022,7 @@ async function startServer() {
 
   app.post("/api/boarding/attendance", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ error: "Runtime kehadiran asrama Supabase belum diaktifkan operator." });
+    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3037,7 +3040,7 @@ async function startServer() {
 
   app.get("/api/boarding/staff-assignments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: "Runtime penugasan asrama Supabase belum diaktifkan operator." });
+    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3049,7 +3052,7 @@ async function startServer() {
 
   app.post("/api/boarding/staff-assignments/unit-mapping", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: "Runtime pemetaan unit lokasi Asrama belum diaktifkan operator." });
+    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3062,7 +3065,7 @@ async function startServer() {
 
   app.post("/api/boarding/staff-assignments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: "Runtime penugasan asrama Supabase belum diaktifkan operator." });
+    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3075,7 +3078,7 @@ async function startServer() {
 
   app.get("/api/boarding/facility-ops", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: "Runtime audit dan tiket fasilitas Supabase belum diaktifkan operator." });
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3086,7 +3089,7 @@ async function startServer() {
 
   app.post("/api/boarding/facility-ops/audits", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: "Runtime audit fasilitas Supabase belum diaktifkan operator." });
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3098,7 +3101,7 @@ async function startServer() {
 
   app.post("/api/boarding/facility-ops/tickets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: "Runtime tiket fasilitas Supabase belum diaktifkan operator." });
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3111,7 +3114,7 @@ async function startServer() {
 
   app.post("/api/boarding/facility-ops/tickets/:ticketId/resolve", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: "Runtime tiket fasilitas Supabase belum diaktifkan operator." });
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3129,7 +3132,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3140,7 +3143,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/references/surahs", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3154,7 +3157,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/roster", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3171,7 +3174,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/achievements", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3207,7 +3210,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3223,7 +3226,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/sessions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3239,7 +3242,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/peer-reviews", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3250,7 +3253,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/peer-reviews", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3262,7 +3265,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/peer-reviews/:reviewId/moderation", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3274,7 +3277,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/sessions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3287,7 +3290,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3300,7 +3303,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/targets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3312,7 +3315,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/targets/bulk", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz belum tersedia." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (!tahfidzBulkTargetsEnabled) return res.status(503).json({ error: "Pengaturan target massal belum tersedia." });
     try {
       const uid = String((req as any).user?.uid || "");
@@ -3328,7 +3331,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/halaqahs", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3341,7 +3344,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/memberships", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Runtime Tahfidz Supabase belum diaktifkan operator." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3361,7 +3364,7 @@ async function startServer() {
 
   app.get("/api/communication/announcements", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime pengumuman Supabase belum diaktifkan operator." });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3375,7 +3378,7 @@ async function startServer() {
 
   app.post("/api/communication/announcements", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime pengumuman Supabase belum diaktifkan operator." });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3389,7 +3392,7 @@ async function startServer() {
 
   app.post("/api/communication/announcements/:announcementId/acknowledge", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime pengumuman Supabase belum diaktifkan operator." });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3410,7 +3413,7 @@ async function startServer() {
 
   app.get("/api/communication/ops", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3423,7 +3426,7 @@ async function startServer() {
 
   app.post("/api/communication/tickets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3437,7 +3440,7 @@ async function startServer() {
 
   app.post("/api/communication/tickets/:ticketId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3451,7 +3454,7 @@ async function startServer() {
 
   app.post("/api/communication/messages", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3465,7 +3468,7 @@ async function startServer() {
 
   app.post("/api/communication/messages/:messageId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3479,7 +3482,7 @@ async function startServer() {
 
   app.post("/api/communication/templates", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: "Runtime komunikasi Supabase belum diaktifkan operator." });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3513,7 +3516,7 @@ async function startServer() {
     return { ...profile, tenantId };
   };
   const systemSettingsRouteError = (res: express.Response, error: unknown) => {
-    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: "Profil Supabase belum dapat diverifikasi." });
+    if (error instanceof IdentityUnavailableError) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (error instanceof SystemSettingsStoreError) return res.status(error.status).json({ error: error.message });
     console.error("Supabase system settings endpoint failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(503).json({ error: "Pengaturan tenant belum dapat diproses." });
@@ -3521,7 +3524,7 @@ async function startServer() {
 
   app.get("/api/system/settings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ error: "Runtime pengaturan Supabase belum diaktifkan operator." });
+    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3541,7 +3544,7 @@ async function startServer() {
 
   app.put("/api/system/settings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ error: "Runtime pengaturan Supabase belum diaktifkan operator." });
+    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3580,14 +3583,14 @@ async function startServer() {
   app.post("/api/system/settings/prepare", requireAuth, (_req, res) => {
     return res.status(410).json({
       code: "LEGACY_ARCHIVE_IMPORT_REMOVED",
-      error: "Pembersihan pengaturan lama telah dihentikan. Kelola pengaturan tenant pada Supabase.",
+      error: FEATURE_UNAVAILABLE_MESSAGE,
     });
   });
 
   const searchFeedbackRuntimeEnabled = String(process.env.SUPABASE_SEARCH_FEEDBACK_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   app.post("/api/search/feedback", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!searchFeedbackRuntimeEnabled) return res.status(503).json({ error: "Penyimpanan feedback Supabase belum diaktifkan operator." });
+    if (!searchFeedbackRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3617,7 +3620,7 @@ async function startServer() {
   // Public PPDB is served only by this trusted server. Tenant identity is fixed in server configuration.
   app.get("/api/public/guardian-registration/config", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran Portal Wali belum disiapkan." });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const config = await getSupabasePublicGuardianRegistrationConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
       return res.json({ tenantName: config.tenantName, registrationRedirectUrl: config.registrationRedirectUrl });
@@ -3650,8 +3653,8 @@ async function startServer() {
 
   app.get("/api/public/ppdb/config", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran PPDB Supabase belum disiapkan; pendaftaran belum dapat dibuka." });
-    if (!publicPpdbEnabled) return res.status(503).json({ error: "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren." });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!publicPpdbEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const config = await getSupabasePublicPpdbConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
       return res.json({
@@ -3662,15 +3665,15 @@ async function startServer() {
       });
     } catch (err: any) {
       const status = Number(err?.status) || 503;
-      return res.status(status).json({ error: status === 503 ? "Konfigurasi PPDB Supabase belum tersedia." : err.message });
+      return res.status(status).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
   });
 
   app.post("/api/public/ppdb/registrations", async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const clientKey = String(req.ip || req.socket.remoteAddress || "unknown");
-    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: "Pendaftaran PPDB Supabase belum disiapkan; pendaftaran belum dapat dibuka." });
-    if (!publicPpdbEnabled) return res.status(503).json({ error: "Pendaftaran PPDB online belum diaktifkan oleh pengelola pesantren." });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!publicPpdbEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (!consumePublicPpdbRateLimit(clientKey)) {
       res.setHeader("Retry-After", "900");
       return res.status(429).json({ error: "Batas pendaftaran sementara tercapai. Silakan coba lagi 15 menit kemudian." });
@@ -3683,18 +3686,18 @@ async function startServer() {
       const status = Number(err?.status) || 500;
       if (status === 429) res.setHeader("Retry-After", "900");
       if (status >= 500) console.error("Supabase public PPDB registration failed:", err?.name || "error");
-      return res.status(status).json({ error: status === 500 ? "Pendaftaran gagal diproses. Silakan coba kembali atau hubungi panitia." : err.message || "Pendaftaran belum dapat diproses." });
+      return res.status(status).json({ error: status >= 500 ? FEATURE_UNAVAILABLE_MESSAGE : "Pendaftaran belum dapat diproses. Periksa data dan coba kembali." });
     }
   });
 
   // Payment proof bytes and billing metadata are handled only by this authenticated backend.
   app.post("/api/finance/payment-proofs", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Upload bukti pembayaran Supabase belum disiapkan; penyimpanan lama telah dinonaktifkan." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     const uid = String((req as any).user?.uid || "");
     if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
     if (String(process.env.SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED || "").trim().toLowerCase() !== "true") {
-      return res.status(503).json({ error: "Storage bukti pembayaran Supabase belum diaktifkan operator." });
+      return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
     let uploadedPath = "";
     try {
@@ -3739,7 +3742,7 @@ async function startServer() {
 
   app.get("/api/finance/payment-proofs/:billingId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "private, no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: "Bukti pembayaran Supabase belum disiapkan; penyimpanan lama telah dinonaktifkan." });
+    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
         const uid = String((req as any).user?.uid || "");
         if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3773,7 +3776,7 @@ async function startServer() {
   // HRIS core runtime: employee directory and attendance are tenant scoped.
   app.get("/api/hris/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3784,7 +3787,7 @@ async function startServer() {
 
   app.post("/api/hris/employees", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3802,7 +3805,7 @@ async function startServer() {
 
   app.post("/api/hris/attendance", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3813,7 +3816,7 @@ async function startServer() {
 
   app.post("/api/hris/leave-requests", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3824,7 +3827,7 @@ async function startServer() {
 
   app.post("/api/hris/leave-requests/:leaveRequestId/review", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: "Runtime HRIS Supabase belum diaktifkan operator." });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3899,7 +3902,7 @@ async function startServer() {
     } catch (err: any) {
       const unavailable = identityFailure(res, err);
       if (unavailable) return unavailable;
-      return res.status(400).json({ code: "INVITATION_FAILED", error: err.message || "Gagal membuat undangan Wali." });
+      return res.status(400).json({ code: "INVITATION_FAILED", error: "Undangan Wali tidak dapat dibuat. Periksa data dan coba kembali." });
     }
   });
 
@@ -3917,7 +3920,7 @@ async function startServer() {
     } catch (err: any) {
       const unavailable = identityFailure(res, err);
       if (unavailable) return unavailable;
-      return res.status(400).json({ code: "INVITATION_VERIFY_FAILED", error: err.message || "Undangan Wali tidak dapat diverifikasi." });
+      return res.status(400).json({ code: "INVITATION_VERIFY_FAILED", error: "Undangan Wali tidak dapat diverifikasi. Minta undangan baru bila diperlukan." });
     }
   });
   app.post("/api/guardian-invitations/claim", requireAuth, async (req, res) => {
@@ -3934,7 +3937,7 @@ async function startServer() {
     } catch (err: any) {
       const unavailable = identityFailure(res, err);
       if (unavailable) return unavailable;
-      return res.status(400).json({ code: "INVITATION_CLAIM_FAILED", error: err.message || "Undangan Wali tidak dapat diaktifkan." });
+      return res.status(400).json({ code: "INVITATION_CLAIM_FAILED", error: "Undangan Wali tidak dapat digunakan. Minta undangan baru bila diperlukan." });
     }
   });
   // 1. List / Search Users for acting admin's tenant
@@ -4361,7 +4364,7 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
   });
 
@@ -4371,7 +4374,7 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
   });
 
@@ -4381,7 +4384,7 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
   });
 
@@ -4391,7 +4394,7 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
   });
 
@@ -4401,7 +4404,7 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
   });
 
@@ -4411,7 +4414,7 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     }
   });
 

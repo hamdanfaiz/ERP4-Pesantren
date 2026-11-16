@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, LoaderCircle, Plus, RotateCcw, UserRoundCog } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -36,7 +37,7 @@ export function SupabaseBoardingAssignmentsManager() {
       setUnitSelections(Object.fromEntries(result.unmappedLocations.map((item) => [item.id, item.parentUnitId || ""])));
       const firstStaff = result.staff[0];
       setForm({ userId: firstStaff?.id || "", locationId: result.locations.find((item) => item.category === locationType && item.organizationUnitId === firstStaff?.organizationUnitId)?.id || "" });
-    }).catch((e: any) => { if (active) setError(e?.message || "Data penugasan belum dapat dimuat."); })
+    }).catch((e: any) => { if (active) setError(toERPUserMessage(e, "Data penugasan belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -53,7 +54,7 @@ export function SupabaseBoardingAssignmentsManager() {
       await assignSupabaseBoardingLocationUnit({ category: item.category as "Gedung" | "Kamar", locationId: item.id, unitId, clientRequestId: crypto.randomUUID() });
       setNotice(`${item.category} “${item.name}” dipetakan ke unit dan dicatat pada audit.`);
       try { await refresh(); } catch { setError("Pemetaan tersimpan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Lokasi belum dapat dipetakan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Lokasi belum dapat dipetakan.")); }
     finally { setSaving(""); }
   };
 
@@ -68,7 +69,7 @@ export function SupabaseBoardingAssignmentsManager() {
       });
       setNotice("Penugasan lokasi Ustadz berhasil disimpan.");
       try { await refresh(); } catch { setError("Penugasan sudah tersimpan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Penugasan belum dapat disimpan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Penugasan belum dapat disimpan.")); }
     finally { setSaving(""); }
   };
 
@@ -78,7 +79,7 @@ export function SupabaseBoardingAssignmentsManager() {
       await saveSupabaseBoardingAssignment({ assignmentId, userId, status: "inactive", clientRequestId: crypto.randomUUID() });
       setNotice("Penugasan dinonaktifkan dan tercatat pada audit.");
       try { await refresh(); } catch { setError("Penugasan sudah dinonaktifkan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Penugasan belum dapat dinonaktifkan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Penugasan belum dapat dinonaktifkan.")); }
     finally { setSaving(""); }
   };
 

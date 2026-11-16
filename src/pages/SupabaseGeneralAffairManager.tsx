@@ -91,7 +91,7 @@ function GaLinkedPanel({ mode }: { mode: "procurement" | "fleet" | "kitchen" }) 
   if (mode === "procurement") {
     const reorder = snapshot.inventory.filter((item) => Number(item.quantity) <= Number(item.minimum_quantity));
     return <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-      <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kebutuhan pengadaan</h2><p className="mt-1 text-sm text-slate-500">Item di atau di bawah stok minimum. Restock mencatat mutasi masuk ke ledger inventaris pesantren.</p></div>
+      <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kebutuhan pengadaan</h2><p className="mt-1 text-sm text-slate-500">Item di atau di bawah stok minimum. Setiap penambahan stok tercatat dalam riwayat inventaris pesantren.</p></div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</div>}
       <div className="grid gap-3 sm:grid-cols-3"><Metric label="SKU inventaris" value={snapshot.inventory.length} /><Metric label="Perlu restock" value={reorder.length} /><Metric label="Mutasi tercatat" value={snapshot.movements.length} /></div>

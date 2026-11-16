@@ -143,7 +143,8 @@ export function SupabaseNamingSeriesManager() {
       setSeries((current) => current.map((row) => row.seriesKey === saved.seriesKey ? saved : row));
       setNotice("Aturan " + saved.displayName + " berhasil disimpan.");
     } catch (cause: any) {
-      setError(cause?.message || "Aturan penomoran belum dapat disimpan.");
+      console.error("Naming series save failed:", cause);
+      setError("Aturan penomoran belum dapat disimpan. Periksa koneksi lalu coba kembali.");
     } finally {
       setSavingKey(null);
     }
