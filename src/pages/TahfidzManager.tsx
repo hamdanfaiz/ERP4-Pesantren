@@ -2007,7 +2007,7 @@ export function TahfidzManager() {
           <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-4 w-4 text-amber-500" /> Peringkat Setoran Ziyadah</h2>
-              <p className="mt-1 text-sm text-slate-500">Berdasarkan catatan Ziyadah tersimpan bulan ini; cakupan mengikuti akses tenant atau halaqah Anda.</p>
+              <p className="mt-1 text-sm text-slate-500">Peringkat dihitung dari setoran Ziyadah bulan ini yang dapat Anda lihat.</p>
             </div>
             {currentLeaderboard?.periodStart && <span className="w-fit rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold capitalize text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
               {new Date(`${currentLeaderboard.periodStart}T00:00:00Z`).toLocaleDateString("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })}
@@ -6191,7 +6191,7 @@ export function TahfidzManager() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 print:static print:block print:bg-white print:p-0" role="dialog" aria-modal="true" aria-labelledby="tahfidz-print-plan-title">
           <section className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
             <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10 print:hidden">
-              <div><h2 id="tahfidz-print-plan-title" className="font-semibold">Rencana Target Hafalan</h2><p className="mt-1 text-sm text-slate-500">Dicetak dari data Tahfidz tenant yang sedang aktif.</p></div>
+              <div><h2 id="tahfidz-print-plan-title" className="font-semibold">Rencana Target Hafalan</h2><p className="mt-1 text-sm text-slate-500">Dicetak dari catatan Tahfidz pesantren ini.</p></div>
               <div className="flex items-center gap-2"><button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500"><Printer className="h-4 w-4" />Cetak</button><button type="button" onClick={() => { setIsPrintPlanOpen(false); setPrintPlanStudentId(""); setPrintPlanScopeKey(""); }} aria-label="Tutup rencana hafalan" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><X className="h-4 w-4" /></button></div>
             </header>
             <div className="overflow-y-auto p-6 print:overflow-visible print:p-0">

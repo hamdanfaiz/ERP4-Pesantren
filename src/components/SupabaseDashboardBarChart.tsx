@@ -32,7 +32,7 @@ export function SupabaseDashboardBarChart({ kind, data }: { kind: ChartKind; dat
   const isPpdb = kind === "ppdb-stages";
   const series = isPpdb ? [{ key: "jumlah", label: "Calon santri", color: "#2563eb" }] : financeSeries[kind];
 
-  return <ResponsiveContainer width="100%" height="100%">
+  return <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 240, height: 256 }}>
     <BarChart data={data} margin={{ top: 8, right: 8, left: isPpdb ? -18 : -12, bottom: 8 }}>
       <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.25} vertical={false} />
       <XAxis dataKey={isPpdb ? "stage" : "month"} tickFormatter={isPpdb ? undefined : monthLabel} stroke="#64748b" fontSize={isPpdb ? 11 : 10} tickLine={false} axisLine={false} />
