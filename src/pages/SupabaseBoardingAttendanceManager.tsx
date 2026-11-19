@@ -78,7 +78,7 @@ export function SupabaseBoardingAttendanceManager() {
       const nextReport = await migrateSupabaseBoardingAttendance(date, apply, report?.previewFingerprint);
       setReport(nextReport);
       if (apply) { await refresh(date); setNotice(`Impor data kehadiran tanggal ${date}: ${nextReport.imported} data baru, ${nextReport.unchanged} data sudah sama.`); }
-    } catch (e: any) { setError(e?.message || "Pratinjau impor kehadiran belum dapat diproses."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Pratinjau impor kehadiran belum dapat diproses.")); }
     finally { setImportBusy(false); }
   };
   const canImport = IMPORT_ENABLED && ["Admin", "SuperAdmin"].includes(role);
@@ -89,7 +89,7 @@ export function SupabaseBoardingAttendanceManager() {
       <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Kehadiran Malam Santri</h1>
       <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Setiap status tercatat sesuai tanggal. Daftar santri dan lokasi kamar mengikuti data aktif pesantren.</p></div>
       <div className="flex flex-wrap items-center gap-2"><label className="text-sm font-medium text-slate-600 dark:text-slate-300">Tanggal<input aria-label="Tanggal kehadiran" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="ml-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-white/15 dark:bg-slate-900 dark:text-slate-200" /></label>
-        <button type="button" onClick={() => { setLoading(true); setError(""); void refresh(date).catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"><RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
+        <button type="button" onClick={() => { setLoading(true); setError(""); void refresh(date).catch((e: any) => setError(toERPUserMessage(e, "Data belum dapat dimuat."))).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"><RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
       </div>
     </header>
 
@@ -125,3 +125,4 @@ export function SupabaseBoardingAttendanceManager() {
     </section>
   </section>;
 }
+
