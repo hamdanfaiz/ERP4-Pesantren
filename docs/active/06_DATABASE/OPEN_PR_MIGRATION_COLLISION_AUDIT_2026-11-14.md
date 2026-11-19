@@ -4,6 +4,21 @@
 
 Audit hanya membaca nama file migrasi pada `main`, file yang diubah tiap PR, status PR, dan ledger staging yang sudah direkap pada [rekonsiliasi Production 14 November](PTSAS_PRODUCTION_RECONCILIATION_2026-11-14.md). Tidak ada SQL dijalankan ke database, tidak ada data aplikasi dibaca, dan tidak ada perubahan skema atau data.
 
+## Tindak lanjut lokal PR #91 — 14 November 2026
+
+Dalam rekonsiliasi lokal PR #91 terhadap `main`, versi bentrok diselesaikan tanpa mengubah database:
+
+| Fitur | Source kanonis lokal | Catatan lineage |
+| --- | --- | --- |
+| Katalog Surah Tahfidz | `20270320000000_tahfidz_quran_surah_catalog.sql` | Menggunakan migrasi kanonis yang sudah ada di `main`; SQL lama staging tetap diverifikasi lewat fingerprint historis. |
+| Leaderboard Tahfidz | `20270327000000_tahfidz_persisted_leaderboard.sql` | Dipisahkan dari versi Akademik `20270310000000`; alias ledger VQE lama tetap menunggu rekonsiliasi. |
+| Target Tahfidz massal | `20270328000000_tahfidz_bulk_daily_target_write_api.sql` | Dipisahkan dari versi Akademik `20270311000000`; alias ledger VQE lama tetap menunggu rekonsiliasi. |
+| Presisi target Tahfidz | `20270329000000_tahfidz_target_decimal_precision.sql` | Dipisahkan dari kode NIS Akademik `20270312000000`; migrasi ini belum tercatat pada snapshot ledger VQE. |
+
+Tiga versi baru dipilih setelah rentang benturan yang tercatat untuk PR terbuka #92, #96–#102, #112, dan #116. Periksa ulang branch dan ledger staging sebelum promosi karena PR terbuka dapat berubah. File Quran lama dipindahkan dari direktori migrasi aktif ke fixture uji; migrasi source aktif tetap satu per versi.
+
+Preflight tetap **menghentikan** penerapan sampai alias lama VQE (`20261109145507`, `20261109145522`, `20261109145534`) direkonsiliasi secara terkontrol. Fingerprint Quran membuktikan kecocokan dengan SQL lama yang tercatat, tetapi tidak menjalankan migration repair. Production PTSAS dan VQE tidak diubah pada tindak lanjut ini.
+
 Ditemukan beberapa PR bertumpuk yang tidak aman digabung berurutan tanpa rekonsiliasi versi:
 
 | PR / cabang kerja | Versi di PR | Migrasi berbeda yang sudah ada di `main` | Tindakan sebelum penggabungan |
@@ -14,15 +29,17 @@ Ditemukan beberapa PR bertumpuk yang tidak aman digabung berurutan tanpa rekonsi
 | #97 | 20270315000000 `cbt_admin_dashboard_summary` | 20270315000000 `lms_dashboard_operational_fill` | Rekonsiliasi/memversi ulang sebelum dipindahkan ke jalur utama. |
 | #98 | 20270316000000 `cbt_admin_question_keyset_pages` | 20270316000000 `communication_ops_runtime` | Rekonsiliasi/memversi ulang sebelum dipindahkan ke jalur utama. |
 | #99, #100, #102 | 20270317000000–20270319000000: CBT roster, assignment, ujian | Tidak ada file dengan versi tersebut pada source `main` yang diperiksa; ledger VQE memiliki versi 17–19 tanpa file source yang cocok | Bandingkan DDL staging dan ledger dengan source sebelum memberi versi kanonis. Jangan menjalankan `db push` untuk “mengejar” ledger. |
-| #112 | 20270321000000–20270326000000: seluruh rangkaian CBT admin | 20270321000000 bertabrakan dengan migrasi leaderboard Tahfidz di PR #116; beberapa fungsinya juga hadir pada PR #96–#102 | Tetapkan satu rangkaian CBT kanonis dan urutan versi yang bebas benturan; hindari menggabungkan dua jalur yang memuat implementasi tumpang tindih. |
-| #116 | 20270321000000 `tahfidz_monthly_leaderboard` | Bertabrakan dengan 20270321000000 `cbt_tenant_settings_write_api` di PR #112 | Pilih versi akhir setelah rencana urutan CBT/Tahfidz disepakati; tes preflight dan dokumentasi harus diperbarui. |
+| #112 | 20270321000000–20270326000000: seluruh rangkaian CBT admin | Versi awal sempat bertabrakan dengan #116; fungsi CBT juga bersinggungan dengan #96–#102 | **Nomor benturan dengan #116 telah diselesaikan di branch:** pertahankan CBT pada 21–26. Perbandingan langsung membuktikan keenam file SQL migrasi dan keenam suite pgTAP dari #96–#100/#102 identik setelah normalisasi line ending; jangan gabungkan stack itu sebagai migrasi kedua. Ledger VQE 17–19 tetap perlu pemetaan alias ke source/DDL. |
+| #116 | `20270327000000` `tahfidz_monthly_leaderboard` (branch sekarang) | Nomor awal `20270321000000` berbenturan dengan #112; sudah dipindahkan ke 27 setelah urutan CBT | Urutan source bebas benturan terhadap #112. Tetap jalankan preflight/CI; jangan terapkan ke database sebelum ledger dan objek target direkonsiliasi. |
 
 ## Status kerja yang terverifikasi
 
 - `main` saat audit memuat 150 file migrasi source; `main` memiliki migrasi 20270309000000–20270316000000 dengan nama seperti pada tabel.
 - VQE staging memiliki catatan ledger versi 20270317000000–20270319000000 yang tidak ada di source `main` saat dibandingkan, sesuai laporan rekonsiliasi. Ini dapat mencerminkan migrasi dari jalur PR lama; perlu inspeksi DDL staging dan ledger sebelum mengubah nama atau isi file.
-- PR #114 (katalog Quran/tab Tahfidz) dan #115 (pesan UI) tidak menambahkan migrasi. CI hijau, tetapi catatan PR menyatakan UAT visual/browser masih belum dikonfirmasi.
-- PR #116 tetap draft; CI pada head `6495bd00203ad4ca667069946e492b84d58e1612` sudah lulus pada run [#1653](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43501516746). UAT peran Admin/Ustadz/Santri/Wali juga belum selesai.
+- PR #114 (katalog Quran/tab Tahfidz) dan #115 (pesan UI) tidak menambahkan migrasi. UAT Admin VQE sudah mengonfirmasi 10 tab, scrollbar horizontal, 114 surah, serta rentang ayat terikat pada katalog; tenant uji tidak memiliki santri sehingga simpan-baca setoran dan UAT ponsel belum terbukti.
+- PR #112 kini memuat merge commit ke `main` terbaru dan penanganan diagnostik impor yang ramah pengguna. Ketiga job CI lulus pada head `c6aee56e2639a1c6154b668e0cf4b41b884ed2ef`. PR terbuka dan mergeable menurut metadata GitHub; tinjauan overlap CBT dengan #96–#102 masih diperlukan sebelum memutuskan merge/penutupan stack.
+- Pemeriksaan source pada 14 November membandingkan enam pasangan migrasi `20270314000000`–`20270319000000` di PR #96–#100/#102 dengan `20270321000000`–`20270326000000` di #112. Seluruh pasangan SQL dan file pgTAP-nya sama setelah normalisasi line ending. Ini membuktikan migrasi/test terport ke #112, tetapi bukan kesetaraan semua perubahan UI/TypeScript. Pertahankan PR anak sampai #112 ditinjau/merged; setelahnya, tutup sebagai superseded bila tidak ada perubahan unik.
+- PR #116 tetap draft. Migrasi leaderboard telah dipindahkan ke `20270327000000`; semua 3 job CI lulus pada head `5c68c95e0a6e5fe5bec85090b88fdf0ee6fd94af`. UAT role, perhitungan leaderboard live pada roster sintetis, serta keadaan tanpa catatan belum selesai.
 - PR #118 (dokumen kesiapan) sudah digabung ke `main` pada 14 November 2026. Penggabungan ini hanya mengubah dokumentasi.
 
 ## Urutan aman untuk tim backend
@@ -36,7 +53,7 @@ Ditemukan beberapa PR bertumpuk yang tidak aman digabung berurutan tanpa rekonsi
 
 ## Batas kesimpulan
 
-Benturan versi membuktikan urutan PR/migrasi perlu diperbaiki; ini tidak dengan sendirinya membuktikan tabel atau fitur tertentu rusak. Audit ini tidak membaca baris data, tidak membuktikan backup/restore Production, tidak memvalidasi seluruh alur modul, dan tidak menerapkan perubahan database.
+Benturan versi membuktikan urutan PR/migrasi perlu diperbaiki; ini tidak dengan sendirinya membuktikan tabel atau fitur tertentu rusak. Benturan langsung #112/#116 sudah dihilangkan pada source melalui urutan #112 21–26 lalu #116 27. Audit ini tidak membaca baris data, tidak membuktikan backup/restore Production, tidak memvalidasi seluruh alur modul, dan tidak menerapkan perubahan database.
 
 
 ## PR #1–#11 yang ditutup
@@ -46,3 +63,40 @@ Pemeriksaan REST GitHub pada 14 November 2026 menunjukkan PR #1 sampai #11 berst
 Source `main` saat ini menggunakan migrasi bernomor dan bernama lebih baru untuk banyak area fondasi tersebut (misalnya `tenant_profile_foundation`, `public_ppdb_runtime`, `ppdb_admin_workflows`, `master_data_onboarding`, dan `finance_runtime`). Sejumlah file dari PR awal memakai nomor 20260604–20260618 yang tidak lagi ada pada daftar source `main`. Ini mendukung bahwa cutover berikutnya telah mengganti atau menyerap sebagian besar jalur lama, tetapi **tidak membuktikan satu per satu seluruh logic unik PR #1–#11**.
 
 Tindakan yang aman: pertahankan PR lama dalam keadaan tertutup; inventarisasi perubahan unik setiap PR lama terhadap source `main` dan PR #13, lalu port hanya logic yang benar-benar hilang ke PR baru dengan migrasi bernomor kanonis. Jangan menggabungkan branch lama atau menjalankan migrasinya tanpa review checksum/DDL dan pemeriksaan relasi ledger terlebih dahulu.
+
+## Addendum verifikasi PR dan migrasi — 15 November 2026
+
+Bagian ini memperbarui status PR dan benturan migrasi setelah pemeriksaan exact head. Temuan historis di atas tetap berlaku sebagai snapshot saat audit sebelumnya.
+
+### Bukti PR #91
+
+- Head PR #91: `fb79ec4ea827a8199a3f79b99b2ac0be273e885a`; status **open**, mergeable, belum ada review formal atau thread review.
+- GitHub Actions run [#1721](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/43639818694) berjalan pada head tersebut dan lulus **3/3 job**: migrasi/API/pgTAP, build/container, dan instalasi NPM.
+- Kegagalan pada head sebelumnya adalah ekspektasi tes HTTP `409` untuk input Surah bebas, padahal validasi request server memberi `400`. Skrip integrasi diselaraskan ke `400`; pemeriksaan sintaks Node, tes katalog Quran, dan `git diff --check` lulus sebelum push.
+- Bukti ini adalah CI kode dan database terisolasi di runner. Ini bukan UAT browser dengan seluruh peran, bukan bukti DDL Production, dan bukan bukti backup/restore Production.
+
+### Rekonsiliasi PR terbuka
+
+| PR | Bukti saat diperiksa | Tindakan aman |
+| --- | --- | --- |
+| #92 | Branch `codex/core-fk-indexes-20261112` masih berbasis head lama PR #91 `f66cbbd4f1f002f4ed0909b2ffbabb7a81ae169b`. Migrasi indeks memakai versi `20270313000000`, yang telah dipakai `main` oleh `20270313000000_education_boarding_operational_seed.sql`. | Jangan gabungkan branch apa adanya. Tetapkan versi baru yang belum dipakai, audit preflight/pgTAP, lalu rebase ke base kanonis dan jalankan CI ulang. |
+| #112 | Head `b93d02f44104edc1dfa9fa9038d9036ed6c81c03`; CI lulus pada head tersebut. Rangkaian migrasinya `20270321000000`–`20270326000000`. Ada 12 path source yang juga berubah di PR #91. | Bandingkan perubahan source yang beririsan dan urutan migrasi sebelum integrasi; CI pada head PR #112 belum membuktikan kombinasi keduanya. |
+| #114 | Head `eb97403a54bbb6a081504708f79d1a7967f74c19`; CI lulus pada head tersebut dan belum ada review formal. Empat path beririsan dengan PR #91; tidak membawa migrasi. | Cocokkan fungsi katalog/validasi dan gulir tab dengan versi PR #91; pertahankan perubahan unik sebelum menutup PR yang terserap. |
+| #115 | Head `dd49c3dc315f7c21de8d1272317eceaf867b285f`; CI lulus pada head tersebut dan belum ada review formal. Lima puluh satu path beririsan dengan PR #91; tidak membawa migrasi. | Tinjau perbedaan pesan/UI pada setiap path beririsan; jangan menimpa perubahan yang lebih baru saat integrasi. |
+| #116 | Draft, head `6e313a05c174d159f57172ca7018311615d11847`; CI lulus pada head tersebut. | Rekonsiliasi DDL dan API leaderboard/target dengan PR #91 sebelum merge; pertahankan tes atau logic unik yang relevan. |
+
+### Tabrakan migrasi Tahfidz PR #91 dengan PR #116
+
+- Kedua PR memakai versi `20270327000000` untuk SQL yang berbeda. PR #91 membuat `20270327000000_tahfidz_persisted_leaderboard.sql` dengan RPC `list_tahfidz_leaderboard`; PR #116 membuat `20270327000000_tahfidz_monthly_leaderboard.sql` dengan RPC `get_tahfidz_monthly_leaderboard`. Keduanya tidak boleh masuk ke satu jalur migrasi dengan versi yang sama.
+- Keduanya mengubah `20270328000000_tahfidz_bulk_daily_target_write_api.sql`; versi PR #116 menambahkan pemeriksaan presisi dua desimal langsung pada nilai Ziyadah dan Murojaah. PR #91 sudah memiliki validasi presisi pada RPC target tunggal melalui migrasi `20270329000000`, dan uji batch yang menolak nilai Ziyadah sub-cent. Sebelum memilih source kanonis, port pemeriksaan eksplisit batch serta uji Murojaah sub-cent dari PR #116 atau dokumentasikan mengapa validasi lewat RPC target tunggal cukup.
+- PR #91 dan #116 memiliki perbedaan API/metrik leaderboard: PR #91 mengembalikan jumlah setoran/ayat dan mendukung batas hasil 5/20; PR #116 mengembalikan jumlah setoran/hari aktif. Tim perlu memilih kontrak UI/API kanonis atau menggabungkan metrik yang diperlukan dalam satu RPC, lalu memberi versi migrasi unik dan menjalankan ulang pgTAP/CI.
+
+### Gate dan status
+
+PR #91 telah mempunyai bukti CI hijau pada exact head dan siap untuk **review source oleh tim backend**. Jangan menyebutnya siap deploy/Production: keputusan migrasi terhadap PR #92/#112/#116, review formal, UAT browser multi-role, pemeriksaan DDL Production, dan bukti pemulihan backup masih merupakan gate terpisah. Tidak ada database Production atau VQE yang diubah dalam tindak lanjut ini.
+
+### Pembaruan pengamanan presisi target massal — 15 November 2026
+
+Pembaruan pada source PR #91: migrasi `20270328000000_tahfidz_bulk_daily_target_write_api.sql` kini menolak target Ziyadah maupun Murojaah yang memiliki lebih dari dua angka desimal sebelum iterasi/tulis. pgTAP menguji kedua nilai invalid dan merencanakan 22 assertion. Ini menutup perbedaan perlindungan presisi bulk yang sebelumnya dicatat sebagai kelebihan PR #116. CI pada exact commit baru menjadi bukti setelah run selesai; perubahan ini tidak diterapkan ke database cloud.
+
+Tabrakan nomor migrasi `20270327000000` dan perbedaan kontrak leaderboard PR #91/#116 tetap perlu keputusan source kanonis.

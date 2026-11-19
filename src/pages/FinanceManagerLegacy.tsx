@@ -151,7 +151,7 @@ export function FinanceManager() {
         if (data.tenantId !== user.tenantId) throw new Error('Tagihan bukan milik pesantren aktif.');
         if (data.status === 'Paid') throw new Error('Tagihan sudah lunas; transaksi ganda ditolak.');
         if (!['Unpaid', 'Overdue', 'Partial', 'Verification'].includes(data.status)) throw new Error('Status tagihan tidak dapat dikonfirmasi.');
-        if (data.status === 'Verification' && !data.proofStoragePath) throw new Error('Bukti transfer belum tersimpan pada Storage.');
+        if (data.status === 'Verification' && !data.proofStoragePath) throw new Error('Bukti transfer belum tersimpan pada penyimpanan.');
         const amount = Math.max(0, Number(data.amount || 0) - Number(data.paidAmount || 0));
         if (!Number.isFinite(amount) || amount <= 0) throw new Error('Sisa tagihan tidak valid.');
         let candidateRef: any = null;
@@ -219,7 +219,7 @@ export function FinanceManager() {
     }, error => {
       setBillings([]);
       console.error('Gagal memuat tagihan tenant:', error);
-      showFinanceToast('Data tagihan tidak dapat dimuat. Periksa akses tenant dan migrasi data.', 'error');
+      showFinanceToast('Data tagihan belum dapat dimuat. Periksa koneksi dan hak akses Anda.', 'error');
     });
   }, [user?.tenantId, user?.uid, role]);
 
@@ -233,7 +233,7 @@ export function FinanceManager() {
     }, error => {
       setExpenses([]);
       console.error('Gagal memuat pengeluaran tenant:', error);
-      showFinanceToast('Data pengeluaran tidak dapat dimuat. Periksa akses tenant dan migrasi data.', 'error');
+      showFinanceToast('Data pengeluaran belum dapat dimuat. Periksa koneksi dan hak akses Anda.', 'error');
     });
   }, [user?.tenantId, user?.uid, role]);
 
@@ -290,7 +290,7 @@ export function FinanceManager() {
       await setDoc(doc(db, 'tenants', user.tenantId, 'settings', 'financeControl'), tenantRecord(user?.tenantId, {
         tenantId: user.tenantId, financeLocked: nextLocked, updatedByUid: user.uid, updatedAt: serverTimestamp()
       }), { merge: true });
-      showFinanceToast(nextLocked ? 'Buku keuangan tenant berhasil ditutup.' : 'Buku keuangan tenant dibuka kembali.', nextLocked ? 'error' : 'success');
+      showFinanceToast(nextLocked ? 'Buku keuangan pesantren berhasil ditutup.' : 'Buku keuangan pesantren dibuka kembali.', nextLocked ? 'error' : 'success');
     } catch (error: any) {
       console.error('Perubahan status buku gagal:', error);
       showFinanceToast(error?.message || 'Status buku gagal disimpan.', 'error');
@@ -328,13 +328,13 @@ export function FinanceManager() {
   // Finance mutations are written to Firestore; tenant snapshots drive the UI.
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.tenantId || !user?.uid) { showFinanceToast('Sesi tenant tidak aktif.', 'error'); return; }
+    if (!user?.tenantId || !user?.uid) { showFinanceToast('Sesi Anda tidak aktif. Silakan masuk kembali.', 'error'); return; }
     if (financeLocked) { showFinanceToast('Buku keuangan sedang ditutup.', 'error'); return; }
     const amount = Number(formData.amount);
     if (!Number.isFinite(amount) || amount <= 0) { showFinanceToast('Nominal harus lebih besar dari nol.', 'error'); return; }
     try {
       if (activeTab === 'billing') {
-        if (!isFinanceAdmin) { showFinanceToast('Penerbitan tagihan hanya untuk admin tenant.', 'error'); return; }
+        if (!isFinanceAdmin) { showFinanceToast('Penerbitan tagihan hanya dapat dilakukan oleh Admin pesantren.', 'error'); return; }
         const student = masterSantri.find(item => item.name === formData.santriName && item.grade === formData.grade);
         if (!student?.id || !student.name) { showFinanceToast('Pilih santri yang terdaftar pada pesantren aktif.', 'error'); return; }
         const id = encodeURIComponent(JSON.stringify(['BILL', user.tenantId, student.id, String(formData.type || '').trim(), String(formData.period || '').trim()]));
@@ -376,7 +376,7 @@ export function FinanceManager() {
   };
 
   const handleBulkGenerate = async () => {
-    if (!user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Bulk tagihan hanya tersedia untuk admin tenant.', 'error'); return; }
+    if (!user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Penerbitan tagihan sekaligus hanya dapat dilakukan oleh Admin pesantren.', 'error'); return; }
     if (financeLocked) { showFinanceToast('Buku keuangan sedang ditutup.', 'error'); return; }
     const amount = Number(bulkAmount);
     const period = bulkPeriod.trim();
@@ -385,7 +385,7 @@ export function FinanceManager() {
     if (!Number.isFinite(amount) || amount <= 0 || !period || !bulkType) { showFinanceToast('Periksa periode, jenis, dan nominal tagihan.', 'error'); return; }
     setIsGeneratingBulk(true);
     setBulkProgress(0);
-    setBulkStepMsg('Menerbitkan tagihan tenant secara idempoten...');
+    setBulkStepMsg('Menerbitkan tagihan…');
     let created = 0;
     try {
       for (let index = 0; index < students.length; index++) {
@@ -418,7 +418,7 @@ export function FinanceManager() {
   };
 
   const handleApproveExpense = async (expense: ExpenseItem) => {
-    if (!user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Hanya admin tenant yang dapat menyetujui pengeluaran.', 'error'); return; }
+    if (!user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Hanya Admin pesantren yang dapat menyetujui pengeluaran.', 'error'); return; }
     if (financeLocked) { showFinanceToast('Buku keuangan sedang ditutup.', 'error'); return; }
     if (expense.requesterUid === user.uid) { showFinanceToast('Pengaju tidak boleh menyetujui pengeluarannya sendiri.', 'error'); return; }
     try {
@@ -432,7 +432,7 @@ export function FinanceManager() {
         transaction.update(expenseRef, { status: 'Approved', approvedByUid: user.uid, approvedAt: serverTimestamp(), updatedAt: serverTimestamp() });
         transaction.set(ledgerRef, tenantRecord(user?.tenantId, { tenantId: user.tenantId, type: 'expense', sourceType: 'expense', sourceId: expense.id, description: data.description, amount: Number(data.amount), createdByUid: user.uid, createdAt: serverTimestamp() }));
       });
-      showFinanceToast('Pengeluaran disetujui dan dicatat pada ledger tenant.', 'success');
+      showFinanceToast('Pengeluaran disetujui dan dicatat pada transaksi pesantren.', 'success');
     } catch (error: any) {
       console.error('Persetujuan pengeluaran gagal:', error);
       showFinanceToast(error?.message || 'Pengeluaran gagal disetujui.', 'error');
@@ -548,7 +548,7 @@ export function FinanceManager() {
   };
 
   const handleConfirmRejection = async () => {
-    if (!rejectionInput.trim() || !rejectingId || !user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Alasan penolakan dan akses admin tenant diperlukan.', 'error'); return; }
+    if (!rejectionInput.trim() || !rejectingId || !user?.tenantId || !user?.uid || !isFinanceAdmin) { showFinanceToast('Alasan penolakan dan hak akses Admin diperlukan.', 'error'); return; }
     if (financeLocked) { showFinanceToast('Buku keuangan sedang ditutup.', 'error'); return; }
     try {
       if (rejectingItemType === 'billing') {
@@ -1383,7 +1383,7 @@ export function FinanceManager() {
         <ShieldAlert className="w-5 h-5 text-amber-500 mt-0.5" />
         <div>
           <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Modul uang saku belum aktif</h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">Saldo, batas belanja, status kartu, dan mutasi kantin belum terhubung ke ledger operasional. Data tidak ditampilkan sampai sumber transaksi resmi tersedia.</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">Catatan saldo, batas belanja, dan status kartu belum tersedia pada halaman ini. Isi ulang saldo dan pemblokiran kartu juga belum dapat dilakukan di sini.</p>
           <p className="text-xs text-slate-500 mt-3">Top up dan pemblokiran kartu belum dapat diproses dari aplikasi ini.</p>
         </div>
       </div>
@@ -1423,7 +1423,7 @@ export function FinanceManager() {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-max mb-6 border border-slate-200 dark:border-white/5">
+      <div className="erp-tab-scroll flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-lg w-full mb-6 border border-slate-200 dark:border-white/5">
         {[
           { id: 'billing', label: role === 'Walisantri' ? 'Tagihan Anda & Kuitansi (SPP)' : 'Informasi Tagihan & SPP', icon: <CreditCard className="w-4 h-4" />, badge: role === 'Walisantri' ? billings.filter(b => b.status === 'Unpaid' && walisantriChildren.some(child => b.santriName.toLowerCase().includes(child.toLowerCase()))).length : billings.filter(b => b.status === 'Verification').length, visible: role !== 'Santri' },
           { id: 'pocket_money', label: role === 'Santri' ? 'Kartu Santri & Kantin' : 'E-Wallet Uang Saku & Kantin', icon: <Wallet className="w-4 h-4" />, badge: 0, visible: role === 'Walisantri' || role === 'Santri' },
@@ -2010,7 +2010,7 @@ export function FinanceManager() {
               <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-center space-y-1 font-mono">
 <span className="text-[10px] uppercase font-bold text-slate-500 leading-none">PEMBAYARAN MANUAL</span>
                 <p className="text-xs font-bold text-indigo-400 mt-1">Konfirmasi rekening tujuan melalui kanal resmi pesantren.</p>
-                <p className="text-[9.5px] text-slate-500">Aplikasi belum terhubung ke virtual account atau payment gateway.</p>
+              <p className="text-[9.5px] text-slate-500">Pembayaran otomatis melalui nomor rekening virtual belum tersedia.</p>
               </div>
 
               {/* Secure Drag and Drop uploader simulator */}

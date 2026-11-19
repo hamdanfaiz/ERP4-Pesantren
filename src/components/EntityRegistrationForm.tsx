@@ -2,6 +2,7 @@ import { useAuth } from '../contexts/AuthContext';
 import React, { useEffect, useState } from 'react';
 import { listSupabaseReferenceItems, upsertSupabaseMasterDataStudent, type SupabaseReferenceItem } from '../services/masterDataApi';
 import { Users, Save, X, CheckCircle2, AlertTriangle, Loader2, Link2, UserCheck, Building2, Home, BookOpen, UserPlus, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { toERPUserMessage } from '../utils/userMessages';
 
 interface EntityRegistrationFormProps {
   onSuccess?: (savedData?: any) => void;
@@ -98,7 +99,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
     listSupabaseReferenceItems('academic_grade_level')
       .then((items) => { if (active) setGradeLevels(items.filter((item) => item.status === 'active')); })
       .catch((error) => {
-        if (active) setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Katalog jenjang belum dapat dimuat.' });
+        if (active) setMessage({ type: 'error', text: toERPUserMessage(error, 'Katalog jenjang belum dapat dimuat. Coba kembali.') });
       });
     return () => { active = false; };
   }, [user?.tenantId, user?.uid]);
@@ -268,7 +269,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
       if (onSuccess) onSuccess(savedData);
     } catch (error) {
       console.error("Error adding document: ", error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal menyimpan data.' });
+      setMessage({ type: 'error', text: toERPUserMessage(error, 'Data santri belum dapat disimpan. Periksa kembali data lalu coba lagi.') });
     } finally {
       setIsSubmitting(false);
     }
@@ -304,10 +305,10 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
           <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 animate-in fade-in duration-200">
             <div className="flex items-center gap-2 font-bold text-sm text-amber-300 mb-1.5">
               <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
-              <span>Peringatan Deteksi Duplikasi Identitas (Rekomendasi 3)</span>
+              <span>Periksa data identitas</span>
             </div>
             <p className="text-xs text-amber-300/80 mb-2">
-              Sistem mendeteksi atribut unik yang telah terdaftar pada entitas lain dalam basis data. Mohon periksa kembali agar tidak terjadi benturan integritas data:
+              Satu atau beberapa identitas telah digunakan pada data lain. Periksa data berikut sebelum menyimpan:
             </p>
             <ul className="text-xs space-y-1 list-disc list-inside bg-black/30 p-2.5 rounded-lg border border-amber-500/20 font-mono text-[11px]">
               {conflicts.map((c, i) => (
@@ -533,7 +534,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                 </div>
                 {formData.type === 'Santri' && (
                   <>
-                    {/* Penempatan santri dari struktur tenant Supabase */}
+                    {/* Penempatan santri dari struktur pesantren */}
                     <div className="md:col-span-2 lg:col-span-3 bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-4 space-y-4">
                       <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
                         <div className="flex items-center gap-2">

@@ -479,7 +479,7 @@ export function LaundryManager() {
       </div>
 
       <div className="bg-white dark:bg-black/20 rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden">
-        <div className="border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40 overflow-x-auto custom-scrollbar">
+        <div className="erp-tab-scroll border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40 custom-scrollbar">
           <div className="flex p-2 gap-2 min-w-max">
             {[
               { id: 'orders', label: 'Active Orders', icon: <WashingMachine className="w-4 h-4" /> },

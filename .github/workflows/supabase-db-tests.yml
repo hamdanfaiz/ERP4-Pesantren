@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'codex/**'
   pull_request:
   workflow_dispatch:
 
@@ -82,6 +83,12 @@ jobs:
       - name: Verify Supabase Quran catalog validation
         run: npm run test:supabase-quran-catalog
 
+      - name: Verify database-backed Surah and Ayah selectors in Tahfidz
+        run: npm run test:tahfidz-quran-catalog
+
+      - name: Verify printable Tahfidz target summaries
+        run: npm run test:tahfidz-target-print
+
       - name: Verify PPDB CSV import parsing and identity preservation
         run: bun run test:ppdb-csv-import
 
@@ -93,6 +100,9 @@ jobs:
 
       - name: Verify Wali registration callback survives StrictMode
         run: npm run test:guardian-registration-strictmode
+
+      - name: Verify customer-facing error messages
+        run: npm run test:user-messages
 
       - name: Verify recovery links use the configured application URL
         run: npm run test:auth-recovery-redirect
@@ -112,6 +122,15 @@ jobs:
       - name: Verify customer deployment feature flag wiring
         run: npm run test:customer-deployment-flags
 
+      - name: Verify customer Compose variables are documented
+        run: npm run test:customer-compose-env
+
+      - name: Verify customer-facing error copy
+        run: npm run test:user-messages
+
+      - name: Verify customer-facing error message security rules
+        run: npm run test:user-messages:security
+
       - name: Verify trusted reverse proxy hop configuration
         run: npm run test:trusted-proxy-hops
 
@@ -130,8 +149,26 @@ jobs:
       - name: Verify CBT persisted session monitoring
         run: npm run test:cbt-monitor
 
+      - name: Verify tenant CBT question pagination and cursor validation
+        run: npm run test:cbt-question-pagination
+
+      - name: Verify tenant CBT student roster pagination and cursor validation
+        run: npm run test:cbt-student-roster-pagination
+
+      - name: Verify tenant CBT assignment pagination and cursor validation
+        run: npm run test:cbt-assignment-pagination
+
+      - name: Verify tenant CBT exam pagination and cursor validation
+        run: npm run test:cbt-exam-pagination
+
+      - name: Verify tenant CBT settings validation
+        run: npm run test:cbt-settings-write
+
       - name: Verify dashboard cash-flow accounting
         run: npm run test:dashboard-cashflow
+
+      - name: Verify closed-month finance trend calculations
+        run: npm run test:dashboard-finance-trend
 
       - name: Verify Master Data pagination and nested PII minimization
         run: npm run test:master-data-pagination
@@ -289,10 +326,10 @@ jobs:
       - name: Start isolated local Supabase
         run: supabase start
 
-      - name: Reset the isolated database to the Production boundary
+      - name: Reset isolated database to historical Production baseline (2026-11-06)
         run: supabase db reset --local --version 20261206000000 --no-seed
 
-      - name: Recreate the exact Production migration gaps in local Supabase
+      - name: Recreate historical Production migration gaps in local Supabase
         run: |
           db_url="$(supabase status -o env | sed -n 's/^DB_URL=//p' | head -n 1 | sed 's/^"//; s/"$//')"
           if [[ ! "$db_url" =~ ^postgresql://postgres:postgres@127\.0\.0\.1:[0-9]+/postgres$ ]]; then
@@ -407,6 +444,9 @@ jobs:
       - name: Verify API auth and tenant isolation
         run: npm run test:api:auth-tenant
 
+      - name: Verify Tahfidz catalog, setoran, leaderboard, and tenant boundaries
+        run: npm run test:api:tahfidz-runtime
+
       - name: Verify Finance expenses use tenant-owned organization units
         run: npm run test:supabase-finance-unit-scope
 
@@ -427,4 +467,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+
 

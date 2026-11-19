@@ -190,7 +190,7 @@ export function SupabaseHrisManager() {
         <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(e?.message || "Gagal memuat ulang." )).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
       </header>
 
-      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Direktori, kehadiran, cuti, dan ringkasan operasional tersambung ke data pesantren. Slip gaji, GPS, dan pipeline kandidat belum punya fitur khusus—tab terkait menampilkan basis data yang sudah ada. Gunakan alasan cuti umum dan hindari diagnosis kesehatan.</div>
+      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Kelola data pegawai, kehadiran, dan cuti di sini. Saldo cuti dan jadwal kehadiran belum diperbarui otomatis. Untuk menjaga privasi, gunakan alasan cuti umum dan hindari mencantumkan rincian diagnosis kesehatan.</div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
@@ -273,7 +273,7 @@ export function SupabaseHrisManager() {
         </section>}
 
         {tab === "performance" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
-          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Indikator kehadiran pegawai</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari catatan kehadiran dan cuti. Form penilaian sasaran kerja belum tersedia.</p></div>
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Indikator kehadiran pegawai</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari catatan kehadiran dan cuti. Penilaian sasaran kerja belum tersedia.</p></div>
           {snapshot.employees.length === 0 ? <EmptyState text="Belum ada pegawai untuk dianalisis." />
             : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[700px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3 text-right">Hadir</th><th className="px-4 py-3 text-right">Terlambat</th><th className="px-4 py-3 text-right">Tidak hadir</th><th className="px-4 py-3 text-right">Cuti disetujui</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.employees.map((employee) => {
               const rows = snapshot.attendance.filter((item) => item.employeeId === employee.id);
@@ -283,7 +283,7 @@ export function SupabaseHrisManager() {
         </section>}
 
         {tab === "hiring" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
-          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kebutuhan jabatan</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari katalog jabatan dan pengisian pegawai saat ini. Pipeline kandidat/lowongan belum tersimpan.</p></div>
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kebutuhan jabatan</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari daftar jabatan dan pegawai yang terdaftar. Pengelolaan lowongan dan proses kandidat belum tersedia.</p></div>
           {snapshot.jobTitleOptions.length === 0 ? <EmptyState text="Tambahkan jabatan di pengaturan kategori modul SDM." />
             : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Jabatan</th><th className="px-4 py-3 text-right">Terisi</th><th className="px-4 py-3 text-right">Aktif</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.jobTitleOptions.map((title) => {
               const linked = snapshot.employees.filter((item) => item.jobTitleReferenceId === title.id);

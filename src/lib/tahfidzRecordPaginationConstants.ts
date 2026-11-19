@@ -1,0 +1,3 @@
+export const TAHFIDZ_RECORD_PAGE_SIZE = 100;
+export const TAHFIDZ_RECORD_MAX_PAGE_SIZE = 500;
+

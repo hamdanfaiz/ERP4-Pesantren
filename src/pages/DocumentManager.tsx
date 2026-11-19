@@ -668,7 +668,7 @@ function OcrScannerView() {
       setOcrResult(data);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "An error occurred during scanning");
+      setError("Dokumen belum dapat dipindai. Coba kembali.");
     } finally {
       setIsScanning(false);
     }

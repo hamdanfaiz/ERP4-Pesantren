@@ -1,8 +1,25 @@
-# Progres Penyelesaian Pengembangan ERP4 Pesantren — 30 Oktober 2026
+# Progres Penyelesaian Pengembangan ERP4 Pesantren
+
+## Checkpoint terbaru — 9 November 2026
+
+**Perkiraan penyelesaian pengembangan: sekitar 72%.** Ini estimasi kerja kasar, bukan persentase WBS berbobot. Pekerjaan deploy hosting dan UAT oleh tim backend/penerapan tidak dihitung.
+
+- Source PR #91 di GitHub masih **Draft/Open** pada head `7b29f12`. Worktree aktif bertumpu pada `b2f6213` dan berisi perubahan lokal yang belum di-commit; kelima commit remote PR belum disatukan dengan perubahan lokal. Karena itu kode lokal terbaru belum dapat direview melalui PR.
+- Pemeriksaan lokal terbaru lulus: `test:tahfidz-leaderboard`, `test:tahfidz-bulk-targets`, `test:tahfidz-quran-catalog`, `test:migration-preflight`, `test:supabase-runtime-no-firebase`, `lint`, `build`, dan `git diff --check`. Build menampilkan peringatan anotasi Zod dan chunk PDF besar.
+- Rehearsal SQL Tahfidz di VQE lulus **88/88** assertion runtime dan **21/21** assertion target massal. Migrasi koreksi precision dicoba hanya di dalam transaksi sementara; rollback diverifikasi dan tidak meninggalkan fixture atau mengganti definisi fungsi staging.
+- Temuan logika yang diperbaiki: target halaman dengan lebih dari dua desimal dapat dibulatkan kolom `NUMERIC(6,2)`. Source kini menolak nilai seperti `0.123` sebelum tersimpan melalui migration `20270312000000_tahfidz_target_decimal_precision.sql`.
+- VQE memiliki ketidaksesuaian ledger: tiga file source `20270309000000`–`20270311000000` sudah mengubah schema melalui MCP, tetapi tercatat di ledger dengan versi `20261109145507`, `20261109145522`, dan `20261109145534`. Ledger belum direkonsiliasi; jangan jalankan `db push` atau menganggap migration correction sudah menetap sebelum riwayat ini diselaraskan.
+- Production PTSAS tidak diubah. Laporan UAT browser, source parity, status VQE dan Production ada di [catatan UAT terbaru](../00_PRODUCT/UAT_BROWSER_SMOKE_2026-11-09.md).
+
+Sisa utama pengembangan: satukan source remote dan lokal tanpa kehilangan perubahan, rapikan lineage migration staging secara terkontrol, verifikasi ulang seluruh menu/submodul terhadap AI Studio, selesaikan integrasi dan tes lintas-modul yang belum terbukti, lalu push perubahan yang lulus ke PR agar tim backend dapat meninjaunya. **72% tidak berarti siap deploy atau bahwa seluruh fitur telah diuji.**
+
+---
+
+# Snapshot historis — 30 Oktober 2026
 
 ## Status singkat
 
-**Perkiraan penyelesaian pengembangan: sekitar 73% (rentang 70–75%).** Ini angka kerja kasar tanpa WBS berbobot; deployment hosting dan UAT yang dikerjakan tim lain tidak dihitung. Saya belum menaikkan angka karena cakupan yang tersisa belum ditimbang dengan metode yang disepakati.
+**Perkiraan pada snapshot saat itu: sekitar 73% (rentang 70–75%).** Angka ini sudah digantikan oleh checkpoint terbaru di atas.
 
 - Sumber PR #13: branch `codex/supabase-runtime-cutover-20261022`, head `af9460e7fbdcbf788ee01c53d3bd31ae3089c5be`.
 - GitHub Actions [run 41049963343](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41049963343) lulus **2/2 job**, termasuk TypeScript/build, RBAC yang menolak permission PPOB, Docker/Compose, rehearsal migration, pgTAP, API/tenant, transaksi bersamaan, Storage, dan backup/restore lokal sintetis.

@@ -159,8 +159,8 @@ assert.ok(!fs.existsSync(path.join(root, 'src', 'pages', 'EcosystemManager.tsx')
 assert.ok(!fs.readFileSync(path.join(root, '.env.example'), 'utf8').includes('PAYMENT_GATEWAY_SECRET_KEY'),
   'The initial release must not expose a payment gateway configuration placeholder.');
 const tahfidzSource = fs.readFileSync(path.join(root, 'src', 'pages', 'TahfidzManager.tsx'), 'utf8');
-assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && <button[\s\S]*?title="AI Audio Assessment"/,
-  'Mock AI audio actions must remain hidden outside the Supabase Tahfidz runtime.');
+assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && <button[\s\S]*?title="Penilaian audio otomatis"/,
+  'Demo-only audio assessment actions must remain hidden in the Supabase Tahfidz runtime and use Indonesian copy.');
 assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && selectedSantri && \(/,
   'The mock AI assessment modal must not render in the Supabase Tahfidz runtime.');
 
@@ -205,7 +205,51 @@ assert.match(masterDataSource, /return labels\[value\.toLowerCase\(\)\] \|\| val
   'Master Data status values must be displayed in Indonesian without changing their stored values.');
 assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
   'Master Data archive import must remain independently gated from Supabase-only runtime.');
+const centralStructureSource = fs.readFileSync(path.join(root, 'src', 'services', 'centralStructureService.ts'), 'utf8');
+assert.doesNotMatch(centralStructureSource, /supabaseRuntimeEnabled\(/,
+  'Tenant structure API polling must follow explicit runtime gates, not the Supabase-only data-source mode.');
+for (const [constant, flag] of [
+  ['SUPABASE_MASTER_DATA_RUNTIME', 'VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED'],
+  ['SUPABASE_BOARDING_RUNTIME', 'VITE_SUPABASE_BOARDING_RUNTIME_ENABLED'],
+]) {
+  assert.match(centralStructureSource, new RegExp(`${constant}\\s*=\\s*publicRuntimeConfigValue\\(["']${flag}["']\\)\\s*===\\s*["']true["']`),
+    `Tenant structure ${constant} must be disabled unless ${flag} is explicitly true.`);
+}
+assert.match(tahfidzSource, /requestSupabaseTahfidzApi\(["']\/api\/tahfidz\/references\/surahs["']/,
+  'Tahfidz must load Surah choices from the Supabase-backed Quran reference endpoint.');
+const quickEntryStart = tahfidzSource.indexOf('{/* Quick Entry Form */}');
+const recordsTableStart = tahfidzSource.indexOf('<div className="bg-white dark:bg-white\/[0.02]', quickEntryStart);
+assert.ok(quickEntryStart >= 0 && recordsTableStart > quickEntryStart,
+  'Tahfidz quick-entry form boundaries must remain discoverable for regression checks.');
+const quickEntrySource = tahfidzSource.slice(quickEntryStart, recordsTableStart);
+assert.match(quickEntrySource, /<select[\s\S]*?aria-label="Surah setoran cepat"[\s\S]*?surahList\.map\(\(surah\)/,
+  'Quick-entry Surah must always be selected from the loaded Quran reference list.');
+assert.match(quickEntrySource, /aria-label="Ayat mulai setoran cepat"[\s\S]*?Array\.from\(\{ length: Number\(formData\.ayatCount \|\| 0\) \}/,
+  'Quick-entry starting Ayah must be chosen from the selected Surah verse count.');
+assert.match(quickEntrySource, /aria-label="Ayat akhir setoran cepat"[\s\S]*?Array\.from\(\{ length: Number\(formData\.ayatCount \|\| 0\) \}[\s\S]*?ayah >= Number\(formData\.ayatStart\)/,
+  'Quick-entry ending Ayah must be chosen from the selected Surah verse count.');
+const surahLabelIndex = quickEntrySource.indexOf('aria-label="Surah setoran cepat"');
+const surahControlStart = quickEntrySource.lastIndexOf('<select', surahLabelIndex);
+const surahControlEnd = quickEntrySource.indexOf('</select>', surahControlStart);
+assert.ok(surahControlStart >= 0 && surahControlEnd > surahControlStart,
+  'Quick-entry Surah choices must use a select control in every runtime mode.');
+assert.match(quickEntrySource.slice(surahControlStart, surahControlEnd), /surahList\.map\(\(surah\)/,
+  'Quick-entry Surah options must come from the loaded Quran catalog.');
+assert.doesNotMatch(quickEntrySource, /placeholder="Misal: Al-Baqarah"|placeholder="Misal: 1-10"|<input[^>]+aria-label="Surah setoran cepat"/,
+  'Quick-entry Surah and Ayah fields must not accept free text.');
 const boardingSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseBoardingManager.tsx'), 'utf8');
+assert.doesNotMatch(boardingSource, /supabaseRuntimeEnabled\(/,
+  'Asrama feature availability must follow explicit browser runtime flags, not the Supabase-only data-source mode.');
+for (const [constant, flag] of [
+  ['PERMITS_ENABLED', 'VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED'],
+  ['DISCIPLINE_ENABLED', 'VITE_SUPABASE_BOARDING_DISCIPLINE_RUNTIME_ENABLED'],
+  ['ATTENDANCE_ENABLED', 'VITE_SUPABASE_BOARDING_ATTENDANCE_RUNTIME_ENABLED'],
+  ['ASSIGNMENTS_ENABLED', 'VITE_SUPABASE_BOARDING_ASSIGNMENTS_RUNTIME_ENABLED'],
+  ['FACILITY_OPS_ENABLED', 'VITE_SUPABASE_BOARDING_FACILITY_OPS_RUNTIME_ENABLED'],
+]) {
+  assert.match(boardingSource, new RegExp(`${constant}\\s*=\\s*publicRuntimeConfigValue\\(["']${flag}["']\\)\\s*===\\s*["']true["']`),
+    `Asrama ${constant} must be disabled unless ${flag} is explicitly true.`);
+}
 for (const section of ['permits', 'discipline', 'attendance', 'assignments', 'facility-ops']) {
   assert.match(boardingSource, new RegExp(`id:\\s*["']${section}["']`), `Asrama must keep the ${section} section visible in the Supabase runtime.`);
 }
@@ -213,6 +257,8 @@ assert.match(boardingSource, /<ERPTabs\s+tabs=\{tabs\}/,
   'Asrama sections must use the shared tab component.');
 assert.match(boardingSource, /<UnavailableSection\s+label=\{selected\.label\}\s*\/>/,
   'Disabled Asrama sections must show an explicit readiness state instead of disappearing.');
+assert.match(boardingSource, /Fitur ini belum tersedia saat ini\./,
+  'Unavailable Asrama sections must use customer-facing copy without operator instructions.');
 assert.doesNotMatch(boardingSource, /if\s*\(!available\.length\)\s*return\s+null/,
   'Asrama must not render a blank screen when runtime gates are closed.');
 const designSystemCss = fs.readFileSync(path.join(root, 'src', 'index.css'), 'utf8');
@@ -319,6 +365,11 @@ assert.equal(
   'Internal runtime and provider details must not reach a user-facing API error.',
 );
 assert.equal(
+  sanitizePublicErrorPayload({ error: 'SQLSTATE 23505: duplicate key value violates unique constraint' }, 500).error,
+  'Layanan ini sedang mengalami kendala. Silakan coba kembali nanti.',
+  'Server failures must not expose database error details.',
+);
+assert.equal(
   sanitizePublicErrorPayload({ error: 'Data tidak ditemukan pada tenant ini.' }).error,
   'Data tidak ditemukan pada pesantren ini.',
   'Tenant terminology in user-facing errors must use pesantren language.',
@@ -328,7 +379,7 @@ assert.equal(
   'Pencarian daftar santri Tahfidz tidak valid.',
   'Roster terminology in user-facing errors must use Indonesian.',
 );
-assert.match(serverSource, /res\.statusCode\s*>=\s*400\s*\?\s*sanitizePublicErrorPayload\(payload\)/,
+assert.match(serverSource, /res\.statusCode\s*>=\s*400\s*\?\s*sanitizePublicErrorPayload\(payload,\s*res\.statusCode\)/,
   'The API error copy sanitizer must apply to all failed JSON responses.');
 for (const retiredServerCapability of [
   'firebase-admin', 'initializeApp', 'getFirestore', 'LEGACY_FIREBASE_ADMIN_ENABLED',
@@ -496,6 +547,25 @@ assert.deepEqual(
   ['src/pages/Unsafe.tsx:setItem'],
   'The browser persistence policy must reject a localStorage record-write regression.',
 );
+const structureRegistrationSource = fs.readFileSync(path.join(root, 'src/components/StructureRegistrationForm.tsx'), 'utf8');
+assert.doesNotMatch(structureRegistrationSource, /Runtime Supabase Master Data|berhasil disimpan ke Supabase|Diterbitkan backend saat disimpan/,
+  'Customer-facing structure forms must not expose provider or implementation details.');
+const customerCopyGuards = [
+  { path: 'src/components/MasterDataTransferModal.tsx', pattern: /ke tenant aktif\?|pada tenant yang dapat diakses/i },
+  { path: 'src/components/SupabaseReferenceCatalogManager.tsx', pattern: /jenjang tenant|unik per tenant/i },
+  { path: 'src/pages/SupabaseAcademicManager.tsx', pattern: /Sesi Supabase tidak ditemukan|Data Akademik Supabase belum|tenant Supabase|Memuat data tenant|tenant ini|arsip tenant/i },
+  { path: 'src/pages/SupabaseCommunicationHub.tsx', pattern: /Sesi Supabase tidak ditemukan|Layanan Komunikasi Supabase|tenant Supabase|tenant ini|runtime Asrama|Admin tenant|dalam tenant/i },
+  { path: 'src/pages/SupabaseDocumentManager.tsx', pattern: /Sesi Supabase tidak ditemukan|per tenant|tenant aktif|Naming Series tenant/i },
+  { path: 'src/pages/SupabaseGeneralAffairManager.tsx', pattern: /Sesi Supabase tidak ditemukan|data tenant|inventaris tenant|ledger inventaris|belum punya API|runtime/i },
+  { path: 'src/pages/SupabaseLMSManager.tsx', pattern: /Sesi Supabase tidak tersedia|tenant Supabase|LMS Supabase|arsip Firebase|data LMS tenant|profil tenant|kursus tenant|snapshot tenant|katalog tenant|Admin tenant/i },
+  { path: 'src/pages/SupabasePpdbManager.tsx', pattern: /Sesi Supabase tidak ditemukan|calon santri Supabase|tenant aktif diperlukan|Backend belum|Admin tenant|calon santri tenant|tenant ini|transaksi Supabase/i },
+  { path: 'src/pages/SupabaseCrmManager.tsx', pattern: /WA_GATEWAY_API_KEY|broadcastStatus\.endpoint|OpenWA Easy|Memeriksa konfigurasi OpenWA/i },
+  { path: 'src/pages/SupabaseCBTManager.tsx', pattern: /pesantren key yang cocok|Simpan ke|\. sistem memindai/i },
+];
+for (const { path: relativePath, pattern } of customerCopyGuards) {
+  const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
+  assert.doesNotMatch(source, pattern, `${relativePath} must keep technical operator copy out of customer screens.`);
+}
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
 console.log('Browser persistence policy passed (no active localStorage writes; sessionStorage limited to Supabase Auth and temporary idempotency keys).');
 

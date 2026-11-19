@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +41,24 @@ const MIGRATION_VERSION_ALIASES = Object.freeze([
     from: '20261106151606',
     to: '20270304000000',
     name: 'student_room_assignment_reference_locks',
+  }),
+  Object.freeze({
+    from: '20261109145507',
+    to: '20270320000000',
+    name: 'tahfidz_quran_surah_catalog',
+    // VQE applied the pre-idempotency form. Pin its exact canonical SQL so
+    // the alias remains verifiable after moving the source to a unique version.
+    legacyStatementsSha256: 'ee768ede73a8bd7f60f42b901e07af32fc4589e56e51f7fbba9d23f1777027d1',
+  }),
+  Object.freeze({
+    from: '20261109145522',
+    to: '20270327000000',
+    name: 'tahfidz_persisted_leaderboard',
+  }),
+  Object.freeze({
+    from: '20261109145534',
+    to: '20270328000000',
+    name: 'tahfidz_bulk_daily_target_write_api',
   }),
 ]);
 
@@ -300,6 +319,10 @@ function canonicalizeAppliedStatements(statements) {
   });
 }
 
+function statementFingerprint(statements) {
+  return createHash('sha256').update(JSON.stringify(statements)).digest('hex');
+}
+
 export function listLocalMigrations(fileNames, readMigrationSql = null) {
   const sqlFiles = fileNames.filter((fileName) => fileName.toLowerCase().endsWith('.sql'));
   const migrations = sqlFiles.map((fileName) => {
@@ -388,6 +411,12 @@ export function compareMigrationVersions(migrations, appliedMigrations) {
     }
     if (!Array.isArray(actual) || actual.some((statement) => typeof statement !== 'string' || statement.length === 0)) {
       return [{ version: row.version, reason: 'missing', expectedCount: local.statements.length }];
+    }
+    if (row.alias?.legacyStatementsSha256
+      && row.ledgerVersion === row.alias.from
+      && row.name === row.alias.name
+      && statementFingerprint(actual) === row.alias.legacyStatementsSha256) {
+      return [];
     }
     const firstMismatch = local.statements.findIndex((statement, index) => statement !== actual[index]);
     if (firstMismatch < 0 && local.statements.length === actual.length) return [];
@@ -612,16 +641,17 @@ export function formatReport(report) {
     }
   }
 
-  if (!report.canContinueToStagingReview) {
-    lines.push('Rekonsiliasi versi, nama, dan isi SQL migration sebelum membuat rencana staging.');
-  } else if (report.pending.length === 0) {
-    lines.push('Ledger dan repository selaras; tetap lakukan staging/backup review sebelum rilis.');
-  } else {
+  if (report.pending.length > 0) {
     lines.push(`Migration yang belum tercatat (${report.pending.length}):`);
     for (const migration of report.pending) {
       lines.push(`  ${migration.version}  ${migration.fileName}`);
     }
     lines.push('Daftar ini hanya laporan; belum ada perubahan database.');
+  }
+  if (!report.canContinueToStagingReview) {
+    lines.push('Rekonsiliasi versi, nama, dan isi SQL migration sebelum membuat rencana staging.');
+  } else if (report.pending.length === 0) {
+    lines.push('Ledger dan repository selaras; tetap lakukan staging/backup review sebelum rilis.');
   }
   return lines.join('\n');
 }

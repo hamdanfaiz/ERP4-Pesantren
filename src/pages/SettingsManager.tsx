@@ -8,7 +8,6 @@ import {
   Building, 
   Smartphone, 
   Save, 
-  CheckCircle2, 
   XCircle, 
   Image as ImageIcon, 
   Upload, 
@@ -16,7 +15,6 @@ import {
   Lock, 
   Unlock, 
   Check, 
-  AlertTriangle,
   RefreshCw,
   Send,
   Layers,
@@ -32,15 +30,17 @@ import {
   IntegrationsConfig, 
   MobileConfig,
   SYSTEM_ROLES,
-  ALL_MODULE_LIST 
+  ALL_MODULE_LIST,
+  SYSTEM_SETTINGS_RUNTIME_ENABLED,
 } from '../services/systemSettingsService';
 import { UserRole } from '../rbac';
 import { ModuleId } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
-import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from '../runtimeBackend';
+import { legacyArchiveImportEnabled } from '../runtimeBackend';
+import { ERPFeatureStatus, ERPNotice } from '../components/ERPDesignSystem';
 
-const SUPABASE_SYSTEM_SETTINGS = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS"));
+const SUPABASE_SYSTEM_SETTINGS = SYSTEM_SETTINGS_RUNTIME_ENABLED;
 const SUPABASE_SYSTEM_SETTINGS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED") === 'true';
 
 export function SettingsManager() {
@@ -132,7 +132,7 @@ export function SettingsManager() {
         try {
           await refreshProfile();
         } catch {
-          showToast('Pengaturan tersimpan. Muat ulang sesi agar zona waktu Tahfidz diperbarui.', 'info');
+          showToast('Pengaturan tersimpan. Muat ulang halaman agar perubahan diterapkan.', 'info');
           return;
         }
       }
@@ -246,24 +246,23 @@ export function SettingsManager() {
     }
   };
 
+  if (!SUPABASE_SYSTEM_SETTINGS) {
+    return (
+      <ERPFeatureStatus
+        title="Pengaturan pesantren belum tersedia"
+        status="Belum tersedia"
+        description="Fitur pengaturan ini belum dapat digunakan saat ini."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-6xl w-full mx-auto pb-12 animate-in fade-in slide-in-from-bottom-4">
       {/* Toast Notification */}
-      {toast && (
-        <div 
-          className={cn(
-            "fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all duration-300 animate-in slide-in-from-top-3",
-            toast.type === 'success' && "bg-emerald-950/90 border-emerald-500/40 text-emerald-200",
-            toast.type === 'error' && "bg-rose-950/90 border-rose-500/40 text-rose-200",
-            toast.type === 'info' && "bg-indigo-950/90 border-indigo-500/40 text-indigo-200"
-          )}
-        >
-          {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
-          {toast.type === 'error' && <XCircle className="w-5 h-5 text-rose-400 shrink-0" />}
-          {toast.type === 'info' && <AlertTriangle className="w-5 h-5 text-indigo-400 shrink-0" />}
-          <span>{toast.message}</span>
-        </div>
-      )}
+      {toast && <ERPNotice
+        tone={toast.type === 'info' ? 'info' : toast.type}
+        className="fixed right-5 top-5 z-50 max-w-lg shadow-lg animate-in slide-in-from-top-3"
+      >{toast.message}</ERPNotice>}
 
       {SUPABASE_SYSTEM_SETTINGS && !settingsReady && (
         <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/65 p-4 backdrop-blur-sm">
@@ -295,7 +294,7 @@ export function SettingsManager() {
             </span>
           </div>
           <p className="text-slate-500 text-sm mt-2">
-            Kelola identitas institusi, kalender akademik, hak akses dinamis (RBAC), integrasi layanan, dan konfigurasi portal
+            Kelola identitas pesantren, kalender akademik, peran dan hak akses, integrasi layanan, serta pengaturan portal.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -725,7 +724,7 @@ export function SettingsManager() {
                     <Database className="w-5 h-5 text-indigo-400" /> Integrasi Komunikasi Otomatis
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Atur layanan WhatsApp dan email. Pembayaran online belum tersedia pada rilis awal.
+                    Atur layanan WhatsApp. Pengiriman pemberitahuan melalui email belum tersedia.
                   </p>
                 </div>
 
@@ -736,9 +735,9 @@ export function SettingsManager() {
                       <Send className="w-5 h-5 text-emerald-400" />
                       <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Integrasi WhatsApp (Notifikasi Wali & Pengajar)</h3>
                     </div>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">Kredensial terlindungi</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Pengaturan tersedia</span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Kredensial integrasi dilindungi dan tidak ditampilkan pada layar ini.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Alamat ini digunakan untuk layanan pesan WhatsApp. Pastikan penerima menyetujui komunikasi.</p>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alamat layanan WhatsApp</label>
                     <input
@@ -748,45 +747,8 @@ export function SettingsManager() {
                       className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
                     />
                   </div>
-                  <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-3 text-xs text-slate-500 dark:text-slate-400">
-                    Alamat layanan ini digunakan untuk notifikasi WhatsApp. Kontak penerima harus menyetujui komunikasi.
-                  </div>
                 </div>
 
-                {/* SMTP Email Server */}
-                <div className="p-5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/[0.02] space-y-4">
-                  <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Pengaturan Email Keluar</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">SMTP Host</label>
-                      <input 
-                        type="text" 
-                        value={integrations.smtpHost}
-                        onChange={e => setIntegrations({...integrations, smtpHost: e.target.value})}
-                        className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">SMTP Port</label>
-                      <input 
-                        type="text" 
-                        value={integrations.smtpPort}
-                        onChange={e => setIntegrations({...integrations, smtpPort: e.target.value})}
-                        className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Sender Email</label>
-                      <input 
-                        type="text" 
-                        value={integrations.smtpUser || ''}
-                        onChange={e => setIntegrations({...integrations, smtpUser: e.target.value})}
-                        placeholder="noreply@pesantren.sch.id"
-                        className="w-full glass-card rounded-lg px-4 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
 

@@ -14,6 +14,25 @@ export type CbtDashboardSummary<TExam, TAssignment> = {
   latestResults: TAssignment[];
 };
 
+export type CbtExamAssignmentCounts = { assignedCount: number; completedCount: number };
+
+/** Count assignments in one linear pass instead of repeatedly scanning the full list per exam. */
+export function summarizeCbtAssignmentsByExam<T>(
+  assignments: readonly T[],
+  getExamId: (assignment: T) => string,
+  getStatus: (assignment: T) => string,
+): Map<string, CbtExamAssignmentCounts> {
+  const counts = new Map<string, CbtExamAssignmentCounts>();
+  for (const assignment of assignments) {
+    const examId = getExamId(assignment);
+    const current = counts.get(examId) || { assignedCount: 0, completedCount: 0 };
+    current.assignedCount += 1;
+    if (getStatus(assignment) === "completed") current.completedCount += 1;
+    counts.set(examId, current);
+  }
+  return counts;
+}
+
 const PUBLISHED_SESSION_STATUSES = new Set(["active", "published"]);
 const COMPLETED_ASSIGNMENT_STATUSES = new Set(["completed", "submitted", "graded"]);
 
@@ -39,13 +58,13 @@ export function deriveCbtDashboardSummary<
     const end = isValidInstant(exam.endsAt);
     return start !== null && end !== null && start <= validNow && validNow < end;
   }).length;
-  const upcomingExams = publishedExams
+  const allUpcomingExams = publishedExams
     .filter((exam) => {
       const start = isValidInstant(exam.startsAt);
       return start !== null && start > validNow;
     })
-    .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt))
-    .slice(0, 5);
+    .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt));
+  const upcomingExams = allUpcomingExams.slice(0, 5);
   const completedAssignments = assignments.filter((assignment) => COMPLETED_ASSIGNMENT_STATUSES.has(String(assignment.status || "").toLowerCase())).length;
   const scored = assignments.filter((assignment) => assignment.score !== null && Number.isFinite(Number(assignment.score)));
   const passed = assignments.filter((assignment) => assignment.passed !== null);
@@ -60,7 +79,7 @@ export function deriveCbtDashboardSummary<
 
   return {
     ongoingSessions,
-    upcomingSessions: upcomingExams.length,
+    upcomingSessions: allUpcomingExams.length,
     totalAssignments: assignments.length,
     completedAssignments,
     completionRate: percent(completedAssignments, assignments.length),

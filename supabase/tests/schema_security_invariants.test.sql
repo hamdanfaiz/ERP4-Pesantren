@@ -1,4 +1,6 @@
 -- Preventive schema invariants for every application table in public.
+-- quran_surahs is the only approved tenantless table: a global, server-only
+-- reference catalog with RLS/FORCE RLS and no browser-role privileges.
 -- These checks run after every migration in the isolated Supabase CI database.
 -- Extension-owned relations are excluded; all test data is synthetic.
 BEGIN;
@@ -6,7 +8,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(9);
+SELECT plan(10);
 
 WITH app_tables AS (
   SELECT c.oid, c.relname, c.relrowsecurity, c.relforcerowsecurity
@@ -81,6 +83,39 @@ SELECT is(
   ),
   0,
   'every non-root application table has a non-null tenant_id'
+);
+
+WITH app_tables AS (
+  SELECT c.oid, c.relname
+  FROM pg_class AS c
+  JOIN pg_namespace AS n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relkind IN ('r', 'p')
+    AND c.relname <> 'tenants'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_depend AS d
+      WHERE d.classid = 'pg_class'::regclass
+        AND d.objid = c.oid
+        AND d.deptype = 'e'
+    )
+)
+SELECT is(
+  (
+    SELECT array_agg(t.relname ORDER BY t.relname)
+    FROM app_tables AS t
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM pg_attribute AS a
+      WHERE a.attrelid = t.oid
+        AND a.attname = 'tenant_id'
+        AND a.attnum > 0
+        AND NOT a.attisdropped
+        AND a.attnotnull
+    )
+  ),
+  ARRAY['quran_surahs']::name[],
+  'the only approved tenantless table is the global Quran reference catalog'
 );
 
 WITH app_tables AS (
@@ -299,5 +334,3 @@ SELECT is(
 
 SELECT * FROM finish();
 ROLLBACK;
-
-

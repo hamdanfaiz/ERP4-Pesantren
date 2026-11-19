@@ -17,7 +17,7 @@ export class SupabaseLibraryError extends Error {
 function serviceConfig() {
   const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   const key = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!baseUrl || !key) throw new SupabaseLibraryError(503, "Konfigurasi backend Supabase belum lengkap.");
+  if (!baseUrl || !key) throw new SupabaseLibraryError(503, "Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   return { baseUrl, key };
 }
 
@@ -41,7 +41,7 @@ async function request(path: string, init: RequestInit = {}) {
     if (["22023", "22007", "22008", "22P02"].includes(code) || response.status === 400) throw new SupabaseLibraryError(400, payload?.message || "Data perpustakaan tidak valid.");
     if (code === "P0002" || response.status === 404) throw new SupabaseLibraryError(404, payload?.message || "Data tidak ditemukan pada tenant.");
     if (code === "42501" || response.status === 403) throw new SupabaseLibraryError(403, "Operasi perpustakaan ditolak oleh kebijakan tenant.");
-    throw new SupabaseLibraryError(503, "Layanan perpustakaan Supabase belum dapat diproses.");
+    throw new SupabaseLibraryError(503, "Layanan perpustakaan belum dapat diproses.");
   }
   return payload;
 }

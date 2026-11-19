@@ -741,7 +741,7 @@ export function DashboardOverview() {
           </div>
           <div className="pt-3 mt-4 border-t border-slate-200/30 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-500">
             <span>Sistem Billing Pesantren</span>
-            <span>Ledger Terverifikasi</span>
+            <span>Transaksi Terverifikasi</span>
           </div>
         </div>
 

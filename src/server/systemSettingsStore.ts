@@ -15,7 +15,7 @@ let serviceClient: SupabaseClient | null = null;
 function getServiceClient(): SupabaseClient {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !key) throw new SystemSettingsStoreError(503, 'Konfigurasi backend Supabase belum lengkap.');
+  if (!url || !key) throw new SystemSettingsStoreError(503, 'Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.');
   if (!serviceClient) {
     serviceClient = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
   }

@@ -151,7 +151,7 @@ export function SupabaseMarketplaceManager() {
       const adjustment = { productId: product.id, delta, reason: draft.reason.trim() };
       await runIdempotentMarketplaceMutation("adjust-stock", user?.tenantId || "", user?.uid || "", adjustment, (clientRequestId) =>
         requestMarketplace("/api/marketplace/stock-adjustments", { method: "POST", body: JSON.stringify({ ...adjustment, clientRequestId }) }));
-      setStockDraft((old) => ({ ...old, [product.id]: { delta: "", reason: "" } })); setNotice("Mutasi inventaris tersimpan di ledger."); await refresh();
+      setStockDraft((old) => ({ ...old, [product.id]: { delta: "", reason: "" } })); setNotice("Perubahan inventaris tersimpan."); await refresh();
     } catch (cause: any) { setError(cause?.message || "Mutasi inventaris belum dapat dicatat."); }
     finally { setBusy(false); }
   };

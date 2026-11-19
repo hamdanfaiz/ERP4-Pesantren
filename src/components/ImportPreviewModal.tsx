@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useState, useRef, useMemo } from 'react';
 import {
   X,
@@ -99,7 +100,7 @@ export function ImportPreviewModal({
         const text = (event.target?.result as string) || '';
         processRawText(text, selectedFile.name);
       } catch (err: any) {
-        setErrorMessage(`Gagal membaca file: ${err.message || 'Format tidak didukung'}`);
+        setErrorMessage(`Gagal membaca file: ${toERPUserMessage(err, 'Format tidak didukung')}`);
       }
     };
     reader.onerror = () => {
@@ -360,7 +361,7 @@ export function ImportPreviewModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                Wizard Impor Data {activeSubTab} (Rekomendasi 4)
+                 Impor Data {activeSubTab}
               </h3>
               <p className="text-xs text-slate-400">
                 Periksa format, duplikasi identitas, dan baris bermasalah sebelum menyimpan data.

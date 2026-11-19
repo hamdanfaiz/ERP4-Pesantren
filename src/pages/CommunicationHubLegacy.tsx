@@ -414,7 +414,7 @@ export function CommunicationHub() {
                       style={{ width: `${item.totalTarget > 0 ? Math.min(100, (item.readCount / item.totalTarget) * 100) : 0}%` }}
                     />
                   </div>
-                  <span title={item.legacyReadCount > 0 ? `Termasuk ${item.legacyReadCount} hitungan baca agregat dari migrasi lama` : undefined} className="text-xs text-slate-500 dark:text-slate-400 font-mono">{item.readCount}/{item.totalTarget}</span>
+                  <span title={item.legacyReadCount > 0 ? `Termasuk ${item.legacyReadCount} catatan baca dari data terdahulu` : undefined} className="text-xs text-slate-500 dark:text-slate-400 font-mono">{item.readCount}/{item.totalTarget}</span>
                 </div>
               </td>
               <td className="p-4">
@@ -1042,7 +1042,7 @@ export function CommunicationHub() {
 
       <div className="bg-white/[0.02] rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 overflow-hidden">
         {/* Navigation Tabs */}
-        <div className="border-b border-slate-200 dark:border-white/5 bg-black/40 overflow-x-auto">
+        <div className="erp-tab-scroll border-b border-slate-200 dark:border-white/5 bg-black/40">
           <div className="flex p-2 gap-2 min-w-max">
             {[
               { id: 'announcements', label: 'Announcements', icon: <Megaphone className="w-4 h-4" />, visible: true },

@@ -1,8 +1,30 @@
 # Revalidasi Paritas PR #1–#11
 
-Tanggal pemeriksaan: 8 November 2026  
+## Pembaruan riwayat GitHub — 9 November 2026
+
+Baseline `main` terbaru yang dibaca langsung dari GitHub: `fd937f4876aa1069500694b9bc20ec70eef8ee14` (PR #90). Pemeriksaan metadata ulang mengonfirmasi PR #1–#11 semuanya `closed`, `merged=false`, dan `merged_at=null`.
+
+Perbandingan commit antara head tiap PR lama dan `main` memberi status `diverged` untuk semua PR, dengan commit sisi PR yang tidak menjadi ancestor `main` sebanyak:
+
+| PR | Commit branch lama di luar ancestry `main` |
+|---|---:|
+| #1 | 9 |
+| #2 | 8 |
+| #3 | 19 |
+| #4 | 15 |
+| #5 | 23 |
+| #6 | 1 |
+| #7 | 37 |
+| #8 | 50 |
+| #9 | 61 |
+| #10 | 84 |
+| #11 | 235 |
+
+Hasil ini mengonfirmasi branch lama **tidak pernah di-merge secara commit** dan bukan branch yang aman untuk digabung satu per satu. Angka tersebut hanya menjelaskan riwayat Git, bukan jumlah fitur yang hilang. Audit paritas di bawah tetap menjadi dasar penilaian apakah cakupan produk memiliki padanan pada source penerus; perbandingan commit saja tidak membuktikan kesetaraan perilaku. PR lama tetap ditutup sebagai superseded, bukan merged. Tidak ada perubahan repo atau Production dalam pemeriksaan ini.
+
+Tanggal pemeriksaan awal: 8 November 2026; pembaruan riwayat GitHub: 9 November 2026
 Repository: `hamdanfaiz/ERP4-Pesantren`  
-Baseline source terkini: `main` commit `c5f777c08c7640b6b7e4b268470e4e2a741f999b` setelah PR #81 merged (8 November 2026). Pemetaan fitur awal berasal dari pemeriksaan pada commit yang lebih lama; status PR dan batas pengujian di bawah direvalidasi terhadap metadata GitHub serta source terkini.
+Baseline source pada pemeriksaan awal: `main` commit `c5f777c08c7640b6b7e4b268470e4e2a741f999b` setelah PR #81 merged (8 November 2026). Pembaruan 9 November membandingkan riwayat PR dengan `main` commit `fd937f4876aa1069500694b9bc20ec70eef8ee14` setelah PR #90 merged. Pemetaan fitur awal berasal dari pemeriksaan pada commit yang lebih lama; gunakan pembaruan 9 November untuk status riwayat Git terbaru.
 
 ## Kesimpulan
 

@@ -43,7 +43,7 @@ import { cn, generateUniqueId } from "../lib/utils";
 import { CVReport } from "../components/CVReport";
 import { ExportModal } from "../components/ExportModal";
 import { MasterDataTransferModal } from "../components/MasterDataTransferModal";
-import { ERPTabs } from "../components/ERPDesignSystem";
+import { ERPTabs, ERPNotice } from "../components/ERPDesignSystem";
 import { SupabaseMasterDataAuditPanel } from "../components/SupabaseMasterDataAuditPanel";
 import { SupabaseNamingSeriesManager } from "../components/SupabaseNamingSeriesManager";
 import { downloadTransferCsv } from "../utils/dataTransferCsv";
@@ -317,7 +317,7 @@ export function MasterDataManager() {
     const preview = legacyMigrationPreviews[kind];
     if (apply) {
       if (!preview || preview.dryRun !== true || (preview.errors || []).length > 0) {
-        showToast("Jalankan pratinjau yang valid dan selesaikan konflik sebelum menerapkan impor.", "error");
+        showToast("Periksa kembali data dan selesaikan masalah yang tercantum sebelum mengimpor.", "error");
         return;
       }
       const label = kind === "structures" ? "struktur Gedung, Kamar, dan Kelas" : "data Santri dan relasi Wali";
@@ -347,7 +347,7 @@ export function MasterDataManager() {
         result.errors?.length ? "error" : "success");
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Impor arsip Master Data belum dapat diproses.", "error");
+      showToast(error instanceof Error ? error.message : "Impor arsip Data Induk belum dapat diproses.", "error");
     } finally {
       setLegacyMigrationBusy(null);
     }
@@ -370,8 +370,8 @@ export function MasterDataManager() {
       const records = await listSupabaseStudentRoomAssignmentHistory(id);
       setRoomHistory(records);
       setRoomHistoryStudentId(id);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Riwayat penempatan kamar belum dapat dimuat.";
+    } catch {
+      const message = "Riwayat penempatan kamar belum dapat dimuat. Coba lagi.";
       setRoomHistoryError(message);
       setRoomHistoryStudentId(id);
     } finally {
@@ -511,7 +511,7 @@ export function MasterDataManager() {
         setDataSources((prev) => ({ ...prev, [activeSubTab]: [] }));
         if (activeTab === "entities" && activeSubTab === "Santri") {
           setServerStudentHasMore(false);
-          showToast(error instanceof Error ? error.message : "Daftar santri belum dapat dimuat.", "error");
+          showToast("Daftar santri belum dapat dimuat. Periksa koneksi lalu coba kembali.", "error");
         }
       }
     };
@@ -640,8 +640,8 @@ export function MasterDataManager() {
     if (SUPABASE_MASTER_DATA_RUNTIME && activeTab === "entities" && activeSubTab === "Santri") {
       try {
         record = await getSupabaseMasterDataStudentDetails(String(record.id || ""));
-      } catch (error) {
-        showToast(error instanceof Error ? error.message : "Rincian santri belum dapat dibuka.", "error");
+      } catch {
+        showToast("Rincian santri belum dapat dibuka. Coba lagi.", "error");
         return;
       }
     }
@@ -1474,23 +1474,17 @@ export function MasterDataManager() {
   return (
     <div className="space-y-6 max-w-7xl w-full mx-auto pb-12 relative">
       {notification && (
-        <div className={`p-4 rounded-lg flex items-center justify-between border ${
-          notification.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
-        }`}>
-          <div className="flex items-center gap-2">
-            {notification.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-            <p className="font-medium">{notification.message}</p>
-          </div>
-          <button onClick={() => setNotification(null)} className="opacity-70 hover:opacity-100">
-             <X className="w-5 h-5" />
-          </button>
-        </div>
+        <ERPNotice
+          tone={notification.type}
+          className="mb-4"
+          action={<button type="button" aria-label="Tutup notifikasi" onClick={() => setNotification(null)} className="rounded p-1 opacity-70 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"> <X className="h-4 w-4" /></button>}
+        >{notification.message}</ERPNotice>
       )}
       {SUPABASE_MASTER_DATA_RUNTIME && SUPABASE_MASTER_DATA_IMPORT && user && ["Admin", "SuperAdmin"].includes(user.role) && (
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Migrasi arsip Master Data</h2>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Impor arsip Data Induk</h2>
               <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500 dark:text-slate-400">
                 Pratinjau meninjau data terdahulu tanpa mengubah data saat ini. Selesaikan konflik dan relasi sebelum menerapkan impor. Impor struktur perlu diselesaikan sebelum impor santri.
               </p>
@@ -1535,7 +1529,7 @@ export function MasterDataManager() {
                         {typeof preview.imported === "number" ? " · Diimpor " + preview.imported : ""}
                       </p>
                       {typeof preview.legacyStructureCount === "number" && (
-                        <p>Struktur {preview.legacyStructureCount} · Santri sumber {preview.legacyStudentCount || 0} · Penempatan kamar belum cocok unik {preview.studentsWithoutUnambiguousRoom || 0}</p>
+                        <p>Struktur {preview.legacyStructureCount} · Santri {preview.legacyStudentCount || 0} · Penempatan kamar perlu ditinjau {preview.studentsWithoutUnambiguousRoom || 0}</p>
                       )}
                       {typeof preview.legacyGuardianCount === "number" && <p>Data Wali sumber {preview.legacyGuardianCount}</p>}
                       {(preview.errors || []).slice(0, 4).map((item: any, index: number) => (
@@ -2483,7 +2477,7 @@ export function MasterDataManager() {
                                         </p>
                                         {entry.eventType === "baseline_snapshot" && (
                                           <p className="mt-2 text-amber-700 dark:text-amber-300">
-                                            Kondisi ini dicatat saat migrasi; riwayat sebelum tanggal tersebut tidak tersedia.
+                                            Kondisi ini dicatat pada awal penggunaan; riwayat sebelum tanggal tersebut tidak tersedia.
                                           </p>
                                         )}
                                       </div>
@@ -3506,25 +3500,11 @@ export function MasterDataManager() {
       )}
       {/* Toast Notification */}
       {notification && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border transition-all animate-in slide-in-from-bottom-5 duration-300 backdrop-blur-md ${
-          notification.type === 'error'
-            ? 'bg-rose-950/90 border-rose-500/40 text-rose-200'
-            : 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200'
-        }`}>
-          {notification.type === 'error' ? (
-            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
-          ) : (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          )}
-          <p className="text-sm font-medium">{notification.message}</p>
-          <button 
-            type="button"
-            onClick={() => setNotification(null)}
-            className="ml-2 p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <ERPNotice
+          tone={notification.type}
+          className="fixed bottom-6 right-6 z-50 max-w-lg shadow-2xl animate-in slide-in-from-bottom-5"
+          action={<button type="button" aria-label="Tutup notifikasi" onClick={() => setNotification(null)} className="rounded p-1 opacity-70 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"><X className="h-4 w-4" /></button>}
+        >{notification.message}</ERPNotice>
       )}
 
       {/* Delete Confirmation Modal */}

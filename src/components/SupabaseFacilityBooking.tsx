@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import React, { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Calendar, CheckCircle2, Clock, Loader2, MapPin, Plus, RefreshCw, Trash2, X } from "lucide-react";
@@ -5,6 +6,7 @@ import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import { SupabaseModuleReferenceSettings } from "./SupabaseReferenceCatalogManager";
+import { ERPNotice } from "./ERPDesignSystem";
 
 type Booking = { id: string; facilityReferenceId: string | null; room: string; date: string; startTime: string; endTime: string; purpose: string; booker: string; status: "Confirmed" | "Cancelled"; source_system: string };
 type FacilityResource = { id: string; code: string; name: string; description: string };
@@ -21,7 +23,13 @@ async function bookingRequest(path: string, init: RequestInit = {}) {
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch(path, { ...init, headers, cache: "no-store" });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || "Pemesanan fasilitas belum dapat diproses.");
+  if (!response.ok) {
+    if (response.status === 401) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+    if (response.status === 403) throw new Error("Anda tidak memiliki akses untuk melakukan tindakan ini.");
+    if (response.status === 404) throw new Error("Pemesanan atau fasilitas tidak ditemukan.");
+    if (response.status === 409) throw new Error("Jadwal berubah atau berbenturan. Periksa jadwal lalu coba lagi.");
+    throw new Error("Pemesanan fasilitas belum dapat diproses. Coba lagi.");
+  }
   return body;
 }
 function localDate() { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
@@ -51,7 +59,7 @@ export function SupabaseFacilityBooking() {
   useEffect(() => {
     let active = true; setLoading(true); setError("");
     bookingRequest("/api/facility-bookings").then((result) => { if (active) { setBookings(Array.isArray(result.bookings) ? result.bookings : []); setResources(Array.isArray(result.resources) ? result.resources : []); } })
-      .catch((cause: any) => { if (active) setError(cause?.message || "Jadwal fasilitas belum dapat dimuat."); })
+      .catch((cause: any) => { if (active) setError(toERPUserMessage(cause, "Jadwal fasilitas belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [refresh, user?.tenantId, user?.uid]);
@@ -66,7 +74,7 @@ export function SupabaseFacilityBooking() {
     try {
       await bookingRequest("/api/facility-bookings", { method: "POST", body: JSON.stringify({ ...form, action: editing ? "update" : "create", id: editing?.id, clientRequestId: crypto.randomUUID() }) });
       setModalOpen(false); setNotice(editing ? "Pemesanan berhasil diperbarui." : "Pemesanan berhasil disimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Jadwal belum dapat disimpan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Jadwal belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
   const cancel = async () => {
@@ -75,14 +83,14 @@ export function SupabaseFacilityBooking() {
     try {
       await bookingRequest("/api/facility-bookings", { method: "POST", body: JSON.stringify({ action: "cancel", id: cancelTarget.id, reason: "Dibatalkan oleh Admin", clientRequestId: crypto.randomUUID() }) });
       setCancelTarget(null); setNotice("Pemesanan dibatalkan. Riwayat tetap tersimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Pemesanan belum dapat dibatalkan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Pemesanan belum dapat dibatalkan.")); }
     finally { setSaving(false); }
   };
   const previewImport = async () => {
     if (!SUPABASE_FACILITY_BOOKINGS_IMPORT) return;
     setImportBusy(true); setError(""); setNotice(""); setPreview(null);
     try { setPreview(await bookingRequest("/api/facility-bookings/legacy/import", { method: "POST", body: JSON.stringify({ action: "preview" }) })); }
-    catch (cause: any) { setError(cause?.message || "Arsip jadwal lama belum dapat dibaca."); }
+    catch (cause: any) { setError(toERPUserMessage(cause, "Arsip jadwal lama belum dapat dibaca.")); }
     finally { setImportBusy(false); }
   };
   const applyImport = async () => {
@@ -92,7 +100,7 @@ export function SupabaseFacilityBooking() {
     try {
       const result = await bookingRequest("/api/facility-bookings/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: preview.snapshotFingerprint }) });
       setNotice(`Impor selesai: ${result.imported} baru, ${result.unchanged} tidak berubah.`); setPreview(null); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Impor belum dapat diterapkan. Buat pratinjau terbaru."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor belum dapat diterapkan. Buat pratinjau terbaru.")); }
     finally { setImportBusy(false); }
   };
 

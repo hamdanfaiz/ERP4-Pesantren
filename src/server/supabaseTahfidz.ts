@@ -1,5 +1,5 @@
 import { listGuardianStudentIds } from "./identityStore";
-import { isValidSupabaseQuranAyahRange, listSupabaseQuranSurahs } from "./supabaseQuranCatalog";
+import { findSupabaseQuranSurah, isValidSupabaseQuranAyahRange, listSupabaseQuranSurahs } from "./supabaseQuranCatalog";
 import { createHash } from "node:crypto";
 import { isValidTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
 import { buildTahfidzRecordPageParams, encodeTahfidzRecordCursor, TAHFIDZ_RECORD_PAGE_SIZE } from "../lib/tahfidzRecordPagination";
@@ -21,7 +21,7 @@ function serviceConfig() {
   const baseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   const serviceKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!baseUrl || !serviceKey) {
-    throw new SupabaseTahfidzError(503, "Konfigurasi backend Supabase belum lengkap.");
+    throw new SupabaseTahfidzError(503, "Layanan Tahfidz belum dapat diproses saat ini.");
   }
   return { baseUrl, serviceKey };
 }
@@ -163,7 +163,8 @@ async function fetchTahfidzRecordPage(
   tenantId: string,
   role: string,
   scope: TahfidzSnapshotScope,
-  cursorValue?: unknown
+  cursorValue?: unknown,
+  options: { pageSize?: number; from?: unknown; to?: unknown } = {},
 ) {
   let params: URLSearchParams | null;
   try {
@@ -173,6 +174,9 @@ async function fetchTahfidzRecordPage(
       halaqahIds: scope.halaqahs.map((halaqah) => String(halaqah.id)),
       studentIds: scope.roster.map((student) => String(student.id)),
       cursor: cursorValue,
+      pageSize: options.pageSize,
+      from: options.from,
+      to: options.to,
     });
   } catch {
     throw new SupabaseTahfidzError(400, "Kursor atau cakupan riwayat Tahfidz tidak valid.");
@@ -181,8 +185,9 @@ async function fetchTahfidzRecordPage(
 
   const rows = await supabaseRequest("/rest/v1/tahfidz_records?" + params.toString());
   if (!Array.isArray(rows)) throw new SupabaseTahfidzError(503, "Riwayat Tahfidz belum dapat dimuat.");
-  const hasMore = rows.length > TAHFIDZ_RECORD_PAGE_SIZE;
-  const pageRows = rows.slice(0, TAHFIDZ_RECORD_PAGE_SIZE);
+  const pageSize = options.pageSize ?? TAHFIDZ_RECORD_PAGE_SIZE;
+  const hasMore = rows.length > pageSize;
+  const pageRows = rows.slice(0, pageSize);
   const lastRow = pageRows[pageRows.length - 1];
   let nextCursor: string | null = null;
   if (hasMore && lastRow) {
@@ -614,7 +619,8 @@ export async function listSupabaseTahfidzRecordPage(
   tenantIdentifier: string,
   actorSupabaseUid: string,
   role: string,
-  cursorValue?: unknown
+  cursorValue?: unknown,
+  options: { pageSize?: number; from?: unknown; to?: unknown } = {},
 ) {
   if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca riwayat Tahfidz.");
@@ -623,7 +629,7 @@ export async function listSupabaseTahfidzRecordPage(
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
   const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
   const scope = await resolveTahfidzRecordPageScope(tenantId, actorId, role);
-  return fetchTahfidzRecordPage(tenantId, role, scope, cursorValue);
+  return fetchTahfidzRecordPage(tenantId, role, scope, cursorValue, options);
 }
 
 export async function listSupabaseTahfidzSessions(
@@ -872,6 +878,7 @@ export async function recordSupabaseTahfidzSetoran(
   if (!["Ziyadah", "Muroja'ah", "Tasmi'", "Tasmik"].includes(activityType)) {
     throw new SupabaseTahfidzError(400, "Jenis setoran tidak valid.");
   }
+  const supabaseUserId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
   const surahName = boundedText(payload.surahName, 100, "Nama surah", true);
   const { start, end } = parseAyahRange(payload.ayahRange);
   let quranCatalog;
@@ -883,6 +890,8 @@ export async function recordSupabaseTahfidzSetoran(
   if (!isValidSupabaseQuranAyahRange(quranCatalog, surahName, start, end)) {
     throw new SupabaseTahfidzError(400, "Surah dan rentang ayat tidak sesuai dengan pilihan yang tersedia.");
   }
+  const canonicalSurah = findSupabaseQuranSurah(quranCatalog, surahName);
+  if (!canonicalSurah) throw new SupabaseTahfidzError(400, "Surah tidak ditemukan pada katalog referensi.");
   const fluencyGrade = validGrade(payload.fluencyGrade, "Nilai kelancaran");
   const tajweedGrade = validGrade(payload.tajweedGrade, "Nilai tajwid");
   const notes = boundedText(payload.notes, 2000, "Catatan");
@@ -894,8 +903,6 @@ export async function recordSupabaseTahfidzSetoran(
     : "";
   if (!performedAt) throw new SupabaseTahfidzError(400, "Waktu setoran tidak valid.");
 
-  const supabaseUserId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
-
   const result = await supabaseRequest("/rest/v1/rpc/record_tahfidz_setoran", {
     method: "POST",
     body: JSON.stringify({
@@ -903,7 +910,7 @@ export async function recordSupabaseTahfidzSetoran(
       p_student_id: studentId,
       p_halaqah_id: halaqahId,
       p_activity_type: activityType,
-      p_surah_name: surahName,
+      p_surah_name: canonicalSurah.namaLatin,
       p_ayah_start: start,
       p_ayah_end: end,
       p_fluency_grade: fluencyGrade,

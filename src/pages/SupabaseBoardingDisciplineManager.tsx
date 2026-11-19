@@ -2,7 +2,9 @@ import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ClipboardCheck, LoaderCircle, Plus, RotateCcw, ShieldAlert } from "lucide-react";
+import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
+import { toERPUserMessage } from "../utils/userMessages";
 import {
   createSupabaseBoardingDiscipline,
   listSupabaseBoardingDiscipline,
@@ -23,6 +25,7 @@ export function SupabaseBoardingDisciplineManager() {
   const [saving, setSaving] = useState("");
   const [importBusy, setImportBusy] = useState(false);
   const [error, setError] = useState("");
+  const [listError, setListError] = useState("");
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [openForm, setOpenForm] = useState(false);
@@ -34,16 +37,18 @@ export function SupabaseBoardingDisciplineManager() {
   const refresh = useCallback(async () => {
     const result = await listSupabaseBoardingDiscipline();
     setSnapshot(result);
+    setListError("");
     setForm((current) => ({ ...current, studentId: result.students.some((student) => student.id === current.studentId) ? current.studentId : result.students[0]?.id || "" }));
   }, []);
 
   useEffect(() => {
     let active = true;
+    setListError("");
     listSupabaseBoardingDiscipline().then((result) => {
       if (!active) return;
       setSnapshot(result);
       setForm((current) => ({ ...current, studentId: result.students[0]?.id || "" }));
-    }).catch((e: any) => { if (active) setError(e?.message || "Data kedisiplinan belum dapat dimuat."); })
+    }).catch((e: any) => { if (active) setListError(toERPUserMessage(e, "Data kedisiplinan belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -69,7 +74,7 @@ export function SupabaseBoardingDisciplineManager() {
       setForm((current) => ({ ...current, offense: "", points: 1, incidentDate: today(), photoUrl: "", resolution: "" }));
       setNotice("Catatan kedisiplinan berhasil disimpan.");
       try { await refresh(); } catch { setError("Catatan sudah tersimpan, tetapi daftar belum dapat dimuat ulang."); }
-    } catch (e: any) { setError(e?.message || "Catatan belum dapat disimpan."); }
+    } catch (e: any) { setError(toERPUserMessage(e, "Catatan pelanggaran belum dapat disimpan.")); }
     finally { setSaving(""); }
   };
 
@@ -116,7 +121,7 @@ export function SupabaseBoardingDisciplineManager() {
       <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-400/20"><div className="text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">Belum selesai</div><div className="mt-2 text-2xl font-bold text-amber-900 dark:text-amber-200">{pendingCount}</div></div>
       <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 dark:border-rose-400/20"><div className="text-xs font-medium uppercase tracking-wide text-rose-800 dark:text-rose-200">Akumulasi poin</div><div className="mt-2 text-2xl font-bold text-rose-900">{pointsTotal}</div></div>
     </div>
-    {role === "Ustadz" && <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">Daftar santri dan tindakan Anda dibatasi otomatis ke kamar atau gedung yang masih ditugaskan oleh Admin.</div>}
+    {role === "Ustadz" && <ERPNotice tone="info">Daftar santri mengikuti penugasan kamar atau gedung yang diberikan kepada Anda.</ERPNotice>}
 
     {notice && <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-400/20 dark:text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{notice}</div>}
     {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:bg-rose-950/30 dark:border-rose-400/20 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}

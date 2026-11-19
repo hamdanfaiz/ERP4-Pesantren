@@ -642,7 +642,7 @@ export function SupabaseAcademicManager() {
         </div>}
         <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-500">Data sumber berubah setelah pratinjau akan membatalkan penerapan. Pemetaan nama ganda dan bentrok jadwal tidak ditebak.</p>
-          <button type="button" onClick={() => void applyLegacyImport()} disabled={migrationLoading || !migrationPreview.canApply} className={buttonClass}>{migrationLoading ? "Menerapkan…" : "Terapkan migrasi"}</button>
+          <button type="button" onClick={() => void applyLegacyImport()} disabled={migrationLoading || !migrationPreview.canApply} className={buttonClass}>{migrationLoading ? "Menerapkan…" : "Terapkan impor"}</button>
         </div>
       </div>}
     </section>}
