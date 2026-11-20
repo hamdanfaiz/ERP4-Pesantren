@@ -45,8 +45,8 @@ assert.match(dashboard, /Peringkat Setoran Ziyadah/,
   "The product dashboard retains the reference Tahfidz leaderboard.");
 assert.match(dashboard, /student\.ziyadahRecords[\s\S]*?student\.ziyadahAyahs[\s\S]*?student\.ziyadahActiveDays/,
   "Dashboard shows saved setoran, ayah, and active-day metrics.");
-assert.match(dashboard, /leaderboardScope === currentLeaderboardScopeKey/,
-  "Leaderboard results are hidden when the active user, tenant, role, or module access changes.");
+assert.match(dashboard, /isTahfidzViewScopeCurrent\(leaderboardScope, currentLeaderboardScopeKey\)/,
+  "Leaderboard results fail closed when the active tenant, user, role, or module access changes.");
 assert.match(page, /\/api\/tahfidz\/leaderboard\?limit=\$\{limit\}/,
   "Dashboard fetches ranking data from the authenticated API.");
 assert.match(dbTests, /ranking uses tenant-local active days to break equal setoran and ayah totals/,
