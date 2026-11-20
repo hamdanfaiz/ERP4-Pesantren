@@ -17,6 +17,10 @@ Dokumen ini menjadi panduan kerja tim backend untuk merekonsiliasi source migras
 
 Ledger membuktikan versi yang pernah direkam, bukan bahwa DDL saat ini identik dengan source. Status RLS aktif pada tabel Production juga tidak membuktikan isi policy, grant, fungsi, trigger, constraint, indeks, atau perilaku aplikasi sudah cocok. DDL Production belum dibandingkan secara menyeluruh dengan source, dan backup/restore Production belum dibuktikan.
 
+### Pemeriksaan katalog terarah setelah snapshot ledger
+
+Pemeriksaan baca-saja 20 November menemukan 13/13 nama indeks komposit source valid/ready pada VQE, tetapi tidak menemukan nama persisnya pada PTSAS. Katalog Surah, validator, serta dua RPC Tahfidz terpilih juga ditemukan di VQE dan tidak ditemukan di PTSAS. Nama berbeda dengan definisi setara belum dikesampingkan; ini bukan DDL diff penuh dan bukan izin menerapkan migration. Lihat [catatan pemeriksaan katalog terarah](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md). Tidak ada perubahan Production.
+
 ## Temuan statis pada 63 file yang belum tercatat
 
 Pemindaian source migration tidak menemukan perintah migrasi `DELETE` atau `TRUNCATE`. Ini bukan jaminan bebas risiko: ada perubahan DDL, pengisian metadata/historis, penggantian fungsi dan trigger, perubahan constraint, serta indeks yang dapat mengunci penulisan.
