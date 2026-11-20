@@ -1,3 +1,5 @@
+# Legacy archive-import variables below are compatibility pass-throughs. The application keeps archive imports disabled;
+# setting these values to true does not enable import. Do not use them to populate UAT or a new tenant.
 services:
   erp4-pesantren:
     image: erp4-pesantren:${ERP4_IMAGE_TAG:-local}
